@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>tribes-server</AssemblyName>
+    <RootNamespace>OpenTribes.Server</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+bin/
+obj/
+out/
+dist/
+.sdl-cache/
+base/
+*.vol
+*.exe
+*.dll
+console.log
