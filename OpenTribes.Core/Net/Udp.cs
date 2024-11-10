@@ -8,6 +8,9 @@ public sealed class UdpSocket : IDisposable
 {
     private Socket? mFd;
     private ushort mPort;
+    // recvfrom hands the caller the first `capacity` bytes of a larger datagram and drops the rest; .NET reports
+    // that as an error, so the datagram is taken whole here and cut to the caller's buffer.
+    private readonly byte[] mScratch = new byte[0x10000];
 
     // src/net/udp.cpp UdpSocket::~UdpSocket.
     public void Dispose() => Close();
@@ -92,7 +95,7 @@ public sealed class UdpSocket : IDisposable
             // Avoids a WouldBlock exception per empty poll.
             if (!mFd.Poll(0, SelectMode.SelectRead))
                 return 0;
-            n = mFd.ReceiveFrom(buffer, SocketFlags.None, ref ep);
+            n = mFd.ReceiveFrom(mScratch, SocketFlags.None, ref ep);
         }
         catch (SocketException e)
         {
@@ -100,6 +103,8 @@ public sealed class UdpSocket : IDisposable
         }
         var ipep = (IPEndPoint)ep;
         from = new Address(FromIp(ipep.Address), (ushort)ipep.Port);
+        n = Math.Min(n, buffer.Length);
+        mScratch.AsSpan(0, n).CopyTo(buffer);
         return n;
     }
 

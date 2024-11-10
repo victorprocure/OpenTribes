@@ -25,4 +25,4 @@ way are added to Open.
 
 ### Server
 
-- [x] Networking core and the server program.
+- [x] Networking core and the server program. Oversized packets are cut like the original.
