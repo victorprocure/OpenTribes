@@ -27,3 +27,4 @@ way are added to Open.
 
 - [x] Networking core and the server program. Oversized packets are cut like the original.
 - [x] Console script language: syntax tree and built-in functions.
+- [x] Client command table.
