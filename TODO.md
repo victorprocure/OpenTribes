@@ -26,5 +26,5 @@ way are added to Open.
 ### Server
 
 - [x] Networking core and the server program. Oversized packets are cut like the original.
-- [x] Console script language: syntax tree, built-in functions, interpreter and lexer.
+- [x] Console script language: syntax tree, built-in functions, interpreter, lexer and math commands.
 - [x] Client command table, client commands and key table.
