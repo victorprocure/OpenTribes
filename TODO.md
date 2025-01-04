@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Server
 
-- [ ] The console script language.
 - [ ] The simulation layer and world data (terrain, interiors, shapes, collision).
 - [ ] Datablocks and game objects.
 - [ ] Hosting a mission from the game directory.
@@ -26,5 +25,5 @@ way are added to Open.
 ### Server
 
 - [x] Networking core and the server program. Oversized packets are cut like the original.
-- [x] Console script language: syntax tree, built-in functions, interpreter, lexer, math commands and number formatting.
+- [x] Console script language: lexer, parser, interpreter, built-in functions, math commands and number formatting.
 - [x] Client command table, client commands and key table.
