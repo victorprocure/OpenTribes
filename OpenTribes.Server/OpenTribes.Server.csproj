@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
+    <ProjectReference Include="..\OpenTribes.Script\OpenTribes.Script.csproj" />
   </ItemGroup>
 </Project>
