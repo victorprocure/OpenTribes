@@ -28,3 +28,4 @@ way are added to Open.
 - [x] Console script language: lexer, parser, interpreter, built-in functions, math commands and number formatting.
 - [x] Client command table, client commands and key table.
 - [x] Ban list and console log.
+- [x] `scriptrun` runs console scripts outside the game.

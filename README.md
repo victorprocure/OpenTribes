@@ -19,6 +19,7 @@ Publishing puts the programs in `out/`:
 | Program | What it is |
 |---|---|
 | `tribes-server` | The dedicated server |
+| `scriptrun` | Runs a Tribes console script outside the game |
 
 ## Run a server
 

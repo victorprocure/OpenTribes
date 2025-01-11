@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>scriptrun</AssemblyName>
+    <RootNamespace>OpenTribes.ScriptRun</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
+    <ProjectReference Include="..\OpenTribes.Script\OpenTribes.Script.csproj" />
+  </ItemGroup>
+</Project>
