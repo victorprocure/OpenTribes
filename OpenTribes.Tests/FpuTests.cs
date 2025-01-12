@@ -30,8 +30,8 @@ public class FpuTests
         Assert.Equal(-Down(0.1), Fpu.ParseChop("-0.1"));
         Assert.Equal(0.3, Fpu.ParseChop("0.3"));               // nearest 0.3 is below: kept
         Assert.Equal(0.5, Fpu.ParseChop("0.5"));
-        Assert.Equal(-double.MaxValue, Fpu.ParseChop("-1e400"));
-        Assert.Equal(double.MaxValue, Fpu.ParseChop("1e400"));
+        Assert.Equal(double.NegativeInfinity, Fpu.ParseChop("-1e400"));  // the original's store overflows
+        Assert.Equal(double.PositiveInfinity, Fpu.ParseChop("1e400"));
         Assert.Equal(0.0, Fpu.ParseChop("1e-400"));
         Assert.True(double.IsNegative(Fpu.ParseChop("-0")));
         Assert.Equal(0.0, Fpu.ParseChop("3e-324"));            // nearest is the smallest denormal, above 3e-324

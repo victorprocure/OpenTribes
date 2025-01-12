@@ -91,12 +91,14 @@ public static class Fpu
 
     // strtod of a decimal text ([sign]digits[.digits][(e|E)[sign]digits]) rounded toward zero: the nearest double,
     // stepped toward zero when it is larger in magnitude than the exact decimal value (exact integer comparison).
-    // Overflow gives +-double.MaxValue.
+    // A text beyond the double range stays +-infinity: the original parses into the 80-bit unit, which holds 1e400, and
+    // the store overflows (the C++ truncating build clamps to DBL_MAX there, docs/portable-float.md 5 item 1; the port
+    // follows the original).
     public static double ParseChop(string text)
     {
         double r = ParseNearest(text);
         if (double.IsInfinity(r))
-            return Overflow(r);
+            return r;
         if (r == 0 || double.IsNaN(r))
             return r;
         // Exact decimal value: mantissa digits m times 10^e10.

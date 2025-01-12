@@ -67,7 +67,6 @@ public class ScriptEvalTests
     private static readonly Dictionary<string, string> kDouble = new()
     {
         ["echo(0.1 == 1/10, 1/10 == 0.1, 0.1 == \"0.1\", \"0.1\" == 0.1);"] = "1111", // reference "0101"
-        ["echo(\"+INF\" + 0, \" \", \"INF\" + 0, \" \", \"-NAN\" + 0, \" \", \"1e400\" + 0, \" \", \"1e-400\" + 0);"] = "+INF 0 -NAN 1.79769e+308 0", // reference "+INF 0 -NAN +INF 0"
     };
 
     [Fact]

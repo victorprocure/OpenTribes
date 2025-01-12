@@ -36,9 +36,8 @@ public class NumbersTests
             double nan = Numbers.BorlandAtof("+NANx");
             Assert.True(double.IsNaN(nan) && !double.IsNegative(nan));
             Assert.True(Numbers.BorlandAtof("+inf") == 0 && Numbers.BorlandAtof("NAN") == 0);
-            // The C++ asserts -HUGE_VALL. Parsing toward zero gives -DBL_MAX, as in the C++ truncating build
-            // (docs/portable-float.md 5 item 1).
-            Assert.Equal(-double.MaxValue, Numbers.BorlandAtof("-1e400"));
+            // -HUGE_VALL in the C++: the 80-bit parse holds 1e400 and the store overflows (Fpu.ParseChop).
+            Assert.Equal(double.NegativeInfinity, Numbers.BorlandAtof("-1e400"));
             Assert.NotEqual(0.0, Numbers.BorlandAtof("1e-320")); // double denormals survive
             ++cases;
         }
