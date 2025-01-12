@@ -258,7 +258,7 @@ public class MathCommandsTests
     };
 
     // Console output without trailing blank lines (an empty result prints an empty line).
-    private static string Run(TestWorld w, string s)
+    private static string Run(Fixtures.World w, string s)
     {
         string output = w.Run(s);
         while (output.Length != 0 && output[^1] == '\n')
@@ -272,7 +272,7 @@ public class MathCommandsTests
         string root = TestPaths.TmpDir("math_commands");
         Directory.Delete(root, true);
         Directory.CreateDirectory(Path.Combine(root, "base"));
-        var w = new TestWorld(root);
+        var w = new Fixtures.World(root);
 
         // Reference outputs, one console line each.
         var failures = new List<string>();
@@ -290,7 +290,7 @@ public class MathCommandsTests
         // getRandom: R250 seeded with 0x8377 on first use, never reseeded (0x005eb5a0, 0x005eb660).
         // The first values of a freshly started reference server.
         {
-            var fresh = new TestWorld(root);
+            var fresh = new Fixtures.World(root);
             string[] want = { "0.86173", "0.294385", "0.464783", "0.300487" };
             foreach (string want1 in want)
                 Assert.Equal(want1, Run(fresh, "echo(getRandom());"));
