@@ -3,7 +3,7 @@
 // live comparison). The game-state utilities of the C++ test (getIntegerTime, findPointOnSphere, getClientByName,
 // getObjectByTargetIndex, readShapeRadius, the kSphere vectors) are game modules: their rows and checks are ported
 // with stage P4. kDouble lists the rows whose output differs in the double form of the port (DECISIONS D25: float
-// stores and parsing round to nearest, docs/portable-float.md 3) with the output the port prints.
+// parsing and arithmetic round to nearest; float stores round toward zero, docs/portable-float.md 1 and 3) with the output the port prints.
 using OpenTribes.Script;
 
 namespace OpenTribes.Tests;
@@ -245,52 +245,28 @@ public class MathCommandsTests
     {
         ["echo(Vector::add(\"1e-40 -5.681509e+07 -833301.576\",\"-848 -3992 4.794e-13\"));"] = "-848 -5.6819e+07 -833301", // reference "-847.999 -5.6819e+07 -833301"
         ["echo(Vector::sub(\"-NAN 1 1\",\"+NAN 1 1\"));"] = "-NAN 0 0", // reference "+NAN 0 0"
-        ["echo(Vector::sub(\"1e2 0.1 9.409824e-11\",\"-82 0.004 1e-40\"));"] = "182 0.096 9.40982e-11", // reference "182 0.0959999 9.40982e-11"
-        ["echo(Vector::sub(\"-1e-40 -302 4.688e-09\",\"277 -49 -6.8689e+25\"));"] = "-277 -253 6.8689e+25", // reference "-277 -253 6.86889e+25"
         ["echo(Vector::sub(\"1E-2 102 -73.717879\",\"85.76797 1e-30 6e+04\"));"] = "-85.7579 102 -60073.7", // reference "-85.7579 101.999 -60073.7"
-        ["echo(Vector::sub(\"-7.99318e+09 45.97874 167\",\"-46.1907 -6.726197e-19 813\"));"] = "-7.99318e+09 45.9787 -646", // reference "-7.99317e+09 45.9787 -646"
         ["echo(Vector::dot(\"+INF -INF +NAN\",\"1 1 1\"));"] = "-NAN", // reference "+NAN"
         ["echo(Vector::getDistance(\"-NAN 1 1\",\"+NAN 1 1\"));"] = "-NAN", // reference "+NAN"
-        ["echo(Vector::neg(\"1e30 1e30 1e30\"));"] = "-1e+30 -1e+30 -1e+30", // reference "-9.99999e+29 -9.99999e+29 -9.99999e+29"
-        ["echo(Vector::neg(\"233 -6.993427e-26 5.1e+37\"));"] = "-233 6.99342e-26 -5.1e+37", // reference "-233 6.99342e-26 -5.09999e+37"
-        ["echo(Vector::neg(\"3.160 16777217 -83.456\"));"] = "-3.16 -1.67772e+07 83.456", // reference "-3.15999 -1.67772e+07 83.4559"
-        ["echo(Vector::normalize(\"1e-40 0 0\"));"] = "+INF -NAN -NAN", // reference "0.034028 0 0"
-        ["echo(Vector::normalize(\"9.362e-25 -7.3e-13 3.14159265358979\"));"] = "2.98001e-25 -2.32366e-13 1", // reference "2.98001e-25 -2.32366e-13 0.999999"
-        ["echo(Vector::normalize(\"89.2 6.76e-12 -4.93e+09\"));"] = "1.80933e-08 1.37119e-21 -1", // reference "1.80933e-08 1.37119e-21 -0.999999"
-        ["echo(Vector::normalize(\"44.8 -37.50135 -1.63e+14\"));"] = "2.74846e-13 -2.30069e-13 -1", // reference "2.74846e-13 -2.30069e-13 -0.999999"
-        ["echo(Vector::normalize(\"-720 -4.26264e-10 1.58451261e-12\"));"] = "-1 -5.92033e-13 2.20071e-15", // reference "-0.999999 -5.92033e-13 2.20071e-15"
-        ["echo(Vector::getFromRot(\"1.5707963 0 0\"));"] = "0 7.54979e-08 1", // reference "0 7.54978e-08 0.999999"
         ["echo(Vector::getFromRot(\"1e-40 0 0\"));"] = "0 1 9.99994e-41", // reference "0 0.999999 9.9998e-41"
         ["echo(Vector::getFromRot(\"1e19 2 3\"));"] = "-0.115149 -0.807801 0.578097", // reference "-NAN -NAN -NAN"
-        ["echo(Vector::getFromRot(\"1e30 0 0\"));"] = "0 -0.611604 -0.791163", // reference "-NAN -NAN -NAN"
-        ["echo(Vector::getFromRot(\"0 0 1e30\"));"] = "0.791163 -0.611604 0", // reference "+NAN -NAN 0"
-        ["echo(Vector::getFromRot(\"1e30 1e30 1e30\"));"] = "-0.483879 0.37406 -0.791163", // reference "+NAN -NAN +NAN"
+        ["echo(Vector::getFromRot(\"1e30 0 0\"));"] = "0 0.981661 0.190632", // reference "-NAN -NAN -NAN"
+        ["echo(Vector::getFromRot(\"0 0 1e30\"));"] = "-0.190632 0.981661 0", // reference "+NAN -NAN 0"
+        ["echo(Vector::getFromRot(\"1e30 1e30 1e30\"));"] = "-0.187137 0.963659 0.190632", // reference "+NAN -NAN +NAN"
         ["echo(Vector::getFromRot(\"1e38 1 1\"));"] = "-0.123537 0.0793226 0.989164", // reference "-NAN -NAN -NAN"
         ["echo(Vector::getFromRot(\"1 1 1e38\"));"] = "-0.534447 0.0793226 0.84147", // reference "+NAN -NAN +NAN"
-        ["echo(Vector::getFromRot(\"6.92853 4.94639 6.11067\", -1.247, -0.377));"] = "0.199295 -0.992585 -0.819873", // reference "0.199295 -0.992578 -0.819866"
-        ["echo(Vector::getFromRot(\"4.43697 6.74941 1.26467\", -19.456, 2.856));"] = "-6.99902 3.55853 18.0288", // reference "-6.99903 3.55853 18.0288"
-        ["echo(Vector::getFromRot(\"-2.04677 0.54898 6.39242\"));"] = "0.0499522 -0.455473 -0.888846", // reference "0.0499522 -0.455473 -0.888847"
-        ["echo(Vector::getFromRot(\"6.56851 3.43354 2.60682\", -17.281, 3.858));"] = "8.87642 12.8064 -8.40941", // reference "8.87642 12.8064 -8.40939"
-        ["echo(Vector::getFromRot(\"-3.46048 -1.42753 6.50605\"));"] = "0.209881 -0.926099 0.31351", // reference "0.209881 -0.9261 0.31351"
-        ["echo(Vector::getFromRot(\"2.13425 3.14837 -6.46923\"));"] = "-0.098796 -0.524892 0.845415", // reference "-0.0987957 -0.524892 0.845415"
-        ["echo(Vector::getFromRot(\"1.92211 -0.11483 3.42608\", 0.072, 4.452));"] = "-0.682832 4.15258 -1.45437", // reference "-0.682832 4.15257 -1.45437"
-        ["echo(Vector::getFromRot(\"1e2 -959 123456.789\"));"] = "0.861164 0.044612 -0.506365", // reference "0.861486 0.0378828 -0.506365"
-        ["echo(Vector::getFromRot(\"3.14159265358979 1e-40 -0.0002\"));"] = "-0.000199999 -1 -8.74227e-08", // reference "-0.000199999 -0.999999 1.50995e-07"
-        ["echo(Vector::getFromRot(\"16777217 -366 3.4028236e38\"));"] = "-NAN -NAN -0.779563", // reference "+NAN -NAN +NAN"
+        ["echo(Vector::getFromRot(\"6.92853 4.94639 6.11067\", -1.247, -0.377));"] = "0.199295 -0.992586 -0.819873", // reference "0.199295 -0.992578 -0.819866"
+        ["echo(Vector::getFromRot(\"6.56851 3.43354 2.60682\", -17.281, 3.858));"] = "8.87642 12.8064 -8.4094", // reference "8.87642 12.8064 -8.40939"
+        ["echo(Vector::getFromRot(\"16777217 -366 3.4028236e38\"));"] = "0.326863 0.534266 -0.779563", // reference "+NAN -NAN +NAN"
         ["echo(pow(3,0.3333333));"] = "1.44224", // reference "1.44225"
         ["echo(pow(10,2.5));"] = "316.227", // reference "316.228"
-        ["echo(pow(100,10));"] = "1e+20", // reference "9.99999e+19"
         ["echo(pow(0.1,-13));"] = "9.99999e+12", // reference "1.00001e+13"
-        ["echo(pow(1e-5,3));"] = "1e-15", // reference "9.99996e-16"
-        ["echo(pow(1e5,-2));"] = "1e-10", // reference "9.99999e-11"
+        ["echo(pow(1e-5,3));"] = "9.99999e-16", // reference "9.99996e-16"
         ["echo(pow(123.456,-0.5));"] = "0.0900002", // reference "0.0900007"
-        ["echo(pow(1.0001,0.3333333));"] = "1.00003", // reference "1.00002"
         ["echo(pow(-0.9999,1));"] = "-0.999899", // reference "-0.999898"
         ["echo(pow(-0.9999,13));"] = "-0.9987", // reference "-0.998687"
         ["echo(pow(-0.9999,5001));"] = "-0.606454", // reference "-0.603429"
         ["echo(pow(\"1.0001\",\"-5000\"));"] = "0.606545", // reference "0.606546"
-        ["echo(pow(\"10\",\"-45\"));"] = "1.40129e-45", // reference "0"
-        ["echo(pow(\"2\",\"129\"));"] = "+INF", // reference "3.40282e+38"
         ["echo(pow(\"1000\",\"0.3333333\"));"] = "9.99999", // reference "10"
         ["echo(pow(14.604,-0.25));"] = "0.511543", // reference "0.511544"
         ["echo(pow(17.605,-15));"] = "2.06756e-19", // reference "2.06774e-19"
@@ -301,6 +277,7 @@ public class MathCommandsTests
         ["echo(pow(315.8777,1.01));"] = "334.59", // reference "334.571"
         ["echo(pow(12,-4.2092));"] = "2.86754e-05", // reference "2.86762e-05"
         ["echo(pow(1.009287,9050));"] = "2.0211e+36", // reference "2.02111e+36"
+        ["echo(pow(1.006619,25136));"] = "3.40282e+38", // reference "+INF"
     };
 
     // Console output without trailing blank lines (an empty result prints an empty line).
@@ -355,7 +332,7 @@ public class MathCommandsTests
         }
 
         // Component parsing (sscanf "%f %f %f"): 1e, 1e+ are numbers; hex, inf and nan are not;
-        // values from 2^128 up are infinite, the rest convert toward zero (to nearest in the double form).
+        // values from 2^128 up are infinite, the rest convert toward zero.
         {
             float[] v = { 7, 8, 9 };
             Assert.True(MathCommands.ScanFloats3("1e 1e+ 1e+5", v) == 3 && v[0] == 1 && v[1] == 1 && v[2] == 100000);
@@ -365,13 +342,10 @@ public class MathCommandsTests
             Assert.True(MathCommands.ScanFloats3(".", u) == 0 && MathCommands.ScanFloats3("1,2", u) == 1);
             var f = new float[3];
             Assert.Equal(3, MathCommands.ScanFloats3("3.4028236e38 3.4028237e38 -1e39", f));
-            // Reference (toward zero): f[0] == 3.40282347e38f (FLT_MAX). To nearest 3.4028236e38 is above the midpoint of
-            // FLT_MAX and 2^128 and stores as infinity.
-            Assert.True(float.IsPositiveInfinity(f[0]) && float.IsPositiveInfinity(f[1]) && float.IsNegativeInfinity(f[2]));
+            Assert.True(f[0] == 3.40282347e38f && float.IsPositiveInfinity(f[1]) && float.IsNegativeInfinity(f[2]));
             var t = new float[3];
             Assert.Equal(3, MathCommands.ScanFloats3("0.1 1e-40 1.0000001", t));
-            // Reference (toward zero): t[0] == 0.0999999940395355f, t[2] == 1.0f. To nearest: 0.1f and 1.00000012f.
-            Assert.True(t[0] == 0.1f && t[1] > 0 && t[1] <= 1.0e-40f && t[2] == 1.00000012f);
+            Assert.True(t[0] == 0.0999999940395355f && t[1] > 0 && t[1] <= 1.0e-40f && t[2] == 1.0f);
         }
 
         // sprintf: DECISIONS D11 cases (the original hangs or reads stale pointers).

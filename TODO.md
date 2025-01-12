@@ -29,3 +29,4 @@ way are added to Open.
 - [x] Client command table, client commands and key table.
 - [x] Ban list and console log.
 - [x] `scriptrun` runs console scripts outside the game.
+- [x] Numbers round toward zero like the original: stored floats.

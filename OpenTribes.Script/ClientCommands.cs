@@ -2,7 +2,6 @@
 // they behave on a dedicated server: GUI, canvas, input, sound, CD audio, tool windows, editors, IRC
 // (docs/mods.md 5). There is no canvas, input manager or sound device, so most commands print their usage
 // or "not found" message. Action maps keep real state (docs/mods.md 5.4).
-using System.Globalization;
 using System.Text;
 using OpenTribes.Core;
 
@@ -321,7 +320,7 @@ public static class ClientCommands
             {
                 if (++i == n)
                     return false;
-                float v = (float)Numbers.BorlandAtof(w[i]);
+                float v = Fpu.F32Chop(Numbers.BorlandAtof(w[i])); // float store in the script FPU mode (toward zero)
                 v = v >= 1.0f ? 1.0f : v;
                 v = v <= 0.0f ? 0.0f : v;
                 if (flag.Value.Value == ActionBinding.DeadZone)
@@ -334,7 +333,7 @@ public static class ClientCommands
     }
 
     // sscanf(s, "%f", &f) == 1 of the C library: white space, then a decimal, hexadecimal, infinity or NaN
-    // number, converted to float (round to nearest).
+    // number, stored to float toward zero (strtof in the script FPU mode; here the double parse, then the store).
     internal static bool ScanFloat(string s, out float f)
     {
         f = 0;
@@ -393,7 +392,7 @@ public static class ClientCommands
                     scale += eneg ? -e : e;
                 }
             }
-            f = (float)Math.ScaleB(negative ? -m : m, scale);
+            f = Fpu.F32Chop(Math.ScaleB(negative ? -m : m, scale));
             return true;
         }
         int digits = 0;
@@ -425,8 +424,7 @@ public static class ClientCommands
                 i = j;
             }
         }
-        f = float.Parse(s[start..i], NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
-                        CultureInfo.InvariantCulture);
+        f = Fpu.F32Chop(Numbers.Strtod(s[start..i]));
         return true;
     }
 

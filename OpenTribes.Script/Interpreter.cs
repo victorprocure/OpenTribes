@@ -479,7 +479,7 @@ public sealed class Interpreter
             }
             else if (Numbers.LooksNumeric(s))
             {
-                f = (float)Numbers.BorlandAtof(s);
+                f = Fpu.F32Chop(Numbers.BorlandAtof(s)); // float store in the script FPU mode (toward zero)
             }
             else if (EqualsIgnoreCase(s, "false"))
             {

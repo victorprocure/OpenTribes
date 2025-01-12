@@ -2,7 +2,7 @@
 // need no simulation state: sprintf, pow, getRandom, timeStamp, which and the Vector:: family (docs/script.md 6.7).
 // Portable form only (DECISIONS D25, docs/portable-float.md 1): the x87 instruction wrappers are nearbyint,
 // expm1(x ln2), ldexp, y log2(x), atan2 and plain double operations, the rotation matrix is world::eulerMatrix,
-// and x87::f32 is (float)x.
+// and x87::f32 stores toward zero (Fpu.F32Chop, the portable truncating build, docs/portable-float.md 1).
 using System.Text;
 using OpenTribes.Core;
 using OpenTribes.World;
@@ -172,18 +172,18 @@ public static class MathCommands
     }
 
     // src/script/math_commands.cpp storeScanned: the float store of scanf: values beyond 2^128 become infinity,
-    // the rest convert in the current rounding mode (to nearest in the portable form).
+    // the rest convert toward zero (the script FPU mode).
     private static float StoreScanned(double v)
     {
         if (v > kTwo128)
             return float.PositiveInfinity;
         if (v < -kTwo128)
             return float.NegativeInfinity;
-        return (float)v;
+        return Fpu.F32Chop(v);
     }
 
-    // src/script/math_commands.cpp f32: x87::f32, (float)x in the portable form.
-    private static float F32(double v) => (float)v;
+    // src/script/math_commands.cpp f32: x87::f32, a store toward zero.
+    private static float F32(double v) => Fpu.F32Chop(v);
 
     // src/script/math_commands.cpp sumOfThree: fxch / faddp order of the dot and length helpers (0x005ece49).
     private static double SumOfThree(double a, double b, double c) => (a + b) + c;
