@@ -1,11 +1,12 @@
-// Port of src/server/main.cpp: the dedicated server executable. The sim and game layers that main.cpp also
-// constructs (SimConsole, ClassContext, GameState, GameServer, MasterHeartbeat) are stages P3-P5 of the port;
-// each place that uses one is marked with the stage that adds it.
+// Port of src/server/main.cpp: the dedicated server executable. The game and master layers that main.cpp also
+// constructs (GameState, GameServer, MasterHeartbeat) are stages P4 and P5 of the port; each place that uses one is
+// marked with the stage that adds it.
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using OpenTribes.Core;
 using OpenTribes.Script;
+using OpenTribes.Sim;
 
 namespace OpenTribes.Server;
 
@@ -75,6 +76,17 @@ public static class Program
     }
 
     private static string Num(long v) => v.ToString(CultureInfo.InvariantCulture);
+
+    // strcasecmp(a, b) == 0 (ASCII).
+    private static bool StrcaseEquals(string a, string b)
+    {
+        if (a.Length != b.Length)
+            return false;
+        for (int i = 0; i < a.Length; ++i)
+            if ((a[i] >= 'A' && a[i] <= 'Z' ? a[i] + 32 : a[i]) != (b[i] >= 'A' && b[i] <= 'Z' ? b[i] + 32 : b[i]))
+                return false;
+        return true;
+    }
 
     private static void ReportUnknown(Interpreter console)
     {
@@ -161,8 +173,8 @@ public static class Program
         // Script startup: console.cs parses $cargv like the original exe (docs/resources.md 1).
         ResourceManager? resources = null;
         Interpreter? console = null;
-        // P3: ClassContext simContext
-        // P3: SimConsole sim
+        var simContext = new ClassContext();
+        SimConsole? sim = null;
         // P4: GameState game
         TelnetConsole? telnet = null;
         // P5: MasterHeartbeat master
@@ -183,19 +195,38 @@ public static class Program
             console.SetVariable("$Console::Prompt", "% ");
             console.SetResources(resources);
             Builtins.RegisterBuiltins(console, resources, root);
-            // P3: simContext.resources = resources
-            // P3: simContext.startNetwork: serverDelegate (FearCSDelegate) opens the UDP port given after "IP", then
-            //     starts the master heartbeat when $SinglePlayer is false (P5)
-            // P3: sim = SimConsole(console, simContext); sim.registerCommands(); console.setObjects(sim)
+            simContext.Resources = resources;
+            // server.cs creates serverDelegate (FearCSDelegate): (isServer, transport, port, ...).
+            simContext.StartNetwork = args =>
+            {
+                for (int i = 1; i + 1 < args.Count; i += 2)
+                    if (StrcaseEquals(args[i], "IP"))
+                    {
+                        if (!server.Open(unchecked((ushort)NetServer.CAtoi(args[i + 1]))))
+                            return false;
+                        // P5: 0x0054fxxx: a server that is not $SinglePlayer announces itself (master.start, its events
+                        //     posted on the server SimManager)
+                        return true;
+                    }
+                return true;
+            };
+            sim = new SimConsole(console, simContext);
+            sim.RegisterCommands();
+            console.SetObjects(sim);
             // P4: game.sim, game.console, simContext.game, simContext.serverCreated (players.startPingTimer)
-            // P3: registerMissionClasses()
+            // P4: registerMissionClasses() (src/game/mission_objects.cpp)
             // P4: registerGhostClasses(); game.resources; registerGameCommands(console, game)
+            SimConsole simOps = sim;
             {
                 var ops = new ServerCommandContext
                 {
                     Net = server,
                     RootDir = root,
-                    IsChatMenu = null, // P3: the object of that name on the server SimManager is a ChatMenu
+                    IsChatMenu = name =>
+                    {
+                        SimObject? obj = simOps.Server()?.Find(name);
+                        return obj != null && obj.ClassName() == "ChatMenu";
+                    },
                     Quit = () => sStop = true,
                 };
                 ServerCommands.RegisterServerCommands(console, ops);
@@ -323,7 +354,8 @@ public static class Program
                 return virtualMs;
             return unchecked((uint)start.ElapsedMilliseconds);
         }
-        // P3: with virtualStep, sim.setClockSource(virtualMs * 0.001)
+        if (virtualStep != 0 && sim != null)
+            sim.SetClockSource(() => Fpu.Mul(virtualMs, 0.001));
         CFile? frameInput = frameEvalFile.Length == 0 ? null : CFile.Open(frameEvalFile);
         if (frameEvalFile.Length != 0 && frameInput == null)
         {
@@ -334,9 +366,9 @@ public static class Program
         while (!sStop)
         {
             uint ms = ClockMs();
-            // P3: sim.updateClock()      step 2
+            sim?.UpdateClock();        // step 2
             server.ReceivePackets(ms); // step 3: receive, ticks, send
-            // P3: sim.advanceServer()
+            sim?.AdvanceServer();
             server.SendPackets(ms);
             if (virtualStep != 0)      // step 4: Sleep(1)
                 virtualMs += virtualStep;
@@ -355,7 +387,7 @@ public static class Program
                 else
                     console.Evaluate(l);
             }
-            // P3: sim.endFrame()         step 6: Game::EndFrame
+            sim?.EndFrame();           // step 6: Game::EndFrame
         }
         frameInput?.Dispose();
         if (reportUnknownAtExit && console != null)

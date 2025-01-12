@@ -7,5 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
     <ProjectReference Include="..\OpenTribes.Script\OpenTribes.Script.csproj" />
+    <ProjectReference Include="..\OpenTribes.Sim\OpenTribes.Sim.csproj" />
   </ItemGroup>
 </Project>
