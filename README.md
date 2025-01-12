@@ -30,6 +30,8 @@ options.
 
     dotnet test OpenTribes.sln
 
+Some tests currently fail because their data files are in the C++ repository. See [TODO.md](TODO.md).
+
 ## Status
 
 The server is in progress. Known gaps, done and open, are listed in [TODO.md](TODO.md).

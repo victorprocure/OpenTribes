@@ -20,6 +20,10 @@ way are added to Open.
 
 - [ ] The game client.
 
+### Project
+
+- [ ] Two `WorldTests` vector tests fail because their data files are in the C++ repository (`OpenTribes-cpp/tests`).
+
 ## Done
 
 ### Server
