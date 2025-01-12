@@ -4,5 +4,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
+    <ProjectReference Include="..\OpenTribes.World\OpenTribes.World.csproj" />
   </ItemGroup>
 </Project>

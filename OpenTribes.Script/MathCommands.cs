@@ -200,8 +200,8 @@ public static class MathCommands
     private static void RotationMatrix(float[] rot, float[] m)
     {
         var t = new TMat3();
-        Shape.EulerMatrix(rot, t);
-        t.M.CopyTo(m, 0);
+        Shape.EulerMatrix(rot, ref t);
+        ((ReadOnlySpan<float>)t.M).CopyTo(m);
     }
 
     // ---- Borland atan2 (0x006067ac) and atan (0x00606914) ----
