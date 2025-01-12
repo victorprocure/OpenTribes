@@ -1,11 +1,11 @@
 // Port of src/script/numbers.hpp and src/script/numbers.cpp: number conversions of the script
-// (docs/script.md 3.1-3.3), in the portable form (DECISIONS D25, docs/portable-float.md 1): double values,
-// parsing rounds to nearest. enterScriptFpuMode has no C# counterpart: the portable build's mode is the
-// default one. Digit generation (%g, %f) truncates like the original's printf in round-toward-zero mode
-// (docs/script.md 3.2), which the C# formatter does on the exact decimal value (CFormat below).
+// (docs/script.md 3.1-3.3), in the form of the portable truncating build (DECISIONS D25, docs/portable-float.md 1):
+// double values; parsing and digit generation (%g, %f) follow the rounding mode of Fpu (toward zero in the script
+// FPU mode, docs/script.md 3.2), computed on the exact values (Fpu.ParseChop, CFormat below).
 using System.Globalization;
 using System.Numerics;
 using System.Text;
+using OpenTribes.Core;
 
 namespace OpenTribes.Script;
 
@@ -15,6 +15,10 @@ public static class Numbers
     public static readonly double NaN = BitConverter.Int64BitsToDouble(0x7ff8000000000000L);
     // The same NaN with the sign bit set.
     public static readonly double NegNaN = BitConverter.Int64BitsToDouble(unchecked((long)0xfff8000000000000UL));
+
+    // src/script/numbers.cpp enterScriptFpuMode: puts the FPU in round-toward-zero, as the original's crt_ftol
+    // (0x0048813c) leaves it.
+    public static void EnterScriptFpuMode() => Fpu.EnterChop();
 
     // src/script/numbers.cpp isTrueString: "True", ASCII case-insensitive.
     public static bool IsTrueString(string s)
@@ -105,12 +109,8 @@ public static class Numbers
         return Strtod(s.Substring(start, i - start));
     }
 
-    // strtod of a text matched by one of the decimal grammars of this port: round to nearest.
-    internal static double Strtod(string number)
-    {
-        return double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
-                            CultureInfo.InvariantCulture);
-    }
+    // strtod of a text matched by one of the decimal grammars of this port, in the current rounding mode.
+    internal static double Strtod(string number) => Fpu.Parse(number);
 
     // src/script/numbers.cpp borlandAtoi: wraps modulo 2^32.
     public static int BorlandAtoi(string s)
@@ -168,6 +168,7 @@ public static class Numbers
     // src/script/numbers.cpp floatToInt: fistp truncation, 0x80000000 when out of range.
     public static int FloatToInt(double v)
     {
+        Fpu.EnterChop(); // crt_ftol leaves the FPU in round-toward-zero (0x0048813c)
         if (double.IsNaN(v) || v >= 2147483648.0 || v < -2147483648.0)
             return int.MinValue;
         return (int)v; // C conversion truncates, like fistp under round-toward-zero
@@ -175,8 +176,8 @@ public static class Numbers
 }
 
 // Port convention (no C++ file): the printf conversions %g, %e and %f of the C++ code (snprintf), with the
-// digits generated from the exact decimal value of the double and truncated (round toward zero), as the
-// original prints them (docs/script.md 3.2). Special values print as the C library does (inf, nan).
+// digits generated from the exact decimal value of the double and rounded in the current mode of Fpu: truncated
+// (toward zero) in the script FPU mode, as the original prints them (docs/script.md 3.2), else nearest-even. Special values print as the C library does (inf, nan).
 public static class CFormat
 {
     // Exact decimal digits of a finite non-zero |v|: v = 0.D * 10^(exp10 + 1) = D[0].D[1..] * 10^exp10.
@@ -203,6 +204,26 @@ public static class CFormat
     }
 
     private static char DigitAt(string d, int i) => i >= 0 && i < d.Length ? d[i] : '0';
+
+    // Keeps the first `keep` digits of d (value 0.d * 10^(exp10 + 1)): truncated toward zero, or rounded to nearest-even
+    // outside the toward-zero mode (a carry may add a digit and raise exp10).
+    private static (string, int) Round(string d, int exp10, int keep)
+    {
+        if (keep >= d.Length)
+            return (d, exp10);
+        if (keep < 0)
+            return ("", exp10);
+        string kept = d[..keep];
+        if (Fpu.TowardZero)
+            return (kept, exp10);
+        string rest = d[keep..];
+        int cmp = rest[0] > '5' ? 1 : rest[0] < '5' ? -1 : rest[1..].Trim('0').Length > 0 ? 1 : 0;
+        bool up = cmp > 0 || (cmp == 0 && keep > 0 && (kept[^1] - '0') % 2 == 1);
+        if (!up)
+            return (kept, exp10);
+        string nd = (kept.Length == 0 ? BigInteger.One : BigInteger.Parse(kept, CultureInfo.InvariantCulture) + 1).ToString(CultureInfo.InvariantCulture);
+        return (nd, nd.Length > kept.Length ? exp10 + 1 : exp10);
+    }
 
     // Fixed notation of the exact digits truncated to prec decimals.
     private static string Fixed(string d, int exp10, int prec)
@@ -238,6 +259,7 @@ public static class CFormat
         if (v == 0)
             return sign + Fixed("", 0, prec);
         var (d, e) = Exact(v);
+        (d, e) = Round(d, e, e + 1 + prec);
         return sign + Fixed(d, e, prec);
     }
 
@@ -252,7 +274,10 @@ public static class CFormat
         string d = "";
         int x = 0;
         if (v != 0)
-            (d, x) = Exact(v); // truncation keeps the exponent of the first digit
+        {
+            (d, x) = Exact(v);
+            (d, x) = Round(d, x, prec); // P significant digits; rounding up may raise the exponent
+        }
         string body;
         if (prec > x && x >= -4)
         {

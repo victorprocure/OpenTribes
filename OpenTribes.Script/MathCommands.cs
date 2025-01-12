@@ -2,7 +2,8 @@
 // need no simulation state: sprintf, pow, getRandom, timeStamp, which and the Vector:: family (docs/script.md 6.7).
 // Portable form only (DECISIONS D25, docs/portable-float.md 1): the x87 instruction wrappers are nearbyint,
 // expm1(x ln2), ldexp, y log2(x), atan2 and plain double operations, the rotation matrix is world::eulerMatrix,
-// and x87::f32 stores toward zero (Fpu.F32Chop, the portable truncating build, docs/portable-float.md 1).
+// and the basic operations, the parse and the float stores follow the rounding mode of Fpu, as in the portable truncating
+// build (docs/portable-float.md 1); the C library functions (log2, exp, atan2, sin, cos) round to nearest.
 using System.Text;
 using OpenTribes.Core;
 using OpenTribes.World;
@@ -53,10 +54,10 @@ public sealed class RandomR250
 public static class MathCommands
 {
     // ---- x87 instruction wrappers, portable form ----
-    private static double X87Frndint(double x) => Math.Round(x, MidpointRounding.ToEven); // nearbyint
-    private static double X87F2xm1(double x) => Expm1(x * 0.69314718055994530942);
+    private static double X87Frndint(double x) => Fpu.TowardZero ? Math.Truncate(x) : Math.Round(x, MidpointRounding.ToEven); // nearbyint
+    private static double X87F2xm1(double x) => Expm1(Fpu.Mul(x, 0.69314718055994530942));
     private static double X87Fscale(double x, double scale) => Math.ScaleB(x, (int)Math.Truncate(scale));
-    private static double X87Fyl2x(double y, double x) => y * Math.Log2(x); // y * log2(x)
+    private static double X87Fyl2x(double y, double x) => Fpu.Mul(y, Math.Log2(x)); // y * log2(x)
     private static double X87Fpatan(double y, double x) => Math.Atan2(y, x);
     private static double X87Fldl2e() => 1.44269504088896340736;
     private static double X87Fldln2() => 0.69314718055994530942;
@@ -64,11 +65,11 @@ public static class MathCommands
     // Plain double operations. When both operands are NaNs the result is one of them; the C++ portable build
     // (x86-64 SSE) returns the right operand of + and * and the left one of - and /, made explicit here.
     private static double NanPair(double first, double second, double r) => double.IsNaN(first) && double.IsNaN(second) ? first : r;
-    private static double X87AddMem(float a, float b) => NanPair(b, a, (double)a + b);
-    private static double X87SubMem(float a, float b) => NanPair(a, b, (double)a - b);  // a - b
-    private static double X87SubrMem(float a, float b) => NanPair(b, a, (double)b - a); // b - a
-    private static double X87MulMem(float a, float b) => NanPair(b, a, (double)a * b);
-    private static double X87DivMem(float a, float b) => NanPair(a, b, (double)a / b);  // a / b
+    private static double X87AddMem(float a, float b) => NanPair(b, a, Fpu.Add(a, b));
+    private static double X87SubMem(float a, float b) => NanPair(a, b, Fpu.Sub(a, b));  // a - b
+    private static double X87SubrMem(float a, float b) => NanPair(b, a, Fpu.Sub(b, a)); // b - a
+    private static double X87MulMem(float a, float b) => NanPair(b, a, Fpu.Mul(a, b));
+    private static double X87DivMem(float a, float b) => NanPair(a, b, Fpu.Div(a, b));  // a / b
 
     // expm1 (C# has none): exp(x) - 1 with the cancellation corrected by the log of the rounded exp.
     private static double Expm1(double x)
@@ -179,17 +180,17 @@ public static class MathCommands
             return float.PositiveInfinity;
         if (v < -kTwo128)
             return float.NegativeInfinity;
-        return Fpu.F32Chop(v);
+        return Fpu.Store(v);
     }
 
-    // src/script/math_commands.cpp f32: x87::f32, a store toward zero.
-    private static float F32(double v) => Fpu.F32Chop(v);
+    // src/script/math_commands.cpp f32: static_cast<float>, a store in the current mode.
+    private static float F32(double v) => Fpu.Store(v);
 
     // src/script/math_commands.cpp sumOfThree: fxch / faddp order of the dot and length helpers (0x005ece49).
-    private static double SumOfThree(double a, double b, double c) => (a + b) + c;
+    private static double SumOfThree(double a, double b, double c) => Fpu.Add(Fpu.Add(a, b), c);
 
     // src/script/math_commands.cpp length3: length helper (0x005ed014), fsqrt of the three squares.
-    private static double Length3(float[] v) => Math.Sqrt(SumOfThree((double)v[0] * v[0], (double)v[1] * v[1], (double)v[2] * v[2]));
+    private static double Length3(float[] v) => Fpu.Sqrt(SumOfThree((double)v[0] * v[0], (double)v[1] * v[1], (double)v[2] * v[2]));
 
     // src/script/math_commands.cpp kUninitialized: the stack residue the original prints for an unset z: 1.12949e-38.
     private static readonly float kUninitialized = BitConverter.Int32BitsToSingle(0x007afd96);
@@ -227,7 +228,7 @@ public static class MathCommands
             v = X87Fpatan(a, 1.0);
             return negative ? -v : v;
         }
-        v = X87Fpatan(1.0, a) - kHalfPi;
+        v = Fpu.Sub(X87Fpatan(1.0, a), kHalfPi);
         return negative ? v : -v;
     }
 
@@ -254,14 +255,14 @@ public static class MathCommands
                 return 0; // both infinite or NaN: error handler (D11)
             double w = 0;
             if (bNeg)
-                w = aNeg ? w - pi : w + pi;
+                w = aNeg ? Fpu.Sub(w, pi) : Fpu.Add(w, pi);
             return w;
         }
         if (aExp == 0x7ff0)
             return aNeg ? -kHalfPi : kHalfPi;
-        double v = BorlandAtan(a / b);
+        double v = BorlandAtan(Fpu.Div(a, b));
         if (bNeg)
-            v = aNeg ? v - pi : v + pi;
+            v = aNeg ? Fpu.Sub(v, pi) : Fpu.Add(v, pi);
         return v;
     }
 
@@ -397,21 +398,21 @@ public static class MathCommands
             double acc = xl;
             for (int i = n; i > 0; --i)
             {
-                acc = acc * acc;
+                acc = Fpu.Mul(acc, acc);
                 bool bit = (w & 0x8000) != 0;
                 w = (ushort)(w << 1);
                 if (bit)
-                    acc = acc * xl;
+                    acc = Fpu.Mul(acc, xl);
             }
             if ((yh & 0x8000) != 0)
-                acc = 1.0 / acc;
+                acc = Fpu.Div(1.0, acc);
             return acc;
         }
 
         // exp(y * ln x)
         if (xl < 0)
             return fail(BitConverter.Int64BitsToDouble(unchecked((long)kDomainNan)));
-        double t = X87Fyl2x(X87Fldln2(), xl) * y;
+        double t = Fpu.Mul(X87Fyl2x(X87Fldln2(), xl), y);
         {
             // The 80-bit sign and exponent word and the top mantissa word of a double.
             ulong db = BitsOf(t);
@@ -434,27 +435,28 @@ public static class MathCommands
         }
         else
         {
-            double scaled = Math.Abs(t * X87Fldl2e());
+            double scaled = Math.Abs(Fpu.Mul(t, X87Fldl2e()));
             if (scaled <= 0.5)
             {
-                result = X87F2xm1(scaled) + 1.0;
+                result = Fpu.Add(X87F2xm1(scaled), 1.0);
             }
             else
             {
                 double two = X87Fscale(scaled, 1.0);
-                // The C++ rounds `two` to an integer with the rounding mode set toward zero, then sets it back
-                // to nearest (the original leaves the FPU rounding to nearest).
+                // The C++ rounds `two` to an integer with the rounding mode set toward zero, then sets it to
+                // nearest (the original leaves the FPU rounding to nearest until the next float to int conversion).
                 double whole = Math.Truncate(two);
+                Fpu.TowardZero = false;
                 short i = unchecked((short)(long)whole);
                 double half = X87Fscale(whole, -1.0);
-                double frac = scaled - half;
-                result = X87F2xm1(frac) + 1.0;
+                double frac = Fpu.Sub(scaled, half);
+                result = Fpu.Add(X87F2xm1(frac), 1.0);
                 if ((i & 1) != 0)
-                    result = result * kSqrt2;
+                    result = Fpu.Mul(result, kSqrt2);
                 result = X87Fscale(result, unchecked((short)((ushort)i >> 1)));
             }
             if (tNegative)
-                result = 1.0 / result;
+                result = Fpu.Div(1.0, result);
         }
         return negate ? -result : result;
     }
@@ -574,7 +576,7 @@ public static class MathCommands
             float[] v = { 0, 0, 0 };
             ScanFloats3(a[1], v);
             float pitch, yaw;
-            double sum = (double)v[1] + v[0];
+            double sum = Fpu.Add(v[1], v[0]);
             if (!(sum > 0 || sum < 0))
             {
                 // x + y is zero (or NaN): straight up or down; the yaw slot is never written.
@@ -584,8 +586,8 @@ public static class MathCommands
             else
             {
                 yaw = F32(-BorlandAtan2(v[0], v[1]));
-                float sumSquares = F32((double)v[0] * v[0] + (double)v[1] * v[1]);
-                double horizontal = Math.Sqrt(sumSquares);
+                float sumSquares = F32(Fpu.Add((double)v[0] * v[0], (double)v[1] * v[1])); // the squares are exact
+                double horizontal = Fpu.Sqrt(sumSquares);
                 pitch = F32(-BorlandAtan2(horizontal, v[2]));
             }
             return FormatF32(pitch) + " 0 " + FormatF32(yaw);

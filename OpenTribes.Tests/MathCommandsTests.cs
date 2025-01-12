@@ -2,8 +2,9 @@
 // timeStamp, which and Vector::*. Expected values in kRows come from the reference server (tests/ref/util.txt is the
 // live comparison). The game-state utilities of the C++ test (getIntegerTime, findPointOnSphere, getClientByName,
 // getObjectByTargetIndex, readShapeRadius, the kSphere vectors) are game modules: their rows and checks are ported
-// with stage P4. kDouble lists the rows whose output differs in the double form of the port (DECISIONS D25: float
-// parsing and arithmetic round to nearest; float stores round toward zero, docs/portable-float.md 1 and 3) with the output the port prints.
+// with stage P4. kDouble lists the rows whose output differs in the double form of the port (DECISIONS D25: the
+// truncating build's rounding in 64 bits, docs/portable-float.md 1 and 5: NaN operand order, x87 fsincos of huge angles,
+// 80-bit denormals) with the output the port prints.
 using OpenTribes.Script;
 
 namespace OpenTribes.Tests;
@@ -240,12 +241,10 @@ public class MathCommandsTests
         "echo(getObjectByTargetIndex());",
     };
 
-    // Outputs of the double form where the reference output needs the 80-bit round-toward-zero unit.
+    // Outputs of the double form where the reference output needs the x87 unit.
     private static readonly Dictionary<string, string> kDouble = new()
     {
-        ["echo(Vector::add(\"1e-40 -5.681509e+07 -833301.576\",\"-848 -3992 4.794e-13\"));"] = "-848 -5.6819e+07 -833301", // reference "-847.999 -5.6819e+07 -833301"
         ["echo(Vector::sub(\"-NAN 1 1\",\"+NAN 1 1\"));"] = "-NAN 0 0", // reference "+NAN 0 0"
-        ["echo(Vector::sub(\"1E-2 102 -73.717879\",\"85.76797 1e-30 6e+04\"));"] = "-85.7579 102 -60073.7", // reference "-85.7579 101.999 -60073.7"
         ["echo(Vector::dot(\"+INF -INF +NAN\",\"1 1 1\"));"] = "-NAN", // reference "+NAN"
         ["echo(Vector::getDistance(\"-NAN 1 1\",\"+NAN 1 1\"));"] = "-NAN", // reference "+NAN"
         ["echo(Vector::getFromRot(\"1e-40 0 0\"));"] = "0 1 9.99994e-41", // reference "0 0.999999 9.9998e-41"
@@ -255,29 +254,7 @@ public class MathCommandsTests
         ["echo(Vector::getFromRot(\"1e30 1e30 1e30\"));"] = "-0.187137 0.963659 0.190632", // reference "+NAN -NAN +NAN"
         ["echo(Vector::getFromRot(\"1e38 1 1\"));"] = "-0.123537 0.0793226 0.989164", // reference "-NAN -NAN -NAN"
         ["echo(Vector::getFromRot(\"1 1 1e38\"));"] = "-0.534447 0.0793226 0.84147", // reference "+NAN -NAN +NAN"
-        ["echo(Vector::getFromRot(\"6.92853 4.94639 6.11067\", -1.247, -0.377));"] = "0.199295 -0.992586 -0.819873", // reference "0.199295 -0.992578 -0.819866"
-        ["echo(Vector::getFromRot(\"6.56851 3.43354 2.60682\", -17.281, 3.858));"] = "8.87642 12.8064 -8.4094", // reference "8.87642 12.8064 -8.40939"
         ["echo(Vector::getFromRot(\"16777217 -366 3.4028236e38\"));"] = "0.326863 0.534266 -0.779563", // reference "+NAN -NAN +NAN"
-        ["echo(pow(3,0.3333333));"] = "1.44224", // reference "1.44225"
-        ["echo(pow(10,2.5));"] = "316.227", // reference "316.228"
-        ["echo(pow(0.1,-13));"] = "9.99999e+12", // reference "1.00001e+13"
-        ["echo(pow(1e-5,3));"] = "9.99999e-16", // reference "9.99996e-16"
-        ["echo(pow(123.456,-0.5));"] = "0.0900002", // reference "0.0900007"
-        ["echo(pow(-0.9999,1));"] = "-0.999899", // reference "-0.999898"
-        ["echo(pow(-0.9999,13));"] = "-0.9987", // reference "-0.998687"
-        ["echo(pow(-0.9999,5001));"] = "-0.606454", // reference "-0.603429"
-        ["echo(pow(\"1.0001\",\"-5000\"));"] = "0.606545", // reference "0.606546"
-        ["echo(pow(\"1000\",\"0.3333333\"));"] = "9.99999", // reference "10"
-        ["echo(pow(14.604,-0.25));"] = "0.511543", // reference "0.511544"
-        ["echo(pow(17.605,-15));"] = "2.06756e-19", // reference "2.06774e-19"
-        ["echo(pow(13.396,-1.29));"] = "0.0351724", // reference "0.0351737"
-        ["echo(pow(2.415,1.67));"] = "4.35981", // reference "4.35978"
-        ["echo(pow(613.9233,-1.09));"] = "0.00091402", // reference "0.000914079"
-        ["echo(pow(11.012,-4.1388));"] = "4.87455e-05", // reference "4.87473e-05"
-        ["echo(pow(315.8777,1.01));"] = "334.59", // reference "334.571"
-        ["echo(pow(12,-4.2092));"] = "2.86754e-05", // reference "2.86762e-05"
-        ["echo(pow(1.009287,9050));"] = "2.0211e+36", // reference "2.02111e+36"
-        ["echo(pow(1.006619,25136));"] = "3.40282e+38", // reference "+INF"
     };
 
     // Console output without trailing blank lines (an empty result prints an empty line).
@@ -377,8 +354,12 @@ public class MathCommandsTests
             Assert.True(MathCommands.BorlandPow(double.PositiveInfinity, -1, out err) == 0 && err);
             Assert.True(double.IsInfinity(MathCommands.BorlandPow(2, double.PositiveInfinity, out err)) && err);
             Assert.True(MathCommands.BorlandPow(-3, 3, out err) == -27 && !err);
-            // The C++ checks here that a fractional power leaves the FPU rounding to nearest until the next
-            // statement (two fegetround asserts). C# has no FPU rounding mode: not portable.
+            // A fractional power leaves the FPU rounding to nearest until the next statement.
+            OpenTribes.Core.Fpu.EnterChop();
+            MathCommands.BorlandPow(0.01, 0.5, out err);
+            Assert.False(OpenTribes.Core.Fpu.TowardZero);
+            w.Run("echo(1);");
+            Assert.True(OpenTribes.Core.Fpu.TowardZero);
         }
 
         // getRotation divides a zero horizontal part by zero in the original (math error, D11): -0.

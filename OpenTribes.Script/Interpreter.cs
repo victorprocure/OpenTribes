@@ -81,6 +81,7 @@ public sealed class Interpreter
     public Interpreter(StringTable? strings = null)
     {
         mStrings = strings ?? StringTable.Global();
+        Numbers.EnterScriptFpuMode();
         mFrames.Add(new Frame());
         // Engine-bound console variables exist from the start (0x005f3a7c) [live].
         mGlobals[mStrings.Intern("$Console::printLevel")] = "1";
@@ -110,7 +111,7 @@ public sealed class Interpreter
                 return "-1";
             }
             double v = Numbers.BorlandAtof(argv[1]);
-            return Numbers.FormatFloat(v < 0 ? 0.0 : Math.Sqrt(v)); // Borland's matherr turns the domain error into 0
+            return Numbers.FormatFloat(v < 0 ? 0.0 : Fpu.Sqrt(v)); // Borland's matherr turns the domain error into 0
         });
         AddCommand("eval", (interp, argv) =>
         {
@@ -270,7 +271,7 @@ public sealed class Interpreter
     {
         int nul = text.IndexOf('\0');
         string src = nul < 0 ? text : text[..nul];
-        // enterScriptFpuMode: nothing to restore in the portable form (see Numbers).
+        Numbers.EnterScriptFpuMode(); // pow can leave round-to-nearest behind; the original's next ftol resets it
         ParseResult r = ScriptParser.Parse(src);
         if (r.Error)
             Print(1, ScriptParser.SyntaxErrorMessage(r, fileName.Length == 0 ? "" : mStrings.Intern(fileName)));
@@ -465,7 +466,7 @@ public sealed class Interpreter
         {
             double a = EvalFloat(l);
             double b = EvalFloat(r);
-            return Sign(a - b);
+            return Sign(Fpu.Sub(a, b));
         }
         string sa = EvalString(l), sb = EvalString(r);
         float fa = 0, fb = 0;
@@ -479,7 +480,7 @@ public sealed class Interpreter
             }
             else if (Numbers.LooksNumeric(s))
             {
-                f = Fpu.F32Chop(Numbers.BorlandAtof(s)); // float store in the script FPU mode (toward zero)
+                f = Fpu.Store(Numbers.BorlandAtof(s));
             }
             else if (EqualsIgnoreCase(s, "false"))
             {
@@ -523,10 +524,10 @@ public sealed class Interpreter
                 double r = EvalFloat(n.B!);
                 switch (n.OpChar)
                 {
-                case '+': return l + r;
-                case '-': return l - r;
-                case '*': return l * r;
-                default: return l / r;
+                case '+': return Fpu.Add(l, r);
+                case '-': return Fpu.Sub(l, r);
+                case '*': return Fpu.Mul(l, r);
+                default: return Fpu.Div(l, r);
                 }
             }
             break;
@@ -638,13 +639,13 @@ public sealed class Interpreter
             double r = rhs != null ? EvalFloat(rhs) : 1.0;
             double v;
             if (op == Tok.PlusAssign || opChar == '+')
-                v = l + r;
+                v = Fpu.Add(l, r);
             else if (op == Tok.MinusAssign || opChar == '-')
-                v = l - r;
+                v = Fpu.Sub(l, r);
             else if (op == Tok.MulAssign)
-                v = l * r;
+                v = Fpu.Mul(l, r);
             else
-                v = l / r;
+                v = Fpu.Div(l, r);
             result = mLastHope ? Numbers.FormatFloat15(v) : Numbers.FormatFloat(v);
         }
         else

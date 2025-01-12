@@ -1,7 +1,8 @@
 // Port of tests/test_script_eval.cpp: vectors confirmed on the reference 1.11 server (docs/script.md, tools/scriptdiff.py).
 // The table keeps the reference outputs. kDouble lists the cases whose output differs in the double form of the port
-// (DECISIONS D25: parsing and arithmetic round to nearest in 64 bits, docs/portable-float.md 3 and 5.4) with the
-// output the port prints; every other case must print the reference output.
+// (DECISIONS D25: 64-bit values rounded toward zero like the portable truncating build, docs/portable-float.md 1 and 5;
+// the original keeps 80-bit operands and parses into 80 bits) with the output the port prints; every other case must
+// print the reference output.
 using OpenTribes.Script;
 
 namespace OpenTribes.Tests;
@@ -62,17 +63,11 @@ public class ScriptEvalTests
         ("IDT_A = 900003;", "Error: define IDT_A already defined to tag 900001."),
     };
 
-    // Outputs of the double form where the reference output needs 80-bit round-toward-zero arithmetic.
+    // Outputs of the double form where the reference output needs the 80-bit unit.
     private static readonly Dictionary<string, string> kDouble = new()
     {
-        ["echo(0.1);"] = "0.1",
-        ["echo(0.1 + 0.2);"] = "0.3",
-        ["echo(0.0001);"] = "0.0001",
-        ["echo(10 * 0.1);"] = "1",
-        ["echo(1 - 0.9);"] = "0.0999999",
-        ["echo(100 * 1.1);"] = "110",
-        ["echo(1e300 * 1e300);"] = "+INF", // the reference truncates the overflow to DBL_MAX
-        ["echo(0.1 == 1/10, 1/10 == 0.1, 0.1 == \"0.1\", \"0.1\" == 0.1);"] = "1111", // no 80-bit right operand
+        ["echo(0.1 == 1/10, 1/10 == 0.1, 0.1 == \"0.1\", \"0.1\" == 0.1);"] = "1111", // reference "0101"
+        ["echo(\"+INF\" + 0, \" \", \"INF\" + 0, \" \", \"-NAN\" + 0, \" \", \"1e400\" + 0, \" \", \"1e-400\" + 0);"] = "+INF 0 -NAN 1.79769e+308 0", // reference "+INF 0 -NAN +INF 0"
     };
 
     [Fact]

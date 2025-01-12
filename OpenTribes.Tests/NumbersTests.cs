@@ -1,6 +1,5 @@
 // Port of tests/test_numbers.cpp: script number conversion edge cases (docs/script.md 3.1-3.3 and 6.4 S2) not covered
-// by the interpreter vectors in ScriptEvalTests. The C++ runs in the script FPU mode (round toward zero); the port
-// parses with double to nearest (D25) and prints truncated digits, and every case below holds in that form.
+// by the interpreter vectors in ScriptEvalTests. Runs in the script FPU mode (round toward zero, Fpu).
 using OpenTribes.Script;
 
 namespace OpenTribes.Tests;
@@ -10,6 +9,7 @@ public class NumbersTests
     [Fact]
     public void TestNumbers()
     {
+        Numbers.EnterScriptFpuMode();
         int cases = 0;
 
         // 3.3.1: Borland atoi skips whitespace, takes one sign, stops at the first non-digit and
@@ -36,7 +36,9 @@ public class NumbersTests
             double nan = Numbers.BorlandAtof("+NANx");
             Assert.True(double.IsNaN(nan) && !double.IsNegative(nan));
             Assert.True(Numbers.BorlandAtof("+inf") == 0 && Numbers.BorlandAtof("NAN") == 0);
-            Assert.Equal(double.NegativeInfinity, Numbers.BorlandAtof("-1e400"));
+            // The C++ asserts -HUGE_VALL. Parsing toward zero gives -DBL_MAX, as in the C++ truncating build
+            // (docs/portable-float.md 5 item 1).
+            Assert.Equal(-double.MaxValue, Numbers.BorlandAtof("-1e400"));
             Assert.NotEqual(0.0, Numbers.BorlandAtof("1e-320")); // double denormals survive
             ++cases;
         }
