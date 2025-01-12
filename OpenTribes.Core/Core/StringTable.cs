@@ -7,7 +7,7 @@ public sealed class StringTable
 {
     private readonly Dictionary<string, string> mByFolded = new(StringComparer.Ordinal);
 
-    private static readonly StringTable sGlobal = new();
+    private static StringTable sGlobal = new();
 
     // src/core/string_table.cpp StringTable::fold: folds only a-z.
     private static string Fold(string s)
@@ -40,4 +40,8 @@ public sealed class StringTable
 
     // src/core/string_table.cpp StringTable::global.
     public static StringTable Global() => sGlobal;
+
+    // Port convention (no C++ function): an empty process-wide table, the state a C++ test program starts with. The
+    // unit tests share one process; they reset it before each test.
+    public static void ResetGlobal() => sGlobal = new StringTable();
 }

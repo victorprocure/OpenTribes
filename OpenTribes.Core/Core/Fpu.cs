@@ -161,6 +161,13 @@ public static class Fpu
     // float(x) in the current mode: the plain store of the C++ (math_commands.cpp f32, script float conversions).
     public static float Store(double d) => TowardZero ? F32Chop(d) : (float)d;
 
+    // Single-precision float + - * / of the C++ (SSE single operations, which follow the same mode): the double result
+    // rounded toward zero, then stored toward zero, is the toward-zero float result (both roundings truncate).
+    public static float AddF(float a, float b) => TowardZero ? F32Chop(AddChop(a, b)) : a + b;
+    public static float SubF(float a, float b) => TowardZero ? F32Chop(SubChop(a, b)) : a - b;
+    public static float MulF(float a, float b) => TowardZero ? F32Chop(MulChop(a, b)) : a * b;
+    public static float DivF(float a, float b) => TowardZero ? F32Chop(DivChop(a, b)) : a / b;
+
     // The float nearest to d, stepped one ulp toward zero when its magnitude exceeds d's: float(x) under FE_TOWARDZERO.
     // A finite d beyond the float range gives +-float.MaxValue; NaN, infinities, zeros and exact values are unchanged.
     public static float F32Chop(double d)

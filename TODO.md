@@ -30,3 +30,4 @@ way are added to Open.
 - [x] Ban list and console log.
 - [x] `scriptrun` runs console scripts outside the game.
 - [x] Numbers round toward zero like the original: stored floats, parsing and arithmetic. Overflow gives infinity.
+- [x] Simulation layer: number helpers and string table.
