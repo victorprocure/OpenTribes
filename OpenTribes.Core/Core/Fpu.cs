@@ -167,6 +167,8 @@ public static class Fpu
     public static float SubF(float a, float b) => TowardZero ? F32Chop(SubChop(a, b)) : a - b;
     public static float MulF(float a, float b) => TowardZero ? F32Chop(MulChop(a, b)) : a * b;
     public static float DivF(float a, float b) => TowardZero ? F32Chop(DivChop(a, b)) : a / b;
+    // sqrtf (SSE sqrtss under the mode).
+    public static float SqrtF(float a) => TowardZero ? F32Chop(SqrtChop(a)) : MathF.Sqrt(a);
 
     // The float nearest to d, stepped one ulp toward zero when its magnitude exceeds d's: float(x) under FE_TOWARDZERO.
     // A finite d beyond the float range gives +-float.MaxValue; NaN, infinities, zeros and exact values are unchanged.
