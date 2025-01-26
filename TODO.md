@@ -36,4 +36,4 @@ way are added to Open.
 - [x] Numbers round toward zero like the original: stored floats, parsing and arithmetic. Overflow gives infinity.
 - [x] Simulation layer: sim manager, number helpers, text scanning, string table and world code, used by `scriptrun` and the server.
 - [x] Datablocks and their tables.
-- [x] Game commands: backlog and client game commands.
+- [x] Game commands: backlog, client game commands and command map.
