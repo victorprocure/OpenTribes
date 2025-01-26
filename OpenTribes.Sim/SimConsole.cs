@@ -1,9 +1,9 @@
 // Port of src/sim/sim_console.hpp and src/sim/sim_console.cpp: console side of the simulation: the object interface
 // used by the interpreter (fields, datablocks, instant) and the SimConsolePlugin commands (docs/sim.md 5-8). The
-// datablock manager the C++ class holds (game::DataBlockManager, src/game/datablocks.cpp) is stage P4; its places are
-// marked. Clock arithmetic follows the current rounding mode of Fpu (the C++ double operations).
+// datablock manager the C++ class holds is game::DataBlockManager (DataBlocks.cs). Clock arithmetic follows the current rounding mode of Fpu (the C++ double operations).
 using System.Diagnostics;
 using OpenTribes.Core;
+using OpenTribes.Game;
 using OpenTribes.Script;
 using static OpenTribes.Core.Fpu;
 
@@ -16,7 +16,7 @@ public sealed class SimConsole : IObjectInterface
     private readonly ClassContext mCtx;
     private readonly StringTable mStrings;
     private SimManager? mServer;
-    // P4: game::DataBlockManager mDataBlocks(strings, print to level 1)
+    private readonly DataBlockManager mDataBlocks;
 
     // instant / datablock construction state
     private SimObject? mCurrent;
@@ -81,6 +81,7 @@ public sealed class SimConsole : IObjectInterface
         mIn = interp;
         mCtx = ctx;
         mStrings = strings ?? StringTable.Global();
+        mDataBlocks = new DataBlockManager(mStrings, l => interp.Print(1, l));
         Stopwatch start = Stopwatch.StartNew();
         mClockSource = () => start.Elapsed.TotalSeconds;
         mIn.SetVariable("$SimGame::TimeScale", "1.0"); // [live] initial value
@@ -90,7 +91,7 @@ public sealed class SimConsole : IObjectInterface
     public SimManager? Server() => mServer;
     public uint TickMs() => mTick;
     public double ClockSeconds() => mClock;
-    // P4: game::DataBlockManager& dataBlocks()
+    public DataBlockManager DataBlocks() => mDataBlocks;
 
     private SimManager? Focus() => mServer;
     private double Elapsed() => Sub(mClockSource(), mTimerStart);
@@ -253,7 +254,7 @@ public sealed class SimConsole : IObjectInterface
     {
         mInDataBlock = true;
         mDataBlockTarget = name;
-        // P4: mDataBlocks.declare(className, name)
+        mDataBlocks.Declare(className, name);
     }
 
     // src/sim/sim_console.cpp SimConsole::endDataBlock.
@@ -363,8 +364,8 @@ public sealed class SimConsole : IObjectInterface
             return true;
         }
         output = "";
-        // P4: game::DataBlockManager::Block* block = mDataBlocks.find(object); block && mDataBlocks.getField(...)
-        return false;
+        DataBlockManager.Block? block = mDataBlocks.Find(obj);
+        return block != null && mDataBlocks.GetField(block, field, index, out output);
     }
 
     // src/sim/sim_console.cpp SimConsole::setField.
@@ -377,7 +378,8 @@ public sealed class SimConsole : IObjectInterface
             o.SetDataField(mStrings.Intern(field + index), first);
             return;
         }
-        // P4: if (Block* block = mDataBlocks.find(object)) mDataBlocks.setField(*block, field, values, index)
+        if (mDataBlocks.Find(obj) is DataBlockManager.Block block)
+            mDataBlocks.SetField(block, field, values, index);
     }
 
     // ---- commands (8) ----
