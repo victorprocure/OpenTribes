@@ -35,3 +35,4 @@ way are added to Open.
 - [x] `scriptrun` runs console scripts outside the game.
 - [x] Numbers round toward zero like the original: stored floats, parsing and arithmetic. Overflow gives infinity.
 - [x] Simulation layer: sim manager, number helpers, text scanning, string table and world code, used by `scriptrun` and the server.
+- [x] Datablock tables.
