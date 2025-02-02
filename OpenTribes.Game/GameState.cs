@@ -1,0 +1,659 @@
+// Port of the GameState part of src/game/game_commands.hpp and src/game/game_commands.cpp: the game plugin state
+// (FearPlugin, registered at 0x00423040): teams (PlayerManager 713) and the GameBase services for mission objects. The
+// stepped-move candidates (src/game/move_candidates.cpp), the displacement (src/game/displace.cpp) and the collision
+// event (GameState::postCollisionEvent and dispatchCollisionEvent of src/game/player.cpp) are Displace.cs; the Player and
+// Vehicle branches of those are stage P4b and the AI manager stage P4c.
+using OpenTribes.Core;
+using OpenTribes.Script;
+using OpenTribes.Sim;
+using OpenTribes.World;
+using static OpenTribes.Core.Fpu;
+
+namespace OpenTribes.Game;
+
+// src/game/game_commands.hpp struct Team.
+public sealed class TeamRecord
+{
+    public string Name, Skin, Score = "";
+    public int SortValue;
+    public uint ScoreStamp;
+    public readonly uint[] ObjectiveStamp = new uint[32]; // docs/player-manager.md 2.2: stamps start at 1
+    public readonly string[] Objectives = new string[32];
+
+    public TeamRecord(string n, string s)
+    {
+        Name = n;
+        Skin = s;
+        for (int i = 0; i < 32; ++i)
+        {
+            ObjectiveStamp[i] = 1;
+            Objectives[i] = "";
+        }
+    }
+}
+
+// src/game/game_commands.hpp class GameState.
+public sealed partial class GameState : GameServices
+{
+    public Interpreter? Console;
+    public SimConsole? Sim;
+    public ResourceManager? Resources;
+    public readonly PlayerManager Players;
+    // Record ids of AI players come from the connection layer's pool (set by the server).
+    public Func<int>? AllocateRecordId;
+    public Action<int>? ReleaseRecordId;
+    // P4c: AI: AIManager* ai, object 726 while the mission has one (docs/ai-sim.md 1.2).
+
+    public int TeamCount = -1;       // -1 until the first resetPlayerManager (docs/mission.md 2.2)
+    public readonly List<TeamRecord> Teams = new(); // record of team t at index t + 1
+    public string TeamScoreHeading = "", ClientScoreHeading = "";
+    public readonly List<string> TargetNames = new();   // sensor targets in registration order (GB4)
+    public readonly List<GameBase?> Targets = new();    // the target objects, same index; null once removed
+    public readonly MaterialTable Materials = new();   // setMaterialProperty (0x006c1ff0)
+    // Set by the game server: ORs bits into the object's entry of every GhostManager.
+    public Action<SimObject, uint>? MaskBits;
+    public readonly Container World = new();           // container 7
+    internal readonly List<GameBase> mDisplaceHidden = new(); // movers of the running displaces (object type 0)
+
+    public GameState() => Players = new PlayerManager(this);
+
+    // src/game/game_commands.cpp GameState::addTeam: TM1.
+    public void AddTeam(int id)
+    {
+        if (TeamCount == 8)
+            return;
+        // $Server::teamName<c> with c = '0' + count ('/' for the observer team).
+        string c = ((char)('0' + TeamCount)).ToString();
+        string name = Console != null ? Console.GetVariable("$Server::teamName" + c, out _) : "";
+        string skin = Console != null ? Console.GetVariable("$Server::teamSkin" + c, out _) : "";
+        Console?.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Team \"" + name + "\" added - id = " + Numbers.FormatInt(id)) + "\"");
+        ++TeamCount;
+        Teams.Add(new TeamRecord(name.Length == 0 ? "unnamed" : name, skin.Length == 0 ? "base" : skin));
+        Players.TeamAdded(id);
+    }
+
+    // src/game/game_commands.cpp GameState::resetTeams: TM5.
+    public void ResetTeams()
+    {
+        Players.Reset();
+        TeamCount = -1;
+        Teams.Clear();
+        AddTeam(-1);
+    }
+
+    // src/game/game_commands.cpp GameState::addTeamFromGroup.
+    public override int AddTeamFromGroup()
+    {
+        int id = TeamCount;
+        AddTeam(id);
+        return id;
+    }
+
+    // src/game/game_commands.cpp GameState::resolveDataBlock.
+    public override bool ResolveDataBlock(SimObject o)
+    {
+        if (o is not GameBase obj || Sim == null || obj.DataBlockGroup() < 0)
+            return false;
+        DataBlockManager db = Sim.DataBlocks();
+        DataBlockManager.Block? b = db.Find(obj.DataBlockName);
+        if (b == null || b.Group != obj.DataBlockGroup())
+            return false;
+        // GB4: a block visible to sensors expands the map name (GB7).
+        bool hasVisible = db.GetField(b, "visibleToSensor", "", out string visible);
+        if (hasVisible && visible == "True")
+        {
+            string raw = obj.MapName ?? "";
+            obj.SetMapName(obj.MapName != null ? raw : null);
+        }
+        if (visible == "True" && obj.TargetIndex < 0 && obj.DataBlockGroup() != 3)
+        {
+            // 0x00447e6c: the lowest free slot 0..127; a full table gives -1 with no message. SensorManager_addTarget
+            // refuses datablock group 3: a Player has no target slot.
+            int slot = 0;
+            while (slot < Targets.Count && Targets[slot] != null)
+                ++slot;
+            if (slot < 128)
+            {
+                if (slot == Targets.Count)
+                {
+                    Targets.Add(null);
+                    TargetNames.Add("");
+                }
+                obj.TargetIndex = slot;
+                Targets[slot] = obj;
+                SetTargetName(slot, obj.MapName ?? "");
+            }
+        }
+        obj.DataBlockIndex = b.Index;
+        if (obj.IsShapeBase())
+        {
+            // ShapeBase onNewDataBlock (0x0044b274): maxDamage (+0x5c), the damageLevel ratios (+0xec, +0xf0) and the
+            // shape instance the threads run on.
+            float Value(string field, int comp, float def)
+            {
+                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                if (f == null || f.Elems.Count == 0)
+                    return def;
+                if (f.Elems[0].Set)
+                    return f.Elems[0].F[comp];
+                // Unset: the constructor constant (0x00449ffc stores 0x3dcccccd for repairRate).
+                float[] v = { def, def };
+                string p = f.Def.DefaultText;
+                int at = 0;
+                for (int k = 0; k < 2 && at < p.Length; ++k)
+                {
+                    float x = DataBlockManager.CtorFloat(p, at, out int e);
+                    if (e == at)
+                        break;
+                    v[k] = x;
+                    at = e;
+                }
+                return v[comp];
+            }
+            bool Boolean(string field, bool def)
+            {
+                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                if (f == null || f.Elems.Count == 0)
+                    return def;
+                if (f.Elems[0].Set)
+                    return f.Elems[0].I != 0;
+                return def;
+            }
+            int Integer(string field, int def)
+            {
+                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                if (f == null || f.Elems.Count == 0)
+                    return def;
+                if (f.Elems[0].Set)
+                    return f.Elems[0].I;
+                return Strtol(f.Def.DefaultText);
+            }
+            if (obj.ShapeClass() == GameBase.ShapeKind.Sensor || obj.ShapeClass() == GameBase.ShapeKind.Turret)
+            {
+                obj.SensorData.CastLOS = Boolean("castLOS", false);
+                obj.SensorData.Range = Integer("range", 100);
+                obj.SensorData.Doppler = Integer("dopplerVelocity", 0);
+                obj.SensorData.Supression = Boolean("supression", false);
+                obj.SensorData.Supressable = Boolean("supressable", true);
+                obj.SensorData.Pinger = Boolean("pinger", true);
+            }
+            if (obj.ShapeClass() == GameBase.ShapeKind.Turret)
+            {
+                GameBase.TurretBlock t = obj.TurretData;
+                t.GunRange = Value("gunRange", 0, -1.0f);
+                t.Speed = Value("speed", 0, 1.0f);
+                t.SpeedModifier = Value("speedModifier", 0, 0.0f);
+                t.ReloadDelay = Value("reloadDelay", 0, 0.0f);
+                t.MinGunEnergy = Value("minGunEnergy", 0, 0.0f);
+                t.MaxGunEnergy = Value("maxGunEnergy", 0, 0.0f);
+                t.Fov = Value("FOV", 0, -1.0f);
+                t.Deflection = Value("deflection", 0, 0.0f);
+                t.TargetableFovRatio = Value("targetableFovRatio", 0, 0.5f);
+                t.EnergyRate = Value("energyRate", 0, 0.0f);
+                t.Sustained = Boolean("isSustained", false);
+                t.FiringTimeMS = Integer("firingTimeMS", 0);
+                t.HasProjectile = db.GetField(b, "projectileType", "", out string proj) && proj.Length != 0;
+            }
+            obj.MaxDamage = Value("maxDamage", 0, 1.0f);
+            obj.DisabledLevel = Value("damageLevel", 0, 0.5f);
+            obj.DestroyedLevel = Value("damageLevel", 1, 0.75f);
+            obj.MaxEnergy = Value("maxEnergy", 0, 0.0f);
+            obj.RepairRate = Value("repairRate", 0, 0.1f);
+            obj.Energy = obj.MaxEnergy; // 0x0044b274
+            if (obj.MaxDamage <= obj.Damage)
+                obj.Damage = Store(Mul(obj.MaxDamage, 0.9f));
+            if (obj.ShapeClass() == GameBase.ShapeKind.Item || obj.ShapeClass() == GameBase.ShapeKind.Mine)
+            {
+                obj.ItemData.Mass = Value("mass", 0, 1.0f);
+                obj.ItemData.Drag = Value("drag", 0, 1.0f);
+                obj.ItemData.Density = Value("density", 0, 1.0f);
+                obj.ItemData.Friction = Value("friction", 0, 1.0f);
+                obj.ItemData.Elasticity = Value("elasticity", 0, 0.2f);
+            }
+            if (obj.ShapeClass() == GameBase.ShapeKind.Mine)
+            {
+                obj.MineData.DamageType = Integer("damageType", 0);
+                obj.MineData.DamageValue = Value("damageValue", 0, 1.0f);
+                obj.MineData.ExplosionRadius = Value("explosionRadius", 0, 1.0f);
+                obj.MineData.Kick = Value("kickBackStrength", 0, 100.0f);
+            }
+            if (obj.ShapeClass() == GameBase.ShapeKind.Moveable)
+            {
+                obj.MoveData.Speed = Value("speed", 0, 1.0f);
+                obj.MoveData.Displace = Boolean("displace", true);
+                obj.MoveData.BlockForward = Boolean("blockForward", true);
+                obj.MoveData.BlockBackward = Boolean("blockBackward", true);
+            }
+            string shape = "";
+            if (Resources != null && db.GetField(b, "shapeFile", "", out shape) && shape.Length != 0)
+                obj.Anim = Shape.GetShapeAnim(Resources, shape);
+            if (shape.Length != 0 && Resources != null)
+            {
+                float radius = 0;
+                Span<float> center = stackalloc float[3];
+                if (Shape.ShapeSphere(Resources, shape, ref radius, center))
+                {
+                    obj.ShapeRadius = radius;
+                    for (int i = 0; i < 3; ++i)
+                        obj.ShapeCenter[i] = center[i];
+                    obj.ItemSubStep = Store(Mul(radius, 0.45)); // 0x0044b4c5
+                }
+                Span<float> sb = stackalloc float[6];
+                if (Shape.ShapeBox(Resources, shape, sb))
+                {
+                    for (int i = 0; i < 6; ++i)
+                        obj.ShapeBox[i] = obj.ShapeQueryBox[i] = sb[i];
+                    // StaticBase only: other classes have no such field and the lookup would print an error.
+                    string tr = "";
+                    float r = obj.IsStaticBase() && db.GetField(b, "triggerRadius", "", out tr) ? Store(Numbers.BorlandAtof(tr)) : 0.0f;
+                    obj.ShapeTriggerRadius = r;
+                    if (r != 0.0f)
+                        for (int i = 0; i < 3; ++i)
+                        {
+                            obj.ShapeQueryBox[i] = Math.Min(sb[i], -r);
+                            obj.ShapeQueryBox[i + 3] = Math.Max(sb[i + 3], r);
+                        }
+                }
+            }
+            obj.VisibilityThread = obj.Anim != null && obj.Anim.FindSequence("visibility") != -1;
+            obj.ShapeBound = true;
+        }
+        PlaceInContainer(obj, b);
+        return true;
+    }
+
+    // std::strtol(text, nullptr, 10).
+    private static int Strtol(string s)
+    {
+        int v = 0;
+        CScan.Int(s, ref v);
+        return v;
+    }
+
+    // src/game/game_commands.cpp collectPathObjects.
+    private static void CollectPathObjects(SimObject obj, List<SimObject> output)
+    {
+        if (GameUtil.EqualsNoCase(obj.ClassName(), "SimPath"))
+            output.Add(obj);
+        if (obj.AsSet() is SimSet set)
+            foreach (SimObject m in set.Members())
+                CollectPathObjects(m, output);
+    }
+
+    // src/game/game_commands.cpp GameState::objectMoved: the object's transform changed: refresh its container entry.
+    public override void ObjectMoved(SimObject o)
+    {
+        if (o is not GameBase obj)
+            return;
+        // P4b: Player: a Player refiles its box at once (Player::refileBox, setTransform 0x005054a4 -> 0x004f9a38).
+        if (Sim != null && obj.DataBlockName != null && Sim.DataBlocks().Find(obj.DataBlockName) is DataBlockManager.Block b)
+            PlaceInContainer(obj, b);
+    }
+
+    // src/game/game_commands.cpp GameState::dataBlockCount.
+    public override int DataBlockCount(int group) => Sim != null && group >= 0 && group <= 30 ? Sim.DataBlocks().GroupSize(group) : 0;
+
+    // src/game/game_commands.cpp GameState::pathIndex: SimPathManager ids follow SimPath registration order
+    // (docs/game-stream-ghosts.md 6.5).
+    public override int PathIndex(SimObject path)
+    {
+        SimManager? m = Sim?.Server();
+        if (m == null || path.Manager() == null)
+            return -1;
+        var paths = new List<SimObject>();
+        CollectPathObjects(m, paths);
+        int index = 0;
+        foreach (SimObject p in paths)
+            if (p.Sequence() < path.Sequence())
+                ++index;
+        return index;
+    }
+
+    private SensorManager? SensorManagerObject() =>
+        Sim?.Server()?.FindById(720) is SensorManager sm && GameUtil.EqualsNoCase(sm.ClassName(), "SensorManager") ? sm : null;
+
+    // src/game/game_commands.cpp GameState::sensorInsert.
+    public override void SensorInsert(SimObject s)
+    {
+        if (s is GameBase gb)
+            SensorManagerObject()?.Insert(gb);
+    }
+
+    // src/game/game_commands.cpp GameState::sensorRemove.
+    public override void SensorRemove(SimObject s)
+    {
+        if (s is GameBase gb)
+            SensorManagerObject()?.Remove(gb);
+    }
+
+    // src/game/game_commands.cpp GameState::sensorJam: jamming-player list (docs/static-sim.md 3.8): link after the
+    // head, or unlink (0x0040fc58).
+    public void SensorJam(GameBase p, bool link)
+    {
+        SensorManager? sm = SensorManagerObject();
+        if (sm == null)
+            return;
+        if (link)
+            sm.JamLink(p);
+        else
+            sm.JamUnlink(p);
+    }
+
+    // src/game/game_commands.cpp GameState::mineDestroyed: 0x00458be4: radius damage 0x0046edd0 with the mine's damage
+    // type, radius, value and kick, no velocity, centred on the world box ((max + min) stored as f32, times 0.5). The
+    // source is the thrower's client while its record still carries the join counter stored at the throw (0x004524f8),
+    // else 0.
+    public override void MineDestroyed(SimObject m)
+    {
+        if (m is not GameBase mine || World.Find(mine) is not Container.Entry e)
+            return;
+        float[] c = new float[3];
+        for (int i = 0; i < 3; ++i)
+        {
+            float sum = X87.F32(Add(e.Box[i + 3], e.Box[i]));
+            c[i] = X87.F32(Mul(0.5, sum));
+        }
+        int source = 0;
+        if (mine.ItemThrowerClient > 0 && Players.Find(mine.ItemThrowerClient) is ClientRecord r && r.JoinOrder == mine.ItemThrowerJoin)
+            source = mine.ItemThrowerClient;
+        float[] zero = { 0, 0, 0 };
+        DamageCommands.ApplyRadiusDamage(this, mine.MineData.DamageType, c, zero, mine.MineData.ExplosionRadius,
+                                         mine.MineData.DamageValue, mine.MineData.Kick, source);
+    }
+
+    // src/game/game_commands.cpp GameState::sensorTeam.
+    public override void SensorTeam(SimObject s)
+    {
+        if (s is GameBase gb)
+            SensorManagerObject()?.TeamChanged(gb);
+    }
+
+    // src/game/game_commands.hpp GameState::clientTeam.
+    public override void ClientTeam(int client, int team) => Players.SetTeam(client, team);
+
+    // src/game/game_commands.cpp GameState::setTargetName: SensorManager_setTargetName (0x00439b68): a changed name goes
+    // to every human client.
+    public void SetTargetName(int index, string name)
+    {
+        if (index < 0 || index >= TargetNames.Count || TargetNames[index] == name)
+            return;
+        TargetNames[index] = name;
+        // One TargetNameEvent per human, newest first.
+        foreach (int h in Players.Humans())
+            Players.SendEvent(h, GameEvents.MakeTargetName((uint)index, name));
+    }
+
+    // src/game/game_commands.hpp GameState::renameTarget.
+    public override void RenameTarget(int index, string name) => SetTargetName(index, name);
+
+    // src/game/game_commands.cpp GameState::targetRemoved: 0x00439b54: the slot is freed (count - 1, entry 0, name NULL).
+    public override void TargetRemoved(SimObject o)
+    {
+        if (o is not GameBase obj)
+            return;
+        if (obj.TargetIndex >= 0 && obj.TargetIndex < Targets.Count && Targets[obj.TargetIndex] == obj)
+        {
+            Targets[obj.TargetIndex] = null;
+            // The name goes to NULL through the same setter, so a named target tells every human.
+            SetTargetName(obj.TargetIndex, "");
+        }
+        obj.TargetIndex = -1;
+    }
+
+    // src/game/game_commands.cpp GameState::printLine.
+    public override void PrintLine(string line) => Console?.Print(1, line);
+
+    // src/game/game_commands.cpp GameState::pathById.
+    public override SimObject? PathById(int id)
+    {
+        SimManager? m = Sim?.Server();
+        if (m == null || id < 0)
+            return null;
+        var paths = new List<SimObject>();
+        CollectPathObjects(m, paths);
+        paths = paths.OrderBy(p => p.Sequence()).ToList(); // stable
+        return id < paths.Count ? paths[id] : null;
+    }
+
+    // src/game/game_commands.cpp findTerrain.
+    private TerrainObject? FindTerrain() =>
+        Sim?.Server()?.FindById(8) is TerrainObject t && GameUtil.EqualsNoCase(t.ClassName(), "SimTerrain") ? t : null;
+
+    // src/game/game_commands.cpp GameState::terrain.
+    public override Terrain? GetTerrain() => FindTerrain()?.GetTerrain();
+
+    // src/game/game_commands.cpp GameState::terrainMaterial.
+    public override Material? TerrainMaterial(int index)
+    {
+        Terrain? terr = GetTerrain();
+        if (terr == null || Resources == null)
+            return null;
+        List<Material>? list = MaterialList.Get(Resources, terr.MaterialListName());
+        return list != null && index >= 0 && index < list.Count ? list[index] : null;
+    }
+
+    // src/game/game_commands.cpp GameState::terrainForces: FC2/FC3: an object whose container chain reaches the
+    // SimTerrain is pulled by its contGravity (default 0 0 -9.8) and slowed by contDrag (default 0).
+    public override bool TerrainForces(SimObject obj, Span<float> gravity, ref float drag)
+    {
+        TerrainObject? t = FindTerrain();
+        if (t == null)
+            return false;
+        object? c = World.ParentOf(obj);
+        bool inside = false;
+        for (int depth = 0; c != null && depth < 8; ++depth)
+        {
+            if (c == t)
+            {
+                inside = true;
+                break;
+            }
+            c = World.ParentOf(c);
+        }
+        if (!inside)
+            return false;
+        t.Fields().Point("contGravity", gravity, 0.0f, 0.0f, -9.8f);
+        drag = t.Fields().Real("contDrag", 0.0f);
+        return true;
+    }
+
+    // src/game/game_commands.cpp GameState::enteredForces: FC2/FC3: SimTerrain_enterContainer (0x005195b4) copies
+    // contGravity into the force list and contDrag into +0x124 when the object enters a container inside the terrain (a
+    // move between nested containers leaves and enters again). Leaving (0x0051963c) removes the force only.
+    public override bool EnteredForces(SimObject o, Span<float> gravity, ref float drag)
+    {
+        if (o is not GameBase obj)
+            return false;
+        Container.Entry? terr = World.TerrainOf(obj);
+        object? parent = World.ParentOf(obj);
+        GameBase.EntryForcesRec f = obj.EntryForces;
+        if (terr != f.Terrain || parent != f.Parent)
+        {
+            if (terr != null)
+            {
+                for (int i = 0; i < 3; ++i)
+                    f.Gravity[i] = terr.Gravity[i];
+                f.Drag = terr.Drag;
+            }
+            f.Terrain = terr;
+            f.Parent = parent;
+        }
+        for (int i = 0; i < 3; ++i)
+            gravity[i] = terr != null ? f.Gravity[i] : 0.0f;
+        drag = f.Drag;
+        return terr != null;
+    }
+
+    // src/game/game_commands.hpp GameState::materialTable.
+    public override MaterialTable? GetMaterialTable() => Materials;
+
+    // src/game/game_commands.cpp GameState::containerType: object type (+0x48) of the GameBase classes that join
+    // container 7.
+    public static uint ContainerType(GameBase obj)
+    {
+        (string, uint)[] kTypes =
+        {
+            ("StaticShape", ObjectType.kStaticType), ("Sensor", ObjectType.kStaticType), ("Turret", ObjectType.kStaticType),
+            ("Moveable", ObjectType.kMoveableType), ("Item", ObjectType.kItemType), ("Mine", ObjectType.kMineType),
+            ("Flier", ObjectType.kVehicleType), ("Trigger", ObjectType.kTriggerType),
+        };
+        foreach ((string cls, uint type) in kTypes)
+            if (GameUtil.EqualsNoCase(cls, obj.ClassName()))
+                return type;
+        return 0;
+    }
+
+    // src/game/game_commands.cpp GameState::placeInContainer: ShapeBase::onNewDataBlock (0x0044b274) binds the shape box
+    // and adds the object to container 7; Trigger::onAdd (0x00487178) adds its boundingBox. World boxes: ShapeBase
+    // rotates the box (0x005edbb4), a Trigger only translates it (0x005069fc).
+    public void PlaceInContainer(GameBase obj, DataBlockManager.Block block)
+    {
+        uint type = ContainerType(obj);
+        if (type == 0 || Resources == null)
+            return;
+        float[] local = { -1, -1, -1, 1, 1, 1 };
+        Span<float> box = stackalloc float[6];
+        Mat m = obj.WorldMat();
+        if (obj.GetKind() == GameBase.Kind.Trigger)
+        {
+            if (obj.PersistValue("boundingBox") is IReadOnlyList<string> v && v.Count != 0)
+                CScan.Floats(v[0], local);
+            for (int i = 0; i < 6; ++i)
+                obj.TriggerBox[i] = local[i];
+            if (obj.PersistValue("isSphere") is IReadOnlyList<string> s && s.Count != 0)
+                obj.TriggerSphere = Numbers.ParseBool(s[0]);
+            for (int i = 0; i < 3; ++i)
+            {
+                box[i] = Store(Add(local[i], m.P[i]));
+                box[i + 3] = Store(Add(local[i + 3], m.P[i]));
+            }
+        }
+        else
+        {
+            if (Sim == null || !Sim.DataBlocks().GetField(block, "shapeFile", "", out string shape) || shape.Length == 0 ||
+                !Shape.ShapeBox(Resources, shape, local))
+                return;
+            // StaticBase_bindShape (0x0044f68c): a non-zero triggerRadius widens the box.
+            if (Sim.DataBlocks().GetField(block, "triggerRadius", "", out string radius))
+            {
+                float r = Store(Numbers.BorlandAtof(radius));
+                if (r != 0.0f)
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        local[i] = Math.Min(local[i], -r);
+                        local[i + 3] = Math.Max(local[i + 3], r);
+                    }
+            }
+            Shape.RotatedWorldBox(local, m, box);
+        }
+        Span<float> g = stackalloc float[3];
+        float d = 0;
+        if (World.Find(obj) is Container.Entry e)
+        {
+            World.SetBox(obj, box);
+            e.Type = type;
+            EnteredForces(obj, g, ref d);
+            return;
+        }
+        var ne = new Container.Entry(obj, type, Float6.Of(box), false, null);
+        if (obj.GetKind() != GameBase.Kind.Trigger)
+        {
+            // ShapeCollisionImage against a line (docs/collision.md 6 T7).
+            GameBase gb = obj;
+            ne.Cast = (Vec3 s, Vec3 en, ref Vec3 hit, ref Vec3 n) => ShapeState.ShapeObjectLine(this, gb, s, en, ref hit, ref n);
+        }
+        World.Add(ne);
+        EnteredForces(obj, g, ref d);
+    }
+
+    // src/game/game_commands.cpp GameState::virtualFunction: GameBase::virtual lookup (docs/datablocks.md 8): the first
+    // defined function, or "".
+    public string VirtualFunction(GameBase gb, string method)
+    {
+        if (Console == null)
+            return "";
+        var candidates = new List<string>();
+        if (!string.IsNullOrEmpty(gb.MapName))
+            candidates.Add(gb.MapName + "::" + method);
+        if (gb.DataBlockName != null)
+        {
+            candidates.Add(gb.DataBlockName + "::" + method);
+            if (Sim?.DataBlocks().Find(gb.DataBlockName) is DataBlockManager.Block b &&
+                Sim.DataBlocks().GetField(b, "className", "", out string cls) && cls.Length != 0)
+                candidates.Add(cls + "::" + method);
+        }
+        candidates.Add(gb.ScriptClass() + "::" + method);
+        candidates.Add(method);
+        foreach (string fn in candidates)
+            if (Console.HasFunction(fn))
+                return fn;
+        return "";
+    }
+
+    // src/game/game_commands.cpp GameState::scriptCallback: GB5: script method through the GameBase::virtual lookup
+    // (no-op when undefined).
+    public override void ScriptCallback(SimObject o, string method, IReadOnlyList<string> extra)
+    {
+        if (o is not GameBase obj)
+            return;
+        string fn = VirtualFunction(obj, method);
+        if (fn.Length == 0)
+            return;
+        // D11 / docs/static-sim.md K1: the original passes argc 4 with three strings to onWaypoint, so a method declared
+        // with four parameters reads a stray word and the process dies. Such a method is not called.
+        if (method == "onWaypoint" && Console!.FunctionParamCount(fn) >= 4)
+        {
+            Console.Print(1, "onWaypoint: " + fn + " declares " + Numbers.FormatInt(Console.FunctionParamCount(fn)) +
+                             " parameters, the engine passes 2: not called");
+            return;
+        }
+        var args = new List<string> { Numbers.FormatInt(obj.Id()) };
+        args.AddRange(extra);
+        Console!.CallFunction(fn, args);
+    }
+
+    // src/game/game_commands.cpp GameState::joinSet.
+    public override void JoinSet(SimObject obj, int setId)
+    {
+        if (Sim?.Server()?.FindById(setId)?.AsSet() is SimSet set)
+            set.AddObject(obj);
+    }
+
+    // src/game/game_commands.cpp GameState::leaveSet.
+    public override void LeaveSet(SimObject obj, int setId)
+    {
+        if (Sim?.Server()?.FindById(setId)?.AsSet() is SimSet set)
+            set.RemoveObject(obj);
+    }
+
+    // src/game/game_commands.cpp GameState::dropTriggerOccupant: Trigger_onDeleteNotify (0x004872e0): the record goes
+    // without a callback, and a Trigger whose list becomes empty leaves SimTimerSet 12. Every Trigger with occupants is
+    // in that set.
+    public override void DropTriggerOccupant(SimObject obj)
+    {
+        if (Sim?.Server()?.FindById(12)?.AsSet() is not SimSet set)
+            return;
+        var members = new List<SimObject>(set.Members());
+        foreach (SimObject m in members)
+        {
+            if (m is not GameBase t || t.GetKind() != GameBase.Kind.Trigger || t == obj)
+                continue;
+            int before = t.Occupants.Count;
+            t.Occupants.RemoveAll(o => o.Object == obj.Id());
+            if (t.Occupants.Count != before && t.Occupants.Count == 0)
+                set.RemoveObject(t);
+        }
+    }
+
+    // src/game/game_commands.cpp GameState::resourceExists.
+    public override bool ResourceExists(string name) => Resources != null && Resources.Find(name) != null;
+
+    public override ResourceManager? GetResourceManager() => Resources;
+    public override Container? GetContainer() => World;
+
+    // src/game/game_commands.cpp GameState::variable.
+    public override string Variable(string name) => Console != null ? Console.GetVariable("$" + name) : "";
+
+    // src/game/game_commands.hpp GameState::setMaskBits.
+    public override void SetMaskBits(SimObject obj, uint bits) => MaskBits?.Invoke(obj, bits);
+}
