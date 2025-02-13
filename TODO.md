@@ -38,4 +38,4 @@ way are added to Open.
 - [x] Datablocks, their tables and their network packing.
 - [x] Game commands: backlog, client game commands, command map and game commands.
 - [x] Game objects: control object, damage, displacement and game state.
-- [x] Game connection.
+- [x] Game connection and ghost manager.
