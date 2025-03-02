@@ -40,3 +40,4 @@ way are added to Open.
 - [x] Game objects: control object, damage, displacement, game state, items and mission objects.
 - [x] Game connection and ghost manager.
 - [x] Object files.
+- [x] Player manager.
