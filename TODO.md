@@ -29,7 +29,7 @@ way are added to Open.
 ### Server
 
 - [x] Networking core and the server program, with the telnet console and server commands. Oversized packets are cut like the original.
-- [x] Console script language: lexer, parser, interpreter, built-in functions, math commands and number formatting.
+- [x] Console script language: lexer, parser, interpreter, built-in functions, math commands, number formatting and the random number generator.
 - [x] Client command table, client commands and key table.
 - [x] Ban list and console log.
 - [x] `scriptrun` runs console scripts outside the game.
