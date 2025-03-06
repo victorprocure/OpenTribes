@@ -10,7 +10,6 @@ way are added to Open.
 ### Server
 
 - [ ] The simulation layer and world data (terrain, interiors, shapes, collision).
-- [ ] Datablocks and game objects.
 - [ ] Hosting a mission from the game directory.
 - [ ] Players, items, projectiles, vehicles and turrets.
 - [ ] Bots (AI players).
@@ -36,7 +35,7 @@ way are added to Open.
 - [x] Numbers round toward zero like the original: stored floats, parsing and arithmetic. Overflow gives infinity.
 - [x] Simulation layer: sim manager, number helpers, text scanning, string table and world code, used by `scriptrun` and the server.
 - [x] Datablocks, their tables and their network packing.
-- [x] Game commands: backlog, client game commands, command map, game commands, static shape commands and terrain commands.
+- [x] Game commands: backlog, client game commands, command map, game, static shape, terrain and utility commands.
 - [x] Game objects: control object, damage, displacement, game state, items, mission objects, sensors, shape state and static shapes.
 - [x] Game connection and ghost manager.
 - [x] Object files.

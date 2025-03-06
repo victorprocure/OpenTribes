@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTribes.World", "OpenTri
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTribes.Sim", "OpenTribes.Sim\OpenTribes.Sim.csproj", "{41EC1564-322A-4C24-8830-C37DAC8AC1AA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTribes.Game", "OpenTribes.Game\OpenTribes.Game.csproj", "{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{41EC1564-322A-4C24-8830-C37DAC8AC1AA}.Release|x64.Build.0 = Release|Any CPU
 		{41EC1564-322A-4C24-8830-C37DAC8AC1AA}.Release|x86.ActiveCfg = Release|Any CPU
 		{41EC1564-322A-4C24-8830-C37DAC8AC1AA}.Release|x86.Build.0 = Release|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Debug|x64.Build.0 = Debug|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Debug|x86.Build.0 = Debug|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Release|x64.ActiveCfg = Release|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Release|x64.Build.0 = Release|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Release|x86.ActiveCfg = Release|Any CPU
+		{8B8A83A9-3AAB-42A7-BE05-17C4B4EE1118}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
