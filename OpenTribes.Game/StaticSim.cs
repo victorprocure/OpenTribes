@@ -1,0 +1,739 @@
+// Port of src/game/static_sim.cpp: engine behavior of the non-player mission objects (docs/static-sim.md): the
+// StaticBase tick, collision callback records, energy, repair, fade, the delayed delete, Moveable binding and stepping,
+// SimPath. The Chop class of the file is Fpu.ChopScope; every float(...) inside it is Fpu.Store.
+using OpenTribes.Script;
+using OpenTribes.Sim;
+using OpenTribes.World;
+using static OpenTribes.Core.Fpu;
+
+namespace OpenTribes.Game;
+
+// src/game/mission_objects.hpp class SimPathObject: SimPath (docs/static-sim.md 2.2): a group of waypoint markers.
+// onAdd registers the children and then records one point per child that has a transform; the path id is the
+// registration order (SimPathManager, object 42).
+public sealed class SimPathObject : SimGroup
+{
+    // src/game/mission_objects.hpp SimPathObject::Point.
+    public sealed class Point
+    {
+        public readonly float[] Pos = new float[3], Rot = new float[3]; // rotation as Euler angles
+    }
+
+    private readonly PersistFields mFields = new(new PersistDef[] { new("isLooping", 4, 1), new("isCompressed", 4, 1) });
+    private readonly List<Point> mPoints = new();
+
+    public override string ClassName() => "SimPath";
+    public bool Looping() => mFields.Boolean("isLooping", false);
+    public IReadOnlyList<Point> Points() => mPoints;
+
+    // src/game/static_sim.cpp SimPathObject::setPersistField.
+    public override bool SetPersistField(string field, IReadOnlyList<string> values) => mFields.Set(field, values);
+
+    // src/game/static_sim.cpp SimPathObject::persistValue.
+    public override IReadOnlyList<string>? PersistValue(string field) => mFields.Get(field);
+
+    // src/game/static_sim.cpp SimPathObject::onAdd: 0x0052beec: the children register first (SimSet::onAdd), then one
+    // record per child that answers query 0x401 (a transform): translation and the Euler angles of the matrix.
+    public override bool OnAdd()
+    {
+        if (!base.OnAdd())
+            return false;
+        mPoints.Clear();
+        if (mFields.Boolean("isCompressed", false))
+            return true; // the stored list would be used; none exists in a mission
+        foreach (SimObject m in Members())
+        {
+            if (m is not GameBase gb)
+                continue;
+            var p = new Point();
+            for (int i = 0; i < 3; ++i)
+                p.Pos[i] = gb.Transform.P[i];
+            MissionTransform.MatrixToEuler(gb.Transform, p.Rot);
+            mPoints.Add(p);
+        }
+        return true;
+    }
+
+    // src/game/static_sim.cpp SimPathObject::point: SimPathManager getPoint (0x0052b2d4): the number of points (0 when
+    // empty). `rec` is point `i` (a looping path takes i modulo the count) with the position and rotation deltas to the
+    // next point, the last one to point 0.
+    public int GetPoint(int i, out Point rec, Span<float> dpos, Span<float> drot)
+    {
+        rec = new Point();
+        int n = mPoints.Count;
+        if (n == 0)
+            return 0;
+        if (Looping())
+            i %= n; // C remainder: a negative index stays negative
+        if (i < 0 || i >= n)
+            return n;
+        using var chop = ChopScope();
+        rec = mPoints[i];
+        Point next = mPoints[i + 1 < n ? i + 1 : 0];
+        for (int k = 0; k < 3; ++k)
+        {
+            dpos[k] = Store(Sub(next.Pos[k], rec.Pos[k]));
+            drot[k] = Store(Sub(next.Rot[k], rec.Rot[k]));
+        }
+        return n;
+    }
+}
+
+public partial class GameBase
+{
+    // src/game/static_sim.cpp len3: len(a) = sqrt((x*x + y*y) + z*z), unrounded (0x005ed014).
+    internal static double Len3(ReadOnlySpan<float> v) => Sqrt(Add(Add(Mul(v[0], v[0]), Mul(v[1], v[1])), Mul(v[2], v[2])));
+
+    // src/game/static_sim.cpp GameBase::serverTick: tick dispatch.
+    public override void ServerTick(uint tickMs)
+    {
+        switch (mShapeClass)
+        {
+            case ShapeKind.Moveable:
+                MoveableTick();
+                break;
+            case ShapeKind.Item:
+            case ShapeKind.Mine:
+                ItemTick();
+                break;
+            case ShapeKind.Turret:
+                TurretTickMs = tickMs;
+                TurretTick();
+                break;
+            default:
+                StaticTick(0.03f);
+                break;
+        }
+    }
+
+    // src/game/static_sim.cpp GameBase::staticTick: StaticBase::serverTick (0x0044fd78): collision records, threads,
+    // recharge, repair, damage state; every step takes dt 0.03 (0x3cf5c28f) although a tick is 0.032 s.
+    public void StaticTick(float dt)
+    {
+        if (!IsStaticBase() || !ShapeBound)
+            return;
+        using var chop = ChopScope();
+        ExpireCollisions();
+        // 0x0044c710: threads in slot order. A non-cyclic sequence that sits at its end while not flagged ends first (the
+        // script is told on the server), then every thread advances.
+        for (int slot = 0; slot < 3; ++slot)
+        {
+            Thread t = Threads[slot];
+            if (!t.Created)
+                continue;
+            ShapeSequence? seq = Anim != null && t.Sequence >= 0 && t.Sequence < Anim.Sequences.Count ? Anim.Sequences[t.Sequence] : null;
+            if (seq != null && !seq.Cyclic && (t.Flags & kThreadAtEnd) == 0)
+            {
+                bool done = (t.Flags & kThreadForward) != 0 ? t.Position >= 1.0f : t.Position <= 0.0f;
+                if (done)
+                {
+                    t.Flags |= kThreadAtEnd;
+                    ThreadChanged(slot);
+                    mCtx.Game?.ScriptCallback(this, "onEndSequence", new[] { Numbers.FormatInt(slot) });
+                }
+            }
+            if (seq != null && t.Speed != 0 && seq.Duration > 0)
+            {
+                float step = Store(Div(dt, seq.Duration));
+                float delta = Store(Mul(t.Speed, step));
+                t.Position = Store(Add(delta, t.Position));
+                if (!seq.Cyclic)
+                {
+                    if (t.Position > 1.0f)
+                        t.Position = 1.0f;
+                    else if (t.Position < 0.0f)
+                        t.Position = 0.0f;
+                }
+                else
+                {
+                    while (t.Position >= 1.0f)
+                        t.Position = SubF(t.Position, 1.0f);
+                    while (t.Position < 0.0f)
+                        t.Position = AddF(t.Position, 1.0f);
+                }
+            }
+        }
+        RechargeStep(dt);
+        RepairStep(dt);
+        UpdateDamageState();
+    }
+
+    // ---- collision callback records (docs/static-sim.md 1.8, docs/collision.md E1.4) ----
+
+    // src/game/static_sim.cpp GameBase::expireCollisions: 0x00448248: the list goes when every expiry has passed.
+    public void ExpireCollisions()
+    {
+        if (CollisionRecords.Count == 0 || Manager() == null)
+            return;
+        if (Manager()!.Time() > CollisionLatest)
+            CollisionRecords.Clear();
+    }
+
+    // src/game/static_sim.cpp GameBase::onCollision: vtable +0x140, 0x00448840. The record of `other` is found from
+    // index 0; a record that expired earlier in the list is taken over with expiry 0; else one is appended.
+    public void OnCollision(GameBase other, GameServices? services = null)
+    {
+        GameServices? game = services ?? mCtx.Game;
+        if (game == null)
+            return;
+        float now = Manager() != null ? Manager()!.Time() : 0.0f;
+        int rec = -1;
+        for (int i = 0; i < CollisionRecords.Count; ++i)
+        {
+            CollisionRecord r = CollisionRecords[i];
+            if (r.Other == other.Id())
+            {
+                rec = i;
+                break;
+            }
+            if (r.Expiry < now)
+            {
+                CollisionRecords[i] = new CollisionRecord { Other = other.Id(), Expiry = 0 };
+                rec = i;
+                break;
+            }
+        }
+        if (rec < 0)
+        {
+            CollisionRecords.Add(new CollisionRecord { Other = other.Id(), Expiry = 0 });
+            rec = CollisionRecords.Count - 1;
+        }
+        CollisionRecord c = CollisionRecords[rec];
+        if (now <= c.Expiry)
+            return;
+        c.Expiry = Store(Add(now, 1.0f));
+        CollisionRecords[rec] = c;
+        if (c.Expiry > CollisionLatest)
+            CollisionLatest = c.Expiry;
+        game.ScriptCallback(this, "onCollision", new[] { Numbers.FormatInt(other.Id()) });
+    }
+
+    // src/game/static_sim.cpp GameBase::onCollisionNotify: vtable +0xe8. Server only; the accepted types are the
+    // per-class masks of docs/collision.md E1.4. The type bits come from the container classes.
+    public void OnCollisionNotify(GameBase other)
+    {
+        uint type;
+        switch (other.ShapeClass())
+        {
+            case ShapeKind.StaticShape:
+            case ShapeKind.Sensor:
+            case ShapeKind.Turret:
+                type = ObjectType.kStaticType;
+                break;
+            case ShapeKind.Moveable:
+                type = ObjectType.kMoveableType;
+                break;
+            case ShapeKind.Item:
+                type = ObjectType.kItemType;
+                break;
+            case ShapeKind.Mine:
+                type = ObjectType.kMineType;
+                break;
+            case ShapeKind.Vehicle:
+                type = ObjectType.kVehicleType;
+                break;
+            default:
+                type = GameUtil.EqualsNoCase(other.ClassName(), "Player") ? ObjectType.kPlayerType : 0u;
+                break;
+        }
+        uint mask;
+        switch (mShapeClass)
+        {
+            case ShapeKind.StaticShape:
+            case ShapeKind.Sensor:
+            case ShapeKind.Turret:
+            case ShapeKind.Moveable:
+                mask = 0x24200080; // Player, Item, Mine, Vehicle
+                break;
+            case ShapeKind.Item:
+                if (ItemThrower == other)
+                    return;
+                mask = 0x24800080; // Player, StaticBase, Mine, Vehicle
+                break;
+            case ShapeKind.Mine:
+                if (DamageState == kDestroyed || ItemThrower == other)
+                    return;
+                mask = 0x24800080;
+                break;
+            default:
+                return;
+        }
+        if ((type & mask) != 0)
+            OnCollision(other);
+    }
+
+    // ---- energy, repair, shield, fade ----
+
+    // src/game/static_sim.cpp GameBase::setEnergy: 0x0044bd78: clamped to [0, maxEnergy].
+    public void SetEnergy(float v)
+    {
+        Energy = v;
+        if (Energy > MaxEnergy)
+            Energy = MaxEnergy;
+        else if (Energy < 0)
+            Energy = 0;
+    }
+
+    // src/game/static_sim.cpp GameBase::rechargeStep: 0x0044b5b0.
+    public void RechargeStep(float dt)
+    {
+        using var chop = ChopScope();
+        Energy = Store(Add(Mul(RechargeRate, dt), Energy));
+        if (Energy > MaxEnergy)
+            Energy = MaxEnergy;
+        else if (Energy < 0)
+            Energy = 0;
+    }
+
+    // src/game/static_sim.cpp GameBase::repairDamage: 0x0044bc40: only an object with damage, and a positive amount.
+    public void RepairDamage(float amount)
+    {
+        if (Damage != 0 && amount > 0)
+            RepairPending = Store(Add(RepairPending, amount));
+    }
+
+    // src/game/static_sim.cpp GameBase::repairStep: 0x0044b610. Pending repair is applied at repairRate per second.
+    public void RepairStep(float dt)
+    {
+        using var chop = ChopScope();
+        if (RepairPending != 0)
+        {
+            float step = Store(Mul(RepairRate, dt));
+            if (RepairPending >= step)
+            {
+                Damage = Store(Sub(Damage, step));
+                RepairPending = Store(Sub(RepairPending, step));
+            }
+            else
+            {
+                Damage = Store(Sub(Damage, RepairPending));
+                RepairPending = 0;
+            }
+            if (Damage < 0)
+                Damage = 0;
+            if (RepairPending > Damage)
+                RepairPending = Damage;
+            else if (RepairPending < 0)
+                RepairPending = 0;
+            SetMaskBits(0x100);
+        }
+        if (Damage > 0 && AutoRepairRate > 0)
+        {
+            // The 0.032 is an f64 constant (0x0044b744).
+            Damage = Store(Sub(Damage, Mul(AutoRepairRate, 0.032)));
+            if (Damage < 0)
+                Damage = 0;
+            SetMaskBits(0x100);
+        }
+    }
+
+    // src/game/static_sim.cpp GameBase::activateShield: 0x0044bb58: the stored direction is -vec normalised (no
+    // zero-length guard), the second value the z offset; mask 0x80.
+    public void ActivateShield(ReadOnlySpan<float> vec, float zOffset)
+    {
+        using var chop = ChopScope();
+        double l = Len3(vec);
+        for (int i = 0; i < 3; ++i)
+            FlashNormal[i] = Store(Div(-(double)vec[i], l));
+        FlashAmount = zOffset;
+        SetMaskBits(0x80);
+    }
+
+    // src/game/static_sim.cpp GameBase::startFade: 0x0044eed4 / 0x0044ef7c on a server object.
+    public void StartFade(int state)
+    {
+        FadeState = state;
+        FadeStart = SimTimeMs();
+        SetMaskBits(0x200);
+    }
+
+    // src/game/static_sim.cpp GameBase::simTimeMs: the tick time in milliseconds (the global at 0x006a8494 + 4).
+    public uint SimTimeMs() =>
+        Manager() != null ? (uint)(long)Math.Round(Mul(Manager()!.Time(), 1000.0), MidpointRounding.AwayFromZero) : 0u;
+
+    // src/game/static_sim.cpp GameBase::updateFade: 0x0044cff8, end of the pack: 0x9c4 ms after the start a fade in is
+    // over.
+    public void UpdateFade()
+    {
+        if (FadeState == 2 && FadeStart + 2500u <= SimTimeMs())
+            FadeState = 0;
+    }
+
+    // src/game/static_sim.cpp GameBase::postDelayedDelete: 0x0044f9a0: a server object with deleteOnDestroy posts event
+    // 0x401 to itself at manager time + 0.5; the handler (0x0044ffb4) deletes it. Leaving Destroyed does not cancel it.
+    public void PostDelayedDelete()
+    {
+        if (!DeleteOnDestroy || Manager() == null)
+            return;
+        SimManager m = Manager()!;
+        m.PostEvent(this, Store(Add(m.Time(), 0.5f)), () => m.DeleteObject(this));
+    }
+
+    // ---- Moveable (docs/static-sim.md 2) ----
+
+    // src/game/static_sim.cpp GameBase::loadSegment: 0x004440c0: run when the waypoint differs from the cached one.
+    private bool LoadSegment()
+    {
+        if (Waypoint == CachedSegment)
+            return true;
+        CachedSegment = Waypoint;
+        SimPathObject? path = mCtx.Game?.PathById(PathId) as SimPathObject;
+        SimPathObject.Point rec = new();
+        Span<float> dpos = stackalloc float[3], drot = stackalloc float[3];
+        dpos.Clear();
+        drot.Clear();
+        WaypointCount = path != null ? path.GetPoint(Waypoint, out rec, dpos, drot) : 0;
+        bool valid = path != null && WaypointCount != 0 && Waypoint >= 0 && Waypoint < WaypointCount && Waypoint < path.Points().Count;
+        if (!valid)
+        {
+            CachedSegment = -1;
+            Waypoint = 0;
+            WaypointTime = 0;
+            return false;
+        }
+        using var chop = ChopScope();
+        for (int i = 0; i < 3; ++i)
+        {
+            SegPos[i] = rec.Pos[i];
+            SegRot[i] = rec.Rot[i];
+            SegDPos[i] = dpos[i];
+            SegDRot[i] = drot[i];
+        }
+        SegmentTime = Store(Div(Len3(SegDPos), MoveData.Speed));
+        if (SegmentTime == 0)
+            SegmentTime = 1.0f;
+        if (WaypointTime > SegmentTime)
+            WaypointTime = SegmentTime;
+        return true;
+    }
+
+    // src/game/static_sim.cpp GameBase::applyMoveable: 0x0044421c. Applied only when (waypoint, time) differs from the
+    // last applied pair.
+    private bool ApplyMoveable(bool forced)
+    {
+        if (Waypoint == AppliedWaypoint && WaypointTime == AppliedTime)
+            return true;
+        using var chop = ChopScope();
+        float[] rot = new float[3], pos = new float[3];
+        if (SegmentTime != 0)
+        {
+            float f = Store(Div(WaypointTime, SegmentTime));
+            for (int i = 0; i < 3; ++i)
+            {
+                pos[i] = Store(Add(Mul(SegDPos[i], f), SegPos[i]));
+                rot[i] = Store(Add(Mul(SegDRot[i], f), SegRot[i]));
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                pos[i] = SegPos[i];
+                rot[i] = SegRot[i];
+            }
+        }
+        double l = Len3(SegDPos);
+        float lf = Store(l);
+        if (lf == 0 || MoveState == kMoveStopped)
+        {
+            Velocity[0] = Velocity[1] = Velocity[2] = 0;
+        }
+        else
+        {
+            float k = Store(Div(MoveData.Speed, lf));
+            for (int i = 0; i < 3; ++i)
+                Velocity[i] = Store(Mul(k, SegDPos[i]));
+            if (MoveState == kMoveBackward)
+                for (int i = 0; i < 3; ++i)
+                    Velocity[i] = -Velocity[i];
+        }
+        float[] oldRot = { Rotation[0], Rotation[1], Rotation[2] };
+        float[] oldPos = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        void Place(float[] r, float[] p)
+        {
+            SetRotation(r);
+            SetPosition(p);
+            mCtx.Game?.ObjectMoved(this);
+        }
+        bool directionOpen = (MoveState == kMoveForward && !MoveData.BlockForward) ||
+                             (MoveState == kMoveBackward && !MoveData.BlockBackward);
+        if (forced)
+        {
+            Place(rot, pos);
+        }
+        else if (MoveData.Displace)
+        {
+            Place(rot, pos);
+            // Displace the objects the new transform overlaps; the move stands when that succeeded or this direction
+            // cannot block.
+            bool ok = MoveableDisplaceOverride != null ? MoveableDisplaceOverride(this)
+                                                       : (mCtx.Game == null || mCtx.Game.MoveableDisplace(this, oldPos));
+            if (!ok && !directionOpen)
+            {
+                if (!MoveBlocked)
+                    SetMaskBits(0x4000);
+                MoveBlocked = true;
+                Place(oldRot, oldPos);
+                return false;
+            }
+            if (MoveBlocked)
+                SetMaskBits(0x4000);
+            MoveBlocked = false;
+        }
+        else
+        {
+            // Doors: test the new transform first unless this direction cannot block.
+            bool free = directionOpen ||
+                        (MoveableTestOverride != null ? MoveableTestOverride(this)
+                                                      : (mCtx.Game == null || mCtx.Game.MoveableTest(this, rot, pos)));
+            if (!free)
+            {
+                if (!MoveBlocked)
+                    SetMaskBits(0x4000);
+                MoveBlocked = true;
+                return false;
+            }
+            Place(rot, pos);
+            if (MoveBlocked)
+                SetMaskBits(0x4000);
+            MoveBlocked = false;
+        }
+        AppliedWaypoint = Waypoint;
+        AppliedTime = WaypointTime;
+        return true;
+    }
+
+    // src/game/static_sim.cpp GameBase::findPath: 0x004439f0: the first member of the Moveable's group that answers
+    // query 0x40c (a SimPath) gives the path id; none: the search repeats next tick.
+    private void FindPath()
+    {
+        if (Group() == null || mCtx.Game == null)
+            return;
+        foreach (SimObject m in Group()!.Members())
+        {
+            if (!GameUtil.EqualsNoCase(m.ClassName(), "SimPath"))
+                continue;
+            int id = mCtx.Game.PathIndex(m);
+            if (id < 0)
+                continue;
+            SetPath(id, 0);
+            return;
+        }
+    }
+
+    // src/game/static_sim.cpp GameBase::setPath: 0x00443974: store the id, read the point count, script onNewPath, load
+    // the segment of the current waypoint and snap to it without the collision test; stopped unless a state was
+    // requested earlier; mask 0x2000.
+    public bool SetPath(int id, int points)
+    {
+        _ = points;
+        PathId = id;
+        SimPathObject? path = mCtx.Game?.PathById(PathId) as SimPathObject;
+        Span<float> dpos = stackalloc float[3], drot = stackalloc float[3];
+        WaypointCount = path != null ? path.GetPoint(Waypoint, out _, dpos, drot) : 0;
+        mCtx.Game?.ScriptCallback(this, "onNewPath", Array.Empty<string>());
+        LoadSegment();
+        ApplyMoveable(true);
+        if (MoveState == kMoveNone)
+            SetMoveState(kMoveStopped);
+        SetMaskBits(0x2000);
+        return true;
+    }
+
+    // src/game/static_sim.cpp GameBase::moveableTick: 0x0044388c.
+    private void MoveableTick()
+    {
+        StaticTick(0.03f);
+        if (PathId == 0xff)
+        {
+            FindPath();
+            if (PathId == 0xff)
+                return;
+            SetMoveState(MoveState); // the pending state, now that a path exists
+        }
+        using var chop = ChopScope();
+        MoveableStep(0.032f);
+    }
+
+    // src/game/static_sim.cpp GameBase::moveableStep: 0x00443d5c. Every time slice is the f32 0.032 (0x3d03126f).
+    private void MoveableStep(float dt)
+    {
+        if (PathId == 0xff || dt == 0)
+            return;
+        void Callback(string name, bool withIndex)
+        {
+            if (mCtx.Game == null)
+                return;
+            string[] extra = withIndex ? new[] { Numbers.FormatInt(Waypoint) } : Array.Empty<string>();
+            mCtx.Game.ScriptCallback(this, name, extra);
+        }
+        if (MoveState == kMoveStopped)
+        {
+            MoveBlocked = false;
+            return;
+        }
+        if (MoveState == kMoveForward)
+        {
+            int wp0 = Waypoint;
+            float t0 = WaypointTime;
+            LoadSegment();
+            while (dt > 0 && MoveState == kMoveForward)
+            {
+                WaypointTime = Store(Add(dt, WaypointTime));
+                if (WaypointTime > SegmentTime)
+                {
+                    dt = Store(Sub(WaypointTime, SegmentTime));
+                    WaypointTime = 0;
+                    ++Waypoint;
+                    LoadSegment();
+                }
+                else
+                {
+                    dt = 0;
+                }
+                if (!ApplyMoveable(false))
+                {
+                    Waypoint = wp0;
+                    WaypointTime = t0;
+                    return;
+                }
+                SetMaskBits(0x08);
+                if (WaypointCount - 1 == Waypoint)
+                {
+                    Callback("onWaypoint", true);
+                    Callback("onLast", false);
+                    if (MoveState == kMoveForward)
+                        SetMoveState(kMoveStopped);
+                }
+                else if (WaypointTime == 0)
+                {
+                    if (Waypoint == MoveTarget)
+                        SetMoveState(kMoveStopped);
+                    Callback("onWaypoint", true);
+                }
+            }
+        }
+        else if (MoveState == kMoveBackward)
+        {
+            int wp0 = Waypoint;
+            float t0 = WaypointTime;
+            LoadSegment();
+            while (dt > 0 && MoveState == kMoveBackward)
+            {
+                WaypointTime = Store(Sub(WaypointTime, dt));
+                if (WaypointTime > 0)
+                {
+                    dt = 0;
+                }
+                else
+                {
+                    dt = -WaypointTime;
+                    if (Waypoint == 0)
+                    {
+                        WaypointTime = 0;
+                    }
+                    else
+                    {
+                        --Waypoint;
+                        LoadSegment();
+                        WaypointTime = SegmentTime;
+                    }
+                }
+                if (!ApplyMoveable(false))
+                {
+                    Waypoint = wp0;
+                    WaypointTime = t0;
+                    return;
+                }
+                SetMaskBits(0x08);
+                if (WaypointTime == 0)
+                {
+                    Callback("onWaypoint", true);
+                    Callback("onFirst", false);
+                    if (MoveState == kMoveBackward)
+                        SetMoveState(kMoveStopped);
+                }
+                else if (WaypointTime == SegmentTime)
+                {
+                    if (Waypoint + 1 == MoveTarget)
+                        SetMoveState(kMoveStopped);
+                    Callback("onWaypoint", true);
+                }
+            }
+        }
+    }
+
+    // src/game/static_sim.cpp GameBase::setMoveState: 0x00443a40, server part. With no path only the state is stored.
+    public void SetMoveState(int state)
+    {
+        if (PathId == 0xff)
+        {
+            MoveState = state;
+            return;
+        }
+        LoadSegment();
+        int last = WaypointCount - 1;
+        if (Waypoint > last)
+        {
+            Waypoint = last;
+            WaypointTime = 0;
+        }
+        if (last == Waypoint && WaypointTime > 0)
+            WaypointTime = 0;
+        if (state == kMoveForward)
+        {
+            if (last == Waypoint)
+                state = kMoveStopped;
+        }
+        else if (state == kMoveBackward && Waypoint == 0 && WaypointTime == 0)
+        {
+            state = kMoveStopped;
+        }
+        if (state != MoveState)
+        {
+            MoveState = state;
+            SetMaskBits(0x4008);
+        }
+    }
+
+    // src/game/static_sim.cpp GameBase::setWaypoint: 0x004447ac: no range check, no transform; the next segment load
+    // repairs the index.
+    public void SetWaypoint(int index)
+    {
+        Waypoint = index;
+        WaypointTime = 0;
+        SetMaskBits(0x08);
+    }
+
+    // src/game/static_sim.cpp GameBase::moveToWaypoint: 0x004447dc.
+    public bool MoveToWaypoint(int index)
+    {
+        if (index < 0 || index > WaypointCount - 1)
+            return false;
+        MoveTarget = index;
+        if (Waypoint < index)
+            SetMoveState(kMoveForward);
+        else if (index < Waypoint || WaypointTime > 0)
+            SetMoveState(kMoveBackward);
+        else
+            SetMoveState(kMoveStopped);
+        return true;
+    }
+
+    // src/game/static_sim.cpp GameBase::moveForward: 0x0044484c (moveForward, moveBackward, stop): ignored unless active
+    // and Enabled.
+    public void MoveForward(int state)
+    {
+        if (!Active || DamageState != kEnabled)
+            return;
+        MoveTarget = 15;
+        SetMoveState(state);
+    }
+
+    // src/game/static_sim.cpp GameBase::moveablePosition: Moveable::getPosition: wp + t / T.
+    public float MoveablePosition()
+    {
+        using var chop = ChopScope();
+        return Store(Add((double)Waypoint, (double)Store(Div(WaypointTime, SegmentTime))));
+    }
+}

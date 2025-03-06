@@ -37,7 +37,7 @@ way are added to Open.
 - [x] Simulation layer: sim manager, number helpers, text scanning, string table and world code, used by `scriptrun` and the server.
 - [x] Datablocks, their tables and their network packing.
 - [x] Game commands: backlog, client game commands, command map, game commands and static shape commands.
-- [x] Game objects: control object, damage, displacement, game state, items, mission objects, sensors and shape state.
+- [x] Game objects: control object, damage, displacement, game state, items, mission objects, sensors, shape state and static shapes.
 - [x] Game connection and ghost manager.
 - [x] Object files.
 - [x] Player manager.
