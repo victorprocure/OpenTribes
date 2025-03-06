@@ -3,6 +3,7 @@
 // the mode of Fpu like the C++ (the test programs run in the script FPU mode).
 using System.Buffers.Binary;
 using OpenTribes.Core;
+using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using static OpenTribes.Core.Fpu;
@@ -534,7 +535,8 @@ internal static class Fixtures
         public readonly ResourceManager Res;
         public readonly ClassContext Ctx = new();
         public readonly SimConsole Sim;
-        // P4: game::GameState game
+        public readonly GameState Game = new();
+        private static bool sClasses;
         public string Out = "";
         public int Lines;
 
@@ -548,9 +550,16 @@ internal static class Fixtures
             Ctx.Resources = Res;
             Sim.RegisterCommands();
             In.SetObjects(Sim);
-            // P4: game.sim, game.console, game.resources, ctx.game
-            // P4: registerMissionClasses() once
-            // P4: registerGameCommands(in, game)
+            Game.Sim = Sim;
+            Game.Console = In;
+            Game.Resources = Res;
+            Ctx.Game = Game;
+            if (!sClasses)
+            {
+                MissionClasses.Register();
+                sClasses = true;
+            }
+            GameCommands.Register(In, Game);
             In.SetOutput(l =>
             {
                 Out += (Lines++ != 0 ? "\n" : "") + l;

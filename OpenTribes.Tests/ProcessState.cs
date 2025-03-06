@@ -15,5 +15,7 @@ public sealed class ProcessStateAttribute : BeforeAfterTestAttribute
     {
         StringTable.ResetGlobal();
         Fpu.TowardZero = false;
+        OpenTribes.Game.StaticRandom.Reset();
+        OpenTribes.Game.ShapeState.Reset();
     }
 }
