@@ -110,6 +110,9 @@ public sealed class GhostManager
     // src/game/ghost_manager.cpp findGhostClass.
     public static GhostClass? FindGhostClass(string className) => sRegistry.TryGetValue(className, out GhostClass? c) ? c : null;
 
+    // Port convention (no C++ function): empties the registry, the start state of a C++ test process.
+    public static void ResetRegistry() => sRegistry.Clear();
+
     // src/game/ghost_manager.cpp indexBits: 00552360: bit length of a ghost index, at least 1.
     private static uint IndexBits(uint index)
     {

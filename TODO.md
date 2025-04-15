@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Server
 
-- [ ] The simulation layer and world data (terrain, interiors, shapes, collision).
 - [ ] Hosting a mission from the game directory.
 - [ ] Players, items, projectiles, vehicles and turrets.
 - [ ] Bots (AI players).
@@ -37,7 +36,7 @@ way are added to Open.
 - [x] Datablocks, their tables and their network packing.
 - [x] Game commands: backlog, client game commands, command map, game, static shape, terrain and utility commands.
 - [x] Game objects: control object, damage, displacement, game state, items, mission objects, sensors, shape state and static shapes.
-- [x] Game connection, ghost manager and ghost classes.
+- [x] Game connection, ghost manager, ghost classes and ghost scope.
 - [x] Object files.
 - [x] Player manager.
 - [x] Turret simulation.
