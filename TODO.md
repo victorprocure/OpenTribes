@@ -33,7 +33,7 @@ way are added to Open.
 - [x] Ban list and console log.
 - [x] `scriptrun` runs console scripts outside the game.
 - [x] Numbers round toward zero like the original: stored floats, parsing and arithmetic. Overflow gives infinity.
-- [x] Simulation layer: sim manager, number helpers, text scanning, string table and world code, used by `scriptrun` and the server.
+- [x] Simulation layer: sim manager, number helpers, text scanning, string table and world code (material lists and shapes), used by `scriptrun` and the server.
 - [x] Datablocks, their tables and their network packing.
 - [x] Game commands: backlog, client game commands, command map, game, static shape, terrain and utility commands.
 - [x] Game objects: control object, damage, displacement, game state, items, mission objects, sensors, shape state and static shapes.

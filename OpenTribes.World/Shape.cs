@@ -1120,6 +1120,16 @@ public sealed class ShapeInstance
 // The free functions of src/world/shape.cpp.
 public static class Shape
 {
+    // Port convention (no C++ function): empties the by-name caches, the start state of a C++ test process.
+    public static void ResetCaches()
+    {
+        sSphereCache.Clear();
+        sBoxCache.Clear();
+        sAnimCache.Clear();
+        sCollisionCache.Clear();
+        sModelCache.Clear();
+    }
+
     // src/world/shape.cpp recordSizes: array record sizes of shape versions 1-7 (docs/interiors.md 8.2): nodes,
     // sequences, subSequences, keyframes, transforms, names, objects, details, transitions, frameTriggers.
     internal static long[] RecordSizes(uint v)

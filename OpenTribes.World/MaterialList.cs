@@ -118,6 +118,9 @@ public static class MaterialList
     }
     private static readonly Dictionary<string, Cached> sCache = new(StringComparer.Ordinal);
 
+    // Port convention (no C++ function): empties the by-name cache, the start state of a C++ test process.
+    public static void ResetCache() => sCache.Clear();
+
     // src/world/material_list.cpp materialList: loads "<name>" through the resource manager; null when missing or
     // malformed. Cached by name for the process.
     public static List<Material>? Get(ResourceManager res, string name)
