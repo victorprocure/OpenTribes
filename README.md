@@ -23,8 +23,11 @@ Publishing puts the programs in `out/`:
 
 ## Run a server
 
-The server program starts, but it cannot host a game yet. Run `out/tribes-server` with a wrong option to see its
-options.
+    out/tribes-server --root /path/to/Tribes -- -dedicated Broadside
+
+Replace `Broadside` with any mission name. The server listens on UDP port 28001 by default (`$Server::Port` in the
+server scripts). Run `out/tribes-server` with a wrong option to see all its options. The main ones are `--port`,
+`--hostname`, `--password` and `--max-players`.
 
 ## Run the tests
 
@@ -34,4 +37,4 @@ Some tests currently fail because their data files are in the C++ repository. Se
 
 ## Status
 
-The server is in progress. Known gaps, done and open, are listed in [TODO.md](TODO.md).
+The server hosts missions. Players, weapons, vehicles and bots are in progress. Known gaps, done and open, are listed in [TODO.md](TODO.md).

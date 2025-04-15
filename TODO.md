@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Server
 
-- [ ] Hosting a mission from the game directory.
 - [ ] Players, items, projectiles, vehicles and turrets.
 - [ ] Bots (AI players).
 - [ ] Master server heartbeat.
@@ -40,3 +39,4 @@ way are added to Open.
 - [x] Object files.
 - [x] Player manager.
 - [x] Turret simulation.
+- [x] The server hosts a mission from the game directory.

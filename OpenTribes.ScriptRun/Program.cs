@@ -1,6 +1,5 @@
 // Port of tools/scriptrun.cpp: reads console lines from stdin, evaluates each like a console line, and prints that
-// line's output followed by a line containing only "\x01". The game layer it also builds is stage P4 of the port; its
-// places are marked.
+// line's output followed by a line containing only "\x01".
 using System.Text;
 using OpenTribes.Core;
 using OpenTribes.Script;
@@ -39,9 +38,11 @@ public static class Program
         var sim = new SimConsole(interp, ctx);
         sim.RegisterCommands();
         interp.SetObjects(sim);
-        // P4: GameState game (sim, console, resources); ctx.game
-        // P4: registerMissionClasses() (src/game/mission_objects.cpp)
-        // P4: registerGameCommands(interp, game)
+        var game = new OpenTribes.Game.GameState { Sim = sim, Console = interp };
+        ctx.Game = game;
+        OpenTribes.Game.MissionClasses.Register();
+        game.Resources = res;
+        OpenTribes.Game.GameCommands.Register(interp, game);
         if (Environment.GetEnvironmentVariable("OT_LASTHOPE") != null) // LastHope 1.30 script mode (tools/scriptdiff.py against a 1.30 reference)
             Builtins.ApplyLastHopeMode(interp);
         interp.Evaluate("newServer(); focusServer(); newObject(ConsoleScheduler, SimConsoleScheduler);");

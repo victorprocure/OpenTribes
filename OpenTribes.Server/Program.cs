@@ -1,10 +1,10 @@
-// Port of src/server/main.cpp: the dedicated server executable. The game and master layers that main.cpp also
-// constructs (GameState, GameServer, MasterHeartbeat) are stages P4 and P5 of the port; each place that uses one is
-// marked with the stage that adds it.
+// Port of src/server/main.cpp: the dedicated server executable. The master layer that main.cpp also constructs
+// (MasterHeartbeat) is stage P5 of the port; each place that uses it is marked.
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using OpenTribes.Core;
+using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 
@@ -175,7 +175,7 @@ public static class Program
         Interpreter? console = null;
         var simContext = new ClassContext();
         SimConsole? sim = null;
-        // P4: GameState game
+        var game = new GameState();
         TelnetConsole? telnet = null;
         // P5: MasterHeartbeat master
         using var consoleLog = new ConsoleLog(consoleLogPath);
@@ -213,9 +213,14 @@ public static class Program
             sim = new SimConsole(console, simContext);
             sim.RegisterCommands();
             console.SetObjects(sim);
-            // P4: game.sim, game.console, simContext.game, simContext.serverCreated (players.startPingTimer)
-            // P4: registerMissionClasses() (src/game/mission_objects.cpp)
-            // P4: registerGhostClasses(); game.resources; registerGameCommands(console, game)
+            game.Sim = sim;
+            game.Console = console;
+            simContext.Game = game;
+            simContext.ServerCreated = m => game.Players.StartPingTimer(m);
+            MissionClasses.Register();
+            GhostClasses.Register();
+            game.Resources = resources;
+            GameCommands.Register(console, game);
             SimConsole simOps = sim;
             {
                 var ops = new ServerCommandContext
@@ -262,8 +267,14 @@ public static class Program
             StdIo.Flush();
             if (listDataBlocks)
             {
-                // P4: one line per initialized field of each datablock (group, index, name, field, count) from
-                //     sim.dataBlocks()
+                // group, index, name, then each field that a constructor initializes, with its count.
+                sim.DataBlocks().ForEach(b =>
+                {
+                    foreach (DataBlockManager.Field f in b.Fields)
+                        if (!f.Def.Uninit)
+                            StdIo.Write(Num(b.Group) + "\t" + Num(b.Index) + "\t" + b.Name + "\t" + f.Def.Name + "\t" + Num(f.Def.Count) + "\n");
+                });
+                StdIo.Flush();
                 return 0;
             }
             if (evalFile.Length != 0)
@@ -305,12 +316,18 @@ public static class Program
                     CpuText = inInfo.PeekVariable("$CPU::estimatedSpeed"),
                 };
                 g.CpuSpeed = Numbers.BorlandAtoi(g.CpuText);
-                // P4: teamCount, teamScoreHeading, clientScoreHeading, the teams (name, score, sort value) and the
-                //     human players' client records (team, score text and sort, ping, loss) from GameState
+                g.TeamCount = game.TeamCount;
+                g.TeamHeading = game.TeamScoreHeading;
+                g.ClientHeading = game.ClientScoreHeading;
+                for (int t = 0; t < game.TeamCount && t + 1 < game.Teams.Count; ++t)
+                    g.Teams.Add(new GameInfo.TeamRow(game.Teams[t + 1].Name, game.Teams[t + 1].Score, game.Teams[t + 1].SortValue));
+                foreach (int id in game.Players.Humans())
+                    if (game.Players.FindHuman(id) is ClientRecord r)
+                        g.Players.Add(new GameInfo.PlayerRow { Id = (uint)id, Team = r.Team, Score = r.ScoreText, Sort = r.ScoreSort, Ping = r.Ping, Loss = r.Loss });
                 return g;
             });
         }
-        // P4: GameServer gameServer
+        GameServer? gameServer = null;
         if (console != null)
         {
             Interpreter inTelnet = console;
@@ -323,8 +340,10 @@ public static class Program
                 Print = line => inTelnet.Print(1, line),
             };
             telnet = new TelnetConsole(th);
-            // P4: gameServer = GameServer(game, console, server); gameServer.registerCommands()
-            // P4: game.allocateRecordId = server.allocatePlayerId; game.releaseRecordId = server.releasePlayerId
+            gameServer = new GameServer(game, console, server);
+            gameServer.RegisterCommands();
+            game.AllocateRecordId = () => (int)server.AllocatePlayerId();
+            game.ReleaseRecordId = id => server.ReleasePlayerId((uint)id);
         }
         if (!server.IsOpen() && !server.Open())
         {
