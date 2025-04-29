@@ -415,7 +415,7 @@ public sealed partial class Player
             ImageCallback(slot, "onFire");
             return;
         }
-        // P4b: Projectile: projectileFromImage(*this, slot, false) (projectile_fire.cpp).
+        ProjectileFire.ProjectileFromImage(this, slot, false);
     }
 
     // src/game/item_image.cpp Player::startSustained: 0x0041b520.
@@ -427,7 +427,7 @@ public sealed partial class Player
             ImageCallback(slot, "onActivate");
             return;
         }
-        // P4b: Projectile: projectileFromImage(*this, slot, true) (projectile_fire.cpp).
+        ProjectileFire.ProjectileFromImage(this, slot, true);
     }
 
     // src/game/item_image.cpp Player::updateSustained: 0x0041b728.
@@ -439,7 +439,8 @@ public sealed partial class Player
             ImageCallback(slot, "onUpdateFire");
             return;
         }
-        // P4b: Projectile: if (s.projectile) projectileUpdateFromImage(*this, slot) (projectile_fire.cpp).
+        if (s.Projectile != 0)
+            ProjectileFire.ProjectileUpdateFromImage(this, slot);
     }
 
     // src/game/item_image.cpp Player::stopSustained: 0x0041b828.
@@ -451,7 +452,7 @@ public sealed partial class Player
             ImageCallback(slot, "onDeactivate");
             return;
         }
-        // P4b: Projectile: projectileShutOffFromImage(*this, slot) (projectile_fire.cpp).
+        ProjectileFire.ProjectileShutOffFromImage(this, slot);
         Images[slot].Projectile = 0;
     }
 }

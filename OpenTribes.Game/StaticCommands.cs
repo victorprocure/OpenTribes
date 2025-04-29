@@ -1,6 +1,6 @@
 // Port of src/game/static_commands.cpp: script commands of the non-player objects (docs/static-sim.md 8): GameBase
 // state, power, damage, energy, threads, Moveable, targets, Item and fade. Argument-count texts and the failure returns
-// are those of the registered handlers. The projectile commands (registerProjectileCommands) are stage P4b.
+// are those of the registered handlers. The projectile commands are ProjectileFire.RegisterCommands.
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
@@ -376,6 +376,6 @@ public static class StaticCommands
             });
         }
         DamageCommands.RegisterCommands(interp, game);
-        // P4b: Projectile: registerProjectileCommands(in, game) (src/game/projectile_fire.cpp).
+        ProjectileFire.RegisterCommands(interp, game);
     }
 }

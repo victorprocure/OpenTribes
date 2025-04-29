@@ -1,6 +1,6 @@
 // Port of src/game/ghost_classes.hpp and src/game/ghost_classes.cpp: ghost packUpdate of the mission environment classes
 // (docs/game-stream-ghosts.md 3) and of the GameBase family (4): StaticShape, Sensor, Turret, Item, Mine, Moveable,
-// Marker, Trigger. The Player, Vehicle and projectile ghost classes are stage P4b.
+// Marker, Trigger. The Vehicle ghost classes are stage P4b.
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
@@ -513,6 +513,6 @@ public static class GhostClasses
         GhostManager.RegisterGhostClass("Item", G(0x22a, PackItem));
         PlayerGhost.Register();
         // P4b: Vehicle: registerVehicleGhostClasses() (src/game/vehicle_net.cpp).
-        // P4b: Projectile: registerProjectileGhostClasses() (src/game/projectile_ghost.cpp).
+        ProjectileGhost.Register();
     }
 }

@@ -40,4 +40,4 @@ way are added to Open.
 - [x] Player manager, with the sim objects it needs.
 - [x] Turret simulation.
 - [x] The server hosts a mission from the game directory.
-- [x] Players, mounts and item images.
+- [x] Players, mounts, item images, projectiles and fire paths.
