@@ -48,7 +48,7 @@ public abstract class SimObject
 
     public virtual SimSet? AsSet() => null;
     public virtual SimGroup? AsGroup() => null;
-    // P4: virtual GameBase* asGameBase() (GameBase is a class of src/game)
+    // asGameBase: GameBase is a class of src/game; the port casts with `as GameBase` (OpenTribes.Game).
 
     // The C++ destructor, run by delete (SimManager::deleteObject, the SimSet and SimGroup destructors).
     public virtual void Destroy() { }

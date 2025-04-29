@@ -1,7 +1,8 @@
 // Port of the transform part of src/game/mission_objects.hpp and src/game/mission_objects.cpp (namespace ot::sim): the
 // Transform struct and the Euler conversions of the original (docs/mission.md 5.1). The rest of mission_objects.cpp
-// (persist fields, GameBase, TeamGroup, registerMissionClasses) is stage P4. Portable form: asinl and atan2l are
-// Math.Asin and Math.Atan2, the float differences and products follow the mode of Fpu, float stores are Fpu.Store.
+// (persist fields, GameBase, TeamGroup, registerMissionClasses) is OpenTribes.Game/MissionObjects.cs. Portable form:
+// asinl and atan2l are Math.Asin and Math.Atan2, the float differences and products follow the mode of Fpu, float
+// stores are Fpu.Store.
 using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
 

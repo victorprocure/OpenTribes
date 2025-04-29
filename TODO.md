@@ -37,6 +37,6 @@ way are added to Open.
 - [x] Game objects: control object, damage, displacement, game state, items, mission objects, sensors, shape state and static shapes.
 - [x] Game connection, ghost manager, ghost classes and ghost scope.
 - [x] Object files.
-- [x] Player manager.
+- [x] Player manager, with the sim objects it needs.
 - [x] Turret simulation.
 - [x] The server hosts a mission from the game directory.

@@ -1,6 +1,6 @@
 // Port of src/sim/sim_classes.hpp and src/sim/sim_classes.cpp: the class registry (docs/sim.md 6) and the object
-// classes known to the sim layer. GameBase and SimPathObject are classes of src/game (stage P4); the GameServices
-// members that take them take their SimObject base here.
+// classes known to the sim layer. GameBase and SimPathObject are classes of src/game (project OpenTribes.Game);
+// the GameServices members that take them take their SimObject base here.
 using OpenTribes.Core;
 using OpenTribes.World;
 
@@ -335,7 +335,7 @@ public static class SimClasses
     private static ClassFactory Plain(Func<SimObject> make) => _ => make();
 
     // src/sim/sim_classes.cpp registry: script-creatable classes implemented so far. Mission object classes are
-    // registered by the game layer (registerMissionClasses, stage P4).
+    // registered by the game layer (MissionClasses.Register in OpenTribes.Game).
     private static readonly List<ClassEntry> sRegistry = new()
     {
         new() { Name = "SimSet", Make = Plain(() => new SimSet()) },
