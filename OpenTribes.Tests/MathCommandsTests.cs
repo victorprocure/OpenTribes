@@ -1,11 +1,12 @@
 // Port of tests/test_math_commands.cpp: math, vector and utility commands (docs/script.md 6.7): sprintf, pow, getRandom,
-// timeStamp, which and Vector::*. Expected values in kRows come from the reference server (tests/ref/util.txt is the
-// live comparison). The game-state utilities of the C++ test (getIntegerTime, findPointOnSphere, getClientByName,
-// getObjectByTargetIndex, readShapeRadius, the kSphere vectors) are game modules: their rows and checks are ported
-// with stage P4. kDouble lists the rows whose output differs in the double form of the port (DECISIONS D25: the
-// truncating build's rounding in 64 bits, docs/portable-float.md 1 and 5: NaN operand order, x87 fsincos of huge angles,
-// 80-bit denormals) with the output the port prints.
+// timeStamp, which, Vector::* and the game-state utilities. Expected values in kRows and kSphere come from the reference
+// server (tests/ref/util.txt and util_game.txt are the live comparisons). kDouble lists the rows whose output differs in
+// the double form of the port (DECISIONS D25: the truncating build's rounding in 64 bits, docs/portable-float.md 1 and
+// 5: NaN operand order, x87 fsincos of huge angles, 80-bit denormals) with the output the port prints.
+using OpenTribes.Game;
 using OpenTribes.Script;
+using OpenTribes.Sim;
+using static OpenTribes.Tests.Fixtures;
 
 namespace OpenTribes.Tests;
 
@@ -229,18 +230,6 @@ public class MathCommandsTests
         ("echo(Server::ResortList(\"x\"));", "Server::ResortList: Unknown command.\nFalse"),
     };
 
-    // Rows that call game-state commands (P4).
-    private static readonly HashSet<string> kGameRows = new()
-    {
-        "echo(getIntegerTime(\"false\"));",
-        "echo(getIntegerTime(\"\"));",
-        "echo(findPointOnSphere());",
-        "echo(findPointOnSphere(\"1 2 3\",\"4 5 6\",\"0 0 1\",0));",
-        "echo(findPointOnSphere(\"1 2 3\",\"4 5 6\",\"0 0 1\",1,2));",
-        "echo(getClientByName());",
-        "echo(getObjectByTargetIndex());",
-    };
-
     // Outputs of the double form where the reference output needs the x87 unit.
     private static readonly Dictionary<string, string> kDouble = new()
     {
@@ -256,6 +245,36 @@ public class MathCommandsTests
         ["echo(Vector::getFromRot(\"1 1 1e38\"));"] = "-0.534447 0.0793226 0.84147", // reference "+NAN -NAN +NAN"
         ["echo(Vector::getFromRot(\"16777217 -366 3.4028236e38\"));"] = "0.326863 0.534266 -0.779563", // reference "+NAN -NAN +NAN"
     };
+
+    // 0: Generator (radius 2.679856777), 1: flag (1.2074273824691772).
+    private readonly record struct Sphere(string From, string To, string Dir, int Shape, string Want);
+
+    private static readonly Sphere[] kSphere =
+    {
+        new("-160 -214 213", "-166.971 -214.219 213.574", "1 0 0", 0, "0.959464 -0.100462 0.263315"),
+        new("-150.5 -200.25 220", "-166.971 -214.219 213.574", "-1 -1 0.5", 0, "-0.70122 -0.567816 -0.43113"),
+        new("1 2 3", "4 5 6", "0 0 1", 0, "0.536671 0.536671 0.651127"),
+        new("-166.971 -214.219 213.574", "-166.971 -214.219 213.574", "0 0 1", 0, "0 0 1"),
+        new("-166.971 -214.219 220", "-166.971 -214.219 213.574", "0 0 -1", 0, "0 0 -1"),
+        new("-100 -214.219 213.574", "-166.971 -214.219 213.574", "-0.001 0 0", 0, "0 0 0"),
+        new("-100 -214.219 213.574", "-166.971 -214.219 213.574", "-1e-30 0 0", 0, "0 0 0"),
+        new("0 0 0", "10 20 30", "0 1 0", 0, "0.223872 0.706264 0.671618"),
+        new("-190 -208 196", "-196.409 -208.433 196.082", "1 0.2 0", 1, "0.289292 0.953325 0.0864932"),
+        new("-196.409 -208.433 196.082", "-196.409 -208.433 196.082", "0 1 0", 1, "0 1 0"),
+        new("-180 -230 190", "-196.409 -208.433 196.082", "0.5 0.7 0.1", 1, "-0.165608 0.961833 0.217832"),
+        new("-196.409 -208.433 196.082", "-196.409 -208.433 196.082", "0.001 0 0", 1, "0 0 0"),
+    };
+
+    private static readonly float[] kRadius = { 2.679856777191162f, 1.2074273824691772f };
+
+    // tests/test_math_commands.cpp parse3.
+    private static float[] Parse3(string text)
+    {
+        float[] v = new float[3];
+        if (MathCommands.ScanFloats3(text, v) != 3)
+            throw new InvalidOperationException("parse3 " + text);
+        return v;
+    }
 
     // Console output without trailing blank lines (an empty result prints an empty line).
     private static string Run(Fixtures.World w, string s)
@@ -278,8 +297,6 @@ public class MathCommandsTests
         var failures = new List<string>();
         foreach (var (script, reference) in kRows)
         {
-            if (kGameRows.Contains(script))
-                continue;
             string want = kDouble.TryGetValue(script, out string? d) ? d : reference;
             string got = Run(w, script);
             if (got != want)
@@ -365,7 +382,66 @@ public class MathCommandsTests
         // getRotation divides a zero horizontal part by zero in the original (math error, D11): -0.
         Assert.Equal("-0 0 -1.57079", Run(w, "echo(Vector::getRotation(\"1e-30 0 0\"));"));
 
-        // findPointOnSphere (kSphere), the shape header radius (readShapeRadius) and the game-state commands
-        // (getIntegerTime, getClientByName, getNumItems, getObjectByTargetIndex) need the game modules: P4.
+        // findPointOnSphere with the reference's results for the Generator and flag shapes.
+        foreach (Sphere sp in kSphere)
+        {
+            float[] from = Parse3(sp.From), to = Parse3(sp.To), dir = Parse3(sp.Dir), o = new float[3];
+            string got = "0 0 0";
+            if (UtilCommands.FindPointOnSphere(from, to, dir, kRadius[sp.Shape], o))
+                got = MathCommands.FormatF32(o[0]) + " " + MathCommands.FormatF32(o[1]) + " " + MathCommands.FormatF32(o[2]);
+            if (got != sp.Want)
+                failures.Add("FAIL sphere " + sp.From + " " + sp.To + " " + sp.Dir + "\n  want: " + sp.Want + "\n  got:  " + got);
+        }
+        Assert.True(failures.Count == 0, string.Join("\n", failures));
+
+        // Shape header radius: PERS tag, size, name, version 8, nine counts, two more, then the radius.
+        {
+            var d = new List<byte>();
+            PutStr(d, "PERS");
+            PutU32(d, 0);
+            PutU16(d, 8);
+            PutStr(d, "TS::Shape"); // 8 characters plus the pad byte below
+            while (d.Count < 10 + 8)
+                d.Add(0);
+            d.RemoveRange(10 + 8, d.Count - (10 + 8));
+            PutU32(d, 8);
+            for (int i = 0; i < 11; ++i)
+                PutU32(d, 0);
+            PutF32(d, 2.679856777191162f);
+            byte[] bytes = d.ToArray();
+            Assert.True(UtilCommands.ReadShapeRadius(bytes, out float r) && r == 2.679856777191162f);
+            Assert.True(!UtilCommands.ReadShapeRadius(bytes.AsSpan(0, bytes.Length - 1).ToArray(), out r));
+            bytes[0] = (byte)'X';
+            Assert.True(!UtilCommands.ReadShapeRadius(bytes, out r));
+        }
+
+        // Game-state commands on a world without a mission.
+        {
+            // getIntegerTime: the false form is the client counter (0 here); the true form the 32 ms tick.
+            Assert.True(Run(w, "echo(getIntegerTime(false));") == "0.0");
+            w.Sim.AdvanceRealTime(3200);
+            Assert.True(Run(w, "echo(getIntegerTime(true), \" \", getIntegerTime(\"T\"), \" \", getIntegerTime(\"0\"));") ==
+                        (w.Sim.TickMs() >> 5) + ".0 " + (w.Sim.TickMs() >> 5) + ".0 0.0");
+
+            // getClientByName: case-insensitive match over the human clients, 0 when absent.
+            w.Game.Players.AddClient(2049, "Alice", "male1", true);
+            w.Game.Players.AddClient(2050, "bob", "male1", true);
+            Assert.True(Run(w, "echo(getClientByName(\"ALICE\"), \" \", getClientByName(\"Bob\"), \" \", getClientByName(\"ali\"));") ==
+                        "2049 2050 0");
+
+            // getNumItems counts the ItemData blocks; getObjectByTargetIndex gives -1 outside 0..127.
+            Assert.True(Run(w, "echo(getNumItems());") == "0");
+            w.Run("instant StaticShape \"ts0\" { position = \"0 0 0\"; }; instant StaticShape \"ts1\" { position = \"1 0 0\"; };");
+            var t0 = (GameBase)w.Object("ts0")!;
+            var t1 = (GameBase)w.Object("ts1")!;
+            w.Game.Targets.Clear();
+            w.Game.Targets.AddRange(new GameBase?[] { t0, null, t1 });
+            string id0 = t0.Id().ToString(), id1 = t1.Id().ToString();
+            Assert.True(Run(w, "echo(getObjectByTargetIndex(0), \" \", getObjectByTargetIndex(1), \" \", getObjectByTargetIndex(2), \" \", getObjectByTargetIndex(3));") ==
+                        id0 + " -1 " + id1 + " -1");
+            Assert.True(Run(w, "echo(getObjectByTargetIndex(-1), getObjectByTargetIndex(128), getObjectByTargetIndex(100000));") ==
+                        "-1-1-1");
+            Assert.True(Run(w, "echo(getObjectByTargetIndex(\"2x\"));") == id1);
+        }
     }
 }
