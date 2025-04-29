@@ -1,0 +1,359 @@
+// Port of tests/test_ghost_classes.cpp: ghost layouts of the mission environment classes (docs/game-stream-ghosts.md
+// 2.3, 3) on objects created by mission script, packed and read back field by field. 110 asserts.
+using OpenTribes.Core;
+using OpenTribes.Game;
+using OpenTribes.Net;
+using OpenTribes.Sim;
+using OpenTribes.World;
+using static OpenTribes.Tests.Fixtures;
+
+namespace OpenTribes.Tests;
+
+public class GhostClassesTests
+{
+    private readonly GhostManager gm = new(2049);
+
+    // Packs obj with mask and returns a reader positioned at the start.
+    private BitStream Pack(SimObject? obj, uint mask, uint tag)
+    {
+        Assert.True(obj != null);
+        GhostClass? cls = GhostManager.GhostClassOf(obj!);
+        Assert.True(cls != null && cls.Tag == tag); // 2.3 tags
+        byte[] buf = new byte[4096];
+        var w = new BitStream(buf, buf.Length);
+        var ctx = new GhostContext(gm, 2049, mask == 0xffffffffu);
+        Assert.True(cls!.Pack!(obj!, ctx, w, mask) == 0);
+        Assert.True(!w.Error());
+        return new BitStream(buf, (int)((w.BitPosition() + 7) / 8));
+    }
+
+    private static uint U32(BitStream r) => r.ReadInt(32);
+    private static float F32(BitStream r) => r.ReadF32();
+
+    private static void Vec(BitStream r, float x, float y, float z)
+    {
+        float a = r.ReadF32(), b = r.ReadF32(), c = r.ReadF32();
+        Assert.True(a == x && b == y && c == z);
+    }
+
+    [Fact]
+    public void Main()
+    {
+        string root = Path.Combine(TestPaths.TmpDir(""), "ghost_root");
+        if (Directory.Exists(root))
+            Directory.Delete(root, true);
+        PutVol(Path.Combine(root, "base/data.vol"), new[] { ("inside.txt", "x") });
+        PutFile(Path.Combine(root, "base/lush.day.ppl"), "palette");
+        // Terrain: one 2 x 2 block (detail 2, 8 m squares) with its material list.
+        var t = new TerrainSpec { N = 2, Detail = 2, Width = 1, Height = 1 };
+        t.Heights = Enumerable.Repeat(1.0f, 9).ToList();
+        t.Squares = new List<byte>(new byte[8]);
+        List<byte> dtf = DtfFile(t, 1, 1), dtb = DtbFile(t, 1, 1);
+        PutFile(Path.Combine(root, "base/m.dtf"), dtf);
+        PutFile(Path.Combine(root, "base/m#0.dtb"), dtb);
+        PutFile(Path.Combine(root, "base/t.dml"), "dml");
+        // Interior: shape, geometry (box 10 x 2 x 2: isContainer 1) and base lighting.
+        float[] big = { 0, -1, -1, 10, 1, 1 }, small = { 0, 0, 0, 5, 5, 5 };
+        PutFile(Path.Combine(root, "base/hut.dis"), DisFile("hut-00.dig", "hut-000-1.dil")); // mission suffix cut (3.4)
+        PutFile(Path.Combine(root, "base/hut-00.dig"), DigFile(0x1234, big, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
+        PutFile(Path.Combine(root, "base/hut-000.dil"), DilFile(0x1234, new[] { new LightRec(0.7f, 1), new LightRec(1.0f, 0x10) }, new List<byte> { 1, 3 }, "a\0"));
+        PutFile(Path.Combine(root, "base/box.dis"), DisFile("box-00.dig", "box-000.dil"));
+        PutFile(Path.Combine(root, "base/box-00.dig"), DigFile(0x55, small, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
+        PutFile(Path.Combine(root, "base/box-000.dil"), DilFile(0x55, Array.Empty<LightRec>(), new List<byte>(), ""));
+
+        var w = new Fixtures.World(root);
+        GhostClasses.Register();
+        w.Run("$Server::teamName0 = \"A\"; resetPlayerManager();");
+        string output = w.Run(
+            "instant SimGroup \"MissionGroup\" {" +
+            " instant SimVolume \"vol\" { fileName = \"DATA.VOL\"; };" +
+            " instant SimPalette \"pal\" { fileName = \"lush.day.ppl\"; };" +
+            " instant SimPalette \"nopal\" { fileName = \"none.ppl\"; };" +
+            " instant MissionCenterPos \"MC\" { x = \"0.1\"; h = -700; };" +
+            " instant SimTerrain \"Terrain\" { tedFileName = \"m.dtf\"; hazeDistance = 1500; position = \"-8 -8 0\";" +
+            "   contGravity = \"0 0 -20\"; };" +
+            " instant SimLight \"L\" { type = 5; isStatic = true; range = 12.5; color = \"1 0.5 0.25\"; aim = \"0 0 -1\"; };" +
+            " instant Snowfall \"Snow\" { intensity = 0.5; wind = \"3 4 5\"; rain = true; };" +
+            " instant Sky \"Sky\" { dmlName = \"sky.dml\"; skyColor = \"0.25 0.5 1\"; size = 300; textures[3] = 7; };" +
+            " instant Planet \"Planet1\" { fileName = \"sun\"; azimuth = 400; incidence = 120; castShadows = true; ambient = \"0.5 0.5 0.5\"; };" +
+            " instant Planet \"Planet2\" { incidence = -100; };" +
+            " instant StarField \"Stars\" { colors[1] = \"0.75 0.75 0.75\"; inFrontOfSky = false; };" +
+            " instant TeamGroup \"x\" {" +
+            "   instant InteriorShape \"Hut\" { filename = \"hut.dis\"; position = \"1 2 3\"; rotation = \"0 0 0\"; };" +
+            "   instant InteriorShape \"Box\" { filename = \"box.dis\"; };" +
+            "   instant InteriorShape \"None\" { filename = \"missing.dis\"; }; };" +
+            "};");
+        // 3.1: a missing .ppl fails onAdd (mission.md 3.1).
+        Assert.True(output.Contains("Failed to registerObject of type: SimPalette (nopal)", StringComparison.Ordinal));
+        SimObject? Obj(string path) => w.Object("MissionGroup/" + path);
+
+        // 3.1 SimVolume: file name with the first spelling interned (the volume scan's).
+        {
+            BitStream r = Pack(Obj("vol"), 0xffffffffu, 0x001);
+            Assert.True(r.ReadString() == "data.vol");
+        }
+        // 3.1 SimPalette.
+        {
+            BitStream r = Pack(Obj("pal"), 0xffffffffu, 0x003);
+            Assert.True(r.ReadString() == "lush.day.ppl");
+        }
+        // 3.1 MissionCenterPos: x y w h, ctor 1230 1230 1400 1400; floats parsed toward zero.
+        {
+            BitStream r = Pack(Obj("MC"), 0xffffffffu, 0x2cc);
+            Assert.True(U32(r) == 0x3dcccccc); // "0.1" truncated (nearest would be 0x3dcccccd)
+            Assert.True(F32(r) == 1230 && F32(r) == 1400 && F32(r) == -700);
+            Assert.True(w.Sim.Server()!.FindById(716) == Obj("MC"));
+        }
+        // 3.2 SimTerrain: one flag per mask bit, the unconditional flag, then the CRC.
+        {
+            var terrain = Obj("Terrain") as TerrainObject;
+            Assert.True(terrain != null && w.Sim.Server()!.FindById(8) == terrain); // fixed id 8 (mission.md 3.1)
+            BitStream r = Pack(terrain, 0xffffffffu, 0x002);
+            Assert.True(r.ReadFlag() && r.ReadString() == "m.dtf");
+            Assert.True(r.ReadFlag() && F32(r) == 3000 && F32(r) == 1500 && F32(r) == 1000 && F32(r) == 2000);
+            Assert.True(r.ReadFlag() && F32(r) == 500 && F32(r) == 120);
+            Assert.True(r.ReadFlag());
+            Vec(r, -8, -8, 0);
+            Vec(r, 0, 0, 0);
+            Assert.True(r.ReadFlag());
+            Vec(r, 0, 0, -20);
+            Assert.True(F32(r) == 0 && F32(r) == 10000);
+            Assert.True(!r.ReadFlag()); // +0x6a4 rendering suppressed
+            Assert.True(r.ReadFlag() && U32(r) == terrain!.Crc());
+            byte[] dml = { (byte)'d', (byte)'m', (byte)'l' };
+            uint crc = 0xffffffffu;
+            foreach (IReadOnlyList<byte> b in new IReadOnlyList<byte>[] { dtf, dtb, dml })
+                foreach (byte c in b)
+                {
+                    crc ^= c;
+                    for (int k = 0; k < 8; ++k)
+                        crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1)));
+                }
+            Assert.True(terrain.Crc() == crc);
+            BitStream r2 = Pack(terrain, 0x40, 0x002);
+            for (int i = 0; i < 6; ++i)
+                Assert.True(!r2.ReadFlag());
+            Assert.True(r2.ReadFlag() && U32(r2) == crc);
+        }
+        // 3.3 SimLight: isStatic first (0x40), then 0x01..0x20; unset fields 0 (D12).
+        {
+            BitStream r = Pack(Obj("L"), 0xffffffffu, 0x006);
+            Assert.True(r.ReadFlag() && r.ReadFlag());
+            Assert.True(r.ReadFlag() && r.ReadInt(3) == 5);
+            Assert.True(r.ReadFlag() && F32(r) == 12.5f);
+            Assert.True(r.ReadFlag());
+            Vec(r, 1, 0.5f, 0.25f);
+            Assert.True(r.ReadFlag());
+            Vec(r, 0, 0, 0);
+            Assert.True(r.ReadFlag());
+            Vec(r, 0, 0, 0);
+            Assert.True(r.ReadFlag());
+            Vec(r, 0, 0, -1);
+            BitStream r2 = Pack(Obj("L"), 0x02, 0x006);
+            Assert.True(!r2.ReadFlag() && !r2.ReadFlag() && r2.ReadFlag() && F32(r2) == 12.5f);
+            for (int i = 0; i < 4; ++i)
+                Assert.True(!r2.ReadFlag());
+        }
+        // 3.5 Snowfall: global wind (x, y, -75 for rain), suspendRendering ctor 1, rain.
+        {
+            Assert.True(w.Sim.Server()!.FindById(714) == Obj("Snow"));
+            BitStream r = Pack(Obj("Snow"), 0xffffffffu, 0x216);
+            Assert.True(r.ReadFlag() && F32(r) == 0.5f);
+            Assert.True(r.ReadFlag());
+            Vec(r, 3, 4, -75);
+            Assert.True(r.ReadFlag() && r.ReadFlag());
+        }
+        // 3.6 Sky: ctor size 600 (set 300 here), textures i % 2 per element unless set.
+        {
+            Assert.True(w.Sim.Server()!.FindById(729) == Obj("Sky"));
+            BitStream r = Pack(Obj("Sky"), 0xffffffffu, 0x230);
+            Assert.True(r.ReadString() == "sky.dml");
+            Vec(r, 0.25f, 0.5f, 1);
+            Vec(r, 0, 0, 0); // hazeColor unset (D12)
+            Assert.True(F32(r) == 0 && F32(r) == 300);
+            for (uint i = 0; i < 16; ++i)
+                Assert.True(r.ReadInt(4) == (i == 3 ? 7 : i % 2));
+        }
+        // 3.6 Planet: incidence clamped to [-89, 89], azimuth as given, ctor size and distance.
+        {
+            BitStream r = Pack(Obj("Planet1"), 0xffffffffu, 0x22f);
+            Assert.True(r.ReadString() == "sun");
+            Assert.True(F32(r) == 400 && F32(r) == 89);
+            Assert.True(r.ReadInt(8) == 1 && r.ReadInt(8) == 0);
+            Vec(r, 0, 0, 0);
+            Vec(r, 0.5f, 0.5f, 0.5f);
+            Assert.True(F32(r) == 2000 && F32(r) == 11000);
+            BitStream m = Pack(Obj("Planet2"), 0xffffffffu, 0x22f);
+            Assert.True(m.ReadString() == "" && F32(m) == 0 && F32(m) == -89);
+        }
+        // 3.6 StarField: ctor flags 1 and 0, colors (1, 0.5, 0.25 grey) per element, inFrontOfSky.
+        {
+            BitStream r = Pack(Obj("Stars"), 0xffffffffu, 0x232);
+            Assert.True(r.ReadFlag() && !r.ReadFlag());
+            Vec(r, 1, 1, 1);
+            Vec(r, 0.75f, 0.75f, 0.75f);
+            Vec(r, 0.25f, 0.25f, 0.25f);
+            Assert.True(!r.ReadFlag());
+        }
+        // 3.4 InteriorShape: GameBase part (4.1), initial record, then the update form.
+        {
+            SimObject? hut = Obj("x/Hut");
+            Assert.True(hut == null); // the TeamGroup was renamed team0 (mission.md TM6)
+            hut = Obj("team0/Hut");
+            BitStream r = Pack(hut, 0xffffffffu, 0x20a);
+            Assert.True(r.ReadFlag() && r.ReadInt(4) == 0 && !r.ReadFlag() && !r.ReadFlag()); // team 0
+            Assert.True(r.ReadFlag()); // initial
+            Assert.True(r.ReadString() == "hut.dis");
+            Assert.True(r.ReadSignedInt(2) == 1); // box extent 10 >= 6
+            Vec(r, 1, 2, 3);
+            Vec(r, 0, 0, 0);
+            Assert.True(U32(r) == 2);
+            Assert.True(U32(r) == 0x1234);     // .dig buildId
+            Assert.True(U32(r) == 0x000100c2); // fold(map 01 03) << 16 | fold(name "a\0")
+            Assert.True(U32(r) == 2);
+            byte[] rec = new byte[16];
+            r.ReadBytes(rec);
+            float inten = BitConverter.ToSingle(rec, 0);
+            Assert.True(inten == 0.7f && rec[4] == 1 && rec[5] == 0 && rec[8] == 0 && rec[12] == 0);
+            r.ReadBytes(rec);
+            inten = BitConverter.ToSingle(rec, 0);
+            Assert.True(inten == 1.0f && rec[4] == 0); // flags 0x10: bit 0 clear
+            Assert.True(!r.ReadFlag());                // +0x41c
+            // Update: position/rotation, one flag per light, then +0x418.
+            BitStream u = Pack(hut, 0x07, 0x20a);
+            Assert.True(u.ReadFlag() && u.ReadInt(4) == 0 && !u.ReadFlag() && !u.ReadFlag());
+            Assert.True(!u.ReadFlag());
+            Assert.True(u.ReadFlag());
+            Vec(u, 1, 2, 3);
+            Vec(u, 0, 0, 0);
+            Assert.True(u.ReadFlag() && u.ReadFlag() && !u.ReadFlag());
+            Assert.True(u.ReadFlag() && !u.ReadFlag());
+            // InteriorShape::setTransform (GameBase::setPosition on an interior): mask 0x01 with the new position.
+            {
+                float[] np = { 7, 8, 9 };
+                ((GameBase)hut!).SetInteriorPosition(np);
+                BitStream tt = Pack(hut, 0x01, 0x20a);
+                Assert.True(!tt.ReadFlag()); // no GameBase part
+                Assert.True(!tt.ReadFlag()); // not initial
+                Assert.True(tt.ReadFlag());
+                Vec(tt, 7, 8, 9);
+                Vec(tt, 0, 0, 0);
+                Assert.True(!tt.ReadFlag() && !tt.ReadFlag());
+            }
+            // G38: the cast reads the current transform (InteriorShape_getCollisionImages 0x0047f814).
+            {
+                Container c = w.Game.GetContainer()!;
+                object? o = null;
+                Vec3 hit = default, nrm = default;
+                bool Ray(float x0, float x1) =>
+                    c.CastRay(new Vec3(x0, 8, 9), new Vec3(x1, 8, 9), ObjectType.kInteriorType, null, ref o, ref hit, ref nrm);
+                float[] at = { 1, 8, 9 }, to = { 3, 8, 9 };
+                ((GameBase)hut!).SetInteriorPosition(at);
+                Assert.True(Ray(2, 2.5f) && o == hut);
+                ((GameBase)hut).SetInteriorPosition(to);
+                Assert.True(!Ray(2, 2.5f) && Ray(4, 5) && o == hut);
+            }
+            // isContainer: box extents below 6 give 0; no shape keeps the persist value.
+            BitStream b = Pack(Obj("team0/Box"), 0xffffffffu, 0x20a);
+            b.ReadFlag();
+            b.ReadInt(4);
+            b.ReadFlag();
+            b.ReadFlag();
+            Assert.True(b.ReadFlag() && b.ReadString() == "box.dis" && b.ReadSignedInt(2) == 0);
+            BitStream n = Pack(Obj("team0/None"), 0xffffffffu, 0x20a);
+            n.ReadFlag();
+            n.ReadInt(4);
+            n.ReadFlag();
+            n.ReadFlag();
+            Assert.True(n.ReadFlag() && n.ReadString() == "missing.dis" && n.ReadSignedInt(2) == -1);
+            Vec(n, 0, 0, 0);
+            Vec(n, 0, 0, 0);
+            Assert.True(U32(n) == 0 && U32(n) == 0 && !n.ReadFlag());
+        }
+        // 3.3 SimLight setters (ROADMAP G30): event 0x420 of activateGroup (0x0052d290) sets the colour of every member
+        // but the argument object and sends mask 0x04; processArguments (0x0052cac0) of newObject.
+        {
+            var masks = new List<(SimObject, uint)>();
+            w.Game.MaskBits = (o, bb) => masks.Add((o, bb));
+            w.Run("instant SimGroup \"LG\" { instant SimLight \"LA\" { color = \"1 1 1\"; }; instant SimLight \"LB\" { color = \"1 1 1\"; }; };");
+            SimObject? la = w.Object("LG/LA");
+            SimObject? lb = w.Object("LG/LB");
+            Assert.True(la != null && lb != null);
+            masks.Clear();
+            Assert.True(w.Run("echo(activateGroup(LG, \"0.5\"));") == "True");
+            Assert.True(masks.Count == 2 && masks[0].Item1 == la && masks[0].Item2 == 0x04 && masks[1].Item1 == lb);
+            BitStream c = Pack(la, 0x04, 0x006);
+            Assert.True(!c.ReadFlag() && !c.ReadFlag() && !c.ReadFlag() && c.ReadFlag());
+            Vec(c, 0.5f, 0.5f, 0.5f);
+            masks.Clear();
+            Assert.True(w.Run("echo(activateGroup(" + la!.Id() + ", \"0.25\"));") == "True"); // an object: its group, without itself
+            Assert.True(masks.Count == 1 && masks[0].Item1 == lb);
+            BitStream d = Pack(lb, 0x04, 0x006);
+            d.ReadFlag();
+            d.ReadFlag();
+            d.ReadFlag();
+            Assert.True(d.ReadFlag());
+            Vec(d, 0.25f, 0.25f, 0.25f);
+            Assert.True(w.Run("echo(activateGroup(" + la.Id() + "));") == "True"); // no value: 0
+            BitStream z = Pack(lb, 0x04, 0x006);
+            z.ReadFlag();
+            z.ReadFlag();
+            z.ReadFlag();
+            Assert.True(z.ReadFlag());
+            Vec(z, 0, 0, 0);
+            Assert.True(w.Run("echo(activateGroup(nosuch, 1));") == "False");
+            Assert.True(w.Run("echo(activateGroup());") == "wrong argcount to activateGroup(212652310bject1,<value>)\nFalse");
+
+            // Directional: colour, direction normalized twice, optional ambient (type 1; DirectionalWrap 6).
+            static bool Near(float a, double bb) => Math.Abs(a - bb) < 1e-5;
+            Assert.True(w.Run("echo(newObject(N1, SimLight, Directional, 1, 0.5, 0.25, 3, 4, 5));") != "0");
+            BitStream n = Pack(w.Object("N1"), 0xffffffffu, 0x006);
+            Assert.True(n.ReadFlag() && !n.ReadFlag()); // mask 0x40: isStatic false
+            Assert.True(n.ReadFlag() && n.ReadInt(3) == 1);
+            Assert.True(n.ReadFlag());
+            F32(n); // range: unset
+            Assert.True(n.ReadFlag());
+            Vec(n, 1, 0.5f, 0.25f);
+            Assert.True(n.ReadFlag());
+            Vec(n, 0, 0, 0); // ambient absent: 0
+            Assert.True(n.ReadFlag());
+            F32(n);
+            F32(n);
+            F32(n); // position: unset
+            Assert.True(n.ReadFlag());
+            float ax = F32(n), ay = F32(n), az = F32(n);
+            Assert.True(Near(ax, 3 / Math.Sqrt(50.0)) && Near(ay, 4 / Math.Sqrt(50.0)) && Near(az, 5 / Math.Sqrt(50.0)));
+            Assert.True(w.Run("echo(newObject(N2, SimLight, DirectionalWrap, 0.3, 0.6, 0.9, 0, 0, 2, 0.2, 0.3, 0.4));") != "0");
+            BitStream wr = Pack(w.Object("N2"), 0x01, 0x006);
+            Assert.True(!wr.ReadFlag() && wr.ReadFlag() && wr.ReadInt(3) == 6);
+            BitStream wa = Pack(w.Object("N2"), 0x08, 0x006);
+            for (int i = 0; i < 4; ++i)
+                Assert.True(!wa.ReadFlag());
+            Assert.True(wa.ReadFlag());
+            float a0 = F32(wa), a1 = F32(wa), a2 = F32(wa);
+            Assert.True(Near(a0, 0.2) && Near(a1, 0.3) && Near(a2, 0.4));
+            // Point: type 2, range first; ambient only with 11 arguments.
+            Assert.True(w.Run("echo(newObject(N3, SimLight, Point, 50, 1, 1, 0.5, 10, 20, 30));") != "0");
+            BitStream pt = Pack(w.Object("N3"), 0xffffffffu, 0x006);
+            Assert.True(pt.ReadFlag() && !pt.ReadFlag());
+            Assert.True(pt.ReadFlag() && pt.ReadInt(3) == 2);
+            Assert.True(pt.ReadFlag() && F32(pt) == 50.0f);
+            Assert.True(pt.ReadFlag());
+            Vec(pt, 1, 1, 0.5f);
+            Assert.True(pt.ReadFlag());
+            Vec(pt, 0, 0, 0);
+            Assert.True(pt.ReadFlag());
+            Vec(pt, 10, 20, 30);
+            // Wrong forms print the usage line and the generic line, and the object is gone.
+            Assert.True(w.Run("echo(newObject(N4, SimLight, Directional, 1, 2, 3));") ==
+                        "SimLight: Directional intR intG intB dirX dirY dirz [ambR ambG ambB]\n" +
+                        "SimLight: type(Directional/Point) ...\n" +
+                        "newObject for: SimLight failed arg list: Directional, 1, 2, 3\n0");
+            Assert.True(w.Run("echo(newObject(N5, SimLight, Point, 1, 2));").IndexOf("SimLight: Point range intR", StringComparison.Ordinal) == 0);
+            Assert.True(w.Run("echo(newObject(N6, SimLight, Spot, 1));").IndexOf("SimLight: type(Directional/Point) ...\n", StringComparison.Ordinal) == 0);
+            Assert.True(w.Run("echo(newObject(N7, SimLight));").IndexOf("SimLight: type(Directional/Point) ...\n", StringComparison.Ordinal) == 0);
+            Assert.True(w.Object("N4") == null && w.Object("N7") == null);
+            w.Game.MaskBits = null;
+        }
+    }
+}
