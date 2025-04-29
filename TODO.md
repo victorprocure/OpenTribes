@@ -19,7 +19,7 @@ way are added to Open.
 
 ### Project
 
-- [ ] Two `WorldTests` vector tests fail because their data files are in the C++ repository (`OpenTribes-cpp/tests`).
+- [ ] Three tests (`PlayerTests.Main` and two `WorldTests` vector tests) fail because their data files are in the C++ repository (`OpenTribes-cpp/tests`).
 
 ## Done
 
