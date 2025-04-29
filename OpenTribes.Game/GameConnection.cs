@@ -1,6 +1,6 @@
 // Port of src/game/game_connection.hpp and src/game/game_connection.cpp: the GameConnection (docs/game-stream.md): the
 // type-0 data stream of one client. Members in stream order: event manager, PlayerPSC, ghost manager. Also the event
-// builders (docs/game-stream.md 2.5) and inventoryCounts of src/game/player.cpp (its Player branches are stage P4b).
+// builders (docs/game-stream.md 2.5); inventoryCounts of src/game/player.cpp is Player.InventoryCounts.
 using OpenTribes.Core;
 using OpenTribes.Net;
 using OpenTribes.Sim;
@@ -856,10 +856,5 @@ public static class GameEvents
 
     // src/game/player.cpp inventoryCounts: inventory object of a control object (0x004052c8): the object if it is a
     // Player, else the Player an ObserverCamera orbits. Its 200 item counts or null.
-    public static int[]? InventoryCounts(GameBase? control)
-    {
-        // P4b: Player: a Player control object, or the Player an ObserverCamera orbits, answers its item counts.
-        _ = control;
-        return null;
-    }
+    public static int[]? InventoryCounts(GameBase? control) => Player.InventoryCounts(control);
 }

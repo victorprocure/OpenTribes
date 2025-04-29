@@ -511,7 +511,7 @@ public static class GhostClasses
         GhostManager.RegisterGhostClass("StaticShape", G(0x221, PackStaticShape));
         GhostManager.RegisterGhostClass("Sensor", G(0x229, PackSensor));
         GhostManager.RegisterGhostClass("Item", G(0x22a, PackItem));
-        // P4b: Player: registerPlayerGhostClass() (src/game/player_ghost.cpp).
+        PlayerGhost.Register();
         // P4b: Vehicle: registerVehicleGhostClasses() (src/game/vehicle_net.cpp).
         // P4b: Projectile: registerProjectileGhostClasses() (src/game/projectile_ghost.cpp).
     }

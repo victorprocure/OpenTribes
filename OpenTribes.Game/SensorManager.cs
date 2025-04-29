@@ -1,7 +1,7 @@
 // Port of src/game/sensor_manager.hpp and src/game/sensor_manager.cpp: the SensorManager (object 720,
 // docs/static-sim.md 3): the sensor lists per team, the suppressor list and the sweep that refreshes the visibility word
-// (+0x200) of one target and of one or more clients' owned objects per tick. The Player parts (detection by eye, 3.5
-// step 6, and the jamming distance of a Player, 3.8) are stage P4b.
+// (+0x200) of one target and of one or more clients' owned objects per tick, with the detection by eye (3.5 step 6) and the
+// jamming distance of a Player (3.8).
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
@@ -254,8 +254,14 @@ public sealed class SensorManager : SimObject
                 GameBase? jp = JamNode(id);
                 if (jp == null)
                     break;
-                // P4b: Player: a jamming Player within its sensorSuppression of T jams it (lenf of the position
-                // difference against Player +0xfe0).
+                float[] diff = { Store(Sub(t.Transform.P[0], jp.Transform.P[0])), Store(Sub(t.Transform.P[1], jp.Transform.P[1])),
+                                 Store(Sub(t.Transform.P[2], jp.Transform.P[2])) };
+                if (Player.From(jp) is Player player && Lenf(diff) < player.SensorSuppression)
+                {
+                    t.SensorWord = (t.SensorWord & 0x00ffffffu) | (2u << 24);
+                    jammed = true;
+                    break;
+                }
                 id = jp.JamNext;
             }
         }
@@ -283,8 +289,101 @@ public sealed class SensorManager : SimObject
             else
                 t.SensorWord &= ~(1u << i);
         }
-        // P4b: Player: eyeDetect(t): detection by eye of T by the Player of every client record whose team does not see
-        // it yet (3.5 step 6, Player_seesObject 0x004128ac).
+        if (State != null)
+            EyeDetect(t);
+    }
+
+    // src/game/sensor_manager.cpp SensorManager::hazeAt: FUN_004495dc (0x004495dc): the haze value of the container that
+    // holds `t` for the eye position. The base container (vtable +0xa4, 0x004fac64) asks its parent and gives 0 at the
+    // root; SimTerrain (0x00518468) gives 0.01 inside the haze start, else 1 - x^2 with x = (d - start) * scale - 1 (3.5).
+    // start = hazeDistance^2 / visibleDistance capped at 0.75 * min(visibleDistance, 10000); scale = 1 / (1.02 * (cap -
+    // start)) (SimTerrain_updateRenderParams 0x00517fe0).
+    private double HazeAt(GameBase t, ReadOnlySpan<float> eye)
+    {
+        Container.Entry? te = State!.World.TerrainOf(t);
+        if (te == null || te.Object == null)
+            return 0.0;
+        var tobj = (PersistObject)te.Object;
+        float vis = tobj.Fields().Real("visibleDistance", 3000.0f);
+        float haze = tobj.Fields().Real("hazeDistance", 2000.0f);
+        float cap = vis < 10000.0f ? vis : 10000.0f;
+        float q = Store(Div(haze, vis));
+        float start = Store(Mul(haze, q));
+        if (!(Mul(cap, 0.75) >= start))
+            start = Store(Mul(cap, 0.75));
+        float span = Store(Sub(cap, start));
+        float inv = Store(Div(1.0, Add(Mul(span, 0.02), span)));
+        float[] diff = { Store(Sub(eye[0], t.Transform.P[0])), Store(Sub(eye[1], t.Transform.P[1])), Store(Sub(eye[2], t.Transform.P[2])) };
+        float d = Lenf(diff);
+        if (!(d < cap))
+            d = cap;
+        if (!(d >= start))
+            return 0.01f;
+        float x = Store(Sub(Mul(Sub(d, start), inv), 1.0));
+        return Sub(1.0, Mul(x, x));
+    }
+
+    // src/game/sensor_manager.cpp SensorManager::seesByEye: Player_seesObject (0x004128ac, 3.5): `player` sees `t` through
+    // the eye of its client's control object.
+    private bool SeesByEye(Player pl, GameBase t)
+    {
+        if (pl.Fov == 0.0f || State == null)
+            return false;
+        using var chop = ChopScope();
+        ClientRecord? rec = State.Players.FindHuman(pl.OwnerClient);
+        if (rec == null || rec.ControlObject == 0 || State.Sim == null || State.Sim.Server() == null)
+            return false;
+        if (State.Sim.Server()!.FindById(rec.ControlObject) is not GameBase ctl)
+            return false;
+        double half = Mul(pl.Fov, 0.5);
+        float cosHalf = Store(Math.Cos(half));
+        float tanHalf = Store(Math.Tan(half));
+        Transform eye = ctl.EyeTransform();
+        Span<float> c = stackalloc float[3];
+        BoxCentre(State, t, c);
+        float[] d3 = { Store(Sub(c[0], eye.P[0])), Store(Sub(c[1], eye.P[1])), Store(Sub(c[2], eye.P[2])) };
+        // the point in the eye frame: the rows of the matrix are the axes (row 1 looks forward)
+        float[] local = new float[3];
+        for (int r = 0; r < 3; ++r)
+            local[r] = Store(Add(Add(Mul(eye.M[r * 3], d3[0]), Mul(eye.M[r * 3 + 1], d3[1])), Mul(eye.M[r * 3 + 2], d3[2])));
+        float d = Store(Sqrt(Add(Add(Mul(local[0], local[0]), Mul(local[1], local[1])), Mul(local[2], local[2]))));
+        if (!(d >= 1.0f))
+            return true;
+        if (!(cosHalf <= Div(local[1], d)))
+            return false;
+        float ex = 0, ez = 0;
+        if (State.World.Find(t) is Container.Entry e)
+        {
+            ez = Store(Sub(e.Box[5], e.Box[2]));
+            ex = Store(Sub(e.Box[3], e.Box[0]));
+        }
+        float size = Store(Div(ez <= ex ? ex : ez, Mul(d, tanHalf)));
+        double h = HazeAt(t, eye.P);
+        if (!(pl.DetectHazeFactor < Mul(Sub(1.0, Mul(h, pl.DetectMinVisibility)), size)))
+            return false;
+        object? hitObj = null;
+        Vec3 hit = default, n = default;
+        if (State.World.CastRay(new Vec3(eye.P[0], eye.P[1], eye.P[2]), new Vec3(c[0], c[1], c[2]), 0x20c00006u, ctl, ref hitObj,
+                                ref hit, ref n) && hitObj != t)
+            return false;
+        return true;
+    }
+
+    // src/game/sensor_manager.cpp SensorManager::eyeDetect: 3.5 step 6: every client record (humans and AI, newest first)
+    // whose team does not see T yet.
+    private void EyeDetect(GameBase t)
+    {
+        SimManager? m = State!.Sim?.Server();
+        if (m == null)
+            return;
+        foreach (int id in State.Players.PlayerIds())
+        {
+            ClientRecord? r = State.Players.Find(id);
+            if (r == null || State.Players.VisibleToTeam(t, r.Team) || r.OwnedObject == 0)
+                continue;
+            if (Player.From(m.FindById(r.OwnedObject)) is Player pl && SeesByEye(pl, t))
+                t.SensorWord |= (1u << (int)((uint)r.Team & 31u)) & ~(t.SensorWord >> 16);
+        }
     }
 
     // src/game/sensor_manager.cpp SensorManager::onTimerEvent: 0x00439cc4 (3.4): the next occupied target slot, then

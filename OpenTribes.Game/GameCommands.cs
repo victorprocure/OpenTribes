@@ -418,7 +418,7 @@ public static class GameCommands
         });
         StaticCommands.Register(interp, game);
         game.Players.RegisterCommands(interp);
-        // P4b: Player: registerPlayerCommands(in, game) (src/game/player_commands.cpp).
+        PlayerCommands.Register(interp, game);
         // P4c: AI: registerAICommands(in, game) (src/game/ai_commands.cpp).
         // P4b: Vehicle: registerVehicleCommands(in, game) (src/game/vehicle_net.cpp).
     }

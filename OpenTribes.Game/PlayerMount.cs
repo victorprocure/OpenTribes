@@ -1,0 +1,94 @@
+// Port of src/game/player_mount.cpp: Player mounting (docs/vehicle-sim.md 2.1 MT1, MT3, MT4; docs/player-sim.md 2.7).
+using static OpenTribes.Core.Fpu;
+
+namespace OpenTribes.Game;
+
+public sealed partial class Player
+{
+    // src/game/player_mount.cpp Player::mountObject: the mount object, or null.
+    public GameBase? MountObject()
+    {
+        SimManager? m = Manager();
+        SimObject? o = m != null && MountId != 0 ? m.FindById(MountId) : null;
+        return o as GameBase;
+    }
+
+    // src/game/player_mount.cpp Player::setMountObject: 0x0041268c.
+    public void SetMountObject(GameBase? obj, int point)
+    {
+        using var chop = X87.Chop();
+        SetMaskBits(0x8000);
+        MountId = obj != null ? obj.Id() : 0;
+        MountPoint = point;
+        if (obj == null)
+            return;
+        obj.GetMountTransform(point, out Transform t);
+        float[] e = { 0, 0, 0 };
+        MissionTransform.MatrixToEuler(t, e);
+        float yaw = e[2];
+        if (point == 0)
+        {
+            // Only the translation, with the player's own rotation.
+            MissionTransform.EulerToMatrix(Rotation, ref Transform);
+            for (int i = 0; i < 3; ++i)
+                Transform.P[i] = t.P[i];
+            Transform.Flags |= 3;
+        }
+        else
+        {
+            Transform = t;
+            Transform.Flags |= 3;
+        }
+        if (point <= 0)
+        {
+            Rotation[0] = Rotation[1] = 0;
+            Rotation[2] = yaw;
+        }
+        else if (point == 1)
+        {
+            Rotation[0] = Rotation[1] = Rotation[2] = 0;
+        }
+        else
+        {
+            Rotation[2] = X87.F32(Sub(Rotation[2], yaw));
+        }
+        TriggerImage(0, false);
+        Velocity[0] = Velocity[1] = Velocity[2] = 0;
+        UpdateContainer();
+    }
+
+    // src/game/player_mount.cpp Player::mountedStep: 0x00415d26: the velocity and transform of the mount point, without
+    // collision.
+    public void MountedStep(Move mv)
+    {
+        using var chop = X87.Chop();
+        GameBase? m = MountObject();
+        if (m == null)
+        {
+            // The mount object is gone (the original clears the mount from its delete notification).
+            SetMountObject(null, 0);
+            return;
+        }
+        Velocity[0] = m.Velocity[0];
+        Velocity[1] = m.Velocity[1];
+        Velocity[2] = m.Velocity[2];
+        m.GetMountTransform(MountPoint, out Transform mt);
+        var r = new TMat3();
+        var mm = new TMat3();
+        float[] yawOnly = { 0, 0, Rotation[2] };
+        r.Flags = 0;
+        Shape.EulerMatrix(yawOnly, ref r);
+        mm.Flags = mt.Flags;
+        mm.M = mt.M;
+        mm.P = mt.P;
+        Shape.TmatMul(r, mm, out TMat3 output);
+        Transform.M = output.M;
+        Transform.P = output.P;
+        Transform.Flags = (output.Flags & 7u) | 3u;
+        ContactFlag = false;
+        UpdateContainer();
+        SetMaskBits(0x2000);
+        // P4b: Vehicle: MT4: on a jump of a live Player the vehicle's passengerJump(vehicle, player, "up row")
+        // (Vehicle.FindVehicleMethod with the map name).
+    }
+}

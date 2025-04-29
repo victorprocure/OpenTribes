@@ -1,7 +1,7 @@
 // Port of src/game/shape_state.hpp and src/game/shape_state.cpp: shape instances of the server's ShapeBase objects
 // (docs/collision.md 6 T1.3): the node entries and object states a line test, a muzzle or an eye transform reads, kept
-// in step with the object's animation threads. The Player threads (animation and look, docs/player-sim.md 5.5) are
-// stage P4b.
+// in step with the object's animation threads, the Player threads (animation and look, docs/player-sim.md 5.5)
+// included.
 using OpenTribes.Core;
 using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
@@ -71,8 +71,28 @@ public static class ShapeState
     private static void CollectThreads(GameBase obj, ShapeModel model, List<ShapeThread> output, out byte viewMode)
     {
         viewMode = 0;
-        // P4b: Player: the animation thread (+0xd54) and the look thread (+0xd58) as the last Player_updateAnimation left
-        // them (docs/player-sim.md 5.5), view mode 2 in first person.
+        if (Player.From(obj) is Player pl)
+        {
+            // Animation thread (+0xd54), then the look thread (+0xd58), as the last Player_updateAnimation left them
+            // (docs/player-sim.md 5.5).
+            Player.ShapePose pose = pl.Pose;
+            int animSeq = pose.AnimIndex >= 0 && pose.AnimIndex < 51 ? pl.PData.AnimSequence[pose.AnimIndex] : 0;
+            output.Add(new ShapeThread(animSeq, NormalisePosition(model, animSeq, pose.AnimPosition), SequencePriority(model, animSeq)));
+            int lookSeq;
+            if (pose.LookSet)
+            {
+                lookSeq = model.FindSequence(pose.CrouchLooks ? "crouch looks" : "looks");
+                if (lookSeq < 0)
+                    lookSeq = 0; // a missing sequence gives handle 0
+            }
+            else
+            {
+                lookSeq = 0;
+            }
+            output.Add(new ShapeThread(lookSeq, NormalisePosition(model, lookSeq, pose.LookPosition), pose.FirstPerson ? -1 : 5000));
+            viewMode = (byte)(pose.FirstPerson ? 2 : 0);
+            return;
+        }
         void AddThread(int sequence, float position) =>
             output.Add(new ShapeThread(sequence, NormalisePosition(model, sequence, position), SequencePriority(model, sequence)));
         // StaticBase: the visibility thread (+0x7e0) sits at 0, and at 1 once the object is destroyed
@@ -127,8 +147,15 @@ public static class ShapeState
         {
             slot = new Slot { Id = obj.Id(), Model = model };
             slot.Inst.Build(model);
-            // P4b: Player: the lowerback nodes hang under the override matrix (Player ctor 0x0040fd5d) and the root is the
-            // identity with no flags (ShapeBase_resetRootTransform 0x0044b7c4).
+            // Player ctor (0x0040fd5d): the lowerback nodes hang under the override matrix.
+            if (Player.From(obj) != null)
+            {
+                slot.Inst.SetOverride("lowerback", "dummyalways root");
+                // ShapeBase_resetRootTransform (0x0044b7c4), called at the datablock bind and before every animate of
+                // Player_updateAnimation: instance +0xa0 is the identity with no flags, not the default transform of
+                // node 0 (larmor: 0.026 0.040 -0.027).
+                slot.Inst.Root = new TMat3();
+            }
             slot.Applied.Clear();
             slot.ViewMode = 0xff;
             sSlots[obj] = slot;

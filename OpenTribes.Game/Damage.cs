@@ -1,5 +1,5 @@
 // Port of src/game/damage.cpp: damage (docs/projectile-sim.md 3.1-3.3, 4; docs/player-sim.md 6.4): the ShapeBase onDamage
-// call, coverage, radius damage and the GameBase damage commands. Player::damageCoverage (0x00411538) is stage P4b.
+// call, coverage, radius damage and the GameBase damage commands. Player::damageCoverage (0x00411538) is in Player.cs.
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;

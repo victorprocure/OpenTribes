@@ -2,8 +2,8 @@
 // docs/collision.md E3, docs/static-sim.md 2.5: SimMovement_displace 0x00505ed4, the rider and overlap phases 0x0050613c
 // and 0x005062e4, the push 0x005064f8 and the blocking test of doors 0x00505790), of src/game/move_candidates.cpp (the
 // candidate list of a stepped move, docs/collision.md 2.1, 2.2) and of the collision event of src/game/player.cpp
-// (GameState::postCollisionEvent and dispatchCollisionEvent, docs/collision.md 8 E1). The Player and Vehicle branches
-// are stage P4b and marked where they sit.
+// (GameState::postCollisionEvent and dispatchCollisionEvent, docs/collision.md 8 E1). The Vehicle branches are stage
+// P4b and marked where they sit.
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
@@ -79,6 +79,7 @@ public sealed partial class GameState
         public GameBase Object = null!;
         public Transform Xf;
         public float[] Velocity = new float[3];
+        public uint Mask;
         public int Flags;
     }
 
@@ -107,8 +108,25 @@ public sealed partial class GameState
     private bool ImagesOverlap(GameBase mover, GameBase o, CollisionImage? moved = null)
     {
         var hit = new CollisionHit();
-        // P4b: Player: a Player mover tests its sphere (Player::moverImage) against the other Player's sphere or the
-        // other side's shape image.
+        if (Player.From(mover) is Player pm)
+        {
+            var mv = new MoverImage();
+            pm.MoverImageOf(mv);
+            var oth = new CollisionImage();
+            if (Player.From(o) is Player po)
+            {
+                oth.ImageKind = CollisionImage.Kind.Sphere;
+                oth.Object = o;
+                oth.Pos = po.Transform.P;
+                oth.Centre[2] = po.Radius;
+                oth.Radius = po.Radius;
+            }
+            else if (!ShapeImage(o, oth))
+            {
+                return false;
+            }
+            return Collision.TestImage(mv, oth, hit);
+        }
         CollisionImage image;
         if (moved != null)
         {
@@ -120,7 +138,12 @@ public sealed partial class GameState
             if (!ShapeImage(mover, image))
                 return false;
         }
-        // P4b: Player: a Player candidate tests its own sphere against the mover's image (Player::moverImage).
+        if (Player.From(o) is Player p)
+        {
+            var mv = new MoverImage();
+            p.MoverImageOf(mv);
+            return Collision.TestImage(mv, image, hit);
+        }
         GameBase.ShapeKind cls = o.ShapeClass();
         bool hulls = cls == GameBase.ShapeKind.Vehicle && mover.ShapeClass() == GameBase.ShapeKind.Vehicle;
         if (cls != GameBase.ShapeKind.Item && cls != GameBase.ShapeKind.Mine && !hulls)
@@ -139,7 +162,9 @@ public sealed partial class GameState
     // src/game/displace.cpp pushObject.
     private static bool PushObject(GameBase o, ReadOnlySpan<float> delta, ReadOnlySpan<float> mover)
     {
-        // P4b: Player: Player::pushBy. P4b: Vehicle: Vehicle::pushBy.
+        if (Player.From(o) is Player p)
+            return p.PushBy(delta, mover);
+        // P4b: Vehicle: Vehicle::pushBy.
         if (IsItemClass(o))
             return o.ItemPushBy(delta, mover);
         // A StaticBase object (StaticShape, Sensor, Turret, Moveable) or a Trigger, pushed by zero by a Player that a
@@ -211,8 +236,9 @@ public sealed partial class GameState
     // displace has just pushed, with a zero delta and the object's own collision mask.
     public bool DisplaceBy(GameBase mover, float[] delta, bool top)
     {
-        // P4b: Player: Player* playerMover = Player::from(&mover) and its branches below.
-        bool vehicleMover = mover.ShapeClass() == GameBase.ShapeKind.Vehicle;
+        Player? playerMover = Player.From(mover);
+        bool vehicleMover = mover.ShapeClass() == GameBase.ShapeKind.Vehicle && playerMover == null;
+        if (playerMover == null)
         {
             // No image (vtable +0xcc, the first image of query 0x407), no displace: a destroyed StaticBase object or one
             // whose datablock disables collision, and nothing to find with a Trigger's mask of 0.
@@ -228,8 +254,15 @@ public sealed partial class GameState
         void Record(GameBase o)
         {
             var r = new DisplaceRecord { Object = o, Xf = o.Transform, Velocity = new[] { o.Velocity[0], o.Velocity[1], o.Velocity[2] } };
-            // P4b: Player: a Player records its collision mask and rest flag.
-            r.Flags = o.ItemFlags;
+            if (Player.From(o) is Player p)
+            {
+                r.Mask = p.CollisionMask;
+                r.Flags = p.RestFlag ? 1 : 0;
+            }
+            else
+            {
+                r.Flags = o.ItemFlags;
+            }
             records.Add(r);
         }
         // The object type of the mover is 0 while its two lists are walked: no query of a pushed object or of a nested
@@ -252,7 +285,8 @@ public sealed partial class GameState
         bool Blocker(GameBase o)
         {
             Unhide();
-            // P4b: Player: a Player mover is always blocked (SimMovement_onBlocker 0x005067c4).
+            if (playerMover != null)
+                return true; // SimMovement_onBlocker 0x005067c4
             if ((ContainerTypeOf(o) & 0x40200000u) != 0)
             {
                 o.AtRest = false;
@@ -269,9 +303,17 @@ public sealed partial class GameState
             {
                 GameBase o = r.Object;
                 o.Transform = r.Xf;
-                // P4b: Player: a Player takes back its collision mask and rest flag and refiles (Player::updateContainer).
-                o.ItemFlags = r.Flags;
-                ObjectMoved(o);
+                if (Player.From(o) is Player p)
+                {
+                    p.CollisionMask = r.Mask;
+                    p.RestFlag = r.Flags != 0;
+                    p.UpdateContainer();
+                }
+                else
+                {
+                    o.ItemFlags = r.Flags;
+                    ObjectMoved(o);
+                }
                 for (int i = 0; i < 3; ++i)
                     o.Velocity[i] = r.Velocity[i];
             }
@@ -294,7 +336,44 @@ public sealed partial class GameState
         // mover's collision mask without terrain, interiors and 0x40. Each one that was pushed then displaces what it
         // overlaps itself, with a zero delta.
         var found = new List<GameBase>();
-        // P4b: Player: a Player mover tests every candidate image itself (displace.cpp, the playerMover branch).
+        if (playerMover != null)
+        {
+            // Every image of the candidate list is tested on its own (0x005062e4 walks the list of images, not of
+            // objects): Players, vehicles, Items, Mines, StaticBase objects, Moveables and Triggers, each pushed by the
+            // delta, which is zero here (a Player never starts a displace). An object with two images that both overlap
+            // (a station with a trigger sphere) is recorded and pushed twice.
+            Span<float> query = stackalloc float[6];
+            Collision.SweptBox(playerMover.BoxMin, playerMover.BoxMax, mover.Transform.P, mover.Velocity, 0.032f, query);
+            var images = new List<CollisionImage>();
+            CollisionCandidates(mover, playerMover.CollisionMask & ~0x46u, query, images);
+            var self = new MoverImage();
+            playerMover.MoverImageOf(self);
+            // Sphere and box images (a Trigger, the trigger sphere of a station, a door or a Mine) are tested against the
+            // Player's own shape (Player::buildCandidates).
+            foreach (CollisionImage im in images)
+                if (im.ImageKind == CollisionImage.Kind.TriggerSphere || im.ImageKind == CollisionImage.Kind.Trigger)
+                {
+                    self.Instance = ShapeState.ShapeInstanceOf(this, mover);
+                    self.Detail = 0;
+                    self.MeshMode = true;
+                    break;
+                }
+            foreach (CollisionImage im in images)
+            {
+                if (im.Object is not GameBase o || o.IsInterior() || Hidden(o) || riders.Contains(o.Id()))
+                    continue;
+                var hit = new CollisionHit();
+                if (!Collision.TestImage(self, im, hit))
+                    continue;
+                Record(o);
+                if ((!PushObject(o, delta, mover.Velocity) || !DisplaceBy(o, zero, false)) && Blocker(o))
+                {
+                    Rollback();
+                    return false;
+                }
+            }
+        }
+        else
         {
             Span<float> query = stackalloc float[6];
             uint overlapMask = (top ? 0x24a00080u : DisplaceMaskOf(mover)) & ~0x46u;
@@ -334,8 +413,11 @@ public sealed partial class GameState
         foreach (DisplaceRecord r in records)
         {
             GameBase o = r.Object;
-            // P4b: Player: a pushed Player sets mask 0x12000.
-            if (IsItemClass(o))
+            if (Player.From(o) != null)
+            {
+                o.SetMaskBits(0x12000);
+            }
+            else if (IsItemClass(o))
             {
                 o.AtRest = false;
                 o.SetMaskBits(0x08);
@@ -372,8 +454,7 @@ public sealed partial class GameState
         {
             if (so is not GameBase o)
                 continue;
-            // P4b: Player: a Player in the way is tested too.
-            if (!(o.ShapeClass() == GameBase.ShapeKind.Item && o.ItemCollideable))
+            if (Player.From(o) == null && !(o.ShapeClass() == GameBase.ShapeKind.Item && o.ItemCollideable))
                 continue;
             if (ImagesOverlap(mover, o, image))
                 return false;
@@ -444,8 +525,19 @@ public sealed partial class GameState
             if (!exact.Contains(obj))
                 continue;
             ++e.ImageQueries; // SimMovement_collectImages 0x0050693c: query 0x407 on every object found
-            // P4b: Player: a Player candidate is its sphere image (move_candidates.cpp, the Player::from branch).
-            if (gb.GetKind() == GameBase.Kind.Trigger)
+            if (Player.From(gb) is Player other)
+            {
+                image.ImageKind = CollisionImage.Kind.Sphere;
+                image.Centre[2] = other.Radius;
+                image.Radius = other.Radius;
+                image.Rot = Float9.Identity();
+                // Player_kill (0x004112ac) sets object byte +0x7f9, which is the image byte +0xd that
+                // SimMovement_testImages (0x00506bfc) reads: against a Player mover the corpse posts one event and leaves
+                // the candidate list at once, in candidate order, and never reaches the pair events of the notify list
+                // (docs/collision.md 11.13). Items and vehicles keep their own handling of a corpse.
+                image.NonBlocking = other.Dead && Player.From(mover) != null;
+            }
+            else if (gb.GetKind() == GameBase.Kind.Trigger)
             {
                 // Trigger_getCollisionImages (0x00487384): the sphere image (centre at the origin, radius = the smallest
                 // box extent, 0x00486df8) or the box image, with the object transform. Neither blocks.
@@ -500,7 +592,8 @@ public sealed partial class GameState
     // src/game/player.cpp typeOf: object type (+0x48) of a GameBase in container 7.
     private static uint TypeOf(GameBase gb)
     {
-        // P4b: Player: a Player answers its own object type (+0x48).
+        if (Player.From(gb) is Player p)
+            return p.ObjectTypeBits;
         if (gb.IsInterior())
             return ObjectType.kInteriorType;
         return ContainerType(gb);
@@ -530,32 +623,40 @@ public sealed partial class GameState
         // Handlers (vtable +0xe8) by class and the type mask of `other` (8 E1.4).
         uint other = TypeOf(sender);
         uint mask;
-        // P4b: Player: a Player target takes the mask 0x64a00080 (0x0060fb68).
-        if (target.GetKind() == GameBase.Kind.Trigger)
+        if (Player.From(target) != null)
+        {
+            mask = 0x64a00080u; // 0x0060fb68
+        }
+        else if (target.GetKind() == GameBase.Kind.Trigger)
         {
             target.TriggerCollide(sender); // Trigger_onCollision 0x004874b4 (static-sim 6.2): no script onCollision
             return;
         }
-        if (target.IsInterior())
-            return;
-        switch (target.ShapeClass())
+        else if (target.IsInterior())
         {
-            case GameBase.ShapeKind.Item:
-            case GameBase.ShapeKind.Mine:
-                if (target.ItemThrower == sender)
+            return;
+        }
+        else
+        {
+            switch (target.ShapeClass())
+            {
+                case GameBase.ShapeKind.Item:
+                case GameBase.ShapeKind.Mine:
+                    if (target.ItemThrower == sender)
+                        return;
+                    if (target.ShapeClass() == GameBase.ShapeKind.Mine && target.DamageState == GameBase.kDestroyed)
+                        return;
+                    mask = 0x24800080u; // 0x0061acb0
+                    break;
+                case GameBase.ShapeKind.Vehicle:
+                    mask = (other & 0x80) != 0 || (other & 0x200000) != 0 ? 0x24a00080u : 0; // 0x00619ce8, 0x00445a38
+                    break;
+                case GameBase.ShapeKind.NoShape:
                     return;
-                if (target.ShapeClass() == GameBase.ShapeKind.Mine && target.DamageState == GameBase.kDestroyed)
-                    return;
-                mask = 0x24800080u; // 0x0061acb0
-                break;
-            case GameBase.ShapeKind.Vehicle:
-                mask = (other & 0x80) != 0 || (other & 0x200000) != 0 ? 0x24a00080u : 0; // 0x00619ce8, 0x00445a38
-                break;
-            case GameBase.ShapeKind.NoShape:
-                return;
-            default:
-                mask = 0x24200080u; // 0x0061a7e8: StaticBase classes
-                break;
+                default:
+                    mask = 0x24200080u; // 0x0061a7e8: StaticBase classes
+                    break;
+            }
         }
         if ((other & mask) == 0)
             return;

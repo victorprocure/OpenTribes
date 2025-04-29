@@ -1,8 +1,8 @@
 // Port of the GameState part of src/game/game_commands.hpp and src/game/game_commands.cpp: the game plugin state
 // (FearPlugin, registered at 0x00423040): teams (PlayerManager 713) and the GameBase services for mission objects. The
 // stepped-move candidates (src/game/move_candidates.cpp), the displacement (src/game/displace.cpp) and the collision
-// event (GameState::postCollisionEvent and dispatchCollisionEvent of src/game/player.cpp) are Displace.cs; the Player and
-// Vehicle branches of those are stage P4b and the AI manager stage P4c.
+// event (GameState::postCollisionEvent and dispatchCollisionEvent of src/game/player.cpp) are Displace.cs; the Vehicle
+// branches of those are stage P4b and the AI manager stage P4c.
 using OpenTribes.Core;
 using OpenTribes.Script;
 using OpenTribes.Sim;
@@ -285,7 +285,11 @@ public sealed partial class GameState : GameServices
     {
         if (o is not GameBase obj)
             return;
-        // P4b: Player: a Player refiles its box at once (Player::refileBox, setTransform 0x005054a4 -> 0x004f9a38).
+        if (Player.From(obj) is Player p)
+        {
+            p.RefileBox(); // setTransform updates the container at once (0x005054a4 -> 0x004f9a38)
+            return;
+        }
         if (Sim != null && obj.DataBlockName != null && Sim.DataBlocks().Find(obj.DataBlockName) is DataBlockManager.Block b)
             PlaceInContainer(obj, b);
     }

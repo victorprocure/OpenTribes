@@ -1,6 +1,6 @@
 // Port of tests/test_control_object.cpp: moves and control objects (docs/game-stream.md 6.1-6.5,
 // docs/player-manager.md 12.5): the move wire form, the ObserverCamera, the PlayerPSC blocks in both directions, and the
-// ownership and control links with their script commands. 245 asserts; asserts 242-244 (spawnPlayer) wait for P4b.
+// ownership and control links with their script commands. 245 asserts.
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
@@ -1137,9 +1137,15 @@ public class ControlObjectTests
         // A viewer always has its own slot, visible or not.
         c.Team = 0;
         Assert.True(pm.CommandSlot(c, 3, s));
-        // P4b: Player. Asserts 242-244 (C++ lines 1121-1124): a Player takes no sensor target slot, whatever its
-        // datablock says: SensorManager_addTarget (00439c70) refuses datablock group 3, so it shows only in its client
-        // slot. They need spawnPlayer and run with the Player port.
+        // A Player takes no sensor target slot, whatever its datablock says: SensorManager_addTarget (00439c70) refuses
+        // datablock group 3, so it shows only in its client slot.
+        w.Run("PlayerData varmor { shapeFile = \"none\"; visibleToSensor = true; };");
+        SimObject? po = w.Object(w.Run("echo(spawnPlayer(varmor, \"0 0 0\", \"0 0 0\"));"));
+        Assert.True(po is GameBase pgb && pgb.TargetIndex == -1);
+        Assert.True(w.Game.Targets.Count == 4);
+        foreach (GameBase? g in w.Game.Targets)
+            Assert.True(g != po);
+        w.Sim.Server()!.DeleteObject(po!); // no MissionCleanup group here to own it
         // Removed targets leave their slot empty.
         w.Sim.Server()!.DeleteObject(t0);
         Assert.True(w.Game.Targets[0] == null);

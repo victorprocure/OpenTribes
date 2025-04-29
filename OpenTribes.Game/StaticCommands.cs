@@ -77,8 +77,7 @@ public static class StaticCommands
         Def("GameBase::setDamageLevel", 3, "wrong argcount to setDamageLevel(object,value)", "False", "False", (_, a, r) =>
         {
             // vtable +0x190: StaticBase and Player (0x004111c4) have their own versions.
-            // P4b: Player: a Player takes it too (Player::setDamage).
-            if (FindSB(a[1]) is GameBase gb && gb.IsStaticBase())
+            if (FindSB(a[1]) is GameBase gb && (gb.IsStaticBase() || Player.From(gb) != null))
             {
                 gb.SetDamageLevel(Store(Numbers.BorlandAtof(a[2])));
                 return "True";
@@ -268,9 +267,11 @@ public static class StaticCommands
             }
             GameBase? turret = game.Players.FindServerObject(a[1]);
             GameBase? player = game.Players.FindServerObject(a[2]);
-            _ = turret;
-            _ = player;
-            // P4b: Player: a Turret and a Player: turret->turretPreferred = player->id(), "True".
+            if (turret != null && turret.ShapeClass() == GameBase.ShapeKind.Turret && player != null && Player.From(player) != null)
+            {
+                turret.TurretPreferred = player.Id();
+                return "True";
+            }
             return "False";
         });
 
@@ -355,7 +356,8 @@ public static class StaticCommands
                 return r;
             float[] p = new float[3];
             GameUtil.Scan3(a[2], p);
-            // P4b: Player: a Player tests its own image (Player::testPositionAt).
+            if (Player.From(gb) is Player pl)
+                return pl.TestPositionAt(p) ? "True" : r;
             return gb.TestPosition(p) ? "True" : r;
         });
         foreach (string name in new[] { "GameBase::startFadeOut", "GameBase::startFadeIn" })
