@@ -2,8 +2,7 @@
 // docs/collision.md E3, docs/static-sim.md 2.5: SimMovement_displace 0x00505ed4, the rider and overlap phases 0x0050613c
 // and 0x005062e4, the push 0x005064f8 and the blocking test of doors 0x00505790), of src/game/move_candidates.cpp (the
 // candidate list of a stepped move, docs/collision.md 2.1, 2.2) and of the collision event of src/game/player.cpp
-// (GameState::postCollisionEvent and dispatchCollisionEvent, docs/collision.md 8 E1). The Vehicle branches are stage
-// P4b and marked where they sit.
+// (GameState::postCollisionEvent and dispatchCollisionEvent, docs/collision.md 8 E1).
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
@@ -164,7 +163,8 @@ public sealed partial class GameState
     {
         if (Player.From(o) is Player p)
             return p.PushBy(delta, mover);
-        // P4b: Vehicle: Vehicle::pushBy.
+        if (Vehicle.From(o) is Vehicle v)
+            return v.PushBy(delta, mover);
         if (IsItemClass(o))
             return o.ItemPushBy(delta, mover);
         // A StaticBase object (StaticShape, Sensor, Turret, Moveable) or a Trigger, pushed by zero by a Player that a
@@ -292,7 +292,8 @@ public sealed partial class GameState
                 o.AtRest = false;
                 return false;
             }
-            // P4b: Vehicle: a vehicle mover answers with Vehicle_onBlocker (0x0044642c).
+            if (vehicleMover)
+                return ((Vehicle)mover).Blocker(o); // Vehicle_onBlocker 0x0044642c
             ScriptCallback(mover, "onBlocker", new[] { o.Id().ToString(System.Globalization.CultureInfo.InvariantCulture) });
             return true;
         }
@@ -380,8 +381,8 @@ public sealed partial class GameState
             if (vehicleMover)
             {
                 // A Vehicle moves with the collision mask 0x80 during its own displace (Flier_update U16). Its object box
-                // is turned by its matrix (bit 0x40 of +0x164, HF6). Flier::kHullMask is 0x34c00086.
-                overlapMask = top ? 0x80u : (0x34c00086u & ~0x46u);
+                // is turned by its matrix (bit 0x40 of +0x164, HF6).
+                overlapMask = top ? 0x80u : (Flier.kHullMask & ~0x46u);
                 Mat m = mover.WorldMat();
                 Span<float> box = stackalloc float[6];
                 Shape.RotatedWorldBox(mover.ShapeQueryBox, m, box);

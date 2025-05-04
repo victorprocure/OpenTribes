@@ -1,8 +1,8 @@
 // Port of the GameState part of src/game/game_commands.hpp and src/game/game_commands.cpp: the game plugin state
 // (FearPlugin, registered at 0x00423040): teams (PlayerManager 713) and the GameBase services for mission objects. The
 // stepped-move candidates (src/game/move_candidates.cpp), the displacement (src/game/displace.cpp) and the collision
-// event (GameState::postCollisionEvent and dispatchCollisionEvent of src/game/player.cpp) are Displace.cs; the Vehicle
-// branches of those are stage P4b and the AI manager stage P4c.
+// event (GameState::postCollisionEvent and dispatchCollisionEvent of src/game/player.cpp) are Displace.cs; the AI
+// manager is stage P4c.
 using OpenTribes.Core;
 using OpenTribes.Script;
 using OpenTribes.Sim;
@@ -53,7 +53,7 @@ public sealed partial class GameState : GameServices
     // Set by the game server: ORs bits into the object's entry of every GhostManager.
     public Action<SimObject, uint>? MaskBits;
     public readonly Container World = new();           // container 7
-    internal readonly List<GameBase> mDisplaceHidden = new(); // movers of the running displaces (object type 0)
+    public readonly List<GameBase> mDisplaceHidden = new(); // movers of the running displaces (object type 0)
 
     public GameState() => Players = new PlayerManager(this);
 

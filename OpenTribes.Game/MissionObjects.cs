@@ -1594,8 +1594,8 @@ public static class MissionClasses
         Gb("Sensor", GameBase.Kind.ShapeBase, 8, staticBase, 719);
         Gb("Turret", GameBase.Kind.ShapeBase, 19, staticBase, 719);
         Gb("Moveable", GameBase.Kind.ShapeBase, 7, staticBase, 718);
-        // P4b: Vehicle: registerClass("Flier", makeFlier(c, staticBase)) and registerClass("Vehicle", makeVehicle(c,
-        // staticBase)) (src/game/vehicle.cpp).
+        SimClasses.RegisterClass("Flier", c => Vehicle.MakeFlier(c, staticBase));
+        SimClasses.RegisterClass("Vehicle", c => Vehicle.MakeVehicle(c, staticBase));
         Gb("Marker", GameBase.Kind.Marker, 21, marker);
         Gb("Trigger", GameBase.Kind.Trigger, 26, trigger);
         Gb("InteriorShape", GameBase.Kind.Interior, -1, interior, 718);

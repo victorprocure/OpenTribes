@@ -150,8 +150,9 @@ public static class PlayerCommands
             new("Player::isExposed", "isExposed(player)", "False", "False", p =>
             {
                 // 0x00421180: no mount object, or the mount object's vtable +0x164 (Vehicle: visibleDriver).
-                // P4b: Vehicle: !m || !Vehicle::from(m) || v->data.visibleDriver with m = p.MountObject().
-                return "True";
+                GameBase? m = p.MountObject();
+                Vehicle? v = Vehicle.From(m);
+                return m == null || v == null || v.Data.VisibleDriver ? "True" : "False";
             }),
             new("Player::lastJetTime", null, "0", "0", p => Numbers.FormatInt(unchecked((int)p.LastJetTime))),
             new("Player::getLastContactCount", null, "-1", "-1", p => Numbers.FormatInt(p.TicksSinceContact)),

@@ -1,6 +1,6 @@
 // Port of registerGameCommands of src/game/game_commands.cpp: the game commands (Group, datablocks, line of sight,
-// containers, teams, the GameBase family). The Player, AI and Vehicle commands (player_commands.cpp, ai_commands.cpp,
-// vehicle_net.cpp) are stages P4b and P4c.
+// containers, teams, the GameBase family). The Player and Vehicle commands are PlayerCommands and Vehicle; the AI
+// commands (ai_commands.cpp) are stage P4c.
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
@@ -420,6 +420,6 @@ public static class GameCommands
         game.Players.RegisterCommands(interp);
         PlayerCommands.Register(interp, game);
         // P4c: AI: registerAICommands(in, game) (src/game/ai_commands.cpp).
-        // P4b: Vehicle: registerVehicleCommands(in, game) (src/game/vehicle_net.cpp).
+        Vehicle.RegisterCommands(interp, game);
     }
 }

@@ -88,7 +88,22 @@ public sealed partial class Player
         ContactFlag = false;
         UpdateContainer();
         SetMaskBits(0x2000);
-        // P4b: Vehicle: MT4: on a jump of a live Player the vehicle's passengerJump(vehicle, player, "up row")
-        // (Vehicle.FindVehicleMethod with the map name).
+        if (mv.Jump && !Dead)
+        {
+            // MT4: the vehicle's passengerJump(vehicle, player, "up row"); the map name takes part in the lookup.
+            if (Vehicle.From(m) is Vehicle v)
+            {
+                string fn = Vehicle.FindVehicleMethod(mGame, v, "passengerJump", true);
+                if (fn.Length != 0 && mGame.Console != null)
+                {
+                    static string G(float f) => Numbers.FormatFloat(f);
+                    mGame.Console.CallFunction(fn, new[]
+                    {
+                        Numbers.FormatInt(v.Id()), Numbers.FormatInt(Id()),
+                        G(Transform.M[6]) + " " + G(Transform.M[7]) + " " + G(Transform.M[8]),
+                    });
+                }
+            }
+        }
     }
 }
