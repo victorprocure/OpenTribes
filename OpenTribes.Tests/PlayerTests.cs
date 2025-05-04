@@ -1350,6 +1350,661 @@ public class PlayerTests
         Assert.True(c.Failures == 0);
     }
 
+    // castWorld (collision.md 9, interiors.md 6.3 step 4): the terrain hit behind a Player shortens the segment, and the
+    // Player's line test computes its hit point from the shortened segment.
+    private static void TestCastWorldShortening()
+    {
+        var f = new Fixture("cast_shorten");
+        Fixtures.World w = f.W;
+        Player p = f.Spawn("50 50 50", "0 0 0.3");
+        var T = new TMat3();
+        T.Flags = p.Transform.Flags;
+        T.M = p.Transform.M;
+        T.P = p.Transform.P;
+        Shape.TmatInverse(T, out TMat3 inv);
+        float[] mn = { p.BoxMin[0], p.BoxMin[1], p.BoxMin[2] }, mx = { p.BoxMax[0], p.BoxMax[1], p.BoxHeight };
+        void LineHit(float[] S, ReadOnlySpan<float> E, float[] output)
+        {
+            float[] ls = new float[3], le = new float[3];
+            X87.MulPoint(S, inv.M, inv.P, ls);
+            X87.MulPoint(E, inv.M, inv.P, le);
+            float t = 0;
+            bool found = false;
+            for (int a = 0; a < 3 && !found; ++a)
+            {
+                int b = (a + 1) % 3, c = (a + 2) % 3;
+                float num, den;
+                if (ls[a] < mn[a])
+                {
+                    if (le[a] < mn[a])
+                        continue;
+                    num = X87.F32(Sub(mn[a], ls[a]));
+                    den = X87.F32(Sub(le[a], ls[a]));
+                }
+                else if (ls[a] > mx[a])
+                {
+                    if (le[a] > mx[a])
+                        continue;
+                    num = X87.F32(Sub(ls[a], mx[a]));
+                    den = X87.F32(Sub(ls[a], le[a]));
+                }
+                else
+                {
+                    continue;
+                }
+                if (Mul(Sub(le[b], ls[b]), num) < Mul(Sub(mx[b], ls[b]), den) && Mul(Sub(mn[b], ls[b]), den) < Mul(Sub(le[b], ls[b]), num) &&
+                    Mul(Sub(le[c], ls[c]), num) < Mul(Sub(mx[c], ls[c]), den) && Mul(Sub(mn[c], ls[c]), den) < Mul(Sub(le[c], ls[c]), num))
+                {
+                    t = X87.F32(Div(num, den));
+                    found = true;
+                }
+            }
+            Assert.True(found);
+            for (int i = 0; i < 3; ++i)
+                output[i] = X87.F32(Add(Mul(Sub(E[i], S[i]), t), S[i]));
+        }
+        static bool Same(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
+        {
+            for (int i = 0; i < 3; ++i)
+                if (Bits(a[i]) != Bits(b[i]))
+                    return false;
+            return true;
+        }
+        int differing = 0;
+        for (int k = 0; k < 12; ++k)
+        {
+            float[] S = { AddF(30.0f, MulF(0.05f, k)), AddF(35.0f, MulF(0.01f, k)), AddF(52.4f, MulF(0.013f, k)) }, E = { 70.0f, 65.0f, 48.4f };
+            var terrain = new RayHit();
+            var hit = new RayHit();
+            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, p, ref terrain) && terrain.Terrain);
+            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.Object == p);
+            float[] shortened = new float[3], full = new float[3];
+            LineHit(S, terrain.Point, shortened);
+            LineHit(S, E, full);
+            Assert.True(Same(hit.Point, shortened));
+            if (!Same(shortened, full))
+                ++differing;
+        }
+        Assert.True(differing > 0); // the shortening changes the f32 hit point of some of these rays
+        for (int k = 0; k < 400; ++k)
+        {
+            float[] S = { AddF(30.0f, MulF(0.0123f, k)), AddF(35.0f, MulF(0.0071f, k)), AddF(51.6f, MulF(0.0013f, k)) }, E = { 70.0f, 65.0f, 51.2f };
+            var hit = new RayHit();
+            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.Object == p);
+            float[] full = new float[3];
+            LineHit(S, E, full);
+            Assert.True(Same(hit.Point, full));
+        }
+    }
+
+    // Items and projectiles take the terrain container's gravity and drag on entry (FC2, 0x005195b4), as the Player does.
+    private static void TestEntryForces()
+    {
+        var f = new Fixture("player_entry_forces");
+        Fixtures.World w = f.W;
+        w.Run("ItemData Brick { shapeFile = \"gen\"; mass = 1; drag = 1; friction = 1; elasticity = 0.2; };" +
+              "GrenadeData Gr { maxLevelFlightDist = 150; elasticity = 0.45; liveTime = 1.0; totalTime = 30; };" +
+              "instant Item \"Inside\" { dataBlock = \"Brick\"; position = \"16 16 200\"; };");
+        GameBase? Item(string name) => w.Object(name) as GameBase;
+        void Tick(int n)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                uint t = w.Sim.TickMs();
+                while (w.Sim.TickMs() == t)
+                    w.Sim.AdvanceRealTime(1);
+            }
+        }
+        GameBase? a = Item("Inside");
+        Assert.True(a != null);
+        a!.ItemPhysics(0.032f);
+        Assert.True(a.Velocity[2] == -0.64f && a.ItemGravity == 20.0f);
+        string shell = w.Run("echo(Projectile::spawnProjectile(Gr, \"1 0 0 0 0 -1 0 1 0 16 16 200\", -1, \"0 0 0\"));");
+        var g = (GameBase)w.Object(shell)!;
+        Tick(2);
+        float g0 = g.Velocity[2];
+        w.Run("setTerrainContainer(\"MissionGroup\\\\Terrain\", \"0 0 -5\", 0.5, 10000);");
+        a.Velocity[2] = 0;
+        a.ItemPhysics(0.032f);
+        Assert.True(a.Velocity[2] == -0.64f && a.ItemGravity == 20.0f);
+        Tick(1);
+        Assert.True(Math.Abs(g.Velocity[2] - (g0 - 20.0f / 30.0f)) < 1e-4f);
+        w.Run("instant Item \"Later\" { dataBlock = \"Brick\"; position = \"20 16 200\"; };");
+        GameBase b = Item("Later")!;
+        b.ItemPhysics(0.032f);
+        float c = Scaled(Scaled(1.0f, 0.5f), 0.032f);
+        float v1 = X87.F32(Sub(-0.16f, Mul(-0.16f, c)));
+        Assert.True(Bits(b.Velocity[2]) == Bits(v1) && b.ItemGravity == 5.0f);
+        string shell2 = w.Run("echo(Projectile::spawnProjectile(Gr, \"1 0 0 0 0 -1 0 1 0 20 16 200\", -1, \"0 0 0\"));");
+        var h = (GameBase)w.Object(shell2)!;
+        float h0 = h.Velocity[2];
+        Tick(2); // one step: gravity, then the drag of a Grenade (movement flag 0x10)
+        {
+            float dt = 0.0333333351f;
+            float v = X87.F32(Add(Mul(-5.0f, dt), h0));
+            float k = Scaled(Scaled(1.0f, 0.5f), dt);
+            Assert.True(Bits(h.Velocity[2]) == Bits(X87.F32(Sub(v, Mul(v, k)))));
+            Assert.True(h.Velocity[2] > h0);
+        }
+        w.Run("Item::hide(Inside, true); Item::hide(Inside, false);");
+        a.Velocity[2] = 0;
+        a.ItemPhysics(0.032f);
+        Assert.True(Bits(a.Velocity[2]) == Bits(v1) && a.ItemGravity == 5.0f);
+    }
+
+    // The armor and image shapes of the muzzle tests: eye at (0, 0.25, 2), hand at (0.5, 0, 1.25) keyed by `looks`.
+    private static (DtsSpec body, DtsSpec gun) MuzzleShapes()
+    {
+        var body = new DtsSpec();
+        body.Names = new List<string> { "bounds", "root", "dummy eye10", "dummy hand10", "looks" };
+        body.Nodes = new() { new(0, -1, 0, 0, 0), new(1, 0, 0, 0, 0), new(2, 1, 0, 0, 1), new(3, 1, 1, 0, 2) };
+        body.Sequences = new() { new(4, 0, 0.333333f, 2) };
+        body.Subs = new() { new(0, 2, 0) };
+        body.Keys = new() { new(0.0f, 2, 0x8000), new(1.0f, 3, 0x8000) };
+        body.Transforms = new()
+        {
+            X(kQ0, new float[] { 0, 0, 0 }), X(kQ0, new float[] { 0, 0.25f, 2.0f }), X(kQ0, new float[] { 0.5f, 0, 1.25f }),
+            X(kQ0, new float[] { 0.5f, 0, 1.75f }),
+        };
+        body.Details = new() { new(1, 10.0f) };
+        var gun = new DtsSpec();
+        gun.Names = new List<string> { "bounds", "always", "dummyalways muzzle", "root" };
+        gun.Nodes = new() { new(0, -1, 0, 0, 0), new(1, 0, 0, 0, 0), new(2, 1, 0, 0, 1), new(3, 0, 0, 0, 0) };
+        gun.Transforms = new() { X(kQ0, new float[] { 0, 0, 0 }), X(kQ0, new float[] { 0, 0.75f, 0.0625f }) };
+        gun.Details = new() { new(3, 10.0f) };
+        gun.AlwaysNode = 1;
+        return (body, gun);
+    }
+
+    // ---- muzzle, mount and eye transforms (projectile-sim 1.5) ----
+
+    private static void TestMuzzleTransforms()
+    {
+        var f = new Fixture("player_muzzle");
+        Fixtures.World w = f.W;
+        (DtsSpec body, DtsSpec gun) = MuzzleShapes();
+        PutFile(Path.Combine(f.Root, "base/body.dts"), DtsModelFile(body));
+        PutFile(Path.Combine(f.Root, "base/gunm.dts"), DtsModelFile(gun));
+        w.Res.SetSearchPath("base"); // rescan: the files were added after the world was built
+        w.Run("PlayerData marmor { shapeFile = \"body\"; mass = 9; maxEnergy = 60; maxDamage = 0.5; boxWidth = 0.5;" +
+              " boxDepth = 0.5; boxNormalHeight = 2.25; boxCrouchHeight = 1.75; };" +
+              "ItemImageData AimImage { shapeFile = \"gunm\"; mountPoint = 0; mountOffset = \"0.25 0.5 0.125\";" +
+              " weaponType = 0; };" +
+              "ItemData AimGun { className = \"Weapon\"; imageType = AimImage; };" +
+              "ItemImageData BackImage { shapeFile = \"gunm\"; mountPoint = 1; weaponType = 0; };" +
+              "ItemData BackGun { className = \"Weapon\"; imageType = BackImage; };");
+        string id = w.Run("echo(spawnPlayer(marmor, \"8 16 200\", \"0 0 0\"));");
+        Player? p = Player.From(w.Object(id));
+        Assert.True(p != null);
+        void Tick(int n)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                uint t = w.Sim.TickMs();
+                while (w.Sim.TickMs() == t)
+                    w.Sim.AdvanceRealTime(1);
+            }
+        }
+        Tick(3);
+        void Offset(float[] output)
+        {
+            string s = w.Run("echo(GameBase::getMuzzleTransform(" + id + "), \" \", GameBase::getPosition(" + id + "));");
+            float[] v = new float[15];
+            int n = CScan.Floats(s, v);
+            Assert.True(n == 15);
+            for (int i = 0; i < 9; ++i)
+                output[i] = v[i];
+            for (int i = 0; i < 3; ++i)
+                output[9 + i] = SubF(v[9 + i], v[12 + i]);
+        }
+        static bool Near3(ReadOnlySpan<float> v, float x, float y, float z) =>
+            Math.Abs(v[0] - x) < 2e-3f && Math.Abs(v[1] - y) < 2e-3f && Math.Abs(v[2] - z) < 2e-3f; // %g of the position
+        float[] m = new float[12];
+        Offset(m);
+        Assert.True(m[0] == 1 && m[4] == 1 && m[8] == 1 && Near3(m.AsSpan(9), 0, 0.25f, 2.0f));
+        w.Run("Player::mountItem(" + id + ", AimGun, 0);");
+        Tick(2);
+        Offset(m);
+        Assert.True(!p!.Pose.FirstPerson && Near3(m.AsSpan(9), 0.75f, 1.25f, 1.4375f));
+        Assert.True(p.ImageMountTransform(0, out TMat3 mount) && Near3(mount.P, 0.75f, 0.5f, 1.375f));
+        p.Pitch = 0.5f;
+        p.UpdateAnimation(0.032f);
+        float look = 0.5f - 0.5f * 0.5f * 0.651088f;
+        Assert.True(Math.Abs(p.Pose.LookPosition - look) < 1e-5f);
+        Assert.True(p.ImageMountTransform(0, out mount) && mount.M[4] == 1 && Near3(mount.P, 0.75f, 0.5f, 1.375f));
+        p.AiControlled = true;
+        Assert.True(p.ImageMountTransform(0, out mount));
+        float c = MathF.Cos(0.5f), s = MathF.Sin(0.5f);
+        Assert.True(Near3(mount.P, 0.75f, 0.5f * c - 0.125f * s, 1.25f + 0.5f * s + 0.125f * c));
+        Assert.True(Math.Abs(mount.M[4] - c) < 1e-6f && Math.Abs(mount.M[5] - s) < 1e-6f && Math.Abs(mount.M[7] + s) < 1e-6f);
+        p.AiControlled = false;
+        Transform eye = p.EyeTransform();
+        Assert.True(Math.Abs(eye.M[4] - c) < 1e-6f && Math.Abs(eye.P[1] - (p.Transform.P[1] + 0.25f)) < 1e-4f);
+        p.Pitch = 0;
+        p.UpdateAnimation(0.032f);
+        w.Run("Player::unmountItem(" + id + ", 0); Player::mountItem(" + id + ", BackGun, 0);");
+        Assert.True(!p.ImageMountTransform(0, out mount) && mount.P[0] == 0 && mount.M[0] == 1);
+        Assert.True(p.MuzzleObjectTransform(0, out TMat3 mz) && Near3(mz.P, 0, 0.75f, 0.0625f));
+        Assert.True(p.Pullback == 0.0f);
+        Assert.True(!p.RaySkip);
+        p.Kill();
+        Assert.True(p.RaySkip);
+    }
+
+    // ---- fire edge cases (ROADMAP G21, docs/projectile-sim.md 12.2) ----
+
+    // Projectile_applyDeflection (0x00459fa4) against the reference: the direction of the first 120 Bullets of a freshly
+    // started server (tests/deflection_vectors.inc).
+    private static void TestDeflectionVectors()
+    {
+        uint[][] kRef = TestPaths.IncTokens("tests/deflection_vectors.inc", null).Select(r => r.Select(TestPaths.IncU32).ToArray()).ToArray();
+        var f = new Fixture("player_deflect");
+        Fixtures.World w = f.W;
+        ProjectileGhost.Register();
+        w.Run("BulletData DBl { aimDeflection = 0.25; muzzleVelocity = 425.0; totalTime = 1.5; inheritedVelocityScale = 1.0; };");
+        Projectile.ResetProjectileRandoms();
+        string[] kAxes = { "0 1 0", "0.6 0.64 0.48", "-0.48 0.6 0.64", "0.64 -0.48 0.6" };
+        var gm = new GhostManager(2049);
+        var gctx = new GhostContext(gm, 2049, true);
+        int n = kRef.Length;
+        Assert.True(n == 120);
+        for (int i = 0; i < n; ++i)
+        {
+            string id = w.Run("echo(Projectile::spawnProjectile(DBl, \"1 0 0 " + kAxes[i % 4] + " 0 0 1 16 16 93\", -1, \"0 0 0\"));");
+            SimObject? o = w.Object(id);
+            Assert.True(o != null);
+            GhostClass? cls = GhostManager.GhostClassOf(o!);
+            Assert.True(cls != null && cls.Tag == 0x258);
+            byte[] buf = new byte[64];
+            var g = new BitStream(buf, buf.Length);
+            cls!.Pack!(o!, gctx, g, 0xffffffffu);
+            var r = new BitStream(buf, buf.Length);
+            Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag()); // GameBase part
+            Assert.True(r.ReadFlag() && r.ReadFlag());                                         // initial, twice
+            Assert.True(r.ReadInt(2) == 0 && !r.ReadFlag());                                   // block 0 of 1, no shooter ghost
+            float s0 = r.ReadF32(), s1 = r.ReadF32(), s2 = r.ReadF32();
+            Assert.True(s0 == 16 && s1 == 16 && s2 == 93);
+            Assert.True(r.ReadInt(15) == 0); // no flight time yet
+            uint x = r.ReadInt(20), y = r.ReadInt(20), neg = r.ReadFlag() ? 1u : 0u;
+            if (x != kRef[i][0] || y != kRef[i][1] || neg != kRef[i][2])
+            {
+                Console.WriteLine($"deflection shot {i + 1}: {x} {y} {neg}, reference {kRef[i][0]} {kRef[i][1]} {kRef[i][2]}");
+                Assert.True(false);
+            }
+            Assert.True(r.ReadInt(14) == 6798); // ftol(425 x 16), the reference speed field
+            w.Run("deleteObject(" + id + ");");
+        }
+    }
+
+    // LaserProjectile_packInitial (0x00463c54) and the ghost-always rule of NetObject_onAdd (0x0050a420).
+    private static void TestLaserGhost()
+    {
+        var f = new Fixture("player_laserghost");
+        Fixtures.World w = f.W;
+        PlayerGhost.Register();
+        ProjectileGhost.Register();
+        w.Run("LaserData SL { damageConversion = 0.007; baseDamageType = 1; beamTime = 0.5; detachFromShooter = false; };");
+        Player p = f.Spawn("16 16 60");
+        string pid = Itoa(p.Id());
+        var gm = new GhostManager(2049);
+        var gctx = new GhostContext(gm, 2049, true);
+        gm.MarkInScope(p, true);
+        gm.StartGhosting();
+        byte[] pkt = new byte[512];
+        var output = new BitStream(pkt, pkt.Length);
+        Assert.True(gm.WritePacket(output, 3000, out uint token));
+        gm.Notify(token, true);
+        int shooterGhost = gm.GhostIndex(p);
+        Assert.True(shooterGhost != -1);
+        int seen = 0;
+        SimObject? last = null;
+        w.Sim.Server()!.OnRegister = o =>
+        {
+            ++seen;
+            last = o;
+        };
+        string id = w.Run("echo(Projectile::spawnProjectile(SL, \"1 0 0 0 1 0 0 0 1 16 16 80\", " + pid + ", \"0 0 0\"));");
+        SimObject? obj = w.Object(id);
+        Assert.True(obj != null && seen == 1 && last == obj);
+        Assert.Contains("-1", w.Run("echo(Projectile::spawnProjectile(Nope, \"1 0 0 0 1 0 0 0 1 16 16 80\", -1, \"0 0 0\"));"),
+                        StringComparison.Ordinal);
+        Assert.True(seen == 1);
+        w.Sim.Server()!.OnRegister = null;
+        Assert.True((GhostScope.NetFlags(obj!) & 0x140u) == 0x140u);
+        GhostClass? cls = GhostManager.GhostClassOf(obj!);
+        Assert.True(cls != null && cls.Tag == 0x25b);
+        uint Pack(GhostContext ctx, byte[] buf)
+        {
+            Array.Clear(buf);
+            var g = new BitStream(buf, buf.Length);
+            cls!.Pack!(obj!, ctx, g, 0xffffffffu);
+            return g.BitPosition();
+        }
+        byte[] buf = new byte[64];
+        Assert.True(Pack(gctx, buf) == 124);
+        var r = new BitStream(buf, buf.Length);
+        Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag());
+        Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(2) == 0);
+        Assert.True(r.ReadFlag() && (int)r.ReadInt(10) == shooterGhost);
+        Assert.True(!r.ReadFlag()); // no hit: nothing along the beam
+        float e0 = r.ReadF32(), e1 = r.ReadF32(), e2 = r.ReadF32();
+        Assert.True(e0 == 16 && e1 == 3016 && e2 == 80); // the terrain's visible distance, 3000 m
+        Assert.True(r.ReadInt(5) == 0);                  // a console spawn has no energy
+        var other = new GhostManager(2050);
+        var octx = new GhostContext(other, 2050, true);
+        Assert.True(Pack(octx, buf) == 124 - 10 + 96);
+        var r2 = new BitStream(buf, buf.Length);
+        r2.ReadInt(7);
+        Assert.True(r2.ReadFlag() && r2.ReadFlag() && r2.ReadInt(2) == 0 && !r2.ReadFlag());
+        float st0 = r2.ReadF32(), st1 = r2.ReadF32(), st2 = r2.ReadF32();
+        Assert.True(st0 == 16 && st1 == 16 && st2 == 80 && !r2.ReadFlag());
+        r2.ReadF32();
+        e1 = r2.ReadF32();
+        r2.ReadF32();
+        Assert.True(e1 == 3016 && r2.ReadInt(5) == 0);
+    }
+
+    // Aimed muzzle (0x0044c148), the dead rule of Player_fireImage and of the mount (0x00419ba0), and the weapon pull-back
+    // (0x004198d4) on the synthetic armor of testMuzzleTransforms.
+    private static void TestFireEdgeTransforms()
+    {
+        var f = new Fixture("player_fireedge");
+        Fixtures.World w = f.W;
+        (DtsSpec body, DtsSpec gun) = MuzzleShapes();
+        PutFile(Path.Combine(f.Root, "base/body.dts"), DtsModelFile(body));
+        PutFile(Path.Combine(f.Root, "base/gunm.dts"), DtsModelFile(gun));
+        w.Res.SetSearchPath("base");
+        w.Run("PlayerData marmor { shapeFile = \"body\"; mass = 9; maxEnergy = 60; maxDamage = 0.5; boxWidth = 0.5;" +
+              " boxDepth = 0.5; boxNormalHeight = 2.25; boxCrouchHeight = 1.75; };" +
+              "RocketData Rk { muzzleVelocity = 65; terminalVelocity = 65; totalTime = 2.0; liveTime = 1.5; };" +
+              "ItemImageData AimImage { shapeFile = \"gunm\"; mountPoint = 0; mountOffset = \"0.25 0.5 0.125\";" +
+              " weaponType = 0; projectileType = Rk; accuFire = true; activateTime = 0; fireTime = 0.032; reloadTime = 0.032; };" +
+              "ItemData AimGun { className = \"Weapon\"; imageType = AimImage; };");
+        Player Make(string pos)
+        {
+            Player? pl = Player.From(w.Object(w.Run("echo(spawnPlayer(marmor, \"" + pos + "\", \"0 0 0\"));")));
+            Assert.True(pl != null);
+            return pl!;
+        }
+        static void Steps(Player pl, int n)
+        {
+            for (int i = 0; i < n; ++i)
+                pl.UpdateMove(new Move());
+        }
+        void Shoot(Player pl, float[] v)
+        {
+            string id = Itoa(pl.Id());
+            string before = w.Run("echo(Group::objectCount(MissionCleanup));");
+            w.Run("Player::trigger(" + id + ", 0, true);");
+            Steps(pl, 1);
+            w.Run("Player::trigger(" + id + ", 0, false);");
+            string after = w.Run("echo(Group::objectCount(MissionCleanup));");
+            Assert.True(int.Parse(after, CultureInfo.InvariantCulture) == int.Parse(before, CultureInfo.InvariantCulture) + 1);
+            SimObject? o = w.Object(w.Run("echo(Group::getObject(MissionCleanup, " + before + "));"));
+            Assert.True(o is GameBase);
+            var gb = (GameBase)o!;
+            v[0] = gb.Velocity[0];
+            v[1] = gb.Velocity[1];
+            v[2] = gb.Velocity[2];
+            w.Run("deleteObject(" + Itoa(o!.Id()) + ");");
+            Steps(pl, 4); // Fire, Reload, Ready
+        }
+        static bool Near3(ReadOnlySpan<float> v, float x, float y, float z, float tol) =>
+            Math.Abs(v[0] - x) < tol && Math.Abs(v[1] - y) < tol && Math.Abs(v[2] - z) < tol;
+        Player p = Make("8 16 50");
+        string pidS = Itoa(p.Id());
+        w.Run("Player::mountItem(" + pidS + ", AimGun, 0);");
+        Steps(p, 4);
+        Assert.True(Math.Abs(p.Transform.P[2] - 50.0f) < 1e-3f && p.Pullback == 0.0f);
+        float[] v = new float[3];
+        Shoot(p, v);
+        Assert.True(Near3(v, 0, 65, 0, 1e-4f));
+        Player far = Make("8 26 50");
+        Steps(far, 4);
+        Shoot(p, v);
+        float len = MathF.Sqrt(0.75f * 0.75f + 8.25f * 8.25f + 0.5625f * 0.5625f);
+        Assert.True(Near3(v, -0.75f / len * 65, 8.25f / len * 65, 0.5625f / len * 65, 2e-3f));
+        w.Run("GameBase::setPosition(" + Itoa(far.Id()) + ", \"8 18.4 50\");");
+        Steps(far, 2);
+        Shoot(p, v);
+        Assert.True(Near3(v, 0, 65, 0, 1e-4f));
+        w.Run("GameBase::setPosition(" + Itoa(far.Id()) + ", \"8 26 50\");");
+        Steps(far, 2);
+        Player wall = Make("8.75 17.2 50");
+        Steps(wall, 2);
+        Steps(p, 1);
+        Assert.True(Math.Abs(p.Pullback + 0.75f) < 1e-4f);
+        Assert.True(p.ImageMountTransform(0, out TMat3 mount) && Near3(mount.P, 0.75f, -0.25f, 1.375f, 1e-4f));
+        w.Run("deleteObject(" + Itoa(wall.Id()) + ");");
+        Steps(p, 1);
+        Assert.True(p.Pullback == 0.0f);
+        p.Kill();
+        Shoot(p, v);
+        Assert.True(Near3(v, 0, 65, 0, 1e-4f));
+        Player q = Make("40 16 50");
+        w.Run("Player::mountItem(" + Itoa(q.Id()) + ", AimGun, 0);");
+        Steps(q, 2);
+        q.AiControlled = true;
+        q.Pitch = 0.5f;
+        Assert.True(q.ImageMountTransform(0, out mount) && Math.Abs(mount.M[4] - MathF.Cos(0.5f)) < 1e-6f);
+        q.Kill();
+        Assert.True(q.ImageMountTransform(0, out mount) && mount.M[4] == 1.0f && Near3(mount.P, 0.75f, 0.5f, 1.375f, 1e-4f));
+    }
+
+    // ---- projectiles (projectile-sim 2.1 - 2.5, 3.5, 1.3) ----
+
+    private static void TestProjectiles()
+    {
+        var f = new Fixture("player_projectiles");
+        Fixtures.World w = f.W;
+        var c = new Cases();
+        w.Run("RocketData Rk { muzzleVelocity = 65; terminalVelocity = 65; totalTime = 2.0; liveTime = 1.5; };" +
+              "GrenadeData Gr { maxLevelFlightDist = 150; elasticity = 0.45; liveTime = 1.0; totalTime = 30; };" +
+              "BulletData Bl { muzzleVelocity = 200; totalTime = 2.0; liveTime = 1.125; damageValue = 0.125;" +
+              " damageType = 8; };");
+        void Tick(int n)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                uint t = w.Sim.TickMs();
+                while (w.Sim.TickMs() == t)
+                    w.Sim.AdvanceRealTime(1);
+            }
+        }
+        string Pos(string id) => w.Run("echo(GameBase::getPosition(" + id + "));");
+        c.Check(w, "echo(Projectile::spawnProjectile(Rk));", "-1");
+        c.Check(w, "echo(Projectile::spawnProjectile(Nope, \"1 0 0 0 1 0 0 0 1 0 0 0\", -1, \"0 0 0\"));",
+                "Projectile data block \"Nope\" is undefined\n-1");
+        string id = w.Run("echo(Projectile::spawnProjectile(Rk, \"1 0 0 0 1 0 0 0 1 16 16 80\", -1, \"0 0 0\"));");
+        Assert.True(id != "-1");
+        Assert.True(Pos(id) == "16 16 80");
+        Tick(1);
+        Assert.True(Pos(id) == "16 16 80");
+        Tick(1);
+        Assert.True(Pos(id) == "16 18.1667 80" || Pos(id) == "16 18.1666 80");
+        Tick(31); // tick 33
+        string before = Pos(id);
+        Tick(1); // tick 34 is skipped
+        Assert.True(Pos(id) == before);
+        Tick(1);
+        Assert.True(Pos(id) != before);
+        var gb = w.Object(id) as GameBase;
+        Assert.True(gb != null && gb.Velocity[0] == 0 && gb.Velocity[1] == 65.0f && gb.Velocity[2] == 0);
+        Tick(43); // tick 78
+        Assert.True(w.Object(id) != null);
+        Tick(1); // tick 79: expired in tick 63 (2016 ms > 2000 ms), deleted 16 ticks later
+        Assert.True(w.Object(id) == null);
+        id = w.Run("echo(Projectile::spawnProjectile(Gr, \"1 0 0 0 0 -1 0 1 0 16 16 200\", -1, \"0 0 0\"));");
+        gb = (GameBase)w.Object(id)!;
+        Assert.True(Math.Abs(gb.Velocity[2] + 54.7722f) < 1e-3f);
+        Tick(2);
+        Assert.True(Math.Abs(gb.Velocity[2] + 55.4389f) < 1e-3f);
+        Tick(1);
+        Assert.True(Math.Abs(gb.Velocity[2] + 56.1055f) < 1e-3f);
+        id = w.Run("echo(Projectile::spawnProjectile(Bl, \"1 0 0 0 1 0 0 0 1 16 16 120\", -1, \"0 0 0\"));");
+        gb = (GameBase)w.Object(id)!;
+        Assert.True(Math.Abs(gb.Velocity[0] + 0.000190735f) < 1e-8f && Math.Abs(gb.Velocity[1] - 199.999f) < 1e-3f);
+        Assert.True(Math.Abs(gb.Velocity[2] - 0.0690531f) < 1e-6f);
+        Tick(1);
+        Assert.True(Math.Abs(gb.Transform.P[1] - (16.0f + 6.4f)) < 1e-3f);
+        Tick(1);
+        Assert.True(Math.Abs(gb.Transform.P[1] - (16.0f + 12.8f)) < 1e-3f);
+        Assert.True(c.Failures == 0);
+    }
+
+    // ---- SeekingMissile, LaserProjectile, TargetLaser, Lightning, RepairEffect (projectile-sim 2.6-2.10) ----
+
+    private static void TestBeamAndSeekerProjectiles()
+    {
+        var f = new Fixture("player_beams");
+        Fixtures.World w = f.W;
+        float[] solar = { -1.28014f, -1.32877f, 0, 1.28014f, 1.32877f, 2.40577f };
+        PutFile(Path.Combine(f.Root, "base/panel.dts"), DtsCollisionFile(solar));
+        w.Run("SeekingMissileData TM { collisionRadius = 0.0; mass = 2.0; damageClass = 1; damageValue = 0.5;" +
+              " damageType = 5; explosionRadius = 9.5; kickBackStrength = 175.0; muzzleVelocity = 72.0; totalTime = 10;" +
+              " liveTime = 10; seekingTurningRadius = 9; nonSeekingTurningRadius = 75.0; proximityDist = 1.5;" +
+              " inheritedVelocityScale = 0.5; };" +
+              "LaserData SL { damageConversion = 0.007; baseDamageType = 1; beamTime = 0.5; detachFromShooter = false; };" +
+              "TargetLaserData TL { damageConversion = 0.0; baseDamageType = 0; detachFromShooter = false; };" +
+              "LightningData LC { damageType = 12; boltLength = 40.0; coneAngle = 35.0; damagePerSec = 0.06;" +
+              " energyDrainPerSec = 60.0; segmentDivisions = 4; numSegments = 5; beamWidth = 0.125; updateTime = 120;" +
+              " skipPercent = 0.5; displaceBias = 0.15; };" +
+              "RepairEffectData RB { boltLength = 5.0; segmentDivisions = 4; beamWidth = 0.125; updateTime = 450;" +
+              " skipPercent = 0.6; displaceBias = 0.15; };" +
+              "StaticShapeData Panel { shapeFile = \"panel\"; };");
+        void Tick(int n)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                uint t = w.Sim.TickMs();
+                while (w.Sim.TickMs() == t)
+                    w.Sim.AdvanceRealTime(1);
+            }
+        }
+        string Pos(string id) => w.Run("echo(GameBase::getPosition(" + id + "));");
+        string Vel(string id) => w.Run("echo(Item::getVelocity(" + id + "));");
+        string id = w.Run("echo(Projectile::spawnProjectile(TM, \"0 -1 0 1 0 0 0 0 1 0 -100 900\", -1, \"0 0 0\"));");
+        Assert.True(id != "-1" && Pos(id) == "0 -100 900" && Vel(id) == "72 0 0");
+        Tick(1);
+        Assert.True(Pos(id) == "2.30399 -100 900" && Vel(id) == "71.9999 0 0");
+        Tick(1);
+        Assert.True(Pos(id) == "4.60799 -100 900");
+        Tick(37);
+        Assert.True(Pos(id) == "89.8556 -100 900" && Vel(id) == "71.9996 0 0");
+        Tick(40);
+        Assert.True(Pos(id) == "182.014 -100 900" && Vel(id) == "71.9993 0 0");
+        Tick(40);
+        Assert.True(Pos(id) == "274.173 -100 900" && Vel(id) == "71.9989 0 0");
+        w.Run("deleteObject(" + id + ");");
+
+        w.Run("$PPpanel = newObject(\"pp1\", StaticShape, Panel, true); GameBase::setPosition(pp1, \"0 0 800\");" +
+              "$hit = 0; function Panel::onDamage(%this, %type, %value, %pos, %vec, %mom, %src) { $hit++; }");
+        id = w.Run("echo(Projectile::spawnProjectile(SL, \"1 0 0 0 1 0 0 0 1 0 -20 801.2\", -1, \"0 0 0\"));");
+        Assert.True(id != "-1" && Pos(id) == "0 -20 801.199");
+        Tick(15);
+        Assert.True(w.Object(id) != null && Pos(id) == "0 -20 801.199");
+        Tick(1);
+        Assert.True(w.Object(id) == null && w.Run("echo($hit);") == "0");
+
+        Player shooter = f.Spawn("0 -40 800");
+        id = w.Run("echo(Projectile::spawnProjectile(TL, \"1 0 0 0 1 0 0 0 1 0 0 800\", " + Itoa(shooter.Id()) + ", \"0 0 0\"));");
+        Assert.True(id != "-1");
+        Tick(11);
+        Assert.True(w.Object(id) != null && Pos(id) == "0 0 800");
+        w.Run("deleteObject(" + id + ");");
+
+        Player healer = f.Spawn("0 -3 799");
+        w.Run("$log = \"\"; $k = 0;" +
+              "function RepairBolt::onAcquire(%a, %p, %t) { $log = $log @ \"A\" @ $k @ \" \"; }" +
+              "function RepairBolt::onRelease(%a, %p) { $log = $log @ \"R\" @ $k @ \" \"; }" +
+              "function RepairBolt::checkDone(%a, %p) { $log = $log @ \"C\" @ $k @ \" \"; }");
+        w.Run("RepairEffectData RepairBolt { boltLength = 5.0; segmentDivisions = 4; beamWidth = 0.125; updateTime = 450;" +
+              " skipPercent = 0.6; displaceBias = 0.15; };");
+        id = w.Run("echo(Projectile::spawnProjectile(RepairBolt, \"1 0 0 0 1 0 0 0 1 0 -3 800.8\", " + Itoa(healer.Id()) + ", \"0 0 0\"));");
+        Assert.True(id != "-1" && Pos(id) == "0 -3 800.799");
+        for (int k = 1; k <= 24; ++k)
+        {
+            w.Run("$k = " + Itoa(k) + ";");
+            Tick(1);
+        }
+        string log = w.Run("echo($log);");
+        Assert.True(log.StartsWith("A0 C4 ", StringComparison.Ordinal) && !log.Contains('R'));
+        w.Run("deleteObject(" + id + ");");
+
+        w.Run("deleteObject(" + Itoa(healer.Id()) + "); deleteObject(" + Itoa(shooter.Id()) + ");");
+        Player victim = f.Spawn("0 0 800");
+        w.Run("$log = \"\"; $n = 0;" +
+              "function Lightning::damageTarget(%t, %ts, %dps, %eps, %pos, %vec, %mom, %sh) { $n++;" +
+              " if($n == 1) $log = %t @ \"|\" @ %ts @ \"|\" @ %dps @ \"|\" @ %eps @ \"|\" @ %vec @ \"|\" @ %mom @ \"|\" @ %sh; }");
+        id = w.Run("echo(Projectile::spawnProjectile(LC, \"1 0 0 0 1 0 0 0 1 0 -20 800.2\", -1, \"0 0 0\"));");
+        Assert.True(id != "-1");
+        Tick(1);
+        Assert.True(w.Run("echo($n);") == "1" &&
+                    w.Run("echo($log);") == Itoa(victim.Id()) + "|0.0319999|0.0599997|60|0 0.999999 0|0 0 0|0");
+        Tick(29);
+        Assert.True(w.Run("echo($n);") == "30");
+    }
+
+    // SeekingMissile steering rotation (projectile-sim 2.6, 0x0046680f).
+    private static void TestSeekerRotation()
+    {
+        Numbers.EnterScriptFpuMode();
+        using var chop = X87.Chop();
+        float[] vn = { 1, 0, 0 }, an = { 0, 1, 0 };
+        float ang = X87.F32(Mul(Mul(32, 0.001), X87.F32(Div(72.0, Mul(6.283185307179586, 75.0)))));
+        float[] output = new float[3];
+        Seeker.SeekerRotate(vn, an, ang, 72.0f, output);
+        Assert.True(Numbers.FormatFloat(output[0]) == "71.9991" && Numbers.FormatFloat(output[1]) == "0.352023" && output[2] == 0.0f);
+        float[] up = { 0, 0, -1 };
+        Seeker.SeekerRotate(vn, up, ang, 72.0f, output);
+        Assert.True(output[2] < 0 && output[1] == 0.0f);
+    }
+
+    // SeekingMissile aim and steering against the exact model (projectile-sim 2.6, tests/seeker_vectors.inc).
+    private static void TestSeekerVectors()
+    {
+        Numbers.EnterScriptFpuMode();
+        using var chop = X87.Chop();
+        static float F(uint b) => BitConverter.UInt32BitsToSingle(b);
+        static uint B(float v)
+        {
+            uint u = BitConverter.SingleToUInt32Bits(v);
+            return u == 0x80000000u ? 0u : u; // the model has no signed zero
+        }
+        int[] kinds = { 0, 0, 0 };
+        uint[][] rows = TestPaths.IncTokens("tests/seeker_vectors.inc", "kSeekerVectors").Select(r => r.Select(TestPaths.IncU32).ToArray()).ToArray();
+        for (int ri = 0; ri < rows.Length; ++ri)
+        {
+            uint[] r = rows[ri];
+            float[] p = { F(r[0]), F(r[1]), F(r[2]) }, v = { F(r[3]), F(r[4]), F(r[5]) };
+            float[] tp = { F(r[6]), F(r[7]), F(r[8]) }, tv = { F(r[9]), F(r[10]), F(r[11]) };
+            float[] d = new float[3], aim = new float[3], output = new float[3];
+            Seeker.SeekerLead(p, tp, tv, 72.0f, d, aim);
+            for (int i = 0; i < 3; ++i)
+                Assert.True(B(aim[i]) == r[13 + i]);
+            int kind = Seeker.SeekerSteer(v, aim, 32, F(r[12]), 72.0f, true, output);
+            Assert.True(kind == (int)r[16]);
+            for (int i = 0; i < 3; ++i)
+                Assert.True(B(output[i]) == r[17 + i]);
+            {
+                float gap = 0;
+                for (int i = 0; i < 3; ++i)
+                    gap = Math.Max(gap, Math.Max(Math.Abs(aim[i] - F(r[13 + i])), Math.Abs(output[i] - F(r[17 + i]))));
+                if (gap != 0 || kind != (int)r[16])
+                    Console.Error.WriteLine($"seeker vector {ri} differs (kind {kind}, want {r[16]}, largest difference {gap})");
+            }
+            ++kinds[kind];
+        }
+        Assert.True(kinds[0] > 0 && kinds[1] > 50 && kinds[2] > 50);
+        float[] vv = { 72, 0, 0 }, aa = { 1, 1, 0 };
+        float[] o2 = new float[3];
+        Assert.True(Seeker.SeekerSteer(vv, aa, 32, 1.0f, 72.0f, false, o2) == 0 && o2[0] == 72.0f && o2[1] == 0.0f);
+        float[] p0 = { 1, 2, 3 }, t0 = { 4, 6, 3 };
+        float[] dd = new float[3], lead = new float[3];
+        Seeker.SeekerLead(p0, t0, null, 72.0f, dd, lead);
+        Assert.True(dd[0] == 3.0f && dd[1] == 4.0f && dd[2] == 0.0f && dd.SequenceEqual(lead));
+    }
+
     // A Mine entering Destroyed explodes (static-sim 5.7, 0x00458be4).
     private static void TestMineDestruction()
     {
@@ -1566,12 +2221,12 @@ public class PlayerTests
         TestStepVectors();
         TestSpawn();
         TestPlayerLine();
-        // P4b: Projectile: testCastWorldShortening (castWorld, projectile.cpp).
+        TestCastWorldShortening();
         TestMoveCredit();
         TestForcesAndAim();
         TestConsoleTransform();
         TestDragAndClamp();
-        // P4b: Projectile: testEntryForces (Projectile::spawnProjectile).
+        TestEntryForces();
         TestNarrowPhase();
         TestInteriorMoves();
         TestShapesAndPlayers();
@@ -1586,8 +2241,14 @@ public class PlayerTests
         TestInventory();
         TestImageStateMachine();
         TestRadiusDamage();
-        // P4b: Projectile: testMuzzleTransforms, testDeflectionVectors, testLaserGhost, testFireEdgeTransforms,
-        // testProjectiles, testBeamAndSeekerProjectiles, testSeekerRotation, testSeekerVectors.
+        TestMuzzleTransforms();
+        TestDeflectionVectors();
+        TestLaserGhost();
+        TestFireEdgeTransforms();
+        TestProjectiles();
+        TestBeamAndSeekerProjectiles();
+        TestSeekerRotation();
+        TestSeekerVectors();
         TestMineDestruction();
         TestWire();
         TestPscInventory();
