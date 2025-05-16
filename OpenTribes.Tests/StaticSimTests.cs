@@ -1,7 +1,6 @@
 // Port of tests/test_static_sim.cpp: engine behavior of the non-player mission objects (docs/static-sim.md): R250, the
 // StaticBase tick, energy, repair, damage, power, Moveable motion, Item physics on a terrain, the SensorManager sweep,
-// Trigger and Turret idle. Synthetic shapes, terrain and scripts. 97 asserts; the turret idle section (asserts 82-91)
-// waits for stage P4b.
+// Trigger and Turret idle. Synthetic shapes, terrain and scripts. 97 asserts.
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Game;
@@ -646,8 +645,40 @@ public class StaticSimTests
 
 
 
-        // P4b: Turret: the turret idle section (asserts 82-91: search step without a target, deactivation, the power /
-        // fire thread of bindTurretShape, turretActivate, turretDeactivate) waits for turret_sim.cpp, turret_fire.cpp.
+        // ---- 4 Turret idle ----
+        GameBase tu = Gb("MissionGroup/Tu");
+        w.Run("GameBase::setActive(\"MissionGroup/Tu\", true);"); // the search step needs an active, enabled turret
+        masks.Clear();
+        Tick(5);
+        Assert.True(tu.TurretMode == 0 && (masks[tu.Id()] & 0x1e000) == 0); // nothing to do without a target
+        tu.TurretMode = 3;
+        tu.TurretSleep = 0;
+        Tick(); // sleep time passed, state != off: deactivate; a shape without power sequences is off at once
+        Assert.True(tu.TurretMode == 0 && (masks[tu.Id()] & 0x10000) != 0);
+        // Activation with the power/fire sequences takes the power sequence length (0.06 s at dt 0.032: two steps), then
+        // state 3; deactivation runs the thread back (4.8).
+        GameBase tu2 = Gb("MissionGroup/Tu2");
+        Assert.True(tu2.TurretHasPower && Near(tu2.TurretPowerDuration, 0.06f));
+        masks.Clear();
+        tu2.TurretActivate(0.032f);
+        Assert.True(tu2.TurretMode == 2 && (masks[tu2.Id()] & 0x10000) != 0);
+        tu2.TurretActivate(0.032f);
+        Assert.True(tu2.TurretMode == 2);
+        tu2.TurretActivate(0.032f);
+        Assert.True(tu2.TurretMode == 3 && tu2.TurretPowerPos == 1.0f);
+        masks.Clear();
+        tu2.TurretDeactivate(0.032f); // 3 -> 1: thread from 1 backwards
+        Assert.True(tu2.TurretMode == 1 && (masks[tu2.Id()] & 0x12000) == 0x12000);
+        tu2.TurretDeactivate(0.032f);
+        Assert.True(tu2.TurretMode == 0 && tu2.TurretPowerPos == 0);
+        // Deactivation first rotates home by speed x dt along the short way, snapping at 0.
+        tu2.TurretMode = 1;
+        tu2.TurretRotation = 1.0f;
+        tu2.TurretDeactivate(0.032f);
+        Assert.True(Near(tu2.TurretRotation, 0.968f, 1e-5f) && tu2.TurretMode == 1);
+        tu2.TurretRotation = 0.02f;
+        tu2.TurretDeactivate(0.032f);
+        Assert.True(tu2.TurretRotation == 0);
 
         // ---- materials (docs/collision.md 4.2, E6): the table written by setMaterialProperty ----
         {

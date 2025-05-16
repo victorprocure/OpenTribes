@@ -1,7 +1,6 @@
 // Port of tests/test_gamebase_ghosts.cpp: ghost layouts and server state of the GameBase family
 // (docs/game-stream-ghosts.md 4, 6.4): StaticShape, Sensor, Turret, Item, Mine, Moveable, Marker, Trigger. Objects are
-// created by mission script with synthetic shapes; every update is packed and read back field by field. 157 asserts;
-// the ones that need the turret shape bind (turret_fire.cpp, stage P4b) are listed in the report and marked below.
+// created by mission script with synthetic shapes; every update is packed and read back field by field. 157 asserts.
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
@@ -395,8 +394,7 @@ public class GamebaseGhostsTests
         // muzzle" at both ends of "elevate", here -40 and +60 degrees, so elevation 0 is 0.4.
         GameBase t = Gb("team0/T");
         {
-            // P4b: Turret (assert 74): Assert.True(t.TurretRotation == 0.0f && t.TurretElevation == 0.0f && t.TurretMode == 0)
-            // needs the shape bind (turret_fire.cpp bindTurretShape).
+            Assert.True(t.TurretRotation == 0.0f && t.TurretElevation == 0.0f && t.TurretMode == 0);
             Assert.True(t.TurretBarrelState == 1 && t.Active);
             BitStream r = Pack(t, 0xffffffffu, 0x202);
             Assert.True(!r.ReadFlag());  // not owner-only
@@ -410,12 +408,8 @@ public class GamebaseGhostsTests
             Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(6) == 0);
             Assert.True(r.ReadFlag() && !r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadInt(2) == 0);    // datablock 0 of 2 TurretData
-            // P4b: Turret (asserts 84, 85): rotation 0 (unit 0) and elevation 0 between the shape limits -40 and +60
-            // degrees (unit 102) need the shape bind (turret_fire.cpp bindTurretShape).
-            r.ReadFlag();
-            r.ReadInt(8); // 0x2000 rotation / 2 pi
-            r.ReadFlag();
-            r.ReadInt(8); // 0x4000 elevation between the limits
+            Assert.True(r.ReadFlag() && r.ReadInt(8) == 0);    // 0x2000 rotation / 2 pi
+            Assert.True(r.ReadFlag() && r.ReadInt(8) == 102);  // 0x4000 elevation between the limits
             Assert.True(r.ReadFlag() && r.ReadInt(2) == 0);    // 0x8000 fire state
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 0);    // 0x10000 mode
             Assert.True(!r.ReadFlag());                        // barrel state 2
