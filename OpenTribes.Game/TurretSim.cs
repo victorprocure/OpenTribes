@@ -1,6 +1,6 @@
 // Port of src/game/turret_sim.cpp: the Turret tick (docs/static-sim.md 4) and the Trigger (docs/static-sim.md 6). The
-// turret target search, aim, sustained fire, activation and the shape bind (turret_fire.cpp, turret_control.cpp and the
-// turret part of this file) are stage P4b; their calls are marked `// P4b: Turret`.
+// turret activation of this file, the target search, aim, sustained fire and the shape bind (turret_fire.cpp,
+// turret_control.cpp) are TurretFire.cs.
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
@@ -17,11 +17,14 @@ public partial class GameBase
     {
         StaticTick(0.03f);
         using var chop = ChopScope();
+        const float dt = 0.032f;
         if (!TurretData.Sustained)
         {
-            // P4b: Turret: if (!controlClient && damageState == kEnabled && active) turretSearchStep();
-            //      if (!controlClient) turretUpdateAim(nullptr, 0.032f); (turret_fire.cpp, turret_control.cpp)
-            if (ControlClient != 0)
+            if (ControlClient == 0 && DamageState == kEnabled && Active)
+                TurretSearchStep();
+            if (ControlClient == 0)
+                TurretUpdateAim(null, dt);
+            else
                 ++TurretCredit;
         }
         else
@@ -41,12 +44,15 @@ public partial class GameBase
                 }
                 case 1: // 0x00457cc0: the common tick runs a second time, then the search
                     StaticTick(0.03f);
-                    // P4b: Turret: turretSearchStep() and turretUpdateAim(nullptr, dt) as above.
-                    if (ControlClient != 0)
+                    if (ControlClient == 0 && DamageState == kEnabled && Active)
+                        TurretSearchStep();
+                    if (ControlClient == 0)
+                        TurretUpdateAim(null, dt);
+                    else
                         ++TurretCredit;
                     break;
                 case 2:
-                    // P4b: Turret: turretSustainedFireTick() (turret_fire.cpp).
+                    TurretSustainedFireTick();
                     break;
                 default:
                     break;
@@ -57,19 +63,12 @@ public partial class GameBase
                 float e = Store(Sub(Energy, Mul(TurretData.EnergyRate, 0.032)));
                 if (e < 0.0f)
                 {
-                    // P4b: Turret: turretStopBeam() (turret_fire.cpp).
+                    TurretStopBeam();
                     e = 0.0f;
                 }
                 SetEnergy(e);
             }
         }
-    }
-
-    // src/game/turret_fire.cpp GameBase::bindTurretShape: Turret onNewDataBlock 0x00452970, after the datablock binds.
-    private void BindTurretShape()
-    {
-        // P4b: Turret: the turn, elevate and power / fire threads and the elevation limits of the shape
-        // (turret_fire.cpp GameBase::bindTurretShape).
     }
 
     // ---- Trigger ----

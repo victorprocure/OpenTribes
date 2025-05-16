@@ -529,23 +529,8 @@ public partial class GameBase : SimObject
     public virtual void OnNewDataBlock() { }
     // vtable +0x16c: the world transform of a mount point (Vehicle 0x00445c38); the object transform here.
     public virtual void GetMountTransform(int point, out Transform output) => output = Transform;
-    // vtable +0x110: the eye transform in world space (Player 0x0041248c, Turret 0x004566ac); the object transform
-    // otherwise (turret_fire.cpp GameBase::eyeTransform).
-    public virtual Transform EyeTransform()
-    {
-        // P4b: Turret: the `dummy eye` node of the turret shape (turret_fire.cpp GameBase::eyeTransform).
-        return Transform;
-    }
-    // vtable +0x150: the moves of a control object (Turret: turret_control.cpp, P4b).
-    public virtual void ApplyMoves(Move[] moves, int count)
-    {
-        // P4b: Turret: turretApplyMoves (turret_control.cpp GameBase::applyMoves).
-    }
-    // vtable +0x15c: the control state of a control object (Turret: turret_control.cpp, P4b).
-    public virtual void WriteControlState(BitStream bs, ControlContext ctx)
-    {
-        // P4b: Turret: turretWriteControlState (turret_control.cpp GameBase::writeControlState).
-    }
+    // vtable +0x110 (eye transform), +0x150 (moves) and +0x15c (control state): TurretFire.cs (turret_fire.cpp,
+    // turret_control.cpp).
 
     // src/game/mission_objects.cpp GameBase::setPersistField.
     public override bool SetPersistField(string field, IReadOnlyList<string> values)

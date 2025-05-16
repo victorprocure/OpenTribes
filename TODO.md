@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Server
 
-- [ ] Players, items, projectiles, vehicles and turrets.
 - [ ] Bots (AI players).
 - [ ] Master server heartbeat.
 
@@ -38,6 +37,6 @@ way are added to Open.
 - [x] Game connection, ghost manager, ghost classes and ghost scope.
 - [x] Object files.
 - [x] Player manager, with the sim objects it needs.
-- [x] Turret simulation.
+- [x] Turret simulation: search, fire and control.
 - [x] The server hosts a mission from the game directory.
-- [x] Players, mounts, item images, projectiles, fire paths, vehicles and fliers.
+- [x] Players, mounts, item images, projectiles, fire paths, vehicles, fliers and turrets.

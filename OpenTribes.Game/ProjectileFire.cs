@@ -239,7 +239,9 @@ public static partial class ProjectileFire
             if (GameUtil.EqualsNoCase(obj.ClassName(), "Turret"))
             {
                 // Turret_getMuzzleTransform (0x004565e0).
-                // P4b: Turret: obj.turretMuzzleTransform(t) under the Chop guard (turret_fire.cpp).
+                using var chop = X87.Chop();
+                obj.TurretMuzzleTransform(out Transform mt);
+                return (true, mt);
             }
             return (true, t); // base classes: the object transform (0x0044827c)
         };
