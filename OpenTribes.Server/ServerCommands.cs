@@ -89,7 +89,7 @@ public static class ServerCommands
             return null;
         });
 
-        // DNet::resolveMasters and DNet::getResolvedMaster: src/server/master.cpp (stage P5).
+        // DNet::resolveMasters and DNet::getResolvedMaster: src/server/master.cpp.
         interp.AddCommand("DNet::TranslateAddress", (i, a) => null);
         interp.AddCommand("addGameServer", (i, a) =>
         {

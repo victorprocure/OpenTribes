@@ -1,5 +1,4 @@
-// Port of src/server/main.cpp: the dedicated server executable. The master layer that main.cpp also constructs
-// (MasterHeartbeat) is stage P5 of the port; each place that uses it is marked.
+// Port of src/server/main.cpp: the dedicated server executable.
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -166,8 +165,6 @@ public static class Program
                 return 2;
             }
         }
-        _ = allowMasters; // P5: MasterHeartbeat(console, server, allowMasters)
-
         var server = new NetServer(config);
 
         // Script startup: console.cs parses $cargv like the original exe (docs/resources.md 1).
@@ -177,7 +174,7 @@ public static class Program
         SimConsole? sim = null;
         var game = new GameState();
         TelnetConsole? telnet = null;
-        // P5: MasterHeartbeat master
+        MasterHeartbeat? master = null;
         using var consoleLog = new ConsoleLog(consoleLogPath);
         if (root.Length != 0)
         {
@@ -204,8 +201,13 @@ public static class Program
                     {
                         if (!server.Open(unchecked((ushort)NetServer.CAtoi(args[i + 1]))))
                             return false;
-                        // P5: 0x0054fxxx: a server that is not $SinglePlayer announces itself (master.start, its events
-                        //     posted on the server SimManager)
+                        // 0x0054fxxx: a server that is not $SinglePlayer announces itself.
+                        if (master != null && sim != null && sim.Server() != null &&
+                            !Numbers.ParseBool(console.PeekVariable("$SinglePlayer")))
+                        {
+                            SimManager m = sim.Server()!;
+                            master.Start((delay, action) => m.PostEvent(m, Fpu.AddF(m.Time(), delay), action));
+                        }
                         return true;
                     }
                 return true;
@@ -235,7 +237,8 @@ public static class Program
                     Quit = () => sStop = true,
                 };
                 ServerCommands.RegisterServerCommands(console, ops);
-                // P5: master = MasterHeartbeat(console, server, allowMasters); master.registerCommands()
+                master = new MasterHeartbeat(console, server, allowMasters);
+                master.RegisterCommands();
                 Interpreter inLog = console;
                 server.SetLeveledLog((level, line) => inLog.Print(level, line));
             }

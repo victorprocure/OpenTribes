@@ -705,7 +705,7 @@ public class ServerOpsTests
         ++cases;
 
         // 7.3 master server surface with no resolver (ROADMAP 8.3 off).
-        // DNet::resolveMasters and DNet::getResolvedMaster: tests/test_master.cpp (stage P5).
+        // DNet::resolveMasters and DNet::getResolvedMaster: tests/test_master.cpp.
         Assert.Equal(Lines("r=False"), c.Run("DNet::TranslateAddress(\"IP:127.0.0.1:28001\")"));
         Assert.Equal(Lines("addGameServer(address, name, version, ping, favorite <TRUE OR FALSE>);", "r=FALSE"),
                      c.Run("addGameServer()"));

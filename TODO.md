@@ -7,10 +7,6 @@ way are added to Open.
 
 ## Open
 
-### Server
-
-- [ ] Master server heartbeat.
-
 ### Client
 
 - [ ] The game client.
@@ -40,3 +36,4 @@ way are added to Open.
 - [x] The server hosts a mission from the game directory.
 - [x] Players, mounts, item images, projectiles, fire paths, vehicles, fliers and turrets.
 - [x] Bots: AI object, skill, steering, the AI tick and AI commands. The skill constant rounds like the original.
+- [x] Master server heartbeat and master commands.
