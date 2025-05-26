@@ -37,3 +37,4 @@ way are added to Open.
 - [x] Players, mounts, item images, projectiles, fire paths, vehicles, fliers and turrets.
 - [x] Bots: AI object, skill, steering, the AI tick and AI commands. The skill constant and the laser aim round like the original.
 - [x] Master server heartbeat and master commands.
+- [x] Tag id 0 is ignored and negative tag ids cannot be looked up.

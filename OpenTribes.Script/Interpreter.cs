@@ -369,7 +369,11 @@ public sealed class Interpreter
             int id = Numbers.BorlandAtoi(EvalString(n.A!));
             string text = n.B != null ? EvalString(n.B) : "";
             string name = mStrings.Intern(n.Name);
-            if (mTagText.ContainsKey(id))
+            // Id 0 is ignored without a line; a negative id registers the name but is never
+            // found by id (see the C++ interpreter, [code 005ee5ac]).
+            if (id == 0)
+                return Completion.Normal;
+            if (id > 0 && mTagText.ContainsKey(id))
             {
                 Print(1, "Error: id " + Numbers.FormatInt(id) + " already defined to a tag.");
             }
@@ -381,7 +385,8 @@ public sealed class Interpreter
             {
                 // Tag text lives in the string table, so it also fixes the spelling of later
                 // case variants (fear.strings.cs "ARMOR" makes className = "Armor" read ARMOR).
-                mTagText[id] = text.Length == 0 ? text : mStrings.Intern(text);
+                if (id > 0)
+                    mTagText[id] = text.Length == 0 ? text : mStrings.Intern(text);
                 mTagIds[name] = id;
             }
             return Completion.Normal;

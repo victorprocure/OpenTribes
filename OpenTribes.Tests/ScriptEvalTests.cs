@@ -61,6 +61,9 @@ public class ScriptEvalTests
          "900001 text <INVALID TAG> 0"),
         ("IDT_B = 900001;", "Error: id 900001 already defined to a tag."),
         ("IDT_A = 900003;", "Error: define IDT_A already defined to tag 900001."),
+        // Id 0 is ignored, a negative id is not readable with `*` and is never a duplicate id.
+        ("IDT_Z = 0, \"z\"; echo(IDT_Z, \" \", *0);", "0 <INVALID TAG>"),
+        ("IDT_N1 = -7, \"n\"; IDT_N2 = -7, \"m\"; echo(IDT_N1, \" \", IDT_N2, \" \", *-7);", "-7 -7 <INVALID TAG>"),
     };
 
     // Outputs of the double form where the reference output needs the 80-bit unit.
