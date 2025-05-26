@@ -29,7 +29,7 @@ way are added to Open.
 - [x] Datablocks, their tables and their network packing.
 - [x] Game commands: backlog, client game commands, command map, game, static shape, terrain and utility commands.
 - [x] Game objects: control object, damage, displacement, game state, items, mission objects, sensors, shape state and static shapes.
-- [x] Game connection, ghost manager, ghost classes and ghost scope.
+- [x] Game connection, ghost manager, ghost classes and ghost scope. The connection's objects are visible to scripts.
 - [x] Object files.
 - [x] Player manager, with the sim objects it needs.
 - [x] Turret simulation: search, fire and control.

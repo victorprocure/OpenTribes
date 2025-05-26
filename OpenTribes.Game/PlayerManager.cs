@@ -26,7 +26,10 @@ public sealed class ClientRecord
     public bool DataFinished;       // +0x1dc
     public int OwnedObject, ControlObject; // object ids (+0x98, +0x94), 0 none
     public ObserverCamera? Camera;  // +0x9c
-    public SimObject? EventManager; // the connection's Net::EventManager (id 0054ea34), human clients
+    // The connection's members as server manager objects, human clients (0054ea34, 0042b1b8; game-stream.md 1.1)
+    public SimObject? EventManager; // Net::EventManager, pool id
+    public SimObject? PlayerPsc;    // PlayerPSC, id 715
+    public SimObject? GhostManager; // Net::GhostManager, id 37
     public bool LimitCommand;       // PlayerPSC +0x90
     public string ScoreText = "";
     public int ScoreSort;           // kept
@@ -43,6 +46,22 @@ public sealed class ClientRecord
 internal sealed class EventManagerObject : SimObject
 {
     public override string ClassName() => "Net::EventManager";
+}
+
+// src/game/player_manager.cpp PlayerPscObject, GhostManagerObject: PlayerPSC and Net::GhostManager the same way. Their
+// constructors set the id (PlayerPSC 0x00404210: 715, GhostManager 0x005533b4: 37), so every connection registers the
+// same two ids: the newest connection's objects shadow the older ones (docs/sim.md ID6) and an older connection's come
+// back when the newer one is deleted.
+internal sealed class PlayerPscObject : SimObject
+{
+    public override string ClassName() => "PlayerPSC";
+    public override int FixedId() => 715;
+}
+
+internal sealed class GhostManagerObject : SimObject
+{
+    public override string ClassName() => "Net::GhostManager";
+    public override int FixedId() => 37;
 }
 
 // src/game/player_manager.hpp class PlayerManager.
@@ -247,10 +266,23 @@ public sealed class PlayerManager
                     MissionArea = area => MissionArea(area),
                     Container = mGame.World,
                 };
-                // The connection's EventManager (0x00551a48) is a registered object: it takes a pool id before the
-                // camera does (the reference shows EventManager n, camera n + 1).
+                // The connection's members (0x0042b1b8, docs/game-stream.md 1.1): the EventManager registers through
+                // the root and takes a pool id before the camera does (the reference shows EventManager n, camera
+                // n + 1); the PlayerPSC and the GhostManager register with their fixed ids and are named in the group.
+                // All three are members of the connection object (the client id), when there is one.
+                SimGroup? group = m.FindById(id)?.AsGroup();
                 r.EventManager = new EventManagerObject();
                 m.AddToRoot(r.EventManager);
+                group?.AddObject(r.EventManager);
+                r.PlayerPsc = new PlayerPscObject();
+                r.GhostManager = new GhostManagerObject();
+                foreach ((SimObject obj, string objName) in new[] { (r.PlayerPsc, "PlayerPSC"), (r.GhostManager, "GhostManager") })
+                {
+                    m.RegisterObject(obj);
+                    SimGroup into = group ?? m;
+                    into.AddObject(obj);
+                    into.AssignName(obj, StringTable.Global().Intern(objName));
+                }
                 r.Camera = new ObserverCamera(mCameraContext, id, services);
                 m.AddToRoot(r.Camera);
             }
@@ -311,9 +343,14 @@ public sealed class PlayerManager
             ms.DeleteObject(cam);
         }
         r.Camera = null;
-        if (r.EventManager != null && mGame.Sim?.Server() is SimManager me)
-            me.DeleteObject(r.EventManager);
-        r.EventManager = null;
+        // The connection's members go newest first, as the group's removal unregisters them (RD2).
+        if (mGame.Sim?.Server() is SimManager me)
+        {
+            foreach (SimObject? member in new[] { r.GhostManager, r.PlayerPsc, r.EventManager })
+                if (member != null)
+                    me.DeleteObject(member);
+        }
+        r.GhostManager = r.PlayerPsc = r.EventManager = null;
         r.OwnedObject = r.ControlObject = 0;
         r.Used = false;
         if (!ai)

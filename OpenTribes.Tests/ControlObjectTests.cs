@@ -1,6 +1,6 @@
 // Port of tests/test_control_object.cpp: moves and control objects (docs/game-stream.md 6.1-6.5,
 // docs/player-manager.md 12.5): the move wire form, the ObserverCamera, the PlayerPSC blocks in both directions, and the
-// ownership and control links with their script commands. 245 asserts.
+// ownership and control links with their script commands. 258 asserts.
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
@@ -1151,6 +1151,60 @@ public class ControlObjectTests
         Assert.True(w.Game.Targets[0] == null);
     }
 
+    // docs/game-stream.md 1.1: the connection's members as server manager objects.
+
+    // The connection object a client id names (Net::PacketStream, a group with the client id).
+    private sealed class TestConnection : SimGroup
+    {
+        private readonly int mId;
+        public TestConnection(int id) => mId = id;
+        public override string ClassName() => "Net::PacketStream";
+        public override int FixedId() => mId;
+    }
+
+    private static void ConnectionObjects()
+    {
+        Fixtures.World w = FreshWorld("connection_objects");
+        PlayerManager pm = w.Game.Players;
+        SimManager m = w.Sim.Server()!;
+        w.Run("resetPlayerManager();");
+        w.Game.AddTeam(0);
+        Assert.True(w.Run("echo(isObject(37), isObject(715));") == "FalseFalse");
+
+        (TestConnection, ClientRecord) Connect(int id, string name)
+        {
+            var conn = new TestConnection(id);
+            m.AddToRoot(conn);
+            ClientRecord? r = pm.AddClient(id, name, "male1", true);
+            Assert.True(r != null && r.Camera != null && r.EventManager != null && r.PlayerPsc != null && r.GhostManager != null);
+            return (conn, r!);
+        }
+        var (conn1, c1) = Connect(2049, "One");
+        // Ids fixed by the constructors: GhostManager 37, PlayerPSC 715; the EventManager takes the pool id before the
+        // camera's. All three are members of the connection, the two fixed ones named.
+        Assert.True(c1.GhostManager!.Id() == 37 && c1.PlayerPsc!.Id() == 715);
+        Assert.True(c1.EventManager!.Id() + 1 == c1.Camera!.Id());
+        string em1 = c1.EventManager.Id().ToString();
+        Assert.True(w.Run("echo(isObject(37), isObject(715));") == "TrueTrue");
+        Assert.True(w.Run("echo(getObjectType(37), \"/\", getObjectType(715));") == "Net::GhostManager/PlayerPSC");
+        Assert.True(w.Run("echo(getGroup(37), getGroup(715), getGroup(" + em1 + "));") == "204920492049");
+        Assert.True(w.Run("echo(isObject(\"2049/PlayerPSC\"), isObject(\"2049/GhostManager\"));") == "TrueTrue");
+
+        // A second connection registers the same ids: its objects shadow the first one's.
+        var (conn2, c2) = Connect(2050, "Two");
+        Assert.True(c2.GhostManager!.Id() == 37 && c2.PlayerPsc!.Id() == 715);
+        Assert.True(c2.EventManager!.Id() == c1.Camera.Id() + 1);
+        Assert.True(w.Run("echo(getGroup(37), getGroup(715));") == "20502050");
+
+        // The second one leaves: the first connection's objects are found again.
+        pm.RemoveClient(2050);
+        m.DeleteObject(conn2);
+        Assert.True(w.Run("echo(getGroup(37), getGroup(715), getObjectType(37));") == "20492049Net::GhostManager");
+        pm.RemoveClient(2049);
+        m.DeleteObject(conn1);
+        Assert.True(w.Run("echo(isObject(37), isObject(715), isObject(" + em1 + "));") == "FalseFalseFalse");
+    }
+
     [Fact]
     public void Main()
     {
@@ -1165,5 +1219,6 @@ public class ControlObjectTests
         CameraSwitchScope();
         Ownership();
         Visibility();
+        ConnectionObjects();
     }
 }
