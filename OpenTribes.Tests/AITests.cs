@@ -15,9 +15,6 @@ public class AITests
 {
     private const float kFlat = 50.0f;
 
-    // The iq 100 skill block of the double form: 0.01 as the 53-bit double makes f32(100 x 0.01) exactly 1.
-    private static readonly (float Skill, float MaxSpeed, int Think) kSkillDouble = (1.0f, 1.0f, 3);
-
     private sealed class Fixture
     {
         public readonly string Root;
@@ -287,17 +284,7 @@ public class AITests
         }
         Assert.True(firstQ >= 0 && firstQ < 8);
         // iq 100: skill = f32(100 * 0.01) truncates to 0.999999, so the think period is 4 and the speed 0.999999.
-        // docs/portable-float.md 5 item 2: 0x0043b104 holds 0.01 as an 80-bit constant, which is below 0.01; the port holds
-        // its 53-bit rounding, which is above 0.01, so 100 x 0.01 is 1 and skill, speed and think period are those of
-        // iq 100 exactly (1, 1, 3). The difference is reported with both values (kSkillDouble).
-        AIObject ia = f.Ai("I")!;
-        if (!(ia.Skill == 0.99999994f && ia.Sk.MaxSpeed == 0.99999994f && ia.Sk.Think == 4))
-        {
-            Console.Error.WriteLine($"iq 100: skill {ia.Skill:R}, maxSpeed {ia.Sk.MaxSpeed:R}, think {ia.Sk.Think}; exact model 0.99999994, " +
-                                    "0.99999994, 4 (80-bit constant 0.01 at 0x0043b104 held as the 53-bit double, " +
-                                    "docs/portable-float.md 5 item 2)");
-            Assert.True(ia.Skill == kSkillDouble.Skill && ia.Sk.MaxSpeed == kSkillDouble.MaxSpeed && ia.Sk.Think == kSkillDouble.Think);
-        }
+        Assert.True(f.Ai("I")!.Skill == 0.99999994f && f.Ai("I")!.Sk.MaxSpeed == 0.99999994f && f.Ai("I")!.Sk.Think == 4);
         Assert.True(f.Ai("I")!.Sk.Rate[0] == X87.F32(0.07));
         string[] wantQ = { "-0.0699999", "-0.14", "-0.21", "-0.28", "-0.35" };
         Assert.True(RotZ(w, q) == wantQ[0]);

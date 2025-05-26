@@ -616,8 +616,10 @@ public sealed partial class AIObject : SimObject
         Flags &= ~8u;
     }
 
-    // 0x0043b104 holds 0.01 as an 80-bit constant, rounded to 53 bits.
-    private static readonly double kHundredth = Math.ScaleB((double)0xa3d70a3d70a3d70aUL, -70);
+    // 0x0043b104 holds 0.01 as an 80-bit constant, which is below 0.01. Rounded toward zero to 53 bits, not to the
+    // nearest double (above 0.01): with the nearest double f32(100 x 0.01) is 1, where the original gets 0.99999994 and
+    // think period 4 (tests/test_ai.cpp testBehavior iq 100; aidiff motion c_rates, d_follow, target e_target_iq100).
+    private static readonly double kHundredth = Math.ScaleB((double)(0xa3d70a3d70a3d70aUL & ~0x7ffUL), -70);
 
     // src/game/ai_object.cpp AIObject::recomputeSkill: 0x0043b0ac.
     public void RecomputeSkill()
