@@ -362,4 +362,94 @@ public sealed class AIManager : SimObject
                 return a;
         return null;
     }
+
+    // src/game/ai_manager.cpp AIManager::serverTick: 0x0043dd3c, between sets 718 and 719.
+    public override void ServerTick(uint tickMs)
+    {
+        SimManager? m = Game.Sim?.Server();
+        if (m == null)
+            return;
+        using var chop = X87.Chop();
+        List<(AIObject Ai, int Id)> Snapshot()
+        {
+            var v = new List<(AIObject, int)>();
+            foreach (AIObject a in Ais)
+                v.Add((a, a.Id()));
+            return v;
+        }
+        bool Alive((AIObject Ai, int Id) e) => m.FindById(e.Id) == e.Ai;
+
+        // 1. pre-tick; AIs whose Player is gone are collected.
+        var remove = new List<(AIObject Ai, int Id)>();
+        foreach (var e in Snapshot())
+        {
+            if (!Alive(e) || !e.Ai.Active)
+                continue;
+            if (e.Ai.Player() == null)
+                remove.Add(e);
+            else
+                e.Ai.PreTick();
+        }
+        // 2. deletion (0x0043dbf8), from the last collected AI to the first (reference: the record of the AI collected
+        // first is freed last and handed out first).
+        for (int i = remove.Count; i-- > 0;)
+            if (Alive(remove[i]))
+                m.DeleteObject(remove[i].Ai);
+        // 3. one AI refreshes its automatic targets
+        if (Ais.Count != 0)
+        {
+            AIObject a = Ais[(int)((uint)Counter % (uint)Ais.Count)];
+            Counter = (Counter + 1) & 0x7fff;
+            if (a.Valid())
+                a.RefreshAutoTargets();
+        }
+        // 4. sense and act
+        foreach (var e in Snapshot())
+        {
+            if (!Alive(e) || !e.Ai.Valid())
+                continue;
+            e.Ai.Frame = new AIObject.FrameState();
+            if (Recompute)
+                e.Ai.RecomputeSkill();
+            e.Ai.Sense();
+            e.Ai.Act();
+        }
+        Recompute = false;
+        // 6. post-tick
+        foreach (var e in Snapshot())
+            if (Alive(e) && e.Ai.Valid())
+                e.Ai.PostTick();
+        ++TickCount;
+    }
+
+    // src/game/ai_manager.cpp ensureAIManager: creates the manager when no AI command ran in this mission yet
+    // (0x0043f8fc). Null with the documented message when the server or MissionCleanup is missing.
+    public static AIManager? EnsureAIManager(GameState game, string commandName)
+    {
+        if (game.Ai != null)
+            return game.Ai;
+        SimManager? m = game.Sim?.Server();
+        if (m == null)
+        {
+            game.Console!.Print(1, "No server manager yet, can't install AI manager thus, cannot execute command " + commandName + ".");
+            return null;
+        }
+        SimObject? cleanup = m.Find("MissionCleanup");
+        SimSet? set = cleanup?.AsSet();
+        if (set == null)
+        {
+            game.Console!.Print(1, "No cleanup group yet, can't install AI manager and, therefore, cannot execute command " + commandName);
+            return null;
+        }
+        var mgr = new AIManager(game);
+        if (!m.RegisterObject(mgr))
+        {
+            game.Console!.Print(1, "Couldn't register AI manager...  Cannot execute command " + commandName);
+            mgr.Destroy();
+            return null;
+        }
+        set.AddObject(mgr);
+        game.Ai = mgr;
+        return mgr;
+    }
 }
