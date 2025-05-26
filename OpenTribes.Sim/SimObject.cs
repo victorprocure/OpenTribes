@@ -90,6 +90,7 @@ public class SimSet : SimObject
 {
     protected readonly List<SimObject> mMembers = new();
     protected bool mOwnsMembers;
+    protected bool mOrdered;
 
     // src/sim/sim_object.cpp SimSet::~SimSet.
     public override void Destroy()
@@ -113,6 +114,9 @@ public class SimSet : SimObject
 
     public IReadOnlyList<SimObject> Members() => mMembers;
 
+    // The ordered-removal flag (+0x5d): removal keeps the member order (docs/sim.md GS4).
+    public void SetOrdered(bool ordered) => mOrdered = ordered;
+
     // src/sim/sim_object.cpp SimSet::addObject (GS2).
     public virtual void AddObject(SimObject obj)
     {
@@ -128,8 +132,15 @@ public class SimSet : SimObject
         int it = mMembers.IndexOf(obj);
         if (it < 0)
             return;
-        mMembers[it] = mMembers[^1]; // swap-remove (GS4)
-        mMembers.RemoveAt(mMembers.Count - 1);
+        if (mOrdered)
+        {
+            mMembers.RemoveAt(it); // ordered flag +0x5d [code 004fe430]
+        }
+        else
+        {
+            mMembers[it] = mMembers[^1]; // swap-remove (GS4)
+            mMembers.RemoveAt(mMembers.Count - 1);
+        }
         obj.mInSets.RemoveAll(s => s == this);
     }
 
@@ -232,8 +243,15 @@ public class SimGroup : SimSet
         if (it < 0)
             return;
         NameErase(obj);
-        mMembers[it] = mMembers[^1];
-        mMembers.RemoveAt(mMembers.Count - 1);
+        if (mOrdered)
+        {
+            mMembers.RemoveAt(it);
+        }
+        else
+        {
+            mMembers[it] = mMembers[^1];
+            mMembers.RemoveAt(mMembers.Count - 1);
+        }
         obj.OnGroupRemove();
         obj.mGroup = null;
     }

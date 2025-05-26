@@ -144,12 +144,18 @@ public sealed class SimConsole : IObjectInterface
                 obj = made;
             else
                 obj = f.Set ? new NamedClassSet(f.Cls, f.Id) : new NamedClassObject(f.Cls, f.Id);
+            if (f.Id == 25)
+                ((SimSet)obj).SetOrdered(true); // SimInputConsumerSet ctor 0050dd44 sets +0x5d
             m.AddToRoot(obj);
             if (f.Name != null)
                 m.AssignName(obj, mStrings.Intern(f.Name));
             if (f.Id == 720)
                 timers!.AddObject(obj); // [live] listObjects(12): the SensorManager
         }
+        // [live] listObjects(25) starts with the action handler.
+        SimObject? handler = m.FindById(1);
+        if (handler != null)
+            m.FindById(25)?.AsSet()?.AddObject(handler);
         mCtx.ServerCreated?.Invoke(m);
     }
 
@@ -426,7 +432,19 @@ public sealed class SimConsole : IObjectInterface
         Cmd("focusClient", _ => yes);
         Cmd("deleteClient", _ => yes);
         Cmd("purgeResources", _ => yes);
-        Cmd("listVolumes", _ => yes);
+        // 0050b4c4 case 0x6e: one line per member of object 2, the name and the file name (+0x68). A member that is
+        // not a SimVolume reads a null pointer there ([live] a SimSet prints "(null)").
+        Cmd("listVolumes", _ =>
+        {
+            SimSet? set = Focus()?.FindById(2)?.AsSet();
+            if (set != null)
+                foreach (SimObject m in set.Members())
+                {
+                    string file = SimClasses.SimVolumeInfo(m, out string f, out bool _) ? f : "(null)";
+                    mIn.Print(1, "   \"" + (m.Name() ?? "") + "\": \"" + file + "\"");
+                }
+            return yes;
+        });
 
         Cmd("newObject", a =>
         {

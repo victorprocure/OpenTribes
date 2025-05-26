@@ -278,6 +278,13 @@ public static class SimClasses
     {
         public override string ClassName() => "ChatMenu";
         public override bool ProcessArguments(IReadOnlyList<string> args) => args.Count != 0;
+
+        // [live] a created ChatMenu is a member of the input consumer set (object 25) until it is deleted.
+        public override bool OnAdd()
+        {
+            Manager()?.FindById(25)?.AsSet()?.AddObject(this);
+            return true;
+        }
     }
 
     // src/sim/sim_classes.cpp class FailingClass: classes the original creates but whose constructor-side checks fail
@@ -302,6 +309,63 @@ public static class SimClasses
         public override bool OnAdd() => mMode != Mode.Register;
         public override bool ProcessArguments(IReadOnlyList<string> args) =>
             mMode == Mode.AnyArgs ? args.Count == 0 : mMode == Mode.Register;
+    }
+
+    // src/sim/sim_classes.cpp class GuiGroup: GUI and editor controls, SimGroup based, any arguments (docs/sim.md Q5).
+    private class GuiGroup : SimGroup
+    {
+        private readonly string mClass;
+
+        public GuiGroup(string cls) => mClass = cls;
+        public override string ClassName() => mClass;
+    }
+
+    // src/sim/sim_classes.cpp class GuiScrollGroup: creates its content control when registered.
+    private sealed class GuiScrollGroup : GuiGroup
+    {
+        public GuiScrollGroup(string cls) : base(cls) { }
+
+        public override bool OnAdd()
+        {
+            AddObject(new GuiGroup("SimGui::ScrollContentCtrl"));
+            return base.OnAdd();
+        }
+    }
+
+    // src/sim/sim_classes.cpp class GuiServerList: FearGui::ServerListCtrl::onAdd prints one line.
+    private sealed class GuiServerList : GuiGroup
+    {
+        public GuiServerList(string cls) : base(cls) { }
+
+        public override bool OnAdd()
+        {
+            Manager()?.Print?.Invoke("ServerListCtrl::onAdd() mbQueryMoreServers: FALSE");
+            return base.OnAdd();
+        }
+    }
+
+    // src/sim/sim_classes.cpp class GuiDelegate: plain object, no arguments (D28).
+    private sealed class GuiDelegate : SimObject
+    {
+        private readonly string mClass;
+
+        public GuiDelegate(string cls) => mClass = cls;
+        public override string ClassName() => mClass;
+        public override bool ProcessArguments(IReadOnlyList<string> args) => args.Count == 0;
+    }
+
+    // src/sim/sim_classes.cpp class GuiCanvas: no argument prints the usage and fails.
+    private sealed class GuiCanvas : SimObject
+    {
+        public override string ClassName() => "SimGui::Canvas";
+
+        public override bool ProcessArguments(IReadOnlyList<string> args)
+        {
+            if (args.Count != 0)
+                return true;
+            Manager()?.Print?.Invoke("SimCanvas: title width height quit(t/f)");
+            return false;
+        }
     }
 
     // src/sim/sim_classes.cpp class FearCSDelegate.
@@ -350,11 +414,81 @@ public static class SimClasses
         new() { Name = "ShapeBase", Make = Plain(() => new FailingClass("ShapeBase", FailingClass.Mode.Args)) },
         new() { Name = "Net::CSDelegate", Make = Plain(() => new FailingClass("Net::CSDelegate", FailingClass.Mode.Args)) },
         new() { Name = "SimMoveObject", Make = Plain(() => new NamedClassObject("SimMoveObject")) },
-        new() { Name = "CenterPrint", Make = Plain(() => new NamedClassObject("CenterPrint")) },
-        new() { Name = "FearGuiFormattedText", Make = Plain(() => new NamedClassObject("FearGuiFormattedText")) },
-        new() { Name = "FearGuiInventory", Make = Plain(() => new NamedClassObject("FearGuiInventory")) },
-        new() { Name = "FearGuiPurchase", Make = Plain(() => new NamedClassObject("FearGuiPurchase")) },
+        new() { Name = "SimGui::Canvas", Make = Plain(() => new GuiCanvas()) },
+        // MEObjectList kills the original when it is created (D28): registration fails here.
+        new() { Name = "MEObjectList", Make = Plain(() => new FailingClass("MEObjectList", FailingClass.Mode.Register)) },
+        new() { Name = "FearGui::ServerListCtrl", Make = Plain(() => new GuiServerList("FearGui::ServerListCtrl")) },
     };
+
+    // src/sim/gui_classes.inc: the GUI and editor classes a dedicated server can create (docs/sim.md 6.2, Q5).
+    private static readonly string[] sGuiControls =
+    {
+        "CenterPrint", "FearGui::CFGButton", "FearGui::CMDObserve",
+        "FearGui::ClockHud", "FearGui::ColumnListCtrl", "FearGui::CommandItemCtrl",
+        "FearGui::CommandTeamCtrl", "FearGui::CommandTurretCtrl", "FearGui::CompassHud",
+        "FearGui::ControlsListCtrl", "FearGui::Crosshair", "FearGui::CurrentWeaponHud",
+        "FearGui::FGBitmapCtrl", "FearGui::FGBuddyComboBox", "FearGui::FGChatMenu",
+        "FearGui::FGCommandBox", "FearGui::FGCommandPanel", "FearGui::FGCommandView",
+        "FearGui::FGControl", "FearGui::FGControlsComboBox", "FearGui::FGCurrentCommand",
+        "FearGui::FGDlgBox", "FearGui::FGFilterCBListCtrl", "FearGui::FGFilterComboBox",
+        "FearGui::FGHBuySell", "FearGui::FGHCommandObjectivePage", "FearGui::FGHInventory",
+        "FearGui::FGHSensorPing", "FearGui::FGHelpCtrl", "FearGui::FGIRCActiveTextEdit",
+        "FearGui::FGIRCBanControl", "FearGui::FGIRCChannelCtrl", "FearGui::FGIRCChannelList",
+        "FearGui::FGIRCChannelPropertiesControl", "FearGui::FGIRCJoinControl", "FearGui::FGIRCNicknames",
+        "FearGui::FGIRCScrollChannel", "FearGui::FGIRCTextEdit", "FearGui::FGIRCTopicCtrl",
+        "FearGui::FGIRCView", "FearGui::FGLagIndicator", "FearGui::FGMenuCtrl",
+        "FearGui::FGMenuItem", "FearGui::FGMissionComboBox", "FearGui::FGPaletteCtrl",
+        "FearGui::FGPlayerComboBox", "FearGui::FGPopUpMenu", "FearGui::FGRecordingListCtrl",
+        "FearGui::FGServerFilterComboBox", "FearGui::FGShellBorder", "FearGui::FGSimpleText",
+        "FearGui::FGSlider", "FearGui::FGStandardComboBox", "FearGui::FGTab",
+        "FearGui::FGTabMenu", "FearGui::FGTextFormat", "FearGui::FGTextList",
+        "FearGui::FGUniversalButton", "FearGui::FearGuiAbortDlg", "FearGui::FearGuiBox",
+        "FearGui::FearGuiChat", "FearGui::FearGuiChatDisplay", "FearGui::FearGuiDialog",
+        "FearGui::FearGuiMenu", "FearGui::FearGuiPage", "FearGui::FearGuiRadio",
+        "FearGui::FearGuiSwitch", "FearGui::FilterCtrl", "FearGui::FilterListCtrl",
+        "FearGui::FilterVarCtrl", "FearGui::HealthHud", "FearGui::HudCtrl",
+        "FearGui::HudListCtrl", "FearGui::InventoryListCtrl", "FearGui::JetPackHud",
+        "FearGui::MMShellBorder", "FearGui::MasterServerList", "FearGui::MenuDisplayCtrl",
+        "FearGui::MissionListCtrl", "FearGui::PlayerListCtrl", "FearGui::ScoreListCtrl",
+        "FearGui::ServerInfoCtrl", "FearGui::ShapeView", "FearGui::SkinView",
+        "FearGui::SmackerCtrl", "FearGui::StandardListCtrl", "FearGui::TSCommander",
+        "FearGui::TestEdit", "FearGuiFormattedText", "FearGuiInventory",
+        "FearGuiPurchase", "MEButton", "MECheck",
+        "MEInspectTagList", "MEPopup", "MEPopupButton",
+        "MERadio", "METextEdit", "METextList",
+        "SimGui::ActiveCtrl", "SimGui::AnimateBMA", "SimGui::ArrayCtrl",
+        "SimGui::BitmapBox", "SimGui::BitmapCtrl", "SimGui::ComboBox",
+        "SimGui::Control", "SimGui::EditControl", "SimGui::HelpCtrl",
+        "SimGui::PaletteCtrl", "SimGui::ProgressCtrl", "SimGui::ScrollContentCtrl",
+        "SimGui::SimpleText", "SimGui::Slider", "SimGui::TSControl",
+        "SimGui::TestButton", "SimGui::TestCheck", "SimGui::TestControl",
+        "SimGui::TestRadial", "SimGui::TextEdit", "SimGui::TextFormat",
+        "SimGui::TextList", "SimGui::TextWrap", "SimGui::TimerCtrl",
+    };
+
+    private static readonly string[] sGuiScrollControls =
+    {
+        "FearGui::FearGuiScrollCtrl", "FearGui::FGHudMatrix", "SimGui::MatrixCtrl",
+        "SimGui::ScrollCtrl",
+    };
+
+    private static readonly string[] sGuiDelegates =
+    {
+        "SimGui::ConnectDelegate", "SimGui::CreateServerDelegate", "SimGui::IRCChatDelegate",
+        "SimGui::JoinGameDelegate", "SimGui::MainMenuDelegate", "SimGui::OptionsDelegate",
+        "SimGui::playDelegate", "SimGui::PlayerSetupDelegate", "SimGui::quitDelegate",
+        "SimGui::RecordingsDelegate",
+    };
+
+    static SimClasses()
+    {
+        foreach (string name in sGuiControls)
+            sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiGroup(name)) });
+        foreach (string name in sGuiScrollControls)
+            sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiScrollGroup(name)) });
+        foreach (string name in sGuiDelegates)
+            sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiDelegate(name)) });
+    }
 
     // src/sim/sim_classes.cpp registerClass: adds or replaces a class (the game layer registers mission classes this
     // way).
