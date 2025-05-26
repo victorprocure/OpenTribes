@@ -2,7 +2,7 @@
 // (FearPlugin, registered at 0x00423040): teams (PlayerManager 713) and the GameBase services for mission objects. The
 // stepped-move candidates (src/game/move_candidates.cpp), the displacement (src/game/displace.cpp) and the collision
 // event (GameState::postCollisionEvent and dispatchCollisionEvent of src/game/player.cpp) are Displace.cs; the AI
-// manager is stage P4c.
+// manager is AIManager.cs.
 using OpenTribes.Core;
 using OpenTribes.Script;
 using OpenTribes.Sim;
@@ -42,7 +42,7 @@ public sealed partial class GameState : GameServices
     // Record ids of AI players come from the connection layer's pool (set by the server).
     public Func<int>? AllocateRecordId;
     public Action<int>? ReleaseRecordId;
-    // P4c: AI: AIManager* ai, object 726 while the mission has one (docs/ai-sim.md 1.2).
+    public AIManager? Ai; // object 726 while the mission has one (docs/ai-sim.md 1.2)
 
     public int TeamCount = -1;       // -1 until the first resetPlayerManager (docs/mission.md 2.2)
     public readonly List<TeamRecord> Teams = new(); // record of team t at index t + 1

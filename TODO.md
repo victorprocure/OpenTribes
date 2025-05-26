@@ -40,3 +40,4 @@ way are added to Open.
 - [x] Turret simulation: search, fire and control.
 - [x] The server hosts a mission from the game directory.
 - [x] Players, mounts, item images, projectiles, fire paths, vehicles, fliers and turrets.
+- [x] Bots: AI object, skill and steering.
