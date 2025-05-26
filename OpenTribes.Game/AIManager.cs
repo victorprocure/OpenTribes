@@ -200,8 +200,7 @@ public sealed partial class AIObject
                         use = low;
                     }
                     float[] aim = new float[3];
-                    for (int k = 0; k < 3; ++k)
-                        aim[k] = X87.F32(Add(eye.P[k], Mul(use[k], 50.0f)));
+                    AIAim.LaserAimPoint(eye.P, use, aim);
                     Flags |= 4;
                     YawError ye = SteerYaw(aim);
                     if (ye.Abs < 0.001f)
@@ -222,6 +221,14 @@ public sealed partial class AIObject
 // src/game/ai_manager.hpp aiSolveAim.
 public static class AIAim
 {
+    // src/game/ai_manager.cpp aiLaserAimPoint: the aim point of a laser-painted target (0x0043cec0..0x0043cf13,
+    // docs/ai-sim.md 12.5): `dir x 50` is stored as a Point3F first, then the eye is added, so each component is rounded twice.
+    public static void LaserAimPoint(ReadOnlySpan<float> eye, ReadOnlySpan<float> dir, Span<float> aim)
+    {
+        for (int k = 0; k < 3; ++k)
+            aim[k] = X87.F32(Add(eye[k], X87.F32(Mul(dir[k], 50.0f))));
+    }
+
     // src/game/ai_manager.cpp aiSolveAim: the aim solver of the projectile datablock classes (vtable +0x10, docs/ai-sim.md
     // 3.7, 12.4): from `s` to the point `t` for a projectile of `speed`, low arc (`high` false) or high arc, with the
     // gravity `g` (negative). Writes the unit direction and `ok` (the projectile can reach the point). BulletData

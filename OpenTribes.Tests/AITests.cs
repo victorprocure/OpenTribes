@@ -443,10 +443,23 @@ public class AITests
         Assert.True(!AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, distant, true, -20.0f, ref ok, dir) || !ok);
     }
 
+    // The aim point of DirectiveTargetLaser (docs/ai-sim.md 12.5, 0x0043cec0): dir x 50 is rounded to f32 before the eye is
+    // added. -0.1f x 50 = -5.0000000745 truncates to -5, so 200 - 5 = 195 exactly; one rounding would give 194.99998.
+    private static void TestLaserAimPoint()
+    {
+        using var chop = X87.Chop();
+        float[] eye = { 10.0f, 200.0f, 30.0f };
+        float[] dir = { 0.0f, -0.1f, 1.0f };
+        float[] aim = new float[3];
+        AIAim.LaserAimPoint(eye, dir, aim);
+        Assert.True(aim[0] == 10.0f && aim[1] == 195.0f && aim[2] == 80.0f);
+    }
+
     [Fact]
     public void Main()
     {
         TestAimSolver();
+        TestLaserAimPoint();
         TestMath();
         TestCommands();
         TestDirectives();
