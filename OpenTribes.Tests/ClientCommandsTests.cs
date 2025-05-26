@@ -159,6 +159,9 @@ public class ClientCommandsTests
         Assert.True(Run("echo(newActionMap(otam1), isFile(\"otam1.sae\"), \"|\", File::findFirst(\"otam1*\"));") ==
                "FalseFalse|otam1.sae");
         Assert.True(res.Find("OTAM1.SAE") != null && res.Find("SimGame.sae") != null);
+        // g32 / resources.md 8.7: findNext after the end of a search (and before any findFirst) starts again.
+        Assert.True(Run("echo(File::findFirst(\"otam1*\"), \"|\", File::findNext(\"otam1*\"), \"|\", File::findNext(\"otam1*\"));") ==
+               "otam1.sae||otam1.sae");
         Assert.True(!res.AddGenerated("otam1.sae"));  // already registered
         Run("bindCommand(keyboard0, make, a, TO, \"echo(1);\"); bindCommand(keyboard0, break, a, TO, \"echo(\\\"q\\\\\\\\\\\");\");");
         Run("bindCommand(keyboard0, make, a, TO, \"echo(3);\");");  // same event: replaced and moved to the end

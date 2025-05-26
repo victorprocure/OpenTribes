@@ -39,3 +39,4 @@ way are added to Open.
 - [x] Master server heartbeat and master commands.
 - [x] Tag id 0 is ignored and negative tag ids cannot be looked up.
 - [x] Input consumers and GUI classes on the server side.
+- [x] File search restarts after reaching the end.

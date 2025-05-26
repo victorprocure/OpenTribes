@@ -426,8 +426,9 @@ public static class Builtins
         });
         interp.AddCommand("File::findNext", (i, argv) =>
         {
-            if (argv.Length != 2 || res == null || cursor == null)
+            if (argv.Length != 2 || res == null)
                 return "";
+            // A null cursor (before any findFirst, or after the end of a search) starts at the first entry [live].
             cursor = res.FindNext(argv[1], cursor, out string r);
             return cursor == null ? "" : r;
         });
