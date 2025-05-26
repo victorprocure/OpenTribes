@@ -47,6 +47,38 @@ public class SimTests
         Run("newObject(S, SimSet); for (%i = 1; %i <= 4; %i++) { newObject(\"N\" @ %i, SimSet); addToSet(S, \"N\" @ %i); } deleteObject(N2);");
         Assert.True(Run("echo(getNextObject(S, N1) == nameToID(N4), getNextObject(S, N4) == nameToID(N3));") == "11");
 
+        // GS4 ordered flag (docs/sim.md GS4): set 25 (SimInputConsumerSet) keeps the order on removal. N2 is gone, so
+        // the set holds (N1, N3, N4) behind the action handler and deleting N1 leaves (N3, N4), not (N4, N3).
+        Run("addToSet(25, N1, N3, N4); deleteObject(N1);");
+        Assert.True(Run("echo(getNextObject(25, N3) == nameToID(N4), getNextObject(25, N4) == nameToID(N3));") == "10");
+        Run("deleteObject(N3); deleteObject(N4);");
+
+        // sim.md Q2: listVolumes prints the name and the file of every member of object 2; a member that is no
+        // SimVolume has a null file pointer.
+        Assert.True(Run("listVolumes();") == "");
+        // [live] a created ChatMenu joins set 25 and leaves on delete.
+        Run("newObject(M1, ChatMenu, x);");
+        Assert.Contains("ChatMenu", Run("listObjects(25);"));
+        Run("deleteObject(M1);");
+        Assert.True(Run("listObjects(25);") == "   1: SimActionHandler ");
+        Run("addToSet(2, S);");
+        Assert.True(Run("listVolumes();") == "   \"S\": \"(null)\"");
+        Run("removeFromSet(2, S);");
+
+        // sim.md Q5: GUI controls are groups, a scroll control creates its content control, a delegate takes no
+        // arguments, the canvas needs one, ServerListCtrl prints a line when registered.
+        Run("newObject(GC1, FearGui::FGTab);");
+        Assert.True(Run("listObjects(GC1);") == ""); // a set without members
+        Assert.Contains("FearGui::FGTab (g)", Run("listObjects();"));
+        Assert.Contains("SimGui::ScrollContentCtrl (g)", Run("newObject(GC2, SimGui::ScrollCtrl); listObjects(GC2);"));
+        Assert.True(Run("echo(newObject(GC3, SimGui::quitDelegate, x));") ==
+                    "newObject for: SimGui::quitDelegate failed arg list: x\n0");
+        Assert.True(Run("echo(newObject(GC4, SimGui::Canvas));") ==
+                    "SimCanvas: title width height quit(t/f)\nnewObject for: SimGui::Canvas failed arg list: \n0");
+        Assert.True(Run("newObject(GC5, SimGui::Canvas, t); listObjects(GC5);") == "listObjects: Object is not a set");
+        Assert.True(Run("newObject(GC6, FearGui::ServerListCtrl);") == "ServerListCtrl::onAdd() mbQueryMoreServers: FALSE");
+        Run("deleteObject(GC1); deleteObject(GC2); deleteObject(GC5); deleteObject(GC6);");
+
         // EV2-EV8: schedule ordering, FIFO for equal times, 32 ms ticks, getSimTime inside events.
         Run("schedule(\"echo(A);\", 0.5); schedule(\"echo(B);\", 0.5); schedule(\"echo(E);\", 0.3); schedule(\"echo(N);\", -5);");
         output = "";
