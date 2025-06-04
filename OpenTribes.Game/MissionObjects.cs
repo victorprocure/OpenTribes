@@ -335,6 +335,7 @@ public partial class GameBase : SimObject
     // words and light records.
     public int IsContainer = -1;
     public InteriorNetInfo InteriorNet = new();
+    public readonly ResourceLocks ResourceLocks = new(); // the resources of the ITRInstance (Interior.LoadInteriorResources)
     public bool CollisionDisabled;     // +0x41c
 
     // Client links (docs/player-manager.md 12.5) and the control object interface (docs/game-stream.md 6.5).
@@ -1056,6 +1057,13 @@ public partial class GameBase : SimObject
         }
     }
 
+    // src/game/mission_objects.hpp GameBase::resourceLocks, released by the C++ destructor.
+    public override void Destroy()
+    {
+        ResourceLocks.Release();
+        base.Destroy();
+    }
+
     // src/game/mission_objects.cpp GameBase::onAdd.
     public override bool OnAdd()
     {
@@ -1069,6 +1077,7 @@ public partial class GameBase : SimObject
             {
                 InteriorGeo = OpenTribes.World.Interior.LoadInterior(res, f[0]);
                 OpenTribes.World.Interior.LoadInteriorNetInfo(res, f[0], InteriorNet);
+                OpenTribes.World.Interior.LoadInteriorResources(res, f[0], ResourceLocks);
             }
             // isContainer (0x0047ec6c): -1 becomes 1 when a collision box extent is at least 6.0, else 0; it stays -1
             // without a shape.
@@ -1301,6 +1310,7 @@ public class PersistObject : SimObject
     private readonly ClassContext mCtx;
     private readonly int mFixed;
     private readonly string? mRequired;
+    private readonly ResourceLocks mLocks = new(); // the SimPalette's .ppl
 
     public PersistObject(string cls, IEnumerable<PersistDef> fields, ClassContext ctx, int fixedId = 0, string? requiredFile = null)
     {
@@ -1331,8 +1341,19 @@ public class PersistObject : SimObject
             IReadOnlyList<string>? v = mFields.Get(mRequired);
             if (v == null || v.Count == 0 || !mCtx.Game.ResourceExists(v[0]))
                 return false;
+            // SimPalette_onAdd (004fd9ec) loads the palette and holds it; after the object the instance stays until
+            // purge (docs/resources.md 8.7).
+            if (mClass == "SimPalette" && mCtx.Game.GetResourceManager() is ResourceManager res)
+                mLocks.Load(res, v[0]);
         }
         return true;
+    }
+
+    // src/game/mission_objects.hpp PersistObject::mLocks, released by the C++ destructor.
+    public override void Destroy()
+    {
+        mLocks.Release();
+        base.Destroy();
     }
 }
 
@@ -1449,6 +1470,13 @@ public sealed class TerrainObject : PersistObject
         if (GameUtil.EqualsNoCase(field, "visibleDistance") && values.Count != 0)
             mVisibleDistance = PersistFields.AtofRZ(values[0]);
         return base.SetPersistField(field, values);
+    }
+
+    // src/game/mission_objects.cpp TerrainObject::~TerrainObject: the terrain goes with its resource locks.
+    public override void Destroy()
+    {
+        mTerrain?.ReleaseLocks();
+        base.Destroy();
     }
 
     // src/game/mission_objects.cpp TerrainObject::onAdd.

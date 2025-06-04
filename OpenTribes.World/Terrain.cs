@@ -105,6 +105,9 @@ public sealed class Terrain
     private readonly Dictionary<int, GridBlock> mBlocks = new();
     private readonly List<string> mBlockFiles = new(); // block list order
     private string mMaterialList = "";
+    // The .dtf, the blocks and the .dml, held while the terrain lives (the C++ destructor releases
+    // them; the port calls ReleaseLocks when the owner is deleted).
+    private readonly ResourceLocks mLocks = new();
     private Vec3 mPos;
 
     public void SetPosition(Vec3 p) => mPos = p;
@@ -253,8 +256,20 @@ public sealed class Terrain
             t.mBlocks[id] = blk;
             t.mBlockFiles.Add(name);
         }
+        // Resource loads, held while the terrain lives and kept until purge after it (docs/resources.md
+        // 8.7): the .dtf (SimTerrain_load 0051792c), the blocks (GridBlockList 00567270, every stock
+        // terrain has one) and the material list with its extension replaced by .dml (00517e04), no textures.
+        t.mLocks.Load(res, dtfName);
+        foreach (string name in t.mBlockFiles)
+            t.mLocks.Load(res, name);
+        string dml = t.mMaterialList;
+        int mdot = dml.LastIndexOf('.');
+        t.mLocks.Load(res, (mdot <= 0 ? dml : dml[..mdot]) + ".dml");
         return t;
     }
+
+    // src/world/terrain.hpp Terrain::~Terrain: the held resources are unlocked.
+    public void ReleaseLocks() => mLocks.Release();
 
     private static readonly uint[] sCrcTable = MakeCrcTable();
 

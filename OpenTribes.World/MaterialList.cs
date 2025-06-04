@@ -111,6 +111,40 @@ public static class MaterialList
         return true;
     }
 
+    // src/world/material_list.cpp materialListTextures: bitmap names of the texture materials (flags & 0xf == 3, map
+    // name at +0x10 of the file record) of every detail, in order: what TSMaterialList_load (0x005af87c per entry)
+    // loads.
+    public static bool MaterialListTextures(byte[] d, List<string> output)
+    {
+        if (d.Length < 12 || d[0] != 'P' || d[1] != 'E' || d[2] != 'R' || d[3] != 'S')
+            return false;
+        long pos = 8;
+        if (!Take(d, ref pos, 2, out var s))
+            return false;
+        ushort nameLen = BinaryPrimitives.ReadUInt16LittleEndian(s);
+        pos += nameLen + (nameLen & 1);
+        if (!Take(d, ref pos, 4, out s))
+            return false;
+        uint version = BinaryPrimitives.ReadUInt32LittleEndian(s);
+        if (version < 1 || version > 4 || !Take(d, ref pos, 4, out s))
+            return false;
+        uint details = BinaryPrimitives.ReadUInt32LittleEndian(s);
+        if (!Take(d, ref pos, 4, out s))
+            return false;
+        uint count = BinaryPrimitives.ReadUInt32LittleEndian(s);
+        long entry = version <= 2 ? 0x30 : version == 3 ? 0x3c : 0x40;
+        if (details > 4096 || count > 65536 || pos + (long)details * count * entry > d.Length)
+            return false;
+        output.Clear();
+        for (long i = 0; i < (long)details * count; ++i)
+        {
+            long e = pos + i * entry;
+            if ((Reader.U32At(d, e) & 0xf) == 3)
+                output.Add(Reader.CString(d, e + 0x10, 0x20));
+        }
+        return true;
+    }
+
     private sealed class Cached
     {
         public bool Ok;

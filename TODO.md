@@ -40,4 +40,4 @@ way are added to Open.
 - [x] Tag id 0 is ignored and negative tag ids cannot be looked up.
 - [x] Input consumers and GUI classes on the server side.
 - [x] File search restarts after reaching the end.
-- [x] Files of an unmounted volume stay available until purged.
+- [x] Files of an unmounted volume stay available until purged, also for mission and world loading.

@@ -1181,4 +1181,69 @@ public static class Interior
         }
         return true;
     }
+
+    // src/world/interior.cpp loadInteriorResources: loads the resources of an InteriorShape's ITRInstance
+    // (0x0047ec6c, 0x00555f48) into locks, which the object holds; they keep their instances until purge after it
+    // (docs/resources.md 8.7): the .dis, its .dml and the bitmap of every texture material, and per LOD the .dig, the
+    // .dil of light state 0 when the fileName is mission-lit and exists, and the base .dil.
+    public static void LoadInteriorResources(ResourceManager res, string fileName, ResourceLocks locks)
+    {
+        string name = ResolveInteriorName(res, fileName);
+        var shape = new InteriorShapeFile();
+        if (name.Length == 0 || !res.Read(name, out byte[] dis) || !InteriorShapeFile.Parse(dis, shape))
+            return;
+        locks.Load(res, name);
+        // InteriorShape_isMissionLitName (0x0047ec6c): only digits between the last two dots. The fallback to
+        // <base>.dis loads without mission lighting.
+        bool missionLit = name == fileName;
+        int last = fileName.LastIndexOf('.');
+        int prev = last <= 0 ? -1 : fileName.LastIndexOf('.', last - 1);
+        if (prev < 0)
+            missionLit = false;
+        else
+            for (int i = prev + 1; i < last; ++i)
+                if (fileName[i] < '0' || fileName[i] > '9')
+                    missionLit = false;
+        // The material list and its textures (the server object loads them, flags +0x4c bit 1 clear).
+        var textures = new List<string>();
+        if (locks.Load(res, shape.MaterialList) && res.Read(shape.MaterialList, out byte[] dml) &&
+            MaterialList.MaterialListTextures(dml, textures))
+            foreach (string t in textures)
+                locks.Load(res, t);
+        foreach (InteriorShapeFile.Lod lod in shape.Lods)
+            locks.Load(res, lod.Geometry);
+        var lit = new List<ResourceManager.Entry>(); // mission-lit .dil of the LODs so far
+        foreach (InteriorShapeFile.Lod lod in shape.Lods)
+        {
+            if (lod.LightStateIndex >= shape.LodLights.Count)
+                continue;
+            string dil = shape.LodLights[(int)lod.LightStateIndex]; // light state 0
+            if (missionLit)
+            {
+                if (res.Load(dil) is ResourceManager.Entry e)
+                    lit.Add(e);
+                // A missing file or a lighting buildId other than the geometry's prints an error, unlocks the
+                // mission-lit .dil loaded so far (their instances stay until purge) and drops the mission lighting
+                // for the later LODs.
+                bool ok = false;
+                if (res.Read(lod.Geometry, out byte[] g) && res.Read(dil, out byte[] l))
+                {
+                    var rg = new Reader(g);
+                    var rl = new Reader(l);
+                    ok = PersBody(g, rg) && PersBody(l, rl);
+                    ok = ok && rl.GetU32() == rg.GetU32() && rl.Ok && rg.Ok;
+                }
+                if (!ok)
+                {
+                    foreach (ResourceManager.Entry x in lit)
+                        ResourceManager.Unlock(x);
+                    lit.Clear();
+                    missionLit = false;
+                }
+            }
+            locks.Load(res, BaseLightingName(dil));
+        }
+        foreach (ResourceManager.Entry x in lit)
+            locks.Adopt(x);
+    }
 }
