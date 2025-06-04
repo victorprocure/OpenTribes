@@ -34,7 +34,8 @@ public sealed class ResourceManager
         public Volume? Volume;
         public int VolumeIndex;       // index into the volume's directory
         public uint Size;
-        public bool HasInstance;      // loaded objects keep stale entries alive
+        public bool HasInstance;      // +0x14: load built an instance; it keeps a stale entry alive
+        public uint Locks;            // +0x44: holders of the instance; purge keeps a locked entry
     }
 
     private readonly string mRoot;
@@ -332,7 +333,41 @@ public sealed class ResourceManager
         }
         InsertBehind(e, InVolume | LooseFile);
         e.HasInstance = true;
+        e.Locks = 1; // add takes a lock for its caller
         return true;
+    }
+
+    // src/core/resource_manager.cpp ResourceManager::load: ResManager::load (0x00587e7c) locks the
+    // entry and gives it an instance, which the entry keeps after the last unlock until purge
+    // (docs/resources.md 8.7). Null when the name is missing, or the entry has neither a file nor
+    // an instance.
+    public Entry? Load(string resName)
+    {
+        var (path, name) = Split(resName, true);
+        Entry? e = mChains.TryGetValue((path, name!), out List<Entry>? chain) && chain.Count != 0 ? chain[0] : null;
+        if (e == null || (!e.HasInstance && (e.Flags & (InVolume | LooseFile)) == 0))
+            return null;
+        ++e.Locks;
+        e.HasInstance = true;
+        return e;
+    }
+
+    // src/core/resource_manager.hpp ResourceManager::unlock: unlock (0x00587d64), one lock less; at 0
+    // the instance waits for purge.
+    public static void Unlock(Entry e) => --e.Locks;
+
+    // src/core/resource_manager.cpp ResourceManager::purge: purge(force) (0x00588074, console
+    // purgeResources) drops every unlocked instance and frees the stale (flag 4) entries among them.
+    public void Purge()
+    {
+        foreach (Entry e in mList.ToArray())
+        {
+            if (!e.HasInstance || e.Locks != 0)
+                continue;
+            e.HasInstance = false;
+            if ((e.Flags & Stale) != 0)
+                Unlink(e);
+        }
     }
 
     // src/core/resource_manager.cpp ResourceManager::addVolume.
@@ -459,5 +494,31 @@ public sealed class ResourceManager
                 return mList[i];
         }
         return null;
+    }
+}
+
+// src/core/resource_manager.hpp class ResourceLocks: the resources an object loaded, unlocked when
+// the object goes (the resource handles the original objects hold). Release is the C++ destructor.
+public sealed class ResourceLocks
+{
+    private readonly List<ResourceManager.Entry> mEntries = new();
+
+    // ResourceManager.Load and keep the lock. False when nothing was loaded.
+    public bool Load(ResourceManager res, string name)
+    {
+        ResourceManager.Entry? e = res.Load(name);
+        if (e != null)
+            mEntries.Add(e);
+        return e != null;
+    }
+
+    // Keeps a lock taken with ResourceManager.Load.
+    public void Adopt(ResourceManager.Entry e) => mEntries.Add(e);
+
+    public void Release()
+    {
+        foreach (ResourceManager.Entry e in mEntries)
+            ResourceManager.Unlock(e);
+        mEntries.Clear();
     }
 }

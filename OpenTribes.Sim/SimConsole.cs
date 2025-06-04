@@ -431,7 +431,12 @@ public sealed class SimConsole : IObjectInterface
         Cmd("newClient", _ => yes);
         Cmd("focusClient", _ => yes);
         Cmd("deleteClient", _ => yes);
-        Cmd("purgeResources", _ => yes);
+        // 0050b4c4 case 0x78: purge(force) whatever the arguments (docs/resources.md 8.7).
+        Cmd("purgeResources", _ =>
+        {
+            mCtx.Resources?.Purge();
+            return yes;
+        });
         // 0050b4c4 case 0x6e: one line per member of object 2, the name and the file name (+0x68). A member that is
         // not a SimVolume reads a null pointer there ([live] a SimSet prints "(null)").
         Cmd("listVolumes", _ =>
