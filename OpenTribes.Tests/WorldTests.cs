@@ -69,6 +69,9 @@ public class WorldTests
         uint crc = 0;
         Assert.True(terrain.Crc(res, "t.dtf", ref crc));
         Assert.True(crc == SpecCrc(dml, SpecCrc(dtb, SpecCrc(dtf, 0xffffffffu))));
+        // resources.md 8.7: the terrain holds the .dtf, its blocks and the .dml until it goes.
+        foreach (string nm in new[] { "t.dtf", "t#0.dtb", "t.dml" })
+            Assert.True(res.Find(nm)!.Locks == 1 && res.Find(nm)!.HasInstance);
 
         // 2.4 world box: terrain-space (0, 0, hmin) - (W 2^B, H 2^B, hmax), B = D + S - 1 = 5.
         var box = new float[6];
@@ -575,6 +578,59 @@ public class WorldTests
             Assert.True(BitsOf(inv.P[0]) == BitsOf(t[0]) && BitsOf(inv.P[1]) == BitsOf(t[1]) && BitsOf(inv.P[2]) == BitsOf(t[2]));
             Assert.True(inv.Flags == 7);
         }
+    }
+
+    // resources.md 8.7: the resources an InteriorShape's ITRInstance loads (0x00555f48) and holds.
+    [Fact]
+    public void TestInteriorResources()
+    {
+        string root = Root("world_res_root");
+        float[] box = { 0, -1, -1, 10, 1, 1 };
+        var nodes = new List<Node> { new(0, 1, -45), new(1, -44, -45) };
+        var planes = new List<float[]> { new float[] { 1, 0, 0, 0 }, new float[] { -1, 0, 0, 10 } };
+        PutFile(root + "/base/hut.dis", DisFile("hut-00.dig", "hut-000-0.dil"));
+        PutFile(root + "/base/hut.0.dis", DisFile("hut-00.dig", "hut-000-0.dil"));
+        PutFile(root + "/base/bad.0.dis", DisFile("hut-00.dig", "bad-000-0.dil"));
+        PutFile(root + "/base/hut-00.dig", DigFile(7, box, nodes, 1, 45, planes));
+        PutFile(root + "/base/hut-000-0.dil", DilFile(7, new List<LightRec>(), new List<byte>(), ""));
+        PutFile(root + "/base/hut-000.dil", DilFile(7, new List<LightRec>(), new List<byte>(), ""));
+        PutFile(root + "/base/bad-000-0.dil", DilFile(8, new List<LightRec>(), new List<byte>(), "")); // buildId differs from the geometry
+        PutFile(root + "/base/bad-000.dil", DilFile(7, new List<LightRec>(), new List<byte>(), ""));
+        // x.dml (DisFile): one detail, three materials; only type 3 is a texture.
+        var ml = new List<byte>();
+        PutU32(ml, 1);
+        PutU32(ml, 3);
+        foreach (var (type, map) in new (uint, string)[] { (3, "a.bmp"), (2, "nope.bmp"), (0x103, "B.BMP") })
+        {
+            var e = new List<byte>(new byte[0x40]);
+            SetU32(e, 0, type);
+            byte[] mb = ByteString.ToBytes(map);
+            for (int i = 0; i < mb.Length; ++i)
+                e[0x10 + i] = mb[i];
+            ml.AddRange(e);
+        }
+        PutFile(root + "/base/x.dml", Pers("TS::MaterialList", 4, ml));
+        foreach (string nm in new[] { "a.bmp", "b.bmp", "nope.bmp" })
+            PutFile(root + "/base/" + nm, "bmp");
+        var res = new ResourceManager(root);
+        res.SetSearchPath("base");
+        uint Locks(string nm) => res.Find(nm)!.Locks;
+        {
+            var held = new ResourceLocks();
+            Interior.LoadInteriorResources(res, "hut.0.dis", held); // mission-lit name
+            foreach (string nm in new[] { "hut.0.dis", "x.dml", "a.bmp", "b.bmp", "hut-00.dig", "hut-000-0.dil", "hut-000.dil" })
+                Assert.Equal(1u, Locks(nm));
+            Assert.True(!res.Find("nope.bmp")!.HasInstance && !res.Find("hut.dis")!.HasInstance);
+            // L3 fallback: hut.1.dis is missing, hut.dis loads without the mission lighting.
+            Interior.LoadInteriorResources(res, "hut.1.dis", held);
+            Assert.True(Locks("hut.dis") == 1 && Locks("hut-000-0.dil") == 1 && Locks("hut-000.dil") == 2);
+            // Lighting buildId 8 against geometry 7: the mission .dil stays loaded but unlocked.
+            Interior.LoadInteriorResources(res, "bad.0.dis", held);
+            Assert.True(Locks("bad-000-0.dil") == 0 && res.Find("bad-000-0.dil")!.HasInstance && Locks("bad-000.dil") == 1);
+            held.Release(); // the C++ holder's destructor at the end of the block
+        }
+        foreach (string nm in new[] { "hut.0.dis", "x.dml", "a.bmp", "hut-00.dig", "hut-000.dil", "bad-000.dil" })
+            Assert.True(Locks(nm) == 0 && res.Find(nm)!.HasInstance);
     }
 
     // docs/interiors.md 5.4: light names, lower-bound id search, states, time and the clamps.

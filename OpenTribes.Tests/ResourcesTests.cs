@@ -164,6 +164,59 @@ public class ResourcesTests
         res.SetSearchPath(kPath);
         Assert.Null(res.Find("later.cs"));
 
+        // 8.7 (G42): an unmounted volume keeps the entries that hold an instance until purge.
+        PutVol(root + "/base/mis.vol", new[] { ("kept.dis", "k"), ("held.dig", "h"), ("never.bmp", "n"), ("early.dil", "e") });
+        PutVol(root + "/base/other.vol", new[] { ("o.cs", "o") });
+        res.SetSearchPath(kPath);
+        Assert.True(res.AddVolume("mis.vol") && res.AddVolume("other.vol"));
+        Assert.Null(res.Load("missing.dis"));
+        ResourceManager.Entry? early = res.Load("early.dil");
+        Assert.True(early != null && early.Locks == 1 && early.HasInstance);
+        ResourceManager.Unlock(early!);
+        res.Purge(); // mounted: the unlocked instance goes, the entry stays
+        Assert.True(res.Find("early.dil") == early && !early!.HasInstance);
+        ResourceManager.Entry kept = res.Load("kept.dis")!;
+        ResourceManager.Unlock(kept); // its object is gone, the instance waits for purge
+        {
+            var holder = new ResourceLocks(); // an object that still holds its resource
+            Assert.True(holder.Load(res, "held.dig") && !holder.Load(res, "missing.dig"));
+            res.RemoveVolume("mis.vol");
+            Assert.Equal(new List<string> { "held.dig", "kept.dis" }, List(res, "*.d??"));
+            Assert.True(res.Find("never.bmp") == null && res.Find("early.dil") == null);
+            Assert.True(res.Find("kept.dis")!.Flags == ResourceManager.Stale && Text(res, "kept.dis") == "<missing>");
+            // A load of a stale entry returns its instance.
+            ResourceManager.Entry? again = res.Load("kept.dis");
+            Assert.True(again == kept && kept.Locks == 1);
+            ResourceManager.Unlock(again!);
+            // Remounting reuses the kept entries in place; the others are created in front.
+            Assert.True(res.AddVolume("mis.vol"));
+            List<string> order = List(res, "*");
+            int At(string n) => order.IndexOf(n);
+            Assert.True(At("early.dil") < At("never.bmp") && At("never.bmp") < At("o.cs") && At("o.cs") < At("held.dig") &&
+                        At("held.dig") < At("kept.dis") && At("early.dil") >= 0);
+            Assert.True(Text(res, "kept.dis") == "k" && res.Find("kept.dis") == kept);
+            res.RemoveVolume("mis.vol");
+            res.Purge(); // frees the unlocked stale entry, keeps the locked one
+            Assert.True(res.Find("kept.dis") == null && res.Find("held.dig") != null);
+            holder.Release(); // the C++ holder's destructor at the end of the block
+        }
+        res.Purge(); // the holder is gone
+        Assert.Null(res.Find("held.dig"));
+        // Generated entries are locked by their creator and survive purge.
+        Assert.True(res.AddGenerated("gen.sae"));
+        res.Purge();
+        Assert.NotNull(res.Find("gen.sae"));
+        // A loaded loose file deleted from disk keeps its entry after a rescan until purge.
+        Put(root + "/base/gone.cs", "gone");
+        res.SetSearchPath(kPath);
+        ResourceManager.Unlock(res.Load("gone.cs")!);
+        File.Delete(root + "/base/gone.cs");
+        res.SetSearchPath(kPath);
+        Assert.True(res.Find("gone.cs") != null && res.Find("gone.cs")!.Flags == ResourceManager.Stale);
+        res.Purge();
+        Assert.Null(res.Find("gone.cs"));
+        res.RemoveVolume("other.vol");
+
         // Unsafe search path elements are ignored.
         var unsafePaths = new ResourceManager(root, strings);
         unsafePaths.SetSearchPath("..\\x;base\\.;c:\\x;\\base;base");
