@@ -210,10 +210,10 @@ public static class Builtins
     }
 
     // src/script/builtins.cpp registerBuiltins. rootDir: game directory for file commands.
-    public static void RegisterBuiltins(Interpreter interp, ResourceManager? res, string rootDir)
+    public static ClientState RegisterBuiltins(Interpreter interp, ResourceManager? res, string rootDir)
     {
         // Client-side commands exist on a dedicated server too (docs/mods.md 5).
-        ClientCommands.RegisterClientCommands(interp, res, rootDir);
+        ClientState clientState = ClientCommands.RegisterClientCommands(interp, res, rootDir);
         MathCommands.RegisterMathCommands(interp, res);
         // ---- console core ----
         interp.AddCommand("export", (i, argv) =>
@@ -432,6 +432,7 @@ public static class Builtins
             cursor = res.FindNext(argv[1], cursor, out string r);
             return cursor == null ? "" : r;
         });
+        return clientState;
     }
 
     private static string Lower(string s)

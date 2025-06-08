@@ -323,6 +323,31 @@ public class ContainerTests
         Assert.True(marked == "fbgs");
     }
 
+    // The render walk (004fa9c8 -> 004804bc) reaches the terrain only when the container interior holding the camera point accepts
+    // the scope: a camera in a leaf that sees no outside gets no terrain (Broadside play-flag 15), one in a leaf with outside faces, or
+    // outside every container interior, does.
+    [Fact]
+    public void RenderReaches()
+    {
+        Start();
+        foreach ((byte insideByte, bool reaches) in new[] { ((byte)0, false), ((byte)0x80, true) })
+        {
+            InteriorGeometry? geo = TestGeometry(0, insideByte);
+            Assert.True(geo != null);
+            var c = new Container();
+            c.Add(TerrainEntry(new Obj("T")));
+            Container.Entry e = Entry(new Obj("B"), 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
+            e.DatabaseKind = Container.Database.Interior;
+            e.ContainerMask = 0xffffffffu;
+            e.Geometry = geo;
+            e.Transform.P = new Vec3(20, 20, 15);
+            c.Add(e);
+            Assert.True(c.RenderReaches(new Vec3(25, 20, 15)) == reaches); // local x 5: leaf 44
+            Assert.True(c.RenderReaches(new Vec3(25, 20, 15)) == reaches); // repeatable
+            Assert.True(c.RenderReaches(new Vec3(80, 80, 20)));            // outside the interior box
+        }
+    }
+
     // InteriorShape world box padding of 3.0 (0047e5a0): an object 2.5 m above the geometry box is inside the database
     // of the interior (docs/game-stream-ghosts.md 6.2; G16: Siege vehicle pad on the roof).
     [Fact]

@@ -728,6 +728,12 @@ public class VehicleTests
         var full = new BitStream(b3, b3.Length);
         v.PackUpdate(full, 2050, 0xffffffffu, true);
         Assert.True(full.BitPosition() > 100 && (b3[0] & 1) == 0);
+        // Client round trip (client-net.md 3.5): the creating update, the 0x2000 state update, the owner-only form.
+        ClientWorld cw = ClientRoundTrip.WorldFor(0x223, v);
+        ClientGhost cv = ClientRoundTrip.Unpack(0x223, b3, full.BitPosition(), true, cw);
+        Assert.True(cv.Class == "Flier" && ClientRoundTrip.Has(cv, "datablock") && ClientRoundTrip.Has(cv, "team") && !ClientRoundTrip.Has(cv, "ownerOnly"));
+        ClientGhost co = ClientRoundTrip.Unpack(0x223, b2, owner.BitPosition(), false, cw, cv);
+        Assert.True((long)co.State["ownerOnly"]! == 1);
         byte[] b4 = new byte[256];
         var upd = new BitStream(b4, b4.Length);
         v.PackUpdate(upd, 2050, 0x2000, false);
@@ -736,6 +742,11 @@ public class VehicleTests
         v.Piloted = false;
         v.PackUpdate(upd2, 2050, 0x2000, false);
         Assert.True(upd.BitPosition() > 0 && upd2.BitPosition() > 0);
+        ClientGhost cu = ClientRoundTrip.Unpack(0x223, b4, upd.BitPosition(), false, cw, cv);
+        Assert.True(ClientRoundTrip.Has(cu, "rot") && ClientRoundTrip.Has(cu, "pos") && ClientRoundTrip.Has(cu, "move") && ClientRoundTrip.Has(cu, "f8d8"));
+        Assert.True(ClientRoundTrip.VecIs(ClientRoundTrip.Field(cu, "pos"), v.Transform.P[0], v.Transform.P[1], v.Transform.P[2]));
+        ClientGhost cu2 = ClientRoundTrip.Unpack(0x223, b5, upd2.BitPosition(), false, cw, cv);
+        Assert.True(ClientRoundTrip.Has(cu2, "pos"), string.Join(",", cu2.Last.Select(x => x.Name)));
     }
 
     [Fact]

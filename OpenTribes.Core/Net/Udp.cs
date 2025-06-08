@@ -108,6 +108,20 @@ public sealed class UdpSocket : IDisposable
         return n;
     }
 
+    // Waits up to `ms` for a datagram; false on timeout or when the socket is closed.
+    public bool WaitRead(int ms)
+    {
+        Socket? fd = mFd;
+        try
+        {
+            return fd != null && fd.Poll(ms * 1000, SelectMode.SelectRead);
+        }
+        catch (Exception e) when (e is SocketException or ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
     // src/net/udp.hpp port.
     public ushort Port() => mPort;
 }

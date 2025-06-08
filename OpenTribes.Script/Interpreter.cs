@@ -45,6 +45,7 @@ public sealed class Interpreter
     private readonly Dictionary<string, Function> mFunctions = new(StringComparer.Ordinal);
     private readonly List<Frame> mFrames = new(); // [0] is the global frame
     private readonly Dictionary<int, string> mTagText = new();
+    private readonly Dictionary<int, string> mTagRaw = new();
     private readonly Dictionary<string, int> mTagIds = new(StringComparer.Ordinal);
     private Action<string>? mOutput;
     private IObjectInterface? mObjects;
@@ -386,7 +387,10 @@ public sealed class Interpreter
                 // Tag text lives in the string table, so it also fixes the spelling of later
                 // case variants (fear.strings.cs "ARMOR" makes className = "Armor" read ARMOR).
                 if (id > 0)
+                {
                     mTagText[id] = text.Length == 0 ? text : mStrings.Intern(text);
+                    mTagRaw[id] = text;
+                }
                 mTagIds[name] = id;
             }
             return Completion.Normal;
@@ -756,6 +760,17 @@ public sealed class Interpreter
                 return kv.Key;
         return "";
     }
+
+    // The id a tag name was defined with, or 0.
+    public int TagId(string name) => mTagIds.TryGetValue(name, out int id) ? id : 0;
+
+    // The text of a tag id (the GUI tag dictionary of docs/gui.md 1.5), or null when no tag has that id.
+    public string? TagText(int id) => mTagText.TryGetValue(id, out string? t) ? t : null;
+
+    // The text as the dictionary file spells it. A tag used as a script value takes the first spelling the string table saw (a
+    // command name such as `version` fixes the case of the tag "Version"); the screens draw the file's spelling (the Columns list
+    // shows "Version" in the stock client).
+    public string? TagTextRaw(int id) => mTagRaw.TryGetValue(id, out string? t) ? t : null;
 
     // ---- calls ----
 

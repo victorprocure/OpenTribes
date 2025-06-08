@@ -1618,6 +1618,8 @@ public class PlayerTests
             byte[] buf = new byte[64];
             var g = new BitStream(buf, buf.Length);
             cls!.Pack!(o!, gctx, g, 0xffffffffu);
+            ClientGhost cb = ClientRoundTrip.Unpack(0x258, buf, g.BitPosition(), true, ClientRoundTrip.WorldFor(0x258, o));
+            Assert.True(ClientRoundTrip.VecIs(cb.State["start"], 16, 16, 93) && (long)cb.State["speed16"]! == 6798 && (long)cb.State["elapsedMs"]! == 0);
             var r = new BitStream(buf, buf.Length);
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag()); // GameBase part
             Assert.True(r.ReadFlag() && r.ReadFlag());                                         // initial, twice
@@ -1682,6 +1684,9 @@ public class PlayerTests
         }
         byte[] buf = new byte[64];
         Assert.True(Pack(gctx, buf) == 124);
+        ClientGhost cl = ClientRoundTrip.Unpack(0x25b, buf, 124, true, ClientRoundTrip.WorldFor(0x25b, obj)); // client-net.md 3.6
+        Assert.True((long)cl.State["shooterGhost"]! == shooterGhost && (long)cl.State["hit"]! == 0 && !cl.State.ContainsKey("start"));
+        Assert.True(ClientRoundTrip.VecIs(cl.State["end"], 16, 3016, 80) && (long)cl.State["energy5"]! == 0);
         var r = new BitStream(buf, buf.Length);
         Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag());
         Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(2) == 0);
@@ -1693,6 +1698,8 @@ public class PlayerTests
         var other = new GhostManager(2050);
         var octx = new GhostContext(other, 2050, true);
         Assert.True(Pack(octx, buf) == 124 - 10 + 96);
+        ClientGhost cl2 = ClientRoundTrip.Unpack(0x25b, buf, 124 - 10 + 96, true, ClientRoundTrip.WorldFor(0x25b, obj));
+        Assert.True(!cl2.State.ContainsKey("shooterGhost") && ClientRoundTrip.VecIs(cl2.State["start"], 16, 16, 80)); // no shooter ghost: start follows
         var r2 = new BitStream(buf, buf.Length);
         r2.ReadInt(7);
         Assert.True(r2.ReadFlag() && r2.ReadFlag() && r2.ReadInt(2) == 0 && !r2.ReadFlag());
@@ -2112,16 +2119,27 @@ public class PlayerTests
             Assert.True(r.ReadInt(3) == 0 && !r.ReadFlag());
         }
         Assert.True(r.BitPosition() == g.BitPosition());
+        // Client round trip (client-net.md 3.4): the creating update, then the 0x2000 state update of a non-owner.
+        ClientWorld cw = ClientRoundTrip.WorldFor(0x218, p);
+        ClientGhost cg = ClientRoundTrip.Unpack(0x218, buf, g.BitPosition(), true, cw);
+        Assert.True((long)cg.State["team"]! == 15 && (long)cg.State["datablock"]! == 0 && cg.State["mount"] as string == "none");
+        Assert.True(ClientRoundTrip.VecIs(cg.State["pos"], p.Transform.P[0], p.Transform.P[1], p.Transform.P[2]));
+        Assert.True(ClientRoundTrip.Near(ClientRoundTrip.D(cg.State["rotZ"]), 0.5, 0.0125) && ClientRoundTrip.D(cg.State["f728"]) == 8.0);
+        Assert.True(((List<object?>)cg.State["images"]!).Count == 8);
         p.LastMove = jet;
         Array.Clear(buf);
         var g2 = new BitStream(buf, buf.Length);
         cls.Pack!(p, gctx, g2, 0x2000);
         uint other = g2.BitPosition();
+        cg = ClientRoundTrip.Unpack(0x218, buf, other, false, cw, cg);
+        Assert.True(ClientRoundTrip.Has(cg, "move") && ClientRoundTrip.Has(cg, "energy") && ClientRoundTrip.Has(cg, "f8c"));
         p.ControlClient = 2049;
         Array.Clear(buf);
         var g3 = new BitStream(buf, buf.Length);
         cls.Pack!(p, gctx, g3, 0x2000);
         Assert.True(g3.BitPosition() == 13 && other > 13 + 5 + 96);
+        cg = ClientRoundTrip.Unpack(0x218, buf, g3.BitPosition(), false, cw, cg);
+        Assert.True(!ClientRoundTrip.Has(cg, "pos")); // the controlling client gets no state block (4.7)
     }
 
     // ---- PSC inventory deltas (player-sim 7.1) and rate negotiation (game-stream 1.1) ----

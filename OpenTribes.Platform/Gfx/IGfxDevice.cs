@@ -1,0 +1,52 @@
+namespace OpenTribes.Platform.Gfx;
+
+// The graphics device behind our own interface (D30, D31): the OpenGL device contract of
+// docs/renderer.md 1.4, the 2D calls of 4 and the 3D submission of 5 (stubbed until C4).
+// All coordinates are surface pixels with the origin at the top left; rectangles are inclusive.
+public interface IGfxDevice : IDisposable
+{
+    int Width { get; }
+    int Height { get; }
+
+    // 3.2 / 3.3: installs the active palette bank and the surface gamma (1.9: 0.05..20). Flushes the texture cache.
+    void SetPalette(PaletteBank bank, float gamma = 1f);
+
+    // 3.4: flushTextureCache / flushTexture.
+    void FlushTextureCache();
+    void FlushTexture(PbmpBitmap bitmap);
+
+    // 1.8: a frame starts with the surface bound and the 2D state set, and ends by presenting.
+    void BeginFrame();
+    void EndFrame();
+
+    // 4: `clear` takes a palette index of the active palette's first subpalette, no gamma (3.3).
+    void Clear(int colorIndex);
+    void ClearRgb(byte r, byte g, byte b);
+
+    // 1.7: the clip rectangle (inclusive); null turns clipping off. Every 2D call is clipped to it.
+    void SetClip(GfxRect? clip);
+
+    // 4 colors: palette index of the first subpalette, raised to the gamma exponent; alpha is the surface alpha.
+    void DrawLine(int x0, int y0, int x1, int y1, int colorIndex);
+    void DrawRectOutline(GfxRect rect, int colorIndex);
+    void FillRect(GfxRect rect, int colorIndex, float alpha = 1f);
+
+    // 4 blits: blend mode from the bitmap attributes (2.2.1), palette from its PiDX (3.2).
+    void Blit(PbmpBitmap bitmap, int x, int y, BlitFlip flip = BlitFlip.None);
+    void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None);
+    void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None);
+    void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height,
+                           BlitFlip flip = BlitFlip.None);
+
+    // 4 text: see GfxText.
+    int DrawText(PftFont font, int x, int y, string text) => GfxText.DrawAt(this, font, x, y, text);
+    int DrawTextInRect(PftFont font, GfxRect rect, string text) => GfxText.DrawInRect(this, font, rect, text);
+
+    // Reads the surface back, width * height * 4 bytes RGBA, top row first.
+    byte[] ReadPixels();
+
+    // 5: 3D primitive submission. Not implemented until C4 (docs/renderer.md 5.1 lists the slots, 5.6 the design).
+    void BeginScene3D();
+    void EndScene3D();
+    void SetDepthRange(float near, float far);
+}

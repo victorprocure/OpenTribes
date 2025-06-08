@@ -187,7 +187,9 @@ public sealed partial class Player : GameBase
     public int Credit;                    // +0xf90
     public Move LastMove = new();         // +0xff0
     public bool AiControlled;             // +0x101b
+    public bool LocallyControlled;        // +0x1018: the client's own control object (client-net.md 4.4, vtable +0x144)
     public bool InMissionArea = true;     // +0x101a
+    public bool FreeLookCopy = true;      // +0x7dc: $pref::freeLook (0060fb50) as of onAdd and the last tick
     public int PendingAnim;               // +0xf98
     public int CurrentAnim = -1;          // +0xf9c
     public float AnimPosition;            // animation thread position
@@ -274,7 +276,17 @@ public sealed partial class Player : GameBase
         CollisionMask = kLiveMask;
         float[] p = { Transform.P[0], Transform.P[1], Transform.P[2] };
         SetPosition(p);
+        FreeLookCopy = FreeLookPref();
         return true;
+    }
+
+    // Global 0060fb50 ($pref::freeLook, default TRUE; an unset variable keeps the default).
+    private bool FreeLookPref()
+    {
+        if (mGame.Console == null)
+            return true;
+        string v = mGame.Console.GetVariable("$pref::freeLook", out bool found);
+        return !found || Numbers.ParseBool(v);
     }
 
     // src/game/player.cpp Player::onRemove: 0x0040fb30.
@@ -469,6 +481,15 @@ public sealed partial class Player : GameBase
                         fc.V[i] = X87.F32(Div(Mul(fc.V[i], oldMass), Mass));
     }
 
+    // Client copy of the control object (docs/client-net.md 4.4): the item of each image slot as the ghost sends it
+    // (3.4, Player_unpackImages), so the mass of the prediction is the server's. The image state machine stays idle.
+    public void SetClientItems(ReadOnlySpan<int> items)
+    {
+        for (int slot = 0; slot < kImageSlots && slot < items.Length; ++slot)
+            Images[slot].Item = items[slot];
+        RecomputeMass();
+    }
+
     // src/game/player.cpp Player::worldBox: 0x005069fc: the movement box translated, never rotated.
     private void WorldBox(Span<float> output)
     {
@@ -527,6 +548,21 @@ public sealed partial class Player : GameBase
         // findObjects order of objects with the same max x).
         if (mGame.World.Find(this) != null)
             mGame.World.SetBox(this, box);
+    }
+
+    // SimObject_setTransformRaw on the client ghost (Player_applyControlState 00414a00): the transform is rebuilt from the Euler
+    // angles and `position`, no collision query; the container entry takes the new box.
+    public void PlaceRaw(ReadOnlySpan<float> position)
+    {
+        using var chop = X87.Chop();
+        var m = new Transform();
+        MissionTransform.EulerToMatrix(Rotation, ref m);
+        Transform.M = m.M;
+        Transform.Flags = m.Flags | 3;
+        for (int i = 0; i < 3; ++i)
+            Transform.P[i] = position[i];
+        AtRest = false;
+        RefileBox();
     }
 
     // src/game/player.cpp Player::updateContainer: container entry and the terrain container's gravity (FC2-FC5).
@@ -632,6 +668,14 @@ public sealed partial class Player : GameBase
         ExpireCollisions(); // 0x00448248: the onCollision records go when the latest has expired
         if (Jetting)
             LastJetTime = tickMs;
+        // 0x00415108: freeLook went from TRUE to FALSE: zero the pitch and send it.
+        bool freeLook = FreeLookPref();
+        if (!freeLook && FreeLookCopy)
+        {
+            Pitch = 0;
+            SetMaskBits(0x2000);
+        }
+        FreeLookCopy = freeLook;
         // +0xfed: 0 for AI, else 1 unless the control client is a human whose record +0x1c is 1.
         if (AiControlled)
         {
@@ -712,7 +756,8 @@ public sealed partial class Player : GameBase
         }
 
         // MV2 jump.
-        if (mv.Jump && MountId == 0 && !Dead && CurrentAnim != 15 && TicksSinceJumpContact < 8)
+        // A ghost jumps only when it is the client's own control object (Player_updateMove 0x00415304).
+        if (mv.Jump && MountId == 0 && !Dead && CurrentAnim != 15 && TicksSinceJumpContact < 8 && (!ClientSide || LocallyControlled))
         {
             TicksSinceJumpContact = 8;
             if (CurrentAnim != 6)
@@ -808,8 +853,9 @@ public sealed partial class Player : GameBase
             else if (Energy < 0.0f)
                 Energy = 0.0f;
         }
-        // S7, S8.
-        Crouching = d.CanCrouch && mv.Crouch && !Jetting && TicksSinceContact < 32;
+        // S7 (server only: a ghost keeps the crouch flag of the last update, 0x00415304), S8.
+        if (!ClientSide)
+            Crouching = d.CanCrouch && mv.Crouch && !Jetting && TicksSinceContact < 32;
         Falling = v[2] <= -10.0f;
 
         // S11-S14, shared by the free and the mounted step.
@@ -834,6 +880,10 @@ public sealed partial class Player : GameBase
             FinishStep();
             return;
         }
+
+        // A ghost counts ticks without a move unless it is the client's own control object (0x00415304).
+        if (ClientSide)
+            TicksWithoutMove = LocallyControlled ? 0 : TicksWithoutMove + 1;
 
         // MV4 velocity.
         float[] desired = new float[3];
@@ -977,11 +1027,13 @@ public sealed partial class Player : GameBase
         for (int i = 0; i < 3; ++i)
             Transform.P[i] = pos[i];
         // Collision events to both sides for every notified object (0x00507180).
-        foreach (object other in mMove.Notify)
-        {
-            PostCollision(other as SimObject, this);
-            PostCollision(this, other as SimObject);
-        }
+        // The client prediction posts no events: they run server scripts in the prediction world (client-net.md 4.4).
+        if (!ClientSide)
+            foreach (object other in mMove.Notify)
+            {
+                PostCollision(other as SimObject, this);
+                PostCollision(this, other as SimObject);
+            }
         UpdateContainer();
         return moved;
     }
@@ -1534,6 +1586,51 @@ public sealed partial class Player : GameBase
     }
 
     // ---- control state (8.1) ----
+
+    // The control state as the client reads it (docs/client-net.md 4.4 table, 00413b90).
+    public sealed class ClientControl
+    {
+        public float Yaw;
+        public bool HasPosition;                                  // not mounted
+        public readonly float[] Position = new float[3], Vel = new float[3];
+        public float Pitch, Energy;
+        public bool Contact, Jetting, Crouch;
+        public uint Traction7;                                    // unit(7) raw
+        public int JumpContact;                                   // int(4)
+    }
+
+    // Player_readControlState 0x00413b90 on the client copy (docs/client-net.md 4.4): the server state replaces the
+    // predicted one; the transform is rebuilt from the Euler x, y, the new yaw and the position, without a collision
+    // query. The sensor state bits are not part of the prediction.
+    public void ApplyClientControlState(ClientControl c)
+    {
+        using var chop = X87.Chop();
+        Rotation[2] = c.Yaw;
+        if (c.HasPosition)
+        {
+            for (int i = 0; i < 3; ++i)
+                Velocity[i] = c.Vel[i];
+            var m = new Transform();
+            MissionTransform.EulerToMatrix(Rotation, ref m);
+            Transform.M = m.M;
+            Transform.Flags = m.Flags | 3;
+            for (int i = 0; i < 3; ++i)
+                Transform.P[i] = c.Position[i];
+            AtRest = false;
+            RefileBox();
+        }
+        Pitch = c.Pitch;
+        Energy = c.Energy;
+        ContactFlag = c.Contact;
+        Jetting = c.Jetting;
+        Traction = X87.F32(Div(c.Traction7, 127.0)); // BitStream readFloat(7)
+        if (c.Crouch != Crouching)
+            StartAnimation(c.Crouch ? 7 : 9);
+        Crouching = c.Crouch;
+        UpdateBoxHeight();
+        TicksSinceJumpContact = c.JumpContact;
+        SetRotation(Rotation);
+    }
 
     // src/game/player.cpp Player::writeControlState: 0x00413e08.
     public override void WriteControlState(BitStream bs, ControlContext ctx)

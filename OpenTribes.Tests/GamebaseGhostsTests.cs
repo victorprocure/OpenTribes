@@ -15,6 +15,8 @@ public class GamebaseGhostsTests
     private readonly GhostManager gm = new(2049);
     private byte[] mBuf = new byte[4096];
     private uint packedBits;
+    private readonly Dictionary<SimObject, ClientGhost> mClients = new(ReferenceEqualityComparer.Instance);
+    private ClientGhost? Client;
 
     private BitStream Pack(SimObject? obj, uint mask, uint tag, int client = 2049)
     {
@@ -27,6 +29,10 @@ public class GamebaseGhostsTests
         Assert.True(cls!.Pack!(obj!, ctx, w, mask) == 0);
         Assert.True(!w.Error());
         packedBits = w.BitPosition();
+        // Client round trip (docs/client-net.md 3): the unpack of the same class consumes exactly the packed bits.
+        bool isNew = mask == 0xffffffffu;
+        mClients.TryGetValue(obj!, out ClientGhost? prev);
+        Client = mClients[obj!] = ClientRoundTrip.Unpack(tag, mBuf, packedBits, isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
         return new BitStream(mBuf, (int)((w.BitPosition() + 7) / 8));
     }
 
@@ -246,6 +252,10 @@ public class GamebaseGhostsTests
         // 4.3 StaticShape creation update (mask 0xffffffff).
         {
             BitStream r = Pack(s1, 0xffffffffu, 0x221);
+            // client-net.md 3.2, 3.3 StaticShape: transform, damage, datablock 1.
+            Assert.True(ClientRoundTrip.VecIs(Client!.State["pos"], 1, 2, 3) && ClientRoundTrip.VecIs(Client.State["rot"], 0, 0, 1.5));
+            Assert.True((long)Client.State["team"]! == 0 && (long)Client.State["damageState"]! == 1 && (long)Client.State["datablock"]! == 1);
+            Assert.True(((List<object?>)Client.State["threads"]!).Count == 1);
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag());  // 0x80 flash: never in a full update
             Assert.True(r.ReadFlag());   // 0x400 forced: a thread is set
@@ -264,6 +274,7 @@ public class GamebaseGhostsTests
         // 2.3: the datablock index uses bitLength(count + 1) bits: 3 StaticShapeData give 3 bits.
         {
             BitStream r = Pack(Gb("team0/G"), 0x02, 0x221);
+            Assert.True((long)Client!.State["datablock"]! == 0 && (long)Client.State["target"]! == 0 && (long)Client.State["isTarget"]! == 0);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());
             Assert.True(r.ReadFlag() && !r.ReadFlag());       // 0x02 isTarget
             Assert.True(r.ReadFlag() && r.ReadInt(3) == 0);   // datablock 0
@@ -302,6 +313,7 @@ public class GamebaseGhostsTests
             s1.FlashAmount = 7.0f;  // clamped to 5: unit(8) of 1.0
             s1.FadeState = 2;
             BitStream r = Pack(s1, 0x80, 0x221);
+            Assert.True(ClientRoundTrip.Near(ClientRoundTrip.D(Client!.State["flashAmount"]), 5, 1e-9) && (long)Client.State["fade"]! == 2); // 3.2
             Assert.True(!r.ReadFlag() && r.ReadFlag());
             Assert.True(r.ReadInt(7) == 127 && r.ReadInt(7) == 0 && r.ReadFlag() && r.ReadInt(8) == 255);
             Assert.True(!r.ReadFlag());                 // threads
@@ -380,6 +392,7 @@ public class GamebaseGhostsTests
         // 4.3 Sensor: datablock under mask 0x01, no target field.
         {
             BitStream r = Pack(Obj("team0/Sen"), 0xffffffffu, 0x229);
+            Assert.True(ClientRoundTrip.VecIs(Client!.State["pos"], 4, 5, 6) && (long)Client.State["datablock"]! == 0); // 3.3 Sensor
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());  // no script played a thread
             Assert.True(r.ReadFlag());
@@ -397,6 +410,7 @@ public class GamebaseGhostsTests
             Assert.True(t.TurretRotation == 0.0f && t.TurretElevation == 0.0f && t.TurretMode == 0);
             Assert.True(t.TurretBarrelState == 1 && t.Active);
             BitStream r = Pack(t, 0xffffffffu, 0x202);
+            Assert.True(ClientRoundTrip.VecIs(Client!.State["pos"], 7, 8, 9) && Client.State.ContainsKey("rotation") && Client.State.ContainsKey("mode")); // 3.3 Turret
             Assert.True(!r.ReadFlag());  // not owner-only
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag() && r.ReadFlag());
@@ -436,6 +450,7 @@ public class GamebaseGhostsTests
         GameBase el = Gb("team0/lift/El");
         {
             BitStream r = Pack(el, 0xffffffffu, 0x220);
+            Assert.True((long)Client!.State["datablock"]! == 0 && !Client.State.ContainsKey("pos")); // 3.3 Moveable: no transform
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());
             Assert.True(!r.ReadFlag());  // no transform: the client derives it from the path
@@ -495,6 +510,8 @@ public class GamebaseGhostsTests
         GameBase flag = Gb("team0/F");
         {
             BitStream r = Pack(flag, 0xffffffffu, 0x22a);
+            Assert.True((long)Client!.State["datablock"]! == 0 && ClientRoundTrip.Near(ClientRoundTrip.D(Client.State["rotZ"]), 161 / 255.0) &&
+                        (long)Client.State["atRest"]! >= 0); // 3.3 Item: rotation z as a fraction of 2 pi
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());
             Assert.True(!r.ReadFlag());
@@ -554,6 +571,7 @@ public class GamebaseGhostsTests
         // rotation. Trigger: raw transform (flags, 3 x 3, translation) and bounding box.
         {
             BitStream r = Pack(Obj("team0/lift/Path/m1"), 0xffffffffu, 0x21b);
+            Assert.True((long)Client!.State["team"]! == 15 && ClientRoundTrip.VecIs(Client.State["pos"], 1, 1, 5) && ClientRoundTrip.VecIs(Client.State["rot"], 0, 0, 0.5)); // 3.3 Marker
             ReadGameBase(r, 15);
             Assert.True(r.ReadFlag() && r.ReadInt(2) == 0);
             Assert.True(r.ReadFlag());
@@ -564,6 +582,7 @@ public class GamebaseGhostsTests
             Assert.True(!n.ReadFlag() && !n.ReadFlag() && !n.ReadFlag() && n.BitPosition() == packedBits);
 
             BitStream tr = Pack(Obj("team0/Tr"), 0xffffffffu, 0x21f);
+            Assert.True(((string)Client!.State["transform"]!).Length == 104 && ((double[])Client.State["box"]!)[3] == 1); // 3.3 Trigger
             Assert.True(tr.ReadFlag());
             uint flags = tr.ReadInt(32);
             Assert.True(flags == 2);  // translation only

@@ -343,6 +343,10 @@ public partial class GameBase : SimObject
     public int LastOwnerClient;        // +0x234: the last non-zero owner
     public int OwnerClient;            // +0x238
     public float Fov = 1.57079637f;    // +0x22c, stored by the PlayerPSC reader
+    // +0x4c bit 0x02: the object is a client ghost (docs/client-net.md 4.4). The client prediction sets it on its copy of
+    // the control object; the step skips the server-only parts (Player S7 crouch, scripts, Flier fire and jump). Never set
+    // on the server.
+    public bool ClientSide;
 
     // ---- GameBase net state (docs/game-stream-ghosts.md 4.1) ----
     public int DataBlockIndex = -1;    // +0x220: index in the datablock group

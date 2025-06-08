@@ -313,23 +313,35 @@ public sealed class ObserverCamera : GameBase
         return flash;
     }
 
-    // src/game/control_object.cpp ObserverCamera::orbitPlace: 00449604: moves the transform back from its position along
-    // -forward (row 1) by dist, or to just in front of what a ray of 2.5 * dist hits first (mask 0x20c00006).
+    // src/game/control_object.cpp ObserverCamera::orbitPlace: 00449604 (GameBase_placeBehind, also used by Player_getCameraTransform
+    // 00412324): moves the transform back from its position along -forward (row 1) by dist, or to just in front of what a ray of
+    // 2.5 * dist hits first (mask 0x20c00006).
     private void OrbitPlace(ref Transform t, float dist)
     {
-        float f0 = t.M[3], f1 = t.M[4], f2 = t.M[5];
+        var p = new float[] { t.P[0], t.P[1], t.P[2] };
+        PlaceBehind(mServices.Container, this, p, t.M[3], t.M[4], t.M[5], dist);
+        for (int i = 0; i < 3; ++i)
+            t.P[i] = p[i];
+    }
+
+    // GameBase_placeBehind 00449604 on a position p (moved in place) and the unit forward vector (f0, f1, f2) of the transform.
+    // The ray starts at p and ends at p - 2.5 * dist * f (all products stored as float); `exclude` is the ray's ignored object
+    // (the object at +0x3c of the caller). A hit whose normal . f is 0.01 or more puts the camera at
+    // (p - hit) . f - 0.025 / (normal . f) back, clamped to [0, dist]; a smaller dot product keeps the full distance.
+    public static void PlaceBehind(Container? container, object? exclude, float[] p, float f0, float f1, float f2, float dist)
+    {
         float reach = Store(Mul(-(double)dist, 2.5f));
-        var start = new Vec3(t.P[0], t.P[1], t.P[2]);
-        var end = new Vec3(Store(Add(t.P[0], Mul(reach, f0))), Store(Add(t.P[1], Mul(reach, f1))), Store(Add(t.P[2], Mul(reach, f2))));
+        var start = new Vec3(p[0], p[1], p[2]);
+        var end = new Vec3(Store(Add(p[0], Mul(reach, f0))), Store(Add(p[1], Mul(reach, f1))), Store(Add(p[2], Mul(reach, f2))));
         float back = dist;
         object? hitObject = null;
         Vec3 hit = default, normal = default;
-        if (mServices.Container != null && mServices.Container.CastRay(start, end, 0x20c00006u, this, ref hitObject, ref hit, ref normal))
+        if (container != null && container.CastRay(start, end, 0x20c00006u, exclude, ref hitObject, ref hit, ref normal))
         {
             float d = Store(Add(Add(Mul(f0, normal.X), Mul(f1, normal.Y)), Mul(f2, normal.Z)));
             if (!(d < 0.01))
             {
-                float v0 = Store(Sub(t.P[0], hit.X)), v1 = Store(Sub(t.P[1], hit.Y)), v2 = Store(Sub(t.P[2], hit.Z));
+                float v0 = Store(Sub(p[0], hit.X)), v1 = Store(Sub(p[1], hit.Y)), v2 = Store(Sub(p[2], hit.Z));
                 double along = Add(Add(Mul(v0, f0), Mul(v1, f1)), Mul(v2, f2));
                 back = Store(Sub(along, Mul(Div(1.0f, d), 0.025)));
                 if (back > dist)
@@ -342,7 +354,7 @@ public sealed class ObserverCamera : GameBase
         for (int i = 0; i < 3; ++i)
         {
             float off = Store(Mul(back, fwd[i]));
-            t.P[i] = Store(Sub(t.P[i], off));
+            p[i] = Store(Sub(p[i], off));
         }
     }
 

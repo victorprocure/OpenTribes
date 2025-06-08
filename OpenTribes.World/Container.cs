@@ -936,6 +936,22 @@ public sealed class Container
         ++mTag;
     }
 
+    // The render walk of container 7 (vtable +0x98, `004fa9c8` for the root and the terrain, `004804bc` for an interior) reaches the
+    // terrain image only when the container the camera point lies in accepts the scope: `004fa9c8` calls the scope of the open
+    // container of the point (database +0x18) first and returns 0, before the terrain query and before the rest of the database, when
+    // it returns 0. Same walk and result as `Scope` for a camera point; no object is marked. False: the terrain is not drawn
+    // (Tribes.exe 1.11, a camera in a container interior whose leaf sees no outside).
+    public bool RenderReaches(Vec3 point)
+    {
+        if (mTag == 0)
+            ++mTag; // the interior visit tag (+0x420) starts at 0 and skips the first query
+        var q = new ScopeQuery { Point = point, VisibleDistance = float.MaxValue };
+        var stack = new List<bool> { true };
+        bool reached = ScopeContainer(mRoot, q, stack);
+        ++mTag;
+        return reached;
+    }
+
     // src/world/container.cpp Container::startContainer: the first open sub-container of the database holding the camera
     // point (database +0x18 with container mask -1).
     private static Node? StartContainer(Node c, ScopeQuery q)

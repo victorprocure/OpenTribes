@@ -4,7 +4,7 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-public static class PlayerGhost
+public static partial class PlayerGhost
 {
     // src/game/player_ghost.cpp ftolBits.
     internal static uint FtolBits(double x, uint bits)

@@ -1,0 +1,299 @@
+// Headless client session (docs/client-net.md 1, 2.5, 2.7, 4.3): connect/challenge/accept as client, the game stream
+// receive path, the mission-load handshake (SetCLInfo, dataFinished, CGADone), moves at the 32 ms tick from a script,
+// disconnect. C2's client reuses this class for its network side.
+using System.Diagnostics;
+using System.Globalization;
+using System.Net;
+using OpenTribes.Game;
+using OpenTribes.Net;
+
+namespace OpenTribes.ClientNet;
+
+// One line of a move script: from `At` seconds on, the held move state changes by the given keys.
+public sealed class ScriptStep
+{
+    public double At;
+    public Dictionary<string, double> Keys = new();
+}
+
+public static class MoveScript
+{
+    // Lines: `<seconds> key=value ...` with fwd back left right (0..15), jet jump crouch fire (0/1), pitch turn (radians
+    // per move), useItem (item type), spawn (1: toggle fire until the control object is a Player). `#` starts a comment.
+    public static List<ScriptStep> Parse(string text)
+    {
+        var steps = new List<ScriptStep>();
+        foreach (string raw in text.Split('\n'))
+        {
+            string line = raw.Split('#')[0].Trim();
+            if (line.Length == 0)
+                continue;
+            string[] words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var s = new ScriptStep { At = double.Parse(words[0], CultureInfo.InvariantCulture) };
+            foreach (string w in words.Skip(1))
+            {
+                string[] kv = w.Split('=');
+                if (kv.Length != 2)
+                    throw new FormatException("bad script word: " + w);
+                s.Keys[kv[0]] = double.Parse(kv[1], CultureInfo.InvariantCulture);
+            }
+            steps.Add(s);
+        }
+        return steps.OrderBy(s => s.At).ToList();
+    }
+}
+
+public sealed class SessionResult
+{
+    public bool Connected, Rejected, Dropped, Disconnected;
+    public string Reason = "";
+    public double Seconds;
+    public long Packets, Events, GhostUpdates, GhostDeletes, UnknownBits, Errors, MovesSent;
+    public int Ghosts;
+    public string ControlClass = "";
+    public bool DataFinished, AlwaysDone;
+    public SortedDictionary<string, long> EventCounts = new(), GhostCounts = new();
+    public List<string> UnknownReasons = new();
+}
+
+public sealed class NetClientSession : ConnectionEvents
+{
+    private readonly UdpSocket mSock = new();
+    private readonly Stopwatch mClock = Stopwatch.StartNew();
+    private Connection? mVc;
+    private ClientWorld mWorld = new();
+    private ClientGameConnection mGame;
+    private readonly string mName;
+    private readonly PacketDump mDump;
+    private readonly List<ScriptStep> mScript;
+    private int mScriptPos;
+    private readonly Dictionary<string, double> mHeld = new();
+    private bool mAccepted, mDataSent, mCgaSent, mClosed, mRejected, mSpawn;
+    private string mReason = "";
+    private long mLastTick;
+    private long mMovesSent;
+    public readonly string Version;
+
+    public ClientWorld World => mWorld;
+    public Action<string>? Log;
+
+    public NetClientSession(string name, PacketDump dump, List<ScriptStep>? script = null, string version = "1.11")
+    {
+        mName = name;
+        mDump = dump;
+        mScript = script ?? new List<ScriptStep>();
+        Version = version;
+        mGame = new ClientGameConnection(mWorld);
+    }
+
+    private uint Now => (uint)mClock.ElapsedMilliseconds;
+
+    // ---- ConnectionEvents ----
+
+    public override void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload) { }
+
+    public override void OnAccepted(Connection c, ReadOnlySpan<byte> payload)
+    {
+        // net-protocol.md 5.4: the player id and the server manager id (1.5 step 2).
+        byte[] b = payload.ToArray();
+        if (b.Length >= 8)
+        {
+            mWorld = new ClientWorld { PlayerId = BitConverter.ToInt32(b, 0), ServerId = BitConverter.ToInt32(b, 4) };
+            mGame = new ClientGameConnection(mWorld);
+        }
+        mAccepted = true;
+        Log?.Invoke("accepted: player " + mWorld.PlayerId + ", server " + mWorld.ServerId);
+        // onConnection("Accepted") (1.6): remoteEval(2048, "SetCLInfo", skin, real name, email, tribe, url, info,
+        // autoWaypoint, noEnterInvStation, messageMask).
+        mGame.PostRemoteEval("SetCLInfo", "base", mName, "", "", "", "", "true", "false", "-1");
+    }
+
+    public override void OnRejected(Connection c, ReadOnlySpan<byte> payload)
+    {
+        mRejected = true;
+        mClosed = true;
+        mReason = System.Text.Encoding.Latin1.GetString(payload).TrimEnd('\0');
+        Log?.Invoke("rejected: " + mReason);
+    }
+
+    public override void OnClosed(Connection c, ReadOnlySpan<byte> reason, bool timedOut)
+    {
+        mClosed = true;
+        mReason = (timedOut ? "timed out" : "dropped") + (reason.Length > 0 ? ": " + System.Text.Encoding.Latin1.GetString(reason).TrimEnd('\0') : "");
+        Log?.Invoke(mReason);
+    }
+
+    public override void OnNotify(Connection c, uint cookie, bool delivered) => mGame.Notify(cookie, delivered);
+
+    public override void OnData(Connection c, ReadOnlySpan<byte> payload)
+    {
+        DecodedPacket p = mGame.Receive(payload.ToArray());
+        mDump.Write(p, mClock.Elapsed.TotalSeconds);
+        if (p.UnknownReason != null)
+            Log?.Invoke("UNKNOWN " + p.UnknownReason);
+        // dataFinished() and onClientGhostAlwaysDone() answer with remote evals (2.6, 2.7).
+        if (!mDataSent && mWorld.DataBlocks.Finished)
+        {
+            mDataSent = true;
+            mGame.PostRemoteEval("dataFinished");
+        }
+        if (!mCgaSent && mWorld.AlwaysDone)
+        {
+            mCgaSent = true;
+            mGame.PostRemoteEval("CGADone");
+        }
+    }
+
+    // ---- run ----
+
+    private static Address Resolve(string hostPort)
+    {
+        int colon = hostPort.LastIndexOf(':');
+        string host = colon < 0 ? hostPort : hostPort[..colon];
+        ushort port = colon < 0 ? (ushort)28001 : ushort.Parse(hostPort[(colon + 1)..], CultureInfo.InvariantCulture);
+        IPAddress ip = host == "localhost" ? IPAddress.Loopback : IPAddress.Parse(host);
+        byte[] b = ip.GetAddressBytes();
+        return new Address((uint)b[0] << 24 | (uint)b[1] << 16 | (uint)b[2] << 8 | b[3], port);
+    }
+
+    // net-protocol.md 5.1: version, "Tribes", version string, password, name, gender, voice, skin base.
+    private byte[] ConnectPayload()
+    {
+        byte[] buf = new byte[1500];
+        var bs = new BitStream(buf, buf.Length);
+        bs.WriteInt(1, 16);
+        foreach (string s in new[] { "Tribes", Version, "", mName, "Male", "Male1", "base" })
+            bs.WriteString(s);
+        return buf.AsSpan(0, bs.BytePosition()).ToArray();
+    }
+
+    private void ApplyScript(double seconds)
+    {
+        while (mScriptPos < mScript.Count && mScript[mScriptPos].At <= seconds)
+        {
+            foreach (var kv in mScript[mScriptPos].Keys)
+            {
+                if (kv.Key == "spawn")
+                    mSpawn = kv.Value != 0;
+                else
+                    mHeld[kv.Key] = kv.Value;
+            }
+            ++mScriptPos;
+        }
+    }
+
+    private Move MakeMove(long tick)
+    {
+        double D(string k) => mHeld.GetValueOrDefault(k);
+        var m = new Move
+        {
+            Forward = (float)(Math.Clamp((int)D("fwd"), 0, 15) / 15.0),
+            Backward = (float)(Math.Clamp((int)D("back"), 0, 15) / 15.0),
+            Left = (float)(Math.Clamp((int)D("left"), 0, 15) / 15.0),
+            Right = (float)(Math.Clamp((int)D("right"), 0, 15) / 15.0),
+            Jet = D("jet") != 0,
+            Crouch = D("crouch") != 0,
+            Jump = D("jump") != 0,
+            Fire = D("fire") != 0,
+            Turn = (float)D("turn"),
+            Pitch = (float)D("pitch"),
+        };
+        if (mHeld.TryGetValue("useItem", out double u) && u >= 0)
+            m.UseItem = (int)u;
+        // Jump and useItem fire once per script step (4.2 step 5 resets them after the next move).
+        mHeld.Remove("jump");
+        mHeld.Remove("useItem");
+        if (mSpawn && mWorld.Psc.ControlClass != "Player")
+            m.Fire = (tick / 8) % 2 == 0;           // press and release every 256 ms until a Player is the control object
+        return m;
+    }
+
+    // Runs the session: connect to host:port, play for `seconds` after the accept, disconnect.
+    public SessionResult Run(string hostPort, double seconds)
+    {
+        var res = new SessionResult();
+        Address server = Resolve(hostPort);
+        if (!mSock.Open(0))
+            throw new IOException("cannot open a UDP socket");
+        var rng = new Random();
+        uint id = (uint)rng.NextInt64(1, 0xffffffffL);
+        mVc = new Connection(server, id, this, (to, data) => mSock.Send(to, data), Now);
+        mVc.Send(Connection.ConnectRequest, ConnectPayload(), Now);
+        byte[] rx = new byte[0x10000];
+        double acceptedAt = -1;
+        double timeout = 60;
+        while (!mClosed)
+        {
+            uint now = Now;
+            int n;
+            while ((n = mSock.Receive(out Address from, rx)) > 0)
+            {
+                if (from == server)
+                    mVc.Receive(rx.AsSpan(0, n), Now);
+                if (mClosed)
+                    break;
+            }
+            now = Now;
+            mVc.Tick(now);
+            if (mClosed)
+                break;
+            double t = now / 1000.0;
+            if (mAccepted && acceptedAt < 0)
+            {
+                acceptedAt = t;
+                mLastTick = (now - 1) >> 5;
+            }
+            if (acceptedAt < 0 && t > timeout)
+            {
+                mReason = "no accept within " + timeout + " s";
+                break;
+            }
+            if (acceptedAt >= 0)
+            {
+                ApplyScript(t - acceptedAt);
+                long tickNow = ((long)now - 1) >> 5;
+                for (; mLastTick < tickNow; ++mLastTick)
+                {
+                    mWorld.Psc.AddMove(MakeMove(mLastTick));
+                    ++mMovesSent;
+                }
+                if (mVc.State() == ConnectionState.Connected && mGame.Due(now))
+                {
+                    Connection vc = mVc;
+                    mGame.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
+                }
+                if (t - acceptedAt >= seconds)
+                    break;
+            }
+            Thread.Sleep(1);
+        }
+        if (!mClosed && mVc.State() == ConnectionState.Connected)
+        {
+            mVc.Close(Connection.Disconnect, "", Now);
+            res.Disconnected = true;
+        }
+        mSock.Close();
+        res.Connected = mAccepted;
+        res.Rejected = mRejected;
+        res.Dropped = mClosed && !mRejected;
+        res.Reason = mReason;
+        res.Seconds = acceptedAt < 0 ? 0 : Now / 1000.0 - acceptedAt;
+        res.Packets = mWorld.Packets;
+        res.Events = mWorld.Events;
+        res.GhostUpdates = mWorld.GhostUpdates;
+        res.GhostDeletes = mWorld.GhostDeletes;
+        res.UnknownBits = mWorld.UnknownBits;
+        res.Errors = mWorld.Errors;
+        res.MovesSent = mMovesSent;
+        res.Ghosts = mWorld.Ghosts.Count;
+        res.ControlClass = mWorld.Psc.ControlClass;
+        res.DataFinished = mWorld.DataBlocks.Finished;
+        res.AlwaysDone = mWorld.AlwaysDone;
+        foreach (var kv in mWorld.EventCounts)
+            res.EventCounts[kv.Key] = kv.Value;
+        foreach (var kv in mWorld.GhostCounts)
+            res.GhostCounts[kv.Key] = kv.Value;
+        res.UnknownReasons = mWorld.UnknownReasons.Take(20).ToList();
+        return res;
+    }
+}

@@ -1,4 +1,5 @@
 // Port of src/game/player_mount.cpp: Player mounting (docs/vehicle-sim.md 2.1 MT1, MT3, MT4; docs/player-sim.md 2.7).
+using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
@@ -57,6 +58,33 @@ public sealed partial class Player
         UpdateContainer();
     }
 
+    // The mounted branch of Player_applyControlState 0x0041405c and of the interpolation FUN_00414a00 (client ghost): the transform
+    // is the mount point's transform times the rotation (0, 0, yaw), set raw (no collision, the container entry follows). Same product
+    // as the mounted step. False when there is no mount object.
+    public bool PlaceOnMount()
+    {
+        GameBase? m = MountObject();
+        if (m == null)
+            return false;
+        using var chop = X87.Chop();
+        m.GetMountTransform(MountPoint, out Transform mt);
+        var r = new TMat3();
+        var mm = new TMat3();
+        float[] yawOnly = { 0, 0, Rotation[2] };
+        r.Flags = 0;
+        Shape.EulerMatrix(yawOnly, ref r);
+        mm.Flags = mt.Flags;
+        mm.M = mt.M;
+        mm.P = mt.P;
+        Shape.TmatMul(r, mm, out TMat3 output);
+        Transform.M = output.M;
+        Transform.P = output.P;
+        Transform.Flags = (output.Flags & 7u) | 3u;
+        AtRest = false;
+        RefileBox();
+        return true;
+    }
+
     // src/game/player_mount.cpp Player::mountedStep: 0x00415d26: the velocity and transform of the mount point, without
     // collision.
     public void MountedStep(Move mv)
@@ -88,9 +116,9 @@ public sealed partial class Player
         ContactFlag = false;
         UpdateContainer();
         SetMaskBits(0x2000);
-        if (mv.Jump && !Dead)
+        if (mv.Jump && !Dead && !ClientSide)
         {
-            // MT4: the vehicle's passengerJump(vehicle, player, "up row"); the map name takes part in the lookup.
+            // MT4 (server only, 0x00415304): the vehicle's passengerJump(vehicle, player, "up row"); the map name takes part in the lookup.
             if (Vehicle.From(m) is Vehicle v)
             {
                 string fn = Vehicle.FindVehicleMethod(mGame, v, "passengerJump", true);

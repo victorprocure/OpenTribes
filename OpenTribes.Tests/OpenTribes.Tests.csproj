@@ -13,8 +13,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\OpenTribes.ClientNet\OpenTribes.ClientNet.csproj" />
     <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
     <ProjectReference Include="..\OpenTribes.Game\OpenTribes.Game.csproj" />
+    <ProjectReference Include="..\OpenTribes.Platform\OpenTribes.Platform.csproj" />
     <ProjectReference Include="..\OpenTribes.Script\OpenTribes.Script.csproj" />
     <ProjectReference Include="..\OpenTribes.Server\OpenTribes.Server.csproj" />
     <ProjectReference Include="..\OpenTribes.Sim\OpenTribes.Sim.csproj" />

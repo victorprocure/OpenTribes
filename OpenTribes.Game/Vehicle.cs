@@ -443,6 +443,42 @@ public class Vehicle : GameBase
         bs.WriteInt((uint)SoundState & 3u, 2);
     }
 
+    // The control state as the client reads it (docs/vehicle-sim.md 6.2, docs/client-net.md 4.4).
+    public sealed class ClientControl
+    {
+        public readonly float[] Rot = new float[3], TargetRot = new float[3], Position = new float[3];
+        public uint SpeedF16, SpeedT16, Energy16;                 // unit(16) raw
+        public bool HasFlier;
+        public float L, S;
+        public bool Landed;
+    }
+
+    // Vehicle_readControlState 0x00446830 and Flier_readControlState 0x0043079c on the client copy: rotation, target
+    // rotation, position and transform; the speeds and the energy from their unit(16) values; Flier L, S and landed, a
+    // landed Flier keeps the position it had before the read. Damage, fire and sound state are not predicted.
+    public void ApplyClientControlState(ClientControl c)
+    {
+        using var chop = X87.Chop();
+        float[] old = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        SetRotation(c.Rot);
+        for (int i = 0; i < 3; ++i)
+            TargetRot[i] = c.TargetRot[i];
+        SetPosition(c.Position);
+        VData d = Data;
+        float span = X87.F32(Sub(d.MaxSpeed, d.MinSpeed));
+        SpeedF = X87.F32(Add(Mul(span, X87.F32(Div(c.SpeedF16, 65535.0))), d.MinSpeed));
+        SpeedT = X87.F32(Add(Mul(span, X87.F32(Div(c.SpeedT16, 65535.0))), d.MinSpeed));
+        Energy = X87.F32(Mul(X87.F32(Div(c.Energy16, 65535.0)), MaxEnergy));
+        if (c.HasFlier)
+        {
+            SpeedL = c.L;
+            SpeedS = c.S;
+            Landed = c.Landed;
+            if (c.Landed)
+                SetPosition(old);
+        }
+    }
+
     // src/game/vehicle_net.cpp findVehicleMethod: GameBase_findScriptMethod (0x0044864c): the first defined function of
     // map name (when useMapName), data name, datablock className, C++ class, plain method name; "" when none.
     public static string FindVehicleMethod(GameState game, GameBase obj, string method, bool useMapName)
@@ -785,9 +821,10 @@ public sealed class Flier : Vehicle
         float pitchIn = X87.F32(Mul(Mul(Mul(-(double)move.Pitch, a), 0.25f), k));
         float yawIn = X87.F32(Mul(Mul(Mul(move.Turn, a), 0.25f), k));
 
-        if (move.Fire)
+        // Fire and the jump (dismount) are server only (Flier_update 0x0042ebd4).
+        if (move.Fire && !ClientSide)
             Fire();
-        if (move.Jump)
+        if (move.Jump && !ClientSide)
         {
             var m = new Transform();
             MissionTransform.EulerToMatrix(Rotation, ref m);

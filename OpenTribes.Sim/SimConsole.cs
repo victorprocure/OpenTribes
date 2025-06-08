@@ -88,6 +88,10 @@ public sealed class SimConsole : IObjectInterface
         mIn.BindVariable("$SimGame::TimeScale", SetTimeScale);
     }
 
+    // M9 C8: the `tribes` client keeps its client world in the one manager slot this class has (newClient makes it);
+    // the dedicated server leaves this false and keeps the reference behaviour (docs/client-app.md 1.4 step 3).
+    public bool ClientMode;
+
     public SimManager? Server() => mServer;
     public uint TickMs() => mTick;
     public double ClockSeconds() => mClock;
@@ -417,18 +421,31 @@ public sealed class SimConsole : IObjectInterface
 
         Cmd("newServer", _ =>
         {
+            if (ClientMode)
+            {
+                // The `tribes` client keeps no server world (M9 C8): hosting a game is the job of tribes-server.
+                mIn.Print(1, "newServer: this client does not host games; run tribes-server and join it");
+                return no;
+            }
             NewServer();
             return yes;
         });
-        Cmd("focusServer", _ => mServer != null ? yes : no);
+        Cmd("focusServer", _ => mServer != null && !ClientMode ? yes : no);
         Cmd("deleteServer", _ =>
         {
+            if (ClientMode)
+                return yes;   // EndGame() calls it; the one manager is the client world
             mServer?.Destroy();
             mServer = null;
             return yes;
         });
         // The dedicated server never creates a client world (MG4).
-        Cmd("newClient", _ => yes);
+        Cmd("newClient", _ =>
+        {
+            if (ClientMode)
+                NewServer();
+            return yes;
+        });
         Cmd("focusClient", _ => yes);
         Cmd("deleteClient", _ => yes);
         // 0050b4c4 case 0x78: purge(force) whatever the arguments (docs/resources.md 8.7).

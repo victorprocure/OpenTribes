@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>tribes-netclient</AssemblyName>
+    <RootNamespace>OpenTribes.ClientNet</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
+    <ProjectReference Include="..\OpenTribes.Game\OpenTribes.Game.csproj" />
+    <ProjectReference Include="..\OpenTribes.Sim\OpenTribes.Sim.csproj" />
+  </ItemGroup>
+</Project>

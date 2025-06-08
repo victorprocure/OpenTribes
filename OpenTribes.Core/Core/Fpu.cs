@@ -183,4 +183,72 @@ public static class Fpu
             f = d > 0 ? MathF.BitDecrement(f) : MathF.BitIncrement(f);
         return f;
     }
+
+    // Stable text round trip (ROADMAP M9 C8 fix, client-scripts.md E7): true when `text` is `[-]digits.digits` or `[-]digits`
+    // with `decimals` digits after the point (a printed `%f`), or, with decimals < 0, at most six significant digits in
+    // plain form (a printed `%g` without exponent). Such text is what the engine itself printed.
+    public static bool IsPrintedDecimal(string text, int decimals)
+    {
+        int i = text.Length > 0 && text[0] == '-' ? 1 : 0;
+        int dot = text.IndexOf('.');
+        int intDigits = (dot < 0 ? text.Length : dot) - i;
+        if (intDigits <= 0)
+            return false;
+        for (int k = i; k < text.Length; ++k)
+            if (k != dot && (text[k] < '0' || text[k] > '9'))
+                return false;
+        int frac = dot < 0 ? 0 : text.Length - dot - 1;
+        if (decimals >= 0)
+            return dot >= 0 && frac == decimals;
+        int sig = 0;
+        bool started = false;
+        for (int k = i; k < text.Length; ++k)
+        {
+            if (k == dot)
+                continue;
+            if (text[k] != '0')
+                started = true;
+            if (started)
+                ++sig;
+        }
+        return sig == 6 || sig == 0;
+    }
+
+    // `chopped` is the toward-zero parse of the plain decimal `text`. A printed digit string truncates, so the value it parses to
+    // must not lie below the decimal or the next print loses a unit of the last digit. Steps up to two floats (or doubles) away
+    // from zero until the magnitude is at least the decimal's; an exact value stays.
+    public static double AtLeastDecimal(double chopped, string text, bool single)
+    {
+        if (double.IsNaN(chopped) || double.IsInfinity(chopped) || chopped == 0)
+            return chopped;
+        bool neg = text.StartsWith('-');
+        string digits = neg ? text[1..] : text;
+        int dot = digits.IndexOf('.');
+        int k = dot < 0 ? 0 : digits.Length - dot - 1;
+        var num = BigInteger.Parse(digits.Replace(".", ""), CultureInfo.InvariantCulture);
+        double c = chopped;
+        for (int step = 0; step < 3 && CompareMagnitude(c, num, k) < 0; ++step)
+            c = single ? (c > 0 ? MathF.BitIncrement((float)c) : MathF.BitDecrement((float)c)) : (c > 0 ? Math.BitIncrement(c) : Math.BitDecrement(c));
+        return c;
+    }
+
+    // |f| compared with num / 10^k, exactly.
+    private static int CompareMagnitude(double f, BigInteger num, int k)
+    {
+        long bits = BitConverter.DoubleToInt64Bits(Math.Abs(f));
+        int exp = (int)((bits >> 52) & 0x7ff);
+        long mant = bits & 0xfffffffffffffL;
+        if (exp == 0)
+            exp = 1;
+        else
+            mant |= 1L << 52;
+        exp -= 1075;
+        BigInteger lhs = mant * BigInteger.Pow(10, k);
+        BigInteger rhs = num;
+        if (exp >= 0)
+            lhs <<= exp;
+        else
+            rhs <<= -exp;
+        return lhs.CompareTo(rhs);
+    }
 }

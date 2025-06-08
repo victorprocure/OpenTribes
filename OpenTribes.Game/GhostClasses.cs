@@ -5,7 +5,7 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-public static class GhostClasses
+public static partial class GhostClasses
 {
     private const uint kInitialMask = 0x80000000u;
 

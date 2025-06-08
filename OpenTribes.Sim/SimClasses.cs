@@ -274,10 +274,19 @@ public static class SimClasses
     }
 
     // src/sim/sim_classes.cpp class ChatMenu.
-    private sealed class ChatMenu : SimObject
+    public sealed class ChatMenu : SimObject
     {
+        // The first argument of newObject(name, ChatMenu, title): the heading the menu display shows.
+        public string Title = "";
         public override string ClassName() => "ChatMenu";
-        public override bool ProcessArguments(IReadOnlyList<string> args) => args.Count != 0;
+
+        public override bool ProcessArguments(IReadOnlyList<string> args)
+        {
+            if (args.Count == 0)
+                return false;
+            Title = args[0];
+            return true;
+        }
 
         // [live] a created ChatMenu is a member of the input consumer set (object 25) until it is deleted.
         public override bool OnAdd()

@@ -2,7 +2,7 @@
 // game-stream-ghosts.md 4.10). The bit writers the classes share are Pj (Projectile.cs).
 namespace OpenTribes.Game;
 
-public static class ProjectileGhost
+public static partial class ProjectileGhost
 {
     // src/game/projectile_ghost.cpp packProjectile: Projectile::packUpdate (0x0045ad08) and the initial/update split of
     // the class packs.

@@ -24,8 +24,15 @@ public class GhostClassesTests
         var ctx = new GhostContext(gm, 2049, mask == 0xffffffffu);
         Assert.True(cls!.Pack!(obj!, ctx, w, mask) == 0);
         Assert.True(!w.Error());
+        // Client round trip (docs/client-net.md 3): the unpack of the same class consumes exactly the packed bits.
+        bool isNew = mask == 0xffffffffu;
+        mClients.TryGetValue(obj!, out ClientGhost? prev);
+        Client = mClients[obj!] = ClientRoundTrip.Unpack(tag, buf, w.BitPosition(), isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
         return new BitStream(buf, (int)((w.BitPosition() + 7) / 8));
     }
+
+    private readonly Dictionary<SimObject, ClientGhost> mClients = new(ReferenceEqualityComparer.Instance);
+    private ClientGhost? Client;
 
     private static uint U32(BitStream r) => r.ReadInt(32);
     private static float F32(BitStream r) => r.ReadF32();
@@ -90,6 +97,7 @@ public class GhostClassesTests
         // 3.1 SimVolume: file name with the first spelling interned (the volume scan's).
         {
             BitStream r = Pack(Obj("vol"), 0xffffffffu, 0x001);
+            Assert.True((string)Client!.State["file"]! == "data.vol"); // client-net.md 3.3 SimVolume
             Assert.True(r.ReadString() == "data.vol");
         }
         // 3.1 SimPalette.
@@ -100,6 +108,8 @@ public class GhostClassesTests
         // 3.1 MissionCenterPos: x y w h, ctor 1230 1230 1400 1400; floats parsed toward zero.
         {
             BitStream r = Pack(Obj("MC"), 0xffffffffu, 0x2cc);
+            double[] rect = (double[])Client!.State["rect"]!;
+            Assert.True(rect.Length == 4 && rect[1] == 1230 && rect[2] == 1400 && rect[3] == -700); // 3.1 MissionCenterPos
             Assert.True(U32(r) == 0x3dcccccc); // "0.1" truncated (nearest would be 0x3dcccccd)
             Assert.True(F32(r) == 1230 && F32(r) == 1400 && F32(r) == -700);
             Assert.True(w.Sim.Server()!.FindById(716) == Obj("MC"));
@@ -109,6 +119,9 @@ public class GhostClassesTests
             var terrain = Obj("Terrain") as TerrainObject;
             Assert.True(terrain != null && w.Sim.Server()!.FindById(8) == terrain); // fixed id 8 (mission.md 3.1)
             BitStream r = Pack(terrain, 0xffffffffu, 0x002);
+            Assert.True((string)Client!.State["ted"]! == "m.dtf" && ClientRoundTrip.VecIs(Client.State["position"], -8, -8, 0)); // 3.2
+            Assert.True(ClientRoundTrip.VecIs(Client.State["contGravity"], 0, 0, -20) && Client.State.ContainsKey("crc"));
+            Assert.True(((double[])Client.State["visible/haze/hazeVMin/hazeVMax"]!)[1] == 1500);
             Assert.True(r.ReadFlag() && r.ReadString() == "m.dtf");
             Assert.True(r.ReadFlag() && F32(r) == 3000 && F32(r) == 1500 && F32(r) == 1000 && F32(r) == 2000);
             Assert.True(r.ReadFlag() && F32(r) == 500 && F32(r) == 120);
@@ -138,6 +151,8 @@ public class GhostClassesTests
         // 3.3 SimLight: isStatic first (0x40), then 0x01..0x20; unset fields 0 (D12).
         {
             BitStream r = Pack(Obj("L"), 0xffffffffu, 0x006);
+            Assert.True((long)Client!.State["type"]! == 5 && (long)Client.State["isStatic"]! == 1 && (double)Client.State["range"]! == 12.5); // 3.3
+            Assert.True(ClientRoundTrip.VecIs(Client.State["color"], 1, 0.5, 0.25));
             Assert.True(r.ReadFlag() && r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadInt(3) == 5);
             Assert.True(r.ReadFlag() && F32(r) == 12.5f);
@@ -158,6 +173,7 @@ public class GhostClassesTests
         {
             Assert.True(w.Sim.Server()!.FindById(714) == Obj("Snow"));
             BitStream r = Pack(Obj("Snow"), 0xffffffffu, 0x216);
+            Assert.True((double)Client!.State["intensity"]! == 0.5 && ClientRoundTrip.VecIs(Client.State["wind"], 3, 4, -75) && (long)Client.State["flagf1"]! == 1); // 3.5
             Assert.True(r.ReadFlag() && F32(r) == 0.5f);
             Assert.True(r.ReadFlag());
             Vec(r, 3, 4, -75);
@@ -167,6 +183,8 @@ public class GhostClassesTests
         {
             Assert.True(w.Sim.Server()!.FindById(729) == Obj("Sky"));
             BitStream r = Pack(Obj("Sky"), 0xffffffffu, 0x230);
+            Assert.True((string)Client!.State["dml"]! == "sky.dml" && ClientRoundTrip.VecIs(Client.State["vecB8"], 0.25, 0.5, 1)); // 3.6
+            Assert.True(((List<object?>)Client.State["textures"]!)[3] is long t3 && t3 == 7);
             Assert.True(r.ReadString() == "sky.dml");
             Vec(r, 0.25f, 0.5f, 1);
             Vec(r, 0, 0, 0); // hazeColor unset (D12)
@@ -177,6 +195,7 @@ public class GhostClassesTests
         // 3.6 Planet: incidence clamped to [-89, 89], azimuth as given, ctor size and distance.
         {
             BitStream r = Pack(Obj("Planet1"), 0xffffffffu, 0x22f);
+            Assert.True((string)Client!.State["file"]! == "sun" && (double)Client.State["f6c"]! == 400 && (double)Client.State["f70"]! == 89); // 3.6
             Assert.True(r.ReadString() == "sun");
             Assert.True(F32(r) == 400 && F32(r) == 89);
             Assert.True(r.ReadInt(8) == 1 && r.ReadInt(8) == 0);
@@ -189,6 +208,7 @@ public class GhostClassesTests
         // 3.6 StarField: ctor flags 1 and 0, colors (1, 0.5, 0.25 grey) per element, inFrontOfSky.
         {
             BitStream r = Pack(Obj("Stars"), 0xffffffffu, 0x232);
+            Assert.True((long)Client!.State["flagAF"]! == 1 && (long)Client.State["flagB0"]! == 0 && ((double[])Client.State["data7c"]!)[3] == 0.75); // 3.6
             Assert.True(r.ReadFlag() && !r.ReadFlag());
             Vec(r, 1, 1, 1);
             Vec(r, 0.75f, 0.75f, 0.75f);
@@ -201,6 +221,8 @@ public class GhostClassesTests
             Assert.True(hut == null); // the TeamGroup was renamed team0 (mission.md TM6)
             hut = Obj("team0/Hut");
             BitStream r = Pack(hut, 0xffffffffu, 0x20a);
+            Assert.True((string)Client!.State["file"]! == "hut.dis" && (long)Client.State["isContainer"]! == 1 && ClientRoundTrip.VecIs(Client.State["pos"], 1, 2, 3)); // 3.4
+            Assert.True((long)Client.State["lightCount"]! == 2 && ((List<object?>)Client.State["states"]!).Count == 2);
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 0 && !r.ReadFlag() && !r.ReadFlag()); // team 0
             Assert.True(r.ReadFlag()); // initial
             Assert.True(r.ReadString() == "hut.dis");
@@ -221,6 +243,7 @@ public class GhostClassesTests
             Assert.True(!r.ReadFlag());                // +0x41c
             // Update: position/rotation, one flag per light, then +0x418.
             BitStream u = Pack(hut, 0x07, 0x20a);
+            Assert.True(ClientRoundTrip.Has(Client!, "pos") && ClientRoundTrip.Has(Client!, "lightOn") && ((List<object?>)ClientRoundTrip.Field(Client!, "lightOn")!).Count == 2);
             Assert.True(u.ReadFlag() && u.ReadInt(4) == 0 && !u.ReadFlag() && !u.ReadFlag());
             Assert.True(!u.ReadFlag());
             Assert.True(u.ReadFlag());

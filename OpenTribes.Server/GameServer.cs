@@ -91,7 +91,7 @@ public sealed class GameServer
                         c.Stream.Flag6a = r.MenuScoreVis;
                     }
                     // $pref::PacketRate 1-30 (unsigned compare) and $pref::PacketSize 100-450, defaults 10 and 200
-                    // (GameConnection_loadPacketPrefs 0x00550c68, docs/game-stream.md 1.3). A change is sent to the
+                    // (GameConnection_loadPacketPrefs 0x00550c68, same clamps in the 1.11 exe; the 1.30 exe uses 10-30 and 200-450; docs/game-stream.md 1.3). A change is sent to the
                     // client as rateReq.
                     string rateText = mIn.GetVariable("$pref::PacketRate", out bool haveRate);
                     string sizeText = mIn.GetVariable("$pref::PacketSize", out bool haveSize);

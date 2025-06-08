@@ -392,8 +392,10 @@ internal class Lightning : Projectile
             if (q < cosA || q >= bestQ)
                 continue;
             var los = new RayHit();
-            // Measured: a candidate in plain view (Player box, panel) is never accepted by the reference, so only a ray
-            // that reaches the centre without a hit passes (projectile-sim.md PQ12).
+            // [code 00468e76 to 00468e83]: the candidate passes when the ray misses or when the first dword of the collision info
+            // equals the candidate. castRay never writes that dword (the object is at +4, the constructor clears +0), so any hit
+            // fails the test: only a ray that reaches the centre without a hit passes, which a candidate with a collision image in
+            // plain view never allows (the reference does not acquire it, N2 of projectile-sim.md 12).
             if (CastWorld(mGame, p, c, 0x24c002a6u, ex, ref los))
                 continue;
             bestQ = q;
@@ -405,7 +407,9 @@ internal class Lightning : Projectile
             Drop();
             return;
         }
-        if (best.Id() != mTarget)
+        // [code 00468eb9 to 00468eed]: the exe compares the held target with the same first dword of the collision info (0), so the
+        // mask bit is set when a target is held, whether or not it is the winner, and not when none is held.
+        if (mTarget != 0)
             SetMaskBits(0x08);
         mTarget = best.Id();
         bestPoint.CopyTo(mPoint, 0);

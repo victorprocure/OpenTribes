@@ -157,11 +157,17 @@ public sealed class InteriorGeometry
     {
         public uint Offset;
         public ushort Count;
+        public uint PlaneOffset;
+        public ushort PlaneCount;
     }
     private struct EmptyLeaf
     {
         public ushort PvsCount; // byte count << 1
         public uint PvsOffset;
+        public ushort SurfaceCount;
+        public uint SurfaceOffset, PlaneOffset;
+        public float MinX, MinY, MinZ, MaxX, MaxY, MaxZ;
+        public ushort PlaneCount;
     }
 
     private readonly List<Surface> mSurfaces = new();
@@ -260,8 +266,9 @@ public sealed class InteriorGeometry
                     long start = r.Pos;
                     var l = new SolidLeaf();
                     l.Offset = r.GetU32();
-                    r.Skip(4);
+                    l.PlaneOffset = r.GetU32();
                     l.Count = r.GetU16();
+                    l.PlaneCount = r.GetU16();
                     r.Pos = start;
                     r.Skip(12);
                     g.mSolidLeaves.Add(l);
@@ -287,8 +294,13 @@ public sealed class InteriorGeometry
                     long start = r.Pos;
                     var l = new EmptyLeaf();
                     l.PvsCount = r.GetU16();
-                    r.Skip(2);
+                    l.SurfaceCount = r.GetU16();
                     l.PvsOffset = r.GetU32();
+                    l.SurfaceOffset = r.GetU32();
+                    l.PlaneOffset = r.GetU32();
+                    l.MinX = r.GetF32(); l.MinY = r.GetF32(); l.MinZ = r.GetF32();
+                    l.MaxX = r.GetF32(); l.MaxY = r.GetF32(); l.MaxZ = r.GetF32();
+                    l.PlaneCount = r.GetU16();
                     r.Pos = start;
                     r.Skip(44);
                     g.mEmptyLeaves.Add(l);
@@ -420,6 +432,86 @@ public sealed class InteriorGeometry
                     output.Add(bas + bit);
         }
         return output;
+    }
+
+    // OR of a compressed bit list (a zero byte followed by n stands for n zero bytes, 005622d0) into `set`.
+    private void OrList(byte[] set, long offset, int count)
+    {
+        long pos = offset, end = offset + count, at = 0;
+        while (pos < end && pos < mBits.Length)
+        {
+            if (mBits[pos] == 0)
+            {
+                at += pos + 1 < mBits.Length ? mBits[pos + 1] : 0;
+                pos += 2;
+            }
+            else
+            {
+                if (at < set.Length)
+                    set[at] |= mBits[pos];
+                ++at;
+                ++pos;
+            }
+        }
+    }
+
+    public int SurfaceCountTotal => mSurfaces.Count;
+
+    // The surfaces the stock renderer draws for a camera at `cam` (interior space) [code 0055db5c, 0055e1a4, 0055e2d8,
+    // 0055e4b0, 0055e578]: the surface and plane lists of the camera leaf, plus those of every leaf of its PVS from 6 up whose
+    // bounding sphere (centre of the leaf box, diameter of its diagonal as the radius) passes `sphereVisible`; planes the camera is
+    // not in front of are dropped, then the surfaces whose plane flag disagrees. A solid camera leaf only has its own lists.
+    public bool[] SelectSurfaces(Vec3 cam, Func<float, float, float, float, bool> sphereVisible)
+    {
+        int leaf = LeafAt(cam);
+        var surfaceSet = new byte[(mSurfaces.Count >> 3) + 1];
+        var planeSet = new byte[(mPlanes.Count >> 3) + 1];
+        int ei = EmptyLeafIndex(leaf);
+        if (ei >= 0)
+        {
+            AddLeaf(surfaceSet, planeSet, mEmptyLeaves[ei]);
+            foreach (int n in VisibleLeaves(leaf))
+            {
+                if (n < 6 || IsSolidLeaf(n))
+                    continue;
+                int vi = EmptyLeafIndex(n);
+                if (vi < 0)
+                    continue;
+                EmptyLeaf l = mEmptyLeaves[vi];
+                float dx = l.MaxX - l.MinX, dy = l.MaxY - l.MinY, dz = l.MaxZ - l.MinZ;
+                float radius = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                if (sphereVisible((l.MinX + l.MaxX) * 0.5f, (l.MinY + l.MaxY) * 0.5f, (l.MinZ + l.MaxZ) * 0.5f, radius))
+                    AddLeaf(surfaceSet, planeSet, l);
+            }
+        }
+        else if (IsSolidLeaf(leaf) && leaf - 43 < mSolidLeaves.Count)
+        {
+            SolidLeaf sl = mSolidLeaves[leaf - 43];
+            OrList(surfaceSet, sl.Offset, sl.Count);
+            OrList(planeSet, sl.PlaneOffset, sl.PlaneCount);
+        }
+        for (int i = 0; i < mPlanes.Count; ++i)
+        {
+            if ((planeSet[i >> 3] & (0x80 >> (i & 7))) != 0 && Side(mPlanes[i], cam) != 1)
+                planeSet[i >> 3] &= (byte)~(0x80 >> (i & 7));
+        }
+        var result = new bool[mSurfaces.Count];
+        for (int s = 0; s < mSurfaces.Count; ++s)
+        {
+            if ((surfaceSet[s >> 3] & (0x80 >> (s & 7))) == 0)
+                continue;
+            Surface sf = mSurfaces[s];
+            int pi = sf.PlaneIndex;
+            bool inSet = (pi >> 3) < planeSet.Length && (planeSet[pi >> 3] & (0x80 >> (pi & 7))) != 0;
+            result[s] = inSet != ((sf.Flags & 0x80) == 0);
+        }
+        return result;
+    }
+
+    private void AddLeaf(byte[] surfaceSet, byte[] planeSet, in EmptyLeaf l)
+    {
+        OrList(surfaceSet, l.SurfaceOffset, l.SurfaceCount);
+        OrList(planeSet, l.PlaneOffset, l.PlaneCount);
     }
 
     // src/world/interior.cpp InteriorGeometry::seesOutside.
@@ -696,6 +788,7 @@ public sealed class InteriorShapeFile
         public string Geometry = "";  // .dig name
         public uint LightStateIndex;  // first lodLightStates entry of this LOD
         public uint LinkableFaces;
+        public uint MinPixels;        // render: the LOD is used below this projected size (world-render.md 3.2)
     }
     public string CollisionGeometry = "";      // state 0, LOD 0 .dig name
     public string MaterialList = "";           // .dml name (after the name buffer)
@@ -725,9 +818,10 @@ public sealed class InteriorShapeFile
         var geometryName = new List<uint>();
         var lightIndex = new List<uint>();
         var linkable = new List<uint>();
+        var minPixels = new List<uint>();
         for (uint i = 0; i < nLods && r.Ok; ++i)
         {
-            r.GetU32();
+            minPixels.Add(r.GetU32());
             geometryName.Add(r.GetU32());
             lightIndex.Add(r.GetU32());
             linkable.Add(r.GetU32());
@@ -760,6 +854,7 @@ public sealed class InteriorShapeFile
             output.Lods[i].Geometry = g;
             output.Lods[i].LightStateIndex = lightIndex[i];
             output.Lods[i].LinkableFaces = linkable[i];
+            output.Lods[i].MinPixels = minPixels[i];
         }
         output.LodLights.Clear();
         for (uint i = 0; i < nLodLights; ++i)

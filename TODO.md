@@ -9,7 +9,11 @@ way are added to Open.
 
 ### Client
 
-- [ ] The game client.
+- [ ] Draw the world.
+- [ ] Draw shapes and effects.
+- [ ] Menus and HUD.
+- [ ] Sound.
+- [ ] Run the client as a game: menus, joining and playing.
 
 ### Project
 
@@ -41,3 +45,7 @@ way are added to Open.
 - [x] Input consumers and GUI classes on the server side.
 - [x] File search restarts after reaching the end.
 - [x] Files of an unmounted volume stay available until purged, also for mission and world loading.
+
+### Client network
+
+- [x] Reads the game stream, ghosts and `.rec` demos (`tribes-netclient`).

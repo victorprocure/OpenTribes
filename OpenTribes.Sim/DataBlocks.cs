@@ -190,7 +190,7 @@ public sealed class DataBlockManager
 
     // src/game/datablocks.cpp validationCrc (section 7.1, 0x0044a078): the shape file, then each texture of its material
     // list when validateMaterials is set. Missing files leave the CRC unchanged.
-    private static uint ValidationCrc(ResourceManager res, string shape, bool materials)
+    public static uint ValidationCrc(ResourceManager res, string shape, bool materials)
     {
         uint crc = 0xffffffff;
         if (!res.Read(shape, out byte[] bytes))
