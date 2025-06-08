@@ -53,3 +53,7 @@ way are added to Open.
 
 - [x] Terrain, interiors and sky of a mission.
 - [x] 3D camera and shape support in the renderer.
+
+### Shapes, weapons and effects
+
+- [x] Shape loading and animation.

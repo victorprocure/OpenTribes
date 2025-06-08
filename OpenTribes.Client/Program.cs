@@ -46,6 +46,9 @@ public static class Program
             return 2;
         }
 
+        if (args.Contains("--shape-census"))
+            return Shapes.ShapeCensus.Report(o.Root);
+
         if (o.Mission != null)
             return World.MissionRender.Run(o.Root, o.Mission, o.Camera, o.Cameras, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
@@ -155,6 +158,8 @@ public static class Program
             string a = args[i];
             if (a is "-h" or "--help")
                 return null;
+            if (a == "--shape-census")
+                continue;
             if (i + 1 >= args.Length)
             {
                 Console.Error.WriteLine($"tribes: {a} needs a value");
