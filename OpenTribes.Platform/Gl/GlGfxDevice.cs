@@ -5,7 +5,7 @@ namespace OpenTribes.Platform.Gl;
 // OpenGL 3.3 core implementation of IGfxDevice (D30, D31). Everything draws into an offscreen framebuffer of
 // the window size; EndFrame copies it to the window and swaps, ReadPixels reads it back. 2D calls are batched per
 // call into a streaming vertex buffer; one shader draws flat colors and textures (docs/renderer.md 4).
-public sealed unsafe class GlGfxDevice : IGfxDevice
+public sealed unsafe partial class GlGfxDevice : IGfxDevice
 {
     private const string VertexSource = @"#version 330 core
 in vec2 aPos;
@@ -419,12 +419,6 @@ void main() {
 
     public uint GetError() => gl.GetError_();
 
-    // ---- 3D: C4 ----
-
-    public void BeginScene3D() => throw new NotSupportedException("3D submission arrives in C4");
-    public void EndScene3D() => throw new NotSupportedException("3D submission arrives in C4");
-    public void SetDepthRange(float near, float far) => throw new NotSupportedException("3D submission arrives in C4");
-
     public void Dispose()
     {
         if (mDisposed)
@@ -440,5 +434,6 @@ void main() {
         gl.DeleteSamplers_(1, &s0);
         gl.DeleteSamplers_(1, &s1);
         gl.DeleteProgram_(mProgram);
+        Dispose3D();
     }
 }

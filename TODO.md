@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Client
 
-- [ ] Draw the world.
 - [ ] Draw shapes and effects.
 - [ ] Menus and HUD.
 - [ ] Sound.
@@ -49,3 +48,7 @@ way are added to Open.
 ### Client network
 
 - [x] Reads the game stream, ghosts and `.rec` demos (`tribes-netclient`).
+
+### Graphics
+
+- [x] Terrain, interiors and sky of a mission.

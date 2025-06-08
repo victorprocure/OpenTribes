@@ -414,9 +414,11 @@ public class GfxFormatTests
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect s, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) =>
             Calls.Add($"S {s.Left},{s.Top},{s.Right},{s.Bottom} @{x},{y} {width}x{height}");
         public byte[] ReadPixels() => Array.Empty<byte>();
-        public void BeginScene3D() { }
+        public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
+        public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
+        public void SetCamera3D(in Camera3D camera) { }
+        public void Draw3D(ReadOnlySpan<Vertex3D> triangles, in DrawState3D state) { }
         public void EndScene3D() { }
-        public void SetDepthRange(float near, float far) { }
         public void Dispose() { }
     }
 

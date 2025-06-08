@@ -13,6 +13,7 @@ public static class Program
     private const string Usage =
         "usage: tribes --root DIR [--show RESOURCE] [--palette PPL|PAL] [--font PFT [--text STRING]]\n" +
         "              [--screenshot OUT.ppm [--frames N]] [--size WxH] [--video-driver NAME]\n" +
+        "       tribes --root DIR --mission NAME (--camera X,Y,Z,YAW,PITCH | --cameras FILE) [--fov DEG] --screenshot OUT\n" +
         "  --root DIR          game directory; every .vol in DIR/base is mounted\n" +
         "  --show NAME         draw that bitmap (.bmp) centred until the window is closed\n" +
         "  --palette NAME      palette for the bitmap: a .ppl set or a .pal (default feargui.pal, else a gray ramp)\n" +
@@ -20,12 +21,17 @@ public static class Program
         "  --text STRING       the text for --font\n" +
         "  --screenshot FILE   render --frames frames (default 3) in a hidden window, write FILE as PPM, exit\n" +
         "  --size WxH          window size (default 640x480)\n" +
+        "  --mission NAME      load the mission locally (no server) and render the world; needs --camera or --cameras\n" +
+        "  --camera X,Y,Z,YAW,PITCH  camera position (world units) and angles in degrees (yaw 0 looks along +Y, positive turns left)\n" +
+        "  --cameras FILE      one camera per line: NAME X,Y,Z,YAW,PITCH[,FOV]; --screenshot is then a directory, NAME.png each;\n                      names that start with MISSION_ select that mission's cameras when any do\n" +
+        "  --fov DEG           horizontal field of view in degrees (default 90)\n" +
         "  --video-driver NAME SDL video driver, for example offscreen\n";
 
     private sealed class Options
     {
         public string Root = "";
-        public string? Show, Palette, Font, Screenshot, VideoDriver;
+        public string? Show, Palette, Font, Screenshot, VideoDriver, Mission, Camera, Cameras;
+        public double Fov = World.WorldScene.DefaultFov;
         public string Text = "The quick brown fox jumps over the lazy dog 0123456789";
         public int Frames = 3;
         public int Width = 640, Height = 480;
@@ -39,6 +45,9 @@ public static class Program
             Console.Error.Write(Usage);
             return 2;
         }
+
+        if (o.Mission != null)
+            return World.MissionRender.Run(o.Root, o.Mission, o.Camera, o.Cameras, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
         ResourceManager res = GfxAssets.Mount(o.Root, out int volumes);
         Console.Error.WriteLine($"mounted {volumes} volumes from {o.Root}");
@@ -161,6 +170,13 @@ public static class Program
                 case "--text": o.Text = v; break;
                 case "--screenshot": o.Screenshot = v; break;
                 case "--video-driver": o.VideoDriver = v; break;
+                case "--mission": o.Mission = v; break;
+                case "--camera": o.Camera = v; break;
+                case "--cameras": o.Cameras = v; break;
+                case "--fov":
+                    if (!double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out o.Fov) || o.Fov < 5 || o.Fov > 170)
+                        return null;
+                    break;
                 case "--frames":
                     if (!int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out o.Frames) || o.Frames < 1)
                         return null;

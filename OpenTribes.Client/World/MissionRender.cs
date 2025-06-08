@@ -1,0 +1,178 @@
+using System.Globalization;
+using System.IO.Compression;
+using OpenTribes.Platform.Gl;
+
+namespace OpenTribes.Client.World;
+
+// `tribes --mission`: loads a mission locally and renders one frame per camera to an image file.
+public static class MissionRender
+{
+    public readonly record struct CameraSpec(string Name, double X, double Y, double Z, double Yaw, double Pitch, double Fov);
+
+    // "X,Y,Z,YAW,PITCH[,FOV]"
+    public static bool TryParseCamera(string text, string name, double defaultFov, out CameraSpec cam)
+    {
+        cam = default;
+        string[] p = text.Split(',', StringSplitOptions.TrimEntries);
+        if (p.Length < 5 || p.Length > 6)
+            return false;
+        var v = new double[6];
+        v[5] = defaultFov;
+        for (int i = 0; i < p.Length; ++i)
+            if (!double.TryParse(p[i], NumberStyles.Float, CultureInfo.InvariantCulture, out v[i]))
+                return false;
+        cam = new CameraSpec(name, v[0], v[1], v[2], v[3], v[4], v[5]);
+        return true;
+    }
+
+    // One camera per line: NAME X,Y,Z,YAW,PITCH[,FOV]; blank lines and lines starting with # or // are skipped.
+    public static List<CameraSpec> ParseCameraFile(string text, double defaultFov, out string error)
+    {
+        error = "";
+        var list = new List<CameraSpec>();
+        int n = 0;
+        foreach (string raw in text.Split('\n'))
+        {
+            ++n;
+            string line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith('#') || line.StartsWith("//"))
+                continue;
+            int sp = line.IndexOfAny(new[] { ' ', '\t' });
+            if (sp < 0 || !TryParseCamera(line[(sp + 1)..].Trim(), line[..sp], defaultFov, out CameraSpec c))
+            {
+                error = $"camera file line {n}: expected NAME X,Y,Z,YAW,PITCH[,FOV]";
+                return new List<CameraSpec>();
+            }
+            list.Add(c);
+        }
+        return list;
+    }
+
+    public static int Run(string root, string mission, string? camera, string? camerasFile, double fov, string? output, int width,
+                          int height, string? videoDriver)
+    {
+        var cams = new List<CameraSpec>();
+        if (camera != null)
+        {
+            if (!TryParseCamera(camera, "camera", fov, out CameraSpec c))
+            {
+                Console.Error.WriteLine("tribes: --camera expects X,Y,Z,YAW,PITCH");
+                return 2;
+            }
+            cams.Add(c);
+        }
+        if (camerasFile != null)
+        {
+            List<CameraSpec> fromFile = ParseCameraFile(File.ReadAllText(camerasFile), fov, out string cerr);
+            // A file shared by several missions names its cameras `<Mission>_<label>`: only those of this mission render.
+            if (fromFile.Any(c => c.Name.StartsWith(mission + "_", StringComparison.OrdinalIgnoreCase)))
+                fromFile = fromFile.Where(c => c.Name.StartsWith(mission + "_", StringComparison.OrdinalIgnoreCase)).ToList();
+            cams.AddRange(fromFile);
+            if (cerr.Length > 0)
+            {
+                Console.Error.WriteLine("tribes: " + cerr);
+                return 2;
+            }
+        }
+        if (cams.Count == 0 || output == null)
+        {
+            Console.Error.WriteLine("tribes: --mission needs --camera or --cameras, and --screenshot");
+            return 2;
+        }
+        using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out string error);
+        if (win == null)
+        {
+            Console.Error.WriteLine("tribes: cannot open a window with an OpenGL 3.3 core context: " + error);
+            return 1;
+        }
+        using var dev = new GlGfxDevice(win);
+        win.SetSwapInterval(0);
+        using WorldScene scene = WorldScene.Load(dev, root, mission, out string loadError);
+        if (loadError.Length > 0)
+            Console.Error.WriteLine("tribes: " + loadError);
+        dev.SetPalette(scene.Assets?.Palette ?? Platform.Gfx.PaletteTables.Grayscale());
+        Console.Error.WriteLine($"{mission}: visible {scene.Terrain.Visible} hazeStart {scene.Terrain.HazeStart:F1} block {scene.TerrainBlockSize} origin {scene.TerrainOriginX},{scene.TerrainOriginY} interiors {scene.InteriorCount} (failed {scene.InteriorFailed}) planets {scene.Planets.Count} stars {scene.Stars.Count}");
+        bool dir = camerasFile != null;
+        if (dir)
+            Directory.CreateDirectory(output);
+        foreach (CameraSpec c in cams)
+        {
+            scene.Render(c.X, c.Y, c.Z, c.Yaw, c.Pitch, c.Fov);
+            byte[] px = dev.ReadPixels();
+            string path = dir ? Path.Combine(output, c.Name + ".png") : output;
+            if (path.EndsWith(".ppm", StringComparison.OrdinalIgnoreCase))
+                Program.WritePpm(path, px, dev.Width, dev.Height);
+            else
+                WritePng(path, px, dev.Width, dev.Height);
+            Console.Error.WriteLine($"  {c.Name}: terrain squares {scene.TerrainDraw?.LastSquares} tris {scene.TerrainDraw?.LastTriangles} interiors drawn {scene.Interiors?.DrawnInstances} surfaces {scene.Interiors?.DrawnSurfaces} -> {path}");
+        }
+        return 0;
+    }
+
+    private static readonly uint[] sCrc = MakeCrc();
+
+    private static uint[] MakeCrc()
+    {
+        var t = new uint[256];
+        for (uint n = 0; n < 256; ++n)
+        {
+            uint c = n;
+            for (int k = 0; k < 8; ++k)
+                c = (c & 1) != 0 ? 0xedb88320u ^ (c >> 1) : c >> 1;
+            t[n] = c;
+        }
+        return t;
+    }
+
+    private static uint Crc(ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
+    {
+        uint c = 0xffffffffu;
+        foreach (byte b in type)
+            c = sCrc[(c ^ b) & 0xff] ^ (c >> 8);
+        foreach (byte b in data)
+            c = sCrc[(c ^ b) & 0xff] ^ (c >> 8);
+        return c ^ 0xffffffffu;
+    }
+
+    // Writes an 8-bit RGB PNG (filter 0, zlib) from RGBA rows, top row first.
+    public static void WritePng(string path, byte[] rgba, int w, int h)
+    {
+        using var raw = new MemoryStream();
+        using (var z = new ZLibStream(raw, CompressionLevel.Optimal, true))
+        {
+            var row = new byte[1 + w * 3];
+            for (int y = 0; y < h; ++y)
+            {
+                row[0] = 0;
+                for (int x = 0; x < w; ++x)
+                {
+                    row[1 + x * 3] = rgba[(y * w + x) * 4];
+                    row[2 + x * 3] = rgba[(y * w + x) * 4 + 1];
+                    row[3 + x * 3] = rgba[(y * w + x) * 4 + 2];
+                }
+                z.Write(row);
+            }
+        }
+        using var f = File.Create(path);
+        f.Write(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a });
+        void Chunk(string type, byte[] data)
+        {
+            byte[] t = System.Text.Encoding.ASCII.GetBytes(type);
+            var len = new byte[4];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(len, (uint)data.Length);
+            f.Write(len);
+            f.Write(t);
+            f.Write(data);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(len, Crc(t, data));
+            f.Write(len);
+        }
+        var ihdr = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(ihdr.AsSpan(0), (uint)w);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(ihdr.AsSpan(4), (uint)h);
+        ihdr[8] = 8;
+        ihdr[9] = 2;
+        Chunk("IHDR", ihdr);
+        Chunk("IDAT", raw.ToArray());
+        Chunk("IEND", Array.Empty<byte>());
+    }
+}

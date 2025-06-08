@@ -1,0 +1,431 @@
+using OpenTribes.Core;
+using OpenTribes.Platform.Gfx;
+using OpenTribes.World;
+
+namespace OpenTribes.Client.World;
+
+// Shelf packing of rectangles into one atlas (Internal: the original keeps one light map per surface, 3.5).
+public static class AtlasPacker
+{
+    // Returns the position of each rectangle and the atlas size. Rectangles are placed on shelves in order of decreasing
+    // height; the width is fixed, the height grows.
+    public static (int x, int y)[] Pack(IReadOnlyList<(int w, int h)> sizes, int width, out int height)
+    {
+        var order = Enumerable.Range(0, sizes.Count).OrderByDescending(i => sizes[i].h).ThenBy(i => i).ToArray();
+        var pos = new (int, int)[sizes.Count];
+        int x = 0, y = 0, shelf = 0;
+        foreach (int i in order)
+        {
+            var (w, h) = sizes[i];
+            if (x + w > width)
+            {
+                x = 0;
+                y += shelf;
+                shelf = 0;
+            }
+            pos[i] = (x, y);
+            x += w;
+            shelf = Math.Max(shelf, h);
+        }
+        height = y + shelf;
+        return pos;
+    }
+}
+
+// world-render.md 3.7: the interior light maps of one detail level, built at a light time.
+public static class InteriorLightMaps
+{
+    // Surface light maps (u16 nibbles M R G B) after the base map (or the mission map when the mission lighting has it)
+    // and every light's current state data have been applied (3.7 steps 2 and 3). `time` is the same for every light.
+    public static ushort[]?[] Build(InteriorLighting baseLt, InteriorLighting? mission, float time)
+    {
+        var maps = new ushort[]?[baseLt.Surfaces.Length];
+        for (int s = 0; s < maps.Length; ++s)
+            maps[s] = baseLt.SurfaceMap(s, mission);
+        foreach (InteriorLighting.Light light in baseLt.Lights)
+        {
+            if (light.StateCount <= 0 || light.FirstState < 0 || light.FirstState + light.StateCount > baseLt.States.Length)
+                continue;
+            var records = baseLt.States.AsSpan(light.FirstState, light.StateCount);
+            int state = InteriorLighting.SelectState(records, light.StateCount, time);
+            InteriorLighting.State st = records[state];
+            var colour = InteriorLighting.PackedColor(st);
+            int count = (ushort)st.DataCount, index = (ushort)st.DataIndex;
+            for (int k = 0; k < count && index + k < baseLt.StateDatas.Length; ++k)
+            {
+                InteriorLighting.StateData sd = baseLt.StateDatas[index + k];
+                if (sd.MapIndex < 0 || sd.Surface < 0 || sd.Surface >= maps.Length || maps[sd.Surface] == null)
+                    continue;
+                InteriorLighting.Surface surf = baseLt.Surfaces[sd.Surface];
+                byte[] src = baseLt.MapData;
+                long off = sd.MapIndex;
+                if (mission != null && mission.TryMissionOffset((uint)sd.MapIndex, out uint dest))
+                {
+                    src = mission.MapData;
+                    off = dest;
+                }
+                ushort[] m = maps[sd.Surface]!;
+                int px = surf.SizeX * surf.SizeY;
+                for (int p = 0; p < px && p < m.Length && off + p < src.Length; ++p)
+                    m[p] = InteriorLighting.AddLight(m[p], colour, src[off + p]);
+            }
+        }
+        return maps;
+    }
+}
+
+// One detail level of a shape: geometry, material bitmaps and one light atlas.
+public sealed class InteriorLodModel
+{
+    public InteriorGeometryData Geo = null!;
+    public List<string?> Materials = new();
+    public InteriorLighting? Base, Mission;
+    public (int x, int y)[] LmPos = Array.Empty<(int, int)>();
+    public int AtlasW, AtlasH;
+    public byte[] AtlasRgba = Array.Empty<byte>();
+    public IGfxTexture? Atlas;
+    public int MinPixels;
+    public float[] Center = new float[3];
+    public float Radius;
+}
+
+public sealed class InteriorModel
+{
+    public string Name = "";
+    public InteriorShapeFile Shape = new();
+    public InteriorLodModel?[] Lods = Array.Empty<InteriorLodModel?>();
+}
+
+// world-render.md 3: draws the interior instances of a mission.
+public sealed class InteriorRenderer : IDisposable
+{
+    public sealed class Instance
+    {
+        public InteriorModel Model = null!;
+        public double X, Y, Z, Rx, Ry, Rz;
+        public float[] M = new float[9];
+    }
+
+    private readonly IGfxDevice mDev;
+    private readonly WorldAssets mAssets;
+    private readonly Dictionary<string, InteriorModel?> mModels = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IGfxTexture?> mTextures = new(StringComparer.OrdinalIgnoreCase);
+    private IGfxTexture? mWhite;
+    public readonly List<Instance> Instances = new();
+    public float LightTime;
+    public int DrawnSurfaces, DrawnInstances;
+
+    public InteriorRenderer(IGfxDevice dev, WorldAssets assets)
+    {
+        mDev = dev;
+        mAssets = assets;
+    }
+
+    // interiors.md 5.2: the Euler transform, row-vector convention, world = local * M + p.
+    public static float[] EulerMatrix(double x, double y, double z)
+    {
+        double cx = Math.Cos(x), sx = Math.Sin(x), cy = Math.Cos(y), sy = Math.Sin(y), cz = Math.Cos(z), sz = Math.Sin(z);
+        if (x == 0 && y == 0)
+            return new float[] { (float)cz, (float)sz, 0, (float)-sz, (float)cz, 0, 0, 0, 1 };
+        return new[]
+        {
+            (float)(cz * cy - sx * sy * sz), (float)(cy * sz + cz * sx * sy), (float)(-cx * sy),
+            (float)(-cx * sz), (float)(cx * cz), (float)sx,
+            (float)(cz * sy + cy * sx * sz), (float)(sz * sy - cz * cy * sx), (float)(cx * cy),
+        };
+    }
+
+    // interiors.md L3, 4: <base>-<digits>-<n>.dil is the mission lighting of <base>-<digits>.dil.
+    public static string BaseLightingName(string name)
+    {
+        int dash = name.LastIndexOf('-');
+        if (dash <= 0)
+            return name;
+        int i = dash - 1;
+        while (i > 0 && name[i] >= '0' && name[i] <= '9')
+            --i;
+        return name[i] == '-' ? name[..dash] + ".dil" : name;
+    }
+
+    public bool AddInstance(string fileName, double x, double y, double z, double rx, double ry, double rz)
+    {
+        string resolved = Interior.ResolveInteriorName(mAssets.Res, fileName);
+        if (resolved.Length == 0)
+            return false;
+        if (!mModels.TryGetValue(resolved, out InteriorModel? model))
+        {
+            model = null;
+            var shape = new InteriorShapeFile();
+            if (mAssets.Res.Read(resolved, out byte[] dis) && InteriorShapeFile.Parse(dis, shape) && shape.Lods.Count > 0)
+                model = new InteriorModel { Name = resolved, Shape = shape, Lods = new InteriorLodModel?[shape.Lods.Count] };
+            mModels[resolved] = model;
+        }
+        if (model == null)
+            return false;
+        Instances.Add(new Instance { Model = model, X = x, Y = y, Z = z, Rx = rx, Ry = ry, Rz = rz, M = EulerMatrix(rx, ry, rz) });
+        return true;
+    }
+
+    // Adds a model built in memory (tests, tools): the lighting atlas of `lod` is built here.
+    public Instance Install(InteriorModel model, InteriorLodModel lod, double x, double y, double z, double rx, double ry, double rz)
+    {
+        BuildAtlas(lod);
+        float[] b = lod.Geo.Box;
+        lod.Center = new[] { (b[0] + b[3]) / 2, (b[1] + b[4]) / 2, (b[2] + b[5]) / 2 };
+        lod.Radius = (float)Math.Sqrt(Math.Pow(b[3] - b[0], 2) + Math.Pow(b[4] - b[1], 2) + Math.Pow(b[5] - b[2], 2)) / 2;
+        model.Lods = new InteriorLodModel?[] { lod };
+        var inst = new Instance { Model = model, X = x, Y = y, Z = z, Rx = rx, Ry = ry, Rz = rz, M = EulerMatrix(rx, ry, rz) };
+        Instances.Add(inst);
+        return inst;
+    }
+
+    private InteriorLodModel? Lod(InteriorModel model, int index)
+    {
+        if (model.Lods[index] != null)
+            return model.Lods[index];
+        InteriorShapeFile.Lod l = model.Shape.Lods[index];
+        if (!mAssets.Res.Read(l.Geometry, out byte[] dig))
+            return null;
+        InteriorGeometryData? geo = InteriorGeometryData.Parse(dig);
+        if (geo == null)
+            return null;
+        var lod = new InteriorLodModel { Geo = geo, MinPixels = (int)LodMinPixels(model.Shape, index) };
+        lod.Materials = mAssets.MaterialList(model.Shape.MaterialList) ?? new List<string?>();
+        int li = (int)l.LightStateIndex;
+        if (li < model.Shape.LodLights.Count)
+        {
+            string lightName = model.Shape.LodLights[li];
+            if (mAssets.Res.Read(lightName, out byte[] lb))
+            {
+                InteriorLighting? first = InteriorLighting.Parse(lb);
+                if (first != null && first.IsMission && first.BuildId == geo.BuildId)
+                {
+                    lod.Mission = first;
+                    string baseName = BaseLightingName(lightName);
+                    if (mAssets.Res.Read(baseName, out byte[] bb))
+                        lod.Base = InteriorLighting.Parse(bb);
+                }
+                else if (first != null && !first.IsMission)
+                {
+                    lod.Base = first;
+                }
+                else if (first != null && first.IsMission)
+                {
+                    // 3.7: a mismatched mission file falls back to the base lighting.
+                    if (mAssets.Res.Read(BaseLightingName(lightName), out byte[] bb))
+                        lod.Base = InteriorLighting.Parse(bb);
+                }
+            }
+        }
+        if (lod.Base != null && lod.Base.Surfaces.Length != geo.Surfaces.Length)
+            lod.Base = null;
+        BuildAtlas(lod);
+        float[] b = geo.Box;
+        lod.Center = new[] { (b[0] + b[3]) / 2, (b[1] + b[4]) / 2, (b[2] + b[5]) / 2 };
+        lod.Radius = (float)Math.Sqrt(Math.Pow(b[3] - b[0], 2) + Math.Pow(b[4] - b[1], 2) + Math.Pow(b[5] - b[2], 2)) / 2;
+        model.Lods[index] = lod;
+        return lod;
+    }
+
+    private static uint LodMinPixels(InteriorShapeFile shape, int index) => shape.Lods[index].MinPixels;
+
+    private void BuildAtlas(InteriorLodModel lod)
+    {
+        InteriorLighting? lt = lod.Base;
+        if (lt == null)
+            return;
+        ushort[]?[] maps = InteriorLightMaps.Build(lt, lod.Mission, LightTime);
+        var sizes = new (int, int)[maps.Length];
+        for (int i = 0; i < maps.Length; ++i)
+            sizes[i] = maps[i] == null ? (0, 0) : (lt.Surfaces[i].SizeX, lt.Surfaces[i].SizeY);
+        lod.AtlasW = 1024;
+        lod.LmPos = AtlasPacker.Pack(sizes, lod.AtlasW, out int h);
+        lod.AtlasH = Math.Max(h, 1);
+        lod.AtlasRgba = new byte[lod.AtlasW * lod.AtlasH * 4];
+        for (int i = 0; i < maps.Length; ++i)
+        {
+            if (maps[i] == null)
+                continue;
+            int w = sizes[i].Item1;
+            var (px, py) = lod.LmPos[i];
+            for (int k = 0; k < maps[i]!.Length; ++k)
+            {
+                var (r, g, b) = TerrainData.ExpandLight(maps[i]![k]);
+                int o = ((py + k / w) * lod.AtlasW + px + k % w) * 4;
+                lod.AtlasRgba[o] = r;
+                lod.AtlasRgba[o + 1] = g;
+                lod.AtlasRgba[o + 2] = b;
+                lod.AtlasRgba[o + 3] = 255;
+            }
+        }
+        lod.Atlas = mDev.CreateTexture3D(lod.AtlasRgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
+    }
+
+    private IGfxTexture? MaterialTexture(string? name)
+    {
+        if (name == null)
+        {
+            if (mWhite == null)
+                mWhite = mDev.CreateTexture3D(new byte[] { 255, 255, 255, 255 }, 1, 1, new TextureOptions(false, true, false));
+            return mWhite;
+        }
+        if (mTextures.TryGetValue(name, out IGfxTexture? t))
+            return t;
+        PbmpBitmap? bmp = mAssets.Bitmap(name);
+        t = bmp != null && bmp.Width > 0 && bmp.Height > 0
+            ? mDev.CreateTexture3D(mAssets.Rgba(bmp, true), bmp.Width, bmp.Height, new TextureOptions(true, true, true))
+            : null;
+        mTextures[name] = t;
+        return t;
+    }
+
+    // 3.2: the first LOD whose minPixels is less than the projected size of the bounding sphere, else the last. Inside the
+    // box the first (highest detail) LOD is forced (3.1).
+    public static int FindLod(IReadOnlyList<int> minPixels, int projectedPixels)
+    {
+        for (int i = 0; i < minPixels.Count; ++i)
+            if (minPixels[i] < projectedPixels)
+                return i;
+        return minPixels.Count - 1;
+    }
+
+    private static int ModelLod(InteriorModel model, int pixels, bool inside)
+    {
+        if (inside || model.Shape.Lods.Count == 0)
+            return 0;
+        var mins = model.Shape.Lods.Select(l => (int)l.MinPixels).ToList();
+        return FindLod(mins, pixels);
+    }
+
+    public void Draw(in Camera3D cam, TerrainParams haze)
+    {
+        DrawnSurfaces = DrawnInstances = 0;
+        foreach (Instance inst in Instances)
+        {
+            InteriorModel model = inst.Model;
+            // camera in interior space: local = (world - p) * M^T (rotation matrices are orthonormal)
+            double dx = cam.X - inst.X, dy = cam.Y - inst.Y, dz = cam.Z - inst.Z;
+            float[] m = inst.M;
+            double lx = dx * m[0] + dy * m[1] + dz * m[2], ly = dx * m[3] + dy * m[4] + dz * m[5], lz = dx * m[6] + dy * m[7] + dz * m[8];
+            InteriorLodModel? lod0 = Lod(model, 0);
+            if (lod0 == null)
+                continue;
+            float[] bx = lod0.Geo.Box;
+            bool inside = lx >= bx[0] && lx <= bx[3] && ly >= bx[1] && ly <= bx[4] && lz >= bx[2] && lz <= bx[5];
+            // distance cut: the box must be within the visible distance
+            double ddx = Math.Max(Math.Max(bx[0] - lx, 0), lx - bx[3]), ddy = Math.Max(Math.Max(bx[1] - ly, 0), ly - bx[4]),
+                   ddz = Math.Max(Math.Max(bx[2] - lz, 0), lz - bx[5]);
+            if (Math.Sqrt(ddx * ddx + ddy * ddy + ddz * ddz) >= haze.Visible)
+                continue;
+            // world centre of the box for the view test and the projected size
+            double cxl = lod0.Center[0], cyl = lod0.Center[1], czl = lod0.Center[2];
+            double wcx = cxl * m[0] + cyl * m[3] + czl * m[6] + inst.X, wcy = cxl * m[1] + cyl * m[4] + czl * m[7] + inst.Y,
+                   wcz = cxl * m[2] + cyl * m[5] + czl * m[8] + inst.Z;
+            var (ccx, ccy, ccz) = cam.ToCamera(wcx, wcy, wcz);
+            double distC = Math.Sqrt(ccx * ccx + ccy * ccy + ccz * ccz);
+            if (!inside && !SphereVisible(cam, ccx, ccy, ccz, lod0.Radius))
+                continue;
+            int pixels = distC > 0.001 ? (int)(2 * cam.ProjectRadius(distC, lod0.Radius)) : int.MaxValue;
+            int lodIndex = ModelLod(model, pixels, inside);
+            InteriorLodModel? lod = Lod(model, lodIndex);
+            if (lod == null || lod.Base == null || lod.Atlas == null)
+                continue;
+            // 1.4: one haze amount for the image, from the distance of the object position
+            double od = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            float hz = (float)TerrainLod.ObjectHaze(od, haze.HazeStart, haze.Visible);
+            if (hz <= 0.015f)
+                hz = 0; // 1.2: haze source none at 0.015 or less
+            DrawInstance(inst, lod, (lx, ly, lz), hz);
+            ++DrawnInstances;
+        }
+    }
+
+    private static bool SphereVisible(in Camera3D cam, double cx, double cy, double cz, double r)
+    {
+        // camera space: x right, y forward, z up
+        if (cy + r < cam.Near)
+            return false;
+        double ha = cam.HorizontalFov / 2, va = Math.Atan(Math.Tan(ha) * cam.Height / cam.Width);
+        if (cx * Math.Cos(ha) + cy * Math.Sin(ha) < -r)
+            return false;
+        if (-cx * Math.Cos(ha) + cy * Math.Sin(ha) < -r)
+            return false;
+        if (cz * Math.Cos(va) + cy * Math.Sin(va) < -r)
+            return false;
+        if (-cz * Math.Cos(va) + cy * Math.Sin(va) < -r)
+            return false;
+        return true;
+    }
+
+    private void DrawInstance(Instance inst, InteriorLodModel lod, (double x, double y, double z) camLocal, float haze)
+    {
+        InteriorGeometryData g = lod.Geo;
+        InteriorLighting lt = lod.Base!;
+        float[] m = inst.M;
+        var batches = new Dictionary<int, List<Vertex3D>>();
+        int shiftMip = (int)Math.Min(g.HighestMipLevel, 8u);
+        for (int s = 0; s < g.Surfaces.Length; ++s)
+        {
+            InteriorGeometryData.Surface surf = g.Surfaces[s];
+            if (surf.VertexCount < 3 || surf.Plane * 4 + 3 >= g.Planes.Length)
+                continue;
+            // 3.3 step 6: back-face removal against the surface plane
+            int pi = surf.Plane * 4;
+            double side = g.Planes[pi] * camLocal.x + g.Planes[pi + 1] * camLocal.y + g.Planes[pi + 2] * camLocal.z + g.Planes[pi + 3];
+            if ((side > 0) != surf.PlaneFront)
+                continue;
+            InteriorLighting.Surface ls = lt.Surfaces[s];
+            // texture region in texels (3.5), light map coordinates in pixels of 2^lightScaleShift texels with one margin pixel
+            double sizeX = (surf.TexSizeX + 1) << shiftMip, sizeY = (surf.TexSizeY + 1) << shiftMip;
+            double lmDiv = 1 << (int)lt.LightScaleShift;
+            double baseX = Math.Floor(surf.TexOffsetX / lmDiv) - 1, baseY = Math.Floor(surf.TexOffsetY / lmDiv) - 1;
+            int mat = surf.Material == 255 ? -1 : surf.Material;
+            string? matName = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
+            IGfxTexture? tex = MaterialTexture(matName);
+            double bw = tex?.Width ?? 1, bh = tex?.Height ?? 1;
+            int key = mat;
+            if (!batches.TryGetValue(key, out List<Vertex3D>? list))
+                batches[key] = list = new List<Vertex3D>();
+            var (ax, ay) = lod.LmPos[s];
+            var verts = new Vertex3D[surf.VertexCount];
+            for (int k = 0; k < surf.VertexCount; ++k)
+            {
+                int vi = (int)surf.FirstVertex + k;
+                int a = g.VertexPoint3[vi] * 3, b = g.VertexPoint2[vi] * 2;
+                float px = g.Point3[a], py = g.Point3[a + 1], pz = g.Point3[a + 2];
+                float u = g.Point2[b], v = g.Point2[b + 1];
+                double tx = surf.TexOffsetX + u * sizeX, ty = surf.TexOffsetY + v * sizeY;
+                double lu = ((tx / lmDiv - baseX) + ax) / lod.AtlasW, lv = ((ty / lmDiv - baseY) + ay) / lod.AtlasH;
+                if (matName == null)
+                    (tx, ty, bw, bh) = (0, 0, 1, 1);
+                verts[k] = new Vertex3D(px * m[0] + py * m[3] + pz * m[6] + (float)inst.X, px * m[1] + py * m[4] + pz * m[7] + (float)inst.Y,
+                                        px * m[2] + py * m[5] + pz * m[8] + (float)inst.Z, (float)(tx / bw), (float)(ty / bh), (float)lu,
+                                        (float)lv, haze);
+            }
+            for (int k = 1; k + 1 < verts.Length; ++k)
+            {
+                list.Add(verts[0]);
+                list.Add(verts[k]);
+                list.Add(verts[k + 1]);
+            }
+            ++DrawnSurfaces;
+            _ = ls;
+        }
+        foreach (var (mat, list) in batches)
+        {
+            string? name = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
+            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(name), lod.Atlas));
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (IGfxTexture? t in mTextures.Values)
+            t?.Dispose();
+        mWhite?.Dispose();
+        foreach (InteriorModel? m in mModels.Values)
+            if (m != null)
+                foreach (InteriorLodModel? l in m.Lods)
+                    l?.Atlas?.Dispose();
+    }
+}

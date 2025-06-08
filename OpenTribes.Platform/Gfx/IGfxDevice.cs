@@ -45,8 +45,13 @@ public interface IGfxDevice : IDisposable
     // Reads the surface back, width * height * 4 bytes RGBA, top row first.
     byte[] ReadPixels();
 
-    // 5: 3D primitive submission. Not implemented until C4 (docs/renderer.md 5.1 lists the slots, 5.6 the design).
-    void BeginScene3D();
+    // 5: 3D primitive submission (docs/renderer.md 5, designed in 5.6; the vertex layout and the shading are ours,
+    // docs/world-render.md 7). Vertices are world-space triangles; the device projects them with the camera.
+    // BeginScene3D clears the depth buffer; EndScene3D returns to the 2D state of BeginFrame.
+    IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options);
+    void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB);
+    // Replaces the camera (for example the near and far planes) inside a scene.
+    void SetCamera3D(in Camera3D camera);
+    void Draw3D(ReadOnlySpan<Vertex3D> triangles, in DrawState3D state);
     void EndScene3D();
-    void SetDepthRange(float near, float far);
 }

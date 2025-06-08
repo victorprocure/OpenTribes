@@ -20,7 +20,9 @@ public sealed unsafe class GlApi
     public const uint Framebuffer = 0x8D40, ReadFramebuffer = 0x8CA8, DrawFramebuffer = 0x8CA9, Renderbuffer = 0x8D41,
         ColorAttachment0 = 0x8CE0, DepthAttachment = 0x8D00, FramebufferComplete = 0x8CD5, DepthComponent24 = 0x81A6;
     public const uint Version = 0x1F02, Renderer = 0x1F01, Vendor = 0x1F00, UnpackAlignment = 0x0CF5, PackAlignment = 0x0D05;
-    public const uint Texture0 = 0x84C0;
+    public const uint Texture0 = 0x84C0, Texture1 = 0x84C1;
+    public const uint Less = 0x201, LEqual = 0x203, Always = 0x207, Repeat = 0x2901, LinearMipmapLinear = 0x2703;
+    public const uint CW = 0x900, CCW = 0x901;
 
     private readonly Func<string, IntPtr> mLoader;
 
@@ -91,6 +93,12 @@ public sealed unsafe class GlApi
     public readonly delegate* unmanaged[Cdecl]<int, uint*, void> DeleteSamplers_;
     public readonly delegate* unmanaged[Cdecl]<uint, uint, void> BindSampler_;
     public readonly delegate* unmanaged[Cdecl]<uint, uint, int, void> SamplerParameteri_;
+    public readonly delegate* unmanaged[Cdecl]<uint, void> GenerateMipmap_;
+    public readonly delegate* unmanaged[Cdecl]<uint, void> DepthFunc_;
+    public readonly delegate* unmanaged[Cdecl]<byte, void> DepthMask_;
+    public readonly delegate* unmanaged[Cdecl]<int, float, void> Uniform1f_;
+    public readonly delegate* unmanaged[Cdecl]<int, float, float, float, void> Uniform3f_;
+    public readonly delegate* unmanaged[Cdecl]<int, int, byte, float*, void> UniformMatrix4fv_;
 
     // The loader returns the address of a GL function, or zero (SDL_GL_GetProcAddress).
     public GlApi(Func<string, IntPtr> loader)
@@ -155,6 +163,12 @@ public sealed unsafe class GlApi
         DeleteSamplers_ = (delegate* unmanaged[Cdecl]<int, uint*, void>)Load("glDeleteSamplers");
         BindSampler_ = (delegate* unmanaged[Cdecl]<uint, uint, void>)Load("glBindSampler");
         SamplerParameteri_ = (delegate* unmanaged[Cdecl]<uint, uint, int, void>)Load("glSamplerParameteri");
+        GenerateMipmap_ = (delegate* unmanaged[Cdecl]<uint, void>)Load("glGenerateMipmap");
+        DepthFunc_ = (delegate* unmanaged[Cdecl]<uint, void>)Load("glDepthFunc");
+        DepthMask_ = (delegate* unmanaged[Cdecl]<byte, void>)Load("glDepthMask");
+        Uniform1f_ = (delegate* unmanaged[Cdecl]<int, float, void>)Load("glUniform1f");
+        Uniform3f_ = (delegate* unmanaged[Cdecl]<int, float, float, float, void>)Load("glUniform3f");
+        UniformMatrix4fv_ = (delegate* unmanaged[Cdecl]<int, int, byte, float*, void>)Load("glUniformMatrix4fv");
     }
 
     public string GetString(uint name)
