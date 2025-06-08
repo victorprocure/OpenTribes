@@ -27,8 +27,11 @@ public struct Vertex3D
 
 // docs/renderer.md 5.4 state, reduced to what the world draws use: texture times shade times light map, the haze
 // overlay folded into the fragment (5.5, Q7), alpha blend, keyed transparency (alpha test), depth test and write.
+// BlendKind picks the blend function when Blend is set (shapes-render.md 1.3.2): Translucent is source alpha, Additive adds
+// the colour scaled by alpha, Subtractive multiplies the target by one minus the source colour (renderer.md 5.4).
 public readonly record struct DrawState3D(IGfxTexture? Texture = null, IGfxTexture? LightMap = null, bool Blend = false,
-                                          float AlphaTest = 0f, bool DepthTest = true, bool DepthWrite = true);
+                                          float AlphaTest = 0f, bool DepthTest = true, bool DepthWrite = true,
+                                          BlendMode BlendKind = BlendMode.Translucent);
 
 // docs/world-render.md 1.3: perspective camera in the game's space: +X right, +Y forward, +Z up. Yaw is the z rotation
 // of the Euler transform (interiors.md 5.2: local +Y maps to (-sin yaw, cos yaw, 0), so a positive yaw turns left);

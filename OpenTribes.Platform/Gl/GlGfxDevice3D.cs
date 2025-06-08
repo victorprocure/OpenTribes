@@ -196,7 +196,18 @@ void main() {
         if (state.Blend)
         {
             gl.Enable_(GlApi.Blend);
-            gl.BlendFunc_(GlApi.SrcAlpha, GlApi.OneMinusSrcAlpha);
+            switch (state.BlendKind)
+            {
+                case BlendMode.Additive:
+                    gl.BlendFunc_(GlApi.SrcAlpha, GlApi.ONE);
+                    break;
+                case BlendMode.Subtractive:
+                    gl.BlendFunc_(GlApi.ZERO, GlApi.OneMinusSrcColor);
+                    break;
+                default:
+                    gl.BlendFunc_(GlApi.SrcAlpha, GlApi.OneMinusSrcAlpha);
+                    break;
+            }
         }
         else
         {
