@@ -1,4 +1,4 @@
-// `tribes --demo FILE.rec --at T,T,... [--camera follow|X,Y,Z,YAW,PITCH|ghost:N|orbit:N,DIST,YAW,PITCH] --screenshot OUT`: plays the demo through the
+// `tribes --demo FILE.rec --at T,T,... [--camera follow|X,Y,Z,YAW,PITCH|ghost:N|orbit:N,DIST,YAW,PITCH|action[:DIST]] --screenshot OUT`: plays the demo through the
 // C3a reader and renders the world, the ghosts as shapes and the effects at the given times (ROADMAP M9 C5).
 using System.Globalization;
 using OpenTribes.Client.Shapes;
@@ -131,6 +131,53 @@ public static class DemoRender
         return new CameraPose(cx - fx * distance, cy - fy * distance, cz - fz * distance, yaw * 180 / Math.PI, pitch * 180 / Math.PI, false, -1);
     }
 
+    // `--camera action[:DIST]`: orbits the newest explosion (else a projectile, else a player), pulled towards the nearest
+    // player within 25 m, from the side with a clear line over the terrain.
+    public static CameraPose? ActionCamera(SceneModel m, OpenTribes.World.Terrain? terrain, double dist)
+    {
+        (double x, double y, double z)? pivot = null;
+        foreach (Effects.ExplosionEffect e in m.Effects.OfType<Effects.ExplosionEffect>().OrderBy(e => e.AgeMs))
+        {
+            pivot = e.Origin;
+            break;
+        }
+        pivot ??= m.Visuals.Values.OfType<ProjectileVisual>().Select(v => v.Position).FirstOrDefault(p => p != null);
+        pivot ??= m.Visuals.Values.OfType<PlayerVisual>().Select(v => v.Position).FirstOrDefault(p => p != null);
+        if (pivot is not var (px, py, pz))
+            return null;
+        double bestD = 25 * 25;
+        foreach (PlayerVisual pv in m.Visuals.Values.OfType<PlayerVisual>())
+            if (pv.Position is var (qx, qy, qz) && (qx - px) * (qx - px) + (qy - py) * (qy - py) + (qz - pz) * (qz - pz) < bestD)
+            {
+                bestD = (qx - px) * (qx - px) + (qy - py) * (qy - py) + (qz - pz) * (qz - pz);
+                (px, py, pz) = ((px + qx) / 2, (py + qy) / 2, (pz + qz) / 2 + 0.5);
+            }
+        CameraPose best = default;
+        double bestClear = -1e9;
+        for (int k = 0; k < 12; ++k)
+        {
+            double a = k * Math.PI / 6;
+            double cx = px + Math.Sin(a) * dist, cy = py - Math.Cos(a) * dist, cz = pz + dist * 0.4;
+            double clear = 1e9;
+            for (int i = 0; i <= 10; ++i)
+            {
+                double f = i / 10.0;
+                float h = 0;
+                double sx = cx + (px - cx) * f, sy = cy + (py - cy) * f, sz = cz + (pz - cz) * f;
+                if (terrain != null && terrain.Height((float)sx, (float)sy, ref h))
+                    clear = Math.Min(clear, sz - h);
+            }
+            if (clear > bestClear)
+            {
+                bestClear = clear;
+                double dx = px - cx, dy = py - cy, dz = pz - cz;
+                double yaw = Math.Atan2(-dx, dy) * 180 / Math.PI, pitch = Math.Atan2(dz, Math.Sqrt(dx * dx + dy * dy)) * 180 / Math.PI;
+                best = new CameraPose(cx, cy, cz, yaw, pitch, false, -1);
+            }
+        }
+        return best;
+    }
+
     public static CameraPose? GhostCamera(SceneModel m, int ghost)
     {
         if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v.Position is not var (x, y, z) || v is not PlayerVisual p)
@@ -163,10 +210,13 @@ public static class DemoRender
         }
         double[]? fixedCam = null;
         double[]? orbitCam = null;      // ghost, distance, yaw, pitch
+        double actionDist = 0;
         int ghostCam = -1;
         if (camera != null && camera != "follow")
         {
             if (camera.StartsWith("ghost:", StringComparison.Ordinal) && int.TryParse(camera[6..], out ghostCam)) { }
+            else if (camera.StartsWith("action", StringComparison.Ordinal))
+                actionDist = camera.Length > 7 ? double.Parse(camera[7..], CultureInfo.InvariantCulture) : 14;
             else if (camera.StartsWith("orbit:", StringComparison.Ordinal))
                 orbitCam = camera[6..].Split(',').Select(x => double.Parse(x, CultureInfo.InvariantCulture)).ToArray();
             else
@@ -216,7 +266,8 @@ public static class DemoRender
         foreach (double t in ts)
         {
             play.StepTo(t * 1000);
-            CameraPose? pose = orbitCam != null && model.Visuals.TryGetValue((int)orbitCam[0], out Visual? ov) && ov.Position is var (ox, oy, oz)
+            CameraPose? pose = actionDist > 0 ? ActionCamera(model, scene.TerrainModel, actionDist)
+                : orbitCam != null && model.Visuals.TryGetValue((int)orbitCam[0], out Visual? ov) && ov.Position is var (ox, oy, oz)
                     ? Orbit(ox, oy, oz + 1.2, orbitCam[2] * Math.PI / 180, orbitCam[3] * Math.PI / 180, orbitCam[1])
                 : fixedCam != null ? new CameraPose(fixedCam[0], fixedCam[1], fixedCam[2], fixedCam[3], fixedCam[4], false, -1)
                 : ghostCam >= 0 ? GhostCamera(model, ghostCam) : ControlCamera(model, play.World);
@@ -243,11 +294,11 @@ public static class DemoRender
                     {
                     float gh = float.NaN;
                     scene.TerrainModel?.Height((float)v.Position!.Value.x, (float)v.Position!.Value.y, ref gh);
-                    Console.Error.WriteLine($"    {v.Index} {v.Class} {v.Position!.Value.x:F1},{v.Position!.Value.y:F1},{v.Position!.Value.z:F1} ground {gh:F1}");
+                    Console.Error.WriteLine($"    {v.Index} {v.Class} {v.Position!.Value.x:F1},{v.Position!.Value.y:F1},{v.Position!.Value.z:F1} ground {gh:F1}" + (v is PlayerVisual pvv ? $" anim {pvv.AnimIndex} skin {pvv.SkinName} shape {pvv.ArmorShape}" : ""));
                 }
             Console.Error.WriteLine($"  t={t}: camera {c.X:F1},{c.Y:F1},{c.Z:F1} yaw {c.YawDeg:F0} pitch {c.PitchDeg:F0}; visuals {model.Visuals.Count} effects {model.Effects.Count} puffs {model.Smoke.Live} decals {model.Decals.Count}; images {images} draws {draws} -> {path}");
         }
-        Console.Error.WriteLine($"  explosions {model.ExplosionsSpawned}, footprints {model.FootprintsAdded}, bullet holes {model.BulletHolesAdded}, missing files: {string.Join(" ", assets.Missing.Take(12))}");
+        Console.Error.WriteLine($"  explosions {model.ExplosionsSpawned}, footprints {model.FootprintsAdded} (triggers {model.TriggerCount}, on ground {model.ContactTriggers}), bullet holes {model.BulletHolesAdded}, missing files: {string.Join(" ", assets.Missing.Take(12))}");
         return 0;
     }
 }

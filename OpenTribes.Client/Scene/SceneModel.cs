@@ -26,7 +26,7 @@ public sealed class SceneModel
     public bool AnimateWithTransitions;       // $pref::animateWithTransitions, default off (3.3)
     public double PlayerShapeDetail = 1;      // $pref::playerShapeDetail
     public LightSet BaseLight = LightSet.Default();
-    public int ExplosionsSpawned, FootprintsAdded, BulletHolesAdded;
+    public int TriggerCount, ContactTriggers, ExplosionsSpawned, FootprintsAdded, BulletHolesAdded;
     private bool mDecalsLoaded;
 
     public SceneModel(ClientWorld world, ShapeAssets assets, ShapeRenderer renderer, Terrain? terrain, int smokePuffs = 100, int decals = 50)

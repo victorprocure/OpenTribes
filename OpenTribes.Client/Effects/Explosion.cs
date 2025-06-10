@@ -47,6 +47,8 @@ public sealed class ExplosionEffect : IEffect
     private readonly bool mFace, mShift;
     private double mAge;                       // ms
     public readonly LightCurve? Curve;
+    public (double x, double y, double z) Origin => (mX, mY, mZ);
+    public double AgeMs => mAge;
     public double LifeMs { get; }
 
     public bool Alive => mAge < LifeMs;

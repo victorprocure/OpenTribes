@@ -23,7 +23,8 @@ public sealed class PlayerVisual : ShapeVisual
     private RenderThread? mAnim, mLooks;
     private int mAnimIndex = -1;
     private double mVx, mVy, mVz, mUpdateTime;
-    private bool mDead, mContact;
+    private bool mDead, mContact, mJet, mJump, mCrouch;
+    private double mSignalUntil, mNextChoice;
     private readonly ImageMount?[] mImages = new ImageMount?[8];
     private RenderShape? mFlameShape;
     private RenderInstance? mFlame;
@@ -32,6 +33,7 @@ public sealed class PlayerVisual : ShapeVisual
     private readonly List<uint> mTriggers = new();
     public bool Exploded { get; private set; }
     public int AnimIndex => mAnimIndex;
+    public string SkinName => Skin;
     public IReadOnlyList<ImageMount?> Images => mImages;
 
     public override void Init(SceneModel m, ClientGhost g)
@@ -100,8 +102,21 @@ public sealed class PlayerVisual : ShapeVisual
             mContact = Num("flag1f4") != 0;
         if (has("mount") && Ghost.State.TryGetValue("mountGhost", out object? mg) && has("mount"))
             MountGhost = (int)Db.ToDouble(mg);
+        if (has("move") && Ghost.State["move"] is string mv)
+        {
+            mJet = mv.Contains("jet=1", StringComparison.Ordinal);
+            mJump = mv.Contains("jump=1", StringComparison.Ordinal);
+        }
+        if (has("flagfee"))
+            mCrouch = Num("flagfee") != 0;
         if (has("f98") && !mDead)
-            SetAnimation((int)Num("f98"));
+        {
+            int a = (int)Num("f98");
+            SetAnimation(a);
+            // signal animations (38 to 50) play once, then the movement choice takes over again
+            if (a >= 38 && Shape != null && Shape.FindSequence(AnimData(a)?.Name ?? "") is int sq && sq >= 0)
+                mSignalUntil = M.Time + Shape.Sequences[sq].Duration;
+        }
         if (has("dead"))
         {
             bool exploded = !has("deathAnim");
@@ -155,8 +170,6 @@ public sealed class PlayerVisual : ShapeVisual
             return;
         int seq = Shape.FindSequence(ad.Value.Name);
         if (seq < 0)
-            seq = ad.Value.Seq >= 0 && ad.Value.Seq < Shape.Sequences.Length ? ad.Value.Seq : -1;
-        if (seq < 0)
             return;
         mAnimIndex = index;
         mAnim.Priority = ad.Value.Prio;
@@ -173,6 +186,32 @@ public sealed class PlayerVisual : ShapeVisual
         // 3.4 view flags: bit 2 lets the looks thread override the aim nodes of a third person view.
         if (mLooks != null)
             mLooks.Sequence = (ad.Value.ViewFlags & 4) != 0 ? Shape.FindSequence("looks") : -1;
+    }
+
+    // player-sim.md 5.4 (first match wins): mounted, jetting or jumping in the air, falling, crouching, else the best of the four
+    // ground motion candidates by the velocity along each travel direction (threshold 0.35 m/s). Every 65 ms.
+    public int ChooseAnimation()
+    {
+        if (MountGhost >= 0 && Num("mountGhost", -1) >= 0)
+            return 23;
+        if (mJet || (mJump && !mContact))
+            return 19;
+        if (!mContact && mVz < -3)
+            return 14;
+        double c = Math.Cos(Yaw), s = Math.Sin(Yaw);
+        double right = mVx * c + mVy * s, fwd = -mVx * s + mVy * c;
+        (int Index, double Dir)[] cand = mCrouch
+            ? new[] { (10, fwd), (11, -fwd), (12, -right), (13, right) }
+            : new[] { (1, fwd), (2, -fwd), (3, -right), (4, right) };
+        int pick = mCrouch ? 8 : 0;
+        double best = 0.35;
+        foreach (var (idx, d) in cand)
+            if (d > best)
+            {
+                best = d;
+                pick = idx;
+            }
+        return pick;
     }
 
     protected override Xf PoseXf() => Xf.Euler(0, 0, Yaw).Then(Xf.Translate(X + mExtrapX, Y + mExtrapY, Z + mExtrapZ));
@@ -238,6 +277,11 @@ public sealed class PlayerVisual : ShapeVisual
         if (Inst == null || mAnim == null)
             return;
         // extrapolate the last update by its velocity, at most 0.3 s
+        if (!mDead && M.Time >= mNextChoice && M.Time >= mSignalUntil)
+        {
+            mNextChoice = M.Time + 0.065;
+            SetAnimation(ChooseAnimation());
+        }
         double age = Math.Clamp(M.Time - mUpdateTime, 0, 0.3);
         (mExtrapX, mExtrapY, mExtrapZ) = (mVx * age, mVy * age, mVz * age);
         mAnim.TimeScale = (mAnim.TimeScale < 0 ? -1 : 1) * (mDead ? 1 : SpeedScale());
@@ -246,8 +290,13 @@ public sealed class PlayerVisual : ShapeVisual
         if (mLooks != null)
             mLooks.Position = Math.Clamp(0.5 - ViewPitch / 2.8, 0, 1);
         foreach (uint t in mTriggers)
+        {
+            ++M.TriggerCount;
+            if (mContact)
+                ++M.ContactTriggers;
             if (t is 1 or 2 && mContact && !mDead)
                 M.AddFootprint(this, t == 1 ? 1 : -1);
+        }
         mJetting = mAnimIndex == 19 && !mDead;
         if (mFlame != null && mFlameThread != null)
             mFlame.Advance(mFlameThread, dt);

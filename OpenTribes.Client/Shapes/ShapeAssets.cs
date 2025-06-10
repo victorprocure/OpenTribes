@@ -33,6 +33,9 @@ public sealed class ShapeAssets : IDisposable
 
     public bool Exists(string name) => GfxAssets.Read(World.Res, name, out _);
 
+    // Installs a shape built in memory (tests and generated effects) under a name.
+    public void Register(string name, RenderShape shape) => mShapes[name] = shape;
+
     public RenderShape? Shape(string name)
     {
         if (name.Length == 0)
