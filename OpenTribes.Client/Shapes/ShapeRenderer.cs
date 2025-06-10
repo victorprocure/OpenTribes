@@ -20,6 +20,7 @@ public sealed class ShapeDraw
     public double HazeStart = 1e9, Visible = 1e9;
     public double SortBias;            // added to the key (the flame draws just in front of the body)
     public string Label = "";
+    public HashSet<int>? ObjectFilter;  // draw only these objects (debris parts)
 }
 
 public sealed class ShapeRenderer
@@ -121,7 +122,7 @@ public sealed class ShapeRenderer
         {
             RsObject ob = sh.Objects[oi];
             RsObjectState st = inst.Objects[oi];
-            if (!nodeSet.Contains(ob.Node) || !st.Visible || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
+            if ((p.ObjectFilter != null && !p.ObjectFilter.Contains(oi)) || !nodeSet.Contains(ob.Node) || !st.Visible || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                 continue;
             RsMesh mesh = sh.Meshes[ob.Mesh];
             if (mesh.Faces.Length == 0 || mesh.Frames.Length == 0)

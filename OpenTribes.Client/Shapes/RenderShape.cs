@@ -88,6 +88,22 @@ public sealed class RenderShape
         return -1;
     }
 
+    // A node in the subtree of `detail` whose name is `baseName` plus the digits of the detail suffix ("dummy hand" finds
+    // "dummy hand36" in detail 0 of the armors); -1 when none.
+    public int FindNodeBase(string baseName, int detail)
+    {
+        foreach (int n in Subtree(DetailRoot(detail)))
+        {
+            int ni = Nodes[n].Name;
+            if (ni < 0 || ni >= Names.Length)
+                continue;
+            string nm = Names[ni];
+            if (nm.StartsWith(baseName, StringComparison.OrdinalIgnoreCase) && nm.AsSpan(baseName.Length).ToString().All(char.IsDigit))
+                return n;
+        }
+        return FindNode(baseName);
+    }
+
     public int FindSequence(string name)
     {
         int n = FindName(name);

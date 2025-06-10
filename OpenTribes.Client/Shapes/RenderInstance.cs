@@ -44,6 +44,8 @@ public sealed class RenderInstance
         for (int i = 0; i < Remap.Length; ++i)
             Remap[i] = i;
         NodeWorld = new Xf[shape.Nodes.Length];
+        for (int i = 0; i < NodeWorld.Length; ++i)
+            NodeWorld[i] = Xf.Identity;
         Objects = new RsObjectState[shape.Objects.Length];
         LocalQ = new double[shape.Nodes.Length][];
         LocalT = new double[shape.Nodes.Length][];

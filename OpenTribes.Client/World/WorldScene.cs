@@ -26,7 +26,11 @@ public sealed class WorldScene : IDisposable
     public int InteriorCount, InteriorFailed, TerrainBlockSize;
     public double TerrainOriginX, TerrainOriginY;
     public (float r, float g, float b) ClearColor = (0, 0, 0);
+    // The first Planet's light for shapes (world-render.md 4.3, 5): azimuth and incidence in degrees, intensity and ambient colours.
+    public double SunAzimuth, SunIncidence = 60;
+    public double[] SunIntensity = { 0.55, 0.55, 0.55 }, SunAmbient = { 0.45, 0.45, 0.45 };
     public WorldAssets Assets = null!;
+    public OpenTribes.World.Terrain? TerrainModel;   // for ground queries of the effects (footprints, bullet holes)
     private readonly IGfxDevice mDev;
 
     private WorldScene(IGfxDevice dev) => mDev = dev;
@@ -59,7 +63,15 @@ public sealed class WorldScene : IDisposable
         res.SetSearchPath("config;base;base\\missions");
         foreach (MissionObject o in all.Where(o => o.Class == "SimVolume"))
             res.AddVolume(o.Get("fileName"));
+        return LoadFrom(dev, res, missionName, all, out error);
+    }
 
+    // The renderers of a world from its objects and an already mounted resource manager. A demo builds the objects from the
+    // environment ghosts of the stream (SimVolume, SimPalette, SimTerrain, Sky, StarField, Planet, InteriorShape).
+    public static WorldScene LoadFrom(IGfxDevice dev, ResourceManager res, string missionName, List<MissionObject> all, out string error)
+    {
+        error = "";
+        var scene = new WorldScene(dev) { MissionName = missionName };
         MissionObject? pal = all.FirstOrDefault(o => o.Class == "SimPalette");
         PaletteBank? bank = pal != null ? GfxAssets.LoadPalette(res, pal.Get("fileName")) : null;
         bank ??= PaletteTables.Grayscale();
@@ -111,6 +123,14 @@ public sealed class WorldScene : IDisposable
             }
             scene.StarColors = cols;
         }
+        MissionObject? sun = all.FirstOrDefault(o => o.Class == "Planet");
+        if (sun != null)
+        {
+            scene.SunAzimuth = sun.GetDouble("azimuth", 0);
+            scene.SunIncidence = sun.GetDouble("incidence", 60);
+            scene.SunIntensity = sun.GetVector("intensity");
+            scene.SunAmbient = sun.GetVector("ambient");
+        }
         foreach (MissionObject o in all.Where(o => o.Class == "Planet"))
         {
             string bmp = o.Get("fileName");
@@ -137,6 +157,9 @@ public sealed class WorldScene : IDisposable
             error = "terrain not loadable: " + ted;
             return;
         }
+        double[] tpos = o.GetVector("position");
+        t.SetPosition(new OpenTribes.World.Vec3((float)tpos[0], (float)tpos[1], (float)tpos[2]));
+        TerrainModel = t;
         int dot = ted.LastIndexOf('.');
         string stem = dot < 0 ? ted : ted[..dot];
         var block = new GridBlock();
@@ -162,7 +185,7 @@ public sealed class WorldScene : IDisposable
     public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background) =>
         new(x, y, z, yaw, pitch, fov, w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10));
 
-    public void Render(double x, double y, double z, double yaw, double pitch, double fov)
+    public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null)
     {
         int w = mDev.Width, h = mDev.Height;
         mDev.BeginFrame();
@@ -180,6 +203,7 @@ public sealed class WorldScene : IDisposable
         mDev.SetCamera3D(world);
         TerrainDraw?.Draw(world);
         Interiors?.Draw(world, Terrain);
+        overlay?.Invoke(world);
         mDev.EndScene3D();
         mDev.EndFrame();
     }

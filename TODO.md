@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Client
 
-- [ ] Draw shapes and effects.
 - [ ] Menus and HUD.
 - [ ] Sound.
 - [ ] Run the client as a game: menus, joining and playing.
@@ -57,3 +56,4 @@ way are added to Open.
 ### Shapes, weapons and effects
 
 - [x] Shape loading and animation.
+- [x] Players, shapes and effects drawn from a demo.

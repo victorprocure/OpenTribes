@@ -37,9 +37,10 @@ server scripts). Run `out/tribes-server` with a wrong option to see all its opti
 ## Run the client
 
 The client is not playable yet.
-It can draw a mission to an image:
+It can draw a mission or a recorded demo to an image:
 
     out/tribes --root /path/to/Tribes --mission Broadside --camera -190,-260,215,0,-10 --screenshot out.png
+    out/tribes --root /path/to/Tribes --demo Recordings/Ruckus.rec --at 54 --screenshot out.png
 
 The camera is `X,Y,Z,YAW,PITCH`, in world units and degrees.
 

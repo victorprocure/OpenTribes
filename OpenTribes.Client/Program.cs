@@ -13,6 +13,8 @@ public static class Program
     private const string Usage =
         "usage: tribes --root DIR [--show RESOURCE] [--palette PPL|PAL] [--font PFT [--text STRING]]\n" +
         "              [--screenshot OUT.ppm [--frames N]] [--size WxH] [--video-driver NAME]\n" +
+        "       tribes --root DIR --demo FILE.rec --at SEC,SEC,... [--camera follow|X,Y,Z,YAW,PITCH|ghost:N] [--fov DEG] --screenshot OUT\n" +
+        "       tribes --root DIR --shape-census | --shape-info NAME\n" +
         "       tribes --root DIR --mission NAME (--camera X,Y,Z,YAW,PITCH | --cameras FILE) [--fov DEG] --screenshot OUT\n" +
         "  --root DIR          game directory; every .vol in DIR/base is mounted\n" +
         "  --show NAME         draw that bitmap (.bmp) centred until the window is closed\n" +
@@ -30,7 +32,9 @@ public static class Program
     private sealed class Options
     {
         public string Root = "";
-        public string? Show, Palette, Font, Screenshot, VideoDriver, Mission, Camera, Cameras;
+        public string? Show, Palette, Font, Screenshot, VideoDriver, Mission, Camera, Cameras, Demo, At, Shape, Seq;
+        public double Pos;
+        public string Skin = "";
         public double Fov = World.WorldScene.DefaultFov;
         public string Text = "The quick brown fox jumps over the lazy dog 0123456789";
         public int Frames = 3;
@@ -46,8 +50,17 @@ public static class Program
             return 2;
         }
 
+        int si = Array.IndexOf(args, "--shape-info");
+        if (si >= 0 && si + 1 < args.Length)
+            return Shapes.ShapeInfo.Report(o.Root, args[si + 1]);
         if (args.Contains("--shape-census"))
             return Shapes.ShapeCensus.Report(o.Root);
+
+        if (o.Shape != null)
+            return Shapes.ShapeView.Run(o.Root, o.Shape, o.Palette, o.Seq, o.Pos, o.Camera, o.Screenshot, o.Width, o.Height, o.VideoDriver, o.Skin);
+
+        if (o.Demo != null)
+            return Scene.DemoRender.Run(o.Root, o.Demo, o.At ?? "0", o.Camera, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
         if (o.Mission != null)
             return World.MissionRender.Run(o.Root, o.Mission, o.Camera, o.Cameras, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
@@ -169,6 +182,7 @@ public static class Program
             switch (a)
             {
                 case "--root": o.Root = v; break;
+                case "--shape-info": break;
                 case "--show": o.Show = v; break;
                 case "--palette": o.Palette = v; break;
                 case "--font": o.Font = v; break;
@@ -176,6 +190,12 @@ public static class Program
                 case "--screenshot": o.Screenshot = v; break;
                 case "--video-driver": o.VideoDriver = v; break;
                 case "--mission": o.Mission = v; break;
+                case "--demo": o.Demo = v; break;
+                case "--shape": o.Shape = v; break;
+                case "--seq": o.Seq = v; break;
+                case "--skin": o.Skin = v; break;
+                case "--pos": o.Pos = double.Parse(v, CultureInfo.InvariantCulture); break;
+                case "--at": o.At = v; break;
                 case "--camera": o.Camera = v; break;
                 case "--cameras": o.Cameras = v; break;
                 case "--fov":

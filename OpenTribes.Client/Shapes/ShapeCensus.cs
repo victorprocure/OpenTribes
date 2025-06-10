@@ -99,3 +99,49 @@ public static class ShapeCensus
         return r.Failed + r.Exceptions == 0 ? 0 : 1;
     }
 }
+
+public static class ShapeInfo
+{
+    // `tribes --shape-info NAME`: a text summary of one shape (details, objects with frame 0 bounds, sequences, materials).
+    public static int Report(string root, string name)
+    {
+        ResourceManager res = GfxAssets.Mount(root, out _);
+        if (!GfxAssets.Read(res, name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase) ? name : name + ".dts", out byte[] data) ||
+            RenderShape.Parse(data, name) is not RenderShape s)
+        {
+            Console.Error.WriteLine("shape not found: " + name);
+            return 1;
+        }
+        Console.WriteLine($"{name} v{s.Version} radius {s.Radius:F2} center {s.Cx:F2},{s.Cy:F2},{s.Cz:F2} remap {s.RemapSize} always {s.AlwaysNode}");
+        Console.WriteLine("details: " + string.Join(" ", s.Details.Select(d => $"{s.Names[s.Nodes[d.RootNode].Name]}@{d.Size}")));
+        for (int i = 0; i < s.Nodes.Length; ++i)
+            Console.WriteLine($"node {i} {s.Names[s.Nodes[i].Name]} parent {s.Nodes[i].Parent}");
+        for (int i = 0; i < s.Objects.Length; ++i)
+        {
+            RsObject o = s.Objects[i];
+            string bb = "";
+            if (o.Mesh >= 0 && o.Mesh < s.Meshes.Length && s.Meshes[o.Mesh].Frames.Length > 0)
+            {
+                RsMesh m = s.Meshes[o.Mesh];
+                RsFrame f = m.Frames[0];
+                double[] lo = { 1e9, 1e9, 1e9 }, hi = { -1e9, -1e9, -1e9 };
+                for (int k = 0; k < Math.Max(m.VertsPerFrame, 1) && (f.FirstVert + k) * 4 + 2 < m.Verts.Length; ++k)
+                {
+                    int p = (f.FirstVert + k) * 4;
+                    double[] v = { m.Verts[p] * f.Sx + f.Ox, m.Verts[p + 1] * f.Sy + f.Oy, m.Verts[p + 2] * f.Sz + f.Oz };
+                    for (int c = 0; c < 3; ++c) { lo[c] = Math.Min(lo[c], v[c]); hi[c] = Math.Max(hi[c], v[c]); }
+                }
+                bb = $"verts {m.VertsPerFrame} faces {m.Faces.Length} frames {m.Frames.Length} tvpf {m.TexVertsPerFrame} bbox {lo[0]:F2},{lo[1]:F2},{lo[2]:F2} .. {hi[0]:F2},{hi[1]:F2},{hi[2]:F2}";
+            }
+            Console.WriteLine($"object {i} {s.Names[o.Name]} node {o.Node} flags {o.Flags:x} mesh {o.Mesh} off {o.Ox:F2},{o.Oy:F2},{o.Oz:F2} {bb}");
+        }
+        for (int i = 0; i < s.Sequences.Length; ++i)
+        {
+            RsSequence q = s.Sequences[i];
+            Console.WriteLine($"seq {i} {s.SequenceName(i)} cyclic {q.Cyclic} dur {q.Duration:F3} prio {q.Priority} trig {q.NumTriggers} ifl {q.NumIfl}");
+        }
+        for (int i = 0; i < s.Materials.Length; ++i)
+            Console.WriteLine($"mat {i} flags {s.Materials[i].Flags:x} pal {s.Materials[i].PaletteIndex} rgb {s.Materials[i].R},{s.Materials[i].G},{s.Materials[i].B} {s.Materials[i].Name}");
+        return 0;
+    }
+}
