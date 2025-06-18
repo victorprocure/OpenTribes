@@ -14,6 +14,9 @@ public static class Program
         "usage: tribes --root DIR [--show RESOURCE] [--palette PPL|PAL] [--font PFT [--text STRING]]\n" +
         "              [--screenshot OUT.ppm [--frames N]] [--size WxH] [--video-driver NAME]\n" +
         "       tribes --root DIR --demo FILE.rec --at SEC,SEC,... [--camera follow|X,Y,Z,YAW,PITCH|ghost:N] [--fov DEG] --screenshot OUT\n" +
+        "       tribes --root DIR --gui NAME.gui [--exec SCRIPT.cs] [--input EVENTS] [--screenshot OUT.png] [--size WxH]\n" +
+        "       tribes --root DIR --demo FILE.rec --at SEC --hud --screenshot OUT.png\n" +
+        "       tribes --root DIR --gui-census | --gui-list PATTERN\n" +
         "       tribes --root DIR --shape-census | --shape-info NAME\n" +
         "       tribes --root DIR --mission NAME (--camera X,Y,Z,YAW,PITCH | --cameras FILE) [--fov DEG] --screenshot OUT\n" +
         "  --root DIR          game directory; every .vol in DIR/base is mounted\n" +
@@ -32,7 +35,7 @@ public static class Program
     private sealed class Options
     {
         public string Root = "";
-        public string? Show, Palette, Font, Screenshot, VideoDriver, Mission, Camera, Cameras, Demo, At, Shape, Seq;
+        public string? Gui, Exec, Input, Show, Palette, Font, Screenshot, VideoDriver, Mission, Camera, Cameras, Demo, At, Shape, Seq;
         public double Pos;
         public string Skin = "";
         public double Fov = World.WorldScene.DefaultFov;
@@ -56,8 +59,20 @@ public static class Program
         if (args.Contains("--shape-census"))
             return Shapes.ShapeCensus.Report(o.Root);
 
+        int gl = Array.IndexOf(args, "--gui-list");
+        if (gl >= 0 && gl + 1 < args.Length)
+            return Gui.GuiCensus.List(o.Root, args[gl + 1]);
+        int gt = Array.IndexOf(args, "--gui-tree");
+        if (gt >= 0 && gt + 1 < args.Length)
+            return Gui.GuiCensus.Tree(o.Root, args[gt + 1]);
+        if (args.Contains("--gui-census"))
+            return Gui.GuiCensus.Run(o.Root);
+
         if (o.Shape != null)
             return Shapes.ShapeView.Run(o.Root, o.Shape, o.Palette, o.Seq, o.Pos, o.Camera, o.Screenshot, o.Width, o.Height, o.VideoDriver, o.Skin);
+
+        if (o.Gui != null)
+            return Gui.GuiRun.Run(o.Root, o.Gui, o.Exec, o.Input, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
         if (o.Demo != null)
             return Scene.DemoRender.Run(o.Root, o.Demo, o.At ?? "0", o.Camera, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
@@ -171,7 +186,7 @@ public static class Program
             string a = args[i];
             if (a is "-h" or "--help")
                 return null;
-            if (a == "--shape-census")
+            if (a is "--shape-census" or "--gui-census" or "--hud")
                 continue;
             if (i + 1 >= args.Length)
             {
@@ -182,8 +197,11 @@ public static class Program
             switch (a)
             {
                 case "--root": o.Root = v; break;
-                case "--shape-info": break;
+                case "--shape-info": case "--gui-list": case "--gui-tree": break;
                 case "--show": o.Show = v; break;
+                case "--gui": o.Gui = v; break;
+                case "--exec": o.Exec = v; break;
+                case "--input": o.Input = v; break;
                 case "--palette": o.Palette = v; break;
                 case "--font": o.Font = v; break;
                 case "--text": o.Text = v; break;

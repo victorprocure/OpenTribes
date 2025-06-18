@@ -9,5 +9,6 @@
     <ProjectReference Include="..\OpenTribes.Platform\OpenTribes.Platform.csproj" />
     <ProjectReference Include="..\OpenTribes.World\OpenTribes.World.csproj" />
     <ProjectReference Include="..\OpenTribes.Game\OpenTribes.Game.csproj" />
+    <ProjectReference Include="..\OpenTribes.Gui\OpenTribes.Gui.csproj" />
   </ItemGroup>
 </Project>

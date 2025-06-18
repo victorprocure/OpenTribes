@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Client
 
-- [ ] Menus and HUD.
 - [ ] Sound.
 - [ ] Run the client as a game: menus, joining and playing.
 
@@ -62,3 +61,4 @@ way are added to Open.
 ### Menus and HUD
 
 - [x] GUI: `.gui` loader and writer, canvas, class table, console commands, controls (including lists and widgets) and the HUD.
+- [x] Screenshots of GUI screens.
