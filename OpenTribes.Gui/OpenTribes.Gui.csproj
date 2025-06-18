@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>OpenTribes.Gui</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />
+    <ProjectReference Include="..\OpenTribes.Script\OpenTribes.Script.csproj" />
+    <ProjectReference Include="..\OpenTribes.Platform\OpenTribes.Platform.csproj" />
+    <ProjectReference Include="..\OpenTribes.Game\OpenTribes.Game.csproj" />
+  </ItemGroup>
+</Project>

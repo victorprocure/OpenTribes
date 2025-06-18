@@ -61,4 +61,4 @@ way are added to Open.
 
 ### Menus and HUD
 
-- [x] GUI: `.gui` loader, canvas, class table, console commands, controls (including lists and widgets) and the HUD.
+- [x] GUI: `.gui` loader and writer, canvas, class table, console commands, controls (including lists and widgets) and the HUD.
