@@ -1,0 +1,357 @@
+// docs/gui.md 1: the `.gui` object file reader. The class tags, the block header (1.2), the SimGui::Control body (1.3) and
+// one body routine per load address of 1.4. Routines are written as op lists that the same code reads and writes.
+using System.Text;
+
+namespace OpenTribes.Gui;
+
+public sealed record GuiClassRow(string Name, string Tag, string Parent, int Size, string Load);
+
+public sealed class GuiLoadException : Exception
+{
+    public int Code;
+    public GuiLoadException(int code, string message) : base(message) => Code = code;
+}
+
+public static partial class GuiClassTable
+{
+    private static Dictionary<string, GuiClassRow>? sByTag, sByName;
+
+    public static GuiClassRow? ByTag(string tag)
+    {
+        sByTag ??= Rows.Where(r => r.Tag.Length > 0).ToDictionary(r => r.Tag, StringComparer.Ordinal);
+        return sByTag.GetValueOrDefault(tag);
+    }
+
+    public static GuiClassRow? ByName(string name)
+    {
+        sByName ??= Rows.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
+        if (sByName.TryGetValue(name, out GuiClassRow? row))
+            return row;
+        // The scripts also name the classes without the namespace.
+        foreach (string ns in new[] { "SimGui::", "FearGui::" })
+            if (sByName.TryGetValue(ns + name, out row))
+                return row;
+        return null;
+    }
+
+    // True when the class is a control (everything but the delegates and the canvas).
+    public static bool IsControl(GuiClassRow r) => !r.Name.EndsWith("Delegate", StringComparison.Ordinal) && r.Name != "SimGui::Canvas";
+}
+
+// Little endian cursor over a block body.
+public sealed class GuiBytes
+{
+    public readonly byte[] Data;
+    public int Pos;
+    public int End;
+    public GuiBytes(byte[] data, int pos, int end) { Data = data; Pos = pos; End = end; }
+
+    private void Need(int n)
+    {
+        if (Pos + n > End)
+            throw new GuiLoadException(1, "read past the end of the block");
+    }
+
+    public byte U8() { Need(1); return Data[Pos++]; }
+    public byte Peek() { Need(1); return Data[Pos]; }
+
+    public uint U32()
+    {
+        Need(4);
+        uint v = BitConverter.ToUInt32(Data, Pos);
+        Pos += 4;
+        return v;
+    }
+
+    public int I32() => (int)U32();
+
+    public string Pstr()
+    {
+        int n = U8();
+        Need(n);
+        string s = Encoding.Latin1.GetString(Data, Pos, n);
+        Pos += n;
+        return s;
+    }
+
+    public string Buf81()
+    {
+        Need(81);
+        int n = Array.IndexOf(Data, (byte)0, Pos, 81);
+        string s = Encoding.Latin1.GetString(Data, Pos, (n < 0 ? Pos + 81 : n) - Pos);
+        Pos += 81;
+        return s;
+    }
+
+    public string Tag4()
+    {
+        Need(4);
+        string s = Encoding.Latin1.GetString(Data, Pos, 4);
+        Pos += 4;
+        return s;
+    }
+}
+
+public static class GuiLoader
+{
+    // docs/gui.md 1.4: the body of each load routine in read order. `u8 x`, `u32 x`, `i32 x`, `pstr x`, `buf81 x`
+    // store a named field, `skip32`, `skip81` read and drop, `@R` runs routine R (a control body ends with @Control).
+    public static readonly Dictionary<string, string[]> Routines = new()
+    {
+        ["Active"] = new[] { "u8 active", "u32 messageTag", "@Control" },
+        ["SimpleText"] = new[] { "skip32", "skip32", "u32 disabledFontTag", "u32 fontTag", "u32 highlightFontTag", "u32 textTag", "buf81 text", "u32 alignment", "u32 textVOffset", "@Active" },
+        ["TextEdit"] = new[] { "u32 numbersOnly", "skip32", "skip32", "u32 maxLength", "@SimpleText" },
+        ["Chat"] = new[] { "u32 chatA", "u32 chatB", "u32 chatC", "u32 chatD", "@TextEdit" },
+        ["Check"] = new[] { "u8 checked", "@SimpleText" },
+        ["Bitmap"] = new[] { "u32 bitmapTag", "skip81", "u8 transparent", "@Active" },
+        ["FGBitmap"] = new[] { "@Bitmap", "u32 translucency" },
+        ["Palette"] = new[] { "u32 paletteTag", "skip81", "@Control" },
+        ["Progress"] = new[] { "u32 progressA", "u32 progressB", "u32 progressC", "@Active" },
+        ["Timer"] = new[] { "u32 messageTag", "u32 initialAlarm", "u32 repeatAlarm", "@Control" },
+        ["BitmapBox"] = new[] { "u32 boxValue", "@Control" },
+        ["Scroll"] = new[] { "u32 pbaTag", "u8 handleArrowKeys", "u32 horizontalPolicy", "u32 verticalPolicy", "u8 constantThumb", "@Control" },
+        ["Matrix"] = new[] { "u32 headerX", "u32 headerY", "@Scroll" },
+        ["FGScroll"] = new[] { "skip32", "u32 style", "@Matrix" },
+        ["HudMatrix"] = new[] { "u32 lowResX", "u32 lowResY", "u32 lowResW", "u32 lowResH", "@Matrix" },
+        ["TextList"] = new[] { "u32 fontTag", "u32 highlightFontTag", "u32 textVOffset", "u8 enumerate", "u8 noDuplicates", "@Active" },
+        ["TextWrap"] = new[] { "skip32", "u32 fontTag", "u32 disabledFontTag", "u32 textTag", "u32 lineSpacing", "u32 alignment", "@Active" },
+        ["Slider"] = new[] { "u32 minValue", "u32 maxValue", "u32 value", "@Active" },
+        ["FGSlider"] = new[] { "skip32", "u32 sliderVersion", "@Slider" },
+        ["Animate"] = new[] { "u32 pbaTag", "u32 frameTime", "skip32", "u32 loopWait", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "@Active" },
+        ["TSControl"] = new[] { "u8 produce3dEvents", "@Control" },
+        ["IrcScroll"] = new[] { "u8 rotation", "@Active" },
+        ["MenuItem"] = new[] { "u32 tabPage", "u8 tabSet", "u8 expanded", "@SimpleText" },
+        ["ShapeView"] = new[] { "pstr shapeFile", "@Active" },
+        ["Dialog"] = new[] { "u32 maxWidth", "u32 maxHeight", "@Control" },
+        ["AbortDlg"] = new[] { "u32 abortA", "u32 abortB", "@Dialog" },
+        ["DlgBox"] = new[] { "skip32", "@Active" },
+        ["ChatDisplay"] = new[] { "u32 offsetX", "u32 offsetY", "u32 lines", "u32 visibleFlag", "u32 chatE", "@Hud" },
+        ["ChatMenu"] = new[] { "skip32", "pstr menuName", "@Control" },
+        ["Hud"] = new[] { "u32 hudX", "u32 hudY", "u32 hudW", "u32 hudH", "u32 hudVisible", "@Control" },
+        ["Combo"] = new[] { "skip32", "pstr popupName", "@SimpleText" },
+        ["Radio"] = new[] { "u8 selected", "@Active" },
+        ["Switch"] = new[] { "u32 targetId", "u32 switchB", "u32 switchC", "u8 switchD", "@Active" },
+        ["TabMenu"] = new[] { "u32 tabMenuA", "@Active" },
+        ["Tab"] = new[] { "u32 tabPage", "u32 tabSet", "@SimpleText" },
+        ["TextFormat"] = new[] { "skip32", "@Active" },
+        ["CFG"] = new[] { "skip32", "pstr actionMap", "u32 makeAction", "u32 makeValue", "u32 breakAction", "u32 breakValue", "u32 actionFlags", "@SimpleText" },
+    };
+
+    // Load routine address (docs/gui.md 3.1) to the routine above.
+    private static readonly Dictionary<string, string> kByAddress = new()
+    {
+        ["539098"] = "Control", ["53c900"] = "Active", ["538a14"] = "Active", ["5406bc"] = "SimpleText", ["53f6ac"] = "TextEdit",
+        ["4a4c44"] = "Chat", ["53df7c"] = "Check", ["54de00"] = "Check", ["53fcf8"] = "Bitmap", ["4b28c4"] = "FGBitmap",
+        ["53ff68"] = "Palette", ["544b60"] = "Progress", ["547fac"] = "Timer", ["5488a8"] = "BitmapBox", ["54aeb4"] = "Scroll",
+        ["54b4a0"] = "Matrix", ["4c3a90"] = "FGScroll", ["4e4a88"] = "HudMatrix", ["54baa8"] = "TextList", ["54cb7c"] = "TextWrap",
+        ["54d38c"] = "Slider", ["4cb0e8"] = "FGSlider", ["5329d8"] = "Animate", ["547864"] = "TSControl", ["493ea4"] = "IrcScroll",
+        ["496148"] = "MenuItem", ["4993a8"] = "ShapeView", ["49ba58"] = "ShapeView", ["49c8d4"] = "ShellBorder",
+        ["4a01a4"] = "UniversalButton", ["4aef68"] = "Dialog", ["4b16b4"] = "Dialog", ["4a0a8c"] = "AbortDlg", ["4a3514"] = "DlgBox",
+        ["4a734c"] = "ChatDisplay", ["4a7cfc"] = "ChatMenu", ["4afef4"] = "Hud", ["4b76d0"] = "Combo", ["4bbc3c"] = "Combo",
+        ["4c14cc"] = "Control", ["4c19b4"] = "Radio", ["4cbbcc"] = "Switch", ["4ccd1c"] = "TabMenu", ["4cd298"] = "Tab",
+        ["4ce4bc"] = "TextFormat", ["4d6dd0"] = "Smacker", ["49ec7c"] = "CFG", ["4d4d00"] = "Active",
+    };
+
+    public static string? RoutineFor(GuiClassRow row) => kByAddress.GetValueOrDefault(row.Load);
+
+    // docs/gui.md 1.2: reads one object block at `pos`; the result is the control and the padded end of its block.
+    public static GuiControl ReadObject(byte[] d, ref int pos, int limit, GuiLoadContext ctx)
+    {
+        if (pos + 8 > limit)
+            throw new GuiLoadException(1, "block header past the end");
+        string tag = Encoding.Latin1.GetString(d, pos, 4);
+        uint rawSize = BitConverter.ToUInt32(d, pos + 4);
+        bool pad4 = (rawSize & 0x80000000) != 0;
+        int size = (int)(rawSize & 0x7fffffff);
+        int end = 8 + (pad4 ? (size + 3) & ~3 : (size + 1) & ~1);
+        int bodyEnd = pos + 8 + size;
+        if (bodyEnd > limit)
+            throw new GuiLoadException(1, $"block {tag} at {pos} size {size} end {end} larger than the limit {limit}");
+        int p = pos + 8;
+        string className;
+        if (tag == "PERS")
+        {
+            if (p + 2 > bodyEnd)
+                throw new GuiLoadException(1, "short PERS block");
+            int n = BitConverter.ToUInt16(d, p);
+            p += 2;
+            if (p + n > bodyEnd)
+                throw new GuiLoadException(1, "short PERS name");
+            className = Encoding.Latin1.GetString(d, p, n);
+            p += (n + 1) & ~1;
+        }
+        else if (tag == "DICT")
+            throw new GuiLoadException(2, "DICT back reference");
+        else
+        {
+            GuiClassRow? r = GuiClassTable.ByTag(tag);
+            if (r == null)
+                throw new GuiLoadException(2, "unknown class tag " + tag);
+            className = r.Name;
+        }
+        GuiClassRow? row = GuiClassTable.ByName(className);
+        if (row == null || !GuiClassTable.IsControl(row))
+            throw new GuiLoadException(2, "class " + className + " is not a control class");
+        GuiControl c = GuiFactory.Create(row);
+        var bytes = new GuiBytes(d, p, bodyEnd);
+        uint version = bytes.U32();
+        ctx.BodyVersion = version;
+        c.PersistVersion = version;
+        string? routine = RoutineFor(row);
+        if (routine == null)
+            throw new GuiLoadException(2, "class " + className + " has no load routine");
+        Run(c, routine, bytes, ctx, d, limit);
+        // The 62 loadable stock files end every block exactly at its declared end; a block of an older layout does not,
+        // and fails here the way it fails in the original (its reads run into other fields).
+        if (bytes.Pos != bodyEnd)
+            throw new GuiLoadException(4, $"block {className} read {bytes.Pos - p} of {bodyEnd - p} bytes");
+        pos += end;
+        return c;
+    }
+
+    private static void Run(GuiControl c, string routine, GuiBytes b, GuiLoadContext ctx, byte[] file, int limit)
+    {
+        switch (routine)
+        {
+            case "Control":
+                ReadControl(c, b, ctx, file);
+                return;
+            case "ShellBorder":
+                // docs/gui.md 1.4: marker 0xff means a string follows, any other value is pushed back.
+                if (b.Peek() == 0xff)
+                {
+                    b.U8();
+                    c.F["bitmapName"] = b.Pstr();
+                }
+                Run(c, "Control", b, ctx, file, limit);
+                return;
+            case "UniversalButton":
+                {
+                    uint v = b.U32();
+                    c.F["bodyVersion"] = v;
+                    c.F["radioId"] = b.U32();
+                    if (v < 2)
+                        c.F["bitmapTag"] = b.U32();
+                    else
+                        c.F["bitmapRoot"] = b.Pstr();
+                    c.F["lowResX"] = b.U32();
+                    c.F["lowResY"] = b.U32();
+                    c.F["on"] = b.U8();
+                    c.F["isSwitch"] = v >= 1 ? b.U8() : (byte)1;
+                    c.F["mirrorVar"] = v >= 3 ? b.U8() : (byte)0;
+                    Run(c, "Active", b, ctx, file, limit);
+                    return;
+                }
+            case "Smacker":
+                {
+                    uint v = ctx.BodyVersion;
+                    c.F["movieTag"] = b.U32();
+                    c.F["loop"] = b.U8();
+                    if (v >= 1)
+                        c.F["movieDoneTag"] = b.U32();
+                    c.F["preload"] = b.U8();
+                    c.F["palStart"] = b.U32();
+                    c.F["palColors"] = b.U32();
+                    c.F["stretch"] = b.U8();
+                    Run(c, "Active", b, ctx, file, limit);
+                    return;
+                }
+        }
+        if (!Routines.TryGetValue(routine, out string[]? ops))
+            throw new GuiLoadException(2, "no routine " + routine);
+        foreach (string op in ops)
+        {
+            if (op[0] == '@')
+            {
+                Run(c, op[1..], b, ctx, file, limit);
+                continue;
+            }
+            int sp = op.IndexOf(' ');
+            string kind = sp < 0 ? op : op[..sp], name = sp < 0 ? "" : op[(sp + 1)..];
+            switch (kind)
+            {
+                case "u8": c.F[name] = b.U8(); break;
+                case "u32": c.F[name] = b.U32(); break;
+                case "i32": c.F[name] = b.I32(); break;
+                case "pstr": c.F[name] = b.Pstr(); break;
+                case "buf81": c.F[name] = b.Buf81(); break;
+                case "skip32": b.U32(); break;
+                case "skip81": b.Buf81(); break;
+                default: throw new GuiLoadException(2, "bad op " + op);
+            }
+        }
+    }
+
+    // docs/gui.md 1.3.
+    private static void ReadControl(GuiControl c, GuiBytes b, GuiLoadContext ctx, byte[] file)
+    {
+        byte v = b.U8();
+        if (v > 4)
+            throw new GuiLoadException(3, "control body version " + v);
+        c.BodyVersion = v;
+        if (v == 0)
+        {
+            b.U32(); b.U32(); b.U8(); b.U8();
+            c.Opaque = 0; c.Border = 0;
+        }
+        else if (v == 1)
+        {
+            b.U32();
+            c.Opaque = b.U8(); c.FillColor = b.U8(); c.Border = b.U8(); c.BorderColor = b.U8();
+        }
+        else
+        {
+            b.U32();
+            c.Opaque = b.U8(); c.FillColor = b.U8(); c.SelectedFill = b.U8(); c.DisabledFill = b.U8();
+            c.Border = b.U8(); c.BorderColor = b.U8(); c.SelectedBorder = b.U8(); c.DisabledBorder = b.U8();
+        }
+        c.Command = b.Pstr();
+        if (v >= 3)
+            c.AltCommand = b.Pstr();
+        c.X = b.I32(); c.Y = b.I32(); c.W = b.I32(); c.H = b.I32();
+        c.Flags = b.U32();
+        c.Id = b.U32();
+        c.HSizing = b.U32();
+        c.VSizing = b.U32();
+        if (v >= 4)
+            c.HelpTag = b.U32();
+        c.ConsoleVar = b.Buf81();
+        uint count = b.U32();
+        if (count > 4096)
+            throw new GuiLoadException(3, "child count " + count);
+        int pos = b.Pos;
+        var kids = new List<GuiControl>();
+        for (uint i = 0; i < count; ++i)
+            kids.Add(ReadObject(file, ref pos, b.End, ctx));
+        b.Pos = pos;
+        foreach (GuiControl k in kids)
+        {
+            k.Name = b.Pstr();
+            if (k.Name.Length == 0)
+                k.Name = null;
+            c.AddChild(k);
+        }
+    }
+
+    // docs/gui.md 1.1: the whole file is one object; the bytes after the root block are ignored.
+    public static GuiControl Load(byte[] data, out string error)
+    {
+        error = "";
+        try
+        {
+            int pos = 0;
+            var ctx = new GuiLoadContext();
+            return ReadObject(data, ref pos, data.Length, ctx);
+        }
+        catch (GuiLoadException e)
+        {
+            error = $"read error {e.Code}: {e.Message}";
+            return null!;
+        }
+    }
+}
+
+public sealed class GuiLoadContext
+{
+    public uint BodyVersion;
+}
