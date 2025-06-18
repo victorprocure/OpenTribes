@@ -61,4 +61,4 @@ way are added to Open.
 
 ### Menus and HUD
 
-- [x] GUI: active state and canvas.
+- [x] GUI: active state, canvas and class table.
