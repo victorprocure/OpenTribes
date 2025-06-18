@@ -61,4 +61,4 @@ way are added to Open.
 
 ### Menus and HUD
 
-- [x] GUI: canvas, class table, console commands, controls and the HUD.
+- [x] GUI: canvas, class table, console commands, controls (including lists) and the HUD.
