@@ -32,8 +32,11 @@ public sealed class WeatherEffect
             uint h = unchecked((uint)i * 2654435761u);
             double ux = (h & 0xffff) / 65535.0, uy = ((h >> 8) & 0xffff) / 65535.0, uz = ((h * 40503u) >> 4 & 0xffff) / 65535.0;
             double x = Wrap(ux * Box + (WindX * 0.1 + 0.5) * time, cam.X), y = Wrap(uy * Box + (WindY * 0.1 + 0.3) * time, cam.Y), z = Wrap(uz * Box - fall * time, cam.Z);
-            double size = Rain ? 0.02 : 0.05;
-            double len = Rain ? 0.8 : 0.05;
+            double dx = x - cam.X, dy = y - cam.Y, dz = z - cam.Z;
+            if (dx * dx + dy * dy + dz * dz < 36)
+                continue;                // nothing within 6 units of the camera
+            double size = Rain ? 0.008 : 0.04;
+            double len = Rain ? 0.5 : 0.05;
             Quad(v, x, y, z, r.x * size, r.y * size, 0, 0, 0, len, Rain ? 0.5f : 0.9f);
         }
         var img = new RenderImage { Category = 1, SortKey = 0.5, Label = "weather" };
