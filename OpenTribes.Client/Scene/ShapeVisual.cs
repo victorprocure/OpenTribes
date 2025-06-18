@@ -27,6 +27,8 @@ public abstract class Visual
     public virtual void Build(FrameContext ctx) { }
     public virtual void OnDelete() { }
     public virtual (double x, double y, double z)? Position => null;
+    // Where a beam or projectile of this object starts: the muzzle (4.7).
+    public virtual (double x, double y, double z)? MuzzlePoint => Position;
 
     protected double Num(string key, double def = 0) => Ghost.State.TryGetValue(key, out object? v) ? Db.ToDouble(v, def) : def;
     protected bool Has(string key) => Ghost.State.ContainsKey(key);
@@ -55,6 +57,22 @@ public class ShapeVisual : Visual
     protected double Age;
 
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
+
+    public override (double x, double y, double z)? MuzzlePoint
+    {
+        get
+        {
+            if (!HavePos)
+                return null;
+            if (Inst == null || Shape == null)
+                return (X, Y, Z + 1.5);
+            int n = Shape.FindNodeBase("dummy muzzle", 0);
+            if (n < 0)
+                return (X, Y, Z + 1.5);
+            Inst.Animate(0);
+            return Inst.NodeWorld[n].Then(PoseXf()).Apply(0, 0, 0);
+        }
+    }
 
     private static int GroupOf(string cls) => cls switch
     {

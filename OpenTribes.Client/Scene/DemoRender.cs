@@ -157,7 +157,7 @@ public static class DemoRender
         for (int k = 0; k < 12; ++k)
         {
             double a = k * Math.PI / 6;
-            double cx = px + Math.Sin(a) * dist, cy = py - Math.Cos(a) * dist, cz = pz + dist * 0.4;
+            double cx = px + Math.Sin(a) * dist, cy = py - Math.Cos(a) * dist, cz = pz + dist * 0.6;
             double clear = 1e9;
             for (int i = 0; i <= 10; ++i)
             {
@@ -165,7 +165,7 @@ public static class DemoRender
                 float h = 0;
                 double sx = cx + (px - cx) * f, sy = cy + (py - cy) * f, sz = cz + (pz - cz) * f;
                 if (terrain != null && terrain.Height((float)sx, (float)sy, ref h))
-                    clear = Math.Min(clear, sz - h);
+                    clear = Math.Min(clear, i == 0 ? sz - h - 4 : sz - h);   // the camera itself stays 4 above the ground
             }
             if (clear > bestClear)
             {

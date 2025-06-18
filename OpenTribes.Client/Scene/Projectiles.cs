@@ -254,11 +254,8 @@ public sealed class BeamVisual : Visual
         {
             double[] a;
             int sg = (int)Num("shooterGhost", -1);
-            if (sg >= 0 && M.Visuals.TryGetValue(sg, out Visual? sv) && sv is PlayerVisual pv)
-            {
-                var (x, y, z) = pv.Muzzle();
+            if (sg >= 0 && M.Visuals.TryGetValue(sg, out Visual? sv) && sv.MuzzlePoint is var (x, y, z))
                 a = new[] { x, y, z };
-            }
             else if (Has("start"))
                 a = Vec("start");
             else
@@ -267,9 +264,8 @@ public sealed class BeamVisual : Visual
         }
         // Lightning, Repair: shooter muzzle to the target ghost position + offset
         int shooter = (int)Num("shooterGhost", -1), target = (int)Num("targetGhost", -1);
-        if (shooter < 0 || !M.Visuals.TryGetValue(shooter, out Visual? sh) || sh is not PlayerVisual pv2)
+        if (shooter < 0 || !M.Visuals.TryGetValue(shooter, out Visual? sh) || sh.MuzzlePoint is not var (mx, my, mz))
             return null;
-        var (mx, my, mz) = pv2.Muzzle();
         double[] end;
         if (target >= 0 && M.Visuals.TryGetValue(target, out Visual? tv) && tv.Position is var (tx, ty, tz))
         {

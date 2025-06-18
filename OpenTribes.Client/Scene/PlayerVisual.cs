@@ -340,6 +340,8 @@ public sealed class PlayerVisual : ShapeVisual
     }
 
     // The muzzle of the first mounted weapon in world space (projectile start of beams), or the chest as a fallback.
+    public override (double x, double y, double z)? MuzzlePoint => HavePos ? Muzzle() : null;
+
     public (double x, double y, double z) Muzzle()
     {
         Xf body = PoseXf();

@@ -43,7 +43,7 @@ public static class Beams
             double rl = Math.Sqrt(rx * rx + ry * ry + rz * rz);
             if (rl > 1e-9)
             {
-                double amp = bias * len * rng.NextDouble();
+                double amp = Math.Min(bias * len, 1.2) * rng.NextDouble();   // capped: a bolt of 100 m must not sway by 15 m
                 p[0] += rx / rl * amp; p[1] += ry / rl * amp; p[2] += rz / rl * amp;
             }
             pts[mid] = p;
