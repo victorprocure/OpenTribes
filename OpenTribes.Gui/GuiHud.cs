@@ -19,6 +19,12 @@ public class GuiHud : GuiControl
     {
         if (Parent == null)
             return;
+        if (this is GuiCrosshair)
+        {
+            X = (Parent.W - W) / 2;
+            Y = (Parent.H - H) / 2;
+            return;
+        }
         if (pw < 0) { pw = Parent.W; ph = Parent.H; }
         X = (int)(FracX * (pw - W));
         Y = (int)(FracY * (ph - H));
@@ -212,11 +218,23 @@ public sealed class GuiSensorHud : GuiHud
 // FearGui::Crosshair [code 004ab500]: a cross at the centre of the view.
 public sealed class GuiCrosshair : GuiHud
 {
+    public override void Wake()
+    {
+        W = H = 13;
+        Layout();
+    }
+
+    public override void ParentResized(int oldW, int oldH, int newW, int newH)
+    {
+        X = (newW - W) / 2;
+        Y = (newH - H) / 2;
+    }
+
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Canvas == null)
             return;
-        int cx = Canvas.Width / 2, cy = Canvas.Height / 2;
+        int cx = ox + X + W / 2, cy = oy + Y + H / 2;
         p.Line(cx - 6, cy, cx - 2, cy, 0xfc);
         p.Line(cx + 2, cy, cx + 6, cy, 0xfc);
         p.Line(cx, cy - 6, cx, cy - 2, 0xfc);

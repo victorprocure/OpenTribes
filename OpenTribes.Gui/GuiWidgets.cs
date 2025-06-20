@@ -363,19 +363,31 @@ public sealed class GuiRadio : GuiActive
     }
 }
 
-// FearGui::FGMenuItem / FGTab: select the tab page and hide the pages of the other tabs of the set.
+// FearGui::FGMenuItem / FGTab [code 004959c8, 00495bd0]: selecting an item shows its tab page and hides the pages of the
+// other items of the same menu; an item without a page expands or collapses its children. The page selector itself was
+// not traced (Q10), this follows the stock Options screen.
 public sealed class GuiMenuItem : GuiSimpleText
 {
+    public override bool WantsTab => false;
+
     protected override void Action()
     {
-        if (U("tabSet") != 0 && Parent != null)
+        uint page = U("tabPage");
+        GuiControl menu = this;
+        while (menu.Parent != null && !(menu.Parent is GuiActive && menu.Parent.ClassName.EndsWith("MenuCtrl", StringComparison.Ordinal)))
+            menu = menu.Parent;
+        GuiControl scope = menu.Parent ?? menu;
+        if (page != 0)
         {
-            foreach (GuiControl s in Parent.Children)
-                if (s is GuiMenuItem m && m != this && m.U("tabSet") != 0)
-                    Canvas?.Content?.FindById(m.U("tabPage"))?.SetVisible(false);
-            Canvas?.Content?.FindById(U("tabPage"))?.SetVisible(true);
+            GuiControl? top = Canvas?.Top;
+            foreach (GuiControl item in scope.Descendants().OfType<GuiMenuItem>())
+                if (item != this && item.U("tabPage") != 0)
+                    top?.FindById(item.U("tabPage"))?.SetVisible(false);
+            top?.FindById(page)?.SetVisible(true);
+            Canvas?.RebuildTabList();
         }
-        F["expanded"] = (byte)(U("expanded") != 0 ? 0 : 1);
+        else
+            F["expanded"] = (byte)(U("expanded") != 0 ? 0 : 1);
         base.Action();
     }
 
@@ -491,9 +503,13 @@ public sealed class GuiSlider : GuiActive
     {
         if (mDragging)
         {
+            // [disassembly 004ca5ec] up releases the lock, snaps a discrete slider and evaluates the command; no action.
             mDragging = false;
+            Pressed = false;
+            Canvas?.UnlockMouse(this);
             mPos = Snap(mPos);
             Changed();
+            return true;
         }
         return base.MsUp(e);
     }

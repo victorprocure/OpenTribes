@@ -214,6 +214,7 @@ public sealed class GuiCanvas
     // GuiLoadContentCtrl (2.2): true on success.
     public bool LoadContent(string file)
     {
+        Trace.Add("load content " + file);
         GuiControl? c = LoadFile(file);
         if (c == null)
             return false;
@@ -245,11 +246,12 @@ public sealed class GuiCanvas
         c.SetCanvas(this);
         c.WakeTree();
         AfterStackChange();
-        Host.Interp.Print(2, $"content {c.ClassName} {c.Name}");
+        Trace.Add($"content control {c.ClassName} {c.Name} ({c.Children.Count} children)");
     }
 
     public bool PushDialog(string file)
     {
+        Trace.Add("push dialog " + file);
         GuiControl? c = LoadFile(file);
         if (c == null)
             return false;

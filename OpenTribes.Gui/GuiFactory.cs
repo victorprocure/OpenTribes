@@ -51,6 +51,36 @@ public sealed class GuiTextButton : GuiSimpleText
     }
 }
 
+// FearGui::ShapeView / SkinView: the model viewer. Takes no focus; a drag turns the model (the 3D submission is the
+// shape renderer's, C5; this control only keeps the angle and the skin).
+public sealed class GuiShapeView : GuiActive
+{
+    public double Yaw;
+    private int mLastX;
+    public override bool WantsTab => false;
+    public override bool CanTake() => false;
+
+    public override bool MsDown(GuiEvent e)
+    {
+        mLastX = e.X;
+        return base.MsDown(e);
+    }
+
+    public override bool MsDrag(GuiEvent e)
+    {
+        Yaw += (e.X - mLastX) * 0.02;
+        mLastX = e.X;
+        return base.MsDrag(e);
+    }
+
+    public override void Render(GuiPaint p, int ox, int oy)
+    {
+        int gx = ox + X, gy = oy + Y;
+        DrawBase(p, gx, gy);
+        RenderChildren(p, gx, gy);
+    }
+}
+
 public static class GuiFactory
 {
     private static bool DerivesFrom(GuiClassRow row, string ancestor)
@@ -84,6 +114,8 @@ public static class GuiFactory
             case "FearGui::FGBitmapCtrl": return new GuiBitmap();
             case "FearGui::FGUniversalButton": return new GuiUniversalButton();
             case "FearGui::CFGButton": return new GuiCFGButton();
+            case "FearGui::ShapeView":
+            case "FearGui::SkinView": return new GuiShapeView();
             case "FearGui::FearGuiSwitch": return new GuiSwitch();
             case "FearGui::FearGuiRadio": return new GuiRadio();
             case "FearGui::FGMenuItem":
