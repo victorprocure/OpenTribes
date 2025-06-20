@@ -3,7 +3,7 @@
 //
 // Input file, one command per line (`#` starts a comment):
 //   move X Y | click X Y | rclick X Y | dblclick X Y | down | up | key NAME [shift|ctrl|alt]... | keydown NAME | keyup NAME
-//   type TEXT | wait MS | frame | eval CONSOLE TEXT | echo TEXT | shot FILE.png | focus
+//   clickctl NAME_OR_ID | where NAME_OR_ID | var $NAME | type TEXT | wait MS | frame | eval CONSOLE TEXT | echo TEXT | shot FILE.png | focus
 using System.Globalization;
 using System.Text;
 using OpenTribes.Client.World;
@@ -82,6 +82,14 @@ public sealed class GuiSession
     public void Key(string name, bool make, bool brk)
     {
         int scan = GuiCanvas.ScanForName(name);
+        byte mods = mMods;
+        if (scan == 0 && name.Length == 1 && "!@#$%^&*()_+".IndexOf(name[0]) is int si and >= 0)
+        {
+            scan = GuiCanvas.ScanForName("1234567890-="[si == 10 ? 10 : si == 11 ? 11 : si].ToString());
+            mods |= 3;
+        }
+        if (scan == 0 && name.Length == 1 && ",/;'".IndexOf(name[0]) is int pi and >= 0)
+            scan = new[] { 0x33, 0x35, 0x27, 0x28 }[pi];
         if (scan == 0)
         {
             Log($"input: unknown key {name}");
@@ -90,7 +98,7 @@ public sealed class GuiSession
         char ascii = name.Length == 1 ? name[0] : name.ToLowerInvariant() switch { "space" => ' ', _ => '\0' };
         if ((mMods & 3) != 0 && char.IsLetter(ascii))
             ascii = char.ToUpperInvariant(ascii);
-        var ev = new RawInput { Device = RawInput.DevKeyboard, Index = (byte)scan, Ascii = ascii, Mod = mMods };
+        var ev = new RawInput { Device = RawInput.DevKeyboard, Index = (byte)scan, Ascii = ascii, Mod = mods };
         if (make) { ev.Action = 1; Canvas.HandleInput(ev); }
         if (brk) { ev.Action = 0; Canvas.HandleInput(ev); }
     }
@@ -137,14 +145,29 @@ public sealed class GuiSession
                         Advance(16);
                     }
                     break;
+                case "clickctl":
+                case "where":
+                    {
+                        GuiControl? c = Runtime.FindControl(a[0]);
+                        if (c == null) { Log("input: no control " + a[0]); break; }
+                        var (gx, gy) = c.GlobalOrigin();
+                        if (w[0] == "where") { Log($"{c.ClassName} {c.Name} at {gx},{gy} {c.W}x{c.H}"); break; }
+                        MoveTo(gx + c.W / 2, gy + c.H / 2);
+                        Button(0, true); Advance(32); Button(0, false); Advance(16);
+                        break;
+                    }
+                case "var": Log($"{a[0]} = {Interp.PeekVariable(a[0])}"); break;
                 case "wait": Advance(int.Parse(a[0])); break;
                 case "frame": Advance(16); break;
                 case "eval": Log("= " + Interp.Evaluate(rest)); break;
                 case "echo": Log(rest); break;
                 case "shot": Render(); MissionRender.WritePng(rest, Dev!.ReadPixels(), Dev.Width, Dev.Height); Log("wrote " + rest); break;
-                case "focus": Log("focus: " + (Canvas.FirstResponder as GuiControl)?.ToString() ?? "root"); break;
+                case "focus": Log("focus: " + ((Canvas.FirstResponder as GuiControl)?.ToString() ?? "root")); break;
                 default: Log("input: unknown command " + w[0]); break;
             }
+            foreach (string t in Canvas.Trace)
+                Log("  [canvas] " + t);
+            Canvas.Trace.Clear();
         }
     }
 }

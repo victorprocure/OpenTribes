@@ -185,7 +185,7 @@ public static class DemoRender
         return new CameraPose(x, y, z + 1.8, p.YawAngle * 180 / Math.PI, p.ViewPitch * 180 / Math.PI, true, ghost);
     }
 
-    public static int Run(string root, string demoPath, string times, string? camera, double fov, string? output, int width, int height, string? videoDriver, double? atOnly = null)
+    public static int Run(string root, string demoPath, string times, string? camera, double fov, string? output, int width, int height, string? videoDriver, double? atOnly = null, bool hud = false)
     {
         if (output == null)
         {
@@ -253,6 +253,17 @@ public static class DemoRender
         using var assets = new ShapeAssets(dev, scene.Assets);
         var renderer = new ShapeRenderer(assets);
         var play = new DemoPlayback(data);
+        Gui.GuiSession? ui = null;
+        if (hud)
+        {
+            ui = Gui.GuiSession.Create(root, dev.Width, dev.Height);
+            ui.Dev = dev;
+            ui.Host.Hud = new OpenTribes.Gui.ClientHudSource(play.World, () => ui.Runtime.ClockSeconds);
+            ui.Host.OnPalette = null;
+            ui.Interp.Evaluate("setHudTimer(0);");
+            ui.Canvas.CursorOn = false;
+            ui.Canvas.LoadContent("gui\\play.gui");
+        }
         var model = new SceneModel(play.World, assets, renderer, scene.TerrainModel);
         model.BaseLight.SetSun(scene.SunAzimuth, scene.SunIncidence);
         model.BaseLight.AmbR = (float)scene.SunAmbient[0]; model.BaseLight.AmbG = (float)scene.SunAmbient[1]; model.BaseLight.AmbB = (float)scene.SunAmbient[2];
@@ -285,6 +296,15 @@ public static class DemoRender
                 model.Build(ctx);
                 images = ctx.Lists.ImageCount;
                 draws = ctx.Lists.Draw(dev);
+            }, ui == null ? null : () =>
+            {
+                ui.Clock = (long)(t * 1000);
+                if (Environment.GetEnvironmentVariable("OT_HUD_DEBUG") != null)
+                    for (int i = 0; i < play.World.Psc.ItemCounts.Length; ++i)
+                        if (play.World.Psc.ItemCounts[i] > 0 && play.World.DataBlocks.Blocks.TryGetValue((5, i), out var blk))
+                            Console.Error.WriteLine($"item {i} x{play.World.Psc.ItemCounts[i]} {blk.Class}: " + string.Join(" ", blk.Fields.Take(14).Select(f => f.Name + "=" + f.Value)));
+                ui.Canvas.Frame();
+                ui.Canvas.Render(dev);
             });
             byte[] px = dev.ReadPixels();
             string path = dir ? Path.Combine(output, $"{name}_{t.ToString("0.###", CultureInfo.InvariantCulture)}.png") : output;

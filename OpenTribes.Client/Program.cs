@@ -75,7 +75,7 @@ public static class Program
             return Gui.GuiRun.Run(o.Root, o.Gui, o.Exec, o.Input, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
         if (o.Demo != null)
-            return Scene.DemoRender.Run(o.Root, o.Demo, o.At ?? "0", o.Camera, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
+            return Scene.DemoRender.Run(o.Root, o.Demo, o.At ?? "0", o.Camera, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver, null, args.Contains("--hud"));
 
         if (o.Mission != null)
             return World.MissionRender.Run(o.Root, o.Mission, o.Camera, o.Cameras, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);

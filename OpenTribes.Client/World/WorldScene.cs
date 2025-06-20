@@ -185,7 +185,7 @@ public sealed class WorldScene : IDisposable
     public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background) =>
         new(x, y, z, yaw, pitch, fov, w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10));
 
-    public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null)
+    public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null)
     {
         int w = mDev.Width, h = mDev.Height;
         mDev.BeginFrame();
@@ -205,6 +205,7 @@ public sealed class WorldScene : IDisposable
         Interiors?.Draw(world, Terrain);
         overlay?.Invoke(world);
         mDev.EndScene3D();
+        overlay2D?.Invoke();
         mDev.EndFrame();
     }
 
