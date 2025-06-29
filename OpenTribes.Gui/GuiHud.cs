@@ -235,10 +235,10 @@ public sealed class GuiCrosshair : GuiHud
         if (Canvas == null)
             return;
         int cx = ox + X + W / 2, cy = oy + Y + H / 2;
-        p.Line(cx - 6, cy, cx - 2, cy, 0xfc);
-        p.Line(cx + 2, cy, cx + 6, cy, 0xfc);
-        p.Line(cx, cy - 6, cx, cy - 2, 0xfc);
-        p.Line(cx, cy + 2, cx, cy + 6, 0xfc);
+        p.Fill(cx - 6, cy, 5, 1, 0xfc);
+        p.Fill(cx + 2, cy, 5, 1, 0xfc);
+        p.Fill(cx, cy - 6, 1, 5, 0xfc);
+        p.Fill(cx, cy + 2, 1, 5, 0xfc);
     }
 }
 
