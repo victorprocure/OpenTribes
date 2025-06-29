@@ -75,6 +75,7 @@ public static partial class PlayerGhost
                 if (r.Flag())
                 {
                     long img = (long)r.Int(8) - 1;
+                    g.State["item" + i] = img;           // the slot's item, kept for the prediction's mass (4.4)
                     long st = r.Flag() ? r.Int(3) : -1;
                     bool a = r.Flag(), b = r.Flag();
                     long c = r.Int(3);
