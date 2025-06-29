@@ -46,6 +46,7 @@ way are added to Open.
 ### Client network
 
 - [x] Reads the game stream, ghosts and `.rec` demos (`tribes-netclient`).
+- [x] Prediction of the player's own movement.
 
 ### Graphics
 

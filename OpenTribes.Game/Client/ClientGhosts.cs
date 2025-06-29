@@ -89,6 +89,13 @@ public sealed class ClientGhostManager
     public IEnumerable<ClientGhost> All() => mTable.Where(g => g != null)!;
     public int Count => mTable.Count(g => g != null);
 
+    // Puts a ghost into the table without a ghost block (tests and tools that build the client state directly).
+    public void Insert(ClientGhost g)
+    {
+        mTable[g.Index] = g;
+        g.Registered = true;
+    }
+
     public void Clear()
     {
         Array.Clear(mTable);
