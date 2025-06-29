@@ -9,7 +9,6 @@ way are added to Open.
 
 ### Client
 
-- [ ] Sound.
 - [ ] Run the client as a game: menus, joining and playing.
 
 ### Project
@@ -67,3 +66,4 @@ way are added to Open.
 ### Audio
 
 - [x] Sound output and mixer.
+- [x] Sound manager, sound commands and sounds in the world.

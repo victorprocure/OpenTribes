@@ -32,6 +32,7 @@ public sealed class PlayerVisual : ShapeVisual
     private bool mJetting;
     private readonly List<uint> mTriggers = new();
     public bool Exploded { get; private set; }
+    public bool Jetting => mJetting;
     public int AnimIndex => mAnimIndex;
     public string SkinName => Skin;
     public IReadOnlyList<ImageMount?> Images => mImages;
@@ -296,6 +297,8 @@ public sealed class PlayerVisual : ShapeVisual
                 ++M.ContactTriggers;
             if (t is 1 or 2 && mContact && !mDead)
                 M.AddFootprint(this, t == 1 ? 1 : -1);
+            if (t is 1 or 2 && mContact && !mDead && MountGhost < 0)
+                M.Audio?.Footstep(this, t == 1, X + mExtrapX, Y + mExtrapY, Z + mExtrapZ);
         }
         mJetting = mAnimIndex == 19 && !mDead;
         if (mFlame != null && mFlameThread != null)

@@ -30,7 +30,9 @@ public static class Program
         "  --camera X,Y,Z,YAW,PITCH  camera position (world units) and angles in degrees (yaw 0 looks along +Y, positive turns left)\n" +
         "  --cameras FILE      one camera per line: NAME X,Y,Z,YAW,PITCH[,FOV]; --screenshot is then a directory, NAME.png each;\n                      names that start with MISSION_ select that mission's cameras when any do\n" +
         "  --fov DEG           horizontal field of view in degrees (default 90)\n" +
-        "  --video-driver NAME SDL video driver, for example offscreen\n";
+        "  --video-driver NAME SDL video driver, for example offscreen\n" +
+        "       tribes --root DIR --demo FILE.rec --at T --audio-out OUT.wav --seconds S   (offline mix of a demo span, no device)\n" +
+        "       tribes --root DIR --sound-census | --audio-live WAVE [--seconds S] | --cat RESOURCE\n";
 
     private sealed class Options
     {
@@ -38,6 +40,8 @@ public static class Program
         public string? Gui, Exec, Input, Show, Palette, Font, Screenshot, VideoDriver, Mission, Camera, Cameras, Demo, At, Shape, Seq;
         public double Pos;
         public string Skin = "";
+        public string? AudioOut, Cat, AudioLive;
+        public double Seconds = 20;
         public double Fov = World.WorldScene.DefaultFov;
         public string Text = "The quick brown fox jumps over the lazy dog 0123456789";
         public int Frames = 3;
@@ -58,6 +62,15 @@ public static class Program
             return Shapes.ShapeInfo.Report(o.Root, args[si + 1]);
         if (args.Contains("--shape-census"))
             return Shapes.ShapeCensus.Report(o.Root);
+
+        if (o.Cat != null)
+            return Audio.AudioTools.Cat(o.Root, o.Cat);
+        if (args.Contains("--sound-census"))
+            return Audio.AudioTools.Census(o.Root);
+        if (o.AudioLive != null)
+            return Audio.AudioTools.Live(o.Root, o.AudioLive, o.Seconds);
+        if (o.Demo != null && o.AudioOut != null)
+            return Audio.AudioTools.RenderDemo(o.Root, o.Demo, o.At ?? "0", o.Seconds, o.AudioOut);
 
         int gl = Array.IndexOf(args, "--gui-list");
         if (gl >= 0 && gl + 1 < args.Length)
@@ -186,7 +199,7 @@ public static class Program
             string a = args[i];
             if (a is "-h" or "--help")
                 return null;
-            if (a is "--shape-census" or "--gui-census" or "--hud")
+            if (a is "--shape-census" or "--gui-census" or "--hud" or "--sound-census")
                 continue;
             if (i + 1 >= args.Length)
             {
@@ -197,6 +210,10 @@ public static class Program
             switch (a)
             {
                 case "--root": o.Root = v; break;
+                case "--cat": o.Cat = v; break;
+                case "--audio-out": o.AudioOut = v; break;
+                case "--audio-live": o.AudioLive = v; break;
+                case "--seconds": o.Seconds = double.Parse(v, CultureInfo.InvariantCulture); break;
                 case "--shape-info": case "--gui-list": case "--gui-tree": break;
                 case "--show": o.Show = v; break;
                 case "--gui": o.Gui = v; break;

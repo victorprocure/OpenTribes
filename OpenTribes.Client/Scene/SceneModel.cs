@@ -23,6 +23,7 @@ public sealed class SceneModel
     public bool HasWeather;
     public Random Rng = new(0x8377);
     public double Time;
+    public Audio.SceneAudio? Audio;           // C7: sound starts, null without audio
     public bool AnimateWithTransitions;       // $pref::animateWithTransitions, default off (3.3)
     public double PlayerShapeDetail = 1;      // $pref::playerShapeDetail
     public LightSet BaseLight = LightSet.Default();
@@ -53,6 +54,7 @@ public sealed class SceneModel
 
     public void OnPacket(DecodedPacket pkt)
     {
+        Audio?.OnPacket(pkt);
         if (!mDecalsLoaded && World.DataBlocks.Blocks.ContainsKey((2, 0)))
         {
             mDecalsLoaded = true;
@@ -66,6 +68,7 @@ public sealed class SceneModel
         {
             if (u.Op == "delete")
             {
+                Audio?.OnDelete(u.Index);
                 if (Visuals.Remove(u.Index, out Visual? gone))
                     gone.OnDelete();
                 continue;
@@ -91,6 +94,7 @@ public sealed class SceneModel
                 Visuals[u.Index] = v = nv;
             }
             v.OnUpdate(u, u.Op == "new");
+            Audio?.OnGhost(v, u, u.Op == "new");
         }
     }
 
@@ -107,6 +111,7 @@ public sealed class SceneModel
                 Effects.RemoveAt(i);
         }
         Smoke.Tick(dt);
+        Audio?.Frame(dt);
     }
 
     public void SpawnExplosion(int index, double x, double y, double z, double ax, double ay, double az)
@@ -114,6 +119,7 @@ public sealed class SceneModel
         ClientDataBlock? db = Db.Block(20, index);
         if (db == null)
             return;
+        Audio?.OnExplosion(db, x, y, z);
         string name = Db.Str(db, "shapeName");
         if (name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
             name = name[..^4];
