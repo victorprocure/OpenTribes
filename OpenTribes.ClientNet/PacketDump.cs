@@ -59,6 +59,68 @@ public sealed class PacketDump : IDisposable
         w.WriteEndArray();
     }
 
+    // One line per correction of the control object (docs/client-net.md 4.4): the prediction for the move the server
+    // state follows, the server state, the distances and the moves replayed.
+    public void WriteCorrection(CorrectionRecord c, double t)
+    {
+        if (mOut == null)
+            return;
+        using var ms = new MemoryStream();
+        using (var w = new Utf8JsonWriter(ms))
+        {
+            w.WriteStartObject();
+            w.WriteString("type", "correction");
+            w.WriteNumber("t", Math.Round(t, 4));
+            w.WriteNumber("ms", c.Time);
+            w.WriteString("class", c.Class);
+            w.WriteNumber("lastMove", c.LastMove);
+            w.WriteNumber("pending", c.Pending);
+            w.WriteNumber("replayed", c.Replayed);
+            void State(string name, PredictedState? s)
+            {
+                if (s == null)
+                {
+                    w.WriteNull(name);
+                    return;
+                }
+                w.WriteStartObject(name);
+                w.WriteNumber("move", s.Move);
+                foreach (var (k, v) in new[] { ("pos", s.Position), ("vel", s.Velocity), ("rot", s.Rotation) })
+                {
+                    if ((k == "pos" && !s.HasPosition) || (k == "vel" && !s.HasVelocity))
+                        continue;
+                    w.WriteStartArray(k);
+                    foreach (float f in v)
+                        Value(w, (double)f);
+                    w.WriteEndArray();
+                }
+                Value2(w, "pitch", s.Pitch);
+                Value2(w, "energy", s.Energy);
+                w.WriteEndObject();
+            }
+            State("predicted", c.Predicted);
+            State("server", c.Server);
+            if (c.Predicted != null)
+            {
+                w.WriteStartObject("error");
+                Value2(w, "pos", c.PosError);
+                Value2(w, "vel", c.VelError);
+                Value2(w, "rot", c.RotError);
+                Value2(w, "pitch", c.PitchError);
+                Value2(w, "energy", c.EnergyError);
+                w.WriteEndObject();
+            }
+            w.WriteEndObject();
+        }
+        mOut.WriteLine(Encoding.UTF8.GetString(ms.ToArray()));
+    }
+
+    private static void Value2(Utf8JsonWriter w, string name, double v)
+    {
+        w.WritePropertyName(name);
+        Value(w, v);
+    }
+
     public void Write(DecodedPacket p, double t, string? client = null, long? seq = null)
     {
         if (mOut == null)

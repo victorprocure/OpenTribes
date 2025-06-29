@@ -1,5 +1,7 @@
 // tribes-netclient: the headless Tribes client (ROADMAP M9 stage C3a).
 //   --connect host:port [--name N] [--seconds S] [--script moves.txt] [--version V] --dump out.jsonl
+//             [--predict ROOT]     client prediction of the control object (client-net.md 4.4) in a world of the
+//                                  server's mission (MInfo) built from the game directory ROOT
 //   --demo file.rec --dump out.jsonl
 //   --decode capture.jsonl [--client IP:PORT] --dump out.jsonl     (the format tools/stream_decode.py reads)
 // Every mode prints one JSON summary line on stdout; the exit status is 0 when no unknown bit and no error was seen.
@@ -36,6 +38,7 @@ static void Counts(Utf8JsonWriter w, string name, IDictionary<string, long> d)
 if (args.Length == 0 || args.Contains("--help"))
 {
     Console.Error.WriteLine("usage: tribes-netclient --connect host:port [--name N] [--seconds S] [--script moves.txt] --dump out.jsonl");
+    Console.Error.WriteLine("                        [--predict ROOT]");
     Console.Error.WriteLine("       tribes-netclient --demo file.rec --dump out.jsonl");
     Console.Error.WriteLine("       tribes-netclient --decode capture.jsonl [--client IP:PORT] --dump out.jsonl");
     return args.Length == 0 ? 2 : 0;
@@ -112,6 +115,8 @@ if (connect != null)
     string? scriptPath = Arg(args, "--script");
     List<ScriptStep>? script = scriptPath != null ? MoveScript.Parse(File.ReadAllText(scriptPath)) : null;
     var session = new NetClientSession(name, dump, script, Arg(args, "--version") ?? "1.11") { Log = s => Console.Error.WriteLine(s) };
+    if (Arg(args, "--predict") is string predictRoot)
+        session.PredictFactory = mission => new PredictionWorld(predictRoot, new[] { "-dedicated", mission }, s => Console.Error.WriteLine(s));
     SessionResult r = session.Run(connect, seconds);
     Summary(w =>
     {
@@ -132,6 +137,36 @@ if (connect != null)
         w.WriteString("controlClass", r.ControlClass);
         w.WriteBoolean("dataFinished", r.DataFinished);
         w.WriteBoolean("alwaysDone", r.AlwaysDone);
+        if (session.PredictFactory != null)
+        {
+            w.WriteString("mission", session.Mission);
+            // Prediction error at correction (client-net.md 4.4): distribution over the corrections with a prediction.
+            ClientPrediction pr = session.Prediction;
+            w.WriteNumber("corrections", pr.Corrections.Count);
+            w.WriteNumber("predictedSteps", pr.Steps);
+            foreach (string cls in pr.Corrections.Select(c => c.Class).Distinct().OrderBy(c => c, StringComparer.Ordinal))
+            {
+                List<CorrectionRecord> cs = pr.Corrections.Where(c => c.Class == cls && c.Predicted != null).ToList();
+                w.WriteStartObject("error" + cls);
+                w.WriteNumber("n", cs.Count);
+                foreach (var (k, sel) in new (string, Func<CorrectionRecord, double>)[]
+                         {
+                             ("pos", c => c.PosError), ("vel", c => c.VelError), ("rot", c => c.RotError), ("pitch", c => c.PitchError),
+                             ("energy", c => c.EnergyError), ("replayed", c => c.Replayed),
+                         })
+                {
+                    double[] v = cs.Select(sel).OrderBy(x => x).ToArray();
+                    double Q(double q) => v.Length == 0 ? 0 : v[Math.Min(v.Length - 1, (int)Math.Ceiling(q * v.Length) - 1 < 0 ? 0 : (int)Math.Ceiling(q * v.Length) - 1)];
+                    w.WriteStartObject(k);
+                    w.WriteNumber("max", v.Length == 0 ? 0 : v[^1]);
+                    w.WriteNumber("p99", Q(0.99));
+                    w.WriteNumber("median", Q(0.5));
+                    w.WriteNumber("nonzero", v.Count(x => x != 0));
+                    w.WriteEndObject();
+                }
+                w.WriteEndObject();
+            }
+        }
         Counts(w, "eventCounts", r.EventCounts);
         Counts(w, "ghostCounts", r.GhostCounts);
         w.WriteStartArray("unknownReasons");

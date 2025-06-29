@@ -72,10 +72,19 @@ public sealed class NetClientSession : ConnectionEvents
     private string mReason = "";
     private long mLastTick;
     private long mMovesSent;
+    private CorrectionRecord? mPendingCorrection;
+    private uint mFrameNow;
     public readonly string Version;
 
     public ClientWorld World => mWorld;
     public Action<string>? Log;
+
+    // Client prediction of the control object (docs/client-net.md 4.4); runs when a prediction world is set.
+    public readonly ClientPrediction Prediction = new();
+    public PredictionWorld? PredictWorld;
+    // Builds the prediction world of a mission; the mission comes from the server's remoteEval MInfo (client.cs).
+    public Func<string, PredictionWorld?>? PredictFactory;
+    public string Mission = "";
 
     public NetClientSession(string name, PacketDump dump, List<ScriptStep>? script = null, string version = "1.11")
     {
@@ -129,6 +138,14 @@ public sealed class NetClientSession : ConnectionEvents
     {
         DecodedPacket p = mGame.Receive(payload.ToArray());
         mDump.Write(p, mClock.Elapsed.TotalSeconds);
+        if (PredictFactory != null)
+            FollowMission();
+        if (PredictWorld != null && p.Psc != null && p.Psc.Direction == "s2c")
+        {
+            CorrectionRecord? rec = Prediction.OnServerBlock(mWorld, mFrameNow);
+            if (rec != null)
+                mPendingCorrection = rec;
+        }
         if (p.UnknownReason != null)
             Log?.Invoke("UNKNOWN " + p.UnknownReason);
         // dataFinished() and onClientGhostAlwaysDone() answer with remote evals (2.6, 2.7).
@@ -141,6 +158,29 @@ public sealed class NetClientSession : ConnectionEvents
         {
             mCgaSent = true;
             mGame.PostRemoteEval("CGADone");
+        }
+    }
+
+    // The prediction world follows the server's mission: the last MInfo names it.
+    private void FollowMission()
+    {
+        for (int i = mWorld.RemoteCalls.Count - 1; i >= 0; --i)
+        {
+            if (!mWorld.RemoteCalls[i].Name.Equals("MInfo", StringComparison.OrdinalIgnoreCase) || mWorld.RemoteCalls[i].Args.Length == 0)
+                continue;
+            string mission = mWorld.RemoteCalls[i].Args[0];
+            if (mission.Equals(Mission, StringComparison.OrdinalIgnoreCase))
+                return;
+            Prediction.Reset();
+            Mission = mission;
+            Log?.Invoke("mission " + mission + ": building the prediction world");
+            PredictWorld = PredictFactory!(mission);
+            if (PredictWorld != null)
+            {
+                Prediction.CreateObject = PredictWorld.Create;
+                Prediction.DeleteObject = PredictWorld.Delete;
+            }
+            return;
         }
     }
 
@@ -205,7 +245,8 @@ public sealed class NetClientSession : ConnectionEvents
         mHeld.Remove("useItem");
         if (mSpawn && mWorld.Psc.ControlClass != "Player")
             m.Fire = (tick / 8) % 2 == 0;           // press and release every 256 ms until a Player is the control object
-        return m;
+        // 4.2 step 4: the buffered move is the quantised one the server reads.
+        return ClientPrediction.Quantize(m);
     }
 
     // Runs the session: connect to host:port, play for `seconds` after the accept, disconnect.
@@ -225,6 +266,19 @@ public sealed class NetClientSession : ConnectionEvents
         while (!mClosed)
         {
             uint now = Now;
+            mFrameNow = now;
+            // client-net.md 2.1: the moves of the ticks crossed are made (step 4) before the receive (step 5), so a
+            // correction in this frame sees them and +0x218 is computed from the frame's net time.
+            if (acceptedAt >= 0)
+            {
+                ApplyScript(now / 1000.0 - acceptedAt);
+                long tickNow = ((long)now - 1) >> 5;
+                for (; mLastTick < tickNow; ++mLastTick)
+                {
+                    mWorld.Psc.AddMove(MakeMove(mLastTick));
+                    ++mMovesSent;
+                }
+            }
             int n;
             while ((n = mSock.Receive(out Address from, rx)) > 0)
             {
@@ -233,8 +287,7 @@ public sealed class NetClientSession : ConnectionEvents
                 if (mClosed)
                     break;
             }
-            now = Now;
-            mVc.Tick(now);
+            mVc.Tick(Now);
             if (mClosed)
                 break;
             double t = now / 1000.0;
@@ -250,12 +303,15 @@ public sealed class NetClientSession : ConnectionEvents
             }
             if (acceptedAt >= 0)
             {
-                ApplyScript(t - acceptedAt);
-                long tickNow = ((long)now - 1) >> 5;
-                for (; mLastTick < tickNow; ++mLastTick)
+                if (PredictWorld != null)
                 {
-                    mWorld.Psc.AddMove(MakeMove(mLastTick));
-                    ++mMovesSent;
+                    // 4.4: the replay after a correction and the prediction of the new moves, once per frame.
+                    Prediction.Advance(mWorld.Psc, now);
+                    if (mPendingCorrection != null)
+                    {
+                        mDump.WriteCorrection(mPendingCorrection, mClock.Elapsed.TotalSeconds);
+                        mPendingCorrection = null;
+                    }
                 }
                 if (mVc.State() == ConnectionState.Connected && mGame.Due(now))
                 {
