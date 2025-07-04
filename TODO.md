@@ -67,3 +67,7 @@ way are added to Open.
 
 - [x] Sound output and mixer.
 - [x] Sound manager, sound commands and sounds in the world.
+
+### Input and controls
+
+- [x] Keyboard and mouse input routing.

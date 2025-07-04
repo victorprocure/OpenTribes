@@ -1,7 +1,7 @@
 // Port of src/script/client_key_table.inc: key table 0x006346c8 (scan code, unshifted and shifted character, name).
 namespace OpenTribes.Script;
 
-internal static class ClientKeyTable
+public static class ClientKeyTable
 {
     public static readonly ClientCommands.KeyName[] Keys =
     {

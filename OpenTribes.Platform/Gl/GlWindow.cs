@@ -109,7 +109,19 @@ public sealed unsafe class GlWindow : IDisposable
         }
     }
 
+    public IntPtr Handle => mWindow;
+
     public void Show() => Sdl3.ShowWindow(mWindow);
+
+    public void SetRelativeMouse(bool on) => Sdl3.SetWindowRelativeMouseMode(mWindow, on);
+
+    public void SetTitle(string title) => Sdl3.SetWindowTitle(mWindow, title);
+
+    public void SetSize(int w, int h) => Sdl3.SetWindowSize(mWindow, w, h);
+
+    public void SetFullscreen(bool on) => Sdl3.SetWindowFullscreen(mWindow, on);
+
+    public bool IsFullscreen() => (Sdl3.GetWindowFlags(mWindow) & Sdl3.WindowFullscreen) != 0;
 
     public void SetSwapInterval(int interval) => Sdl3.GlSetSwapInterval(interval);
 

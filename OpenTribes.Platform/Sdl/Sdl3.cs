@@ -21,7 +21,9 @@ public static partial class Sdl3
 
     // SDL_EventType
     public const uint EventQuit = 0x100, EventWindowPixelSizeChanged = 0x207, EventWindowResized = 0x206,
-        EventWindowCloseRequested = 0x210, EventKeyDown = 0x300, EventKeyUp = 0x301;
+        EventWindowCloseRequested = 0x210, EventKeyDown = 0x300, EventKeyUp = 0x301,
+        EventWindowMinimized = 0x209, EventWindowRestored = 0x20B, EventWindowFocusGained = 0x20E, EventWindowFocusLost = 0x20F,
+        EventMouseMotion = 0x400, EventMouseButtonDown = 0x401, EventMouseButtonUp = 0x402, EventMouseWheel = 0x403;
 
     public const uint KeyEscape = 27;
 
@@ -132,6 +134,31 @@ public static partial class Sdl3
     [LibraryImport(Lib, EntryPoint = "SDL_GetPerformanceFrequency")]
     public static partial ulong GetPerformanceFrequency();
 
+    [LibraryImport(Lib, EntryPoint = "SDL_SetWindowRelativeMouseMode")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool SetWindowRelativeMouseMode(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool enabled);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_SetWindowTitle", StringMarshalling = StringMarshalling.Utf8)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool SetWindowTitle(IntPtr window, string title);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_SetWindowSize")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool SetWindowSize(IntPtr window, int w, int h);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_SetWindowFullscreen")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool SetWindowFullscreen(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool fullscreen);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_SetWindowResizable")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool SetWindowResizable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool resizable);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_GetWindowFlags")]
+    public static partial ulong GetWindowFlags(IntPtr window);
+
+    public const ulong WindowFullscreen = 0x1;
+
     [LibraryImport(Lib, EntryPoint = "SDL_Delay")]
     public static partial void Delay(uint ms);
 }
@@ -147,4 +174,11 @@ public struct SdlEvent
     [FieldOffset(24)] public uint Scancode;      // keyboard events
     [FieldOffset(28)] public uint Key;           // keyboard events: SDL_Keycode
     [FieldOffset(36)] public byte Down;          // keyboard events
+    [FieldOffset(37)] public byte Repeat;        // keyboard events
+    [FieldOffset(32)] public ushort Mod;         // keyboard events: SDL_Keymod
+    [FieldOffset(36)] public float XRel;         // mouse motion
+    [FieldOffset(40)] public float YRel;         // mouse motion
+    [FieldOffset(24)] public byte Button;        // mouse button events: 1 left, 2 middle, 3 right
+    [FieldOffset(25)] public byte ButtonDown;    // mouse button events
+    [FieldOffset(28)] public float WheelY;       // mouse wheel
 }
