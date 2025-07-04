@@ -184,7 +184,9 @@ public sealed class GuiRuntime
         });
 
         // ---- 5.2 control access ----
-        Cmd("Control::getValue", 2, "Control::getValue(control);", a => FindControl(a[1])?.GetValue() ?? Missing(a));
+        // A missing control gives the empty string and prints nothing: the stock start-up runs OptionsVideo::apply before
+        // any options screen exists and the install's console.log has no line for it (C8, docs/client-scripts.md 6.1 step 13).
+        Cmd("Control::getValue", 2, "Control::getValue(control);", a => FindControl(a[1])?.GetValue() ?? "");
         Cmd("Control::setValue", 3, "Control::setValue(control, value);", a => { FindControl(a[1])?.SetValue(a[2]); return ""; });
         Cmd("Control::getActive", 2, "Control::getActive(control);", a => FindControl(a[1]) is GuiControl c ? B(c.Active) : "False");
         Cmd("Control::setActive", 3, "Control::setActive(control, bool);", a =>

@@ -75,6 +75,8 @@ public sealed class NetClientSession : ConnectionEvents
     private CorrectionRecord? mPendingCorrection;
     private uint mFrameNow;
     public readonly string Version;
+    // client-net.md 1.2: $Server::JoinPassword and $PCFG::Gender, Voice, SkinBase.
+    public string Password = "", Gender = "Male", Voice = "Male1", SkinBase = "base";
 
     public ClientWorld World => mWorld;
     public Action<string>? Log;
@@ -95,7 +97,81 @@ public sealed class NetClientSession : ConnectionEvents
         mGame = new ClientGameConnection(mWorld);
     }
 
-    private uint Now => (uint)mClock.ElapsedMilliseconds;
+    private uint Now => ClockMs != null ? ClockMs() : (uint)mClock.ElapsedMilliseconds;
+
+    // ---- M9 C8: the session as a part of the `tribes` frame loop ----
+
+    // True: the scripts of the client drive the join (onConnection sends SetCLInfo, dataFinished() and
+    // onClientGhostAlwaysDone() answer the server) and the moves come from the PSC buffer (client-net.md 4.2); the
+    // session does neither itself.
+    public bool External;
+    public Func<uint>? ClockMs;
+    // onConnection(msg) of the script (client-net.md 1.6): Accepted, Rejected, TimedOut, Dropped, and the reason text.
+    public Action<string, string>? OnConnection;
+    public Action? OnDataFinished, OnAlwaysDone;
+    public Action<DecodedPacket>? PacketHook;
+    public bool IsOpen => mVc != null && !mClosed;
+    public bool IsAccepted => mAccepted;
+    public ClientGameConnection Game => mGame;
+    private bool mOpened;
+
+    // Opens the socket and sends the connect request (client-net.md 1.2); the replies arrive in Frame.
+    public bool Connect(string hostPort)
+    {
+        Address server = Resolve(hostPort);
+        mServerAddress = server;
+        if (!mSock.Open(0))
+            return false;
+        var rng = new Random();
+        uint id = (uint)rng.NextInt64(1, 0xffffffffL);
+        mVc = new Connection(server, id, this, (to, data) => mSock.Send(to, data), Now);
+        mVc.Send(Connection.ConnectRequest, ConnectPayload(), Now);
+        mOpened = true;
+        mClosed = false;
+        return true;
+    }
+
+    private Address mServerAddress;
+    private readonly byte[] mRx = new byte[0x10000];
+
+    // One client frame of the net steps F10 (receive), F14 (prediction) and F12 (send) of client-app.md 2.2.
+    public void Frame(uint now)
+    {
+        if (!mOpened || mVc == null)
+            return;
+        mFrameNow = now;
+        int n;
+        while (!mClosed && (n = mSock.Receive(out Address from, mRx)) > 0)
+            if (from == mServerAddress)
+                mVc.Receive(mRx.AsSpan(0, n), Now);
+        if (!mClosed)
+            mVc.Tick(Now);
+        if (mClosed)
+            return;
+        if (mAccepted)
+        {
+            if (PredictWorld != null)
+            {
+                Prediction.Advance(mWorld.Psc, now);
+                mPendingCorrection = null;
+            }
+            if (mVc.State() == ConnectionState.Connected && mGame.Due(now))
+            {
+                Connection vc = mVc;
+                mGame.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
+            }
+        }
+    }
+
+    // disconnect(): a Disconnect packet when connected, then the socket closes.
+    public void Disconnect()
+    {
+        if (mVc != null && !mClosed && mVc.State() == ConnectionState.Connected)
+            mVc.Close(Connection.Disconnect, "", Now);
+        mClosed = true;
+        mOpened = false;
+        mSock.Close();
+    }
 
     // ---- ConnectionEvents ----
 
@@ -105,13 +181,23 @@ public sealed class NetClientSession : ConnectionEvents
     {
         // net-protocol.md 5.4: the player id and the server manager id (1.5 step 2).
         byte[] b = payload.ToArray();
-        if (b.Length >= 8)
+        if (b.Length >= 8 && External)
+        {
+            mWorld.PlayerId = BitConverter.ToInt32(b, 0);
+            mWorld.ServerId = BitConverter.ToInt32(b, 4);
+        }
+        else if (b.Length >= 8)
         {
             mWorld = new ClientWorld { PlayerId = BitConverter.ToInt32(b, 0), ServerId = BitConverter.ToInt32(b, 4) };
             mGame = new ClientGameConnection(mWorld);
         }
         mAccepted = true;
         Log?.Invoke("accepted: player " + mWorld.PlayerId + ", server " + mWorld.ServerId);
+        if (External)
+        {
+            OnConnection?.Invoke("Accepted", "");
+            return;
+        }
         // onConnection("Accepted") (1.6): remoteEval(2048, "SetCLInfo", skin, real name, email, tribe, url, info,
         // autoWaypoint, noEnterInvStation, messageMask).
         mGame.PostRemoteEval("SetCLInfo", "base", mName, "", "", "", "", "true", "false", "-1");
@@ -123,6 +209,7 @@ public sealed class NetClientSession : ConnectionEvents
         mClosed = true;
         mReason = System.Text.Encoding.Latin1.GetString(payload).TrimEnd('\0');
         Log?.Invoke("rejected: " + mReason);
+        OnConnection?.Invoke("Rejected", mReason);
     }
 
     public override void OnClosed(Connection c, ReadOnlySpan<byte> reason, bool timedOut)
@@ -130,6 +217,7 @@ public sealed class NetClientSession : ConnectionEvents
         mClosed = true;
         mReason = (timedOut ? "timed out" : "dropped") + (reason.Length > 0 ? ": " + System.Text.Encoding.Latin1.GetString(reason).TrimEnd('\0') : "");
         Log?.Invoke(mReason);
+        OnConnection?.Invoke(timedOut ? "TimedOut" : "Dropped", mReason);
     }
 
     public override void OnNotify(Connection c, uint cookie, bool delivered) => mGame.Notify(cookie, delivered);
@@ -138,6 +226,7 @@ public sealed class NetClientSession : ConnectionEvents
     {
         DecodedPacket p = mGame.Receive(payload.ToArray());
         mDump.Write(p, mClock.Elapsed.TotalSeconds);
+        PacketHook?.Invoke(p);
         if (PredictFactory != null)
             FollowMission();
         if (PredictWorld != null && p.Psc != null && p.Psc.Direction == "s2c")
@@ -152,12 +241,18 @@ public sealed class NetClientSession : ConnectionEvents
         if (!mDataSent && mWorld.DataBlocks.Finished)
         {
             mDataSent = true;
-            mGame.PostRemoteEval("dataFinished");
+            if (External)
+                OnDataFinished?.Invoke();
+            else
+                mGame.PostRemoteEval("dataFinished");
         }
         if (!mCgaSent && mWorld.AlwaysDone)
         {
             mCgaSent = true;
-            mGame.PostRemoteEval("CGADone");
+            if (External)
+                OnAlwaysDone?.Invoke();
+            else
+                mGame.PostRemoteEval("CGADone");
         }
     }
 
@@ -202,7 +297,7 @@ public sealed class NetClientSession : ConnectionEvents
         byte[] buf = new byte[1500];
         var bs = new BitStream(buf, buf.Length);
         bs.WriteInt(1, 16);
-        foreach (string s in new[] { "Tribes", Version, "", mName, "Male", "Male1", "base" })
+        foreach (string s in new[] { "Tribes", Version, Password, mName, Gender, Voice, SkinBase })
             bs.WriteString(s);
         return buf.AsSpan(0, bs.BytePosition()).ToArray();
     }
