@@ -9,7 +9,10 @@ way are added to Open.
 
 ### Client
 
-- [ ] Run the client as a game: menus, joining and playing.
+- [ ] Joystick support.
+- [ ] Hosting a game from the client menus.
+- [ ] The intro movie.
+- [ ] Inventory and score lists.
 
 ### Project
 
@@ -47,6 +50,7 @@ way are added to Open.
 - [x] Reads the game stream, ghosts and `.rec` demos (`tribes-netclient`).
 - [x] Prediction of the player's own movement, corrected by the server, also in `tribes-netclient`.
 - [x] The client process has a GUI and a network session.
+- [x] `tribes` runs the stock scripts to the main menu.
 
 ### Graphics
 

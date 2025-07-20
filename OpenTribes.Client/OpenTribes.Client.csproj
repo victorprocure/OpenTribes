@@ -10,5 +10,8 @@
     <ProjectReference Include="..\OpenTribes.World\OpenTribes.World.csproj" />
     <ProjectReference Include="..\OpenTribes.Game\OpenTribes.Game.csproj" />
     <ProjectReference Include="..\OpenTribes.Gui\OpenTribes.Gui.csproj" />
+    <ProjectReference Include="..\OpenTribes.Sim\OpenTribes.Sim.csproj" />
+    <ProjectReference Include="..\OpenTribes.Script\OpenTribes.Script.csproj" />
+    <ProjectReference Include="..\OpenTribes.ClientNet\OpenTribes.ClientNet.csproj" />
   </ItemGroup>
 </Project>

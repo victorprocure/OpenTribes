@@ -11,6 +11,9 @@ namespace OpenTribes.Client;
 public static class Program
 {
     private const string Usage =
+        "usage: tribes [--root DIR] [--windowed] [--input SCRIPT] [--log FILE] [--screenshot-at T,...] [--shots DIR] [--size WxH]\n" +
+        "              [--video-driver NAME] [--no-audio] [--no-predict] [--allow-remote] [--allow-browser] [--seconds S] [GAME ARGS...]\n" +
+        "       the client: runs console.cs of DIR; GAME ARGS (-mod x, +connect ADDR, +exec FILE, -host MISSION) go to $cargv\n" +
         "usage: tribes --root DIR [--show RESOURCE] [--palette PPL|PAL] [--font PFT [--text STRING]]\n" +
         "              [--screenshot OUT.ppm [--frames N]] [--size WxH] [--video-driver NAME]\n" +
         "       tribes --root DIR --demo FILE.rec --at SEC,SEC,... [--camera follow|X,Y,Z,YAW,PITCH|ghost:N] [--fov DEG] --screenshot OUT\n" +
@@ -50,6 +53,8 @@ public static class Program
 
     public static int Main(string[] args)
     {
+        if (!App.ClientOptions.IsToolInvocation(args) && !args.Contains("-h") && !args.Contains("--help"))
+            return RunClient(args);
         Options? o = Parse(args);
         if (o == null)
         {
@@ -189,6 +194,27 @@ public static class Program
             Frame();
         }
         return 0;
+    }
+
+    // The real client process (ROADMAP M9 C8): console.cs, the stock scripts, the frame loop.
+    private static int RunClient(string[] args)
+    {
+        App.ClientOptions? opt = App.ClientOptions.Parse(args, out string error);
+        if (opt == null)
+        {
+            Console.Error.WriteLine("tribes: " + error);
+            Console.Error.Write(Usage);
+            return 2;
+        }
+        using var app = new App.ClientApp(opt);
+        try
+        {
+            return app.Run();
+        }
+        finally
+        {
+            Console.Error.Flush();
+        }
     }
 
     private static Options? Parse(string[] args)

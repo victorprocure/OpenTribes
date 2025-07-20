@@ -1,7 +1,7 @@
 # OpenTribes
 
-OpenTribes is a reimplementation of Starsiege: Tribes (version 1.11) in C#. The dedicated server is done and the
-game client is being built.
+OpenTribes is a reimplementation of Starsiege: Tribes (version 1.11) in C#. It has a dedicated server and a game
+client, and runs on Linux, Windows and macOS.
 It uses the data files from your own copy of the game. No game data is included here.
 
 ## What you need
@@ -36,13 +36,22 @@ server scripts). Run `out/tribes-server` with a wrong option to see all its opti
 
 ## Run the client
 
-The client is not playable yet.
-It can draw a mission or a recorded demo to an image:
+The client writes settings into the game directory (`config/`, `temp/`), so point it at a copy of your install if you
+want to keep the original untouched.
 
-    out/tribes --root /path/to/Tribes --mission Broadside --camera -190,-260,215,0,-10 --screenshot out.png
-    out/tribes --root /path/to/Tribes --demo Recordings/Ruckus.rec --at 54 --screenshot out.png
+    out/tribes --root /path/to/Tribes --windowed
 
-The camera is `X,Y,Z,YAW,PITCH`, in world units and degrees.
+This starts the stock menus. Joining a server does not work yet.
+
+Useful options:
+
+| Option | Effect |
+|---|---|
+| `--windowed` | Stay in a window, even when the game settings ask for full screen |
+| `--no-audio` | Start without sound |
+| `--allow-remote` | Allow connecting to servers outside this machine. Without it the client only talks to 127.0.0.1 |
+| `--allow-browser` | Let in-game links open in your web browser |
+| `-mod NAME` | Load a mod folder |
 
 ## Run the tests
 
@@ -52,4 +61,4 @@ Some tests currently fail because their data files are in the C++ repository. Se
 
 ## Status
 
-The server is playable. The client is in progress. Known gaps, done and open, are listed in [TODO.md](TODO.md).
+The server and client are playable. Known gaps, done and open, are listed in [TODO.md](TODO.md).
