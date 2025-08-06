@@ -220,8 +220,22 @@ public sealed class GuiCanvas
         GuiControl? c = LoadFile(file);
         if (c == null)
             return false;
+        // The content control is named after its file: JoinGame.gui is `JoinGameGui`, play.gui `playGui` (the names of the
+        // `<Content>::onOpen` / `onClose` callbacks of client-scripts.md 4.3).
+        if (string.IsNullOrEmpty(c.Name))
+            c.Name = Path.GetFileNameWithoutExtension(file.Replace('\\', '/')) + "Gui";
         SetContent(c, DelegateFor(file));
         return true;
+    }
+
+    // client-scripts.md 4.3: `<Content>::onClose()` of the control that leaves, then `<Content>::onOpen()` of the one that comes.
+    private void CallContentHook(GuiControl? c, string hook)
+    {
+        if (c == null || string.IsNullOrEmpty(c.Name))
+            return;
+        string fn = c.Name + "::" + hook;
+        if (Host.HasFunction(fn))
+            Host.Call(fn);
     }
 
     public void SetContent(GuiControl c, GuiDelegate? del = null)
@@ -231,6 +245,8 @@ public sealed class GuiCanvas
         Invalidate();
         while (Stack.Count > 1)
             PopDialog(0, force: true);
+        if (Stack.Count == 1)
+            CallContentHook(Stack[0], "onClose");
         if (Stack.Count == 1)
         {
             GuiControl old = Stack[0];
@@ -248,6 +264,7 @@ public sealed class GuiCanvas
         c.SetCanvas(this);
         c.WakeTree();
         AfterStackChange();
+        CallContentHook(c, "onOpen");
         Trace.Add($"content control {c.ClassName} {c.Name} ({c.Children.Count} children)");
     }
 

@@ -39,12 +39,19 @@ public class GuiList : GuiActive
         if (!notify)
             return;
         WriteVariable(row.ToString(CultureInfo.InvariantCulture));
+        // The control's console command runs on every selection (the recordings list enables its buttons this way).
+        if (Command.Length > 0)
+            Host?.Eval(Command);
         if (Name != null && Host != null && Host.HasFunction(Name + "::onSelect"))
             Host.Call(Name + "::onSelect", row.ToString(CultureInfo.InvariantCulture));
         PostMessage();
     }
 
-    public override string GetValue() => Selected.ToString(CultureInfo.InvariantCulture);
+    // A text list answers Control::getValue with the text of the selected line (the stock scripts build file names from it:
+    // `recordings\\ @ Control::getValue(RecordingsTextList) @ .rec`, C8); the other array controls answer the row index.
+    public override string GetValue() => ClassName.EndsWith("TextList", StringComparison.Ordinal)
+        ? (Selected >= 0 && Selected < Entries.Count ? Entries[Selected].Text : "")
+        : Selected.ToString(CultureInfo.InvariantCulture);
     protected override void ApplyValue(string v)
     {
         if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i))
