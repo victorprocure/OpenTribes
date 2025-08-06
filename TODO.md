@@ -51,6 +51,7 @@ way are added to Open.
 - [x] Prediction of the player's own movement, corrected by the server, also in `tribes-netclient`.
 - [x] The client process has a GUI and a network session.
 - [x] `tribes` runs the stock scripts to the main menu.
+- [x] Joining a server, the server list and the play view.
 
 ### Graphics
 

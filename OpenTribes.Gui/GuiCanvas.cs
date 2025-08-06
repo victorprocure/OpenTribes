@@ -35,7 +35,9 @@ public sealed class GuiDelegate : IGuiResponder
     public bool KeyUp(GuiEvent e) => Up?.KeyUp(e) ?? false;
     public bool KeyRepeat(GuiEvent e) => Up?.KeyRepeat(e) ?? false;
     public bool KeyDown(GuiEvent e) => Up?.KeyDown(e) ?? false;
-    public bool Message(GuiControl? sender, int tag) => Up?.Message(sender, tag) ?? false;
+    // C8: the handler of the delegate's own messages (docs/gui.md 2.2 slot 0x74); the client installs it.
+    public Func<GuiControl?, int, bool>? OnMessage;
+    public bool Message(GuiControl? sender, int tag) => OnMessage?.Invoke(sender, tag) == true || (Up?.Message(sender, tag) ?? false);
     public bool CanRelease() => true;
     public bool CanTake() => false;
 }

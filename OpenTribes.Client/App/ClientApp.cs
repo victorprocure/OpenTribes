@@ -36,6 +36,7 @@ public sealed class ClientApp : IDisposable
     public AudioOutput? AudioDev;
     public PlayDelegate Play = null!;
     public ClientCommandHandlers Handlers = null!;
+    public ClientDelegates Delegates = null!;
     public LiveGame? Game;
     public readonly IActionConsumer ConsoleConsumer = new NullConsumer();
 
@@ -153,6 +154,8 @@ public sealed class ClientApp : IDisposable
 
         SetupAudio();
         Handlers.Register();
+        Delegates = new ClientDelegates(this);
+        Delegates.Install();
         RegisterEngineVariables();
 
         Interp.SetVariable("$cargv0", "Tribes.exe");
@@ -424,8 +427,15 @@ public sealed class ClientApp : IDisposable
         uint now = NowMs;
         // test hooks: the timed script runs where the input poll runs (F6).
         mScript?.Run(now);
+        if (mScript != null)
+        {
+            foreach (string t in Canvas.Trace)
+                Interp.Print(1, "  [canvas] " + t);
+            Canvas.Trace.Clear();
+        }
         // F5/F6 follow: the canvas content decides which maps are pushed.
         Play.UpdateContent(Canvas.Content?.Id ?? 0);
+        Delegates.Poll();
         SmackerFallback();
         // F8-F14: moves, receive, send, sim advance, prediction.
         Game?.Frame(now, Play.Moves);

@@ -41,7 +41,9 @@ want to keep the original untouched.
 
     out/tribes --root /path/to/Tribes --windowed
 
-This starts the stock menus. Joining a server does not work yet.
+This starts the stock menus. To join a server directly:
+
+    out/tribes --root /path/to/Tribes --windowed +connect 127.0.0.1:28001
 
 Useful options:
 
@@ -51,7 +53,10 @@ Useful options:
 | `--no-audio` | Start without sound |
 | `--allow-remote` | Allow connecting to servers outside this machine. Without it the client only talks to 127.0.0.1 |
 | `--allow-browser` | Let in-game links open in your web browser |
+| `+connect HOST:PORT` | Join that server at start-up |
 | `-mod NAME` | Load a mod folder |
+
+The master server list is empty, so join servers by address.
 
 ## Run the tests
 
