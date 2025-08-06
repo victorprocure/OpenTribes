@@ -19,6 +19,8 @@ public sealed class ClientOptions
     public string? VideoDriver;
     public bool NoAudio;
     public bool NoVsync;
+    // `--headless` (client-app.md 1.2): no window, no input, no audio output; the frame loop runs on the virtual clock.
+    public bool Headless;
     // `--windowed`: setFullscreenMode(true) is ignored (the stock prefs ask for full screen).
     public bool Windowed;
     // `--seconds S`: leave after S seconds of app time (tests).
@@ -128,6 +130,7 @@ public sealed class ClientOptions
                 case "--no-audio": o.NoAudio = true; break;
                 case "--no-vsync": o.NoVsync = true; break;
                 case "--windowed": o.Windowed = true; break;
+                case "--headless": o.Headless = true; if (o.VirtualStep == 0) o.VirtualStep = 16; o.NoAudio = true; break;
                 case "--allow-remote": o.AllowRemote = true; break;
                 case "--allow-browser": o.AllowBrowser = true; break;
                 case "--no-predict": o.NoPredict = true; break;

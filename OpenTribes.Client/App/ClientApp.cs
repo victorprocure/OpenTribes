@@ -104,15 +104,18 @@ public sealed class ClientApp : IDisposable
         {
             mLogFile = new StreamWriter(Opt.LogFile, false, new UTF8Encoding(false)) { AutoFlush = true };
         }
-        Win = GlWindow.TryCreate("Tribes", Opt.Width, Opt.Height, false, Opt.VideoDriver, out string winError);
-        if (Win == null)
+        if (!Opt.Headless)
         {
-            error = "cannot open a window with an OpenGL 3.3 core context: " + winError;
-            return false;
+            Win = GlWindow.TryCreate("Tribes", Opt.Width, Opt.Height, false, Opt.VideoDriver, out string winError);
+            if (Win == null)
+            {
+                error = "cannot open a window with an OpenGL 3.3 core context: " + winError;
+                return false;
+            }
+            Dev = new GlGfxDevice(Win);
+            Win.SetSwapInterval(Opt.NoVsync || Opt.VirtualStep != 0 ? 0 : 1);
+            Win.SetRelativeMouse(false);
         }
-        Dev = new GlGfxDevice(Win);
-        Win.SetSwapInterval(Opt.NoVsync || Opt.VirtualStep != 0 ? 0 : 1);
-        Win.SetRelativeMouse(false);
         ForceWindowed = Opt.Windowed;
 
         Res = new ResourceManager(Opt.Root);
@@ -132,12 +135,10 @@ public sealed class ClientApp : IDisposable
         // (addCMCommand, setMaterialProperty, ...): the game plugin of the port, over the client world.
         var game = new GameState { Sim = SimWorld, Console = Interp, Resources = Res };
         ctx.Game = game;
-        MissionClasses.Register();
-        GhostClasses.Register();
         GameCommands.Register(Interp, game);
 
         Host = new GuiHost(Interp, Res) { Root = Opt.Root, Now = () => NowMs, Log = l => Interp.Print(1, l) };
-        Canvas = new GuiCanvas(Host, Dev.Width, Dev.Height);
+        Canvas = new GuiCanvas(Host, Dev?.Width ?? Opt.Width, Dev?.Height ?? Opt.Height);
         GuiRt = new GuiRuntime(Interp, Host, Canvas);
         GuiRt.RenderRequested = () => { RenderFrame(); };
         Host.OnPalette = name =>
@@ -205,7 +206,7 @@ public sealed class ClientApp : IDisposable
     // The engine variables of client-scripts.md 5.1 that the engine reads back (the rest live as plain script variables).
     private void RegisterEngineVariables()
     {
-        Interp.BindVariable("$pref::PlayerFov", v => { });
+        EngineVariables.Register(Interp);
         Play.Moves.PrefFov = () => Numbers.BorlandAtof(Interp.PeekVariable("$pref::PlayerFov")) is var f and > 1 ? f : 90;
         Play.Moves.ReversePitch = () => false;
     }
@@ -400,13 +401,11 @@ public sealed class ClientApp : IDisposable
             Console.Error.WriteLine("tribes: " + error);
             return 1;
         }
-        Win!.Show();
+        Win?.Show();
         var realStart = Stopwatch.StartNew();
         while (!mQuit)
         {
-            if (Opt.VirtualStep != 0)
-                mVirtualMs += Opt.VirtualStep;
-            Frame();
+            Step();
             if (Opt.Seconds > 0 && NowMs / 1000.0 >= Opt.Seconds)
                 break;
             if (Opt.VirtualStep == 0 && Opt.NoVsync)
@@ -415,6 +414,14 @@ public sealed class ClientApp : IDisposable
         _ = realStart;
         Shutdown();
         return ExitCode;
+    }
+
+    // One frame on the virtual clock when `--virtual-time` or `--headless` is on (the clock moves by the step first).
+    public void Step()
+    {
+        if (Opt.VirtualStep != 0)
+            mVirtualMs += Opt.VirtualStep;
+        Frame();
     }
 
     public void Frame()
@@ -608,6 +615,8 @@ public sealed class ClientApp : IDisposable
 
     private void PumpEvents()
     {
+        if (Win == null)
+            return;
         while (Sdl3.PollEvent(out SdlEvent ev))
         {
             switch (ev.Type)

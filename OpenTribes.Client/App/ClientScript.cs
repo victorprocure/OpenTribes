@@ -37,7 +37,9 @@ public sealed class ClientScript
             case "connected": return mApp.Game != null && mApp.Game.Joined;
             case "content": return w.Length > 1 && mApp.Canvas.Content?.Id.ToString(CultureInfo.InvariantCulture) == w[1];
         }
-        string r = mApp.Interp.Evaluate(what.EndsWith(';') ? what : what + ";");
+        string r = what.StartsWith('$') && !what.Contains(' ') && !what.Contains('(')
+            ? mApp.Interp.PeekVariable(what)
+            : mApp.Interp.Evaluate(what.EndsWith(';') ? what : what + ";");
         return r.Equals("true", StringComparison.OrdinalIgnoreCase) || r == "1";
     }
 
