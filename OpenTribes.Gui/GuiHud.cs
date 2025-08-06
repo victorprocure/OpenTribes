@@ -321,6 +321,13 @@ public sealed class GuiChat : GuiTextEdit
             WriteVariable(text);
             if (Command.Length > 0)
                 Host?.Eval(Command);
+            else if (text.Length > 0 && Host != null)
+            {
+                // The stock `.gui` files give the chat line no command: the engine sends the line to the channel the chat key
+                // chose (client.cs `say(channel, message)`, `$pref::msgChannel`, client-scripts.md 3.10 CHAT).
+                string channel = Host.GetVar("$pref::msgChannel");
+                Host.Eval("say(" + (channel.Length > 0 ? channel : "0") + ", \"" + text.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\");");
+            }
             Close2();
             return true;
         }

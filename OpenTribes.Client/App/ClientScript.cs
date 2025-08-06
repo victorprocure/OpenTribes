@@ -5,6 +5,8 @@
 //   move X Y | mouse DX DY | click [X Y] | rclick [X Y] | dblclick [X Y] | down | up | rdown | rup | wheel N
 //   key NAME [shift|ctrl|alt]... | keydown NAME | keyup NAME | hold NAME SECONDS | type TEXT
 //   eval CONSOLE TEXT | echo TEXT | var $NAME | where NAME_OR_ID | clickctl NAME_OR_ID | focus | shot NAME | quit | wait SECONDS
+//   waitfor WHAT [SECONDS]: holds the later lines until WHAT is true (or SECONDS, default 60, passed); WHAT is `play` (the play
+//   screen shows the world), `player` (the control object is a Player), `connected`, `content ID`, or console text that gives true/1.
 // `key`, `keydown` and `keyup` go through the same dispatcher as an SDL key event (modifiers, GUI first, then the maps);
 // `mouse` is a raw relative count like an SDL motion event; `move` and `click` place the GUI cursor first.
 using System.Globalization;
@@ -19,8 +21,25 @@ public sealed class ClientScript
     private readonly List<(double At, string Line)> mLines = new();
     private readonly List<(double At, Action Do)> mQueued = new();
     private int mNext;
+    private string? mWaitFor;
+    private double mWaitStart, mWaitLimit, mShift, mBusyUntil;
+    private bool mYield;
 
     private ClientScript(ClientApp app) => mApp = app;
+
+    private bool Check(string what)
+    {
+        string[] w = what.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        switch (w[0].ToLowerInvariant())
+        {
+            case "play": return mApp.Game != null && mApp.Game.HasScene && mApp.Canvas.Content?.Id == PlayDelegate.PlayGuiId;
+            case "player": return mApp.Game?.World.Psc.ControlClass == "Player";
+            case "connected": return mApp.Game != null && mApp.Game.Joined;
+            case "content": return w.Length > 1 && mApp.Canvas.Content?.Id.ToString(CultureInfo.InvariantCulture) == w[1];
+        }
+        string r = mApp.Interp.Evaluate(what.EndsWith(';') ? what : what + ";");
+        return r.Equals("true", StringComparison.OrdinalIgnoreCase) || r == "1";
+    }
 
     public static ClientScript Load(ClientApp app, string path)
     {
@@ -68,8 +87,27 @@ public sealed class ClientScript
             else
                 ++i;
         }
-        while (mNext < mLines.Count && mLines[mNext].At <= sec)
+        if (mWaitFor != null)
+        {
+            bool done = Check(mWaitFor);
+            if (!done && sec - mWaitStart < mWaitLimit)
+                return;
+            if (!done)
+                Echo("waitfor " + mWaitFor + ": timed out");
+            else
+                Echo("waitfor " + mWaitFor + ": true after " + (sec - mWaitStart).ToString("0.0", CultureInfo.InvariantCulture) + " s");
+            mShift += sec - mWaitStart;
+            mWaitFor = null;
+        }
+        mYield = false;
+        // `type`, `click` and `shot` hold the next line back until their own actions are done (a click is 0.1 s, a typed
+        // character 0.03 s, a shot one frame), so a script reads top to bottom.
+        while (sec >= mBusyUntil && mNext < mLines.Count && mLines[mNext].At + mShift <= sec)
+        {
             Exec(mLines[mNext++].Line, sec);
+            if (mWaitFor != null || mYield)
+                break;
+        }
     }
 
     private void Echo(string s) => mApp.Interp.Print(1, s);
@@ -147,6 +185,7 @@ public sealed class ClientScript
                         MoveTo(int.Parse(a[0], CultureInfo.InvariantCulture), int.Parse(a[1], CultureInfo.InvariantCulture));
                     int b = cmd == "rclick" ? 1 : 0;
                     int times = cmd == "dblclick" ? 2 : 1;
+                    mBusyUntil = now + 0.1 * times;
                     for (int i = 0; i < times; ++i)
                     {
                         double t0 = i * 0.06;
@@ -195,6 +234,7 @@ public sealed class ClientScript
             case "type":
                 {
                     double t0 = 0;
+                    mBusyUntil = now + 0.03 * rest.Length + 0.06;
                     foreach (char ch in rest)
                     {
                         (int scan, bool shift) = ch == ' ' ? (0x39, false) : Lookup(ch.ToString());
@@ -231,8 +271,17 @@ public sealed class ClientScript
             case "focus": Echo("focus: " + ((mApp.Canvas.FirstResponder as GuiControl)?.ToString() ?? "root")); break;
             case "shot":
                 mApp.QueueScreenshot(Path.Combine(mApp.Opt.ShotDir, rest.EndsWith(".png") ? rest : rest + ".png"));
+                mYield = true;
                 break;
             case "quit": mApp.RequestQuit(); break;
+            case "waitfor":
+                {
+                    int last = a.Length > 1 && double.TryParse(a[^1], NumberStyles.Float, CultureInfo.InvariantCulture, out double lim) && !a[0].Equals("content", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                    mWaitLimit = last == 1 ? double.Parse(a[^1], CultureInfo.InvariantCulture) : 60;
+                    mWaitFor = last == 1 ? string.Join(' ', a[..^1]) : rest;
+                    mWaitStart = now;
+                    break;
+                }
             default: Echo("input: unknown command " + cmd); break;
         }
     }

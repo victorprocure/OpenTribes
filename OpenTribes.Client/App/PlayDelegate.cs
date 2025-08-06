@@ -50,6 +50,15 @@ public sealed class PlayDelegate : IActionConsumer
             Pop("actionMap.sae");
             mPlayActive = false;
         }
+        // The mouse belongs to the game while the play view is up (client-app.md 3.8: play is `cursorOff`) and to the GUI
+        // on every other screen; the command map shows the cursor.
+        if (id == PlayGuiId)
+        {
+            mApp.Canvas.CursorOn = false;
+            mApp.Canvas.Lock = null;
+        }
+        else if (!mApp.Canvas.CursorOn && (oldPc || id == CommandGuiId))
+            mApp.Canvas.CursorOn = true;
         if (id == PlayGuiId)
         {
             Pop("pdaMap.sae");

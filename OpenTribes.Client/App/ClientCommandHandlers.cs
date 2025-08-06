@@ -446,6 +446,15 @@ public sealed class ClientCommandHandlers
             mInactive.Add(a[1]);
             return "True";
         });
+        // Test aid: the state of the input path (docs/client-scripts.md 3.6 to 3.8).
+        Cmd("inputStatus", a =>
+        {
+            I.Print(1, $"input: maps pushed {mApp.Input.StackDepth}, held keys {mApp.Input.HeldCount}, modifiers {mApp.Input.Modifiers}, " +
+                       $"content {mApp.Canvas.Content?.Id}, cursor {(mApp.Canvas.CursorOn ? "on" : "off")}, pushes {mApp.Play.MapPushes}, pops {mApp.Play.MapPops}");
+            var m = mApp.Play.Moves;
+            I.Print(1, $"move: fwd {m.Forward} back {m.Backward} left {m.Left} right {m.Right} jet {m.JetOn} turn {m.TurnAcc} fire {m.FireCounter}");
+            return "";
+        });
         Cmd("pushActionMap", a =>
         {
             if (a.Length != 2)
