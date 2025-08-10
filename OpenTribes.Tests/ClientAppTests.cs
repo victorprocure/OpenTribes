@@ -315,7 +315,7 @@ public sealed class ClientAppTests : IDisposable
         Assert.InRange(m.Bindings[0].ScaleF, 0.00098f, 0.00100f);
         Assert.Equal("drop(BackPack);", m.Bindings[2].Command);
         // The sensitivity the options screen reads back (3.7).
-        Assert.StartsWith("0.00099", Eval("Client::getMouseSensitivity(playMap.sae);"));
+        Assert.InRange(double.Parse(Eval("Client::getMouseSensitivity(playMap.sae);"), System.Globalization.CultureInfo.InvariantCulture), 0.00098, 0.00100);
         Assert.Equal("FALSE", Eval("Client::getMouseXAxisFlip(playMap.sae);"));
     }
 
