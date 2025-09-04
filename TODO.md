@@ -79,3 +79,4 @@ way are added to Open.
 
 - [x] Keyboard and mouse input routing.
 - [x] Timed input scripts, chat and play view cursor.
+- [x] Relative mouse mode changes only when needed.

@@ -58,7 +58,7 @@ public sealed class ClientApp : IDisposable
     private int mNextAutoShot;
     private bool mPaletteSet;
     private uint mLastFrameMs;
-    private bool mGrab;
+    private bool mGrab, mRelativeMouse;
     private int mSmackerFrames;
     public long Frames;
 
@@ -250,7 +250,11 @@ public sealed class ClientApp : IDisposable
     {
         // client-app.md 3.8 (D48): relative mouse mode whenever the window has focus and mouse0 is active.
         bool want = mGrab || Canvas != null && (Canvas.WindowActive && !WindowsMouse);
-        Win?.SetRelativeMouse(want && Canvas?.WindowActive == true && Handlers.DeviceActive("mouse0"));
+        want = want && Canvas?.WindowActive == true && Handlers.DeviceActive("mouse0");
+        if (want == mRelativeMouse)
+            return;
+        mRelativeMouse = want;
+        Win?.SetRelativeMouse(want);
     }
 
     public void QueueScreenshot(string path) => mPendingShots.Add(path);
