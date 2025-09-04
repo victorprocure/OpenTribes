@@ -580,6 +580,8 @@ public sealed class GuiPalette : GuiControl
 public sealed class GuiTextWrap : GuiActive
 {
     public string Text = "";
+    // TextFormat, FGTextFormat and FearGuiFormattedText read `<fN>` markup (GuiMarkup); TextWrap draws its text as is.
+    public bool Formatted;
     public override bool WantsTab => false;
     protected override void ApplyValue(string v) => Text = v;
     public override string GetValue() => Text;
@@ -595,7 +597,17 @@ public sealed class GuiTextWrap : GuiActive
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
         PftFont? f = Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
-        if (f != null)
+        if (f != null && Formatted && Host != null)
+        {
+            int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
+            int y = gy;
+            foreach (var line in GuiMarkup.WrapText(Host, f, Text, W))
+            {
+                GuiMarkup.Draw(p, Host, f, gx, y, line);
+                y += lh;
+            }
+        }
+        else if (f != null)
         {
             int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
             int y = gy;

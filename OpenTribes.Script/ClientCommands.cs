@@ -334,7 +334,7 @@ public static class ClientCommands
 
     // sscanf(s, "%f", &f) == 1 of the C library: white space, then a decimal, hexadecimal, infinity or NaN
     // number, stored to float in the current mode (strtof; here the double parse, then the store).
-    internal static bool ScanFloat(string s, out float f)
+    public static bool ScanFloat(string s, out float f)
     {
         f = 0;
         int i = 0;
@@ -424,7 +424,11 @@ public static class ClientCommands
                 i = j;
             }
         }
-        f = Fpu.Store(Numbers.Strtod(s[start..i]));
+        string num = s[start..i];
+        f = Fpu.Store(Numbers.Strtod(num));
+        // A scale the engine itself printed (`%f`, six decimals) reads back to a float that prints the same text (client-scripts.md E7).
+        if (Fpu.IsPrintedDecimal(num, 6))
+            f = (float)Fpu.AtLeastDecimal(f, num, true);
         return true;
     }
 

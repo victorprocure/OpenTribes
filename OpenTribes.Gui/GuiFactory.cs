@@ -126,10 +126,10 @@ public static class GuiFactory
             case "SimGui::TimerCtrl": return new GuiTimer();
             case "SimGui::PaletteCtrl":
             case "FearGui::FGPaletteCtrl": return new GuiPalette();
-            case "SimGui::TextWrap":
+            case "SimGui::TextWrap": return new GuiTextWrap();
             case "SimGui::TextFormat":
             case "FearGui::FGTextFormat":
-            case "FearGuiFormattedText": return new GuiTextWrap();
+            case "FearGuiFormattedText": return new GuiTextWrap { Formatted = true };
             case "SimGui::ScrollContentCtrl": return new GuiScrollContent();
             case "SimGui::TSControl":
             case "FearGui::TSCommander": return new GuiPlayView();

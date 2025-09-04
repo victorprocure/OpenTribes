@@ -250,26 +250,26 @@ public sealed class GuiChatDisplay : GuiHud
         if (Host == null)
             return;
         int n = Math.Max(1, (int)U("lines", 3));
-        var lines = new List<(string, PftFont)>();
+        var lines = new List<(List<GuiMarkup.Run> Runs, PftFont Font)>();
         foreach (var (text, tag) in Host.Chat)
         {
             PftFont? f = Host.FontByTag(tag) ?? Host.FontByName("sf_white_10.pft");
             if (f == null)
                 continue;
-            foreach (string l in GuiTextWrap.Wrap(f, text, W))
+            foreach (var l in GuiMarkup.WrapText(Host, f, text, W))
                 lines.Add((l, f));
         }
         int start = Math.Max(0, lines.Count - n);
         int y = oy + Y;
         for (int i = start; i < lines.Count; ++i)
         {
-            p.Text(lines[i].Item2, ox + X, y, lines[i].Item1);
-            y += GuiPaint.FontHeight(lines[i].Item2) + 1;
+            GuiMarkup.Draw(p, Host, lines[i].Font, ox + X, y, lines[i].Runs);
+            y += GuiPaint.FontHeight(lines[i].Font) + 1;
         }
     }
 }
 
-// CenterPrint: Client::centerPrint(text, time) messages, centred, expiring after their time.
+// CenterPrint: Client::centerPrint(text, time) messages, centred, expiring after their time; `<fN>` markup as in the formatted text.
 public sealed class GuiCenterPrint : GuiControl
 {
     public override void Render(GuiPaint p, int ox, int oy)
@@ -280,10 +280,11 @@ public sealed class GuiCenterPrint : GuiControl
         PftFont? f = Host.FontByName("sf_white_10.pft");
         int y = oy + Y;
         foreach (var (text, _) in Host.CenterPrints)
-        {
-            p.Text(f, ox + X + (W - GuiPaint.TextWidth(f, text)) / 2, y, text);
-            y += GuiPaint.FontHeight(f) + 1;
-        }
+            foreach (var line in GuiMarkup.WrapText(Host, f, text, W))
+            {
+                GuiMarkup.Draw(p, Host, f, ox + X + (W - GuiMarkup.Width(Host, f, line)) / 2, y, line);
+                y += GuiPaint.FontHeight(f) + 1;
+            }
     }
 }
 
@@ -291,6 +292,16 @@ public sealed class GuiCenterPrint : GuiControl
 public sealed class GuiChat : GuiTextEdit
 {
     public override bool WantsTab => Visible;
+
+    // The stock chat line has font tag 0 and the highlight tag 150007 (play.gui); a tag that resolves to nothing falls back to the
+    // highlight font, then to the HUD font, so the typed text is always drawn (docs/gui.md 3.3 TextEdit draw: the class text draw).
+    protected override PftFont? Font =>
+        Host?.FontByTag(U("fontTag")) ?? Host?.FontByTag(U("highlightFontTag")) ?? Host?.FontByName("sf_white_10.pft");
+
+    // The base fill of the control (opaque flag and fill colour of its Control block, 2.5 base render) and the text, selection and
+    // cursor of the text edit draw. The 0xff fill of the plain TextEdit is not drawn: the chat line is a HUD control over the 3D
+    // view and its profile says whether it is opaque (client-scripts.md 9, C8 fix).
+    protected override void DrawField(GuiPaint p, int gx, int gy) => DrawLine(p, gx, gy);
 
     public void Open()
     {

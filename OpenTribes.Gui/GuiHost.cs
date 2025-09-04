@@ -72,6 +72,9 @@ public sealed class GuiHost
 
     // ---- resources ----
 
+    // Puts a font into the cache under a file name (the loaders of Res are not needed; tests and tools).
+    public void SetFont(string name, PftFont font) => mFonts[name] = font;
+
     public PftFont? FontByName(string name)
     {
         if (name.Length == 0)
@@ -82,6 +85,16 @@ public sealed class GuiHost
             mFonts[name] = f;
         }
         return f;
+    }
+
+    // The font of `<fN>` (GuiMarkup): the tag of esf.strings.cs by name, then its file. N outside 0..6 is the control's own font.
+    public PftFont? MarkupFont(int n)
+    {
+        string name = GuiMarkup.FontTagName(n);
+        if (name.Length == 0)
+            return null;
+        int id = Interp.TagId(name);
+        return id > 0 ? FontByTag((uint)id) : null;
     }
 
     public PftFont? FontByTag(uint tag) => TagText(tag) is string t ? FontByName(FirstItem(t)) : null;

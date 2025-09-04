@@ -69,6 +69,7 @@ way are added to Open.
 - [x] GUI: `.gui` loader and writer, canvas, class table, console commands, controls (including lists and widgets) and the HUD.
 - [x] Screenshots of GUI screens.
 - [x] Control names, text list values and list selection.
+- [x] Chat entry text and stable number settings.
 
 ### Audio
 

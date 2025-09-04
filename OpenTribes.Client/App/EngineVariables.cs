@@ -42,14 +42,26 @@ public static class EngineVariables
             case 2:
                 return Numbers.FormatInt(Numbers.BorlandAtoi(text));
             case 3:
-                return CFormat.G(Fpu.F32Chop(Numbers.BorlandAtof(text)), 6);
+                return CFormat.G(Fpu.F32Chop(ParsePrinted(text, -1, true)), 6);
             case 4:
-                return CFormat.G(Numbers.BorlandAtof(text), 6);
+                return CFormat.G(ParsePrinted(text, -1, false), 6);
             case 5:
-                return CFormat.F(Fpu.F32Chop(Math.Clamp(Numbers.BorlandAtof(text), 0.0, 1.0)), 6);
+                return CFormat.F(Fpu.F32Chop(Math.Clamp(ParsePrinted(text, 6, true), 0.0, 1.0)), 6);
             default:
                 return text;
         }
+    }
+
+    // The toward-zero parse of 5.1, except that a text the engine itself printed (six decimals for a clamped float, six significant
+    // digits for the others) parses to a value that prints the same text. The original loses one unit of the last digit per
+    // save and load (client-scripts.md E7); a text typed by hand (`0.9`) still reads back as the original does.
+    private static double ParsePrinted(string text, int decimals, bool single)
+    {
+        double d = Numbers.BorlandAtof(text);
+        if (single)
+            d = Fpu.F32Chop(d);
+        string t = text.Trim();
+        return Fpu.IsPrintedDecimal(t, decimals) ? Fpu.AtLeastDecimal(d, t, single) : d;
     }
 
     // Registers every cell on the interpreter: the image default now, the typed readback after every assignment.
