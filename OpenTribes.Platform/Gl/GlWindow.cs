@@ -36,8 +36,12 @@ public sealed unsafe class GlWindow : IDisposable
             {
                 if (sUsers == 0)
                 {
+                    videoDriver ??= PlatformPaths.DefaultVideoDriver(PlatformPaths.CurrentOs, PlatformPaths.Env);
                     if (videoDriver != null)
                         Sdl3.SetHintOverride("SDL_VIDEO_DRIVER", videoDriver);
+                    string? audioDriver = PlatformPaths.DefaultAudioDriver(PlatformPaths.CurrentOs, PlatformPaths.Env, videoDriver);
+                    if (audioDriver != null)
+                        Sdl3.SetHintOverride("SDL_AUDIO_DRIVER", audioDriver);
                     if (!Sdl3.Init(Sdl3.InitVideo))
                     {
                         error = "SDL_Init: " + Sdl3.GetError();
@@ -61,7 +65,7 @@ public sealed unsafe class GlWindow : IDisposable
             Sdl3.GlSetAttribute(Sdl3.GlContextProfileMask, Sdl3.GlProfileCore);
             Sdl3.GlSetAttribute(Sdl3.GlDoubleBuffer, 1);
             Sdl3.GlSetAttribute(Sdl3.GlDepthSize, 24);
-            ulong flags = Sdl3.WindowOpenGL | Sdl3.WindowResizable | (hidden ? Sdl3.WindowHidden : 0);
+            ulong flags = Sdl3.WindowOpenGL | Sdl3.WindowResizable | PlatformPaths.HighDpiWindowFlag(PlatformPaths.CurrentOs, PlatformPaths.Env) | (hidden ? Sdl3.WindowHidden : 0);
             window = Sdl3.CreateWindow(title, width, height, flags);
             if (window == IntPtr.Zero)
             {

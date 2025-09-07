@@ -36,10 +36,11 @@ public static partial class Sdl3
     {
         if (name != Lib)
             return IntPtr.Zero;
-        string[] candidates =
-        {
-            "libSDL3.so.0", "libSDL3.so", "libSDL3.0.dylib", "libSDL3.dylib", "SDL3.dll", "SDL3",
-        };
+        string[] candidates = PlatformPaths.SdlLibraryNames(PlatformPaths.CurrentOs);
+        // The copy next to the executable wins over a system copy.
+        foreach (string c in candidates)
+            if (NativeLibrary.TryLoad(Path.Combine(AppContext.BaseDirectory, c), out IntPtr hb))
+                return hb;
         foreach (string c in candidates)
             if (NativeLibrary.TryLoad(c, assembly, path, out IntPtr h))
                 return h;

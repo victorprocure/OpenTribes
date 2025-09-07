@@ -206,6 +206,17 @@ public static class Program
             Console.Error.Write(Usage);
             return 2;
         }
+        string? root = Platform.PlatformPaths.EnsureWritableRoot(opt.Root,
+            Platform.PlatformPaths.UserDataDir(Platform.PlatformPaths.CurrentOs, Platform.PlatformPaths.Env,
+                                               Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), out string rootError);
+        if (root == null)
+        {
+            Console.Error.WriteLine("tribes: " + rootError);
+            return 1;
+        }
+        if (root != opt.Root)
+            Console.Error.WriteLine($"tribes: {opt.Root} is read-only, using {root} for config, temp and recordings (D54)");
+        opt.Root = root;
         using var app = new App.ClientApp(opt);
         try
         {

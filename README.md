@@ -38,6 +38,7 @@ server scripts). Run `out/tribes-server` with a wrong option to see all its opti
 
 The client writes settings into the game directory (`config/`, `temp/`), so point it at a copy of your install if you
 want to keep the original untouched.
+If the game directory is read-only, the client keeps its files in a per-user folder instead.
 
     out/tribes --root /path/to/Tribes --windowed
 
@@ -63,6 +64,16 @@ The master server list is empty, so join servers by address.
     dotnet test OpenTribes.sln
 
 Some tests currently fail because their data files are in the C++ repository. See [TODO.md](TODO.md).
+
+## Builds for other platforms
+
+    dotnet publish OpenTribes.Client -c Release -r win-x64 --self-contained -o dist/win-x64
+
+Other targets are `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64` and `osx-arm64`. Copy the SDL3 library for that
+platform into the output folder. macOS builds are not signed. After downloading one, run
+`xattr -dr com.apple.quarantine <folder>` before starting it.
+
+Only Linux x64 and Windows x64 (under Wine) have been tried so far.
 
 ## Status
 

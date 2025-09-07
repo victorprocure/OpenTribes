@@ -17,6 +17,7 @@ way are added to Open.
 ### Project
 
 - [ ] Four tests (`PlayerTests.Main`, `VehicleTests.Main` and two `WorldTests` vector tests) fail because their data files are in the C++ repository (`OpenTribes-cpp/tests`).
+- [ ] Try the builds on Windows ARM64, Linux ARM64 and both macOS targets.
 
 ## Done
 
@@ -81,3 +82,7 @@ way are added to Open.
 - [x] Keyboard and mouse input routing.
 - [x] Timed input scripts, chat and play view cursor.
 - [x] Relative mouse mode changes only when needed.
+
+### Platforms
+
+- [x] Builds for Windows, Linux and macOS on x64 and ARM64, and a per-user data folder for a read-only install.
