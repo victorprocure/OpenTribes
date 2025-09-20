@@ -61,24 +61,54 @@ public sealed class ChatMenuTree
     }
 }
 
-public static class ClientGameCommands
+// The chat menus of one console: a tree per ChatMenu object and the menu a script switched on last.
+public sealed class ChatMenuRegistry
 {
-    // src/game/client_game_commands.cpp Menus: keyed by object and id; an entry whose id no longer matches is stale.
-    private sealed class Menus
-    {
-        private readonly Dictionary<SimObject, (int Id, ChatMenuTree Tree)> mTrees = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SimObject, (int Id, ChatMenuTree Tree)> mTrees = new(ReferenceEqualityComparer.Instance);
+    private SimObject? mActive;
+    private string mActiveName = "";
 
-        public ChatMenuTree Of(SimObject obj)
+    // Keyed by object and id; an entry whose id no longer matches is stale.
+    public ChatMenuTree Of(SimObject obj)
+    {
+        if (!mTrees.TryGetValue(obj, out var slot) || slot.Id != obj.Id())
         {
-            if (!mTrees.TryGetValue(obj, out var slot) || slot.Id != obj.Id())
-            {
-                slot = (obj.Id(), new ChatMenuTree());
-                mTrees[obj] = slot;
-            }
-            return slot.Tree;
+            slot = (obj.Id(), new ChatMenuTree());
+            mTrees[obj] = slot;
         }
+        return slot.Tree;
     }
 
+    // setCMMode: a menu switched to a mode above 0 is the one on display; switching it to 0 removes it.
+    public void SetMode(SimObject obj, string name, int mode)
+    {
+        Of(obj).Mode = mode;
+        if (mode > 0)
+        {
+            mActive = obj;
+            mActiveName = name;
+        }
+        else if (ReferenceEquals(mActive, obj))
+            mActive = null;
+    }
+
+    // The menu on display, null when none is on, or its object was deleted.
+    public (string Title, ChatMenuTree Tree)? Active(GameState game)
+    {
+        if (mActive == null || game.Sim?.Server()?.Find(mActiveName) is not SimObject now || !ReferenceEquals(now, mActive))
+            return null;
+        ChatMenuTree tree = Of(mActive);
+        return tree.Mode == 0 ? null : (mActive is SimClasses.ChatMenu m ? m.Title : "", tree);
+    }
+}
+
+public sealed partial class GameState
+{
+    public readonly ChatMenuRegistry ChatMenus = new();
+}
+
+public static class ClientGameCommands
+{
     // src/game/client_game_commands.cpp findMenu.
     private static SimObject? FindMenu(GameState game, string name) =>
         game.Sim?.Server()?.Find(name) is SimObject obj && obj.ClassName() == "ChatMenu" ? obj : null;
@@ -86,7 +116,7 @@ public static class ClientGameCommands
     // src/game/client_game_commands.cpp registerClientGameCommands.
     public static void Register(Interpreter interp, GameState game)
     {
-        var menus = new Menus();
+        ChatMenuRegistry menus = game.ChatMenus;
 
         // FearPlugin 0x00424798 case 0x14.
         interp.AddCommand("addCMCommand", (inr, a) =>
@@ -123,7 +153,7 @@ public static class ClientGameCommands
             }
             int mode = Numbers.BorlandAtoi(a[2]);
             if (mode >= 0 && mode < 3)
-                menus.Of(obj).Mode = mode;
+                menus.SetMode(obj, a[1], mode);
             return null;
         });
     }
