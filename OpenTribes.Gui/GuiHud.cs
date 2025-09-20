@@ -163,7 +163,9 @@ public sealed class GuiJetPackHud : GuiBarHud
         int x = ox + X, y = oy + Y;
         bool lr = LowRes;
         double value = Value;
-        p.Bitmap(Bmp(0, lr), x + 1, y + 1);
+        PbmpBitmap? frame = Bmp(0, lr);
+        if (frame != null)
+            p.Dev.Blit(frame, x + 1, y + 1, BlitFlip.Y);
         if (lr) p.Bitmap(Bmp(1, lr), x + 3, y + 4); else p.Bitmap(Bmp(1, lr), x + 5, y + 8);
         if (value <= 0)
             return;

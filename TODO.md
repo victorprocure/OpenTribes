@@ -72,6 +72,7 @@ way are added to Open.
 - [x] Control names, text list values and list selection.
 - [x] Chat entry text and stable number settings.
 - [x] Quit, message window frame, chat entry layout and energy bar.
+- [x] Jet pack frame nests under the health frame.
 
 ### Audio
 
