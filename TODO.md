@@ -73,6 +73,7 @@ way are added to Open.
 - [x] Chat entry text and stable number settings.
 - [x] Quit, message window frame, chat entry layout and energy bar.
 - [x] Jet pack frame nests under the health frame.
+- [x] Loading progress for a command line join.
 
 ### Audio
 

@@ -583,13 +583,34 @@ public sealed class GuiTextWrap : GuiActive
     // TextFormat, FGTextFormat and FearGuiFormattedText read `<fN>` markup (GuiMarkup); TextWrap draws its text as is.
     public bool Formatted;
     public override bool WantsTab => false;
-    protected override void ApplyValue(string v) => Text = v;
+    protected override void ApplyValue(string v)
+    {
+        Text = v;
+        FitHeight();
+    }
+
     public override string GetValue() => Text;
 
     public override void Wake()
     {
         if (Host?.TagText(U("textTag")) is string t)
             Text = t;
+        FitHeight();
+    }
+
+    // A formatted text control takes the height of its wrapped text at its width (parent size handler [code 0048983c]), so a
+    // control stored with height 0 (the progress text of Loading.gui) still shows what a script puts into it; the parent clips
+    // each child to its extent.
+    private void FitHeight()
+    {
+        if (!Formatted || Host == null || Text.Length == 0)
+            return;
+        PftFont? f = Host.FontByTag(U("fontTag")) ?? Host.FontByName("sf_white_10.pft");
+        if (f == null)
+            return;
+        int h = GuiMarkup.WrapText(Host, f, Text, W).Count * (GuiPaint.FontHeight(f) + (int)U("lineSpacing"));
+        if (h > H)
+            H = h;
     }
 
     public override void Render(GuiPaint p, int ox, int oy)

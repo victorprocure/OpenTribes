@@ -560,6 +560,10 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "Connect: <net_address>");
                 return "False";
             }
+            // A +connect start-up never passes the play-mode radio of the menu, so the mode is empty and the stock onConnection would
+            // skip gui\Loading.gui (and its progress bar). The command line join is a JOIN.
+            if (I.PeekVariable("$connectAddress").Length > 0 && I.PeekVariable("$pref::PlayGameMode").Length == 0)
+                I.SetVariable("$pref::PlayGameMode", "JOIN");
             return mApp.Connect(a[1]) ? "True" : "False";
         });
         Cmd("disconnect", a =>
