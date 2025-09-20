@@ -33,6 +33,8 @@ public sealed class ClientDelegates
             {
                 case "PlayerSetup": d.OnMessage = PlayerSetupMessage; break;
                 case "JoinGame": d.OnMessage = JoinGameMessage; break;
+                // The exit dialog loads quit.gui; the quit delegate ends the process when it is installed (client-app.md 6.1).
+                case "quit": d.OnOpen = mApp.RequestQuit; break;
             }
             mApp.Canvas.Delegates[n] = d;
         }

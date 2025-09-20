@@ -24,6 +24,8 @@ public sealed class GuiDelegate : IGuiResponder
     // Slot 0x70: a dialog is about to pop with this message; -1 keeps it open.
     public Func<GuiControl, int, int>? OnPop;
     public Action? OnFrame;
+    // Slot 0x64: the canvas installed this delegate for a new content control.
+    public Action? OnOpen;
     private IGuiResponder? Up => Canvas?.Root;
     public bool MsDown(GuiEvent e) => Up?.MsDown(e) ?? false;
     public bool MsRepeat(GuiEvent e) => Up?.MsRepeat(e) ?? false;
@@ -259,6 +261,7 @@ public sealed class GuiCanvas
         {
             del.Canvas = this;
             mDelegateOf[c] = del;
+            del.OnOpen?.Invoke();
         }
         Stack.Add(c);
         c.SetCanvas(this);

@@ -71,6 +71,7 @@ way are added to Open.
 - [x] Screenshots of GUI screens.
 - [x] Control names, text list values and list selection.
 - [x] Chat entry text and stable number settings.
+- [x] Quit, message window frame, chat entry layout and energy bar.
 
 ### Audio
 

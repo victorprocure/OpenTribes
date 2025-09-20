@@ -66,9 +66,10 @@ public class GuiC8FixTests
     // ---- 1. chat entry ----
 
     [Fact]
-    public void ChatEntryDrawsItsTextCursorAndNoWhiteFill() // gui.md 3.3 TextEdit draw: class text draw (text, cursor); play.gui chat has font tag 0
+    public void ChatEntryDrawsPromptTextShadeAndCursorAtTheBottomCentre() // gui.md 3.3 FearGuiChat: draw 004a3ebc, layout 004a3e68
     {
         GuiFixture fx = Fixture(out GuiControl root);
+        fx.Host.SetFont("sf_yellow_10b.pft", Font(7));
         var chat = (GuiChat)GuiFixture.Make("FearGui::FearGuiChat", 135, 414, 370, 36,
             ("active", (byte)1), ("maxLength", (uint)80), ("fontTag", 0u), ("highlightFontTag", 150007u));
         chat.SetVisible(false);
@@ -77,21 +78,55 @@ public class GuiC8FixTests
         chat.Open();
         fx.Type("hi");
         List<string> calls = Draw(fx);
-        Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.EndsWith("'hi'"));       // the highlight font, not nothing
-        Assert.DoesNotContain("fill cff", calls);                                           // not the opaque white of the plain TextEdit
-        Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cfe"));           // the cursor
+        Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.EndsWith("'SAY: '"));
+        Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.EndsWith("'hi'"));
+        Assert.Contains("fill c0", calls);                                                  // the shade, not the opaque white of the plain TextEdit
+        Assert.DoesNotContain("fill cff", calls);
+        Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cfc"));           // brackets and cursor
+        Assert.Equal((640 - 370) / 2, chat.X);                                              // centred
+        Assert.Equal(480 - GuiChat.Margin - 10, chat.Y);                                    // 40 above the bottom less one 10 pixel line
     }
 
     [Fact]
-    public void ChatEntryFillFollowsItsProfile() // gui.md 2.5 base render: the opaque flag and fill colour of the Control block
+    public void ChatPromptFollowsTheChannel() // 004a3ebc: format "SAY: " below channel 1, "SAY TEAM: " otherwise
+    {
+        Assert.Equal("SAY: ", GuiChat.Prompt(0));
+        Assert.Equal("SAY TEAM: ", GuiChat.Prompt(1));
+        Assert.Equal("SAY TEAM: ", GuiChat.Prompt(31));
+    }
+
+    [Fact]
+    public void ChatEntryWrapsLongTextBelowThePrompt() // 004a3e68: the control grows by one line height per wrapped line
+    {
+        var f = Font(7);
+        List<(int Start, int Length)> one = GuiChat.WrapLines(f, "SAY: ", "hi", 370);
+        Assert.Single(one);
+        List<(int Start, int Length)> two = GuiChat.WrapLines(f, "SAY: ", new string('x', 80), 370);
+        Assert.True(two.Count >= 2);
+        Assert.Equal(80, two.Sum(l => l.Length));
+        Assert.Equal(two[0].Length, two[1].Start);
+    }
+
+    [Fact]
+    public void MessageWindowDrawsItsShadeAndBrackets() // gui.md 4.2 FearGuiChatDisplay draw 004a633c: chatE = 0 draws the shade and both brackets
     {
         GuiFixture fx = Fixture(out GuiControl root);
-        var chat = (GuiChat)GuiFixture.Make("FearGui::FearGuiChat", 0, 0, 100, 20, ("active", (byte)1), ("highlightFontTag", 150007u));
-        chat.Opaque = 1;
-        chat.FillColor = 0x12;
-        root.AddChild(chat);
+        root.AddChild(GuiFixture.Make("FearGui::FearGuiChatDisplay", 132, 9, 370, 45, ("lines", 3u), ("chatE", 0u), ("hudX", 0u), ("hudY", 0u)));
         fx.Content(root);
-        Assert.Contains("fill c12", Draw(fx));
+        List<string> calls = Draw(fx);
+        Assert.Contains("fill c0", calls);
+        Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cf8"));
+        Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cfc"));
+    }
+
+    [Fact]
+    public void EnergyBarLengthIsTheFullWidthTimesTheEnergy() // gui.md 4.2 JetPackHud
+    {
+        Assert.Equal(84, GuiJetPackHud.EnergyBarLength(1.0, false));
+        Assert.Equal(42, GuiJetPackHud.EnergyBarLength(0.5, false));
+        Assert.Equal(1, GuiJetPackHud.EnergyBarLength(0.001, false));
+        Assert.Equal(0, GuiJetPackHud.EnergyBarLength(0, false));
+        Assert.Equal(52, GuiJetPackHud.EnergyBarLength(1.0, true));
     }
 
     // ---- 2. formatted text ----

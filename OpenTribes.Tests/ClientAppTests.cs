@@ -46,6 +46,46 @@ public sealed class ClientAppTests : IDisposable
 
     private string Eval(string text) => mApp!.Interp.Evaluate(text);
 
+    // ---- quit ----
+
+    [Fact]
+    public void LoadingTheQuitScreenEndsTheProcess() // client-app.md 6.1: the exit dialog loads quit.gui, whose delegate quits when installed
+    {
+        Boot();
+        Assert.False(mApp!.QuitRequested);
+        mApp.Canvas.SetContent(new GuiControl { Name = "BlankQuitGui" }, mApp.Canvas.Delegates["quit"]);
+        Assert.True(mApp.QuitRequested);
+    }
+
+    [Fact]
+    public void OtherDelegatesDoNotQuit()
+    {
+        Boot();
+        mApp!.Canvas.SetContent(new GuiControl { Name = "x" }, mApp.Canvas.Delegates["MainMenu"]);
+        Assert.False(mApp.QuitRequested);
+    }
+
+    // ---- HUD energy ----
+
+    [Fact]
+    public void EnergyLevelIsEnergyOverTheDatablockMaximum() // gui.md 4.2 JetPackHud: PSC energy is absolute, maxEnergy is in the datablock
+    {
+        var world = new ClientWorld();
+        world.Psc.ControlGhost = 5;
+        var ghost = new ClientGhost { Index = 5, Class = "Player" };
+        ghost.State["datablock"] = 2L;
+        world.Ghosts.Insert(ghost);
+        world.DataBlocks.Blocks[(3, 2)] = new ClientDataBlock
+        {
+            Group = 3, Index = 2, Class = "Armor", Fields = new List<DecodedField> { new("maxEnergy", 60.0) },
+        };
+        world.Psc.ControlState["energy"] = 15.0;
+        var src = new ClientHudSource(world);
+        Assert.Equal(0.25, src.EnergyLevel, 6);
+        world.Psc.ControlState["energy"] = 90.0;
+        Assert.Equal(1.0, src.EnergyLevel, 6);
+    }
+
     // ---- 2.3 display and canvas ----
 
     [Fact]

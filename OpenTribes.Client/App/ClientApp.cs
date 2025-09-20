@@ -260,6 +260,7 @@ public sealed class ClientApp : IDisposable
     public void QueueScreenshot(string path) => mPendingShots.Add(path);
 
     public void RequestQuit() => mQuit = true;
+    public bool QuitRequested => mQuit;
 
     // ---- addresses and the net (R6) ----
 

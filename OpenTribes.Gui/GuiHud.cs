@@ -73,7 +73,7 @@ public class GuiBarHud : GuiHud
     protected virtual double Value => Source == null ? 0 : 1.0 - Source.DamageLevel;
     protected virtual string[] Names => new[] { "hudtrans", "HH_Icon_Green", "HH_Icon_Red", "HH_End_Green", "HH_End_Yellow", "HH_End_Red" };
 
-    private PbmpBitmap? Bmp(int i, bool lr)
+    protected PbmpBitmap? Bmp(int i, bool lr)
     {
         string[] n = Names;
         return n[i].Length == 0 ? null : Host?.BitmapByName((lr ? "lr_" : "") + n[i] + ".bmp") ?? Host?.BitmapByName(n[i] + ".bmp");
@@ -135,10 +135,50 @@ public class GuiBarHud : GuiHud
 
 public sealed class GuiHealthHud : GuiBarHud { }
 
+// FearGui::JetPackHud [code 004b0b64, loader 004b11d0]: the energy bar. Same frame as the health bar, but a fixed icon
+// (HJ_Icon_Green), one end cap (HJ_End_Green) and the fixed palette colour 0xe7. Draw order: the frame at (x + 1, y + 1), the icon
+// at (x + 5, y + 8), then, when the energy is above zero, the bar from (x + 37, y + 11), 84 pixels wide when full (low resolution
+// x + 23, y + 7, 52 wide): the cap, the fill between and the mirrored cap, clipped to the energy length. The length per unit
+// of energy is not read from the code; it is taken as the full width [I].
 public sealed class GuiJetPackHud : GuiBarHud
 {
+    public const int BarColorIndex = 0xe7;
+
     protected override double Value => Source == null ? 0 : Source.EnergyLevel;
-    protected override string[] Names => new[] { "hudtrans", "HH_Icon_Green", "HH_Icon_Red", "HH_End_Green", "HH_End_Yellow", "HH_End_Red" };
+    protected override string[] Names => new[] { "hudtrans", "HJ_Icon_Green", "HJ_End_Green" };
+
+    public static int EnergyBarLength(double value, bool lowRes)
+    {
+        int full = lowRes ? 52 : 84;
+        int l = (int)(Math.Clamp(value, 0, 1) * full);
+        if (l < 1 && value > 0)
+            l = 1;
+        return l;
+    }
+
+    public override void Render(GuiPaint p, int ox, int oy)
+    {
+        if (Source == null || !Source.HasPlayerState || Canvas == null || W > Canvas.Width || H > Canvas.Height)
+            return;
+        int x = ox + X, y = oy + Y;
+        bool lr = LowRes;
+        double value = Value;
+        p.Bitmap(Bmp(0, lr), x + 1, y + 1);
+        if (lr) p.Bitmap(Bmp(1, lr), x + 3, y + 4); else p.Bitmap(Bmp(1, lr), x + 5, y + 8);
+        if (value <= 0)
+            return;
+        int l = EnergyBarLength(value, lr), full = lr ? 52 : 84;
+        int bx = lr ? x + 23 : x + 37, by = lr ? y + 7 : y + 11;
+        PbmpBitmap? cap = Bmp(2, lr);
+        int ch = cap?.Height ?? 8, cw = cap?.Width ?? 0;
+        GfxRect saved = p.Clip;
+        p.SetClip(saved.Intersect(new GfxRect(bx, by, bx + l - 1, by + ch - 1)));
+        p.Bitmap(cap, bx, by);
+        p.Fill(bx + cw, by, full - 2 * cw, ch, BarColorIndex);
+        if (cap != null)
+            p.Dev.Blit(cap, bx + full - cw, by, BlitFlip.X);
+        p.SetClip(saved);
+    }
 }
 
 // FearGui::ClockHud [code 004e7744]: |timer| as %02d:%02d:%02d.%1d.
@@ -242,29 +282,68 @@ public sealed class GuiCrosshair : GuiHud
     }
 }
 
-// FearGui::FearGuiChatDisplay [code 004a633c]: the last N chat lines of the host's ring, wrapped to the extent.
+// A bracket of the message window frames [code 004a5f98, 004a38f0]: a vertical rule at x in palette 0xf8, a second one beside it
+// in 0xfc and a short horizontal stub at each end; `dir` is +4 for the left bracket and -4 for the right one.
+public static class HudFrame
+{
+    public const int ShadeColor = 0, FaceColor = 0xfc, EdgeColor = 0xf8;
+    public const float ShadeAlpha = 0.5f;
+
+    public static void Bracket(GuiPaint p, int x, int top, int dir, int bottom)
+    {
+        int step = dir < 0 ? -1 : 1;
+        p.Line(x, top, x, bottom, EdgeColor);
+        p.Line(x + step, top, x + step, bottom, FaceColor);
+        p.Line(x + step, top, x + step + dir, top, FaceColor);
+        p.Line(x + step, bottom, x + step + dir, bottom, FaceColor);
+    }
+
+    // The translucent shade and both brackets over the rectangle (x, y, w, h).
+    public static void Panel(GuiPaint p, int x, int y, int w, int h)
+    {
+        p.Fill(x, y, w, h, ShadeColor, ShadeAlpha);
+        Bracket(p, x, y, 4, y + h - 1);
+        Bracket(p, x + w - 1, y, -4, y + h - 1);
+    }
+}
+
+// FearGui::FearGuiChatDisplay [code 004a633c]: the message window. With lines > 0 it draws a translucent shade over its extent
+// and the two frame brackets (the `chatE` flag of the file is 0 in the stock play.gui), then the last N chat lines of the host's
+// ring, wrapped to the extent minus the 4 and 2 pixel inset the draw routine applies.
 public sealed class GuiChatDisplay : GuiHud
 {
+    public const int InsetX = 4, InsetY = 2;
+
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Host == null)
             return;
-        int n = Math.Max(1, (int)U("lines", 3));
+        int n = (int)U("lines", 3);
+        if (n <= 0)
+            return;
+        int x = ox + X, y = oy + Y;
+        if (U("chatE") == 0 || n > 3)
+            p.Fill(x, y, W, H, HudFrame.ShadeColor, HudFrame.ShadeAlpha);
+        if (U("chatE") == 0)
+        {
+            HudFrame.Bracket(p, x, y, 4, y + H - 1);
+            HudFrame.Bracket(p, x + W - 1, y, -4, y + H - 1);
+        }
         var lines = new List<(List<GuiMarkup.Run> Runs, PftFont Font)>();
         foreach (var (text, tag) in Host.Chat)
         {
             PftFont? f = Host.FontByTag(tag) ?? Host.FontByName("sf_white_10.pft");
             if (f == null)
                 continue;
-            foreach (var l in GuiMarkup.WrapText(Host, f, text, W))
+            foreach (var l in GuiMarkup.WrapText(Host, f, text, W - 2 * InsetX))
                 lines.Add((l, f));
         }
         int start = Math.Max(0, lines.Count - n);
-        int y = oy + Y;
+        int ty = y + InsetY;
         for (int i = start; i < lines.Count; ++i)
         {
-            GuiMarkup.Draw(p, Host, lines[i].Font, ox + X, y, lines[i].Runs);
-            y += GuiPaint.FontHeight(lines[i].Font) + 1;
+            GuiMarkup.Draw(p, Host, lines[i].Font, x + InsetX, ty, lines[i].Runs);
+            ty += GuiPaint.FontHeight(lines[i].Font) + 1;
         }
     }
 }
@@ -298,10 +377,90 @@ public sealed class GuiChat : GuiTextEdit
     protected override PftFont? Font =>
         Host?.FontByTag(U("fontTag")) ?? Host?.FontByTag(U("highlightFontTag")) ?? Host?.FontByName("sf_white_10.pft");
 
-    // The base fill of the control (opaque flag and fill colour of its Control block, 2.5 base render) and the text, selection and
-    // cursor of the text edit draw. The 0xff fill of the plain TextEdit is not drawn: the chat line is a HUD control over the 3D
-    // view and its profile says whether it is opaque (client-scripts.md 9, C8 fix).
-    protected override void DrawField(GuiPaint p, int gx, int gy) => DrawLine(p, gx, gy);
+    // FearGui::FearGuiChat draw [code 004a3ebc, layout 004a3e68]: the line sits at the bottom centre of its parent, 40 pixels above the
+    // bottom edge less one text line per wrapped line. A translucent shade with the two frame brackets covers the control, the
+    // prompt is "SAY: " (channel 0) or "SAY TEAM: " (any other) in the channel's font, the typed text follows it and wraps below it,
+    // and the cursor is a vertical bar in palette 0xfc that blinks.
+    public const int Margin = 40, PadX = 12, PadY = 4;
+
+    private bool LowRes => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
+
+    public static string Prompt(int channel) => channel < 1 ? "SAY: " : "SAY TEAM: ";
+
+    private int Channel => Math.Clamp((int)Math.Truncate(Host == null ? 0 : ParseInt(Host.GetVar("$pref::msgChannel"))), 0, 31);
+
+    private static double ParseInt(string s) =>
+        int.TryParse(s.Trim(), System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out int v) ? v : 0;
+
+    private PftFont? PromptFont(bool lowRes, int channel)
+    {
+        string name = lowRes ? (channel < 1 ? "sf_yellow_6.pft" : "sf_green_6.pft") : (channel < 1 ? "sf_yellow_10b.pft" : "if_g_10b.pft");
+        return Host?.FontByName(name) ?? Host?.FontByName("sf_white_10.pft");
+    }
+
+    // The wrapped lines of the prompt plus text: the first line starts after the prompt, later ones at the left pad. Each entry is
+    // (first character index, length).
+    public static List<(int Start, int Length)> WrapLines(PftFont f, string prompt, string text, int width)
+    {
+        var lines = new List<(int, int)>();
+        int avail = Math.Max(1, width - 2 * PadX);
+        int used = GuiPaint.TextWidth(f, prompt), start = 0;
+        for (int i = 0; i < text.Length; ++i)
+        {
+            int cw = f.CharWidth(text[i]) + 1;
+            if (used + cw > avail && i > start)
+            {
+                lines.Add((start, i - start));
+                start = i;
+                used = 0;
+            }
+            used += cw;
+        }
+        lines.Add((start, text.Length - start));
+        return lines;
+    }
+
+    public override void Render(GuiPaint p, int ox, int oy)
+    {
+        if (Host == null || Parent == null || Canvas == null)
+            return;
+        bool low = LowRes;
+        int channel = Channel;
+        PftFont? f = PromptFont(low, channel);
+        if (f == null)
+            return;
+        string prompt = Prompt(channel);
+        var lines = WrapLines(f, prompt, Text, W);
+        int fh = GuiPaint.FontHeight(f);
+        H = fh * lines.Count + 2 * PadY;
+        X = (Parent.W - W) / 2;
+        Y = Parent.H - Margin - fh * lines.Count;
+        int x = ox + X, y = oy + Y;
+        HudFrame.Panel(p, x, y, W, H);
+        int ty = y + PadY - (low ? 0 : 2);
+        int tx = x + PadX;
+        bool focus = ReferenceEquals(Canvas.FirstResponder, this);
+        bool blink = (Host.TickMs / 500 & 1) == 0;
+        for (int i = 0; i < lines.Count; ++i)
+        {
+            int lx = tx;
+            if (i == 0)
+            {
+                p.Text(f, lx, ty, prompt);
+                lx += GuiPaint.TextWidth(f, prompt);
+            }
+            var (start, len) = lines[i];
+            string seg = Text.Substring(start, len);
+            p.Text(f, lx, ty, seg);
+            bool last = i == lines.Count - 1;
+            if (focus && blink && Cursor >= start && (Cursor < start + len || last && Cursor == start + len))
+            {
+                int cx = lx + GuiPaint.TextWidth(f, seg[..(Cursor - start)]);
+                p.Line(cx, ty, cx, ty + fh - 1, HudFrame.FaceColor);
+            }
+            ty += fh;
+        }
+    }
 
     public void Open()
     {
