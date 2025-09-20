@@ -26,12 +26,14 @@ public sealed class SceneAudio
     {
         public int Looper;                         // jet, vehicle idle, static ambient, projectile
         public int Move, Whir, Run, Sustained;
+        public readonly int[] SeqSound = new int[3];     // sequence sound handle per thread slot (3.3)
+        public readonly int[] SeqPlaying = Enumerable.Repeat(-1, 3).ToArray();   // sequence the sound was started for
         public readonly int[] Image = new int[8];
         public readonly int[] ImageState = Enumerable.Repeat(-1, 8).ToArray();
         public readonly int[] ImageItem = Enumerable.Repeat(-2, 8).ToArray();
         public readonly int[] ImageLoops = new int[8];
         public readonly int[] Channel = new int[4];
-        public int LastFire = -1, LastDamage = -1, LastSound = -1, LastState = -1;
+        public int LastMode = -1, LastFire = -1, LastDamage = -1, LastSound = -1, LastState = -1;
         public double JetOffSince = -1;
         public double LastRotation = double.NaN, LastElevation = double.NaN, WhirUntil;
         public int DatablockStarted = -1;
@@ -256,6 +258,10 @@ public sealed class SceneAudio
         Sound.Stop(g.Sustained);
         foreach (int h in g.Image)
             Sound.Stop(h);
+        foreach (int h in g.SeqSound)
+            Sound.Stop(h);
+        Array.Clear(g.SeqSound);
+        Array.Fill(g.SeqPlaying, -1);
         g.Looper = g.Move = g.Whir = g.Run = g.Sustained = 0;
         Array.Clear(g.Image);
     }
@@ -334,6 +340,13 @@ public sealed class SceneAudio
         }
     }
 
+    // 3.2 animation sound: a one shot at the player position when a ghost starts an animation whose PlayerData entry has a sound.
+    public void AnimationSound(PlayerVisual p, long sound)
+    {
+        Sound.TryDatablock(sound, out string wave, out _, out _);
+        Play("Animation " + wave, sound, p.Position);
+    }
+
     // Footstep trigger (3.2): right foot 1, left foot 2, on the ground. The surface type indexes the datablock's 15 pairs.
     public void Footstep(PlayerVisual p, bool right, double x, double y, double z)
     {
@@ -362,6 +375,8 @@ public sealed class SceneAudio
             return;
         double Num(string k, double def = 0) => Db.ToDouble(sv.Ghost.State.GetValueOrDefault(k), def);
         var pos = sv.Position;
+        if (has("threads"))
+            SequenceSounds(sv, g, b, pos, u.Fields.First(f => f.Name == "threads").Value);
         switch (sv.Class)
         {
             case "Vehicle":
@@ -411,6 +426,20 @@ public sealed class SceneAudio
                             Play("TurretFire", Idx(b, "fireSound"), pos);
                         g.LastFire = fs;
                     }
+                    // Power state (+0x8cc, wire "mode"): 2 powering up, 3 up, 1 powering down, 0 down. The activation sound plays when the
+                    // power up starts, the deactivation sound when the power down starts.
+                    if (has("mode"))
+                    {
+                        int md = (int)Num("mode");
+                        if (g.LastMode >= 0 && md != g.LastMode)
+                        {
+                            if (md == 2 && g.LastMode is 0 or 1)
+                                Play("TurretPower", Idx(b, "activationSound"), pos);
+                            else if (md == 1 && g.LastMode is 2 or 3)
+                                Play("TurretPower", Idx(b, "deactivateSound"), pos);
+                        }
+                        g.LastMode = md;
+                    }
                     if (sustained && has("barrelFiring"))
                     {
                         if (Num("barrelFiring") != 0 && g.Sustained == 0)
@@ -458,6 +487,35 @@ public sealed class SceneAudio
             default:
                 AmbientAndState(sv, g, b, pos, has);
                 break;
+        }
+    }
+
+    // 3.3 sequenceSound: a running thread whose sequence name is in the datablock's pairs plays that sound at the object; the sound stops
+    // when the thread stops or pauses, reaches the end, or changes sequence.
+    private void SequenceSounds(ShapeVisual sv, GhostSounds g, ClientDataBlock b, (double, double, double)? pos, object? threads)
+    {
+        foreach (ThreadSlot s in ThreadSlot.ParseAll(threads))
+        {
+            if (s.Slot is < 0 or > 2)
+                continue;
+            bool running = s.State == 0 && !s.AtEnd && s.Sequence >= 0;
+            if (!running || g.SeqPlaying[s.Slot] != s.Sequence)
+            {
+                Sound.Stop(g.SeqSound[s.Slot]);
+                g.SeqSound[s.Slot] = 0;
+                g.SeqPlaying[s.Slot] = -1;
+            }
+            if (!running || g.SeqPlaying[s.Slot] == s.Sequence)
+                continue;
+            g.SeqPlaying[s.Slot] = s.Sequence;
+            string name = sv.SequenceName(s.Sequence);
+            for (int i = 0; i < 16; ++i)
+                if (Db.Get(b, $"sequenceSound[{i}]") is object[] pair && pair.Length >= 2 && pair[0] is string n
+                    && string.Equals(n, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    g.SeqSound[s.Slot] = Play("SequenceSound " + name, (long)Db.ToDouble(pair[1], -1), pos);
+                    break;
+                }
         }
     }
 

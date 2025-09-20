@@ -76,6 +76,7 @@ way are added to Open.
 
 - [x] Sound output and mixer.
 - [x] Sound manager, sound commands and sounds in the world.
+- [x] Player animation, sequence and turret power sounds.
 
 ### Input and controls
 

@@ -58,6 +58,9 @@ public class ShapeVisual : Visual
 
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
 
+    // Sequence name of the shape, for the sequence sounds (docs/audio.md 3.3).
+    public string SequenceName(int sequence) => Shape?.SequenceName(sequence) ?? "";
+
     public override (double x, double y, double z)? MuzzlePoint
     {
         get

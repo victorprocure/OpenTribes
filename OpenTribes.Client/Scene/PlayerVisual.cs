@@ -43,7 +43,7 @@ public sealed class PlayerVisual : ShapeVisual
         Group = 3;
     }
 
-    private (string Name, int Seq, bool Fwd, int ViewFlags, int Prio)? AnimData(int index)
+    private (string Name, int Sound, bool Fwd, int ViewFlags, int Prio)? AnimData(int index)
     {
         if (Block == null)
             return null;
@@ -169,6 +169,8 @@ public sealed class PlayerVisual : ShapeVisual
         var ad = AnimData(index);
         if (ad == null)
             return;
+        // docs/audio.md 3.2: a ghost plays the animation's sound (death scream, landing) when the animation starts.
+        M.Audio?.AnimationSound(this, ad.Value.Sound);
         int seq = Shape.FindSequence(ad.Value.Name);
         if (seq < 0)
             return;
