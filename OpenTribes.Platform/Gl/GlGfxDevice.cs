@@ -5,8 +5,12 @@ namespace OpenTribes.Platform.Gl;
 // OpenGL 3.3 core implementation of IGfxDevice (D30, D31). Everything draws into an offscreen framebuffer of
 // the window size; EndFrame copies it to the window and swaps, ReadPixels reads it back. 2D calls are batched per
 // call into a streaming vertex buffer; one shader draws flat colors and textures (docs/renderer.md 4).
-public sealed unsafe partial class GlGfxDevice : IGfxDevice
+public sealed unsafe partial class GlGfxDevice : IGfxDevice, IGfxStats
 {
+    private long mDrawCalls, mTriangles;
+    public long DrawCalls => mDrawCalls;
+    public long Triangles => mTriangles;
+
     private const string VertexSource = @"#version 330 core
 in vec2 aPos;
 in vec2 aUv;
@@ -276,6 +280,8 @@ void main() {
         fixed (float* p = mVerts)
             gl.BufferData_(GlApi.ArrayBuffer, (nint)(mVertCount * 32), p, GlApi.StreamDraw);
         gl.DrawArrays_(mode, 0, mVertCount);
+        ++mDrawCalls;
+        mTriangles += mVertCount / 3;
         mVertCount = 0;
     }
 

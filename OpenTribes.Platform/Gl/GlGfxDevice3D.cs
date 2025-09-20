@@ -217,6 +217,8 @@ void main() {
             gl.BufferData_(GlApi.ArrayBuffer, (nint)(triangles.Length * sizeof(Vertex3D)), p, GlApi.StreamDraw);
         gl.DrawArrays_(GlApi.Triangles, 0, triangles.Length - triangles.Length % 3);
         ++mDraws3D;
+        ++mDrawCalls;
+        mTriangles += triangles.Length / 3;
     }
 
     public void EndScene3D()

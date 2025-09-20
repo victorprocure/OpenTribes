@@ -90,3 +90,4 @@ way are added to Open.
 ### Platforms
 
 - [x] Builds for Windows, Linux and macOS on x64 and ARM64, and a per-user data folder for a read-only install.
+- [x] Frame timing log.
