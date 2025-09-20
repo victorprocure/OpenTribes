@@ -149,6 +149,7 @@ public sealed class PlayDelegate : IActionConsumer
     public void SetGuiMode(int mode)
     {
         Interpreter i = mApp.Interp;
+        mScoreDialog = null;
         i.Evaluate("setCMMode(PlayChatMenu, 0); setCMMode(CommandChatMenu, 0);");
         switch (mode)
         {
@@ -167,9 +168,32 @@ public sealed class PlayDelegate : IActionConsumer
         }
     }
 
+    // The score flag of the PSC [code 004dc7a0]: the score dialog (the Tab key's score list and server menu) is pushed over the
+    // content while it is set, lr_score.gui on a canvas below 512 x 384, else score.gui. A content switch drops dialogs, so the
+    // mode switch pushes it again.
+    private GuiControl? mScoreDialog;
+
+    public void SetScoreVisible(bool on)
+    {
+        bool shown = mScoreDialog != null && mApp.Canvas.Stack.Contains(mScoreDialog);
+        if (on == shown)
+            return;
+        if (!on)
+        {
+            if (ReferenceEquals(mApp.Canvas.Stack[^1], mScoreDialog))
+                mApp.Canvas.PopDialog(0);
+            mScoreDialog = null;
+            return;
+        }
+        bool low = mApp.Canvas.Width < 512 || mApp.Canvas.Height < 384;
+        mApp.Interp.Evaluate(low ? "GuiPushDialog(MainWindow, \"gui\\\\lr_score.gui\");" : "GuiPushDialog(MainWindow, \"gui\\\\score.gui\");");
+        mScoreDialog = mApp.Canvas.Stack.Count > 1 ? mApp.Canvas.Stack[^1] : null;
+    }
+
     public void Reset()
     {
         Moves.Reset();
         mScoresOn = false;
+        mScoreDialog = null;
     }
 }

@@ -200,6 +200,7 @@ public sealed class LiveGame : IDisposable
         }
         mApp.PumpChat(this, ref mChatSeen);
         PollGuiMode();
+        mApp.Play.SetScoreVisible(World.Psc.ScoreFlag && World.Psc.GuiMode != 0);
         if (!HasScene && !mSceneTried && World.AlwaysDone)
             BuildScene();
         if (HasScene)

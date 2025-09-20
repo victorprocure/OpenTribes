@@ -12,7 +12,6 @@ way are added to Open.
 - [ ] Joystick support.
 - [ ] Hosting a game from the client menus.
 - [ ] The intro movie.
-- [ ] Inventory and score lists.
 
 ### Project
 
@@ -74,7 +73,7 @@ way are added to Open.
 - [x] Quit, message window frame, chat entry layout and energy bar.
 - [x] Jet pack frame nests under the health frame.
 - [x] Loading progress for a command line join.
-- [x] Inventory and score lists.
+- [x] Inventory and score lists, working in the client.
 
 ### Audio
 

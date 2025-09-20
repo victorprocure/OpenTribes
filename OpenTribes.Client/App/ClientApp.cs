@@ -134,6 +134,7 @@ public sealed class ClientApp : IDisposable
         // The commands the dedicated server registers as inert stubs and the client scripts call on start-up
         // (addCMCommand, setMaterialProperty, ...): the game plugin of the port, over the client world.
         var game = new GameState { Sim = SimWorld, Console = Interp, Resources = Res };
+        mGameState = game;
         ctx.Game = game;
         GameCommands.Register(Interp, game);
 
@@ -382,7 +383,30 @@ public sealed class ClientApp : IDisposable
     {
         Host.Chat.Clear();
         Host.CenterPrints.Clear();
-        Host.Hud = new ClientHudSource(g.World, () => GuiRt.ClockSeconds);
+        Host.Hud = new ClientHudSource(g.World, () => GuiRt.ClockSeconds) { MenuSource = CurrentMenu };
+    }
+
+    // The console world of the client: the chat menus of the scripts live in it.
+    private GameState mGameState = null!;
+
+    // The chat menu a script has on display (remoteNewMenu: setCMMode(CurServerMenu, 1)) with the items of its top level.
+    public ServerMenuView? CurrentMenu()
+    {
+        if (mGameState.ChatMenus.Active(mGameState) is not var (title, tree))
+            return null;
+        return new ServerMenuView(title, tree.Root.Children.Select(c => (c.Key, c.Text)).ToList());
+    }
+
+    // A key while a menu is on display: the item with that key runs its command (the `clientMenuSelect` of the server menu).
+    private bool MenuKey(char ch)
+    {
+        if (mGameState.ChatMenus.Active(mGameState) is not var (_, tree))
+            return false;
+        ChatMenuNode? node = tree.Root.Children.FirstOrDefault(c => char.ToLowerInvariant(c.Key) == char.ToLowerInvariant(ch));
+        if (node == null || !node.Leaf || node.Commands.Count == 0)
+            return false;
+        Interp.CallFunction(node.Commands[0], node.Commands.Skip(1).ToArray());
+        return true;
     }
 
     // Chat lines of the client PlayerManager go to the HUD chat ring (client-net.md 2.4).
@@ -584,6 +608,8 @@ public sealed class ClientApp : IDisposable
 
     private bool OfferToGui(InputEvent ev, float value, char ch)
     {
+        if (ev.DeviceType == 3 && ev.Action == 1 && ch != '\0' && Canvas.FirstResponder is not GuiTextEdit && MenuKey(ch))
+            return true;
         var raw = new RawInput
         {
             Device = ev.DeviceType == 3 ? RawInput.DevKeyboard : RawInput.DevMouse,
