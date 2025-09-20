@@ -74,7 +74,7 @@ way are added to Open.
 - [x] Quit, message window frame, chat entry layout and energy bar.
 - [x] Jet pack frame nests under the health frame.
 - [x] Loading progress for a command line join.
-- [x] Inventory lists: client game commands.
+- [x] Inventory and score lists.
 
 ### Audio
 

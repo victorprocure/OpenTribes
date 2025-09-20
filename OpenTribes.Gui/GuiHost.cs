@@ -29,6 +29,8 @@ public sealed class GuiHost
     public string Clipboard = "";
     // The HUD data source (docs/gui.md 4.1); null means no client player state.
     public IHudSource? Hud;
+    // The item indices marked as favorites (CmdInventory::setFavorites); the inventory lists draw a star beside them.
+    public readonly HashSet<int> Favorites = new();
     // Called when a PaletteCtrl wakes with the palette file name.
     public Action<string>? OnPalette;
 
@@ -168,7 +170,25 @@ public interface IHudSource
     int Ammo { get; }
     bool SensorPing { get; }
     bool SensorLocked { get; }
+    // The item datablocks with showInventory set, with the counts and the station masks of the client player state (the lists of
+    // CmdInventory.gui). Empty without a client.
+    IReadOnlyList<InventoryEntry> InventoryItems => Array.Empty<InventoryEntry>();
+    // The scoreboard of the client player manager (docs/client-net.md 2.3 DeltaScoreEvent) and the menu a script put on display.
+    ScoreBoard? Scores => null;
+    ServerMenuView? ServerMenu => null;
 }
+
+// The scoreboard: the two heading strings (tab separated columns, each column after the first starts with its x position as one
+// character) and the rows with their placeholders (%n name, %t team, %p ping, %l loss) already replaced.
+public sealed record ScoreBoard(string TeamHeading, string ClientHeading, IReadOnlyList<ScoreRow> Teams, IReadOnlyList<ScoreRow> Clients, int LocalClient);
+public readonly record struct ScoreRow(int Id, string Text, int Sort);
+
+// A chat menu on display: its title and the items of its top level with the key that selects each.
+public sealed record ServerMenuView(string Title, IReadOnlyList<(char Key, string Text)> Items);
+
+// One item datablock for the inventory lists: heading (the first character is the sort key), description, price, the count the
+// player carries, and the shopping and buying bits of the station masks.
+public readonly record struct InventoryEntry(int Index, string Heading, string Description, int Price, int Count, bool Shopping, bool Buying);
 
 public sealed class StaticHudSource : IHudSource
 {
@@ -182,4 +202,10 @@ public sealed class StaticHudSource : IHudSource
     public int Ammo { get; set; } = -1;
     public bool SensorPing { get; set; }
     public bool SensorLocked { get; set; }
+    public List<InventoryEntry> Inventory { get; } = new();
+    public IReadOnlyList<InventoryEntry> InventoryItems => Inventory;
+    public ScoreBoard? Board { get; set; }
+    public ScoreBoard? Scores => Board;
+    public ServerMenuView? Menu { get; set; }
+    public ServerMenuView? ServerMenu => Menu;
 }

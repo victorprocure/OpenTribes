@@ -94,6 +94,70 @@ public sealed class ClientHudSource : IHudSource
     private static string Label(ClientDataBlock b, int i) =>
         b.Fields.FirstOrDefault(f => f.Name == "description" && f.Value is string).Value as string ?? "item " + i;
 
+    // The item datablocks (group 5) the lists show: the ones with showInventory, in index order [code 0048afcc, 0048b05c].
+    public IReadOnlyList<InventoryEntry> InventoryItems
+    {
+        get
+        {
+            var list = new List<InventoryEntry>();
+            if (!mWorld.DataBlocks.Counts.TryGetValue(5, out int n))
+                return list;
+            for (int i = 0; i < n && i < Psc.ItemCounts.Length; ++i)
+            {
+                if (!mWorld.DataBlocks.Blocks.TryGetValue((5, i), out ClientDataBlock? b) ||
+                    !b.Fields.Any(f => f.Name == "showInventory" && D(f.Value, 0) != 0))
+                    continue;
+                string S(string name) => b.Fields.FirstOrDefault(f => f.Name == name && f.Value is string).Value as string ?? "";
+                int price = (int)b.Fields.Where(f => f.Name == "price").Select(f => D(f.Value, 0)).FirstOrDefault();
+                list.Add(new InventoryEntry(i, S("heading"), S("description"), price, Psc.ItemCounts[i],
+                    Bit(Psc.Shopping, i), Bit(Psc.Buying, i)));
+            }
+            return list;
+        }
+    }
+
+    private static bool Bit(uint[] mask, int i) => i / 32 < mask.Length && (mask[i / 32] >> (i % 32) & 1) != 0;
+
+    // The scoreboard from the client player manager: teams by score, clients by score, both highest first.
+    public ScoreBoard? Scores
+    {
+        get
+        {
+            ClientPlayerManager pm = mWorld.Players;
+            var teams = pm.Teams.Values.OrderByDescending(t => t.SortValue).ThenBy(t => t.Index)
+                .Select(t => new ScoreRow(t.Index, Expand(t.ScoreText, null, t.Name), t.SortValue)).ToList();
+            var clients = pm.Clients.Values.Where(c => !c.Ai).OrderByDescending(c => c.SortValue).ThenBy(c => c.Id)
+                .Select(c => new ScoreRow(c.Id, Expand(c.ScoreText, c, c.Team >= 0 && pm.Teams.TryGetValue(c.Team, out ClientTeam? t) ? t.Name : ""),
+                    c.SortValue)).ToList();
+            return new ScoreBoard(pm.TeamHeading, pm.ClientHeading, teams, clients, mWorld.PlayerId);
+        }
+    }
+
+    // The placeholders of a score string [code 004c2198]: %n the player name, %t the team name, %p the ping, %l the loss in percent.
+    public static string Expand(string text, ClientPlayerRecord? player, string teamName)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < text.Length; ++i)
+        {
+            if (text[i] == '%' && i + 1 < text.Length)
+            {
+                switch (text[i + 1])
+                {
+                    case 'n' when player != null: sb.Append(player.Name); ++i; continue;
+                    case 't': sb.Append(teamName); ++i; continue;
+                    case 'p' when player != null: sb.Append(player.PingMs); ++i; continue;
+                    case 'l' when player != null: sb.Append((int)(player.Loss * 100)); ++i; continue;
+                }
+            }
+            sb.Append(text[i]);
+        }
+        return sb.ToString();
+    }
+
+    // Set by the host: the chat menu a script switched on (the server menu of the Tab key).
+    public Func<ServerMenuView?>? MenuSource;
+    public ServerMenuView? ServerMenu => MenuSource?.Invoke();
+
     public int Ammo => -1;
     public bool SensorPing => false;
     public bool SensorLocked => false;

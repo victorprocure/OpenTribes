@@ -121,8 +121,12 @@ public class GuiScroll : GuiControl
     private int mGrabOffset;
     private int mRepeatPart;
 
-    public override bool WantsTab => true;
-    public override bool CanTake() => Visible;
+    // FearGuiScrollCtrl overrides the tab stop slot with a stub [code 004b8bc4, 4 bytes, taken as `return false` (I)]: the scroll
+    // frames of the game screens never hold the keyboard, so Tab and the movement keys reach the action maps while the score list
+    // is up. The plain SimGui::ScrollCtrl keeps the base rule.
+    private bool KeyboardStop => ClassName != "FearGui::FearGuiScrollCtrl";
+    public override bool WantsTab => KeyboardStop;
+    public override bool CanTake() => Visible && KeyboardStop;
 
     private GuiControl? ContentChild => Children.FirstOrDefault(c => c is GuiScrollContent);
     private GuiControl? Inner => ContentChild?.Children.FirstOrDefault();
@@ -131,8 +135,11 @@ public class GuiScroll : GuiControl
     private int ContentH => Inner == null ? 0 : Inner.Y + ScrollY + Inner.H;
 
     // Policies: 0 never, 1 always, 2 when needed (the inspector order).
-    private bool VBar => U("verticalPolicy") == 1 || U("verticalPolicy") == 2 && ContentH > H;
-    private bool HBar => U("horizontalPolicy") == 1 || U("horizontalPolicy") == 2 && ContentW > W;
+    // Policy values: 0 always, 1 never, 2 when needed. The stock files show it: CmdInventory.gui (horizontal 1, vertical 0) sizes its
+    // list 19 pixels narrower than the frame for a vertical bar and has no use for a horizontal one; command.gui (1, 2) scrolls
+    // vertically only.
+    private bool VBar => U("verticalPolicy") == 0 || U("verticalPolicy") == 2 && ContentH > H;
+    private bool HBar => U("horizontalPolicy") == 0 || U("horizontalPolicy") == 2 && ContentW > W;
 
     public override void PreRender()
     {

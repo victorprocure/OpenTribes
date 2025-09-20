@@ -245,8 +245,17 @@ public sealed class GuiRuntime
         CtrlCmd<GuiControl>("FGSkin::set", 4, "FGSkin::set(control, skin, gender);", (c, a) => { c.F["skin"] = a[2]; c.F["gender"] = a[3]; return ""; });
         CtrlCmd<GuiControl>("FGSkin::cycleArmor", 2, "FGSkin::cycleArmor(control);", (c, a) => { c.F["armor"] = (U32(c, "armor") + 1) % 3; return ""; });
         CtrlCmd<GuiControl>("Server::ResortList", 2, "Server::ResortList(control);", (c, a) => { (c as GuiList)?.SortText(); return ""; });
-        CtrlCmd<GuiControl>("CmdInventory::getVisibleSet", 2, "CmdInventory::getVisibleSet(control);", (c, a) => "");
-        CtrlCmd<GuiControl>("CmdInventory::setFavorites", 3, "CmdInventory::setFavorites(control, favorites);", (c, a) => "");
+        // The inventory lists: the visible set is the item indices of the rows, the favorites the indices that get a star [code 0048a700].
+        CtrlCmd<GuiControl>("CmdInventory::getVisibleSet", 2, "CmdInventory::getVisibleSet(control);", (c, a) => (c as GuiInventoryList)?.VisibleSet() ?? "");
+        CtrlCmd<GuiControl>("CmdInventory::setFavorites", 3, "CmdInventory::setFavorites(control, favorites);", (c, a) =>
+        {
+            Host.Favorites.Clear();
+            foreach (string w in a[2].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                if (int.TryParse(w, NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx))
+                    Host.Favorites.Add(idx);
+            return "";
+        });
+        CtrlCmd<GuiShapeView>("ShapeView::setItem", 3, "ShapeView::setItem(control, item);", (c, a) => { c.F["item"] = int.TryParse(a[2], out int item) ? (uint)item : 0; return ""; });
         Cmd("FGMasterList::addEntry", 5, "FGMasterList::addEntry(control, name, address, id);", a =>
         {
             if (FindControl(a[1]) is GuiList l && int.TryParse(a[4], out int id))
