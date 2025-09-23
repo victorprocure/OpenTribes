@@ -109,7 +109,10 @@ public static class DemoRender
                 if (ob[2] < 0)
                 {
                     if (tv is PlayerVisual)
-                        return new CameraPose(x, y, z + 1.8, yaw * 180 / Math.PI, pitch * 180 / Math.PI, true, og);
+                    {
+                        var (ox, oy, oz) = EyeOf(m, og, x, y, z, yaw, pitch);
+                        return new CameraPose(ox, oy, oz, yaw * 180 / Math.PI, pitch * 180 / Math.PI, true, og);
+                    }
                     return new CameraPose(x, y, z + 1.8, yaw * 180 / Math.PI, pitch * 180 / Math.PI, false, og);
                 }
                 return Orbit(x, y, z + 1.0, yaw, pitch, ob[2]);
@@ -119,9 +122,22 @@ public static class DemoRender
         if (psc.ControlClass == "Player")
         {
             double[] p = Vv("pos");
-            return new CameraPose(p[0], p[1], p[2] + 1.8, D("rotZ") * 180 / Math.PI, D("pitch") * 180 / Math.PI, true, psc.ControlGhost);
+            var (px, py, pz) = EyeOf(m, psc.ControlGhost, p[0], p[1], p[2], D("rotZ"), D("pitch"));
+            return new CameraPose(px, py, pz, D("rotZ") * 180 / Math.PI, D("pitch") * 180 / Math.PI, true, psc.ControlGhost);
         }
         return null;
+    }
+
+    // Camera position of a first person view: the body position plus the `dummy eye` node of the player shape, turned by the yaw,
+    // with the looks thread at the camera pitch (`Player_getEyeTransform`). Without the node: 1.8 above the body.
+    public static (double x, double y, double z) EyeOf(SceneModel m, int ghost, double x, double y, double z, double yawRad, double pitchRad)
+    {
+        if (m.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv && pv.TryEyeLocal(pitchRad, out double ex, out double ey, out double ez))
+        {
+            double c = Math.Cos(yawRad), s = Math.Sin(yawRad);
+            return (x + ex * c - ey * s, y + ex * s + ey * c, z + ez);
+        }
+        return (x, y, z + 1.8);
     }
 
     // The transform moved back along the view direction by `distance`.

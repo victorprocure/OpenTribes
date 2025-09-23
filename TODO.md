@@ -63,6 +63,7 @@ way are added to Open.
 - [x] Shape loading and animation.
 - [x] Players, shapes and effects drawn from a demo.
 - [x] Lightning sway and rain streak size.
+- [x] First-person weapon, vertical field of view and item commands.
 
 ### Menus and HUD
 

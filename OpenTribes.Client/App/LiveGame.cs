@@ -277,11 +277,14 @@ public sealed class LiveGame : IDisposable
     {
         if (Model == null)
             return null;
+        if (mApp.Opt.FixedCamera is { } fc)
+            return new DemoRender.CameraPose(fc[0], fc[1], fc[2], fc[3], fc[4], false, -1);
         DemoRender.CameraPose? pose = DemoRender.ControlCamera(Model, World);
         if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && pose is { FirstPerson: true } cp)
         {
             float[] d = Net.Prediction.DisplayPosition();
-            pose = new DemoRender.CameraPose(d[0], d[1], d[2] + 1.8, p.Rotation[2] * 180 / Math.PI, p.Pitch * 180 / Math.PI, true, cp.ControlGhost);
+            var (ex, ey, ez) = DemoRender.EyeOf(Model, cp.ControlGhost, d[0], d[1], d[2], p.Rotation[2], p.Pitch);
+            pose = new DemoRender.CameraPose(ex, ey, ez, p.Rotation[2] * 180 / Math.PI, p.Pitch * 180 / Math.PI, true, cp.ControlGhost);
         }
         return pose;
     }

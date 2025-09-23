@@ -242,7 +242,9 @@ public sealed class PlayerVisual : ShapeVisual
         }
         if (im == null || im.Image != s.Image)
         {
-            ClientDataBlock? db = M.Db.Block(6, s.Image);
+            // The stream carries the ItemData index (client-net.md 3.4); its imageType names the ItemImageData (group 6).
+            ClientDataBlock? item = M.Db.Block(5, s.Image);
+            ClientDataBlock? db = M.Db.Block(6, (int)Db.Num(item, "imageType", -1));
             string name = Db.Str(db, "shapeFile");
             RenderShape? sh = name.Length > 0 ? M.Assets.Shape(name) : null;
             im = new ImageMount { Slot = s.Slot, Image = s.Image, Db = db, Shape = sh, MountPoint = (int)Db.Num(db, "mountPoint"), FirstPerson = Db.Flag(db, "firstPerson") };
@@ -291,7 +293,7 @@ public sealed class PlayerVisual : ShapeVisual
         mTriggers.Clear();
         Inst.Advance(mAnim, dt, mTriggers);
         if (mLooks != null)
-            mLooks.Position = Math.Clamp(0.5 - ViewPitch / 2.8, 0, 1);
+            mLooks.Position = LooksPosition(ViewPitch);
         foreach (uint t in mTriggers)
         {
             ++M.TriggerCount;
@@ -333,12 +335,61 @@ public sealed class PlayerVisual : ShapeVisual
     public string ArmorShape => Shape?.Name ?? "";
     public int FootprintBase => (int)Db.Num(Block, "footPrintsIndex", -1);
 
-    public Xf ImageTransform(ImageMount im, int detail, Xf body)
+    // The looks thread position of a view pitch (player-sim.md 5.2): 0.5 - pitch * 0.6511 / 2, the pitch range +-1.5359 maps to +-0.5.
+    public static double LooksPosition(double pitch) => Math.Clamp(0.5 - pitch * 0.6511 * 0.5, 0, 1);
+
+    // First person eye in object space (the `dummy eye` node, `Player_getEyeTransform`) with the looks thread at `pitch`.
+    public bool TryEyeLocal(double pitch, out double x, out double y, out double z)
+    {
+        x = y = z = 0;
+        if (Inst == null || Shape == null || mDead)
+            return false;
+        int n = Shape.FindNodeBase("dummy eye", 0);
+        if (n < 0)
+            return false;
+        if (mLooks != null)
+            mLooks.Position = LooksPosition(pitch);
+        Inst.Animate(0);
+        Xf e = Inst.NodeWorld[n];
+        (x, y, z) = (e.Px, e.Py, e.Pz);
+        return true;
+    }
+
+    // The animation's view flag that applies to this camera (3.4): bit 0 first person, bit 2 anyone else.
+    private bool ViewModeSet(bool firstPerson)
+    {
+        var ad = AnimData(mAnimIndex);
+        return ad == null || (ad.Value.ViewFlags & (firstPerson ? 1 : 4)) != 0;
+    }
+
+    // First person weapon grip relative to the eye with the looks thread neutral (pitch 0), object space.
+    public bool TryGripOffset(out (double x, double y, double z) d)
+    {
+        d = default;
+        if (Inst == null || Shape == null || mLooks == null)
+            return false;
+        int e = Shape.FindNodeBase("dummy eye", 0), h = Shape.FindNodeBase("dummy hand", 0);
+        if (e < 0 || h < 0)
+            return false;
+        mLooks.Position = 0.5;
+        Inst.Animate(0);
+        d = (Inst.NodeWorld[h].Px - Inst.NodeWorld[e].Px, Inst.NodeWorld[h].Py - Inst.NodeWorld[e].Py, Inst.NodeWorld[h].Pz - Inst.NodeWorld[e].Pz);
+        return true;
+    }
+
+    // `pitch` set: the pitch-only node rotation of `Player_getImageMountTransform` (3.6 step 2) for mount points 0 and 1.
+    public Xf ImageTransform(ImageMount im, int detail, Xf body, double? pitch = null, (double x, double y, double z)? held = null)
     {
         RenderShape sh = Inst!.Shape;
         string[] names = { "dummy hand", "dummy unused", "dummy midback", "dummy lowback" };
         int node = im.MountPoint >= 0 && im.MountPoint < 4 ? sh.FindNodeBase(names[im.MountPoint], detail) : -1;
         Xf mount = node >= 0 ? Inst.NodeWorld[node] : Xf.Identity;
+        if (node >= 0 && pitch is double pv && !mDead && im.MountPoint is 0 or 1)
+        {
+            Xf r = Xf.Euler(pv, 0, 0);
+            (r.Px, r.Py, r.Pz) = held is var (hx, hy, hz) ? r.Apply(hx, hy, hz) : (mount.Px, mount.Py, mount.Pz);
+            mount = r;
+        }
         Xf local = Xf.Euler(Db.Num(im.Db, "mountRotation.x"), Db.Num(im.Db, "mountRotation.y"), Db.Num(im.Db, "mountRotation.z"));
         local.Px = Db.Num(im.Db, "mountOffset.x"); local.Py = Db.Num(im.Db, "mountOffset.y"); local.Pz = Db.Num(im.Db, "mountOffset.z");
         return local.Then(mount).Then(body);
@@ -355,7 +406,7 @@ public sealed class PlayerVisual : ShapeVisual
             if (im?.Inst == null || im.MountPoint != 0)
                 continue;
             int d = Math.Max(M.Renderer.LastDetail, 0);
-            Xf t = ImageTransform(im, Math.Min(d, Math.Max(Inst!.Shape.Details.Length - 1, 0)), body);
+            Xf t = ImageTransform(im, Math.Min(d, Math.Max(Inst!.Shape.Details.Length - 1, 0)), body, ViewModeSet(false) ? ViewPitch : null);
             int mn = im.Shape!.FindNodeBase("dummyalways muzzle", 0);
             if (mn < 0)
                 mn = im.Shape.FindNodeBase("dummy muzzle", 0);
@@ -372,6 +423,17 @@ public sealed class PlayerVisual : ShapeVisual
             return;
         bool firstPerson = ctx.FirstPersonOfControl && ctx.ControlGhost == Index;
         Xf body = PoseXf();
+        double? pitchOnly = ViewModeSet(firstPerson) ? ViewPitch : null;
+        (double x, double y, double z)? held = null;
+        if (firstPerson)
+        {
+            // The weapon is locked to the camera [I, the stock shots show it at one screen place at every pitch]: the grip offset of
+            // the neutral pose, turned by the camera pitch about the eye, with the eye at the camera (3.6, 5.2).
+            body = Xf.Euler(0, 0, ctx.Camera.Yaw).Then(Xf.Translate(ctx.Camera.X, ctx.Camera.Y, ctx.Camera.Z));
+            if (TryGripOffset(out var g))
+                held = g;
+            pitchOnly = ctx.Camera.Pitch;
+        }
         double fade = FadeAmount();
         int detail = -1;
         if (!firstPerson)
@@ -401,7 +463,7 @@ public sealed class PlayerVisual : ShapeVisual
             if (firstPerson && !im.FirstPerson)
                 continue;
             Inst.Animate(Math.Min(detail, Shape.Details.Length - 1));
-            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body);
+            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly, held);
             ShapeDraw d = ctx.Draw(xf, im.Shape.Name);
             d.Skin = Skin;
             d.Fade = fade;

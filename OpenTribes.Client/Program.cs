@@ -12,7 +12,7 @@ public static class Program
 {
     private const string Usage =
         "usage: tribes [--root DIR] [--windowed] [--input SCRIPT] [--log FILE] [--screenshot-at T,...] [--shots DIR] [--size WxH]\n" +
-        "              [--video-driver NAME] [--no-audio] [--no-predict] [--allow-remote] [--allow-browser] [--seconds S] [GAME ARGS...]\n" +
+        "              [--video-driver NAME] [--camera X,Y,Z,YAW,PITCH] [--no-audio] [--no-predict] [--allow-remote] [--allow-browser] [--seconds S] [GAME ARGS...]\n" +
         "       the client: runs console.cs of DIR; GAME ARGS (-mod x, +connect ADDR, +exec FILE, -host MISSION) go to $cargv\n" +
         "usage: tribes --root DIR [--show RESOURCE] [--palette PPL|PAL] [--font PFT [--text STRING]]\n" +
         "              [--screenshot OUT.ppm [--frames N]] [--size WxH] [--video-driver NAME]\n" +

@@ -1,6 +1,7 @@
 // The command line of the `tribes` client process (docs/client-app.md 1.2). Own options start with `--` and are removed
 // before $cargv is built (D46); every other token (-mod, +connect, +exec, -host, ...) goes to console.cs unchanged.
 using System.Globalization;
+using System.Linq;
 
 namespace OpenTribes.Client.App;
 
@@ -18,6 +19,8 @@ public sealed class ClientOptions
     public int Width = 640, Height = 480;
     public string? VideoDriver;
     public bool NoAudio;
+    // `--camera X,Y,Z,YAW,PITCH`: draws the live world from that fixed camera (degrees, yaw 0 looks along +Y, positive turns left).
+    public double[]? FixedCamera;
     public bool NoVsync;
     // `--headless` (client-app.md 1.2): no window, no input, no audio output; the frame loop runs on the virtual clock.
     public bool Headless;
@@ -39,7 +42,7 @@ public sealed class ClientOptions
     public readonly List<string> GameArgs = new();
 
     private static readonly string[] ValueOptions =
-        { "--root", "--log", "--input", "--screenshot-at", "--shots", "--size", "--video-driver", "--seconds" };
+        { "--root", "--log", "--input", "--screenshot-at", "--shots", "--size", "--video-driver", "--seconds", "--camera" };
 
     // The options that select one of the single-purpose tools of C2 to C7 instead of the client.
     private static readonly string[] ToolOptions =
@@ -93,6 +96,15 @@ public sealed class ClientOptions
                     case "--log": o.LogFile = v; break;
                     case "--input": o.InputScript = v; break;
                     case "--shots": o.ShotDir = v; break;
+                    case "--camera":
+                        double[] cam = v.Split(',').Select(t => double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double d) ? d : double.NaN).ToArray();
+                        if (cam.Length != 5 || cam.Any(double.IsNaN))
+                        {
+                            error = "--camera expects X,Y,Z,YAW,PITCH";
+                            return null;
+                        }
+                        o.FixedCamera = cam;
+                        break;
                     case "--video-driver": o.VideoDriver = v; break;
                     case "--screenshot-at":
                         foreach (string part in v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

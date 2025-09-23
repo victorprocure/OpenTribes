@@ -330,7 +330,7 @@ public sealed class SceneAudio
             }
             if (s.Image < 0)
                 continue;
-            long snd = Idx(Db.Block(6, s.Image), newImage ? "sfxActivate" : "sfxFire");
+            long snd = Idx(Db.Block(6, (int)Scene.Db.Num(Db.Block(5, s.Image), "imageType", -1)), newImage ? "sfxActivate" : "sfxFire");
             int h = Play(newImage ? "ImageActivate" : "ImageFire", snd, pl.Position);
             g.Image[slot] = h;
             if (h != 0 && Sound.IsLooping(h))

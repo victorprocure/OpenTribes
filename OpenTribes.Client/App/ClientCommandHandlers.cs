@@ -634,6 +634,17 @@ public sealed class ClientCommandHandlers
 
     // ---- 2.13 game plugin commands with a client effect ----
 
+    private int ItemTypeOf(string description)
+    {
+        var blocks = mApp.Game?.World.DataBlocks;
+        if (blocks == null || !blocks.Counts.TryGetValue(5, out int n))
+            return -1;
+        for (int i = 0; i < n; ++i)
+            if (blocks.Blocks.TryGetValue((5, i), out var b) && string.Equals(Scene.Db.Str(b, "description"), description, StringComparison.OrdinalIgnoreCase))
+                return i;
+        return -1;
+    }
+
     private void RegisterGame()
     {
         Cmd("resetPlayDelegate", a =>
@@ -642,6 +653,34 @@ public sealed class ClientCommandHandlers
             return "";
         });
         Cmd("rebuildCommandMap", a => "");
+        // Client item commands (client.cs `use`, `getItemType`): the item type is the ItemData index (group 5) whose description
+        // matches, case-insensitive [code 0041e60c, 0041e648]. useItem puts the type into the next move.
+        Cmd("getItemType", a =>
+        {
+            if (a.Length != 2)
+            {
+                I.Print(1, "wrong argcount to getItemType(description)");
+                return "False";
+            }
+            return ItemTypeOf(a[1]).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        });
+        Cmd("getItemCount", a =>
+        {
+            if (a.Length != 2)
+            {
+                I.Print(1, "wrong argcount to getItemCount(description)");
+                return "0";
+            }
+            int t = ItemTypeOf(a[1]);
+            var psc = mApp.Game?.World.Psc;
+            return psc != null && t >= 0 && t < psc.ItemCounts.Length ? psc.ItemCounts[t].ToString(System.Globalization.CultureInfo.InvariantCulture) : "0";
+        });
+        Cmd("useItem", a =>
+        {
+            if (a.Length >= 2)
+                mApp.Play.Moves.UseItemType = Numbers.BorlandAtoi(a[1]);
+            return "";
+        });
         Cmd("Client::exitLobbyMode", a =>
         {
             mApp.Interp.SetVariable("$InLobbyMode", "False");
