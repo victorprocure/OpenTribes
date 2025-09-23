@@ -943,7 +943,7 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         fx.Interp.Evaluate("Client::centerPrint(\"hello\", 2);");
-        Assert.Single(fx.Host.CenterPrints);
+        Assert.Equal(("hello", 2), (fx.Host.CenterText, fx.Host.CenterType));
         fx.Interp.Evaluate("setHudTimer(-5);");
         fx.Clock += 7000;
         Assert.Equal(2.0, fx.Runtime.ClockSeconds, 3);

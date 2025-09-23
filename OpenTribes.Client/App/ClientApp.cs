@@ -383,7 +383,7 @@ public sealed class ClientApp : IDisposable
     public void InitSecondaryHooks(LiveGame g)
     {
         Host.Chat.Clear();
-        Host.CenterPrints.Clear();
+        Host.CenterPrint("", 0);
         Host.Hud = new ClientHudSource(g.World, () => GuiRt.ClockSeconds) { MenuSource = CurrentMenu };
     }
 

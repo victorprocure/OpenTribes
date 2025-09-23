@@ -286,9 +286,9 @@ public sealed class GuiRuntime
         });
         Interp.AddCommand("Client::centerPrint", (inr, a) =>
         {
-            if (a.Length < 3 || !double.TryParse(a[^1], NumberStyles.Float, CultureInfo.InvariantCulture, out double t))
+            if (a.Length != 3 || !int.TryParse(a[^1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int t))
             {
-                inr.Print(1, "Client::centerPrint(text, time);");
+                inr.Print(1, "Client::centerPrint(text, type);");
                 return "False";
             }
             Host.CenterPrint(a[^2], t);
@@ -371,8 +371,7 @@ public sealed class ClockedHudSource : IHudSource
     public double EnergyLevel => mInner.EnergyLevel;
     public double Yaw => mInner.Yaw;
     public double ClockSeconds => mClock();
-    public IReadOnlyList<(string Name, bool Mounted)> Weapons => mInner.Weapons;
-    public int Ammo => mInner.Ammo;
+    public IReadOnlyList<WeaponRow> Weapons => mInner.Weapons;
     public bool SensorPing => mInner.SensorPing;
     public bool SensorLocked => mInner.SensorLocked;
 }

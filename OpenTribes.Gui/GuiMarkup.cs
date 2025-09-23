@@ -66,12 +66,12 @@ public static class GuiMarkup
     public static string Strip(string text) => string.Concat(Parse(text).Select(r => r.Text));
 
     // Draws the runs left to right; returns the width. `def` is the font of runs with no `<fN>` (and of fonts that do not load).
-    public static int Draw(GuiPaint p, GuiHost host, PftFont? def, int x, int y, IEnumerable<Run> runs)
+    public static int Draw(GuiPaint p, GuiHost host, PftFont? def, int x, int y, IEnumerable<Run> runs, Func<int, PftFont?>? fontOf = null)
     {
         int x0 = x;
         foreach (Run r in runs)
         {
-            PftFont? f = host.MarkupFont(r.Font) ?? def;
+            PftFont? f = (fontOf != null ? fontOf(r.Font) : null) ?? host.MarkupFont(r.Font) ?? def;
             if (f == null)
                 continue;
             p.Text(f, x, y, r.Text);
@@ -80,12 +80,12 @@ public static class GuiMarkup
         return x - x0;
     }
 
-    public static int Width(GuiHost host, PftFont? def, IEnumerable<Run> runs)
+    public static int Width(GuiHost host, PftFont? def, IEnumerable<Run> runs, Func<int, PftFont?>? fontOf = null)
     {
         int w = 0;
         foreach (Run r in runs)
         {
-            PftFont? f = host.MarkupFont(r.Font) ?? def;
+            PftFont? f = (fontOf != null ? fontOf(r.Font) : null) ?? host.MarkupFont(r.Font) ?? def;
             if (f != null)
                 w += GuiPaint.TextWidth(f, r.Text) + f.Spacing;
         }
@@ -93,7 +93,7 @@ public static class GuiMarkup
     }
 
     // Greedy word wrap of runs to `width`; a line holds runs (a word never splits unless it is longer than the line).
-    public static List<List<Run>> Wrap(GuiHost host, PftFont? def, List<Run> runs, int width)
+    public static List<List<Run>> Wrap(GuiHost host, PftFont? def, List<Run> runs, int width, Func<int, PftFont?>? fontOf = null)
     {
         var lines = new List<List<Run>>();
         var line = new List<Run>();
@@ -103,7 +103,7 @@ public static class GuiMarkup
             foreach (string piece in SplitKeepSpaces(r.Text))
             {
                 var one = new Run(r.Font, piece);
-                int w = Width(host, def, new[] { one });
+                int w = Width(host, def, new[] { one }, fontOf);
                 if (lineW + w > width && lineW > 0 && piece.Trim().Length > 0)
                 {
                     lines.Add(line);
@@ -125,7 +125,7 @@ public static class GuiMarkup
     }
 
     // Wrap of marked-up text: each line of the text is a paragraph, the font carries over from one to the next.
-    public static List<List<Run>> WrapText(GuiHost host, PftFont? def, string text, int width)
+    public static List<List<Run>> WrapText(GuiHost host, PftFont? def, string text, int width, Func<int, PftFont?>? fontOf = null)
     {
         var lines = new List<List<Run>>();
         int font = -1;
@@ -136,7 +136,7 @@ public static class GuiMarkup
                 lines.Add(new List<Run>());
             else
             {
-                lines.AddRange(Wrap(host, def, runs, width));
+                lines.AddRange(Wrap(host, def, runs, width, fontOf));
                 font = runs[^1].Font;
             }
         }

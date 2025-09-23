@@ -183,7 +183,7 @@ public sealed class GuiJetPackHud : GuiBarHud
     }
 }
 
-// FearGui::ClockHud [code 004e7744]: |timer| as %02d:%02d:%02d.%1d.
+// FearGui::ClockHud [code 004e7744]: |timer| as %02d:%02d:%02d.%1d in a shaded box with a bracket on each side (stub length 2).
 public sealed class GuiClockHud : GuiHud
 {
     public static string Format(double seconds)
@@ -198,62 +198,167 @@ public sealed class GuiClockHud : GuiHud
     {
         if (Source == null || !Source.HasPlayerState)
             return;
-        PftFont? f = Host?.FontByName("sf_white_10.pft");
-        p.Text(f, ox + X + 2, oy + Y + 2, Format(Source.ClockSeconds));
+        int x = ox + X, y = oy + Y;
+        p.Fill(x, y, W, H, HudFrame.ShadeColor, HudFrame.ShadeAlpha);
+        HudFrame.Bracket(p, x, y, 2, y + H - 2);
+        HudFrame.Bracket(p, x + W - 2, y, -2, y + H - 2);
+        PftFont? f = Host?.FontByName(LowRes ? "sf_white_6.pft" : "if_w_10.pft");
+        p.Text(f, x + 4, y + (LowRes ? 1 : 0), Format(Source.ClockSeconds));
     }
 }
 
-// FearGui::CompassHud [code 004e7e5c]: Compass.bmp and the needles of the control object's yaw. The polygon tables
-// are not read; a north needle and an east marker are drawn with lines.
+// FearGui::CompassHud [code 004e7e5c]: Compass.bmp, then the letters N, E, S and W and four ticks as polylines rotated by the
+// control object's yaw (palette 0xfc, drawn around the bitmap centre), a fixed red needle at the top (0xf3) and the distance
+// readout "000" in the middle. Each row of the tables is a polyline; the points are in 1/1 pixels of the 64 pixel bitmap (low
+// resolution: the 36 pixel bitmap with its own table).
 public sealed class GuiCompassHud : GuiHud
 {
+    private static readonly float[][] Glyphs =
+    {
+        new float[] { -2, -18, -2, -24, 2, -18, 2, -24 },
+        new float[] { 18, 2, 18, -2, 24, -2, 24, 2 },
+        new float[] { 21, -2, 21, 2 },
+        new float[] { -24, 4, -18, 2, -24, 0, -18, -2, -24, -4 },
+        new float[] { 2, 20, 1, 19, -1, 19, -2, 20, -2, 21, -1, 22, 1, 22, 2, 23, 2, 24, 1, 25, -1, 25, -2, 24 },
+        new float[] { 15, -14, 19, -18 },
+        new float[] { 15, 14, 19, 18 },
+        new float[] { -14, 14, -18, 18 },
+        new float[] { -14, -14, -18, -18 },
+    };
+
+    private static readonly float[][] GlyphsLow =
+    {
+        new float[] { -1.5f, -10.5f, -1.5f, -13.5f, 1.5f, -10.5f, 1.5f, -13.5f },
+        new float[] { 9.5f, 0.5f, 9.5f, -1.5f, 13.5f, -1.5f, 13.5f, 0.5f },
+        new float[] { 11.5f, -1.5f, 11.5f, -0.5f },
+        new float[] { -13.5f, 2.5f, -11.5f, 2.5f, -10.5f, 1.5f, -11.5f, 1.5f, -10.5f, -0.5f, -11.5f, -1.5f, -13.5f, -1.5f },
+        new float[] { 1.5f, 9.5f, 0.5f, 9.5f, -0.5f, 10.5f, 1.5f, 12.5f, 0.5f, 13.5f, -0.5f, 13.5f },
+        new float[] { 7.5f, -7.5f, 9.5f, -9.5f },
+        new float[] { 7.5f, 7.5f, 9.5f, 9.5f },
+        new float[] { -7.5f, 7.5f, -9.5f, 9.5f },
+        new float[] { -7.5f, -7.5f, -9.5f, -9.5f },
+    };
+
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.HasPlayerState)
             return;
+        bool lr = LowRes;
         int x = ox + X, y = oy + Y;
-        p.Bitmap(Host?.BitmapByName(LowRes ? "lr_Compass.bmp" : "Compass.bmp"), x, y);
+        p.Bitmap(Host?.BitmapByName(lr ? "lr_Compass.bmp" : "Compass.bmp"), x, y);
         double yaw = Source.Yaw;
-        int cx = x + W / 2, cy = y + H / 2, r = Math.Min(W, H) / 2 - 6;
-        double s = Math.Sin(yaw), c = Math.Cos(yaw);
-        p.Line(cx, cy, cx + (int)(-s * r), cy - (int)(c * r), 0xfc);
-        p.Line(cx, cy, cx + (int)(c * r / 2), cy + (int)(s * r / 2), 0xf3);
+        float sin = (float)Math.Sin(yaw), cos = (float)Math.Cos(yaw);
+        float cx = x + (lr ? 18.5f : 31.5f), cy = y + (lr ? 18.5f : 31.5f);
+        foreach (float[] line in lr ? GlyphsLow : Glyphs)
+        {
+            int n = line.Length / 2;
+            for (int i = 0; i + 1 < n; ++i)
+            {
+                p.Line((int)(cx + line[2 * i] * cos - line[2 * i + 1] * sin), (int)(cy + line[2 * i + 1] * cos + line[2 * i] * sin),
+                    (int)(cx + line[2 * i + 2] * cos - line[2 * i + 3] * sin), (int)(cy + line[2 * i + 3] * cos + line[2 * i + 2] * sin), 0xfc);
+            }
+        }
+        int top = lr ? 17 : 28, bottom = lr ? 8 : 13;
+        p.Line((int)cx, (int)cy - top, (int)cx, (int)cy - bottom, 0xf3);
+        PftFont? f = Host?.FontByName(lr ? "sf_green_5.pft" : "if_g_8.pft");
+        const string text = "000";
+        p.Text(f, (int)cx - GuiPaint.TextWidth(f, text) / 2, (int)cy - GuiPaint.FontHeight(f) / 2, text);
     }
 }
 
-// FearGui::CurrentWeaponHud [code 004e8fe8]: the weapons the player carries, the mounted one marked, and its ammo.
+// FearGui::CurrentWeaponHud [code 004e8fe8]: a framed column with one icon per weapon the player carries and, right of it, the
+// ammo count in a small dark box (the infinity icon when the weapon has no ammo item). The control resizes to the row count:
+// width = the weapon icon width + 38, height = (icon height + 4) x rows + 10 (low resolution + 27, + 2).
 public sealed class GuiWeaponHud : GuiHud
 {
+    private static readonly int[] Poly = { 2, 8, 8, 2, 24, 2, 30, 8 };
+    private static readonly int[] PolyLow = { 1, 6, 6, 1, 16, 1, 18, 4 };
+    private int mRows = -1;
+
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Source == null || !Source.HasPlayerState)
+        if (Source == null || !Source.HasPlayerState || Host == null)
             return;
-        PftFont? f = Host?.FontByName("sf_white_10.pft");
-        int x = ox + X, y = oy + Y;
-        foreach (var (name, mounted) in Source.Weapons)
+        bool lr = LowRes;
+        PbmpBitmap? fallback = Host.BitmapByName(lr ? "lr_weapon_off.bmp" : "I_weapon_off.bmp");
+        int iconH = fallback?.Height ?? 24, iconW = fallback?.Width ?? 24;
+        var rows = Source.Weapons;
+        if (rows.Count != mRows)
         {
-            if (mounted)
-                p.Fill(x, y, W, GuiPaint.FontHeight(f) + 2, 0xf8);
-            p.Text(f, x + 2, y + 1, name);
-            y += GuiPaint.FontHeight(f) + 2;
+            mRows = rows.Count;
+            W = iconW + (lr ? 27 : 38);
+            H = rows.Count < 1 ? iconH : (iconH + (lr ? 2 : 4)) * rows.Count + 10;
+            Layout();
+            return;
         }
-        string ammo = Source.Ammo < 0 ? "inf" : Source.Ammo.ToString(CultureInfo.InvariantCulture);
-        p.Text(f, x + 2, y + 2, ammo);
+        if (rows.Count < 1)
+            return;
+        int x = ox + X, y = oy + Y, bottom = y + H - 1;
+        int[] poly = lr ? PolyLow : Poly;
+        var pts = new List<(int, int)>();
+        for (int i = 0; i < 4; ++i)
+            pts.Add((poly[2 * i] + x + (lr ? 1 : 0), poly[2 * i + 1] + y));
+        for (int i = 3; i >= 0; --i)
+            pts.Add((poly[2 * i] + x + (lr ? 1 : 0), y + H - poly[2 * i + 1]));
+        HudFrame.FillPolygon(p, pts, HudFrame.ShadeColor, HudFrame.ShadeAlpha);
+        int stub = lr ? 11 : 17;
+        for (int k = 7; k <= 9; ++k)
+        {
+            p.Line(x, y + k, x + k, y, HudFrame.FaceColor);
+            p.Line(x, bottom - k, x + k, bottom, HudFrame.FaceColor);
+        }
+        p.Line(x + 7, y, x + stub, y, HudFrame.FaceColor);
+        p.Line(x + 7, y + 1, x + stub, y + 1, HudFrame.FaceColor);
+        p.Line(x + 7, bottom, x + stub, bottom, HudFrame.FaceColor);
+        p.Line(x + 7, bottom - 1, x + stub, bottom - 1, HudFrame.FaceColor);
+        p.Line(x, y + 7, x, bottom - 7, HudFrame.FaceColor);
+        p.Line(x + 1, y + 7, x + 1, bottom - 7, HudFrame.FaceColor);
+        PftFont? dim = Host.FontByName(lr ? "sf_dk_green_5.pft" : "if_dg_8.pft"), lit = Host.FontByName(lr ? "sf_green_5.pft" : "if_g_8.pft");
+        PbmpBitmap? box = Host.BitmapByName(lr ? "lr_ammo.bmp" : "ammoSh.bmp");
+        int iy = y + (lr ? 6 : 7);
+        foreach (WeaponRow w in rows)
+        {
+            string stem = (lr ? "lr_" : "I_") + w.Icon + (w.Active ? "_on" : "_off");
+            PbmpBitmap? icon = Host.BitmapByName(stem + ".bmp") ?? fallback;
+            p.Bitmap(icon, x + 4, iy);
+            int bx = x + 4 + (lr ? 3 : 4) + (icon?.Width ?? 0);
+            p.Bitmap(box, bx, iy);
+            bx += lr ? 3 : 2;
+            int by = iy + (lr ? 0 : -1);
+            PftFont? f = w.Active ? lit : dim;
+            if (w.Ammo < 0)
+                p.Bitmap(Host.BitmapByName((lr ? "lr_" : "") + (w.Active ? "I_Infinity_on.bmp" : "I_Infinity_off.bmp")), bx + (lr ? 1 : 2), by + (lr ? 3 : 6));
+            else
+            {
+                string t = Math.Min(w.Ammo, 999).ToString(CultureInfo.InvariantCulture);
+                p.Text(f, bx + (GuiPaint.TextWidth(f, "888") - GuiPaint.TextWidth(f, t)) / 2, by, t);
+            }
+            iy += iconH + (lr ? 2 : 4);
+        }
     }
 }
 
-// FearGui::FGHSensorPing [code 004ea720]: value 1 ping (blinking), value 2 locked.
+// FearGui::FGHSensorPing [code 004ea720]: the frame bitmap `ping` is always drawn for the control player; the flags byte of the
+// control object adds an overlay centred in the control: 2 the suppressed icon, 1 a cycle of the three ping icons.
 public sealed class GuiSensorHud : GuiHud
 {
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Source == null || !Source.HasPlayerState || !Source.SensorPing && !Source.SensorLocked)
+        if (Source == null || !Source.HasPlayerState || Host == null)
             return;
-        bool blink = ((Host?.TickMs ?? 0) >> 8 & 1) == 0;
+        bool lr = LowRes;
+        int x = ox + X, y = oy + Y;
+        p.Bitmap(Host.BitmapByName(lr ? "lr_ping.bmp" : "ping.bmp"), x, y);
+        string? overlay = null;
         if (Source.SensorLocked)
-            p.Bitmap(Host?.BitmapByName("I_Locked.bmp"), ox + X, oy + Y);
-        else if (blink)
-            p.Bitmap(Host?.BitmapByName(LowRes ? "lr_ping.bmp" : "I_PingRed.bmp"), ox + X, oy + Y);
+            overlay = "HP_Supressed";
+        else if (Source.SensorPing)
+            overlay = ((Host.TickMs / 250) % 6) switch { 0 => "HP_PingedLo", 1 => "HP_PingedMed", _ => "HP_PingedHi" };
+        if (overlay == null)
+            return;
+        PbmpBitmap? b = Host.BitmapByName((lr ? "LR_" : "") + overlay + ".bmp") ?? Host.BitmapByName(overlay + ".bmp");
+        if (b != null)
+            p.Bitmap(b, x + (W - b.Width) / 2, y + (H - b.Height) / 2);
     }
 }
 
@@ -298,6 +403,37 @@ public static class HudFrame
         p.Line(x + step, top, x + step, bottom, FaceColor);
         p.Line(x + step, top, x + step + dir, top, FaceColor);
         p.Line(x + step, bottom, x + step + dir, bottom, FaceColor);
+    }
+
+    // Fills a convex polygon with one scan line per row (the translucent frames of the weapon HUD).
+    public static void FillPolygon(GuiPaint p, IReadOnlyList<(int X, int Y)> pts, int color, float alpha)
+    {
+        int minY = pts.Min(q => q.Y), maxY = pts.Max(q => q.Y);
+        for (int row = minY; row <= maxY; ++row)
+        {
+            double lo = double.MaxValue, hi = double.MinValue;
+            for (int i = 0; i < pts.Count; ++i)
+            {
+                var (ax, ay) = pts[i];
+                var (bx, by) = pts[(i + 1) % pts.Count];
+                if (ay == by)
+                {
+                    if (ay == row)
+                    {
+                        lo = Math.Min(lo, Math.Min(ax, bx));
+                        hi = Math.Max(hi, Math.Max(ax, bx));
+                    }
+                    continue;
+                }
+                if (row < Math.Min(ay, by) || row > Math.Max(ay, by))
+                    continue;
+                double xs = ax + (double)(row - ay) * (bx - ax) / (by - ay);
+                lo = Math.Min(lo, xs);
+                hi = Math.Max(hi, xs);
+            }
+            if (hi >= lo)
+                p.Fill((int)Math.Ceiling(lo), row, (int)Math.Floor(hi) - (int)Math.Ceiling(lo) + 1, 1, color, alpha);
+        }
     }
 
     // The translucent shade and both brackets over the rectangle (x, y, w, h).
@@ -350,22 +486,46 @@ public sealed class GuiChatDisplay : GuiHud
     }
 }
 
-// CenterPrint: Client::centerPrint(text, time) messages, centred, expiring after their time; `<fN>` markup as in the formatted text.
+// CenterPrint [code 00488f80 prepare, 00489108 draw]: the message of Client::centerPrint in a shaded box with a bracket on each
+// side (stub length 4). The box is the parent's width less 70 (low resolution 30) wide at x 35 (15), as high as the wrapped text plus
+// 8, and sits by the message type: 0 vertically centred, 1 35 (15) above the bottom, 2 35 (15) below the top. The text is wrapped to
+// the box less 4 and drawn 2 pixels inside with the fonts f0, f1 and f2 of the control (sf_orange214_10, sf_orange255_10,
+// sf_white_9b; low resolution sf_orange_6, sf_yellow_6, sf_white_6); `<jc>` centres the lines.
 public sealed class GuiCenterPrint : GuiControl
 {
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Host == null)
+        if (Host == null || Parent == null || Host.CenterText.Length == 0 || Host.CenterType is < 0 or > 2)
             return;
-        Host.CenterPrints.RemoveAll(c => c.Until <= Host.TickMs);
-        PftFont? f = Host.FontByName("sf_white_10.pft");
-        int y = oy + Y;
-        foreach (var (text, _) in Host.CenterPrints)
-            foreach (var line in GuiMarkup.WrapText(Host, f, text, W))
-            {
-                GuiMarkup.Draw(p, Host, f, ox + X + (W - GuiMarkup.Width(Host, f, line)) / 2, y, line);
-                y += GuiPaint.FontHeight(f) + 1;
-            }
+        int pw = Parent.W, ph = Parent.H;
+        bool low = pw < 512 || ph < 384;
+        string[] names = low ? new[] { "sf_orange_6.pft", "sf_yellow_6.pft", "sf_white_6.pft" }
+            : new[] { "sf_orange214_10.pft", "sf_orange255_10.pft", "sf_white_9b.pft" };
+        var fonts = names.Select(n => Host.FontByName(n)).ToArray();
+        PftFont? def = fonts[0] ?? Host.FontByName("sf_white_10.pft");
+        if (def == null)
+            return;
+        PftFont? FontOf(int n) => n is >= 0 and <= 2 ? fonts[n] : null;
+        int w = pw - (low ? 30 : 70);
+        string text = Host.CenterText;
+        var lines = GuiMarkup.WrapText(Host, def, text, w - 4, FontOf);
+        int lh = GuiPaint.FontHeight(def);
+        int h = lines.Count * lh + 8;
+        int bx = low ? 15 : 35;
+        int by = Host.CenterType == 0 ? (ph - h) / 2 : Host.CenterType == 1 ? ph - h - (low ? 15 : 35) : (low ? 15 : 35);
+        X = bx; Y = by; W = w; H = h;
+        int x = ox + bx, y = oy + by;
+        p.Fill(x, y, w, h, HudFrame.ShadeColor, HudFrame.ShadeAlpha);
+        HudFrame.Bracket(p, x, y, 4, y + h - 1);
+        HudFrame.Bracket(p, x + w - 1, y, -4, y + h - 1);
+        bool center = text.Contains("<jc>", StringComparison.Ordinal);
+        int ty = y + 2;
+        foreach (var line in lines)
+        {
+            int lw = GuiMarkup.Width(Host, def, line, FontOf);
+            GuiMarkup.Draw(p, Host, def, x + 2 + (center ? (w - 4 - lw) / 2 : 0), ty, line, FontOf);
+            ty += lh;
+        }
     }
 }
 

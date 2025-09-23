@@ -77,22 +77,73 @@ public sealed class ClientHudSource : IHudSource
     public double Yaw => D(Psc.ControlState.GetValueOrDefault("rotZ"), Ghost != null ? D(Ghost.State.GetValueOrDefault("rotZ"), 0) : 0);
     public double ClockSeconds => mClock();
 
-    public IReadOnlyList<(string Name, bool Mounted)> Weapons
+    // The weapon HUD rows [code 004e8fe8]: every item with a count above zero, a hudIcon and showWeaponBar, in datablock order. The
+    // item is mounted when an image slot of the control player holds its image (the item's imageType); with hiliteOnActive set the
+    // "on" icon shows only while that slot fires (state 1). The ammo is the count of the image's ammoType item, negative without one.
+    public IReadOnlyList<WeaponRow> Weapons
     {
         get
         {
-            var list = new List<(string, bool)>();
+            var list = new List<WeaponRow>();
+            if (Ghost is not ClientGhost g)
+                return list;
+            var slots = MountedImages(g);
             for (int i = 0; i < Psc.ItemCounts.Length; ++i)
-                if (Psc.ItemCounts[i] > 0 && mWorld.DataBlocks.Blocks.TryGetValue((5, i), out ClientDataBlock? b) && IsWeapon(b))
-                    list.Add((Label(b, i), false));
+            {
+                if (Psc.ItemCounts[i] <= 0 || !mWorld.DataBlocks.Blocks.TryGetValue((5, i), out ClientDataBlock? b))
+                    continue;
+                string icon = b.Fields.FirstOrDefault(f => f.Name == "hudIcon" && f.Value is string).Value as string ?? "";
+                if (icon.Length == 0 || !b.Fields.Any(f => f.Name == "showWeaponBar" && D(f.Value, 0) != 0))
+                    continue;
+                int image = (int)b.Fields.Where(f => f.Name == "imageType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
+                bool hilite = b.Fields.Any(f => f.Name == "hiliteOnActive" && D(f.Value, 0) != 0);
+                bool active = false;
+                foreach (var (img, state) in slots)
+                    if (img == image && image >= 0)
+                    {
+                        active = !hilite || state == 1;
+                        break;
+                    }
+                int ammo = -1;
+                if (image >= 0 && mWorld.DataBlocks.Blocks.TryGetValue((6, image), out ClientDataBlock? ib))
+                {
+                    int type = (int)ib.Fields.Where(f => f.Name == "ammoType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
+                    if (type >= 0 && type < Psc.ItemCounts.Length)
+                        ammo = Psc.ItemCounts[type];
+                }
+                list.Add(new WeaponRow(icon, active, ammo));
+            }
             return list;
         }
     }
 
-    // An item with an image type is a weapon (the datablock flag at +0x11c); ammo and armor have imageType -1.
-    private static bool IsWeapon(ClientDataBlock b) => b.Fields.Any(f => f.Name == "imageType" && D(f.Value, -1) >= 0);
-    private static string Label(ClientDataBlock b, int i) =>
-        b.Fields.FirstOrDefault(f => f.Name == "description" && f.Value is string).Value as string ?? "item " + i;
+    // The (image, state) of each filled image slot of a Player ghost: the strings "i:img=N state=S ..." of the unpack.
+    private static List<(int Image, int State)> MountedImages(ClientGhost g)
+    {
+        var l = new List<(int, int)>();
+        if (g.State.GetValueOrDefault("images") is not System.Collections.IEnumerable e || g.State.GetValueOrDefault("images") is string)
+            return l;
+        foreach (object? o in e)
+            if (o is string s && Num(s, "img=", out int img))
+            {
+                Num(s, "state=", out int st);
+                l.Add((img, st));
+            }
+        return l;
+    }
+
+    private static bool Num(string s, string key, out int v)
+    {
+        v = -1;
+        int p = s.IndexOf(key, StringComparison.Ordinal);
+        if (p < 0)
+            return false;
+        p += key.Length;
+        int e = p;
+        while (e < s.Length && (char.IsDigit(s[e]) || s[e] == '-'))
+            ++e;
+        return int.TryParse(s.AsSpan(p, e - p), System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out v);
+    }
 
     // The item datablocks (group 5) the lists show: the ones with showInventory, in index order [code 0048afcc, 0048b05c].
     public IReadOnlyList<InventoryEntry> InventoryItems
@@ -124,7 +175,7 @@ public sealed class ClientHudSource : IHudSource
         get
         {
             ClientPlayerManager pm = mWorld.Players;
-            var teams = pm.Teams.Values.OrderByDescending(t => t.SortValue).ThenBy(t => t.Index)
+            var teams = pm.Teams.Values.Where(t => t.Index >= 0).OrderByDescending(t => t.SortValue).ThenBy(t => t.Index)
                 .Select(t => new ScoreRow(t.Index, Expand(t.ScoreText, null, t.Name), t.SortValue)).ToList();
             var clients = pm.Clients.Values.Where(c => !c.Ai).OrderByDescending(c => c.SortValue).ThenBy(c => c.Id)
                 .Select(c => new ScoreRow(c.Id, Expand(c.ScoreText, c, c.Team >= 0 && pm.Teams.TryGetValue(c.Team, out ClientTeam? t) ? t.Name : ""),
@@ -158,7 +209,6 @@ public sealed class ClientHudSource : IHudSource
     public Func<ServerMenuView?>? MenuSource;
     public ServerMenuView? ServerMenu => MenuSource?.Invoke();
 
-    public int Ammo => -1;
     public bool SensorPing => false;
     public bool SensorLocked => false;
 }

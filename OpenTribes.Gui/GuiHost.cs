@@ -46,11 +46,19 @@ public sealed class GuiHost
 
     public long TickMs => Now();
 
-    // Chat lines (text, font tag) and Client::centerPrint messages (text, expiry tick) the HUD classes draw.
+    // Chat lines (text, font tag) the HUD classes draw.
     public readonly List<(string Text, uint FontTag)> Chat = new();
-    public readonly List<(string Text, long Until)> CenterPrints = new();
     public void AddChat(string text, uint fontTag = 0) => Chat.Add((text, fontTag));
-    public void CenterPrint(string text, double seconds) => CenterPrints.Add((text, TickMs + (long)(seconds * 1000)));
+
+    // Client::centerPrint(text, type) [code 0042276c]: one message buffer and its type (0 centred, 1 near the bottom, 2 near the
+    // top). The scripts clear it with an empty text after their own timeout.
+    public string CenterText = "";
+    public int CenterType;
+    public void CenterPrint(string text, int type)
+    {
+        CenterText = text;
+        CenterType = type;
+    }
 
     // ---- console ----
 
@@ -165,9 +173,8 @@ public interface IHudSource
     double Yaw { get; }
     // The HUD timer (setHudTimer) in seconds.
     double ClockSeconds { get; }
-    // Weapon HUD: items the player has, the mounted one and its ammo (-1 for unlimited).
-    IReadOnlyList<(string Name, bool Mounted)> Weapons { get; }
-    int Ammo { get; }
+    // Weapon HUD: the weapon rows in datablock order (docs/gui.md 4.2).
+    IReadOnlyList<WeaponRow> Weapons { get; }
     bool SensorPing { get; }
     bool SensorLocked { get; }
     // The item datablocks with showInventory set, with the counts and the station masks of the client player state (the lists of
@@ -177,6 +184,10 @@ public interface IHudSource
     ScoreBoard? Scores => null;
     ServerMenuView? ServerMenu => null;
 }
+
+// One row of the weapon HUD: the item's hudIcon, whether its "on" icon shows (the mounted weapon, or a firing one when the item
+// highlights on active), and the ammo count (negative for unlimited).
+public readonly record struct WeaponRow(string Icon, bool Active, int Ammo);
 
 // The scoreboard: the two heading strings (tab separated columns, each column after the first starts with its x position as one
 // character) and the rows with their placeholders (%n name, %t team, %p ping, %l loss) already replaced.
@@ -197,9 +208,8 @@ public sealed class StaticHudSource : IHudSource
     public double EnergyLevel { get; set; } = 1;
     public double Yaw { get; set; }
     public double ClockSeconds { get; set; }
-    public List<(string Name, bool Mounted)> WeaponList { get; } = new();
-    public IReadOnlyList<(string Name, bool Mounted)> Weapons => WeaponList;
-    public int Ammo { get; set; } = -1;
+    public List<WeaponRow> WeaponList { get; } = new();
+    public IReadOnlyList<WeaponRow> Weapons => WeaponList;
     public bool SensorPing { get; set; }
     public bool SensorLocked { get; set; }
     public List<InventoryEntry> Inventory { get; } = new();

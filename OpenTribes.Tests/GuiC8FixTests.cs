@@ -147,7 +147,7 @@ public class GuiC8FixTests
         root.AddChild(GuiFixture.Make("CenterPrint", 25, 419, 590, 36));
         root.AddChild(GuiFixture.Make("FearGui::FearGuiChatDisplay", 132, 9, 370, 45, ("lines", 3u), ("hudX", 0u), ("hudY", 0u)));
         fx.Content(root);
-        fx.Host.CenterPrint("<jc><f1>Flag <f0>taken", 5);
+        fx.Host.CenterPrint("<jc><f1>Flag <f0>taken", 0);
         fx.Host.AddChat("<f1>Tester: <f0>hello<jl>");
         List<string> calls = Draw(fx);
         Assert.DoesNotContain(calls, c => c.Contains('<'));
@@ -180,6 +180,47 @@ public class GuiC8FixTests
         root.AddChild(hud);
         fx.Content(root);
         Assert.Equal((62, 76), (hud.W, hud.H));
+    }
+
+    [Fact]
+    public void WeaponHudResizesToItsRowsAndPrintsTheAmmo() // gui.md 4.2 CurrentWeaponHud: width icon + 38, height (icon + 4) x rows + 10
+    {
+        GuiFixture fx = Fixture(out GuiControl root);
+        fx.Host.SetFont("if_g_8.pft", Font(6));
+        fx.Host.SetFont("if_dg_8.pft", Font(5));
+        var src = new StaticHudSource();
+        src.WeaponList.Add(new WeaponRow("blaster", true, -1));
+        src.WeaponList.Add(new WeaponRow("chain", false, 100));
+        fx.Host.Hud = src;
+        var hud = (GuiHud)GuiFixture.Make("FearGui::CurrentWeaponHud", 0, 213, 62, 76, ("hudX", 0u), ("hudY", 0u));
+        root.AddChild(hud);
+        fx.Content(root);
+        Draw(fx);                                   // the first frame resizes the control
+        Assert.Equal((62, (24 + 4) * 2 + 10), (hud.W, hud.H));   // no bitmaps in the fixture: the icon is taken as 24 x 24
+        List<string> calls = Draw(fx);
+        Assert.Contains(calls, c => c.StartsWith("text w5 ") && c.EndsWith("'100'"));   // the dim font of a weapon that is not mounted
+    }
+
+    [Fact]
+    public void CenterPrintSitsByItsType() // gui.md 4.2 CenterPrint: type 0 centred, 1 above the bottom, 2 below the top
+    {
+        foreach (var (type, y) in new[] { (0, -1), (1, -1), (2, 35) })
+        {
+            GuiFixture fx = Fixture(out GuiControl root);
+            var cp = (GuiCenterPrint)GuiFixture.Make("CenterPrint", 25, 419, 590, 36);
+            root.AddChild(cp);
+            fx.Content(root);
+            fx.Host.CenterPrint("one\ntwo", type);
+            Draw(fx);
+            Assert.Equal(640 - 70, cp.W);
+            Assert.Equal(35, cp.X);
+            if (y >= 0)
+                Assert.Equal(y, cp.Y);
+            else if (type == 0)
+                Assert.Equal((480 - cp.H) / 2, cp.Y);
+            else
+                Assert.Equal(480 - cp.H - 35, cp.Y);
+        }
     }
 
     // ---- 4. Game::EndFrame ----
