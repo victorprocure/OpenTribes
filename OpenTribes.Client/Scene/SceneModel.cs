@@ -1,6 +1,7 @@
 // The visible state of a demo or a live connection: the visuals of the ghosts, the transient effects, the smoke pool and
 // the decal ring (docs/shapes-render.md 2.1, 4, 5). Fed by the decoded packets of OpenTribes.Game.Client; steps in
 // 32 ms frames like the client loop.
+using OpenTribes.Platform.Gfx;
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
@@ -207,13 +208,17 @@ public sealed class SceneModel
         ctx.Time = Time;
         ctx.Light = CollectLights();
         ctx.Lists.Clear();
-        foreach (Visual v in Visuals.Values)
-            v.Build(ctx);
-        foreach (IEffect e in Effects)
-            e.Build(ctx);
-        Smoke.Build(ctx);
-        Decals.Build(ctx);
-        if (HasWeather)
-            Weather.Build(ctx, Time);
+        using (FramePerf.Scope("build-shapes"))
+            foreach (Visual v in Visuals.Values)
+                v.Build(ctx);
+        using (FramePerf.Scope("build-effects"))
+        {
+            foreach (IEffect e in Effects)
+                e.Build(ctx);
+            Smoke.Build(ctx);
+            Decals.Build(ctx);
+            if (HasWeather)
+                Weather.Build(ctx, Time);
+        }
     }
 }

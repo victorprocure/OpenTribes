@@ -19,7 +19,17 @@ public sealed class ShapeAssets : IDisposable
     public readonly WorldAssets World;
     private readonly IGfxDevice? mDev;
     private readonly Dictionary<string, RenderShape?> mShapes = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, TexEntry?> mTextures = new(StringComparer.OrdinalIgnoreCase);
+    private readonly record struct TexKey(string Map, string Skin, int Level, bool Keyed);
+
+    private sealed class TexKeyComparer : IEqualityComparer<TexKey>
+    {
+        public bool Equals(TexKey a, TexKey b) => a.Level == b.Level && a.Keyed == b.Keyed &&
+            string.Equals(a.Map, b.Map, StringComparison.OrdinalIgnoreCase) && string.Equals(a.Skin, b.Skin, StringComparison.OrdinalIgnoreCase);
+        public int GetHashCode(TexKey k) => HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(k.Map),
+            StringComparer.OrdinalIgnoreCase.GetHashCode(k.Skin), k.Level, k.Keyed);
+    }
+
+    private readonly Dictionary<TexKey, TexEntry?> mTextures = new(new TexKeyComparer());
     public readonly HashSet<string> Missing = new(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyList<PbmpBitmap> DamageDecals = Array.Empty<PbmpBitmap>();
     public bool UseCustomSkins = true;
@@ -53,7 +63,7 @@ public sealed class ShapeAssets : IDisposable
     // The texture of a material map name under a skin and a damage level; null when the bitmap is missing or there is no device.
     public TexEntry? Texture(string map, string skin = "", int damageLevel = 0, bool keyed = false)
     {
-        string key = map + "|" + skin + "|" + (damageLevel > 0 ? damageLevel : 0) + (keyed ? "|k" : "");
+        var key = new TexKey(map, skin, damageLevel > 0 ? damageLevel : 0, keyed);
         if (mTextures.TryGetValue(key, out TexEntry? t))
             return t;
         string resolved = skin.Length > 0 ? Skins.Resolve(map, skin, Exists, UseCustomSkins) : map;
@@ -85,6 +95,15 @@ public sealed class ShapeAssets : IDisposable
         }
         mTextures[key] = t;
         return t;
+    }
+
+    // Creates the textures of every bitmap material of a shape under a skin (level 0 damage), so the first frame that draws
+    // the shape does not stall on bitmap decoding and texture uploads.
+    public void Preload(RenderShape shape, string skin)
+    {
+        foreach (RsMaterial m in shape.Materials)
+            if (m.Type == 3)
+                Texture(m.Name, skin, 0, m.Keyed);
     }
 
     // Loads the DamageSkinData bitmaps (bmpName[]) once.

@@ -31,6 +31,20 @@ public sealed class ShapeRenderer
         public float[] N = Array.Empty<float>();
     }
 
+    private struct MatState
+    {
+        public DrawState3D Ds;
+        public bool PaletteAlpha;
+    }
+
+    // Scratch kept between builds (the renderer is used by one thread): per-material vertex lists, material states of the
+    // current build in order of first use, and the world-space vertex, normal and colour arrays of one object.
+    private readonly Dictionary<int, MatState> mStates = new();
+    private readonly Dictionary<int, List<Vertex3D>> mBatches = new();
+    private readonly List<int> mUsed = new();
+    private (double x, double y, double z)[] mWp = Array.Empty<(double, double, double)>(), mWn = Array.Empty<(double, double, double)>();
+    private (float r, float g, float b)?[] mCol = Array.Empty<(float, float, float)?>();
+
     private readonly ShapeAssets mAssets;
     private readonly Dictionary<(RsMesh, int), FrameData> mFrames = new();
     public bool FlipWinding;           // set by tests that check the cull rule
@@ -103,17 +117,26 @@ public sealed class ShapeRenderer
         if (detail < 0)
             return null;
         inst.Animate(detail);
-        List<int> nodes = sh.Subtree(sh.DetailRoot(detail));
-        if (sh.AlwaysNode >= 0)
-            nodes.AddRange(sh.Subtree(sh.AlwaysNode));
-        var nodeSet = new HashSet<int>(nodes);
+        bool[] nodeMask = sh.NodesOfDetail(detail).Mask;
         var (ccx, ccy, ccz) = p.ToWorld.Apply(sh.Cx, sh.Cy, sh.Cz);
         var (_, depth, _) = cam.ToCamera(ccx, ccy, ccz);
         double dist = Math.Sqrt((ccx - cam.X) * (ccx - cam.X) + (ccy - cam.Y) * (ccy - cam.Y) + (ccz - cam.Z) * (ccz - cam.Z));
+        // A shape whose bounding sphere (padded for moving parts) is wholly outside the view makes no image: nothing of it can
+        // reach the screen. Forced details (debris, tests) always build.
+        if (p.ForceDetail == -2 && sh.Radius > 0)
+        {
+            var (vx, vy, vz) = cam.ToCamera(ccx, ccy, ccz);
+            if (!World.InteriorRenderer.SphereVisible(cam, vx, vy, vz, sh.Radius * 2 + 2))
+            {
+                LastFaces = LastCulled = 0;
+                return null;
+            }
+        }
         float haze = (float)TerrainLod.ObjectHaze(dist, p.HazeStart, p.Visible);
         var img = new RenderImage { Label = p.Label.Length > 0 ? p.Label : sh.Name };
-        var batches = new Dictionary<int, List<Vertex3D>>();
-        var states = new Dictionary<int, DrawState3D>();
+        Dictionary<int, MatState> states = mStates;
+        states.Clear();
+        mUsed.Clear();
         bool translucent = p.ForceTranslucent || p.Fade > 0;
         int matBase = sh.MaterialDetails > 1 ? Math.Min(detail, sh.MaterialDetails - 1) * sh.MaterialCount : 0;
         double alphaFade = 1 - p.Fade;
@@ -122,7 +145,7 @@ public sealed class ShapeRenderer
         {
             RsObject ob = sh.Objects[oi];
             RsObjectState st = inst.Objects[oi];
-            if ((p.ObjectFilter != null && !p.ObjectFilter.Contains(oi)) || !nodeSet.Contains(ob.Node) || !st.Visible || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
+            if ((p.ObjectFilter != null && !p.ObjectFilter.Contains(oi)) || !(ob.Node >= 0 && ob.Node < nodeMask.Length && nodeMask[ob.Node]) || !st.Visible || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                 continue;
             RsMesh mesh = sh.Meshes[ob.Mesh];
             if (mesh.Faces.Length == 0 || mesh.Frames.Length == 0)
@@ -130,9 +153,15 @@ public sealed class ShapeRenderer
             Xf ox = inst.ObjectTransform(oi).Then(p.ToWorld);
             FrameData fd = Frame(mesh, Math.Clamp(st.Frame, 0, mesh.Frames.Length - 1));
             int nv = fd.P.Length / 3;
-            var wp = new (double x, double y, double z)[nv];
-            var wn = new (double x, double y, double z)[nv];
-            var col = new (float r, float g, float b)?[nv];
+            if (mWp.Length < nv)
+            {
+                mWp = new (double x, double y, double z)[nv * 2];
+                mWn = new (double x, double y, double z)[nv * 2];
+                mCol = new (float r, float g, float b)?[nv * 2];
+            }
+            (double x, double y, double z)[] wp = mWp, wn = mWn;
+            (float r, float g, float b)?[] col = mCol;
+            Array.Clear(col, 0, nv);
             for (int k = 0; k < nv; ++k)
             {
                 wp[k] = ox.Apply(fd.P[k * 3], fd.P[k * 3 + 1], fd.P[k * 3 + 2]);
@@ -158,27 +187,30 @@ public sealed class ShapeRenderer
                 if (mi < 0 || mi >= sh.Materials.Length)
                     continue;
                 RsMaterial m = sh.Materials[mi];
-                if (!states.TryGetValue(mi, out DrawState3D ds))
+                if (!states.TryGetValue(mi, out MatState ms))
                 {
-                    if (!MakeState(sh, m, p, ref ds, out bool blended))
+                    DrawState3D made = default;
+                    mUsed.Add(mi);
+                    if (!MakeState(sh, m, p, ref made, out bool blended))
                     {
                         ++SkippedMissingTexture;
                         states[mi] = default;
-                        batches[mi] = new List<Vertex3D>();
                         continue;
                     }
-                    states[mi] = ds;
-                    batches[mi] = new List<Vertex3D>();
+                    bool pa = m.Type == 3 && mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed) is TexEntry te && te.PaletteAlpha;
+                    ms = new MatState { Ds = made, PaletteAlpha = pa };
+                    states[mi] = ms;
+                    if (!mBatches.ContainsKey(mi))
+                        mBatches[mi] = new List<Vertex3D>();
                     if (blended)
                         translucent = true;
                 }
+                DrawState3D ds = ms.Ds;
                 if (ds.Texture == null && m.Type == 3)
                     continue;
                 float alpha = 1;
                 bool group = (m.Flags & 0x2000) != 0;
-                bool paletteAlpha = false;
-                if (m.Type == 3 && mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed) is TexEntry te)
-                    paletteAlpha = te.PaletteAlpha;
+                bool paletteAlpha = ms.PaletteAlpha;
                 if (group && !paletteAlpha && ds.BlendKind == BlendMode.Translucent)
                     alpha = 0.5f;
                 if (p.Fade > 0)
@@ -202,7 +234,7 @@ public sealed class ShapeRenderer
                     double l = Math.Sqrt(nx * nx + ny * ny + nz * nz);
                     faceCol = p.Light.At((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3, l > 0 ? nx / l : 0, l > 0 ? ny / l : 0, l > 0 ? nz / l : 1);
                 }
-                List<Vertex3D> list = batches[mi];
+                List<Vertex3D> list = mBatches[mi];
                 for (int k = 0; k < 3; ++k)
                 {
                     int vi = k == 0 ? f.V0 : k == 1 ? f.V1 : f.V2;
@@ -224,9 +256,14 @@ public sealed class ShapeRenderer
                 }
             }
         }
-        foreach (var kv in batches)
-            if (kv.Value.Count > 0)
-                img.Batches.Add(new DrawBatch { Vertices = kv.Value.ToArray(), State = states[kv.Key] });
+        foreach (int mi in mUsed)
+        {
+            if (!mBatches.TryGetValue(mi, out List<Vertex3D>? list))
+                continue;
+            if (list.Count > 0)
+                img.Batches.Add(new DrawBatch { Vertices = list.ToArray(), State = states[mi].Ds });
+            list.Clear();
+        }
         img.Category = translucent ? 1 : 0;
         img.SortKey = (p.FixedSortKey ?? (translucent ? RenderLists.SortKey(depth, cam.Near) : 0)) + p.SortBias;
         return img.Batches.Count == 0 ? null : img;

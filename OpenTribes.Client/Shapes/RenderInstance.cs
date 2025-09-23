@@ -245,12 +245,21 @@ public sealed class RenderInstance
         q[0] = s0 * a[0] + s1 * bx; q[1] = s0 * a[1] + s1 * by; q[2] = s0 * a[2] + s1 * bz; q[3] = s0 * a[3] + s1 * bw;
     }
 
+    private readonly List<RenderThread> mOrdered = new();
+
     private List<RenderThread> Ordered()
     {
         // Ascending priority: the first thread whose sequence drives a node wins (a lower number is a higher priority, the
-        // looks thread uses -1).
-        var l = new List<RenderThread>(Threads);
-        l.Sort((a, b) => a.Priority.CompareTo(b.Priority));
+        // looks thread uses -1). Stable insertion sort into a list kept between calls (no allocation per frame).
+        List<RenderThread> l = mOrdered;
+        l.Clear();
+        foreach (RenderThread t in Threads)
+        {
+            int i = l.Count;
+            while (i > 0 && l[i - 1].Priority > t.Priority)
+                --i;
+            l.Insert(i, t);
+        }
         return l;
     }
 
@@ -264,11 +273,7 @@ public sealed class RenderInstance
             Remap[i] = i;
         foreach (RenderThread t in order)
             StepIfl(t);
-        var nodes = new List<int>();
-        if (sh.AlwaysNode >= 0 && sh.AlwaysNode < sh.Nodes.Length)
-            nodes.AddRange(sh.Subtree(sh.AlwaysNode));
-        nodes.AddRange(sh.Subtree(sh.DetailRoot(detail)));
-        nodes.Sort();
+        int[] nodes = sh.NodesOfDetail(detail).Sorted;
         double blend = mBlendLeft > 0 && mFromQ != null ? Math.Clamp(1 - mBlendLeft / mBlendDuration, 0, 1) : 1;
         var q = new double[4];
         foreach (int node in nodes)

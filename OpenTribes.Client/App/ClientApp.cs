@@ -113,6 +113,7 @@ public sealed class ClientApp : IDisposable
                 return false;
             }
             Dev = new GlGfxDevice(Win);
+            FramePerf.Device = Dev as IGfxStats;
             Win.SetSwapInterval(Opt.NoVsync || Opt.VirtualStep != 0 ? 0 : 1);
             Win.SetRelativeMouse(false);
         }
@@ -438,7 +439,10 @@ public sealed class ClientApp : IDisposable
             if (Opt.Seconds > 0 && NowMs / 1000.0 >= Opt.Seconds)
                 break;
             if (Opt.VirtualStep == 0 && Opt.NoVsync)
-                Thread.Sleep(1);
+            {
+                using (FramePerf.Scope("nosync-sleep"))
+                    Thread.Sleep(1);
+            }
         }
         _ = realStart;
         Shutdown();
@@ -456,6 +460,7 @@ public sealed class ClientApp : IDisposable
     public void Frame()
     {
         ++Frames;
+        FramePerf.FrameStart();
         // F1: message pump.
         PumpEvents();
         // F2: clock.
@@ -474,8 +479,11 @@ public sealed class ClientApp : IDisposable
         Delegates.Poll();
         SmackerFallback();
         // F8-F14: moves, receive, send, sim advance, prediction.
-        Game?.Frame(now, Play.Moves);
-        SimWorld.AdvanceServer();
+        using (FramePerf.Scope("net-sim"))
+        {
+            Game?.Frame(now, Play.Moves);
+            SimWorld.AdvanceServer();
+        }
         // F15: sound.
         double dt = Math.Max(0, (now - mLastFrameMs) / 1000.0);
         mLastFrameMs = now;
@@ -491,7 +499,10 @@ public sealed class ClientApp : IDisposable
         if (mQuit)
             return;
         if (Win != null && !Canvas.WindowActive && Opt.VirtualStep == 0)
-            Thread.Sleep(10);
+        {
+            using (FramePerf.Scope("idle-sleep"))
+                Thread.Sleep(10);
+        }
     }
 
     // The intro screen plays a Smacker movie; there is no decoder, so the movie is over at once and the control's own
@@ -531,7 +542,8 @@ public sealed class ClientApp : IDisposable
                 SetPalette(pal);
         }
         UpdateRelativeMouse();
-        Canvas.Frame();
+        using (FramePerf.Scope("gui-frame"))
+            Canvas.Frame();
         bool drewWorld = false;
         if (Game != null && PlayViewActive)
             drewWorld = Game.Render(Dev, Play.Moves.CurrentFov, () => Canvas.Render(Dev));

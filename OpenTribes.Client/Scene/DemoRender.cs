@@ -290,13 +290,26 @@ public static class DemoRender
             CameraPose c = pose.Value;
             var ctx = new FrameContext { HazeStart = scene.Terrain.HazeStart, Visible = scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
             int images = 0, draws = 0;
-            scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, cam =>
+            void DrawShapes(Camera3D cam)
             {
                 ctx.Camera = cam;
                 model.Build(ctx);
                 images = ctx.Lists.ImageCount;
-                draws = ctx.Lists.Draw(dev);
-            }, ui == null ? null : () =>
+                using (FramePerf.Scope("shapes-draw"))
+                    draws = ctx.Lists.Draw(dev);
+            }
+            // OT_BENCH=N: N extra frames of this view with the frame timing log on (one report line), for before/after runs.
+            if (int.TryParse(Environment.GetEnvironmentVariable("OT_BENCH"), out int bench) && bench > 0)
+            {
+                FramePerf.Enable(bench);
+                FramePerf.Device = dev;
+                for (int i = 0; i <= bench; ++i)
+                {
+                    FramePerf.FrameStart();
+                    scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, DrawShapes, null);
+                }
+            }
+            scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, DrawShapes, ui == null ? null : () =>
             {
                 ui.Clock = (long)(t * 1000);
                 if (Environment.GetEnvironmentVariable("OT_HUD_DEBUG") != null)

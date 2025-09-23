@@ -311,7 +311,8 @@ public sealed class LiveGame : IDisposable
         {
             ctx.Camera = cam;
             Model.Build(ctx);
-            ctx.Lists.Draw(dev);
+            using (FramePerf.Scope("shapes-draw"))
+                ctx.Lists.Draw(dev);
         }, overlay2D);
         return true;
     }

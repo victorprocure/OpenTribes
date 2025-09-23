@@ -104,7 +104,17 @@ public sealed class InteriorRenderer : IDisposable
         public InteriorModel Model = null!;
         public double X, Y, Z, Rx, Ry, Rz;
         public float[] M = new float[9];
+        // World-space triangles of each surface per detail level, built on first draw (the instance never moves).
+        internal readonly Dictionary<InteriorLodModel, SurfaceMesh[]> Meshes = new();
     }
+
+    // One surface of one instance, already in world space with haze 0: the fan triangles and the batch key (material index).
+    internal readonly record struct SurfaceMesh(Vertex3D[] Triangles, int Key, IGfxTexture? Texture);
+
+    // Draw scratch kept between frames: the vertex lists per material in the order the materials first appear in a frame.
+    private readonly Dictionary<int, List<Vertex3D>> mBatches = new();
+    private readonly List<int> mBatchOrder = new();
+    private readonly Dictionary<int, IGfxTexture?> mBatchTexture = new();
 
     private readonly IGfxDevice mDev;
     private readonly WorldAssets mAssets;
@@ -227,6 +237,22 @@ public sealed class InteriorRenderer : IDisposable
         return lod;
     }
 
+    // Loads every detail level of every model in use (geometry, lighting, light atlas, material bitmaps), so the first frame
+    // that sees an interior from a new distance does not stall on file reads and texture uploads.
+    public void Preload()
+    {
+        foreach (InteriorModel? model in mModels.Values)
+            if (model != null)
+                for (int i = 0; i < model.Lods.Length; ++i)
+                {
+                    InteriorLodModel? lod = Lod(model, i);
+                    if (lod?.Base == null)
+                        continue;
+                    foreach (string? name in lod.Materials)
+                        MaterialTexture(name);
+                }
+    }
+
     private static uint LodMinPixels(InteriorShapeFile shape, int index) => shape.Lods[index].MinPixels;
 
     private void BuildAtlas(InteriorLodModel lod)
@@ -293,8 +319,11 @@ public sealed class InteriorRenderer : IDisposable
     {
         if (inside || model.Shape.Lods.Count == 0)
             return 0;
-        var mins = model.Shape.Lods.Select(l => (int)l.MinPixels).ToList();
-        return FindLod(mins, pixels);
+        IReadOnlyList<InteriorShapeFile.Lod> lods = model.Shape.Lods;
+        for (int i = 0; i < lods.Count; ++i)
+            if ((int)lods[i].MinPixels < pixels)
+                return i;
+        return lods.Count - 1;
     }
 
     public void Draw(in Camera3D cam, TerrainParams haze)
@@ -340,7 +369,7 @@ public sealed class InteriorRenderer : IDisposable
         }
     }
 
-    private static bool SphereVisible(in Camera3D cam, double cx, double cy, double cz, double r)
+    internal static bool SphereVisible(in Camera3D cam, double cx, double cy, double cz, double r)
     {
         // camera space: x right, y forward, z up
         if (cy + r < cam.Near)
@@ -357,24 +386,19 @@ public sealed class InteriorRenderer : IDisposable
         return true;
     }
 
-    private void DrawInstance(Instance inst, InteriorLodModel lod, (double x, double y, double z) camLocal, float haze)
+    // The world-space triangles of every surface of `lod` for this instance (3.3 steps 7 to 9 minus the per-frame parts).
+    private InteriorRenderer.SurfaceMesh[] BuildMeshes(Instance inst, InteriorLodModel lod)
     {
         InteriorGeometryData g = lod.Geo;
         InteriorLighting lt = lod.Base!;
         float[] m = inst.M;
-        var batches = new Dictionary<int, List<Vertex3D>>();
+        var meshes = new SurfaceMesh[g.Surfaces.Length];
         int shiftMip = (int)Math.Min(g.HighestMipLevel, 8u);
         for (int s = 0; s < g.Surfaces.Length; ++s)
         {
             InteriorGeometryData.Surface surf = g.Surfaces[s];
             if (surf.VertexCount < 3 || surf.Plane * 4 + 3 >= g.Planes.Length)
                 continue;
-            // 3.3 step 6: back-face removal against the surface plane
-            int pi = surf.Plane * 4;
-            double side = g.Planes[pi] * camLocal.x + g.Planes[pi + 1] * camLocal.y + g.Planes[pi + 2] * camLocal.z + g.Planes[pi + 3];
-            if ((side > 0) != surf.PlaneFront)
-                continue;
-            InteriorLighting.Surface ls = lt.Surfaces[s];
             // texture region in texels (3.5), light map coordinates in pixels of 2^lightScaleShift texels with one margin pixel
             double sizeX = (surf.TexSizeX + 1) << shiftMip, sizeY = (surf.TexSizeY + 1) << shiftMip;
             double lmDiv = 1 << (int)lt.LightScaleShift;
@@ -383,9 +407,6 @@ public sealed class InteriorRenderer : IDisposable
             string? matName = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
             IGfxTexture? tex = MaterialTexture(matName);
             double bw = tex?.Width ?? 1, bh = tex?.Height ?? 1;
-            int key = mat;
-            if (!batches.TryGetValue(key, out List<Vertex3D>? list))
-                batches[key] = list = new List<Vertex3D>();
             var (ax, ay) = lod.LmPos[s];
             var verts = new Vertex3D[surf.VertexCount];
             for (int k = 0; k < surf.VertexCount; ++k)
@@ -400,22 +421,59 @@ public sealed class InteriorRenderer : IDisposable
                     (tx, ty, bw, bh) = (0, 0, 1, 1);
                 verts[k] = new Vertex3D(px * m[0] + py * m[3] + pz * m[6] + (float)inst.X, px * m[1] + py * m[4] + pz * m[7] + (float)inst.Y,
                                         px * m[2] + py * m[5] + pz * m[8] + (float)inst.Z, (float)(tx / bw), (float)(ty / bh), (float)lu,
-                                        (float)lv, haze);
+                                        (float)lv, 0);
             }
-            for (int k = 1; k + 1 < verts.Length; ++k)
+            var tris = new Vertex3D[(verts.Length - 2) * 3];
+            for (int k = 1, n = 0; k + 1 < verts.Length; ++k)
             {
-                list.Add(verts[0]);
-                list.Add(verts[k]);
-                list.Add(verts[k + 1]);
+                tris[n++] = verts[0];
+                tris[n++] = verts[k];
+                tris[n++] = verts[k + 1];
+            }
+            meshes[s] = new SurfaceMesh(tris, mat, tex);
+        }
+        return meshes;
+    }
+
+    private void DrawInstance(Instance inst, InteriorLodModel lod, (double x, double y, double z) camLocal, float haze)
+    {
+        InteriorGeometryData g = lod.Geo;
+        if (!inst.Meshes.TryGetValue(lod, out SurfaceMesh[]? meshes))
+            inst.Meshes[lod] = meshes = BuildMeshes(inst, lod);
+        foreach (int key in mBatchOrder)
+            mBatches[key].Clear();
+        mBatchOrder.Clear();
+        for (int s = 0; s < meshes.Length; ++s)
+        {
+            Vertex3D[]? tris = meshes[s].Triangles;
+            if (tris == null)
+                continue;
+            InteriorGeometryData.Surface surf = g.Surfaces[s];
+            // 3.3 step 6: back-face removal against the surface plane
+            int pi = surf.Plane * 4;
+            double side = g.Planes[pi] * camLocal.x + g.Planes[pi + 1] * camLocal.y + g.Planes[pi + 2] * camLocal.z + g.Planes[pi + 3];
+            if ((side > 0) != surf.PlaneFront)
+                continue;
+            int key = meshes[s].Key;
+            if (!mBatches.TryGetValue(key, out List<Vertex3D>? list))
+                mBatches[key] = list = new List<Vertex3D>();
+            if (list.Count == 0)
+            {
+                mBatchOrder.Add(key);
+                mBatchTexture[key] = meshes[s].Texture;
+            }
+            int start = list.Count;
+            list.AddRange(tris);
+            if (haze != 0)
+            {
+                Span<Vertex3D> added = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list).Slice(start);
+                for (int k = 0; k < added.Length; ++k)
+                    added[k].Haze = haze;
             }
             ++DrawnSurfaces;
-            _ = ls;
         }
-        foreach (var (mat, list) in batches)
-        {
-            string? name = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(name), lod.Atlas));
-        }
+        foreach (int key in mBatchOrder)
+            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mBatches[key]), new DrawState3D(mBatchTexture[key], lod.Atlas));
     }
 
     public void Dispose()

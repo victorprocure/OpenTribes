@@ -55,6 +55,7 @@ public class ShapeVisual : Visual
     protected string Skin = "";
     protected double SpinZ;
     protected double Age;
+    private (RenderShape, string) mPreloaded;
 
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
 
@@ -128,6 +129,11 @@ public class ShapeVisual : Visual
     {
         LoadBlock();
         UpdateTeamSkin();
+        if (Shape != null && mPreloaded != (Shape, Skin))
+        {
+            mPreloaded = (Shape, Skin);
+            M.Assets.Preload(Shape, Skin);
+        }
         if (Has("pos") && u.Fields.Any(f => f.Name == "pos"))
         {
             double[] p = Vec("pos");

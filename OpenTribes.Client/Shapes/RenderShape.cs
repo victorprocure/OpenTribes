@@ -92,6 +92,41 @@ public sealed class RenderShape
     // "dummy hand36" in detail 0 of the armors); -1 when none.
     public int FindNodeBase(string baseName, int detail)
     {
+        if (mNodeBase.TryGetValue((baseName, detail), out int cached))
+            return cached;
+        return mNodeBase[(baseName, detail)] = FindNodeBaseUncached(baseName, detail);
+    }
+
+    private readonly Dictionary<(string, int), int> mNodeBase = new();
+    private float[]? mDetailSizes;
+    private readonly Dictionary<int, DetailNodeSet> mDetailNodes = new();
+
+    // The nodes drawn and animated for one detail: the always node's subtree and the detail root's subtree, as a sorted list
+    // (the order of the node walk) and as a flag per node. Built once per detail.
+    public sealed class DetailNodeSet
+    {
+        public int[] Sorted = Array.Empty<int>();
+        public bool[] Mask = Array.Empty<bool>();
+    }
+
+    public DetailNodeSet NodesOfDetail(int detail)
+    {
+        if (mDetailNodes.TryGetValue(detail, out DetailNodeSet? set))
+            return set;
+        var nodes = new List<int>();
+        if (AlwaysNode >= 0 && AlwaysNode < Nodes.Length)
+            nodes.AddRange(Subtree(AlwaysNode));
+        nodes.AddRange(Subtree(DetailRoot(detail)));
+        nodes.Sort();
+        set = new DetailNodeSet { Sorted = nodes.ToArray(), Mask = new bool[Nodes.Length] };
+        foreach (int n in nodes)
+            set.Mask[n] = true;
+        mDetailNodes[detail] = set;
+        return set;
+    }
+
+    private int FindNodeBaseUncached(string baseName, int detail)
+    {
         foreach (int n in Subtree(DetailRoot(detail)))
         {
             int ni = Nodes[n].Name;
@@ -172,7 +207,7 @@ public sealed class RenderShape
         return d;
     }
 
-    public int ChooseDetail(double size) => ChooseDetail(Details.Select(x => x.Size).ToArray(), size);
+    public int ChooseDetail(double size) => ChooseDetail(mDetailSizes ??= Details.Select(x => x.Size).ToArray(), size);
 
     private static long[] RecordSizes(uint v)
     {
