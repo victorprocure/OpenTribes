@@ -223,6 +223,21 @@ public class GuiC8FixTests
         }
     }
 
+    [Fact]
+    public void FormattedTextHonoursItsJustificationTag() // gui.md 3.3 FearGuiFormattedText: `<jc>` centres the lines (the loading text)
+    {
+        Assert.Equal(1, GuiMarkup.Justification("<jc><f1>text"));
+        Assert.Equal(2, GuiMarkup.Justification("<jr>text"));
+        Assert.Equal(0, GuiMarkup.Justification("<jc>a<jl>b"));
+        Assert.Equal(0, GuiMarkup.Justification("plain"));
+        GuiFixture fx = Fixture(out GuiControl root);
+        root.AddChild(GuiFixture.Make("FearGuiFormattedText", 0, 0, 120, 100, ("fontTag", 150007u), ("lineSpacing", 0u)));
+        fx.Content(root);
+        ((GuiTextWrap)root.Children[0]).Text = "<jc>abcd";
+        List<string> calls = Draw(fx);
+        Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.Contains(" 46,") && c.EndsWith("'abcd'"));   // (120 - the width of the text) / 2
+    }
+
     // ---- 4. Game::EndFrame ----
 
     [Fact]

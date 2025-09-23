@@ -63,6 +63,17 @@ public static class GuiMarkup
         return true;
     }
 
+    // The justification a text asks for with `<jl>`, `<jc>` or `<jr>` (the last one counts): 0 left, 1 centred, 2 right.
+    public static int Justification(string text)
+    {
+        int best = -1, jl = text.LastIndexOf("<jl>", StringComparison.Ordinal), jc = text.LastIndexOf("<jc>", StringComparison.Ordinal),
+            jr = text.LastIndexOf("<jr>", StringComparison.Ordinal);
+        int pos = Math.Max(jl, Math.Max(jc, jr));
+        if (pos >= 0)
+            best = pos == jc ? 1 : pos == jr ? 2 : 0;
+        return Math.Max(best, 0);
+    }
+
     public static string Strip(string text) => string.Concat(Parse(text).Select(r => r.Text));
 
     // Draws the runs left to right; returns the width. `def` is the font of runs with no `<fN>` (and of fonts that do not load).

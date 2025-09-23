@@ -608,7 +608,7 @@ public sealed class GuiSlider : GuiActive
     }
 }
 
-// SimGui::ProgressCtrl: fills a rectangle in proportion to its value (0..1).
+// SimGui::ProgressCtrl: fills a rectangle in proportion to its value (0..1) [code 005448d8].
 public sealed class GuiProgress : GuiActive
 {
     public double Value;
@@ -619,8 +619,10 @@ public sealed class GuiProgress : GuiActive
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        DrawBase(p, gx, gy);
-        p.Fill(gx, gy, (int)(W * Value), H, 0xfc);
+        // The draw [code 005448d8]: the finished part in the control's fill colour (+0x76), then the whole extent outlined in the
+        // border colour (+0x79); no background fill.
+        p.Fill(gx, gy, (int)(W * Value), H, FillColor);
+        p.Outline(gx, gy, W, H, BorderColor);
         RenderChildren(p, gx, gy);
     }
 }
@@ -705,9 +707,11 @@ public sealed class GuiTextWrap : GuiActive
         {
             int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
             int y = gy;
+            int just = GuiMarkup.Justification(Text);
             foreach (var line in GuiMarkup.WrapText(Host, f, Text, W))
             {
-                GuiMarkup.Draw(p, Host, f, gx, y, line);
+                int lw = just == 0 ? 0 : GuiMarkup.Width(Host, f, line);
+                GuiMarkup.Draw(p, Host, f, gx + (just == 1 ? (W - lw) / 2 : just == 2 ? W - lw : 0), y, line);
                 y += lh;
             }
         }
