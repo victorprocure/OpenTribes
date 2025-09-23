@@ -26,6 +26,8 @@ public sealed class GuiDelegate : IGuiResponder
     public Action? OnFrame;
     // Slot 0x64: the canvas installed this delegate for a new content control.
     public Action? OnOpen;
+    // Slot 0x64 with the new content control (the main menu sets its version text, 004dbc00).
+    public Action<GuiControl>? OnOpenContent;
     private IGuiResponder? Up => Canvas?.Root;
     public bool MsDown(GuiEvent e) => Up?.MsDown(e) ?? false;
     public bool MsRepeat(GuiEvent e) => Up?.MsRepeat(e) ?? false;
@@ -262,6 +264,7 @@ public sealed class GuiCanvas
             del.Canvas = this;
             mDelegateOf[c] = del;
             del.OnOpen?.Invoke();
+            del.OnOpenContent?.Invoke(c);
         }
         Stack.Add(c);
         c.SetCanvas(this);

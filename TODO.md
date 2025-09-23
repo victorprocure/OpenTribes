@@ -74,6 +74,7 @@ way are added to Open.
 - [x] Jet pack frame nests under the health frame.
 - [x] Loading progress for a command line join.
 - [x] Inventory and score lists, working in the client.
+- [x] Version text on the main menu and team colours by team id.
 
 ### Audio
 

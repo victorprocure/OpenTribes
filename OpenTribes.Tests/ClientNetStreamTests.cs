@@ -66,7 +66,7 @@ public class ClientNetStreamTests
         var world = new ClientWorld();
         var conn = new ClientGameConnection(world);
         OutEvent add = GameEvents.MakePlayerAdd(2050, false, "Bob", "base", "Male1", true, -1, 1);
-        OutEvent team = GameEvents.MakeTeamAdd(1, "Storm", "base");
+        OutEvent team = GameEvents.MakeTeamAdd(-1, "Storm", "base");
         OutEvent score = GameEvents.MakeDeltaScore(false, 2050, 7, "Bob 7");
         OutEvent tname = GameEvents.MakeTargetName(5, "Generator");
         OutEvent eval = GameEvents.MakeRemoteEval(new[] { "SetInfoLine", "hello" });
@@ -75,9 +75,9 @@ public class ClientNetStreamTests
         Assert.True(p.UnknownBits == 0 && !p.Overrun && p.Events.Count == 5);
         Assert.True(p.Events[0].Name == "TeamAddEvent" && p.Events[1].Name == "PlayerAddEvent");
         ClientPlayerManager pm = world.Players;
-        Assert.True(pm.TeamCount == 0 && pm.Teams[0].Name == "Storm");
+        Assert.True(pm.TeamCount == 0 && pm.Teams[-1].Name == "Storm");
         Assert.True(pm.Clients.ContainsKey(2050) && pm.Clients[2050].Name == "Bob" && pm.Clients[2050].Team == 1 && pm.HumanCount == 1 && pm.PlayerCount == 1);
-        Assert.True(pm.Callbacks.SequenceEqual(new[] { "onClientJoin(2050);", "onTeamAdd(0);" }) || pm.Callbacks.SequenceEqual(new[] { "onTeamAdd(0);", "onClientJoin(2050);" }));
+        Assert.True(pm.Callbacks.SequenceEqual(new[] { "onClientJoin(2050);", "onTeamAdd(-1);" }) || pm.Callbacks.SequenceEqual(new[] { "onTeamAdd(-1);", "onClientJoin(2050);" }));
         Assert.True(pm.Clients[2050].ScoreText == "Bob 7" && pm.Clients[2050].SortValue == 7);
         Assert.True(pm.TargetNames[5] == "Generator");
         Assert.True(world.RemoteCalls.Count == 1 && world.RemoteCalls[0].Name == "SetInfoLine" && world.RemoteCalls[0].Args[0] == "hello");

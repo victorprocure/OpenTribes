@@ -356,9 +356,11 @@ public sealed class ClientEvents
                     e.Text = "team=" + tid + " field24=" + a + " name=" + Repr(name) + " skin=" + Repr(skin);
                     e.Apply = () =>
                     {
-                        ++pm.TeamCount;
-                        pm.Teams[pm.TeamCount] = new ClientTeam { Index = pm.TeamCount, Name = name, Skin = skin };
-                        pm.Script("onTeamAdd(" + pm.TeamCount + ");");
+                        // The record goes to the slot of the old count (0040de18: slots run -1..count-1, the observer team
+                        // -1 comes first), so a record's index is its team id.
+                        int slot = pm.TeamCount++;
+                        pm.Teams[slot] = new ClientTeam { Index = slot, Name = name, Skin = skin };
+                        pm.Script("onTeamAdd(" + slot + ");");
                     };
                     break;
                 }

@@ -19,6 +19,8 @@ public sealed class ClientDelegates
     public readonly Dictionary<int, (string Address, string Name)> Servers = new();
     private int mNextRow = 1;
 
+    public const string GameVersion = "1.11";
+
     public ClientDelegates(ClientApp app) => mApp = app;
 
     private static readonly string[] Names =
@@ -34,6 +36,8 @@ public sealed class ClientDelegates
                 case "PlayerSetup": d.OnMessage = PlayerSetupMessage; break;
                 case "JoinGame": d.OnMessage = JoinGameMessage; break;
                 // The exit dialog loads quit.gui; the quit delegate ends the process when it is installed (client-app.md 6.1).
+                // 004dbc00: the main menu formats "Version %s" with the game version into its text control 140503.
+                case "MainMenu": d.OnOpenContent = c => c.FindById(140503)?.SetText("Version " + GameVersion); break;
                 case "quit": d.OnOpen = mApp.RequestQuit; break;
             }
             mApp.Canvas.Delegates[n] = d;
