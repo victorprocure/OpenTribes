@@ -18,6 +18,7 @@ public sealed class TerrainRenderer : IDisposable
     public double OriginX, OriginY, OriginZ;
     public TerrainParams Params;
     public int LastSquares, LastTriangles;
+    private readonly TerrainMesh mMesh = new();
 
     public TerrainRenderer(IGfxDevice dev, WorldAssets assets, TerrainData data, List<string?> materials, double ox, double oy,
                            double oz, TerrainParams p)
@@ -120,17 +121,30 @@ public sealed class TerrainRenderer : IDisposable
         }
     }
 
+    // Builds the atlas and the light map now instead of at the first draw.
+    public void Warm()
+    {
+        EnsureTextures();
+        for (int i = 0; i < mMaterials.Count; ++i)
+            MaterialTexture(i);
+    }
+
     public void Draw(in Camera3D cam)
     {
         EnsureTextures();
-        List<TerrainSquare> squares = TerrainLod.Select(mData, cam, OriginX, OriginY, OriginZ, Params);
-        TerrainMesh mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params);
+        List<TerrainSquare> squares;
+        using (FramePerf.Scope("terrain-select"))
+            squares = TerrainLod.Select(mData, cam, OriginX, OriginY, OriginZ, Params);
+        TerrainMesh mesh;
+        using (FramePerf.Scope("terrain-mesh"))
+            mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params, mMesh);
         LastSquares = squares.Count;
         LastTriangles = mesh.TriangleCount;
         if (mesh.Atlas.Count > 0)
             mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.Atlas), new DrawState3D(mAtlas, mLight));
         foreach (var (mat, list) in mesh.ByMaterial.OrderBy(kv => kv.Key))
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(mat), mLight));
+            if (list.Count > 0)
+                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(mat), mLight));
     }
 
     public void Dispose()

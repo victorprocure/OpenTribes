@@ -202,6 +202,21 @@ public sealed class TerrainMesh
     public readonly List<Vertex3D> Atlas = new();
     public readonly Dictionary<int, List<Vertex3D>> ByMaterial = new();
     public int TriangleCount => Atlas.Count / 3 + ByMaterial.Values.Sum(v => v.Count / 3);
+
+    // Scratch the mesher refills every frame when the same mesh object is passed back in.
+    internal readonly HashSet<long> Points = new();
+    internal readonly Dictionary<long, float> Heights = new();
+    internal readonly List<(int, int)> Ring = new();
+
+    public void Reset()
+    {
+        Atlas.Clear();
+        foreach (List<Vertex3D> l in ByMaterial.Values)
+            l.Clear();
+        Points.Clear();
+        Heights.Clear();
+        Ring.Clear();
+    }
 }
 
 public static class TerrainMesher
@@ -226,10 +241,11 @@ public static class TerrainMesher
         return (u, v);
     }
 
-    public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p)
+    public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null)
     {
-        var mesh = new TerrainMesh();
-        var points = new HashSet<long>();
+        TerrainMesh mesh = reuse ?? new TerrainMesh();
+        mesh.Reset();
+        HashSet<long> points = mesh.Points;
         static long Key(int x, int y) => ((long)x << 20) | (uint)y;
         foreach (var sq in squares)
         {
@@ -239,7 +255,7 @@ public static class TerrainMesher
             points.Add(Key(sq.X, sq.Y + s));
             points.Add(Key(sq.X + s, sq.Y + s));
         }
-        var heightCache = new Dictionary<long, float>();
+        Dictionary<long, float> heightCache = mesh.Heights;
         float Z(int gx, int gy)
         {
             long k = Key(gx, gy);
@@ -268,7 +284,7 @@ public static class TerrainMesher
                 ring.Add((ax, ay));
             }
         }
-        var ring = new List<(int, int)>();
+        List<(int, int)> ring = mesh.Ring;
         foreach (var sq in squares)
         {
             int s = 1 << sq.Level, x = sq.X, y = sq.Y;

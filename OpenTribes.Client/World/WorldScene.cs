@@ -93,6 +93,9 @@ public sealed class WorldScene : IDisposable
                 ++scene.InteriorFailed;
         }
 
+        scene.Interiors.Preload();
+        scene.TerrainDraw?.Warm();
+
         double visible = scene.Terrain.Visible;
         MissionObject? sky = all.FirstOrDefault(o => o.Class == "Sky");
         if (sky != null)
@@ -193,20 +196,27 @@ public sealed class WorldScene : IDisposable
         Camera3D bg = MakeCamera(x, y, z, yaw, pitch, fov, w, h, true);
         Camera3D world = MakeCamera(x, y, z, yaw, pitch, fov, w, h, false);
         mDev.BeginScene3D(bg, HazeColor.r, HazeColor.g, HazeColor.b);
-        if (!StarsInFront && Stars.Count > 0)
-            StarField.Draw(mDev, bg, Stars, StarColors);
-        Sky?.Draw(bg);
-        if (StarsInFront && Stars.Count > 0)
-            StarField.Draw(mDev, bg, Stars, StarColors);
-        foreach (PlanetRenderer p in Planets)
-            p.Draw(bg);
+        using (FramePerf.Scope("sky"))
+        {
+            if (!StarsInFront && Stars.Count > 0)
+                StarField.Draw(mDev, bg, Stars, StarColors);
+            Sky?.Draw(bg);
+            if (StarsInFront && Stars.Count > 0)
+                StarField.Draw(mDev, bg, Stars, StarColors);
+            foreach (PlanetRenderer p in Planets)
+                p.Draw(bg);
+        }
         mDev.SetCamera3D(world);
-        TerrainDraw?.Draw(world);
-        Interiors?.Draw(world, Terrain);
+        using (FramePerf.Scope("terrain"))
+            TerrainDraw?.Draw(world);
+        using (FramePerf.Scope("interiors"))
+            Interiors?.Draw(world, Terrain);
         overlay?.Invoke(world);
         mDev.EndScene3D();
-        overlay2D?.Invoke();
-        mDev.EndFrame();
+        using (FramePerf.Scope("gui-draw"))
+            overlay2D?.Invoke();
+        using (FramePerf.Scope("present"))
+            mDev.EndFrame();
     }
 
     public void Dispose()

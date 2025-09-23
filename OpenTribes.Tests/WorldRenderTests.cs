@@ -271,6 +271,26 @@ public class WorldRenderTests
     }
 
     [Fact]
+    public void ReusedMeshEqualsAFreshMesh() // the renderer refills one mesh each frame: no vertex of the last frame may remain
+    {
+        TerrainData t = Flat();
+        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        var reuse = new TerrainMesh();
+        foreach (var (x, yaw) in new[] { (3072.0, 20.0), (3300.0, 200.0), (3072.0, 20.0) })
+        {
+            Camera3D c = Cam(x, 3072, 110, yaw, -20, 90, 640, 480, 0.5, 600);
+            List<TerrainSquare> sq = TerrainLod.Select(t, c, 0, 0, 0, p);
+            TerrainMesh fresh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
+            TerrainMesh again = TerrainMesher.Build(t, sq, c, 0, 0, 0, p, reuse);
+            Assert.Same(reuse, again);
+            Assert.Equal(fresh.Atlas, again.Atlas);
+            foreach (var (mat, list) in fresh.ByMaterial)
+                Assert.Equal(list, again.ByMaterial[mat]);
+            Assert.All(again.ByMaterial.Where(kv => !fresh.ByMaterial.ContainsKey(kv.Key)), kv => Assert.Empty(kv.Value));
+        }
+    }
+
+    [Fact]
     public void MorphMovesAVertexToItsParentAverage() // WR 2.5 vertex morph
     {
         // a ramp in x only has parent averages equal to the heights, so use a spike: h = 0 except one corner
