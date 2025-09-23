@@ -103,10 +103,11 @@ public static class GuiFactory
         switch (row.Name)
         {
             case "FearGui::FGControl": return new GuiFGControl();
+            case "FearGui::FGCommandView": return new GuiCommandView();
             case "FearGui::FearGuiBox":
             case "FearGui::FearGuiDialog":
-            case "FearGui::FearGuiMenu":
             case "FearGui::FearGuiAbortDlg": return new GuiBox();
+            case "FearGui::FearGuiMenu": return new GuiMenuPanel();
             case "FearGui::FGDlgBox": return new GuiDlgBox();
             case "FearGui::FGShellBorder":
             case "FearGui::MMShellBorder": return new GuiShellBorder();

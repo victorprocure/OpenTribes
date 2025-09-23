@@ -15,22 +15,31 @@ public sealed class GuiFGControl : GuiControl
     }
 }
 
-// FearGui::FearGuiBox [code 004966c4]: fill and a 3D frame.
+// FearGui::FearGuiBox [code 004966c4]: fill and a double line frame with notched corners.
 public sealed class GuiBox : GuiControl
 {
-    // The eight palette indices 0xf0 down to 0xe9; the second half is used when dimmed. The frame geometry (top, left,
-    // bottom, right lines, an inner outline in the fourth colour, softened corners) is inferred.
+    // The palette indices 0xf0 down to 0xe9 (table at 0062164c); the second half is used when dimmed. Four colours c0..c3 of the
+    // set: the outer rule c1 and the inner rule c0 on every side (each cut 4 pixels short of the corners), the corner pixels c2
+    // and a one pixel outline c3 inside, 3 pixels from the edge.
     public static void Bevel(GuiPaint p, int x, int y, int w, int h, bool dimmed)
     {
-        if (w < 4 || h < 4)
+        if (w < 8 || h < 8)
             return;
         int b = dimmed ? 4 : 0;
-        int C(int i) => 0xf0 - (b + i);
-        p.Line(x + 1, y, x + w - 2, y, C(0));
-        p.Line(x, y + 1, x, y + h - 2, C(1));
-        p.Line(x + 1, y + h - 1, x + w - 2, y + h - 1, C(2));
-        p.Line(x + w - 1, y + 1, x + w - 1, y + h - 2, C(3));
-        p.Outline(x + 1, y + 1, w - 2, h - 2, C(3));
+        int c0 = 0xf0 - b, c1 = 0xef - b, c2 = 0xee - b, c3 = 0xed - b;
+        int x1 = x + w - 1, y1 = y + h - 1;
+        p.Line(x + 4, y, x1 - 4, y, c1);
+        p.Line(x + 4, y + 1, x1 - 4, y + 1, c0);
+        p.Line(x + 4, y1 - 1, x1 - 4, y1 - 1, c0);
+        p.Line(x + 4, y1, x1 - 4, y1, c1);
+        p.Line(x, y + 4, x, y1 - 4, c1);
+        p.Line(x + 1, y + 4, x + 1, y1 - 4, c0);
+        p.Line(x1, y + 4, x1, y1 - 4, c1);
+        p.Line(x1 - 1, y + 4, x1 - 1, y1 - 4, c0);
+        foreach (var (px, py) in new[] { (x + 3, y + 1), (x1 - 3, y + 1), (x + 3, y1 - 1), (x1 - 3, y1 - 1), (x + 1, y + 3), (x + 1, y1 - 3),
+                     (x1 - 1, y + 3), (x1 - 1, y1 - 3) })
+            p.Fill(px, py, 1, 1, c2);
+        p.Outline(x + 3, y + 3, w - 6, h - 6, c3);
     }
 
     public override void Render(GuiPaint p, int ox, int oy)
@@ -39,6 +48,80 @@ public sealed class GuiBox : GuiControl
         if (Opaque != 0)
             p.Fill(gx, gy, W, H, FillColor);
         Bevel(p, gx, gy, W, H, Dimmed);
+        RenderChildren(p, gx, gy);
+    }
+}
+
+// FearGui::FGCommandView [code 004a1c78]: the command screens' root (command, inventory and objectives). It clears its extent to
+// black, draws the children, then the metal frame from CmdViewCtrl.pba (LRCmdViewCtrl.pba at low resolution), 15 pieces:
+//   left column  : 0 at the top left, 1 below it, the stretched 12, and 2 at the bottom (the stretch takes the remaining height);
+//   bottom strip : 3 and 4 after the left column, the stretched 13, 5, and 6 at the bottom right (the stretch takes the width left);
+//   top bar      : 10 at x 224, the stretched 11, 9 (the stretch leaves 44 pixels at the right);
+//   right column : 8 at the top right, the stretched 14, and 7 above piece 6 (the stretch takes the height left).
+// The right column pieces are aligned to the right edge [I: the x of piece 8].
+public sealed class GuiCommandView : GuiControl
+{
+    public override void Render(GuiPaint p, int ox, int oy)
+    {
+        int gx = ox + X, gy = oy + Y;
+        p.Fill(gx, gy, W, H, 0);
+        RenderChildren(p, gx, gy);
+        bool low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
+        PbmaArray? a = Host?.ArrayByName(low ? "LRCmdViewCtrl.pba" : "CmdViewCtrl.pba");
+        if (a == null || a.Bitmaps.Count < 15)
+            return;
+        PbmpBitmap B(int i) => a.Bitmaps[i];
+        // Left column.
+        int y = gy;
+        p.Bitmap(B(0), gx, y);
+        y += B(0).Height;
+        p.Bitmap(B(1), gx, y);
+        y += B(1).Height;
+        int fill = H - (y - gy) - B(2).Height;
+        p.BitmapStretch(B(12), gx, y, B(12).Width, fill);
+        y += fill;
+        p.Bitmap(B(2), gx, y);
+        // Bottom strip.
+        int x = gx + B(2).Width;
+        p.Bitmap(B(3), x, gy + H - B(3).Height);
+        x += B(3).Width;
+        p.Bitmap(B(4), x, gy + H - B(4).Height);
+        x += B(4).Width;
+        int wfill = W - (x - gx) - B(5).Width - B(6).Width;
+        p.BitmapStretch(B(13), x, gy + H - B(13).Height, wfill, B(13).Height);
+        x += wfill;
+        p.Bitmap(B(5), x, gy + H - B(5).Height);
+        x += B(5).Width;
+        p.Bitmap(B(6), x, gy + H - B(6).Height);
+        // Top bar.
+        x = gx + 224;
+        p.Bitmap(B(10), x, gy);
+        x += B(10).Width;
+        int tfill = W - (x - gx) - B(9).Width - 44;
+        p.BitmapStretch(B(11), x, gy, tfill, B(11).Height);
+        x += tfill;
+        p.Bitmap(B(9), x, gy);
+        // Right column.
+        int ry = gy;
+        p.Bitmap(B(8), gx + W - B(8).Width, ry);
+        ry += B(8).Height;
+        int rfill = H - (ry - gy) - B(6).Height;
+        p.BitmapStretch(B(14), gx + W - B(14).Width, ry, B(14).Width, rfill);
+        ry += rfill;
+        p.Bitmap(B(7), gx + W - B(7).Width, ry);
+    }
+}
+
+// FearGui::FearGuiMenu [code 004b13ec]: a translucent shade over the extent with a bracket on each side (stub length 6), then the
+// children. The score window and the HUD lists are menus.
+public sealed class GuiMenuPanel : GuiControl
+{
+    public override void Render(GuiPaint p, int ox, int oy)
+    {
+        int gx = ox + X, gy = oy + Y;
+        p.Fill(gx, gy, W, H, HudFrame.ShadeColor, HudFrame.ShadeAlpha);
+        HudFrame.Bracket(p, gx, gy, 6, gy + H - 1);
+        HudFrame.Bracket(p, gx + W - 1, gy, -6, gy + H - 1);
         RenderChildren(p, gx, gy);
     }
 }

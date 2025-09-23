@@ -75,6 +75,7 @@ way are added to Open.
 - [x] Loading progress for a command line join.
 - [x] Inventory and score lists, working in the client.
 - [x] Version text on the main menu and team colours by team id.
+- [x] Command screen frame, menu panel, box frame and score window fonts.
 
 ### Audio
 

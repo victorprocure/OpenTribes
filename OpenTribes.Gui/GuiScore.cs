@@ -6,8 +6,8 @@ namespace OpenTribes.Gui;
 
 public sealed class GuiScoreList : GuiList
 {
-    // Fonts of the headings and of the rows; the file of the control has no font tags, so these are chosen [I].
-    public const uint HeadingFontTag = 150114, RowFontTag = 150124;
+    // The fonts of the control's prepare routine [code 004c1f60]: white headings and yellow rows, `sf_white_10b` and `sf_yellow_10b`
+    // (low resolution `sf_white_6`, `sf_yellow_6`).
     public const int LocalRowColor = 0xf1, HighlightWidth = 0x280;
 
     // One line: the text with its tab separated cells, the column x positions it uses and whether it is a heading.
@@ -15,9 +15,9 @@ public sealed class GuiScoreList : GuiList
 
     public readonly List<Line> Lines = new();
 
-    private PftFont? HeadingFont => Host?.FontByTag(HeadingFontTag) ?? Host?.FontByName("sf_white_10.pft");
-    protected override PftFont? RowFont => Host?.FontByTag(RowFontTag) ?? HeadingFont;
     private bool LowRes => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
+    private PftFont? HeadingFont => Host?.FontByName(LowRes ? "sf_white_6.pft" : "sf_white_10b.pft");
+    protected override PftFont? RowFont => Host?.FontByName(LowRes ? "sf_yellow_6.pft" : "sf_yellow_10b.pft");
     public int LineHeight => GuiPaint.FontHeight(RowFont) + 2;
 
     // The x positions a heading defines: the first cell sits at 0, every later cell starts with its position as one character.
@@ -68,8 +68,6 @@ public sealed class GuiScoreList : GuiList
             h = Math.Max(h, Parent.H);
         if (h != H)
             H = h;
-        if (Parent != null && W != Parent.W)
-            W = Parent.W;
     }
 
     // The scoreboard is display only: no tab stop, so the Tab key reaches the action map and closes the dialog again.
@@ -101,7 +99,17 @@ public sealed class GuiScoreList : GuiList
                 int col = line.Columns[Math.Min(k, line.Columns.Length - 1)] + (k >= line.Columns.Length ? 60 * (k - line.Columns.Length + 1) : 0);
                 if (low)
                     col = col * 70 / 100;
+                // The draw clips each cell at the next column less 2 pixels [code 004c2198].
+                GfxRect saved = p.Clip;
+                if (k + 1 < line.Columns.Length)
+                {
+                    int next = line.Columns[k + 1];
+                    if (low)
+                        next = next * 70 / 100;
+                    p.SetClip(saved.Intersect(new GfxRect(gx + col, y, gx + next - 3, y + lh - 1)));
+                }
                 p.Text(f, gx + col + 2, y, cells[k]);
+                p.SetClip(saved);
             }
         }
     }
@@ -115,8 +123,9 @@ public sealed class GuiMenuDisplay : GuiControl
         int gx = ox + X, gy = oy + Y;
         if (Host?.Hud?.ServerMenu is not ServerMenuView menu)
             return;
-        PftFont? head = Host.FontByTag(GuiScoreList.HeadingFontTag) ?? Host.FontByName("sf_white_10.pft");
-        PftFont? row = Host.FontByTag(GuiScoreList.RowFontTag) ?? head;
+        bool low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
+        PftFont? row = Host.FontByName(low ? "sf_yellow_6.pft" : "sf_yellow_10b.pft");
+        PftFont? head = row;
         int y = gy;
         if (menu.Title.Length > 0)
         {
@@ -125,7 +134,7 @@ public sealed class GuiMenuDisplay : GuiControl
         }
         foreach (var (key, text) in menu.Items)
         {
-            p.Text(row, gx + 2, y, key + " " + text);
+            p.Text(row, gx + 2, y, key + ": " + text);
             y += GuiPaint.FontHeight(row) + 2;
         }
     }
