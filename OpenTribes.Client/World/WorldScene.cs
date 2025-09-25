@@ -186,11 +186,7 @@ public sealed class WorldScene : IDisposable
     // The camera of a render: near and far follow the terrain's visible distance for the world, a long far for the
     // background (open: world-render.md Q1).
     public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background) =>
-        new(x, y, z, yaw, pitch, HorizontalFov(fov, w, h), w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10));
-
-    // `$pref::PlayerFov` is the vertical angle: with the stock weapon at its screen place only a wide horizontal angle fits (docs Q1).
-    public static double HorizontalFov(double fov, int w, int h) =>
-        2 * Math.Atan(Math.Tan(fov * Math.PI / 360) * w / h) * 180 / Math.PI;
+        new(x, y, z, yaw, pitch, fov, w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10));
 
     public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null)
     {
