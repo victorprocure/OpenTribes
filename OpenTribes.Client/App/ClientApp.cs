@@ -59,7 +59,6 @@ public sealed class ClientApp : IDisposable
     private bool mPaletteSet;
     private uint mLastFrameMs;
     private bool mGrab, mRelativeMouse;
-    private int mSmackerFrames;
     public long Frames;
 
     private sealed class NullConsumer : IActionConsumer
@@ -150,6 +149,14 @@ public sealed class ClientApp : IDisposable
                 SetPalette(p);
         };
 
+        Host.OnMoviePalette = MoviePalette;
+        Host.OnMovieEnd = () =>
+        {
+            if (CurrentPalette != null)
+                Dev?.SetPalette(CurrentPalette, Gamma);
+        };
+        Host.StartMovieAudio = StartMovieAudio;
+
         Input = new InputDispatcher(Maps) { Eval = t => Interp.Evaluate(t) };
         Input.OfferToGui = OfferToGui;
         Play = new PlayDelegate(this);
@@ -220,6 +227,43 @@ public sealed class ClientApp : IDisposable
         CurrentPalette = bank;
         mPaletteSet = true;
         Dev?.SetPalette(bank, Gamma);
+    }
+
+    // A Smacker movie palette (768 RGB bytes) replaces `count` entries of the active palette from `start` (docs/gui.md Q12). The
+    // active palette itself (CurrentPalette) stays, so the end of the movie brings it back.
+    private void MoviePalette(byte[] rgb, int start, int count)
+    {
+        PaletteBank cur = CurrentPalette ?? PaletteTables.Grayscale();
+        SubPalette sub = cur.SubPalettes[0];
+        var colors = (byte[])sub.Colors.Clone();
+        for (int i = 0; i < count && start + i < 256; ++i)
+            Array.Copy(rgb, i * 3, colors, (start + i) * 4, 3);
+        var bank = new PaletteBank
+        {
+            ShadeBits = cur.ShadeBits,
+            HazeSteps = cur.HazeSteps,
+            HazeColor = cur.HazeColor,
+            AllowedColors = cur.AllowedColors,
+            ColorWeights = cur.ColorWeights,
+            UsedStart = cur.UsedStart,
+            UsedEnd = cur.UsedEnd,
+        };
+        bank.SubPalettes.AddRange(cur.SubPalettes);
+        bank.SubPalettes[0] = new SubPalette { Colors = colors, Id = sub.Id, Kind = sub.Kind, ShadeHazeTable = sub.ShadeHazeTable, BlendTable = sub.BlendTable, IdentityMap = sub.IdentityMap, IndexToRed = sub.IndexToRed, IndexToGreen = sub.IndexToGreen, IndexToBlue = sub.IndexToBlue, IndexToAlpha = sub.IndexToAlpha };
+        Dev?.SetPalette(bank, Gamma);
+    }
+
+    // The movie sound goes through the same mixer as every other sound (opened on demand when no script did).
+    private Action? StartMovieAudio(WavData wav)
+    {
+        if (Sound == null)
+            return null;
+        if (Sound.Mixer == null)
+            Sfx?.OpenDevice?.Invoke();
+        SoundMixer? mixer = Sound.Mixer;
+        MixVoice? voice = mixer?.Start(wav, false, 1f, 1f);
+        Interp.Print(1, voice == null ? "movie sound: no mixer voice" : $"movie sound: {wav.Frames} frames at {wav.Rate} Hz, {wav.Channels} channels, started");
+        return voice == null ? null : () => mixer!.Stop(voice);
     }
 
     public void SetGamma(float g)
@@ -477,7 +521,6 @@ public sealed class ClientApp : IDisposable
         // F5/F6 follow: the canvas content decides which maps are pushed.
         Play.UpdateContent(Canvas.Content?.Id ?? 0);
         Delegates.Poll();
-        SmackerFallback();
         // F8-F14: moves, receive, send, sim advance, prediction.
         using (FramePerf.Scope("net-sim"))
         {
@@ -503,23 +546,6 @@ public sealed class ClientApp : IDisposable
             using (FramePerf.Scope("idle-sleep"))
                 Thread.Sleep(10);
         }
-    }
-
-    // The intro screen plays a Smacker movie; there is no decoder, so the movie is over at once and the control's own
-    // command (startMainMenuScreen();) runs (gui.md Q12, D36).
-    private void SmackerFallback()
-    {
-        GuiControl? content = Canvas.Content;
-        if (content == null)
-            return;
-        GuiControl? smk = content.ClassName == "FearGui::SmackerCtrl" ? content : content.Descendants().FirstOrDefault(c => c.ClassName == "FearGui::SmackerCtrl");
-        if (smk == null)
-        {
-            mSmackerFrames = 0;
-            return;
-        }
-        if (++mSmackerFrames == 3 && smk.Command.Length > 0)
-            Interp.Evaluate(smk.Command);
     }
 
     private bool PlayViewActive => Canvas.Content?.Id is PlayDelegate.PlayGuiId;

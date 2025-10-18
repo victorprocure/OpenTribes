@@ -11,7 +11,6 @@ way are added to Open.
 
 - [ ] Joystick support.
 - [ ] Hosting a game from the client menus.
-- [ ] The intro movie.
 
 ### Project
 
@@ -79,7 +78,7 @@ way are added to Open.
 - [x] Command screen frame, menu panel, box frame and score window fonts.
 - [x] Weapon, compass, clock and sensor HUDs and the centre print box.
 - [x] Progress bar, formatted text fonts and alignment.
-- [x] Intro movie: video decoder and movie control.
+- [x] Intro movie plays at start-up.
 
 ### Audio
 
