@@ -79,7 +79,7 @@ way are added to Open.
 - [x] Command screen frame, menu panel, box frame and score window fonts.
 - [x] Weapon, compass, clock and sensor HUDs and the centre print box.
 - [x] Progress bar, formatted text fonts and alignment.
-- [x] Intro movie: video decoder.
+- [x] Intro movie: video decoder and movie control.
 
 ### Audio
 

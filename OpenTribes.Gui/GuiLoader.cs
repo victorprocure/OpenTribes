@@ -117,7 +117,7 @@ public static class GuiLoader
         ["TextWrap"] = new[] { "skip32", "u32 fontTag", "u32 disabledFontTag", "u32 textTag", "u32 lineSpacing", "u32 alignment", "@Active" },
         ["Slider"] = new[] { "u32 minValue", "u32 maxValue", "u32 value", "@Active" },
         ["FGSlider"] = new[] { "skip32", "u32 sliderVersion", "@Slider" },
-        ["Animate"] = new[] { "u32 pbaTag", "u32 frameTime", "skip32", "u32 loopWait", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "@Active" },
+        ["Animate"] = new[] { "u32 pbaTag", "u32 frameTime", "u32 continuous", "u32 loopWait", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "skip32", "@Active" },
         ["TSControl"] = new[] { "u8 produce3dEvents", "@Control" },
         ["IrcScroll"] = new[] { "u8 rotation", "@Active" },
         ["MenuItem"] = new[] { "u32 tabPage", "u8 tabSet", "u8 expanded", "@SimpleText" },

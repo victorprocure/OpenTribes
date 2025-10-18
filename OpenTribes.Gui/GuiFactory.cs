@@ -129,6 +129,8 @@ public static class GuiFactory
             case "FearGuiInventory": return new GuiInventoryList();
             case "FearGuiPurchase": return new GuiInventoryList { Purchase = true };
             case "SimGui::TimerCtrl": return new GuiTimer();
+            case "FearGui::SmackerCtrl": return new GuiSmacker();
+            case "SimGui::AnimateBMA": return new GuiAnimate();
             case "SimGui::PaletteCtrl":
             case "FearGui::FGPaletteCtrl": return new GuiPalette();
             case "SimGui::TextWrap": return new GuiTextWrap();

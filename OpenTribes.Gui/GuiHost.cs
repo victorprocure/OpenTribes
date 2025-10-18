@@ -33,6 +33,11 @@ public sealed class GuiHost
     public readonly HashSet<int> Favorites = new();
     // Called when a PaletteCtrl wakes with the palette file name.
     public Action<string>? OnPalette;
+    // Movie control hooks: a movie palette (768 RGB bytes) to merge into the active palette at palStart for palColors entries,
+    // the end of a movie (the active palette comes back), and the start of the movie sound (returns the stop call).
+    public Action<byte[], int, int>? OnMoviePalette;
+    public Action? OnMovieEnd;
+    public Func<OpenTribes.Platform.Audio.WavData, Action?>? StartMovieAudio;
 
     private readonly Dictionary<string, PftFont?> mFonts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, PbmpBitmap?> mBitmaps = new(StringComparer.OrdinalIgnoreCase);

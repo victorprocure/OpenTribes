@@ -580,7 +580,8 @@ public sealed class GuiCanvas
         }
         if (mMouseRepeatAt >= 0 && now > mMouseRepeatAt && LeftDown && Lock != null)
             Lock.MsRepeat(MouseEvent());
-        foreach (GuiControl el in Stack)
+        // A pre-render may replace the content (the movie control runs its done command there), so walk a copy.
+        foreach (GuiControl el in Stack.ToArray())
         {
             if (el.X != 0 || el.Y != 0 || el.W != Width || el.H != Height)
             {
@@ -589,7 +590,7 @@ public sealed class GuiCanvas
             }
             el.PreRenderTree();
         }
-        foreach (GuiControl el in Stack)
+        foreach (GuiControl el in Stack.ToArray())
             foreach (GuiControl c in el.Descendants())
                 if (c.ConsoleVar.Length > 0)
                 {
