@@ -571,6 +571,10 @@ public sealed class ClientApp : IDisposable
         using (FramePerf.Scope("gui-frame"))
             Canvas.Frame();
         bool drewWorld = false;
+        // The play view draws world and HUD with the mission palette. A shell palette control that wakes late (the loading
+        // screen) or a gamma or movie restore must not leave the shell palette active during play (HUD colours).
+        if (Game?.WorldPalette is { } worldPalette && PlayViewActive && !ReferenceEquals(CurrentPalette, worldPalette))
+            SetPalette(worldPalette);
         if (Game != null && PlayViewActive)
             drewWorld = Game.Render(Dev, Play.Moves.CurrentFov, () => Canvas.Render(Dev));
         if (!drewWorld)

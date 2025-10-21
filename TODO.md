@@ -56,6 +56,7 @@ way are added to Open.
 
 - [x] Terrain, interiors and sky of a mission.
 - [x] 3D camera and shape support in the renderer.
+- [x] Mission palette stays active in the play view.
 
 ### Shapes, weapons and effects
 

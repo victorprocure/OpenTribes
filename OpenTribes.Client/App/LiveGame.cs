@@ -44,6 +44,8 @@ public sealed class LiveGame : IDisposable
 
     public bool IsDemo => Demo != null;
     public bool HasScene => Scene != null && Model != null;
+    // The mission palette the play view draws with (the HUD bitmaps are paletted too); null before the scene exists.
+    public PaletteBank? WorldPalette => HasScene ? Scene!.Assets.Palette : null;
 
     // ---- start ----
 
@@ -266,7 +268,7 @@ public sealed class LiveGame : IDisposable
         }
         // Packets already applied before the scene existed (the always phase) are replayed into the model: the
         // ghosts it would have built live in the world's table.
-        mApp.Dev.SetPalette(Scene.Assets.Palette, mApp.Gamma);
+        mApp.SetPalette(Scene.Assets.Palette);
         mApp.Log($"scene: {name}, {env.Count} environment objects, terrain visible {Scene.Terrain.Visible}");
         foreach (DecodedPacket q in mQueued)
             Model.OnPacket(q);
