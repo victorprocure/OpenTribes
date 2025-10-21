@@ -32,6 +32,14 @@ public sealed class RenderInstance
     public bool[] NodeVisible;
     public int DetailAnimated = -2;
 
+    // Player view mode (player-sim.md 5.2, byte +0x9e of the instance): 0 none, 1 chase or third person, 2 first person. With a mode set
+    // a `lowerback` node that a thread animates does not hang on its parent: its parent frame is the fixed upright frame (yaw pi / 2)
+    // at the parent's position (mode 1) or at (0, 0, height of `dummyalways root`) (mode 2), so the whole upper body, the eye and
+    // the hand follow the looks thread alone and never the leg cycle.
+    public int ViewMode;
+    private readonly bool[] mLowerBack;
+    private readonly int mRootNode;
+
     // Transition (3.3): blend from the pose at the switch to the animated pose.
     private double[][]? mFromQ, mFromT;
     private double mBlendLeft, mBlendDuration;
@@ -54,6 +62,15 @@ public sealed class RenderInstance
         {
             LocalQ[i] = new double[4];
             LocalT[i] = new double[3];
+        }
+        mLowerBack = new bool[shape.Nodes.Length];
+        mRootNode = -1;
+        for (int i = 0; i < shape.Nodes.Length; ++i)
+        {
+            string name = shape.Names[shape.Nodes[i].Name];
+            mLowerBack[i] = name.StartsWith("lowerback", StringComparison.Ordinal);
+            if (mRootNode < 0 && name == "dummyalways root")
+                mRootNode = i;
         }
         Animate(0);
     }
@@ -331,7 +348,17 @@ public sealed class RenderInstance
                 }
                 Xf local = Xf.FromQuat(LocalQ[node][0], LocalQ[node][1], LocalQ[node][2], LocalQ[node][3]);
                 local.Px = LocalT[node][0]; local.Py = LocalT[node][1]; local.Pz = LocalT[node][2];
-                entry = local.Then(NodeWorld[nd.Parent]);
+                if (ViewMode != 0 && mLowerBack[node] && done && (ViewMode == 1 || mRootNode >= 0))
+                {
+                    Xf frame = Xf.Euler(0, 0, Math.PI / 2);
+                    if (ViewMode == 1)
+                        (frame.Px, frame.Py, frame.Pz) = (NodeWorld[nd.Parent].Px, NodeWorld[nd.Parent].Py, NodeWorld[nd.Parent].Pz);
+                    else
+                        frame.Pz = NodeWorld[mRootNode].Pz;
+                    entry = local.Then(frame);
+                }
+                else
+                    entry = local.Then(NodeWorld[nd.Parent]);
             }
             NodeWorld[node] = entry;
         }

@@ -102,6 +102,29 @@ public class ShapeRenderTests
     // ---- SR 3.1 threads, keys ----
 
     [Fact]
+    public void LowerbackNodeHangsOnTheUprightFrameInAViewMode() // SR 3.4, 5.2
+    {
+        RenderShape sh = Shape();
+        sh.Names[sh.Nodes[1].Name] = "lowerback36";
+        var inst = new RenderInstance(sh);
+        RenderThread spin = inst.AddThread("spin")!;
+        spin.Position = 0.3;
+        inst.Animate(0);
+        Xf plain = inst.NodeWorld[1];
+        inst.ViewMode = 1;
+        inst.Animate(0);
+        Xf viewed = inst.NodeWorld[1];
+        Xf expect = plain.Then(Xf.Euler(0, 0, Math.PI / 2));
+        Assert.Equal(expect.M0, viewed.M0, 9);
+        Assert.Equal(expect.M1, viewed.M1, 9);
+        Assert.Equal(expect.M3, viewed.M3, 9);
+        Assert.Equal(expect.M4, viewed.M4, 9);
+        inst.ViewMode = 2;                                       // no `dummyalways root` node: the normal parent
+        inst.Animate(0);
+        Assert.Equal(plain.M0, inst.NodeWorld[1].M0, 9);
+    }
+
+    [Fact]
     public void CyclicThreadsWrapAndOneShotThreadsClamp() // SR 3.1
     {
         var inst = new RenderInstance(Shape());

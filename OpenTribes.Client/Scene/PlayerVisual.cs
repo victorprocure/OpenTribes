@@ -186,9 +186,6 @@ public sealed class PlayerVisual : ShapeVisual
             mAnim.Sequence = seq;
             mAnim.Position = start;
         }
-        // 3.4 view flags: bit 2 lets the looks thread override the aim nodes of a third person view.
-        if (mLooks != null)
-            mLooks.Sequence = (ad.Value.ViewFlags & 4) != 0 ? Shape.FindSequence("looks") : -1;
     }
 
     // player-sim.md 5.4 (first match wins): mounted, jetting or jumping in the air, falling, crouching, else the best of the four
@@ -347,6 +344,7 @@ public sealed class PlayerVisual : ShapeVisual
         int n = Shape.FindNodeBase("dummy eye", 0);
         if (n < 0)
             return false;
+        ViewModeSet(true);
         if (mLooks != null)
             mLooks.Position = LooksPosition(pitch);
         Inst.Animate(0);
@@ -355,30 +353,22 @@ public sealed class PlayerVisual : ShapeVisual
         return true;
     }
 
-    // The animation's view flag that applies to this camera (3.4): bit 0 first person, bit 2 anyone else.
-    private bool ViewModeSet(bool firstPerson)
+    // The animation's view flag that applies to this camera (3.4): bit 0 first person, bit 1 chase view of the control object, bit 2 anyone
+    // else. When it is set the instance view mode is 2 (first person) or 1 and the looks thread has priority -1 (it overrides the aim
+    // nodes), else mode 0 and priority 5000 (the animation wins over the pitch). Returns whether the mode is set.
+    private bool ViewModeSet(bool firstPerson, bool control = false)
     {
         var ad = AnimData(mAnimIndex);
-        return ad == null || (ad.Value.ViewFlags & (firstPerson ? 1 : 4)) != 0;
-    }
-
-    // First person weapon grip relative to the eye with the looks thread neutral (pitch 0), object space.
-    public bool TryGripOffset(out (double x, double y, double z) d)
-    {
-        d = default;
-        if (Inst == null || Shape == null || mLooks == null)
-            return false;
-        int e = Shape.FindNodeBase("dummy eye", 0), h = Shape.FindNodeBase("dummy hand", 0);
-        if (e < 0 || h < 0)
-            return false;
-        mLooks.Position = 0.5;
-        Inst.Animate(0);
-        d = (Inst.NodeWorld[h].Px - Inst.NodeWorld[e].Px, Inst.NodeWorld[h].Py - Inst.NodeWorld[e].Py, Inst.NodeWorld[h].Pz - Inst.NodeWorld[e].Pz);
-        return true;
+        bool on = ad == null || (ad.Value.ViewFlags & (firstPerson ? 1 : control ? 2 : 4)) != 0;
+        if (Inst != null)
+            Inst.ViewMode = on ? (firstPerson ? 2 : 1) : 0;
+        if (mLooks != null)
+            mLooks.Priority = on ? -1 : 5000;
+        return on;
     }
 
     // `pitch` set: the pitch-only node rotation of `Player_getImageMountTransform` (3.6 step 2) for mount points 0 and 1.
-    public Xf ImageTransform(ImageMount im, int detail, Xf body, double? pitch = null, (double x, double y, double z)? held = null)
+    public Xf ImageTransform(ImageMount im, int detail, Xf body, double? pitch = null)
     {
         RenderShape sh = Inst!.Shape;
         string[] names = { "dummy hand", "dummy unused", "dummy midback", "dummy lowback" };
@@ -387,7 +377,7 @@ public sealed class PlayerVisual : ShapeVisual
         if (node >= 0 && pitch is double pv && !mDead && im.MountPoint is 0 or 1)
         {
             Xf r = Xf.Euler(pv, 0, 0);
-            (r.Px, r.Py, r.Pz) = held is var (hx, hy, hz) ? r.Apply(hx, hy, hz) : (mount.Px, mount.Py, mount.Pz);
+            (r.Px, r.Py, r.Pz) = (mount.Px, mount.Py, mount.Pz);
             mount = r;
         }
         Xf local = Xf.Euler(Db.Num(im.Db, "mountRotation.x"), Db.Num(im.Db, "mountRotation.y"), Db.Num(im.Db, "mountRotation.z"));
@@ -423,16 +413,17 @@ public sealed class PlayerVisual : ShapeVisual
             return;
         bool firstPerson = ctx.FirstPersonOfControl && ctx.ControlGhost == Index;
         Xf body = PoseXf();
-        double? pitchOnly = ViewModeSet(firstPerson) ? ViewPitch : null;
-        (double x, double y, double z)? held = null;
+        double? pitchOnly = ViewModeSet(firstPerson, ctx.ControlGhost == Index) ? ViewPitch : null;
         if (firstPerson)
         {
-            // The weapon is locked to the camera [I, the stock shots show it at one screen place at every pitch]: the grip offset of
-            // the neutral pose, turned by the camera pitch about the eye, with the eye at the camera (3.6, 5.2).
-            body = Xf.Euler(0, 0, ctx.Camera.Yaw).Then(Xf.Translate(ctx.Camera.X, ctx.Camera.Y, ctx.Camera.Z));
-            if (TryGripOffset(out var g))
-                held = g;
-            pitchOnly = ctx.Camera.Pitch;
+            // The eye node (looks thread at the camera pitch, first person view mode) lands on the camera and the weapon hangs on the hand
+            // node of the same pose: the body is the yaw turned transform that puts the eye there (5.2, `Player_getEyeTransform`).
+            Xf yaw = Xf.Euler(0, 0, ctx.Camera.Yaw);
+            TryEyeLocal(ctx.Camera.Pitch, out double ex, out double ey, out double ez);
+            var (rx, ry, rz) = yaw.Apply(ex, ey, ez);
+            body = yaw.Then(Xf.Translate(ctx.Camera.X - rx, ctx.Camera.Y - ry, ctx.Camera.Z - rz));
+            if (pitchOnly != null)
+                pitchOnly = ctx.Camera.Pitch;
         }
         double fade = FadeAmount();
         int detail = -1;
@@ -463,7 +454,7 @@ public sealed class PlayerVisual : ShapeVisual
             if (firstPerson && !im.FirstPerson)
                 continue;
             Inst.Animate(Math.Min(detail, Shape.Details.Length - 1));
-            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly, held);
+            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly);
             ShapeDraw d = ctx.Draw(xf, im.Shape.Name);
             d.Skin = Skin;
             d.Fade = fade;
