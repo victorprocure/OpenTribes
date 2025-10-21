@@ -79,6 +79,7 @@ way are added to Open.
 - [x] Weapon, compass, clock and sensor HUDs and the centre print box.
 - [x] Progress bar, formatted text fonts and alignment.
 - [x] Intro movie plays at start-up.
+- [x] Main menu emblem animation.
 
 ### Audio
 

@@ -203,7 +203,8 @@ public sealed class GuiSmacker : GuiActive
 }
 
 // SimGui::AnimateBMA [code 005329d8 load, 005323ac construct, 00532414 wake, 00532584 prepare, 00532664 draw]. Frame f of the
-// array is drawn at the control origin. A control that is not continuous (the stock files store 0) is stopped on wake and keeps
+// array is drawn at the control origin. The file stores the inverse of the continuous flag (0 = continuous, the constructor
+// default, and what the stock files hold) [code 005329d8]. A control that is not continuous is stopped on wake and keeps
 // showing frame 0; a continuous one steps to the next frame every frameTime seconds and wraps after count + loopWait frames
 // (the draw shows the last frame while the counter is in the wait).
 public sealed class GuiAnimate : GuiActive
@@ -220,7 +221,7 @@ public sealed class GuiAnimate : GuiActive
         mLastMs = Host?.TickMs ?? 0;
         Frame = 0;
         mArray = Host?.TagText(U("pbaTag")) is string t ? Host.ArrayByName(GuiHost.FirstItem(t)) : null;
-        Continuous = (U("continuous") & 0xFF) != 0;
+        Continuous = U("continuous") == 0;
         Running = Continuous;
     }
 
