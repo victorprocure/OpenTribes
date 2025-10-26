@@ -306,6 +306,17 @@ public sealed class ClientCommandHandlers
         Cmd("prevRes", a => StepRes(a, -1));
         Cmd("lockWindowSize", a => { mApp.LockSize = true; return ""; });
         Cmd("unlockWindowSize", a => { mApp.LockSize = false; return ""; });
+        // postAction(object, action, value): posts the action to the play delegate (tools/shotdiff.py aims the look pitch with it).
+        Cmd("postAction", a =>
+        {
+            if (a.Length != 4)
+            {
+                I.Print(1, "postAction: objectName actionName value");
+                return "False";
+            }
+            mApp.Play.OnAction(Numbers.BorlandAtoi(a[2]), 0, (float)Numbers.BorlandAtof(a[3]));
+            return "True";
+        });
         Cmd("setWindowSize", a =>
         {
             if (a.Length != 4)
