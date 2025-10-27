@@ -410,7 +410,9 @@ public sealed class ClientEvents
                     e.Apply = () =>
                     {
                         pm.Script("onClientMessage(" + from + ", \"" + msg + "\");");
-                        pm.Message((pm.Get((int)from)?.Name ?? from.ToString(CultureInfo.InvariantCulture)) + ": " + msg);
+                        // no sender record (server message): the text alone, else "<name>: <text>"
+                        var sender = pm.Get((int)from);
+                        pm.Message(sender == null ? msg : sender.Name + ": " + msg);
                     };
                     break;
                 }

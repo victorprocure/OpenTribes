@@ -81,6 +81,7 @@ way are added to Open.
 - [x] Progress bar, formatted text fonts and alignment.
 - [x] Intro movie plays at start-up.
 - [x] Main menu emblem animation.
+- [x] Server chat messages without a sender prefix.
 
 ### Audio
 
