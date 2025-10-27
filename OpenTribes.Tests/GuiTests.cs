@@ -1038,7 +1038,7 @@ public class GuiTests
         var clock = (GuiHud)GuiFixture.Make("FearGui::ClockHud", 0, 0, 66, 19, ("hudX", BitConverter.SingleToUInt32Bits(0.897f)), ("hudY", BitConverter.SingleToUInt32Bits(0.035f)));
         root.AddChild(clock);
         fx.Content(root);
-        Assert.Equal(((int)(0.897f * (640 - 66)), (int)(0.035f * (480 - 19))), (clock.X, clock.Y));
+        Assert.Equal((0, 0), (clock.X, clock.Y));                // the file position stays until the parent is resized (stock capture)
         fx.Canvas.Width = 800;
         fx.Canvas.Frame();
         Assert.Equal((int)(0.897f * (800 - 66)), clock.X);

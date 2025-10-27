@@ -11,9 +11,20 @@ public class GuiHud : GuiControl
     public float FracY => BitConverter.UInt32BitsToSingle(U("hudY"));
     protected IHudSource? Source => Host?.Hud;
 
-    public override void Wake() => Layout();
+    // The stock client shows a HUD at the position stored in the file: the fractions only apply when a parent that
+    // already has a size is resized (shot diff: weapon (0,213), clock (505,34) at 640 x 480).
+    public override void Wake() { if (this is GuiCrosshair) Layout(); }
 
-    public override void ParentResized(int oldW, int oldH, int newW, int newH) => Layout(newW, newH);
+    public override void ParentResized(int oldW, int oldH, int newW, int newH)
+    {
+        if (oldW > 0 && oldH > 0)
+        {
+            mFractions = true;
+            Layout(newW, newH);
+        }
+    }
+
+    private bool mFractions;
 
     protected void Layout(int pw = -1, int ph = -1)
     {
@@ -25,6 +36,8 @@ public class GuiHud : GuiControl
             Y = (Parent.H - H) / 2;
             return;
         }
+        if (!mFractions)
+            return;
         if (pw < 0) { pw = Parent.W; ph = Parent.H; }
         X = (int)(FracX * (pw - W));
         Y = (int)(FracY * (ph - H));
@@ -320,14 +333,14 @@ public sealed class GuiWeaponHud : GuiHud
         {
             string stem = (lr ? "lr_" : "I_") + w.Icon + (w.Active ? "_on" : "_off");
             PbmpBitmap? icon = Host.BitmapByName(stem + ".bmp") ?? fallback;
-            p.Bitmap(icon, x + 4, iy);
+            p.BitmapKeyed(icon, x + 4, iy);
             int bx = x + 4 + (lr ? 3 : 4) + (icon?.Width ?? 0);
             p.Bitmap(box, bx, iy);
             bx += lr ? 3 : 2;
             int by = iy + (lr ? 0 : -1);
             PftFont? f = w.Active ? lit : dim;
             if (w.Ammo < 0)
-                p.Bitmap(Host.BitmapByName((lr ? "lr_" : "") + (w.Active ? "I_Infinity_on.bmp" : "I_Infinity_off.bmp")), bx + (lr ? 1 : 2), by + (lr ? 3 : 6));
+                p.BitmapKeyed(Host.BitmapByName((lr ? "lr_" : "") + (w.Active ? "I_Infinity_on.bmp" : "I_Infinity_off.bmp")), bx + (lr ? 1 : 2), by + (lr ? 3 : 6));
             else
             {
                 string t = Math.Min(w.Ammo, 999).ToString(CultureInfo.InvariantCulture);
@@ -381,11 +394,12 @@ public sealed class GuiCrosshair : GuiHud
     {
         if (Canvas == null)
             return;
-        int cx = ox + X + W / 2, cy = oy + Y + H / 2;
-        p.Fill(cx - 6, cy, 5, 1, 0xfc);
-        p.Fill(cx + 2, cy, 5, 1, 0xfc);
-        p.Fill(cx, cy - 6, 1, 5, 0xfc);
-        p.Fill(cx, cy + 2, 1, 5, 0xfc);
+        // centre of the view; four arms of 3 pixels, 2 pixels from the centre (stock capture at 640 x 480)
+        int cx = ox + (Parent?.W ?? W) / 2, cy = oy + (Parent?.H ?? H) / 2;
+        p.Fill(cx - 4, cy, 3, 1, 0xfc);
+        p.Fill(cx + 2, cy, 3, 1, 0xfc);
+        p.Fill(cx, cy - 4, 1, 3, 0xfc);
+        p.Fill(cx, cy + 2, 1, 3, 0xfc);
     }
 }
 

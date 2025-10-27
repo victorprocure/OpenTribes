@@ -363,16 +363,30 @@ public sealed class GuiPaint
 
     public void Line(int x0, int y0, int x1, int y1, int color) => Dev.DrawLine(x0, y0, x1, y1, color);
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PbmpBitmap, PbmpBitmap> sKeyed = new();
+
+    // The stock client draws every GUI picture with palette index 0 clear (its palette entry has alpha 0): the weapon HUD icons
+    // show the shade behind them and the command screen's frame pieces leave the buttons under them visible. The bitmap
+    // attributes do not say so (stock files carry 8 only), so the draw uses a copy with the transparent flag.
+    private static PbmpBitmap Keyed(PbmpBitmap b) => (b.Attributes & BitmapAttributes.Transparent) != 0 || b.Depth != 8 ? b :
+        sKeyed.GetValue(b, o => new PbmpBitmap
+        {
+            Width = o.Width, Height = o.Height, Depth = o.Depth, Attributes = o.Attributes | BitmapAttributes.Transparent,
+            ChunkCount = o.ChunkCount, Pixels = o.Pixels, MipCount = o.MipCount, MipLevels = o.MipLevels, PaletteId = o.PaletteId,
+        });
+
     public void Bitmap(PbmpBitmap? b, int x, int y)
     {
         if (b != null)
-            Dev.Blit(b, x, y);
+            Dev.Blit(Keyed(b), x, y);
     }
+
+    public void BitmapKeyed(PbmpBitmap? b, int x, int y) => Bitmap(b, x, y);
 
     public void BitmapStretch(PbmpBitmap? b, int x, int y, int w, int h)
     {
         if (b != null && w > 0 && h > 0)
-            Dev.BlitStretch(b, x, y, w, h);
+            Dev.BlitStretch(Keyed(b), x, y, w, h);
     }
 
     public int Text(PftFont? f, int x, int y, string s)

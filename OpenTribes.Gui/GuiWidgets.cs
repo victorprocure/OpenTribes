@@ -65,7 +65,13 @@ public sealed class GuiCommandView : GuiControl
     {
         int gx = ox + X, gy = oy + Y;
         p.Fill(gx, gy, W, H, 0);
+        DrawFrame(p, gx, gy);
+        // The stock capture shows the cancel button (x 570 to 615) whole over the top bar piece: the children draw on the frame.
         RenderChildren(p, gx, gy);
+    }
+
+    private void DrawFrame(GuiPaint p, int gx, int gy)
+    {
         bool low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
         PbmaArray? a = Host?.ArrayByName(low ? "LRCmdViewCtrl.pba" : "CmdViewCtrl.pba");
         if (a == null || a.Bitmaps.Count < 15)
@@ -358,12 +364,12 @@ public sealed class GuiUniversalButton : GuiActive
         bool dimmed = Dimmed;
         PbmpBitmap? df = Pic("_DF", lr), on = Pic("_ON", lr), na = Pic("_NA", lr), bd = Pic("_BD", lr), bo = Pic("_BO", lr);
         PbmpBitmap? pic;
-        bool radioMark = RadioId != 0 && On && !Pressed && BtnVersion >= 2;
+        bool radioMark = RadioId != 0 && IsSwitch && On && !Pressed && BtnVersion >= 2;
         if (dimmed)
             pic = !On ? bd ?? na : bo ?? bd ?? na;
         else if (!Active)
             pic = na ?? bd;
-        else if (Pressed || IsSwitch && On)
+        else if (Pressed || On)   // the on flag alone selects _ON, a switch or not (CmdInventory favourite 1 starts on, not a switch)
             pic = on;
         else if (Flash)
         {

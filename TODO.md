@@ -82,6 +82,7 @@ way are added to Open.
 - [x] Intro movie plays at start-up.
 - [x] Main menu emblem animation.
 - [x] Server chat messages without a sender prefix.
+- [x] HUD positions, crosshair size and scroll bars.
 
 ### Audio
 

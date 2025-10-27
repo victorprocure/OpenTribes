@@ -116,6 +116,25 @@ public sealed class GuiScrollContent : GuiControl { }
 public class GuiScroll : GuiControl
 {
     public const int BarWidth = 15;
+
+    // The piece array of the bars (docs/gui.md "Scroll controls": the bar sizes are the sizes of its pieces).
+    private PbmaArray? Pieces
+    {
+        get
+        {
+            string? t = Host?.TagText(U("pbaTag"));
+            PbmaArray? a = t == null ? null : Host?.ArrayByName(t.Split(',')[0].Trim());
+            return a != null && a.Bitmaps.Count >= 25 ? a : null;
+        }
+    }
+
+    private int Piece(PbmaArray? a, int i, bool width, int def) => a == null ? def : width ? a.Bitmaps[i].Width : a.Bitmaps[i].Height;
+    private int VBarW => Piece(Pieces, 0, true, BarWidth);       // vertical bar width = width of its arrow pieces
+    private int HBarH => Piece(Pieces, 6, false, BarWidth);      // horizontal bar height
+    private int VArrowTop => Piece(Pieces, 0, false, BarWidth);
+    private int VArrowBottom => Piece(Pieces, 3, false, BarWidth);
+    private int HArrowLeft => Piece(Pieces, 6, true, BarWidth);
+    private int HArrowRight => Piece(Pieces, 9, true, BarWidth);
     public int ScrollX, ScrollY;
     private int mDragPart;      // 8 vertical thumb, 9 horizontal thumb
     private int mGrabOffset;
@@ -146,7 +165,7 @@ public class GuiScroll : GuiControl
         GuiControl? c = ContentChild;
         if (c == null)
             return;
-        int vw = W - (VBar ? BarWidth : 0), vh = H - (HBar ? BarWidth : 0);
+        int vw = W - (VBar ? VBarW : 0), vh = H - (HBar ? HBarH : 0);
         if (c.X != 0 || c.Y != 0 || c.W != vw || c.H != vh)
         {
             c.X = c.Y = 0;
@@ -172,28 +191,29 @@ public class GuiScroll : GuiControl
     // Part codes: 1 up arrow, 2 down arrow, 3 page up, 4 page down, 8 vertical thumb, 0 none (the horizontal bar mirrors).
     private (int top, int len) Thumb(bool vert)
     {
-        int view = vert ? H - (HBar ? BarWidth : 0) : W - (VBar ? BarWidth : 0);
+        int view = vert ? H - (HBar ? HBarH : 0) : W - (VBar ? VBarW : 0);
         int content = Math.Max(1, vert ? ContentH : ContentW);
-        int track = Math.Max(1, view - 2 * BarWidth);
-        int len = U("constantThumb") != 0 ? BarWidth : Math.Clamp(track * view / content, BarWidth, track);
+        int a0 = vert ? VArrowTop : HArrowLeft, a1 = vert ? VArrowBottom : HArrowRight;
+        int track = Math.Max(1, view - a0 - a1);
+        int len = U("constantThumb") != 0 ? BarWidth : Math.Clamp(track * view / content, Math.Min(BarWidth, track), track);
         int range = Math.Max(1, content - view);
         int pos = (vert ? ScrollY : ScrollX) * (track - len) / range;
-        return (BarWidth + pos, len);
+        return (a0 + pos, len);
     }
 
     private int Part(int lx, int ly)
     {
-        if (VBar && lx >= W - BarWidth)
+        if (VBar && lx >= W - VBarW)
         {
-            if (ly < BarWidth) return 1;
-            if (ly >= H - (HBar ? BarWidth : 0) - BarWidth) return 2;
+            if (ly < VArrowTop) return 1;
+            if (ly >= H - (HBar ? HBarH : 0) - VArrowBottom) return 2;
             var (t, l) = Thumb(true);
             return ly < t ? 3 : ly >= t + l ? 4 : 8;
         }
-        if (HBar && ly >= H - BarWidth)
+        if (HBar && ly >= H - HBarH)
         {
-            if (lx < BarWidth) return 5;
-            if (lx >= W - (VBar ? BarWidth : 0) - BarWidth) return 6;
+            if (lx < HArrowLeft) return 5;
+            if (lx >= W - (VBar ? VBarW : 0) - HArrowRight) return 6;
             var (t, l) = Thumb(false);
             return lx < t ? 7 : lx >= t + l ? 10 : 9;
         }
@@ -202,7 +222,7 @@ public class GuiScroll : GuiControl
 
     private void StepPart(int part)
     {
-        int vh = H - (HBar ? BarWidth : 0), vw = W - (VBar ? BarWidth : 0);
+        int vh = H - (HBar ? HBarH : 0), vw = W - (VBar ? VBarW : 0);
         switch (part)
         {
             case 1: ScrollBy(0, -ScrollLineY); break;
@@ -249,11 +269,12 @@ public class GuiScroll : GuiControl
             return base.MsDrag(e);
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
         bool vert = mDragPart == 8;
-        int view = vert ? H - (HBar ? BarWidth : 0) : W - (VBar ? BarWidth : 0);
+        int view = vert ? H - (HBar ? HBarH : 0) : W - (VBar ? VBarW : 0);
         int content = Math.Max(1, vert ? ContentH : ContentW);
-        var (_, len) = Thumb(vert);
-        int track = Math.Max(1, view - 2 * BarWidth) - len;
-        int pos = Math.Clamp((vert ? ly : lx) - mGrabOffset - BarWidth, 0, Math.Max(0, track));
+        var (start, len) = Thumb(vert);
+        int a0 = vert ? VArrowTop : HArrowLeft, a1 = vert ? VArrowBottom : HArrowRight;
+        int track = Math.Max(1, view - a0 - a1) - len;
+        int pos = Math.Clamp((vert ? ly : lx) - mGrabOffset - a0, 0, Math.Max(0, track));
         int v = track > 0 ? pos * Math.Max(0, content - view) / track : 0;
         if (vert) ScrollY = v; else ScrollX = v;
         PreRender();
@@ -288,14 +309,28 @@ public class GuiScroll : GuiControl
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
         RenderChildren(p, gx, gy);
+        PbmaArray? pc = Pieces;
+        if (pc == null)
+        {
+            DrawPlainBars(p, gx, gy);
+            return;
+        }
+        if (VBar)
+            DrawVBar(p, pc, gx + W - VBarW, gy, H - (HBar ? HBarH : 0));
+        if (HBar)
+            DrawHBar(p, pc, gx, gy + H - HBarH, W - (VBar ? VBarW : 0));
+        if (VBar && HBar)
+            p.Bitmap(pc.Bitmaps[24], gx + W - VBarW, gy + H - HBarH);
+    }
+
+    private void DrawPlainBars(GuiPaint p, int gx, int gy)
+    {
         if (VBar)
         {
             int bh = H - (HBar ? BarWidth : 0);
             p.Fill(gx + W - BarWidth, gy, BarWidth, bh, 0xe9);
             var (t, l) = Thumb(true);
             p.Fill(gx + W - BarWidth + 1, gy + t, BarWidth - 2, l, 0xf0);
-            p.Outline(gx + W - BarWidth, gy, BarWidth, BarWidth, 0xf0);
-            p.Outline(gx + W - BarWidth, gy + bh - BarWidth, BarWidth, BarWidth, 0xf0);
         }
         if (HBar)
         {
@@ -304,6 +339,62 @@ public class GuiScroll : GuiControl
             var (t, l) = Thumb(false);
             p.Fill(gx + t, gy + H - BarWidth + 1, l, BarWidth - 2, 0xf0);
         }
+    }
+
+    // The bar pieces of the scroll draw [code 0054a218 vertical, 0054a690 horizontal]. Vertical: arrows 0 to 2 (disabled, pressed,
+    // normal) and 3 to 5, track 21 to 23 (disabled, pressed, normal), thumb caps 17 and 16 with the middle 15 (30, 29, 28 while
+    // dragged when the array has more than 28 pieces). Horizontal: arrows 6 to 8 and 9 to 11, track 18 to 20, thumb 13, 14 and 12
+    // (26, 27, 25 dragged). A bar whose content fits shows the disabled pieces without a thumb.
+    private void DrawVBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
+    {
+        bool active = ContentH > H - (HBar ? HBarH : 0);
+        var bm = pc.Bitmaps;
+        p.Bitmap(bm[!active ? 0 : mRepeatPart == 1 ? 1 : 2], bx, by);
+        int top = by + VArrowTop, end = by + length - VArrowBottom;
+        if (!active)
+            Fill(p, bm[21], bx, top, bm[21].Width, end - top, true);
+        else
+        {
+            var (t, l) = Thumb(true);
+            bool drag = mDragPart == 8 && bm.Count > 28;
+            PbmpBitmap cap0 = bm[drag ? 30 : 17], mid = bm[drag ? 28 : 15], cap1 = bm[drag ? 29 : 16];
+            int ty = by + t, te = ty + l;
+            Fill(p, bm[mRepeatPart == 3 ? 22 : 23], bx, top, bm[23].Width, ty - top, true);
+            p.Bitmap(cap0, bx, ty);
+            Fill(p, mid, bx, ty + cap0.Height, mid.Width, te - cap1.Height - (ty + cap0.Height), true);
+            p.Bitmap(cap1, bx, te - cap1.Height);
+            Fill(p, bm[mRepeatPart == 4 ? 22 : 23], bx, te, bm[23].Width, end - te, true);
+        }
+        p.Bitmap(bm[!active ? 3 : mRepeatPart == 2 ? 4 : 5], bx, end);
+    }
+
+    private void DrawHBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
+    {
+        bool active = ContentW > W - (VBar ? VBarW : 0);
+        var bm = pc.Bitmaps;
+        p.Bitmap(bm[!active ? 6 : mRepeatPart == 5 ? 7 : 8], bx, by);
+        int left = bx + HArrowLeft, end = bx + length - HArrowRight;
+        if (!active)
+            Fill(p, bm[18], left, by, end - left, bm[18].Height, false);
+        else
+        {
+            var (t, l) = Thumb(false);
+            bool drag = mDragPart == 9 && bm.Count > 25;
+            PbmpBitmap cap0 = bm[drag ? 26 : 13], mid = bm[drag ? 25 : 12], cap1 = bm[drag ? 27 : 14];
+            int tx = bx + t, te = tx + l;
+            Fill(p, bm[mRepeatPart == 7 ? 19 : 20], left, by, tx - left, bm[20].Height, false);
+            p.Bitmap(cap0, tx, by);
+            Fill(p, mid, tx + cap0.Width, by, te - cap1.Width - (tx + cap0.Width), mid.Height, false);
+            p.Bitmap(cap1, te - cap1.Width, by);
+            Fill(p, bm[mRepeatPart == 10 ? 19 : 20], te, by, end - te, bm[20].Height, false);
+        }
+        p.Bitmap(bm[!active ? 9 : mRepeatPart == 6 ? 10 : 11], end, by);
+    }
+
+    private static void Fill(GuiPaint p, PbmpBitmap b, int x, int y, int w, int h, bool vertical)
+    {
+        if (w > 0 && h > 0)
+            p.BitmapStretch(b, x, y, w, h);
     }
 }
 

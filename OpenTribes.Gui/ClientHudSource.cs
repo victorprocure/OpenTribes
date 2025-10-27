@@ -78,7 +78,7 @@ public sealed class ClientHudSource : IHudSource
     public double ClockSeconds => mClock();
 
     // The weapon HUD rows [code 004e8fe8]: every item with a count above zero, a hudIcon and showWeaponBar, in datablock order. The
-    // item is mounted when an image slot of the control player holds its image (the item's imageType); with hiliteOnActive set the
+    // item is mounted when an image slot of the control player holds the item (the stream carries the item index); with hiliteOnActive set the
     // "on" icon shows only while that slot fires (state 1). The ammo is the count of the image's ammoType item, negative without one.
     public IReadOnlyList<WeaponRow> Weapons
     {
@@ -99,7 +99,7 @@ public sealed class ClientHudSource : IHudSource
                 bool hilite = b.Fields.Any(f => f.Name == "hiliteOnActive" && D(f.Value, 0) != 0);
                 bool active = false;
                 foreach (var (img, state) in slots)
-                    if (img == image && image >= 0)
+                    if (img == i)
                     {
                         active = !hilite || state == 1;
                         break;

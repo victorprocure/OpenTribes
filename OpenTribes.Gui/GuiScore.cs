@@ -40,7 +40,8 @@ public sealed class GuiScoreList : GuiList
     }
 
     // The lines in the order shown: the team heading and the teams, then the player heading and the players.
-    public static List<Line> Build(ScoreBoard board)
+    // The filled row is the selected client (a click sets it [code 004c1d0c]), not the local player: none until a click.
+    public static List<Line> Build(ScoreBoard board, int selected = -1)
     {
         var lines = new List<Line>();
         if (board.Teams.Count > 0 && board.TeamHeading.Length > 0)
@@ -54,7 +55,7 @@ public sealed class GuiScoreList : GuiList
         if (board.ClientHeading.Length > 0)
             lines.Add(new Line(HeadingText(board.ClientHeading), cc, true, false));
         foreach (ScoreRow c in board.Clients)
-            lines.Add(new Line(c.Text, cc, false, c.Id == board.LocalClient));
+            lines.Add(new Line(c.Text, cc, false, selected >= 0 && c.Id == selected));
         return lines;
     }
 
@@ -129,13 +130,13 @@ public sealed class GuiMenuDisplay : GuiControl
         int y = gy;
         if (menu.Title.Length > 0)
         {
-            p.Text(head, gx + 2, y, menu.Title);
-            y += GuiPaint.FontHeight(head) + 4;
+            p.Text(head, gx, y, menu.Title);
+            y += GuiPaint.FontHeight(head);   // line pitch = font height (stock capture: 13 pixels between lines)
         }
         foreach (var (key, text) in menu.Items)
         {
-            p.Text(row, gx + 2, y, key + ": " + text);
-            y += GuiPaint.FontHeight(row) + 2;
+            p.Text(row, gx, y, key + ": " + text);
+            y += GuiPaint.FontHeight(row);
         }
     }
 }

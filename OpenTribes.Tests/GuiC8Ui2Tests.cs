@@ -160,7 +160,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
     }
 
     [Fact]
-    public void ScoreLinesListTeamsThenPlayersAndMarkTheLocalPlayer()
+    public void ScoreLinesListTeamsThenPlayersAndMarkTheSelectedPlayer()
     {
         var board = new ScoreBoard("Team Name\t\xD6Score", "Player Name\t\x6FTeam",
             new[] { new ScoreRow(0, "Blood Eagle\t 3", 3), new ScoreRow(1, "Diamond Sword\t 1", 1) },
@@ -170,8 +170,9 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.True(lines[0].Heading);
         Assert.True(lines[3].Heading);
         Assert.False(lines[4].Local);
-        Assert.True(lines[5].Local);
+        Assert.False(lines[5].Local);
         Assert.Equal(new[] { 0, 0x6F }, lines[5].Columns);
+        Assert.True(GuiScoreList.Build(board, 2050)[5].Local);
     }
 
     [Fact]
