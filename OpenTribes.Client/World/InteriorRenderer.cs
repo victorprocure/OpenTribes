@@ -1,3 +1,4 @@
+using OpenTribes.Client.Shapes;
 using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.World;
@@ -103,6 +104,9 @@ public sealed class InteriorRenderer : IDisposable
     {
         public InteriorModel Model = null!;
         public double X, Y, Z, Rx, Ry, Rz;
+        // The team of the GameBase part (-1 none) and the skin its textures were built with ("" none).
+        public int Team = -1;
+        public string Skin = "";
         public float[] M = new float[9];
         // World-space triangles of each surface per detail level, built on first draw (the instance never moves).
         internal readonly Dictionary<InteriorLodModel, SurfaceMesh[]> Meshes = new();
@@ -157,7 +161,10 @@ public sealed class InteriorRenderer : IDisposable
         return name[i] == '-' ? name[..dash] + ".dil" : name;
     }
 
-    public bool AddInstance(string fileName, double x, double y, double z, double rx, double ry, double rz)
+    // The skin base of a team (the client's team table); materials named `base.<name>` take `<skin>.<name>` when that exists.
+    public Func<int, string>? TeamSkin;
+
+    public bool AddInstance(string fileName, double x, double y, double z, double rx, double ry, double rz, int team = -1)
     {
         string resolved = Interior.ResolveInteriorName(mAssets.Res, fileName);
         if (resolved.Length == 0)
@@ -172,7 +179,7 @@ public sealed class InteriorRenderer : IDisposable
         }
         if (model == null)
             return false;
-        Instances.Add(new Instance { Model = model, X = x, Y = y, Z = z, Rx = rx, Ry = ry, Rz = rz, M = EulerMatrix(rx, ry, rz) });
+        Instances.Add(new Instance { Model = model, X = x, Y = y, Z = z, Rx = rx, Ry = ry, Rz = rz, Team = team, M = EulerMatrix(rx, ry, rz) });
         return true;
     }
 
@@ -364,6 +371,12 @@ public sealed class InteriorRenderer : IDisposable
             float hz = (float)TerrainLod.ObjectHaze(od, haze.HazeStart, haze.Visible);
             if (hz <= 0.015f)
                 hz = 0; // 1.2: haze source none at 0.015 or less
+            string skin = TeamSkin != null && inst.Team >= 0 ? TeamSkin(inst.Team) : "";
+            if (skin != inst.Skin)
+            {
+                inst.Skin = skin;
+                inst.Meshes.Clear();
+            }
             DrawInstance(inst, lod, (lx, ly, lz), hz);
             ++DrawnInstances;
         }
@@ -405,6 +418,8 @@ public sealed class InteriorRenderer : IDisposable
             double baseX = Math.Floor(surf.TexOffsetX / lmDiv) - 1, baseY = Math.Floor(surf.TexOffsetY / lmDiv) - 1;
             int mat = surf.Material == 255 ? -1 : surf.Material;
             string? matName = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
+            if (matName != null && inst.Skin.Length > 0)
+                matName = Skins.Resolve(matName, inst.Skin, n => GfxAssets.Read(mAssets.Res, n, out _), false);
             IGfxTexture? tex = MaterialTexture(matName);
             double bw = tex?.Width ?? 1, bh = tex?.Height ?? 1;
             var (ax, ay) = lod.LmPos[s];

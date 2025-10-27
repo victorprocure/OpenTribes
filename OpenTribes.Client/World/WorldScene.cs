@@ -89,7 +89,7 @@ public sealed class WorldScene : IDisposable
         {
             double[] p = o.GetVector("position"), r = o.GetVector("rotation");
             ++scene.InteriorCount;
-            if (!scene.Interiors.AddInstance(o.Get("fileName"), p[0], p[1], p[2], r[0], r[1], r[2]))
+            if (!scene.Interiors.AddInstance(o.Get("fileName"), p[0], p[1], p[2], r[0], r[1], r[2], (int)o.GetDouble("team", -1)))
                 ++scene.InteriorFailed;
         }
 

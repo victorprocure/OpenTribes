@@ -257,6 +257,8 @@ public sealed class LiveGame : IDisposable
         Assets = new ShapeAssets(mApp.Dev, Scene.Assets);
         mRenderer = new ShapeRenderer(Assets);
         Model = new SceneModel(World, Assets, mRenderer, Scene.TerrainModel);
+        if (Scene.Interiors != null)
+            Scene.Interiors.TeamSkin = Model.TeamSkin;
         Model.BaseLight.SetSun(Scene.SunAzimuth, Scene.SunIncidence);
         Model.BaseLight.AmbR = (float)Scene.SunAmbient[0]; Model.BaseLight.AmbG = (float)Scene.SunAmbient[1]; Model.BaseLight.AmbB = (float)Scene.SunAmbient[2];
         Model.BaseLight.SunR = (float)Scene.SunIntensity[0]; Model.BaseLight.SunG = (float)Scene.SunIntensity[1]; Model.BaseLight.SunB = (float)Scene.SunIntensity[2];

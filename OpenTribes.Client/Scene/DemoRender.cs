@@ -65,6 +65,8 @@ public static class DemoRender
                     o.Fields["fileName"] = V(S("file"));
                     o.Fields["position"] = V(S("pos"));
                     o.Fields["rotation"] = V(S("rot"));
+                    if (S("team") != null)
+                        o.Fields["team"] = V(S("team"));
                     break;
                 default:
                     continue;
