@@ -268,30 +268,41 @@ public sealed class InteriorRenderer : IDisposable
         if (lt == null)
             return;
         ushort[]?[] maps = InteriorLightMaps.Build(lt, lod.Mission, LightTime);
+        // Every map sits in the atlas with a border of one replicated pixel, so the bilinear filter never reads a neighbour
+        // map (or the empty atlas) at the edge of a surface.
         var sizes = new (int, int)[maps.Length];
         for (int i = 0; i < maps.Length; ++i)
-            sizes[i] = maps[i] == null ? (0, 0) : (lt.Surfaces[i].SizeX, lt.Surfaces[i].SizeY);
+            sizes[i] = maps[i] == null ? (0, 0) : (lt.Surfaces[i].SizeX + 2, lt.Surfaces[i].SizeY + 2);
         lod.AtlasW = 1024;
-        lod.LmPos = AtlasPacker.Pack(sizes, lod.AtlasW, out int h);
+        (int x, int y)[] packed = AtlasPacker.Pack(sizes, lod.AtlasW, out int h);
+        lod.LmPos = new (int, int)[maps.Length];
+        for (int i = 0; i < maps.Length; ++i)
+            lod.LmPos[i] = (packed[i].x + 1, packed[i].y + 1);
         lod.AtlasH = Math.Max(h, 1);
         lod.AtlasRgba = new byte[lod.AtlasW * lod.AtlasH * 4];
         for (int i = 0; i < maps.Length; ++i)
         {
             if (maps[i] == null)
                 continue;
-            int w = sizes[i].Item1;
+            int w = lt.Surfaces[i].SizeX, hh = lt.Surfaces[i].SizeY;
+            if (w <= 0 || hh <= 0)
+                continue;
             var (px, py) = lod.LmPos[i];
-            for (int k = 0; k < maps[i]!.Length; ++k)
-            {
-                var (r, g, b) = TerrainData.ExpandLight(maps[i]![k]);
-                int o = ((py + k / w) * lod.AtlasW + px + k % w) * 4;
-                lod.AtlasRgba[o] = r;
-                lod.AtlasRgba[o + 1] = g;
-                lod.AtlasRgba[o + 2] = b;
-                lod.AtlasRgba[o + 3] = 255;
-            }
+            for (int y = -1; y <= hh; ++y)
+                for (int x = -1; x <= w; ++x)
+                {
+                    int k = Math.Clamp(y, 0, hh - 1) * w + Math.Clamp(x, 0, w - 1);
+                    if (k >= maps[i]!.Length)
+                        continue;
+                    var (r, g, b) = TerrainData.ExpandLight(maps[i]![k]);
+                    int o = ((py + y) * lod.AtlasW + px + x) * 4;
+                    lod.AtlasRgba[o] = r;
+                    lod.AtlasRgba[o + 1] = g;
+                    lod.AtlasRgba[o + 2] = b;
+                    lod.AtlasRgba[o + 3] = 255;
+                }
         }
-        lod.Atlas = mDev.CreateTexture3D(lod.AtlasRgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
+        lod.Atlas = mDev.CreateTexture3D(lod.AtlasRgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true, true));
     }
 
     private IGfxTexture? MaterialTexture(string? name)
