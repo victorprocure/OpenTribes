@@ -149,15 +149,17 @@ public sealed class TerrainRenderer : IDisposable
             MaterialTexture(i);
     }
 
+    private readonly Dictionary<long, float> mGrow = new();
+
     public void Draw(in Camera3D cam)
     {
         EnsureTextures();
         List<TerrainSquare> squares;
         using (FramePerf.Scope("terrain-select"))
-            squares = TerrainLod.Select(mData, cam, OriginX, OriginY, OriginZ, Params);
+            squares = TerrainLod.Select(mData, cam, OriginX, OriginY, OriginZ, Params, mGrow);
         TerrainMesh mesh;
         using (FramePerf.Scope("terrain-mesh"))
-            mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params, mMesh);
+            mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params, mMesh, mGrow);
         LastSquares = squares.Count;
         LastTriangles = mesh.TriangleCount;
         if (mesh.Atlas.Count > 0)

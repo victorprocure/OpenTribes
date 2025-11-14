@@ -57,7 +57,7 @@ way are added to Open.
 - [x] Terrain, interiors and sky of a mission.
 - [x] 3D camera and shape support in the renderer.
 - [x] Mission palette stays active in the play view.
-- [x] Terrain textures, light map and orientation, and team skins on interiors.
+- [x] Terrain textures, light map, orientation and level of detail, and team skins on interiors.
 - [x] Smooth light maps.
 - [x] Smooth texture magnification.
 - [x] Shape face culling.

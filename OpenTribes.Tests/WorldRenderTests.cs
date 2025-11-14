@@ -311,6 +311,37 @@ public class WorldRenderTests
     }
 
     [Fact]
+    public void SplitDiagonalFollowsTheCheckerboardAtLevelZeroAndTiesChooseTheOtherDiagonal() // WR 2.3
+    {
+        TerrainData t = Flat();
+        Assert.True(t.SplitMain(0, 0, 0));
+        Assert.False(t.SplitMain(0, 1, 0));
+        Assert.True(t.SplitMain(0, 1, 1));
+        // flat ground: both diagonals deviate equally from level 4 up, the strict comparison picks the other diagonal
+        Assert.False(t.SplitMain(4, 0, 0));
+        Assert.False(t.SplitMain(8, 0, 0));
+    }
+
+    [Fact]
+    public void TrianglesWhollyBeyondTheVisibleDistanceAreDropped() // WR 2.6
+    {
+        TerrainData t = Flat();
+        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        Camera3D c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
+        List<TerrainSquare> sq = TerrainLod.Select(t, c, 0, 0, 0, p);
+        TerrainMesh mesh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
+        var all = new List<Vertex3D>(mesh.Atlas);
+        foreach (List<Vertex3D> l in mesh.ByMaterial.Values)
+            all.AddRange(l);
+        for (int i = 0; i + 2 < all.Count; i += 3)
+            Assert.Contains(Enumerable.Range(i, 3), k =>
+            {
+                double dx = all[k].X - c.X, dy = all[k].Y - c.Y, dz = all[k].Z - c.Z;
+                return Math.Sqrt(dx * dx + dy * dy + dz * dz) <= 600 + 1e-3;
+            });
+    }
+
+    [Fact]
     public void FlagValuesMapToTheMeasuredOrientations() // WR 2.8; the table was measured by seam cost (world-render.md C4 notes)
     {
         // flag 4 is the identity; flag 6 mirrors u; flag 0 mirrors v; flag 7 swaps u and v

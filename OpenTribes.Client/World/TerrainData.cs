@@ -81,6 +81,61 @@ public sealed class TerrainData
     public float MaxHeight(int level, int cx, int cy) => mMax[level][((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level) + ((cx >> level) & ((Cells >> level) - 1))];
     public bool IsEmpty(int level, int cx, int cy) => mEmpty[level][((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level) + ((cx >> level) & ((Cells >> level) - 1))];
 
+    // 2.3: the split diagonal of a square. True splits along the (0,0) to (1,1) corner diagonal. Level 0 follows the
+    // checkerboard of the square indices. Levels 1 to 3 follow it when it agrees with the parent's split. Otherwise (and
+    // always from level 4) the diagonal with the smaller maximum deviation wins, strictly: equal deviations choose the other
+    // diagonal. The deviation of a lattice point is the integer part of |plane height - height|, where the plane runs
+    // through three corners of the point's triangle: the corner heights are the 11.5 fixed point integers and the point's
+    // own height is in metres (the exe mixes both units, kept) [code 00574b84, 00574868].
+    private readonly Dictionary<int, bool> mSplit = new();
+
+    public bool SplitMain(int level, int cx, int cy)
+    {
+        int dim = Cells >> level;
+        int ix = (cx >> level) & (dim - 1), iy = (cy >> level) & (dim - 1);
+        int key = (level << 20) | (iy << 10) | ix;
+        if (mSplit.TryGetValue(key, out bool known))
+            return known;
+        bool checker = ((ix ^ iy) & 1) == 0;
+        bool result = checker;
+        if (level != 0)
+        {
+            bool parent = level < Levels - 1 && SplitMain(level + 1, cx, cy);
+            if (level > 3 || checker != parent)
+            {
+                SplitDeviations(level, ix, iy, out int dMain, out int dAnti);
+                result = dMain < dAnti;
+            }
+        }
+        mSplit[key] = result;
+        return result;
+    }
+
+    private void SplitDeviations(int level, int ix, int iy, out int dMain, out int dAnti)
+    {
+        int s = 1 << level, ox = ix * s, oy = iy * s;
+        float a = (int)(LocalHeight(ox, oy) * 32), b = (int)(LocalHeight(ox, oy + s) * 32),
+              c = (int)(LocalHeight(ox + s, oy + s) * 32), d = (int)(LocalHeight(ox + s, oy) * 32);
+        dMain = 0;
+        dAnti = 0;
+        for (int dx = 0; dx <= s; ++dx)
+            for (int dy = 0; dy <= s; ++dy)
+            {
+                float z = LocalHeight(ox + dx, oy + dy);
+                float fx = (float)dx / s, fy = (float)dy / s;
+                float zm = dx < dy ? a + (c - b) * fx + (b - a) * fy : a + (d - a) * fx + (c - d) * fy;
+                float za = dx + dy < s ? a + (d - a) * fx + (b - a) * fy : d + b - c + (c - b) * fx + (c - d) * fy;
+                dMain = Math.Max(dMain, Deviation(zm, z));
+                dAnti = Math.Max(dAnti, Deviation(za, z));
+            }
+    }
+
+    private static int Deviation(float plane, float z)
+    {
+        float v = Math.Abs(plane - z);
+        return v > 65535f ? 65535 : (int)v;
+    }
+
     private void BuildHierarchy()
     {
         for (int l = 0; l < Levels; ++l)

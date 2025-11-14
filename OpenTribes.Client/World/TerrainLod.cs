@@ -30,7 +30,7 @@ public static class TerrainLod
     // scale = 1 / (visible - hazeStart). No floor, no 1.02 factor.
     public static double TerrainHaze(double dist, double hazeStart, double visible)
     {
-        if (dist < hazeStart || visible <= hazeStart)
+        if (dist < hazeStart || visible <= hazeStart || dist >= visible)
             return dist < hazeStart ? 0 : 1;
         double scale = 1.0 / (visible - hazeStart);
         double t = (dist - hazeStart) * scale - 1;
@@ -95,8 +95,10 @@ public static class TerrainLod
     // 2.5: the squares to draw for this camera. `origin` is the terrain position (terrain space = world - origin).
     // Squares at distance >= visible or empty are dropped; a square outside the view is dropped; a square subdivides
     // when d < 1 or d < detailDistance. The traversal order is level 8 blocks (i, j), children in raster order.
-    public static List<TerrainSquare> Select(TerrainData t, in Camera3D cam, double ox, double oy, double oz, TerrainParams p)
+    public static List<TerrainSquare> Select(TerrainData t, in Camera3D cam, double ox, double oy, double oz, TerrainParams p,
+                                             Dictionary<long, float>? growOut = null)
     {
+        growOut?.Clear();
         var result = new List<TerrainSquare>();
         var planes = SidePlanes(cam);
         double px = cam.X - ox, py = cam.Y - oy, pz = cam.Z - oz;
@@ -149,11 +151,22 @@ public static class TerrainLod
                 continue;
             }
             int h = s / 2;
+            if (growOut != null)
+            {
+                // 2.5: the points a subdivision creates (centre and the four edge mid points) take the grow factor of the
+                // square's own distance; a point that exists already keeps the value of the square that made it.
+                float g = (float)Grow(d, DetailDistance(cam, p.ScreenSize, sq.Level));
+                foreach (long key in new[] { GrowKey(sq.X + h, sq.Y + h), GrowKey(sq.X + h, sq.Y), GrowKey(sq.X + s, sq.Y + h),
+                                             GrowKey(sq.X + h, sq.Y + s), GrowKey(sq.X, sq.Y + h) })
+                    growOut.TryAdd(key, g);
+            }
             for (int k = 3; k >= 0; --k)
                 stack.Push(new TerrainSquare(sq.Level - 1, sq.X + (k & 1) * h, sq.Y + (k >> 1) * h));
         }
         return result;
     }
+
+    public static long GrowKey(int x, int y) => ((long)x << 20) | (uint)y;
 
     private static int CreationLevel(int gx, int gy)
     {
@@ -168,7 +181,8 @@ public static class TerrainLod
 
     // 2.5 vertex morph: the drawn height is h + grow * (average - h), average = mean of the two parent points. Returns the
     // unmorphed and morphed heights of a corner of the render domain for this camera.
-    public static float MorphedHeight(TerrainData t, int gx, int gy, in Camera3D cam, double ox, double oy, double oz, TerrainParams p)
+    public static float MorphedHeight(TerrainData t, int gx, int gy, in Camera3D cam, double ox, double oy, double oz, TerrainParams p,
+                                           Dictionary<long, float>? growMap = null)
     {
         float h = t.Height(gx, gy);
         int pl = CreationLevel(gx, gy);
@@ -184,13 +198,19 @@ public static class TerrainLod
         else
         {
             int x0 = gx - half, y0 = gy - half;
-            avg = SplitMainDiagonal(pl + 1, x0, y0)
+            avg = t.SplitMain(pl + 1, x0, y0)
                 ? (t.Height(x0, y0) + t.Height(x0 + full, y0 + full)) * 0.5f
                 : (t.Height(x0 + full, y0) + t.Height(x0, y0 + full)) * 0.5f;
         }
-        double dx = gx * TerrainData.CellSize + ox - cam.X, dy = gy * TerrainData.CellSize + oy - cam.Y, dz = h + oz - cam.Z;
-        double dist = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-        double grow = Grow(dist, DetailDistance(cam, p.ScreenSize, pl + 1));
+        double grow;
+        if (growMap != null && growMap.TryGetValue(GrowKey(gx, gy), out float stored))
+            grow = stored;
+        else
+        {
+            double dx = gx * TerrainData.CellSize + ox - cam.X, dy = gy * TerrainData.CellSize + oy - cam.Y, dz = h + oz - cam.Z;
+            double dist = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            grow = Grow(dist, DetailDistance(cam, p.ScreenSize, pl + 1));
+        }
         return (float)(h + grow * (avg - h));
     }
 }
@@ -241,7 +261,8 @@ public static class TerrainMesher
         return (u, v);
     }
 
-    public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null)
+    public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null,
+                                   Dictionary<long, float>? growMap = null)
     {
         TerrainMesh mesh = reuse ?? new TerrainMesh();
         mesh.Reset();
@@ -260,7 +281,7 @@ public static class TerrainMesher
         {
             long k = Key(gx, gy);
             if (!heightCache.TryGetValue(k, out float z))
-                heightCache[k] = z = TerrainLod.MorphedHeight(t, gx, gy, cam, ox, oy, oz, p);
+                heightCache[k] = z = TerrainLod.MorphedHeight(t, gx, gy, cam, ox, oy, oz, p, growMap);
             return z;
         }
         Vertex3D V(int gx, int gy, float z, float u, float v)
@@ -285,6 +306,7 @@ public static class TerrainMesher
             }
         }
         List<(int, int)> ring = mesh.Ring;
+        Vertex3D prev = default;
         foreach (var sq in squares)
         {
             int s = 1 << sq.Level, x = sq.X, y = sq.Y;
@@ -318,18 +340,62 @@ public static class TerrainMesher
             Border(x + s, y + s, x, y + s, ring);
             Border(x, y + s, x, y, ring);
             Vertex3D At(int gx, int gy) => V(gx, gy, Z(gx, gy), gx / (float)TerrainData.Cells, gy / (float)TerrainData.Cells);
-            int cx = x + s / 2, cy = y + s / 2;
-            float zc = TerrainLod.MorphedHeight(t, cx, cy, cam, ox, oy, oz, p);
-            Vertex3D centre = V(cx, cy, zc, cx / (float)TerrainData.Cells, cy / (float)TerrainData.Cells);
+            // 2.8: one polygon of the border points; the fan starts at the corner the split diagonal runs from: the first
+            // corner (top left) for the (0,0)-(1,1) diagonal, else the second (top right).
+            int start = 0;
+            if (!t.SplitMain(sq.Level, x, y))
+                for (int i = 0; i < ring.Count; ++i)
+                    if (ring[i].Item1 == x + s && ring[i].Item2 == y)
+                    {
+                        start = i;
+                        break;
+                    }
+            Vertex3D first = default;
             for (int i = 0; i < ring.Count; ++i)
             {
-                var (ax, ay) = ring[i];
-                var (bx, by) = ring[(i + 1) % ring.Count];
-                mesh.Atlas.Add(centre);
-                mesh.Atlas.Add(At(ax, ay));
-                mesh.Atlas.Add(At(bx, by));
+                var (ax, ay) = ring[(start + i) % ring.Count];
+                Vertex3D v = At(ax, ay);
+                if (i == 0)
+                {
+                    first = v;
+                    continue;
+                }
+                if (i >= 2)
+                {
+                    mesh.Atlas.Add(first);
+                    mesh.Atlas.Add(prev);
+                    mesh.Atlas.Add(v);
+                }
+                prev = v;
             }
         }
+        DropFarTriangles(mesh.Atlas, cam, p.Visible);
+        foreach (List<Vertex3D> l in mesh.ByMaterial.Values)
+            DropFarTriangles(l, cam, p.Visible);
         return mesh;
+    }
+
+    // 2.6 visible distance cut: a point beyond the visible distance carries the far clip bit, and a triangle whose three
+    // points all carry it is dropped.
+    private static void DropFarTriangles(List<Vertex3D> tris, in Camera3D cam, double visible)
+    {
+        double v2 = visible * visible, cx = cam.X, cy = cam.Y, cz = cam.Z;
+        bool Far(in Vertex3D v)
+        {
+            double dx = v.X - cx, dy = v.Y - cy, dz = v.Z - cz;
+            return dx * dx + dy * dy + dz * dz > v2;
+        }
+        int n = 0;
+        for (int i = 0; i + 2 < tris.Count; i += 3)
+        {
+            if (Far(tris[i]) && Far(tris[i + 1]) && Far(tris[i + 2]))
+                continue;
+            if (n != i)
+            {
+                tris[n] = tris[i]; tris[n + 1] = tris[i + 1]; tris[n + 2] = tris[i + 2];
+            }
+            n += 3;
+        }
+        tris.RemoveRange(n, tris.Count - n);
     }
 }
