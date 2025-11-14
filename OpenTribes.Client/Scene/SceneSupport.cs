@@ -80,7 +80,9 @@ public readonly record struct ThreadSlot(int Slot, int Sequence, int State, bool
 }
 
 // One image slot of a Player update: "i:img=N state=S AB C [f=F]".
-public readonly record struct ImageSlot(int Slot, int Image, int State, int Phase)
+// `State` is the optional team value, `Phase` the fire count, `Triggered` and `Ammo` the two flags before it, `Initial` the
+// state-is-Fire flag of a new ghost.
+public readonly record struct ImageSlot(int Slot, int Image, int State, int Phase, bool Triggered = false, bool Ammo = false, bool Initial = false)
 {
     public static List<ImageSlot> ParseAll(object? images)
     {
@@ -101,10 +103,11 @@ public readonly record struct ImageSlot(int Slot, int Image, int State, int Phas
                     ++e2;
                 return int.Parse(s.AsSpan(p, e2 - p), CultureInfo.InvariantCulture);
             }
-            // The trailing int(3) is the image state (player-sim.md 7.5: 1 Fire, 3 Idle, 4 Ready, 5 Reload); absent in the text, -1.
+            // After the two flags comes the fire count int(3) (client-net.md 3.4); absent in the text, -1.
             string[] parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             int phase = parts.Length >= 4 && int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out int ph) ? ph : -1;
-            l.Add(new ImageSlot(int.Parse(s[..colon], CultureInfo.InvariantCulture), Num(ip + 4), Num(sp + 6), phase));
+            bool trig = parts.Length >= 3 && parts[2].Length >= 2 && parts[2][0] == '1', ammo = parts.Length >= 3 && parts[2].Length >= 2 && parts[2][1] == '1';
+            l.Add(new ImageSlot(int.Parse(s[..colon], CultureInfo.InvariantCulture), Num(ip + 4), Num(sp + 6), phase, trig, ammo, s.EndsWith("f=1", StringComparison.Ordinal)));
         }
         return l;
     }

@@ -9,6 +9,7 @@ namespace OpenTribes.Client.Shapes;
 public sealed class ShapeDraw
 {
     public Xf ToWorld = Xf.Identity;
+    public bool NoRootTransform;       // the Player armor only: ShapeBase_resetRootTransform clears the instance root transform (3.6 step 4)
     public LightSet Light = LightSet.Default();
     public double Fade;                // f of 2.2 step 3: 0 fully visible, 1 gone; alpha = 1 - f
     public string Skin = "";
@@ -112,13 +113,15 @@ public sealed class ShapeRenderer
     public RenderImage? Build(RenderInstance inst, in Camera3D cam, ShapeDraw p)
     {
         RenderShape sh = inst.Shape;
-        int detail = p.ForceDetail != -2 ? p.ForceDetail : DetailFor(sh, cam, p.ToWorld, p.DetailScale);
+        // Every instance draws with the default transform of node 0 in front of its nodes (shapes-render.md 3.6 step 4).
+        Xf toWorld = p.NoRootTransform ? p.ToWorld : sh.RootTransform().Then(p.ToWorld);
+        int detail = p.ForceDetail != -2 ? p.ForceDetail : DetailFor(sh, cam, toWorld, p.DetailScale);
         LastDetail = detail;
         if (detail < 0)
             return null;
         inst.Animate(detail);
         bool[] nodeMask = sh.NodesOfDetail(detail).Mask;
-        var (ccx, ccy, ccz) = p.ToWorld.Apply(sh.Cx, sh.Cy, sh.Cz);
+        var (ccx, ccy, ccz) = toWorld.Apply(sh.Cx, sh.Cy, sh.Cz);
         var (_, depth, _) = cam.ToCamera(ccx, ccy, ccz);
         double dist = Math.Sqrt((ccx - cam.X) * (ccx - cam.X) + (ccy - cam.Y) * (ccy - cam.Y) + (ccz - cam.Z) * (ccz - cam.Z));
         // A shape whose bounding sphere (padded for moving parts) is wholly outside the view makes no image: nothing of it can
@@ -150,7 +153,7 @@ public sealed class ShapeRenderer
             RsMesh mesh = sh.Meshes[ob.Mesh];
             if (mesh.Faces.Length == 0 || mesh.Frames.Length == 0)
                 continue;
-            Xf ox = inst.ObjectTransform(oi).Then(p.ToWorld);
+            Xf ox = inst.ObjectTransform(oi).Then(toWorld);
             FrameData fd = Frame(mesh, Math.Clamp(st.Frame, 0, mesh.Frames.Length - 1));
             int nv = fd.P.Length / 3;
             if (mWp.Length < nv)

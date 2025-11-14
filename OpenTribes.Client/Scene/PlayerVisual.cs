@@ -8,11 +8,11 @@ namespace OpenTribes.Client.Scene;
 
 public sealed class ImageMount
 {
-    public int Slot, Image, Phase = -1;
+    public int Slot, Image;
     public ClientDataBlock? Db;
     public RenderShape? Shape;
     public RenderInstance? Inst;
-    public RenderThread? Ambient, Fire;
+    public ImageStateMachine? Sm;
     public double FireTime = -1000;       // scene time of the last Fire entry
     public int MountPoint;
     public bool FirstPerson;
@@ -234,11 +234,15 @@ public sealed class PlayerVisual : ShapeVisual
         ImageMount? im = mImages[s.Slot];
         if (s.Image < 0)
         {
+            if (im != null)
+                M.Audio?.ImageStateChanged(this, s.Slot);
             mImages[s.Slot] = null;
             return;
         }
         if (im == null || im.Image != s.Image)
         {
+            if (im != null)
+                M.Audio?.ImageStateChanged(this, s.Slot);
             // The stream carries the ItemData index (client-net.md 3.4); its imageType names the ItemImageData (group 6).
             ClientDataBlock? item = M.Db.Block(5, s.Image);
             ClientDataBlock? db = M.Db.Block(6, (int)Db.Num(item, "imageType", -1));
@@ -248,29 +252,27 @@ public sealed class PlayerVisual : ShapeVisual
             if (sh != null)
             {
                 im.Inst = new RenderInstance(sh);
-                int amb = sh.FindSequence("ambient");
-                if (amb >= 0)
-                    im.Ambient = im.Inst.AddThread(amb, 0, 0);
-                int fire = sh.FindSequence("fire");
-                if (fire >= 0)
+                var data = new ImageStateData
                 {
-                    im.Fire = im.Inst.AddThread(fire, 1, 1);
-                    im.Fire.TimeScale = 0;
-                }
+                    WeaponType = (int)Db.Num(db, "weaponType", -1), AmmoType = (int)Db.Num(db, "ammoType", -1),
+                    ActivateTime = Db.Num(db, "activateTime"), FireTime = Db.Num(db, "fireTime"), ReloadTime = Db.Num(db, "reloadTime"),
+                    SpinUpTime = Db.Num(db, "spinUpTime"), SpinDownTime = Db.Num(db, "spinDownTime"),
+                };
+                ImageMount mount = im;
+                int slot = s.Slot;
+                im.Sm = new ImageStateMachine(data, im.Inst)
+                {
+                    Fired = () => mount.FireTime = M.Time,
+                    PlaySound = field => M.Audio?.ImageSound(this, slot, mount.Db, field),
+                    StopLoopingSound = () => M.Audio?.ImageStateChanged(this, slot),
+                };
+                // A mount on a registered object enters Activate; a new ghost starts in Reset (player-sim.md 7.5).
+                if (!isNew)
+                    im.Sm.Mount();
             }
             mImages[s.Slot] = im;
         }
-        if (s.Phase == 1 && im.Phase != 1 && !isNew)
-        {
-            // Fire entry: the fire sequence plays once (it unhides the muzzle flash objects, 4.7) and the fire light starts.
-            im.FireTime = M.Time;
-            if (im.Fire != null)
-            {
-                im.Fire.Position = 0;
-                im.Fire.TimeScale = 1;
-            }
-        }
-        im.Phase = s.Phase;
+        im.Sm?.Unpack(s.Triggered, s.Ammo, s.Phase, !isNew, s.Initial);
     }
 
     public override void Tick(double dt)
@@ -305,18 +307,7 @@ public sealed class PlayerVisual : ShapeVisual
         if (mFlame != null && mFlameThread != null)
             mFlame.Advance(mFlameThread, dt);
         foreach (ImageMount? im in mImages)
-        {
-            if (im?.Inst == null)
-                continue;
-            if (im.Ambient != null)
-                im.Inst.Advance(im.Ambient, dt);
-            if (im.Fire != null && im.Fire.TimeScale != 0)
-            {
-                im.Inst.Advance(im.Fire, dt);
-                if (im.Fire.Position >= 1)
-                    im.Fire.TimeScale = 0;
-            }
-        }
+            im?.Sm?.Advance(dt);
     }
 
     protected override int DamageLevel => Skins.DamageLevel(Damage, M.Assets.DamageSkinDetail);
@@ -434,6 +425,7 @@ public sealed class PlayerVisual : ShapeVisual
             d.DamageLevel = DamageLevel;
             d.Fade = fade;
             d.DetailScale = M.PlayerShapeDetail;
+            d.NoRootTransform = true;
             RenderImage? img = ctx.Renderer.Build(Inst, ctx.Camera, d);
             detail = ctx.Renderer.LastDetail;
             if (img != null)
@@ -454,8 +446,8 @@ public sealed class PlayerVisual : ShapeVisual
             if (firstPerson && !im.FirstPerson)
                 continue;
             Inst.Animate(Math.Min(detail, Shape.Details.Length - 1));
-            // The image instance draws with its root transform (node 0 default) in front of the mount transform (3.6).
-            Xf xf = im.Shape.RootTransform().Then(ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly));
+            // The renderer puts the image's root transform (node 0 default) in front of the mount transform (3.6).
+            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly);
             ShapeDraw d = ctx.Draw(xf, im.Shape.Name);
             d.Skin = Skin;
             d.Fade = fade;
