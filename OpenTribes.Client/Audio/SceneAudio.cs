@@ -29,8 +29,6 @@ public sealed class SceneAudio
         public readonly int[] SeqSound = new int[3];     // sequence sound handle per thread slot (3.3)
         public readonly int[] SeqPlaying = Enumerable.Repeat(-1, 3).ToArray();   // sequence the sound was started for
         public readonly int[] Image = new int[8];
-        public readonly int[] ImageState = Enumerable.Repeat(-1, 8).ToArray();
-        public readonly int[] ImageItem = Enumerable.Repeat(-2, 8).ToArray();
         public readonly int[] ImageLoops = new int[8];
         public readonly int[] Channel = new int[4];
         public int LastMode = -1, LastFire = -1, LastDamage = -1, LastSound = -1, LastState = -1;
@@ -294,9 +292,7 @@ public sealed class SceneAudio
                     g.Stopped = true;
                 }
                 break;
-            case PlayerVisual pl:
-                if (has("images"))
-                    PlayerImages(pl, g);
+            case PlayerVisual:
                 break;
             case ShapeVisual sv:
                 ShapeGhost(sv, g, u, has);
@@ -304,40 +300,32 @@ public sealed class SceneAudio
         }
     }
 
-    // 3.2 weapon image sounds. The ghost update carries the item and a counter (client-net.md 3.4: a change of the counter of a
-    // registered ghost enters state 1, Fire); the rest of the state machine (player-sim.md 7.5) runs on timers the demo cannot
-    // supply, so the sounds started here are Activate on a new image and Fire on a counter change [I].
-    private void PlayerImages(PlayerVisual pl, GhostSounds g)
+    // 3.2 weapon image sounds: the image state machine of the ghost (`ImageStateMachine`) names the datablock sound of each state it
+    // enters (Activate, Fire, Ready, Reload, SpinUp, SpinDown). A still-playing looping image sound stops when the state changes.
+    public void ImageStateChanged(PlayerVisual pl, int slot)
     {
-        foreach (ImageSlot s in ImageSlot.ParseAll(pl.Ghost.State.GetValueOrDefault("images")))
+        if (slot is < 0 or > 7)
+            return;
+        GhostSounds g = Gs(pl.Index);
+        if (g.ImageLoops[slot] != 0)
         {
-            if (s.Slot is < 0 or > 7)
-                continue;
-            int slot = s.Slot;
-            bool newImage = s.Image != g.ImageItem[slot];
-            bool fired = !newImage && g.ImageState[slot] >= 0 && s.Phase >= 0 && s.Phase != g.ImageState[slot];
-            g.ImageItem[slot] = s.Image;
-            if (s.Phase >= 0)
-                g.ImageState[slot] = s.Phase;
-            if (!newImage && !fired)
-                continue;
-            // A still-playing looping image sound stops when the state changes.
-            if (g.ImageLoops[slot] != 0)
-            {
-                Sound.Stop(g.Image[slot]);
-                g.Image[slot] = 0;
-                g.ImageLoops[slot] = 0;
-            }
-            if (s.Image < 0)
-                continue;
-            long snd = Idx(Db.Block(6, (int)Scene.Db.Num(Db.Block(5, s.Image), "imageType", -1)), newImage ? "sfxActivate" : "sfxFire");
-            int h = Play(newImage ? "ImageActivate" : "ImageFire", snd, pl.Position);
-            g.Image[slot] = h;
-            if (h != 0 && Sound.IsLooping(h))
-                g.ImageLoops[slot] = 1;
-            else
-                g.Image[slot] = 0;
+            Sound.Stop(g.Image[slot]);
+            g.Image[slot] = 0;
+            g.ImageLoops[slot] = 0;
         }
+    }
+
+    public void ImageSound(PlayerVisual pl, int slot, ClientDataBlock? image, string field)
+    {
+        if (slot is < 0 or > 7)
+            return;
+        GhostSounds g = Gs(pl.Index);
+        int h = Play("Image" + field[3..], Idx(image, field), pl.Position);
+        g.Image[slot] = h;
+        if (h != 0 && Sound.IsLooping(h))
+            g.ImageLoops[slot] = 1;
+        else
+            g.Image[slot] = 0;
     }
 
     // 3.2 animation sound: a one shot at the player position when a ghost starts an animation whose PlayerData entry has a sound.
