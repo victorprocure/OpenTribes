@@ -576,7 +576,11 @@ public sealed class ClientApp : IDisposable
         if (Game?.WorldPalette is { } worldPalette && PlayViewActive && !ReferenceEquals(CurrentPalette, worldPalette))
             SetPalette(worldPalette);
         if (Game != null && PlayViewActive)
-            drewWorld = Game.Render(Dev, Play.Moves.CurrentFov, () => Canvas.Render(Dev));
+            drewWorld = Game.Render(Dev, Play.Moves.CurrentFov, () =>
+            {
+                Canvas.Render(Dev);
+                DrawDamageFlash();
+            });
         if (!drewWorld)
         {
             Dev.BeginFrame();
@@ -585,6 +589,15 @@ public sealed class ClientApp : IDisposable
             Dev.EndFrame();
         }
         TakeShots();
+    }
+
+    // The damage flash: the whole frame, HUD included, blends toward red by the flash value of the last server block
+    // (0..1, the server lets it fall by 0.22 per second). Measured on stock frames: out = frame * (1 - f) + red * f.
+    private void DrawDamageFlash()
+    {
+        float f = (float)(Game?.World.Psc.DamageFlash ?? 0);
+        if (Dev != null && f > 0f)
+            Dev.FillRectRgb(new GfxRect(0, 0, Dev.Width - 1, Dev.Height - 1), 255, 0, 0, Math.Min(f, 1f));
     }
 
     private void TakeShots()

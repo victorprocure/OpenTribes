@@ -464,7 +464,9 @@ public static class HudFrame
 // ring, wrapped to the extent minus the 4 and 2 pixel inset the draw routine applies.
 public sealed class GuiChatDisplay : GuiHud
 {
-    public const int InsetX = 4, InsetY = 2;
+    // Text starts 4 + 6 pixels from the left (the 6 is half of the stock indent value 12, `00623478`) and the lines stack upward from
+    // 6 pixels above the bottom, one font height apart [code 004a633c]. Measured on stock frames: play screen and inventory screen.
+    public const int InsetX = 4, IndentX = 6, BottomInset = 6;
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
@@ -491,11 +493,13 @@ public sealed class GuiChatDisplay : GuiHud
                 lines.Add((l, f));
         }
         int start = Math.Max(0, lines.Count - n);
-        int ty = y + InsetY;
+        int ty = y + H - BottomInset;
+        for (int i = start; i < lines.Count; ++i)
+            ty -= GuiPaint.FontHeight(lines[i].Font);
         for (int i = start; i < lines.Count; ++i)
         {
-            GuiMarkup.Draw(p, Host, lines[i].Font, x + InsetX, ty, lines[i].Runs);
-            ty += GuiPaint.FontHeight(lines[i].Font) + 1;
+            GuiMarkup.Draw(p, Host, lines[i].Font, x + InsetX + IndentX, ty, lines[i].Runs);
+            ty += GuiPaint.FontHeight(lines[i].Font);
         }
     }
 }

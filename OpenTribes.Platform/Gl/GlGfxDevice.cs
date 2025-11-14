@@ -311,6 +311,14 @@ void main() {
         Flush(GlApi.Triangles, alpha < 1f ? BlendMode.Transparent : BlendMode.Opaque, null, false);
     }
 
+    public void FillRectRgb(GfxRect rect, byte r, byte g, byte b, float alpha)
+    {
+        if (rect.IsEmpty || alpha <= 0f)
+            return;
+        Quad(rect.Left, rect.Top, rect.Right + 1, rect.Bottom + 1, 0, 0, 0, 0, r / 255f, g / 255f, b / 255f, Math.Min(alpha, 1f));
+        Flush(GlApi.Triangles, alpha < 1f ? BlendMode.Transparent : BlendMode.Opaque, null, false);
+    }
+
     public void DrawRectOutline(GfxRect rect, int colorIndex)
     {
         if (rect.IsEmpty)

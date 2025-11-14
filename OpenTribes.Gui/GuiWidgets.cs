@@ -111,7 +111,7 @@ public sealed class GuiCommandView : GuiControl
         int ry = gy;
         p.Bitmap(B(8), gx + W - B(8).Width, ry);
         ry += B(8).Height;
-        int rfill = H - (ry - gy) - B(6).Height;
+        int rfill = H - (ry - gy) - B(7).Height - B(6).Height;
         p.BitmapStretch(B(14), gx + W - B(14).Width, ry, B(14).Width, rfill);
         ry += rfill;
         p.Bitmap(B(7), gx + W - B(7).Width, ry);

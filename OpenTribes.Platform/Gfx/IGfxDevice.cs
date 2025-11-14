@@ -30,6 +30,10 @@ public interface IGfxDevice : IDisposable
     void DrawLine(int x0, int y0, int x1, int y1, int colorIndex);
     void DrawRectOutline(GfxRect rect, int colorIndex);
     void FillRect(GfxRect rect, int colorIndex, float alpha = 1f);
+    // A blend of a plain colour over the surface (the damage flash); devices without a surface ignore it.
+    void FillRectRgb(GfxRect rect, byte r, byte g, byte b, float alpha)
+    {
+    }
 
     // 4 blits: blend mode from the bitmap attributes (2.2.1), palette from its PiDX (3.2).
     void Blit(PbmpBitmap bitmap, int x, int y, BlitFlip flip = BlitFlip.None);
