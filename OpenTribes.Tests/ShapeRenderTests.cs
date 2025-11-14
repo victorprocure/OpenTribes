@@ -38,7 +38,7 @@ public class ShapeRenderTests
         Assert.Equal(1, s.Sequences[0].NumTriggers);
         RsMesh m = s.Meshes[0];
         Assert.Equal(8, m.TexVerts.Length);                     // 1.2 texture vertices
-        Assert.Equal(1, m.Faces[0].T1);
+        Assert.Equal(2, m.Faces[0].T1);
         Assert.Equal(4, m.TexVertsPerFrame);
         Assert.Single(s.Materials);                             // 1.3 material list
         Assert.Equal(2, s.Materials[0].Type);

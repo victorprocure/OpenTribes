@@ -60,6 +60,7 @@ way are added to Open.
 - [x] Terrain textures, light map and orientation, and team skins on interiors.
 - [x] Smooth light maps.
 - [x] Smooth texture magnification.
+- [x] Shape face culling.
 
 ### Shapes, weapons and effects
 

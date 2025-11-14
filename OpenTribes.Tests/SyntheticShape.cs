@@ -99,7 +99,7 @@ public static class SyntheticShape
         w.Write(0.5f); w.Write(1u);
         w.Write(2);                 // remap size
         w.Write(-1);                // always node
-        // mesh: a quad in the XZ plane facing -Y
+        // mesh: a quad in the XZ plane facing -Y (clockwise seen from outside, as the stock faces)
         var mesh = new MemoryStream();
         var mw = new BinaryWriter(mesh);
         mw.Write(4); mw.Write(4); mw.Write(4); mw.Write(2); mw.Write(1); mw.Write(4); mw.Write(1.0f);
@@ -111,8 +111,8 @@ public static class SyntheticShape
         {
             mw.Write(a); mw.Write(ta); mw.Write(b); mw.Write(tb); mw.Write(c); mw.Write(tc); mw.Write(0);
         }
-        Face(0, 0, 1, 1, 2, 2);
-        Face(0, 0, 2, 2, 3, 3);
+        Face(0, 0, 2, 2, 1, 1);
+        Face(0, 0, 3, 3, 2, 2);
         mw.Write(0); mw.Write(1f); mw.Write(1f); mw.Write(1f); mw.Write(-0.5f); mw.Write(0f); mw.Write(-0.5f);
         var shape = new MemoryStream();
         w.Flush();

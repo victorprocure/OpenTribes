@@ -45,6 +45,7 @@ public sealed class ShapeRenderer
     private readonly List<int> mUsed = new();
     private (double x, double y, double z)[] mWp = Array.Empty<(double, double, double)>(), mWn = Array.Empty<(double, double, double)>();
     private (float r, float g, float b)?[] mCol = Array.Empty<(float, float, float)?>();
+    private byte[] mOut = Array.Empty<byte>();
 
     private readonly ShapeAssets mAssets;
     private readonly Dictionary<(RsMesh, int), FrameData> mFrames = new();
@@ -56,7 +57,8 @@ public sealed class ShapeRenderer
     public ShapeRenderer(ShapeAssets assets) => mAssets = assets;
 
     // 1.2: vertex k of a frame is packed[firstVert + k].xyz * scale + origin, in mesh space; the normals are the area
-    // weighted average of the adjacent faces of the frame (the exe normal table of 1.4 is not available to the port).
+    // weighted average of the adjacent faces of the frame, pointing out of the clockwise faces (the exe normal table of 1.4 is
+    // not available to the port; its vectors point out of the faces, as checked on the disc launcher).
     private FrameData Frame(RsMesh mesh, int frame)
     {
         if (mFrames.TryGetValue((mesh, frame), out FrameData? fd))
@@ -78,7 +80,7 @@ public sealed class ShapeRenderer
                 continue;
             float ax = fd.P[fc.V1 * 3] - fd.P[fc.V0 * 3], ay = fd.P[fc.V1 * 3 + 1] - fd.P[fc.V0 * 3 + 1], az = fd.P[fc.V1 * 3 + 2] - fd.P[fc.V0 * 3 + 2];
             float bx = fd.P[fc.V2 * 3] - fd.P[fc.V0 * 3], by = fd.P[fc.V2 * 3 + 1] - fd.P[fc.V0 * 3 + 1], bz = fd.P[fc.V2 * 3 + 2] - fd.P[fc.V0 * 3 + 2];
-            float nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+            float nx = az * by - ay * bz, ny = ax * bz - az * bx, nz = ay * bx - ax * by;   // clockwise faces: outward is the reverse of a x b
             foreach (int v in new[] { fc.V0, fc.V1, fc.V2 })
             {
                 fd.N[v * 3] += nx; fd.N[v * 3 + 1] += ny; fd.N[v * 3 + 2] += nz;
@@ -161,6 +163,7 @@ public sealed class ShapeRenderer
                 mWp = new (double x, double y, double z)[nv * 2];
                 mWn = new (double x, double y, double z)[nv * 2];
                 mCol = new (float r, float g, float b)?[nv * 2];
+                mOut = new byte[nv * 2];
             }
             (double x, double y, double z)[] wp = mWp, wn = mWn;
             (float r, float g, float b)?[] col = mCol;
@@ -169,6 +172,7 @@ public sealed class ShapeRenderer
             {
                 wp[k] = ox.Apply(fd.P[k * 3], fd.P[k * 3 + 1], fd.P[k * 3 + 2]);
                 wn[k] = ox.Rotate(fd.N[k * 3], fd.N[k * 3 + 1], fd.N[k * 3 + 2]);
+                mOut[k] = ClipCode(cam, wp[k]);
             }
             int tvOffset = mesh.TexVertsPerFrame > 0 && mesh.TexVerts.Length / 2 >= (st.TextureFrame + 1) * mesh.TexVertsPerFrame ? st.TextureFrame * mesh.TexVertsPerFrame : 0;
             foreach (RsFace f in mesh.Faces)
@@ -180,7 +184,13 @@ public sealed class ShapeRenderer
                 double ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z, vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
                 double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
                 double facing = nx * (cam.X - a.x) + ny * (cam.Y - a.y) + nz * (cam.Z - a.z);
-                if (FlipWinding ? facing > 0 : facing < 0)
+                // 2.4 step 6: the stock faces are clockwise seen from outside and the cull drops the counter-clockwise ones, but
+                // only for a face wholly inside every clip plane. One that crosses a plane goes to the clipper, which draws it
+                // whatever its winding. A face outside one shared plane is dropped.
+                int oc = mOut[f.V0] | mOut[f.V1] | mOut[f.V2];
+                if (oc != 0 && (mOut[f.V0] & mOut[f.V1] & mOut[f.V2]) != 0)
+                    continue;
+                if (oc == 0 && (FlipWinding ? facing < 0 : facing > 0))
                 {
                     ++LastCulled;
                     continue;
@@ -235,7 +245,7 @@ public sealed class ShapeRenderer
                 if (!group && shading == 2)
                 {
                     double l = Math.Sqrt(nx * nx + ny * ny + nz * nz);
-                    faceCol = p.Light.At((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3, l > 0 ? nx / l : 0, l > 0 ? ny / l : 0, l > 0 ? nz / l : 1);
+                    faceCol = p.Light.At((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3, l > 0 ? -nx / l : 0, l > 0 ? -ny / l : 0, l > 0 ? -nz / l : 1);
                 }
                 List<Vertex3D> list = mBatches[mi];
                 for (int k = 0; k < 3; ++k)
@@ -270,6 +280,23 @@ public sealed class ShapeRenderer
         img.Category = translucent ? 1 : 0;
         img.SortKey = (p.FixedSortKey ?? (translucent ? RenderLists.SortKey(depth, cam.Near) : 0)) + p.SortBias;
         return img.Batches.Count == 0 ? null : img;
+    }
+
+    // The clip bits of the exe's vertex test: 0x01 behind the near plane, 0x02 beyond the far plane, 0x08 and 0x10 left and right
+    // of the window, 0x20 and 0x40 above and below it (`005aab18` reads them as `& 0x7f`).
+    private static byte ClipCode(in Camera3D cam, (double x, double y, double z) w)
+    {
+        var (cx, cy, cz) = cam.ToCamera(w.x, w.y, w.z);
+        int c = 0;
+        if (cy < cam.Near) c |= 1;
+        else if (cy > cam.Far) c |= 2;
+        if (cy > 1e-9)
+        {
+            double sx = cx * cam.FocalLength / cy, sy = cz * cam.FocalLength / cy;
+            if (sx < -cam.Width / 2.0) c |= 8; else if (sx > cam.Width / 2.0) c |= 16;
+            if (sy > cam.Height / 2.0) c |= 32; else if (sy < -cam.Height / 2.0) c |= 64;
+        }
+        return (byte)c;
     }
 
     // 1.3.2: the draw state of a material. False when the material needs a bitmap that is missing.
