@@ -9,7 +9,7 @@ public interface IGfxTexture : IDisposable
     int Height { get; }
 }
 
-public readonly record struct TextureOptions(bool Mipmaps, bool Repeat, bool Linear, bool SmoothMag = false);
+public readonly record struct TextureOptions(bool Mipmaps, bool Repeat, bool Linear);
 
 // One world-space vertex (docs/renderer.md 5.6 item 1, with the haze amount of 5.2 VertexColorRecord): position,
 // texture coordinate, light map coordinate, shade colour and haze (0 clear, 1 fully the haze colour).

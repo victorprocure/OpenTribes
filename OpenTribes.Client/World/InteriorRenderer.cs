@@ -302,7 +302,7 @@ public sealed class InteriorRenderer : IDisposable
                     lod.AtlasRgba[o + 3] = 255;
                 }
         }
-        lod.Atlas = mDev.CreateTexture3D(lod.AtlasRgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true, true));
+        lod.Atlas = mDev.CreateTexture3D(lod.AtlasRgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
     }
 
     private IGfxTexture? MaterialTexture(string? name)

@@ -121,9 +121,8 @@ void main() {
         fixed (byte* p = rgba)
             gl.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, width, height, 0, GlApi.Rgba, GlApi.UnsignedByte, p);
         uint filter = options.Linear ? GlApi.Linear : GlApi.Nearest;
-        // Magnified texels stay square: the stock shots show chunky pixels on terrain, floors and shapes at every distance
-        // while minified areas are smooth (docs/renderer.md Q2). Light maps (SmoothMag) are bilinear.
-        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)(options.SmoothMag ? GlApi.Linear : GlApi.Nearest));
+        // Magnified texels are bilinear like the stock client's (compared at 640 x 480 and 1280 x 960 with tools/shotdiff.py).
+        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)filter);
         gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter,
                           options.Mipmaps ? (int)(options.Linear ? GlApi.LinearMipmapLinear : 0x2700) : (int)filter);
         uint wrap = options.Repeat ? GlApi.Repeat : GlApi.ClampToEdge;

@@ -116,7 +116,7 @@ public sealed class TerrainRenderer : IDisposable
     private void EnsureTextures()
     {
         if (mLight == null)
-            mLight = mDev.CreateTexture3D(mData.LightRgba(), TerrainData.Cells, TerrainData.Cells, new TextureOptions(false, true, true, true));
+            mLight = mDev.CreateTexture3D(mData.LightRgba(), TerrainData.Cells, TerrainData.Cells, new TextureOptions(false, true, true));
         if (mAtlas == null)
         {
             var rgbaCache = new Dictionary<int, byte[]?>();

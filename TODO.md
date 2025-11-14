@@ -59,6 +59,7 @@ way are added to Open.
 - [x] Mission palette stays active in the play view.
 - [x] Terrain texture orientation and team skins on interiors.
 - [x] Smooth light maps.
+- [x] Smooth texture magnification.
 
 ### Shapes, weapons and effects
 
