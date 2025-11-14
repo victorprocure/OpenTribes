@@ -199,7 +199,13 @@ public class WorldRenderTests
         Assert.Equal(7, t.LightWord(2 + 8, 1 + 4)); // wraps at N
         byte[] rgba = t.LightRgba();
         Assert.Equal(256 * 256 * 4, rgba.Length);
-        Assert.Equal(0x0f, rgba[0]);
+        Assert.Equal(0x00, rgba[0]);
+        Assert.Equal(((byte)0xff, (byte)0xff, (byte)0xff), TerrainData.ExpandLightPacked(0xffff));
+        Assert.Equal(((byte)0x44, (byte)0x44, (byte)0x44), TerrainData.ExpandLightPacked(0x4444)); // n * 17
+        Assert.Equal(((byte)0x11, (byte)0x22, (byte)0x33), TerrainData.ExpandLightPacked(0xf123));
+        Assert.Equal((byte)198, TerrainData.Quantize5(194));
+        Assert.Equal((byte)0, TerrainData.Quantize5(7));
+        Assert.Equal((byte)255, TerrainData.Quantize5(255));
     }
 
     // ---- WR 2.4, 2.5 square selection ----
@@ -581,7 +587,7 @@ public class WorldRenderTests
         IGfxDevice d = dev;
         d.SetPalette(Palette());
 
-        // tiny terrain: 4 x 4 squares tiled up to 256, flat at height 0, light map 0x8888 (nibble 8 -> 0x8f = 143)
+        // tiny terrain: 4 x 4 squares tiled up to 256, flat at height 0, light map 0x8888 (nibble 8 -> 8 / 15 = 136)
         GridBlock b = Block(4, (x, y) => 0f, (x, y) => (0, (byte)0));
         var light = new ushort[25];
         Array.Fill(light, (ushort)0x8888);
@@ -630,10 +636,10 @@ public class WorldRenderTests
         Assert.Equal(1, interiors.DrawnSurfaces);
         // the top row sees the sky area above the horizon: the clear colour
         Assert.Equal((10, 20, 30), At(2, 1));
-        // bottom of the view: near terrain, an untextured material times the 0x8f light map nibble (143), no haze this close
+        // bottom of the view: near terrain, an untextured material times the 0x8 light map nibble read back as 8 / 15 (136), no haze this close
         var near = At(d.Width / 2, d.Height - 3);
-        Assert.InRange(near.r, 140, 146);
-        Assert.InRange(near.g, 140, 146);
+        Assert.InRange(near.r, 133, 139);
+        Assert.InRange(near.g, 133, 139);
         // the cube face: white texture (material 255) times the constant 0xffff light map, haze 0 (distance 20 m < hazeStart)
         var wall = At(d.Width / 2, d.Height / 2);
         Assert.InRange(wall.r, 250, 255);

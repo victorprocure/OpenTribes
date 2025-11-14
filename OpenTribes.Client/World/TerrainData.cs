@@ -126,13 +126,34 @@ public sealed class TerrainData
     public static (byte r, byte g, byte b) ExpandLight(ushort w) =>
         ((byte)((((w >> 8) & 0xf) << 4) | 0xf), (byte)((((w >> 4) & 0xf) << 4) | 0xf), (byte)(((w & 0xf) << 4) | 0xf));
 
-    // 256 x 256 RGBA8 of the light map, row y = cell row y.
+    // The light map as the stock client stores it by default (16-bit packed textures, 4 bits per channel): the nibble n
+    // reads back as n / 15, so 8-bit n * 17. The mono nibble is ignored.
+    public static (byte r, byte g, byte b) ExpandLightPacked(ushort w) =>
+        ((byte)(((w >> 8) & 0xf) * 17), (byte)(((w >> 4) & 0xf) * 17), (byte)((w & 0xf) * 17));
+
+    // A texture colour channel as it comes back from the stock client's 5 bit packed upload: the top 5 bits are kept,
+    // then read back as (v << 3) | (v >> 2), the expansion of the GL driver (a sky colour of 194 reads back as 198).
+    public static byte Quantize5(byte c) => (byte)(((c >> 3) << 3) | (c >> 5));
+
+    // Quantizes the colour channels of an RGBA8 image in place (alpha unchanged).
+    public static byte[] QuantizeRgba5(byte[] rgba)
+    {
+        for (int i = 0; i < rgba.Length; i += 4)
+        {
+            rgba[i] = Quantize5(rgba[i]);
+            rgba[i + 1] = Quantize5(rgba[i + 1]);
+            rgba[i + 2] = Quantize5(rgba[i + 2]);
+        }
+        return rgba;
+    }
+
+    // 256 x 256 RGBA8 of the light map, row y = cell row y (the packed 4 bit read back).
     public byte[] LightRgba()
     {
         var rgba = new byte[Cells * Cells * 4];
         for (int i = 0; i < Cells * Cells; ++i)
         {
-            var (r, g, b) = ExpandLight(mLight[i]);
+            var (r, g, b) = ExpandLightPacked(mLight[i]);
             rgba[i * 4] = r;
             rgba[i * 4 + 1] = g;
             rgba[i * 4 + 2] = b;
