@@ -294,7 +294,7 @@ public sealed class InteriorRenderer : IDisposable
                     int k = Math.Clamp(y, 0, hh - 1) * w + Math.Clamp(x, 0, w - 1);
                     if (k >= maps[i]!.Length)
                         continue;
-                    var (r, g, b) = TerrainData.ExpandLight(maps[i]![k]);
+                    var (r, g, b) = TerrainData.ExpandLightPacked(maps[i]![k]);
                     int o = ((py + y) * lod.AtlasW + px + x) * 4;
                     lod.AtlasRgba[o] = r;
                     lod.AtlasRgba[o + 1] = g;
@@ -317,7 +317,7 @@ public sealed class InteriorRenderer : IDisposable
             return t;
         PbmpBitmap? bmp = mAssets.Bitmap(name);
         t = bmp != null && bmp.Width > 0 && bmp.Height > 0
-            ? mDev.CreateTexture3D(mAssets.Rgba(bmp, true), bmp.Width, bmp.Height, new TextureOptions(true, true, true))
+            ? mDev.CreateTexture3D(TerrainData.QuantizeRgba5(mAssets.Rgba(bmp, true)), bmp.Width, bmp.Height, new TextureOptions(true, true, true))
             : null;
         mTextures[name] = t;
         return t;

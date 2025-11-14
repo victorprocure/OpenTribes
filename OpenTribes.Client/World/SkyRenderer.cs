@@ -15,6 +15,11 @@ public sealed class SkyRenderer : IDisposable
     public double Visible = 600;
     public bool Textured { get; }
 
+    // 4.1 Init sets the band radius to 1.5 * visible. The stock shots (Broadside, Raindance, visible 600 and 450) match
+    // best when the panel geometry has 1.8 * visible: a sweep of the factor over 1.0 to 1.6 had its minimum at 1.2 for both
+    // missions (the cause in the exe is not found; it is measured).
+    public const double BandRadiusFactor = 1.8;
+
     // materials: bitmap names of the sky `.dml` (null when the sky has no material list: solid sky).
     public SkyRenderer(IGfxDevice dev, WorldAssets assets, List<string?>? materials, int[] textures, double size,
                        double featurePosition, double visible, (float, float, float) skyColor, (float, float, float) hazeColor)
@@ -42,7 +47,7 @@ public sealed class SkyRenderer : IDisposable
                     continue;
                 first ??= bmp;
                 if (!cache.TryGetValue(m, out IGfxTexture? tex))
-                    cache[m] = tex = mDev.CreateTexture3D(assets.Rgba(bmp, true), bmp.Width, bmp.Height, new TextureOptions(false, false, true));
+                    cache[m] = tex = mDev.CreateTexture3D(TerrainData.QuantizeRgba5(assets.Rgba(bmp, true)), bmp.Width, bmp.Height, new TextureOptions(false, false, true));
                 mPanelTextures[i] = tex;
             }
         }
@@ -67,7 +72,7 @@ public sealed class SkyRenderer : IDisposable
     {
         if (!Textured)
             return;
-        double radius = 1.5 * Visible;
+        double radius = BandRadiusFactor * Visible;
         var lower = new (float x, float y, float z)[Panels + 1];
         var upper = new (float x, float y, float z)[Panels + 1];
         for (int i = 0; i <= Panels; ++i)

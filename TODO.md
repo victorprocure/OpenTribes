@@ -61,6 +61,7 @@ way are added to Open.
 - [x] Smooth light maps.
 - [x] Smooth texture magnification.
 - [x] Shape face culling.
+- [x] Interior and sky texture colours and sky band size.
 
 ### Shapes, weapons and effects
 
