@@ -490,7 +490,12 @@ public sealed class ClientEvents
                     r.Add("index", index);
                     r.Add("text", text);
                     e.Text = "index=" + index + " text=" + Repr(text);
-                    e.Apply = () => pm.Objectives.Add(text);
+                    e.Apply = () =>
+                    {
+                        pm.Objectives.Add(text);
+                        if (index >= 0 && index < pm.ObjectiveLines.Length)
+                            pm.ObjectiveLines[index] = text;
+                    };
                     break;
                 }
             case 0x45c: // LocSoundEvent

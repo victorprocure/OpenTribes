@@ -38,6 +38,8 @@ public sealed class ClientPlayerManager
     public string ClientHeading = "", TeamHeading = "";
     public readonly List<string> Chat = new();
     public readonly List<string> Objectives = new();
+    // The objective lines by index (TeamObjectiveEvent sets one, docs/gui.md 3.3.1): the page of CmdObjectives.gui shows them.
+    public readonly string?[] ObjectiveLines = new string?[32];
     public readonly Dictionary<int, string> TargetNames = new();
     public Action<string>? OnScript;      // script callbacks evaluated in the global namespace (2.4)
     public readonly List<string> Callbacks = new();
