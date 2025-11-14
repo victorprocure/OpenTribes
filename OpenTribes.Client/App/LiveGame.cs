@@ -270,7 +270,9 @@ public sealed class LiveGame : IDisposable
         }
         // Packets already applied before the scene existed (the always phase) are replayed into the model: the
         // ghosts it would have built live in the world's table.
-        mApp.SetPalette(Scene.Assets.Palette);
+        // The mission palette waits for the play view (ClientApp.Frame): the loading screen before it keeps the shell palette.
+        if (mApp.PlayViewActive)
+            mApp.SetPalette(Scene.Assets.Palette);
         mApp.Log($"scene: {name}, {env.Count} environment objects, terrain visible {Scene.Terrain.Visible}");
         foreach (DecodedPacket q in mQueued)
             Model.OnPacket(q);

@@ -90,6 +90,7 @@ way are added to Open.
 - [x] Main menu emblem animation.
 - [x] Server chat messages without a sender prefix.
 - [x] HUD positions, crosshair size and scroll bars.
+- [x] Loading screen palette and progress, and mission reloads.
 
 ### Audio
 

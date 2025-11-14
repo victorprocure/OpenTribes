@@ -548,7 +548,7 @@ public sealed class ClientApp : IDisposable
         }
     }
 
-    private bool PlayViewActive => Canvas.Content?.Id is PlayDelegate.PlayGuiId;
+    internal bool PlayViewActive => Canvas.Content?.Id is PlayDelegate.PlayGuiId;
 
     public void RenderFrame()
     {

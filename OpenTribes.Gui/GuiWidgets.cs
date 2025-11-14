@@ -627,7 +627,8 @@ public sealed class GuiProgress : GuiActive
         int gx = ox + X, gy = oy + Y;
         // The draw [code 005448d8]: the finished part in the control's fill colour (+0x76), then the whole extent outlined in the
         // border colour (+0x79); no background fill.
-        p.Fill(gx, gy, (int)(W * Value), H, FillColor);
+        // the value is a 32 bit float (0.9 of 240 pixels is 215, not 216)
+        p.Fill(gx, gy, (int)(W * (double)(float)Value), H, FillColor);
         p.Outline(gx, gy, W, H, BorderColor);
         RenderChildren(p, gx, gy);
     }

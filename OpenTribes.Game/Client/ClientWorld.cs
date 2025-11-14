@@ -72,6 +72,7 @@ public sealed class ClientWorld
 
     public int PlayerId;            // the client's player id (accept payload, or the .rec header)
     public int ServerId = 2048;     // the server manager id
+    public int AlwaysDoneCount;     // times the always phase ended: a mission reload ghosts the client again
     public bool AlwaysDone;         // onClientGhostAlwaysDone() was evaluated (2.7)
     public uint NetTimeMs;          // net time 0063efb0
 
@@ -97,6 +98,7 @@ public sealed class ClientWorld
         Psc.Reset();
         Ghosts.Clear();
         AlwaysDone = false;
+        AlwaysDoneCount = 0;
         RemoteCalls.Clear();
     }
 }

@@ -68,6 +68,7 @@ public sealed class NetClientSession : ConnectionEvents
     private readonly List<ScriptStep> mScript;
     private int mScriptPos;
     private readonly Dictionary<string, double> mHeld = new();
+    private int mCgaCount;
     private bool mAccepted, mDataSent, mCgaSent, mClosed, mRejected, mSpawn;
     private string mReason = "";
     private long mLastTick;
@@ -246,9 +247,13 @@ public sealed class NetClientSession : ConnectionEvents
             else
                 mGame.PostRemoteEval("dataFinished");
         }
+        // a mission reload ghosts the connected client again and the server waits for the next CGADone
+        if (mCgaSent && mWorld.AlwaysDoneCount > mCgaCount)
+            mCgaSent = false;
         if (!mCgaSent && mWorld.AlwaysDone)
         {
             mCgaSent = true;
+            mCgaCount = mWorld.AlwaysDoneCount;
             if (External)
                 OnAlwaysDone?.Invoke();
             else

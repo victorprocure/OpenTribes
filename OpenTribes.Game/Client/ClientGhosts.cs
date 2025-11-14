@@ -202,6 +202,7 @@ public sealed class ClientGhostManager
             Register(g);
         mAlways.Clear();
         mWorld.AlwaysDone = true;
+        ++mWorld.AlwaysDoneCount;
         OnAlwaysDone?.Invoke();
     }
 
