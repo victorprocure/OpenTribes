@@ -456,8 +456,8 @@ public class ShapeRenderTests
         Assert.Equal(new ThreadSlot(0, 3, 0, true, true), t[0]);
         Assert.Equal(new ThreadSlot(2, -1, 2, false, false), t[1]);
         List<ImageSlot> im = ImageSlot.ParseAll(new List<object?> { "0:img=21 state=-1 01 0 f=0", "1:img=29 state=2 11 1", "2:img=-1 state=-1 00 0 f=0" });
-        Assert.Equal(new ImageSlot(0, 21, -1, 0), im[0]);
-        Assert.Equal(new ImageSlot(1, 29, 2, 1), im[1]);
+        Assert.Equal(new ImageSlot(0, 21, -1, 0, false, true, false), im[0]);
+        Assert.Equal(new ImageSlot(1, 29, 2, 1, true, true, false), im[1]);
         Assert.Equal(-1, im[2].Image);
     }
 
