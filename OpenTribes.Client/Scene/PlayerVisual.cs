@@ -454,7 +454,8 @@ public sealed class PlayerVisual : ShapeVisual
             if (firstPerson && !im.FirstPerson)
                 continue;
             Inst.Animate(Math.Min(detail, Shape.Details.Length - 1));
-            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly);
+            // The image instance draws with its root transform (node 0 default) in front of the mount transform (3.6).
+            Xf xf = im.Shape.RootTransform().Then(ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly));
             ShapeDraw d = ctx.Draw(xf, im.Shape.Name);
             d.Skin = Skin;
             d.Fade = fade;

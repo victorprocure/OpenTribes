@@ -99,6 +99,19 @@ public class ShapeRenderTests
         Assert.Equal(1, r.DetailFor(s, cam, at(20), 0.2));       // the shape detail preference: coarser sooner
     }
 
+    [Fact]
+    public void RootTransformIsTheNodeZeroDefaultAndStaysOutOfTheNodeTable() // SR 3.6 image root transform
+    {
+        RenderShape sh = Shape();
+        int di = sh.Nodes[0].DefaultTransform;
+        sh.Transforms[di] = new RsTransform { Qw = 1, Tx = -0.002, Ty = 0.184, Tz = -0.164 };  // the disc launcher's node 0
+        Xf r = sh.RootTransform();
+        Assert.Equal((-0.002, 0.184, -0.164), r.Apply(0, 0, 0));
+        var inst = new RenderInstance(sh);
+        inst.Animate(0);
+        Assert.Equal((0.0, 0.0, 0.0), inst.NodeWorld[0].Apply(0, 0, 0));
+    }
+
     // ---- SR 3.1 threads, keys ----
 
     [Fact]

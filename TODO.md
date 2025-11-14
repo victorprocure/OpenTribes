@@ -67,6 +67,7 @@ way are added to Open.
 - [x] Players, shapes and effects drawn from a demo.
 - [x] Lightning sway and rain streak size.
 - [x] First-person weapon follows the player's pose, field of view and item commands.
+- [x] Item images placed by their shape root.
 
 ### Menus and HUD
 

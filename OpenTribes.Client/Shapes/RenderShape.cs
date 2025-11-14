@@ -97,6 +97,19 @@ public sealed class RenderShape
         return mNodeBase[(baseName, detail)] = FindNodeBaseUncached(baseName, detail);
     }
 
+    // The instance root transform (shapes-render.md 3.6): the default transform of node 0, which an instance keeps from its
+    // creation and puts in front of every node when it draws. Node 0 itself is never animated and stays at identity in the
+    // node table, so the node positions (mounts, muzzle) do not contain it. Only the Player resets it to identity.
+    public Xf RootTransform()
+    {
+        if (Nodes.Length == 0 || Nodes[0].DefaultTransform < 0 || Nodes[0].DefaultTransform >= Transforms.Length)
+            return Xf.Identity;
+        RsTransform t = Transforms[Nodes[0].DefaultTransform];
+        Xf r = Xf.FromQuat(t.Qx, t.Qy, t.Qz, t.Qw);
+        (r.Px, r.Py, r.Pz) = (t.Tx, t.Ty, t.Tz);
+        return r;
+    }
+
     private readonly Dictionary<(string, int), int> mNodeBase = new();
     private float[]? mDetailSizes;
     private readonly Dictionary<int, DetailNodeSet> mDetailNodes = new();
