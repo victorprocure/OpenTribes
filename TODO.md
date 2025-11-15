@@ -92,7 +92,7 @@ way are added to Open.
 - [x] HUD positions, crosshair size and scroll bars.
 - [x] Loading screen palette and progress, and mission reloads.
 - [x] Damage flash, chat layout, inventory header and command view column.
-- [x] Objectives page.
+- [x] Objectives page on the command screen.
 
 ### Audio
 

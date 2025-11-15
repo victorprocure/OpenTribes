@@ -137,6 +137,7 @@ public static class GuiFactory
             case "SimGui::TextFormat":
             case "FearGui::FGTextFormat":
             case "FearGuiFormattedText": return new GuiTextWrap { Formatted = true };
+            case "FearGui::FGHCommandObjectivePage": return new GuiObjectivePage();
             case "SimGui::ScrollContentCtrl": return new GuiScrollContent();
             case "SimGui::TSControl":
             case "FearGui::TSCommander": return new GuiPlayView();

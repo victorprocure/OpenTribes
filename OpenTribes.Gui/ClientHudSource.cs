@@ -208,6 +208,7 @@ public sealed class ClientHudSource : IHudSource
     // Set by the host: the chat menu a script switched on (the server menu of the Tab key).
     public Func<ServerMenuView?>? MenuSource;
     public ServerMenuView? ServerMenu => MenuSource?.Invoke();
+    public IReadOnlyList<string?> ObjectiveLines => mWorld.Players.ObjectiveLines;
 
     public bool SensorPing => false;
     public bool SensorLocked => false;

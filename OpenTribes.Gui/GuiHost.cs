@@ -192,6 +192,8 @@ public interface IHudSource
     // The scoreboard of the client player manager (docs/client-net.md 2.3 DeltaScoreEvent) and the menu a script put on display.
     ScoreBoard? Scores => null;
     ServerMenuView? ServerMenu => null;
+    // The mission objective lines (TeamObjectiveEvent), 32 slots; a slot nobody set is null.
+    IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
 }
 
 // One row of the weapon HUD: the item's hudIcon, whether its "on" icon shows (the mounted weapon, or a firing one when the item
