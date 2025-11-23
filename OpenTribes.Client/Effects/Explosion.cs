@@ -122,10 +122,19 @@ public sealed class ExplosionEffect : IEffect
             fx /= l; fy /= l; fz /= l;
             if (mShift)
             {
-                double s = Math.Min(mInst.Shape.Radius * 0.3, l * 0.3);
-                px += fx * s; py += fy * s; pz += fz * s;
+                // 4.3: when the camera is in front of the hit surface (axis against the view ray) the image moves toward the camera by
+                // radius / |cos| (at most 3 radii and 0.3 of the distance), which puts the quad's plane clear of the surface.
+                double dot = -(mAx * fx + mAy * fy + mAz * fz);
+                if (dot < 0)
+                {
+                    double k = dot <= -1.0 / 3 ? 1 / dot : -3;
+                    double s = Math.Min(mInst.Shape.Radius * -k, l * 0.3);
+                    px += fx * s; py += fy * s; pz += fz * s;
+                }
             }
-            xf = Mathx.SpinY(mSpin).Then(Mathx.Basis(px, py, pz, fx, fy, fz));
+            // The shape's +Y axis is the view ray, camera to image (4.3): the mesh depth of the cone shaped clouds (local y from -3 to +1)
+            // bulges toward the camera.
+            xf = Mathx.SpinY(mSpin).Then(Mathx.Basis(px, py, pz, -fx, -fy, -fz));
         }
         else
             xf = AxisBasis();

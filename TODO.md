@@ -71,6 +71,7 @@ way are added to Open.
 - [x] First-person weapon follows the player's pose, field of view and item commands.
 - [x] Item images and other shapes placed by their shape root.
 - [x] Weapon state machine on other players.
+- [x] Explosion images face the camera.
 
 ### Menus and HUD
 
