@@ -316,6 +316,7 @@ public sealed class LiveGame : IDisposable
             return false;
         DemoRender.CameraPose c = pose.Value;
         var ctx = new FrameContext { HazeStart = Scene.Terrain.HazeStart, Visible = Scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
+        Scene.DynamicLights = Model.CollectLights().Points;
         Scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, cam =>
         {
             ctx.Camera = cam;

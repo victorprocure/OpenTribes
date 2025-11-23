@@ -19,7 +19,8 @@ public sealed class ProjectileVisual : Visual
     private bool mHavePos, mExploded;
     private double mLastSmokeX, mLastSmokeY, mLastSmokeZ;
     private bool mSmokeInit;
-    private readonly Queue<(double x, double y, double z)> mTrail = new();
+    private bool mTrailInit;                    // trailType 1: the ribbon starts at the first render and draws from the second
+    private double mTailX, mTailY, mTailZ;
     private double mSpin;
 
     public override (double x, double y, double z)? Position => mHavePos ? (PosNow()) : null;
@@ -154,12 +155,6 @@ public sealed class ProjectileVisual : Visual
                 (mLastSmokeX, mLastSmokeY, mLastSmokeZ) = (x, y, z);
             }
         }
-        if ((int)Db.Num(mBlock, "trailType") == 1)
-        {
-            mTrail.Enqueue((x, y, z));
-            while (mTrail.Count > 12)
-                mTrail.Dequeue();
-        }
     }
 
     public PointLight? Light
@@ -195,14 +190,54 @@ public sealed class ProjectileVisual : Visual
             if (img != null)
                 ctx.Lists.Add(img);
         }
-        // trailType 1: a ribbon behind the projectile (Q9: the bitmap is not specified; a white to clear additive strip)
-        if (mTrail.Count >= 2 && (int)Db.Num(mBlock, "trailType") == 1)
+        if ((int)Db.Num(mBlock, "trailType") == 1)
+            BuildTrail(ctx, x, y, z);
+    }
+
+    // 4.5 trailType 1 (RocketData `trailAdd2.bmp` ribbon): a quad from a tail point to the projectile. The tail stays where it was
+    // until it is `trailLength` behind the projectile and then follows at that distance. The quad is `trailWidth` wide at the
+    // projectile and a third of that at the tail, along the projectile's right axis (velocity cross world up), so it is a flat
+    // horizontal ribbon and not camera facing. Additive, two sided, depth tested and written, v scrolls five times a second.
+    private void BuildTrail(FrameContext ctx, double x, double y, double z)
+    {
+        double sp = Math.Sqrt(mVx * mVx + mVy * mVy + mVz * mVz);
+        double fx = sp > 1e-6 ? mVx / sp : 0, fy = sp > 1e-6 ? mVy / sp : 1, fz = sp > 1e-6 ? mVz / sp : 0;
+        Xf axes = Mathx.Basis(x, y, z, fx, fy, fz);
+        double length = Db.Num(mBlock, "trailLength", 10), width = Db.Num(mBlock, "trailWidth", 0.3);
+        if (!mTrailInit)
         {
-            var pts = mTrail.Select(t => new[] { t.x, t.y, t.z }).ToList();
-            RenderImage strip = Beams.Strip(ctx, null, pts, Db.Num(mBlock, "trailWidth", 0.3), 0.6f, 0.7f, 1f, 0.6f, 1, "trail");
-            strip.SortKey = RenderLists.SortKey(Math.Max(ctx.Camera.ToCamera(x, y, z).y, ctx.Camera.Near), ctx.Camera.Near);
-            ctx.Lists.Add(strip);
+            (mTailX, mTailY, mTailZ, mTrailInit) = (x, y, z, true);
+            return;
         }
+        double vx = mTailX - x, vy = mTailY - y, vz = mTailZ - z;
+        double len = Math.Sqrt(vx * vx + vy * vy + vz * vz);
+        if (len > length)
+        {
+            double k = length / len;
+            (mTailX, mTailY, mTailZ) = (x + vx * k, y + vy * k, z + vz * k);
+        }
+        TexEntry? tex = ctx.Assets.Texture("trailAdd2.bmp");
+        if (tex?.Texture == null)
+            return;
+        float f = (float)(M.Time * 5 - Math.Floor(M.Time * 5));
+        double ht = width / 6, hh = width / 2;
+        (double x, double y, double z) Off(double bx, double by, double bz, double h, int sign) =>
+            (bx + axes.M0 * h * sign, by + axes.M1 * h * sign, bz + axes.M2 * h * sign);
+        var p0 = Off(mTailX, mTailY, mTailZ, ht, 1);
+        var p1 = Off(mTailX, mTailY, mTailZ, ht, -1);
+        var p2 = Off(x, y, z, hh, -1);
+        var p3 = Off(x, y, z, hh, 1);
+        Vertex3D V((double x, double y, double z) p, float u, float v) => new((float)p.x, (float)p.y, (float)p.z, u, v, 0, 0, 0);
+        Vertex3D a0 = V(p0, 1, f * 0.5f), a1 = V(p1, 0, f * 0.5f), a2 = V(p2, 0, (f + 1) * 0.5f), a3 = V(p3, 1, (f + 1) * 0.5f);
+        var img = new RenderImage { Category = 1, Label = "trail" };
+        img.Batches.Add(new DrawBatch
+        {
+            Vertices = new[] { a0, a1, a2, a0, a2, a3, a3, a2, a1, a3, a1, a0 },
+            State = new DrawState3D(tex.Texture, null, true, 0, true, true, BlendMode.Additive),
+        });
+        // the sort key follows the tail point (near / depth of the tail)
+        img.SortKey = RenderLists.SortKey(ctx.Camera.ToCamera(mTailX, mTailY, mTailZ).y, ctx.Camera.Near);
+        ctx.Lists.Add(img);
     }
 }
 

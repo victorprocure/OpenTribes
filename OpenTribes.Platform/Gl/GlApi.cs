@@ -99,6 +99,8 @@ public sealed unsafe class GlApi
     public readonly delegate* unmanaged[Cdecl]<int, float, void> Uniform1f_;
     public readonly delegate* unmanaged[Cdecl]<int, float, float, float, void> Uniform3f_;
     public readonly delegate* unmanaged[Cdecl]<int, int, byte, float*, void> UniformMatrix4fv_;
+    public readonly delegate* unmanaged[Cdecl]<int, int, float*, void> Uniform3fv_;
+    public readonly delegate* unmanaged[Cdecl]<int, int, float*, void> Uniform4fv_;
 
     // The loader returns the address of a GL function, or zero (SDL_GL_GetProcAddress).
     public GlApi(Func<string, IntPtr> loader)
@@ -169,6 +171,8 @@ public sealed unsafe class GlApi
         Uniform1f_ = (delegate* unmanaged[Cdecl]<int, float, void>)Load("glUniform1f");
         Uniform3f_ = (delegate* unmanaged[Cdecl]<int, float, float, float, void>)Load("glUniform3f");
         UniformMatrix4fv_ = (delegate* unmanaged[Cdecl]<int, int, byte, float*, void>)Load("glUniformMatrix4fv");
+        Uniform3fv_ = (delegate* unmanaged[Cdecl]<int, int, float*, void>)Load("glUniform3fv");
+        Uniform4fv_ = (delegate* unmanaged[Cdecl]<int, int, float*, void>)Load("glUniform4fv");
     }
 
     public string GetString(uint name)

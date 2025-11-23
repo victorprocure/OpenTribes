@@ -56,6 +56,10 @@ public interface IGfxDevice : IDisposable
     void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB);
     // Replaces the camera (for example the near and far planes) inside a scene.
     void SetCamera3D(in Camera3D camera);
+    // Dynamic point lights added to the light map of every later draw that has one (interiors and terrain). Up to
+    // MaxDynamicLights are used; an empty span turns them off. Devices without lighting ignore the call.
+    const int MaxDynamicLights = 16;
+    void SetDynamicLights(ReadOnlySpan<DynamicLight> lights) { }
     void Draw3D(ReadOnlySpan<Vertex3D> triangles, in DrawState3D state);
     void EndScene3D();
 }

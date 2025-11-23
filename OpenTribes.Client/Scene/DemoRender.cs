@@ -327,6 +327,7 @@ public static class DemoRender
                     scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, DrawShapes, null);
                 }
             }
+            scene.DynamicLights = model.CollectLights().Points;
             scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, DrawShapes, ui == null ? null : () =>
             {
                 ui.Clock = (long)(t * 1000);

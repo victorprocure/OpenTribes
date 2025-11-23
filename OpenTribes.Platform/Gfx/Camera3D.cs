@@ -25,6 +25,10 @@ public struct Vertex3D
     }
 }
 
+// A point light that adds to the light map of the world surfaces (docs/world-render.md 2.9, 3.7): colour times (1 - d / range)
+// for every texel within range, clamped to 1 with the light map.
+public readonly record struct DynamicLight(float X, float Y, float Z, float Range, float R, float G, float B);
+
 // docs/renderer.md 5.4 state, reduced to what the world draws use: texture times shade times light map, the haze
 // overlay folded into the fragment (5.5, Q7), alpha blend, keyed transparency (alpha test), depth test and write.
 // BlendKind picks the blend function when Blend is set (shapes-render.md 1.3.2): Translucent is source alpha, Additive adds

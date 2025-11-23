@@ -1,3 +1,4 @@
+using OpenTribes.Client.Shapes;
 using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.World;
@@ -188,6 +189,30 @@ public sealed class WorldScene : IDisposable
     public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background) =>
         new(x, y, z, yaw, pitch, fov, w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10));
 
+    // The point lights of the frame (explosions, projectiles, items): they add to the light map of terrain and interior surfaces
+    // within range (world-render.md 2.9, 3.7). Set by the caller before Render; the nearest ones to the camera are used.
+    public IReadOnlyList<PointLight>? DynamicLights;
+
+    private void SendDynamicLights(double cx, double cy, double cz)
+    {
+        if (DynamicLights == null || DynamicLights.Count == 0)
+        {
+            mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
+            return;
+        }
+        var near = new List<PointLight>();
+        foreach (PointLight l in DynamicLights)
+            if (l.Range > 0)
+                near.Add(l);
+        near.Sort((a, b) => ((a.X - cx) * (a.X - cx) + (a.Y - cy) * (a.Y - cy) + (a.Z - cz) * (a.Z - cz))
+                  .CompareTo((b.X - cx) * (b.X - cx) + (b.Y - cy) * (b.Y - cy) + (b.Z - cz) * (b.Z - cz)));
+        int n = Math.Min(near.Count, IGfxDevice.MaxDynamicLights);
+        var arr = new DynamicLight[n];
+        for (int i = 0; i < n; ++i)
+            arr[i] = new DynamicLight((float)near[i].X, (float)near[i].Y, (float)near[i].Z, (float)near[i].Range, near[i].R, near[i].G, near[i].B);
+        mDev.SetDynamicLights(arr);
+    }
+
     public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null)
     {
         int w = mDev.Width, h = mDev.Height;
@@ -207,10 +232,12 @@ public sealed class WorldScene : IDisposable
                 p.Draw(bg);
         }
         mDev.SetCamera3D(world);
+        SendDynamicLights(x, y, z);
         using (FramePerf.Scope("terrain"))
             TerrainDraw?.Draw(world);
         using (FramePerf.Scope("interiors"))
             Interiors?.Draw(world, Terrain);
+        mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
         overlay?.Invoke(world);
         mDev.EndScene3D();
         using (FramePerf.Scope("gui-draw"))

@@ -20,7 +20,9 @@ out vec2 vUv;
 out vec2 vLm;
 out vec4 vColor;
 out float vHaze;
+out vec3 vWorld;
 void main() {
+    vWorld = aPos;
     gl_Position = uViewProj * vec4(aPos, 1.0);
     vUv = aUv;
     vLm = aLm;
@@ -33,6 +35,10 @@ in vec2 vUv;
 in vec2 vLm;
 in vec4 vColor;
 in float vHaze;
+in vec3 vWorld;
+uniform int uDynCount;
+uniform vec4 uDynPos[16];
+uniform vec3 uDynCol[16];
 uniform sampler2D uTex;
 uniform sampler2D uLight;
 uniform int uUseTex;
@@ -44,7 +50,14 @@ void main() {
     vec4 c = vColor;
     if (uUseTex != 0) c *= texture(uTex, vUv);
     if (uAlphaTest > 0.0 && c.a < uAlphaTest) discard;
-    if (uUseLight != 0) c.rgb *= texture(uLight, vLm).rgb;
+    if (uUseLight != 0) {
+        vec3 lm = texture(uLight, vLm).rgb;
+        for (int i = 0; i < uDynCount; ++i) {
+            float d = distance(vWorld, uDynPos[i].xyz);
+            lm += uDynCol[i] * max(0.0, 1.0 - d / uDynPos[i].w);
+        }
+        c.rgb *= min(lm, vec3(1.0));
+    }
     c.rgb = mix(c.rgb, uHaze, clamp(vHaze, 0.0, 1.0));
     oColor = c;
 }";
@@ -65,6 +78,9 @@ void main() {
     }
 
     private uint mProgram3D, mVao3D, mVbo3D;
+    private int mU3DynCount, mU3DynPos, mU3DynCol;
+    private int mDynCount;
+    private readonly float[] mDynPos = new float[16 * 4], mDynCol = new float[16 * 3];
     private int mU3ViewProj, mU3Tex, mU3Light, mU3UseTex, mU3UseLight, mU3AlphaTest, mU3Haze;
     private float mHazeR, mHazeG, mHazeB;
     private bool mIn3D;
@@ -84,6 +100,9 @@ void main() {
         mU3UseLight = gl.UniformLocation(mProgram3D, "uUseLight");
         mU3AlphaTest = gl.UniformLocation(mProgram3D, "uAlphaTest");
         mU3Haze = gl.UniformLocation(mProgram3D, "uHaze");
+        mU3DynCount = gl.UniformLocation(mProgram3D, "uDynCount");
+        mU3DynPos = gl.UniformLocation(mProgram3D, "uDynPos[0]");
+        mU3DynCol = gl.UniformLocation(mProgram3D, "uDynCol[0]");
         mVao3D = gl.GenVertexArray();
         mVbo3D = gl.GenBuffer();
         gl.BindVertexArray_(mVao3D);
@@ -157,6 +176,29 @@ void main() {
         gl.DepthMask_(1);
         gl.Clear_(GlApi.DepthBufferBit);
         SetCamera3D(camera);
+    }
+
+    public void SetDynamicLights(ReadOnlySpan<DynamicLight> lights)
+    {
+        if (mProgram3D == 0)
+            Init3D();
+        int n = Math.Min(lights.Length, IGfxDevice.MaxDynamicLights);
+        for (int i = 0; i < n; ++i)
+        {
+            DynamicLight l = lights[i];
+            (mDynPos[i * 4], mDynPos[i * 4 + 1], mDynPos[i * 4 + 2], mDynPos[i * 4 + 3]) = (l.X, l.Y, l.Z, Math.Max(l.Range, 1e-3f));
+            (mDynCol[i * 3], mDynCol[i * 3 + 1], mDynCol[i * 3 + 2]) = (l.R, l.G, l.B);
+        }
+        mDynCount = n;
+        gl.UseProgram_(mProgram3D);
+        gl.Uniform1i_(mU3DynCount, n);
+        if (n > 0)
+        {
+            fixed (float* p = mDynPos)
+                gl.Uniform4fv_(mU3DynPos, n, p);
+            fixed (float* p = mDynCol)
+                gl.Uniform3fv_(mU3DynCol, n, p);
+        }
     }
 
     public void SetCamera3D(in Camera3D camera)

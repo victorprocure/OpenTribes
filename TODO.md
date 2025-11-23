@@ -62,6 +62,7 @@ way are added to Open.
 - [x] Smooth texture magnification.
 - [x] Shape face culling.
 - [x] Interior and sky texture colours and sky band size.
+- [x] Dynamic lights on interiors and terrain.
 
 ### Shapes, weapons and effects
 
@@ -72,6 +73,7 @@ way are added to Open.
 - [x] Item images and other shapes placed by their shape root.
 - [x] Weapon state machine on other players.
 - [x] Explosion images face the camera.
+- [x] Rocket trail.
 
 ### Menus and HUD
 
