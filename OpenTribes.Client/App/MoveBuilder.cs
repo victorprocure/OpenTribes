@@ -22,8 +22,16 @@ public sealed class MoveBuilder
     public float TurnAcc, PitchAcc;
     public float YawSpeedKey, PitchSpeedKey, TurnLeftKey, TurnRightKey, LookUpKey, LookDownKey;
     public uint FireCounter = 0, SampledFire = 0;
-    public bool ThirdPerson;                 // +0xa0: the VIEW toggle
+    public bool ThirdPerson;                 // not +0xa0 (first person): the VIEW toggle (0040706c.. PlayerPSC_onActionDefault)
     public double CurrentFov = 90;
+    // +0x9c: the third person distance, 0 in first person and up to 4 m, eased at 15 m/s (4.2 step 1).
+    public float ViewDist;
+    public const float MaxViewDist = 4f;
+    // The zoom (DAT_0060f0b0 on) and its target FOV (DAT_0060f0a4, stock first 45): INC_SNIPER_FOV only changes the target and
+    // the view only follows it while the zoom is on.
+    public bool ZoomOn;
+    public double ZoomTarget = 45;
+    public bool FirstPersonNow => !ThirdPerson && ViewDist == 0;
     // True when the control object may look (vtable +0x11c) and when PITCH is reversed (flier with $pref::flipFlierY).
     public Func<bool> CanLook = () => true;
     public Func<bool> ReversePitch = () => false;
@@ -77,21 +85,41 @@ public sealed class MoveBuilder
             case YawSpeed: YawSpeedKey = Clamp(v, -1, 1); return true;
             case View:
                 ThirdPerson = !ThirdPerson;
-                CurrentFov = ThirdPerson ? PrefFov() : 90;
+                ZoomOn = false;
+                CurrentFov = ThirdPerson ? 90 : PrefFov();
                 return true;
             case SniperFov:
-                CurrentFov = v != 0 ? 45 : 90;
+                if (v == 0)
+                {
+                    ZoomOn = false;
+                    CurrentFov = FirstPersonNow ? PrefFov() : 90;
+                }
+                else if (FirstPersonNow)
+                {
+                    ZoomOn = true;
+                    CurrentFov = ZoomTarget;
+                }
                 return true;
             case IncSniperFov:
                 {
-                    int cur = (int)CurrentFov;
-                    CurrentFov = v >= 0
-                        ? cur switch { 45 => 22.5, 22 => 11.25, 11 => 5.625, _ => 45 }
-                        : cur switch { 5 => 11.25, 11 => 22.5, 22 => 45, _ => 5.625 };
+                    int cur = (int)ZoomTarget;
+                    ZoomTarget = v > 0
+                        ? cur switch { 5 => 45, 11 => 5.625, 22 => 11.25, 45 => 22.5, _ => 45 }
+                        : cur switch { 5 => 11.25, 11 => 22.5, 22 => 45, 45 => 5.625, _ => 45 };
+                    if (ZoomOn)
+                        CurrentFov = ZoomTarget;
                     return true;
                 }
             default: return false;
         }
+    }
+
+    // 4.2 step 1: the view distance moves toward 0 in first person and toward 4 otherwise, 15 * dt * 0.001 per call.
+    public void UpdateViewDist(uint prev, uint now)
+    {
+        float step = 15f * (now - prev) * 0.001f;
+        float target = ThirdPerson ? MaxViewDist : 0f;
+        ViewDist = ViewDist < target ? Math.Min(ViewDist + step, target) : Math.Max(ViewDist - step, target);
     }
 
     private Move Current(bool fire, float turn, float pitch) => new()
@@ -105,6 +133,7 @@ public sealed class MoveBuilder
     // boundaries crossed to the PSC buffer (at most 30 wait for acknowledgement).
     public int Collect(ClientPsc psc, uint prev, uint now)
     {
+        UpdateViewDist(prev, now);
         long n = (((long)now - 1) >> 5) - (((long)prev - 1) >> 5);
         if (n <= 0)
             return 0;
@@ -142,5 +171,8 @@ public sealed class MoveBuilder
         TurnAcc = PitchAcc = 0;
         YawSpeedKey = PitchSpeedKey = TurnLeftKey = TurnRightKey = LookUpKey = LookDownKey = 0;
         FireCounter = SampledFire = 0;
+        ThirdPerson = false;
+        ViewDist = 0;
+        ZoomOn = false;
     }
 }

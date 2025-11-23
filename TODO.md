@@ -109,6 +109,7 @@ way are added to Open.
 - [x] Timed input scripts, chat and play view cursor.
 - [x] Relative mouse mode changes only when needed.
 - [x] Scripts can post actions to the play view.
+- [x] Third-person view and zoom.
 
 ### Platforms
 

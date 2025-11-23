@@ -451,9 +451,11 @@ public sealed class ClientAppTests : IDisposable
         b.OnAction(MoveBuilder.Strafe, 0.005f);
         Assert.Equal((0f, 0f), (b.Left, b.Right));
         b.OnAction(MoveBuilder.IncSniperFov, 1f);
-        Assert.Equal(45, b.CurrentFov);
-        b.OnAction(MoveBuilder.IncSniperFov, 1f);
+        Assert.Equal(90, b.CurrentFov);           // not zoomed: only the target changes (PlayerPSC_onActionDefault 0x35bd2)
+        b.OnAction(MoveBuilder.SniperFov, 1f);
         Assert.Equal(22.5, b.CurrentFov);
+        b.OnAction(MoveBuilder.IncSniperFov, 1f);
+        Assert.Equal(11.25, b.CurrentFov);
     }
 
     // ---- automation ----

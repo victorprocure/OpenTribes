@@ -292,6 +292,11 @@ public sealed class LiveGame : IDisposable
             var (ex, ey, ez) = DemoRender.EyeOf(Model, cp.ControlGhost, d[0], d[1], d[2], p.Rotation[2], p.Pitch);
             pose = new DemoRender.CameraPose(ex, ey, ez, p.Rotation[2] * 180 / Math.PI, p.Pitch * 180 / Math.PI, true, cp.ControlGhost);
         }
+        // Player_getCameraTransform 00412324: with the view distance (PSC +0x9c) at 0.01 or more the camera is the eye moved back along
+        // the view direction by that distance and the control object is drawn as seen from outside. The terrain and interior ray that
+        // shortens the distance in the original is not done here.
+        if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && mApp.Play.Moves.ViewDist >= 0.01f)
+            pose = DemoRender.Orbit(fp.X, fp.Y, fp.Z, fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180, mApp.Play.Moves.ViewDist);
         return pose;
     }
 
