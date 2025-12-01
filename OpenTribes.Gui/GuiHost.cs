@@ -55,6 +55,10 @@ public sealed class GuiHost
     public readonly List<(string Text, uint FontTag)> Chat = new();
     public void AddChat(string text, uint fontTag = 0) => Chat.Add((text, fontTag));
 
+    // The current command line of the chat display (message type 4) and the state that decides whether and how it is drawn.
+    public string CommandText = "";
+    public bool CommandActive, CommandAccepted;
+
     // Client::centerPrint(text, type) [code 0042276c]: one message buffer and its type (0 centred, 1 near the bottom, 2 near the
     // top). The scripts clear it with an empty text after their own timeout.
     public string CenterText = "";

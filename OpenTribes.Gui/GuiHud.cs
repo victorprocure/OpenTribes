@@ -467,6 +467,30 @@ public sealed class GuiChatDisplay : GuiHud
     // Text starts 4 + 6 pixels from the left (the 6 is half of the stock indent value 12, `00623478`) and the lines stack upward from
     // 6 pixels above the bottom, one font height apart [code 004a633c]. Measured on stock frames: play screen and inventory screen.
     public const int InsetX = 4, IndentX = 6, BottomInset = 6;
+    // Height = lines * line height + 6 (DAT_00623474), see SetLines.
+    public const int HeightPad = 6;
+
+    // The font of a message type [code 004a5124, loaded by 004a5b54]: 0 white, 1 and 4 red, 3 green, any other yellow; the
+    // low resolution set (canvas below 512 x 384) has the 6 point versions.
+    public static string FontName(uint type, bool low) => type switch
+    {
+        0 => low ? "sf_white_6.pft" : "if_w_10b.pft",
+        1 or 4 => low ? "sf_red_6.pft" : "sf_red_10b.pft",
+        3 => low ? "sf_green_6.pft" : "if_g_10b.pft",
+        _ => low ? "sf_yellow_6.pft" : "sf_yellow_10b.pft",
+    };
+
+    // Next line count of the size action with a negative value [code 004a7030]: 3, 5, 20, 3; a value from 0 sets it.
+    public static int NextLines(int current, int value) => value >= 0 ? value : current switch { 3 => 5, 5 => 20, _ => 3 };
+
+    // IDACTION_CHAT_DISP_SIZE: sets the line count and resizes the control to lines * line height + 6 (the top stays).
+    public void SetLines(int value)
+    {
+        int n = NextLines((int)U("lines", 3), value);
+        F["lines"] = (uint)n;
+        PftFont? f = Host?.FontByName(FontName(0, Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384))) ?? Host?.FontByName("sf_white_10.pft");
+        H = n * (f == null ? 13 : GuiPaint.FontHeight(f)) + HeightPad;
+    }
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
@@ -484,16 +508,29 @@ public sealed class GuiChatDisplay : GuiHud
             HudFrame.Bracket(p, x + W - 1, y, -4, y + H - 1);
         }
         var lines = new List<(List<GuiMarkup.Run> Runs, PftFont Font)>();
+        bool low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
         foreach (var (text, tag) in Host.Chat)
         {
-            PftFont? f = Host.FontByTag(tag) ?? Host.FontByName("sf_white_10.pft");
+            PftFont? f = Host.FontByName(FontName(tag, low)) ?? Host.FontByName("sf_white_10.pft");
             if (f == null)
                 continue;
             foreach (var l in GuiMarkup.WrapText(Host, f, text, W - 2 * InsetX))
                 lines.Add((l, f));
         }
+        // The command line takes the bottom of the display (one line of the count) while the local player holds a command.
+        var cmdLines = new List<List<GuiMarkup.Run>>();
+        PftFont? cmdFont = null;
+        if (Host.CommandActive && Host.CommandText.Length > 0)
+        {
+            cmdFont = Host.FontByName(FontName(Host.CommandAccepted ? 3u : 4u, low)) ?? Host.FontByName("sf_white_10.pft");
+            if (cmdFont != null)
+                cmdLines.AddRange(GuiMarkup.WrapText(Host, cmdFont, Host.CommandText, W - 2 * InsetX));
+            n = Math.Max(0, n - 1);
+        }
         int start = Math.Max(0, lines.Count - n);
         int ty = y + H - BottomInset;
+        if (cmdFont != null)
+            ty -= cmdLines.Count * GuiPaint.FontHeight(cmdFont);
         for (int i = start; i < lines.Count; ++i)
             ty -= GuiPaint.FontHeight(lines[i].Font);
         for (int i = start; i < lines.Count; ++i)
@@ -501,6 +538,12 @@ public sealed class GuiChatDisplay : GuiHud
             GuiMarkup.Draw(p, Host, lines[i].Font, x + InsetX + IndentX, ty, lines[i].Runs);
             ty += GuiPaint.FontHeight(lines[i].Font);
         }
+        if (cmdFont != null)
+            foreach (var l in cmdLines)
+            {
+                GuiMarkup.Draw(p, Host, cmdFont, x + InsetX + IndentX, ty, l);
+                ty += GuiPaint.FontHeight(cmdFont);
+            }
     }
 }
 

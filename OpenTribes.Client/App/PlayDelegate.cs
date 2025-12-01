@@ -9,7 +9,7 @@ namespace OpenTribes.Client.App;
 
 public sealed class PlayDelegate : IActionConsumer
 {
-    public const uint PlayGuiId = 140114, CommandGuiId = 140200, ChatEntryId = 140112, HudListId = 140220;
+    public const uint PlayGuiId = 140114, CommandGuiId = 140200, ChatEntryId = 140112, ChatDisplayId = 140113, HudListId = 140220;
     public const int Chat = 220200, ChatDispSize = 220201, ChatDispPage = 220202, MenuPage = 220203, EscapePressed = 220204;
 
     private readonly ClientApp mApp;
@@ -115,6 +115,10 @@ public sealed class PlayDelegate : IActionConsumer
                     return true;
                 }
             case ChatDispSize:
+                // 0040cf74 case 0x35c29: the chat display (140113) cycles 3, 5 and 20 lines [code 004a7030].
+                if (mApp.GuiRt.FindControl(ChatDisplayId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiChatDisplay disp)
+                    disp.SetLines((int)value);
+                return true;
             case ChatDispPage:
                 return true;
             case MenuPage:
