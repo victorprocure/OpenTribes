@@ -11,13 +11,106 @@ public sealed class ChatMenuNode
     public bool Leaf;
     public List<string> Commands = new();        // leaf: at most 10 words
     public readonly List<ChatMenuNode> Children = new();
+    public ChatMenuNode? Parent;
 }
 
 // src/game/client_game_commands.hpp struct ChatMenuTree.
 public sealed class ChatMenuTree
 {
     public readonly ChatMenuNode Root = new();
-    public int Mode; // setCMMode, 0-2
+
+    public ChatMenuTree() => mLevel = Root;
+
+    private int mMode; // setCMMode, 0-2
+    private ChatMenuNode mLevel; // the node whose children are on display (Root at the top)
+    private int mReleaseKey;      // scan code of the key press this menu consumed: its release is consumed too [code 00402068, field +0x6c]
+
+    // setCMMode [code 00401fe0]: modes 0-2 are stored and the display goes back to the top level.
+    public int Mode
+    {
+        get => mMode;
+        set
+        {
+            mMode = value;
+            mLevel = Root;
+        }
+    }
+
+    // The top level has items and the menu is on: what the chat display draws [code 004a633c: mode and level both non-zero].
+    public bool Showing => mMode != 0 && mLevel.Children.Count > 0;
+
+    // The node whose children are listed now, null when nothing is shown.
+    public ChatMenuNode? Level => Showing ? mLevel : null;
+
+    // The path of headings above the shown level, root first, joined with ':' (empty at the top level, where the menu object's own
+    // title is shown) [code 004a633c title loop].
+    public string Path()
+    {
+        var names = new List<string>();
+        for (ChatMenuNode? n = Level; n != null && n != Root; n = n.Parent)
+            names.Add(n.Text);
+        names.Reverse();
+        return string.Join(':', names);
+    }
+
+    // The item lines of the shown level, "key: text" [code 004a633c].
+    public IReadOnlyList<string> Lines() =>
+        Level == null ? Array.Empty<string>() : Level.Children.Select(c => c.Key + ": " + c.Text).ToList();
+
+    // One keyboard event offered to the menu (InputEvent handler [code 00402068]). Returns true when the menu consumed it.
+    // `scan` is the key code (ObjInst), `action` 1 press and 2 release, `ch` the event's character, `mods` its modifier byte.
+    // `run` executes a leaf's command words (function or command name first).
+    public bool OnKey(int scan, int action, char ch, byte mods, Action<IReadOnlyList<string>> run)
+    {
+        if (action == 2)
+        {
+            if (mReleaseKey != 0 && scan == mReleaseKey)
+            {
+                mReleaseKey = 0;
+                return true;
+            }
+            return false;
+        }
+        if (mMode == 0 || action != 1)
+            return false;
+        if (scan == 1) // Escape [code 00402068]
+        {
+            mReleaseKey = 1;
+            if (mMode == 2)
+            {
+                Mode = 0;
+                return true;
+            }
+            if (mLevel == Root)
+                return false;
+            mLevel = Root;
+            return true;
+        }
+        if (mods != 0 || ch == '\0')
+            return false;
+        // [code 004021cc]: the item with that key runs its command and opens its sub level; no match leaves the key to the game.
+        bool hit = false;
+        ChatMenuNode? found = mLevel.Children.FirstOrDefault(c => c.Key == ch);
+        if (found != null)
+        {
+            hit = true;
+            if (found.Commands.Count > 0)
+                run(found.Commands);
+            // The command may have switched the menu (setCMMode resets the level); the original reads the item's link afterwards
+            // and overwrites the level with it.
+            if (found.Leaf)
+            {
+                mLevel = Root;
+                if (mMode == 2)
+                    Mode = 0;
+            }
+            else
+                mLevel = found;
+        }
+        if (hit)
+            mReleaseKey = scan;
+        return hit;
+    }
 
     // src/game/client_game_commands.cpp ChatMenuTree::add: false: empty string, empty item, or the last item's key already
     // exists at its level.
@@ -50,7 +143,7 @@ public sealed class ChatMenuTree
                 level = found;
                 continue;
             }
-            var node = new ChatMenuNode { Key = key, Text = text.Length > 31 ? text[..31] : text, Leaf = last };
+            var node = new ChatMenuNode { Key = key, Text = text.Length > 31 ? text[..31] : text, Leaf = last, Parent = level };
             if (last)
                 node.Commands = commands.Take(Math.Min(commands.Count, 10)).ToList();
             level.Children.Add(node);
@@ -67,6 +160,7 @@ public sealed class ChatMenuRegistry
     private readonly Dictionary<SimObject, (int Id, ChatMenuTree Tree)> mTrees = new(ReferenceEqualityComparer.Instance);
     private SimObject? mActive;
     private string mActiveName = "";
+    private readonly Dictionary<SimObject, string> mNames = new(ReferenceEqualityComparer.Instance);
 
     // Keyed by object and id; an entry whose id no longer matches is stale.
     public ChatMenuTree Of(SimObject obj)
@@ -83,6 +177,7 @@ public sealed class ChatMenuRegistry
     public void SetMode(SimObject obj, string name, int mode)
     {
         Of(obj).Mode = mode;
+        mNames[obj] = name;
         if (mode > 0)
         {
             mActive = obj;
@@ -90,6 +185,30 @@ public sealed class ChatMenuRegistry
         }
         else if (ReferenceEquals(mActive, obj))
             mActive = null;
+    }
+
+    // A keyboard event offered to every menu that is on (the menus are members of the input consumer set, `sim.md` GS4). The first
+    // menu that consumes it wins. `run` executes the command words of a leaf.
+    public bool OnKey(GameState game, int scan, int action, char ch, byte mods, Action<IReadOnlyList<string>> run)
+    {
+        foreach (var (obj, slot) in mTrees.ToArray())
+        {
+            if (slot.Id != obj.Id() || !mNames.TryGetValue(obj, out string? name) ||
+                game.Sim?.Server()?.Find(name) is not SimObject now || !ReferenceEquals(now, obj))
+                continue;
+            if ((slot.Tree.Mode != 0 || action == 2) && slot.Tree.OnKey(scan, action, ch, mods, run))
+                return true;
+        }
+        return false;
+    }
+
+    // The tree of the named menu while it is on and shows items, else null.
+    public (string Title, ChatMenuTree Tree)? Showing(GameState game, string name)
+    {
+        if (game.Sim?.Server()?.Find(name) is not SimObject obj || obj.ClassName() != "ChatMenu")
+            return null;
+        ChatMenuTree tree = Of(obj);
+        return tree.Showing ? (obj is SimClasses.ChatMenu m ? m.Title : "", tree) : null;
     }
 
     // The menu on display, null when none is on, or its object was deleted.

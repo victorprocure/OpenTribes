@@ -428,7 +428,7 @@ public sealed class ClientApp : IDisposable
     {
         Host.Chat.Clear();
         Host.CenterPrint("", 0);
-        Host.Hud = new ClientHudSource(g.World, () => GuiRt.ClockSeconds) { MenuSource = CurrentMenu };
+        Host.Hud = new ClientHudSource(g.World, () => GuiRt.ClockSeconds) { MenuSource = CurrentMenu, PlayMenuSource = PlayMenu };
     }
 
     // The console world of the client: the chat menus of the scripts live in it.
@@ -437,22 +437,25 @@ public sealed class ClientApp : IDisposable
     // The chat menu a script has on display (remoteNewMenu: setCMMode(CurServerMenu, 1)) with the items of its top level.
     public ServerMenuView? CurrentMenu()
     {
-        if (mGameState.ChatMenus.Active(mGameState) is not var (title, tree))
+        if (mGameState.ChatMenus.Showing(mGameState, "CurServerMenu") is not var (title, tree))
             return null;
         return new ServerMenuView(title, tree.Root.Children.Select(c => (c.Key, c.Text)).ToList());
     }
 
-    // A key while a menu is on display: the item with that key runs its command (the `clientMenuSelect` of the server menu).
-    private bool MenuKey(char ch)
+    // The player chat menu (`v`) as the chat display draws it [code 004a633c].
+    public PlayMenuView? PlayMenu()
     {
-        if (mGameState.ChatMenus.Active(mGameState) is not var (_, tree))
-            return false;
-        ChatMenuNode? node = tree.Root.Children.FirstOrDefault(c => char.ToLowerInvariant(c.Key) == char.ToLowerInvariant(ch));
-        if (node == null || !node.Leaf || node.Commands.Count == 0)
-            return false;
-        Interp.CallFunction(node.Commands[0], node.Commands.Skip(1).ToArray());
-        return true;
+        if (mGameState.ChatMenus.Showing(mGameState, "PlayChatMenu") is not var (title, tree))
+            return null;
+        string path = tree.Path();
+        return new PlayMenuView(path.Length == 0 ? title : path, tree.Lines());
     }
+
+    // A key event while a chat menu is on (the menus take events before the canvas, `client-scripts.md` 3.6 step 3): the item with that
+    // key runs its command words as a console command [code 00402068, 004021cc].
+    private bool MenuKey(InputEvent ev, char ch) =>
+        ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10 &&
+        mGameState.ChatMenus.OnKey(mGameState, ev.ObjInst, ev.Action, ch, ev.Modifiers, words => Interp.CallFunction(words[0], words.Skip(1).ToArray()));
 
     // Chat lines of the client PlayerManager go to the HUD chat ring (client-net.md 2.4).
     public void PumpChat(LiveGame g, ref int seen)
@@ -677,7 +680,7 @@ public sealed class ClientApp : IDisposable
 
     private bool OfferToGui(InputEvent ev, float value, char ch)
     {
-        if (ev.DeviceType == 3 && ev.Action == 1 && ch != '\0' && Canvas.FirstResponder is not GuiTextEdit && MenuKey(ch))
+        if (Canvas.FirstResponder is not GuiTextEdit && MenuKey(ev, ch))
             return true;
         var raw = new RawInput
         {

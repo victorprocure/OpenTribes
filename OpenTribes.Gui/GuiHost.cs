@@ -196,6 +196,8 @@ public interface IHudSource
     // The scoreboard of the client player manager (docs/client-net.md 2.3 DeltaScoreEvent) and the menu a script put on display.
     ScoreBoard? Scores => null;
     ServerMenuView? ServerMenu => null;
+    // The player chat menu (`v`) as the chat display draws it: heading line and item lines, null when it is closed.
+    PlayMenuView? PlayMenu => null;
     // The mission objective lines (TeamObjectiveEvent), 32 slots; a slot nobody set is null.
     IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
 }
@@ -211,6 +213,10 @@ public readonly record struct ScoreRow(int Id, string Text, int Sort);
 
 // A chat menu on display: its title and the items of its top level with the key that selects each.
 public sealed record ServerMenuView(string Title, IReadOnlyList<(char Key, string Text)> Items);
+
+// The player chat menu on display: the heading (the menu's title at the top level, else the headings above joined with ':') and the
+// item lines ("key: text").
+public sealed record PlayMenuView(string Heading, IReadOnlyList<string> Lines);
 
 // One item datablock for the inventory lists: heading (the first character is the sort key), description, price, the count the
 // player carries, and the shopping and buying bits of the station masks.
@@ -233,4 +239,6 @@ public sealed class StaticHudSource : IHudSource
     public ScoreBoard? Scores => Board;
     public ServerMenuView? Menu { get; set; }
     public ServerMenuView? ServerMenu => Menu;
+    public PlayMenuView? PlayMenuValue { get; set; }
+    public PlayMenuView? PlayMenu => PlayMenuValue;
 }

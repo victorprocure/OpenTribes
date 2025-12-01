@@ -492,7 +492,40 @@ public sealed class GuiChatDisplay : GuiHud
         H = n * (f == null ? 13 : GuiPaint.FontHeight(f)) + HeightPad;
     }
 
+    // The player chat menu under the message window [code 004a633c, after the frame]: drawn when `chatE` is 0 and the menu is on, with
+    // the heading and the items in if_g_10b one font height apart, starting right below the control (its top plus its height). When the list would
+    // reach the bottom of the screen it sits above the control instead, 8 pixels clear of it.
+    private void RenderMenu(GuiPaint p, int x, int y)
+    {
+        if (Host?.Hud?.PlayMenu is not PlayMenuView menu || U("chatE") != 0)
+            return;
+        PftFont? f = Host?.FontByName("if_g_10b.pft");
+        if (f == null)
+            return;
+        int h = GuiPaint.FontHeight(f);
+        int total = h * (menu.Lines.Count + 1);
+        int ty = y + H;
+        int screenH = Canvas?.Height ?? p.Dev.Height;
+        if (screenH <= ty + total)
+            ty = y - total - 8;
+        p.Text(f, x, ty, menu.Heading);
+        ty += h;
+        foreach (string line in menu.Lines)
+        {
+            p.Text(f, x, ty, line);
+            ty += h;
+        }
+    }
+
     public override void Render(GuiPaint p, int ox, int oy)
+    {
+        if (Host == null)
+            return;
+        RenderMessages(p, ox, oy);
+        RenderMenu(p, ox + X, oy + Y);
+    }
+
+    private void RenderMessages(GuiPaint p, int ox, int oy)
     {
         if (Host == null)
             return;
