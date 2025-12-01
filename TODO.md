@@ -97,7 +97,7 @@ way are added to Open.
 - [x] Damage flash, chat layout, inventory header and command view column.
 - [x] Objectives page on the command screen.
 - [x] Chat display size, message fonts and command line.
-- [x] Chat and command menu.
+- [x] Chat and command menu, drawn in full.
 
 ### Audio
 

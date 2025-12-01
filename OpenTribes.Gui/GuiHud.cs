@@ -508,6 +508,9 @@ public sealed class GuiChatDisplay : GuiHud
         int screenH = Canvas?.Height ?? p.Dev.Height;
         if (screenH <= ty + total)
             ty = y - total - 8;
+        // The original sets its clip to the whole surface first [code 004a633c]: the list lies outside the control's own rectangle.
+        GfxRect saved = p.Clip;
+        p.SetClip(new GfxRect(0, 0, p.Dev.Width - 1, p.Dev.Height - 1));
         p.Text(f, x, ty, menu.Heading);
         ty += h;
         foreach (string line in menu.Lines)
@@ -515,6 +518,7 @@ public sealed class GuiChatDisplay : GuiHud
             p.Text(f, x, ty, line);
             ty += h;
         }
+        p.SetClip(saved);
     }
 
     public override void Render(GuiPaint p, int ox, int oy)
