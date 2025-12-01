@@ -707,6 +707,27 @@ public sealed class ClientCommandHandlers
 
     private void RegisterMisc()
     {
+        // getManagerId 00422ac0 on a client: the id of its own player (2049 on a first join), 2048 without a connection.
+        Cmd("getManagerId", a => mApp.Game is { Joined: true } g ? g.World.PlayerId.ToString(System.Globalization.CultureInfo.InvariantCulture) : "2048");
+        // cmd_Client_getName 0041de34 and cmd_Client_getTeam 0041e1c0 read the client PlayerManager's records here.
+        Cmd("Client::getName", a =>
+        {
+            if (a.Length != 2)
+            {
+                I.Print(1, "wrong argcount to getPlayerName(playerId);");
+                return "";
+            }
+            return mApp.Game?.World.Players.Get(Numbers.BorlandAtoi(a[1]))?.Name ?? "";
+        });
+        Cmd("Client::getTeam", a =>
+        {
+            if (a.Length != 2)
+            {
+                I.Print(1, "wrong argcount to getPlayerName(playerId);");
+                return "-1";
+            }
+            return (mApp.Game?.World.Players.Get(Numbers.BorlandAtoi(a[1]))?.Team ?? -1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        });
         Cmd("quit", a =>
         {
             mApp.RequestQuit();

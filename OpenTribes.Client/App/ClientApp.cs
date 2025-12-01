@@ -460,10 +460,24 @@ public sealed class ClientApp : IDisposable
         List<string> chat = g.World.Players.Chat;
         if (seen > chat.Count)
             seen = 0;
+        List<int> types = g.World.Players.ChatTypes;
         for (; seen < chat.Count; ++seen)
-            Host.AddChat(chat[seen]);
+        {
+            int type = seen < types.Count ? types[seen] : 0;
+            // Type 4 is the one-line current command (FearGuiChatDisplay slot 0x100), not a ring line (004a525c).
+            if (type == 4)
+                Host.CommandText = chat[seen];
+            else
+                Host.AddChat(chat[seen], (uint)type);
+            // PlayerManager_message 0040dbfc also prints the line to the console as MSG: "<escaped text>".
+            Interp.Print(1, "MSG: \"" + Builtins.ExportEscape(chat[seen]) + "\"");
+        }
         if (Host.Chat.Count > 200)
             Host.Chat.RemoveRange(0, Host.Chat.Count - 200);
+        // The command line shows while the local record holds a command (+0x40 >= 0), green once its status is 2 (004a633c).
+        ClientPlayerRecord? me = g.World.Players.Get(g.World.PlayerId);
+        Host.CommandActive = me != null && me.Commander >= 0;
+        Host.CommandAccepted = me != null && me.CommandStatus == 2;
     }
 
     // ---- frame loop (client-app.md 2.2) ----

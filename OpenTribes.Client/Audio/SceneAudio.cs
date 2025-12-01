@@ -15,7 +15,7 @@ public sealed class SceneAudio
     private Db Db => M.Db;
 
     // $pref::playVoices (1.5): the stock default when unset is true.
-    public bool PlayVoices = true;
+    public bool PlayVoices => M.World.Players.PlayVoices();
     // Surface type (0..14) of a terrain material byte for the footstep tables (3.2); empty means type 0.
     public List<Material>? TerrainMaterials;
 
@@ -48,6 +48,7 @@ public sealed class SceneAudio
         M = m;
         Sound = sound;
         Sequencer = new SoundSequencer(sound);
+        M.World.Players.ChatVoice = ChatWave;
     }
 
     private void Count(string what, int handle)

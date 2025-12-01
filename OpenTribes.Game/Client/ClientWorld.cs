@@ -10,6 +10,7 @@ public sealed class ClientPlayerRecord
     public string Name = "", Skin = "", Voice = "";
     public bool Male;
     public int Commander = -1;     // +0x40
+    public int CmdIssuer = -1;     // +0x4c: the commander of the current command (PlayerManager_processEvent 0040d45a)
     public int Team = -1;          // +0x14
     public int CommandStatus;      // +0x58
     public string ScoreText = "";  // +0xb0
@@ -37,6 +38,15 @@ public sealed class ClientPlayerManager
     public int TeamCount = -1;
     public string ClientHeading = "", TeamHeading = "";
     public readonly List<string> Chat = new();
+    // The chat display type of each Chat line (PlayerManager_message 0040dbfc arg 2): 0 system, 1 and 4 red, 3 green, else yellow
+    // (FearGuiChatDisplay font table 004a5124).
+    public readonly List<int> ChatTypes = new();
+    // $pref::playVoices as the engine reads it (0040940c): an empty value counts as true. Set by the client app.
+    public Func<bool> PlayVoices = () => true;
+    // Called with (client id, raw text with the ~w tag) when a command text carries a voice (the audio plays the wave).
+    public Action<int, string>? ChatVoice;
+    // PlayerManager +0x24ed4: the text of the last command event, reused when a later one has none.
+    public string LastCommandText = "";
     public readonly List<string> Objectives = new();
     // The objective lines by index (TeamObjectiveEvent sets one, docs/gui.md 3.3.1): the page of CmdObjectives.gui shows them.
     public readonly string?[] ObjectiveLines = new string?[32];
@@ -57,9 +67,23 @@ public sealed class ClientPlayerManager
         HumanCount = PlayerCount = 0;
         TeamCount = -1;
         Chat.Clear();
+        ChatTypes.Clear();
     }
 
-    public void Message(string text) => Chat.Add(text);
+    public void Message(string text, int type = 0)
+    {
+        Chat.Add(text);
+        ChatTypes.Add(type);
+    }
+
+    // 0040940c: with $pref::playVoices on, a `~w<sound>` tag ends the shown text (the sound is played from it).
+    public string StripVoice(string text)
+    {
+        if (!PlayVoices())
+            return text;
+        int i = text.IndexOf("~w", StringComparison.Ordinal);
+        return i < 0 ? text : text[..i];
+    }
 
     public ClientPlayerRecord? Get(int id) => Clients.TryGetValue(id, out ClientPlayerRecord? r) ? r : null;
 }

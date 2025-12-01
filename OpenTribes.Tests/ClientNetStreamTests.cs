@@ -92,6 +92,24 @@ public class ClientNetStreamTests
     }
 
     [Fact]
+    public void CommandTextsLoseTheirVoiceTagAndKeepTheirType()
+    {
+        // 0040ce84 case 10 with 0040940c: the ~w tag ends the shown text, the voice goes to the audio callback, the line type is 3
+        // (ack, "Cmd. to") or 4 (the commanded client sees its commander).
+        var world = new ClientWorld { PlayerId = 2049 };
+        var conn = new ClientGameConnection(world);
+        var voices = new List<(int, string)>();
+        world.Players.ChatVoice = (c, t) => voices.Add((c, t));
+        OutEvent add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
+        OutEvent cmd = CommandMap.MakeCommandEvent(2049, 2049, 0, false, 5, -1, 10, 20, true, true, "Escort Rec.~wescfr");
+        OutEvent ack = CommandMap.MakeCommandEvent(2049, -1, 1, true, -1, -1, 0, 0, true, false, null);
+        conn.Receive(EventPacket((add, 0, false), (cmd, 1, false), (ack, 2, false)));
+        Assert.Equal(new[] { "Rec connected to the game.", "Rec: Escort Rec.", "Rec: Escort Rec." }, world.Players.Chat);
+        Assert.Equal(new[] { 0, 4, 3 }, world.Players.ChatTypes);
+        Assert.Equal(new[] { (2049, "Escort Rec.~wescfr"), (2049, "Escort Rec.~wescfr") }, voices);
+    }
+
+    [Fact]
     public void DatablocksOfEveryGroupRoundTrip()
     {
         // client-net.md 2.6, game-stream.md 4.2: the server pack of a default block of each class, read back by the client.

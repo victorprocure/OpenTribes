@@ -412,7 +412,8 @@ public sealed class ClientEvents
                         pm.Script("onClientMessage(" + from + ", \"" + msg + "\");");
                         // no sender record (server message): the text alone, else "<name>: <text>"
                         var sender = pm.Get((int)from);
-                        pm.Message(sender == null ? msg : sender.Name + ": " + msg);
+                        string shown = pm.StripVoice(msg);
+                        pm.Message(sender == null ? shown : sender.Name + ": " + shown, (int)type);
                     };
                     break;
                 }
@@ -426,7 +427,8 @@ public sealed class ClientEvents
                     string s = "client=" + id + " status=" + status;
                     int issuer = -1;
                     long icon = 0, obj = -1;
-                    if (r.Flag())
+                    bool ack = r.Flag();
+                    if (ack)
                         s += " ack";
                     else if (r.Flag())
                     {
@@ -441,24 +443,62 @@ public sealed class ClientEvents
                         r.Add("y", y);
                         s += " issuer=" + issuer + " icon=" + icon + " target=" + obj + " x=" + x + " y=" + y;
                     }
-                    string? text = null;
-                    if (r.Flag() && r.Flag())
+                    // +0x3d: a message follows; +0x40: its text when the next flag is set (else the last text is shown again).
+                    bool hasMsg = r.Flag();
+                    string? text = hasMsg && r.Flag() ? r.Str() : null;
+                    if (text != null)
                     {
-                        text = r.Str();
                         r.Add("text", text);
                         s += " text=" + Repr(text);
                     }
                     e.Text = s;
                     e.Apply = () =>
                     {
-                        if (pm.Get(id) is ClientPlayerRecord rec)
+                        // 0040d3.. case 10: the voice plays and the shown text loses its ~w tag (0040940c), the line type is 3 (green)
+                        // or 4 (red) with the name of the commander or of the commanded client.
+                        int local = mWorld.PlayerId;
+                        string raw = "";
+                        if (hasMsg)
                         {
-                            rec.CommandStatus = (int)status;
-                            if (issuer != -1)
-                                rec.Commander = issuer;
+                            if (text != null)
+                                pm.LastCommandText = text;
+                            raw = pm.LastCommandText;
                         }
-                        if (text != null)
-                            pm.Message("Cmd. to " + (pm.Get(id)?.Name ?? id.ToString(CultureInfo.InvariantCulture)) + ": " + text);
+                        if (pm.Get(id) is not ClientPlayerRecord rec)
+                            return;
+                        if (!ack)
+                        {
+                            ClientPlayerRecord? who = pm.Get(issuer);
+                            if (who == null)
+                                return;
+                            rec.CommandStatus = (int)status;
+                            rec.Commander = (int)icon;     // record +0x40
+                            rec.CmdIssuer = issuer;
+                            if (hasMsg && (id == local || issuer == local))
+                            {
+                                pm.ChatVoice?.Invoke(who.Id, raw);
+                                string shown = pm.StripVoice(raw);
+                                if (id == local)
+                                    pm.Message(who.Name + ": " + shown, 4);
+                                else
+                                    pm.Message("Cmd. to " + rec.Name + ": " + shown, 3);
+                            }
+                        }
+                        else
+                        {
+                            int old = rec.CmdIssuer;
+                            if (status == 0)
+                            {
+                                rec.Commander = -1;
+                                rec.CmdIssuer = -1;
+                            }
+                            rec.CommandStatus = (int)status;
+                            if (hasMsg && (local == old || local == id))
+                            {
+                                pm.ChatVoice?.Invoke(rec.Id, raw);
+                                pm.Message(rec.Name + ": " + pm.StripVoice(raw), 3);
+                            }
+                        }
                     };
                     break;
                 }

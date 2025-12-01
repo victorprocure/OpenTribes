@@ -91,7 +91,7 @@ way are added to Open.
 - [x] Progress bar, formatted text fonts and alignment.
 - [x] Intro movie plays at start-up.
 - [x] Main menu emblem animation.
-- [x] Server chat messages without a sender prefix.
+- [x] Chat text without voice tags, server messages without a sender prefix.
 - [x] HUD positions, crosshair size and scroll bars.
 - [x] Loading screen palette and progress, and mission reloads.
 - [x] Damage flash, chat layout, inventory header and command view column.

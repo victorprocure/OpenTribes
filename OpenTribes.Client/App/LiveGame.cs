@@ -53,6 +53,13 @@ public sealed class LiveGame : IDisposable
     {
         World = w;
         w.Players.OnScript = text => mApp.Interp.Evaluate(text);
+        // 0040940c: an empty $pref::playVoices is set to TRUE first, then read as a boolean.
+        w.Players.PlayVoices = () =>
+        {
+            if (mApp.Interp.PeekVariable("$pref::playVoices").Length == 0)
+                mApp.Interp.SetVariable("$pref::playVoices", "TRUE");
+            return Numbers.ParseBool(mApp.Interp.PeekVariable("$pref::playVoices"));
+        };
         // client-net.md 2.5: remote<Name>(manager, args...).
         w.OnRemoteCall = (name, args) =>
         {
