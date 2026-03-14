@@ -24,4 +24,31 @@ public sealed class ClientChatDisplayTests
     [InlineData(0u, true, "sf_white_6.pft")]
     public void ChatFontFollowsTheMessageType(uint type, bool low, string expected) =>
         Assert.Equal(expected, GuiChatDisplay.FontName(type, low));
+
+    private static GuiChatDisplay Display(uint lines) => (GuiChatDisplay)GuiFixture.Make("FearGui::FearGuiChatDisplay", 132, 9, 370, 45, ("lines", lines));
+
+    [Fact]
+    public void SizeActionResizesTheControl()
+    {
+        GuiChatDisplay d = Display(3);
+        d.SetLines(-1);
+        Assert.Equal(5, d.Lines);
+        Assert.Equal(5 * 13 + GuiChatDisplay.HeightPad, d.H);
+    }
+
+    // The stock content lookup keeps the display object, so the size set with `u` comes back after another screen.
+    [Fact]
+    public void SizeMemoryAppliesToAReloadedDisplay()
+    {
+        var memory = new ChatSizeMemory();
+        GuiChatDisplay first = Display(3);
+        first.SetLines(-1);
+        first.SetLines(-1);
+        memory.Remember(140114, first);
+        GuiChatDisplay reloaded = Display(3);
+        Assert.False(memory.Apply(140200, reloaded));
+        Assert.Equal(3, reloaded.Lines);
+        Assert.True(memory.Apply(140114, reloaded));
+        Assert.Equal(20, reloaded.Lines);
+    }
 }

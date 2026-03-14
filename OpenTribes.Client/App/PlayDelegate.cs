@@ -18,6 +18,7 @@ public sealed class PlayDelegate : IActionConsumer
     private uint mLastContentId;
     private bool mPlayActive;
     private bool mScoresOn;
+    private readonly ChatSizeMemory mChatSizes = new();
     public bool Removing => false;
     public int MapPushes, MapPops;
 
@@ -33,6 +34,8 @@ public sealed class PlayDelegate : IActionConsumer
             return;
         uint old = mLastContentId;
         mLastContentId = id;
+        if (mApp.GuiRt.FindControl(ChatDisplayId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiChatDisplay kept)
+            mChatSizes.Apply(id, kept);
         bool newPc = id is PlayGuiId or CommandGuiId, oldPc = old is PlayGuiId or CommandGuiId;
         mAction ??= Map("actionMap.sae");
         mPlay ??= Map("playMap.sae");
@@ -117,7 +120,10 @@ public sealed class PlayDelegate : IActionConsumer
             case ChatDispSize:
                 // 0040cf74 case 0x35c29: the chat display (140113) cycles 3, 5 and 20 lines [code 004a7030].
                 if (mApp.GuiRt.FindControl(ChatDisplayId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiChatDisplay disp)
+                {
                     disp.SetLines((int)value);
+                    mChatSizes.Remember(mLastContentId, disp);
+                }
                 return true;
             case ChatDispPage:
                 return true;

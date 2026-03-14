@@ -459,6 +459,25 @@ public static class HudFrame
     }
 }
 
+// The chat display line count per content control id: the stock GuiLoadContentCtrl [code 00535c7c] looks the content up by name before
+// it loads the file, so a size set with IDACTION_CHAT_DISP_SIZE survives the trip through the command and inventory screens. The
+// port loads the file each time, so the count is kept here and applied when the content comes back.
+public sealed class ChatSizeMemory
+{
+    private readonly Dictionary<uint, int> mLines = new();
+
+    public void Remember(uint contentId, GuiChatDisplay disp) => mLines[contentId] = disp.Lines;
+
+    // True when a size was stored for the content and the display took it.
+    public bool Apply(uint contentId, GuiChatDisplay disp)
+    {
+        if (!mLines.TryGetValue(contentId, out int n))
+            return false;
+        disp.SetLines(n);
+        return true;
+    }
+}
+
 // FearGui::FearGuiChatDisplay [code 004a633c]: the message window. With lines > 0 it draws a translucent shade over its extent
 // and the two frame brackets (the `chatE` flag of the file is 0 in the stock play.gui), then the last N chat lines of the host's
 // ring, wrapped to the extent minus the 4 and 2 pixel inset the draw routine applies.
@@ -482,6 +501,8 @@ public sealed class GuiChatDisplay : GuiHud
 
     // Next line count of the size action with a negative value [code 004a7030]: 3, 5, 20, 3; a value from 0 sets it.
     public static int NextLines(int current, int value) => value >= 0 ? value : current switch { 3 => 5, 5 => 20, _ => 3 };
+
+    public int Lines => (int)U("lines", 3);
 
     // IDACTION_CHAT_DISP_SIZE: sets the line count and resizes the control to lines * line height + 6 (the top stays).
     public void SetLines(int value)
