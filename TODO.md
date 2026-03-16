@@ -63,6 +63,7 @@ way are added to Open.
 - [x] Shape face culling.
 - [x] Interior and sky texture colours and sky band size.
 - [x] Dynamic lights on interiors and terrain.
+- [x] Team skins change with the team.
 
 ### Shapes, weapons and effects
 

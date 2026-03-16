@@ -92,6 +92,35 @@ public class ClientNetStreamTests
     }
 
     [Fact]
+    public void TeamChangeGivesTheRecordTheTeamSkin()
+    {
+        // 00406bc4 case 7: the record skin (+0xa0) becomes the skin of the new team; the server sends no PlayerSkinEvent for it, so the
+        // own player of a client that joined with the skin base shows the team colours in third person.
+        var world = new ClientWorld { PlayerId = 2049 };
+        var conn = new ClientGameConnection(world);
+        // The first team added takes the slot of the observer team -1, the next one slot 0 (client-net.md 2.3).
+        OutEvent team0 = GameEvents.MakeTeamAdd(-1, "Observer", "base");
+        OutEvent team1 = GameEvents.MakeTeamAdd(0, "Blood Eagle", "beagle");
+        OutEvent add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
+        var w = new EventWriter();
+        w.PutInt(2049 - 2048, 7);
+        w.PutInt(0 + 1, 4);
+        OutEvent change = w.Finish(0x452);
+        var w2 = new EventWriter();
+        w2.PutInt(2049 - 2048, 7);
+        w2.PutInt(7 + 1, 4);
+        OutEvent unknown = w2.Finish(0x452);
+        conn.Receive(EventPacket((team0, 0, false), (team1, 1, false), (add, 2, false)));
+        Assert.Equal("base", world.Players.Clients[2049].Skin);
+        conn.Receive(EventPacket((change, 3, false)));
+        Assert.Equal("beagle", world.Players.Clients[2049].Skin);
+        Assert.Equal(0, world.Players.Clients[2049].Team);
+        // A team the client does not know leaves the skin alone (findTeam returns null).
+        conn.Receive(EventPacket((unknown, 4, false)));
+        Assert.Equal("beagle", world.Players.Clients[2049].Skin);
+    }
+
+    [Fact]
     public void CommandTextsLoseTheirVoiceTagAndKeepTheirType()
     {
         // 0040ce84 case 10 with 0040940c: the ~w tag ends the shown text, the voice goes to the audio callback, the line type is 3

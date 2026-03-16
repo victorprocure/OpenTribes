@@ -390,6 +390,10 @@ public sealed class ClientEvents
                         if (pm.Get(id) is not ClientPlayerRecord rec)
                             return;
                         rec.Team = team;
+                        // The record takes the skin of the new team [code 00406bc4 case 7: record +0xa0 = team +0xc], so a player whose
+                        // client never got a PlayerSkinEvent (the server sets no skin on a team change) shows the team colours.
+                        if (team >= 0 && pm.Teams.TryGetValue(team, out ClientTeam? skinTeam))
+                            rec.Skin = skinTeam.Skin;
                         pm.Script("onClientChangeTeam(" + id + ", " + team + ");");
                         if (team >= 0 && pm.Teams.TryGetValue(team, out ClientTeam? t))
                             pm.Message(rec.Name + " joined team " + t.Name + ".");
