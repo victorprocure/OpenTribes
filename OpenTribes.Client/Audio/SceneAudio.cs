@@ -30,8 +30,7 @@ public sealed class SceneAudio
         public int Move, Whir, Run, Sustained;
         public readonly int[] SeqSound = new int[3];     // sequence sound handle per thread slot (3.3)
         public readonly int[] SeqPlaying = Enumerable.Repeat(-1, 3).ToArray();   // sequence the sound was started for
-        public readonly int[] Image = new int[8];
-        public readonly int[] ImageLoops = new int[8];
+        public readonly ImageVoiceSlots Image = new();
         public readonly int[] Channel = new int[4];
         public int LastMode = -1, LastFire = -1, LastDamage = -1, LastSound = -1, LastState = -1;
         public double JetOffSince = -1;
@@ -257,14 +256,14 @@ public sealed class SceneAudio
         Sound.Stop(g.Whir);
         Sound.Stop(g.Run);
         Sound.Stop(g.Sustained);
-        foreach (int h in g.Image)
+        foreach (int h in g.Image.Handles)
             Sound.Stop(h);
         foreach (int h in g.SeqSound)
             Sound.Stop(h);
         Array.Clear(g.SeqSound);
         Array.Fill(g.SeqPlaying, -1);
         g.Looper = g.Move = g.Whir = g.Run = g.Sustained = 0;
-        Array.Clear(g.Image);
+        g.Image.Clear();
     }
 
     private int DatablockIndex(Visual v) => (int)Db.ToDouble(v.Ghost.State.GetValueOrDefault("datablock"), -1);
@@ -309,13 +308,7 @@ public sealed class SceneAudio
     {
         if (slot is < 0 or > 7)
             return;
-        GhostSounds g = Gs(pl.Index);
-        if (g.ImageLoops[slot] != 0)
-        {
-            Sound.Stop(g.Image[slot]);
-            g.Image[slot] = 0;
-            g.ImageLoops[slot] = 0;
-        }
+        Sound.Stop(Gs(pl.Index).Image.StateChanged(slot));
     }
 
     public void ImageSound(PlayerVisual pl, int slot, ClientDataBlock? image, string field)
@@ -324,11 +317,7 @@ public sealed class SceneAudio
             return;
         GhostSounds g = Gs(pl.Index);
         int h = Play("Image" + field[3..], Idx(image, field), pl.Position);
-        g.Image[slot] = h;
-        if (h != 0 && Sound.IsLooping(h))
-            g.ImageLoops[slot] = 1;
-        else
-            g.Image[slot] = 0;
+        g.Image.Started(slot, h, h != 0 && Sound.IsLooping(h));
     }
 
     // 3.2 animation sound: a one shot at the player position when a ghost starts an animation whose PlayerData entry has a sound.
@@ -562,7 +551,7 @@ public sealed class SceneAudio
                             }
                         }
                         Follow(g.Looper, pos);
-                        foreach (int h in g.Image)
+                        foreach (int h in g.Image.Handles)
                             Follow(h, pos);
                         break;
                     }

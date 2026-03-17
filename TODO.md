@@ -107,6 +107,7 @@ way are added to Open.
 - [x] Sound manager, sound commands and sounds in the world.
 - [x] Player animation, sequence and turret power sounds.
 - [x] Footstep sounds by surface.
+- [x] Weapon sounds move with the player.
 
 ### Input and controls
 
