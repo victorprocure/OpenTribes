@@ -275,7 +275,10 @@ public sealed class GuiCompassHud : GuiHud
         p.Line((int)cx, (int)cy - top, (int)cx, (int)cy - bottom, 0xf3);
         PftFont? f = Host?.FontByName(lr ? "sf_green_5.pft" : "if_g_8.pft");
         const string text = "000";
-        p.Text(f, (int)cx - GuiPaint.TextWidth(f, text) / 2, (int)cy - GuiPaint.FontHeight(f) / 2, text);
+        // The stock readout sits 1 pixel right and 3 pixels up from a plain cell-centred string (measured against the stock client
+        // at 640x480: the digit ink is centred on the bitmap centre). The low resolution placement is not measured.
+        int dx = lr ? 0 : 1, dy = lr ? 0 : -3;
+        p.Text(f, (int)cx - GuiPaint.TextWidth(f, text) / 2 + dx, (int)cy - GuiPaint.FontHeight(f) / 2 + dy, text);
     }
 }
 

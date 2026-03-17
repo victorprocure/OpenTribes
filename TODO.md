@@ -99,6 +99,7 @@ way are added to Open.
 - [x] Objectives page on the command screen.
 - [x] Chat display size (kept across screens), message fonts and command line.
 - [x] Chat and command menu, drawn in full.
+- [x] Compass readout position.
 
 ### Audio
 
