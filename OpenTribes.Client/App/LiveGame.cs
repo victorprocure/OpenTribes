@@ -274,6 +274,7 @@ public sealed class LiveGame : IDisposable
             mApp.Sound.DataBlocks = World.DataBlocks;
             mAudio = new SceneAudio(Model, mApp.Sound);
             Model.Audio = mAudio;
+            mAudio.SurfaceType = (x, y, z) => Net?.PredictWorld is { } pw ? FootSurface.TypeAt(pw.Game.World, x, y, z) : -1;
         }
         // Packets already applied before the scene existed (the always phase) are replayed into the model: the
         // ghosts it would have built live in the world's table.

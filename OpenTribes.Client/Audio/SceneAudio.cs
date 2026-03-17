@@ -18,6 +18,8 @@ public sealed class SceneAudio
     public bool PlayVoices => M.World.Players.PlayVoices();
     // Surface type (0..14) of a terrain material byte for the footstep tables (3.2); empty means type 0.
     public List<Material>? TerrainMaterials;
+    // Surface type under a foot from the prediction container (terrain and interiors, FootSurface); -1 none. Null offline.
+    public Func<double, double, double, int>? SurfaceType;
 
     // Statistics for the offline report: sounds started per source.
     public readonly Dictionary<string, int> Started = new();
@@ -340,15 +342,18 @@ public sealed class SceneAudio
     public void Footstep(PlayerVisual p, bool right, double x, double y, double z)
     {
         ClientDataBlock? pd = Db.Block(3, (int)Db.ToDouble(p.Ghost.State.GetValueOrDefault("datablock"), -1));
-        int m = 0;
-        if (M.Terrain != null)
+        int m = SurfaceType?.Invoke(x, y, z) ?? -1;
+        if (m < 0 && M.Terrain != null)
         {
+            m = 0;
             float h = 0;
             var n = new Vec3(0, 0, 1);
             int mat = 0;
             if (M.Terrain.Surface((float)x, (float)y, ref h, ref n, ref mat) && TerrainMaterials != null && mat >= 0 && mat < TerrainMaterials.Count)
                 m = Math.Clamp(TerrainMaterials[mat].Type, 0, 14);
         }
+        if (m < 0)
+            m = 0;
         if (Db.Get(pd, $"footSounds[{m}]") is object[] pair && pair.Length >= 2)
             Play("Footstep", (long)Db.ToDouble(pair[right ? 0 : 1], -1), (x, y, z));
     }
