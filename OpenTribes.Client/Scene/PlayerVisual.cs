@@ -214,6 +214,19 @@ public sealed class PlayerVisual : ShapeVisual
         return pick;
     }
 
+    // The control player moves with the prediction or the control state, not with its ghost updates (ControlSample).
+    public void ApplyControl(in ControlSample c)
+    {
+        (X, Y, Z) = (c.X, c.Y, c.Z);
+        (mVx, mVy, mVz) = (c.Vx, c.Vy, c.Vz);
+        mContact = c.Contact;
+        mJet = c.Jetting;
+        mCrouch = c.Crouch;
+        Yaw = c.Yaw;
+        mUpdateTime = M.Time;
+        HavePos = true;
+    }
+
     protected override Xf PoseXf() => Xf.Euler(0, 0, Yaw).Then(Xf.Translate(X + mExtrapX, Y + mExtrapY, Z + mExtrapZ));
     private double mExtrapX, mExtrapY, mExtrapZ;
 

@@ -218,6 +218,7 @@ public sealed class LiveGame : IDisposable
             while (mTickCarry >= 0.032)
             {
                 mTickCarry -= 0.032;
+                FeedControlPlayer();
                 Model!.Tick(0.032);
                 if (mTickCarry > 1)
                     mTickCarry = 0;
@@ -306,6 +307,24 @@ public sealed class LiveGame : IDisposable
         if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && mApp.Play.Moves.ViewDist >= 0.01f)
             pose = DemoRender.Orbit(fp.X, fp.Y, fp.Z, fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180, mApp.Play.Moves.ViewDist);
         return pose;
+    }
+
+    // The control player's visual follows the prediction (else the control state), see ControlSample.
+    private void FeedControlPlayer()
+    {
+        ClientPsc psc = World.Psc;
+        if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not PlayerVisual pv)
+            return;
+        ControlSample? s;
+        if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && psc.ControlClass == "Player")
+        {
+            float[] d = Net.Prediction.DisplayPosition();
+            s = new ControlSample(d[0], d[1], d[2], p.Velocity[0], p.Velocity[1], p.Velocity[2], p.ContactFlag, p.Jetting, p.Crouching, p.Rotation[2]);
+        }
+        else
+            s = ControlSample.FromControlState(psc, psc.ControlGhost);
+        if (s is { } c)
+            pv.ApplyControl(c);
     }
 
     // Step F15: the listener follows the camera.
