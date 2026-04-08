@@ -224,6 +224,20 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.False(frame.CanTake());
         Assert.True(GuiFixture.Make("SimGui::ScrollCtrl", 0, 0, 100, 100).WantsTab);
     }
+
+    // CommandTeamCtrl focusIn 004a93d0, CommandItemCtrl 004aa0fc, CommandTurretCtrl 004aafb4: the commander screen never holds the
+    // keyboard, so the chat menu and command keys reach the action maps there. Other lists still take focus.
+    [Theory]
+    [InlineData("FearGui::CommandTeamCtrl")]
+    [InlineData("FearGui::CommandItemCtrl")]
+    [InlineData("FearGui::CommandTurretCtrl")]
+    public void CommandScreenListsRefuseFocus(string cls)
+    {
+        Assert.False(GuiFixture.Make(cls, 0, 0, 100, 100).CanTake());
+    }
+
+    [Fact]
+    public void OtherListsTakeFocus() => Assert.True(GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 100, 100).CanTake());
 }
 
 public class CompassWaypointTests

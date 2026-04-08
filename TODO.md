@@ -100,6 +100,7 @@ way are added to Open.
 - [x] Chat display size (kept across screens), message fonts and command line.
 - [x] Chat and command menu, drawn in full.
 - [x] Compass readout, waypoint and arrow.
+- [x] Command screen lists leave keys to the game.
 
 ### Audio
 

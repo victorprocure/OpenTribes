@@ -11,6 +11,12 @@ public class GuiList : GuiActive
     public readonly List<(string Text, int Id)> Entries = new();
     public int Selected = -1;
 
+    // The command screen lists override the focus query with a stub [code 004a93d0 CommandTeamCtrl, 004aa0fc CommandItemCtrl,
+    // 004aafb4 CommandTurretCtrl, taken as `return false` (I), like the buttons' 004a05d0]: nothing on the commander screen holds
+    // the keyboard, so every key reaches the action maps (chat menu, command keys). Clicks still select rows.
+    private bool CommandList => ClassName is "FearGui::CommandTeamCtrl" or "FearGui::CommandItemCtrl" or "FearGui::CommandTurretCtrl";
+    public override bool CanTake() => !CommandList && base.CanTake();
+
     protected virtual PftFont? RowFont => Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
     public int RowHeight => Math.Max(8, GuiPaint.FontHeight(RowFont) + 2);
 
