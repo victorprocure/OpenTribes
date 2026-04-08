@@ -159,6 +159,7 @@ public sealed class ClientApp : IDisposable
 
         Input = new InputDispatcher(Maps) { Eval = t => Interp.Evaluate(t) };
         Input.OfferToGui = OfferToGui;
+        Input.GlobalMap = Maps.FindMap("SimGame.sae");
         Play = new PlayDelegate(this);
         Handlers = new ClientCommandHandlers(this);
 

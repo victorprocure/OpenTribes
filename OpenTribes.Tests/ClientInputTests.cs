@@ -297,4 +297,19 @@ public sealed class ClientInputTests
         Assert.Single(s.FindMap("SimGame.sae")!.Bindings);
         Assert.Empty(s.FindMap("other.sae")!.Bindings);
     }
+
+    [Fact]
+    public void GlobalMapBindingEndsTheSearchBeforeTheUnmodifiedRetry()
+    {
+        // 3.6 step 5 and 6: a SimGame `bind` of control-o handles the key, so the plain `o` binding of another map does not run.
+        var (i, s) = Setup();
+        i.Evaluate("newActionMap(\"t.sae\"); bindCommand(keyboard, make, o, TO, \"$PLAIN = 1;\");" +
+                   "bind(keyboard, make, control, o, to, \"$GLOBAL = 1;\");");
+        var d = new InputDispatcher(s) { Eval = t => i.Evaluate(t), GlobalMap = s.FindMap("SimGame.sae") };
+        d.Push(s.FindMap("t.sae")!, new Sink());
+        d.Process(Key(0x1d, true), 1);
+        d.Process(Key(0x18, true), 1);   // o with control held
+        Assert.Equal("1", i.PeekVariable("$GLOBAL"));
+        Assert.NotEqual("1", i.PeekVariable("$PLAIN"));
+    }
 }

@@ -117,6 +117,7 @@ way are added to Open.
 - [x] Relative mouse mode changes only when needed.
 - [x] Scripts can post actions to the play view.
 - [x] Third-person view and zoom.
+- [x] Key maps are searched in the right order.
 
 ### Platforms
 
