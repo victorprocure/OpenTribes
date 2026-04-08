@@ -48,6 +48,12 @@ public sealed class ClientPlayerManager
     // PlayerManager +0x24ed4: the text of the last command event, reused when a later one has none.
     public string LastCommandText = "";
     public readonly List<string> Objectives = new();
+    // The compass waypoint [globals 006a83e4 (target, -1 none), 006a83e8, 006a83ec]. The 10 bit wire pair becomes
+    // value * size / 1024 + origin of the MissionCenterPos rectangle (WaypointToWorld, set by the world).
+    public int WaypointTarget = -1;
+    public double WaypointX, WaypointY;
+    public Func<long, long, (double X, double Y)> WaypointToWorld = (x, y) => (x, y);
+    public void SetWaypointXY(long x, long y) => (WaypointX, WaypointY) = WaypointToWorld(x, y);
     // The objective lines by index (TeamObjectiveEvent sets one, docs/gui.md 3.3.1): the page of CmdObjectives.gui shows them.
     public readonly string?[] ObjectiveLines = new string?[32];
     public readonly Dictionary<int, string> TargetNames = new();
@@ -115,12 +121,21 @@ public sealed class ClientWorld
     public ClientWorld()
     {
         Ghosts = new ClientGhostManager(this);
+        Players.WaypointToWorld = (x, y) =>
+        {
+            double[]? r = Ghosts.All().FirstOrDefault(g => g.Class == "MissionCenterPos")?.State.GetValueOrDefault("rect") as double[];
+            if (r is not { Length: 4 })
+                return (x, y);
+            return ((float)((float)x * (float)r[2] * 0.0009765625f + (float)r[0]), (float)((float)y * (float)r[3] * 0.0009765625f + (float)r[1]));
+        };
+        Psc.OnWaypoint = Players.SetWaypointXY;
     }
 
     public void Reset()
     {
         DataBlocks.Clear();
         Players.Clear();
+        Players.WaypointTarget = -1;
         Psc.Reset();
         Ghosts.Clear();
         AlwaysDone = false;

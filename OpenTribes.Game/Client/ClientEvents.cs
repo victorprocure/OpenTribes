@@ -369,6 +369,7 @@ public sealed class ClientEvents
                 e.Apply = () =>
                 {
                     pm.TeamCount = -1;
+                    pm.WaypointTarget = -1;      // 006a83e4
                     pm.Teams.Clear();
                     foreach (ClientPlayerRecord rec in pm.Clients.Values)
                     {
@@ -430,7 +431,7 @@ public sealed class ClientEvents
                     r.Add("status", status);
                     string s = "client=" + id + " status=" + status;
                     int issuer = -1;
-                    long icon = 0, obj = -1;
+                    long icon = 0, obj = -1, wx = 0, wy = 0;
                     bool ack = r.Flag();
                     if (ack)
                         s += " ack";
@@ -440,6 +441,8 @@ public sealed class ClientEvents
                         icon = r.Int(6);
                         obj = r.Flag() ? r.Int(8) : -1;
                         long x = r.Int(10), y = r.Int(10);
+                        wx = x;
+                        wy = y;
                         r.Add("issuer", (long)issuer);
                         r.Add("icon", icon);
                         r.Add("target", obj);
@@ -478,6 +481,11 @@ public sealed class ClientEvents
                             rec.CommandStatus = (int)status;
                             rec.Commander = (int)icon;     // record +0x40
                             rec.CmdIssuer = issuer;
+                            if (id == local)
+                            {
+                                pm.WaypointTarget = (int)icon;       // 006a83e4, 006a83e8, 006a83ec
+                                pm.SetWaypointXY(wx, wy);
+                            }
                             if (hasMsg && (id == local || issuer == local))
                             {
                                 pm.ChatVoice?.Invoke(who.Id, raw);
@@ -495,6 +503,8 @@ public sealed class ClientEvents
                             {
                                 rec.Commander = -1;
                                 rec.CmdIssuer = -1;
+                                if (id == local)
+                                    pm.WaypointTarget = -1;
                             }
                             rec.CommandStatus = (int)status;
                             if (hasMsg && (local == old || local == id))

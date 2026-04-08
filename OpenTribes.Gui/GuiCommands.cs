@@ -370,6 +370,7 @@ public sealed class ClockedHudSource : IHudSource
     public double DamageLevel => mInner.DamageLevel;
     public double EnergyLevel => mInner.EnergyLevel;
     public double Yaw => mInner.Yaw;
+    public HudWaypoint? Waypoint => mInner.Waypoint;
     public double ClockSeconds => mClock();
     public IReadOnlyList<WeaponRow> Weapons => mInner.Weapons;
     public bool SensorPing => mInner.SensorPing;

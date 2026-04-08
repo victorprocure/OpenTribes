@@ -184,6 +184,8 @@ public interface IHudSource
     double EnergyLevel { get; }
     // Yaw of the control object in radians (compass).
     double Yaw { get; }
+    // The waypoint of the local client (006a83e4 set) with its world position and the control object's, null without one.
+    HudWaypoint? Waypoint => null;
     // The HUD timer (setHudTimer) in seconds.
     double ClockSeconds { get; }
     // Weapon HUD: the weapon rows in datablock order (docs/gui.md 4.2).
@@ -201,6 +203,9 @@ public interface IHudSource
     // The mission objective lines (TeamObjectiveEvent), 32 slots; a slot nobody set is null.
     IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
 }
+
+// The compass input: the waypoint (006a83e8, 006a83ec) and the control object's x and y.
+public readonly record struct HudWaypoint(double X, double Y, double PlayerX, double PlayerY);
 
 // One row of the weapon HUD: the item's hudIcon, whether its "on" icon shows (the mounted weapon, or a firing one when the item
 // highlights on active), and the ammo count (negative for unlimited).
@@ -228,6 +233,7 @@ public sealed class StaticHudSource : IHudSource
     public double DamageLevel { get; set; }
     public double EnergyLevel { get; set; } = 1;
     public double Yaw { get; set; }
+    public HudWaypoint? Waypoint { get; set; }
     public double ClockSeconds { get; set; }
     public List<WeaponRow> WeaponList { get; } = new();
     public IReadOnlyList<WeaponRow> Weapons => WeaponList;

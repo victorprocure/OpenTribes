@@ -139,6 +139,33 @@ public class ClientNetStreamTests
     }
 
     [Fact]
+    public void CommandEventSetsAndAckClearsTheWaypoint()
+    {
+        // 0040ce84 case 10: a command to the local client sets 006a83e4 (the icon) and the position (value * size / 1024 + origin of
+        // the mission area); an ack with status 0 or a mission reset clears it; a command to another client leaves it.
+        var world = new ClientWorld { PlayerId = 2049 };
+        var conn = new ClientGameConnection(world);
+        world.Players.WaypointToWorld = (x, y) => (x * 2.0 * 0.0009765625 * 1000 + 100, y * 4.0 * 0.0009765625 * 1000 - 50);
+        OutEvent add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
+        OutEvent add2 = GameEvents.MakePlayerAdd(2050, false, "Other", "base", "Male1", true, -1, 0);
+        OutEvent other = CommandMap.MakeCommandEvent(2050, 2049, 0, false, 5, -1, 5, 5, false, false, null);
+        OutEvent cmd = CommandMap.MakeCommandEvent(2049, 2049, 0, false, 5, -1, 512, 256, false, false, null);
+        OutEvent ack = CommandMap.MakeCommandEvent(2049, -1, 0, true, -1, -1, 0, 0, false, false, null);
+        conn.Receive(EventPacket((add, 0, false), (add2, 1, false), (other, 2, false)));
+        Assert.Equal(-1, world.Players.WaypointTarget);
+        conn.Receive(EventPacket((cmd, 3, false)));
+        Assert.Equal(5, world.Players.WaypointTarget);
+        Assert.Equal(512 * 2.0 * 0.0009765625 * 1000 + 100, world.Players.WaypointX);
+        Assert.Equal(256 * 4.0 * 0.0009765625 * 1000 - 50, world.Players.WaypointY);
+        conn.Receive(EventPacket((ack, 4, false)));
+        Assert.Equal(-1, world.Players.WaypointTarget);
+        conn.Receive(EventPacket((cmd, 5, false)));
+        Assert.Equal(5, world.Players.WaypointTarget);
+        conn.Receive(EventPacket((new EventWriter().Finish(0x450), 6, false)));
+        Assert.Equal(-1, world.Players.WaypointTarget);
+    }
+
+    [Fact]
     public void DatablocksOfEveryGroupRoundTrip()
     {
         // client-net.md 2.6, game-stream.md 4.2: the server pack of a default block of each class, read back by the client.

@@ -77,6 +77,12 @@ public sealed class ClientHudSource : IHudSource
     public double Yaw => D(Psc.ControlState.GetValueOrDefault("rotZ"), Ghost != null ? D(Ghost.State.GetValueOrDefault("rotZ"), 0) : 0);
     public double ClockSeconds => mClock();
 
+    // 006a83e4 != -1: the waypoint position and the control object's x and y (+0x188, +0x18c of the transform) [code 004e7e5c].
+    public HudWaypoint? Waypoint =>
+        mWorld.Players.WaypointTarget != -1 && Psc.ControlState.GetValueOrDefault("pos") is double[] { Length: >= 2 } p
+            ? new HudWaypoint(mWorld.Players.WaypointX, mWorld.Players.WaypointY, p[0], p[1])
+            : null;
+
     // The weapon HUD rows [code 004e8fe8]: every item with a count above zero, a hudIcon and showWeaponBar, in datablock order. The
     // item is mounted when an image slot of the control player holds the item (the stream carries the item index); with hiliteOnActive set the
     // "on" icon shows only while that slot fires (state 1). The ammo is the count of the image's ammoType item, negative without one.

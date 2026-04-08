@@ -30,6 +30,7 @@ public sealed class ClientPsc
     public readonly uint[] Visible = new uint[8];
     public readonly Dictionary<int, string> CommandMap = new();
     public (long X, long Y)? Waypoint;
+    public Action<long, long>? OnWaypoint;      // 006a83e8, 006a83ec are set from the play block pair
     public int GuiModeChanges;
     public bool PlayGuiLoaded;                           // loadPlayGui() was evaluated on the first change away from 0
 
@@ -225,6 +226,7 @@ public sealed class ClientPsc
                 {
                     long x = r.Int(10), y = r.Int(10);
                     Waypoint = (x, y);
+                    OnWaypoint?.Invoke(x, y);
                     r.Add("waypoint", new object[] { x, y });
                 }
                 var vis = new List<object?>();

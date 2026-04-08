@@ -225,3 +225,36 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.True(GuiFixture.Make("SimGui::ScrollCtrl", 0, 0, 100, 100).WantsTab);
     }
 }
+
+public class CompassWaypointTests
+{
+    // 004e7e5c: "%d" of the truncated 2D distance (at most 999), "000" without a waypoint or within 2 metres on both axes.
+    [Fact]
+    public void ReadoutShowsTheDistanceOrZeros()
+    {
+        Assert.Equal("000", GuiCompassHud.Readout(null));
+        Assert.Equal("000", GuiCompassHud.Readout(new HudWaypoint(10, 10, 12.9, 8.1)));
+        Assert.Equal("3", GuiCompassHud.Readout(new HudWaypoint(10, 10, 13.5, 10)));
+        Assert.Equal("5", GuiCompassHud.Readout(new HudWaypoint(0, 0, 3, 4)));
+        Assert.Equal("141", GuiCompassHud.Readout(new HudWaypoint(0, 0, 100, 100)));
+        Assert.Equal("999", GuiCompassHud.Readout(new HudWaypoint(0, 0, 5000, 0)));
+    }
+
+    // The tip (0, -24) turned by pi/2 - (bearing - yaw): a waypoint straight ahead (bearing = yaw + pi/2) points up, one to
+    // the right of the view (bearing = yaw) points right.
+    [Fact]
+    public void ArrowPointsAtTheWaypointRelativeToTheView()
+    {
+        var ahead = GuiCompassHud.Arrow(0, new HudWaypoint(0, 50, 0, 0), false, 100, 100);
+        Assert.Equal(100, ahead[0].X, 3);
+        Assert.Equal(76, ahead[0].Y, 3);
+        Assert.Equal(106, ahead[1].X, 3);
+        Assert.Equal(84, ahead[1].Y, 3);
+        Assert.Equal(94, ahead[2].X, 3);
+        var right = GuiCompassHud.Arrow(0, new HudWaypoint(50, 0, 0, 0), false, 100, 100);
+        Assert.Equal(124, right[0].X, 3);
+        Assert.Equal(100, right[0].Y, 3);
+        var low = GuiCompassHud.Arrow(0, new HudWaypoint(0, 50, 0, 0), true, 100, 100);
+        Assert.Equal(85.6, low[0].Y, 3);
+    }
+}

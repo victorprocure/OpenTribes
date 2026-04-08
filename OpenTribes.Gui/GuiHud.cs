@@ -222,7 +222,7 @@ public sealed class GuiClockHud : GuiHud
 
 // FearGui::CompassHud [code 004e7e5c]: Compass.bmp, then the letters N, E, S and W and four ticks as polylines rotated by the
 // control object's yaw (palette 0xfc, drawn around the bitmap centre), a fixed red needle at the top (0xf3) and the distance
-// readout "000" in the middle. Each row of the tables is a polyline; the points are in 1/1 pixels of the 64 pixel bitmap (low
+// readout in the middle: "000", or with a waypoint the distance and a filled arrow (palette 0xfc) toward it. Each row of the tables is a polyline; the points are in 1/1 pixels of the 64 pixel bitmap (low
 // resolution: the 36 pixel bitmap with its own table).
 public sealed class GuiCompassHud : GuiHud
 {
@@ -274,11 +274,51 @@ public sealed class GuiCompassHud : GuiHud
         int top = lr ? 17 : 28, bottom = lr ? 8 : 13;
         p.Line((int)cx, (int)cy - top, (int)cx, (int)cy - bottom, 0xf3);
         PftFont? f = Host?.FontByName(lr ? "sf_green_5.pft" : "if_g_8.pft");
-        const string text = "000";
+        HudWaypoint? wp = Source.Waypoint;
+        string text = Readout(wp);
+        if (wp is HudWaypoint w && text != "000")
+        {
+            // 004e7e5c: the arrow is a filled triangle in palette 0xfc, rotated like the glyphs (+0x58 sets 0xfc).
+            var pts = Arrow(yaw, w, lr, cx, cy);
+            HudFrame.FillPolygon(p, new[] { ((int)pts[0].X, (int)pts[0].Y), ((int)pts[1].X, (int)pts[1].Y), ((int)pts[2].X, (int)pts[2].Y) }, 0xfc, 1f);
+        }
         // The stock readout sits 1 pixel right and 3 pixels up from a plain cell-centred string (measured against the stock client
         // at 640x480: the digit ink is centred on the bitmap centre). The low resolution placement is not measured.
         int dx = lr ? 0 : 1, dy = lr ? 0 : -3;
         p.Text(f, (int)cx - GuiPaint.TextWidth(f, text) / 2 + dx, (int)cy - GuiPaint.FontHeight(f) / 2 + dy, text);
+    }
+
+    // The readout text [code 004e7e5c, format "%d" at 0062ec1a, "000" at 0062ec1d]: "000" without a waypoint or when both
+    // truncated coordinate differences are within 2 metres, else the truncated 2D distance, at most 999.
+    public static string Readout(HudWaypoint? wp)
+    {
+        if (wp is not HudWaypoint w)
+            return "000";
+        if (Math.Abs((int)(w.PlayerX - w.X)) < 3 && Math.Abs((int)(w.PlayerY - w.Y)) < 3)
+            return "000";
+        int dist = (int)Math.Sqrt((float)((w.PlayerX - w.X) * (w.PlayerX - w.X) + (w.PlayerY - w.Y) * (w.PlayerY - w.Y)));
+        return Math.Min(999, dist).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    // The arrow corners around the centre (cx, cy) [code 004e7e5c]: the bearing atan2(wy - py, wx - px) (+-pi/2 when the
+    // truncated x difference is 0) minus the yaw, turned by pi/2 - angle; corners (0, -24), (6, -16), (-6, -16) rotated by that
+    // angle (low resolution: 0, -14.4 / 3.6, -9.6 / -3.6, -9.6).
+    public static (float X, float Y)[] Arrow(double yaw, HudWaypoint w, bool lowRes, float cx, float cy)
+    {
+        double bearing;
+        if ((int)(w.X - w.PlayerX) == 0)
+            bearing = w.PlayerY <= w.Y ? 1.5707964 : -1.5707964;
+        else
+            bearing = Math.Atan2(w.Y - w.PlayerY, w.X - w.PlayerX);
+        double a = 1.5707964 - ((float)bearing - (float)yaw);
+        float sin = (float)Math.Sin(a), cos = (float)Math.Cos(a);
+        float e4 = lowRes ? 3.6000001f : 6f, e8 = lowRes ? -14.400001f : -24f, ec = lowRes ? -9.6f : -16f;
+        return new[]
+        {
+            (cx + (0f * cos - e8 * sin), cy + (e8 * cos + sin * 0f)),
+            (cx + (e4 * cos - ec * sin), cy + (ec * cos + e4 * sin)),
+            (cx + (-e4 * cos - ec * sin), cy + (ec * cos + -e4 * sin)),
+        };
     }
 }
 
