@@ -352,8 +352,13 @@ public sealed class ClientCommandHandlers
             return "False";
         mResIndex = (mResIndex + d + Modes.Length) % Modes.Length;
         var (w, h) = Modes[mResIndex];
-        mApp.FullscreenSize = (w, h);
-        mApp.ResizeWindow(w, h);
+        // nextRes/prevRes (0051e349, 0051e35e) step the full screen mode list of the device (005806a0, 005806bc): a windowed
+        // window keeps its size (`recdiff.py keys`: control-minus changes no pixel in the stock client).
+        if (mApp.IsFullscreen)
+        {
+            mApp.FullscreenSize = (w, h);
+            mApp.ResizeWindow(w, h);
+        }
         I.Print(1, $"Mode: {w} x {h}");
         return "";
     }

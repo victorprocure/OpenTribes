@@ -123,3 +123,4 @@ way are added to Open.
 
 - [x] Builds for Windows, Linux and macOS on x64 and ARM64, and a per-user data folder for a read-only install.
 - [x] Frame timing log, fewer allocations per frame and no stall on the first terrain draw.
+- [x] Window size kept when changing resolution in a window.
