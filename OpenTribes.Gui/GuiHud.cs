@@ -40,7 +40,18 @@ public class GuiHud : GuiControl
             return;
         if (pw < 0) { pw = Parent.W; ph = Parent.H; }
         X = (int)(FracX * (pw - W));
-        Y = (int)(FracY * (ph - H));
+        Y = (int)(FracY * (ph - FractionH));
+    }
+
+    // The height the fractions see: the extent at the time of the parent resize [code 004afc9c]. The weapon HUD has none before its rows exist.
+    protected virtual int FractionH => H;
+
+    // The size switch of a HUD [code 004b0b64, 004e6ab4]: after a resize of the parent the stock draw keeps the position the fractions
+    // gave (they are not applied again) and only pulls it back inside the parent.
+    protected void KeepInside()
+    {
+        if (mFractions)
+            Clamp();
     }
 
     // After a drag: keep the control at least 8 pixels inside the parent and recompute the fractions [code 004afb8c].
@@ -102,7 +113,7 @@ public class GuiBarHud : GuiHud
         if (w != W || h != H)
         {
             W = w; H = h;
-            Layout();
+            KeepInside();
         }
     }
 
@@ -178,7 +189,7 @@ public sealed class GuiJetPackHud : GuiBarHud
         double value = Value;
         PbmpBitmap? frame = Bmp(0, lr);
         if (frame != null)
-            p.Dev.Blit(frame, x + 1, y + 1, BlitFlip.Y);
+            p.Dev.Blit(frame, x + 1, lr ? y - 11 : y + 1, BlitFlip.Y);   // low resolution: 12 higher [code 004b0b64]
         if (lr) p.Bitmap(Bmp(1, lr), x + 3, y + 4); else p.Bitmap(Bmp(1, lr), x + 5, y + 8);
         if (value <= 0)
             return;
@@ -331,6 +342,10 @@ public sealed class GuiWeaponHud : GuiHud
     private static readonly int[] PolyLow = { 1, 6, 6, 1, 16, 1, 18, 4 };
     private int mRows = -1;
 
+    // The stock window is laid out before the first row exists: the fractions see a height of 1 (measured: stock capture at 400 x 300
+    // has the weapon HUD at y = trunc(0.7245 x 299) = 216), and the row changes that follow do not apply them again.
+    protected override int FractionH => mRows > 0 ? H : 1;
+
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.HasPlayerState || Host == null)
@@ -344,7 +359,7 @@ public sealed class GuiWeaponHud : GuiHud
             mRows = rows.Count;
             W = iconW + (lr ? 27 : 38);
             H = rows.Count < 1 ? iconH : (iconH + (lr ? 2 : 4)) * rows.Count + 10;
-            Layout();
+            KeepInside();
             return;
         }
         if (rows.Count < 1)
@@ -437,12 +452,19 @@ public sealed class GuiCrosshair : GuiHud
     {
         if (Canvas == null)
             return;
-        // centre of the view; four arms of 3 pixels, 2 pixels from the centre (stock capture at 640 x 480)
         int cx = ox + (Parent?.W ?? W) / 2, cy = oy + (Parent?.H ?? H) / 2;
-        p.Fill(cx - 4, cy, 3, 1, 0xfc);
-        p.Fill(cx + 2, cy, 3, 1, 0xfc);
-        p.Fill(cx, cy - 4, 1, 3, 0xfc);
-        p.Fill(cx, cy + 2, 1, 3, 0xfc);
+        // The reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view [code 004ab500]; without the
+        // picture the four arms of the stock capture at 640 x 480 (3 pixels, 2 from the centre).
+        PbmpBitmap? reticle = Host?.BitmapByName(LowRes ? "LR_H_Reticle.bmp" : "H_Reticle.bmp");
+        if (reticle != null)
+            p.BitmapKeyed(reticle, cx - (reticle.Width >> 1), cy - (reticle.Height >> 1));
+        else
+        {
+            p.Fill(cx - 4, cy, 3, 1, 0xfc);
+            p.Fill(cx + 2, cy, 3, 1, 0xfc);
+            p.Fill(cx, cy - 4, 1, 3, 0xfc);
+            p.Fill(cx, cy + 2, 1, 3, 0xfc);
+        }
         // the control is 13 pixels wide: its clip would cut the marks and the label
         GfxRect clip = p.Clip;
         p.SetClip(new GfxRect(0, 0, Canvas.Width - 1, Canvas.Height - 1));
@@ -589,6 +611,47 @@ public sealed class GuiChatDisplay : GuiHud
     public static int NextLines(int current, int value) => value >= 0 ? value : current switch { 3 => 5, 5 => 20, _ => 3 };
 
     public int Lines => (int)U("lines", 3);
+
+    private bool mLowMode;
+
+    // The loader [code 004a5b54] sets the lower-case-as-capitals flag (0x400) of the four low resolution message fonts, so the 6 point
+    // chat lines show capitals only (stock capture at 400 x 300).
+    public override void Wake()
+    {
+        base.Wake();
+        if (Host == null)
+            return;
+        foreach (string n in new[] { "sf_white_6.pft", "sf_red_6.pft", "sf_yellow_6.pft", "sf_green_6.pft" })
+            if (Host.FontByName(n) is PftFont f)
+                f.Flags |= PftFont.FlagLowerCaps;
+    }
+
+    // Parent resized [code 004a56e8]: the message window does not use the fractions of the other HUDs. A surface below 512 x 384 is the
+    // low resolution mode (width 240 and a height of lines x line height + 6 on entering it, back to width 370 on leaving it); the
+    // width is never below that mode's width and stays under the surface width, the height under the surface height and a whole
+    // number of lines, and the position is pulled back inside the surface.
+    public override void ParentResized(int oldW, int oldH, int newW, int newH)
+    {
+        if (newW <= 0 || newH <= 0)
+            return;
+        bool low = newW < 0x200 || newH < 0x180;
+        bool changed = low != mLowMode;
+        mLowMode = low;
+        PftFont? f = Host?.FontByName(FontName(0, low)) ?? Host?.FontByName("sf_white_10.pft");
+        int lh = f == null ? 13 : GuiPaint.FontHeight(f), lines = (int)U("lines", 3), min = low ? 0xf0 : 0x172;
+        if (changed)
+        {
+            W = min;
+            H = lines * lh + HeightPad;
+        }
+        W = Math.Max(Math.Min(Math.Max(W, min), newW - 1), 1);
+        H = Math.Max(Math.Min(H, newH - 1), 1);
+        lines = (H - HeightPad) / lh;
+        F["lines"] = (uint)Math.Max(lines, 0);
+        H = lines * lh + HeightPad;
+        X = Math.Min(X, newW - W);
+        Y = Math.Min(Y, newH - H);
+    }
 
     // IDACTION_CHAT_DISP_SIZE: sets the line count and resizes the control to lines * line height + 6 (the top stays).
     public void SetLines(int value)

@@ -51,4 +51,26 @@ public sealed class ClientChatDisplayTests
         Assert.True(memory.Apply(140114, reloaded));
         Assert.Equal(20, reloaded.Lines);
     }
+
+    // FearGuiChatDisplay parent resize [code 004a56e8]: no fractions, width 240 below 512 x 384 and 370 again above it.
+    [Fact]
+    public void ParentResizeSwitchesTheWidthAndKeepsThePosition()
+    {
+        GuiChatDisplay d = Display(3);
+        d.ParentResized(640, 480, 400, 300);
+        Assert.Equal((132, 9, 240, 45), (d.X, d.Y, d.W, d.H));
+        d.ParentResized(400, 300, 640, 480);
+        Assert.Equal((132, 9, 370, 45), (d.X, d.Y, d.W, d.H));
+    }
+
+    [Fact]
+    public void ParentResizePullsTheWindowInsideASmallSurface()
+    {
+        GuiChatDisplay d = Display(3);
+        d.ParentResized(640, 480, 200, 100);
+        Assert.Equal((1, 9, 199, 45), (d.X, d.Y, d.W, d.H));
+        d.ParentResized(200, 100, 200, 30);
+        // 29 high: two lines of 13 and the pad of 6 are 32, so one line fits
+        Assert.Equal((1, 9, 199, 19), (d.X, d.Y, d.W, d.H));
+    }
 }
