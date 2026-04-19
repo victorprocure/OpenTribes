@@ -190,6 +190,8 @@ public interface IHudSource
     double ClockSeconds { get; }
     // Weapon HUD: the weapon rows in datablock order (docs/gui.md 4.2).
     IReadOnlyList<WeaponRow> Weapons { get; }
+    // The marks and the label of the crosshair target for a view of this size (docs/gui.md 4.2 Crosshair), null without a view.
+    HudTargetResult? CrosshairTarget(int width, int height) => null;
     bool SensorPing { get; }
     bool SensorLocked { get; }
     // The item datablocks with showInventory set, with the counts and the station masks of the client player state (the lists of

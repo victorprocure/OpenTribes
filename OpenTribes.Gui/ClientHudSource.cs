@@ -1,6 +1,7 @@
 // docs/gui.md 4.1: the HUD data source of the live client, read from the PSC block and the control object ghost that the
 // C3a unpack delivers (client-net.md 4.5). The server and the stream code are not touched.
 using OpenTribes.Game;
+using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
@@ -220,4 +221,49 @@ public sealed class ClientHudSource : IHudSource
 
     public bool SensorPing => false;
     public bool SensorLocked => false;
+
+    // Set by the host: the view camera of the frame, the position of mount point 2 of a player ghost (null: use the body position
+    // plus 1.4) and the line test from the eye to a point (true when nothing blocks it).
+    public Func<int, int, Camera3D?>? ViewCamera;
+    public Func<int, (double X, double Y, double Z)?>? HeadMount;
+    public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
+
+    // Crosshair_findTarget [code 004aca84]: the other players the local player's client may see (the visible mask of the PSC, +0x490),
+    // with their marks and the one under the view centre.
+    public HudTargetResult? CrosshairTarget(int width, int height)
+    {
+        if (ViewCamera?.Invoke(width, height) is not Camera3D cam || Psc.ControlGhost < 0 || mWorld.PlayerId == 0)
+            return null;
+        ClientPlayerManager pm = mWorld.Players;
+        ClientPlayerRecord? me = pm.Get(mWorld.PlayerId);
+        if (me == null)
+            return null;
+        var eye = (cam.X, cam.Y, cam.Z);
+        var list = new List<HudTargetCandidate>();
+        foreach (ClientGhost g in mWorld.Ghosts.All())
+        {
+            if (g.Class != "Player" || g.Index == Psc.ControlGhost || !g.State.TryGetValue("pos", out object? pv) || pv is not double[] { Length: >= 3 } pos)
+                continue;
+            int owner = (int)D(g.State.GetValueOrDefault("ownerClient"), 0);
+            if (owner < 0x800 || pm.Get(owner) is not ClientPlayerRecord rec)
+                continue;
+            bool visible = ((owner - 0x800) >> 5) is int w && w < Psc.Visible.Length && (Psc.Visible[w] >> (owner & 31) & 1) != 0;
+            var head = HeadMount?.Invoke(g.Index) ?? (pos[0], pos[1], pos[2] + 1.4);
+            double bw = 1, bd = 1, bh = 2;
+            if (g.State.TryGetValue("datablock", out object? idx) && mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out ClientDataBlock? b))
+                foreach (DecodedField f in b.Fields)
+                    switch (f.Name)
+                    {
+                        case "boxWidth": bw = D(f.Value, bw); break;
+                        case "boxDepth": bd = D(f.Value, bd); break;
+                        case "boxNormalHeight": bh = D(f.Value, bh); break;
+                    }
+            bool dead = g.State.ContainsKey("dead");
+            double damage = dead ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
+            var top = (head.Item1, head.Item2, head.Item3 + 0.65);
+            bool clear = LineClear?.Invoke(eye, (pos[0], pos[1], pos[2] + bh * 0.5)) ?? true;
+            list.Add(new HudTargetCandidate(rec.Name, top, (pos[0], pos[1], pos[2]), Math.Min(bw, bd), bh, rec.Team, damage, dead, visible, clear));
+        }
+        return HudTargetPicker.Find(cam, list, me.Team, pm.TeamCount);
+    }
 }

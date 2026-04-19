@@ -389,6 +389,17 @@ public sealed class PlayerVisual : ShapeVisual
         return local.Then(mount).Then(body);
     }
 
+    // Player_getMountPointTransform(2) [code 004aca84]: the `dummy midback` node in world space, null without the node or a position.
+    public (double x, double y, double z)? MidBack()
+    {
+        if (Inst == null || Shape == null || !HavePos)
+            return null;
+        int n = Shape.FindNodeBase("dummy midback", 0);
+        if (n < 0)
+            return null;
+        return Inst.NodeWorld[n].Then(PoseXf()).Apply(0, 0, 0);
+    }
+
     // The muzzle of the first mounted weapon in world space (projectile start of beams), or the chest as a fallback.
     public override (double x, double y, double z)? MuzzlePoint => HavePos ? Muzzle() : null;
 

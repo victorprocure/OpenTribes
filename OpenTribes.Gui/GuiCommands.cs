@@ -375,4 +375,5 @@ public sealed class ClockedHudSource : IHudSource
     public IReadOnlyList<WeaponRow> Weapons => mInner.Weapons;
     public bool SensorPing => mInner.SensorPing;
     public bool SensorLocked => mInner.SensorLocked;
+    public HudTargetResult? CrosshairTarget(int width, int height) => mInner.CrosshairTarget(width, height);
 }

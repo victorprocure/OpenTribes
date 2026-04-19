@@ -443,6 +443,49 @@ public sealed class GuiCrosshair : GuiHud
         p.Fill(cx + 2, cy, 3, 1, 0xfc);
         p.Fill(cx, cy - 4, 1, 3, 0xfc);
         p.Fill(cx, cy + 2, 1, 3, 0xfc);
+        // the control is 13 pixels wide: its clip would cut the marks and the label
+        GfxRect clip = p.Clip;
+        p.SetClip(new GfxRect(0, 0, Canvas.Width - 1, Canvas.Height - 1));
+        DrawTarget(p, cx, cy);
+        p.SetClip(clip);
+    }
+
+    // The target marks and the label [code 004ab500, 004aca84]: friend or foe picture centred above the head of every player in
+    // sight, and for the picked one its name at (16, 16) from the view centre (10 at low resolution) in sf_white_7 (sf_white_5),
+    // with the health box of 27 x 6 (20 x 4) below it: a frame in palette 0xfb and a bar of (1 - damage) x 25 (18) pixels in 0xfc,
+    // 0xf3 below 8 (5) pixels.
+    private void DrawTarget(GuiPaint p, int cx, int cy)
+    {
+        if (Host == null || Source?.CrosshairTarget(Canvas!.Width, Canvas.Height) is not HudTargetResult t)
+            return;
+        bool lr = LowRes;
+        int ox = cx - (Parent?.W ?? W) / 2, oy = cy - (Parent?.H ?? H) / 2;
+        foreach (HudTargetMark m in t.Marks)
+        {
+            PbmpBitmap? b = Host.BitmapByName((lr ? "LR_" : "") + (m.Friend ? "H_Friend.bmp" : "H_Foe.bmp"));
+            if (b != null)
+                p.BitmapKeyed(b, ox + m.X - (b.Width >> 1), oy + m.Y - b.Height);
+        }
+        if (t.Name == null)
+            return;
+        int x0 = cx + (lr ? 10 : 16), y0 = cy + (lr ? 10 : 16);
+        PftFont? f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
+        if (t.Name.Length > 0)
+        {
+            p.Text(f, x0, y0, t.Name);
+            y0 += GuiPaint.FontHeight(f) + (lr ? 3 : 4);
+        }
+        int bw = lr ? 20 : 27, bh = lr ? 4 : 6;
+        int x1 = x0 + bw, y1 = y0 + bh;
+        if (t.Damage < 0 || t.Damage > 1)
+            return;
+        p.Line(x0, y0, x1, y0, 0xfb);
+        p.Line(x1, y0, x1, y1, 0xfb);
+        p.Line(x1, y1, x0, y1, 0xfb);
+        p.Line(x0, y1, x0, y0, 0xfb);
+        int len = HudTargetPicker.BarLength(t.Damage, bw - 2);
+        if (len > 0)
+            p.Fill(x0 + 1, y0 + 1, len + 1, y1 - y0 - 1, len < (lr ? 5 : 8) ? 0xf3 : 0xfc);
     }
 }
 

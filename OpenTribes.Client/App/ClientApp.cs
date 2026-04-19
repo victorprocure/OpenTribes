@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using OpenTribes.Client.Audio;
+using OpenTribes.Client.Scene;
 using OpenTribes.Client.World;
 using OpenTribes.Core;
 using OpenTribes.Game;
@@ -424,12 +425,27 @@ public sealed class ClientApp : IDisposable
         return true;
     }
 
+    private static object? sHitObj;
+    private static OpenTribes.World.Vec3 sHit, sNormal;
+
     // Called when a game starts: the HUD source and the chat ring follow the new world.
     public void InitSecondaryHooks(LiveGame g)
     {
         Host.Chat.Clear();
         Host.CenterPrint("", 0);
-        Host.Hud = new ClientHudSource(g.World, () => GuiRt.ClockSeconds) { MenuSource = CurrentMenu, PlayMenuSource = PlayMenu };
+        Host.Hud = new ClientHudSource(g.World, () => GuiRt.ClockSeconds)
+        {
+            MenuSource = CurrentMenu,
+            PlayMenuSource = PlayMenu,
+            ViewCamera = (w, h) => g.Camera() is { } c
+                ? new Camera3D(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, Play.Moves.CurrentFov, w, h, World.WorldScene.NearPlane, 1000)
+                : null,
+            HeadMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.MidBack() : null,
+            // the line from the eye to the target meets terrain or interior [code 004aca84, mask 0x20e00006]
+            LineClear = (a, b) => g.Net?.PredictWorld is not { } pw ||
+                !pw.Game.World.CastRay(new OpenTribes.World.Vec3((float)a.X, (float)a.Y, (float)a.Z), new OpenTribes.World.Vec3((float)b.X, (float)b.Y, (float)b.Z), 0x20e00006u, null,
+                    ref sHitObj, ref sHit, ref sNormal),
+        };
     }
 
     // The console world of the client: the chat menus of the scripts live in it.

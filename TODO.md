@@ -103,6 +103,7 @@ way are added to Open.
 - [x] Chat and command menu, drawn in full.
 - [x] Compass readout, waypoint and arrow.
 - [x] Command screen lists leave keys to the game.
+- [x] Crosshair target marks and name label with health.
 
 ### Audio
 
