@@ -275,13 +275,15 @@ public class AudioTests
     }
 
     [Fact]
-    public void MixerResamplesLinearly() // 4.2: 11025 Hz to 22050 Hz doubles the frames with midpoints
+    public void MixerResamplesBandLimited() // 4.2: 11025 Hz to 22050 Hz doubles the frames, windowed sinc (WavData.AtRate), symmetric around the peak
     {
         var m = new SoundMixer(22050);
         m.Start(WavData.TryParse(Wave16(11025, 0, 16384, 0))!, false, 1f, 1f);
         var o = new float[12];
         Render(m, o, 6);
-        Assert.Equal(new[] { 0f, 0.25f, 0.5f, 0.25f, 0f, 0f }, new[] { o[0], o[2], o[4], o[6], o[8], o[10] });
+        Assert.InRange(o[4], 0.47f, 0.5f);
+        Assert.Equal(o[2], o[6], 4);
+        Assert.InRange(o[2], 0.25f, 0.4f);
     }
 
     [Fact]

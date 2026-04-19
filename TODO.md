@@ -11,6 +11,8 @@ way are added to Open.
 
 - [ ] Joystick support.
 - [ ] Hosting a game from the client menus.
+- [ ] Our voice chat plays about 3 dB quieter than the original.
+- [ ] No sound when switching to the blaster or the mortar.
 
 ### Project
 
@@ -109,6 +111,7 @@ way are added to Open.
 - [x] Player animation, sequence and turret power sounds.
 - [x] Footstep sounds by surface.
 - [x] Footstep, jet and weapon sounds move with the player.
+- [x] Clean resampling to the device rate.
 
 ### Input and controls
 

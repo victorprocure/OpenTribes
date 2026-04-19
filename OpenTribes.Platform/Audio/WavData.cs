@@ -13,6 +13,69 @@ public sealed class WavData
     // Interleaved samples, -1..1.
     public float[] Samples = Array.Empty<float>();
 
+    private readonly Dictionary<(int Rate, bool Loop), WavData> mRates = new();
+
+    // The wave at another sample rate, band-limited (windowed sinc, 16 lobes each side, cutoff at 97% of the lower Nyquist). The stock
+    // client's output on the recording harness has no energy above the source Nyquist and a flat passband to about 5 kHz for 11025 Hz
+    // sources; linear interpolation (the mixer's fallback) droops 3 dB at 4 to 5 kHz and mirrors the band above 5.5 kHz. A looping
+    // wave wraps around, a one-shot continues with silence. Cached per (rate, loop).
+    public WavData AtRate(int rate, bool loop)
+    {
+        if (rate == Rate || Frames == 0)
+            return this;
+        lock (mRates)
+        {
+            if (!mRates.TryGetValue((rate, loop), out WavData? w))
+                mRates[(rate, loop)] = w = Resample(rate, loop);
+            return w;
+        }
+    }
+
+    private WavData Resample(int rate, bool loop)
+    {
+        const int H = 16;
+        double ratio = (double)Rate / rate;                       // source frames per output frame
+        double fc = 0.97 * Math.Min(Rate, rate) / 2.0 / Rate;     // cutoff in cycles per source sample
+        int outFrames = (int)Math.Max(1, Math.Round(Frames / ratio));
+        var o = new float[outFrames * Channels];
+        double scale = 2 * fc;
+        const int Res = 512;                                       // kernel table steps per source sample
+        var tab = new double[2 * H * Res + 2];
+        for (int i = 0; i < tab.Length; ++i)
+        {
+            double u = (double)i / Res - H;
+            double x = u * scale * Math.PI;
+            double sinc = Math.Abs(x) < 1e-9 ? 1 : Math.Sin(x) / x;
+            double wx = u / H;
+            tab[i] = scale * sinc * (0.42 + 0.5 * Math.Cos(Math.PI * wx) + 0.08 * Math.Cos(2 * Math.PI * wx));
+        }
+        for (int j = 0; j < outFrames; ++j)
+        {
+            double t = j * ratio;
+            int k0 = (int)Math.Floor(t);
+            for (int c = 0; c < Channels; ++c)
+            {
+                double acc = 0;
+                for (int k = k0 - H + 1; k <= k0 + H; ++k)
+                {
+                    int idx = k;
+                    if (idx < 0 || idx >= Frames)
+                    {
+                        if (!loop)
+                            continue;
+                        idx = ((idx % Frames) + Frames) % Frames;
+                    }
+                    double pos = (t - k + H) * Res;
+                    int pi = (int)pos;
+                    double h = tab[pi] + (tab[pi + 1] - tab[pi]) * (pos - pi);
+                    acc += Samples[idx * Channels + c] * h;
+                }
+                o[j * Channels + c] = (float)acc;
+            }
+        }
+        return new WavData { Channels = Channels, Rate = rate, Bits = Bits, Frames = outFrames, Samples = o };
+    }
+
     public static WavData? TryParse(ReadOnlySpan<byte> d)
     {
         if (d.Length < 12 || d[0] != 'R' || d[1] != 'I' || d[2] != 'F' || d[3] != 'F' || d[8] != 'W' || d[9] != 'A' || d[10] != 'V' || d[11] != 'E')

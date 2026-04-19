@@ -33,6 +33,7 @@ public sealed class SoundMixer
     // Starts a voice at source position 0. The gains apply at once (no ramp from silence). Returns null when all slots are in use.
     public MixVoice? Start(WavData wave, bool loop, float gainL, float gainR)
     {
+        wave = wave.AtRate(DeviceRate, loop);
         lock (mLock)
         {
             if (mVoices.Count >= Slots)
