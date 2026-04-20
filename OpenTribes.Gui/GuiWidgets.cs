@@ -193,42 +193,66 @@ public sealed class GuiDlgBox : GuiActive
     }
 }
 
-// FearGui::FGShellBorder / MMShellBorder: the stored bitmap name is a full-window background picture (Background0.bmp,
-// Background1.bmp, DarkLogo.bmp in the stock files), drawn stretched over the extent. A name ending in `.pba` is read as
-// a frame set drawn in nine parts (the part order is inferred; no stock file uses it).
+// FearGui::FGShellBorder / MMShellBorder [code 0049bd0c]: the stored bitmap name is a full-window background picture
+// (Background0.bmp, Background1.bmp, DarkLogo.bmp in the stock files), drawn stretched over the extent. The children draw
+// next, then, when the extent is at least 512 x 384, the metal frame of ShellBorderCtrl.pba (tag 170018, 15 pieces) on top:
+//   title bar    : 9 at x 224, the stretched 8, 10, then 44 pixels, then 13 (the stretch takes the width left);
+//   right column : 14 below 13, the stretched 7, and 3 at the bottom right (the stretch takes the height left);
+//   left column  : 11 and 12 at the top left, the stretched 6, and 0 at the bottom;
+//   bottom strip : 1 after 0, the stretched 5, and 4 (the stretch takes the width left; 5 sits at the y of 1).
 public sealed class GuiShellBorder : GuiControl
 {
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        string name = S("bitmapName");
-        if (name.EndsWith(".pba", StringComparison.OrdinalIgnoreCase))
-            DrawFrame(p, gx, gy, Host?.ArrayByName(name));
-        else
-            p.BitmapStretch(Host?.BitmapByName(name), gx, gy, W, H);
+        p.BitmapStretch(Host?.BitmapByName(S("bitmapName")), gx, gy, W, H);
         RenderChildren(p, gx, gy);
+        if (W >= 512 && H >= 384)
+            DrawFrame(p, gx, gy, Host?.ArrayByName("ShellBorderCtrl.pba"));
     }
 
-    private void DrawFrame(GuiPaint p, int gx, int gy, PbmaArray? arr)
+    private void DrawFrame(GuiPaint p, int gx, int gy, PbmaArray? a)
     {
-        if (arr == null || arr.Bitmaps.Count < 9)
+        if (a == null || a.Bitmaps.Count < 15)
             return;
-        PbmpBitmap tl = arr.Bitmaps[0], t = arr.Bitmaps[1], tr = arr.Bitmaps[2], l = arr.Bitmaps[3], r = arr.Bitmaps[5],
-            bl = arr.Bitmaps[6], b = arr.Bitmaps[7], br = arr.Bitmaps[8];
-        for (int x = gx + tl.Width; x < gx + W - tr.Width; x += Math.Max(1, t.Width))
-            p.Bitmap(t, x, gy);
-        for (int x = gx + bl.Width; x < gx + W - br.Width; x += Math.Max(1, b.Width))
-            p.Bitmap(b, x, gy + H - b.Height);
-        for (int y = gy + tl.Height; y < gy + H - bl.Height; y += Math.Max(1, l.Height))
-        {
-            p.Bitmap(l, gx, y);
-            p.Bitmap(r, gx + W - r.Width, y);
-        }
-        p.Bitmap(tl, gx, gy);
-        p.Bitmap(tr, gx + W - tr.Width, gy);
-        p.Bitmap(bl, gx, gy + H - bl.Height);
-        p.Bitmap(br, gx + W - br.Width, gy + H - br.Height);
+        PbmpBitmap B(int i) => a.Bitmaps[i];
+        // Title bar.
+        int x = gx + 224 + B(9).Width;
+        p.Bitmap(B(9), gx + 224, gy);
+        int tfill = W - (x - gx) - B(10).Width - 44 - B(13).Width;
+        p.BitmapStretch(B(8), x, gy, tfill, B(8).Height);
+        x += tfill;
+        p.Bitmap(B(10), x, gy);
+        x += B(10).Width + 44;
+        p.Bitmap(B(13), x, gy);
+        // Right column.
+        int y = gy + B(13).Height;
+        p.Bitmap(B(14), gx + W - B(14).Width, y);
+        y += B(14).Height;
+        int rfill = H - (y - gy) - B(3).Height;
+        p.BitmapStretch(B(7), gx + W - B(7).Width, y, B(7).Width, rfill);
+        y += rfill;
+        p.Bitmap(B(3), gx + W - B(3).Width, y);
+        // Left column.
+        y = gy;
+        p.Bitmap(B(11), gx, y);
+        y += B(11).Height;
+        p.Bitmap(B(12), gx, y);
+        y += B(12).Height;
+        int lfill = H - (y - gy) - B(0).Height;
+        p.BitmapStretch(B(6), gx, y, B(6).Width, lfill);
+        y += lfill;
+        p.Bitmap(B(0), gx, y);
+        // Bottom strip.
+        x = gx + B(0).Width;
+        int by = gy + H - B(1).Height;
+        p.Bitmap(B(1), x, by);
+        x += B(1).Width;
+        int bfill = W - (x - gx) - B(4).Width - B(3).Width;
+        p.BitmapStretch(B(5), x, by, bfill, B(5).Height);
+        x += bfill;
+        p.Bitmap(B(4), x, gy + H - B(4).Height);
     }
 }
 

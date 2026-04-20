@@ -93,6 +93,7 @@ public sealed class GuiHost
 
     // Puts a font into the cache under a file name (the loaders of Res are not needed; tests and tools).
     public void SetFont(string name, PftFont font) => mFonts[name] = font;
+    public void SetArray(string name, PbmaArray array) => mArrays[name] = array;
 
     public PftFont? FontByName(string name)
     {
