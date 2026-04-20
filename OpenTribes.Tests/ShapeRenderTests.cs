@@ -447,6 +447,15 @@ public class ShapeRenderTests
         Assert.Equal(WeatherEffect.MaxParticles, WeatherEffect.Count(7));
     }
 
+    [Fact]
+    public void WeatherDrawsOnlyWhilePrecipitationIsOnAndNotSuspended() // shapes-render.md 4.8, 004420a4 and 00441c50
+    {
+        Assert.True(WeatherEffect.Draws(true, false, 1));
+        Assert.False(WeatherEffect.Draws(false, false, 1));
+        Assert.False(WeatherEffect.Draws(true, true, 1));
+        Assert.False(WeatherEffect.Draws(true, false, 0));
+    }
+
     // ---- SR 3.2 and client-net 3.2 ghost fields ----
 
     [Fact]

@@ -22,6 +22,7 @@ public sealed class SceneModel
     public DecalRing Decals;
     public readonly WeatherEffect Weather = new();
     public bool HasWeather;
+    public bool WeatherPrecipitation = true;   // $pref::weatherPrecipitation, default 1 (shapes-render.md 4.8)
     public Random Rng = new(0x8377);
     public double Time;
     public Audio.SceneAudio? Audio;           // C7: sound starts, null without audio
@@ -217,7 +218,7 @@ public sealed class SceneModel
                 e.Build(ctx);
             Smoke.Build(ctx);
             Decals.Build(ctx);
-            if (HasWeather)
+            if (HasWeather && WeatherPrecipitation)
                 Weather.Build(ctx, Time);
         }
     }

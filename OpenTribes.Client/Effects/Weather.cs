@@ -15,11 +15,15 @@ public sealed class WeatherEffect
     public const double Box = 40;
 
     // Particles for an intensity 0..1 (count scales linearly, at least a few).
+    // Rain and snow draw only while `$pref::weatherPrecipitation` is on [code 004420a4] and the ghost does not suspend its rendering
+    // [code 00441c50]; the same switch holds the loop sound back (the sound starts inside the same block).
+    public static bool Draws(bool preference, bool suspended, double intensity) => preference && !suspended && intensity > 0;
+
     public static int Count(double intensity) => (int)Math.Clamp(Math.Round(intensity * MaxParticles), 0, MaxParticles);
 
     public void Build(FrameContext ctx, double time)
     {
-        if (Suspended || Intensity <= 0)
+        if (!Draws(true, Suspended, Intensity))
             return;
         int n = Count(Intensity);
         double fall = Rain ? 30 : 4;

@@ -2,6 +2,7 @@
 // SoundManager. The scene model calls the On* hooks while it applies packets and ghost updates; Frame runs once per client frame
 // after the visuals ticked (listener, follow-the-object positions, stops).
 using System.Globalization;
+using OpenTribes.Client.Effects;
 using OpenTribes.Client.Scene;
 using OpenTribes.Game;
 using OpenTribes.World;
@@ -570,7 +571,7 @@ public sealed class SceneAudio
             }
         }
         // Snow and rain (3.4): a 2D looping pair sound while precipitation is on.
-        bool precip = M.HasWeather && !M.Weather.Suspended && M.Weather.Intensity > 0;
+        bool precip = M.HasWeather && WeatherEffect.Draws(M.WeatherPrecipitation, M.Weather.Suspended, M.Weather.Intensity);
         if (precip && mPrecip == 0)
         {
             mPrecip = Sound.PlayPair(M.Weather.Rain ? 450046 : 450045);
