@@ -478,7 +478,11 @@ public sealed class GuiRadio : GuiActive
 
 // FearGui::FGMenuItem / FGTab [code 004959c8, 00495bd0]: selecting an item shows its tab page and hides the pages of the
 // other items of the same menu; an item without a page expands or collapses its children. The page selector itself was
-// not traced (Q10), this follows the stock Options screen.
+// not traced (Q10), this follows the stock Options screen. The tab flag marks the shown item (white text).
+// Draw [code 00495d44, 00495bec]: the header text starts after the width of MNU_Expand_DF.BMP (the picture itself is not drawn),
+// centred on that picture's height, in sf_orange214_10 (sf_white_10 when the tab flag is set, sf_orange255_10 for an item with
+// children), with a black sf_black_10 shadow one pixel left and one down. The expanded children are drawn below, indented by
+// the picture width, each below the one before. Fonts are loaded by the control's open [code 00495ef0].
 public sealed class GuiMenuItem : GuiSimpleText
 {
     public override bool WantsTab => false;
@@ -494,8 +498,13 @@ public sealed class GuiMenuItem : GuiSimpleText
         {
             GuiControl? top = Canvas?.Top;
             foreach (GuiControl item in scope.Descendants().OfType<GuiMenuItem>())
-                if (item != this && item.U("tabPage") != 0)
-                    top?.FindById(item.U("tabPage"))?.SetVisible(false);
+                if (item != this)
+                {
+                    item.F["tabSet"] = (byte)0;
+                    if (item.U("tabPage") != 0)
+                        top?.FindById(item.U("tabPage"))?.SetVisible(false);
+                }
+            F["tabSet"] = (byte)1;
             top?.FindById(page)?.SetVisible(true);
             Canvas?.RebuildTabList();
         }
@@ -508,9 +517,26 @@ public sealed class GuiMenuItem : GuiSimpleText
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        DrawText(p, gx, gy);
-        if (U("expanded") != 0 || Children.Count == 0)
-            RenderChildren(p, gx, gy);
+        PbmpBitmap? pic = Host?.BitmapByName("MNU_Expand_DF.BMP");
+        int indent = pic?.Width ?? 19, rowH = pic?.Height ?? 19;
+        string s = ResolvedText();
+        if (s.Length > 0 && Host != null)
+        {
+            string main = Children.Count > 0 ? "sf_orange255_10.pft" : U("tabSet") != 0 ? "sf_white_10.pft" : "sf_orange214_10.pft";
+            PftFont? f = Host.FontByName(main);
+            int ty = gy + (rowH - GuiPaint.FontHeight(f)) / 2;
+            p.Text(Host.FontByName("sf_black_10.pft"), gx + indent - 1, ty - 1, s);
+            p.Text(f, gx + indent, ty - 2, s);
+        }
+        if (Children.Count > 0 && U("expanded") != 0)
+        {
+            int y = gy + rowH;
+            foreach (GuiControl c in Children)
+            {
+                c.Render(p, gx + indent - c.X, y - c.Y);
+                y += c.H;
+            }
+        }
     }
 }
 

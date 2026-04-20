@@ -87,4 +87,29 @@ public class GuiShellBorderTests
         List<string> c = Draw(400, 300);
         Assert.DoesNotContain(c, s => s.StartsWith("blit ") || s.StartsWith("stretch "));
     }
+
+    private static PftFont Font(int cell) => new() { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = cell, CellHeight = 10 };
+
+    [Fact]
+    public void MenuItemDrawsShadowedTextAfterThePictureWidthAndIndentsTheChildren() // docs/gui.md 3.3 FGMenuItem, draw 00495d44 / 00495bec
+    {
+        var fx = new GuiFixture(640, 480);
+        fx.Host.SetFont("sf_orange214_10.pft", Font(5));
+        fx.Host.SetFont("sf_orange255_10.pft", Font(6));
+        fx.Host.SetFont("sf_white_10.pft", Font(7));
+        fx.Host.SetFont("sf_black_10.pft", Font(8));
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        GuiControl parent = GuiFixture.Make("FearGui::FGMenuItem", 10, 20, 129, 38, ("text", "Top"), ("expanded", (byte)1));
+        GuiControl child = GuiFixture.Make("FearGui::FGMenuItem", 0, 19, 129, 19, ("text", "Sub"), ("tabSet", (byte)1));
+        parent.AddChild(child);
+        root.AddChild(parent);
+        fx.Content(root);
+        var dev = new BlitDev();
+        fx.Canvas.Render(dev);
+        // no MNU_Expand_DF.BMP in the fixture: the picture is taken as 19 x 19; the font is 10 high, so the text sits (19 - 10) / 2 = 4 below the top, 2 up
+        Assert.Contains("text w8 28,23 'Top'", dev.Calls);      // shadow: one left, one down
+        Assert.Contains("text w6 29,22 'Top'", dev.Calls);      // an item with children uses sf_orange255_10
+        Assert.Contains("text w8 47,42 'Sub'", dev.Calls);      // child at x + 19, y + 19, its text 19 further right
+        Assert.Contains("text w7 48,41 'Sub'", dev.Calls);      // the shown tab is white
+    }
 }
