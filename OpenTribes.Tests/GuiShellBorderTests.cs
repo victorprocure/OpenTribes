@@ -127,4 +127,25 @@ public class GuiShellBorderTests
         Assert.Contains("fill 13,37 cee", dev.Calls);
         Assert.Contains("fill 106,37 cee", dev.Calls);
     }
+
+    [Fact]
+    public void SliderDrawsCapsBarAndAThirtyPixelThumbAfterTheLeftCap() // docs/gui.md 3.3 FGSlider, draw 004ca7b8, thumb width 004ca1ee
+    {
+        var fx = new GuiFixture(640, 480);
+        var a = new PbmaArray { BitmapCount = 15 };
+        for (int i = 0; i < 15; i++)
+            a.Bitmaps.Add(new PbmpBitmap { Width = 4 + i, Height = 20 + i });   // piece i is (4 + i) x (20 + i)
+        fx.Host.SetArray("ShellSliderCtrl.pba", a);
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        root.AddChild(GuiFixture.Make("FearGui::FGSlider", 10, 20, 140, 17, ("active", (byte)1), ("maxValue", 0x3f800000u)));
+        fx.Content(root);
+        var dev = new BlitDev();
+        fx.Canvas.Render(dev);
+        Assert.Contains("blit 6x22 10,20", dev.Calls);              // left cap (piece 2)
+        Assert.Contains("stretch 15x31 16,20 125x31", dev.Calls);   // bar (piece 11) over 140 - 6 - 9
+        Assert.Contains("blit 9x25 141,20", dev.Calls);             // right cap (piece 5)
+        Assert.Contains("blit 11x27 16,20", dev.Calls);             // thumb start (piece 7) right after the left cap
+        Assert.Contains("stretch 10x26 27,20 7x26", dev.Calls);     // thumb middle (piece 6): 30 - 11 - 12
+        Assert.Contains("blit 12x28 34,20", dev.Calls);             // thumb end (piece 8)
+    }
 }

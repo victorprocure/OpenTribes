@@ -548,8 +548,13 @@ public sealed class GuiSlider : GuiActive
     private int mGrab;
     public int Discrete;   // step count, 0 or 1 = continuous
 
-    private int Thumb => 11;
-    private int RightEnd => Math.Max(1, W - Thumb - 2);
+    // The thumb is 30 pixels wide [disassembly 004ca1ee stores 0x1e at +0x1d0]; the right end of its travel is the extent less the
+    // width of piece 5 of ShellSliderCtrl.pba less the thumb [code 004ca760].
+    private int Thumb => 30;
+    // The thumb starts after the left cap [the stock capture shows the "-" cap uncovered at the minimum].
+    private int LeftCap => Pieces?.Bitmaps.Count > 2 ? Pieces.Bitmaps[2].Width : 0;
+    private int RightEnd => Math.Max(1, W - (Pieces?.Bitmaps.Count > 5 ? Pieces.Bitmaps[5].Width : 11) - Thumb - LeftCap);
+    private PbmaArray? Pieces => Host?.ArrayByName("ShellSliderCtrl.pba");
     private float MaxValue => BitConverter.UInt32BitsToSingle(U("maxValue"));
 
     public override void Wake()
@@ -618,12 +623,12 @@ public sealed class GuiSlider : GuiActive
             mPos = Snap(Math.Max(0, mPos - unit));
         else if (lx > W - 8)
             mPos = Snap(Math.Min(RightEnd, mPos + unit));
-        else if (lx < mPos)
+        else if (lx < LeftCap + mPos)
             mPos = Snap(Math.Max(0, mPos - (Discrete > 1 ? unit : RightEnd / 8)));
-        else if (lx >= mPos + Thumb)
+        else if (lx >= LeftCap + mPos + Thumb)
             mPos = Snap(Math.Min(RightEnd, mPos + (Discrete > 1 ? unit : RightEnd / 8)));
         else
-            mGrab = lx - mPos;
+            mGrab = lx - LeftCap - mPos;
         return base.MsDown(e);
     }
 
@@ -632,7 +637,7 @@ public sealed class GuiSlider : GuiActive
         if (mDragging)
         {
             var (lx, _) = GlobalToLocal(e.X, 0);
-            mPos = Math.Clamp(lx - mGrab, 0, RightEnd);
+            mPos = Math.Clamp(lx - mGrab - LeftCap, 0, RightEnd);
             Changed();
         }
         return base.MsDrag(e);
@@ -657,9 +662,29 @@ public sealed class GuiSlider : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        int cy = gy + H / 2;
-        p.Fill(gx + 2, cy - 1, W - 4, 3, 0xe9);
-        p.Fill(gx + 1 + mPos, gy + 1, Thumb, Math.Max(1, H - 2), Active ? 0xf0 : 0xe9);
+        PbmaArray? a = Pieces;
+        if (a != null && a.Bitmaps.Count >= 15)
+        {
+            // Draw [code 004ca7b8], pieces of ShellSliderCtrl.pba: left cap 2 (0 dimmed), the stretched bar 11 (9 dimmed), the right
+            // cap 5 (3 dimmed); then, not dimmed, the 30 pixel thumb at its position: 7 + the stretched 6 + 8 (13, 12, 14 while dragged).
+            bool dim = Dimmed;
+            PbmpBitmap B(int i) => a.Bitmaps[i];
+            PbmpBitmap lc = B(dim ? 0 : 2), rc = B(dim ? 3 : 5), bar = B(dim ? 9 : 11);
+            p.Bitmap(lc, gx, gy);
+            int fill = W - lc.Width - B(5).Width;
+            p.BitmapStretch(bar, gx + lc.Width, gy, fill, bar.Height);
+            p.Bitmap(rc, gx + lc.Width + fill, gy);
+            if (!dim)
+            {
+                PbmpBitmap tl = B(mDragging ? 13 : 7), tm = B(mDragging ? 12 : 6), tr = B(mDragging ? 14 : 8);
+                int x = gx + LeftCap + mPos;
+                p.Bitmap(tl, x, gy);
+                x += tl.Width;
+                int mid = Thumb - tl.Width - B(8).Width;
+                p.BitmapStretch(tm, x, gy, mid, tm.Height);
+                p.Bitmap(tr, x + mid, gy);
+            }
+        }
         RenderChildren(p, gx, gy);
     }
 }
