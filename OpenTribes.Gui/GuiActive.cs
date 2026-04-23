@@ -559,9 +559,17 @@ public sealed class GuiTestEdit : GuiTextEdit
         return true;
     }
 
+    // Draw [code 004cd974]: an underline of two rules (the table at 00629f68, 0xf0 0xef 0xee 0xed, the second four when dimmed), the
+    // upper from x + 3 to x + W - 4 at y + H - 2 in the first colour, the lower from x + 4 to x + W - 5 at y + H - 1 in the second,
+    // and the third colour on both ends of the upper rule. The text starts 6 pixels in. (The stock capture shows this underline,
+    // not the recessed box the first reading of the draw gave.)
     protected override void DrawField(GuiPaint p, int gx, int gy)
     {
-        GuiBox.Bevel(p, gx + 3, gy, W - 3, H, Dimmed);
+        int b = Dimmed ? 4 : 0;
+        p.Line(gx + 3, gy + H - 2, gx + W - 4, gy + H - 2, 0xf0 - b);
+        p.Line(gx + 4, gy + H - 1, gx + W - 5, gy + H - 1, 0xef - b);
+        p.Fill(gx + 3, gy + H - 2, 1, 1, 0xee - b);
+        p.Fill(gx + W - 4, gy + H - 2, 1, 1, 0xee - b);
         DrawLine(p, gx + 6, gy);
     }
 }

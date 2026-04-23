@@ -23,7 +23,7 @@ public class GuiShellBorderTests
         public void SetClip(GfxRect? clip) { }
         public void DrawLine(int x0, int y0, int x1, int y1, int colorIndex) => Calls.Add($"line {x0},{y0},{x1},{y1} c{colorIndex:x}");
         public void DrawRectOutline(GfxRect rect, int colorIndex) { }
-        public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f) => Calls.Add($"fill c{colorIndex:x}");
+        public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f) => Calls.Add($"fill {rect.Left},{rect.Top} c{colorIndex:x}");
         public int DrawText(PftFont font, int x, int y, string text) { Calls.Add($"text w{font.GlyphCellWidth} {x},{y} '{text}'"); return y; }
         public void Blit(PbmpBitmap bitmap, int x, int y, BlitFlip flip = BlitFlip.None) => Calls.Add($"blit {bitmap.Width}x{bitmap.Height} {x},{y}");
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
@@ -111,5 +111,20 @@ public class GuiShellBorderTests
         Assert.Contains("text w6 29,22 'Top'", dev.Calls);      // an item with children uses sf_orange255_10
         Assert.Contains("text w8 47,42 'Sub'", dev.Calls);      // child at x + 19, y + 19, its text 19 further right
         Assert.Contains("text w7 48,41 'Sub'", dev.Calls);      // the shown tab is white
+    }
+
+    [Fact]
+    public void TestEditDrawsTwoUnderlineRulesWithMarkedEnds() // docs/gui.md 3.3 TestEdit, draw 004cd974
+    {
+        var fx = new GuiFixture(640, 480);
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        root.AddChild(GuiFixture.Make("FearGui::TestEdit", 10, 20, 100, 19, ("active", (byte)1)));
+        fx.Content(root);
+        var dev = new BlitDev();
+        fx.Canvas.Render(dev);
+        Assert.Contains("line 13,37,106,37 cf0", dev.Calls);   // x + 3 .. x + W - 4 at y + H - 2
+        Assert.Contains("line 14,38,105,38 cef", dev.Calls);   // one row lower and one pixel shorter
+        Assert.Contains("fill 13,37 cee", dev.Calls);
+        Assert.Contains("fill 106,37 cee", dev.Calls);
     }
 }
