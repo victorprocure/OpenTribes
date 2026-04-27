@@ -29,6 +29,8 @@ public sealed class GuiHost
     public string Clipboard = "";
     // The HUD data source (docs/gui.md 4.1); null means no client player state.
     public IHudSource? Hud;
+    // The action maps (the controls screen rows look their keys up in them).
+    public OpenTribes.Script.ClientState? Actions;
     // The item indices marked as favorites (CmdInventory::setFavorites); the inventory lists draw a star beside them.
     public readonly HashSet<int> Favorites = new();
     // Called when a PaletteCtrl wakes with the palette file name.

@@ -1,6 +1,7 @@
 // docs/gui.md 3.3: containers, dialog frames, bitmaps, the shell buttons, switches, menus, sliders, progress, timers.
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
+using OpenTribes.Script;
 
 namespace OpenTribes.Gui;
 
@@ -414,12 +415,23 @@ public sealed class GuiUniversalButton : GuiActive
     }
 }
 
-// FearGui::CFGButton [code 0049d74c, 0049d6e4]: a row of the controls screen. Action: onAction then the message tag.
+// FearGui::CFGButton [code 0049d74c draw, 0049d6e4 action, 0049e460 add]: a row of the controls screen. Action: onAction then the
+// message tag. The row shows the key of its binding in the action map the row names (0049df98).
 public sealed class GuiCFGButton : GuiSimpleText
 {
     public override bool WantsTab => false;
     public override bool CanTake() => false;
     public bool WaitingForKey;
+    // +0x367: modifier codes 1 to 3 then the key name, empty when the map has no such binding.
+    public string Binding = "";
+
+    // The fonts of 0049e460: +0x1cc, +0x1d0, +0x1d4 and the shadow +0x2e0 (tags 150114, 150124, 150134, 150172).
+    private PftFont? FontA => Host?.FontByTag(150114);
+    private PftFont? FontB => Host?.FontByTag(150124);
+    private PftFont? FontC => Host?.FontByTag(150134);
+    private PftFont? FontShadow => Host?.FontByTag(150172);
+
+    private PbmpBitmap? Pic(string name) => Host?.BitmapByName(name);
 
     protected override void Action()
     {
@@ -427,16 +439,70 @@ public sealed class GuiCFGButton : GuiSimpleText
         PostMessage();
     }
 
+    public override void Wake()
+    {
+        base.Wake();
+        // 0049e460: the extent is the idle row picture, widened to the label (+2), and the label height above it.
+        PbmpBitmap? df = Pic("CFG_Controls_DF.BMP");
+        PftFont? fb = FontB;
+        if (df != null && fb != null)
+        {
+            W = Math.Max(df.Width, GuiPaint.TextWidth(fb, ResolvedText()) + 2);
+            H = GuiPaint.FontHeight(fb) + df.Height;
+        }
+        RefreshBinding();
+    }
+
+    public override void PreRender() => RefreshBinding();
+
+    // 0049e7dc: the text of the binding the row describes.
+    private void RefreshBinding()
+    {
+        string map = S("actionMap");
+        ActionMap? m = Host?.Actions?.FindMap(ClientCommands.ActionMapName(map));
+        Binding = map.Length == 0 ? "" : BindingText.For(m, Command, (int)U("makeAction"), BitConverter.UInt32BitsToSingle((uint)U("makeValue")),
+            AltCommand, (int)U("breakAction"), BitConverter.UInt32BitsToSingle((uint)U("breakValue")), (uint)U("actionFlags"));
+    }
+
+    private static int Centered(int space) => space / 2;
+
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        p.Fill(gx, gy, W, H, Pressed || WaitingForKey ? 0xf6 : Dimmed ? 0xf3 : 0xf4);
-        p.Outline(gx, gy, W, H, 0xfa);
-        PftFont? f = Host?.FontByName("sf_white_10.pft");
-        string s = ResolvedText();
-        if (f != null && s.Length > 0)
-            p.Text(f, gx + (W - GuiPaint.TextWidth(f, s)) / 2, gy + (H - GuiPaint.FontHeight(f)) / 2, s);
-        RenderChildren(p, gx, gy);
+        bool dimmed = Dimmed;
+        PftFont? fa = FontA, fb = FontB, fc = FontC, shadow = FontShadow;
+        string name = ResolvedText();
+        PbmpBitmap? pic = dimmed ? Pic("CFG_Controls_NA.BMP") : Pressed || WaitingForKey ? Pic("CFG_Controls_ON.BMP") : Pic("CFG_Controls_DF.BMP");
+        int fh = GuiPaint.FontHeight(fb);
+        if (pic != null)
+            p.Bitmap(pic, gx + Centered(W - pic.Width), gy + fh - 1);
+        int tx = gx + Centered(W - (GuiPaint.TextWidth(fa, name) + 1));
+        p.Text(shadow, tx - 1, gy + 1, name);
+        p.Text(dimmed ? fc : Binding.Length > 0 ? fb : fc, tx, gy, name);
+        int by = gy + fh + 1;
+        string b = Binding;
+        if (b.Length == 0)
+            return;
+        int codes = 0, iconsW = 0;
+        PbmpBitmap? shiftPic = Pic("I_Shift.BMP"), altPic = Pic("I_Alt.BMP"), ctrlPic = Pic("I_Ctrl.BMP");
+        while (codes < b.Length && b[codes] >= 1 && b[codes] < 4)
+        {
+            iconsW += (shiftPic?.Width ?? 0) + 2;
+            ++codes;
+        }
+        string key = b[codes..];
+        if (codes == 3 && key.Length > 3)
+            key = key[..3];                       // 0049d74c writes a terminator at the fourth character
+        int x = gx + Centered(W - (iconsW + GuiPaint.TextWidth(fa, key) + 1));
+        for (int i = 0; i < codes; ++i)
+        {
+            PbmpBitmap? ic = b[i] == 1 ? shiftPic : b[i] == 2 ? ctrlPic : altPic;
+            if (!dimmed && ic != null)
+                p.Bitmap(ic, x, by + 4);
+            x += (ic?.Width ?? 0) + 2;
+        }
+        p.Text(shadow, x - 1, by + 1, key);
+        p.Text(dimmed ? fc : fa, x, by, key);
     }
 }
 

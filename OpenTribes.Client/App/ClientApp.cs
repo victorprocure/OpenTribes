@@ -139,7 +139,7 @@ public sealed class ClientApp : IDisposable
         ctx.Game = game;
         GameCommands.Register(Interp, game);
 
-        Host = new GuiHost(Interp, Res) { Root = Opt.Root, Now = () => NowMs, Log = l => Interp.Print(1, l) };
+        Host = new GuiHost(Interp, Res) { Actions = Maps, Root = Opt.Root, Now = () => NowMs, Log = l => Interp.Print(1, l) };
         Canvas = new GuiCanvas(Host, Dev?.Width ?? Opt.Width, Dev?.Height ?? Opt.Height);
         GuiRt = new GuiRuntime(Interp, Host, Canvas);
         GuiRt.RenderRequested = () => { RenderFrame(); };
