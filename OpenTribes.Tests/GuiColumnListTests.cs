@@ -98,4 +98,24 @@ public class GuiColumnListTests
         Assert.Equal(23, m.HeaderH);
         Assert.Equal(1, content.X);   // the content keeps the offset of its file
     }
+
+    [Fact]
+    public void FilterBoxIsDimmedUntilAFilterIsChosen() // 004d8fe4
+    {
+        var fx = new GuiFixture();
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        GuiControl box = GuiFixture.Make("FearGui::FearGuiBox", 10, 10, 230, 197);
+        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 3, 3, 224, 152, ("headerY", 23u));
+        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 0, 0, 224, 152);
+        GuiControl filter = GuiFixture.Make("FearGui::FilterCtrl", 0, 0, 256, 23, ("active", (byte)0));
+        root.AddChild(box);
+        box.AddChild(scroll);
+        scroll.AddChild(content);
+        content.AddChild(filter);
+        fx.Content(root);
+        Assert.True(((GuiBox)box).ForceDim);
+        ((GuiFilterCtrl)filter).ChosenFilter = 1;
+        filter.Wake();
+        Assert.False(((GuiBox)box).ForceDim);
+    }
 }

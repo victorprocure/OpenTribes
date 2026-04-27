@@ -19,6 +19,9 @@ public sealed class GuiFGControl : GuiControl
 // FearGui::FearGuiBox [code 004966c4]: fill and a double line frame with notched corners.
 public sealed class GuiBox : GuiControl
 {
+    // The byte at +0x1b0 of the original [code 004966c4]: set by the screen's own code (the filter list is dimmed with no filter).
+    public bool ForceDim;
+
     // The palette indices 0xf0 down to 0xe9 (table at 0062164c); the second half is used when dimmed. Four colours c0..c3 of the
     // set: the outer rule c1 and the inner rule c0 on every side (each cut 4 pixels short of the corners), the corner pixels c2
     // and a one pixel outline c3 inside, 3 pixels from the edge.
@@ -48,7 +51,7 @@ public sealed class GuiBox : GuiControl
         int gx = ox + X, gy = oy + Y;
         if (Opaque != 0)
             p.Fill(gx, gy, W, H, FillColor);
-        Bevel(p, gx, gy, W, H, Dimmed);
+        Bevel(p, gx, gy, W, H, Dimmed || ForceDim);
         RenderChildren(p, gx, gy);
     }
 }

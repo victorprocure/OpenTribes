@@ -106,7 +106,7 @@ way are added to Open.
 - [x] Command screen lists leave keys to the game.
 - [x] Crosshair target marks and name label with health.
 - [x] Low resolution HUD layout and reticle.
-- [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows and combo boxes.
+- [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows, combo boxes and the filter box.
 - [x] Switch buttons ignore case.
 - [x] Server browser: column lists and master servers.
 

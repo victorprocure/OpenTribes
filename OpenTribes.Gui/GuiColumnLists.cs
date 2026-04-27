@@ -303,9 +303,26 @@ public sealed class GuiFilterCtrl : GuiColumnList
         new(131600, 0, 70), new(131601, 1, 87), new(131602, 2, 67), new(-1, 3, 32),
     };
 
+    // DAT_00628370 of the original: the chosen filter (0 or less: none).
+    public int ChosenFilter;
+
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
     protected override int RowCount => 0;
     protected override string? Cell(int dataIndex, int row) => null;
+
+    // 004d8fe4: with no filter chosen the box around the filter list is drawn dimmed.
+    public override void Wake()
+    {
+        base.Wake();
+        for (GuiControl? c = Parent; c != null; c = c.Parent)
+        {
+            if (c is GuiBox box)
+            {
+                box.ForceDim = ChosenFilter < 1;
+                break;
+            }
+        }
+    }
 }
 
 // The twelve columns of the server browser and their display state [code 00627300 table, 004bcc58 load, 004bcdac save]. Each has a
