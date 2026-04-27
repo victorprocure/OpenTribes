@@ -15,6 +15,7 @@ public sealed class ClientCommandHandlers
     private readonly ClientApp mApp;
     private Interpreter I => mApp.Interp;
     private int mShotSeq;
+    private readonly List<string> mResolvedMasters = new();
     private bool mInputOpen = true;
     private readonly HashSet<string> mInactive = new(StringComparer.OrdinalIgnoreCase);
     private string mFsDevice = "Software", mWinDevice = "Software";
@@ -608,16 +609,21 @@ public sealed class ClientCommandHandlers
             return mApp.PlayDemo(a[1]) ? "True" : "False";
         });
         // R6: the master list is local only. Names resolve if they are numeric loopback addresses; every other master stays
-        // unresolved and the script goes on with an empty list.
+        // unresolved and the script goes on with an empty list. The resolved ones read back as "IP:a.b.c.d:port" (0x00422a74).
         Cmd("DNet::resolveMasters", a =>
         {
-            int n = 0;
-            for (int k = 1; k < a.Length; ++k)
-                if (mApp.IsLocalAddress(a[k]))
-                    ++n;
-            return n.ToString(CultureInfo.InvariantCulture);
+            mResolvedMasters.Clear();
+            for (int k = 1; k < a.Length && k <= 10; ++k)
+            {
+                if (a[k].Length == 0)
+                    break;
+                if (mApp.IsLocalAddress(a[k]) && OpenTribes.Net.QueryAddress.TryResolve("IP:" + a[k].Replace("IP:", "", StringComparison.OrdinalIgnoreCase), 0, out string canon, out _, out _, out _))
+                    mResolvedMasters.Add(canon);
+            }
+            return mResolvedMasters.Count.ToString(CultureInfo.InvariantCulture);
         });
-        Cmd("DNet::getResolvedMaster", a => "");
+        Cmd("DNet::getResolvedMaster", a =>
+            a.Length >= 2 && int.TryParse(a[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int i) && i >= 0 && i < mResolvedMasters.Count ? mResolvedMasters[i] : "");
         Cmd("DNet::TranslateAddress", a => a.Length >= 2 && mApp.IsLocalAddress(a[1]) ? a[1] : "");
         Cmd("remoteEval", a =>
         {

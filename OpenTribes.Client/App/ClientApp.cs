@@ -555,6 +555,7 @@ public sealed class ClientApp : IDisposable
         // F5/F6 follow: the canvas content decides which maps are pushed.
         Play.UpdateContent(Canvas.Content?.Id ?? 0);
         Delegates.Poll();
+        Delegates.Tick();
         mIrcHistory.Keep(Interp);
         // F8-F14: moves, receive, send, sim advance, prediction.
         using (FramePerf.Scope("net-sim"))

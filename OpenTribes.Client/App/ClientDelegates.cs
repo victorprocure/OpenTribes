@@ -2,8 +2,9 @@
 // messages of their screen (vtable slot 0x74). C6 left them without handlers (gui.md Q6); this class gives the ones the join
 // flow needs, derived from the stock scripts and the message tags of the `.gui` files:
 //   PlayerSetup: the name field enables DONE when it holds text (140318); DONE adds the player and closes the dialog (140060).
-//   JoinGame: a list row enables JOIN (140016); JOIN joins the selected server (140006); the refresh buttons do nothing (R6).
-// The server list holds only the servers the script gave with addGameServer(): the master list stays local (R6).
+//   JoinGame: a list row enables JOIN (140016); JOIN joins the selected server (140006); the refresh buttons, CANCEL and the query
+//   behind them are ServerBrowser.
+// The server list holds the servers the script gave with addGameServer() and the ones the query found (R6: loopback only by default).
 using System.Globalization;
 using OpenTribes.Script;
 using OpenTribes.Gui;
@@ -19,10 +20,16 @@ public sealed class ClientDelegates
     // Row id to the address the row joins.
     public readonly Dictionary<int, (string Address, string Name)> Servers = new();
     private int mNextRow = 1;
+    public int NextRow() => mNextRow++;
+    public ServerBrowser Browser { get; }
 
     public const string GameVersion = "1.11";
 
-    public ClientDelegates(ClientApp app) => mApp = app;
+    public ClientDelegates(ClientApp app)
+    {
+        mApp = app;
+        Browser = new ServerBrowser(app, this);
+    }
 
     private static readonly string[] Names =
         { "MainMenu", "Connect", "PlayerSetup", "JoinGame", "CreateServer", "Recordings", "Options", "IRCChat", "play", "quit" };
@@ -67,13 +74,10 @@ public sealed class ClientDelegates
                 list.AddEntry($"{a[2]}   {a[1]}   {a[3]}   {a[4]} ms", id);
             return "TRUE";
         });
+        // rebuildServerList() is TribesNet_queryServers (0041e4cc, 0042bb50): the LAN broadcast and the first master.
         mApp.Interp.AddCommand("rebuildServerList", (i, a) =>
         {
-            if (mApp.GuiRt.FindControl(ServerList.ToString(CultureInfo.InvariantCulture)) is GuiList list)
-            {
-                list.Clear();
-                Servers.Clear();
-            }
+            Browser.QueryServers();
             return "";
         });
     }
@@ -97,7 +101,11 @@ public sealed class ClientDelegates
         mSeeded = content;
         Servers.Clear();
         mApp.Interp.ExecFile("GameServerList.cs");
+        Browser.OnOpen();
     }
+
+    // Every frame: the replies and timers of the server query.
+    public void Tick() => Browser.Tick();
 
     private GuiControl? Find(int id) => mApp.GuiRt.FindControl(id.ToString(CultureInfo.InvariantCulture));
 
@@ -127,8 +135,7 @@ public sealed class ClientDelegates
         switch (tag)
         {
             case ServerList:
-                if (Find(JoinButton) is GuiActive join && Find(ServerList) is GuiList l)
-                    join.Active = l.Selected >= 0;
+                Browser.UpdateButtons();
                 return true;
             case JoinButton:
                 {
@@ -138,11 +145,7 @@ public sealed class ClientDelegates
                     mApp.Interp.CallFunction("JoinGame", Array.Empty<string>());
                     return true;
                 }
-            case RefreshAll:
-            case RefreshVisible:
-            case CancelQuery:
-                return true;
         }
-        return false;
+        return Browser.Message(tag);
     }
 }
