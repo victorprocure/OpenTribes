@@ -448,14 +448,68 @@ public sealed class GuiCombo : GuiSimpleText
         return true;
     }
 
+    // The picture of each state: POP_Arrow + _DF, _HI, _MD, _MH, _ON, _NA (004b65e8).
+    private PbmpBitmap? Arrow(string suffix) => Host?.BitmapByName("POP_Arrow" + suffix + ".BMP");
+
+    // 004b6784: the height is the arrow picture plus four.
+    public override void Wake()
+    {
+        base.Wake();
+        PbmpBitmap? df = Arrow("_DF");
+        if (df != null)
+            H = df.Height + 4;
+    }
+
+    private PftFont? Tag(uint t) => Host?.FontByTag(t);
+
+    // 004b6f80: two bars with rounded ends (palette 0xf0, 0xef, 0xee; 0xec, 0xeb, 0xea when dimmed), the label (the string the
+    // file stores before the text), the arrow and the current entry, cut with "..." to the room that is left (004b6dfc).
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        DrawBase(p, gx, gy);
-        GuiBox.Bevel(p, gx, gy, W, H, Dimmed);
-        PftFont? f = Host?.FontByName(Dimmed ? "sf_grey100_10b.pft" : "sf_white_10.pft");
-        p.Text(f, gx + 4, gy + Math.Max(0, (H - GuiPaint.FontHeight(f)) / 2), Text);
-        RenderChildren(p, gx, gy);
+        bool dimmed = Dimmed;
+        int k = dimmed ? 4 : 0;
+        int[] pal = { 0xf0, 0xef, 0xee, 0xed, 0xec, 0xeb, 0xea, 0xe9 };
+        int bottom = gy + H - 1;
+        p.Fill(gx + 4, gy, W - 8, 1, pal[k + 1]);
+        p.Fill(gx + 3, gy + 1, W - 6, 1, pal[k]);
+        p.Fill(gx + 3, gy + 1, 1, 1, pal[k + 2]);
+        p.Fill(gx + W - 4, gy + 1, 1, 1, pal[k + 2]);
+        p.Fill(gx + 3, bottom - 1, W - 6, 1, pal[k]);
+        p.Fill(gx + 4, bottom, W - 8, 1, pal[k + 1]);
+        p.Fill(gx + 3, bottom - 1, 1, 1, pal[k + 2]);
+        p.Fill(gx + W - 4, bottom - 1, 1, 1, pal[k + 2]);
+        int left = gx + 10;
+        string label = S("popupName");
+        if (label.Length > 0)
+        {
+            PftFont? lf = Tag(150121);
+            p.Text(Tag(150173), left, gy + 1, label);
+            p.Text(dimmed ? Tag(150131) : lf, left + 1, gy, label);
+            left += GuiPaint.TextWidth(lf, label) + 6;
+        }
+        PbmpBitmap? arrow = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
+        arrow ??= Arrow("_DF");
+        if (arrow == null)
+            return;
+        p.Bitmap(arrow, gx + W - 7 - arrow.Width, gy + 2);
+        int room = gx + W - arrow.Width - 14 - left;
+        PftFont? f = dimmed ? Tag(150134) : Tag(150114);
+        PftFont? sh = Tag(150172);
+        string t = Text;
+        if (f == null)
+            return;
+        if (GuiPaint.TextWidth(f, t) >= room)
+        {
+            int dots = GuiPaint.TextWidth(f, "...");
+            if (dots > room)
+                return;
+            while (t.Length > 0 && GuiPaint.TextWidth(f, t) > room - dots)
+                t = t[..^1];
+            t += "...";
+        }
+        p.Text(sh, left - 1, gy + 2, t);
+        p.Text(f, left, gy + 1, t);
     }
 }
 
