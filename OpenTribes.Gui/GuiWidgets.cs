@@ -189,7 +189,34 @@ public sealed class GuiDlgBox : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         p.Fill(gx, gy, W, H, 0xf4);
-        GuiBox.Bevel(p, gx, gy, W, H, false);
+        // 004a31c8: the frame is five pictures (DLG_TopLeft, TopEdge, LeftEdge, BottomLeft, BottomEdge), the right side mirrored.
+        PbmpBitmap? tl = Host?.BitmapByName("DLG_TopLeft.BMP"), te = Host?.BitmapByName("DLG_TopEdge.BMP"),
+            le = Host?.BitmapByName("DLG_LeftEdge.BMP"), bl = Host?.BitmapByName("DLG_BottomLeft.BMP"),
+            be = Host?.BitmapByName("DLG_BottomEdge.BMP");
+        if (tl != null && te != null && le != null && bl != null && be != null)
+        {
+            int right = gx + W;
+            p.Bitmap(tl, gx, gy);
+            int x = gx + tl.Width;
+            p.Bitmap(tl, x, gy);
+            for (; x < right - tl.Width; x += te.Width)
+                p.Bitmap(te, x, gy);
+            p.BitmapFlipX(tl, right - tl.Width, gy);
+            int bottom = gy + H - bl.Height;
+            for (int y = gy + tl.Height; y < bottom; y += le.Height)
+            {
+                p.Bitmap(le, gx, y);
+                p.BitmapFlipX(le, right - le.Width, y);
+            }
+            p.Bitmap(bl, gx, bottom);
+            for (x = gx + bl.Width; x < right - bl.Width; x += be.Width)
+                p.Bitmap(be, x, gy + H - be.Height);
+            p.BitmapFlipX(bl, right - bl.Width, bottom);
+        }
+        else
+        {
+            GuiBox.Bevel(p, gx, gy, W, H, false);
+        }
         RenderChildren(p, gx, gy);
     }
 }

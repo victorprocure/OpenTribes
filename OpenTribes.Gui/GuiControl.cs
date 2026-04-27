@@ -381,6 +381,12 @@ public sealed class GuiPaint
             Dev.Blit(Keyed(b), x, y);
     }
 
+    public void BitmapFlipX(PbmpBitmap? b, int x, int y)
+    {
+        if (b != null)
+            Dev.Blit(Keyed(b), x, y, BlitFlip.X);
+    }
+
     public void BitmapKeyed(PbmpBitmap? b, int x, int y) => Bitmap(b, x, y);
 
     public void BitmapStretch(PbmpBitmap? b, int x, int y, int w, int h)
