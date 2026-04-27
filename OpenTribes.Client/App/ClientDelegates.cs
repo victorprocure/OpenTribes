@@ -5,6 +5,7 @@
 //   JoinGame: a list row enables JOIN (140016); JOIN joins the selected server (140006); the refresh buttons do nothing (R6).
 // The server list holds only the servers the script gave with addGameServer(): the master list stays local (R6).
 using System.Globalization;
+using OpenTribes.Script;
 using OpenTribes.Gui;
 
 namespace OpenTribes.Client.App;
@@ -60,7 +61,10 @@ public sealed class ClientDelegates
             }
             int id = mNextRow++;
             Servers[id] = (a[1], a[2]);
-            list.AddEntry($"{a[2]}   {a[1]}   {a[3]}   {a[4]} ms", id);
+            if (list is GuiServerList browser)
+                browser.AddServer(new GuiServerList.Server(id, a[2], a[1], a[3], Numbers.BorlandAtoi(a[4]), ClientCommandHandlers.IsTrue(a[5])));
+            else
+                list.AddEntry($"{a[2]}   {a[1]}   {a[3]}   {a[4]} ms", id);
             return "TRUE";
         });
         mApp.Interp.AddCommand("rebuildServerList", (i, a) =>

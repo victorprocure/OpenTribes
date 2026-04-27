@@ -120,6 +120,58 @@ public class GuiColumnListTests
     }
 }
 
+public class ServerListTests
+{
+    private static (GuiFixture Fx, GuiServerList List) Make(params (string, string)[] prefs)
+    {
+        var fx = new GuiFixture();
+        foreach (var (k, v) in prefs)
+            fx.Host.SetVar(k, v);
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        root.AddChild(scroll);
+        scroll.AddChild(content);
+        content.AddChild(list);
+        fx.Content(root);
+        fx.Frame();
+        return (fx, (GuiServerList)list);
+    }
+
+    [Fact]
+    public void ColumnsFollowTheServerColumnPreferences() // 004c4ca4
+    {
+        var (_, l) = Make();
+        Assert.Equal(12, l.ColumnSet.Count);
+        Assert.Equal(new[] { 52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90 }, l.ColumnSet.Select(c => c.Width));
+        var (_, m) = Make(("$pref::ServerColumnDisplay0", "3, YES, 52"), ("$pref::ServerColumnDisplay3", "0, NO, 105"));
+        Assert.Equal(131301, m.ColumnSet[0].HeaderTag);   // Server Name (entry 3) moved first
+        Assert.False(m.ColumnSet[0].Visible);
+        Assert.True(m.ColumnSet[3].Visible);
+    }
+
+    [Fact]
+    public void ListIsAsWideAsItsColumnsAndTheViewKeepsItsInset()
+    {
+        var (_, l) = Make();
+        Assert.Equal(870, l.W);
+        Assert.Equal(23, l.H);
+        Assert.Equal(6, l.Parent!.X);
+        Assert.Equal(540, l.Parent.W);   // the scroll is 552 wide, the content 6 pixels in on both sides
+    }
+
+    [Fact]
+    public void RowsShowTheNameAddressVersionAndPing()
+    {
+        var (fx, l) = Make();
+        l.AddServer(new GuiServerList.Server(1, "Alpha", "127.0.0.1:28001", "1.11", 20, false));
+        fx.Frame();
+        Assert.Single(l.Entries);
+        Assert.Equal(23 + l.RowHeight, l.H);
+    }
+}
+
 public class IrcHistoryTests
 {
     [Fact]

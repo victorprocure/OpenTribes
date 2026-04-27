@@ -18,6 +18,7 @@ public abstract class GuiColumnList : GuiList
     private const int HeaderFill = 0xf7, HeaderFillOff = 0xf4, LineOn = 0xf0, LineOff = 0xea;
 
     protected abstract IReadOnlyList<ListColumn> Columns { get; }
+    public IReadOnlyList<ListColumn> ColumnSet => Columns;
     protected abstract int RowCount { get; }
     protected abstract string? Cell(int dataIndex, int row);
 
@@ -533,5 +534,67 @@ public sealed class GuiOptionColumns : GuiColumnList
         mDrag = mToggle = null;
         mDragRow = -1;
         return base.MsUp(e);
+    }
+}
+
+// FearGui::ServerListCtrl [code 004c4b84 ctor, 004c7b98 wake, 004c7080 open]: the server browser of the join screen. Its columns are the
+// server column options (ServerColumns): the entries with Display set, in order. The rows are the servers the client knows
+// (config\GameServerList.cs and, with the query code, the answers of the loopback and master queries); a cell the client has no
+// value for stays empty.
+public sealed class GuiServerList : GuiColumnList
+{
+    public sealed record Server(int Id, string Name, string Address, string Version, int Ping, bool Favorite);
+
+    // The widths of the browser's column records [table at 00628cf4]; the third number of the preference is not the width.
+    private static readonly int[] sWidths = { 52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90 };
+
+    public readonly ServerColumns Data = new();
+    private readonly List<Server> mServers = new();
+    private List<ListColumn> mColumns = new();
+
+    protected override IReadOnlyList<ListColumn> Columns => mColumns;
+    protected override int RowCount => mServers.Count;
+    public IReadOnlyList<Server> Servers => mServers;
+
+    public void AddServer(Server s)
+    {
+        mServers.Add(s);
+        AddEntry(s.Name, s.Id);
+    }
+
+    public override void Clear()
+    {
+        base.Clear();
+        mServers.Clear();
+    }
+
+    public override void Wake()
+    {
+        base.Wake();
+        if (Host != null)
+            Data.Load(Host);
+        Rebuild();
+    }
+
+    // The visible columns in browser order; the data index is the entry index (0 favorites .. 11 server type).
+    private void Rebuild()
+    {
+        mColumns = Data.Entries.Select((e, i) => (e, i)).OrderBy(t => t.e.Order)
+            .Select(t => new ListColumn(t.e.NameTag, t.i, sWidths[t.i], t.e.Display)).ToList();
+    }
+
+    protected override string? Cell(int dataIndex, int row)
+    {
+        if (row < 0 || row >= mServers.Count)
+            return null;
+        Server s = mServers[row];
+        return dataIndex switch
+        {
+            3 => s.Name,
+            4 => s.Ping.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            9 => s.Address,
+            10 => s.Version,
+            _ => null,
+        };
     }
 }

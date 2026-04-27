@@ -128,6 +128,7 @@ public static class GuiFactory
             case "FearGui::MasterServerList": return new GuiMasterList();
             case "FearGui::FilterCtrl": return new GuiFilterCtrl();
             case "FearGui::ColumnListCtrl": return new GuiOptionColumns();
+            case "FearGui::ServerListCtrl": return new GuiServerList();
             case "FearGui::MenuDisplayCtrl": return new GuiMenuDisplay();
             case "FearGuiInventory": return new GuiInventoryList();
             case "FearGuiPurchase": return new GuiInventoryList { Purchase = true };

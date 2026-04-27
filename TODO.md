@@ -108,7 +108,7 @@ way are added to Open.
 - [x] Low resolution HUD layout and reticle.
 - [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows, combo boxes and the filter box, all placed like the original.
 - [x] Switch buttons ignore case.
-- [x] Server browser: column lists and master servers.
+- [x] Server browser: header, frame, column lists and master servers.
 - [x] IRC history size.
 - [x] Video options list the displays and modes.
 

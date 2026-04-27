@@ -148,6 +148,8 @@ public class GuiScroll : GuiControl
     public int ScrollX, ScrollY;
     // +0x270 of the original: the list inside is disabled, so the border takes its disabled colour [code 00548944, 004b4584].
     public bool Disabled;
+    private int ViewW => W - 2 * mInsetX;
+    private int ViewH => H - 2 * mInsetY;
     private bool mInsetKnown;
     private int mInsetX, mInsetY;
     private int mDragPart;      // 8 vertical thumb, 9 horizontal thumb
@@ -171,8 +173,8 @@ public class GuiScroll : GuiControl
     // Policy values: 0 always, 1 never, 2 when needed. The stock files show it: CmdInventory.gui (horizontal 1, vertical 0) sizes its
     // list 19 pixels narrower than the frame for a vertical bar and has no use for a horizontal one; command.gui (1, 2) scrolls
     // vertically only.
-    private bool VBar => U("verticalPolicy") == 0 || U("verticalPolicy") == 2 && ContentH > H;
-    private bool HBar => U("horizontalPolicy") == 0 || U("horizontalPolicy") == 2 && ContentW > W;
+    private bool VBar => U("verticalPolicy") == 0 || U("verticalPolicy") == 2 && ContentH > ViewH;
+    private bool HBar => U("horizontalPolicy") == 0 || U("horizontalPolicy") == 2 && ContentW > ViewW;
 
     public override void PreRender()
     {
@@ -213,7 +215,7 @@ public class GuiScroll : GuiControl
     // Part codes: 1 up arrow, 2 down arrow, 3 page up, 4 page down, 8 vertical thumb, 0 none (the horizontal bar mirrors).
     private (int top, int len) Thumb(bool vert)
     {
-        int view = vert ? H - (HBar ? HBarH : 0) : W - (VBar ? VBarW : 0);
+        int view = vert ? ViewH - (HBar ? HBarH : 0) : ViewW - (VBar ? VBarW : 0);
         int content = Math.Max(1, vert ? ContentH : ContentW);
         int a0 = vert ? VArrowTop : HArrowLeft, a1 = vert ? VArrowBottom : HArrowRight;
         int track = Math.Max(1, view - a0 - a1);
@@ -225,17 +227,19 @@ public class GuiScroll : GuiControl
 
     private int Part(int lx, int ly)
     {
-        if (VBar && lx >= W - VBarW)
+        lx -= mInsetX;
+        ly -= mInsetY;
+        if (VBar && lx >= ViewW - VBarW)
         {
             if (ly < VArrowTop) return 1;
-            if (ly >= H - (HBar ? HBarH : 0) - VArrowBottom) return 2;
+            if (ly >= ViewH - (HBar ? HBarH : 0) - VArrowBottom) return 2;
             var (t, l) = Thumb(true);
             return ly < t ? 3 : ly >= t + l ? 4 : 8;
         }
-        if (HBar && ly >= H - HBarH)
+        if (HBar && ly >= ViewH - HBarH)
         {
             if (lx < HArrowLeft) return 5;
-            if (lx >= W - (VBar ? VBarW : 0) - HArrowRight) return 6;
+            if (lx >= ViewW - (VBar ? VBarW : 0) - HArrowRight) return 6;
             var (t, l) = Thumb(false);
             return lx < t ? 7 : lx >= t + l ? 10 : 9;
         }
@@ -244,7 +248,7 @@ public class GuiScroll : GuiControl
 
     private void StepPart(int part)
     {
-        int vh = H - (HBar ? HBarH : 0), vw = W - (VBar ? VBarW : 0);
+        int vh = ViewH - (HBar ? HBarH : 0), vw = ViewW - (VBar ? VBarW : 0);
         switch (part)
         {
             case 1: ScrollBy(0, -ScrollLineY); break;
@@ -291,7 +295,7 @@ public class GuiScroll : GuiControl
             return base.MsDrag(e);
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
         bool vert = mDragPart == 8;
-        int view = vert ? H - (HBar ? HBarH : 0) : W - (VBar ? VBarW : 0);
+        int view = vert ? ViewH - (HBar ? HBarH : 0) : ViewW - (VBar ? VBarW : 0);
         int content = Math.Max(1, vert ? ContentH : ContentW);
         var (start, len) = Thumb(vert);
         int a0 = vert ? VArrowTop : HArrowLeft, a1 = vert ? VArrowBottom : HArrowRight;
@@ -335,6 +339,8 @@ public class GuiScroll : GuiControl
             p.Fill(gx, gy, W, H, FillColor);
         if (Border != 0)
             p.Outline(gx, gy + hy, W, H - hy, Disabled ? DisabledBorder : BorderColor);
+        if (U("style") == 6)
+            DrawListFrame(p, gx, gy);
         RenderChildren(p, gx, gy);
         PbmaArray? pc = Pieces;
         if (pc == null)
@@ -343,11 +349,32 @@ public class GuiScroll : GuiControl
             return;
         }
         if (VBar)
-            DrawVBar(p, pc, gx + W - VBarW, gy, H - (HBar ? HBarH : 0));
+            DrawVBar(p, pc, gx + W - mInsetX - VBarW, gy + mInsetY, ViewH - (HBar ? HBarH : 0));
         if (HBar)
-            DrawHBar(p, pc, gx, gy + H - HBarH, W - (VBar ? VBarW : 0));
+            DrawHBar(p, pc, gx + mInsetX, gy + H - mInsetY - HBarH, ViewW - (VBar ? VBarW : 0));
         if (VBar && HBar)
-            p.Bitmap(pc.Bitmaps[24], gx + W - VBarW, gy + H - HBarH);
+            p.Bitmap(pc.Bitmaps[24], gx + W - mInsetX - VBarW, gy + H - mInsetY - HBarH);
+    }
+
+    // The frame of the join screen's server list (style 6), measured against the stock client: the box frame with its two rules in the
+    // other order (0xf0 outside, 0xef inside) and no inner outline; the notch pixels are 0xf0.
+    private void DrawListFrame(GuiPaint p, int x, int y)
+    {
+        int x1 = x + W - 1, y1 = y + H - 1;
+        p.Line(x + 4, y, x1 - 4, y, 0xf0);
+        p.Line(x + 4, y + 1, x1 - 4, y + 1, 0xef);
+        p.Line(x + 4, y1 - 1, x1 - 4, y1 - 1, 0xef);
+        p.Line(x + 4, y1, x1 - 4, y1, 0xf0);
+        p.Line(x, y + 4, x, y1 - 4, 0xf0);
+        p.Line(x + 1, y + 4, x + 1, y1 - 4, 0xef);
+        p.Line(x1 - 1, y + 4, x1 - 1, y1 - 4, 0xef);
+        p.Line(x1, y + 4, x1, y1 - 4, 0xf0);
+        foreach (var (px, py) in new[] { (x + 3, y + 1), (x1 - 3, y + 1), (x + 3, y1 - 1), (x1 - 3, y1 - 1), (x + 1, y + 3), (x + 1, y1 - 3),
+                     (x1 - 1, y + 3), (x1 - 1, y1 - 3) })
+            p.Fill(px, py, 1, 1, 0xf0);
+        // The sunken line pair around the view, 3 and 4 pixels in.
+        p.Outline(x + 3, y + 3, W - 6, H - 6, 0xee);
+        p.Outline(x + 4, y + 4, W - 8, H - 8, 0xf1);
     }
 
     private void DrawPlainBars(GuiPaint p, int gx, int gy)
@@ -374,7 +401,7 @@ public class GuiScroll : GuiControl
     // (26, 27, 25 dragged). A bar whose content fits shows the disabled pieces without a thumb.
     private void DrawVBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
     {
-        bool active = ContentH > H - (HBar ? HBarH : 0);
+        bool active = ContentH > ViewH - (HBar ? HBarH : 0);
         var bm = pc.Bitmaps;
         p.Bitmap(bm[!active ? 0 : mRepeatPart == 1 ? 1 : 2], bx, by);
         int top = by + VArrowTop, end = by + length - VArrowBottom;
@@ -397,7 +424,7 @@ public class GuiScroll : GuiControl
 
     private void DrawHBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
     {
-        bool active = ContentW > W - (VBar ? VBarW : 0);
+        bool active = ContentW > ViewW - (VBar ? VBarW : 0);
         var bm = pc.Bitmaps;
         p.Bitmap(bm[!active ? 6 : mRepeatPart == 5 ? 7 : 8], bx, by);
         int left = bx + HArrowLeft, end = bx + length - HArrowRight;
@@ -487,6 +514,12 @@ public sealed class GuiCombo : GuiSimpleText
         PbmpBitmap? df = Arrow("_DF");
         if (df != null)
             H = df.Height + 4;
+        // The filter combos always list "<None>" first (filter 0 or less: none) [code 004d8fe4]; the join screen's file text is a leftover.
+        if (ClassName == "FearGui::FGServerFilterComboBox" && Entries.Count == 0)
+        {
+            Entries.Add(("<None>", 0));
+            SetSelectedIndex(0);
+        }
     }
 
     private PftFont? Tag(uint t) => Host?.FontByTag(t);
