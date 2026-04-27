@@ -106,7 +106,7 @@ way are added to Open.
 - [x] Command screen lists leave keys to the game.
 - [x] Crosshair target marks and name label with health.
 - [x] Low resolution HUD layout and reticle.
-- [x] Menu look: border frame, item text, text fields and sliders.
+- [x] Menu look: border frame, item text (greyed behind dialogs), text fields and sliders.
 
 ### Audio
 

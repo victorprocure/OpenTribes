@@ -148,4 +148,25 @@ public class GuiShellBorderTests
         Assert.Contains("stretch 10x26 27,20 7x26", dev.Calls);     // thumb middle (piece 6): 30 - 11 - 12
         Assert.Contains("blit 12x28 34,20", dev.Calls);             // thumb end (piece 8)
     }
+
+    [Fact]
+    public void MenuItemTextIsGreyBehindADialog() // gui.md 2.5 dimmed rule, FGMenuItem font 00495bec
+    {
+        var fx = new GuiFixture(640, 480);
+        fx.Host.SetFont("sf_orange214_10.pft", Font(5));
+        fx.Host.SetFont("sf_grey100_10b.pft", Font(9));
+        fx.Host.SetFont("sf_black_10.pft", Font(8));
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        root.AddChild(GuiFixture.Make("FearGui::FGMenuItem", 10, 20, 129, 19, ("text", "Item")));
+        fx.Content(root);
+        var dlg = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var box = GuiFixture.Make("FearGui::FGDlgBox", 100, 100, 300, 200, ("active", (byte)1));
+        box.Id = 141000;
+        dlg.AddChild(box);
+        fx.Canvas.PushDialog(dlg);
+        var dev = new BlitDev();
+        fx.Canvas.Render(dev);
+        Assert.Contains(dev.Calls, c => c.StartsWith("text w9 ") && c.EndsWith("'Item'"));
+        Assert.DoesNotContain(dev.Calls, c => c.StartsWith("text w5 ") && c.EndsWith("'Item'"));
+    }
 }

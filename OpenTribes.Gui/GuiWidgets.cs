@@ -481,7 +481,7 @@ public sealed class GuiRadio : GuiActive
 // not traced (Q10), this follows the stock Options screen. The tab flag marks the shown item (white text).
 // Draw [code 00495d44, 00495bec]: the header text starts after the width of MNU_Expand_DF.BMP (the picture itself is not drawn),
 // centred on that picture's height, in sf_orange214_10 (sf_white_10 when the tab flag is set, sf_orange255_10 for an item with
-// children), with a black sf_black_10 shadow one pixel left and one down. The expanded children are drawn below, indented by
+// children, sf_grey100_10b while a dialog dims the screen), with a black sf_black_10 shadow one pixel left and one down. The expanded children are drawn below, indented by
 // the picture width, each below the one before. Fonts are loaded by the control's open [code 00495ef0].
 public sealed class GuiMenuItem : GuiSimpleText
 {
@@ -522,7 +522,7 @@ public sealed class GuiMenuItem : GuiSimpleText
         string s = ResolvedText();
         if (s.Length > 0 && Host != null)
         {
-            string main = Children.Count > 0 ? "sf_orange255_10.pft" : U("tabSet") != 0 ? "sf_white_10.pft" : "sf_orange214_10.pft";
+            string main = Dimmed ? "sf_grey100_10b.pft" : Children.Count > 0 ? "sf_orange255_10.pft" : U("tabSet") != 0 ? "sf_white_10.pft" : "sf_orange214_10.pft";
             PftFont? f = Host.FontByName(main);
             int ty = gy + (rowH - GuiPaint.FontHeight(f)) / 2;
             p.Text(Host.FontByName("sf_black_10.pft"), gx + indent - 1, ty - 1, s);
