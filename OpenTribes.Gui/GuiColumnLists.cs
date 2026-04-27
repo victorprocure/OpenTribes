@@ -22,6 +22,9 @@ public abstract class GuiColumnList : GuiList
     protected abstract int RowCount { get; }
     protected abstract string? Cell(int dataIndex, int row);
 
+    // A cell drawn as bitmaps instead of text (004c8278 columns 0 to 2 of the server list): true when the column drew itself.
+    protected virtual bool DrawIcons(GuiPaint p, int dataIndex, int row, int x, int y, int rh) => false;
+
     // The grid colour of the row lines (0xf8 in the option columns list, 0xf0 or 0xea otherwise).
     protected virtual int RowLine(bool disabled) => disabled ? LineOff : LineOn;
     protected virtual int HeaderTextOffset => 0;
@@ -180,7 +183,7 @@ public abstract class GuiColumnList : GuiList
         {
             if (!c.Visible)
                 continue;
-            if (Cell(c.DataIndex, row) is string t)
+            if (!DrawIcons(p, c.DataIndex, row, x, y, rh) && Cell(c.DataIndex, row) is string t)
                 DrawCellText(p, font, true, false, c.Width - 4, rh, x + 2, y - 2, t);
             x += c.Width;
         }
@@ -539,11 +542,34 @@ public sealed class GuiOptionColumns : GuiColumnList
 
 // FearGui::ServerListCtrl [code 004c4b84 ctor, 004c7b98 wake, 004c7080 open]: the server browser of the join screen. Its columns are the
 // server column options (ServerColumns): the entries with Display set, in order. The rows are the servers the client knows
-// (config\GameServerList.cs and, with the query code, the answers of the loopback and master queries); a cell the client has no
-// value for stays empty.
+// (config\GameServerList.cs and the answers of the query, ServerQuery); the cells follow the cell query 004c8278.
 public sealed class GuiServerList : GuiColumnList
 {
-    public sealed record Server(int Id, string Name, string Address, string Version, int Ping, bool Favorite);
+    // One record of the browser [0x458 bytes in the exe; the offsets are of that record]. State +0x240: 0 info received, 1 pinged,
+    // 2 being queried, 3 unknown, 4 timed out.
+    public sealed class Server
+    {
+        public int Id;
+        public string Name, Address, Version;
+        public int Ping;
+        public bool Favorite;
+        public int State = 3;
+        public int Players, MaxPlayers, Cpu;
+        public bool Password, Dedicated;
+        public string Mission = "", MissionType = "", ModList = "", Info = "";
+
+        public Server(int id, string name, string address, string version, int ping, bool favorite)
+        {
+            Id = id;
+            Name = name;
+            Address = address;
+            Version = version;
+            Ping = ping;
+            Favorite = favorite;
+        }
+    }
+
+    public const int StateInfo = 0, StatePinged = 1, StateQuerying = 2, StateUnknown = 3, StateTimeout = 4;
 
     // The widths of the browser's column records [table at 00628cf4]; the third number of the preference is not the width.
     private static readonly int[] sWidths = { 52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90 };
@@ -552,14 +578,46 @@ public sealed class GuiServerList : GuiColumnList
     private readonly List<Server> mServers = new();
     private List<ListColumn> mColumns = new();
 
+    // +0x3b0: rows that failed stay in the list (the stock refresh of visible servers and the cancel set it).
+    public bool KeepFailed;
+    // pref::ConnectionGoodPing and PoorPing: the ping icon (004c8278 column 1; the exe defaults are 200 and 350).
+    public int GoodPing = 200, PoorPing = 350;
+
     protected override IReadOnlyList<ListColumn> Columns => mColumns;
     protected override int RowCount => mServers.Count;
     public IReadOnlyList<Server> Servers => mServers;
+
+    // 004c774c (REFRESH ALL): every known row has no answer yet and failures drop rows again.
+    public void MarkAllUnknown()
+    {
+        foreach (Server s in mServers)
+        {
+            s.Ping = 9999;
+            s.State = StateUnknown;
+        }
+        KeepFailed = false;
+    }
+
+    public Server? Find(string address) => mServers.Find(s => string.Equals(s.Address, address, StringComparison.OrdinalIgnoreCase));
 
     public void AddServer(Server s)
     {
         mServers.Add(s);
         AddEntry(s.Name, s.Id);
+    }
+
+    public void RemoveServer(Server s)
+    {
+        int i = mServers.IndexOf(s);
+        if (i < 0)
+            return;
+        mServers.RemoveAt(i);
+        if (i < Entries.Count)
+            Entries.RemoveAt(i);
+        if (Selected == i)
+            Selected = -1;
+        else if (Selected > i)
+            --Selected;
     }
 
     public override void Clear()
@@ -572,9 +630,15 @@ public sealed class GuiServerList : GuiColumnList
     {
         base.Wake();
         if (Host != null)
+        {
             Data.Load(Host);
+            GoodPing = ParsePref(Host.GetVar("$pref::ConnectionGoodPing"), 200);
+            PoorPing = ParsePref(Host.GetVar("$pref::ConnectionPoorPing"), 350);
+        }
         Rebuild();
     }
+
+    private static int ParsePref(string v, int d) => int.TryParse(v, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : d;
 
     // The visible columns in browser order; the data index is the entry index (0 favorites .. 11 server type).
     private void Rebuild()
@@ -583,18 +647,69 @@ public sealed class GuiServerList : GuiColumnList
             .Select(t => new ListColumn(t.e.NameTag, t.i, sWidths[t.i], t.e.Display)).ToList();
     }
 
+    // 004c8278: the cell text of a column. The numbers use "%d", the players "%d / %d", an empty mission or a cpu speed of zero
+    // shows N/A. Columns 0 to 2 are icons (DrawIcons).
     protected override string? Cell(int dataIndex, int row)
     {
         if (row < 0 || row >= mServers.Count)
             return null;
         Server s = mServers[row];
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
         return dataIndex switch
         {
             3 => s.Name,
-            4 => s.Ping.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            4 => s.Ping.ToString(inv),
+            5 => s.MissionType,
+            6 => s.Mission.Length == 0 ? "N/A" : s.Mission,
+            7 => s.Players.ToString(inv) + " / " + s.MaxPlayers.ToString(inv),
+            8 => s.Cpu > 0 ? s.Cpu.ToString(inv) : "N/A",
             9 => s.Address,
             10 => s.Version,
+            11 => s.ModList,
             _ => null,
         };
+    }
+
+    // 004c8278 columns 0 to 2: bitmaps (I_Favorite, I_PingGreen/Yellow/Red, I_Locked, I_Dedicated, I_Unknown, I_Pinging, I_Querying,
+    // I_Timeout) five pixels into the cell and centred on the row height (plus one).
+    protected override bool DrawIcons(GuiPaint p, int dataIndex, int row, int x, int y, int rh)
+    {
+        if (dataIndex > 2 || Host == null)
+            return false;
+        Server s = mServers[row];
+        void Put(string name, ref int px)
+        {
+            PbmpBitmap? b = Host.BitmapByName(name);
+            if (b == null)
+                return;
+            p.Bitmap(b, px, y + Div2(rh - b.Height) + 1);
+            px += b.Width + 3;
+        }
+        int ix = x + 5;
+        switch (dataIndex)
+        {
+            case 0:
+                if (s.Favorite)
+                    Put("I_Favorite.bmp", ref ix);
+                break;
+            case 1:
+                Put(s.Ping < GoodPing ? "I_PingGreen.bmp" : s.Ping < PoorPing ? "I_PingYellow.bmp" : "I_PingRed.bmp", ref ix);
+                break;
+            case 2:
+                if (s.State == StateInfo)
+                {
+                    // The lock's slot is skipped whether it is drawn or not.
+                    if (s.Password)
+                        Put("I_Locked.bmp", ref ix);
+                    else if (Host.BitmapByName("I_Locked.bmp") is { } lockBmp)
+                        ix += lockBmp.Width + 3;
+                    if (s.Dedicated)
+                        Put("I_Dedicated.bmp", ref ix);
+                }
+                else
+                    Put(s.State switch { StateUnknown => "I_Unknown.bmp", StateTimeout => "I_Timeout.bmp", StateQuerying => "I_Pinging.bmp", _ => "I_Querying.bmp" }, ref ix);
+                break;
+        }
+        return true;
     }
 }
