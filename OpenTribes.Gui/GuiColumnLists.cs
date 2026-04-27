@@ -618,6 +618,30 @@ public sealed class GuiServerList : GuiColumnList
         return CursorHAdjust;
     }
 
+    // 004c6940: after 500 ms the header shows the description tag of the column under the cursor (a column border shows none).
+    // The tags are the IDHELP_SERVER_* entries (220603 favorite, 220604 connection, 220605 status, 220606 name, 220608 ping, 220614 mission type, 220607 mission,
+    // 220609 players, 220610 cpu, 220611 address, 220612 version, 220613 mod).
+    private static readonly uint[] sHelp = { 220603, 220604, 220605, 220606, 220608, 220614, 220607, 220609, 220610, 220611, 220612, 220613 };
+
+    public override uint HelpTagAt(int lx, int ly, long ms)
+    {
+        int y = Y + ly;
+        if (ms < 500 || y < 0 || y >= HeaderH)
+            return 0;
+        int edge = 0;
+        foreach (ListColumn c in Columns)
+        {
+            if (!c.Visible)
+                continue;
+            edge += c.Width;
+            if (lx >= edge - 2 && lx <= edge + 2)
+                return 0;
+            if (lx < edge)
+                return sHelp[c.DataIndex];
+        }
+        return 0;
+    }
+
     public Server? Find(string address) => mServers.Find(s => string.Equals(s.Address, address, StringComparison.OrdinalIgnoreCase));
 
     public void AddServer(Server s)

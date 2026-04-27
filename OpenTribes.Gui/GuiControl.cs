@@ -262,6 +262,8 @@ public class GuiControl : IGuiResponder
     // Cursor tag (slot 0xa0) for the cursor at the control-local point (lx, ly): 0 keeps the canvas default. The tags are the
     // IDBMP_CURSOR_* entries of fear.strings.cs ("CUR_Hand.bmp, 8, 2": bitmap and hot spot). Help items are 0xa4, 0xa8.
     public const uint CursorHand = 160551, CursorOpenHand = 160552, CursorGrab = 160553, CursorIBeam = 160554, CursorHAdjust = 160555;
+    // Slot 0xa4: the help tag at the control-local point once the cursor has rested ms milliseconds (+0x188 unless the class says more).
+    public virtual uint HelpTagAt(int lx, int ly, long ms) => HelpTag;
     public virtual uint CursorTagAt(int lx, int ly) => ClassName == "FearGui::FGTabMenu" ? TabMenuCursor(lx, ly) : 0;
 
     // 004cca88: the hand over the tab children of the menu.

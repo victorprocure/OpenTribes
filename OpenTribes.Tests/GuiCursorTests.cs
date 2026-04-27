@@ -75,3 +75,82 @@ public class GuiCursorTests
         Assert.Equal(GuiControl.CursorHand, list.CursorTagAt(20, 10));
     }
 }
+
+public class GuiHelpTests
+{
+    private static (GuiFixture Fx, GuiControl Button) Make(bool popups = true)
+    {
+        var fx = new GuiFixture();
+        fx.Interp.Evaluate("IDHELP_T = 00220700, \"-1,Hello <f1>world<f0>\";");
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 100, 100, 60, 20, ("active", (byte)1));
+        b.HelpTag = 220700;
+        root.AddChild(b);
+        fx.Content(root, new GuiDelegate { Name = "T", HelpPopups = popups });
+        return (fx, b);
+    }
+
+    [Fact]
+    public void ThePopUpShowsAfterTheCursorRestedOneSecondAndASixtyNinth()
+    {
+        var (fx, _) = Make();
+        fx.Move(110, 110);
+        fx.Frame(1000);
+        Assert.False(fx.Canvas.HelpVisible);
+        fx.Frame(68);
+        Assert.False(fx.Canvas.HelpVisible);
+        fx.Frame(2);
+        Assert.True(fx.Canvas.HelpVisible);
+        Assert.Equal(220700u, fx.Canvas.HelpShownTag);
+    }
+
+    [Fact]
+    public void APressKeepsItAwayUntilTheHoverChanges()
+    {
+        var (fx, _) = Make();
+        fx.Move(110, 110);
+        fx.Frame(1200);
+        Assert.True(fx.Canvas.HelpVisible);
+        fx.Button(true);
+        fx.Frame();
+        Assert.False(fx.Canvas.HelpVisible);
+        fx.Button(false);
+        fx.Frame(2000);
+        Assert.False(fx.Canvas.HelpVisible);
+        fx.Move(300, 300);
+        fx.Frame(100);
+        fx.Move(112, 112);
+        fx.Frame(1200);
+        Assert.True(fx.Canvas.HelpVisible);
+    }
+
+    [Fact]
+    public void ADelegateWithoutPopUpsAndThePreferenceFalseShowNothing()
+    {
+        var (fx, _) = Make(popups: false);
+        fx.Move(110, 110);
+        fx.Frame(2000);
+        Assert.False(fx.Canvas.HelpVisible);
+        var (fy, _) = Make();
+        fy.Interp.SetVariable("$pref::HelpPopups", "FALSE");
+        fy.Move(110, 110);
+        fy.Frame(2000);
+        Assert.False(fy.Canvas.HelpVisible);
+    }
+
+    [Fact]
+    public void TheBoxIsPushedInsideTheWindow()
+    {
+        var (fx, b) = Make();
+        b.X = 620;
+        b.Y = 460;
+        b.W = 20;
+        b.H = 20;
+        fx.Move(630, 470);
+        fx.Frame(1200);
+        Assert.True(fx.Canvas.HelpVisible);
+        var (x, y, w, h) = fx.Canvas.HelpBox;
+        Assert.True(x + w <= 640 - 3);
+        Assert.True(y + h <= 480 - 3);
+    }
+}

@@ -24,6 +24,8 @@ public sealed class GuiDelegate : IGuiResponder
     // Slot 0x70: a dialog is about to pop with this message; -1 keeps it open.
     public Func<GuiControl, int, int>? OnPop;
     public Action? OnFrame;
+    // 004d749c and its siblings: the screen's delegate installs a help pop-up (FGHelpCtrl) on its content.
+    public bool HelpPopups;
     // Slot 0x64: the canvas installed this delegate for a new content control.
     public Action? OnOpen;
     // Slot 0x64 with the new content control (the main menu sets its version text, 004dbc00).
@@ -144,6 +146,18 @@ public sealed class GuiCanvas
     public PbmpBitmap? OverrideBitmap;
     public (int x, int y) OverrideHot;
     public PbmpBitmap? ShownCursor => OverrideBitmap ?? CursorBitmap;
+
+    // The help pop-up (FGHelpCtrl 004af248 shows it, 004af6d8 draws it). The tick of the last hover change is +0x26c.
+    private long mHoverTick;
+    // +0x268: a button went down while this control was hovered; the pop-up stays away until the hover changes.
+    private bool mPressedOnHover;
+    private uint mHelpTag;
+    private (int X, int Y, int W, int H) mHelpBox;
+    private List<List<GuiMarkup.Run>>? mHelpLines;
+    public const int HelpDelayMs = 1069;
+    public bool HelpVisible => mHelpTag != 0 && mHelpLines != null;
+    public (int X, int Y, int W, int H) HelpBox => mHelpBox;
+    public uint HelpShownTag => mHelpTag;
     public readonly List<GuiControl> TabList = new();
     public readonly List<string> Trace = new();
     public bool Dirty = true;
@@ -332,6 +346,7 @@ public sealed class GuiCanvas
         Hover = null;
         mClickCount = 0;
         LeftDown = RightDown = false;
+        mPressedOnHover = false;
         SendMove();
     }
 
@@ -428,6 +443,8 @@ public sealed class GuiCanvas
             GuiControl? old = Hover;
             old?.MsLeave(e);
             Hover = target;
+            mHoverTick = Now;
+            mPressedOnHover = false;
             target?.MsEnter(e);
         }
         if (drag)
@@ -548,6 +565,7 @@ public sealed class GuiCanvas
                 mLastClickLeft = true;
                 mMouseRepeatAt = now + MouseRepeatDelay;
                 LeftDown = true;
+                mPressedOnHover = true;
                 Target()?.MsDown(MouseEvent());
             }
             else
@@ -563,6 +581,7 @@ public sealed class GuiCanvas
             {
                 mLastClickLeft = false;
                 RightDown = true;
+                mPressedOnHover = true;
             }
             else
                 RightDown = false;
@@ -596,6 +615,7 @@ public sealed class GuiCanvas
             el.PreRenderTree();
         }
         ResolveCursor();
+        UpdateHelp(now);
         foreach (GuiControl el in Stack.ToArray())
             foreach (GuiControl c in el.Descendants())
                 if (c.ConsoleVar.Length > 0)
@@ -623,11 +643,76 @@ public sealed class GuiCanvas
             el.Render(p, 0, 0);
         }
         dev.SetClip(null);
+        if (HelpVisible)
+        {
+            p.SetClip(new GfxRect(0, 0, dev.Width - 1, dev.Height - 1));
+            DrawHelp(p);
+        }
         if (CursorOn && ShownCursor is { } cur)
         {
             (int hx, int hy) = OverrideBitmap != null ? OverrideHot : CursorHot;
             // palette index 0 is clear in every GUI picture, the cursor's too
             dev.Blit(GuiPaint.KeyedBitmap(cur), (int)CursorX - hx, (int)CursorY - hy);
+        }
+    }
+
+    private GuiDelegate? DelegateOfTop => Top != null && mDelegateOf.TryGetValue(Top, out GuiDelegate? d) ? d : null;
+
+    private PftFont? HelpFont(int n) => Host.FontByTag(n == 1 ? 150114u : 150104u);
+
+    // Step 6 of the frame (2.6): with a hover control, the cursor on, no lock and no button down, the control's help tag is shown once the
+    // cursor has rested 1069 ms on it (004af248); anything else hides the pop-up. $pref::HelpPopups FALSE turns the pop-ups off.
+    private void UpdateHelp(long now)
+    {
+        uint tag = 0;
+        if (DelegateOfTop?.HelpPopups == true && Hover != null && CursorOn && Lock == null && !LeftDown && !RightDown && !mPressedOnHover
+            && !string.Equals(Host.GetVar("$pref::HelpPopups"), "FALSE", StringComparison.OrdinalIgnoreCase))
+        {
+            long ms = now - mHoverTick;
+            var (lx, ly) = Hover.GlobalToLocal((int)CursorX, (int)CursorY);
+            tag = ms >= HelpDelayMs ? Hover.HelpTagAt(lx, ly, ms) : 0;
+        }
+        if (tag == mHelpTag)
+            return;
+        mHelpTag = 0;
+        mHelpLines = null;
+        if (tag == 0 || Host.TagText(tag) is not string text)
+            return;
+        // "width,text": the width is atoi of what stands before the first comma (at most 7 characters), -1 or less is 200, at most 256.
+        int comma = text.IndexOf(',');
+        if (comma < 0 || comma + 1 >= text.Length)
+            return;
+        int.TryParse(text[..Math.Min(comma, 7)].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int req);
+        req = req < 0 ? 200 : Math.Min(req, 256);
+        PftFont? f0 = HelpFont(0);
+        List<List<GuiMarkup.Run>> lines = GuiMarkup.WrapText(Host, f0, text[(comma + 1)..], req - 6, HelpFont);
+        // measured on stock boxes: the width leaves out the spacing after the last character, a line is the font height plus one
+        int textW = lines.Count == 0 ? 0 : lines.Max(l => GuiMarkup.Width(Host, f0, l, HelpFont)) - (f0?.Spacing ?? 0);
+        int textH = lines.Count * (GuiPaint.FontHeight(f0) + 1);
+        int w = Math.Min(req, textW + 6), h = Math.Min(0xc0, textH + 6);
+        // Below the cursor (the height of the default cursor bitmap), pushed back inside the window by three pixels.
+        int x = (int)CursorX, y = (int)CursorY + (CursorBitmap?.Height ?? 0);
+        if (x + w > Width - 3)
+            x -= x + w - (Width - 3);
+        if (y + h > Height - 3)
+            y -= y + h - (Height - 3);
+        mHelpBox = (x, y, w, h);
+        mHelpLines = lines;
+        mHelpTag = tag;
+    }
+
+    // 004af6d8: the box in colour 0xf7 with an outline of 0xf1, the text three pixels in.
+    private void DrawHelp(GuiPaint p)
+    {
+        var (x, y, w, h) = mHelpBox;
+        p.Fill(x, y, w, h, 0xf7);
+        p.Outline(x, y, w, h, 0xf1);
+        PftFont? f0 = HelpFont(0);
+        int ty = y + 3;
+        foreach (List<GuiMarkup.Run> line in mHelpLines!)
+        {
+            GuiMarkup.Draw(p, Host, f0, x + 3, ty, line, HelpFont);
+            ty += GuiPaint.FontHeight(f0) + 1;
         }
     }
 

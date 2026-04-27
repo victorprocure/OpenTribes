@@ -38,7 +38,8 @@ public sealed class ClientDelegates
     {
         foreach (string n in Names)
         {
-            var d = new GuiDelegate { Name = n, ClassName = "SimGui::" + n + "Delegate" };
+            // 004d74f5, 004da97e, 004dbc35, 004dbedd, 004dc324: these five install the help pop-up (FGHelpCtrl) on their content.
+            var d = new GuiDelegate { Name = n, ClassName = "SimGui::" + n + "Delegate", HelpPopups = n is "MainMenu" or "Connect" or "JoinGame" or "Options" or "IRCChat" };
             switch (n)
             {
                 case "PlayerSetup": d.OnMessage = PlayerSetupMessage; break;

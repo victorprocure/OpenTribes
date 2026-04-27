@@ -112,6 +112,7 @@ way are added to Open.
 - [x] IRC history size.
 - [x] Video options list the displays and modes.
 - [x] Hover cursors.
+- [x] Help pop-ups.
 
 ### Audio
 
