@@ -14,6 +14,7 @@ public sealed unsafe class GlWindow : IDisposable
     public GlApi Gl { get; }
     public string VideoDriver { get; }
     public string GlVersion { get; }
+    public string Renderer { get; }
 
     private GlWindow(IntPtr window, IntPtr context, GlApi gl, string driver)
     {
@@ -22,6 +23,7 @@ public sealed unsafe class GlWindow : IDisposable
         Gl = gl;
         VideoDriver = driver;
         GlVersion = gl.GetString(GlApi.Version);
+        Renderer = gl.GetString(GlApi.Renderer);
     }
 
     // Returns null with `error` set when no window or no 3.3 core context can be made (no display, no GL driver).
@@ -124,6 +126,9 @@ public sealed unsafe class GlWindow : IDisposable
     public void SetSize(int w, int h) => Sdl3.SetWindowSize(mWindow, w, h);
 
     public void SetFullscreen(bool on) => Sdl3.SetWindowFullscreen(mWindow, on);
+
+    // The full screen modes of the display the window is on (SDL), ascending.
+    public List<(int W, int H)> FullscreenModes() => Sdl3.FullscreenModes(mWindow);
 
     public bool IsFullscreen() => (Sdl3.GetWindowFlags(mWindow) & Sdl3.WindowFullscreen) != 0;
 

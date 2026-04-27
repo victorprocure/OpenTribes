@@ -450,9 +450,17 @@ public sealed class GuiCombo : GuiSimpleText
     }
 
     public int IndexOfId(int id) => Entries.FindIndex(e => e.Id == id);
+
+    // A saved name matches an entry that has it as its text or as its first word ("OpenGL" finds "OpenGL [renderer]", [code 004d9228]).
+    public int FindEntryByName(string name)
+    {
+        int i = Entries.FindIndex(e => string.Equals(e.Text, name, StringComparison.OrdinalIgnoreCase));
+        return i >= 0 ? i : Entries.FindIndex(e => string.Equals(GuiHost.FirstWord(e.Text), name, StringComparison.OrdinalIgnoreCase));
+    }
     public int SelectedId => Selected >= 0 ? Entries[Selected].Id : -1;
 
-    public override string GetValue() => SelectedId.ToString(CultureInfo.InvariantCulture);
+    // A combo is a SimpleText: its value is the shown text (the scripts take getWord(Control::getValue(combo), 0), Options.cs).
+    public override string GetValue() => Selected >= 0 ? Entries[Selected].Text : Text;
     protected override void ApplyValue(string v)
     {
         if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int id))

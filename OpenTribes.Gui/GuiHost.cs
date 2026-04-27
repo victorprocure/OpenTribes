@@ -85,6 +85,12 @@ public sealed class GuiHost
     public string? TagText(uint tag) => tag == 0 ? null : Interp.TagTextRaw((int)tag) ?? Interp.TagText((int)tag);
 
     // The file name before the first comma of a tag text.
+    public static string FirstWord(string text)
+    {
+        int i = text.IndexOf(' ');
+        return i < 0 ? text : text[..i];
+    }
+
     public static string FirstItem(string text)
     {
         int c = text.IndexOf(',');

@@ -39,6 +39,8 @@ public sealed class ClientDelegates
                 // 004dbc00: the main menu formats "Version %s" with the game version into its text control 140503.
                 case "MainMenu": d.OnOpenContent = c => c.FindById(140503)?.SetText("Version " + GameVersion); break;
                 case "quit": d.OnOpen = mApp.RequestQuit; break;
+                // 004d9228: the Video options lists are filled when the options screen opens, before its script runs.
+                case "Options": d.OnOpenContent = FillVideoOptions; break;
             }
             mApp.Canvas.Delegates[n] = d;
         }
@@ -70,6 +72,14 @@ public sealed class ClientDelegates
             }
             return "";
         });
+    }
+
+    private void FillVideoOptions(GuiControl root)
+    {
+        List<(int W, int H)> modes = mApp.Win?.FullscreenModes() ?? new();
+        if (modes.Count == 0)
+            modes.AddRange(ClientCommandHandlers.Modes);
+        VideoOptions.Fill(root, mApp.Host, mApp.Win?.Renderer, modes, mApp.Handlers.WindowedDevice, mApp.Handlers.FullscreenDevice);
     }
 
     private GuiControl? mSeeded;

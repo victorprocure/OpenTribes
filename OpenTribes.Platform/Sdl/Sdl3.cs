@@ -162,6 +162,34 @@ public static partial class Sdl3
 
     [LibraryImport(Lib, EntryPoint = "SDL_Delay")]
     public static partial void Delay(uint ms);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_GetDisplayForWindow")]
+    private static partial uint GetDisplayForWindow(IntPtr window);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_GetFullscreenDisplayModes")]
+    private static unsafe partial IntPtr* GetFullscreenDisplayModes(uint displayId, out int count);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_free")]
+    private static partial void Free(IntPtr mem);
+
+    // The full screen modes of the display the window is on, as (width, height) pairs without repeats (one per refresh rate and
+    // pixel format in SDL), ascending. Empty when SDL lists none. SDL_DisplayMode: displayID, format, w, h at offsets 0, 4, 8, 12.
+    public static unsafe List<(int W, int H)> FullscreenModes(IntPtr window)
+    {
+        var modes = new List<(int, int)>();
+        IntPtr* list = GetFullscreenDisplayModes(GetDisplayForWindow(window), out int count);
+        if (list == null)
+            return modes;
+        for (int i = 0; i < count; ++i)
+        {
+            int* m = (int*)list[i];
+            if (m[2] > 0 && m[3] > 0 && !modes.Contains((m[2], m[3])))
+                modes.Add((m[2], m[3]));
+        }
+        Free((IntPtr)list);
+        modes.Sort();
+        return modes;
+    }
 }
 
 // SDL_Event is a 128-byte union; only the fields the client reads are exposed.

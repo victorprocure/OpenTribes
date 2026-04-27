@@ -110,6 +110,7 @@ way are added to Open.
 - [x] Switch buttons ignore case.
 - [x] Server browser: column lists and master servers.
 - [x] IRC history size.
+- [x] Video options list the displays and modes.
 
 ### Audio
 

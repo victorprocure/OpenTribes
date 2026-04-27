@@ -319,6 +319,8 @@ public sealed class GuiRuntime
         CtrlCmd<T>(prefix + "::findEntry", 3, prefix + "::findEntry(control, string);", (l, a) =>
         {
             int i = entries(l).FindIndex(e => string.Equals(e.Text, a[2], StringComparison.OrdinalIgnoreCase));
+            if (i < 0 && l is GuiCombo combo)
+                i = combo.FindEntryByName(a[2]);
             if (i < 0)
                 return "-1";
             return (findReturnsId ? entries(l)[i].Id : i).ToString(CultureInfo.InvariantCulture);

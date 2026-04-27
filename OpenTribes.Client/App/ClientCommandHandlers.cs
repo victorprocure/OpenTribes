@@ -18,6 +18,8 @@ public sealed class ClientCommandHandlers
     private bool mInputOpen = true;
     private readonly HashSet<string> mInactive = new(StringComparer.OrdinalIgnoreCase);
     private string mFsDevice = "Software", mWinDevice = "Software";
+    public string FullscreenDevice => mFsDevice;
+    public string WindowedDevice => mWinDevice;
     private int mResIndex;
 
     // The modes the one device lists (docs/client-app.md 4.3): the fixed 4:3 ladder, plus the desktop.
