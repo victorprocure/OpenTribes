@@ -314,7 +314,8 @@ public sealed class GuiUniversalButton : GuiActive
     public override void PreRender()
     {
         if (U("mirrorVar") != 0 && ConsoleVar.Length > 0 && Host != null)
-            On = Host.GetVar(ConsoleVar) == "TRUE";
+            // 0049fa3c compares with stricmpAscii (00488150): a bool cell reads back "True", which must count as on.
+            On = string.Equals(Host.GetVar(ConsoleVar), "TRUE", StringComparison.OrdinalIgnoreCase);
     }
 
     public override string GetValue() => RadioId != 0 || IsSwitch ? (On ? "TRUE" : "FALSE") : "";
@@ -322,7 +323,7 @@ public sealed class GuiUniversalButton : GuiActive
     protected override void ApplyValue(string v)
     {
         if (RadioId != 0 || IsSwitch)
-            On = v == "TRUE" || v == "1";
+            On = string.Equals(v, "TRUE", StringComparison.OrdinalIgnoreCase);   // 0049fa00: stricmp against TRUE, "1" is off
     }
 
     public override bool MsDown(GuiEvent e)

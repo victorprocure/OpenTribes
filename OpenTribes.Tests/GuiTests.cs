@@ -523,6 +523,28 @@ public class GuiTests
     }
 
     [Fact]
+    public void UniversalButtonMirrorReadsTheVariableIgnoringCase() // 0049fa3c: stricmp against TRUE; a bool cell reads back "True"
+    {
+        var fx = new GuiFixture();
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        GuiUniversalButton b = Uni("BTN_X", sw: true);
+        b.ConsoleVar = "$mir";
+        b.F["mirrorVar"] = (byte)1;
+        root.AddChild(b);
+        fx.Content(root);
+        fx.Interp.SetVariable("$mir", "True");
+        b.PreRender();
+        Assert.Equal("TRUE", b.GetValue());
+        fx.Interp.SetVariable("$mir", "False");
+        b.PreRender();
+        Assert.Equal("FALSE", b.GetValue());
+        b.SetValue("true");                  // 0049fa00: setValue compares ignoring case too, and "1" is not TRUE
+        Assert.Equal("TRUE", b.GetValue());
+        b.SetValue("1");
+        Assert.Equal("FALSE", b.GetValue());
+    }
+
+    [Fact]
     public void UniversalButtonSwitchTogglesWritesTheVariableAndPlaysSounds() // 3.3 FGUniversalButton input
     {
         var fx = new GuiFixture();

@@ -107,6 +107,7 @@ way are added to Open.
 - [x] Crosshair target marks and name label with health.
 - [x] Low resolution HUD layout and reticle.
 - [x] Menu look: border frame, item text (greyed behind dialogs), text fields and sliders.
+- [x] Switch buttons ignore case.
 
 ### Audio
 
