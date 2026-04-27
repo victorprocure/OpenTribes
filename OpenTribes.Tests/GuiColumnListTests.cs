@@ -172,6 +172,60 @@ public class ServerListTests
     }
 }
 
+public class ServerListRowTests
+{
+    private static GuiServerList MakeList()
+    {
+        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        root.AddChild(scroll);
+        scroll.AddChild(content);
+        content.AddChild(list);
+        var fx = new GuiFixture();
+        fx.Content(root);
+        fx.Frame();
+        return (GuiServerList)list;
+    }
+
+    [Fact]
+    public void FindsRowsByAddressIgnoringCase()
+    {
+        GuiServerList l = MakeList();
+        l.AddServer(new GuiServerList.Server(1, "A", "IP:127.0.0.1:28001", "1.11", 5, false));
+        Assert.Equal("A", l.Find("ip:127.0.0.1:28001")!.Name);
+        Assert.Null(l.Find("IP:127.0.0.1:28002"));
+    }
+
+    [Fact]
+    public void RefreshMarksEveryRowUnknownAndFailuresDropRowsAgain() // 004c774c
+    {
+        GuiServerList l = MakeList();
+        l.AddServer(new GuiServerList.Server(1, "A", "IP:1.2.3.4:1", "1.11", 5, false) { State = GuiServerList.StateInfo });
+        l.KeepFailed = true;
+        l.MarkAllUnknown();
+        Assert.Equal(9999, l.Servers[0].Ping);
+        Assert.Equal(GuiServerList.StateUnknown, l.Servers[0].State);
+        Assert.False(l.KeepFailed);
+    }
+
+    [Fact]
+    public void RemovingARowKeepsTheSelectionOnTheSameServer()
+    {
+        GuiServerList l = MakeList();
+        for (int i = 1; i <= 3; ++i)
+            l.AddServer(new GuiServerList.Server(i, "S" + i, "IP:1.2.3.4:" + i, "1.11", 5, false));
+        l.Select(2);
+        l.RemoveServer(l.Servers[0]);
+        Assert.Equal(1, l.Selected);
+        Assert.Equal("S3", l.Servers[l.Selected].Name);
+        l.RemoveServer(l.Servers[l.Selected]);
+        Assert.Equal(-1, l.Selected);
+        Assert.Single(l.Servers);
+    }
+}
+
 public class IrcHistoryTests
 {
     [Fact]

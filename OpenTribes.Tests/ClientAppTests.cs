@@ -210,8 +210,11 @@ public sealed class ClientAppTests : IDisposable
         // R6, client-scripts.md 4.1: DNet::resolveMasters resolves nothing that is not a loopback address.
         Boot();
         Assert.Equal("0", Eval("DNet::resolveMasters(\"IP:master1.example.org:28000\", \"IP:198.51.100.7:28000\");"));
-        Assert.Equal("1", Eval("DNet::resolveMasters(\"IP:master1.example.org:28000\", \"IP:127.0.0.1:28000\");"));
         Assert.Equal("", Eval("DNet::getResolvedMaster(0);"));
+        Assert.Equal("1", Eval("DNet::resolveMasters(\"IP:master1.example.org:28000\", \"IP:127.0.0.1:28000\");"));
+        // 00422a74: a resolved master reads back as the address text, the others as nothing
+        Assert.Equal("IP:127.0.0.1:28000", Eval("DNet::getResolvedMaster(0);"));
+        Assert.Equal("", Eval("DNet::getResolvedMaster(1);"));
     }
 
     [Theory]
