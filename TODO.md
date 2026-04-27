@@ -109,6 +109,7 @@ way are added to Open.
 - [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows, combo boxes and the filter box, all placed like the original.
 - [x] Switch buttons ignore case.
 - [x] Server browser: column lists and master servers.
+- [x] IRC history size.
 
 ### Audio
 

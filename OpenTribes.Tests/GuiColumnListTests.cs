@@ -119,3 +119,21 @@ public class GuiColumnListTests
         Assert.False(((GuiBox)box).ForceDim);
     }
 }
+
+public class IrcHistoryTests
+{
+    [Fact]
+    public void UnsetOrOutOfRangeHistoryBecomesTheClientSize() // 005fc340
+    {
+        var interp = new OpenTribes.Script.Interpreter();
+        var h = new OpenTribes.Client.App.IrcHistory();
+        h.Keep(interp);
+        Assert.Equal("50", interp.PeekVariable("$IRC::MsgHistory"));
+        interp.SetVariable("$IRC::MsgHistory", "200");
+        h.Keep(interp);
+        Assert.Equal("200", interp.PeekVariable("$IRC::MsgHistory"));
+        interp.SetVariable("$IRC::MsgHistory", "9999");
+        h.Keep(interp);
+        Assert.Equal("200", interp.PeekVariable("$IRC::MsgHistory"));
+    }
+}
