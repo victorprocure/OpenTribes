@@ -259,8 +259,19 @@ public class GuiControl : IGuiResponder
     // True when the control is in the tab list (2.6): plain Control answers no.
     public virtual bool WantsTab => false;
 
-    // Cursor tag (slot 0xa0), help items (0xa4, 0xa8).
-    public virtual string? CursorTag => null;
+    // Cursor tag (slot 0xa0) for the cursor at the control-local point (lx, ly): 0 keeps the canvas default. The tags are the
+    // IDBMP_CURSOR_* entries of fear.strings.cs ("CUR_Hand.bmp, 8, 2": bitmap and hot spot). Help items are 0xa4, 0xa8.
+    public const uint CursorHand = 160551, CursorOpenHand = 160552, CursorGrab = 160553, CursorIBeam = 160554, CursorHAdjust = 160555;
+    public virtual uint CursorTagAt(int lx, int ly) => ClassName == "FearGui::FGTabMenu" ? TabMenuCursor(lx, ly) : 0;
+
+    // 004cca88: the hand over the tab children of the menu.
+    private uint TabMenuCursor(int lx, int ly)
+    {
+        foreach (GuiControl c in Children)
+            if (c is GuiMenuItem && lx >= c.X && lx <= c.X + c.W && ly >= c.Y && ly <= c.Y + c.H)
+                return CursorHand;
+        return 0;
+    }
 
     // ---- render (2.5) ----
 
@@ -368,6 +379,7 @@ public sealed class GuiPaint
     // The stock client draws every GUI picture with palette index 0 clear (its palette entry has alpha 0): the weapon HUD icons
     // show the shade behind them and the command screen's frame pieces leave the buttons under them visible. The bitmap
     // attributes do not say so (stock files carry 8 only), so the draw uses a copy with the transparent flag.
+    public static PbmpBitmap KeyedBitmap(PbmpBitmap b) => Keyed(b);
     private static PbmpBitmap Keyed(PbmpBitmap b) => (b.Attributes & BitmapAttributes.Transparent) != 0 || b.Depth != 8 ? b :
         sKeyed.GetValue(b, o => new PbmpBitmap
         {

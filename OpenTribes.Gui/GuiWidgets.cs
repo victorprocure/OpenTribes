@@ -305,6 +305,9 @@ public sealed class GuiBitmap : GuiActive
 // FearGui::FGUniversalButton [code 0049f1e4 .. 0049fa94]: the shell picture button.
 public sealed class GuiUniversalButton : GuiActive
 {
+    // 0049f1cc: the hand while the button is active.
+    public override uint CursorTagAt(int lx, int ly) => Active ? CursorHand : 0;
+
     private static readonly string[] kSuffixes = { "_DF", "_HI", "_MD", "_MH", "_ON", "_NA", "_BD", "_BO" };
     private long mFlashClock;
     public bool On, Flash;
@@ -449,6 +452,9 @@ public sealed class GuiUniversalButton : GuiActive
 // message tag. The row shows the key of its binding in the action map the row names (0049df98).
 public sealed class GuiCFGButton : GuiSimpleText
 {
+    // 0049d400: the hand while the button is active.
+    public override uint CursorTagAt(int lx, int ly) => Active ? CursorHand : 0;
+
     public override bool WantsTab => false;
     public override bool CanTake() => false;
     public bool WaitingForKey;
@@ -582,6 +588,9 @@ public sealed class GuiRadio : GuiActive
 // the picture width, each below the one before. Fonts are loaded by the control's open [code 00495ef0].
 public sealed class GuiMenuItem : GuiSimpleText
 {
+    // 004958bc (menu item), 004ccda8 (tab): always the hand.
+    public override uint CursorTagAt(int lx, int ly) => CursorHand;
+
     public override bool WantsTab => false;
 
     protected override void Action()
@@ -640,6 +649,9 @@ public sealed class GuiMenuItem : GuiSimpleText
 // SimGui::Slider / FGSlider [code 004ca3a0 .. 004cad0c].
 public sealed class GuiSlider : GuiActive
 {
+    // 004cb150 (FGSlider): the hand while active.
+    public override uint CursorTagAt(int lx, int ly) => ClassName == "FearGui::FGSlider" && Active ? CursorHand : 0;
+
     private int mPos;      // pixels
     private bool mDragging;
     private int mGrab;

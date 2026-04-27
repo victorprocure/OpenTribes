@@ -111,6 +111,7 @@ way are added to Open.
 - [x] Server browser with query results.
 - [x] IRC history size.
 - [x] Video options list the displays and modes.
+- [x] Hover cursors.
 
 ### Audio
 

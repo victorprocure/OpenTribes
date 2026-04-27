@@ -23,7 +23,6 @@ public class GuiActive : GuiControl
     // The hit area (slot 0xd4): the whole extent unless the class overrides it. Local coordinates.
     protected virtual bool HitArea(int lx, int ly) => Contains(lx, ly);
 
-    public override string? CursorTag => Over ? S("cursorTag") is { Length: > 0 } t ? t : null : null;
 
     public override bool MsMove(GuiEvent e)
     {
@@ -245,6 +244,10 @@ public sealed class GuiFGSimpleText : GuiSimpleText
 // SimGui::TextEdit and derived [code 0053e0d0 .. 0053e3dc].
 public class GuiTextEdit : GuiSimpleText
 {
+    // 004cd838: the text cursor of the IRC edits and TestEdit (the other text edits keep the default).
+    public override uint CursorTagAt(int lx, int ly) =>
+        ClassName is "FearGui::FGIRCActiveTextEdit" or "FearGui::FGIRCTextEdit" or "FearGui::TestEdit" ? CursorIBeam : 0;
+
     public int Cursor, SelStart, SelEnd, Anchor;
     public bool Overwrite, Dragging;
     private string mUndoText = "";

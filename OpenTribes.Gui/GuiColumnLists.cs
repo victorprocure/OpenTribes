@@ -598,6 +598,26 @@ public sealed class GuiServerList : GuiColumnList
         KeepFailed = false;
     }
 
+    // 004c6888: the hand over the rows and the header; the horizontal adjust cursor on a column border of the header.
+    public override uint CursorTagAt(int lx, int ly)
+    {
+        int y = Y + ly;
+        if (y < 0 || y >= HeaderH)
+            return CursorHand;
+        int edge = 0;
+        foreach (ListColumn c in Columns)
+        {
+            if (!c.Visible)
+                continue;
+            edge += c.Width;
+            if (lx >= edge - 2 && lx <= edge + 2)
+                return CursorHAdjust;
+            if (lx < edge)
+                return CursorHand;
+        }
+        return CursorHAdjust;
+    }
+
     public Server? Find(string address) => mServers.Find(s => string.Equals(s.Address, address, StringComparison.OrdinalIgnoreCase));
 
     public void AddServer(Server s)

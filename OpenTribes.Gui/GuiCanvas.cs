@@ -139,6 +139,11 @@ public sealed class GuiCanvas
     public string CursorName = "";
     public PbmpBitmap? CursorBitmap;
     public (int x, int y) CursorHot;
+    // The override slot (+0x22c): the cursor of the locked or hovered control's tag, shown instead of the default (+0x210).
+    public uint CursorOverrideTag;
+    public PbmpBitmap? OverrideBitmap;
+    public (int x, int y) OverrideHot;
+    public PbmpBitmap? ShownCursor => OverrideBitmap ?? CursorBitmap;
     public readonly List<GuiControl> TabList = new();
     public readonly List<string> Trace = new();
     public bool Dirty = true;
@@ -590,6 +595,7 @@ public sealed class GuiCanvas
             }
             el.PreRenderTree();
         }
+        ResolveCursor();
         foreach (GuiControl el in Stack.ToArray())
             foreach (GuiControl c in el.Descendants())
                 if (c.ConsoleVar.Length > 0)
@@ -617,13 +623,50 @@ public sealed class GuiCanvas
             el.Render(p, 0, 0);
         }
         dev.SetClip(null);
-        if (CursorOn && CursorBitmap != null)
-            dev.Blit(CursorBitmap, (int)CursorX - CursorHot.x, (int)CursorY - CursorHot.y);
+        if (CursorOn && ShownCursor is { } cur)
+        {
+            (int hx, int hy) = OverrideBitmap != null ? OverrideHot : CursorHot;
+            // palette index 0 is clear in every GUI picture, the cursor's too
+            dev.Blit(GuiPaint.KeyedBitmap(cur), (int)CursorX - hx, (int)CursorY - hy);
+        }
+    }
+
+    // "name, x, y": the bitmap name and the hot spot a cursor string may carry (00533138; the default is 0, 0).
+    private static (string Name, int X, int Y) ParseCursor(string text)
+    {
+        string[] parts = text.Split(',');
+        int Num(int i) => i < parts.Length && int.TryParse(parts[i].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
+        return (parts[0].Trim(), Num(1), Num(2));
     }
 
     public void SetCursorBitmap(string name)
     {
         CursorName = name;
-        CursorBitmap = Host.BitmapByName(name);
+        var (n, x, y) = ParseCursor(name);
+        CursorBitmap = Host.BitmapByName(n);
+        CursorHot = (x, y);
+    }
+
+    // Step 5 of the frame (2.6): the cursor tag of the lock control, else of the hover control; it picks the override slot
+    // when it changed, a tag of 0 falls back to the default cursor.
+    private void ResolveCursor()
+    {
+        GuiControl? src = Lock ?? Hover;
+        uint tag = 0;
+        if (CursorOn && src != null)
+        {
+            var (lx, ly) = src.GlobalToLocal((int)CursorX, (int)CursorY);
+            tag = src.CursorTagAt(lx, ly);
+        }
+        if (tag == CursorOverrideTag)
+            return;
+        CursorOverrideTag = tag;
+        OverrideBitmap = null;
+        if (tag != 0 && Host.TagText(tag) is string text)
+        {
+            var (n, x, y) = ParseCursor(text);
+            OverrideBitmap = Host.BitmapByName(n);
+            OverrideHot = (x, y);
+        }
     }
 }

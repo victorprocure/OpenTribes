@@ -225,6 +225,16 @@ public class GuiScroll : GuiControl
         return (a0 + pos, len);
     }
 
+    // 004c2c70 (FearGuiScrollCtrl): the grab hand while a thumb is dragged, the open hand over a thumb, the hand elsewhere on the frame.
+    public override uint CursorTagAt(int lx, int ly)
+    {
+        if (ClassName != "FearGui::FearGuiScrollCtrl")
+            return 0;
+        if (mDragPart != 0)
+            return mDragPart is 8 or 9 ? CursorGrab : CursorHand;
+        return Part(lx, ly) is 8 or 9 ? CursorOpenHand : CursorHand;
+    }
+
     private int Part(int lx, int ly)
     {
         lx -= mInsetX;
@@ -455,6 +465,9 @@ public class GuiScroll : GuiControl
 // FearGui combo boxes [code 004bba00, 0054d8bc]: a text line with an entry list; the popup is pushed as an overlay.
 public sealed class GuiCombo : GuiSimpleText
 {
+    // 004b65e0: the hand.
+    public override uint CursorTagAt(int lx, int ly) => CursorHand;
+
     public readonly List<(string Text, int Id)> Entries = new();
     public int Selected = -1;
 
