@@ -491,13 +491,13 @@ public class GuiTextEdit : GuiSimpleText
     }
 
     // Text, selection highlight and the blinking cursor (the period is inferred: 500 ms).
-    protected void DrawLine(GuiPaint p, int gx, int gy)
+    protected void DrawLine(GuiPaint p, int gx, int gy, int dy = 0)
     {
         PftFont? f = Font;
         if (f == null)
             return;
         int th = GuiPaint.FontHeight(f);
-        int ty = gy + Math.Max(0, (H - th) / 2);
+        int ty = gy + Math.Max(0, (H - th) / 2) + dy;
         if (SelEnd > SelStart)
         {
             int sx = gx + GuiPaint.TextWidth(f, Text[..Math.Min(SelStart, Text.Length)]);
@@ -519,7 +519,7 @@ public class GuiTextEdit : GuiSimpleText
 // FearGui::TestEdit [code 004cd840, 004cd974, 004cd814]: the shell text field.
 public sealed class GuiTestEdit : GuiTextEdit
 {
-    public GuiTestEdit() => SetTextLeft(6);
+    public GuiTestEdit() => SetTextLeft(9);
 
     public override bool KeyDown(GuiEvent e) => HandleShell(e, base.KeyDown(e));
     public override bool KeyRepeat(GuiEvent e) => HandleShell(e, base.KeyRepeat(e));
@@ -570,6 +570,8 @@ public sealed class GuiTestEdit : GuiTextEdit
         p.Line(gx + 4, gy + H - 1, gx + W - 5, gy + H - 1, 0xef - b);
         p.Fill(gx + 3, gy + H - 2, 1, 1, 0xee - b);
         p.Fill(gx + W - 4, gy + H - 2, 1, 1, 0xee - b);
-        DrawLine(p, gx + 6, gy);
+        // Measured against the stock client (OptIrc, OptNetwork shots): the text starts 9 pixels in and sits 2 pixels higher than a
+        // line centred in the field.
+        DrawLine(p, gx + 9, gy, -2);
     }
 }
