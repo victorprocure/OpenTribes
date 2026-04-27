@@ -82,7 +82,7 @@ public sealed class GuiHost
 
     // ---- tags (1.5) ----
 
-    public string? TagText(uint tag) => tag == 0 ? null : Interp.TagText((int)tag);
+    public string? TagText(uint tag) => tag == 0 ? null : Interp.TagTextRaw((int)tag) ?? Interp.TagText((int)tag);
 
     // The file name before the first comma of a tag text.
     public static string FirstItem(string text)

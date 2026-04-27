@@ -258,8 +258,10 @@ public sealed class GuiRuntime
         CtrlCmd<GuiShapeView>("ShapeView::setItem", 3, "ShapeView::setItem(control, item);", (c, a) => { c.F["item"] = int.TryParse(a[2], out int item) ? (uint)item : 0; return ""; });
         Cmd("FGMasterList::addEntry", 5, "FGMasterList::addEntry(control, name, address, id);", a =>
         {
-            if (FindControl(a[1]) is GuiList l && int.TryParse(a[4], out int id))
-                l.AddEntry(a[2] + " " + a[3], id);
+            if (FindControl(a[1]) is GuiMasterList m && int.TryParse(a[4], out int id))
+                m.AddMaster(a[2], a[3], id);
+            else if (FindControl(a[1]) is GuiList l && int.TryParse(a[4], out int lid))
+                l.AddEntry(a[2] + " " + a[3], lid);
             return "";
         });
         CtrlCmd<GuiList>("FGMasterList::deleteEntry", 3, "FGMasterList::deleteEntry(control, id);", (l, a) => { if (int.TryParse(a[2], out int id)) l.DeleteById(id); return ""; });

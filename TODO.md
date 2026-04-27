@@ -108,6 +108,7 @@ way are added to Open.
 - [x] Low resolution HUD layout and reticle.
 - [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows and combo boxes.
 - [x] Switch buttons ignore case.
+- [x] Server browser: column lists and master servers.
 
 ### Audio
 

@@ -125,6 +125,9 @@ public static class GuiFactory
             case "FearGui::FGSlider": return new GuiSlider();
             case "SimGui::ProgressCtrl": return new GuiProgress();
             case "FearGui::ScoreListCtrl": return new GuiScoreList();
+            case "FearGui::MasterServerList": return new GuiMasterList();
+            case "FearGui::FilterCtrl": return new GuiFilterCtrl();
+            case "FearGui::ColumnListCtrl": return new GuiOptionColumns();
             case "FearGui::MenuDisplayCtrl": return new GuiMenuDisplay();
             case "FearGuiInventory": return new GuiInventoryList();
             case "FearGuiPurchase": return new GuiInventoryList { Purchase = true };

@@ -21,14 +21,14 @@ public class GuiList : GuiActive
     public int RowHeight => Math.Max(8, GuiPaint.FontHeight(RowFont) + 2);
 
     public void AddEntry(string text, int id) => Entries.Add((text, id));
-    public void Clear() { Entries.Clear(); Selected = -1; }
+    public virtual void Clear() { Entries.Clear(); Selected = -1; }
 
     public int FindId(int id) => Entries.FindIndex(e => e.Id == id);
     public int FindText(string text) => Entries.FindIndex(e => string.Equals(e.Text, text, StringComparison.OrdinalIgnoreCase));
 
     public void SortText() => Entries.Sort((a, b) => string.Compare(a.Text, b.Text, StringComparison.OrdinalIgnoreCase));
 
-    public void DeleteById(int id)
+    public virtual void DeleteById(int id)
     {
         int i = FindId(id);
         if (i < 0)
@@ -37,11 +37,15 @@ public class GuiList : GuiActive
         if (Selected == i) Selected = -1; else if (Selected > i) --Selected;
     }
 
+    // The class's own reaction to a selected row (the master list sets its console variables).
+    protected virtual void Selecting(int row) { }
+
     public void Select(int row, bool notify = true)
     {
         if (row < -1 || row >= Entries.Count)
             return;
         Selected = row;
+        Selecting(row);
         if (!notify)
             return;
         WriteVariable(row.ToString(CultureInfo.InvariantCulture));
@@ -142,6 +146,10 @@ public class GuiScroll : GuiControl
     private int HArrowLeft => Piece(Pieces, 6, true, BarWidth);
     private int HArrowRight => Piece(Pieces, 9, true, BarWidth);
     public int ScrollX, ScrollY;
+    // +0x270 of the original: the list inside is disabled, so the border takes its disabled colour [code 00548944, 004b4584].
+    public bool Disabled;
+    private bool mInsetKnown;
+    private int mInsetX, mInsetY;
     private int mDragPart;      // 8 vertical thumb, 9 horizontal thumb
     private int mGrabOffset;
     private int mRepeatPart;
@@ -171,10 +179,18 @@ public class GuiScroll : GuiControl
         GuiControl? c = ContentChild;
         if (c == null)
             return;
-        int vw = W - (VBar ? VBarW : 0), vh = H - (HBar ? HBarH : 0);
-        if (c.X != 0 || c.Y != 0 || c.W != vw || c.H != vh)
+        // The content keeps the offset its file gives (the Columns options scroll has it at 1, 1 inside its border).
+        if (!mInsetKnown)
         {
-            c.X = c.Y = 0;
+            mInsetKnown = true;
+            mInsetX = c.X;
+            mInsetY = c.Y;
+        }
+        int vw = W - (VBar ? VBarW : 0) - 2 * mInsetX, vh = H - (HBar ? HBarH : 0) - 2 * mInsetY;
+        if (c.X != mInsetX || c.Y != mInsetY || c.W != vw || c.H != vh)
+        {
+            c.X = mInsetX;
+            c.Y = mInsetY;
             c.W = vw;
             c.H = vh;
         }
@@ -313,7 +329,12 @@ public class GuiScroll : GuiControl
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        DrawBase(p, gx, gy);
+        // A scroll with a header row (headerY) frames only the part below the header: the header has its own lines.
+        int hy = (int)U("headerY");
+        if (Opaque != 0)
+            p.Fill(gx, gy, W, H, FillColor);
+        if (Border != 0)
+            p.Outline(gx, gy + hy, W, H - hy, Disabled ? DisabledBorder : BorderColor);
         RenderChildren(p, gx, gy);
         PbmaArray? pc = Pieces;
         if (pc == null)
