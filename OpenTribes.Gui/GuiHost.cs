@@ -40,6 +40,8 @@ public sealed class GuiHost
     public Action<byte[], int, int>? OnMoviePalette;
     public Action? OnMovieEnd;
     public Func<OpenTribes.Platform.Audio.WavData, Action?>? StartMovieAudio;
+    // The model views (FearGui::ShapeView, SkinView) draw through this: the client owns the shape renderer.
+    public IModelViewRenderer? ModelViews;
 
     private readonly Dictionary<string, PftFont?> mFonts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, PbmpBitmap?> mBitmaps = new(StringComparer.OrdinalIgnoreCase);

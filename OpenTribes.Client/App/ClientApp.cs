@@ -43,6 +43,7 @@ public sealed class ClientApp : IDisposable
 
     public float Gamma = 1f;
     public PaletteBank? CurrentPalette;
+    public SkinViewRenderer? SkinViews;
     public bool IsFullscreen => Win?.IsFullscreen() ?? false;
     public (int W, int H) FullscreenSize = (640, 480);
     public bool LockSize, WindowsMouse, WindowsKeyboard;
@@ -157,6 +158,8 @@ public sealed class ClientApp : IDisposable
                 Dev?.SetPalette(CurrentPalette, Gamma);
         };
         Host.StartMovieAudio = StartMovieAudio;
+        SkinViews = new SkinViewRenderer(this);
+        Host.ModelViews = SkinViews;
 
         Input = new InputDispatcher(Maps) { Eval = t => Interp.Evaluate(t) };
         Input.OfferToGui = OfferToGui;
@@ -817,6 +820,8 @@ public sealed class ClientApp : IDisposable
     public void Dispose()
     {
         Game?.Dispose();
+        SkinViews?.Dispose();
+        Delegates.Browser.Dispose();
         AudioDev?.Dispose();
         Dev?.Dispose();
         Win?.Dispose();

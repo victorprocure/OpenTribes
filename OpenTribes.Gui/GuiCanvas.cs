@@ -155,6 +155,9 @@ public sealed class GuiCanvas
     private (int X, int Y, int W, int H) mHelpBox;
     private List<List<GuiMarkup.Run>>? mHelpLines;
     public const int HelpDelayMs = 1069;
+    // 00534308: the first screen of the main menu, Connect, JoinGame, Options and IRCChat delegates creates the pop-up control and it
+    // stays on the canvas for every later screen.
+    public bool HelpInstalled;
     public bool HelpVisible => mHelpTag != 0 && mHelpLines != null;
     public (int X, int Y, int W, int H) HelpBox => mHelpBox;
     public uint HelpShownTag => mHelpTag;
@@ -282,6 +285,8 @@ public sealed class GuiCanvas
         {
             del.Canvas = this;
             mDelegateOf[c] = del;
+            if (del.HelpPopups)
+                HelpInstalled = true;
             del.OnOpen?.Invoke();
             del.OnOpenContent?.Invoke(c);
         }
@@ -665,7 +670,7 @@ public sealed class GuiCanvas
     private void UpdateHelp(long now)
     {
         uint tag = 0;
-        if (DelegateOfTop?.HelpPopups == true && Hover != null && CursorOn && Lock == null && !LeftDown && !RightDown && !mPressedOnHover
+        if (HelpInstalled && Hover != null && CursorOn && Lock == null && !LeftDown && !RightDown && !mPressedOnHover
             && !string.Equals(Host.GetVar("$pref::HelpPopups"), "FALSE", StringComparison.OrdinalIgnoreCase))
         {
             long ms = now - mHoverTick;

@@ -113,6 +113,7 @@ way are added to Open.
 - [x] Video options list the displays and modes.
 - [x] Hover cursors.
 - [x] Help pop-ups.
+- [x] Player setup model.
 
 ### Audio
 

@@ -152,6 +152,10 @@ void main() {
         return new Texture3D { Name = name, Width = width, Height = height, Gl = gl };
     }
 
+    private GfxRect? mViewport3D;
+
+    public void SetViewport3D(GfxRect? rect) => mViewport3D = rect;
+
     public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB)
     {
         if (mProgram3D == 0)
@@ -160,8 +164,19 @@ void main() {
         mDraws3D = 0;
         (mHazeR, mHazeG, mHazeB) = (hazeR, hazeG, hazeB);
         gl.BindFramebuffer_(GlApi.Framebuffer, mFbo);
-        gl.Viewport_(0, 0, mWidth, mHeight);
-        gl.Disable_(GlApi.ScissorTest);
+        if (mViewport3D is GfxRect vr && !vr.Intersect(new GfxRect(0, 0, mWidth - 1, mHeight - 1)).IsEmpty)
+        {
+            GfxRect r = vr.Intersect(new GfxRect(0, 0, mWidth - 1, mHeight - 1));
+            // GL counts rows from the bottom
+            gl.Viewport_(vr.Left, mHeight - 1 - vr.Bottom, vr.Width, vr.Height);
+            gl.Enable_(GlApi.ScissorTest);
+            gl.Scissor_(r.Left, mHeight - 1 - r.Bottom, r.Width, r.Height);
+        }
+        else
+        {
+            gl.Viewport_(0, 0, mWidth, mHeight);
+            gl.Disable_(GlApi.ScissorTest);
+        }
         gl.Disable_(GlApi.CullFace);
         gl.UseProgram_(mProgram3D);
         gl.BindVertexArray_(mVao3D);
@@ -270,5 +285,6 @@ void main() {
         gl.DepthMask_(1);
         gl.Disable_(GlApi.Blend);
         Prepare2D();
+        ApplyClip();
     }
 }

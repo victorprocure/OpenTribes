@@ -51,25 +51,47 @@ public sealed class GuiTextButton : GuiSimpleText
     }
 }
 
-// FearGui::ShapeView / SkinView: the model viewer. Takes no focus; a drag turns the model (the 3D submission is the
-// shape renderer's, C5; this control only keeps the angle and the skin).
+// The 3D side of a model view: draws the control's model into its rectangle of the surface (the shape renderer, C5).
+public interface IModelViewRenderer
+{
+    void Draw(GuiShapeView view, GuiPaint p, int x, int y, int w, int h);
+}
+
+// FearGui::ShapeView / SkinView [code 004997c0 ctor, 0049a798 FGSkin::set, 0049a97c cycleArmor, 0049ad58 .. 0049ae84 mouse, 0049af20 draw]:
+// the model viewer of the player setup screen. It takes no focus. The skin view shows the armor of the gender (male or female) and
+// armor index 0 light, 1 medium, 2 heavy, in the skin FGSkin::set gave; a drag with the left button turns it (0.01 radians per pixel,
+// the angle stays in (0, 2 pi]). The right button's zoom (0049ae00) is not done.
 public sealed class GuiShapeView : GuiActive
 {
-    public double Yaw;
-    private int mLastX;
+    // +0x418: the angle of the view around the model, pi at the start (the model faces the viewer).
+    public double Yaw = Math.PI;
+    private int mLastX, mLastY;
     public override bool WantsTab => false;
     public override bool CanTake() => false;
 
+    public string SkinBase => S("skin");
+    public bool Male => !string.Equals(S("gender"), "FEMALE", StringComparison.OrdinalIgnoreCase);
+    public int Armor => (int)(U("armor") % 3);
     public override bool MsDown(GuiEvent e)
     {
         mLastX = e.X;
+        mLastY = e.Y;
         return base.MsDown(e);
     }
 
+    // 0049ae84: a drag of dx pixels turns the model by dx / 100 radians and keeps the angle in (0, 2 pi].
     public override bool MsDrag(GuiEvent e)
     {
-        Yaw += (e.X - mLastX) * 0.02;
+        if (e.X != mLastX)
+        {
+            Yaw += (e.X - mLastX) * 0.01;
+            if (Yaw >= 2 * Math.PI)
+                Yaw -= 2 * Math.PI;
+            else if (Yaw <= 0)
+                Yaw = 2 * Math.PI;
+        }
         mLastX = e.X;
+        mLastY = e.Y;
         return base.MsDrag(e);
     }
 
@@ -77,6 +99,7 @@ public sealed class GuiShapeView : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
+        Host?.ModelViews?.Draw(this, p, gx, gy, W, H);
         RenderChildren(p, gx, gy);
     }
 }

@@ -62,4 +62,10 @@ public interface IGfxDevice : IDisposable
     void SetDynamicLights(ReadOnlySpan<DynamicLight> lights) { }
     void Draw3D(ReadOnlySpan<Vertex3D> triangles, in DrawState3D state);
     void EndScene3D();
+    // The next BeginScene3D draws into this rectangle of the surface only (inclusive, top-left origin; the depth clear and the
+    // draws are cut to it) until it is set to null. The camera's width and height are the rectangle's then. Devices without a
+    // surface rectangle ignore the call. A GUI control that shows a model (the player setup preview) uses it.
+    void SetViewport3D(GfxRect? rect)
+    {
+    }
 }
