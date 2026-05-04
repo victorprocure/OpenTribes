@@ -129,6 +129,18 @@ public class ServerQueryTests
     }
 
     [Fact]
+    public void ThePingIsTheArrivalTimeMinusTheSendTime()
+    {
+        var (q, _, _, adv) = Make();
+        var pings = new List<int>();
+        q.OnPing = (_, _, p, _) => pings.Add(p);
+        q.Queue("IP:127.0.0.1:28001");
+        adv(40);
+        q.OnDatagram(new Address(0x7f000001, 28001), PingReply(0, 0, 1, "Srv"), 1004);
+        Assert.Equal(new[] { 4 }, pings);
+    }
+
+    [Fact]
     public void ABroadcastIsSentOnceAndLeavesTheQueue()
     {
         var (q, net, _, adv) = Make();

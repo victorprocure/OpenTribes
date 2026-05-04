@@ -49,7 +49,7 @@ public sealed class ServerBrowser : IDisposable
     {
         if (mQuery != null)
             return mQuery;
-        mNet = new UdpQueryTransport();
+        mNet = new UdpQueryTransport(() => mApp.Host.TickMs);
         mQuery = new ServerQuery(mNet, () => mApp.Host.TickMs)
         {
             BroadcastIp = mApp.Opt.AllowRemote ? 0xffffffffu : 0x7fffffffu,
