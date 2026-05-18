@@ -65,6 +65,7 @@ public sealed class ServerBrowser : IDisposable
         mQuery.OnPing = OnPing;
         mQuery.OnInfo = OnInfo;
         mQuery.OnFail = OnFail;
+        mQuery.OnMaster = OnMaster;
         return mQuery;
     }
 
@@ -233,6 +234,25 @@ public sealed class ServerBrowser : IDisposable
         else
             End();
         UpdateButtons();
+    }
+
+    // 0042ca00: a master answered. Part 1 with a name and a message sets $pref::MSName and $pref::MSMOTD; the progress shows the pings left and
+    // every row that is still being pinged shows as querying.
+    private void OnMaster(string address, string name, bool first, string motd)
+    {
+        if (first)
+        {
+            if (name.Length == 0 || motd.Length == 0)
+                return;
+            mApp.Interp.SetVariable("$pref::MSName", name);
+            mApp.Interp.SetVariable("$pref::MSMOTD", motd);
+            UpdateMotd();
+        }
+        UpdateProgress(Query().PendingPings, Query().PendingRequests, true);
+        if (List is { } list)
+            foreach (string a in Query().PendingPingAddresses)
+                if (list.Find(a) is { } row)
+                    row.State = GuiServerList.StateQuerying;
     }
 
     // 0042cb88: a ping or an info request gave up, or the server speaks another version.

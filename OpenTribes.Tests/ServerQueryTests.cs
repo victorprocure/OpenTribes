@@ -129,6 +129,24 @@ public class ServerQueryTests
     }
 
     [Fact]
+    public void AMasterListPartQueuesItsServersAndWaitsForTheOtherParts()
+    {
+        var (q, net, _, _) = Make();
+        string master = null!, motd = null!;
+        q.OnMaster = (_, n, first, m) => { master = n; motd = first ? m : "none"; };
+        q.Queue("IP:127.0.0.1:28001");
+        var d = new List<byte> { 0x10, 6, 1, 2, 0, 0, 0, 0, 3, (byte)'M', (byte)'s', (byte)'t', 2, (byte)'h', (byte)'i', 0, 1 };
+        d.AddRange(new byte[] { 6, 127, 0, 0, 1, 0x71, 0x6d });
+        q.OnDatagram(Server, d.ToArray(), 1000);
+        Assert.Equal("Mst", master);
+        Assert.Equal("hi", motd);
+        // The request entry is gone, part 2 is awaited and the listed server (127.0.0.1:28017) is pinged.
+        Assert.Equal(2, q.PendingPings);
+        Assert.Equal(new[] { "IP:127.0.0.1:28001", "IP:127.0.0.1:28017" }, q.PendingPingAddresses.OrderBy(x => x).ToArray());
+        Assert.Equal(2, net.Sent.Count);
+    }
+
+    [Fact]
     public void ThePingIsTheArrivalTimeMinusTheSendTime()
     {
         var (q, _, _, adv) = Make();
