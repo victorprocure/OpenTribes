@@ -543,6 +543,15 @@ public sealed class GuiCombo : GuiSimpleText
     {
         int gx = ox + X, gy = oy + Y;
         bool dimmed = Dimmed;
+        if (ClassName == "FearGui::FGBuddyComboBox")
+        {
+            // 004b5288: the buddy combo draws only its arrow (no bars, label or entry).
+            PbmpBitmap? ba = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
+            ba ??= Arrow("_DF");
+            if (ba != null)
+                p.Bitmap(ba, gx + W - 7 - ba.Width, gy + 2);
+            return;
+        }
         int k = dimmed ? 4 : 0;
         int[] pal = { 0xf0, 0xef, 0xee, 0xed, 0xec, 0xeb, 0xea, 0xe9 };
         int bottom = gy + H - 1;
