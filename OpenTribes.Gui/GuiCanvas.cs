@@ -38,6 +38,9 @@ public sealed class GuiDelegate : IGuiResponder
     public bool MsEnter(GuiEvent e) => Up?.MsEnter(e) ?? false;
     public bool MsLeave(GuiEvent e) => Up?.MsLeave(e) ?? false;
     public bool MsDrag(GuiEvent e) => Up?.MsDrag(e) ?? false;
+    public bool MsRightDown(GuiEvent e) => Up?.MsRightDown(e) ?? false;
+    public bool MsRightUp(GuiEvent e) => Up?.MsRightUp(e) ?? false;
+    public bool MsRightDrag(GuiEvent e) => Up?.MsRightDrag(e) ?? false;
     public bool KeyUp(GuiEvent e) => Up?.KeyUp(e) ?? false;
     public bool KeyRepeat(GuiEvent e) => Up?.KeyRepeat(e) ?? false;
     public bool KeyDown(GuiEvent e) => Up?.KeyDown(e) ?? false;
@@ -60,6 +63,9 @@ public sealed class CanvasRoot : IGuiResponder
     public bool MsEnter(GuiEvent e) => false;
     public bool MsLeave(GuiEvent e) => false;
     public bool MsDrag(GuiEvent e) => false;
+    public bool MsRightDown(GuiEvent e) => false;
+    public bool MsRightUp(GuiEvent e) => false;
+    public bool MsRightDrag(GuiEvent e) => false;
     public bool KeyUp(GuiEvent e) => false;
     public bool KeyRepeat(GuiEvent e) => false;
     public bool CanRelease() => true;
@@ -555,6 +561,7 @@ public sealed class GuiCanvas
                 var e = MouseEvent();
                 if (!LeftDown && !RightDown) Dispatch(e, false);
                 else if (LeftDown) Dispatch(e, true);
+                else Target()?.MsRightDrag(e);
             }
             return true;
         }
@@ -587,9 +594,13 @@ public sealed class GuiCanvas
                 mLastClickLeft = false;
                 RightDown = true;
                 mPressedOnHover = true;
+                Target()?.MsRightDown(MouseEvent());
             }
             else
+            {
                 RightDown = false;
+                Target()?.MsRightUp(MouseEvent());
+            }
         }
         Invalidate();
         return true;

@@ -47,10 +47,15 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
 
     // The camera of the view: the stock puts it behind the model, looks down by 0.25 radians and turns it around the model
     // with the view angle (004998e0, 0049af20).
-    public static Camera3D CameraFor(double cx, double cy, double cz, bool male, double yaw, int w, int h)
+    public static double FitDistance(bool male, int w, int h)
     {
         double tanH = Math.Tan(HalfAngle), tanV = tanH * h / Math.Max(w, 1);
-        double dist = Fit * Math.Max((male ? 0.85 : 0.75) / tanH, (male ? 1.325 : 1.25) / tanV);
+        return Fit * Math.Max((male ? 0.85 : 0.75) / tanH, (male ? 1.325 : 1.25) / tanV);
+    }
+
+    public static Camera3D CameraFor(double cx, double cy, double cz, bool male, double yaw, int w, int h, double? distance = null)
+    {
+        double dist = distance ?? FitDistance(male, w, h);
         double zOff = (male ? -0.3 : -0.1) + ZShift;
         Xf rot = Xf.Euler(-0.25, 0, -yaw);
         var (px, py, pz) = rot.Apply(cx, cy - dist, cz + zOff);
@@ -76,6 +81,7 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
             mInst = mShape == null ? null : new RenderInstance(mShape);
             mThread = mInst?.AddThread("run", 0, 0);
             mLastMs = -1;
+            view.Zoom = double.NaN;
         }
         if (mInst == null || mShape == null || mRenderer == null)
             return;
@@ -83,7 +89,12 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         if (mThread != null && mLastMs >= 0)
             mInst.Advance(mThread, Math.Min(now - mLastMs, 200) / 1000.0);
         mLastMs = now;
-        Camera3D cam = CameraFor(mShape.Cx, mShape.Cy, mShape.Cz, view.Male, view.Yaw, w, h);
+        // +0x1ec, +0x1e8: the fitted distance is the lowest and the first one; the right button moves it.
+        double fit = FitDistance(view.Male, w, h);
+        if (double.IsNaN(view.Zoom) || Math.Abs(view.ZoomMin - fit) > 1e-9)
+            view.Zoom = fit;
+        view.ZoomMin = fit;
+        Camera3D cam = CameraFor(mShape.Cx, mShape.Cy, mShape.Cz, view.Male, view.Yaw, w, h, view.Zoom);
         var ctx = new FrameContext { Camera = cam, Assets = mAssets!, Renderer = mRenderer, Light = Light() };
         ShapeDraw d = ctx.Draw(Xf.Identity, name);
         d.Skin = view.SkinBase;

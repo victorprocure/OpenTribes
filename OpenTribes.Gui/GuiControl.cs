@@ -26,6 +26,9 @@ public interface IGuiResponder
     bool MsEnter(GuiEvent e);
     bool MsLeave(GuiEvent e);
     bool MsDrag(GuiEvent e);
+    bool MsRightDown(GuiEvent e);
+    bool MsRightUp(GuiEvent e);
+    bool MsRightDrag(GuiEvent e);
     bool KeyUp(GuiEvent e);
     bool KeyRepeat(GuiEvent e);
     bool KeyDown(GuiEvent e);
@@ -322,6 +325,10 @@ public class GuiControl : IGuiResponder
     public virtual bool MsEnter(GuiEvent e) => Next?.MsEnter(e) ?? false;
     public virtual bool MsLeave(GuiEvent e) => Next?.MsLeave(e) ?? false;
     public virtual bool MsDrag(GuiEvent e) => Next?.MsDrag(e) ?? false;
+    // Slots 0x1c, 0x24 and 0x28 (docs/gui.md 2.7): the right button; a control that does not use it hands it to the next responder.
+    public virtual bool MsRightDown(GuiEvent e) => Next?.MsRightDown(e) ?? false;
+    public virtual bool MsRightUp(GuiEvent e) => Next?.MsRightUp(e) ?? false;
+    public virtual bool MsRightDrag(GuiEvent e) => Next?.MsRightDrag(e) ?? false;
     public virtual bool KeyUp(GuiEvent e) => Next?.KeyUp(e) ?? false;
     public virtual bool KeyRepeat(GuiEvent e) => Next?.KeyRepeat(e) ?? false;
     public virtual bool KeyDown(GuiEvent e) => Next?.KeyDown(e) ?? false;

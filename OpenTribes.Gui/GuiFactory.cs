@@ -60,12 +60,17 @@ public interface IModelViewRenderer
 // FearGui::ShapeView / SkinView [code 004997c0 ctor, 0049a798 FGSkin::set, 0049a97c cycleArmor, 0049ad58 .. 0049ae84 mouse, 0049af20 draw]:
 // the model viewer of the player setup screen. It takes no focus. The skin view shows the armor of the gender (male or female) and
 // armor index 0 light, 1 medium, 2 heavy, in the skin FGSkin::set gave; a drag with the left button turns it (0.01 radians per pixel,
-// the angle stays in (0, 2 pi]). The right button's zoom (0049ae00) is not done.
+// the angle stays in (0, 2 pi]). The right button (0049adb8, 0049ae00, 0049adec) takes the mouse and a drag of dy pixels adds -dy * 10 / height
+// to the camera distance, which stays between the fitted distance and ZoomMaxFactor times it.
 public sealed class GuiShapeView : GuiActive
 {
     // +0x418: the angle of the view around the model, pi at the start (the model faces the viewer).
     public double Yaw = Math.PI;
     private int mLastX, mLastY;
+    // +0x1e8: the camera distance, NaN until the renderer has fitted the model (+0x1ec: the fitted distance, the lowest).
+    public double Zoom = double.NaN, ZoomMin = double.NaN;
+    // The highest distance (+0x1f4) comes from a camera call the port does not have; this is a stand-in, not a measured value.
+    public const double ZoomMaxFactor = 3.0;
     public override bool WantsTab => false;
     public override bool CanTake() => false;
 
@@ -93,6 +98,33 @@ public sealed class GuiShapeView : GuiActive
         mLastX = e.X;
         mLastY = e.Y;
         return base.MsDrag(e);
+    }
+
+    public override bool MsRightDown(GuiEvent e)
+    {
+        Canvas?.LockMouse(this);
+        mLastX = e.X;
+        mLastY = e.Y;
+        return true;
+    }
+
+    public override bool MsRightUp(GuiEvent e)
+    {
+        Canvas?.UnlockMouse(this);
+        return true;
+    }
+
+    // 0049ae00: the distance grows by the pixels the mouse went up times 10 / height, then is clamped.
+    public override bool MsRightDrag(GuiEvent e)
+    {
+        if (!double.IsNaN(Zoom) && H > 0)
+        {
+            Zoom += (mLastY - e.Y) * (10.0 / H);
+            Zoom = Math.Clamp(Zoom, ZoomMin, ZoomMin * ZoomMaxFactor);
+        }
+        mLastX = e.X;
+        mLastY = e.Y;
+        return true;
     }
 
     public override void Render(GuiPaint p, int ox, int oy)
