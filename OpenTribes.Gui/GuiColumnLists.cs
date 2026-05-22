@@ -720,6 +720,9 @@ public sealed class GuiServerList : GuiColumnList
     {
         if (dataIndex > 2 || Host == null)
             return false;
+        // A disabled or dimmed list (a modal dialog above it) shows no icons.
+        if (Disabled)
+            return true;
         Server s = mServers[row];
         void Put(string name, ref int px)
         {

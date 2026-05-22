@@ -350,7 +350,7 @@ public class GuiScroll : GuiControl
         if (Border != 0)
             p.Outline(gx, gy + hy, W, H - hy, Disabled ? DisabledBorder : BorderColor);
         if (U("style") == 6)
-            DrawListFrame(p, gx, gy);
+            DrawListFrame(p, gx, gy, Disabled);
         RenderChildren(p, gx, gy);
         PbmaArray? pc = Pieces;
         if (pc == null)
@@ -368,23 +368,25 @@ public class GuiScroll : GuiControl
 
     // The frame of the join screen's server list (style 6), measured against the stock client: the box frame with its two rules in the
     // other order (0xf0 outside, 0xef inside) and no inner outline; the notch pixels are 0xf0.
-    private void DrawListFrame(GuiPaint p, int x, int y)
+    // A disabled or dimmed list (a modal dialog above it) takes the palette set four entries down, like the other frames.
+    private void DrawListFrame(GuiPaint p, int x, int y, bool dim)
     {
+        int d = dim ? 4 : 0, c0 = 0xf0 - d, c1 = 0xef - d, c2 = 0xee - d, c3 = dim ? 0xec : 0xf1;
         int x1 = x + W - 1, y1 = y + H - 1;
-        p.Line(x + 4, y, x1 - 4, y, 0xf0);
-        p.Line(x + 4, y + 1, x1 - 4, y + 1, 0xef);
-        p.Line(x + 4, y1 - 1, x1 - 4, y1 - 1, 0xef);
-        p.Line(x + 4, y1, x1 - 4, y1, 0xf0);
-        p.Line(x, y + 4, x, y1 - 4, 0xf0);
-        p.Line(x + 1, y + 4, x + 1, y1 - 4, 0xef);
-        p.Line(x1 - 1, y + 4, x1 - 1, y1 - 4, 0xef);
-        p.Line(x1, y + 4, x1, y1 - 4, 0xf0);
+        p.Line(x + 4, y, x1 - 4, y, c0);
+        p.Line(x + 4, y + 1, x1 - 4, y + 1, c1);
+        p.Line(x + 4, y1 - 1, x1 - 4, y1 - 1, c1);
+        p.Line(x + 4, y1, x1 - 4, y1, c0);
+        p.Line(x, y + 4, x, y1 - 4, c0);
+        p.Line(x + 1, y + 4, x + 1, y1 - 4, c1);
+        p.Line(x1 - 1, y + 4, x1 - 1, y1 - 4, c1);
+        p.Line(x1, y + 4, x1, y1 - 4, c0);
         foreach (var (px, py) in new[] { (x + 3, y + 1), (x1 - 3, y + 1), (x + 3, y1 - 1), (x1 - 3, y1 - 1), (x + 1, y + 3), (x + 1, y1 - 3),
                      (x1 - 1, y + 3), (x1 - 1, y1 - 3) })
-            p.Fill(px, py, 1, 1, 0xf0);
+            p.Fill(px, py, 1, 1, c0);
         // The sunken line pair around the view, 3 and 4 pixels in.
-        p.Outline(x + 3, y + 3, W - 6, H - 6, 0xee);
-        p.Outline(x + 4, y + 4, W - 8, H - 8, 0xf1);
+        p.Outline(x + 3, y + 3, W - 6, H - 6, c2);
+        p.Outline(x + 4, y + 4, W - 8, H - 8, c3);
     }
 
     private void DrawPlainBars(GuiPaint p, int gx, int gy)
@@ -411,7 +413,7 @@ public class GuiScroll : GuiControl
     // (26, 27, 25 dragged). A bar whose content fits shows the disabled pieces without a thumb.
     private void DrawVBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
     {
-        bool active = ContentH > ViewH - (HBar ? HBarH : 0);
+        bool active = !Disabled && ContentH > ViewH - (HBar ? HBarH : 0);
         var bm = pc.Bitmaps;
         p.Bitmap(bm[!active ? 0 : mRepeatPart == 1 ? 1 : 2], bx, by);
         int top = by + VArrowTop, end = by + length - VArrowBottom;
@@ -434,7 +436,7 @@ public class GuiScroll : GuiControl
 
     private void DrawHBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
     {
-        bool active = ContentW > ViewW - (VBar ? VBarW : 0);
+        bool active = !Disabled && ContentW > ViewW - (VBar ? VBarW : 0);
         var bm = pc.Bitmaps;
         p.Bitmap(bm[!active ? 6 : mRepeatPart == 5 ? 7 : 8], bx, by);
         int left = bx + HArrowLeft, end = bx + length - HArrowRight;
