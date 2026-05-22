@@ -557,6 +557,9 @@ public sealed class GuiServerList : GuiColumnList
         public int Players, MaxPlayers, Cpu;
         public bool Password, Dedicated;
         public string Mission = "", MissionType = "", ModList = "", Info = "";
+        // The score table of the info reply (0042c4cc): the two headings and the rows (ServerInfoCtrl).
+        public string TeamHeading = "", ClientHeading = "";
+        public IReadOnlyList<string> Rows = Array.Empty<string>();
 
         public Server(int id, string name, string address, string version, int ping, bool favorite)
         {

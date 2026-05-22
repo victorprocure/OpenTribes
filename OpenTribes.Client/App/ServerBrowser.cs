@@ -12,6 +12,9 @@ namespace OpenTribes.Client.App;
 
 public sealed class ServerBrowser : IDisposable
 {
+    // IDDLG_SERVER_INFO (the INFO button's message) and the controls of ServerInfo.gui.
+    public const int InfoDialogTag = 110014, InfoNameId = 140500, InfoAddressId = 140501, InfoPingId = 140502, InfoVersionId = 140503,
+        InfoModId = 140504, InfoMissionId = 140505, InfoPasswordId = 140506, InfoDedicatedId = 140509, InfoTableId = 140510;
     public const int ListId = 140016, JoinId = 140006, InfoId = 140018, RefreshAllId = 140017, RefreshVisId = 140042, CancelId = 140026,
         BoxId = 140027, ProgressId = 140024, TextId = 140025, MotdId = 140900;
 
@@ -93,6 +96,8 @@ public sealed class ServerBrowser : IDisposable
     {
         switch (tag)
         {
+            case InfoDialogTag:
+                return OpenInfo();
             case RefreshAllId:
                 RefreshAll();
                 return true;
@@ -128,6 +133,40 @@ public sealed class ServerBrowser : IDisposable
         }
         list.KeepFailed = true;
         StartUi("Pinging visible servers");
+    }
+
+    // INFO: the dialog opens over the selected server and shows what its info reply gave.
+    private bool OpenInfo()
+    {
+        GuiServerList? list = List;
+        if (list == null || list.Selected < 0 || list.Selected >= list.Servers.Count || list.Servers[list.Selected].State != GuiServerList.StateInfo)
+            return true;
+        GuiServerList.Server row = list.Servers[list.Selected];
+        mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\ServerInfo.gui\");");
+        FillInfoDialog(row);
+        return true;
+    }
+
+    // 004c5f24 and 004c91f8: the dialog's texts and the score table (ServerInfoCtrl) from a server record.
+    private void FillInfoDialog(GuiServerList.Server row)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        Find(InfoNameId)?.SetText(row.Name);
+        Find(InfoAddressId)?.SetText(row.Address);
+        Find(InfoVersionId)?.SetText(row.Version);
+        Find(InfoPingId)?.SetText(row.Ping.ToString(inv));
+        Find(InfoModId)?.SetText(row.ModList);
+        Find(InfoMissionId)?.SetText(row.Mission);
+        Find(InfoPasswordId)?.SetText(row.Password ? "YES" : "NO");
+        Find(InfoDedicatedId)?.SetText(row.Dedicated ? "YES" : "NO");
+        if (mApp.GuiRt.FindControl("ServerInfoText") is { } text)
+        {
+            // The text control is stored without a font (IDFNT_10_STANDARD, orange, as the dialog's other texts).
+            if (text.U("fontTag") == 0)
+                text.F["fontTag"] = 150111u;
+            text.SetValue(row.Info);
+        }
+        (Find(InfoTableId) as GuiServerInfo)?.SetServer(row.TeamHeading, row.ClientHeading, row.Rows);
     }
 
     // 0x222fa: both queues emptied, the rows still being queried become unknown, the search is over.
@@ -222,11 +261,17 @@ public sealed class ServerBrowser : IDisposable
             row.MissionType = r.MissionType;
             row.ModList = r.ModList;
             row.Info = r.Info;
+            row.TeamHeading = r.TeamHeading;
+            row.ClientHeading = r.ClientHeading;
+            row.Rows = r.Rows.ToList();
             row.Cpu = r.Cpu;
             row.Password = r.Password;
             row.Dedicated = r.Dedicated;
             row.State = GuiServerList.StateInfo;
             mOwner.Servers[row.Id] = (ToJoinAddress(row.Address), r.Hostname);
+            // 004c5f24: the open info dialog shows this server: its fields follow the reply.
+            if (Find(InfoAddressId) is { } shown && string.Equals(shown.GetText(), row.Address, StringComparison.OrdinalIgnoreCase))
+                FillInfoDialog(row);
         }
         int requests = Query().PendingRequests;
         if (requests > 0)

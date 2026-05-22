@@ -13,6 +13,7 @@ way are added to Open.
 - [ ] Hosting a game from the client menus.
 - [ ] Our voice chat plays about 3 dB quieter than the original.
 - [ ] No sound when switching to the blaster or the mortar.
+- [ ] Server browser: refresh, favourites and "never ping".
 
 ### Project
 
@@ -108,7 +109,7 @@ way are added to Open.
 - [x] Low resolution HUD layout and reticle.
 - [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows, combo boxes, the filter box and the buddy list.
 - [x] Switch buttons ignore case.
-- [x] Server browser with master lists, query results, pings and modal dimming.
+- [x] Server browser with master lists, query results, pings, modal dimming and the server info dialog.
 - [x] IRC history size.
 - [x] Video options list the displays and modes.
 - [x] Hover cursors.
