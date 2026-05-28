@@ -348,7 +348,7 @@ public sealed class GuiWeaponHud : GuiHud
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Source == null || !Source.HasPlayerState || Host == null)
+        if (Source == null || !Source.InPlayerView || Host == null)
             return;
         bool lr = LowRes;
         PbmpBitmap? fallback = Host.BitmapByName(lr ? "lr_weapon_off.bmp" : "I_weapon_off.bmp");
@@ -415,7 +415,7 @@ public sealed class GuiSensorHud : GuiHud
 {
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Source == null || !Source.HasPlayerState || Host == null)
+        if (Source == null || !Source.InPlayerView || Host == null)
             return;
         bool lr = LowRes;
         int x = ox + X, y = oy + Y;
@@ -450,7 +450,7 @@ public sealed class GuiCrosshair : GuiHud
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Canvas == null)
+        if (Canvas == null || (Source != null && !Source.InPlayerView))
             return;
         int cx = ox + (Parent?.W ?? W) / 2, cy = oy + (Parent?.H ?? H) / 2;
         // The reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view [code 004ab500]; without the

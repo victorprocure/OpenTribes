@@ -127,6 +127,20 @@ public sealed class GuiC8Ui2Tests : IDisposable
     }
 
     [Fact]
+    public void PlayerViewIsOffInTheObserverCamera()
+    {
+        var world = new ClientWorld();
+        var src = new ClientHudSource(world);
+        Assert.False(src.InPlayerView);
+        world.Psc.ControlGhost = 5;
+        world.Psc.ControlClass = "Player";
+        Assert.True(src.InPlayerView);
+        world.Psc.ControlClass = "ObserverCamera";
+        Assert.True(src.HasPlayerState);
+        Assert.False(src.InPlayerView);
+    }
+
+    [Fact]
     public void InventoryListAnswersTheSelectedItemIndexAndCallsTheScript()
     {
         var fx = new GuiFixture();

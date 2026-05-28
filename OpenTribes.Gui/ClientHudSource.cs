@@ -31,6 +31,8 @@ public sealed class ClientHudSource : IHudSource
 
     public bool HasPlayerState => Psc.ControlGhost >= 0;
 
+    public bool InPlayerView => HasPlayerState && Psc.ControlClass != "ObserverCamera";
+
     public double DamageLevel
     {
         get
