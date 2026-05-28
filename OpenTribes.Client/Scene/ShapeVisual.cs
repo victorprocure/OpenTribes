@@ -242,6 +242,15 @@ public class ShapeVisual : Visual
         }
     }
 
+    // The bounding sphere of the shape at its pose: the stand-in for the object's world box in the crosshair label pick.
+    public (double X, double Y, double Z, double R)? HudSphere()
+    {
+        if (!HavePos || Shape == null)
+            return null;
+        var c = PoseXf().Apply(Shape.Cx, Shape.Cy, Shape.Cz);
+        return (c.x, c.y, c.z, Shape.Radius);
+    }
+
     protected (double x, double y, double z) BoxCenter()
     {
         if (Shape == null)

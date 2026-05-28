@@ -227,6 +227,22 @@ public sealed class ClientHudSource : IHudSource
     public Func<int, int, Camera3D?>? ViewCamera;
     public Func<int, (double X, double Y, double Z)?>? HeadMount;
     public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
+    // Set by the host: the bounding sphere (centre and radius) of a shape ghost, the box stand-in for the objects of the label pick.
+    public Func<int, (double X, double Y, double Z, double R)?>? ObjectSphere;
+
+    // Datablock group of the classes that take part in the label pick: the sensor set holds the Sensors (and their Turrets) and every
+    // object with a target index (StaticShape, Item) [code 0053a1f4 callers: Sensor_onAdd, GameBase_onNewDataBlock].
+    private static int ObjectGroup(string cls) => cls switch { "Turret" => 19, "Sensor" => 8, "StaticShape" => 4, "Item" => 5, _ => -1 };
+
+    private string? BlockString(ClientGhost g, string field)
+    {
+        if (ObjectGroup(g.Class) is var grp && grp >= 0 && g.State.TryGetValue("datablock", out object? idx)
+            && mWorld.DataBlocks.Blocks.TryGetValue((grp, (int)D(idx, -1)), out ClientDataBlock? b))
+            foreach (DecodedField f in b.Fields)
+                if (f.Name == field)
+                    return f.Value as string;
+        return null;
+    }
 
     // Crosshair_findTarget [code 004aca84]: the other players the local player's client may see (the visible mask of the PSC, +0x490),
     // with their marks and the one under the view centre.
@@ -263,6 +279,29 @@ public sealed class ClientHudSource : IHudSource
             var top = (head.Item1, head.Item2, head.Item3 + 0.65);
             bool clear = LineClear?.Invoke(eye, (pos[0], pos[1], pos[2] + bh * 0.5)) ?? true;
             list.Add(new HudTargetCandidate(rec.Name, top, (pos[0], pos[1], pos[2]), Math.Min(bw, bd), bh, rec.Team, damage, dead, visible, clear));
+        }
+        // Objects of the sensor set: the name is the target name of its slot, else the datablock description; the icon is the green
+        // bitmap of the datablock's mapIcon [code GameBaseData_preload: "%s_green.bmp"].
+        foreach (ClientGhost g in mWorld.Ghosts.All())
+        {
+            if (ObjectGroup(g.Class) < 0 || ObjectSphere?.Invoke(g.Index) is not var (sx, sy, sz, sr) || !g.State.ContainsKey("team"))
+                continue;
+            bool sensor = g.Class is "Sensor" or "Turret";
+            if (!sensor && !g.State.ContainsKey("target"))
+                continue;
+            string name = g.State.TryGetValue("target", out object? ti) && pm.TargetNames.TryGetValue((int)D(ti, -1), out string? tn) ? tn : "";
+            if (name.Length == 0)
+                name = BlockString(g, "description") ?? "";
+            string? icon = BlockString(g, "mapIcon") is { Length: > 0 } mi ? mi + "_green.bmp" : null;
+            int team = (int)D(g.State["team"], -1);
+            if (team == 15)
+                team = -1;
+            double dmg = g.State.ContainsKey("damageState") && D(g.State["damageState"], 1) != 1 ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
+            var top = (sx, sy, sz + sr);
+            // The stock test passes when the first hit is the object itself: stop the ray at the near surface of its bounding sphere.
+            double ex = sx - eye.Item1, ey = sy - eye.Item2, ez = sz - eye.Item3, el = Math.Sqrt(ex * ex + ey * ey + ez * ez), k = el > sr ? (el - sr) / el : 0;
+            bool clear = LineClear?.Invoke(eye, (eye.Item1 + ex * k, eye.Item2 + ey * k, eye.Item3 + ez * k)) ?? true;
+            list.Add(new HudTargetCandidate(name, top, (sx, sy, sz), sr, 2 * sr, team, dmg, false, true, clear, true, icon));
         }
         return HudTargetPicker.Find(cam, list, me.Team, pm.TeamCount);
     }

@@ -490,6 +490,8 @@ public sealed class GuiCrosshair : GuiHud
         }
         if (t.Name == null)
             return;
+        if (t.Icon != null && Host.BitmapByName(t.Icon) is PbmpBitmap icon)
+            p.BitmapKeyed(icon, ox + t.IconX - (icon.Width >> 1), oy + t.IconY - icon.Height);
         int x0 = cx + (lr ? 10 : 16), y0 = cy + (lr ? 10 : 16);
         PftFont? f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
         if (t.Name.Length > 0)

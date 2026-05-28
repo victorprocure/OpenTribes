@@ -93,4 +93,41 @@ public class HudTargetTests
     {
         Assert.Equal(expected, HudTargetPicker.BarLength(damage, inner));
     }
+
+    private static HudTargetCandidate O(string name, double y, int team, bool clear = true) =>
+        new(name, (0, y, 3), (0, y, 0), 3, 6, team, 0.25, false, true, clear, true, "M_turret_green.bmp");
+
+    [Fact]
+    public void FriendlyObjectUnderTheCrosshairGivesNameIconAndNoMark()
+    {
+        HudTargetResult r = HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 1) }, 1, 2);
+        Assert.Empty(r.Marks);
+        Assert.Equal("Plasma Turret", r.Name);
+        Assert.Equal("M_turret_green.bmp", r.Icon);
+        Assert.Equal(0.25, r.Damage);
+        Assert.Equal(320, r.IconX);
+    }
+
+    [Fact]
+    public void ObjectOfAnotherTeamIsNotLabelled()
+    {
+        Assert.Null(HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 0) }, 1, 2).Name);
+    }
+
+    [Fact]
+    public void BlockedObjectGivesWayToThePickedPlayer()
+    {
+        var c = new[] { O("Plasma Turret", 20, 1, clear: false), P("Ann", 0, 30, 0.3, team: 0) };
+        HudTargetResult r = HudTargetPicker.Find(Cam(), c, 1, 2);
+        Assert.Equal("Ann", r.Name);
+        Assert.Null(r.Icon);
+        Assert.Null(HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 1, clear: false) }, 1, 2).Name);
+    }
+
+    [Fact]
+    public void NearerObjectWinsOverAPlayerBehindIt()
+    {
+        var c = new[] { P("Ann", 0, 30, 0.3, team: 0), O("Plasma Turret", 20, 1) };
+        Assert.Equal("Plasma Turret", HudTargetPicker.Find(Cam(), c, 1, 2).Name);
+    }
 }
