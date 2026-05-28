@@ -231,6 +231,29 @@ public sealed class InteriorLighting
         return Math.Min(state, Math.Max(stateCount - 1, 0));
     }
 
+    // 3.7 Timing (ITRInstance_animateLight 00556b28): the colour of a light at `time` in state `state`: the state's four words
+    // interpolated towards the next record (the first record again after the last state, at the light duration) by the time
+    // fraction, each channel then (word / 256 + 0.5) cut to a byte.
+    public static (int mono, int r, int g, int b) ColorAt(ReadOnlySpan<State> records, float duration, int state, float time)
+    {
+        State a = records[state];
+        float ta = a.EndTime, tb;
+        State n;
+        if (state != records.Length - 1)
+        {
+            n = records[state + 1];
+            tb = n.EndTime;
+        }
+        else
+        {
+            n = records[0];
+            tb = duration;
+        }
+        float f = tb - ta != 0f ? (time - ta) / (tb - ta) : 1f;
+        static int Ch(float from, float to, float f) => (int)((from + (to - from) * f) * 0.00390625f + 0.5f) & 0xff;
+        return (Ch(a.Mono, n.Mono, f), Ch(a.R, n.R, f), Ch(a.G, n.G, f), Ch(a.B, n.B, f));
+    }
+
     // 3.7 Building a surface light map: the colour packed from a state ((word + 0x80) >> 8 per channel, mono red green blue).
     public static (int mono, int r, int g, int b) PackedColor(State s) =>
         ((s.Mono + 0x80) >> 8, (s.R + 0x80) >> 8, (s.G + 0x80) >> 8, (s.B + 0x80) >> 8);

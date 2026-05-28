@@ -70,6 +70,7 @@ way are added to Open.
 - [x] Team skins change with the team.
 - [x] Rain and snow follow the weather setting, with the original streak count, size and speed.
 - [x] Sky panels.
+- [x] Interior lights that start on their own.
 
 ### Shapes, weapons and effects
 
