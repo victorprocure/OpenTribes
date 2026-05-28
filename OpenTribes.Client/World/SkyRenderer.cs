@@ -15,10 +15,12 @@ public sealed class SkyRenderer : IDisposable
     public double Visible = 600;
     public bool Textured { get; }
 
-    // 4.1 Init sets the band radius to 1.5 * visible. The stock shots (Broadside, Raindance, visible 600 and 450) match
-    // best when the panel geometry has 1.8 * visible: a sweep of the factor over 1.0 to 1.6 had its minimum at 1.2 for both
-    // missions (the cause in the exe is not found; it is measured).
-    public const double BandRadiusFactor = 1.8;
+    // 4.1 Init: the band radius is 1.5 * visible.
+    public const double BandRadiusFactor = 1.5;
+
+    // Panel heights relative to the camera: -size/8 at the lower edge and size * 3/4 at the upper edge, measured: a fit of
+    // the stock cloud layer over rows 60 to 180 of Broadside and Raindance shots gives lower -74 and upper 446 at radius 1.5 * visible.
+    public const double LowerFactor = -0.125, UpperFactor = 0.75;
 
     // materials: bitmap names of the sky `.dml` (null when the sky has no material list: solid sky).
     public SkyRenderer(IGfxDevice dev, WorldAssets assets, List<string?>? materials, int[] textures, double size,
@@ -79,8 +81,8 @@ public sealed class SkyRenderer : IDisposable
         {
             double az = Azimuth(i, FeaturePosition) * Math.PI / 180;
             float x = (float)(cam.X + radius * Math.Cos(az)), y = (float)(cam.Y + radius * Math.Sin(az));
-            lower[i] = (x, y, (float)(cam.Z - Size / 8));
-            upper[i] = (x, y, (float)(cam.Z + Size * 7 / 8));
+            lower[i] = (x, y, (float)(cam.Z + Size * LowerFactor));
+            upper[i] = (x, y, (float)(cam.Z + Size * UpperFactor));
         }
         var state = new DrawState3D(null, null, false, 0f, false, false);
         var tris = new List<Vertex3D>();

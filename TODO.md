@@ -14,6 +14,7 @@ way are added to Open.
 - [ ] Our voice chat plays about 3 dB quieter than the original.
 - [ ] No sound when switching to the blaster or the mortar.
 - [ ] Server browser: refresh, favourites and "never ping".
+- [ ] Far hills and the in-game sky brightness.
 
 ### Project
 
@@ -68,6 +69,7 @@ way are added to Open.
 - [x] Dynamic lights on interiors and terrain.
 - [x] Team skins change with the team.
 - [x] Rain and snow follow the weather setting.
+- [x] Sky panels.
 
 ### Shapes, weapons and effects
 
