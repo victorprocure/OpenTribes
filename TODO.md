@@ -81,6 +81,7 @@ way are added to Open.
 - [x] Weapon state machine on other players.
 - [x] Explosion images face the camera.
 - [x] Rocket trail.
+- [x] Turret power animation.
 
 ### Menus and HUD
 

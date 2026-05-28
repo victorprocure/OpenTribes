@@ -195,6 +195,10 @@ public class ShapeVisual : Visual
             t.Position = 0;
             SlotSeq[s.Slot] = s.Sequence;
         }
+        // Turret_setPowerSequence [code Turret_setPowerSequence, Turret_setFireSequence]: the thread of slot 0 of a turret runs the power sequence at priority -1 (above the
+        // turn and elevate threads that drive the same nodes), Turret_setFireSequence the fire sequence at priority 0.
+        if (Group == 19 && s.Slot == 0)
+            t.Priority = Shape?.SequenceName(s.Sequence) == "power" ? -1 : 0;
         // state 0 playing, 1 stopped (position 0), 2 paused (3.5, static-sim.md 1.7)
         double dir = s.Forward ? 1 : -1;
         if (s.State == 0)
