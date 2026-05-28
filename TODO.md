@@ -68,7 +68,7 @@ way are added to Open.
 - [x] Interior and sky texture colours and sky band size.
 - [x] Dynamic lights on interiors and terrain.
 - [x] Team skins change with the team.
-- [x] Rain and snow follow the weather setting.
+- [x] Rain and snow follow the weather setting, with the original streak count, size and speed.
 - [x] Sky panels.
 
 ### Shapes, weapons and effects

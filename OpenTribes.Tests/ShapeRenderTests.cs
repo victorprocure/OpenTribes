@@ -439,12 +439,27 @@ public class ShapeRenderTests
     // ---- SR 4.8 weather ----
 
     [Fact]
-    public void ParticleCountScalesWithIntensity() // SR 4.8 (Q10: a reasonable version)
+    public void ParticleCountScalesWithIntensity() // SR 4.8, 004419b8: 2048 rain streaks and 1024 snow flakes at intensity 1
     {
-        Assert.Equal(0, WeatherEffect.Count(0));
-        Assert.Equal(WeatherEffect.MaxParticles, WeatherEffect.Count(1));
-        Assert.Equal(WeatherEffect.MaxParticles / 2, WeatherEffect.Count(0.5));
-        Assert.Equal(WeatherEffect.MaxParticles, WeatherEffect.Count(7));
+        Assert.Equal(0, WeatherEffect.Count(0, true));
+        Assert.Equal(2048, WeatherEffect.Count(1, true));
+        Assert.Equal(1024, WeatherEffect.Count(0.5, true));
+        Assert.Equal(1024, WeatherEffect.Count(1, false));
+        Assert.Equal(2048, WeatherEffect.Count(7, true));
+    }
+
+    [Fact]
+    public void RainStreakIsAKiteOfStockSize() // 00442338: 0.15 across at 2 units, end at 2.25 units along the fall direction
+    {
+        var q = WeatherEffect.Streak((10, 20, 30), 0, 0, (1, 0, 0));
+        Assert.Equal((10, 20, 30), q.tip);
+        Assert.Equal((10 - 0.075, 20, 28), q.left);
+        Assert.Equal((10 + 0.075, 20, 28), q.right);
+        Assert.Equal((10, 20, 30 - 2.25), q.end);
+        var w = WeatherEffect.Streak((0, 0, 0), 3, 4, (0, 0, 0));
+        double len = Math.Sqrt(9 + 16 + 1);
+        Assert.Equal(2.25 * 3 / len, w.end.x, 9);
+        Assert.Equal(-2.25 / len, w.end.z, 9);
     }
 
     [Fact]
