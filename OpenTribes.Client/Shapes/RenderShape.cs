@@ -53,6 +53,7 @@ public sealed class RenderShape
     public uint Version;
     public float Radius;
     public double Cx, Cy, Cz;
+    public float[] Box = new float[6];   // the shape box, as the server's ShapeBox
     public int AlwaysNode = -1;
     public int RemapSize;
     public RsNode[] Nodes = Array.Empty<RsNode>();
@@ -282,6 +283,12 @@ public sealed class RenderShape
         int nTriggers = ver >= 4 ? r.I32() : 0;
         s.Radius = r.F32();
         s.Cx = r.F32(); s.Cy = r.F32(); s.Cz = r.F32();
+        if (!OpenTribes.World.Shape.ReadShapeBox(dts, s.Box))
+            for (int i = 0; i < 3; ++i)
+            {
+                s.Box[i] = (float)((i == 0 ? s.Cx : i == 1 ? s.Cy : s.Cz) - s.Radius);
+                s.Box[i + 3] = (float)((i == 0 ? s.Cx : i == 1 ? s.Cy : s.Cz) + s.Radius);
+            }
         if (ver >= 8)
             r.Skip(24);
         long[] sizes = ver == 8 ? new long[] { 10, 32, 6, 8, 20, 24, 28, 8, 40, 8 } : RecordSizes(ver);

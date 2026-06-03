@@ -231,6 +231,7 @@ public sealed class ClientHudSource : IHudSource
     public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
     // Set by the host: the bounding sphere (centre and radius) of a shape ghost, the box stand-in for the objects of the label pick.
     public Func<int, (double X, double Y, double Z, double R)?>? ObjectSphere;
+    public Func<int, (double X, double Y, double Z)?>? ObjectTop;   // world box centre x, y and top z
 
     // Datablock group of the classes that take part in the label pick: the sensor set holds the Sensors (and their Turrets) and every
     // object with a target index (StaticShape, Item) [code 0053a1f4 callers: Sensor_onAdd, GameBase_onNewDataBlock].
@@ -299,7 +300,7 @@ public sealed class ClientHudSource : IHudSource
             if (team == 15)
                 team = -1;
             double dmg = g.State.ContainsKey("damageState") && D(g.State["damageState"], 1) != 1 ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
-            var top = (sx, sy, sz + sr);
+            var top = ObjectTop?.Invoke(g.Index) ?? (sx, sy, sz + sr);
             // The stock test passes when the first hit is the object itself: stop the ray at the near surface of its bounding sphere.
             double ex = sx - eye.Item1, ey = sy - eye.Item2, ez = sz - eye.Item3, el = Math.Sqrt(ex * ex + ey * ey + ez * ez), k = el > sr ? (el - sr) / el : 0;
             bool clear = LineClear?.Invoke(eye, (eye.Item1 + ex * k, eye.Item2 + ey * k, eye.Item3 + ez * k)) ?? true;

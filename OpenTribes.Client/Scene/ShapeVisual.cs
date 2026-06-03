@@ -255,6 +255,23 @@ public class ShapeVisual : Visual
         return (c.x, c.y, c.z, Shape.Radius);
     }
 
+    // The crosshair label anchor of the stock pick [code 004aca84]: the centre of the world box in x and y, its top in z.
+    public (double X, double Y, double Z)? HudTop()
+    {
+        if (!HavePos || Shape == null)
+            return null;
+        Xf xf = PoseXf();
+        double x0 = double.MaxValue, y0 = x0, x1 = -x0, y1 = x1, z1 = x1;
+        for (int i = 0; i < 8; ++i)
+        {
+            var c = xf.Apply(Shape.Box[(i & 1) * 3], Shape.Box[1 + (i >> 1 & 1) * 3], Shape.Box[2 + (i >> 2 & 1) * 3]);
+            x0 = Math.Min(x0, c.x); x1 = Math.Max(x1, c.x);
+            y0 = Math.Min(y0, c.y); y1 = Math.Max(y1, c.y);
+            z1 = Math.Max(z1, c.z);
+        }
+        return ((x0 + x1) * 0.5, (y0 + y1) * 0.5, z1);
+    }
+
     protected (double x, double y, double z) BoxCenter()
     {
         if (Shape == null)
