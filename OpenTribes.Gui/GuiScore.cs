@@ -107,9 +107,9 @@ public sealed class GuiScoreList : GuiList
                     int next = line.Columns[k + 1];
                     if (low)
                         next = next * 70 / 100;
-                    p.SetClip(saved.Intersect(new GfxRect(gx + col, y, gx + next - 3, y + lh - 1)));
+                    p.SetClip(saved.Intersect(new GfxRect(gx + col, y - 2, gx + next - 3, y + lh - 1)));
                 }
-                p.Text(f, gx + col + 2, y, cells[k]);
+                p.Text(f, gx + col + 2, y - (low ? 1 : 2), cells[k]);   // the text sits 2 pixels (low resolution 1) above its row [code 004c2198]
                 p.SetClip(saved);
             }
         }

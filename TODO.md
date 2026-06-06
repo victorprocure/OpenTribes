@@ -120,6 +120,7 @@ way are added to Open.
 - [x] Help pop-ups.
 - [x] Player setup model with zoom.
 - [x] No reticle, weapon list or sensor ping in the observer camera.
+- [x] Scoreboard text position.
 
 ### Audio
 
