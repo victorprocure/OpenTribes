@@ -117,6 +117,8 @@ public static class InteriorLightMaps
 public sealed class InteriorLodModel
 {
     public InteriorGeometryData Geo = null!;
+    // The geometry with its leaves, for the visible surface selection of the stock renderer (world-render.md 3.3).
+    public InteriorGeometry? Leaves;
     public List<string?> Materials = new();
     public InteriorLighting? Base, Mission;
     public (int x, int y)[] LmPos = Array.Empty<(int, int)>();
@@ -162,10 +164,8 @@ public sealed class InteriorRenderer : IDisposable
     // One surface of one instance, already in world space with haze 0: the fan triangles and the batch key (material index).
     internal readonly record struct SurfaceMesh(Vertex3D[] Triangles, int Key, IGfxTexture? Texture);
 
-    // Draw scratch kept between frames: the vertex lists per material in the order the materials first appear in a frame.
-    private readonly Dictionary<int, List<Vertex3D>> mBatches = new();
-    private readonly List<int> mBatchOrder = new();
-    private readonly Dictionary<int, IGfxTexture?> mBatchTexture = new();
+    // Draw scratch kept between frames: the vertices of the current run of surfaces with one material.
+    private readonly List<Vertex3D> mBatch = new();
 
     private readonly IGfxDevice mDev;
     private readonly WorldAssets mAssets;
@@ -257,7 +257,7 @@ public sealed class InteriorRenderer : IDisposable
         InteriorGeometryData? geo = InteriorGeometryData.Parse(dig);
         if (geo == null)
             return null;
-        var lod = new InteriorLodModel { Geo = geo, MinPixels = (int)LodMinPixels(model.Shape, index) };
+        var lod = new InteriorLodModel { Geo = geo, Leaves = InteriorGeometry.Parse(dig), MinPixels = (int)LodMinPixels(model.Shape, index) };
         lod.Materials = mAssets.MaterialList(model.Shape.MaterialList) ?? new List<string?>();
         int li = (int)l.LightStateIndex;
         if (li < model.Shape.LodLights.Count)
@@ -562,7 +562,7 @@ public sealed class InteriorRenderer : IDisposable
                 inst.Skin = skin;
                 inst.Meshes.Clear();
             }
-            DrawInstance(inst, lod, (lx, ly, lz), hz);
+            DrawInstance(inst, lod, cam, (lx, ly, lz), hz);
             ++DrawnInstances;
         }
     }
@@ -635,33 +635,55 @@ public sealed class InteriorRenderer : IDisposable
         return meshes;
     }
 
-    private void DrawInstance(Instance inst, InteriorLodModel lod, (double x, double y, double z) camLocal, float haze)
+    // Stock draws the visible surfaces one polygon at a time in surface index order (0055ec98 walks the surface bit set
+    // ascending), so equal 16 bit depths resolve by index. Consecutive surfaces of one material share a draw call.
+    private void DrawInstance(Instance inst, InteriorLodModel lod, in Camera3D cam, (double x, double y, double z) camLocal, float haze)
     {
         InteriorGeometryData g = lod.Geo;
+        bool[]? selected = null;
+        if (lod.Leaves != null && lod.Leaves.SurfaceCountTotal == g.Surfaces.Length)
+        {
+            float[] m = inst.M;
+            Camera3D c = cam;
+            selected = lod.Leaves.SelectSurfaces(new Vec3((float)camLocal.x, (float)camLocal.y, (float)camLocal.z), (x, y, z, r) =>
+            {
+                var (cx, cy, cz) = c.ToCamera(x * m[0] + y * m[3] + z * m[6] + inst.X, x * m[1] + y * m[4] + z * m[7] + inst.Y,
+                                              x * m[2] + y * m[5] + z * m[8] + inst.Z);
+                return SphereVisible(c, cx, cy, cz, r);
+            });
+        }
         if (!inst.Meshes.TryGetValue(lod, out SurfaceMesh[]? meshes))
             inst.Meshes[lod] = meshes = BuildMeshes(inst, lod);
-        foreach (int key in mBatchOrder)
-            mBatches[key].Clear();
-        mBatchOrder.Clear();
+        List<Vertex3D> list = mBatch;
+        list.Clear();
+        int curKey = int.MinValue;
+        IGfxTexture? curTex = null;
         for (int s = 0; s < meshes.Length; ++s)
         {
             Vertex3D[]? tris = meshes[s].Triangles;
             if (tris == null)
                 continue;
             InteriorGeometryData.Surface surf = g.Surfaces[s];
-            // 3.3 step 6: back-face removal against the surface plane
-            int pi = surf.Plane * 4;
-            double side = g.Planes[pi] * camLocal.x + g.Planes[pi + 1] * camLocal.y + g.Planes[pi + 2] * camLocal.z + g.Planes[pi + 3];
-            if ((side > 0) != surf.PlaneFront)
-                continue;
-            int key = meshes[s].Key;
-            if (!mBatches.TryGetValue(key, out List<Vertex3D>? list))
-                mBatches[key] = list = new List<Vertex3D>();
-            if (list.Count == 0)
+            if (selected != null)
             {
-                mBatchOrder.Add(key);
-                mBatchTexture[key] = meshes[s].Texture;
+                if (!selected[s])
+                    continue;
             }
+            else
+            {
+                // 3.3 step 6: back-face removal against the surface plane
+                int pi = surf.Plane * 4;
+                double side = g.Planes[pi] * camLocal.x + g.Planes[pi + 1] * camLocal.y + g.Planes[pi + 2] * camLocal.z + g.Planes[pi + 3];
+                if ((side > 0) != surf.PlaneFront)
+                    continue;
+            }
+            if (list.Count > 0 && meshes[s].Key != curKey)
+            {
+                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, lod.Atlas));
+                list.Clear();
+            }
+            curKey = meshes[s].Key;
+            curTex = meshes[s].Texture;
             int start = list.Count;
             list.AddRange(tris);
             if (haze != 0)
@@ -672,8 +694,9 @@ public sealed class InteriorRenderer : IDisposable
             }
             ++DrawnSurfaces;
         }
-        foreach (int key in mBatchOrder)
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mBatches[key]), new DrawState3D(mBatchTexture[key], lod.Atlas));
+        if (list.Count > 0)
+            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, lod.Atlas));
+        list.Clear();
     }
 
     public void Dispose()
