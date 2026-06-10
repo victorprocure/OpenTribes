@@ -10,7 +10,7 @@ namespace OpenTribes.Client.World;
 public sealed class WorldScene : IDisposable
 {
     // Open (world-render.md Q1): near plane, field of view and far plane are not transcribed from the camera slots.
-    public const double NearPlane = 0.1;
+    public const double NearPlane = 0.01;
     public const double DefaultFov = 90;      // $pref::PlayerFov default, taken as the horizontal angle
     public const double BackgroundFar = 40000; // covers planet distances up to 11000
 

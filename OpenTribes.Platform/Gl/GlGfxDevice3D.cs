@@ -187,8 +187,9 @@ void main() {
         gl.Uniform1i_(mU3Light, 1);
         gl.Uniform3f_(mU3Haze, hazeR, hazeG, hazeB);
         gl.Enable_(GlApi.DepthTest);
-        gl.DepthFunc_(GlApi.LEqual);
+        gl.DepthFunc_(GlApi.GEqual);
         gl.DepthMask_(1);
+        gl.ClearDepth_(0.0);
         gl.Clear_(GlApi.DepthBufferBit);
         SetCamera3D(camera);
     }

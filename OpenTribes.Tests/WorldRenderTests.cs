@@ -65,7 +65,7 @@ public class WorldRenderTests
     }
 
     [Fact]
-    public void ViewProjectionMatrixAgreesWithProject() // R 5.2: ndc depth linear in the submitted z is replaced by a standard depth
+    public void ViewProjectionMatrixAgreesWithProject() // R 5.2: ndc depth is 2 near / d - 1 (reversed, as the device stores near / d)
     {
         Camera3D c = Cam(10, -20, 30, 33, -12, 75);
         var m = new float[16];

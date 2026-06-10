@@ -18,10 +18,10 @@ public sealed unsafe class GlApi
     public const uint VertexShader = 0x8B31, FragmentShader = 0x8B30, CompileStatus = 0x8B81, LinkStatus = 0x8B82,
         InfoLogLength = 0x8B84;
     public const uint Framebuffer = 0x8D40, ReadFramebuffer = 0x8CA8, DrawFramebuffer = 0x8CA9, Renderbuffer = 0x8D41,
-        ColorAttachment0 = 0x8CE0, DepthAttachment = 0x8D00, FramebufferComplete = 0x8CD5, DepthComponent24 = 0x81A6;
+        ColorAttachment0 = 0x8CE0, DepthAttachment = 0x8D00, FramebufferComplete = 0x8CD5, DepthComponent24 = 0x81A6, DepthComponent16 = 0x81A5;
     public const uint Version = 0x1F02, Renderer = 0x1F01, Vendor = 0x1F00, UnpackAlignment = 0x0CF5, PackAlignment = 0x0D05;
     public const uint Texture0 = 0x84C0, Texture1 = 0x84C1;
-    public const uint Less = 0x201, LEqual = 0x203, Always = 0x207, Repeat = 0x2901, LinearMipmapLinear = 0x2703;
+    public const uint Less = 0x201, LEqual = 0x203, GEqual = 0x206, Always = 0x207, Repeat = 0x2901, LinearMipmapLinear = 0x2703;
     public const uint CW = 0x900, CCW = 0x901;
 
     private readonly Func<string, IntPtr> mLoader;
@@ -38,6 +38,7 @@ public sealed unsafe class GlApi
     public readonly delegate* unmanaged[Cdecl]<uint, byte*> GetString_;
     public readonly delegate* unmanaged[Cdecl]<float, float, float, float, void> ClearColor_;
     public readonly delegate* unmanaged[Cdecl]<uint, void> Clear_;
+    public readonly delegate* unmanaged[Cdecl]<double, void> ClearDepth_;
     public readonly delegate* unmanaged[Cdecl]<int, int, int, int, void> Viewport_;
     public readonly delegate* unmanaged[Cdecl]<int, int, int, int, void> Scissor_;
     public readonly delegate* unmanaged[Cdecl]<uint, void> Enable_;
@@ -110,6 +111,7 @@ public sealed unsafe class GlApi
         GetString_ = (delegate* unmanaged[Cdecl]<uint, byte*>)Load("glGetString");
         ClearColor_ = (delegate* unmanaged[Cdecl]<float, float, float, float, void>)Load("glClearColor");
         Clear_ = (delegate* unmanaged[Cdecl]<uint, void>)Load("glClear");
+        ClearDepth_ = (delegate* unmanaged[Cdecl]<double, void>)Load("glClearDepth");
         Viewport_ = (delegate* unmanaged[Cdecl]<int, int, int, int, void>)Load("glViewport");
         Scissor_ = (delegate* unmanaged[Cdecl]<int, int, int, int, void>)Load("glScissor");
         Enable_ = (delegate* unmanaged[Cdecl]<uint, void>)Load("glEnable");

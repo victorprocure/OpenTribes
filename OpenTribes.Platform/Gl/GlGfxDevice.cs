@@ -114,7 +114,7 @@ void main() {
         gl.BindRenderbuffer_(GlApi.Renderbuffer, mColorRb);
         gl.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.Rgba8, mWidth, mHeight);
         gl.BindRenderbuffer_(GlApi.Renderbuffer, mDepthRb);
-        gl.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.DepthComponent24, mWidth, mHeight);
+        gl.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.DepthComponent16, mWidth, mHeight);
         gl.BindFramebuffer_(GlApi.Framebuffer, mFbo);
         gl.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.ColorAttachment0, GlApi.Renderbuffer, mColorRb);
         gl.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.DepthAttachment, GlApi.Renderbuffer, mDepthRb);

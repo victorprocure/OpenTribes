@@ -88,7 +88,7 @@ public struct Camera3D
         return (dx * r.x + dy * r.y + dz * r.z, dx * f.x + dy * f.y + dz * f.z, dx * u.x + dy * u.y + dz * u.z);
     }
 
-    // Surface pixels (origin top left) and a 0..1 depth between the near and far planes; false behind the near plane.
+    // Surface pixels (origin top left) and a 0..1 depth, near / distance (1 at the near plane, reversed); false behind the near plane.
     public readonly bool Project(double wx, double wy, double wz, out double sx, out double sy, out double depth)
     {
         var (cx, cy, cz) = ToCamera(wx, wy, wz);
@@ -98,7 +98,7 @@ public struct Camera3D
         double fl = FocalLength;
         sx = Width / 2.0 + cx * fl / cy;
         sy = Height / 2.0 - cz * fl / cy;
-        depth = (Far * (cy - Near)) / (cy * (Far - Near));
+        depth = Near / cy;
         return true;
     }
 
@@ -109,9 +109,10 @@ public struct Camera3D
         var f = Forward;
         var u = Up;
         double fx = 2 * FocalLength / Width, fy = 2 * FocalLength / Height;
-        double a = (Far + Near) / (Far - Near), b = -2 * Far * Near / (Far - Near);
+        // reversed depth (renderer.md 5.2): the device stores near / d, so ndc z = 2 near / d - 1 and clip z = 2 near - w
+        double a = -1, b = 2 * Near;
         double pr = r.x * X + r.y * Y + r.z * Z, pu = u.x * X + u.y * Y + u.z * Z, pf = f.x * X + f.y * Y + f.z * Z;
-        // rows: x = fx * right, y = fy * up, z = a * forward + b, w = forward; stored column-major
+        // rows: x = fx * right, y = fy * up, z = a * forward + b (a = -1), w = forward; stored column-major
         double[] c0 = { fx * r.x, fy * u.x, a * f.x, f.x };
         double[] c1 = { fx * r.y, fy * u.y, a * f.y, f.y };
         double[] c2 = { fx * r.z, fy * u.z, a * f.z, f.z };

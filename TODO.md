@@ -71,6 +71,7 @@ way are added to Open.
 - [x] Rain and snow follow the weather setting, with the original streak count, size and speed.
 - [x] Sky panels.
 - [x] Interior lights that start on their own.
+- [x] Depth buffer like the original.
 
 ### Shapes, weapons and effects
 
