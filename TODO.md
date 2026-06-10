@@ -83,6 +83,7 @@ way are added to Open.
 - [x] Explosion images face the camera.
 - [x] Rocket trail.
 - [x] Turret power animation.
+- [x] Projectiles drawn fullbright and without haze.
 
 ### Menus and HUD
 

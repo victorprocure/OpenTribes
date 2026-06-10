@@ -186,6 +186,8 @@ public sealed class ProjectileVisual : Visual
             if (period > 0)
                 xf = Mathx.SpinY((M.Time - mT0) % period / period * Math.PI * 2).Then(xf);
             ShapeDraw d = ctx.Draw(xf, mShape.Name);
+            d.NoHaze = true;
+            d.Light = new LightSet { AmbR = 1, AmbG = 1, AmbB = 1, SunR = 0, SunG = 0, SunB = 0 };
             RenderImage? img = ctx.Renderer.Build(mInst, ctx.Camera, d);
             if (img != null)
                 ctx.Lists.Add(img);

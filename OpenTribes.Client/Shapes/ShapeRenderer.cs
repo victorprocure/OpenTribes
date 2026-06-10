@@ -19,6 +19,7 @@ public sealed class ShapeDraw
     public bool ForceTranslucent;      // category 1 whatever the materials say
     public double? FixedSortKey;
     public double HazeStart = 1e9, Visible = 1e9;
+    public bool NoHaze;                // the image fog amount stays 0 (projectile images never set it): haze none
     public double SortBias;            // added to the key (the flame draws just in front of the body)
     public string Label = "";
     public HashSet<int>? ObjectFilter;  // draw only these objects (debris parts)
@@ -137,7 +138,7 @@ public sealed class ShapeRenderer
                 return null;
             }
         }
-        float haze = (float)TerrainLod.ObjectHaze(dist, p.HazeStart, p.Visible);
+        float haze = p.NoHaze ? 0 : (float)TerrainLod.ObjectHaze(dist, p.HazeStart, p.Visible);
         var img = new RenderImage { Label = p.Label.Length > 0 ? p.Label : sh.Name };
         Dictionary<int, MatState> states = mStates;
         states.Clear();
