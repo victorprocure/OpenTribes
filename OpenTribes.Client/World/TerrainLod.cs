@@ -19,7 +19,8 @@ public readonly record struct TerrainParams(double Visible, double HazeStart, do
 }
 
 // One selected square of the render domain: level k has side 2^k cells; (X, Y) is its corner cell.
-public readonly record struct TerrainSquare(int Level, int X, int Y);
+// D is the distance to its box, the stock mip rank of the sort needs it.
+public readonly record struct TerrainSquare(int Level, int X, int Y, double D = 0);
 
 // world-render.md 2.4 to 2.7: the T2 square selection, the vertex morph and the two haze curves.
 public static class TerrainLod
@@ -105,8 +106,9 @@ public static class TerrainLod
         // 2.4 step 3: pixelError = 1 / projectRadius(screenError = 9, 1)
         double pixelError = 1.0 / cam.ProjectRadius(1.0, 9.0) ;
         var stack = new Stack<TerrainSquare>();
-        for (int j = TerrainData.BlockCount - 1; j >= 0; --j)
-            for (int i = TerrainData.BlockCount - 1; i >= 0; --i)
+        // The stock client walks the blocks with x outer and y inner, and a square's children from (0,1) to (1,1), (1,0), (0,0).
+        for (int i = TerrainData.BlockCount - 1; i >= 0; --i)
+            for (int j = TerrainData.BlockCount - 1; j >= 0; --j)
                 stack.Push(new TerrainSquare(8, i * TerrainData.Cells, j * TerrainData.Cells));
         while (stack.Count > 0 && result.Count < MaxSquares)
         {
@@ -141,13 +143,13 @@ public static class TerrainLod
                 continue;
             if (sq.Level == 0)
             {
-                result.Add(sq);
+                result.Add(sq with { D = d });
                 continue;
             }
             bool subdivide = d < 1 || d < DetailDistance(cam, p.ScreenSize, sq.Level);
             if (!subdivide)
             {
-                result.Add(sq);
+                result.Add(sq with { D = d });
                 continue;
             }
             int h = s / 2;
@@ -160,7 +162,7 @@ public static class TerrainLod
                                              GrowKey(sq.X + h, sq.Y + s), GrowKey(sq.X, sq.Y + h) })
                     growOut.TryAdd(key, g);
             }
-            for (int k = 3; k >= 0; --k)
+            foreach (int k in new[] { 0, 1, 3, 2 })
                 stack.Push(new TerrainSquare(sq.Level - 1, sq.X + (k & 1) * h, sq.Y + (k >> 1) * h));
         }
         return result;
@@ -261,6 +263,99 @@ public static class TerrainMesher
         return (u, v);
     }
 
+    // The stock back face cull of the emitted squares (`0057813c`, run before the sort): a square is dropped when
+    // the camera is behind both triangles of its split. A dropped record is replaced by the last one, which reorders the list
+    // and so the order the sort leaves equal keys in.
+    internal static void StockCull(TerrainData t, List<TerrainSquare> squares, Func<int, int, float> z, double px, double py, double pz)
+    {
+        const double cs = TerrainData.CellSize;
+        int n = squares.Count, i = 0;
+        while (i < n)
+        {
+            TerrainSquare sq = squares[i];
+            int s = 1 << sq.Level;
+            double size = s * cs;
+            double h08 = z(sq.X, sq.Y + s), h0c = z(sq.X + s, sq.Y + s), h10 = z(sq.X, sq.Y), h14 = z(sq.X + s, sq.Y);
+            double vx, vy, vz, ax, ay, bx, by;
+            if (t.SplitMain(sq.Level, sq.X, sq.Y))
+            {
+                vx = sq.X * cs; vy = sq.Y * cs; vz = h10;
+                ax = h10 - h14; ay = h14 - h0c;
+                bx = h08 - h0c; by = h10 - h08;
+            }
+            else
+            {
+                vx = (sq.X + s) * cs; vy = sq.Y * cs; vz = h14;
+                ax = h08 - h0c; ay = h14 - h0c;
+                bx = h10 - h14; by = h10 - h08;
+            }
+            double dx = px - vx, dy = py - vy, dz = pz - vz;
+            if (dx * ax + dy * ay + dz * size >= 0 || dx * bx + dy * by + dz * size >= 0)
+            {
+                ++i;
+                continue;
+            }
+            squares[i] = squares[--n];
+        }
+        squares.RemoveRange(n, squares.Count - n);
+    }
+
+    // The stock sort of the emitted squares (world-render.md 2.8): the compare function 00578590 -> 0057642c over records of
+    // (level, mip rank, position) sorted by the exe's quicksort. Level 0 squares come first by material (the mip field holds
+    // it). The others follow by mip rank descending (cover squares, 0xff, first), then level ascending, then position (y
+    // major). Cover squares tie among themselves and the exe's quicksort decides their order. The pin and dynamic light bits
+    // of the records' flags (which the compare function ranks first) are not modelled.
+    private readonly record struct SortKey(int Level, int Mip, int Pos, int Index);
+
+    internal static List<TerrainSquare> StockOrder(TerrainData t, List<TerrainSquare> squares, in Camera3D cam)
+    {
+        var keys = new SortKey[squares.Count];
+        int stale = 0; // the exe keeps the mip of the previous square when the distance is 0
+        for (int i = 0; i < keys.Length; ++i)
+        {
+            TerrainSquare sq = squares[i];
+            int pos = (sq.Y << 16) | (sq.X & 0xffff);
+            if (sq.Level == 0)
+            {
+                keys[i] = new SortKey(0, t.Material(sq.X, sq.Y), pos, i);
+                continue;
+            }
+            int mip = stale;
+            if (sq.D > 0.001)
+            {
+                double size = TerrainData.CellSize * (1 << sq.Level);
+                int px = (int)cam.ProjectRadius(sq.D + size / 2, size);
+                mip = (px == 0 ? 0 : 32 - System.Numerics.BitOperations.LeadingZeroCount((uint)px)) - 1;
+            }
+            mip = Math.Min(mip, 6);
+            stale = mip;
+            if (mip <= sq.Level + 1)
+                mip = 0xff;
+            keys[i] = new SortKey(sq.Level, mip & 0xff, pos, i);
+        }
+        static int Compare(SortKey a, SortKey b)
+        {
+            if (a.Level == 0 && b.Level != 0)
+                return -1;
+            if (a.Level != 0 && b.Level == 0)
+                return 1;
+            if (a.Level == 0)
+                return a.Mip - b.Mip;
+            if (a.Mip != b.Mip)
+                return b.Mip - a.Mip;
+            if (a.Mip == 0xff)
+                return 0;
+            if (a.Level != b.Level)
+                return a.Level - b.Level;
+            return a.Pos - b.Pos;
+        }
+        StockSort.Sort(keys, keys.Length, Compare);
+        var result = new List<TerrainSquare>(keys.Length);
+        foreach (SortKey k in keys)
+            result.Add(squares[k.Index]);
+        return result;
+    }
+
     public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null,
                                    Dictionary<long, float>? growMap = null)
     {
@@ -307,15 +402,9 @@ public static class TerrainMesher
         }
         List<(int, int)> ring = mesh.Ring;
         Vertex3D prev = default;
-        // The stock sort of the emitted squares (compare function 0057642c, world-render.md 2.8): level 0 squares first, then
-        // the coarser ones. Among those the comparator ranks the cover squares (mip 0xff) before the composite ones and leaves
-        // squares of one rank in the order the exe's quicksort leaves them, which is not reproduced; coarse before fine
-        // (level descending, emission order within a level) matches the stock pixels (Broadside_view 283, was 646).
-        var ordered = new List<TerrainSquare>(squares.Count);
-        foreach (var sq in squares)
-            if (sq.Level == 0)
-                ordered.Add(sq);
-        ordered.AddRange(squares.Where(q => q.Level != 0).Select((q, i) => (q, i)).OrderByDescending(e => e.q.Level).ThenBy(e => e.i).Select(e => e.q));
+        var culled = new List<TerrainSquare>(squares);
+        StockCull(t, culled, Z, cam.X - ox, cam.Y - oy, cam.Z - oz);
+        List<TerrainSquare> ordered = StockOrder(t, culled, cam);
         foreach (var sq in ordered)
         {
             int s = 1 << sq.Level, x = sq.X, y = sq.Y;
