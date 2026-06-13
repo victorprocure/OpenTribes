@@ -307,7 +307,16 @@ public static class TerrainMesher
         }
         List<(int, int)> ring = mesh.Ring;
         Vertex3D prev = default;
+        // The stock sort of the emitted squares (compare function 0057642c, world-render.md 2.8): level 0 squares first, then
+        // the coarser ones. Among those the comparator ranks the cover squares (mip 0xff) before the composite ones and leaves
+        // squares of one rank in the order the exe's quicksort leaves them, which is not reproduced; coarse before fine
+        // (level descending, emission order within a level) matches the stock pixels (Broadside_view 283, was 646).
+        var ordered = new List<TerrainSquare>(squares.Count);
         foreach (var sq in squares)
+            if (sq.Level == 0)
+                ordered.Add(sq);
+        ordered.AddRange(squares.Where(q => q.Level != 0).Select((q, i) => (q, i)).OrderByDescending(e => e.q.Level).ThenBy(e => e.i).Select(e => e.q));
+        foreach (var sq in ordered)
         {
             int s = 1 << sq.Level, x = sq.X, y = sq.Y;
             if (sq.Level == 0)

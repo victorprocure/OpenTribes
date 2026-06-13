@@ -72,7 +72,7 @@ way are added to Open.
 - [x] Sky panels.
 - [x] Interior lights that start on their own.
 - [x] Depth buffer like the original.
-- [x] Draw order: interior surfaces.
+- [x] Draw order: interior surfaces and terrain levels.
 
 ### Shapes, weapons and effects
 

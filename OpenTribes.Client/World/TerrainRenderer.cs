@@ -162,11 +162,13 @@ public sealed class TerrainRenderer : IDisposable
             mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params, mMesh, mGrow);
         LastSquares = squares.Count;
         LastTriangles = mesh.TriangleCount;
-        if (mesh.Atlas.Count > 0)
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.Atlas), new DrawState3D(mAtlas, mLight));
+        // The stock sort of the emitted squares (compare function 0057642c): level 0 first, by material, then the coarser
+        // squares (the atlas here). With 16 bit depth the later draw wins a tie.
         foreach (var (mat, list) in mesh.ByMaterial.OrderBy(kv => kv.Key))
             if (list.Count > 0)
                 mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(mat), mLight));
+        if (mesh.Atlas.Count > 0)
+            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.Atlas), new DrawState3D(mAtlas, mLight));
     }
 
     public void Dispose()
