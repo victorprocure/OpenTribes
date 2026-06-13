@@ -193,6 +193,11 @@ public sealed class WorldScene : IDisposable
     // within range (world-render.md 2.9, 3.7). Set by the caller before Render; the nearest ones to the camera are used.
     public IReadOnlyList<PointLight>? DynamicLights;
 
+    // Called after the terrain with the world camera, before the interiors (the caller builds its images there), and
+    // `DrawContents(i)` before the interior of instance i draws (the objects in its database come first, 3.8).
+    public Action<Camera3D>? Prepare;
+    public Action<int>? DrawContents;
+
     private void SendDynamicLights(double cx, double cy, double cz)
     {
         if (DynamicLights == null || DynamicLights.Count == 0)
@@ -235,8 +240,14 @@ public sealed class WorldScene : IDisposable
         SendDynamicLights(x, y, z);
         using (FramePerf.Scope("terrain"))
             TerrainDraw?.Draw(world);
+        Prepare?.Invoke(world);
         using (FramePerf.Scope("interiors"))
-            Interiors?.Draw(world, Terrain);
+            Interiors?.Draw(world, Terrain, DrawContents == null ? null : i =>
+            {
+                mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
+                DrawContents(i);
+                SendDynamicLights(x, y, z);
+            });
         mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
         overlay?.Invoke(world);
         mDev.EndScene3D();

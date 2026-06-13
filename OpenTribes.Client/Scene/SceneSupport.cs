@@ -121,6 +121,8 @@ public sealed class FrameContext
     public ShapeAssets Assets = null!;
     public LightSet Light = LightSet.Default();
     public RenderLists Lists = new();
+    // The container interior (instance index) that holds a point, -1 none (InteriorRenderer.ContainerOf).
+    public Func<double[], int>? ContainerOf;
     public double Time;            // seconds of demo time
     public double HazeStart = 1e9, Visible = 1e9;
     public bool FirstPersonOfControl;

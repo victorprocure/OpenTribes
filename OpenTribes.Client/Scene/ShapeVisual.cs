@@ -27,6 +27,8 @@ public abstract class Visual
     public virtual void Build(FrameContext ctx) { }
     public virtual void OnDelete() { }
     public virtual (double x, double y, double z)? Position => null;
+    // The world box of the object (min xyz, max xyz) used to file it in a container interior, null when unknown.
+    public virtual double[]? WorldBox => null;
     // Where a beam or projectile of this object starts: the muzzle (4.7).
     public virtual (double x, double y, double z)? MuzzlePoint => Position;
 
@@ -58,6 +60,25 @@ public class ShapeVisual : Visual
     private (RenderShape, string) mPreloaded;
 
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
+
+    public override double[]? WorldBox
+    {
+        get
+        {
+            if (!HavePos || Shape == null)
+                return null;
+            Xf xf = PoseXf();
+            float[] b = Shape.Box;
+            var box = new[] { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
+            for (int c = 0; c < 8; ++c)
+            {
+                var (wx, wy, wz) = xf.Apply(b[(c & 1) != 0 ? 3 : 0], b[(c & 2) != 0 ? 4 : 1], b[(c & 4) != 0 ? 5 : 2]);
+                box[0] = Math.Min(box[0], wx); box[1] = Math.Min(box[1], wy); box[2] = Math.Min(box[2], wz);
+                box[3] = Math.Max(box[3], wx); box[4] = Math.Max(box[4], wy); box[5] = Math.Max(box[5], wz);
+            }
+            return box;
+        }
+    }
 
     // Sequence name of the shape, for the sequence sounds (docs/audio.md 3.3).
     public string SequenceName(int sequence) => Shape?.SequenceName(sequence) ?? "";

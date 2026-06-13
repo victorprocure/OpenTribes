@@ -308,13 +308,19 @@ public static class DemoRender
             CameraPose c = pose.Value;
             var ctx = new FrameContext { HazeStart = scene.Terrain.HazeStart, Visible = scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
             int images = 0, draws = 0;
-            void DrawShapes(Camera3D cam)
+            ctx.ContainerOf = scene.Interiors == null ? null : scene.Interiors.ContainerOf;
+            scene.Prepare = cam =>
             {
                 ctx.Camera = cam;
                 model.Build(ctx);
                 images = ctx.Lists.ImageCount;
+                draws = 0;
+            };
+            scene.DrawContents = i => draws += ctx.Lists.DrawContents(dev, i);
+            void DrawShapes(Camera3D cam)
+            {
                 using (FramePerf.Scope("shapes-draw"))
-                    draws = ctx.Lists.Draw(dev);
+                    draws += ctx.Lists.Draw(dev);
             }
             // OT_BENCH=N: N extra frames of this view with the frame timing log on (one report line), for before/after runs.
             if (int.TryParse(Environment.GetEnvironmentVariable("OT_BENCH"), out int bench) && bench > 0)

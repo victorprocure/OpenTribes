@@ -351,10 +351,15 @@ public sealed class LiveGame : IDisposable
         string precip = mApp.Interp.PeekVariable("$pref::weatherPrecipitation");
         Model.WeatherPrecipitation = precip.Length == 0 || Numbers.ParseBool(precip);
         Scene.DynamicLights = Model.CollectLights().Points;
-        Scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, cam =>
+        ctx.ContainerOf = Scene.Interiors == null ? null : Scene.Interiors.ContainerOf;
+        Scene.Prepare = cam =>
         {
             ctx.Camera = cam;
             Model.Build(ctx);
+        };
+        Scene.DrawContents = i => ctx.Lists.DrawContents(dev, i);
+        Scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, cam =>
+        {
             using (FramePerf.Scope("shapes-draw"))
                 ctx.Lists.Draw(dev);
         }, overlay2D);

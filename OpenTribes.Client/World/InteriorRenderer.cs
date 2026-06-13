@@ -157,6 +157,9 @@ public sealed class InteriorRenderer : IDisposable
         public int Team = -1;
         public string Skin = "";
         public float[] M = new float[9];
+        // World box of the geometry padded by 3 on every side (docs/game-stream-ghosts.md 6.2), null until first needed; IsContainer: some extent >= 6.
+        internal double[]? Box;
+        internal bool IsContainer;
         // World-space triangles of each surface per detail level, built on first draw (the instance never moves).
         internal readonly Dictionary<InteriorLodModel, SurfaceMesh[]> Meshes = new();
     }
@@ -515,13 +518,46 @@ public sealed class InteriorRenderer : IDisposable
         return lods.Count - 1;
     }
 
-    public void Draw(in Camera3D cam, TerrainParams haze)
+    // The first container interior (instance index) whose padded world box holds the whole object box (min xyz, max xyz), -1 none: where the stock container
+    // placement files an object (SimContainer::addObject 004f9c04).
+    public int ContainerOf(double[] objectBox)
+    {
+        for (int i = 0; i < Instances.Count; ++i)
+        {
+            Instance inst = Instances[i];
+            if (inst.Box == null)
+            {
+                InteriorLodModel? lod0 = Lod(inst.Model, 0);
+                if (lod0 == null)
+                    continue;
+                float[] b = lod0.Geo.Box, m = inst.M;
+                var box = new[] { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
+                for (int c = 0; c < 8; ++c)
+                {
+                    double px = b[(c & 1) != 0 ? 3 : 0], py = b[(c & 2) != 0 ? 4 : 1], pz = b[(c & 4) != 0 ? 5 : 2];
+                    double wx = px * m[0] + py * m[3] + pz * m[6] + inst.X, wy = px * m[1] + py * m[4] + pz * m[7] + inst.Y,
+                           wz = px * m[2] + py * m[5] + pz * m[8] + inst.Z;
+                    box[0] = Math.Min(box[0], wx - 3); box[1] = Math.Min(box[1], wy - 3); box[2] = Math.Min(box[2], wz - 3);
+                    box[3] = Math.Max(box[3], wx + 3); box[4] = Math.Max(box[4], wy + 3); box[5] = Math.Max(box[5], wz + 3);
+                }
+                inst.Box = box;
+                inst.IsContainer = b[3] - b[0] >= 6 || b[4] - b[1] >= 6 || b[5] - b[2] >= 6;
+            }
+            if (inst.IsContainer && objectBox[0] >= inst.Box![0] && objectBox[3] <= inst.Box[3] && objectBox[1] >= inst.Box[1] && objectBox[4] <= inst.Box[4] && objectBox[2] >= inst.Box[2] && objectBox[5] <= inst.Box[5])
+                return i;
+        }
+        return -1;
+    }
+
+    // `contents(i)` runs just before the interior of instance i draws (the stock scope draws a container's contents first).
+    public void Draw(in Camera3D cam, TerrainParams haze, Action<int>? contents = null)
     {
         DrawnSurfaces = DrawnInstances = 0;
         long lightStep = (long)(mClock.Elapsed.TotalSeconds / LightStep);
         LightTime = lightStep * LightStep;
-        foreach (Instance inst in Instances)
+        for (int index = 0; index < Instances.Count; ++index)
         {
+            Instance inst = Instances[index];
             InteriorModel model = inst.Model;
             // camera in interior space: local = (world - p) * M^T (rotation matrices are orthonormal)
             double dx = cam.X - inst.X, dy = cam.Y - inst.Y, dz = cam.Z - inst.Z;
@@ -562,6 +598,7 @@ public sealed class InteriorRenderer : IDisposable
                 inst.Skin = skin;
                 inst.Meshes.Clear();
             }
+            contents?.Invoke(index);
             DrawInstance(inst, lod, cam, (lx, ly, lz), hz);
             ++DrawnInstances;
         }

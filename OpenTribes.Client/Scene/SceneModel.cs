@@ -211,7 +211,11 @@ public sealed class SceneModel
         ctx.Lists.Clear();
         using (FramePerf.Scope("build-shapes"))
             foreach (Visual v in Visuals.Values)
+            {
+                ctx.Lists.CurrentContainer = ctx.ContainerOf != null && v.WorldBox is { } wb ? ctx.ContainerOf(wb) : -1;
                 v.Build(ctx);
+            }
+        ctx.Lists.CurrentContainer = -1;
         using (FramePerf.Scope("build-effects"))
         {
             foreach (IEffect e in Effects)
