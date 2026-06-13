@@ -160,6 +160,10 @@ public sealed class InteriorRenderer : IDisposable
         // World box of the geometry padded by 3 on every side (docs/game-stream-ghosts.md 6.2), null until first needed; IsContainer: some extent >= 6.
         internal double[]? Box;
         internal bool IsContainer;
+        // The scope of the camera in this interior (6.2 PVS database): the camera leaf, its visible leaves, whether it sees outside.
+        internal double ScopeX = double.NaN, ScopeY, ScopeZ;
+        internal bool ScopeNothing, ScopeOutside;
+        internal HashSet<int>? ScopeLeaves;
         // World-space triangles of each surface per detail level, built on first draw (the instance never moves).
         internal readonly Dictionary<InteriorLodModel, SurfaceMesh[]> Meshes = new();
     }
@@ -518,44 +522,123 @@ public sealed class InteriorRenderer : IDisposable
         return lods.Count - 1;
     }
 
-    // The first container interior (instance index) whose padded world box holds the whole object box (min xyz, max xyz), -1 none: where the stock container
-    // placement files an object (SimContainer::addObject 004f9c04).
-    public int ContainerOf(double[] objectBox)
+    // Culled: the object is in a container interior whose camera scope does not reach it.
+    public const int Culled = -2;
+
+    private bool EnsureBox(Instance inst)
+    {
+        if (inst.Box != null)
+            return true;
+        InteriorLodModel? lod0 = Lod(inst.Model, 0);
+        if (lod0 == null)
+            return false;
+        float[] b = lod0.Geo.Box, m = inst.M;
+        var box = new[] { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
+        for (int c = 0; c < 8; ++c)
+        {
+            double px = b[(c & 1) != 0 ? 3 : 0], py = b[(c & 2) != 0 ? 4 : 1], pz = b[(c & 4) != 0 ? 5 : 2];
+            double wx = px * m[0] + py * m[3] + pz * m[6] + inst.X, wy = px * m[1] + py * m[4] + pz * m[7] + inst.Y,
+                   wz = px * m[2] + py * m[5] + pz * m[8] + inst.Z;
+            box[0] = Math.Min(box[0], wx - 3); box[1] = Math.Min(box[1], wy - 3); box[2] = Math.Min(box[2], wz - 3);
+            box[3] = Math.Max(box[3], wx + 3); box[4] = Math.Max(box[4], wy + 3); box[5] = Math.Max(box[5], wz + 3);
+        }
+        inst.Box = box;
+        inst.IsContainer = b[3] - b[0] >= 6 || b[4] - b[1] >= 6 || b[5] - b[2] >= 6;
+        return true;
+    }
+
+    private static double Volume(double[] b) => (b[3] - b[0]) * (b[4] - b[1]) * (b[5] - b[2]);
+
+    // The container interior (instance index) that holds an object with this world box (min xyz, max xyz), -1 none: the first
+    // container whose padded world box holds the whole box (SimContainer::addObject 004f9c04). Between interiors the larger
+    // box is the container (a new container pulls in what it holds, findContained), equal boxes by index.
+    public int FindContainer(double[] objectBox, int exclude = -1)
     {
         for (int i = 0; i < Instances.Count; ++i)
         {
             Instance inst = Instances[i];
-            if (inst.Box == null)
-            {
-                InteriorLodModel? lod0 = Lod(inst.Model, 0);
-                if (lod0 == null)
-                    continue;
-                float[] b = lod0.Geo.Box, m = inst.M;
-                var box = new[] { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
-                for (int c = 0; c < 8; ++c)
-                {
-                    double px = b[(c & 1) != 0 ? 3 : 0], py = b[(c & 2) != 0 ? 4 : 1], pz = b[(c & 4) != 0 ? 5 : 2];
-                    double wx = px * m[0] + py * m[3] + pz * m[6] + inst.X, wy = px * m[1] + py * m[4] + pz * m[7] + inst.Y,
-                           wz = px * m[2] + py * m[5] + pz * m[8] + inst.Z;
-                    box[0] = Math.Min(box[0], wx - 3); box[1] = Math.Min(box[1], wy - 3); box[2] = Math.Min(box[2], wz - 3);
-                    box[3] = Math.Max(box[3], wx + 3); box[4] = Math.Max(box[4], wy + 3); box[5] = Math.Max(box[5], wz + 3);
-                }
-                inst.Box = box;
-                inst.IsContainer = b[3] - b[0] >= 6 || b[4] - b[1] >= 6 || b[5] - b[2] >= 6;
-            }
-            if (inst.IsContainer && objectBox[0] >= inst.Box![0] && objectBox[3] <= inst.Box[3] && objectBox[1] >= inst.Box[1] && objectBox[4] <= inst.Box[4] && objectBox[2] >= inst.Box[2] && objectBox[5] <= inst.Box[5])
-                return i;
+            if (i == exclude || !EnsureBox(inst) || !inst.IsContainer)
+                continue;
+            double[] cb = inst.Box!;
+            if (objectBox[0] < cb[0] || objectBox[3] > cb[3] || objectBox[1] < cb[1] || objectBox[4] > cb[4] || objectBox[2] < cb[2] || objectBox[5] > cb[5])
+                continue;
+            if (exclude >= 0 && (Volume(cb) < Volume(objectBox) || (Volume(cb) == Volume(objectBox) && i > exclude)))
+                continue;
+            return i;
         }
         return -1;
     }
 
-    // `contents(i)` runs just before the interior of instance i draws (the stock scope draws a container's contents first).
-    public void Draw(in Camera3D cam, TerrainParams haze, Action<int>? contents = null)
+    // Whether the camera scope of container interior `i` reaches the object (the render query of the PVS database, 00483e84): a
+    // camera in a solid leaf scopes nothing; otherwise the objects in the leaves of the camera's PVS (leaf 43 and up), in solid
+    // leaves, and when the camera leaf sees outside the objects outside the geometry box.
+    public bool ScopeReaches(int i, double[] objectBox, in Camera3D cam)
     {
+        Instance inst = Instances[i];
+        InteriorGeometry? leaves = Lod(inst.Model, 0)?.Leaves;
+        if (leaves == null)
+            return true;
+        if (inst.ScopeX != cam.X || inst.ScopeY != cam.Y || inst.ScopeZ != cam.Z || inst.ScopeLeaves == null)
+        {
+            (inst.ScopeX, inst.ScopeY, inst.ScopeZ) = (cam.X, cam.Y, cam.Z);
+            Vec3 lc = ToLocal(inst, cam.X, cam.Y, cam.Z);
+            int camLeaf = leaves.LeafAt(lc);
+            inst.ScopeNothing = leaves.IsSolid(camLeaf);
+            inst.ScopeOutside = leaves.SeesOutside(camLeaf);
+            inst.ScopeLeaves = inst.ScopeNothing ? new HashSet<int>() : new HashSet<int>(leaves.VisibleLeaves(camLeaf));
+        }
+        if (inst.ScopeNothing)
+            return false;
+        double ox = (objectBox[0] + objectBox[3]) * 0.5, oy = (objectBox[1] + objectBox[4]) * 0.5, oz = (objectBox[2] + objectBox[5]) * 0.5;
+        int leaf = leaves.LeafAt(ToLocal(inst, ox, oy, oz));
+        return leaves.IsSolid(leaf) || (leaf >= 43 && inst.ScopeLeaves.Contains(leaf)) || (leaf < 43 && inst.ScopeOutside);
+    }
+
+    // The container of a shape for the frame: its index, -1 none, Culled when the container's scope misses it.
+    public int ContainerOf(double[] objectBox, in Camera3D cam)
+    {
+        int i = FindContainer(objectBox);
+        return i < 0 ? -1 : ScopeReaches(i, objectBox, cam) ? i : Culled;
+    }
+
+    private static Vec3 ToLocal(Instance inst, double x, double y, double z)
+    {
+        float[] m = inst.M;
+        double dx = x - inst.X, dy = y - inst.Y, dz = z - inst.Z;
+        return new Vec3((float)(dx * m[0] + dy * m[1] + dz * m[2]), (float)(dx * m[3] + dy * m[4] + dz * m[5]), (float)(dx * m[6] + dy * m[7] + dz * m[8]));
+    }
+
+    // `contents(i)` runs just before the interior of instance i draws (the stock scope draws a container's contents first:
+    // its shapes through `contents`, the interiors filed in its database, then the container itself; InteriorShape_findObjects
+    // 00480648 vtable +0x98 runs the database and then the interior's own image).
+    public void Draw(in Camera3D camera, TerrainParams haze, Action<int>? contents = null)
+    {
+        Camera3D cam = camera;
         DrawnSurfaces = DrawnInstances = 0;
         long lightStep = (long)(mClock.Elapsed.TotalSeconds / LightStep);
         LightTime = lightStep * LightStep;
-        for (int index = 0; index < Instances.Count; ++index)
+        int n = Instances.Count;
+        var parent = new int[n];
+        var reached = new bool[n];
+        for (int i = 0; i < n; ++i)
+        {
+            parent[i] = EnsureBox(Instances[i]) ? FindContainer(Instances[i].Box!, i) : -1;
+            reached[i] = parent[i] < 0 || ScopeReaches(parent[i], Instances[i].Box!, cam);
+        }
+        void Tree(int index, int depth)
+        {
+            contents?.Invoke(index);
+            if (depth < 8)
+                for (int j = 0; j < n; ++j)
+                    if (parent[j] == index && reached[j])
+                        Tree(j, depth + 1);
+            DrawOne(index);
+        }
+        for (int i = 0; i < n; ++i)
+            if (parent[i] < 0)
+                Tree(i, 0);
+
+        void DrawOne(int index)
         {
             Instance inst = Instances[index];
             InteriorModel model = inst.Model;
@@ -565,14 +648,14 @@ public sealed class InteriorRenderer : IDisposable
             double lx = dx * m[0] + dy * m[1] + dz * m[2], ly = dx * m[3] + dy * m[4] + dz * m[5], lz = dx * m[6] + dy * m[7] + dz * m[8];
             InteriorLodModel? lod0 = Lod(model, 0);
             if (lod0 == null)
-                continue;
+                return;
             float[] bx = lod0.Geo.Box;
             bool inside = lx >= bx[0] && lx <= bx[3] && ly >= bx[1] && ly <= bx[4] && lz >= bx[2] && lz <= bx[5];
             // distance cut: the box must be within the visible distance
             double ddx = Math.Max(Math.Max(bx[0] - lx, 0), lx - bx[3]), ddy = Math.Max(Math.Max(bx[1] - ly, 0), ly - bx[4]),
                    ddz = Math.Max(Math.Max(bx[2] - lz, 0), lz - bx[5]);
             if (Math.Sqrt(ddx * ddx + ddy * ddy + ddz * ddz) >= haze.Visible)
-                continue;
+                return;
             // world centre of the box for the view test and the projected size
             double cxl = lod0.Center[0], cyl = lod0.Center[1], czl = lod0.Center[2];
             double wcx = cxl * m[0] + cyl * m[3] + czl * m[6] + inst.X, wcy = cxl * m[1] + cyl * m[4] + czl * m[7] + inst.Y,
@@ -580,12 +663,12 @@ public sealed class InteriorRenderer : IDisposable
             var (ccx, ccy, ccz) = cam.ToCamera(wcx, wcy, wcz);
             double distC = Math.Sqrt(ccx * ccx + ccy * ccy + ccz * ccz);
             if (!inside && !SphereVisible(cam, ccx, ccy, ccz, lod0.Radius))
-                continue;
+                return;
             int pixels = distC > 0.001 ? (int)(2 * cam.ProjectRadius(distC, lod0.Radius)) : int.MaxValue;
             int lodIndex = ModelLod(model, pixels, inside);
             InteriorLodModel? lod = Lod(model, lodIndex);
             if (lod == null || lod.Base == null || lod.Atlas == null)
-                continue;
+                return;
             UpdateLights(lod, lightStep);
             // 1.4: one haze amount for the image, from the distance of the object position
             double od = Math.Sqrt(dx * dx + dy * dy + dz * dz);
@@ -598,7 +681,6 @@ public sealed class InteriorRenderer : IDisposable
                 inst.Skin = skin;
                 inst.Meshes.Clear();
             }
-            contents?.Invoke(index);
             DrawInstance(inst, lod, cam, (lx, ly, lz), hz);
             ++DrawnInstances;
         }

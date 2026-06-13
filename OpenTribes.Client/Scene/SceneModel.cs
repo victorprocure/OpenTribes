@@ -213,6 +213,8 @@ public sealed class SceneModel
             foreach (Visual v in Visuals.Values)
             {
                 ctx.Lists.CurrentContainer = ctx.ContainerOf != null && v.WorldBox is { } wb ? ctx.ContainerOf(wb) : -1;
+                if (ctx.Lists.CurrentContainer == OpenTribes.Client.World.InteriorRenderer.Culled)
+                    continue;
                 v.Build(ctx);
             }
         ctx.Lists.CurrentContainer = -1;

@@ -308,7 +308,7 @@ public static class DemoRender
             CameraPose c = pose.Value;
             var ctx = new FrameContext { HazeStart = scene.Terrain.HazeStart, Visible = scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
             int images = 0, draws = 0;
-            ctx.ContainerOf = scene.Interiors == null ? null : scene.Interiors.ContainerOf;
+            ctx.ContainerOf = scene.Interiors == null ? null : box => scene.Interiors.ContainerOf(box, ctx.Camera);
             scene.Prepare = cam =>
             {
                 ctx.Camera = cam;

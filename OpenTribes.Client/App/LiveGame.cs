@@ -351,7 +351,7 @@ public sealed class LiveGame : IDisposable
         string precip = mApp.Interp.PeekVariable("$pref::weatherPrecipitation");
         Model.WeatherPrecipitation = precip.Length == 0 || Numbers.ParseBool(precip);
         Scene.DynamicLights = Model.CollectLights().Points;
-        ctx.ContainerOf = Scene.Interiors == null ? null : Scene.Interiors.ContainerOf;
+        ctx.ContainerOf = Scene.Interiors == null ? null : box => Scene.Interiors.ContainerOf(box, ctx.Camera);
         Scene.Prepare = cam =>
         {
             ctx.Camera = cam;
