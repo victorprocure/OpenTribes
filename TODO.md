@@ -73,6 +73,7 @@ way are added to Open.
 - [x] Interior lights that start on their own.
 - [x] Depth buffer like the original.
 - [x] Draw order and culling: interior surfaces, terrain and objects inside interiors.
+- [x] Interior haze distance.
 
 ### Shapes, weapons and effects
 

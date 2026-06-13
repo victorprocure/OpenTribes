@@ -671,7 +671,7 @@ public sealed class InteriorRenderer : IDisposable
                 return;
             UpdateLights(lod, lightStep);
             // 1.4: one haze amount for the image, from the distance of the object position
-            double od = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            double od = Math.Sqrt((cam.X - wcx) * (cam.X - wcx) + (cam.Y - wcy) * (cam.Y - wcy) + (cam.Z - wcz) * (cam.Z - wcz));
             float hz = (float)TerrainLod.ObjectHaze(od, haze.HazeStart, haze.Visible);
             if (hz <= 0.015f)
                 hz = 0; // 1.2: haze source none at 0.015 or less
