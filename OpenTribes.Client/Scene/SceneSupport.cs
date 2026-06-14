@@ -161,6 +161,19 @@ public static class Mathx
         return new Xf { M0 = rx, M1 = ry, M2 = rz, M3 = fx, M4 = fy, M5 = fz, M6 = zx, M7 = zy, M8 = zz, Px = px, Py = py, Pz = pz };
     }
 
+    // The image orientation of a rocket (00529e6c): +Y along the unit direction, right = dir x up with up = +Z, and when the direction is within
+    // 0.95 of vertical z = (1, 0, 0) x dir and right = dir x z (a quarter turn about the direction from the generic rule).
+    public static Xf RocketBasis(double px, double py, double pz, double fx, double fy, double fz)
+    {
+        if (Math.Abs(fz) < 0.95)
+            return Basis(px, py, pz, fx, fy, fz);
+        double zx = 0 * fz - 0 * fy, zy = 0 * fx - 1 * fz, zz = 1 * fy - 0 * fx;     // (1, 0, 0) x f
+        double zl = Math.Sqrt(zx * zx + zy * zy + zz * zz);
+        zx /= zl; zy /= zl; zz /= zl;
+        double rx = fy * zz - fz * zy, ry = fz * zx - fx * zz, rz = fx * zy - fy * zx; // f x z
+        return new Xf { M0 = rx, M1 = ry, M2 = rz, M3 = fx, M4 = fy, M5 = fz, M6 = zx, M7 = zy, M8 = zz, Px = px, Py = py, Pz = pz };
+    }
+
     // Rotation of `angle` about the local +Y axis of the basis, applied before the basis (the spin of a facing quad).
     public static Xf SpinY(double angle)
     {

@@ -181,7 +181,7 @@ public sealed class ProjectileVisual : Visual
             // 4.5: velocity aligned (rocket, missile, bullet) or the object orientation from the velocity (grenade)
             double sp = Math.Sqrt(mVx * mVx + mVy * mVy + mVz * mVz);
             double fx = sp > 1e-6 ? mVx / sp : 0, fy = sp > 1e-6 ? mVy / sp : 1, fz = sp > 1e-6 ? mVz / sp : 0;
-            Xf xf = Mathx.Basis(x, y, z, fx, fy, fz);
+            Xf xf = Class == "RocketDumb" ? Mathx.RocketBasis(x, y, z, fx, fy, fz) : Mathx.Basis(x, y, z, fx, fy, fz);
             double period = Db.Num(mBlock, "rotationPeriod");
             if (period > 0)
                 xf = Mathx.SpinY((M.Time - mT0) % period / period * Math.PI * 2).Then(xf);
@@ -204,7 +204,7 @@ public sealed class ProjectileVisual : Visual
     {
         double sp = Math.Sqrt(mVx * mVx + mVy * mVy + mVz * mVz);
         double fx = sp > 1e-6 ? mVx / sp : 0, fy = sp > 1e-6 ? mVy / sp : 1, fz = sp > 1e-6 ? mVz / sp : 0;
-        Xf axes = Mathx.Basis(x, y, z, fx, fy, fz);
+        Xf axes = Class == "RocketDumb" ? Mathx.RocketBasis(x, y, z, fx, fy, fz) : Mathx.Basis(x, y, z, fx, fy, fz);
         double length = Db.Num(mBlock, "trailLength", 10), width = Db.Num(mBlock, "trailWidth", 0.3);
         if (!mTrailInit)
         {
