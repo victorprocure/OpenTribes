@@ -719,7 +719,6 @@ public sealed class InteriorRenderer : IDisposable
             // texture region in texels (3.5), light map coordinates in pixels of 2^lightScaleShift texels with one margin pixel
             double sizeX = (surf.TexSizeX + 1) << shiftMip, sizeY = (surf.TexSizeY + 1) << shiftMip;
             double lmDiv = 1 << (int)lt.LightScaleShift;
-            double baseX = Math.Floor(surf.TexOffsetX / lmDiv) - 1, baseY = Math.Floor(surf.TexOffsetY / lmDiv) - 1;
             int mat = surf.Material == 255 ? -1 : surf.Material;
             string? matName = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
             if (matName != null && inst.Skin.Length > 0)
@@ -727,6 +726,7 @@ public sealed class InteriorRenderer : IDisposable
             IGfxTexture? tex = MaterialTexture(matName);
             double bw = tex?.Width ?? 1, bh = tex?.Height ?? 1;
             var (ax, ay) = lod.LmPos[s];
+            InteriorLighting.Surface lmSurf = lt.Surfaces[s];
             var verts = new Vertex3D[surf.VertexCount];
             for (int k = 0; k < surf.VertexCount; ++k)
             {
@@ -735,7 +735,9 @@ public sealed class InteriorRenderer : IDisposable
                 float px = g.Point3[a], py = g.Point3[a + 1], pz = g.Point3[a + 2];
                 float u = g.Point2[b], v = g.Point2[b + 1];
                 double tx = surf.TexOffsetX + u * sizeX, ty = surf.TexOffsetY + v * sizeY;
-                double lu = ((tx / lmDiv - baseX) + ax) / lod.AtlasW, lv = ((ty / lmDiv - baseY) + ay) / lod.AtlasH;
+                // 005d9a84: pixel x = map origin + 0.5 + the surface's own light map offset / 2^shift + u * regionSize / 2^shift
+                double lu = (ax + 0.5 + lmSurf.OffsetX / lmDiv + u * sizeX / lmDiv) / lod.AtlasW,
+                       lv = (ay + 0.5 + lmSurf.OffsetY / lmDiv + v * sizeY / lmDiv) / lod.AtlasH;
                 if (matName == null)
                     (tx, ty, bw, bh) = (0, 0, 1, 1);
                 verts[k] = new Vertex3D(px * m[0] + py * m[3] + pz * m[6] + (float)inst.X, px * m[1] + py * m[4] + pz * m[7] + (float)inst.Y,
