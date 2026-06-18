@@ -221,7 +221,7 @@ public sealed class ProjectileVisual : Visual
         TexEntry? tex = ctx.Assets.Texture("trailAdd2.bmp");
         if (tex?.Texture == null)
             return;
-        float f = (float)(M.Time * 5 - Math.Floor(M.Time * 5));
+        float f = 0;   // the image time is the dword at datablock +0x80 (the isVisible flag byte, a denormal as a float): v stays 0 to 0.5
         double ht = width / 6, hh = width / 2;
         (double x, double y, double z) Off(double bx, double by, double bz, double h, int sign) =>
             (bx + axes.M0 * h * sign, by + axes.M1 * h * sign, bz + axes.M2 * h * sign);
