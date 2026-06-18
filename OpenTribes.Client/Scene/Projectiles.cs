@@ -199,7 +199,7 @@ public sealed class ProjectileVisual : Visual
     // 4.5 trailType 1 (RocketData `trailAdd2.bmp` ribbon): a quad from a tail point to the projectile. The tail stays where it was
     // until it is `trailLength` behind the projectile and then follows at that distance. The quad is `trailWidth` wide at the
     // projectile and a third of that at the tail, along the projectile's right axis (velocity cross world up), so it is a flat
-    // horizontal ribbon and not camera facing. Additive, two sided, depth tested and written, v scrolls five times a second.
+    // horizontal ribbon and not camera facing. Additive, one winding facing the camera (the stock device culls the second draw), depth tested and written, v scrolls five times a second.
     private void BuildTrail(FrameContext ctx, double x, double y, double z)
     {
         double sp = Math.Sqrt(mVx * mVx + mVy * mVy + mVz * mVz);
@@ -232,9 +232,15 @@ public sealed class ProjectileVisual : Visual
         Vertex3D V((double x, double y, double z) p, float u, float v) => new((float)p.x, (float)p.y, (float)p.z, u, v, 0, 0, 0);
         Vertex3D a0 = V(p0, 1, f * 0.5f), a1 = V(p1, 0, f * 0.5f), a2 = V(p2, 0, (f + 1) * 0.5f), a3 = V(p3, 1, (f + 1) * 0.5f);
         var img = new RenderImage { Category = 1, Label = "trail" };
+        // 00465648 draws the quad twice, once per winding, and the device culls back faces (renderer.md 5.4): one winding shows from
+        // either side, so the additive blend is applied once. Pick the winding that faces the camera.
+        double nx = (p1.y - p0.y) * (p2.z - p0.z) - (p1.z - p0.z) * (p2.y - p0.y),
+               ny = (p1.z - p0.z) * (p2.x - p0.x) - (p1.x - p0.x) * (p2.z - p0.z),
+               nz = (p1.x - p0.x) * (p2.y - p0.y) - (p1.y - p0.y) * (p2.x - p0.x);
+        bool front = nx * (ctx.Camera.X - p0.x) + ny * (ctx.Camera.Y - p0.y) + nz * (ctx.Camera.Z - p0.z) >= 0;
         img.Batches.Add(new DrawBatch
         {
-            Vertices = new[] { a0, a1, a2, a0, a2, a3, a3, a2, a1, a3, a1, a0 },
+            Vertices = front ? new[] { a0, a1, a2, a0, a2, a3 } : new[] { a3, a2, a1, a3, a1, a0 },
             State = new DrawState3D(tex.Texture, null, true, 0, true, true, BlendMode.Additive),
         });
         // the sort key follows the tail point (near / depth of the tail)
