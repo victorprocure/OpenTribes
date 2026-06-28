@@ -84,7 +84,7 @@ way are added to Open.
 - [x] Item images and other shapes placed by their shape root.
 - [x] Weapon state machine on other players.
 - [x] Explosion images face the camera.
-- [x] Rocket trail (drawn once), its texture scroll and rocket orientation.
+- [x] Rocket trail (drawn once), its texture scroll in game time and rocket orientation.
 - [x] Turret power animation.
 - [x] Projectiles drawn fullbright and without haze.
 

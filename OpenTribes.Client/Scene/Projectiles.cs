@@ -199,7 +199,7 @@ public sealed class ProjectileVisual : Visual
     // 4.5 trailType 1 (RocketData `trailAdd2.bmp` ribbon): a quad from a tail point to the projectile. The tail stays where it was
     // until it is `trailLength` behind the projectile and then follows at that distance. The quad is `trailWidth` wide at the
     // projectile and a third of that at the tail, along the projectile's right axis (velocity cross world up), so it is a flat
-    // horizontal ribbon and not camera facing. Additive, one winding facing the camera (the stock device culls the second draw), depth tested and written, v scrolls five times a second.
+    // horizontal ribbon and not camera facing. Additive, one winding facing the camera (the stock device culls the second draw), depth tested and written, v scrolls five times a second with the sim time.
     private void BuildTrail(FrameContext ctx, double x, double y, double z)
     {
         double sp = Math.Sqrt(mVx * mVx + mVy * mVy + mVz * mVz);
@@ -221,7 +221,9 @@ public sealed class ProjectileVisual : Visual
         TexEntry? tex = ctx.Assets.Texture("trailAdd2.bmp");
         if (tex?.Texture == null)
             return;
-        float f = 0;   // the image time is the dword at datablock +0x80 (the isVisible flag byte, a denormal as a float): v stays 0 to 0.5
+        // v scrolls with the sim clock: the update gets the float at sim manager +0x80 (seconds) and the draw takes frac(5 t), v from f / 2 at the tail to (f + 1) / 2 at the projectile
+        double t5 = (double)(float)M.Time * 5.0;
+        float f = (float)(t5 - Math.Truncate(t5));
         double ht = width / 6, hh = width / 2;
         (double x, double y, double z) Off(double bx, double by, double bz, double h, int sign) =>
             (bx + axes.M0 * h * sign, by + axes.M1 * h * sign, bz + axes.M2 * h * sign);
