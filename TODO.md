@@ -126,6 +126,7 @@ way are added to Open.
 - [x] No reticle, weapon list or sensor ping in the observer camera.
 - [x] Scoreboard text position.
 - [x] Text edit text, selection and cursor blink.
+- [x] Scroll frame.
 
 ### Audio
 

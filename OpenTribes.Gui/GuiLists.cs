@@ -347,10 +347,12 @@ public class GuiScroll : GuiControl
         int hy = (int)U("headerY");
         if (Opaque != 0)
             p.Fill(gx, gy, W, H, FillColor);
-        if (Border != 0)
-            p.Outline(gx, gy + hy, W, H - hy, Disabled ? DisabledBorder : BorderColor);
-        if (U("style") == 6)
+        // The frame slot of FearGuiScrollCtrl [code 004c2df4]: a style below 2 is the base frame (the outline here), a style of 2 or
+        // more replaces it with the shell frame below.
+        if (U("style") >= 2)
             DrawListFrame(p, gx, gy, Disabled);
+        else if (Border != 0)
+            p.Outline(gx, gy + hy, W, H - hy, Disabled ? DisabledBorder : BorderColor);
         RenderChildren(p, gx, gy);
         PbmaArray? pc = Pieces;
         if (pc == null)
@@ -366,27 +368,39 @@ public class GuiScroll : GuiControl
             p.Bitmap(pc.Bitmaps[24], gx + W - mInsetX - VBarW, gy + H - mInsetY - HBarH);
     }
 
-    // The frame of the join screen's server list (style 6), measured against the stock client: the box frame with its two rules in the
-    // other order (0xf0 outside, 0xef inside) and no inner outline; the notch pixels are 0xf0.
-    // A disabled or dimmed list (a modal dialog above it) takes the palette set four entries down, like the other frames.
+    // The frame of a FearGuiScrollCtrl with a style of 2 or more [code 004c2df4, palette table `00628c04`: 0xf0 0xef 0xee 0xf1, dimmed 0xec 0xeb
+    // 0xea 0xec]: on each side three rules in the order outside to inside (the table colours 0, 1 and the constant 0xf4; the top and bottom
+    // from x + 4 to x1 - 4, the sides from y + 4 to y1 - 4), a notch pixel in colour 0 next to the second rule of each corner, then three
+    // outlines 3, 4 and 5 pixels in (table colours 2 and 3, then 0xf4). A disabled or dimmed list (a modal dialog above it) takes the
+    // dimmed half of the table, the constant 0xf4 stays. The opaque fill of the file is drawn before it.
     private void DrawListFrame(GuiPaint p, int x, int y, bool dim)
     {
         int d = dim ? 4 : 0, c0 = 0xf0 - d, c1 = 0xef - d, c2 = 0xee - d, c3 = dim ? 0xec : 0xf1;
+        const int dark = 0xf4;
         int x1 = x + W - 1, y1 = y + H - 1;
         p.Line(x + 4, y, x1 - 4, y, c0);
         p.Line(x + 4, y + 1, x1 - 4, y + 1, c1);
-        p.Line(x + 4, y1 - 1, x1 - 4, y1 - 1, c1);
+        p.Line(x + 4, y + 2, x1 - 4, y + 2, dark);
+        p.Fill(x + 3, y + 1, 1, 1, c0);
+        p.Fill(x1 - 3, y + 1, 1, 1, c0);
         p.Line(x + 4, y1, x1 - 4, y1, c0);
+        p.Line(x + 4, y1 - 1, x1 - 4, y1 - 1, c1);
+        p.Line(x + 4, y1 - 2, x1 - 4, y1 - 2, dark);
+        p.Fill(x + 3, y1 - 1, 1, 1, c0);
+        p.Fill(x1 - 3, y1 - 1, 1, 1, c0);
         p.Line(x, y + 4, x, y1 - 4, c0);
         p.Line(x + 1, y + 4, x + 1, y1 - 4, c1);
-        p.Line(x1 - 1, y + 4, x1 - 1, y1 - 4, c1);
+        p.Line(x + 2, y + 4, x + 2, y1 - 4, dark);
+        p.Fill(x + 1, y + 3, 1, 1, c0);
+        p.Fill(x + 1, y1 - 3, 1, 1, c0);
         p.Line(x1, y + 4, x1, y1 - 4, c0);
-        foreach (var (px, py) in new[] { (x + 3, y + 1), (x1 - 3, y + 1), (x + 3, y1 - 1), (x1 - 3, y1 - 1), (x + 1, y + 3), (x + 1, y1 - 3),
-                     (x1 - 1, y + 3), (x1 - 1, y1 - 3) })
-            p.Fill(px, py, 1, 1, c0);
-        // The sunken line pair around the view, 3 and 4 pixels in.
+        p.Line(x1 - 1, y + 4, x1 - 1, y1 - 4, c1);
+        p.Line(x1 - 2, y + 4, x1 - 2, y1 - 4, dark);
+        p.Fill(x1 - 1, y + 3, 1, 1, c0);
+        p.Fill(x1 - 1, y1 - 3, 1, 1, c0);
         p.Outline(x + 3, y + 3, W - 6, H - 6, c2);
         p.Outline(x + 4, y + 4, W - 8, H - 8, c3);
+        p.Outline(x + 5, y + 5, W - 10, H - 10, dark);
     }
 
     private void DrawPlainBars(GuiPaint p, int gx, int gy)
