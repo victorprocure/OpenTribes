@@ -70,7 +70,7 @@ way are added to Open.
 - [x] Team skins change with the team.
 - [x] Rain and snow follow the weather setting, with the original streak count, size, speed, colour and direction.
 - [x] Sky panels.
-- [x] Interior lights that start on their own, timed in game time.
+- [x] Interior lights that start on their own, timed in game time, per interior.
 - [x] Depth buffer like the original.
 - [x] Draw order and culling: interior surfaces, terrain and objects inside interiors.
 - [x] Interior haze distance.

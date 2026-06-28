@@ -123,20 +123,26 @@ public sealed class InteriorLodModel
     public InteriorLighting? Base, Mission;
     public (int x, int y)[] LmPos = Array.Empty<(int, int)>();
     public int AtlasW, AtlasH;
-    public byte[] AtlasRgba = Array.Empty<byte>();
-    public IGfxTexture? Atlas;
     public int MinPixels;
     public float[] Center = new float[3];
     public float Radius;
-    // Animated lights (world-render.md 3.7 Timing): the lights that run on the client (auto start flag), the surfaces they touch,
-    // the maps those surfaces start from, and the state last built (-1 none yet).
+    // Animated lights (world-render.md 3.7 Timing): the lights that run on the client (auto start flag), the surfaces they touch
+    // and the maps those surfaces start from.
     public int[] Running = Array.Empty<int>();
     public HashSet<int> RunSurfaces = new();
     public ushort[]?[] BaseMaps = Array.Empty<ushort[]?>();
-    public long RunKey = long.MinValue;
-    public float[] RandomTime = Array.Empty<float>();
-    public int[] RandomState = Array.Empty<int>();
-    public (int mono, int r, int g, int b)[] RandomColor = Array.Empty<(int, int, int, int)>();
+    // The light atlases built so far, one per light state seen (the first is the state at light time 0): the stock instance holds its own
+    // light state and maps, here instances whose lights are in the same state share one atlas.
+    public readonly List<LightAtlas> Atlases = new();
+}
+
+// One light atlas of a detail level: the packed surface maps for one state of its running lights (`Key`).
+public sealed class LightAtlas
+{
+    public int[] Key = Array.Empty<int>();
+    public byte[] Rgba = Array.Empty<byte>();
+    public IGfxTexture? Texture;
+    public long UsedFrame;
 }
 
 public sealed class InteriorModel
@@ -166,6 +172,14 @@ public sealed class InteriorRenderer : IDisposable
         internal HashSet<int>? ScopeLeaves;
         // World-space triangles of each surface per detail level, built on first draw (the instance never moves).
         internal readonly Dictionary<InteriorLodModel, SurfaceMesh[]> Meshes = new();
+        // The light state of the instance (the run state array of the stock instance, 3.7): the sim time of its first light tick, the
+        // step last processed and, per light, the private state of a random light. Detail changes reset the random states.
+        internal double? LightOrigin;
+        internal long LightStep;
+        internal InteriorLodModel? LightLod;
+        internal float[] RandomTime = Array.Empty<float>();
+        internal int[] RandomState = Array.Empty<int>();
+        internal (int mono, int r, int g, int b)[] RandomColor = Array.Empty<(int, int, int, int)>();
     }
 
     // One surface of one instance, already in world space with haze 0: the fan triangles and the batch key (material index).
@@ -180,15 +194,15 @@ public sealed class InteriorRenderer : IDisposable
     private readonly Dictionary<string, IGfxTexture?> mTextures = new(StringComparer.OrdinalIgnoreCase);
     private IGfxTexture? mWhite;
     public readonly List<Instance> Instances = new();
-    // The light clock in seconds: the lights advance in steps of $pref::interiorLightUpdateMS (67 ms, Tribes.exe 0047f3f4).
-    public float LightTime;
+    // The lights advance in steps of $pref::interiorLightUpdateMS (67 ms, Tribes.exe 0047f3f4).
     public const float LightStep = 0.067f;
     private readonly System.Diagnostics.Stopwatch mClock = System.Diagnostics.Stopwatch.StartNew();
     // The simulation time in seconds, set by the host before each frame. The stock instance keeps an accumulator that its first tick
-    // sets to the sim time and then adds 67 ms to while the tick time is above it [code 0047f3f4], so the light time is a whole number of
-    // steps counted from that first tick. Without a sim time (tools) the wall clock stands in.
+    // sets to the sim time and then adds 67 ms to while the tick time is above it [code 0047f3f4], so the light time of an instance is a
+    // whole number of steps counted from its own first tick (Instance.LightOrigin, the first frame that sees it). Without a sim time
+    // (tools) the wall clock stands in.
     public double? SimSeconds;
-    private double? mSimOrigin;
+    private long mFrame;
     private readonly Random mRandom = new(0x5eed);
     public int DrawnSurfaces, DrawnInstances;
 
@@ -343,15 +357,15 @@ public sealed class InteriorRenderer : IDisposable
         foreach (int i in lod.Running)
             foreach (int surf in InteriorLightMaps.LightSurfaces(lt, lt.Lights[i]))
                 lod.RunSurfaces.Add(surf);
-        lod.RandomTime = new float[lod.Running.Length];
-        lod.RandomState = new int[lod.Running.Length];
-        lod.RandomColor = new (int, int, int, int)[lod.Running.Length];
-        Array.Fill(lod.RandomState, -1); // ITRInstance_changeDetail: state -1, so a random light shows nothing before its first draw
         lod.BaseMaps = InteriorLightMaps.BaseMaps(lt, lod.Mission);
         ushort[]?[] maps = new ushort[]?[lod.BaseMaps.Length];
         for (int i = 0; i < maps.Length; ++i)
             maps[i] = (ushort[]?)lod.BaseMaps[i]?.Clone();
-        ApplyLights(lod, maps, null, StepOf(LightTime), true);
+        // The first atlas: every light at time 0, a random light showing nothing (ITRInstance_changeDetail sets state -1).
+        var noRandom = new int[lt.Lights.Length];
+        Array.Fill(noRandom, -1);
+        var noColor = new (int, int, int, int)[lt.Lights.Length];
+        ApplyLights(lod, maps, null, 0, noRandom, noColor);
         // Every map sits in the atlas with a border of one replicated pixel, so the bilinear filter never reads a neighbour
         // map (or the empty atlas) at the edge of a surface.
         var sizes = new (int, int)[maps.Length];
@@ -363,18 +377,22 @@ public sealed class InteriorRenderer : IDisposable
         for (int i = 0; i < maps.Length; ++i)
             lod.LmPos[i] = (packed[i].x + 1, packed[i].y + 1);
         lod.AtlasH = Math.Max(h, 1);
-        lod.AtlasRgba = new byte[lod.AtlasW * lod.AtlasH * 4];
+        var first = new LightAtlas { Rgba = new byte[lod.AtlasW * lod.AtlasH * 4], Key = LightKey(lod, 0, noRandom) };
         for (int i = 0; i < maps.Length; ++i)
             if (maps[i] != null)
-                WriteSurface(lod, i, maps[i]!);
-        lod.Atlas = mDev.CreateTexture3D(lod.AtlasRgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
-        lod.RunKey = RunKey(lod, StepOf(LightTime));
+                WriteSurface(lod, first.Rgba, i, maps[i]!);
+        first.Texture = mDev.CreateTexture3D(first.Rgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
+        lod.Atlases.Clear();
+        lod.Atlases.Add(first);
     }
 
-    private static long StepOf(float time) => (long)(time / LightStep + 0.5f);
+    // Light time of a running light at `step` (a whole number of steps from the first tick of the instance).
+    private static float StepTime(long step, InteriorLighting.Light l) => (float)((step * (double)LightStep) % l.Duration);
 
-    // Every light of the lod: the running ones at their cycle position of `step`, the others at time 0 (their first state).
-    private void ApplyLights(InteriorLodModel lod, ushort[]?[] maps, HashSet<int>? only, long step, bool advanceRandom)
+    // Every light of the lod: the running ones at their cycle position of `step` (a random one in its private state `randomState`), the
+    // others at time 0 (their first state).
+    private static void ApplyLights(InteriorLodModel lod, ushort[]?[] maps, HashSet<int>? only, long step, int[] randomState,
+                                    (int mono, int r, int g, int b)[] randomColor)
     {
         InteriorLighting lt = lod.Base!;
         int run = 0;
@@ -384,9 +402,9 @@ public sealed class InteriorRenderer : IDisposable
             {
                 InteriorLighting.Light l = lt.Lights[i];
                 if (!l.Random)
-                    InteriorLightMaps.Apply(maps, lt, lod.Mission, i, (float)((step * (double)LightStep) % l.Duration), only);
-                else if (lod.RandomState[run] >= 0)
-                    InteriorLightMaps.Apply(maps, lt, lod.Mission, i, lod.RandomState[run], lod.RandomColor[run], only);
+                    InteriorLightMaps.Apply(maps, lt, lod.Mission, i, StepTime(step, l), only);
+                else if (randomState[i] >= 0)
+                    InteriorLightMaps.Apply(maps, lt, lod.Mission, i, randomState[i], randomColor[i], only);
                 ++run;
             }
             else
@@ -396,29 +414,34 @@ public sealed class InteriorRenderer : IDisposable
         }
     }
 
-    // A number that changes when the state or colour of a running light changes.
-    private long RunKey(InteriorLodModel lod, long step)
+    // The light state of the running lights at `step` as numbers: equal keys give equal atlases.
+    private static int[] LightKey(InteriorLodModel lod, long step, int[] randomState)
     {
         InteriorLighting lt = lod.Base!;
-        var h = new HashCode();
+        var key = new int[lod.Running.Length * 5];
         for (int r = 0; r < lod.Running.Length; ++r)
         {
-            InteriorLighting.Light l = lt.Lights[lod.Running[r]];
+            int i = lod.Running[r];
+            InteriorLighting.Light l = lt.Lights[i];
             if (l.Random)
             {
-                h.Add(lod.RandomState[r]);
+                key[r * 5] = randomState[i];
                 continue;
             }
-            float t = (float)((step * (double)LightStep) % l.Duration);
+            float t = StepTime(step, l);
             var records = lt.States.AsSpan(l.FirstState, l.StateCount);
             int state = InteriorLighting.SelectState(records, l.StateCount, t);
-            h.Add(state);
-            h.Add(InteriorLighting.ColorAt(records, l.Duration, state, t));
+            var c = InteriorLighting.ColorAt(records, l.Duration, state, t);
+            key[r * 5] = state;
+            key[r * 5 + 1] = c.mono;
+            key[r * 5 + 2] = c.r;
+            key[r * 5 + 3] = c.g;
+            key[r * 5 + 4] = c.b;
         }
-        return h.ToHashCode();
+        return key;
     }
 
-    private static void WriteSurface(InteriorLodModel lod, int i, ushort[] map)
+    private static void WriteSurface(InteriorLodModel lod, byte[] rgba, int i, ushort[] map)
     {
         InteriorLighting lt = lod.Base!;
         int w = lt.Surfaces[i].SizeX, hh = lt.Surfaces[i].SizeY;
@@ -433,59 +456,104 @@ public sealed class InteriorRenderer : IDisposable
                     continue;
                 var (r, g, b) = TerrainData.ExpandLight5551(map[k]);
                 int o = ((py + y) * lod.AtlasW + px + x) * 4;
-                lod.AtlasRgba[o] = r;
-                lod.AtlasRgba[o + 1] = g;
-                lod.AtlasRgba[o + 2] = b;
-                lod.AtlasRgba[o + 3] = 255;
+                rgba[o] = r;
+                rgba[o + 1] = g;
+                rgba[o + 2] = b;
+                rgba[o + 3] = 255;
             }
     }
 
-    // ITRInstance light advance, once per light step: rebuilds the maps of the surfaces the running lights touch when one of them
-    // changed state or colour.
-    private void UpdateLights(InteriorLodModel lod, long step)
+    // The 67 ms steps of an instance: counted from its first light tick, in sim time (the wall clock without a host).
+    private long InstanceStep(Instance inst)
     {
-        if (lod.Running.Length == 0 || lod.Base == null)
-            return;
-        InteriorLighting lt = lod.Base;
-        for (int r = 0; r < lod.Running.Length; ++r)
+        if (SimSeconds is double sim)
         {
-            InteriorLighting.Light l = lt.Lights[lod.Running[r]];
-            if (!l.Random)
-                continue;
-            // 00556cb0: the time wraps by the end time of record 1 and a state is drawn then
-            var records = lt.States.AsSpan(l.FirstState, l.StateCount);
-            float period = records[1].EndTime;
-            lod.RandomTime[r] += LightStep;
-            if (period > 0 && lod.RandomTime[r] >= period)
-            {
-                while (lod.RandomTime[r] >= period)
-                    lod.RandomTime[r] -= period;
-                float roll = l.Duration * (float)mRandom.NextDouble();
-                int pick = l.StateCount - 1;
-                for (int i = 0; i < l.StateCount - 1; ++i)
-                    if (roll < records[i + 1].EndTime)
-                    {
-                        pick = i;
-                        break;
-                    }
-                lod.RandomState[r] = pick;
-                var c = records[pick];
-                lod.RandomColor[r] = ((c.Mono + 0x80) >> 8, (c.R + 0x80) >> 8, (c.G + 0x80) >> 8, (c.B + 0x80) >> 8);
-            }
+            inst.LightOrigin ??= sim;
+            return (long)Math.Ceiling((sim - inst.LightOrigin.Value) / LightStep - 1e-9);
         }
-        long key = RunKey(lod, step);
-        if (key == lod.RunKey)
-            return;
-        lod.RunKey = key;
-        var maps = new ushort[]?[lod.BaseMaps.Length];
-        foreach (int s in lod.RunSurfaces)
-            maps[s] = (ushort[]?)lod.BaseMaps[s]?.Clone();
-        ApplyLights(lod, maps, lod.RunSurfaces, step, false);
-        foreach (int s in lod.RunSurfaces)
-            if (maps[s] != null)
-                WriteSurface(lod, s, maps[s]!);
-        lod.Atlas?.Dispose();
-        lod.Atlas = mDev.CreateTexture3D(lod.AtlasRgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
+        return (long)(mClock.Elapsed.TotalSeconds / LightStep);
+    }
+
+    // The light atlas of an instance at this frame (ITRInstance light advance, once per light step): advances the random lights of the
+    // instance by the steps taken and finds or builds the atlas of its light state.
+    private LightAtlas InstanceAtlas(Instance inst, InteriorLodModel lod, long step)
+    {
+        InteriorLighting lt = lod.Base!;
+        int n = lt.Lights.Length;
+        if (inst.RandomState.Length < n)
+        {
+            // the run state array of the instance (a light's time survives a detail change, its state does not)
+            inst.RandomTime = new float[n];
+            inst.RandomState = new int[n];
+            inst.RandomColor = new (int, int, int, int)[n];
+            Array.Fill(inst.RandomState, -1);
+        }
+        if (inst.LightLod != lod)
+        {
+            // ITRInstance_changeDetail: state -1, so a random light shows nothing until its next draw
+            inst.LightLod = lod;
+            Array.Fill(inst.RandomState, -1);
+        }
+        if (inst.LightStep > step || step - inst.LightStep > 4096)
+            inst.LightStep = step;
+        for (; inst.LightStep < step; ++inst.LightStep)
+            foreach (int i in lod.Running)
+            {
+                InteriorLighting.Light l = lt.Lights[i];
+                if (!l.Random)
+                    continue;
+                // 00556cb0: the time wraps by the end time of record 1 and a state is drawn then
+                var records = lt.States.AsSpan(l.FirstState, l.StateCount);
+                float period = records[1].EndTime;
+                inst.RandomTime[i] += LightStep;
+                if (period > 0 && inst.RandomTime[i] >= period)
+                {
+                    while (inst.RandomTime[i] >= period)
+                        inst.RandomTime[i] -= period;
+                    float roll = l.Duration * (float)mRandom.NextDouble();
+                    int pick = l.StateCount - 1;
+                    for (int j = 0; j < l.StateCount - 1; ++j)
+                        if (roll < records[j + 1].EndTime)
+                        {
+                            pick = j;
+                            break;
+                        }
+                    inst.RandomState[i] = pick;
+                    var c = records[pick];
+                    inst.RandomColor[i] = ((c.Mono + 0x80) >> 8, (c.R + 0x80) >> 8, (c.G + 0x80) >> 8, (c.B + 0x80) >> 8);
+                }
+            }
+        int[] key = LightKey(lod, step, inst.RandomState);
+        LightAtlas? found = null;
+        foreach (LightAtlas a in lod.Atlases)
+            if (a.Key.AsSpan().SequenceEqual(key))
+            {
+                found = a;
+                break;
+            }
+        if (found == null)
+        {
+            // rebuild the maps of the surfaces the running lights touch on a copy of the first atlas
+            var maps = new ushort[]?[lod.BaseMaps.Length];
+            foreach (int s in lod.RunSurfaces)
+                maps[s] = (ushort[]?)lod.BaseMaps[s]?.Clone();
+            ApplyLights(lod, maps, lod.RunSurfaces, step, inst.RandomState, inst.RandomColor);
+            found = new LightAtlas { Key = key, Rgba = (byte[])lod.Atlases[0].Rgba.Clone() };
+            foreach (int s in lod.RunSurfaces)
+                if (maps[s] != null)
+                    WriteSurface(lod, found.Rgba, s, maps[s]!);
+            found.Texture = mDev.CreateTexture3D(found.Rgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
+            // drop the atlases no instance used for a while (never the first)
+            for (int i = lod.Atlases.Count - 1; i > 0 && lod.Atlases.Count > 12; --i)
+                if (lod.Atlases[i].UsedFrame < mFrame - 1)
+                {
+                    lod.Atlases[i].Texture?.Dispose();
+                    lod.Atlases.RemoveAt(i);
+                }
+            lod.Atlases.Add(found);
+        }
+        found.UsedFrame = mFrame;
+        return found;
     }
 
     private IGfxTexture? MaterialTexture(string? name)
@@ -620,15 +688,11 @@ public sealed class InteriorRenderer : IDisposable
     {
         Camera3D cam = camera;
         DrawnSurfaces = DrawnInstances = 0;
-        long lightStep;
+        ++mFrame;
+        // the first tick of an instance comes whether or not it is seen: the first frame that finds it here
         if (SimSeconds is double sim)
-        {
-            mSimOrigin ??= sim;
-            lightStep = (long)Math.Ceiling((sim - mSimOrigin.Value) / LightStep - 1e-9);
-        }
-        else
-            lightStep = (long)(mClock.Elapsed.TotalSeconds / LightStep);
-        LightTime = lightStep * LightStep;
+            foreach (Instance inst in Instances)
+                inst.LightOrigin ??= sim;
         int n = Instances.Count;
         var parent = new int[n];
         var reached = new bool[n];
@@ -679,9 +743,9 @@ public sealed class InteriorRenderer : IDisposable
             int pixels = distC > 0.001 ? (int)(2 * cam.ProjectRadius(distC, lod0.Radius)) : int.MaxValue;
             int lodIndex = ModelLod(model, pixels, inside);
             InteriorLodModel? lod = Lod(model, lodIndex);
-            if (lod == null || lod.Base == null || lod.Atlas == null)
+            if (lod == null || lod.Base == null || lod.Atlases.Count == 0)
                 return;
-            UpdateLights(lod, lightStep);
+            LightAtlas atlas = InstanceAtlas(inst, lod, InstanceStep(inst));
             // 1.4: one haze amount for the image, from the distance of the object position
             double od = Math.Sqrt((cam.X - wcx) * (cam.X - wcx) + (cam.Y - wcy) * (cam.Y - wcy) + (cam.Z - wcz) * (cam.Z - wcz));
             float hz = (float)TerrainLod.ObjectHaze(od, haze.HazeStart, haze.Visible);
@@ -693,7 +757,7 @@ public sealed class InteriorRenderer : IDisposable
                 inst.Skin = skin;
                 inst.Meshes.Clear();
             }
-            DrawInstance(inst, lod, cam, (lx, ly, lz), hz);
+            DrawInstance(inst, lod, atlas.Texture, cam, (lx, ly, lz), hz);
             ++DrawnInstances;
         }
     }
@@ -770,7 +834,7 @@ public sealed class InteriorRenderer : IDisposable
 
     // Stock draws the visible surfaces one polygon at a time in surface index order (0055ec98 walks the surface bit set
     // ascending), so equal 16 bit depths resolve by index. Consecutive surfaces of one material share a draw call.
-    private void DrawInstance(Instance inst, InteriorLodModel lod, in Camera3D cam, (double x, double y, double z) camLocal, float haze)
+    private void DrawInstance(Instance inst, InteriorLodModel lod, IGfxTexture? atlas, in Camera3D cam, (double x, double y, double z) camLocal, float haze)
     {
         InteriorGeometryData g = lod.Geo;
         bool[]? selected = null;
@@ -812,7 +876,7 @@ public sealed class InteriorRenderer : IDisposable
             }
             if (list.Count > 0 && meshes[s].Key != curKey)
             {
-                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, lod.Atlas));
+                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, atlas));
                 list.Clear();
             }
             curKey = meshes[s].Key;
@@ -828,7 +892,7 @@ public sealed class InteriorRenderer : IDisposable
             ++DrawnSurfaces;
         }
         if (list.Count > 0)
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, lod.Atlas));
+            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, atlas));
         list.Clear();
     }
 
@@ -840,6 +904,8 @@ public sealed class InteriorRenderer : IDisposable
         foreach (InteriorModel? m in mModels.Values)
             if (m != null)
                 foreach (InteriorLodModel? l in m.Lods)
-                    l?.Atlas?.Dispose();
+                    if (l != null)
+                        foreach (LightAtlas a in l.Atlases)
+                            a.Texture?.Dispose();
     }
 }
