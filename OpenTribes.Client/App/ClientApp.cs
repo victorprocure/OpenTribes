@@ -444,8 +444,7 @@ public sealed class ClientApp : IDisposable
                 ? new Camera3D(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, Play.Moves.CurrentFov, w, h, World.WorldScene.NearPlane, 1000)
                 : null,
             HeadMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.MidBack() : null,
-            ObjectTop = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? sv.HudTop() : null,
-            ObjectSphere = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? sv.HudSphere() : null,
+            ObjectBox = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? sv.HudBox() : null,
             // the line from the eye to the target meets terrain or interior [code 004aca84, mask 0x20e00006]
             LineClear = (a, b) => g.Net?.PredictWorld is not { } pw ||
                 !pw.Game.World.CastRay(new OpenTribes.World.Vec3((float)a.X, (float)a.Y, (float)a.Z), new OpenTribes.World.Vec3((float)b.X, (float)b.Y, (float)b.Z), 0x20e00006u, null,

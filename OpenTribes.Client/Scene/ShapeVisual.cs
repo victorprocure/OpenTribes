@@ -267,30 +267,31 @@ public class ShapeVisual : Visual
         }
     }
 
-    // The bounding sphere of the shape at its pose: the stand-in for the object's world box in the crosshair label pick.
-    public (double X, double Y, double Z, double R)? HudSphere()
-    {
-        if (!HavePos || Shape == null)
-            return null;
-        var c = PoseXf().Apply(Shape.Cx, Shape.Cy, Shape.Cz);
-        return (c.x, c.y, c.z, Shape.Radius);
-    }
-
-    // The crosshair label anchor of the stock pick [code 004aca84]: the centre of the world box in x and y, its top in z.
-    public (double X, double Y, double Z)? HudTop()
+    // The world box of the object [code 004aca84 reads +0x70..+0x84]: the shape box bound by ShapeBase::onNewDataBlock (0044b274), widened to
+    // +-triggerRadius by StaticBase (0044f68c) when the datablock has one, rotated to an axis aligned box (005edbb4). Position is the object
+    // transform origin (+0x188), which the pick measures the distance from.
+    public (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)? HudBox()
     {
         if (!HavePos || Shape == null)
             return null;
         Xf xf = PoseXf();
-        double x0 = double.MaxValue, y0 = x0, x1 = -x0, y1 = x1, z1 = x1;
+        double[] lo = { Shape.Box[0], Shape.Box[1], Shape.Box[2] }, hi = { Shape.Box[3], Shape.Box[4], Shape.Box[5] };
+        double r = Block == null ? 0 : Db.Num(Block, "triggerRadius");
+        if (r != 0)
+            for (int i = 0; i < 3; ++i)
+            {
+                lo[i] = Math.Min(lo[i], -r);
+                hi[i] = Math.Max(hi[i], r);
+            }
+        double x0 = double.MaxValue, y0 = x0, z0 = x0, x1 = -x0, y1 = x1, z1 = x1;
         for (int i = 0; i < 8; ++i)
         {
-            var c = xf.Apply(Shape.Box[(i & 1) * 3], Shape.Box[1 + (i >> 1 & 1) * 3], Shape.Box[2 + (i >> 2 & 1) * 3]);
+            var c = xf.Apply((i & 1) == 0 ? lo[0] : hi[0], (i >> 1 & 1) == 0 ? lo[1] : hi[1], (i >> 2 & 1) == 0 ? lo[2] : hi[2]);
             x0 = Math.Min(x0, c.x); x1 = Math.Max(x1, c.x);
             y0 = Math.Min(y0, c.y); y1 = Math.Max(y1, c.y);
-            z1 = Math.Max(z1, c.z);
+            z0 = Math.Min(z0, c.z); z1 = Math.Max(z1, c.z);
         }
-        return ((x0 + x1) * 0.5, (y0 + y1) * 0.5, z1);
+        return (x0, y0, z0, x1, y1, z1, xf.Px, xf.Py, xf.Pz);
     }
 
     protected (double x, double y, double z) BoxCenter()

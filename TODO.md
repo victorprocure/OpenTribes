@@ -113,7 +113,7 @@ way are added to Open.
 - [x] Chat and command menu, drawn in full.
 - [x] Compass readout, waypoint and arrow.
 - [x] Command screen lists leave keys to the game.
-- [x] Crosshair target marks and labels for players and friendly objects, with the icon in place.
+- [x] Crosshair target marks and labels for players and friendly objects, picked by their box.
 - [x] Low resolution HUD layout and reticle.
 - [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows, combo boxes, the filter box and the buddy list.
 - [x] Switch buttons ignore case.

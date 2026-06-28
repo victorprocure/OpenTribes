@@ -229,9 +229,27 @@ public sealed class ClientHudSource : IHudSource
     public Func<int, int, Camera3D?>? ViewCamera;
     public Func<int, (double X, double Y, double Z)?>? HeadMount;
     public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
-    // Set by the host: the bounding sphere (centre and radius) of a shape ghost, the box stand-in for the objects of the label pick.
-    public Func<int, (double X, double Y, double Z, double R)?>? ObjectSphere;
-    public Func<int, (double X, double Y, double Z)?>? ObjectTop;   // world box centre x, y and top z
+    // Set by the host: the world box (min, max) and the transform origin of a shape ghost, for the objects of the label pick.
+    public Func<int, (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)?>? ObjectBox;
+
+    // The fraction of the segment from the eye along (dx, dy, dz) at which it enters the box (0 when the eye is inside, 1 when it misses).
+    private static double EntryFraction((double X, double Y, double Z) eye, double dx, double dy, double dz, (double X, double Y, double Z) lo, (double X, double Y, double Z) hi)
+    {
+        double t0 = 0, t1 = 1;
+        foreach (var (o, d, a, b) in new[] { (eye.X, dx, lo.X, hi.X), (eye.Y, dy, lo.Y, hi.Y), (eye.Z, dz, lo.Z, hi.Z) })
+        {
+            if (Math.Abs(d) < 1e-12)
+            {
+                if (o < a || o > b)
+                    return 1;
+                continue;
+            }
+            double ta = (a - o) / d, tb = (b - o) / d;
+            t0 = Math.Max(t0, Math.Min(ta, tb));
+            t1 = Math.Min(t1, Math.Max(ta, tb));
+        }
+        return t0 > t1 ? 1 : t0;
+    }
 
     // Datablock group of the classes that take part in the label pick: the sensor set holds the Sensors (and their Turrets) and every
     // object with a target index (StaticShape, Item) [code 0053a1f4 callers: Sensor_onAdd, GameBase_onNewDataBlock].
@@ -287,7 +305,7 @@ public sealed class ClientHudSource : IHudSource
         // bitmap of the datablock's mapIcon [code GameBaseData_preload: "%s_green.bmp"].
         foreach (ClientGhost g in mWorld.Ghosts.All())
         {
-            if (ObjectGroup(g.Class) < 0 || ObjectSphere?.Invoke(g.Index) is not var (sx, sy, sz, sr) || !g.State.ContainsKey("team"))
+            if (ObjectGroup(g.Class) < 0 || ObjectBox?.Invoke(g.Index) is not var (bx0, by0, bz0, bx1, by1, bz1, px, py, pz) || !g.State.ContainsKey("team"))
                 continue;
             bool sensor = g.Class is "Sensor" or "Turret";
             if (!sensor && !g.State.ContainsKey("target"))
@@ -300,11 +318,14 @@ public sealed class ClientHudSource : IHudSource
             if (team == 15)
                 team = -1;
             double dmg = g.State.ContainsKey("damageState") && D(g.State["damageState"], 1) != 1 ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
-            var top = ObjectTop?.Invoke(g.Index) ?? (sx, sy, sz + sr);
-            // The stock test passes when the first hit is the object itself: stop the ray at the near surface of its bounding sphere.
-            double ex = sx - eye.Item1, ey = sy - eye.Item2, ez = sz - eye.Item3, el = Math.Sqrt(ex * ex + ey * ey + ez * ez), k = el > sr ? (el - sr) / el : 0;
+            // [code 004aca84] the label sits on the box centre in x and y and its top in z; the pick box is the smaller of the x and y
+            // extents wide and the z extent high; the distance is measured to the transform origin.
+            double cx = (bx0 + bx1) * 0.5, cy = (by0 + by1) * 0.5, cz = (bz0 + bz1) * 0.5;
+            var top = (cx, cy, bz1);
+            // The stock test passes when the first hit of the line from the eye to the box centre is the object itself: stop the ray where it enters the box.
+            double ex = cx - eye.Item1, ey = cy - eye.Item2, ez = cz - eye.Item3, k = EntryFraction(eye, ex, ey, ez, (bx0, by0, bz0), (bx1, by1, bz1));
             bool clear = LineClear?.Invoke(eye, (eye.Item1 + ex * k, eye.Item2 + ey * k, eye.Item3 + ez * k)) ?? true;
-            list.Add(new HudTargetCandidate(name, top, (sx, sy, sz), sr, 2 * sr, team, dmg, false, true, clear, true, icon));
+            list.Add(new HudTargetCandidate(name, top, (px, py, pz), Math.Min(bx1 - bx0, by1 - by0), bz1 - bz0, team, dmg, false, true, clear, true, icon));
         }
         return HudTargetPicker.Find(cam, list, me.Team, pm.TeamCount);
     }
