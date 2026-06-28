@@ -859,6 +859,13 @@ public sealed class GuiTextWrap : GuiActive
     // TextFormat, FGTextFormat and FearGuiFormattedText read `<fN>` markup (GuiMarkup); TextWrap draws its text as is.
     public bool Formatted;
     public override bool WantsTab => false;
+
+    // FearGuiFormattedText has no font field: its prepare handler [code 00489738] fills the font slots 0 to 2 with tags 150111, 150121 and
+    // 150161, or all three with 150131 when the control sits under another dialog's dimming rule (Dimmed). Text without a tag is in slot 0.
+    private PftFont? BaseFont => Formatted
+        ? Host?.FontByTag(Dimmed ? 150131u : 150111u) ?? Host?.FontByName("sf_white_10.pft")
+        : Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
+
     protected override void ApplyValue(string v)
     {
         Text = v;
@@ -881,7 +888,7 @@ public sealed class GuiTextWrap : GuiActive
     {
         if (!Formatted || Host == null || Text.Length == 0)
             return;
-        PftFont? f = Host.FontByTag(U("fontTag")) ?? Host.FontByName("sf_white_10.pft");
+        PftFont? f = BaseFont;
         if (f == null)
             return;
         int h = GuiMarkup.WrapText(Host, f, Text, W).Count * (GuiPaint.FontHeight(f) + (int)U("lineSpacing"));
@@ -893,7 +900,7 @@ public sealed class GuiTextWrap : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        PftFont? f = Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
+        PftFont? f = BaseFont;
         if (f != null && Formatted && Host != null)
         {
             int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");

@@ -159,13 +159,7 @@ public sealed class ServerBrowser : IDisposable
         Find(InfoMissionId)?.SetText(row.Mission);
         Find(InfoPasswordId)?.SetText(row.Password ? "YES" : "NO");
         Find(InfoDedicatedId)?.SetText(row.Dedicated ? "YES" : "NO");
-        if (mApp.GuiRt.FindControl("ServerInfoText") is { } text)
-        {
-            // The text control is stored without a font (IDFNT_10_STANDARD, orange, as the dialog's other texts).
-            if (text.U("fontTag") == 0)
-                text.F["fontTag"] = 150111u;
-            text.SetValue(row.Info);
-        }
+        mApp.GuiRt.FindControl("ServerInfoText")?.SetValue(row.Info);
         (Find(InfoTableId) as GuiServerInfo)?.SetServer(row.TeamHeading, row.ClientHeading, row.Rows);
     }
 
