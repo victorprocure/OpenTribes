@@ -633,13 +633,18 @@ public sealed class ClientApp : IDisposable
         TakeShots();
     }
 
-    // The damage flash: the whole frame, HUD included, blends toward red by the flash value of the last server block
-    // (0..1, the server lets it fall by 0.22 per second). Measured on stock frames: out = frame * (1 - f) + red * f.
+    // The damage flash [code 004077a8, 004a1bbc, 005d2c20]: the camera query of the PSC (vtable +0x24, message 0x400) answers the
+    // colour (1, 0, 0) and the alpha: the flash value of the last server block, kept at 0 when it is below 0 and capped at the float
+    // 0x3f428f5c (0.76), or 0 and no colour when it is 0. The FGCommandView hands both to the surface (vtable +0x3c) every frame.
+    // The OpenGL surface draws them at flip over the whole frame, HUD included, as a screen sized quad with the blend
+    // (src alpha, 1 - src alpha): out = frame * (1 - f) + red * f. The base surface class and the class at vtable 0x0064c000 leave the slot empty.
+    private const float DamageFlashCap = 0.76f;
+
     private void DrawDamageFlash()
     {
-        float f = (float)(Game?.World.Psc.DamageFlash ?? 0);
+        float f = Math.Min((float)(Game?.World.Psc.DamageFlash ?? 0), DamageFlashCap);
         if (Dev != null && f > 0f)
-            Dev.FillRectRgb(new GfxRect(0, 0, Dev.Width - 1, Dev.Height - 1), 255, 0, 0, Math.Min(f, 1f));
+            Dev.FillRectRgb(new GfxRect(0, 0, Dev.Width - 1, Dev.Height - 1), 255, 0, 0, f);
     }
 
     private void TakeShots()
