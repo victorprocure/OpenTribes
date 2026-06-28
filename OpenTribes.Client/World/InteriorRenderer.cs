@@ -500,8 +500,7 @@ public sealed class InteriorRenderer : IDisposable
             return t;
         PbmpBitmap? bmp = mAssets.Bitmap(name);
         t = bmp != null && bmp.Width > 0 && bmp.Height > 0
-            ? mDev.CreateTexture3D(TerrainData.QuantizeRgba5(mAssets.Rgba(bmp, true)), bmp.Width, bmp.Height, new TextureOptions(true, true, true),
-                                   mAssets.MipRgba(bmp, true))
+            ? mAssets.CreateTexture(mDev, bmp, TerrainData.QuantizeRgba5(mAssets.Rgba(bmp, true)), true, true, true)
             : null;
         mTextures[name] = t;
         return t;

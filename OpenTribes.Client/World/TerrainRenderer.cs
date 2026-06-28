@@ -39,7 +39,7 @@ public sealed class TerrainRenderer : IDisposable
         string? name = index >= 0 && index < mMaterials.Count ? mMaterials[index] : null;
         PbmpBitmap? bmp = name != null ? mAssets.Bitmap(name) : null;
         if (bmp != null && bmp.Width > 0 && bmp.Height > 0)
-            t = mDev.CreateTexture3D(TerrainData.QuantizeRgba5(mAssets.Rgba(bmp, true)), bmp.Width, bmp.Height, new TextureOptions(true, false, true));
+            t = mAssets.CreateTexture(mDev, bmp, TerrainData.QuantizeRgba5(mAssets.Rgba(bmp, true)), false, true, true);
         mMaterialTextures[index] = t;
         return t;
     }

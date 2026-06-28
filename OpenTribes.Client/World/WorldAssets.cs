@@ -82,7 +82,7 @@ public sealed class WorldAssets
 
     // Levels 1 .. MipCount-1 of the bitmap's own mip chain as RGBA8 (the stock client uploads each file level, 005d7148 loop over
     // bitmap +0x5c; the levels are not row padded). Empty when the file has no chain.
-    public List<byte[]> MipRgba(PbmpBitmap bmp, bool opaque)
+    public List<byte[]> MipRgba(PbmpBitmap bmp, bool opaque, bool quantize = true, bool keyed = false)
     {
         var levels = new List<byte[]>();
         if (bmp.Depth != 8)
@@ -100,9 +100,23 @@ public sealed class WorldAssets
             if (opaque)
                 for (int i = 3; i < rgba.Length; i += 4)
                     rgba[i] = 255;
-            levels.Add(TerrainData.QuantizeRgba5(rgba));
+            if (keyed)
+                for (int i = 0; i < w * h; ++i)
+                    if (bmp.MipLevels[k - 1][i] == 0)
+                        rgba[i * 4 + 3] = 0;
+            levels.Add(quantize ? TerrainData.QuantizeRgba5(rgba) : rgba);
         }
         return levels;
+    }
+
+    // A texture the way the stock upload makes it (005d3ecc): the file's own mip chain with LINEAR_MIPMAP_NEAREST when the bitmap has more
+    // than one level, else LINEAR, magnification nearest for a transparent bitmap. `level0` is the converted base level, `repeat` the wrap
+    // mode the caller of the upload asks for (clamp to edge or repeat).
+    public IGfxTexture CreateTexture(IGfxDevice dev, PbmpBitmap bmp, byte[] level0, bool repeat, bool opaque, bool quantize, bool keyed = false)
+    {
+        List<byte[]> levels = MipRgba(bmp, opaque, quantize, keyed);
+        var options = new TextureOptions(levels.Count > 0, repeat, true, (bmp.Attributes & BitmapAttributes.Transparent) != 0);
+        return dev.CreateTexture3D(level0, bmp.Width, bmp.Height, options, levels);
     }
 
     // The haze colour (D34, 6.3): entry `hazeColor` of the first subpalette of the world palette.

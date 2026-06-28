@@ -141,7 +141,7 @@ void main() {
             gl.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, width, height, 0, GlApi.Rgba, GlApi.UnsignedByte, p);
         uint filter = options.Linear ? GlApi.Linear : GlApi.Nearest;
         // Magnified texels are bilinear like the stock client's (compared at 640 x 480 and 1280 x 960 with tools/shotdiff.py).
-        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)filter);
+        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)(options.NearestMag ? GlApi.Nearest : filter));
         gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter,
                           options.Mipmaps ? (int)(options.Linear ? GlApi.LinearMipmapLinear : 0x2700) : (int)filter);
         uint wrap = options.Repeat ? GlApi.Repeat : GlApi.ClampToEdge;
@@ -168,8 +168,9 @@ void main() {
             fixed (byte* p = mipLevels[k])
                 gl.TexImage2D_(GlApi.Texture2D, k + 1, (int)GlApi.Rgba8, Math.Max(1, width >> (k + 1)), Math.Max(1, height >> (k + 1)), 0,
                                GlApi.Rgba, GlApi.UnsignedByte, p);
-        // Stock filters: linear magnification, LINEAR_MIPMAP_NEAREST minification (code 005d3f99, 005d3fb9).
-        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)GlApi.Linear);
+        // Stock filters: linear magnification (nearest for a transparent bitmap), LINEAR_MIPMAP_NEAREST minification (code 005d3f99,
+        // 005d3fa2, 005d3fb9).
+        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)(options.NearestMag ? GlApi.Nearest : GlApi.Linear));
         gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter, 0x2701);
         gl.TexParameteri_(GlApi.Texture2D, 0x813D, mipLevels.Count); // TEXTURE_MAX_LEVEL
         uint wrap = options.Repeat ? GlApi.Repeat : GlApi.ClampToEdge;

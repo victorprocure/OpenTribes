@@ -49,7 +49,7 @@ public sealed class SkyRenderer : IDisposable
                     continue;
                 first ??= bmp;
                 if (!cache.TryGetValue(m, out IGfxTexture? tex))
-                    cache[m] = tex = mDev.CreateTexture3D(TerrainData.QuantizeRgba5(assets.Rgba(bmp, true)), bmp.Width, bmp.Height, new TextureOptions(false, false, true));
+                    cache[m] = tex = assets.CreateTexture(mDev, bmp, TerrainData.QuantizeRgba5(assets.Rgba(bmp, true)), false, true, true);
                 mPanelTextures[i] = tex;
             }
         }
@@ -202,7 +202,7 @@ public sealed class PlanetRenderer : IDisposable
         Distance = distance;
         PbmpBitmap? bmp = fileName.Length > 0 ? assets.Bitmap(fileName) : null;
         if (bmp != null)
-            mTexture = dev.CreateTexture3D(assets.Rgba(bmp, false), bmp.Width, bmp.Height, new TextureOptions(false, false, true));
+            mTexture = assets.CreateTexture(dev, bmp, assets.Rgba(bmp, false), false, false, false);
     }
 
     public bool HasBitmap => mTexture != null;
