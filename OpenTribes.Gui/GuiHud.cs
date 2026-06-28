@@ -608,7 +608,10 @@ public sealed class ChatSizeMemory
 public sealed class GuiChatDisplay : GuiHud
 {
     // Text starts 4 + 6 pixels from the left (the 6 is half of the stock indent value 12, `00623478`) and the lines stack upward from
-    // 6 pixels above the bottom, one font height apart [code 004a633c]. Measured on stock frames: play screen and inventory screen.
+    // 6 pixels above the bottom, one font height apart. The draw routine [code 004a633c] starts the lines at the bottom of the control
+    // less 4 pixels (0 in the low resolution mode, +0x1f8) and the text at the left of the control + 6; stock frames show the text 4 pixels
+    // further right and 2 higher (play screen and inventory screen), a difference that is not in this routine, so these three
+    // constants stay as the offsets that reproduce the stock position until the origin of the window is traced.
     public const int InsetX = 4, IndentX = 6, BottomInset = 6;
     // Height = lines * line height + 6 (DAT_00623474), see SetLines.
     public const int HeightPad = 6;
