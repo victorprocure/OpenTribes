@@ -451,12 +451,12 @@ public class ShapeRenderTests
     [Fact]
     public void RainStreakIsAKiteOfStockSize() // 00442338: 0.15 across at 2 units, end at 2.25 units along the fall direction
     {
-        var q = WeatherEffect.Streak((10, 20, 30), 0, 0, (1, 0, 0));
+        var q = WeatherEffect.Streak((10, 20, 30), 0, 0, (0, 1, 0));
         Assert.Equal((10, 20, 30), q.tip);
-        Assert.Equal((10 - 0.075, 20, 28), q.left);
-        Assert.Equal((10 + 0.075, 20, 28), q.right);
+        Assert.Equal((10 + 0.075, 20, 28), q.left);   // forward x down is -x
+        Assert.Equal((10 - 0.075, 20, 28), q.right);
         Assert.Equal((10, 20, 30 - 2.25), q.end);
-        var w = WeatherEffect.Streak((0, 0, 0), 3, 4, (0, 0, 0));
+        var w = WeatherEffect.Streak((0, 0, 0), 3, 4, (0, 1, 0));
         double len = Math.Sqrt(9 + 16 + 1);
         Assert.Equal(2.25 * 3 / len, w.end.x, 9);
         Assert.Equal(-2.25 / len, w.end.z, 9);

@@ -17,6 +17,9 @@ public sealed class WeatherEffect
     public const double Radius = 200;                 // +0x2000c: spawn cube half side and recycle radius
     public const double RainFall = 150, SnowFall = 35; // rain: wind z -75 applied twice; snow: wind z -35
     public const double MinDepth = 2;                 // +0x20014: nothing closer than this along the view axis draws
+    // The streak is a flat fill: the colour bytes (255, 255, 255; Snowfall_init 00441120) scaled by 2/3 (constant 00442978) and snapped to
+    // the surface palette, so grey 170 before the snap; on the OpenGL path it blends with the constant alpha 0.55 (0x3f0ccccd, 004424de).
+    public const float RainShade = 170f / 255f, RainAlpha = 0.55f;
     public const double StreakEnd = 2.25, StreakWide = 2.0, StreakHalfWidth = 0.075;
 
     // Particles for an intensity 0..1 (count scales linearly with the kind's maximum).
@@ -27,12 +30,14 @@ public sealed class WeatherEffect
     public static int Count(double intensity, bool rain) => (int)Math.Clamp(intensity * (rain ? MaxRain : MaxSnow), 0, rain ? MaxRain : MaxSnow);
 
     // The four points of one rain streak (tip, left, end, right): d = normalize(wind.x, wind.y, -1), the left and right points
-    // 2 units along d from the tip and 0.075 to each side along `side` (unit), the end 2.25 units along d [code 00442338].
+    // 2 units along d from the tip and 0.075 to each side along `side`, the end 2.25 units along d [code 00442338]. The side
+    // vector is the cross product of the camera's forward axis (matrix row 1, saved at 00684250 by 00442188) and d, not normalised.
     public static ((double x, double y, double z) tip, (double x, double y, double z) left, (double x, double y, double z) end,
-                   (double x, double y, double z) right) Streak((double x, double y, double z) p, double windX, double windY, (double x, double y, double z) side)
+                   (double x, double y, double z) right) Streak((double x, double y, double z) p, double windX, double windY, (double x, double y, double z) forward)
     {
         double l = Math.Sqrt(windX * windX + windY * windY + 1);
         double dx = windX / l, dy = windY / l, dz = -1 / l;
+        (double x, double y, double z) side = (forward.y * dz - forward.z * dy, forward.z * dx - forward.x * dz, forward.x * dy - forward.y * dx);
         (double, double, double) At(double along, double across) => (p.x + dx * along + side.x * across, p.y + dy * along + side.y * across, p.z + dz * along + side.z * across);
         return (p, At(StreakWide, -StreakHalfWidth), At(StreakEnd, 0), At(StreakWide, StreakHalfWidth));
     }
@@ -58,8 +63,8 @@ public sealed class WeatherEffect
                 continue;
             if (Rain)
             {
-                var q = Streak((x, y, z), WindX, WindY, (r.x, r.y, r.z));
-                Vertex3D V((double x, double y, double z) p) => new((float)p.x, (float)p.y, (float)p.z, 0, 0, 0, 0, 0, 1, 1, 1, 0.5f);
+                var q = Streak((x, y, z), WindX, WindY, (f.x, f.y, f.z));
+                Vertex3D V((double x, double y, double z) p) => new((float)p.x, (float)p.y, (float)p.z, 0, 0, 0, 0, 0, RainShade, RainShade, RainShade, RainAlpha);
                 Vertex3D t = V(q.tip), a = V(q.left), e = V(q.end), b = V(q.right);
                 v.Add(t); v.Add(a); v.Add(e); v.Add(t); v.Add(e); v.Add(b);
             }
