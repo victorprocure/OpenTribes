@@ -53,6 +53,10 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         return Fit * Math.Max((male ? 0.85 : 0.75) / tanH, (male ? 1.325 : 1.25) / tanV);
     }
 
+    // +0x1f4 [code 004998e0, camera vtable +0xc = 005aa65c]: the camera call (10.0, smaller side in pixels) gives
+    // 10 * near * (half the width in pixels) / (tan(0.3) * smaller side); the near of the view's camera is 1.0 (0049a511).
+    public static double MaxDistance(int w, int h) => 10.0 * 1.0 * (w * 0.5) / (Math.Tan(HalfAngle) * Math.Min(w, h));
+
     public static Camera3D CameraFor(double cx, double cy, double cz, bool male, double yaw, int w, int h, double? distance = null)
     {
         double dist = distance ?? FitDistance(male, w, h);
@@ -102,6 +106,7 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         if (double.IsNaN(view.Zoom) || Math.Abs(view.ZoomMin - fit) > 1e-9)
             view.Zoom = fit;
         view.ZoomMin = fit;
+        view.ZoomMax = MaxDistance(w, h);
         Camera3D cam = CameraFor(mShape.Cx, mShape.Cy, mShape.Cz, view.Male, view.Yaw, w, h, view.Zoom);
         var ctx = new FrameContext { Camera = cam, Assets = mAssets!, Renderer = mRenderer, Light = Light(cam, mShape.Cx, mShape.Cy, mShape.Cz) };
         ShapeDraw d = ctx.Draw(Xf.Identity, name);

@@ -10,6 +10,7 @@ public class SkinViewZoomTests
     {
         var v = (GuiShapeView)GuiFixture.Make("FearGui::SkinView", 0, 0, 100, 200);
         v.Zoom = v.ZoomMin = 4.0;
+        v.ZoomMax = 12.0;
         v.MsRightDown(new GuiEvent { X = 5, Y = 100 });
         v.MsRightDrag(new GuiEvent { X = 5, Y = 80 });
         Assert.Equal(5.0, v.Zoom, 9);
@@ -18,6 +19,6 @@ public class SkinViewZoomTests
         v.MsRightDrag(new GuiEvent { X = 5, Y = 200 });
         Assert.Equal(4.0, v.Zoom, 9);
         v.MsRightDrag(new GuiEvent { X = 5, Y = -2000 });
-        Assert.Equal(4.0 * GuiShapeView.ZoomMaxFactor, v.Zoom, 9);
+        Assert.Equal(12.0, v.Zoom, 9);
     }
 }
