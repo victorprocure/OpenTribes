@@ -293,10 +293,12 @@ public sealed class GuiCompassHud : GuiHud
             var pts = Arrow(yaw, w, lr, cx, cy);
             HudFrame.FillPolygon(p, new[] { ((int)pts[0].X, (int)pts[0].Y), ((int)pts[1].X, (int)pts[1].Y), ((int)pts[2].X, (int)pts[2].Y) }, 0xfc, 1f);
         }
-        // The stock readout sits 1 pixel right and 3 pixels up from a plain cell-centred string (measured against the stock client
-        // at 640x480: the digit ink is centred on the bitmap centre). The low resolution placement is not measured.
-        int dx = lr ? 0 : 1, dy = lr ? 0 : -3;
-        p.Text(f, (int)cx - GuiPaint.TextWidth(f, text) / 2 + dx, (int)cy - GuiPaint.FontHeight(f) / 2 + dy, text);
+        // The readout origin [code 004e7e5c, 004e86d9 and 004e87b5 for "000"]: x = trunc(cx + 1.0 - (textWidth >> 1)), y = trunc(cy - height + 3.0)
+        // with (cx, cy) the compass centre (31.5 or 18.5 inside the bitmap) and height = (font cell height * font scale y) >> 16, the
+        // cell height itself for every stock font (scale 1.0). The truncation is the exe's control word 0x0f7f (round toward zero).
+        int tx = (int)(cx + 1f - (GuiPaint.TextWidth(f, text) >> 1));
+        int ty = (int)(cy - GuiPaint.FontHeight(f) + 3f);
+        p.Text(f, tx, ty, text);
     }
 
     // The readout text [code 004e7e5c, format "%d" at 0062ec1a, "000" at 0062ec1d]: "000" without a waypoint or when both
@@ -342,9 +344,16 @@ public sealed class GuiWeaponHud : GuiHud
     private static readonly int[] PolyLow = { 1, 6, 6, 1, 16, 1, 18, 4 };
     private int mRows = -1;
 
-    // The stock window is laid out before the first row exists: the fractions see a height of 1 (measured: stock capture at 400 x 300
-    // has the weapon HUD at y = trunc(0.7245 x 299) = 216), and the row changes that follow do not apply them again.
-    protected override int FractionH => mRows > 0 ? H : 1;
+    // Wake [code 004e8b8c, 004e8fb9 to 004e8fd4]: after loading the icons it sets the extent to 1 x 1, the low resolution flag (+0x1f8)
+    // to 0 and the last row count (+0x204) to -1, then calls the clamp. A parent resize before the first draw therefore places the
+    // window with a height of 1 (the file's extent 62 x 76 is replaced), and the later row changes do not apply the fractions again.
+    public override void Wake()
+    {
+        base.Wake();
+        W = 1;
+        H = 1;
+        mRows = -1;
+    }
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
@@ -354,16 +363,21 @@ public sealed class GuiWeaponHud : GuiHud
         PbmpBitmap? fallback = Host.BitmapByName(lr ? "lr_weapon_off.bmp" : "I_weapon_off.bmp");
         int iconH = fallback?.Height ?? 24, iconW = fallback?.Width ?? 24;
         var rows = Source.Weapons;
+        if (rows.Count < 1)
+        {
+            // [code 004e90fc to 004e9112]: no weapon: count -1, height = the icon height, width and position untouched.
+            mRows = -1;
+            H = iconH;
+            return;
+        }
         if (rows.Count != mRows)
         {
             mRows = rows.Count;
             W = iconW + (lr ? 27 : 38);
-            H = rows.Count < 1 ? iconH : (iconH + (lr ? 2 : 4)) * rows.Count + 10;
+            H = (iconH + (lr ? 2 : 4)) * rows.Count + 10;
             KeepInside();
             return;
         }
-        if (rows.Count < 1)
-            return;
         int x = ox + X, y = oy + Y, bottom = y + H - 1;
         int[] poly = lr ? PolyLow : Poly;
         var pts = new List<(int, int)>();

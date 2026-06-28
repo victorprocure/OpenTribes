@@ -172,14 +172,14 @@ public class GuiC8FixTests
     // ---- 3. weapon list ----
 
     [Fact]
-    public void WeaponListUsesTheSpecWidth() // gui.md 4.2 CurrentWeaponHud: ext (62,76); the draw is icons, the names are our text
+    public void WeaponHudWakesWithAnExtentOfOne() // gui.md 4.2 CurrentWeaponHud: the file extent (62,76) is replaced by 1 x 1 on wake [code 004e8fb9]
     {
         var fx = new GuiFixture();
         var root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
         var hud = (GuiHud)GuiFixture.Make("FearGui::CurrentWeaponHud", 0, 213, 62, 76, ("hudX", 0u), ("hudY", 0u));
         root.AddChild(hud);
         fx.Content(root);
-        Assert.Equal((62, 76), (hud.W, hud.H));
+        Assert.Equal((1, 1), (hud.W, hud.H));
     }
 
     [Fact]
