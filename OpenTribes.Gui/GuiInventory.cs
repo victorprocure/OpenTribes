@@ -124,8 +124,11 @@ public sealed class GuiInventoryList : GuiList
             if (row.IsHeader)
             {
                 // The outline of the cell (300 wide, one pixel left of the control, so its left and right edges lie outside the extent):
-                // only the top and bottom edges show.
-                // Measured on stock frames: both edges lie one pixel below the rectangle the routine names.
+                // only the top and bottom edges show. The routine names the rectangle (x - 1, y) to (x + 299, y + cell height - 1)
+                // in colour 0xf0 and draws a row's text at (x + 15, y) [code 0048ac04]; the cell origin is the list origin plus
+                // row x cell height [code 0053ccd8]. Stock frames show the edges and the text one pixel lower than that
+                // rectangle, which no instruction of the routine accounts for: the difference sits in the origin of the list inside
+                // its scroll, so it stays here as the one row offset (TextY, +1 on the edges) until that origin is traced.
                 p.Fill(gx, y + 1, CellWidth, 1, HeaderColor);
                 p.Fill(gx, y + rh, CellWidth, 1, HeaderColor);
                 p.Text(selected, gx + 2, y + TextY, row.Heading.Length > 1 ? row.Heading[1..] : "");
