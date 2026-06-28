@@ -18,8 +18,8 @@ public sealed class SkyRenderer : IDisposable
     // 4.1 Init: the band radius is 1.5 * visible.
     public const double BandRadiusFactor = 1.5;
 
-    // Panel heights relative to the camera: -size/8 at the lower edge and size * 3/4 at the upper edge, measured: a fit of
-    // the stock cloud layer over rows 60 to 180 of Broadside and Raindance shots gives lower -74 and upper 446 at radius 1.5 * visible.
+    // Panel heights relative to the camera [code 00477b48]: the lower point is z - size * 0.125 (constant 00478490), the upper point adds
+    // size * 0.875 (00478494) to that same stored value, so it lies at z + size * 3/4. The caps are at z - size and, adding 2 * size (00478498), z + size.
     public const double LowerFactor = -0.125, UpperFactor = 0.75;
 
     // materials: bitmap names of the sky `.dml` (null when the sky has no material list: solid sky).
