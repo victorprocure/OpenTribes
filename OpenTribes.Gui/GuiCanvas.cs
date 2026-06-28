@@ -702,7 +702,11 @@ public sealed class GuiCanvas
         req = req < 0 ? 200 : Math.Min(req, 256);
         PftFont? f0 = HelpFont(0);
         List<List<GuiMarkup.Run>> lines = GuiMarkup.WrapText(Host, f0, text[(comma + 1)..], req - 6, HelpFont);
-        // measured on stock boxes: the width leaves out the spacing after the last character, a line is the font height plus one
+        // The box [code 004af248 to 004af4f3]: the text is formatted by the TextFormat child for the width asked less 6; the box is
+        // min(asked width, formatted width + 6) wide and min(0xc0, formatted height + 6) high, and the formatted extents are the widest
+        // line (a sum of string widths, each without the spacing after its last character) and the line heights [code 00538454, 00538583].
+        // The width without the last spacing and the line height of the font height plus one are what stock boxes show for the
+        // strings of the stock screens; the TextFormat line spacing rule behind them is not traced.
         int textW = lines.Count == 0 ? 0 : lines.Max(l => GuiMarkup.Width(Host, f0, l, HelpFont)) - (f0?.Spacing ?? 0);
         int textH = lines.Count * (GuiPaint.FontHeight(f0) + 1);
         int w = Math.Min(req, textW + 6), h = Math.Min(0xc0, textH + 6);
