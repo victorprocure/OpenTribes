@@ -17,7 +17,11 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
     // 004998e0: the horizontal half angle is 0.3 radians; the fit is 0.85 (male, 0.75 female) wide and 1.325 (1.25) high around the
     // centre of the bounds, 0.3 below it for the male armor.
     private const double HalfAngle = 0.3;
-    // Measured against stock frames of the screen at 640 x 480: the model stands 6 percent smaller and 0.07 higher than the plain fit.
+    // Not exe-derived (item 9 of the exact2 pass): the exe formulas of 004998e0 and 0049b0c7 to 0049b121 above (distance, centre, 0.3 or 0.1
+    // below it, tilt 0.25, half angle 0.3, near 1.0, viewport = the control rectangle) contain no further factor, and with them alone the figure
+    // is 247 pixels tall against 231 in a stock frame of the screen at 640 x 480 (7 percent), 4 pixels lower on the screen. The two constants
+    // below reproduce the stock height (229 pixels) and are kept until the source of that scale is found; routines read without finding it:
+    // 004998e0, 0049a9bc, 0049af20, the camera set up 005a94a4 and the radius projection near 005aa5c0.
     private const double Fit = 1.06, ZShift = -0.07;
 
     private readonly ClientApp mApp;
