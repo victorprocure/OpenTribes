@@ -186,6 +186,14 @@ public sealed class TerrainData
     public static (byte r, byte g, byte b) ExpandLightPacked(ushort w) =>
         ((byte)(((w >> 8) & 0xf) * 17), (byte)(((w >> 4) & 0xf) * 17), (byte)((w & 0xf) * 17));
 
+    // The interior surface light map as the stock client stores it by default: the lightmap upload path of the interior renderer
+    // (005d45d0 -> 005d7e00) packs each nibble n into a 5 bit channel 2n + 1 of a 5551 texture (the mono nibble is dropped, alpha 1),
+    // which the driver reads back as (v << 3) | (v >> 2).
+    public static (byte r, byte g, byte b) ExpandLight5551(ushort w) => (Expand5(((w >> 8) & 0xf) * 2 + 1), Expand5(((w >> 4) & 0xf) * 2 + 1),
+                                                                         Expand5((w & 0xf) * 2 + 1));
+
+    private static byte Expand5(int v) => (byte)((v << 3) | (v >> 2));
+
     // A texture colour channel as it comes back from the stock client's 5 bit packed upload: the top 5 bits are kept,
     // then read back as (v << 3) | (v >> 2), the expansion of the GL driver (a sky colour of 194 reads back as 198).
     public static byte Quantize5(byte c) => (byte)(((c >> 3) << 3) | (c >> 5));

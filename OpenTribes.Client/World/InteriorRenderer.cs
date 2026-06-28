@@ -431,7 +431,7 @@ public sealed class InteriorRenderer : IDisposable
                 int k = Math.Clamp(y, 0, hh - 1) * w + Math.Clamp(x, 0, w - 1);
                 if (k >= map.Length)
                     continue;
-                var (r, g, b) = TerrainData.ExpandLightPacked(map[k]);
+                var (r, g, b) = TerrainData.ExpandLight5551(map[k]);
                 int o = ((py + y) * lod.AtlasW + px + x) * 4;
                 lod.AtlasRgba[o] = r;
                 lod.AtlasRgba[o + 1] = g;
