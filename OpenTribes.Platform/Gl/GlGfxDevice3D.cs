@@ -152,6 +152,32 @@ void main() {
         return new Texture3D { Name = name, Width = width, Height = height, Gl = gl };
     }
 
+    public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options, IReadOnlyList<byte[]> mipLevels)
+    {
+        if (mipLevels.Count == 0 || !options.Mipmaps)
+            return CreateTexture3D(rgba, width, height, options);
+        if (width <= 0 || height <= 0 || rgba.Length < width * height * 4)
+            throw new ArgumentException("texture data does not match its size");
+        uint name = gl.GenTexture();
+        gl.ActiveTexture_(GlApi.Texture0);
+        gl.BindTexture_(GlApi.Texture2D, name);
+        gl.PixelStorei_(GlApi.UnpackAlignment, 1);
+        fixed (byte* p = rgba)
+            gl.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, width, height, 0, GlApi.Rgba, GlApi.UnsignedByte, p);
+        for (int k = 0; k < mipLevels.Count; ++k)
+            fixed (byte* p = mipLevels[k])
+                gl.TexImage2D_(GlApi.Texture2D, k + 1, (int)GlApi.Rgba8, Math.Max(1, width >> (k + 1)), Math.Max(1, height >> (k + 1)), 0,
+                               GlApi.Rgba, GlApi.UnsignedByte, p);
+        // Stock filters: linear magnification, LINEAR_MIPMAP_NEAREST minification (code 005d3f99, 005d3fb9).
+        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)GlApi.Linear);
+        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter, 0x2701);
+        gl.TexParameteri_(GlApi.Texture2D, 0x813D, mipLevels.Count); // TEXTURE_MAX_LEVEL
+        uint wrap = options.Repeat ? GlApi.Repeat : GlApi.ClampToEdge;
+        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureWrapS, (int)wrap);
+        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureWrapT, (int)wrap);
+        return new Texture3D { Name = name, Width = width, Height = height, Gl = gl };
+    }
+
     private GfxRect? mViewport3D;
 
     public void SetViewport3D(GfxRect? rect) => mViewport3D = rect;

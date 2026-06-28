@@ -53,6 +53,10 @@ public interface IGfxDevice : IDisposable
     // docs/world-render.md 7). Vertices are world-space triangles; the device projects them with the camera.
     // BeginScene3D clears the depth buffer; EndScene3D returns to the 2D state of BeginFrame.
     IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options);
+    // The same with the bitmap's own mip levels 1.. (RGBA8, each half the size of the last) and the stock minification filter,
+    // the nearest level with linear filtering inside it (005d3fb9). Devices without mip data ignore the levels.
+    IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options, IReadOnlyList<byte[]> mipLevels) =>
+        CreateTexture3D(rgba, width, height, options);
     void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB);
     // Replaces the camera (for example the near and far planes) inside a scene.
     void SetCamera3D(in Camera3D camera);

@@ -80,6 +80,31 @@ public sealed class WorldAssets
         return rgba;
     }
 
+    // Levels 1 .. MipCount-1 of the bitmap's own mip chain as RGBA8 (the stock client uploads each file level, 005d7148 loop over
+    // bitmap +0x5c; the levels are not row padded). Empty when the file has no chain.
+    public List<byte[]> MipRgba(PbmpBitmap bmp, bool opaque)
+    {
+        var levels = new List<byte[]>();
+        if (bmp.Depth != 8)
+            return levels;
+        SubPalette sub = Palette.FindSubPalette(bmp.PaletteId);
+        for (int k = 1; k <= bmp.MipLevels.Count; ++k)
+        {
+            int w = Math.Max(1, bmp.Width >> k), h = Math.Max(1, bmp.Height >> k);
+            var level = new PbmpBitmap { Width = w, Height = h, Depth = 8, Attributes = bmp.Attributes };
+            int stride = level.Stride;
+            level.Pixels = new byte[stride * h];
+            for (int y = 0; y < h; ++y)
+                Array.Copy(bmp.MipLevels[k - 1], y * w, level.Pixels, y * stride, w);
+            byte[] rgba = PaletteTables.ToRgba(level, sub, mIdentityGamma);
+            if (opaque)
+                for (int i = 3; i < rgba.Length; i += 4)
+                    rgba[i] = 255;
+            levels.Add(TerrainData.QuantizeRgba5(rgba));
+        }
+        return levels;
+    }
+
     // The haze colour (D34, 6.3): entry `hazeColor` of the first subpalette of the world palette.
     public (float r, float g, float b) HazeColor()
     {

@@ -74,6 +74,7 @@ way are added to Open.
 - [x] Depth buffer like the original.
 - [x] Draw order and culling: interior surfaces, terrain and objects inside interiors.
 - [x] Interior haze distance.
+- [x] Texture mipmaps: interiors.
 
 ### Shapes, weapons and effects
 
