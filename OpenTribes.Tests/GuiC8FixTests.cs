@@ -47,7 +47,7 @@ public class GuiC8FixTests
     private static GuiFixture Fixture(out GuiControl root)
     {
         var fx = new GuiFixture();
-        fx.Interp.Evaluate("IDFNT_HL = 150007, \"hl.pft\"; IDFNT_FONTIS_3 = 150303, \"f0.pft\"; IDFNT_FONTIS_2 = 150302, \"f1.pft\";");
+        fx.Interp.Evaluate("IDFNT_HL = 150007, \"hl.pft\"; IDFNT_10_STANDARD = 150111, \"hl.pft\"; IDFNT_FONTIS_3 = 150303, \"f0.pft\"; IDFNT_FONTIS_2 = 150302, \"f1.pft\";");
         fx.Host.SetFont("hl.pft", Font(7));
         fx.Host.SetFont("f0.pft", Font(5));
         fx.Host.SetFont("f1.pft", Font(6));
@@ -161,7 +161,7 @@ public class GuiC8FixTests
     public void FormattedTextControlWrapsMarkedUpText() // gui.md 3.3 FearGuiFormattedText: markup, wrapping
     {
         GuiFixture fx = Fixture(out GuiControl root);
-        root.AddChild(GuiFixture.Make("FearGuiFormattedText", 0, 0, 120, 100, ("fontTag", 150007u), ("lineSpacing", 0u)));
+        root.AddChild(GuiFixture.Make("FearGuiFormattedText", 0, 0, 120, 100, ("lineSpacing", 0u)));
         fx.Content(root);
         ((GuiTextWrap)root.Children[0]).Text = "<jc><f1>aaaa bbbb cccc dddd eeee";
         List<string> calls = Draw(fx);
@@ -231,7 +231,7 @@ public class GuiC8FixTests
         Assert.Equal(0, GuiMarkup.Justification("<jc>a<jl>b"));
         Assert.Equal(0, GuiMarkup.Justification("plain"));
         GuiFixture fx = Fixture(out GuiControl root);
-        root.AddChild(GuiFixture.Make("FearGuiFormattedText", 0, 0, 120, 100, ("fontTag", 150007u), ("lineSpacing", 0u)));
+        root.AddChild(GuiFixture.Make("FearGuiFormattedText", 0, 0, 120, 100, ("lineSpacing", 0u)));
         fx.Content(root);
         ((GuiTextWrap)root.Children[0]).Text = "<jc>abcd";
         List<string> calls = Draw(fx);
