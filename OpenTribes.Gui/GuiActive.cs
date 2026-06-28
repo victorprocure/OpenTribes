@@ -252,7 +252,10 @@ public class GuiTextEdit : GuiSimpleText
     public bool Overwrite, Dragging;
     private string mUndoText = "";
     private int mUndoCursor, mUndoSelStart, mUndoSelEnd;
+    // The blink state [code 0053f028, 0053e0d0]: +0x2f4 shown, +0x2ec the sim time of the last change, +0x2e8 the frames since.
     private long mBlinkBase;
+    private int mBlinkFrames;
+    private bool mCursorShown;
     private int mTextLeft = 0;
 
     public int MaxLength => (int)U("maxLength", 255) is var m && m > 0 ? m : 255;
@@ -283,7 +286,27 @@ public class GuiTextEdit : GuiSimpleText
             return false;
         Cursor = 0;
         mBlinkBase = Host?.TickMs ?? 0;
+        mBlinkFrames = 0;
+        mCursorShown = true;
         return true;
+    }
+
+    // Prepare [code 0053f028], only while this control is the first responder: count the frame, and when more than 0.5 s of sim time
+    // (a float of seconds, `fcomp` against 0x3f000000, strictly greater) have passed since the last change and more than 3 frames
+    // were counted, flip the shown flag, restart both and mark the control for redraw.
+    public override void PreRender()
+    {
+        if (!ReferenceEquals(Canvas?.FirstResponder, this))
+            return;
+        long now = Host?.TickMs ?? 0;
+        ++mBlinkFrames;
+        if (now - mBlinkBase > 500 && mBlinkFrames > 3)
+        {
+            mCursorShown = !mCursorShown;
+            mBlinkBase = now;
+            mBlinkFrames = 0;
+            Canvas?.Invalidate();
+        }
     }
 
     private int IndexAt(int gx)
@@ -493,7 +516,7 @@ public class GuiTextEdit : GuiSimpleText
         DrawLine(p, gx + mTextLeft, gy);
     }
 
-    // Text, selection highlight and the blinking cursor (the period is inferred: 500 ms).
+    // Text, selection highlight and the blinking cursor (shown while mCursorShown, flipped by PreRender).
     protected void DrawLine(GuiPaint p, int gx, int gy, int dy = 0)
     {
         PftFont? f = Font;
@@ -509,7 +532,7 @@ public class GuiTextEdit : GuiSimpleText
         }
         p.Text(f, gx, ty, Text);
         bool focus = ReferenceEquals(Canvas?.FirstResponder, this);
-        if (focus && ((Host?.TickMs ?? 0) - mBlinkBase) / 500 % 2 == 0)
+        if (focus && mCursorShown)
         {
             int cx = gx + GuiPaint.TextWidth(f, Text[..Math.Min(Cursor, Text.Length)]);
             p.Line(cx, ty, cx, ty + th - 1, 0xfe);
