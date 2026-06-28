@@ -90,7 +90,7 @@ public sealed class ShapeAssets : IDisposable
             {
                 Blend = bmp.Blend, Width = bmp.Width, Height = bmp.Height,
                 PaletteAlpha = bmp.Blend == BlendMode.Translucent && sub.Kind == 2,
-                Texture = mDev?.CreateTexture3D(rgba, bmp.Width, bmp.Height, new TextureOptions(true, true, true)),
+                Texture = mDev != null ? World.CreateTexture(mDev, bmp, rgba, true, false, false, keyed) : null,
             };
         }
         mTextures[key] = t;
