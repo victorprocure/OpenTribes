@@ -184,6 +184,11 @@ public sealed class InteriorRenderer : IDisposable
     public float LightTime;
     public const float LightStep = 0.067f;
     private readonly System.Diagnostics.Stopwatch mClock = System.Diagnostics.Stopwatch.StartNew();
+    // The simulation time in seconds, set by the host before each frame. The stock instance keeps an accumulator that its first tick
+    // sets to the sim time and then adds 67 ms to while the tick time is above it [code 0047f3f4], so the light time is a whole number of
+    // steps counted from that first tick. Without a sim time (tools) the wall clock stands in.
+    public double? SimSeconds;
+    private double? mSimOrigin;
     private readonly Random mRandom = new(0x5eed);
     public int DrawnSurfaces, DrawnInstances;
 
@@ -615,7 +620,14 @@ public sealed class InteriorRenderer : IDisposable
     {
         Camera3D cam = camera;
         DrawnSurfaces = DrawnInstances = 0;
-        long lightStep = (long)(mClock.Elapsed.TotalSeconds / LightStep);
+        long lightStep;
+        if (SimSeconds is double sim)
+        {
+            mSimOrigin ??= sim;
+            lightStep = (long)Math.Ceiling((sim - mSimOrigin.Value) / LightStep - 1e-9);
+        }
+        else
+            lightStep = (long)(mClock.Elapsed.TotalSeconds / LightStep);
         LightTime = lightStep * LightStep;
         int n = Instances.Count;
         var parent = new int[n];

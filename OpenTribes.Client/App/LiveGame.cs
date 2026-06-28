@@ -358,6 +358,8 @@ public sealed class LiveGame : IDisposable
             Model.Build(ctx);
         };
         Scene.DrawContents = i => ctx.Lists.DrawContents(dev, i);
+        if (Scene.Interiors != null)
+            Scene.Interiors.SimSeconds = Model.Time;
         Scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, cam =>
         {
             using (FramePerf.Scope("shapes-draw"))

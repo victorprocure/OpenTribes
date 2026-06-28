@@ -317,6 +317,8 @@ public static class DemoRender
                 draws = 0;
             };
             scene.DrawContents = i => draws += ctx.Lists.DrawContents(dev, i);
+            if (scene.Interiors != null)
+                scene.Interiors.SimSeconds = model.Time;
             void DrawShapes(Camera3D cam)
             {
                 using (FramePerf.Scope("shapes-draw"))
