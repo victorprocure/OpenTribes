@@ -122,7 +122,7 @@ way are added to Open.
 - [x] Video options list the displays and modes.
 - [x] Hover cursors.
 - [x] Help pop-ups.
-- [x] Player setup model with zoom.
+- [x] Player setup model with zoom and lighting.
 - [x] No reticle, weapon list or sensor ping in the observer camera.
 - [x] Scoreboard text position.
 

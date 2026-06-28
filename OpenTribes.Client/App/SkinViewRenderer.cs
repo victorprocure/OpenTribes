@@ -1,6 +1,6 @@
 // The model of the Player Setup screen (FearGui::SkinView draw 0049af20, armor choice 0049a9bc, FGSkin::set 0049a798): the player armor
 // of the gender in the chosen skin, looping its "run" sequence, drawn into the control's rectangle with the camera of 004998e0 and
-// 0049a9bc. The stock fits the camera from the bounds of the shape; the lighting is the client's default look (no exe light data).
+// 0049a9bc. The stock fits the camera from the bounds of the shape and lights it with an ambient and a headlight.
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Client.World;
@@ -64,8 +64,16 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         return new Camera3D(px, py, pz, camYaw, camPitch, 2 * HalfAngle * 180 / Math.PI, w, h, 0.1, 100);
     }
 
-    // A look, fitted to the stock preview: soft ambient and a sun above and in front of the model (the exe's TS lights are not read).
-    private static LightSet Light() => new() { AmbR = 0.75f, AmbG = 0.75f, AmbB = 0.75f, SunX = 0, SunY = 0.5, SunZ = 0.87, SunR = 0.55f, SunG = 0.55f, SunB = 0.55f };
+    // The view's light set [code 0049a5d3 build, 0049af20 draw]: ambient 0.7 (0x3f333333) and one directional light (type 1) of colour 1.0
+    // whose direction is set every draw to the unit vector from the camera to the shape centre, so the lit side faces the camera.
+    private const float Ambient = 0.7f;
+    private static LightSet Light(in Camera3D cam, double cx, double cy, double cz)
+    {
+        double dx = cam.X - cx, dy = cam.Y - cy, dz = cam.Z - cz, len = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 1e-9)
+            len = 1;
+        return new() { AmbR = Ambient, AmbG = Ambient, AmbB = Ambient, SunX = dx / len, SunY = dy / len, SunZ = dz / len, SunR = 1f, SunG = 1f, SunB = 1f };
+    }
 
     public void Draw(GuiShapeView view, GuiPaint p, int x, int y, int w, int h)
     {
@@ -95,7 +103,7 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
             view.Zoom = fit;
         view.ZoomMin = fit;
         Camera3D cam = CameraFor(mShape.Cx, mShape.Cy, mShape.Cz, view.Male, view.Yaw, w, h, view.Zoom);
-        var ctx = new FrameContext { Camera = cam, Assets = mAssets!, Renderer = mRenderer, Light = Light() };
+        var ctx = new FrameContext { Camera = cam, Assets = mAssets!, Renderer = mRenderer, Light = Light(cam, mShape.Cx, mShape.Cy, mShape.Cz) };
         ShapeDraw d = ctx.Draw(Xf.Identity, name);
         d.Skin = view.SkinBase;
         d.ForceDetail = 0;
