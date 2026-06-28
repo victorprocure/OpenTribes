@@ -342,7 +342,7 @@ public class WorldRenderTests
     }
 
     [Fact]
-    public void FlagValuesMapToTheMeasuredOrientations() // WR 2.8; the table was measured by seam cost (world-render.md C4 notes)
+    public void FlagValuesMapToTheExeOrientations() // WR 2.8; the table equals the exe's UV tables [code 00576784 to 005768d2]
     {
         // flag 4 is the identity; flag 6 mirrors u; flag 0 mirrors v; flag 7 swaps u and v
         Assert.Equal((0f, 1f), TerrainMesher.CornerUv(0, 0, 0));
@@ -359,6 +359,22 @@ public class WorldRenderTests
         }
         Assert.Equal(8, seen.Count); // eight distinct orientations
         Assert.Equal(8, TerrainMesher.FlagOrientation.Distinct().Count());
+    }
+
+    [Fact]
+    public void FlagOrientationIsTheExeUvTableConstruction() // [code 00576784]: tables of flag 1..7 built from the table of flag 0
+    {
+        // Corner positions of the exe (x, y) by corner index and the base UV table of flag 0.
+        (int, int)[] pos = { (0, 1), (1, 1), (1, 0), (0, 0) };
+        for (int f = 0; f < 8; ++f)
+        {
+            var e = new (float, float)[] { (0, 0), (1, 0), (1, 1), (0, 1) };
+            if ((f & 2) != 0) { (e[0], e[1]) = (e[1], e[0]); (e[2], e[3]) = (e[3], e[2]); }
+            if ((f & 4) != 0) { (e[0], e[3]) = (e[3], e[0]); (e[1], e[2]) = (e[2], e[1]); }
+            if ((f & 1) != 0) e = new[] { e[3], e[0], e[1], e[2] };
+            for (int c = 0; c < 4; ++c)
+                Assert.Equal(e[c], TerrainMesher.CornerUv(pos[c].Item1, pos[c].Item2, f));
+        }
     }
 
     [Theory]

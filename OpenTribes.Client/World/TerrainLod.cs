@@ -243,11 +243,14 @@ public sealed class TerrainMesh
 
 public static class TerrainMesher
 {
-    // 2.8: the corner coordinates rotated or flipped by the low three bits of the flags byte. The spec does not give the
-    // meaning; it was measured (C4): for each of the 8! assignments of flag value to orientation the colour difference across
-    // the borders of neighbouring level 0 squares was summed over IceRidge, Broadside and Raindance, and the same table is
-    // the minimum on all three (about 20 times lower than any bit-wise reading). Element bits: 4 swap u and v first, then
-    // 1 mirrors u, 2 mirrors v.
+    // 2.8: the corner coordinates rotated or flipped by the low three bits of the flags byte. The exe builds one table of four
+    // (u, v) pairs per flag value when the terrain renderer is created [code 00576784 to 005768d2]: flag 0 is (0,0) (1,0) (1,1)
+    // (0,1) for the corners at (0,1) (1,1) (1,0) (0,0); the table of flag f is that one with, in this order, bit 2 swapping
+    // entries 0 and 1 and entries 2 and 3, bit 4 swapping entries 0 and 3 and entries 1 and 2, and bit 1 rotating the
+    // entries (entry 0 becomes the old entry 3, entry 1 the old 0, entry 2 the old 1, entry 3 the old 2). The draw picks the
+    // table by `flags & 7` [code 0057a79c, 0057afc8]. The values below are the same tables in the form of the element bits
+    // (4 swap u and v first, then 1 mirrors u, 2 mirrors v). The C4 seam cost search found the same table; the exe
+    // construction is checked in WorldRenderTests.FlagOrientationIsTheExeUvTableConstruction.
     public static readonly int[] FlagOrientation = { 2, 7, 3, 6, 0, 5, 1, 4 };
 
     public static (float u, float v) CornerUv(int cornerX, int cornerY, int flags)
