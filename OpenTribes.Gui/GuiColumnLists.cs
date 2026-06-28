@@ -192,9 +192,12 @@ public abstract class GuiColumnList : GuiList
         p.Line(ox + pw - 1, y, ox + pw - 1, y + rh - 1, line);
     }
 
-    // 004b3b54: the text of a cell. A text narrower than the rectangle is centred (or left aligned), centre line from the
-    // font height; a text that does not fit is cut to leave room for "..." and left aligned. With the shadow flag the shadow
-    // font draws the same text one pixel left and, for the fitted case, one down.
+    // 004b3b54: the text of a cell (centre flag, shadow flag, extent, origin, text; the exe code is the rule for every offset). A text
+    // narrower than the extent is drawn at x = origin (+ (w - text width) / 2 when centred) and y = origin + (h - font height) / 2 - 1; the
+    // shadow font, when the flag is set and the control has one, draws the same text at (x - 1, y + 1). A text that does not fit
+    // is cut to leave room for "..." (nothing is drawn when "..." alone is wider than the extent), left aligned at y = origin +
+    // (h - font height) / 2, its shadow at (x - 1, y + 1). Halving rounds toward zero. The one pixel offsets are the exe's own
+    // arguments of the two draw calls, not a measured correction.
     protected void DrawCellText(GuiPaint p, PftFont? font, bool center, bool shadow, int w, int h, int x, int y, string text)
     {
         if (font == null)
