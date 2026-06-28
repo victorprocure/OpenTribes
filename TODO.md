@@ -127,6 +127,7 @@ way are added to Open.
 - [x] Scoreboard text position.
 - [x] Text edit text, selection and cursor blink.
 - [x] Scroll frame.
+- [x] Text lists and list selection.
 
 ### Audio
 

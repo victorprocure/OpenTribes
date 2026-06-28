@@ -4,8 +4,10 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
-// SimGui::ArrayCtrl and every list class derived from it: one column of (text, id) rows. The row and selection colours,
-// the row height and the keyboard rules beyond up and down are inferred (Q2, Q4 of the spec).
+// SimGui::ArrayCtrl and every list class derived from it: one column of (text, id) rows. The exe has a cell routine per list
+// class (slot 0x110; docs/gui.md 3.3): SimGui::TextList and METextList draw as the exact rule below [code 0054b65c, cell size
+// 0054b845]; the other classes that map to this one (the StandardListCtrl family `004b7948`, FGTextList `00489f2c`, the command
+// lists and the rest) still draw the common look of this class, which is not one of those routines.
 public class GuiList : GuiActive
 {
     public readonly List<(string Text, int Id)> Entries = new();
@@ -18,7 +20,10 @@ public class GuiList : GuiActive
     public override bool CanTake() => !CommandList && base.CanTake();
 
     protected virtual PftFont? RowFont => Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
-    public int RowHeight => Math.Max(8, GuiPaint.FontHeight(RowFont) + 2);
+
+    // TextList [code 0054b845]: the cell is the control's width wide and the font height + the vertical offset of the file + 4 high.
+    private bool ExactTextList => ClassName is "SimGui::TextList" or "METextList";
+    public int RowHeight => ExactTextList ? GuiPaint.FontHeight(RowFont) + (int)U("textVOffset") + 4 : Math.Max(8, GuiPaint.FontHeight(RowFont) + 2);
 
     public void AddEntry(string text, int id) => Entries.Add((text, id));
     public virtual void Clear() { Entries.Clear(); Selected = -1; }
@@ -91,11 +96,34 @@ public class GuiList : GuiActive
     // The row action comes with the mouse up in an ActiveCtrl; a list selects on press, so release only unlocks.
     protected override void Action() { }
 
+    // ArrayCtrl key down [code 0053d4dc]: an inactive control passes every key on. Up (0xc8), left (0xcb), right (0xcd) and down (0xd0)
+    // step the selected cell by one in that direction and the first cell that accepts the selection takes it (every row of this
+    // single column list does); with no selected cell any of the four keys selects the first row; a step that leaves the
+    // grid does nothing; the other keys go to the ActiveCtrl handler.
     public override bool KeyDown(GuiEvent e)
     {
-        if (e.Scan == 0xc8 && Selected > 0) { Select(Selected - 1); return true; }
-        if (e.Scan == 0xd0 && Selected < Entries.Count - 1) { Select(Selected + 1); return true; }
-        return base.KeyDown(e);
+        if (!Active)
+            return base.KeyDown(e);
+        int dx, dy;
+        switch (e.Scan)
+        {
+            case 0xc8: dx = 0; dy = -1; break;
+            case 0xcb: dx = -1; dy = 0; break;
+            case 0xcd: dx = 1; dy = 0; break;
+            case 0xd0: dx = 0; dy = 1; break;
+            default: return base.KeyDown(e);
+        }
+        if (Entries.Count < 1)
+            return true;
+        if (Selected < 0)
+        {
+            Select(0);
+            return true;
+        }
+        int col = dx, row = Selected + dy;
+        if (col == 0 && row >= 0 && row < Entries.Count)
+            Select(row);
+        return true;
     }
 
     public override void Render(GuiPaint p, int ox, int oy)
@@ -111,6 +139,17 @@ public class GuiList : GuiActive
                 break;
             if (y + rh < p.Clip.Top)
                 continue;
+            if (ExactTextList)
+            {
+                // [code 0054b65c]: the text at (x + 10, y + vertical offset); the selected cell is filled with palette 0xf9 and its text
+                // uses the highlight font.
+                bool sel = i == Selected;
+                if (sel)
+                    p.Fill(gx, y, W, rh, 0xf9);
+                PftFont? tf = sel ? Host?.FontByTag(U("highlightFontTag")) ?? f : f;
+                p.Text(tf, gx + 10, y + (int)U("textVOffset"), Entries[i].Text);
+                continue;
+            }
             if (i == Selected)
                 p.Fill(gx, y, W, rh, 0xf8);
             p.Text(f, gx + 2, y + 1, Entries[i].Text);
@@ -122,7 +161,8 @@ public class GuiList : GuiActive
 public sealed class GuiScrollContent : GuiControl { }
 
 // SimGui::ScrollCtrl and derived [code 0054a0e0, 005491d4]: a viewport with optional bars. Bars are drawn with palette
-// colours; the arrow, page and key handlers are inferred.
+// colours. The bar pieces follow the draw routines named at DrawVBar and DrawHBar; the arrow, page and key handlers
+// (005499dc to 00549b00, 00549acc) have not been compared with the exe yet.
 public class GuiScroll : GuiControl
 {
     public const int BarWidth = 15;
