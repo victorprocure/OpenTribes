@@ -125,7 +125,7 @@ way are added to Open.
 - [x] Player setup model with zoom limit and lighting.
 - [x] No reticle, weapon list or sensor ping in the observer camera.
 - [x] Scoreboard text position.
-- [x] Text cursor blink.
+- [x] Text edit text, selection and cursor blink.
 
 ### Audio
 

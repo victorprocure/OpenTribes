@@ -256,7 +256,7 @@ public class GuiTextEdit : GuiSimpleText
     private long mBlinkBase;
     private int mBlinkFrames;
     private bool mCursorShown;
-    private int mTextLeft = 0;
+    private int mTextLeft = 3;
 
     public int MaxLength => (int)U("maxLength", 255) is var m && m > 0 ? m : 255;
     public bool NumbersOnly => U("numbersOnly") != 0;
@@ -510,32 +510,60 @@ public class GuiTextEdit : GuiSimpleText
         RenderChildren(p, gx, gy);
     }
 
+    // Draw [code 0053efbc]: the text rectangle is the extent, the field is filled with palette 0xff, then the text draw.
     protected virtual void DrawField(GuiPaint p, int gx, int gy)
     {
         p.Fill(gx, gy, W, H, 0xff);
-        DrawLine(p, gx + mTextLeft, gy);
+        DrawLine(p, gx + mTextLeft - 3, gy, gy + H - 1);
     }
 
-    // Text, selection highlight and the blinking cursor (shown while mCursorShown, flipped by PreRender).
-    protected void DrawLine(GuiPaint p, int gx, int gy, int dy = 0)
+    // The colours of the selection box (+0x2e4) and of the cursor line (+0x2f0): both are 0 from the constructor [code 0053e006,
+    // 0053e02d]; a selection box of colour 0 is not drawn [code 0053f42f]. TestEdit writes 0xf0 to the cursor colour on every draw.
+    protected virtual int SelectionColor => 0;
+    protected virtual int CursorColor => 0;
+
+    // The text draw [code 0053f0b0, TestEdit copy 004cdb1c], for a text rectangle whose left edge is `left` and whose top and bottom
+    // (inclusive) are `top` and `bottom`: the text starts at left + 3 and its top is top + ((bottom - top - font height) >> 1) + the
+    // vertical offset of the file (+0x2d8). The disabled font is used when the control is inactive and has one. A selection is only
+    // kept while the control has the focus and a highlight font exists. The text before the selection is drawn in the normal font,
+    // each part follows the last one by its width + 1; the selected part is drawn in the highlight font over a box (when its colour is
+    // not 0) as high as the rectangle and one pixel wider than the part. The cursor is a vertical line from the top to the bottom of the
+    // rectangle at the start of the text plus the width of the characters before the cursor, shown while the blink flag is on.
+    protected void DrawLine(GuiPaint p, int left, int top, int bottom)
     {
-        PftFont? f = Font;
+        if (Host == null)
+            return;
+        PftFont? dis = Host.FontByTag(U("disabledFontTag")), hi = Host.FontByTag(U("highlightFontTag"));
+        PftFont? f = !Active && dis != null ? dis : Font;
         if (f == null)
             return;
-        int th = GuiPaint.FontHeight(f);
-        int ty = gy + Math.Max(0, (H - th) / 2) + dy;
-        if (SelEnd > SelStart)
-        {
-            int sx = gx + GuiPaint.TextWidth(f, Text[..Math.Min(SelStart, Text.Length)]);
-            int ex = gx + GuiPaint.TextWidth(f, Text[..Math.Min(SelEnd, Text.Length)]);
-            p.Fill(sx, ty, ex - sx, th, 0xf8);
-        }
-        p.Text(f, gx, ty, Text);
         bool focus = ReferenceEquals(Canvas?.FirstResponder, this);
+        if (hi == null || !focus || SelStart > Text.Length || SelEnd > Text.Length)
+            SelStart = SelEnd = 0;
+        int y = top + ((bottom - top - GuiPaint.FontHeight(f)) >> 1) + (int)U("textVOffset");
+        int x0 = left + 3, x = x0;
+        int end = 0;
+        if (SelEnd > 0)
+        {
+            if (SelStart > 0)
+            {
+                string pre = Text[..SelStart];
+                p.Text(f, x, y, pre);
+                x += GuiPaint.TextWidth(f, pre) + 1;
+            }
+            string sel = Text[SelStart..SelEnd];
+            int w = GuiPaint.TextWidth(hi, sel);
+            if (SelectionColor != 0)
+                p.Fill(x, top, w + 1, bottom - top + 1, SelectionColor);
+            p.Text(hi, x, y, sel);
+            x += w + 1;
+            end = SelEnd;
+        }
+        p.Text(f, x, y, Text[end..]);
         if (focus && mCursorShown)
         {
-            int cx = gx + GuiPaint.TextWidth(f, Text[..Math.Min(Cursor, Text.Length)]);
-            p.Line(cx, ty, cx, ty + th - 1, 0xfe);
+            int cx = x0 + GuiPaint.TextWidth(f, Text[..Math.Min(Cursor, Text.Length)]);
+            p.Line(cx, top, cx, bottom, CursorColor);
         }
     }
 
@@ -587,8 +615,10 @@ public sealed class GuiTestEdit : GuiTextEdit
 
     // Draw [code 004cd974]: an underline of two rules (the table at 00629f68, 0xf0 0xef 0xee 0xed, the second four when dimmed), the
     // upper from x + 3 to x + W - 4 at y + H - 2 in the first colour, the lower from x + 4 to x + W - 5 at y + H - 1 in the second,
-    // and the third colour on both ends of the upper rule. The text starts 6 pixels in. (The stock capture shows this underline,
-    // not the recessed box the first reading of the draw gave.)
+    // and the third colour on both ends of the upper rule. It sets the cursor colour to 0xf0, then the text rectangle to
+    // (x + 6, y, x + W - 1, y + H - 3) and runs the text draw [code 004cdb1c], so the text starts 9 pixels in.
+    protected override int CursorColor => 0xf0;
+
     protected override void DrawField(GuiPaint p, int gx, int gy)
     {
         int b = Dimmed ? 4 : 0;
@@ -596,8 +626,6 @@ public sealed class GuiTestEdit : GuiTextEdit
         p.Line(gx + 4, gy + H - 1, gx + W - 5, gy + H - 1, 0xef - b);
         p.Fill(gx + 3, gy + H - 2, 1, 1, 0xee - b);
         p.Fill(gx + W - 4, gy + H - 2, 1, 1, 0xee - b);
-        // Measured against the stock client (OptIrc, OptNetwork shots): the text starts 9 pixels in and sits 2 pixels higher than a
-        // line centred in the field.
-        DrawLine(p, gx + 9, gy, -2);
+        DrawLine(p, gx + 6, gy, gy + H - 3);
     }
 }
