@@ -61,6 +61,9 @@ public class ShapeVisual : Visual
 
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
 
+    // Seconds since the ghost was created (Item::onAdd stores the time, Item::updateLight counts the light pulse from it).
+    public double LightAge => Age;
+
     public override double[]? WorldBox
     {
         get

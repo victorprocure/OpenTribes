@@ -193,9 +193,12 @@ public sealed class SceneModel
                 case ShapeVisual sv when sv.Class is "Item" or "Mine" && sv.Position is var (x, y, z):
                     ClientDataBlock? db = Db.Block(sv.Class == "Item" ? 5 : 23, (long)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("datablock"), -1));
                     int type = (int)Db.Num(db, "lightType");
-                    double k = type == 1 ? 1 : type == 2 ? 0.15 + 0.85 * (0.5 + 0.5 * Math.Sin(Time * 3)) : 0;
+                    // Item::updateLight (00451bb0): type 2 pulses as 0.15 + 0.85 * (0.5 + 0.5 sin(pi * (now - added) / lightTime)),
+                    // the phase counted from the ghost's creation; the light sits at the item's position.
+                    double lightTime = Db.Num(db, "lightTime", 1.5);
+                    double k = type == 1 ? 1 : type == 2 ? 0.15 + 0.85 * (0.5 + 0.5 * Math.Sin(Math.PI * sv.LightAge / lightTime)) : 0;
                     if (k > 0)
-                        set.Add(new PointLight(x, y, z + 0.5, (float)(Db.Num(db, "lightColor.x") * k), (float)(Db.Num(db, "lightColor.y") * k), (float)(Db.Num(db, "lightColor.z") * k), Db.Num(db, "lightRadius", 3)));
+                        set.Add(new PointLight(x, y, z, (float)(Db.Num(db, "lightColor.x") * k), (float)(Db.Num(db, "lightColor.y") * k), (float)(Db.Num(db, "lightColor.z") * k), Db.Num(db, "lightRadius", 3)));
                     break;
             }
         }
