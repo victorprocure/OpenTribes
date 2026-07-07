@@ -90,6 +90,7 @@ way are added to Open.
 - [x] Turret power animation.
 - [x] Projectiles drawn fullbright and without haze.
 - [x] Item lights pulse.
+- [x] Shape lighting.
 
 ### Menus and HUD
 

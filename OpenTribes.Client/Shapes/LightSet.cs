@@ -1,6 +1,6 @@
 // The light set of a shape (docs/shapes-render.md 2.5, 4.9): ambient colour plus the sun plus the point lights in range;
-// a vertex colour is the sum clamped to 0..1 per channel. The per-light formula is ours (spec Q2): sun term N.L, point
-// term (1 - d / range) * N.L towards the light.
+// a vertex colour is the sum clamped to 0..1 per channel. The sun term is N.L (ours, spec Q2), the point term is the
+// stock vertex function 005aeecc: colour * N.L towards the light inside the range, nothing outside.
 namespace OpenTribes.Client.Shapes;
 
 public readonly record struct PointLight(double X, double Y, double Z, float R, float G, float B, double Range);
@@ -36,10 +36,13 @@ public sealed class LightSet
             double d2 = dx * dx + dy * dy + dz * dz;
             if (d2 >= l.Range * l.Range || l.Range <= 0)
                 continue;
+            // The point light of a vertex (005aeecc, mode 1): nothing beyond the range or behind the surface, otherwise
+            // colour * cos(angle to the light) with no distance falloff (the divisor 1 + c2 d + c3 d^2 stays 1 for item lights).
             double d = Math.Sqrt(d2);
-            double att = 1 - d / l.Range;
-            double dot = d > 1e-9 ? Math.Max(0, (nx * dx + ny * dy + nz * dz) / d) : 1;
-            double k = att * (0.35 + 0.65 * dot);
+            double dot = nx * dx + ny * dy + nz * dz;
+            if (dot < 0)
+                continue;
+            double k = d > 0.001 ? dot / d : 1;
             r += l.R * k; g += l.G * k; b += l.B * k;
         }
         return ((float)Math.Min(r, 1), (float)Math.Min(g, 1), (float)Math.Min(b, 1));
