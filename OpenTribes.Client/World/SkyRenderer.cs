@@ -49,7 +49,7 @@ public sealed class SkyRenderer : IDisposable
                     continue;
                 first ??= bmp;
                 if (!cache.TryGetValue(m, out IGfxTexture? tex))
-                    cache[m] = tex = assets.CreateTexture(mDev, bmp, TerrainData.QuantizeRgba5(assets.Rgba(bmp, true)), false, true, true);
+                    cache[m] = tex = assets.CreateTexture(mDev, bmp, assets.PackedRgba(bmp, true), false, true, true);
                 mPanelTextures[i] = tex;
             }
         }
@@ -57,7 +57,7 @@ public sealed class SkyRenderer : IDisposable
         {
             // 4.1 Init: the sky colour is pixel (0, 0) of the first used panel bitmap, the haze colour pixel (0, height - 1),
             // both read back through the 5 bit packed upload of the stock client (the cap and clear colour of the stock shots).
-            byte[] rgba = TerrainData.QuantizeRgba5(assets.Rgba(first, true));
+            byte[] rgba = assets.PackedRgba(first, true);
             mTop = (rgba[0] / 255f, rgba[1] / 255f, rgba[2] / 255f);
             int o = (first.Height - 1) * first.Width * 4;
             mBottom = (rgba[o] / 255f, rgba[o + 1] / 255f, rgba[o + 2] / 255f);
@@ -202,7 +202,7 @@ public sealed class PlanetRenderer : IDisposable
         Distance = distance;
         PbmpBitmap? bmp = fileName.Length > 0 ? assets.Bitmap(fileName) : null;
         if (bmp != null)
-            mTexture = assets.CreateTexture(dev, bmp, assets.Rgba(bmp, false), false, false, false);
+            mTexture = assets.CreateTexture(dev, bmp, assets.PackedRgba(bmp, false), false, false, true);
     }
 
     public bool HasBitmap => mTexture != null;

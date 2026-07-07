@@ -55,6 +55,29 @@ public static class PaletteTables
         return rgba;
     }
 
+    // The packed 16-bit table the stock client uploads a palette-indexed bitmap through, selected by the kind of the bitmap's subpalette
+    // (palette install 005d4880, upload 005d7148): kinds 0, 1, 6 and 8 give RGBA5551 (5 bit channels, a 1 bit alpha), kind 2
+    // (translucent) gives RGBA4444 (4 bit channels and alpha); the other kinds have no table. The driver reads a 5 bit value v back as
+    // (v << 3) | (v >> 2) and a 4 bit value n as n * 17. Transparent bitmaps (attribute 1) pick the table variant with alpha 0 for index 0, which
+    // `ToRgba` already gave them, so only the colour channels (5551) or all four channels (4444) change here. In place.
+    public static byte[] Pack(byte[] rgba, SubPalette sub)
+    {
+        switch (sub.Kind)
+        {
+            case 0 or 1 or 6 or 8:
+                for (int i = 0; i < rgba.Length; i += 4)
+                    for (int c = 0; c < 3; ++c)
+                        rgba[i + c] = (byte)(((rgba[i + c] >> 3) << 3) | (rgba[i + c] >> 5));
+                return rgba;
+            case 2:
+                for (int i = 0; i < rgba.Length; ++i)
+                    rgba[i] = (byte)((rgba[i] >> 4) * 17);
+                return rgba;
+            default:
+                return rgba;
+        }
+    }
+
     // A 256-entry gray ramp bank, the palette in use before a real one is installed.
     public static PaletteBank Grayscale()
     {

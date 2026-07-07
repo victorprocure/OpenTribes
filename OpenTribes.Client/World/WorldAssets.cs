@@ -80,6 +80,13 @@ public sealed class WorldAssets
         return rgba;
     }
 
+    // RGBA8 of the bitmap through its subpalette, packed the way the stock upload packs it (`Pack`); 24 bit bitmaps are not palette indexed.
+    public byte[] PackedRgba(PbmpBitmap bmp, bool opaque)
+    {
+        byte[] rgba = Rgba(bmp, opaque);
+        return bmp.Depth == 8 ? PaletteTables.Pack(rgba, Palette.FindSubPalette(bmp.PaletteId)) : rgba;
+    }
+
     // Levels 1 .. MipCount-1 of the bitmap's own mip chain as RGBA8 (the stock client uploads each file level, 005d7148 loop over
     // bitmap +0x5c; the levels are not row padded). Empty when the file has no chain.
     public List<byte[]> MipRgba(PbmpBitmap bmp, bool opaque, bool quantize = true, bool keyed = false)
@@ -104,7 +111,7 @@ public sealed class WorldAssets
                 for (int i = 0; i < w * h; ++i)
                     if (bmp.MipLevels[k - 1][i] == 0)
                         rgba[i * 4 + 3] = 0;
-            levels.Add(quantize ? TerrainData.QuantizeRgba5(rgba) : rgba);
+            levels.Add(quantize ? PaletteTables.Pack(rgba, sub) : rgba);
         }
         return levels;
     }

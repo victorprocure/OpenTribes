@@ -210,6 +210,19 @@ public class WorldRenderTests
         Assert.Equal((byte)255, TerrainData.Quantize5(255));
     }
 
+    // The packed upload table by palette kind (005d4880): 5551 for kinds 0, 1, 6, 8, 4444 for kind 2.
+    [Fact]
+    public void PackedTextureFormatFollowsThePaletteKind()
+    {
+        byte[] Px() => new byte[] { 194, 7, 255, 255, 100, 40, 17, 130 };
+        byte[] k1 = OpenTribes.Platform.Gfx.PaletteTables.Pack(Px(), new OpenTribes.Platform.Gfx.SubPalette { Kind = 1 });
+        Assert.Equal(new byte[] { 198, 0, 255, 255, 99, 41, 16, 130 }, k1); // 5 bit colour, alpha untouched
+        byte[] k2 = OpenTribes.Platform.Gfx.PaletteTables.Pack(Px(), new OpenTribes.Platform.Gfx.SubPalette { Kind = 2 });
+        Assert.Equal(new byte[] { 204, 0, 255, 255, 102, 34, 17, 136 }, k2); // n * 17 on all four channels
+        byte[] k3 = OpenTribes.Platform.Gfx.PaletteTables.Pack(Px(), new OpenTribes.Platform.Gfx.SubPalette { Kind = 3 });
+        Assert.Equal(Px(), k3);
+    }
+
     // ---- WR 2.4, 2.5 square selection ----
 
     private static TerrainData Flat(int n = 256, Func<int, int, (byte, byte)>? sq = null) =>

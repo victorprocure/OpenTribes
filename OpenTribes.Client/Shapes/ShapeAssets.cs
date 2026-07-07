@@ -86,11 +86,14 @@ public sealed class ShapeAssets : IDisposable
                     if (idx == 0)
                         rgba[i * 4 + 3] = 0;
                 }
+            // the stock upload packs every palette indexed bitmap (5551, or 4444 for a translucent palette, 005d7148)
+            if (bmp.Depth == 8)
+                PaletteTables.Pack(rgba, sub);
             t = new TexEntry
             {
                 Blend = bmp.Blend, Width = bmp.Width, Height = bmp.Height,
                 PaletteAlpha = bmp.Blend == BlendMode.Translucent && sub.Kind == 2,
-                Texture = mDev != null ? World.CreateTexture(mDev, bmp, rgba, false, false, false, keyed) : null,
+                Texture = mDev != null ? World.CreateTexture(mDev, bmp, rgba, false, false, true, keyed) : null,
             };
         }
         mTextures[key] = t;

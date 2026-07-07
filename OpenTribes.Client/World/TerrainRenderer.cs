@@ -39,7 +39,7 @@ public sealed class TerrainRenderer : IDisposable
         string? name = index >= 0 && index < mMaterials.Count ? mMaterials[index] : null;
         PbmpBitmap? bmp = name != null ? mAssets.Bitmap(name) : null;
         if (bmp != null && bmp.Width > 0 && bmp.Height > 0)
-            t = mAssets.CreateTexture(mDev, bmp, TerrainData.QuantizeRgba5(mAssets.Rgba(bmp, true)), false, true, true);
+            t = mAssets.CreateTexture(mDev, bmp, mAssets.PackedRgba(bmp, true), false, true, true);
         mMaterialTextures[index] = t;
         return t;
     }
@@ -126,7 +126,7 @@ public sealed class TerrainRenderer : IDisposable
                 {
                     string? name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
                     PbmpBitmap? b = name != null ? mAssets.Bitmap(name) : null;
-                    rgbaCache[m] = r = b != null ? TerrainData.QuantizeRgba5(mAssets.Rgba(b, true)) : null;
+                    rgbaCache[m] = r = b != null ? mAssets.PackedRgba(b, true) : null;
                 }
                 return r;
             }
