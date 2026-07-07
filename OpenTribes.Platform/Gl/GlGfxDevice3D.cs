@@ -53,8 +53,13 @@ void main() {
     if (uUseLight != 0) {
         vec3 lm = texture(uLight, vLm).rgb;
         for (int i = 0; i < uDynCount; ++i) {
+            // The interior light merge (00557ea8, 00557c80): the colour is four bits per channel, the squared distance in 64
+            // steps of the squared range, and each step adds trunc(L * (1 - sqrt(step / 64)) + 0.5) to the four bit light map value.
             float d = distance(vWorld, uDynPos[i].xyz);
-            lm += uDynCol[i] * max(0.0, 1.0 - d / uDynPos[i].w);
+            if (d >= uDynPos[i].w) continue;
+            vec3 lv = floor(uDynCol[i] * 15.99);
+            float step = min(floor(64.0 * d * d / (uDynPos[i].w * uDynPos[i].w)), 63.0);
+            lm += floor(lv * (1.0 - sqrt(step / 64.0)) + 0.5) * (16.0 / 255.0);
         }
         c.rgb *= min(lm, vec3(1.0));
     }

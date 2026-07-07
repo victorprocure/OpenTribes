@@ -66,7 +66,7 @@ way are added to Open.
 - [x] Smooth texture magnification.
 - [x] Shape face culling.
 - [x] Interior and sky texture colours and sky band size.
-- [x] Dynamic lights on interiors and terrain.
+- [x] Dynamic lights on interiors and terrain, in the original steps.
 - [x] Team skins change with the team.
 - [x] Rain and snow follow the weather setting, with the original streak count, size, speed, colour and direction.
 - [x] Sky panels.
