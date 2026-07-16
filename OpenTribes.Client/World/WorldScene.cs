@@ -198,19 +198,27 @@ public sealed class WorldScene : IDisposable
     public Action<Camera3D>? Prepare;
     public Action<int>? DrawContents;
 
-    private void SendDynamicLights(double cx, double cy, double cz)
+    private List<PointLight> NearLights(double cx, double cy, double cz)
     {
-        if (DynamicLights == null || DynamicLights.Count == 0)
-        {
-            mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
-            return;
-        }
         var near = new List<PointLight>();
+        if (DynamicLights == null)
+            return near;
         foreach (PointLight l in DynamicLights)
             if (l.Range > 0)
                 near.Add(l);
         near.Sort((a, b) => ((a.X - cx) * (a.X - cx) + (a.Y - cy) * (a.Y - cy) + (a.Z - cz) * (a.Z - cz))
                   .CompareTo((b.X - cx) * (b.X - cx) + (b.Y - cy) * (b.Y - cy) + (b.Z - cz) * (b.Z - cz)));
+        return near;
+    }
+
+    private void SendDynamicLights(double cx, double cy, double cz)
+    {
+        List<PointLight> near = NearLights(cx, cy, cz);
+        if (near.Count == 0)
+        {
+            mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
+            return;
+        }
         int n = Math.Min(near.Count, IGfxDevice.MaxDynamicLights);
         var arr = new DynamicLight[n];
         for (int i = 0; i < n; ++i)
@@ -237,9 +245,13 @@ public sealed class WorldScene : IDisposable
                 p.Draw(bg);
         }
         mDev.SetCamera3D(world);
-        SendDynamicLights(x, y, z);
+        // The terrain merges the lights per square on the CPU (TerrainLightSet), the interiors per fragment.
+        mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
+        if (TerrainDraw != null)
+            TerrainDraw.DynamicLights = NearLights(x, y, z);
         using (FramePerf.Scope("terrain"))
             TerrainDraw?.Draw(world);
+        SendDynamicLights(x, y, z);
         Prepare?.Invoke(world);
         using (FramePerf.Scope("interiors"))
             Interiors?.Draw(world, Terrain, DrawContents == null ? null : i =>

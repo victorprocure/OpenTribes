@@ -18,6 +18,8 @@ public sealed class TerrainRenderer : IDisposable
     public double OriginX, OriginY, OriginZ;
     public TerrainParams Params;
     public int LastSquares, LastTriangles;
+    // The point lights of the frame (nearest first); the squares they touch get their own light map (TerrainLightSet).
+    public IReadOnlyList<Shapes.PointLight>? DynamicLights;
     private readonly TerrainMesh mMesh = new();
 
     public TerrainRenderer(IGfxDevice dev, WorldAssets assets, TerrainData data, List<string?> materials, double ox, double oy,
@@ -159,16 +161,65 @@ public sealed class TerrainRenderer : IDisposable
             squares = TerrainLod.Select(mData, cam, OriginX, OriginY, OriginZ, Params, mGrow);
         TerrainMesh mesh;
         using (FramePerf.Scope("terrain-mesh"))
-            mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params, mMesh, mGrow);
+            mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params, mMesh, mGrow,
+                                       DynamicLights is { Count: > 0 } ? new TerrainLightSet(DynamicLights, OriginX, OriginY, OriginZ) : null);
         LastSquares = squares.Count;
         LastTriangles = mesh.TriangleCount;
         // The stock sort of the emitted squares (compare function 0057642c): level 0 first, by material, then the coarser
         // squares (the atlas here). With 16 bit depth the later draw wins a tie.
-        foreach (var (mat, list) in mesh.ByMaterial.OrderBy(kv => kv.Key))
-            if (list.Count > 0)
+        IGfxTexture? tiles = mesh.Tiles.Count > 0 ? CreateTileAtlas(mesh) : null;
+        foreach (int mat in mesh.ByMaterial.Keys.Union(mesh.DynByMaterial.Keys).OrderBy(k => k))
+        {
+            if (mesh.ByMaterial.TryGetValue(mat, out List<Vertex3D>? list) && list.Count > 0)
                 mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(mat), mLight));
+            if (tiles != null && mesh.DynByMaterial.TryGetValue(mat, out List<Vertex3D>? lit) && lit.Count > 0)
+                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(lit), new DrawState3D(MaterialTexture(mat), tiles));
+        }
         if (mesh.Atlas.Count > 0)
             mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.Atlas), new DrawState3D(mAtlas, mLight));
+        if (tiles != null && mesh.DynAtlas.Count > 0)
+            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.DynAtlas), new DrawState3D(mAtlas, tiles));
+        tiles?.Dispose();
+    }
+
+    // The private light maps of the frame in one texture: the nibbles read back as n * 17 like the static light map (2.9). The
+    // vertices of the lit squares hold texel coordinates until here.
+    private IGfxTexture CreateTileAtlas(TerrainMesh mesh)
+    {
+        const int ts = TerrainMesh.TileSize, per = TerrainMesh.TilesPerRow, w = TerrainMesh.TileAtlasWidth;
+        int h = (mesh.Tiles.Count + per - 1) / per * ts;
+        var rgba = new byte[w * h * 4];
+        for (int i = 0; i < mesh.Tiles.Count; ++i)
+            for (int j = 0; j < ts; ++j)
+                for (int k = 0; k < ts; ++k)
+                {
+                    int o = ((i / per * ts + j) * w + i % per * ts + k) * 4, n = (j * ts + k) * 3;
+                    rgba[o] = (byte)(mesh.Tiles[i][n] * 17);
+                    rgba[o + 1] = (byte)(mesh.Tiles[i][n + 1] * 17);
+                    rgba[o + 2] = (byte)(mesh.Tiles[i][n + 2] * 17);
+                    rgba[o + 3] = 255;
+                }
+        void Normalise(List<Vertex3D> l)
+        {
+            for (int i = 0; i < l.Count; ++i)
+            {
+                Vertex3D v = l[i];
+                v.Lu /= w;
+                v.Lv /= h;
+                l[i] = v;
+            }
+        }
+        Normalise(mesh.DynAtlas);
+        foreach (List<Vertex3D> l in mesh.DynByMaterial.Values)
+            Normalise(l);
+        return mDev.CreateTexture3D(rgba, w, h, new TextureOptions(false, false, true));
+    }
+
+    // The static light map value under a world point as 0..1 colours (the nibbles over 15, ShapeBase_lightProbe 0044e6f4).
+    public (float r, float g, float b) LightAt(double x, double y)
+    {
+        ushort w = mData.LightWord((int)Math.Floor((x - OriginX) / TerrainData.CellSize), (int)Math.Floor((y - OriginY) / TerrainData.CellSize));
+        return ((w >> 8 & 0xf) / 15f, (w >> 4 & 0xf) / 15f, (w & 0xf) / 15f);
     }
 
     public void Dispose()

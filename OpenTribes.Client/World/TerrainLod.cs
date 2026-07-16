@@ -223,7 +223,13 @@ public sealed class TerrainMesh
 {
     public readonly List<Vertex3D> Atlas = new();
     public readonly Dictionary<int, List<Vertex3D>> ByMaterial = new();
-    public int TriangleCount => Atlas.Count / 3 + ByMaterial.Values.Sum(v => v.Count / 3);
+    // The squares a dynamic light touches (TerrainLightSet): their own light map, one 9 x 9 tile of nibbles each in `Tiles`;
+    // the vertices carry the light coordinate in texels of the tile atlas (TileAtlasWidth wide) until the renderer normalises it.
+    public readonly List<Vertex3D> DynAtlas = new();
+    public readonly Dictionary<int, List<Vertex3D>> DynByMaterial = new();
+    public readonly List<byte[]> Tiles = new();
+    public const int TileSize = 9, TilesPerRow = 112, TileAtlasWidth = TileSize * TilesPerRow;
+    public int TriangleCount => Atlas.Count / 3 + ByMaterial.Values.Sum(v => v.Count / 3) + DynAtlas.Count / 3 + DynByMaterial.Values.Sum(v => v.Count / 3);
 
     // Scratch the mesher refills every frame when the same mesh object is passed back in.
     internal readonly HashSet<long> Points = new();
@@ -235,6 +241,10 @@ public sealed class TerrainMesh
         Atlas.Clear();
         foreach (List<Vertex3D> l in ByMaterial.Values)
             l.Clear();
+        DynAtlas.Clear();
+        foreach (List<Vertex3D> l in DynByMaterial.Values)
+            l.Clear();
+        Tiles.Clear();
         Points.Clear();
         Heights.Clear();
         Ring.Clear();
@@ -360,7 +370,7 @@ public static class TerrainMesher
     }
 
     public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null,
-                                   Dictionary<long, float>? growMap = null)
+                                   Dictionary<long, float>? growMap = null, TerrainLightSet? lights = null)
     {
         TerrainMesh mesh = reuse ?? new TerrainMesh();
         mesh.Reset();
@@ -411,16 +421,38 @@ public static class TerrainMesher
         foreach (var sq in ordered)
         {
             int s = 1 << sq.Level, x = sq.X, y = sq.Y;
+            // A square a light touches (2.9) has a tile of its own: light coordinates in texels of the tile, fraction of the side times 8 plus a half.
+            int tile = -1;
+            if (lights != null && lights.Count > 0)
+            {
+                uint mask = lights.Mask(t, sq.Level, x, y);
+                if (mask != 0)
+                {
+                    var nib = new byte[TerrainMesh.TileSize * TerrainMesh.TileSize * 3];
+                    lights.Nodes(t, sq.Level, x, y, mask, nib);
+                    tile = mesh.Tiles.Count;
+                    mesh.Tiles.Add(nib);
+                }
+            }
+            Vertex3D Lit(Vertex3D v, int gx, int gy)
+            {
+                if (tile < 0)
+                    return v;
+                v.Lu = tile % TerrainMesh.TilesPerRow * TerrainMesh.TileSize + 0.5f + (gx - x) * 8f / s;
+                v.Lv = tile / TerrainMesh.TilesPerRow * TerrainMesh.TileSize + 0.5f + (gy - y) * 8f / s;
+                return v;
+            }
             if (sq.Level == 0)
             {
                 int flags = t.Flags(x, y);
                 int mat = t.Material(x, y);
-                if (!mesh.ByMaterial.TryGetValue(mat, out List<Vertex3D>? list))
-                    mesh.ByMaterial[mat] = list = new List<Vertex3D>();
+                Dictionary<int, List<Vertex3D>> target = tile < 0 ? mesh.ByMaterial : mesh.DynByMaterial;
+                if (!target.TryGetValue(mat, out List<Vertex3D>? list))
+                    target[mat] = list = new List<Vertex3D>();
                 Vertex3D C(int cx, int cy)
                 {
                     var (u, v) = CornerUv(cx, cy, flags);
-                    return V(x + cx, y + cy, Z(x + cx, y + cy), u, v);
+                    return Lit(V(x + cx, y + cy, Z(x + cx, y + cy), u, v), x + cx, y + cy);
                 }
                 Vertex3D a = C(0, 0), b = C(1, 0), c = C(1, 1), d = C(0, 1);
                 if (TerrainLod.SplitMainDiagonal(0, x, y))
@@ -440,7 +472,8 @@ public static class TerrainMesher
             Border(x + s, y, x + s, y + s, ring);
             Border(x + s, y + s, x, y + s, ring);
             Border(x, y + s, x, y, ring);
-            Vertex3D At(int gx, int gy) => V(gx, gy, Z(gx, gy), gx / (float)TerrainData.Cells, gy / (float)TerrainData.Cells);
+            Vertex3D At(int gx, int gy) => Lit(V(gx, gy, Z(gx, gy), gx / (float)TerrainData.Cells, gy / (float)TerrainData.Cells), gx, gy);
+            List<Vertex3D> atlas = tile < 0 ? mesh.Atlas : mesh.DynAtlas;
             // 2.8: one polygon of the border points; the fan starts at the corner the split diagonal runs from: the first
             // corner (top left) for the (0,0)-(1,1) diagonal, else the second (top right).
             int start = 0;
@@ -463,15 +496,18 @@ public static class TerrainMesher
                 }
                 if (i >= 2)
                 {
-                    mesh.Atlas.Add(first);
-                    mesh.Atlas.Add(prev);
-                    mesh.Atlas.Add(v);
+                    atlas.Add(first);
+                    atlas.Add(prev);
+                    atlas.Add(v);
                 }
                 prev = v;
             }
         }
         DropFarTriangles(mesh.Atlas, cam, p.Visible);
         foreach (List<Vertex3D> l in mesh.ByMaterial.Values)
+            DropFarTriangles(l, cam, p.Visible);
+        DropFarTriangles(mesh.DynAtlas, cam, p.Visible);
+        foreach (List<Vertex3D> l in mesh.DynByMaterial.Values)
             DropFarTriangles(l, cam, p.Visible);
         return mesh;
     }
