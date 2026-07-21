@@ -89,7 +89,7 @@ way are added to Open.
 - [x] Rocket trail (drawn once), its texture scroll in game time and rocket orientation.
 - [x] Turret power animation.
 - [x] Projectiles drawn fullbright and without haze.
-- [x] Item lights pulse.
+- [x] Item and mine lights pulse and fade.
 - [x] Shape lighting.
 
 ### Menus and HUD

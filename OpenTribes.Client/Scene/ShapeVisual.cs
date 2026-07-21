@@ -176,11 +176,7 @@ public class ShapeVisual : Visual
                 foreach (ThreadSlot s in ThreadSlot.ParseAll(f.Value))
                     ApplySlot(s);
         if (u.Fields.Any(f => f.Name == "fade"))
-        {
-            long fv = (long)Num("fade");
-            FadeStart = M.Time;
-            FadeDir = fv == 2 ? -1 : 1;
-        }
+            StartFade((long)Num("fade") == 2);
         if (Group == 19)
             ApplyTurret(u);
         if (u.Fields.Any(f => f.Name == "damageState"))
@@ -322,11 +318,31 @@ public class ShapeVisual : Visual
             Visibility.Position = DamageState == 3 ? 1.0 : 0.0;
     }
 
+    // ShapeBase::startFadeOut / startFadeIn (0044e..., client side of the 0x200 mask): a fade that is not running starts now. Reversing a
+    // running fade keeps the fraction it had reached (the start time moves to now - (2.5 s - elapsed)), unless the elapsed time is past 2.5 s.
+    // A finished fade in (state 2) is state 0 again, so asking for it again starts it again.
+    private void StartFade(bool fadeIn)
+    {
+        int dir = fadeIn ? -1 : 1;
+        double now = M.Time, elapsed = now - FadeStart;
+        if (FadeStart < 0 || FadeDir == 0 || (FadeDir < 0 && elapsed >= FadeSeconds))
+            FadeStart = now;
+        else if (dir != FadeDir)
+            FadeStart = elapsed <= FadeSeconds ? now - (FadeSeconds - elapsed) : now;
+        FadeDir = dir;
+    }
+
+    // The fade runs 2500 ms (the divisor at 0061a2fc).
+    private const double FadeSeconds = 2.5;
+
+    // Item::updateLight (00451bb0) multiplies the pulse by 1 - fade: the light fades with the shape on hide and show.
+    public double LightFade => 1 - FadeAmount();
+
     protected virtual double FadeAmount()
     {
         if (FadeStart < 0)
             return 0;
-        double f = (M.Time - FadeStart) / 2.5;
+        double f = (M.Time - FadeStart) / FadeSeconds;
         if (FadeDir > 0)
             return Math.Clamp(f, 0, 1);
         return Math.Clamp(1 - f, 0, 1);

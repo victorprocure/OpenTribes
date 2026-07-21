@@ -197,6 +197,7 @@ public sealed class SceneModel
                     // the phase counted from the ghost's creation; the light sits at the item's position.
                     double lightTime = Db.Num(db, "lightTime", 1.5);
                     double k = type == 1 ? 1 : type == 2 ? 0.15 + 0.85 * (0.5 + 0.5 * Math.Sin(Math.PI * sv.LightAge / lightTime)) : 0;
+                    k *= sv.LightFade;
                     if (k > 0)
                         set.Add(new PointLight(x, y, z, (float)(Db.Num(db, "lightColor.x") * k), (float)(Db.Num(db, "lightColor.y") * k), (float)(Db.Num(db, "lightColor.z") * k), Db.Num(db, "lightRadius", 3)));
                     break;
