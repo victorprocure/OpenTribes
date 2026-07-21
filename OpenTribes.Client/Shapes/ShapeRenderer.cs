@@ -125,6 +125,7 @@ public sealed class ShapeRenderer
         inst.Animate(detail);
         bool[] nodeMask = sh.NodesOfDetail(detail).Mask;
         var (ccx, ccy, ccz) = toWorld.Apply(sh.Cx, sh.Cy, sh.Cz);
+        LightSet.ShapeFrame lights = p.Light.ForShape(ccx, ccy, ccz, sh.Radius);
         var (_, depth, _) = cam.ToCamera(ccx, ccy, ccz);
         double dist = Math.Sqrt((ccx - cam.X) * (ccx - cam.X) + (ccy - cam.Y) * (ccy - cam.Y) + (ccz - cam.Z) * (ccz - cam.Z));
         // A shape whose bounding sphere (padded for moving parts) is wholly outside the view makes no image: nothing of it can
@@ -246,7 +247,7 @@ public sealed class ShapeRenderer
                 if (!group && shading == 2)
                 {
                     double l = Math.Sqrt(nx * nx + ny * ny + nz * nz);
-                    faceCol = p.Light.At((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3, l > 0 ? -nx / l : 0, l > 0 ? -ny / l : 0, l > 0 ? -nz / l : 1);
+                    faceCol = lights.At((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3, l > 0 ? -nx / l : 0, l > 0 ? -ny / l : 0, l > 0 ? -nz / l : 1);
                 }
                 List<Vertex3D> list = mBatches[mi];
                 for (int k = 0; k < 3; ++k)
@@ -265,7 +266,7 @@ public sealed class ShapeRenderer
                     else if (shading == 2)
                         lc = faceCol!.Value;
                     else
-                        lc = col[vi] ??= p.Light.At(wp[vi].x, wp[vi].y, wp[vi].z, wn[vi].x, wn[vi].y, wn[vi].z);
+                        lc = col[vi] ??= lights.At(wp[vi].x, wp[vi].y, wp[vi].z, wn[vi].x, wn[vi].y, wn[vi].z);
                     list.Add(new Vertex3D((float)wp[vi].x, (float)wp[vi].y, (float)wp[vi].z, u, v, 0, 0, hz, lc.r * fr, lc.g * fg, lc.b * fb, alpha));
                 }
             }

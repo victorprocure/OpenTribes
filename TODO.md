@@ -90,7 +90,7 @@ way are added to Open.
 - [x] Turret power animation.
 - [x] Projectiles drawn fullbright and without haze.
 - [x] Item and mine lights pulse and fade.
-- [x] Shape lighting.
+- [x] Shape lighting, also from far lights.
 
 ### Menus and HUD
 

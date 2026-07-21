@@ -25,16 +25,77 @@ public sealed class LightSet
 
     public void Add(in PointLight l) => Points.Add(l);
 
-    public (float r, float g, float b) At(double px, double py, double pz, double nx, double ny, double nz)
+
+    // The point lights as one shape sees them: the light setup of the type 2 lights (005ae964) picks a mode per light from the
+    // distance d of the shape's bounding sphere centre (radius r) to the light (range R): 0 none when d > R + r; 1 per vertex when
+    // d <= 20 r or d <= 1; else the direction to the centre is used for every vertex, mode 2 when d <= R - 2 r, mode 3 (with the
+    // per vertex range test of mode 1) otherwise. The distance divisor ftol((c3 d + c2) d + c1) is 1 here (c1 = 1, c2 = c3 = 0: the
+    // exe leaves the three fields of an item light unset).
+    public sealed class ShapeFrame
+    {
+        private readonly LightSet mSet;
+        private readonly int[] mMode;
+        private readonly (double x, double y, double z)[] mDir;
+
+        public ShapeFrame(LightSet set, double cx, double cy, double cz, double radius)
+        {
+            mSet = set;
+            mMode = new int[set.Points.Count];
+            mDir = new (double, double, double)[set.Points.Count];
+            for (int i = 0; i < mMode.Length; ++i)
+            {
+                PointLight l = set.Points[i];
+                double dx = cx - l.X, dy = cy - l.Y, dz = cz - l.Z, d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                if (l.Range + radius < d)
+                    mMode[i] = 0;
+                else if (radius * FarRadii >= d || d <= 1.0)
+                    mMode[i] = 1;
+                else
+                {
+                    mDir[i] = (dx / d, dy / d, dz / d);
+                    mMode[i] = l.Range - 2.0 * radius >= d ? 2 : 3;
+                }
+            }
+        }
+
+        public (float r, float g, float b) At(double px, double py, double pz, double nx, double ny, double nz) =>
+            mSet.Shade(px, py, pz, nx, ny, nz, mMode, mDir);
+    }
+
+    public const double FarRadii = 20.0; // the first float of a light object (0x41a00000)
+
+    public ShapeFrame ForShape(double cx, double cy, double cz, double radius) => new(this, cx, cy, cz, radius);
+
+    public (float r, float g, float b) At(double px, double py, double pz, double nx, double ny, double nz) =>
+        Shade(px, py, pz, nx, ny, nz, null, null);
+
+    private (float r, float g, float b) Shade(double px, double py, double pz, double nx, double ny, double nz, int[]? modes,
+                                              (double x, double y, double z)[]? dirs)
     {
         double ndl = Math.Max(0, nx * SunX + ny * SunY + nz * SunZ);
         double r = AmbR + SunR * ndl, g = AmbG + SunG * ndl, b = AmbB + SunB * ndl;
         for (int i = 0; i < Points.Count; ++i)
         {
             PointLight l = Points[i];
+            int mode = modes?[i] ?? 1;
+            if (mode == 0)
+                continue;
             double dx = l.X - px, dy = l.Y - py, dz = l.Z - pz;
             double d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 >= l.Range * l.Range || l.Range <= 0)
+            if (mode >= 2)
+            {
+                // 005aeecc modes 2 and 3: mode 3 keeps the per vertex range test, both light by the cosine between the normal and
+                // the direction from the shape's centre to the light.
+                if (mode == 3 && d2 > l.Range * l.Range)
+                    continue;
+                var (ux, uy, uz) = dirs![i];
+                double c = -(nx * ux + ny * uy + nz * uz);
+                if (c < 0)
+                    continue;
+                r += l.R * c; g += l.G * c; b += l.B * c;
+                continue;
+            }
+            if (d2 > l.Range * l.Range || l.Range <= 0)
                 continue;
             // The point light of a vertex (005aeecc, mode 1): nothing beyond the range or behind the surface, otherwise
             // colour * cos(angle to the light) with no distance falloff (the divisor 1 + c2 d + c3 d^2 stays 1 for item lights).
