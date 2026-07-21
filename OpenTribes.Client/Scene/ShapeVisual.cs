@@ -350,11 +350,32 @@ public class ShapeVisual : Visual
 
     protected virtual int DamageLevel => Skins.DamageLevel(Damage, M.Assets.DamageSkinDetail);
 
+    protected readonly ProbeState mProbe = new();
+
+    // The light set of this object's main image: the scene light adjusted by the probe state. Items and vehicles probe again every 250 ms
+    // (Item_queryRender, Vehicle_renderQuery); the other shapes probe once (ShapeBase_processQuery).
+    protected LightSet ProbedLight(FrameContext ctx)
+    {
+        LightProbe? probe = M.Probe;
+        double[]? box = probe == null ? null : WorldBox;
+        if (probe == null || box == null)
+            return ctx.Light;
+        bool repeat = Group is 5 or 23 or 9 or 10;
+        if (mProbe.LastUpdate < 0 || (Group == 3 && M.Time != mProbe.LastUpdate) || (repeat && M.Time - mProbe.LastUpdate >= 0.25))
+        {
+            var (ok, rgb, strength) = probe.Query(box);
+            mProbe.Update(ok, rgb, strength);
+            mProbe.LastUpdate = M.Time;
+        }
+        return mProbe.Active ? ctx.Light.WithProbe(mProbe.Colour.r, mProbe.Colour.g, mProbe.Colour.b, mProbe.Strength) : ctx.Light;
+    }
+
     public override void Build(FrameContext ctx)
     {
         if (Inst == null || Shape == null || !HavePos || Hidden)
             return;
         ShapeDraw d = ctx.Draw(PoseXf(), Shape.Name);
+        d.Light = ProbedLight(ctx);
         d.Skin = Skin;
         d.DamageLevel = Group is 3 or 4 or 19 ? DamageLevel : 0;
         d.Fade = FadeAmount();

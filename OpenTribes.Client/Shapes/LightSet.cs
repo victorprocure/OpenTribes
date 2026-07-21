@@ -25,6 +25,22 @@ public sealed class LightSet
 
     public void Add(in PointLight l) => Points.Add(l);
 
+    // The image light adjust of a shape whose light probe found a surface (0x449a90): the sun colour moves toward the probe colour by the
+    // strength s, and the ambient is scaled by min(1, 2 s (0.3 r + 0.5 g + 0.2 b)).
+    public LightSet WithProbe(float pr, float pg, float pb, float s)
+    {
+        var l = new LightSet { AmbR = AmbR, AmbG = AmbG, AmbB = AmbB, SunX = SunX, SunY = SunY, SunZ = SunZ, SunR = SunR, SunG = SunG, SunB = SunB };
+        l.Points.AddRange(Points);
+        if (SunR != 0 || SunG != 0 || SunB != 0)
+        {
+            l.SunR = SunR * (1 - s) + pr * s;
+            l.SunG = SunG * (1 - s) + pg * s;
+            l.SunB = SunB * (1 - s) + pb * s;
+        }
+        float f = Math.Min(1f, (0.3f * pr + 0.5f * pg + 0.2f * pb) * s * 2f);
+        l.AmbR *= f; l.AmbG *= f; l.AmbB *= f;
+        return l;
+    }
 
     // The point lights as one shape sees them: the light setup of the type 2 lights (005ae964) picks a mode per light from the
     // distance d of the shape's bounding sphere centre (radius r) to the light (range R): 0 none when d > R + r; 1 per vertex when
@@ -72,7 +88,8 @@ public sealed class LightSet
     private (float r, float g, float b) Shade(double px, double py, double pz, double nx, double ny, double nz, int[]? modes,
                                               (double x, double y, double z)[]? dirs)
     {
-        double ndl = Math.Max(0, nx * SunX + ny * SunY + nz * SunZ);
+        // The sun is a type 6 light: (1 + N.L) / 2 times its colour (005aee50, the planet light object has type 6).
+        double ndl = (1 + nx * SunX + ny * SunY + nz * SunZ) * 0.5;
         double r = AmbR + SunR * ndl, g = AmbG + SunG * ndl, b = AmbB + SunB * ndl;
         for (int i = 0; i < Points.Count; ++i)
         {

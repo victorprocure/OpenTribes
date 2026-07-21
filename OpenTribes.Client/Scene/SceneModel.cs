@@ -29,6 +29,8 @@ public sealed class SceneModel
     public bool AnimateWithTransitions;       // $pref::animateWithTransitions, default off (3.3)
     public double PlayerShapeDetail = 1;      // $pref::playerShapeDetail
     public LightSet BaseLight = LightSet.Default();
+    // The shape light probe (null: shapes keep the scene light as it is); set by the host that has the interiors and the terrain renderer.
+    public LightProbe? Probe;
     public int TriggerCount, ContactTriggers, ExplosionsSpawned, FootprintsAdded, BulletHolesAdded;
     private bool mDecalsLoaded;
 

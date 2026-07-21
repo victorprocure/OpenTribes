@@ -267,6 +267,18 @@ public sealed class LiveGame : IDisposable
         Model = new SceneModel(World, Assets, mRenderer, Scene.TerrainModel);
         if (Scene.Interiors != null)
             Scene.Interiors.TeamSkin = Model.TeamSkin;
+        Model.Probe = new LightProbe
+        {
+            Ground = Scene.TerrainModel,
+            TerrainLight = Scene.TerrainDraw == null ? null : (x, y) => Scene.TerrainDraw.LightAt(x, y),
+            Interior = (sx, sy, sz, dx, dy, dz, len) =>
+            {
+                double t = 0;
+                (float r, float g, float b) light = default;
+                bool hit = Scene.Interiors != null && Scene.Interiors.Probe(sx, sy, sz, dx, dy, dz, len, out t, out light);
+                return (hit, t, light);
+            },
+        };
         Model.BaseLight.SetSun(Scene.SunAzimuth, Scene.SunIncidence);
         Model.BaseLight.AmbR = (float)Scene.SunAmbient[0]; Model.BaseLight.AmbG = (float)Scene.SunAmbient[1]; Model.BaseLight.AmbB = (float)Scene.SunAmbient[2];
         Model.BaseLight.SunR = (float)Scene.SunIntensity[0]; Model.BaseLight.SunG = (float)Scene.SunIntensity[1]; Model.BaseLight.SunB = (float)Scene.SunIntensity[2];

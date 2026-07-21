@@ -445,6 +445,7 @@ public sealed class PlayerVisual : ShapeVisual
         if (!firstPerson)
         {
             ShapeDraw d = ctx.Draw(body, Shape.Name);
+            d.Light = ProbedLight(ctx);
             d.Skin = Skin;
             d.DamageLevel = DamageLevel;
             d.Fade = fade;

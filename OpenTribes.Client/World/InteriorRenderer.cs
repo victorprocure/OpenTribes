@@ -176,6 +176,8 @@ public sealed class InteriorRenderer : IDisposable
         // step last processed and, per light, the private state of a random light. Detail changes reset the random states.
         internal double? LightOrigin;
         internal long LightStep;
+        internal InteriorLodModel? DrawnLod;
+        internal LightAtlas? DrawnAtlas;
         internal InteriorLodModel? LightLod;
         internal float[] RandomTime = Array.Empty<float>();
         internal int[] RandomState = Array.Empty<int>();
@@ -746,6 +748,8 @@ public sealed class InteriorRenderer : IDisposable
             if (lod == null || lod.Base == null || lod.Atlases.Count == 0)
                 return;
             LightAtlas atlas = InstanceAtlas(inst, lod, InstanceStep(inst));
+            inst.DrawnLod = lod;
+            inst.DrawnAtlas = atlas;
             // 1.4: one haze amount for the image, from the distance of the object position
             double od = Math.Sqrt((cam.X - wcx) * (cam.X - wcx) + (cam.Y - wcy) * (cam.Y - wcy) + (cam.Z - wcz) * (cam.Z - wcz));
             float hz = (float)TerrainLod.ObjectHaze(od, haze.HazeStart, haze.Visible);
@@ -894,6 +898,59 @@ public sealed class InteriorRenderer : IDisposable
         if (list.Count > 0)
             mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, atlas));
         list.Clear();
+    }
+
+    // The ray of the shape light probe (ShapeBase_lightProbe 0044e6f4): the nearest surface of a drawn interior instance along start + t * dir,
+    // 0 <= t <= length, and the nibbles of its light map at the hit point (the instance's current atlas, nearest texel of the surface's
+    // light coordinates there), as 0..1 colours.
+    public bool Probe(double sx, double sy, double sz, double dx, double dy, double dz, double length, out double t, out (float r, float g, float b) light)
+    {
+        t = double.MaxValue;
+        light = default;
+        foreach (Instance inst in Instances)
+        {
+            LightAtlas? atlas = inst.DrawnAtlas;
+            InteriorLodModel? lod = inst.DrawnLod;
+            if (atlas == null || lod == null || !inst.Meshes.TryGetValue(lod, out SurfaceMesh[]? meshes) || inst.Box == null)
+                continue;
+            double[] bx = inst.Box;
+            if (sx < bx[0] - length && dx >= 0 || sx > bx[3] + length && dx <= 0 || sy < bx[1] - length && dy >= 0 || sy > bx[4] + length && dy <= 0 ||
+                sz < bx[2] - length && dz >= 0 || sz > bx[5] + length && dz <= 0)
+                continue;
+            foreach (SurfaceMesh mesh in meshes)
+            {
+                Vertex3D[]? tr = mesh.Triangles;
+                if (tr == null)
+                    continue;
+                for (int i = 0; i + 2 < tr.Length; i += 3)
+                {
+                    Vertex3D a = tr[i], b = tr[i + 1], c = tr[i + 2];
+                    double e1x = b.X - a.X, e1y = b.Y - a.Y, e1z = b.Z - a.Z, e2x = c.X - a.X, e2y = c.Y - a.Y, e2z = c.Z - a.Z;
+                    double px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x;
+                    double det = e1x * px + e1y * py + e1z * pz;
+                    if (Math.Abs(det) < 1e-12)
+                        continue;
+                    double ix = sx - a.X, iy = sy - a.Y, iz = sz - a.Z, u = (ix * px + iy * py + iz * pz) / det;
+                    if (u < 0 || u > 1)
+                        continue;
+                    double qx = iy * e1z - iz * e1y, qy = iz * e1x - ix * e1z, qz = ix * e1y - iy * e1x;
+                    double v = (dx * qx + dy * qy + dz * qz) / det;
+                    if (v < 0 || u + v > 1)
+                        continue;
+                    double tt = (e2x * qx + e2y * qy + e2z * qz) / det;
+                    if (tt < 0 || tt > length || tt >= t)
+                        continue;
+                    double lu = a.Lu + u * (b.Lu - a.Lu) + v * (c.Lu - a.Lu), lv = a.Lv + u * (b.Lv - a.Lv) + v * (c.Lv - a.Lv);
+                    int tx = Math.Clamp((int)(lu * lod.AtlasW), 0, lod.AtlasW - 1), ty = Math.Clamp((int)(lv * lod.AtlasH), 0, lod.AtlasH - 1);
+                    int o = (ty * lod.AtlasW + tx) * 4;
+                    if (o + 2 >= atlas.Rgba.Length)
+                        continue;
+                    t = tt;
+                    light = (atlas.Rgba[o] / 255f, atlas.Rgba[o + 1] / 255f, atlas.Rgba[o + 2] / 255f);
+                }
+            }
+        }
+        return t != double.MaxValue;
     }
 
     public void Dispose()
