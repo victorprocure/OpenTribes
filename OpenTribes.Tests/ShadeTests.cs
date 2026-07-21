@@ -25,16 +25,14 @@ public class ShadeTests
     }
 
     [Fact]
-    public void FarLightsUseTheDirectionToTheShapeCentre() // 005ae964 and 005aeecc modes 2 and 3
+    public void FarLightsLightNothingAndNearOnesLightPerVertex() // 005ae964 modes 2 and 3 (factor 0 for a divisor of 0), 005aeecc mode 1
     {
         var set = new LightSet { AmbR = 0, AmbG = 0, AmbB = 0, SunR = 0, SunG = 0, SunB = 0 };
         set.Add(new PointLight(0, 0, 100, 1, 1, 1, 200));
-        // radius 1: the light is 100 away (> 20 radii), inside range - 2 r: mode 2, every vertex uses the centre direction
-        var f = set.ForShape(0, 0, 0, 1);
-        var (r, _, _) = f.At(5, 0, 0, 0, 0, 1);
-        Assert.Equal(1f, r, 3);
-        // a normal facing away from the centre direction gets nothing
-        Assert.Equal(0f, f.At(5, 0, 0, 0, 0, -1).r);
+        // radius 1: the light is 100 away (> 20 radii) and inside the range: mode 2 or 3, the unset divisor makes the factor 0
+        Assert.Equal(0f, set.ForShape(0, 0, 0, 1).At(5, 0, 0, 0, 0, 1).r);
+        // radius 6: 100 <= 20 radii, lit per vertex by the cosine to the light
+        Assert.Equal(1f, set.ForShape(0, 0, 0, 6).At(0, 0, 0, 0, 0, 1).r, 3);
     }
 
     [Fact]
