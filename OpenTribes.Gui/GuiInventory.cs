@@ -10,6 +10,11 @@ public sealed class GuiInventoryList : GuiList
     // The two lists differ in the filter and in the number at the right: the carried count or the price.
     public bool Purchase;
 
+    // Both classes answer no to the tab stop query (0048a6c4) and to the gain-focus query (responder slot 0x40, 0048a6c0): the list never
+    // holds the keyboard, so the inventory key reaches the action maps while the screen is up.
+    public override bool WantsTab => false;
+    public override bool CanTake() => false;
+
     // The font tags of the engine: normal 150114, selected 150164, disabled 150134, highlight 150124 [code 0048aea0].
     public const uint NormalFontTag = 150114, SelectedFontTag = 150164, DisabledFontTag = 150134;
     public const int Padding = 6, CellWidth = 300, TextY = 1, TextX = 15, ValueX = 0x9e, StarX = 3, HeaderColor = 0xf0;
