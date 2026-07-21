@@ -116,7 +116,7 @@ way are added to Open.
 - [x] Chat display size (kept across screens), message fonts and command line.
 - [x] Chat and command menu, drawn in full.
 - [x] Compass readout, waypoint and arrow, and when the weapon HUD wakes.
-- [x] Command screen, inventory and purchase lists leave keys to the game.
+- [x] Lists and menus leave keys to the game, like the original.
 - [x] Crosshair target marks and labels for players and friendly objects, picked by their box.
 - [x] Low resolution HUD layout and reticle.
 - [x] Menu look: border and dialog frames, item text, text fields, sliders, key binding rows, combo boxes, the filter box and the buddy list.

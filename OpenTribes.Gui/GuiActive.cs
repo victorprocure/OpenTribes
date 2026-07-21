@@ -108,7 +108,14 @@ public class GuiActive : GuiControl
     }
 
     public override bool CanRelease() => !Pressed;
-    public override bool CanTake() => Active && Visible;
+    // Classes whose gain-focus slot (control virtual 0xfc, responder slot 0x40) is a 3 byte stub that returns false [code 0048a1dc FGTextList,
+    // 00489a04 FearGuiFormattedText, 0048fdcc FGIRCView, 00491b5c FGIRCNicknames, 00492ff4 FGIRCChannelCtrl, 004938e8 FGIRCTopicCtrl,
+    // 00494104 FGIRCScrollChannel, 00496614 FGMenuCtrl, 004a93d0 CommandTeamCtrl, 004aa0fc CommandItemCtrl, 004aafb4 CommandTurretCtrl,
+    // 004e5f0c FGHInventory]: they never hold the keyboard, so every key reaches the action maps while their screen is up. Clicks still work.
+    private bool RefusesFocus => ClassName is "FearGui::FGTextList" or "FearGuiFormattedText" or "FearGui::FGIRCView" or "FearGui::FGIRCNicknames"
+        or "FearGui::FGIRCChannelCtrl" or "FearGui::FGIRCTopicCtrl" or "FearGui::FGIRCScrollChannel" or "FearGui::FGMenuCtrl"
+        or "FearGui::CommandTeamCtrl" or "FearGui::CommandItemCtrl" or "FearGui::CommandTurretCtrl" or "FearGui::FGHInventory";
+    public override bool CanTake() => Active && Visible && !RefusesFocus;
 
     // Control::performClick and every release that fires: the action (slot 0xd8).
     public void DoAction() => Action();

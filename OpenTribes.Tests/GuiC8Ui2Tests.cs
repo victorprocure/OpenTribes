@@ -245,7 +245,16 @@ public sealed class GuiC8Ui2Tests : IDisposable
     [InlineData("FearGui::CommandTeamCtrl")]
     [InlineData("FearGui::CommandItemCtrl")]
     [InlineData("FearGui::CommandTurretCtrl")]
-    public void CommandScreenListsRefuseFocus(string cls)
+    [InlineData("FearGui::FGTextList")]
+    [InlineData("FearGuiFormattedText")]
+    [InlineData("FearGui::FGIRCView")]
+    [InlineData("FearGui::FGIRCNicknames")]
+    [InlineData("FearGui::FGIRCChannelCtrl")]
+    [InlineData("FearGui::FGIRCTopicCtrl")]
+    [InlineData("FearGui::FGIRCScrollChannel")]
+    [InlineData("FearGui::FGMenuCtrl")]
+    [InlineData("FearGui::FGHInventory")]
+    public void StubFocusClassesRefuseFocus(string cls)
     {
         Assert.False(GuiFixture.Make(cls, 0, 0, 100, 100).CanTake());
     }
