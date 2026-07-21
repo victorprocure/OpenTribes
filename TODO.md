@@ -132,6 +132,7 @@ way are added to Open.
 - [x] Text edit text, selection and cursor blink.
 - [x] Scroll frame and its keyboard focus.
 - [x] Text lists and list selection.
+- [x] Labels resize to their text.
 
 ### Audio
 

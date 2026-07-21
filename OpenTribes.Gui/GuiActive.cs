@@ -213,6 +213,17 @@ public sealed class GuiFGSimpleText : GuiSimpleText
     public override bool WantsTab => false;
     public override bool CanTake() => false;
 
+    // The set-text slot (0x10c) of the class [code 004c99f8] runs the base routine and then sizes the control to the text: the width is the
+    // width of the text in the normal font (tag 150121) plus 2, so a value set from a script is as wide as it is long. The base clips the
+    // draw to the control, which is why a label of the file with width 1 stays empty until it is set.
+    protected override void ApplyValue(string v)
+    {
+        base.ApplyValue(v);
+        PftFont? big = Host?.FontByName("sf_orange255_10.pft");
+        if (big != null)
+            W = GuiPaint.TextWidth(big, Text) + 2;
+    }
+
     public override void PreRender()
     {
         if (Canvas == null)
