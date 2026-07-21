@@ -201,7 +201,9 @@ public class GuiScroll : GuiControl
     // is up. The plain SimGui::ScrollCtrl keeps the base rule.
     private bool KeyboardStop => ClassName != "FearGui::FearGuiScrollCtrl";
     public override bool WantsTab => KeyboardStop;
-    public override bool CanTake() => Visible && KeyboardStop;
+    // Gain-focus query (responder slot 0x40, 00549934): the answer is the "handle arrow keys" byte (+0x281). A scroll frame without
+    // it never becomes the first responder, so every key reaches the action maps (the inventory screen closes with its key).
+    public override bool CanTake() => U("handleArrowKeys") != 0;
 
     private GuiControl? ContentChild => Children.FirstOrDefault(c => c is GuiScrollContent);
     private GuiControl? Inner => ContentChild?.Children.FirstOrDefault();
