@@ -41,7 +41,7 @@ public sealed class GuiObjectivePage : GuiActive
             if (mLayouts[i] == null || mTexts[i] != text || mLaidWidth != W)
             {
                 fonts ??= Fonts();
-                mLayouts[i] = GuiTextFormat.Layout(text, W, fonts, n => Host?.BitmapByName(n), n => Host?.GetVar(n) ?? "");
+                mLayouts[i] = GuiTextFormat.Layout(text, W, fonts, n => Host?.BitmapByName(n), n => Host?.GetVar("$" + n) ?? "");
                 mTexts[i] = text;
             }
             total += mLayouts[i]!.Height;

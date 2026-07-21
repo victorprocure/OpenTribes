@@ -874,6 +874,9 @@ public sealed class GuiTextWrap : GuiActive
 
     public override string GetValue() => Text;
 
+    // The text with the `<vNAME>` tags replaced by the console variables [code 005370b8]; the variable names of the engine have no `$`.
+    private string Shown => Formatted && Host != null ? GuiMarkup.ExpandVariables(Text, n => Host.GetVar("$" + n)) : Text;
+
     public override void Wake()
     {
         if (Host?.TagText(U("textTag")) is string t)
@@ -891,7 +894,7 @@ public sealed class GuiTextWrap : GuiActive
         PftFont? f = BaseFont;
         if (f == null)
             return;
-        int h = GuiMarkup.WrapText(Host, f, Text, W).Count * (GuiPaint.FontHeight(f) + (int)U("lineSpacing"));
+        int h = GuiMarkup.WrapText(Host, f, Shown, W).Count * (GuiPaint.FontHeight(f) + (int)U("lineSpacing"));
         if (h > H)
             H = h;
     }
@@ -905,8 +908,9 @@ public sealed class GuiTextWrap : GuiActive
         {
             int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
             int y = gy;
-            int just = GuiMarkup.Justification(Text);
-            foreach (var line in GuiMarkup.WrapText(Host, f, Text, W))
+            string shown = Shown;
+            int just = GuiMarkup.Justification(shown);
+            foreach (var line in GuiMarkup.WrapText(Host, f, shown, W))
             {
                 int lw = just == 0 ? 0 : GuiMarkup.Width(Host, f, line);
                 GuiMarkup.Draw(p, Host, f, gx + (just == 1 ? (W - lw) / 2 : just == 2 ? W - lw : 0), y, line);

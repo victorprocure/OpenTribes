@@ -63,6 +63,37 @@ public static class GuiMarkup
         return true;
     }
 
+    // `<vNAME>` [code 005370b8]: the console variable's text replaces the tag in the text still to lay out, so an expansion that holds
+    // tags is read as markup. `<<` is a literal `<` and is left alone. The count of expansions is bounded so that a variable that names
+    // itself cannot loop.
+    public static string ExpandVariables(string text, Func<string, string> variable)
+    {
+        if (text.IndexOf("<v", StringComparison.OrdinalIgnoreCase) < 0)
+            return text;
+        int budget = 64;
+        for (int i = 0; i < text.Length; ++i)
+        {
+            if (text[i] != '<')
+                continue;
+            if (i + 1 < text.Length && text[i + 1] == '<')
+            {
+                ++i;
+                continue;
+            }
+            int j = text.IndexOf('>', i + 1);
+            if (j < 0)
+                break;
+            if (j - i - 1 > 255)
+                break;
+            if (j - i - 1 >= 2 && (text[i + 1] == 'v' || text[i + 1] == 'V') && budget-- > 0)
+            {
+                text = text.Substring(0, i) + variable(text.Substring(i + 2, j - i - 2)) + text.Substring(j + 1);
+                --i;
+            }
+        }
+        return text;
+    }
+
     // The justification a text asks for with `<jl>`, `<jc>` or `<jr>` (the last one counts): 0 left, 1 centred, 2 right.
     public static int Justification(string text)
     {

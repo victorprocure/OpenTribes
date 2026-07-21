@@ -132,6 +132,16 @@ public class GuiC8FixTests
     // ---- 2. formatted text ----
 
     [Fact]
+    public void VariableTagsAreReplacedBeforeTheLayout() // gui.md 3.3.1 `<vNAME>`: the console variable's text replaces the tag
+    {
+        string Get(string n) => n switch { "Server::teamName0" => "Blood Eagle", "nest" => "<vServer::teamName0>!", _ => "" };
+        Assert.Equal("The Blood Eagle and  fight", GuiMarkup.ExpandVariables("The <vServer::teamName0> and <vnone> fight", Get));
+        Assert.Equal("Blood Eagle!", GuiMarkup.ExpandVariables("<vnest>", Get));      // an expansion is read as markup again
+        Assert.Equal("<<vx> a <v b", GuiMarkup.ExpandVariables("<<vx> a <v b", Get)); // `<<` is literal, a one letter tag has no name
+        Assert.Equal("a <vz", GuiMarkup.ExpandVariables("a <vz", Get));              // no closing `>`
+    }
+
+    [Fact]
     public void MarkupSelectsFontsAndDropsUnspecifiedTags() // gui.md 3.3 TextFormat: `<fN>` selects a font; script.md 1: `<jc>` is text the GUI interprets
     {
         List<GuiMarkup.Run> runs = GuiMarkup.Parse("<jc><f1>Hello <f0>world<l7>!");
