@@ -1,7 +1,7 @@
 // SimGui::TextFormat layout (docs/gui.md 3.3.1): text with a table of ten fonts and inline tags, laid out into positioned text
 // pieces and bitmaps. The command objective page builds one layout per objective line (`FGHCommandObjectivePage`).
 //   <fN> font N (0..9, a font that did not load is font 0)   <jl> <jc> <jr> left, centred, right justification
-//   <lN> <rN> left and right margin of N space widths of font 0   <n> clear every float   <sN> line spacing (no effect on the layout)
+//   <lN> <rN> left and right margin of N space widths of font 0   <n> clear every float   <sN> line spacing (at least 2; a new line drops by spacing / 2 font heights)
 //   <vNAME> the text of a console variable   <Bx,y:name> bitmap, floating left, centred along the line (<jc>) or right (<jr>)
 //   <<  a literal `<`   tab: next stop of three space widths   new line
 using OpenTribes.Platform.Gfx;
@@ -69,9 +69,13 @@ public sealed class GuiTextFormat
 
     // Starts a new line: the cursor drops by the font height and returns to the left margin; a float that the line has passed
     // releases its margin.
+    // The line spacing (+0x224): 2 at the start, `<sN>` sets N but never below 2. A new line drops by the font height times spacing * 0.5, cut to
+    // an integer [code 0053701c, constant 005370b4], so `<s3>` makes 19 pixels of a 13 pixel font.
+    private int mSpacing = 2;
+
     private void NewLine()
     {
-        mY += LineHeight(Font);
+        mY += (int)(mSpacing * 0.5 * LineHeight(Font));
         if (mLeftFloat > 0 && mLeftFloat <= mY)
         {
             mLeftFloat = -1;
@@ -236,6 +240,7 @@ public sealed class GuiTextFormat
                 mX = mLeft;
                 break;
             case 's':
+                mSpacing = Math.Max(2, Atoi(arg));
                 break;
             case 'v':
             {

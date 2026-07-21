@@ -39,6 +39,14 @@ public sealed class GuiTextFormatTests
     }
 
     [Fact]
+    public void LineSpacingScalesTheDropOfANewLine() // 0053701c: height * spacing * 0.5 cut to an integer, spacing 2 at the start and never below 2
+    {
+        Assert.Equal(new[] { 0, 15 }, Layout("<s3>a\nb", 400).Pieces.Select(p => p.Y).ToArray());     // 10 * 3 / 2
+        Assert.Equal(new[] { 0, 10 }, Layout("<s1>a\nb", 400).Pieces.Select(p => p.Y).ToArray());     // clamped to 2
+        Assert.Equal(new[] { 0, 25 }, Layout("<s5>a\nb", 400).Pieces.Select(p => p.Y).ToArray());
+    }
+
+    [Fact]
     public void WordsWrapAtTheLastSpaceThatFits()
     {
         GuiTextFormat l = Layout("aaaa bbbb cccc", 60);      // 10 characters of 6 px fit
