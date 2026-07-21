@@ -150,6 +150,7 @@ way are added to Open.
 - [x] Scripts can post actions to the play view.
 - [x] Third-person view and zoom.
 - [x] Key maps are searched in the right order.
+- [x] Mouse axis flip.
 
 ### Platforms
 

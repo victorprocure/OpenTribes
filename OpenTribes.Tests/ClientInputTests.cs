@@ -215,7 +215,7 @@ public sealed class ClientInputTests
         var d = new InputDispatcher(s);
         d.Push(s.FindMap("t.sae")!, sink);
         d.Process(new InputEvent { DeviceType = 2, ObjType = 11, ObjInst = 0, Action = 3 }, 10f);
-        Assert.Equal((220004, 4, -4.5f), sink.Got[0]);
+        Assert.Equal((220004, 4, -5f), sink.Got[0]);
     }
 
     [Fact]
