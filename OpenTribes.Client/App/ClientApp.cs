@@ -485,13 +485,17 @@ public sealed class ClientApp : IDisposable
         if (seen > chat.Count)
             seen = 0;
         List<int> types = g.World.Players.ChatTypes;
+        // PlayerManager_message 0040dbfc looks up `playGui` and its chat display (id 140113) and hands the text to 004a525c only
+        // when both exist: a line that arrives before play.gui is loaded (the join message of the local player comes during
+        // the load) goes to the console only.
+        bool display = GuiRt.FindControl(PlayDelegate.ChatDisplayId.ToString(System.Globalization.CultureInfo.InvariantCulture)) != null;
         for (; seen < chat.Count; ++seen)
         {
             int type = seen < types.Count ? types[seen] : 0;
             // Type 4 is the one-line current command (FearGuiChatDisplay slot 0x100), not a ring line (004a525c).
-            if (type == 4)
+            if (display && type == 4)
                 Host.CommandText = chat[seen];
-            else
+            else if (display)
                 Host.AddChat(chat[seen], (uint)type);
             // PlayerManager_message 0040dbfc also prints the line to the console as MSG: "<escaped text>".
             Interp.Print(1, "MSG: \"" + Builtins.ExportEscape(chat[seen]) + "\"");
