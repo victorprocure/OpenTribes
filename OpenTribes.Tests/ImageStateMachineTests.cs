@@ -113,4 +113,22 @@ public class ImageStateMachineTests
         m.SetState(ImageStateMachine.Ready);
         Assert.Equal(2, stops);
     }
+
+    [Fact]
+    public void ASteppedMachineRunsOnePredictionStepPerUpdateAndIgnoresTime()
+    {
+        ImageStateMachine m = Disc(new List<string>());
+        m.Unpack(false, true, 0, false, false);
+        m.StepMoves(40);
+        Assert.Equal(ImageStateMachine.Ready, m.State);
+        m.Unpack(false, true, 1, true, false);
+        Assert.Equal(ImageStateMachine.Fire, m.State);
+        m.Stepped = true;
+        m.Advance(5.0);
+        Assert.Equal(ImageStateMachine.Fire, m.State);
+        m.StepMoves(39);
+        Assert.Equal(ImageStateMachine.Fire, m.State);
+        m.StepMoves(2);
+        Assert.Equal(ImageStateMachine.Reload, m.State);
+    }
 }

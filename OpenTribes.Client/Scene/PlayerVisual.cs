@@ -288,6 +288,19 @@ public sealed class PlayerVisual : ShapeVisual
         im.Sm?.Unpack(s.Triggered, s.Ammo, s.Phase, !isNew, s.Initial);
     }
 
+    // The control player's image state machines follow the prediction steps (ImageStateMachine.Stepped); steps = 0 with
+    // `predicted` false hands them back to the time based update.
+    public void SetImageSteps(bool predicted, int steps)
+    {
+        foreach (ImageMount? im in mImages)
+            if (im?.Sm is { } sm)
+            {
+                sm.Stepped = predicted;
+                if (predicted && steps > 0)
+                    sm.StepMoves(steps);
+            }
+    }
+
     public override void Tick(double dt)
     {
         base.Tick(dt);

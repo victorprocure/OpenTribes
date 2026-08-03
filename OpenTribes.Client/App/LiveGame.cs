@@ -214,6 +214,7 @@ public sealed class LiveGame : IDisposable
             BuildScene();
         if (HasScene)
         {
+            FeedControlImages();
             mTickCarry += (now - prev) / 1000.0;
             while (mTickCarry >= 0.032)
             {
@@ -319,6 +320,21 @@ public sealed class LiveGame : IDisposable
         if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && mApp.Play.Moves.ViewDist >= 0.01f)
             pose = DemoRender.Orbit(fp.X, fp.Y, fp.Z, fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180, mApp.Play.Moves.ViewDist);
         return pose;
+    }
+
+    private long mImageSteps;
+
+    // The image state of the control player runs once per prediction step, replays included (ImageStateMachine.Stepped).
+    private void FeedControlImages()
+    {
+        ClientPsc psc = World.Psc;
+        long total = Net?.Prediction.Steps ?? 0;
+        int steps = (int)Math.Max(0, total - mImageSteps);
+        mImageSteps = total;
+        if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not PlayerVisual pv)
+            return;
+        bool predicted = Net?.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active && psc.ControlClass == "Player";
+        pv.SetImageSteps(predicted, steps);
     }
 
     // The control player's visual follows the prediction (else the control state), see ControlSample.

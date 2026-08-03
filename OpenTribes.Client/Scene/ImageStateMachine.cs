@@ -29,6 +29,11 @@ public sealed class ImageStateMachine
     private readonly int mSeqActivation = -1, mSeqFire = -1, mSeqReload = -1, mSeqNoAmmo = -1, mSeqReady = -1;
     private double mAccum;
 
+    // The control object runs its state update with the moves of the client prediction (`Player_updateMove` is called for
+    // every step of the prediction, replays after a server block included, and runs `Player_updateImageState` with 0.032 s),
+    // not once per 0.032 s of time. When set, `Advance` only moves the image threads and `Step` runs the updates.
+    public bool Stepped;
+
     // Called when the state is left (a looping state sound stops) and when a state plays its sound (field name of the datablock).
     public Action? StopLoopingSound;
     public Action<string>? PlaySound;
@@ -76,12 +81,21 @@ public sealed class ImageStateMachine
             if (Spin != null)
                 mInst.Advance(Spin, dt);
         }
+        if (Stepped)
+            return;
         mAccum += dt;
         while (mAccum >= Step)
         {
             mAccum -= Step;
             Update(Step);
         }
+    }
+
+    // `count` prediction steps of the control object (see `Stepped`).
+    public void StepMoves(int count)
+    {
+        for (int i = 0; i < count; ++i)
+            Update(Step);
     }
 
     // `Player_setImage` on a registered object enters Activate.
