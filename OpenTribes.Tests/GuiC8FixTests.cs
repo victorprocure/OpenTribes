@@ -176,7 +176,7 @@ public class GuiC8FixTests
         ((GuiTextWrap)root.Children[0]).Text = "<jc><f1>aaaa bbbb cccc dddd eeee";
         List<string> calls = Draw(fx);
         Assert.DoesNotContain(calls, c => c.Contains('<'));
-        Assert.True(calls.Count(c => c.StartsWith("text w6")) >= 2);          // 6 px glyphs, 120 px wide: wrapped at 20 characters
+        Assert.True(calls.Count(c => c.StartsWith("text w7")) >= 2);          // slot 1 is not loaded here, so font 0 (7 px glyphs): 120 px wide, wrapped
     }
 
     // ---- 3. weapon list ----
@@ -245,7 +245,7 @@ public class GuiC8FixTests
         fx.Content(root);
         ((GuiTextWrap)root.Children[0]).Text = "<jc>abcd";
         List<string> calls = Draw(fx);
-        Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.Contains(" 46,") && c.EndsWith("'abcd'"));   // (120 - the width of the text) / 2
+        Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.Contains(" 45,") && c.EndsWith("'abcd'"));   // the layout centres in the width less the last column (005370b8)
     }
 
     // ---- 4. Game::EndFrame ----

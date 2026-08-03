@@ -887,10 +887,43 @@ public sealed class GuiTextWrap : GuiActive
     // A formatted text control takes the height of its wrapped text at its width (parent size handler [code 0048983c]), so a
     // control stored with height 0 (the progress text of Loading.gui) still shows what a script puts into it; the parent clips
     // each child to its extent.
+    // FearGuiFormattedText lays its text out with the TextFormat routine [code 005370b8] and the three fonts of its prepare handler
+    // (slots 0 to 2, the rest empty); the other formatted classes keep the markup path.
+    private bool UsesLayout => ClassName == "FearGuiFormattedText";
+    private GuiTextFormat? mLayout;
+    private string? mLaidText;
+    private int mLaidWidth = -1;
+    private bool mLaidDimmed;
+
+    private GuiTextFormat? Layout()
+    {
+        if (Host == null)
+            return null;
+        string text = Text;
+        if (mLayout == null || mLaidText != text || mLaidWidth != W || mLaidDimmed != Dimmed)
+        {
+            var fonts = new PftFont?[GuiTextFormat.FontCount];
+            fonts[0] = BaseFont;
+            fonts[1] = Host.FontByTag(Dimmed ? 150131u : 150121u);
+            fonts[2] = Host.FontByTag(Dimmed ? 150131u : 150161u);
+            mLayout = GuiTextFormat.Layout(text, W, fonts, n => Host.BitmapByName(n), n => Host.GetVar("$" + n));
+            mLaidText = text;
+            mLaidWidth = W;
+            mLaidDimmed = Dimmed;
+        }
+        return mLayout;
+    }
+
     private void FitHeight()
     {
         if (!Formatted || Host == null || Text.Length == 0)
             return;
+        if (UsesLayout)
+        {
+            if (Layout() is GuiTextFormat l && l.Height > H)
+                H = l.Height;
+            return;
+        }
         PftFont? f = BaseFont;
         if (f == null)
             return;
@@ -904,7 +937,9 @@ public sealed class GuiTextWrap : GuiActive
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
         PftFont? f = BaseFont;
-        if (f != null && Formatted && Host != null)
+        if (UsesLayout && Host != null)
+            Layout()?.Draw(p, gx, gy);
+        else if (f != null && Formatted && Host != null)
         {
             int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
             int y = gy;

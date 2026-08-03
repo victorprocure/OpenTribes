@@ -105,7 +105,7 @@ way are added to Open.
 - [x] Version text on the main menu and team colours by team id.
 - [x] Command screen frame, menu panel, box frame and score window fonts.
 - [x] Weapon, compass, clock and sensor HUDs and the centre print box.
-- [x] Progress bar, formatted text fonts, alignment, variables and line spacing.
+- [x] Progress bar, formatted text layout, fonts, alignment, variables and line spacing.
 - [x] Intro movie plays at start-up.
 - [x] Main menu emblem animation.
 - [x] Chat text without voice tags, server messages without a sender prefix.
