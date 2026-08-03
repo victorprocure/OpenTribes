@@ -76,7 +76,7 @@ way are added to Open.
 - [x] Draw order and culling: interior surfaces, terrain and objects inside interiors.
 - [x] Interior haze distance.
 - [x] Texture mipmaps for interiors, terrain, sky and shapes, and edge clamping on shapes.
-- [x] Texture formats like the original.
+- [x] Texture formats like the original, also for GUI bitmaps.
 
 ### Shapes, weapons and effects
 

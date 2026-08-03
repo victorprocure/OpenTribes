@@ -370,6 +370,9 @@ void main() {
             return t;
         SubPalette sub = mBank.FindSubPalette(bmp.PaletteId);
         byte[] rgba = PaletteTables.ToRgba(bmp, sub, mGammaTable);
+        // Stock blit 005d8290 uploads through 005d3ecc, which packs palette-indexed bitmaps by subpalette kind (005d7148).
+        if (bmp.Depth == 8)
+            PaletteTables.Pack(rgba, sub);
         t = new CachedTexture { Name = gl.GenTexture(), Width = Math.Max(1, bmp.Width), Height = Math.Max(1, bmp.Height) };
         gl.BindTexture_(GlApi.Texture2D, t.Name);
         gl.PixelStorei_(GlApi.UnpackAlignment, 1);
