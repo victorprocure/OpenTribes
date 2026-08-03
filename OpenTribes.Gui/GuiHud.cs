@@ -746,17 +746,19 @@ public sealed class GuiChatDisplay : GuiHud
         // The command line takes the bottom of the display (one line of the count) while the local player holds a command.
         var cmdLines = new List<List<GuiMarkup.Run>>();
         PftFont? cmdFont = null;
-        if (Host.CommandActive && Host.CommandText.Length > 0)
+        // [code 004a633c] The slot is kept for as long as the record holds a command (+0x40 >= 0), whatever the text: one line less
+        // for the ring, the bottom of the ring one command font height higher, and only the first wrapped line of the text is drawn.
+        if (Host.CommandActive)
         {
             cmdFont = Host.FontByName(FontName(Host.CommandAccepted ? 3u : 4u, low)) ?? Host.FontByName("sf_white_10.pft");
-            if (cmdFont != null)
-                cmdLines.AddRange(GuiMarkup.WrapText(Host, cmdFont, Host.CommandText, W - 2 * InsetX));
+            if (cmdFont != null && Host.CommandText.Length > 0)
+                cmdLines.AddRange(GuiMarkup.WrapText(Host, cmdFont, Host.CommandText, W - 2 * InsetX).Take(1));
             n = Math.Max(0, n - 1);
         }
         int start = Math.Max(0, lines.Count - n);
         int ty = y + H - BottomInset;
         if (cmdFont != null)
-            ty -= cmdLines.Count * GuiPaint.FontHeight(cmdFont);
+            ty -= GuiPaint.FontHeight(cmdFont);
         for (int i = start; i < lines.Count; ++i)
             ty -= GuiPaint.FontHeight(lines[i].Font);
         for (int i = start; i < lines.Count; ++i)
