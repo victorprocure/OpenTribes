@@ -60,6 +60,24 @@ public class ClientNetStreamTests
     });
 
     [Fact]
+    public void PacketFramePacesTheLiveClient()
+    {
+        // client-net.md 4.3: with a net time the next packet is due PacketFrame ms after the last one, not one interval.
+        var conn = new ClientGameConnection(new ClientWorld());
+        Assert.True(conn.Due(1000));
+        conn.PacketFrame = 96;
+        Assert.True(conn.Due(1000));
+        conn.WritePacket(1000, (buf, len, cookie) => true);
+        Assert.False(conn.Due(1095));
+        Assert.True(conn.Due(1096));
+        conn.PacketFrame = 32;
+        Assert.True(conn.Due(1032));
+        conn.PacketFrame = 0;
+        Assert.False(conn.Due(1099));
+        Assert.True(conn.Due(1100));
+    }
+
+    [Fact]
     public void EventsReachTheHandlers()
     {
         // client-net.md 2.3: PlayerAddEvent, TeamAddEvent, DeltaScoreEvent, TargetNameEvent, SimConsoleEvent.

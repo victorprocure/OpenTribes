@@ -174,10 +174,19 @@ public sealed class ClientGameConnection
         return any;
     }
 
-    // Whether a packet is due (1.3 Pacing): the interval has passed and 1000 / interval is not below the packets written
-    // since the last delivered one.
-    public bool Due(uint nowMs) =>
-        !mSentAny || (unchecked(nowMs - mLastSend) >= IntervalMs && 1000u / Math.Max(IntervalMs, 1u) >= unchecked(mPacketCount - mDeliveredNo));
+    // $pref::PacketFrame (DAT_0063efb4, 32..96 in 1.30), 0 = not set. A running client has a net time, and then
+    // GameConnection_writePacket (00550d2c) paces by it: a packet is due when net time >= last send + PacketFrame, and
+    // 1000 / PacketFrame is not below the packets written since the last delivered one. The negotiated interval only
+    // paces a connection without a net time.
+    public uint PacketFrame;
+
+    // Whether a packet is due (1.3 Pacing): the interval (or the packet frame) has passed and 1000 / interval is not below
+    // the packets written since the last delivered one.
+    public bool Due(uint nowMs)
+    {
+        uint interval = PacketFrame != 0 ? PacketFrame : Math.Max(IntervalMs, 1u);
+        return !mSentAny || (unchecked(nowMs - mLastSend) >= interval && 1000u / interval >= unchecked(mPacketCount - mDeliveredNo));
+    }
 
     // Builds the payload of the next packet. `send` hands it to the VC with the notify cookie and returns whether the
     // window had room; on false the contents are put back.

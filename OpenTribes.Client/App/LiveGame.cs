@@ -203,6 +203,8 @@ public sealed class LiveGame : IDisposable
         {
             if (Net.IsAccepted)
                 moves.Collect(World.Psc, prev, now);
+            // GameConnection_loadPacketPrefs (00550c68): $pref::PacketFrame, default 32, clamped to 32..96 (1.30).
+            Net.Game.PacketFrame = Math.Clamp(unchecked((uint)Numbers.BorlandAtoi(mApp.Interp.PeekVariable("$pref::PacketFrame") ?? "")), 32u, 96u);
             Net.Frame(now);
             if (Net.IsOpen == false && Joined && !Net.IsAccepted)
                 Joined = false;

@@ -56,6 +56,7 @@ way are added to Open.
 - [x] `tribes` runs the stock scripts to the main menu.
 - [x] Joining a server, the server list and the play view.
 - [x] Weapon state steps once per predicted move.
+- [x] Packet pacing.
 
 ### Graphics
 
