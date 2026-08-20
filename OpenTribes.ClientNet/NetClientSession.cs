@@ -111,6 +111,13 @@ public sealed class NetClientSession : ConnectionEvents
     public Action<string, string>? OnConnection;
     public Action? OnDataFinished, OnAlwaysDone;
     public Action<DecodedPacket>? PacketHook;
+    // Reads a console variable ($pref::PacketRate and $pref::PacketSize feed the own rate request); null: defaults.
+    public Func<string, string>? PrefReader;
+    private void ApplyPacketPrefs()
+    {
+        if (PrefReader != null)
+            mGame.LoadPacketPrefs(PrefReader("$pref::PacketRate"), PrefReader("$pref::PacketSize"));
+    }
     public bool IsOpen => mVc != null && !mClosed;
     public bool IsAccepted => mAccepted;
     public ClientGameConnection Game => mGame;
@@ -119,6 +126,7 @@ public sealed class NetClientSession : ConnectionEvents
     // Opens the socket and sends the connect request (client-net.md 1.2); the replies arrive in Frame.
     public bool Connect(string hostPort)
     {
+        ApplyPacketPrefs();
         Address server = Resolve(hostPort);
         mServerAddress = server;
         if (!mSock.Open(0))
@@ -191,6 +199,7 @@ public sealed class NetClientSession : ConnectionEvents
         {
             mWorld = new ClientWorld { PlayerId = BitConverter.ToInt32(b, 0), ServerId = BitConverter.ToInt32(b, 4) };
             mGame = new ClientGameConnection(mWorld);
+            ApplyPacketPrefs();
         }
         mAccepted = true;
         Log?.Invoke("accepted: player " + mWorld.PlayerId + ", server " + mWorld.ServerId);

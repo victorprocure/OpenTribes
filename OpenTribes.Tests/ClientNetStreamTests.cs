@@ -60,6 +60,21 @@ public class ClientNetStreamTests
     });
 
     [Fact]
+    public void PacketPrefsSetTheOwnRateRequest()
+    {
+        // GameConnection_loadPacketPrefs: rate 10..30 (interval 1000 / rate), size 200..450, unset reads as the defaults.
+        var conn = new ClientGameConnection(new ClientWorld());
+        conn.LoadPacketPrefs("", "");
+        Assert.Equal((100u, 200u), (conn.OwnIntervalMs, conn.OwnPacketBytes));
+        conn.LoadPacketPrefs("30", "450");
+        Assert.Equal((33u, 450u), (conn.OwnIntervalMs, conn.OwnPacketBytes));
+        conn.LoadPacketPrefs("5", "100");
+        Assert.Equal((100u, 200u), (conn.OwnIntervalMs, conn.OwnPacketBytes));
+        conn.LoadPacketPrefs("99", "9999");
+        Assert.Equal((33u, 450u), (conn.OwnIntervalMs, conn.OwnPacketBytes));
+    }
+
+    [Fact]
     public void PacketFramePacesTheLiveClient()
     {
         // client-net.md 4.3: with a net time the next packet is due PacketFrame ms after the last one, not one interval.

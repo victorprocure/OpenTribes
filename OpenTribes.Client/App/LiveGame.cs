@@ -84,6 +84,7 @@ public sealed class LiveGame : IDisposable
         Net = new NetClientSession(name.Length > 0 ? name : interp.PeekVariable("$pref::PlayerName") is { Length: > 0 } pn ? pn : "OpenTribes", dump)
         {
             External = true,
+            PrefReader = interp.PeekVariable,
             ClockMs = () => mApp.NowMs,
             Log = s => mApp.Log("net: " + s),
             Password = interp.PeekVariable("$Server::JoinPassword"),
