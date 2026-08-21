@@ -43,15 +43,15 @@ public sealed class ClientGameConnection
     private uint mNextCookie = 1, mPacketCount = 1, mDeliveredNo, mLastSend;
     private bool mSentAny;
 
-    // The own rate request from $pref::PacketRate (10..30, default 10) and $pref::PacketSize (200..450, default 200): the
+    // The own rate request from $pref::PacketRate (1..30, default 10) and $pref::PacketSize (100..450, default 200) as in the 1.11 exe: the
     // interval is 1000 / rate. A value that differs from the held request marks the rateReq section dirty
     // (GameConnection_loadPacketPrefs 0x00550c68). An unset pref reads as the default through the empty text.
     public void LoadPacketPrefs(string rateText, string sizeText)
     {
         uint rate = rateText.Length == 0 ? 10u : unchecked((uint)Numbers.BorlandAtoi(rateText));
         int size = sizeText.Length == 0 ? 200 : Numbers.BorlandAtoi(sizeText);
-        rate = rate > 30 ? 30u : (rate < 10 ? 10u : rate);
-        size = size > 450 ? 450 : (size < 200 ? 200 : size);
+        rate = rate > 30 ? 30u : (rate < 1 ? 1u : rate);
+        size = size > 450 ? 450 : (size < 100 ? 100 : size);
         uint interval = 1000u / rate;
         if (interval != OwnIntervalMs || (uint)size != OwnPacketBytes)
         {
