@@ -33,6 +33,9 @@ public static class EngineVariables
     };
 
     // The text a typed cell shows for an assigned text (the readback of 5.1).
+    // The typed bool of a registered variable (the `True` or `False` readback of type 1).
+    public static bool IsSet(Interpreter interp, string name) => interp.GetVariable(name) == "True";
+
     public static string Normalize(int type, string text)
     {
         switch (type)

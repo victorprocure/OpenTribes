@@ -125,6 +125,9 @@ public sealed class ClientApp : IDisposable
         Interp.SetOutput(Sink);
         Interp.SetResources(Res);
         Interp.SetVariable("$Console::Prompt", "% ");
+        if (Dev != null)
+            Dev.PackedTextures = () => !EngineVariables.IsSet(Interp, "$pref::OpenGL::NoPackedTextures") &&
+                                       !EngineVariables.IsSet(Interp, "$pref::OpenGL::Use32BitTex");
         Interp.BindVariable("$ConsoleWorld::DefaultSearchPath", path => Res.SetSearchPath(path));
         Interp.BindVariable("$Console::logMode", _ => { });
         Maps = Builtins.RegisterBuiltins(Interp, Res, Opt.Root);

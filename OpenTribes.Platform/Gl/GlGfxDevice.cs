@@ -145,6 +145,9 @@ void main() {
         FlushTextureCache();
     }
 
+    // The packing gate of 005d3ecc, read at each upload: false when $pref::OpenGL::NoPackedTextures or Use32BitTex is set.
+    public Func<bool>? PackedTextures { get; set; }
+
     public void FlushTextureCache()
     {
         foreach (CachedTexture t in mCache.Values)
@@ -370,8 +373,9 @@ void main() {
             return t;
         SubPalette sub = mBank.FindSubPalette(bmp.PaletteId);
         byte[] rgba = PaletteTables.ToRgba(bmp, sub, mGammaTable);
-        // Stock blit 005d8290 uploads through 005d3ecc, which packs palette-indexed bitmaps by subpalette kind (005d7148).
-        if (bmp.Depth == 8)
+        // Stock blit 005d8290 uploads through 005d3ecc, which packs palette-indexed bitmaps by subpalette kind (005d7148) unless
+        // $pref::OpenGL::NoPackedTextures or Use32BitTex is set; then it uploads the 8 bit tables unpacked (005d5164, 005d5e34, 005d5a3c).
+        if (bmp.Depth == 8 && (PackedTextures?.Invoke() ?? true))
             PaletteTables.Pack(rgba, sub);
         t = new CachedTexture { Name = gl.GenTexture(), Width = Math.Max(1, bmp.Width), Height = Math.Max(1, bmp.Height) };
         gl.BindTexture_(GlApi.Texture2D, t.Name);
