@@ -241,6 +241,19 @@ public class WorldRenderTests
     }
 
     [Fact]
+    public void ScreenErrorWidensTheFrustumTest() // WR 2.4 step 3: pixelError = 1 / projectRadius(screenError, 1), $screenError is script-settable in 1.11
+    {
+        TerrainData t = Flat();
+        Camera3D c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
+        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        Assert.Equal(9.0, p.ScreenError);
+        int tight = TerrainLod.Select(t, c, 0, 0, 0, p with { ScreenError = 0 }).Count;
+        int stock = TerrainLod.Select(t, c, 0, 0, 0, p).Count;
+        int loose = TerrainLod.Select(t, c, 0, 0, 0, p with { ScreenError = 5000 }).Count;
+        Assert.True(tight <= stock && stock <= loose);
+    }
+
+    [Fact]
     public void NearSquaresAreFineAndFarSquaresAreCoarse() // WR 2.5
     {
         TerrainData t = Flat();

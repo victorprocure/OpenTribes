@@ -307,6 +307,24 @@ public sealed class ClientAppTests : IDisposable
     }
 
     [Fact]
+    public void TerrainRendererVariablesAreRegisteredAsIn111()
+    {
+        // 1.11 registers $screenError, $screenSize, $minSquareSize, $farDistance, $renderSimTerrain and the T2 statistics when the
+        // terrain renderer is created (0x005768e4); LastHope 1.30 stubbed that out (lasthope-1.30.md L7).
+        Boot();
+        Assert.Equal("0", mApp!.Interp.PeekVariable("$screenError"));
+        EngineVariables.RegisterTerrain(mApp.Interp);
+        Assert.Equal("9", mApp.Interp.PeekVariable("$screenError"));
+        Assert.Equal("45", mApp.Interp.PeekVariable("$screenSize"));
+        Assert.Equal("4", mApp.Interp.PeekVariable("$minSquareSize"));
+        Assert.Equal("500", mApp.Interp.PeekVariable("$farDistance"));
+        Assert.Equal("True", mApp.Interp.PeekVariable("$renderSimTerrain"));
+        Assert.Equal("0", mApp.Interp.PeekVariable("$T2::staticTSU"));
+        Eval("$screenError = 3.5;");
+        Assert.Equal("3.5", mApp.Interp.PeekVariable("$screenError"));
+    }
+
+    [Fact]
     public void PrefsSaveToConfigAndLoadBack()
     {
         // 5.4: export writes sorted `$name = "value";` lines to config\ClientPrefs.cs; exec of that file restores them.

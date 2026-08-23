@@ -30,6 +30,20 @@ public static class EngineVariables
         new("$pref::OpenGL::Use32BitTex", 1, 0), new("$pref::OpenGL::NoPackedTextures", 1, 0), new("$pref::OpenGL::NoAddFade", 1, 0),
         new("$pref::sfx2DVolume", 5, 1), new("$pref::sfx3DVolume", 5, 1), new("$pref::politeGui", 1, 0),
         new("$pref::dynamicLightDistance", 3, 0),
+        // The two terrain tuning variables the startup registration binds to cells that nothing reads (0x6101fc, 0x610200).
+        new("$screenError", 3, 0), new("$farDistance", 3, 500),
+    };
+
+    // The variables the T2 terrain renderer registers when it is created (TerrainRender_registerVars 0x005768e4, called at the end of
+    // the renderer constructor 0x0057497e). They take over the names of the startup cells and bind to the renderer's own statics:
+    // $screenError is read by the frame setup (0x0057c08d), the others are only registered. The image defaults are 9, 45, 4, 500 and
+    // renderSimTerrain true; the statistics are 0. LastHope 1.30 overwrote this function with a return (docs/lasthope-1.30.md L7).
+    public static readonly Cell[] TerrainCells =
+    {
+        new("$T2::dynamicTextureCount", 2, 0), new("$T2::unusedTextureCount", 2, 0), new("$T2::textureSpaceUsed", 2, 0),
+        new("$T2::staticTextureCount", 2, 0), new("$T2::levelZeroCount", 2, 0), new("$T2::fullMipCount", 2, 0),
+        new("$T2::staticTSU", 2, 0), new("$screenError", 3, 9), new("$screenSize", 3, 45), new("$minSquareSize", 3, 4),
+        new("$farDistance", 3, 500), new("$renderSimTerrain", 1, 1),
     };
 
     // The text a typed cell shows for an assigned text (the readback of 5.1).
@@ -68,9 +82,14 @@ public static class EngineVariables
     }
 
     // Registers every cell on the interpreter: the image default now, the typed readback after every assignment.
-    public static void Register(Interpreter interp)
+    public static void Register(Interpreter interp) => RegisterCells(interp, Cells);
+
+    // The terrain renderer registers once per process; a later terrain keeps the values, as the statics keep them.
+    public static void RegisterTerrain(Interpreter interp) => RegisterCells(interp, TerrainCells);
+
+    private static void RegisterCells(Interpreter interp, Cell[] cells)
     {
-        foreach (Cell c in Cells)
+        foreach (Cell c in cells)
         {
             Cell cell = c;
             bool inside = false;

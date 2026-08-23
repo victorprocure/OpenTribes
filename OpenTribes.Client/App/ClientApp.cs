@@ -221,6 +221,9 @@ public sealed class ClientApp : IDisposable
     }
 
     // The engine variables of client-scripts.md 5.1 that the engine reads back (the rest live as plain script variables).
+    // True once a terrain renderer was created and registered its variables (EngineVariables.TerrainCells).
+    public bool TerrainVarsBound;
+
     private void RegisterEngineVariables()
     {
         EngineVariables.Register(Interp);

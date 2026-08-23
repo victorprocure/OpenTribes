@@ -266,6 +266,12 @@ public sealed class LiveGame : IDisposable
         SceneError = error;
         if (error.Length > 0)
             mApp.Log("scene: " + error);
+        if (Scene.TerrainDraw != null && !mApp.TerrainVarsBound)
+        {
+            // The T2 renderer constructor registers its tuning variables (1.11; LastHope 1.30 stubbed this out, lasthope-1.30.md L7).
+            EngineVariables.RegisterTerrain(mApp.Interp);
+            mApp.TerrainVarsBound = true;
+        }
         Assets = new ShapeAssets(mApp.Dev, Scene.Assets);
         mRenderer = new ShapeRenderer(Assets);
         Model = new SceneModel(World, Assets, mRenderer, Scene.TerrainModel);
@@ -382,6 +388,8 @@ public sealed class LiveGame : IDisposable
         string precip = mApp.Interp.PeekVariable("$pref::weatherPrecipitation");
         Model.WeatherPrecipitation = precip.Length == 0 || Numbers.ParseBool(precip);
         Scene.DynamicLights = Model.CollectLights().Points;
+        if (Scene.TerrainDraw != null)
+            Scene.TerrainDraw.Params = Scene.TerrainDraw.Params with { ScreenError = Numbers.BorlandAtof(mApp.Interp.PeekVariable("$screenError")) };
         ctx.ContainerOf = Scene.Interiors == null ? null : box => Scene.Interiors.ContainerOf(box, ctx.Camera);
         Scene.Prepare = cam =>
         {

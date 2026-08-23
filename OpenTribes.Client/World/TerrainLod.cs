@@ -3,7 +3,8 @@ using OpenTribes.Platform.Gfx;
 namespace OpenTribes.Client.World;
 
 // world-render.md 2.2: the mission fields as the renderer uses them.
-public readonly record struct TerrainParams(double Visible, double HazeStart, double ScreenSize)
+// ScreenError is $screenError (1.11 registers it as a console variable bound to the T2 renderer, default 9).
+public readonly record struct TerrainParams(double Visible, double HazeStart, double ScreenSize, double ScreenError = 9.0)
 {
     public const double PrefVisibleDistance = 10000; // $pref::TerrainVisibleDistance default (2.2)
 
@@ -103,8 +104,8 @@ public static class TerrainLod
         var result = new List<TerrainSquare>();
         var planes = SidePlanes(cam);
         double px = cam.X - ox, py = cam.Y - oy, pz = cam.Z - oz;
-        // 2.4 step 3: pixelError = 1 / projectRadius(screenError = 9, 1)
-        double pixelError = 1.0 / cam.ProjectRadius(1.0, 9.0) ;
+        // 2.4 step 3: pixelError = 1 / projectRadius(screenError, 1), 0.000001 when screenError < 0.001 [code 0057c08d]
+        double pixelError = p.ScreenError < 0.001 ? (double)1.0e-6f : 1.0 / cam.ProjectRadius(1.0, p.ScreenError);
         var stack = new Stack<TerrainSquare>();
         // The stock client walks the blocks with x outer and y inner, and a square's children from (0,1) to (1,1), (1,0), (0,0).
         for (int i = TerrainData.BlockCount - 1; i >= 0; --i)
