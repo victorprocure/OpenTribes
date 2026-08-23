@@ -107,26 +107,26 @@ public class HeadlessRenderTests
         // Bitmap texels are packed like the stock upload (005d3ecc, 005d7148; kind 1 subpalette gives 5551): c -> ((c >> 3) << 3) | (c >> 5).
         // 9 -> 8, 10,20,30 -> 8,16,24, 200,100,50 -> 206,99,49, 255 stays. The background is a flat clear and stays exact.
         Assert.Equal(Exact(8, 8, 8), Px(px, 3, 2));
-        Assert.Equal(Exact(206, 99, 49), Px(px, 3, 3));
+        Assert.Equal(Exact(198, 99, 49), Px(px, 3, 3));
         Assert.Equal(Exact(8, 16, 24), Px(px, 5, 4));
         Assert.Equal(Exact(255, 255, 255), Px(px, 2, 5));
-        Assert.Equal(Exact(206, 99, 49), Px(px, 5, 3)); // last column of the bitmap
+        Assert.Equal(Exact(198, 99, 49), Px(px, 5, 3)); // last column of the bitmap
         Assert.Equal(Exact(40, 80, 120), Px(px, 6, 3));  // the column behind it
 
         // Transparent (attribute 1): index 0 shows the background, the others their color. Exact.
         int x1 = 2 + 6;
         Assert.Equal(Exact(40, 80, 120), Px(px, x1 + 1, 2));
-        Assert.Equal(Exact(206, 99, 49), Px(px, x1 + 1, 3));
+        Assert.Equal(Exact(198, 99, 49), Px(px, x1 + 1, 3));
         Assert.Equal(Exact(255, 255, 255), Px(px, x1 + 3, 5));
 
         // Translucent (attribute 4): 50% blend [I]: 0.5 * src + 0.5 * dst, tolerance 2 for fixed-point rounding.
         int x2 = 2 + 12;
-        Near(Px(px, x2 + 1, 3), ((206 + 40) / 2, (99 + 80) / 2, (49 + 120) / 2), 2, "translucent index 1");
+        Near(Px(px, x2 + 1, 3), ((198 + 40) / 2, (99 + 80) / 2, (49 + 120) / 2), 2, "translucent index 1");
         Near(Px(px, x2 + 1, 4), ((8 + 40) / 2, (16 + 80) / 2, (24 + 120) / 2), 2, "translucent index 2");
 
         // Additive (attribute 0x10): dst + src, clamped, tolerance 1.
         int x3 = 2 + 18;
-        Near(Px(px, x3 + 1, 3), (Math.Min(255, 206 + 40), Math.Min(255, 99 + 80), Math.Min(255, 49 + 120)), 1, "additive index 1");
+        Near(Px(px, x3 + 1, 3), (Math.Min(255, 198 + 40), Math.Min(255, 99 + 80), Math.Min(255, 49 + 120)), 1, "additive index 1");
         Near(Px(px, x3 + 1, 5), (255, 255, 255), 1, "additive index 3");
         Near(Px(px, x3 + 1, 2), (40 + 8, 80 + 8, 120 + 8), 1, "additive index 0 (not keyed: adds its color)");
 
@@ -198,20 +198,20 @@ public class HeadlessRenderTests
             }
 
         // flip X: row 0 reads 2 1, row 1 reads 4 3; flip Y: row 0 reads 3 4; both: 4 3 / 2 1
-        // Bitmap texels go through the stock 5551 packing (kind 1 subpalette): c -> ((c >> 3) << 3) | (c >> 5), so 10,20,30 -> 8,16,24; 200,100,50 -> 206,99,49; 90,40,20 -> 90,41,16; 255 stays.
+        // Bitmap texels go through the stock gamma table (i - 1 for 1..254) and the 5551 packing (kind 1 subpalette): c -> ((g >> 3) << 3) | (g >> 5), so 10,20,30 -> 8,8,24; 200,100,50 -> 198,99,49; 90,40,20 -> 90,33,16; 255 stays.
         Assert.Equal(Exact(8, 16, 24), Px(px, 40, 4));  // index 2
-        Assert.Equal(Exact(206, 99, 49), Px(px, 41, 4)); // index 1
-        Assert.Equal(Exact(90, 41, 16), Px(px, 40, 5));  // index 4
+        Assert.Equal(Exact(198, 99, 49), Px(px, 41, 4)); // index 1
+        Assert.Equal(Exact(90, 33, 16), Px(px, 40, 5));  // index 4
         Assert.Equal(Exact(255, 255, 255), Px(px, 44, 4)); // flip Y: index 3
-        Assert.Equal(Exact(90, 41, 16), Px(px, 45, 4));    // index 4
-        Assert.Equal(Exact(206, 99, 49), Px(px, 44, 5));  // index 1
-        Assert.Equal(Exact(90, 41, 16), Px(px, 48, 4));    // both: index 4
+        Assert.Equal(Exact(90, 33, 16), Px(px, 45, 4));    // index 4
+        Assert.Equal(Exact(198, 99, 49), Px(px, 44, 5));  // index 1
+        Assert.Equal(Exact(90, 33, 16), Px(px, 48, 4));    // both: index 4
         Assert.Equal(Exact(255, 255, 255), Px(px, 49, 4)); // index 3
-        Assert.Equal(Exact(206, 99, 49), Px(px, 49, 5));  // second row reads 2 1
+        Assert.Equal(Exact(198, 99, 49), Px(px, 49, 5));  // second row reads 2 1
 
         for (int y = 20; y < 26; ++y)
             for (int x = 40; x < 46; ++x)
-                Near(Px(px, x, y), (206, 99, 49), 1, $"stretch {x},{y}");
+                Near(Px(px, x, y), (198, 99, 49), 1, $"stretch {x},{y}");
         Assert.Equal(bg, Px(px, 46, 20));
         Assert.Equal(bg, Px(px, 40, 26));
     }
@@ -255,7 +255,7 @@ public class HeadlessRenderTests
                 if (x >= 10 && x <= 12 && y >= 24 && y <= 27)
                     want = (255, 255, 255);
                 if (x >= 14 && x <= 18 && y >= 21 && y <= 26)
-                    want = (206, 99, 49); // 5551 packing of (200, 100, 50), see BlendModesAreExactOrWithinTolerance
+                    want = (198, 99, 49); // 5551 packing of (200, 100, 50) through the stock gamma table (199, 99, 49), see BlendModesAreExactOrWithinTolerance
                 Assert.Equal(want, Px(px, x, y));
             }
         Assert.Equal(27, bottom);

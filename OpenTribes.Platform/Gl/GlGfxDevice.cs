@@ -50,7 +50,7 @@ void main() {
     private int mWidth, mHeight;
     private PaletteBank mBank = PaletteTables.Grayscale();
     private float mGamma = 1f;
-    private byte[] mGammaTable = PaletteTables.GammaTable(1f);
+    private byte[] mGammaTable = PaletteTables.GammaTable(1f, true);
     private readonly Dictionary<PbmpBitmap, CachedTexture> mCache = new();
     private GfxRect? mClip;
     private float[] mVerts = new float[8 * 6 * 64];
@@ -141,7 +141,7 @@ void main() {
     {
         mBank = bank;
         mGamma = Math.Clamp(gamma, PaletteTables.MinGamma, PaletteTables.MaxGamma);
-        mGammaTable = PaletteTables.GammaTable(mGamma);
+        mGammaTable = PaletteTables.GammaTable(mGamma, true);
         FlushTextureCache();
     }
 

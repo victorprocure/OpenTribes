@@ -5,15 +5,19 @@ public static class PaletteTables
 {
     public const float MinGamma = 0.05f, MaxGamma = 20f; // 1.9: gamma range
 
-    // 3.3 item 1: g[i] = trunc(255 * pow(i / 255, e)). The exponent is e = 1 / gamma (Q1: assumed). A 1e-9
-    // guard keeps pow(x, 1) * 255 from truncating to i - 1 through double rounding.
-    public static byte[] GammaTable(float gamma)
+    // 3.3 item 1: g[i] = trunc(255 * pow(i / 255, e)). The exponent is e = 1 / gamma (Q1: assumed). At the default gamma 1 the stock
+    // table (005d4880) is not the identity: stock screenshots show every palette value i from 1 to 254 as i - 1 (0 and 255 stay), in 8 bit
+    // uploads (Options screens, NoPackedTextures) and in the 5551 masks of the menus alike. The x87 pow and ftol of 005d4880 truncate
+    // 255 * pow(i / 255, 1) from just below i, so `stockDefault` gives that table at gamma 1. Other gammas keep the 1e-9 guard.
+    public static byte[] GammaTable(float gamma, bool stockDefault = false)
     {
         gamma = Math.Clamp(gamma, MinGamma, MaxGamma);
         double e = 1.0 / gamma;
         var t = new byte[256];
         for (int i = 0; i < 256; ++i)
-            t[i] = (byte)Math.Min(255, (int)(255.0 * Math.Pow(i / 255.0, e) + 1e-9));
+            t[i] = stockDefault && gamma == 1f
+                ? (byte)(i == 0 ? 0 : i - 1 + (i == 255 ? 1 : 0))
+                : (byte)Math.Min(255, (int)(255.0 * Math.Pow(i / 255.0, e) + 1e-9));
         return t;
     }
 

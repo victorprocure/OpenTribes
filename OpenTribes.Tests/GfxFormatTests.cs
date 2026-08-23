@@ -473,6 +473,17 @@ public class GfxFormatTests
     // ---- 3.3 gamma and 3.4 conversion ----
 
     [Fact]
+    public void StockDefaultGammaTableIsOneBelowFromOneTo254()
+    {
+        byte[] t = PaletteTables.GammaTable(1f, true);
+        Assert.Equal(0, t[0]);
+        Assert.Equal(255, t[255]);
+        for (int i = 1; i < 255; ++i)
+            Assert.Equal(i - 1, t[i]);
+        Assert.Equal(PaletteTables.GammaTable(2f), PaletteTables.GammaTable(2f, true));
+    }
+
+    [Fact]
     public void GammaTableAndRgbaConversion() // 3.3 items 1 and 2, 3.4
     {
         byte[] id = PaletteTables.GammaTable(1f);
