@@ -16,7 +16,7 @@ public class ClientPredictionTests
     private const int kGhost = 5;
     private const uint kT0 = 1000;   // first tick of the client clock
 
-    private sealed class Side
+    internal sealed class Side
     {
         public readonly Fixtures.World W;
 
