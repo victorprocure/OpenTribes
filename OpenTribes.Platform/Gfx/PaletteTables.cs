@@ -1,3 +1,4 @@
+using System.Numerics;
 namespace OpenTribes.Platform.Gfx;
 
 // docs/renderer.md 3.3 and 3.4: palette-to-RGBA conversion with the gamma table.
@@ -5,20 +6,68 @@ public static class PaletteTables
 {
     public const float MinGamma = 0.05f, MaxGamma = 20f; // 1.9: gamma range
 
-    // 3.3 item 1: g[i] = trunc(255 * pow(i / 255, e)). The exponent is e = 1 / gamma (Q1: assumed). At the default gamma 1 the stock
-    // table (005d4880) is not the identity: stock screenshots show every palette value i from 1 to 254 as i - 1 (0 and 255 stay), in 8 bit
-    // uploads (Options screens, NoPackedTextures) and in the 5551 masks of the menus alike. The x87 pow and ftol of 005d4880 truncate
-    // 255 * pow(i / 255, 1) from just below i, so `stockDefault` gives that table at gamma 1. Other gammas keep the 1e-9 guard.
-    public static byte[] GammaTable(float gamma, bool stockDefault = false)
+    // 3.3 item 1: the gamma table of 005d4880, g[i] = trunc(255 * pow(i * (1/255), e)) with e = 1.0f / gamma (the surface's float gamma at +0x228, the
+    // pref default 1). The x87 sequence runs with the control word of the ftol helper (0x0f7f, 48813c, which stays loaded): extended precision,
+    // round toward zero. So e is the quotient truncated to a float, i * (1/255) is a product with the 80 bit constant 0x3ff7:8080808080808081
+    // (1/255 rounded up) truncated to 64 and then, stored as the pow argument, to 53 bits, and pow (606d90) of an integer exponent below 4096 is
+    // a square and multiply chain in extended precision that returns x itself for e = 1. At gamma 1 that makes 255 * x fall just below i for
+    // every i from 1 to 254, so the stock default table is i - 1 there (0 and 255 stay). Other exponents go through fyl2x and exp, modelled
+    // with a double pow (only a result within 1e-15 of an integer could differ).
+    public static byte[] GammaTable(float gamma)
     {
         gamma = Math.Clamp(gamma, MinGamma, MaxGamma);
-        double e = 1.0 / gamma;
+        double e = InverseAsFloat(gamma);
         var t = new byte[256];
-        for (int i = 0; i < 256; ++i)
-            t[i] = stockDefault && gamma == 1f
-                ? (byte)(i == 0 ? 0 : i - 1 + (i == 255 ? 1 : 0))
-                : (byte)Math.Min(255, (int)(255.0 * Math.Pow(i / 255.0, e) + 1e-9));
+        for (int i = 1; i < 256; ++i)
+        {
+            BigInteger x = Chop(Chop(i * OneOver255, 0, 64).Item1, 0, 53).Item1; // value x * 2^-71
+            double xd = (double)x * Math.Pow(2, -71);
+            if (e == Math.Floor(e) && e < 4096)
+            {
+                // extended chain: acc = x, then for each bit of e below the leading one: acc = acc * acc, and acc * x when the bit is set
+                BigInteger acc = x; int sh = 71; // acc * 2^-sh
+                for (int bit = BitLength((long)e) - 2; bit >= 0; --bit)
+                {
+                    acc *= acc; sh *= 2;
+                    (acc, sh) = Chop(acc, sh, 64);
+                    if (((long)e >> bit & 1) != 0)
+                    {
+                        acc *= x; sh += 71;
+                        (acc, sh) = Chop(acc, sh, 64);
+                    }
+                }
+                t[i] = (byte)(int)((acc * 255) >> sh); // ftol: trunc(255 * acc)
+            }
+            else
+                t[i] = (byte)(int)(255.0 * Math.Pow(xd, e));
+        }
         return t;
+    }
+
+    private static readonly BigInteger OneOver255 = BigInteger.Parse("9259542123273814145"); // 0x8080808080808081 * 2^-71
+
+    private static int BitLength(long v) => 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)v);
+
+    // Truncates acc * 2^-sh to `bits` significant bits.
+    private static (BigInteger, int) Chop(BigInteger acc, int sh, int bits)
+    {
+        int len = (int)acc.GetBitLength();
+        if (len <= bits)
+            return (acc, sh);
+        int drop = len - bits;
+        return (acc >> drop << drop, sh);
+    }
+
+    // 1.0f / gamma truncated to a float (extended quotient, then stored as a float, both round toward zero).
+    private static double InverseAsFloat(float gamma)
+    {
+        int bits = BitConverter.SingleToInt32Bits(gamma), ex = bits >> 23 & 0xff;
+        long mg = ex == 0 ? (bits & 0x7fffff) << 1 : bits & 0x7fffff | 0x800000;
+        int eg = (ex == 0 ? 1 : ex) - 150; // gamma = mg * 2^eg
+        BigInteger q = (BigInteger.One << 54) / mg; // 2^54 / mg has at least 30 bits
+        int drop = (int)q.GetBitLength() - 24;
+        q = q >> drop << drop;
+        return (double)q * Math.Pow(2, -54 - eg);
     }
 
     // 3.3: flat colors go through the float maps raised to the same exponent.

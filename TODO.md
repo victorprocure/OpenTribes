@@ -80,7 +80,7 @@ way are added to Open.
 - [x] Interior haze distance.
 - [x] Texture mipmaps for interiors, terrain, sky and shapes, and edge clamping on shapes.
 - [x] Texture formats like the original, also for GUI bitmaps, with the unpacked texture options.
-- [x] Screen brightness (gamma) for menus.
+- [x] Screen brightness (gamma) for menus, computed like the original.
 
 ### Shapes, weapons and effects
 

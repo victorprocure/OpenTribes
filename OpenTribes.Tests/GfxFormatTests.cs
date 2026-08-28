@@ -475,20 +475,25 @@ public class GfxFormatTests
     [Fact]
     public void StockDefaultGammaTableIsOneBelowFromOneTo254()
     {
-        byte[] t = PaletteTables.GammaTable(1f, true);
+        byte[] t = PaletteTables.GammaTable(1f);
         Assert.Equal(0, t[0]);
         Assert.Equal(255, t[255]);
         for (int i = 1; i < 255; ++i)
             Assert.Equal(i - 1, t[i]);
-        Assert.Equal(PaletteTables.GammaTable(2f), PaletteTables.GammaTable(2f, true));
+        // gamma 0.5 is the integer exponent 2 (005d4880, pow 606d90 square and multiply): trunc(255 * x * x) with x a truncated i / 255
+        byte[] sq = PaletteTables.GammaTable(0.5f);
+        Assert.Equal(0, sq[0]);
+        Assert.Equal(255, sq[255]);
+        for (int i = 1; i < 255; ++i)
+            Assert.InRange(sq[i], (int)(255.0 * i * i / 65025.0) - 1, (int)(255.0 * i * i / 65025.0));
     }
 
     [Fact]
     public void GammaTableAndRgbaConversion() // 3.3 items 1 and 2, 3.4
     {
-        byte[] id = PaletteTables.GammaTable(1f);
+        byte[] id = new byte[256];
         for (int i = 0; i < 256; ++i)
-            Assert.Equal(i, id[i]);
+            id[i] = (byte)i;
         byte[] g2 = PaletteTables.GammaTable(2f); // e = 1 / gamma: trunc(255 * sqrt(i / 255))
         Assert.Equal(0, g2[0]);
         Assert.Equal(255, g2[255]);
