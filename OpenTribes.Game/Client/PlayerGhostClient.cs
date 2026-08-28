@@ -57,6 +57,7 @@ public static partial class PlayerGhost
                 if (r.Bs.Error())
                     throw new OverrunException();
                 r.Add("move", ClientPsc.FormatMove(m));
+                g.State[RemoteGhosts.MoveKey] = m;       // the echoed move of the step (+0xff0)
                 r.Add("energy", r.Int(7) / 127.0);
                 r.AddInt("f8c", 4);
                 r.AddFlag("flag10000");

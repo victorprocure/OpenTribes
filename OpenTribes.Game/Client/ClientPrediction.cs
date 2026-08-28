@@ -215,19 +215,22 @@ public sealed class ClientPrediction
     private void SyncGhost(ClientGhost g)
     {
         if (Object is Player p)
+            SyncPlayerGhost(p, g);
+    }
+
+    public static void SyncPlayerGhost(Player p, ClientGhost g)
+    {
+        if (g.State.TryGetValue("f728", out object? r) && r is double rr)
+            p.RechargeRate = (float)rr;
+        Span<int> items = stackalloc int[8];
+        bool any = false;
+        for (int i = 0; i < 8; ++i)
         {
-            if (g.State.TryGetValue("f728", out object? r) && r is double rr)
-                p.RechargeRate = (float)rr;
-            Span<int> items = stackalloc int[8];
-            bool any = false;
-            for (int i = 0; i < 8; ++i)
-            {
-                items[i] = g.State.TryGetValue("item" + i, out object? v) && v is long l ? (int)l : -1;
-                any |= items[i] != -1;
-            }
-            if (any)
-                p.SetClientItems(items);
+            items[i] = g.State.TryGetValue("item" + i, out object? v) && v is long l ? (int)l : -1;
+            any |= items[i] != -1;
         }
+        if (any)
+            p.SetClientItems(items);
     }
 
     private static float F(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out object? v) && v is double d ? (float)d : 0.0f;

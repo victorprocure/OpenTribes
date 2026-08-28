@@ -1,6 +1,7 @@
 // Headless client session (docs/client-net.md 1, 2.5, 2.7, 4.3): connect/challenge/accept as client, the game stream
 // receive path, the mission-load handshake (SetCLInfo, dataFinished, CGADone), moves at the 32 ms tick from a script,
 // disconnect. C2's client reuses this class for its network side.
+using OpenTribes.Script;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -84,6 +85,8 @@ public sealed class NetClientSession : ConnectionEvents
 
     // Client prediction of the control object (docs/client-net.md 4.4); runs when a prediction world is set.
     public readonly ClientPrediction Prediction = new();
+    // Smoothing and look-ahead of the remote Player and Vehicle ghosts (client-net.md 4.4.2), needs the prediction world.
+    public readonly RemoteGhosts Remote = new();
     public PredictionWorld? PredictWorld;
     // Builds the prediction world of a mission; the mission comes from the server's remoteEval MInfo (client.cs).
     public Func<string, PredictionWorld?>? PredictFactory;
@@ -140,6 +143,9 @@ public sealed class NetClientSession : ConnectionEvents
         return true;
     }
 
+    // A console variable of type int (atoi of its text), the default when the host has no console.
+    private int ReadIntPref(string name, int def) => PrefReader == null ? def : unchecked((int)Numbers.BorlandAtoi(PrefReader(name) ?? ""));
+
     private Address mServerAddress;
     private readonly byte[] mRx = new byte[0x10000];
 
@@ -162,6 +168,7 @@ public sealed class NetClientSession : ConnectionEvents
             if (PredictWorld != null)
             {
                 Prediction.Advance(mWorld.Psc, now);
+                Remote.Advance(now);
                 mPendingCorrection = null;
             }
             if (mVc.State() == ConnectionState.Connected && mGame.Due(now))
@@ -239,6 +246,8 @@ public sealed class NetClientSession : ConnectionEvents
         PacketHook?.Invoke(p);
         if (PredictFactory != null)
             FollowMission();
+        if (PredictWorld != null && p.Ghosts != null)
+            Remote.OnBlock(p.Ghosts, mWorld, mFrameNow, mWorld.Psc.HasControl ? mWorld.Psc.ControlGhost : -1);
         if (PredictWorld != null && p.Psc != null && p.Psc.Direction == "s2c")
         {
             CorrectionRecord? rec = Prediction.OnServerBlock(mWorld, mFrameNow);
@@ -281,6 +290,7 @@ public sealed class NetClientSession : ConnectionEvents
             if (mission.Equals(Mission, StringComparison.OrdinalIgnoreCase))
                 return;
             Prediction.Reset();
+            Remote.Reset();
             Mission = mission;
             Log?.Invoke("mission " + mission + ": building the prediction world");
             PredictWorld = PredictFactory!(mission);
@@ -288,6 +298,10 @@ public sealed class NetClientSession : ConnectionEvents
             {
                 Prediction.CreateObject = PredictWorld.Create;
                 Prediction.DeleteObject = PredictWorld.Delete;
+                Remote.CreateObject = PredictWorld.CreateRemote;
+                Remote.DeleteObject = PredictWorld.Delete;
+                Remote.Interpolate = () => ReadIntPref("$net::interpolateTime", SmoothWindow.DefaultInterpolate);
+                Remote.Predict = () => ReadIntPref("$net::predictForwardTime", SmoothWindow.DefaultPredict);
             }
             return;
         }
@@ -416,6 +430,7 @@ public sealed class NetClientSession : ConnectionEvents
                 {
                     // 4.4: the replay after a correction and the prediction of the new moves, once per frame.
                     Prediction.Advance(mWorld.Psc, now);
+                    Remote.Advance(now);
                     if (mPendingCorrection != null)
                     {
                         mDump.WriteCorrection(mPendingCorrection, mClock.Elapsed.TotalSeconds);

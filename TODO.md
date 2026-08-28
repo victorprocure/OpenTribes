@@ -58,6 +58,7 @@ way are added to Open.
 - [x] Weapon state steps once per predicted move.
 - [x] Packet pacing, rate requests and their limits.
 - [x] Terrain and network settings with their default values, including prediction timing.
+- [x] Smooth movement of other players.
 
 ### Graphics
 

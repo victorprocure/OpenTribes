@@ -364,6 +364,7 @@ public static partial class GhostClasses
                 if (r.Bs.Error())
                     throw new OverrunException();
                 r.Add("move", ClientPsc.FormatMove(m));
+                g.State[RemoteGhosts.MoveKey] = m;       // the echoed move of the step (+0x8e4)
                 r.AddUnit("unit10", 10);
                 r.AddF32("f898");
                 r.AddInt("f8d8", 4);

@@ -108,5 +108,29 @@ public sealed class PredictionWorld
         return o;
     }
 
+    // RemoteGhosts.CreateObject: the copy of a remote Player, Flier or Vehicle ghost at `position`.
+    public GameBase? CreateRemote(ClientGhost g, float[] position)
+    {
+        if (!g.State.TryGetValue("datablock", out object? dbv) || dbv is not long db)
+            return null;
+        int group = g.Class switch { "Player" => 3, "Flier" => 10, "Vehicle" => 9, _ => -1 };
+        DataBlockManager.Block? b = group < 0 ? null : Sim.DataBlocks().At(group, (int)db);
+        if (b == null)
+            return null;
+        string pos = string.Join(" ", position.Select(v => Numbers.FormatFloat(v)));
+        string id = g.Class switch
+        {
+            "Player" => Console.CallFunction("spawnPlayer", new[] { b.Name, pos, "0 0 0" }),
+            "Flier" => Console.Evaluate("return newObject(\"\", Flier, \"" + b.Name + "\", true);"),
+            _ => Console.Evaluate("return newObject(\"\", Vehicle, \"" + b.Name + "\", true);"),
+        };
+        if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n))
+            return null;
+        GameBase? o = Sim.Server()?.FindById(n) as GameBase;
+        if (o is Vehicle v)
+            v.SetPosition(position);
+        return o;
+    }
+
     public void Delete(GameBase o) => Sim.Server()?.DeleteObject(o);
 }
