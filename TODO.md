@@ -57,7 +57,7 @@ way are added to Open.
 - [x] Joining a server, the server list and the play view.
 - [x] Weapon state steps once per predicted move.
 - [x] Packet pacing, rate requests and their limits.
-- [x] Terrain and network settings with their default values.
+- [x] Terrain and network settings with their default values, including prediction timing.
 
 ### Graphics
 

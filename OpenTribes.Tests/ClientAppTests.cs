@@ -307,6 +307,18 @@ public sealed class ClientAppTests : IDisposable
     }
 
     [Fact]
+    public void NetTimingVariablesHaveTheirStock111Defaults()
+    {
+        // 004eaec0 and 004eaec8; LastHope 1.30 ignores them (L3) and re-points interpolateTime into a string.
+        Boot();
+        Assert.Equal("0", mApp!.Interp.PeekVariable("$net::predictForwardTime"));
+        Assert.Equal("64", mApp.Interp.PeekVariable("$net::interpolateTime"));
+        Eval("$net::interpolateTime = 0; $net::predictForwardTime = \"12abc\";");
+        Assert.Equal("0", mApp.Interp.PeekVariable("$net::interpolateTime"));
+        Assert.Equal("12", mApp.Interp.PeekVariable("$net::predictForwardTime"));
+    }
+
+    [Fact]
     public void TerrainRendererVariablesAreRegisteredAsIn111()
     {
         // 1.11 registers $screenError, $screenSize, $minSquareSize, $farDistance, $renderSimTerrain and the T2 statistics when the

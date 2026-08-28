@@ -32,6 +32,10 @@ public static class EngineVariables
         new("$pref::dynamicLightDistance", 3, 0),
         // The two terrain tuning variables the startup registration binds to cells that nothing reads (0x6101fc, 0x610200).
         new("$screenError", 3, 0), new("$farDistance", 3, 500),
+        // 1.11 registers both on the time manager (0x00424540, 0x00424552) with the defaults 0 (0x004eaec0) and 64 (0x004eaec8). The exe
+        // reads them in the ghost smoothing and the vehicle correction; LastHope 1.30 hard-wires the defaults (L3). The port's client
+        // does not smooth ghosts or look ahead, so the values are only readable and settable.
+        new("$net::predictForwardTime", 2, 0), new("$net::interpolateTime", 2, 64),
     };
 
     // The variables the T2 terrain renderer registers when it is created (TerrainRender_registerVars 0x005768e4, called at the end of
