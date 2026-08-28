@@ -85,7 +85,7 @@ public sealed class PlayerVisual : ShapeVisual
         string cs = cid >= 0 ? M.World.Players.Get(cid)?.Skin ?? "" : "";
         if (cs.Length > 0)
             Skin = cs;
-        if (has("pos"))
+        if (has("pos") && !Driven)
         {
             double[] p = Vec("pos"), v = Vec("vel");
             (X, Y, Z) = (p[0], p[1], p[2]);
@@ -95,9 +95,9 @@ public sealed class PlayerVisual : ShapeVisual
             mUpdateTime = M.Time;
             HavePos = true;
         }
-        if (has("rotZ"))
+        if (has("rotZ") && !Driven)
             Yaw = Num("rotZ");
-        if (has("pitch"))
+        if (has("pitch") && !Driven)
             ViewPitch = Num("pitch");
         if (has("flag1f4"))
             mContact = Num("flag1f4") != 0;
@@ -312,7 +312,7 @@ public sealed class PlayerVisual : ShapeVisual
             mNextChoice = M.Time + 0.065;
             SetAnimation(ChooseAnimation());
         }
-        double age = Math.Clamp(M.Time - mUpdateTime, 0, 0.3);
+        double age = Driven ? 0 : Math.Clamp(M.Time - mUpdateTime, 0, 0.3);
         (mExtrapX, mExtrapY, mExtrapZ) = (mVx * age, mVy * age, mVz * age);
         mAnim.TimeScale = (mAnim.TimeScale < 0 ? -1 : 1) * (mDead ? 1 : SpeedScale());
         mTriggers.Clear();

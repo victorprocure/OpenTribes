@@ -61,6 +61,17 @@ public class ShapeVisual : Visual
 
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
 
+    // True while a simulated copy of the ghost (RemoteGhosts) sets the state each frame: the stream update leaves it alone.
+    public bool Driven;
+
+    // The state of the simulated copy of a Vehicle or Flier: Euler angles x, y, z and the position.
+    public void SetSmoothed(double rx, double ry, double rz, double x, double y, double z)
+    {
+        (Roll, Pitch, Yaw) = (rx, ry, rz);
+        (X, Y, Z) = (x, y, z);
+        HavePos = true;
+    }
+
     // Seconds since the ghost was created (Item::onAdd stores the time, Item::updateLight counts the light pulse from it).
     public double LightAge => Age;
 
@@ -158,13 +169,13 @@ public class ShapeVisual : Visual
             mPreloaded = (Shape, Skin);
             M.Assets.Preload(Shape, Skin);
         }
-        if (Has("pos") && u.Fields.Any(f => f.Name == "pos"))
+        if (Has("pos") && !Driven && u.Fields.Any(f => f.Name == "pos"))
         {
             double[] p = Vec("pos");
             (X, Y, Z) = (p[0], p[1], p[2]);
             HavePos = true;
         }
-        if (u.Fields.Any(f => f.Name == "rot"))
+        if (!Driven && u.Fields.Any(f => f.Name == "rot"))
         {
             double[] r = Vec("rot");
             (Roll, Pitch, Yaw) = (r[0], r[1], r[2]);

@@ -217,6 +217,7 @@ public sealed class LiveGame : IDisposable
             BuildScene();
         if (HasScene)
         {
+            FeedRemote();
             FeedControlImages();
             mTickCarry += (now - prev) / 1000.0;
             while (mTickCarry >= 0.032)
@@ -362,6 +363,41 @@ public sealed class LiveGame : IDisposable
             s = ControlSample.FromControlState(psc, psc.ControlGhost);
         if (s is { } c)
             pv.ApplyControl(c);
+    }
+
+    // The remote Player and Vehicle ghosts draw from their simulated copies (client-net.md 4.4.2); the others keep the stream state.
+    private void FeedRemote()
+    {
+        if (Model == null)
+            return;
+        RemoteGhosts? rg = Net?.PredictWorld != null ? Net.Remote : null;
+        foreach (Visual v in Model.Visuals.Values)
+        {
+            if (v is PlayerVisual pv)
+            {
+                if (rg != null && rg.Players.TryGetValue(v.Index, out RemotePlayer? rp))
+                {
+                    pv.Driven = true;
+                    Player p = rp.P;
+                    pv.ApplyControl(new ControlSample(p.Transform.P[0], p.Transform.P[1], p.Transform.P[2], p.Velocity[0], p.Velocity[1],
+                                                      p.Velocity[2], p.ContactFlag, p.Jetting, p.Crouching, p.Rotation[2]));
+                    pv.ViewPitch = p.Pitch;
+                }
+                else
+                    pv.Driven = false;
+            }
+            else if (v is ShapeVisual sv)
+            {
+                if (rg != null && rg.Vehicles.TryGetValue(v.Index, out RemoteVehicle? rv))
+                {
+                    sv.Driven = true;
+                    Vehicle o = rv.V;
+                    sv.SetSmoothed(o.Rotation[0], o.Rotation[1], o.Rotation[2], o.Transform.P[0], o.Transform.P[1], o.Transform.P[2]);
+                }
+                else
+                    sv.Driven = false;
+            }
+        }
     }
 
     // Step F15: the listener follows the camera.
