@@ -69,14 +69,14 @@ public sealed class WorldScene : IDisposable
 
     // The renderers of a world from its objects and an already mounted resource manager. A demo builds the objects from the
     // environment ghosts of the stream (SimVolume, SimPalette, SimTerrain, Sky, StarField, Planet, InteriorShape).
-    public static WorldScene LoadFrom(IGfxDevice dev, ResourceManager res, string missionName, List<MissionObject> all, out string error)
+    public static WorldScene LoadFrom(IGfxDevice dev, ResourceManager res, string missionName, List<MissionObject> all, out string error, float gamma = 1f)
     {
         error = "";
         var scene = new WorldScene(dev) { MissionName = missionName };
         MissionObject? pal = all.FirstOrDefault(o => o.Class == "SimPalette");
         PaletteBank? bank = pal != null ? GfxAssets.LoadPalette(res, pal.Get("fileName")) : null;
         bank ??= PaletteTables.Grayscale();
-        scene.Assets = new WorldAssets(res, bank);
+        scene.Assets = new WorldAssets(res, bank) { Gamma = gamma };
         scene.HazeColor = scene.Assets.HazeColor();
 
         MissionObject? terrain = all.FirstOrDefault(o => o.Class == "SimTerrain");

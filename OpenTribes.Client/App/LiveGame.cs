@@ -263,7 +263,7 @@ public sealed class LiveGame : IDisposable
         foreach (MissionObject o in env.Where(o => o.Class == "SimVolume"))
             mApp.Res.AddVolume(o.Get("fileName"));
         string name = IsDemo ? DemoName : Mission;
-        Scene = WorldScene.LoadFrom(mApp.Dev, mApp.Res, name, env, out string error);
+        Scene = WorldScene.LoadFrom(mApp.Dev, mApp.Res, name, env, out string error, mApp.Gamma);
         SceneError = error;
         if (error.Length > 0)
             mApp.Log("scene: " + error);

@@ -50,7 +50,22 @@ public sealed class WorldAssets
 {
     public ResourceManager Res { get; }
     public PaletteBank Palette { get; set; }
-    private readonly byte[] mIdentityGamma = PaletteTables.GammaTable(1f);
+    private byte[] mGammaTable = PaletteTables.GammaTable(1f);
+    private float mGamma = 1f;
+
+    // The display gamma ($pref::Display::gammaValue): the table 005d4880 builds serves every texture upload of the surface (005d3ecc), world and
+    // GUI alike (the upload routines 005d5164, 005d5784, 005d5a3c, 005d5e34, 005d7148 and 005d7674 read the same per-palette tables).
+    public float Gamma
+    {
+        get => mGamma;
+        set
+        {
+            if (value == mGamma)
+                return;
+            mGamma = value;
+            mGammaTable = PaletteTables.GammaTable(value);
+        }
+    }
     private readonly Dictionary<string, PbmpBitmap?> mBitmaps = new(StringComparer.OrdinalIgnoreCase);
 
     public WorldAssets(ResourceManager res, PaletteBank palette)
@@ -73,7 +88,7 @@ public sealed class WorldAssets
     // interior polygons draw with keyed transparency off, world-render.md 2.4 and 3.3).
     public byte[] Rgba(PbmpBitmap bmp, bool opaque)
     {
-        byte[] rgba = PaletteTables.ToRgba(bmp, Palette.FindSubPalette(bmp.PaletteId), mIdentityGamma);
+        byte[] rgba = PaletteTables.ToRgba(bmp, Palette.FindSubPalette(bmp.PaletteId), mGammaTable);
         if (opaque)
             for (int i = 3; i < rgba.Length; i += 4)
                 rgba[i] = 255;
@@ -103,7 +118,7 @@ public sealed class WorldAssets
             level.Pixels = new byte[stride * h];
             for (int y = 0; y < h; ++y)
                 Array.Copy(bmp.MipLevels[k - 1], y * w, level.Pixels, y * stride, w);
-            byte[] rgba = PaletteTables.ToRgba(level, sub, mIdentityGamma);
+            byte[] rgba = PaletteTables.ToRgba(level, sub, mGammaTable);
             if (opaque)
                 for (int i = 3; i < rgba.Length; i += 4)
                     rgba[i] = 255;
