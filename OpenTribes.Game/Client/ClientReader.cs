@@ -22,6 +22,13 @@ public sealed class OverrunException : Exception
     public OverrunException() : base("read past the end of the packet") { }
 }
 
+// A member reader called Net_invalidPacket with a text (0x00553630): the reader stops, the net object drops the connection
+// (client-net.md 1.4, TribesNet_onPacketError 0x0042b7f8).
+public sealed class PacketErrorException : Exception
+{
+    public PacketErrorException(string text) : base(text) { }
+}
+
 public sealed class ClientReader
 {
     public readonly BitStream Bs;

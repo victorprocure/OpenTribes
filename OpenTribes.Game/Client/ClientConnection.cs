@@ -16,6 +16,7 @@ public sealed class DecodedPacket
     public int PaddingBits;               // 0..7 bits after the last member
     public string? UnknownReason;
     public bool Overrun;                  // read past the end: "Invalid packet"
+    public string? Error;                 // a member reader's Net_invalidPacket text: the session drops the connection
     public (int Interval, int Size)? RateSet, RateReq;
     public readonly List<DecodedEvent> Events = new();
     public DecodedPsc? Psc;
@@ -121,6 +122,12 @@ public sealed class ClientGameConnection
             pkt.BitsRead = r.Pos;
             pkt.UnknownReason = "from bit " + r.Pos + ": " + e.Message;
             // The partial member results are lost with the exception; the state the earlier members set stays.
+        }
+        catch (PacketErrorException e)
+        {
+            pkt.Error = e.Message;
+            pkt.BitsRead = r.Pos;
+            ++World.Errors;
         }
         catch (OverrunException)
         {

@@ -52,6 +52,7 @@ public sealed class LiveGame : IDisposable
     private void Hook(ClientWorld w)
     {
         World = w;
+        w.DataBlocks.Resources = mApp.Res;
         w.Players.OnScript = text => mApp.Interp.Evaluate(text);
         // 0040940c: an empty $pref::playVoices is set to TRUE first, then read as a boolean.
         w.Players.PlayVoices = () =>
@@ -93,6 +94,7 @@ public sealed class LiveGame : IDisposable
             SkinBase = Or(interp.PeekVariable("$PCFG::SkinBase"), "base"),
         };
         Hook(Net.World);
+        ClientWorld netWorld = Net.World;
         Net.OnConnection = (msg, reason) =>
         {
             if (msg != "Accepted")
@@ -104,6 +106,12 @@ public sealed class LiveGame : IDisposable
             interp.CallFunction("onConnection", new[] { msg });
             if (msg != "Accepted")
                 Stop();
+        };
+        Net.OnPacketError = text =>
+        {
+            Joined = false;
+            interp.CallFunction("onConnectionError", new[] { netWorld.ServerId.ToString(CultureInfo.InvariantCulture), netWorld.PlayerId.ToString(CultureInfo.InvariantCulture), text });
+            Stop();
         };
         Net.OnDataFinished = () => interp.CallFunction("dataFinished", Array.Empty<string>());
         Net.OnAlwaysDone = () =>

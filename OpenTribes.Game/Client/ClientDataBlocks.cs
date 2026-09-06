@@ -19,6 +19,11 @@ public sealed class ClientDataBlocks
     public int Received;
     public Action<string, double>? OnProgress;     // dataGotBlock(label, progress)
 
+    // The local models of the model check (7.1). Null: no check (a headless session without game files).
+    public ResourceManager? Resources;
+    // Set by the check that failed: the text of the "Invalid packet" error (client-net.md 1.4); the session leaves the server.
+    public string? PreloadError;
+
     public void Clear()
     {
         Counts.Clear();
@@ -287,7 +292,37 @@ public sealed class ClientDataBlocks
         Blocks[(group, index)] = block;
         ++Received;
         summary = "group=" + group + " count=" + count + " index=" + index + " " + cls;
+        // Process step 2: the preload fails before dataGotBlock runs.
+        if ((PreloadError = CheckModel(block)) != null)
+            return;
         AfterBlock(group, count, index);
+    }
+
+    public const string kMismatchFormat = "Client side model {0} or its textures do not match the server's and the server requires validation of this model or textures.";
+
+    // Client preload of a block whose shape name came with a CRC (validateShape): ShapeBase 0x0044a204 (shapeFile + ".dts"),
+    // Projectile 0x00459804 (bulletShapeName) and Explosion 0x0046de5c (shapeName), all through 0x0044a078. The CRC of the
+    // local model (and its textures when the name came with 0xfe) must equal the server's, else the preload fails with
+    // kMismatchFormat. The server side of the same call stores the CRC instead (DataBlockManager.Preload).
+    public string? CheckModel(ClientDataBlock b)
+    {
+        if (Resources == null)
+            return null;
+        foreach (DecodedField f in b.Fields)
+        {
+            if (!f.Name.EndsWith(".crc", StringComparison.Ordinal) || f.Value is not long wire)
+                continue;
+            string field = f.Name[..^4];
+            string name = b.Fields.First(x => x.Name == field).Value as string ?? "";
+            bool materials = b.Fields.First(x => x.Name == field + ".materials").Value is long m && m != 0;
+            if (name.Length == 0)
+                continue; // preload skips an empty name
+            if (field == "shapeFile")
+                name += ".dts";
+            if (DataBlockManager.ValidationCrc(Resources, name, materials) != (uint)wire)
+                return string.Format(kMismatchFormat, name);
+        }
+        return null;
     }
 
     // Process (2.6 steps 2, 3): progress = (group * count + index) / (count * 31); group 30 with the last index (or an

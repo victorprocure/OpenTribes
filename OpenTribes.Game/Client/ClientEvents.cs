@@ -535,6 +535,8 @@ public sealed class ClientEvents
                 e.Name = "DataBlockEvent";
                 mWorld.DataBlocks.ReadEvent(r, out string summary);
                 e.Text = summary;
+                if (mWorld.DataBlocks.PreloadError is string preloadError)
+                    throw new PacketErrorException(preloadError);
                 break;
             case 0x459: // TeamObjectiveEvent
                 {

@@ -112,6 +112,8 @@ public sealed class NetClientSession : ConnectionEvents
     public Func<uint>? ClockMs;
     // onConnection(msg) of the script (client-net.md 1.6): Accepted, Rejected, TimedOut, Dropped, and the reason text.
     public Action<string, string>? OnConnection;
+    // TribesNet_onPacketError 0x0042b7f8: a member reader failed with this text; the script gets onConnectionError(...).
+    public Action<string>? OnPacketError;
     public Action? OnDataFinished, OnAlwaysDone;
     public Action<DecodedPacket>? PacketHook;
     // Reads a console variable ($pref::PacketRate and $pref::PacketSize feed the own rate request); null: defaults.
@@ -237,12 +239,29 @@ public sealed class NetClientSession : ConnectionEvents
         OnConnection?.Invoke(timedOut ? "TimedOut" : "Dropped", mReason);
     }
 
+    // client-net.md 1.4 packet read error: the connection is detached with a Disconnect packet that has an empty reason, then the
+    // script is told. Nothing else of the packet is used.
+    private void PacketError(string text)
+    {
+        mReason = "packet error: " + text;
+        Log?.Invoke(mReason);
+        if (mVc != null && mVc.State() == ConnectionState.Connected)
+            mVc.Close(Connection.Disconnect, "", Now);
+        mClosed = true;
+        OnPacketError?.Invoke(text);
+    }
+
     public override void OnNotify(Connection c, uint cookie, bool delivered) => mGame.Notify(cookie, delivered);
 
     public override void OnData(Connection c, ReadOnlySpan<byte> payload)
     {
         DecodedPacket p = mGame.Receive(payload.ToArray());
         mDump.Write(p, mClock.Elapsed.TotalSeconds);
+        if (p.Error != null)
+        {
+            PacketError(p.Error);
+            return;
+        }
         PacketHook?.Invoke(p);
         if (PredictFactory != null)
             FollowMission();
