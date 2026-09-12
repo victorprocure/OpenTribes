@@ -59,7 +59,7 @@ way are added to Open.
 - [x] Packet pacing, rate requests and their limits.
 - [x] Terrain and network settings with their default values, including prediction timing.
 - [x] Smooth movement of other players and vehicles.
-- [x] Model checks when joining a server.
+- [x] Model checks when joining a server, with the file check messages.
 
 ### Graphics
 

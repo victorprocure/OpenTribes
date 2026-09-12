@@ -23,6 +23,7 @@ public sealed class ClientDataBlocks
     public ResourceManager? Resources;
     // Set by the check that failed: the text of the "Invalid packet" error (client-net.md 1.4); the session leaves the server.
     public string? PreloadError;
+    public Action<string>? Print;                  // console line "Validated file: <name>" of a passed check
 
     public void Clear()
     {
@@ -321,6 +322,7 @@ public sealed class ClientDataBlocks
                 name += ".dts";
             if (DataBlockManager.ValidationCrc(Resources, name, materials) != (uint)wire)
                 return string.Format(kMismatchFormat, name);
+            Print?.Invoke("Validated file: " + name);
         }
         return null;
     }

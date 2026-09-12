@@ -53,6 +53,7 @@ public sealed class LiveGame : IDisposable
     {
         World = w;
         w.DataBlocks.Resources = mApp.Res;
+        w.DataBlocks.Print = line => mApp.Interp.Print(0, line);
         w.Players.OnScript = text => mApp.Interp.Evaluate(text);
         // 0040940c: an empty $pref::playVoices is set to TRUE first, then read as a boolean.
         w.Players.PlayVoices = () =>
@@ -215,7 +216,8 @@ public sealed class LiveGame : IDisposable
             // GameConnection_loadPacketPrefs (00550c68): $pref::PacketFrame, default 32, clamped to 32..128 (1.11).
             Net.Game.PacketFrame = Math.Clamp(unchecked((uint)Numbers.BorlandAtoi(mApp.Interp.PeekVariable("$pref::PacketFrame") ?? "")), 32u, 128u);
             Net.Frame(now);
-            if (Net.IsOpen == false && Joined && !Net.IsAccepted)
+            // A script callback of the frame (onConnection, onConnectionError) may have stopped the session.
+            if (Net != null && Net.IsOpen == false && Joined && !Net.IsAccepted)
                 Joined = false;
         }
         mApp.PumpChat(this, ref mChatSeen);
