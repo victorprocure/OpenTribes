@@ -149,13 +149,13 @@ public class RemoteGhostsTests
     public void VehicleWindowAndSnap()
     {
         var (snap, sf) = MakeFlier("rg_vref");
-        snap.Place(1000, new float[3], new[] { 100f, 100f, 70f });
+        snap.Place(new float[3], new[] { 100f, 100f, 70f });
         snap.SetState(2000, new Move { Forward = 1.0f }, kPos, kRot, 2, 0.0f, 20.0f, 0, 0);
         Assert.Equal(0u, snap.End);
         Assert.Equal(1984u, snap.SimTime);
         Assert.Equal(2, sf.TicksWithoutMove);
         var (rv, f) = MakeFlier("rg_vwin");
-        rv.Place(1000, new float[3], new[] { 100f, 100f, 70f });
+        rv.Place(new float[3], new[] { 100f, 100f, 70f });
         rv.SetState(2000, new Move { Forward = 1.0f }, kPos, kRot, 2, 0.0f, 20.0f, 64, 0);
         Assert.Equal(2080u, rv.End);
         Assert.Equal(1984u, rv.SimTime);                  // the vehicle resets its clock to the tick
@@ -176,9 +176,31 @@ public class RemoteGhostsTests
         foreach ((int predict, long steps) in new[] { (0, 1L), (32, 2L), (64, 3L) })
         {
             var (rv, _) = MakeFlier("rg_vpred" + predict);
-            rv.Place(1000, new float[3], new[] { 100f, 100f, 70f });
+            rv.Place(new float[3], new[] { 100f, 100f, 70f });
             rv.SetState(2000, new Move(), kPos, kRot, 0, 0.0f, 0.0f, 0, predict);
             Assert.Equal(steps, rv.Steps);
         }
+    }
+
+    [Fact]
+    public void RegistrationSetsTheClockToTheClientTimeNotTheTick()
+    {
+        // GameBase_onAdd 0x00448108: +0x218 = +0x21c = now, after the unpack that rounded it down.
+        var (rp, _) = MakePlayer("rg_reg");
+        rp.Place(2000, kStart, kVel, 0.4f, 0.05f, false);
+        Assert.Equal(1984u, rp.SimTime);
+        rp.Register(2000);
+        Assert.Equal(2000u, rp.SimTime);
+        Assert.Equal(2000u, rp.LastTime);
+        long steps = rp.Steps;
+        rp.Advance(2000);                                 // nothing left to run
+        Assert.Equal(steps, rp.Steps);
+        var (rv, _) = MakeFlier("rg_vreg");
+        rv.Place(new float[3], new[] { 100f, 100f, 70f });
+        rv.SetState(2000, new Move { Forward = 1.0f }, kPos, kRot, 2, 0.0f, 20.0f, 64, 0);
+        rv.Register(2000);
+        Assert.Equal(2000u, rv.SimTime);
+        rv.Advance(2000);                                 // min(end, now) = now: the window is dropped
+        Assert.Equal(0u, rv.End);
     }
 }

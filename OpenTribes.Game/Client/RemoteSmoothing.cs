@@ -48,6 +48,7 @@ public sealed class RemotePlayer
     public readonly Player P;
     public uint SimTime;                                   // +0x218
     public uint End;                                       // +0x1020
+    public uint LastTime;                                  // +0x21c: the time of the last frame
     public readonly float[] PosRate = new float[3];        // +0x788: per ms in a window, per tick after a step
     public float YawRate, PitchRate;                       // +0x794, +0x798
     public long Steps;
@@ -57,6 +58,15 @@ public sealed class RemotePlayer
         P = p;
         P.ClientSide = true;
         P.LocallyControlled = false;
+    }
+
+    // GameBase_onAdd 0x00448108 (registration, after the first unpack of a new ghost): +0x218 and +0x21c = the client time
+    // (`mov edx,[0x6a8494]; mov eax,[edx+4]`, 0x6a8494 = &0x6a839c, +4 = 0x6a83a0), not rounded down to a tick. It replaces the
+    // `now & ~31` of the unregistered paths in 0x0041405c and 0x00445f68.
+    public void Register(uint now)
+    {
+        SimTime = now;
+        LastTime = now;
     }
 
     private void ZeroRates()
@@ -207,6 +217,9 @@ public sealed class RemoteVehicle
         V.ClientSide = true;
     }
 
+    // GameBase_onAdd 0x00448108: +0x218 = the client time (see RemotePlayer.Register).
+    public void Register(uint now) => SimTime = now;
+
     private void ZeroRates()
     {
         Array.Clear(PosRate);
@@ -214,11 +227,8 @@ public sealed class RemoteVehicle
     }
 
     // The update without the move block: the state is set directly and the rates are cleared; the window is not touched.
-    // A copy that never ran starts its clock at `now` (the object of the original has one from its registration).
-    public void Place(uint now, ReadOnlySpan<float> rot, ReadOnlySpan<float> pos)
+    public void Place(ReadOnlySpan<float> rot, ReadOnlySpan<float> pos)
     {
-        if (SimTime == 0)
-            SimTime = SmoothWindow.Floor(now);
         ZeroRates();
         V.SetRotation(rot);
         V.SetPosition(pos);

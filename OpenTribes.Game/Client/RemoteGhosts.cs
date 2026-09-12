@@ -104,6 +104,7 @@ public sealed class RemoteGhosts
             rp = new RemotePlayer(p);
             Players[u.Index] = rp;
             rp.Place(now, pos, vel, yaw, pitch, contact);
+            rp.Register(now);
             return;
         }
         ClientPrediction.SyncPlayerGhost(rp.P, g);
@@ -123,23 +124,29 @@ public sealed class RemoteGhosts
         if (!Has(u, "pos") || !Has(u, "rot"))
             return;
         float[] pos = F3(g.State.GetValueOrDefault("pos")), rot = F3(g.State.GetValueOrDefault("rot"));
+        bool created = false;
         if (!Vehicles.TryGetValue(u.Index, out RemoteVehicle? rv))
         {
             if (CreateObject?.Invoke(g, pos) is not Vehicle v)
                 return;
             rv = new RemoteVehicle(v);
             Vehicles[u.Index] = rv;
+            created = true;
         }
         rv.V.Piloted = g.State.TryGetValue("controlClient", out object? cc) && cc is long c && c != 0;
         if (!Has(u, "move") || !g.State.TryGetValue(MoveKey, out object? mv) || mv is not Move move)
         {
-            rv.Place(now, rot, pos);
+            rv.Place(rot, pos);
+            if (created)
+                rv.Register(now);
             return;
         }
         Vehicle.VData d = rv.V.Data;
         float speedF = (d.MaxSpeed - d.MinSpeed) * Num(g, "unit10") + d.MinSpeed;
         rv.SetState(now, move, pos, rot, (int)(g.State.GetValueOrDefault("f8d8") is long f ? f : 0), Num(g, "f898"), speedF,
                     Interpolate(), Predict());
+        if (created)
+            rv.Register(now);
     }
 
     // Player_clientUpdate and Vehicle_clientUpdate, once per frame at net time `now`.
