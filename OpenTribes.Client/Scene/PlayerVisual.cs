@@ -227,7 +227,9 @@ public sealed class PlayerVisual : ShapeVisual
         HavePos = true;
     }
 
-    protected override Xf PoseXf() => Xf.Euler(0, 0, Yaw).Then(Xf.Translate(X + mExtrapX, Y + mExtrapY, Z + mExtrapZ));
+    // Rotation x and y: only a corpse has them (the ground slope of Player.ClientCorpseStep).
+    public double TiltX, TiltY;
+    protected override Xf PoseXf() => Xf.Euler(TiltX, TiltY, Yaw).Then(Xf.Translate(X + mExtrapX, Y + mExtrapY, Z + mExtrapZ));
     private double mExtrapX, mExtrapY, mExtrapZ;
 
     // 3.4: ground motion animations (indices 1 to 4 and 10 to 13) run at a rate that follows the speed along the animation direction.

@@ -82,10 +82,9 @@ public sealed class RemoteGhosts
 
     private void OnPlayer(DecodedGhost u, ClientGhost g, uint now)
     {
-        // Mounted and dead Players keep the stream state (the mount transform and the corpse step are not copied).
+        // Mounted Players keep the stream state (the mount transform is not copied).
         bool mounted = g.State.TryGetValue("mount", out object? m) && m is string ms && !ms.StartsWith("none", StringComparison.Ordinal);
-        bool dead = Flag(g, "dead");
-        if (mounted || dead)
+        if (mounted)
         {
             Remove(u.Index);
             return;
@@ -101,6 +100,7 @@ public sealed class RemoteGhosts
             if (CreateObject?.Invoke(g, pos) is not Player p)
                 return;
             ClientPrediction.SyncPlayerGhost(p, g);
+            p.Dead = Flag(g, "dead") && !Has(u, "damage");
             rp = new RemotePlayer(p);
             Players[u.Index] = rp;
             rp.Place(now, pos, vel, yaw, pitch, contact);
@@ -108,6 +108,10 @@ public sealed class RemoteGhosts
             return;
         }
         ClientPrediction.SyncPlayerGhost(rp.P, g);
+        if (Has(u, "dead"))
+            rp.P.Dead = true;
+        else if (Has(u, "damage"))
+            rp.P.Dead = false;       // the living branch of the dead/damage field (+0x1019 = 0)
         if (u.Op == "new" || !Has(u, "move") || !g.State.TryGetValue(MoveKey, out object? mv) || mv is not Move move)
         {
             rp.Place(now, pos, vel, yaw, pitch, contact);

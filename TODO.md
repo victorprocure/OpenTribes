@@ -58,7 +58,7 @@ way are added to Open.
 - [x] Weapon state steps once per predicted move.
 - [x] Packet pacing, rate requests and their limits.
 - [x] Terrain and network settings with their default values, including prediction timing.
-- [x] Smooth movement of other players and vehicles, from the moment they appear.
+- [x] Smooth movement of other players and vehicles, from the moment they appear. Dead players fall to the ground.
 - [x] Model checks when joining a server, with the file check messages.
 
 ### Graphics

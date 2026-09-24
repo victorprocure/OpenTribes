@@ -203,4 +203,50 @@ public class RemoteGhostsTests
         rv.Advance(2000);                                 // min(end, now) = now: the window is dropped
         Assert.Equal(0u, rv.End);
     }
+
+    [Fact]
+    public void CorpseStepEasesRotationTowardTheGroundSlope()
+    {
+        // FUN_0041447c: 0.05 rad per tick (31.25 ticks per second) of rotation x and y toward the ground normal, no movement.
+        var (rp, p) = MakePlayer("rg_corpse");
+        float h = 0;
+        Assert.True(p.Game().World.TerrainOf(p)!.TerrainData!.Height(100, 100, ref h));
+        p.SetPosition(new[] { 100f, 100f, h + 0.1f });
+        p.Dead = true;
+        p.SetRotation(new[] { 0.3f, -0.2f, 0.5f });
+        float[] before = { p.Transform.P[0], p.Transform.P[1], p.Transform.P[2] };
+        p.ClientCorpseStep(0.032f);                       // one tick
+        Assert.Equal(0.25f, p.Rotation[0], 4);
+        Assert.Equal(-0.15f, p.Rotation[1], 4);
+        Assert.Equal(0.5f, p.Rotation[2], 4);
+        p.ClientCorpseStep(0.064f);                       // two ticks
+        Assert.Equal(0.15f, p.Rotation[0], 4);
+        Assert.Equal(-0.05f, p.Rotation[1], 4);
+        p.ClientCorpseStep(0.1f);
+        Assert.Equal(0.0f, p.Rotation[0], 5);             // stops on the target, no overshoot
+        Assert.Equal(0.0f, p.Rotation[1], 5);
+        for (int i = 0; i < 3; ++i)
+            Assert.Equal(before[i], p.Transform.P[i]);
+        p.SetPosition(new[] { 100f, 100f, h + 0.6f });    // more than 0.5 above the ground: untouched
+        p.SetRotation(new[] { 0.3f, -0.2f, 0.5f });
+        p.ClientCorpseStep(0.032f);
+        Assert.Equal(0.3f, p.Rotation[0], 5);
+        Assert.Equal(-0.2f, p.Rotation[1], 5);
+    }
+
+    [Fact]
+    public void AdvanceRunsTheCorpseStepFromTheLastFrame()
+    {
+        var (rp, p) = MakePlayer("rg_corpse2");
+        float h = 0;
+        p.Game().World.TerrainOf(p)!.TerrainData!.Height(100, 100, ref h);
+        p.SetPosition(new[] { 100f, 100f, h + 0.1f });
+        rp.Place(1000, new[] { 100f, 100f, h + 0.1f }, kVel, 0.5f, 0.0f, true);
+        rp.Register(1000);
+        p.Dead = true;
+        p.SetRotation(new[] { 0.3f, 0.0f, 0.5f });
+        rp.Advance(1032);                                 // dt = 32 ms: one tick of 0.05
+        Assert.Equal(0.25f, p.Rotation[0], 3);
+        Assert.Equal(1032u, rp.LastTime);
+    }
 }

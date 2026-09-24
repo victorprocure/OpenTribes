@@ -392,6 +392,7 @@ public sealed class LiveGame : IDisposable
                     pv.ApplyControl(new ControlSample(p.Transform.P[0], p.Transform.P[1], p.Transform.P[2], p.Velocity[0], p.Velocity[1],
                                                       p.Velocity[2], p.ContactFlag, p.Jetting, p.Crouching, p.Rotation[2]));
                     pv.ViewPitch = p.Pitch;
+                    (pv.TiltX, pv.TiltY) = (p.Rotation[0], p.Rotation[1]);
                 }
                 else
                     pv.Driven = false;
