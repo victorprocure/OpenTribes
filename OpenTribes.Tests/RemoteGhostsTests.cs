@@ -249,4 +249,29 @@ public class RemoteGhostsTests
         Assert.Equal(0.25f, p.Rotation[0], 3);
         Assert.Equal(1032u, rp.LastTime);
     }
+
+    [Fact]
+    public void MountedPlayerFollowsTheMountPointEveryFrame()
+    {
+        // Player_applyControlState 0x0041405c and FUN_00414a00 (mounted branch): the transform is the mount point's times the yaw.
+        var side = new ClientPredictionTests.Side("rg_mount");
+        Player p = side.Spawn("100 100 60");
+        Flier f = side.Make("100 100 70");
+        f.SetPosition(new[] { 100f, 100f, 70f });
+        var rp = new RemotePlayer(p);
+        rp.Place(1000, new[] { 99f, 99f, 69f }, kVel, 0.4f, 0.05f, false);
+        rp.Register(1000);
+        p.MountId = f.Id();
+        p.MountPoint = 2;
+        rp.Update(2000, Forward(), new[] { 99f, 99f, 69f }, kVel, false, 0.1f, 0.5f, 3, false, 64, 0);
+        Assert.Equal(100f, p.Transform.P[0], 3);            // the mount point, not the stream position
+        Assert.Equal(70f, p.Transform.P[2], 3);
+        f.SetPosition(new[] { 130f, 100f, 70f });
+        rp.Advance(2040);
+        Assert.Equal(130f, p.Transform.P[0], 3);            // follows the mount as it is now
+        f.SetPosition(new[] { 140f, 90f, 70f });
+        rp.Advance(2200);                                   // past the end of the window: the stepped state follows too
+        Assert.Equal(140f, p.Transform.P[0], 3);
+        Assert.Equal(90f, p.Transform.P[1], 3);
+    }
 }

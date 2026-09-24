@@ -44,6 +44,7 @@ public sealed class RemoteGhosts
     // follows the prediction.
     public void OnBlock(DecodedGhostBlock block, ClientWorld world, uint now, int controlGhost)
     {
+        mControlGhost = controlGhost;
         foreach (DecodedGhost u in block.Updates)
         {
             if (u.Op == "delete")
@@ -69,7 +70,12 @@ public sealed class RemoteGhosts
         if (Players.Remove(index, out RemotePlayer? p))
             DeleteObject?.Invoke(p.P);
         if (Vehicles.Remove(index, out RemoteVehicle? v))
+        {
+            // The riders lose their mount (the delete notification clears +0x1028): their copies go, the stream state is drawn.
+            foreach (int rider in Players.Where(kv => kv.Value.MountGhost == index).Select(kv => kv.Key).ToList())
+                Remove(rider);
             DeleteObject?.Invoke(v.V);
+        }
     }
 
     private static bool Has(DecodedGhost u, string n)
@@ -80,12 +86,52 @@ public sealed class RemoteGhosts
         return false;
     }
 
+    // The mount object of ghost `index`: the copy of a remote Vehicle or Flier, or the control object (the predicted copy) when the
+    // Player rides the vehicle of this client. Null when there is none (yet).
+    public Func<GameBase?>? ControlObject;
+    private int mControlGhost = -1;
+
+    private GameBase? ResolveMount(int index)
+    {
+        if (Vehicles.TryGetValue(index, out RemoteVehicle? rv))
+            return rv.V;
+        return index == mControlGhost ? ControlObject?.Invoke() : null;
+    }
+
+    // The mount fields of the Player unpack (0x00417e..: ghost int(10), point int(5); point 1 sets the rotation to 0): the pointer
+    // +0x1028 is the client object of that ghost.
+    private static bool ParseMount(ClientGhost g, out int ghost, out int point)
+    {
+        ghost = -1;
+        point = 0;
+        if (!g.State.TryGetValue("mount", out object? m) || m is not string ms || ms.StartsWith("none", StringComparison.Ordinal))
+            return false;
+        string[] a = ms.Split('/');
+        return a.Length == 2 && int.TryParse(a[0], out ghost) && int.TryParse(a[1], out point);
+    }
+
+    // Binds +0x1028 and +0x102c of every Player copy that has a mount ghost.
+    private void BindMounts()
+    {
+        foreach (RemotePlayer rp in Players.Values)
+        {
+            if (rp.MountGhost < 0)
+                rp.P.MountId = 0;
+            else
+            {
+                GameBase? mo = ResolveMount(rp.MountGhost);
+                rp.P.MountId = mo != null ? mo.Id() : 0;
+                rp.P.MountPoint = rp.MountPoint;
+            }
+        }
+    }
+
     private void OnPlayer(DecodedGhost u, ClientGhost g, uint now)
     {
-        // Mounted Players keep the stream state (the mount transform is not copied).
-        bool mounted = g.State.TryGetValue("mount", out object? m) && m is string ms && !ms.StartsWith("none", StringComparison.Ordinal);
-        if (mounted)
+        bool mounted = ParseMount(g, out int mountGhost, out int mountPoint);
+        if (mounted && ResolveMount(mountGhost) == null)
         {
+            // Nothing to follow (the mount object has no copy): the stream state is drawn.
             Remove(u.Index);
             return;
         }
@@ -103,11 +149,14 @@ public sealed class RemoteGhosts
             p.Dead = Flag(g, "dead") && !Has(u, "damage");
             rp = new RemotePlayer(p);
             Players[u.Index] = rp;
+            SetMount(rp, mounted, mountGhost, mountPoint);
             rp.Place(now, pos, vel, yaw, pitch, contact);
             rp.Register(now);
             return;
         }
         ClientPrediction.SyncPlayerGhost(rp.P, g);
+        if (Has(u, "mount"))
+            SetMount(rp, mounted, mountGhost, mountPoint);
         if (Has(u, "dead"))
             rp.P.Dead = true;
         else if (Has(u, "damage"))
@@ -121,6 +170,15 @@ public sealed class RemoteGhosts
             rp.P.Energy = (float)(Num(g, "energy") * (double)rp.P.MaxEnergy);
         rp.Update(now, move, pos, vel, contact, pitch, yaw, (int)(g.State.GetValueOrDefault("f8c") is long f ? f : 0), Flag(g, "flag10000"),
                   Interpolate(), Predict());
+    }
+
+    private void SetMount(RemotePlayer rp, bool mounted, int ghost, int point)
+    {
+        rp.MountGhost = mounted ? ghost : -1;
+        rp.MountPoint = point;
+        if (mounted && point == 1)
+            rp.P.SetRotation(new float[3]);       // the unpack sets the rotation to 0 for point 1 (vtable +0x1a0)
+        BindMounts();
     }
 
     private void OnVehicle(DecodedGhost u, ClientGhost g, uint now)
@@ -154,11 +212,13 @@ public sealed class RemoteGhosts
     }
 
     // Player_clientUpdate and Vehicle_clientUpdate, once per frame at net time `now`.
+    // The vehicles go first so that a rider follows the mount point of the vehicle of this frame (the order of the original's
+    // object list is not known).
     public void Advance(uint now)
     {
-        foreach (RemotePlayer p in Players.Values)
-            p.Advance(now);
         foreach (RemoteVehicle v in Vehicles.Values)
             v.Advance(now);
+        foreach (RemotePlayer p in Players.Values)
+            p.Advance(now);
     }
 }

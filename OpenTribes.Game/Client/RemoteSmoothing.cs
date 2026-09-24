@@ -52,6 +52,8 @@ public sealed class RemotePlayer
     public readonly float[] PosRate = new float[3];        // +0x788: per ms in a window, per tick after a step
     public float YawRate, PitchRate;                       // +0x794, +0x798
     public long Steps;
+    public int MountGhost = -1;                            // the ghost index of the mount object (+0x1028), -1 none
+    public int MountPoint;                                 // +0x102c
 
     public RemotePlayer(Player p)
     {
@@ -132,9 +134,15 @@ public sealed class RemotePlayer
         if (dyaw > Pi)
             dyaw -= (float)TwoPi;
         YawRate = dyaw / span;
+        P.SetRotation(new[] { P.Rotation[0], P.Rotation[1], oldYaw });
+        if (P.MountId != 0)
+        {
+            // Mounted: no position rates (+0x1e2.. keep their old values); the drawn transform is the mount point's with the old yaw.
+            P.PlaceOnMount();
+            return;
+        }
         for (int i = 0; i < 3; ++i)
             PosRate[i] = (P.Transform.P[i] - oldPos[i]) / span;
-        P.SetRotation(new[] { P.Rotation[0], P.Rotation[1], oldYaw });
         P.SetPosition(oldPos);
     }
 
@@ -148,6 +156,11 @@ public sealed class RemotePlayer
             yaw -= (float)TwoPi;
         P.SetRotation(new[] { P.Rotation[0], P.Rotation[1], yaw });
         P.Pitch = PitchRate * f + P.Pitch;
+        if (P.MountId != 0)
+        {
+            P.PlaceOnMount();                              // follows the mount node as it is now
+            return;
+        }
         Span<float> pos = stackalloc float[3];
         for (int i = 0; i < 3; ++i)
             pos[i] = PosRate[i] * f + P.Transform.P[i];

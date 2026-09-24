@@ -389,10 +389,18 @@ public sealed class LiveGame : IDisposable
                 {
                     pv.Driven = true;
                     Player p = rp.P;
-                    pv.ApplyControl(new ControlSample(p.Transform.P[0], p.Transform.P[1], p.Transform.P[2], p.Velocity[0], p.Velocity[1],
-                                                      p.Velocity[2], p.ContactFlag, p.Jetting, p.Crouching, p.Rotation[2]));
-                    pv.ViewPitch = p.Pitch;
+                    float yaw = p.Rotation[2];
                     (pv.TiltX, pv.TiltY) = (p.Rotation[0], p.Rotation[1]);
+                    if (p.MountId != 0)
+                    {
+                        // A rider is drawn with the full transform: the mount point's with the yaw of the Player.
+                        var e = new float[3];
+                        OpenTribes.Sim.MissionTransform.MatrixToEuler(p.Transform, e);
+                        (pv.TiltX, pv.TiltY, yaw) = (e[0], e[1], e[2]);
+                    }
+                    pv.ApplyControl(new ControlSample(p.Transform.P[0], p.Transform.P[1], p.Transform.P[2], p.Velocity[0], p.Velocity[1],
+                                                      p.Velocity[2], p.ContactFlag, p.Jetting, p.Crouching, yaw));
+                    pv.ViewPitch = p.Pitch;
                 }
                 else
                     pv.Driven = false;
