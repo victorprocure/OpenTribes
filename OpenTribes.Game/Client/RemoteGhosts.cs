@@ -212,8 +212,8 @@ public sealed class RemoteGhosts
     }
 
     // Player_clientUpdate and Vehicle_clientUpdate, once per frame at net time `now`.
-    // The vehicles go first so that a rider follows the mount point of the vehicle of this frame (the order of the original's
-    // object list is not known).
+    // The client frame (step 9 of docs/client-net.md 2.1) calls vtable +0x154 for the members of set 718 (vehicles) and then of set
+    // 719 (Players), skipping an object whose +0x218 equals now; so a rider follows the vehicle of the same frame.
     public void Advance(uint now)
     {
         foreach (RemoteVehicle v in Vehicles.Values)

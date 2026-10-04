@@ -184,6 +184,8 @@ public sealed class RemotePlayer
     // Player_clientUpdate 0x00414c38 for a Player that is not controlled and not dead.
     public void Advance(uint now)
     {
+        if (SimTime == now)
+            return;                                        // the caller skips objects whose +0x218 equals now (004eb9xx loop)
         if (P.Dead)
             P.ClientCorpseStep((float)((now - LastTime) * 0.001));    // 0x0041447c, before the window
         if (End != 0)
@@ -305,6 +307,8 @@ public sealed class RemoteVehicle
     // Vehicle_clientUpdate 0x0044549c for a Vehicle that is not the control object.
     public void Advance(uint now)
     {
+        if (SimTime == now)
+            return;                                        // skipped by the caller (+0x218 equals now)
         if (End != 0)
         {
             uint t = Math.Min(End, now);

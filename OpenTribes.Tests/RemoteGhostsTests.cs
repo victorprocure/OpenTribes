@@ -200,8 +200,11 @@ public class RemoteGhostsTests
         rv.SetState(2000, new Move { Forward = 1.0f }, kPos, kRot, 2, 0.0f, 20.0f, 64, 0);
         rv.Register(2000);
         Assert.Equal(2000u, rv.SimTime);
-        rv.Advance(2000);                                 // min(end, now) = now: the window is dropped
-        Assert.Equal(0u, rv.End);
+        rv.Advance(2000);                                 // +0x218 == now: the frame skips the object
+        Assert.Equal(2080u, rv.End);
+        rv.Advance(2010);                                 // the window runs from the registration time
+        Assert.Equal(2080u, rv.End);
+        Assert.Equal(2010u, rv.SimTime);
     }
 
     [Fact]
