@@ -221,8 +221,10 @@ public sealed class ClientHudSource : IHudSource
     public PlayMenuView? PlayMenu => PlayMenuSource?.Invoke();
     public IReadOnlyList<string?> ObjectiveLines => mWorld.Players.ObjectiveLines;
 
-    public bool SensorPing => false;
-    public bool SensorLocked => false;
+    // The 2 sensor state bits of the control state (00413b90, Vehicle 00446830): 1 pinged, 2 jammed.
+    private int SensorState => (int)D(Psc.ControlState.GetValueOrDefault("state2"), 0);
+    public bool SensorPing => SensorState == 1;
+    public bool SensorLocked => SensorState == 2;
 
     // Set by the host: the view camera of the frame, the position of mount point 2 of a player ghost (null: use the body position
     // plus 1.4) and the line test from the eye to a point (true when nothing blocks it).

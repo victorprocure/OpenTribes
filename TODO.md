@@ -143,6 +143,7 @@ way are added to Open.
 - [x] Scroll frame and its keyboard focus.
 - [x] Text lists and list selection.
 - [x] Labels resize to their text.
+- [x] Sensor ping HUD.
 
 ### Audio
 

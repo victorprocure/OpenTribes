@@ -424,9 +424,13 @@ public sealed class GuiWeaponHud : GuiHud
 }
 
 // FearGui::FGHSensorPing [code 004ea720]: the frame bitmap `ping` is always drawn for the control player; the flags byte of the
-// control object adds an overlay centred in the control: 2 the suppressed icon, 1 a cycle of the three ping icons.
+// control object adds an overlay centred in the control: 2 the suppressed icon, 1 a cycle of the three ping icons. The cycle
+// index is ftol((now - t0) * 10) % 6 (exe 0x4ea8b8..0x4ea8d2, constant 10.0 at 0x4ea9b8): 0 Lo, 1 Med, else Hi, 100 ms each.
+// t0 (+0x1f0) is latched on the first pinged frame and reset to -1 by any other state.
 public sealed class GuiSensorHud : GuiHud
 {
+    private double mPingStart = -1;
+
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.InPlayerView || Host == null)
@@ -435,10 +439,20 @@ public sealed class GuiSensorHud : GuiHud
         int x = ox + X, y = oy + Y;
         p.Bitmap(Host.BitmapByName(lr ? "lr_ping.bmp" : "ping.bmp"), x, y);
         string? overlay = null;
+        double now = Host.TickMs / 1000.0;
         if (Source.SensorLocked)
+        {
             overlay = "HP_Supressed";
+            mPingStart = -1;
+        }
         else if (Source.SensorPing)
-            overlay = ((Host.TickMs / 250) % 6) switch { 0 => "HP_PingedLo", 1 => "HP_PingedMed", _ => "HP_PingedHi" };
+        {
+            if (mPingStart <= 0)
+                mPingStart = now;
+            overlay = ((int)((now - mPingStart) * 10.0) % 6) switch { 0 => "HP_PingedLo", 1 => "HP_PingedMed", _ => "HP_PingedHi" };
+        }
+        else
+            mPingStart = -1;
         if (overlay == null)
             return;
         PbmpBitmap? b = Host.BitmapByName((lr ? "LR_" : "") + overlay + ".bmp") ?? Host.BitmapByName(overlay + ".bmp");
