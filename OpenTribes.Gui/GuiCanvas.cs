@@ -159,12 +159,12 @@ public sealed class GuiCanvas
     private bool mPressedOnHover;
     private uint mHelpTag;
     private (int X, int Y, int W, int H) mHelpBox;
-    private List<List<GuiMarkup.Run>>? mHelpLines;
+    private GuiTextFormat? mHelpLayout;
     public const int HelpDelayMs = 1069;
     // 00534308: the first screen of the main menu, Connect, JoinGame, Options and IRCChat delegates creates the pop-up control and it
     // stays on the canvas for every later screen.
     public bool HelpInstalled;
-    public bool HelpVisible => mHelpTag != 0 && mHelpLines != null;
+    public bool HelpVisible => mHelpTag != 0 && mHelpLayout != null;
     public (int X, int Y, int W, int H) HelpBox => mHelpBox;
     public uint HelpShownTag => mHelpTag;
     public readonly List<GuiControl> TabList = new();
@@ -691,7 +691,7 @@ public sealed class GuiCanvas
         if (tag == mHelpTag)
             return;
         mHelpTag = 0;
-        mHelpLines = null;
+        mHelpLayout = null;
         if (tag == 0 || Host.TagText(tag) is not string text)
             return;
         // "width,text": the width is atoi of what stands before the first comma (at most 7 characters), -1 or less is 200, at most 256.
@@ -700,16 +700,14 @@ public sealed class GuiCanvas
             return;
         int.TryParse(text[..Math.Min(comma, 7)].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int req);
         req = req < 0 ? 200 : Math.Min(req, 256);
-        PftFont? f0 = HelpFont(0);
-        List<List<GuiMarkup.Run>> lines = GuiMarkup.WrapText(Host, f0, text[(comma + 1)..], req - 6, HelpFont);
-        // The box [code 004af248 to 004af4f3]: the text is formatted by the TextFormat child for the width asked less 6; the box is
-        // min(asked width, formatted width + 6) wide and min(0xc0, formatted height + 6) high, and the formatted extents are the widest
-        // line (a sum of string widths, each without the spacing after its last character) and the line heights [code 00538454, 00538583].
-        // The width without the last spacing and the line height of the font height plus one are what stock boxes show for the
-        // strings of the stock screens; the TextFormat line spacing rule behind them is not traced.
-        int textW = lines.Count == 0 ? 0 : lines.Max(l => GuiMarkup.Width(Host, f0, l, HelpFont)) - (f0?.Spacing ?? 0);
-        int textH = lines.Count * (GuiPaint.FontHeight(f0) + 1);
-        int w = Math.Min(req, textW + 6), h = Math.Min(0xc0, textH + 6);
+        // The box [code 004af248]: the text is laid out by the TextFormat child [005370b8] for the width asked less 6 with the fonts of
+        // slots 0 and 1 (tags 150104 and 150114, the constructor 004af164); the box is min(asked width, widest line + 6) wide and
+        // min(0xc0, layout height + 6) high [vtable +0x100 and 005389e0 (+0x210)].
+        var fonts = new PftFont?[GuiTextFormat.FontCount];
+        fonts[0] = HelpFont(0);
+        fonts[1] = HelpFont(1);
+        GuiTextFormat layout = GuiTextFormat.Layout(text[(comma + 1)..], req - 6, fonts, n => Host.BitmapByName(n), n => Host.GetVar("$" + n));
+        int w = Math.Min(req, layout.MaxWidth + 6), h = Math.Min(0xc0, layout.Height + 6);
         // Below the cursor (the height of the default cursor bitmap), pushed back inside the window by three pixels.
         int x = (int)CursorX, y = (int)CursorY + (CursorBitmap?.Height ?? 0);
         if (x + w > Width - 3)
@@ -717,7 +715,7 @@ public sealed class GuiCanvas
         if (y + h > Height - 3)
             y -= y + h - (Height - 3);
         mHelpBox = (x, y, w, h);
-        mHelpLines = lines;
+        mHelpLayout = layout;
         mHelpTag = tag;
     }
 
@@ -727,13 +725,7 @@ public sealed class GuiCanvas
         var (x, y, w, h) = mHelpBox;
         p.Fill(x, y, w, h, 0xf7);
         p.Outline(x, y, w, h, 0xf1);
-        PftFont? f0 = HelpFont(0);
-        int ty = y + 3;
-        foreach (List<GuiMarkup.Run> line in mHelpLines!)
-        {
-            GuiMarkup.Draw(p, Host, f0, x + 3, ty, line, HelpFont);
-            ty += GuiPaint.FontHeight(f0) + 1;
-        }
+        mHelpLayout?.Draw(p, x + 3, y + 3);
     }
 
     // "name, x, y": the bitmap name and the hot spot a cursor string may carry (00533138; the default is 0, 0).

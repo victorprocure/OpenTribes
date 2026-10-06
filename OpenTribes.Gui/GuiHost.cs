@@ -117,20 +117,6 @@ public sealed class GuiHost
         return f;
     }
 
-    // The font of `<fN>` (GuiMarkup): the tag of esf.strings.cs by name when a script defines it, else the table of the formatted
-    // text control [code 00489738]: f0 tag 150111 (10 point standard), f1 tag 150121 (10 point hilite), f2 tag 150161 (10 point
-    // selected). N outside the table is the control's own font.
-    public PftFont? MarkupFont(int n)
-    {
-        string name = GuiMarkup.FontTagName(n);
-        if (name.Length == 0)
-            return null;
-        int id = Interp.TagId(name);
-        if (id > 0)
-            return FontByTag((uint)id);
-        return n switch { 0 => FontByTag(150111), 1 => FontByTag(150121), 2 => FontByTag(150161), _ => null };
-    }
-
     public PftFont? FontByTag(uint tag) => TagText(tag) is string t ? FontByName(FirstItem(t)) : null;
 
     public PbmpBitmap? BitmapByName(string name)

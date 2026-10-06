@@ -1,5 +1,6 @@
 // The cursor tag of the hovered control (docs/gui.md 2.6; code 0049f1cc, 004958bc, 004b65e0, 004cd838, 004c2c70, 004c6888): synthetic controls only (R5).
 using OpenTribes.Gui;
+using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Tests;
 
@@ -102,6 +103,20 @@ public class GuiHelpTests
         fx.Frame(2);
         Assert.True(fx.Canvas.HelpVisible);
         Assert.Equal(220700u, fx.Canvas.HelpShownTag);
+    }
+
+    [Fact]
+    public void ThePopUpBoxIsTheTextFormatLayoutPlusSix() // 004af248: layout at width - 6 with slots 0 and 1 (tags 150104, 150114); box min(width, widest + 6) x min(0xc0, height + 6)
+    {
+        var (fy, b) = Make();
+        fy.Interp.Evaluate("IDHELP_T2 = 00220701, \"100,<f1>ab<n>cd\"; IDFNT_HA = 150104, \"ha.pft\"; IDFNT_HB = 150114, \"hb.pft\";");
+        fy.Host.SetFont("ha.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 6, CellHeight = 10 });
+        fy.Host.SetFont("hb.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 8, CellHeight = 12 });
+        b.HelpTag = 220701;
+        fy.Move(110, 110);
+        fy.Frame(1200);
+        Assert.True(fy.Canvas.HelpVisible);
+        Assert.Equal((16 + 6, 24 + 2 + 6), (fy.Canvas.HelpBox.W, fy.Canvas.HelpBox.H));
     }
 
     [Fact]

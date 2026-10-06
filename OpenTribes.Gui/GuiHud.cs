@@ -748,18 +748,19 @@ public sealed class GuiChatDisplay : GuiHud
             HudFrame.Bracket(p, x, y, 4, y + H - 1);
             HudFrame.Bracket(p, x + W - 1, y, -4, y + H - 1);
         }
-        var lines = new List<(List<GuiMarkup.Run> Runs, PftFont Font)>();
+        var lines = new List<(string Text, PftFont Font)>();
         bool low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
         foreach (var (text, tag) in Host.Chat)
         {
             PftFont? f = Host.FontByName(FontName(tag, low)) ?? Host.FontByName("sf_white_10.pft");
             if (f == null)
                 continue;
-            foreach (var l in GuiMarkup.WrapText(Host, f, text, W - 2 * InsetX))
+            // The chat display draws the message as plain text: the wrap routine [004a55c0] and the draw [004a633c] read no markup.
+            foreach (string l in GuiTextWrap.Wrap(f, text, W - 2 * InsetX))
                 lines.Add((l, f));
         }
         // The command line takes the bottom of the display (one line of the count) while the local player holds a command.
-        var cmdLines = new List<List<GuiMarkup.Run>>();
+        var cmdLines = new List<string>();
         PftFont? cmdFont = null;
         // [code 004a633c] The slot is kept for as long as the record holds a command (+0x40 >= 0), whatever the text: one line less
         // for the ring, the bottom of the ring one command font height higher, and only the first wrapped line of the text is drawn.
@@ -767,7 +768,7 @@ public sealed class GuiChatDisplay : GuiHud
         {
             cmdFont = Host.FontByName(FontName(Host.CommandAccepted ? 3u : 4u, low)) ?? Host.FontByName("sf_white_10.pft");
             if (cmdFont != null && Host.CommandText.Length > 0)
-                cmdLines.AddRange(GuiMarkup.WrapText(Host, cmdFont, Host.CommandText, W - 2 * InsetX).Take(1));
+                cmdLines.AddRange(GuiTextWrap.Wrap(cmdFont, Host.CommandText, W - 2 * InsetX).Take(1));
             n = Math.Max(0, n - 1);
         }
         int start = Math.Max(0, lines.Count - n);
@@ -778,13 +779,13 @@ public sealed class GuiChatDisplay : GuiHud
             ty -= GuiPaint.FontHeight(lines[i].Font);
         for (int i = start; i < lines.Count; ++i)
         {
-            GuiMarkup.Draw(p, Host, lines[i].Font, x + InsetX + IndentX, ty, lines[i].Runs);
+            p.Text(lines[i].Font, x + InsetX + IndentX, ty, lines[i].Text);
             ty += GuiPaint.FontHeight(lines[i].Font);
         }
         if (cmdFont != null)
             foreach (var l in cmdLines)
             {
-                GuiMarkup.Draw(p, Host, cmdFont, x + InsetX + IndentX, ty, l);
+                p.Text(cmdFont, x + InsetX + IndentX, ty, l);
                 ty += GuiPaint.FontHeight(cmdFont);
             }
     }
@@ -794,7 +795,7 @@ public sealed class GuiChatDisplay : GuiHud
 // side (stub length 4). The box is the parent's width less 70 (low resolution 30) wide at x 35 (15), as high as the wrapped text plus
 // 8, and sits by the message type: 0 vertically centred, 1 35 (15) above the bottom, 2 35 (15) below the top. The text is wrapped to
 // the box less 4 and drawn 2 pixels inside with the fonts f0, f1 and f2 of the control (sf_orange214_10, sf_orange255_10,
-// sf_white_9b; low resolution sf_orange_6, sf_yellow_6, sf_white_6); `<jc>` centres the lines.
+// sf_white_9b; low resolution sf_orange_6, sf_yellow_6, sf_white_6) by the TextFormat layout (docs/gui.md 3.3.1).
 public sealed class GuiCenterPrint : GuiControl
 {
     public override void Render(GuiPaint p, int ox, int oy)
@@ -805,16 +806,17 @@ public sealed class GuiCenterPrint : GuiControl
         bool low = pw < 512 || ph < 384;
         string[] names = low ? new[] { "sf_orange_6.pft", "sf_yellow_6.pft", "sf_white_6.pft" }
             : new[] { "sf_orange214_10.pft", "sf_orange255_10.pft", "sf_white_9b.pft" };
-        var fonts = names.Select(n => Host.FontByName(n)).ToArray();
-        PftFont? def = fonts[0] ?? Host.FontByName("sf_white_10.pft");
-        if (def == null)
+        var fonts = new PftFont?[GuiTextFormat.FontCount];
+        for (int i = 0; i < names.Length; ++i)
+            fonts[i] = Host.FontByName(names[i]);
+        fonts[0] ??= Host.FontByName("sf_white_10.pft");
+        if (fonts[0] == null)
             return;
-        PftFont? FontOf(int n) => n is >= 0 and <= 2 ? fonts[n] : null;
         int w = pw - (low ? 30 : 70);
-        string text = Host.CenterText;
-        var lines = GuiMarkup.WrapText(Host, def, text, w - 4, FontOf);
-        int lh = GuiPaint.FontHeight(def);
-        int h = lines.Count * lh + 8;
+        // The prepare handler [code 00488f80] lays the message out at the box width less 4 with the TextFormat routine [005370b8];
+        // the box is the layout height + 8 high and the layout is drawn 2 pixels inside it [draw 00489108].
+        GuiTextFormat layout = GuiTextFormat.Layout(Host.CenterText, w - 4, fonts, n => Host.BitmapByName(n), n => Host.GetVar("$" + n));
+        int h = layout.Height + 8;
         int bx = low ? 15 : 35;
         int by = Host.CenterType == 0 ? (ph - h) / 2 : Host.CenterType == 1 ? ph - h - (low ? 15 : 35) : (low ? 15 : 35);
         X = bx; Y = by; W = w; H = h;
@@ -822,14 +824,7 @@ public sealed class GuiCenterPrint : GuiControl
         p.Fill(x, y, w, h, HudFrame.ShadeColor, HudFrame.ShadeAlpha);
         HudFrame.Bracket(p, x, y, 4, y + h - 1);
         HudFrame.Bracket(p, x + w - 1, y, -4, y + h - 1);
-        bool center = text.Contains("<jc>", StringComparison.Ordinal);
-        int ty = y + 2;
-        foreach (var line in lines)
-        {
-            int lw = GuiMarkup.Width(Host, def, line, FontOf);
-            GuiMarkup.Draw(p, Host, def, x + 2 + (center ? (w - 4 - lw) / 2 : 0), ty, line, FontOf);
-            ty += lh;
-        }
+        layout.Draw(p, x + 2, y + 2);
     }
 }
 

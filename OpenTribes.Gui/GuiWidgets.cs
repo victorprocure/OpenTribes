@@ -856,14 +856,14 @@ public sealed class GuiPalette : GuiControl
 public sealed class GuiTextWrap : GuiActive
 {
     public string Text = "";
-    // TextFormat, FGTextFormat and FearGuiFormattedText read `<fN>` markup (GuiMarkup); TextWrap draws its text as is.
+    // TextFormat, FGTextFormat and FearGuiFormattedText lay their text out with GuiTextFormat; TextWrap draws its text as is.
     public bool Formatted;
     public override bool WantsTab => false;
 
     // FearGuiFormattedText has no font field: its prepare handler [code 00489738] fills the font slots 0 to 2 with tags 150111, 150121 and
     // 150161, or all three with 150131 when the control sits under another dialog's dimming rule (Dimmed). Text without a tag is in slot 0.
     private PftFont? BaseFont => Formatted
-        ? Host?.FontByTag(Dimmed ? 150131u : 150111u) ?? Host?.FontByName("sf_white_10.pft")
+        ? Host?.FontByTag(Dim ? 150131u : 150111u) ?? Host?.FontByName("sf_white_10.pft")
         : Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
 
     protected override void ApplyValue(string v)
@@ -873,9 +873,6 @@ public sealed class GuiTextWrap : GuiActive
     }
 
     public override string GetValue() => Text;
-
-    // The text with the `<vNAME>` tags replaced by the console variables [code 005370b8]; the variable names of the engine have no `$`.
-    private string Shown => Formatted && Host != null ? GuiMarkup.ExpandVariables(Text, n => Host.GetVar("$" + n)) : Text;
 
     public override void Wake()
     {
@@ -887,9 +884,12 @@ public sealed class GuiTextWrap : GuiActive
     // A formatted text control takes the height of its wrapped text at its width (parent size handler [code 0048983c]), so a
     // control stored with height 0 (the progress text of Loading.gui) still shows what a script puts into it; the parent clips
     // each child to its extent.
-    // FearGuiFormattedText lays its text out with the TextFormat routine [code 005370b8] and the three fonts of its prepare handler
-    // (slots 0 to 2, the rest empty); the other formatted classes keep the markup path.
-    private bool UsesLayout => ClassName == "FearGuiFormattedText";
+    // Every formatted class lays its text out with the TextFormat routine [code 005370b8] and three fonts (slots 0 to 2, the rest empty):
+    // FearGuiFormattedText from its prepare handler [00489738] (the dimmed table under another dialog), FGTextFormat from its set value
+    // handler [004ce3f8] (tags 150111, 150121, 150161, never dimmed). FGTextFormat sets its height to the layout height + 4, the
+    // FearGuiFormattedText parent size handler [0048983c] to the layout height.
+    private bool UsesLayout => Formatted;
+    private bool Dim => Dimmed && ClassName == "FearGuiFormattedText";
     private GuiTextFormat? mLayout;
     private string? mLaidText;
     private int mLaidWidth = -1;
@@ -900,16 +900,16 @@ public sealed class GuiTextWrap : GuiActive
         if (Host == null)
             return null;
         string text = Text;
-        if (mLayout == null || mLaidText != text || mLaidWidth != W || mLaidDimmed != Dimmed)
+        if (mLayout == null || mLaidText != text || mLaidWidth != W || mLaidDimmed != Dim)
         {
             var fonts = new PftFont?[GuiTextFormat.FontCount];
             fonts[0] = BaseFont;
-            fonts[1] = Host.FontByTag(Dimmed ? 150131u : 150121u);
-            fonts[2] = Host.FontByTag(Dimmed ? 150131u : 150161u);
+            fonts[1] = Host.FontByTag(Dim ? 150131u : 150121u);
+            fonts[2] = Host.FontByTag(Dim ? 150131u : 150161u);
             mLayout = GuiTextFormat.Layout(text, W, fonts, n => Host.BitmapByName(n), n => Host.GetVar("$" + n));
             mLaidText = text;
             mLaidWidth = W;
-            mLaidDimmed = Dimmed;
+            mLaidDimmed = Dim;
         }
         return mLayout;
     }
@@ -918,18 +918,13 @@ public sealed class GuiTextWrap : GuiActive
     {
         if (!Formatted || Host == null || Text.Length == 0)
             return;
-        if (UsesLayout)
+        if (Layout() is GuiTextFormat l)
         {
-            if (Layout() is GuiTextFormat l && l.Height > H)
+            if (ClassName == "FearGui::FGTextFormat")
+                H = l.Height + 4;
+            else if (l.Height > H)
                 H = l.Height;
-            return;
         }
-        PftFont? f = BaseFont;
-        if (f == null)
-            return;
-        int h = GuiMarkup.WrapText(Host, f, Shown, W).Count * (GuiPaint.FontHeight(f) + (int)U("lineSpacing"));
-        if (h > H)
-            H = h;
     }
 
     public override void Render(GuiPaint p, int ox, int oy)
@@ -939,19 +934,6 @@ public sealed class GuiTextWrap : GuiActive
         PftFont? f = BaseFont;
         if (UsesLayout && Host != null)
             Layout()?.Draw(p, gx, gy);
-        else if (f != null && Formatted && Host != null)
-        {
-            int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
-            int y = gy;
-            string shown = Shown;
-            int just = GuiMarkup.Justification(shown);
-            foreach (var line in GuiMarkup.WrapText(Host, f, shown, W))
-            {
-                int lw = just == 0 ? 0 : GuiMarkup.Width(Host, f, line);
-                GuiMarkup.Draw(p, Host, f, gx + (just == 1 ? (W - lw) / 2 : just == 2 ? W - lw : 0), y, line);
-                y += lh;
-            }
-        }
         else if (f != null)
         {
             int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
