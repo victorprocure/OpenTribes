@@ -224,8 +224,9 @@ public sealed class GuiClockHud : GuiHud
             return;
         int x = ox + X, y = oy + Y;
         p.Fill(x, y, W, H, HudFrame.ShadeColor, HudFrame.ShadeAlpha);
-        HudFrame.Bracket(p, x, y, 2, y + H - 2);
-        HudFrame.Bracket(p, x + W - 2, y, -2, y + H - 2);
+        // 004e7744: 004a5f98(x, y, 2, bottom - 1) and 004a5f98(right - 1, y, -2, bottom - 1).
+        HudFrame.Bracket(p, x, y, 2, y + H - 1);
+        HudFrame.Bracket(p, x + W - 1, y, -2, y + H - 1);
         PftFont? f = Host?.FontByName(LowRes ? "sf_white_6.pft" : "if_w_10.pft");
         p.Text(f, x + 4, y + (LowRes ? 1 : 0), Format(Source.ClockSeconds));
     }
