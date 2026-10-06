@@ -228,7 +228,10 @@ public sealed class ClientApp : IDisposable
     {
         EngineVariables.Register(Interp);
         Play.Moves.PrefFov = () => Numbers.BorlandAtof(Interp.PeekVariable("$pref::PlayerFov")) is var f and > 1 ? f : 90;
-        Play.Moves.ReversePitch = () => false;
+        // PlayerPSC_onAction PITCH (0x35b63) and PITCH_SPEED (0x35c41) negate the pitch for a control object of type 0x20000000 (the
+        // Flier/Vehicle ghost classes) while the byte at 0x0061704c ($pref::flipFlierY) is set. No other pitch inversion exists in the
+        // stock code: the mouse's own flip is the Flip flag of the yaxis binding (InputDispatcher).
+        Play.Moves.ReversePitch = () => Game?.World.Psc.ControlClass is "Flier" or "Vehicle" && EngineVariables.IsSet(Interp, "$pref::flipFlierY");
     }
 
     // ---- palette and video ----

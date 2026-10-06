@@ -334,11 +334,20 @@ public sealed class LiveGame : IDisposable
             var (ex, ey, ez) = DemoRender.EyeOf(Model, cp.ControlGhost, d[0], d[1], d[2], p.Rotation[2], p.Pitch);
             pose = new DemoRender.CameraPose(ex, ey, ez, p.Rotation[2] * 180 / Math.PI, p.Pitch * 180 / Math.PI, true, cp.ControlGhost);
         }
-        // Player_getCameraTransform 00412324: with the view distance (PSC +0x9c) at 0.01 or more the camera is the eye moved back along
-        // the view direction by that distance and the control object is drawn as seen from outside. The terrain and interior ray that
-        // shortens the distance in the original is not done here.
+        // Player_getCameraTransform 00412324: with the view distance (PSC +0x9c) at 0.01 or more the camera starts at the chase camera
+        // node (z only) of the body at the pitch and moves back along the view direction by GameBase_placeBehind 00449604: a ray of
+        // 2.5 * distance through terrain and interiors (mask 0x20c00006) shortens the distance to 0.025 m in front of the hit
+        // (docs/client-net.md 4.2). The control object is drawn as seen from outside. The footstep bob (z += sin(2 * +0xfc8) / 120)
+        // is not tracked here.
         if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && mApp.Play.Moves.ViewDist >= 0.01f)
-            pose = DemoRender.Orbit(fp.X, fp.Y, fp.Z, fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180, mApp.Play.Moves.ViewDist);
+        {
+            bool predicted = Net.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active;
+            Player? body = predicted ? (Player)Net.Prediction.Object! : null;
+            double[] bp = World.Psc.ControlState.TryGetValue("pos", out object? pv) ? Db.Vec(pv) : new double[3];
+            float[] d = predicted ? Net.Prediction.DisplayPosition() : new[] { (float)bp[0], (float)bp[1], (float)bp[2] };
+            pose = DemoRender.ChaseCamera(Model, fp.ControlGhost, d[0], d[1], d[2], fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180,
+                                          mApp.Play.Moves.ViewDist, predicted ? Net.PredictWorld!.Game.World : null, body);
+        }
         return pose;
     }
 

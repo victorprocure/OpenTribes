@@ -372,6 +372,21 @@ public sealed class PlayerVisual : ShapeVisual
         return true;
     }
 
+    // The height of the `dummyalways chasecam` node (Player +0x778) in the current pose: Player_getCameraTransform 00412324 keeps only the
+    // node's z (x and y are set to 0) for the third person camera. False when the shape has no such node.
+    public bool TryChaseZ(out double z)
+    {
+        z = 0;
+        if (Inst == null || Shape == null || mDead)
+            return false;
+        int n = Shape.FindNodeBase("dummyalways chasecam", 0);
+        if (n < 0)
+            return false;
+        Inst.Animate(0);
+        z = Inst.NodeWorld[n].Pz;
+        return true;
+    }
+
     // The animation's view flag that applies to this camera (3.4): bit 0 first person, bit 1 chase view of the control object, bit 2 anyone
     // else. When it is set the instance view mode is 2 (first person) or 1 and the looks thread has priority -1 (it overrides the aim
     // nodes), else mode 0 and priority 5000 (the animation wins over the pitch). Returns whether the mode is set.

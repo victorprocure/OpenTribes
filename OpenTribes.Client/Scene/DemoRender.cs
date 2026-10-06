@@ -149,6 +149,25 @@ public static class DemoRender
         return new CameraPose(cx - fx * distance, cy - fy * distance, cz - fz * distance, yaw * 180 / Math.PI, pitch * 180 / Math.PI, false, -1);
     }
 
+    // The third person camera of the control Player (Player_getCameraTransform 00412324 with a view distance of 0.01 or more): the
+    // object transform (yaw, body position) times the pitch rotation at (0, 0, z of the `dummyalways chasecam` node), moved back along
+    // the view direction by GameBase_placeBehind 00449604 (ray of 2.5 * distance, mask 0x20c00006, margin 0.025). Without the node
+    // the eye position is the start. A null `world` keeps the full distance.
+    public static CameraPose ChaseCamera(SceneModel m, int ghost, double x, double y, double z, double yawRad, double pitchRad, float distance,
+                                         OpenTribes.World.Container? world, object? exclude)
+    {
+        double px = x, py = y, pz = z;
+        if (m.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv && pv.TryChaseZ(out double cz))
+            pz = z + cz;
+        else
+            (px, py, pz) = EyeOf(m, ghost, x, y, z, yawRad, pitchRad);
+        var t = new OpenTribes.Sim.Transform();
+        OpenTribes.Sim.MissionTransform.EulerToMatrix(new float[] { (float)pitchRad, 0f, (float)yawRad }, ref t);
+        var p = new float[] { (float)px, (float)py, (float)pz };
+        OpenTribes.Game.ObserverCamera.PlaceBehind(world, exclude, p, t.M[3], t.M[4], t.M[5], distance);
+        return new CameraPose(p[0], p[1], p[2], yawRad * 180 / Math.PI, pitchRad * 180 / Math.PI, false, -1);
+    }
+
     // `--camera action[:DIST]`: orbits the newest explosion (else a projectile, else a player), pulled towards the nearest
     // player within 25 m, from the side with a clear line over the terrain.
     public static CameraPose? ActionCamera(SceneModel m, OpenTribes.World.Terrain? terrain, double dist)
