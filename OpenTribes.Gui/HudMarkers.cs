@@ -15,8 +15,14 @@ public static class HudMarkers
 {
     public const int ReachColor = 0xfb, ShortColor = 0xf1;
 
-    // The label of the distance, format "%2.1f m" at 00623f8a [code 004ae847].
-    public static string Label(double distance) => distance.ToString("F1", CultureInfo.InvariantCulture).PadLeft(2) + " m";
+    // The label of the distance, format "%2.1f m" at 00623f8a [code 004ae847]. The exe's sprintf cuts the value after the first decimal
+    // (stock trace: distance 6.87576 prints "6.8 m"), it does not round.
+    public static string Label(double distance)
+    {
+        string t = distance.ToString("F8", CultureInfo.InvariantCulture);
+        int dot = t.IndexOf('.');
+        return t[..(dot + 2)].PadLeft(2) + " m";
+    }
 
     // The pixel of a projected coordinate: ftol(v + 0.5) with the truncating control word of the exe [code 004ae224..004ae26f].
     public static int Pixel(double v) => (int)(float)(v + 0.5);

@@ -157,7 +157,7 @@ way are added to Open.
 - [x] Health display after death.
 - [x] No HUD without a camera.
 - [x] Zoom reticle (not clipped) and field of view.
-- [x] Aim markers.
+- [x] Aim markers with their distance.
 
 ### Audio
 

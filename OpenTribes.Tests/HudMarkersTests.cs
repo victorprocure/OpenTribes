@@ -11,8 +11,8 @@ public class HudMarkersTests
     public void LabelIsOneDecimalAndMeters()
     {
         Assert.Equal("6.8 m", HudMarkers.Label(6.8));
-        Assert.Equal("6.8 m", HudMarkers.Label(6.84));
-        Assert.Equal("123.5 m", HudMarkers.Label(123.46));
+        Assert.Equal("6.8 m", HudMarkers.Label(6.87576));   // stock trace: len 6.87576 printed as "6.8 m"
+        Assert.Equal("123.4 m", HudMarkers.Label(123.46));
         Assert.Equal("0.0 m", HudMarkers.Label(0));
     }
 
