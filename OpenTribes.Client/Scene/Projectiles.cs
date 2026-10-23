@@ -139,23 +139,54 @@ public sealed class ProjectileVisual : Visual
         string smoke = Class == "Grenade" ? Db.Str(mBlock, "smokeName") : (int)Db.Num(mBlock, "trailType") == 2 ? Db.Str(mBlock, "trailString") : "";
         if (smoke.Length > 0)
         {
-            double dist = Class == "Grenade" ? 1.0 : Db.Num(mBlock, "smokeDist", 1.8);
-            if (!mSmokeInit)
+            bool puff;
+            if (Class == "Grenade")
+                puff = GrenadePuffDue(M.Time);
+            else
             {
-                (mLastSmokeX, mLastSmokeY, mLastSmokeZ, mSmokeInit) = (x, y, z, true);
+                double dist = Db.Num(mBlock, "smokeDist", 1.8);
+                if (!mSmokeInit)
+                    (mLastSmokeX, mLastSmokeY, mLastSmokeZ, mSmokeInit) = (x, y, z, true);
+                double dx = x - mLastSmokeX, dy = y - mLastSmokeY, dz = z - mLastSmokeZ;
+                puff = dx * dx + dy * dy + dz * dz >= dist * dist;
+                if (puff)
+                    (mLastSmokeX, mLastSmokeY, mLastSmokeZ) = (x, y, z);
             }
-            double dx = x - mLastSmokeX, dy = y - mLastSmokeY, dz = z - mLastSmokeZ;
-            if (dx * dx + dy * dy + dz * dz >= dist * dist)
+            if (puff)
             {
                 if (smoke.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
                     smoke = smoke[..^4];
                 RenderShape? sh = M.Assets.Shape(smoke);
                 if (sh != null)
-                    M.Smoke.Spawn(sh, x, y, z);
-                (mLastSmokeX, mLastSmokeY, mLastSmokeZ) = (x, y, z);
+                    M.Smoke.Spawn(sh, x, y, z, 1, 0, 0, 1);
             }
         }
     }
+
+    private double mLastPuff = -1;
+    private int mPuffInterval;                  // ms
+
+    // FUN_0045ffd0 (1.11 bytes 0045ffd0..0046010a): a puff when now > lastPuff + interval (ms, lastPuff starts at 0), then
+    // interval = ftol(1000 * special * (1 + 2 r)), special = projSpecialTime (+0x7c), r = (S - |v|) / S with S the stored
+    // maxLevelFlightDist (+0x68, sqrt(20 d)) and r < 0.1 taken as 0. The puff flies up at 1 m/s (velocity 0,0,1), scale 1.
+    private bool GrenadePuffDue(double now)
+    {
+        long nowMs = (long)(now * 1000);
+        if (nowMs <= (long)Math.Max(mLastPuff, 0) + mPuffInterval)
+            return false;
+        mLastPuff = nowMs;
+        double dt = Math.Clamp(M.Time - mUpdate, 0, 5);
+        double vz = mVz - 20 * dt;
+        double speed = Math.Sqrt(mVx * mVx + mVy * mVy + vz * vz);
+        double s = (float)Db.Num(mBlock, "field@0x68"), special = Db.Num(mBlock, "field@0x7c");
+        double r = (s - speed) / s;
+        if (!(r >= 0.1))
+            r = 0;
+        mPuffInterval = SmokeInterval(special, r);
+        return true;
+    }
+
+    public static int SmokeInterval(double special, double r) => (int)(special * (1 + 2 * r) * 1000);
 
     public PointLight? Light
     {

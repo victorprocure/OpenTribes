@@ -11,12 +11,13 @@ public sealed class SmokePool
     {
         public RenderInstance Inst = null!;
         public RenderThread Thread = null!;
-        public double X, Y, Z, Scale;
+        public double X, Y, Z, Scale, Vx, Vy, Vz, Age, Life, Roll;
         public bool Active;
     }
 
     private readonly Puff[] mRing;
     private int mNext;
+    private readonly Random mRoll = new(0x8377);
     public int Capacity => mRing.Length;
 
     public SmokePool(int capacity = 100)
@@ -29,7 +30,10 @@ public sealed class SmokePool
     public int Live => mRing.Count(p => p.Active);
 
     // FUN_0045b4a4: takes the next ring slot (evicting the oldest live puff) and plays Sequence01 once.
-    public void Spawn(RenderShape shape, double x, double y, double z, double scale = 1)
+    // The puff keeps drifting with `velocity` and is removed `scale` seconds after the spawn (+0x04 deadline =
+    // ftol(scale * 1000) + now, FUN_0045b070 reads it), whichever of that and the sequence end comes first. The
+    // roll about the view axis is random (+0x98, 0..2 pi).
+    public void Spawn(RenderShape shape, double x, double y, double z, double scale = 1, double vx = 0, double vy = 0, double vz = 0)
     {
         Puff p = mRing[mNext];
         mNext = (mNext + 1) % mRing.Length;
@@ -39,6 +43,7 @@ public sealed class SmokePool
         p.Inst = new RenderInstance(shape);
         p.Thread = p.Inst.AddThread(seq, 0, 0);
         (p.X, p.Y, p.Z, p.Scale, p.Active) = (x, y, z, scale, true);
+        (p.Vx, p.Vy, p.Vz, p.Age, p.Life, p.Roll) = (vx, vy, vz, 0, scale, mRoll.NextDouble() * 2 * Math.PI);
     }
 
     // FUN_0045b6d4: removes every puff inside the radius (a projectile exploded).
@@ -65,6 +70,13 @@ public sealed class SmokePool
         {
             if (!p.Active)
                 continue;
+            p.Age += dt;
+            if (p.Age >= p.Life)
+            {
+                p.Active = false;
+                continue;
+            }
+            (p.X, p.Y, p.Z) = (p.X + p.Vx * dt, p.Y + p.Vy * dt, p.Z + p.Vz * dt);
             p.Inst.Advance(dt);
             if (p.Thread.AtEnd(p.Inst.Shape))
                 p.Active = false;
@@ -81,7 +93,8 @@ public sealed class SmokePool
             double l = Math.Sqrt(fx * fx + fy * fy + fz * fz);
             if (l < 1e-6)
                 continue;
-            Xf xf = Mathx.Basis(p.X, p.Y, p.Z, fx / l, fy / l, fz / l);
+            // +Y is the view ray, camera to puff (the same basis as the explosion images), rolled about it by the puff's random angle.
+            Xf xf = Mathx.SpinY(p.Roll).Then(Mathx.Basis(p.X, p.Y, p.Z, -fx / l, -fy / l, -fz / l));
             if (Math.Abs(p.Scale - 1) > 1e-9)
                 xf = new Xf { M0 = p.Scale, M4 = p.Scale, M8 = p.Scale }.Then(xf);
             ShapeDraw d = ctx.Draw(xf, p.Inst.Shape.Name);

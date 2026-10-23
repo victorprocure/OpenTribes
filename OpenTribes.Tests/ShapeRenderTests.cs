@@ -394,6 +394,25 @@ public class ShapeRenderTests
     }
 
     [Fact]
+    public void SmokePuffsDriftUpAndExpireAfterScaleSeconds() // SR 4.5 FUN_0045b4a4 / FUN_0045b070
+    {
+        RenderShape s = Shape();                                  // sequence 2 s, cyclic
+        var pool = new SmokePool(4);
+        pool.Spawn(s, 0, 0, 0, 1, 0, 0, 1);
+        pool.Tick(0.5);
+        Assert.Equal(1, pool.Live);
+        pool.Tick(0.6);                                           // 1.1 s: past the 1000 ms deadline
+        Assert.Equal(0, pool.Live);
+    }
+
+    [Theory]
+    [InlineData(0.05, 0.0, 50)]
+    [InlineData(0.05, 0.5, 100)]
+    [InlineData(0.01, 1.0, 30)]
+    public void GrenadePuffIntervalFollowsProjSpecialTimeAndSpeed(double special, double r, int ms) // SR 4.5 FUN_0045ffd0
+        => Assert.Equal(ms, OpenTribes.Client.Scene.ProjectileVisual.SmokeInterval(special, r));
+
+    [Fact]
     public void SmokePuffsAreRemovedByRadius() // SR 4.5 FUN_0045b6d4
     {
         RenderShape s = Shape();
