@@ -17,6 +17,10 @@ public static class Skins
         return custom ? skin + "." + map : map;
     }
 
+    // Player_setImage (0041a4xx): an image gets the team skin of its mount team only (the optional fourth argument of
+    // Player::mountItem, -1 without it); no team, or the skin "base", keeps the shape's own materials.
+    public static string ImageSkin(int team, string teamSkin) => team < 0 || teamSkin == "base" ? "" : teamSkin;
+
     public static string Resolve(string map, string skin, Func<string, bool> exists, bool custom = true)
     {
         string c = Candidate(map, skin, custom);

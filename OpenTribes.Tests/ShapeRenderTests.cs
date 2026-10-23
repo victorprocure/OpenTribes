@@ -277,6 +277,14 @@ public class ShapeRenderTests
     }
 
     [Fact]
+    public void MountedImagesTakeOnlyTheSkinOfTheirMountTeam() // SR 2.9, Player_setImage
+    {
+        Assert.Equal("", Skins.ImageSkin(-1, "beagle"));      // mountItem without a team: the shape's own materials
+        Assert.Equal("", Skins.ImageSkin(0, "base"));
+        Assert.Equal("beagle", Skins.ImageSkin(0, "beagle"));
+    }
+
+    [Fact]
     public void DamageSkinLevelsFollowThePreference() // SR 2.9 inputs (b)
     {
         Assert.Equal(new[] { 0, 0, 1, 2, 3 }, new[] { 0.1, 0.25, 0.3, 0.6, 0.8 }.Select(d => Skins.DamageLevel(d, 2)).ToArray());

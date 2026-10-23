@@ -102,6 +102,7 @@ way are added to Open.
 - [x] Projectiles drawn fullbright and without haze.
 - [x] Item and mine lights pulse and fade.
 - [x] Shape lighting per vertex, also from far lights and the sun.
+- [x] Team skin on mounted weapons.
 
 ### Menus and HUD
 

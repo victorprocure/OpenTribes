@@ -16,6 +16,7 @@ public sealed class ImageMount
     public double FireTime = -1000;       // scene time of the last Fire entry
     public int MountPoint;
     public bool FirstPerson;
+    public int Team = -1;                 // the team of the mount (Player_setImage param_4, 0041a168); -1 none
 }
 
 public sealed class PlayerVisual : ShapeVisual
@@ -268,7 +269,7 @@ public sealed class PlayerVisual : ShapeVisual
             ClientDataBlock? db = M.Db.Block(6, (int)Db.Num(item, "imageType", -1));
             string name = Db.Str(db, "shapeFile");
             RenderShape? sh = name.Length > 0 ? M.Assets.Shape(name) : null;
-            im = new ImageMount { Slot = s.Slot, Image = s.Image, Db = db, Shape = sh, MountPoint = (int)Db.Num(db, "mountPoint"), FirstPerson = Db.Flag(db, "firstPerson") };
+            im = new ImageMount { Slot = s.Slot, Image = s.Image, Db = db, Shape = sh, Team = s.State, MountPoint = (int)Db.Num(db, "mountPoint"), FirstPerson = Db.Flag(db, "firstPerson") };
             if (sh != null)
             {
                 im.Inst = new RenderInstance(sh);
@@ -525,7 +526,7 @@ public sealed class PlayerVisual : ShapeVisual
             // The renderer puts the image's root transform (node 0 default) in front of the mount transform (3.6).
             Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly);
             ShapeDraw d = ctx.Draw(xf, im.Shape.Name);
-            d.Skin = Skin;
+            d.Skin = Skins.ImageSkin(im.Team, M.TeamSkin(im.Team));
             d.Fade = fade;
             d.ForceTranslucent = firstPerson;
             if (firstPerson)
