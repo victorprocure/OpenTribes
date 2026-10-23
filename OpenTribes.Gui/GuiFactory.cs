@@ -159,6 +159,9 @@ public static class GuiFactory
         {
             case "FearGui::FGControl": return new GuiFGControl();
             case "FearGui::FGCommandView": return new GuiCommandView();
+            case "FearGui::FGCommandPanel": return new GuiCommandPanel();
+            case "FearGui::FGChatMenu": return new GuiChatMenu();
+            case "FearGui::CommandTeamCtrl": return new GuiCommandTeam();
             case "FearGui::FearGuiBox":
             case "FearGui::FearGuiDialog":
             case "FearGui::FearGuiAbortDlg": return new GuiBox();

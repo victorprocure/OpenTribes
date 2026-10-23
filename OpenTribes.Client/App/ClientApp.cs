@@ -450,6 +450,7 @@ public sealed class ClientApp : IDisposable
         {
             MenuSource = CurrentMenu,
             PlayMenuSource = PlayMenu,
+            NamedMenuSource = NamedMenu,
             FirstPersonSource = () => Play.Moves.FirstPersonNow,
             ZoomSource = () => Play.Moves.HudZoomState(),
             ViewCamera = (w, h) => g.Camera() is { } c
@@ -474,6 +475,16 @@ public sealed class ClientApp : IDisposable
         if (mGameState.ChatMenus.Showing(mGameState, "CurServerMenu") is not var (title, tree))
             return null;
         return new ServerMenuView(title, tree.Root.Children.Select(c => (c.Key, c.Text)).ToList());
+    }
+
+    // The chat menu object a FGChatMenu control names [code 004a7934]: null when no ChatMenu has that name, else its state.
+    public ChatMenuState? NamedMenu(string name)
+    {
+        if (mGameState.Sim?.Server()?.Find(name) is not SimObject obj || obj.ClassName() != "ChatMenu")
+            return null;
+        return mGameState.ChatMenus.Showing(mGameState, name) is var (_, tree)
+            ? new ChatMenuState(true, tree.Path(), tree.Lines())
+            : new ChatMenuState(false, "", Array.Empty<string>());
     }
 
     // The player chat menu (`v`) as the chat display draws it [code 004a633c].

@@ -158,6 +158,7 @@ way are added to Open.
 - [x] No HUD without a camera.
 - [x] Zoom reticle (not clipped) and field of view.
 - [x] Aim markers with their distance.
+- [x] Command screen side panels, player list and chat menu.
 
 ### Audio
 

@@ -60,18 +60,18 @@ public sealed class GuiBox : GuiControl
 // black, draws the children, then the metal frame from CmdViewCtrl.pba (LRCmdViewCtrl.pba at low resolution), 15 pieces:
 //   left column  : 0 at the top left, 1 below it, the stretched 12, and 2 at the bottom (the stretch takes the remaining height);
 //   bottom strip : 3 and 4 after the left column, the stretched 13, 5, and 6 at the bottom right (the stretch takes the width left);
-//   top bar      : 10 at x 224, the stretched 11, 9 (the stretch leaves 44 pixels at the right);
-//   right column : 8 at the top right, the stretched 14, and 7 above piece 6 (the stretch takes the height left).
-// The right column pieces are aligned to the right edge [I: the x of piece 8].
+//   top bar      : 10 at x 224, the stretched 11 (the width left less pieces 9 and 8 and 44 pixels), 9, then 8 after a gap of 44 pixels
+//                  at the right edge, over which the cancel button (570 to 615) draws its own picture;
+//   right column : under 8 the stretched 14 and 7 above piece 6, aligned to the right edge (the stretch takes the height left).
 public sealed class GuiCommandView : GuiControl
 {
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
         p.Fill(gx, gy, W, H, 0);
-        DrawFrame(p, gx, gy);
-        // The stock capture shows the cancel button (x 570 to 615) whole over the top bar piece: the children draw on the frame.
+        // The children draw first and the frame pieces over them [code 004a1c78: the children call 0053a3f4 comes before the piece draws].
         RenderChildren(p, gx, gy);
+        DrawFrame(p, gx, gy);
     }
 
     private void DrawFrame(GuiPaint p, int gx, int gy)
@@ -107,13 +107,15 @@ public sealed class GuiCommandView : GuiControl
         x = gx + 224;
         p.Bitmap(B(10), x, gy);
         x += B(10).Width;
-        int tfill = W - (x - gx) - B(9).Width - 44;
+        int tfill = W - (x - gx) - B(9).Width - 44 - B(8).Width;
         p.BitmapStretch(B(11), x, gy, tfill, B(11).Height);
         x += tfill;
         p.Bitmap(B(9), x, gy);
+        // Piece 8 follows 44 pixels after piece 9 (the stretch of piece 11 left room for it), at the right edge [code 004a2322 to 004a24c9].
+        x += B(9).Width + 44;
+        p.Bitmap(B(8), x, gy);
         // Right column.
         int ry = gy;
-        p.Bitmap(B(8), gx + W - B(8).Width, ry);
         ry += B(8).Height;
         int rfill = H - (ry - gy) - B(7).Height - B(6).Height;
         p.BitmapStretch(B(14), gx + W - B(14).Width, ry, B(14).Width, rfill);

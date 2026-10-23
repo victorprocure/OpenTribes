@@ -238,6 +238,42 @@ public sealed class ClientHudSource : IHudSource
     public ServerMenuView? ServerMenu => MenuSource?.Invoke();
     public Func<PlayMenuView?>? PlayMenuSource;
     public PlayMenuView? PlayMenu => PlayMenuSource?.Invoke();
+    public Func<string, ChatMenuState?>? NamedMenuSource;
+    public ChatMenuState? NamedMenu(string name) => NamedMenuSource?.Invoke(name);
+
+    // The command tree of the local player's team [code 004a85c0, 0040b46c, 004a8548]: the records of the team whose commander is not a
+    // human record are the top level (oldest first [I: the client table has no join order, the id order stands for it]), the others hang
+    // under their commander; every node is expanded (the +0x69 byte starts at 1 and nothing here clears it). Each row has the status of
+    // its command map slot: the damage level is not read from the PSC command block yet (low), the order is the record's command
+    // status + 1 [docs/client-net.md 4.5 mode 2].
+    public IReadOnlyList<CommandTeamRow> CommandTeam
+    {
+        get
+        {
+            var rows = new List<CommandTeamRow>();
+            ClientPlayerManager pm = mWorld.Players;
+            if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
+                return rows;
+            ClientPlayerRecord? Parent(ClientPlayerRecord r) => r.Commander != -1 && pm.Get(r.Commander) is { Ai: false } c ? c : null;
+            List<ClientPlayerRecord> Children(ClientPlayerRecord? parent, int team) =>
+                pm.Clients.Values.Where(r => parent == null ? Parent(r) == null && r.Team == team : Parent(r) == parent).ToList();
+            void Add(List<ClientPlayerRecord> siblings, int depth, List<(int Depth, bool HasNext)> above)
+            {
+                for (int i = 0; i < siblings.Count; ++i)
+                {
+                    ClientPlayerRecord r = siblings[i];
+                    List<ClientPlayerRecord> kids = Children(r, me.Team);
+                    bool next = i + 1 < siblings.Count;
+                    rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, true, next, 0, r.CommandStatus + 1, above.ToArray()));
+                    var nested = new List<(int Depth, bool HasNext)> { (depth, next) };
+                    nested.AddRange(above);
+                    Add(kids, depth + 1, nested);
+                }
+            }
+            Add(Children(null, me.Team), 0, new List<(int Depth, bool HasNext)>());
+            return rows;
+        }
+    }
     public IReadOnlyList<string?> ObjectiveLines => mWorld.Players.ObjectiveLines;
 
     // The 2 sensor state bits of the control state (00413b90, Vehicle 00446830): 1 pinged, 2 jammed.

@@ -104,6 +104,7 @@ public sealed class GuiHost
     // Puts a font into the cache under a file name (the loaders of Res are not needed; tests and tools).
     public void SetFont(string name, PftFont font) => mFonts[name] = font;
     public void SetArray(string name, PbmaArray array) => mArrays[name] = array;
+    public void SetBitmap(string name, PbmpBitmap bitmap) => mBitmaps[name] = bitmap;
 
     public PftFont? FontByName(string name)
     {
@@ -216,6 +217,10 @@ public interface IHudSource
     ServerMenuView? ServerMenu => null;
     // The player chat menu (`v`) as the chat display draws it: heading line and item lines, null when it is closed.
     PlayMenuView? PlayMenu => null;
+    // The state of the chat menu object of that name for a FGChatMenu control, null when there is no such chat menu (docs/gui.md 3.3 "The command screen panels").
+    ChatMenuState? NamedMenu(string name) => null;
+    // The rows of the command team list of the local player's team (CommandTeamCtrl, docs/gui.md 3.3 "The command screen panels").
+    IReadOnlyList<CommandTeamRow> CommandTeam => Array.Empty<CommandTeamRow>();
     // The mission objective lines (TeamObjectiveEvent), 32 slots; a slot nobody set is null.
     IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
 }
