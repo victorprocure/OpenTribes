@@ -40,6 +40,7 @@ public sealed class ClientPsc
     public uint FovByte = 169;           // unit(8) of currentFov / 135: 90 degrees sends 169
 
     public Action<string>? OnScript;
+    public Action<int>? OnGuiMode;   // PlayDelegate_setGuiMode, called while the packet is read (004060f6), after the mode is stored
 
     public void Reset()
     {
@@ -262,6 +263,7 @@ public sealed class ClientPsc
                 OnScript?.Invoke("loadPlayGui();");
             }
             GuiMode = mode;
+            OnGuiMode?.Invoke(mode);
         }
         ScoreFlag = scoreFlag;
         LastMove = lastMove;

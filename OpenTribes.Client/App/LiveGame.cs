@@ -75,6 +75,12 @@ public sealed class LiveGame : IDisposable
         };
         w.DataBlocks.OnProgress = (name, pct) =>
             mApp.Interp.CallFunction("dataGotBlock", new[] { name, pct.ToString("0.######", CultureInfo.InvariantCulture) });
+        // The mode change runs while the packet is read, so a chat event of a later packet already finds playGui (PlayerManager_message).
+        w.Psc.OnGuiMode = mode =>
+        {
+            mGuiModeSeen = mode;
+            mApp.Play.SetGuiMode(mode);
+        };
         w.Psc.OnScript = null;   // the play delegate evaluates loadPlayGui() on mode changes (PlayDelegate.SetGuiMode)
     }
 

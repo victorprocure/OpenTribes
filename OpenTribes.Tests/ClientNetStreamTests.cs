@@ -302,7 +302,10 @@ public class ClientNetStreamTests
             b.WriteInt(3, 32);
             b.WriteFlag(false);
         }), world);
+        var modes = new List<int>();
+        psc.OnGuiMode = m => modes.Add(m);   // the mode change is reported while the block is read, not at the end of the frame
         DecodedPsc s2c = psc.ReadServerBlock(wr);
+        Assert.Equal(new[] { 1 }, modes);
         Assert.True(psc.FirstMove == 3 && psc.Moves.Count == 2 && psc.LastMove == 3 && psc.GuiMode == 1 && psc.GuiModeChanges == 1);
         Assert.True(s2c.Text.StartsWith("psc mode=1", StringComparison.Ordinal) && s2c.Text.Contains("control=none", StringComparison.Ordinal));
         // At most 30 moves wait for acknowledgement (4.2 step 7).

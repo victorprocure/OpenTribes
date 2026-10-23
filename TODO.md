@@ -123,7 +123,7 @@ way are added to Open.
 - [x] Main menu emblem animation.
 - [x] Chat text without voice tags, server messages without a sender prefix.
 - [x] HUD positions, crosshair size and scroll bars.
-- [x] Loading screen palette and progress, and mission reloads.
+- [x] Loading screen palette and progress, mission reloads and the play screen ready on time.
 - [x] Damage flash (with the original strength), chat layout, inventory header and command view column.
 - [x] Objectives page on the command screen.
 - [x] Chat display size, message fonts, command line, early messages, the command slot and chat only when the HUD has it.
