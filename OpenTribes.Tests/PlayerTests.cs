@@ -1083,6 +1083,25 @@ public class PlayerTests
 
     // ---- repair tick, throw direction, fade (player-sim 6.3, static-sim 5.4, 5.6) ----
 
+    // G45: 0x00415108 zeroes the pitch when $pref::freeLook goes from TRUE to FALSE, once.
+    private static void TestFreeLookOff()
+    {
+        var f = new Fixture("player_freelook");
+        Player p = f.Spawn("30 30 50.2");
+        p.Pitch = 0.5f;
+        p.ServerTick(0);
+        Assert.True(p.Pitch == 0.5f && p.FreeLookCopy);
+        f.W.Run("$pref::freeLook = false;");
+        p.ServerTick(0);
+        Assert.True(p.Pitch == 0 && !p.FreeLookCopy);
+        p.Pitch = 0.5f;
+        p.ServerTick(0);
+        Assert.True(p.Pitch == 0.5f);
+        f.W.Run("$pref::freeLook = true;");
+        p.ServerTick(0);
+        Assert.True(p.FreeLookCopy);
+    }
+
     private static void TestRepairThrowFade()
     {
         var f = new Fixture("player_repair");
@@ -2254,6 +2273,7 @@ public class PlayerTests
         TestAnimationWrap();
         TestTouchOrder();
         TestRiders();
+        TestFreeLookOff();
         TestRepairThrowFade();
         TestCallbacks();
         TestInventory();

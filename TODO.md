@@ -51,6 +51,7 @@ way are added to Open.
 - [x] Input consumers and GUI classes on the server side.
 - [x] File search restarts after reaching the end.
 - [x] Files of an unmounted volume stay available until purged, also for mission and world loading.
+- [x] Pitch resets when free look turns off.
 
 ### Client network
 
