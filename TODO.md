@@ -64,7 +64,7 @@ way are added to Open.
 - [x] Terrain and network settings with their default values, including prediction timing.
 - [x] Smooth movement of other players and vehicles, riders included, in the right order. Dead players fall to the ground.
 - [x] Model checks when joining a server, with the file check messages.
-- [x] Vehicle camera and vehicle control.
+- [x] Vehicle camera, vehicle control and the seated pilot.
 
 ### Graphics
 

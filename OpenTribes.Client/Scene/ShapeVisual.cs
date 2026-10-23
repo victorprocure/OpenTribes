@@ -312,6 +312,9 @@ public class ShapeVisual : Visual
     }
 
     // Vehicle_isDriverVisible 004453cc (vtable +0x164): the datablock byte +0x170, `visibleDriver`.
+    // Vehicle_getDriverPose (vtable +0x168): the datablock int +0x174, `driverPose`; 0 without a datablock.
+    public int DriverPose => Block == null ? 0 : (int)Db.Num(Block, "driverPose");
+
     public bool DriverVisible => Block == null || Db.Flag(Block, "visibleDriver");
 
     // The inputs of Vehicle_getCameraTransform 00445d88: the object transform as drawn (Euler x, y, z and the position, rotation and

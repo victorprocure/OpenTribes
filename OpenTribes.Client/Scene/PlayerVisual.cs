@@ -190,10 +190,15 @@ public sealed class PlayerVisual : ShapeVisual
 
     // player-sim.md 5.4 (first match wins): mounted, jetting or jumping in the air, falling, crouching, else the best of the four
     // ground motion candidates by the velocity along each travel direction (threshold 0.35 m/s). Every 65 ms.
+    public static int MountAnimation(bool slot1, int driverPose) => slot1 ? driverPose : 23;
+
     public int ChooseAnimation()
     {
         if (MountGhost >= 0 && Num("mountGhost", -1) >= 0)
-            return 23;
+        {
+            // player-sim.md 5.4 rows 3 and 4, Player_pickMoveAnimation 004106fc: mount point 1 takes the vehicle's driverPose (Vehicle_getDriverPose, vtable +0x168), any other point 23
+            return MountAnimation(IsMountSlot1(), M.Visuals.TryGetValue(MountGhost, out Visual? mv) && mv is ShapeVisual sv ? sv.DriverPose : 0);
+        }
         if (mJet || (mJump && !mContact))
             return 19;
         if (!mContact && mVz < -3)
@@ -455,9 +460,11 @@ public sealed class PlayerVisual : ShapeVisual
     // Player_renderQuery 004118e8: the pilot (mount slot 1) of a Vehicle or Flier is not drawn when that vehicle is the control object
     // seen from inside (first person, view distance 0), nor when the vehicle's datablock says the driver is not visible
     // (Vehicle_isDriverVisible, vtable +0x164).
+    private bool IsMountSlot1() => Ghost.State.TryGetValue("mount", out object? ms) && ms is string s && s.EndsWith("/1", StringComparison.Ordinal);
+
     private bool PilotHidden(FrameContext ctx)
     {
-        if (MountGhost < 0 || !Ghost.State.TryGetValue("mount", out object? ms) || ms is not string s || !s.EndsWith("/1", StringComparison.Ordinal))
+        if (MountGhost < 0 || !IsMountSlot1())
             return false;
         if (ctx.FirstPersonOfControl && ctx.ControlGhost == MountGhost)
             return true;
