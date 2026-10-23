@@ -498,7 +498,7 @@ public sealed class ClientApp : IDisposable
         // PlayerManager_message 0040dbfc looks up `playGui` and its chat display (id 140113) and hands the text to 004a525c only
         // when both exist: a line that arrives before play.gui is loaded (the join message of the local player comes during
         // the load) goes to the console only.
-        bool display = GuiRt.FindControl(PlayDelegate.ChatDisplayId.ToString(System.Globalization.CultureInfo.InvariantCulture)) != null;
+        bool display = GuiRt.FindChildOf("playGui", PlayDelegate.ChatDisplayId) != null;
         for (; seen < chat.Count; ++seen)
         {
             int type = seen < types.Count ? types[seen] : 0;

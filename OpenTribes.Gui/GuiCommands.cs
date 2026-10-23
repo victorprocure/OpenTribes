@@ -53,6 +53,18 @@ public sealed class GuiRuntime
         return null;
     }
 
+    // An object looked up by name, then its child by id: the stock lookup of the chat display `playGui` / 140113 [code 0040dbfc,
+    // 0053a048]. A control of the same id inside another object (the chat display of `commandGui`) is not found.
+    public GuiControl? FindChildOf(string objectName, uint id)
+    {
+        GuiControl? obj = Named.TryGetValue(objectName, out GuiControl? n) ? n : null;
+        if (obj == null)
+            foreach (GuiControl root in Canvas.Stack)
+                if ((obj = root.FindByName(objectName)) != null)
+                    break;
+        return obj?.FindById(id);
+    }
+
     private static string B(bool v) => v ? "True" : "False";
     private static bool ParseBool(string s) => s.Equals("true", StringComparison.OrdinalIgnoreCase) || s == "1";
 

@@ -123,7 +123,7 @@ way are added to Open.
 - [x] Loading screen palette and progress, and mission reloads.
 - [x] Damage flash (with the original strength), chat layout, inventory header and command view column.
 - [x] Objectives page on the command screen.
-- [x] Chat display size (kept across screens), message fonts, command line, early messages and the command slot.
+- [x] Chat display size, message fonts, command line, early messages, the command slot and chat only when the HUD has it.
 - [x] Chat and command menu, drawn in full.
 - [x] Compass readout, waypoint and arrow, and when the weapon HUD wakes.
 - [x] Lists and menus leave keys to the game, like the original.
