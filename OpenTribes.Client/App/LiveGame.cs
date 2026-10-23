@@ -228,6 +228,7 @@ public sealed class LiveGame : IDisposable
         if (HasScene)
         {
             FeedRemote();
+            FeedControlVehicle();
             FeedControlImages();
             mTickCarry += (now - prev) / 1000.0;
             while (mTickCarry >= 0.032)
@@ -392,6 +393,26 @@ public sealed class LiveGame : IDisposable
             pv.ApplyControl(c);
     }
 
+    // The control Vehicle or Flier is its own ghost: the server sends it no state updates (owner-only ghost, vehicle-sim.md 6.1), so
+    // the drawn shape follows the predicted copy (Flier_clientUpdate 0042e254), else the control state (rotation, position).
+    private void FeedControlVehicle()
+    {
+        ClientPsc psc = World.Psc;
+        if (psc.ControlClass is not ("Vehicle" or "Flier") || psc.ControlGhost < 0 || Model == null
+            || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not ShapeVisual sv)
+            return;
+        if (Net?.PredictWorld != null && Net.Prediction.Object is OpenTribes.Game.Vehicle o && Net.Prediction.Active)
+        {
+            sv.Driven = true;
+            sv.SetSmoothed(o.Rotation[0], o.Rotation[1], o.Rotation[2], o.Transform.P[0], o.Transform.P[1], o.Transform.P[2]);
+        }
+        else if (psc.ControlState.TryGetValue("rot", out object? r) && r is double[] rot && psc.ControlState.TryGetValue("pos", out object? q) && q is double[] pos)
+        {
+            sv.Driven = true;
+            sv.SetSmoothed(rot[0], rot[1], rot[2], pos[0], pos[1], pos[2]);
+        }
+    }
+
     // The remote Player and Vehicle ghosts draw from their simulated copies (client-net.md 4.4.2); the others keep the stream state.
     private void FeedRemote()
     {
@@ -424,7 +445,7 @@ public sealed class LiveGame : IDisposable
             }
             else if (v is ShapeVisual sv)
             {
-                if (rg != null && rg.Vehicles.TryGetValue(v.Index, out RemoteVehicle? rv))
+                if (rg != null && v.Index != World.Psc.ControlGhost && rg.Vehicles.TryGetValue(v.Index, out RemoteVehicle? rv))
                 {
                     sv.Driven = true;
                     Vehicle o = rv.V;
