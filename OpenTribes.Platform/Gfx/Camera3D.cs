@@ -44,12 +44,15 @@ public readonly record struct DrawState3D(IGfxTexture? Texture = null, IGfxTextu
 public struct Camera3D
 {
     public double X, Y, Z, Yaw, Pitch, HorizontalFov;
+    // Rotation about the view axis (the y word of the Euler transform, positive turns the right vector toward -up).
+    public double Roll;
     public int Width, Height;
     public double Near, Far;
 
     public Camera3D(double x, double y, double z, double yawDegrees, double pitchDegrees, double fovDegrees, int width,
-                    int height, double near, double far)
+                    int height, double near, double far, double rollDegrees = 0)
     {
+        Roll = rollDegrees * Math.PI / 180;
         X = x; Y = y; Z = z;
         Yaw = yawDegrees * Math.PI / 180;
         Pitch = pitchDegrees * Math.PI / 180;
@@ -60,7 +63,28 @@ public struct Camera3D
     public readonly (double x, double y, double z) Forward =>
         (-Math.Sin(Yaw) * Math.Cos(Pitch), Math.Cos(Yaw) * Math.Cos(Pitch), Math.Sin(Pitch));
 
-    public readonly (double x, double y, double z) Right => (Math.Cos(Yaw), Math.Sin(Yaw), 0);
+    // The level right vector (yaw only) and the up vector that goes with it, before the roll.
+    private readonly (double x, double y, double z) LevelUp
+    {
+        get
+        {
+            var f = Forward;
+            double rx = Math.Cos(Yaw), ry = Math.Sin(Yaw);
+            return (ry * f.z, -rx * f.z, rx * f.y - ry * f.x); // right x forward
+        }
+    }
+
+    public readonly (double x, double y, double z) Right
+    {
+        get
+        {
+            if (Roll == 0)
+                return (Math.Cos(Yaw), Math.Sin(Yaw), 0);
+            var u = LevelUp;
+            double c = Math.Cos(Roll), s = Math.Sin(Roll);
+            return (Math.Cos(Yaw) * c - u.x * s, Math.Sin(Yaw) * c - u.y * s, -u.z * s);
+        }
+    }
 
     public readonly (double x, double y, double z) Up
     {

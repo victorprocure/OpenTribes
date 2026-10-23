@@ -452,9 +452,23 @@ public sealed class PlayerVisual : ShapeVisual
         return (bx, by, bz);
     }
 
+    // Player_renderQuery 004118e8: the pilot (mount slot 1) of a Vehicle or Flier is not drawn when that vehicle is the control object
+    // seen from inside (first person, view distance 0), nor when the vehicle's datablock says the driver is not visible
+    // (Vehicle_isDriverVisible, vtable +0x164).
+    private bool PilotHidden(FrameContext ctx)
+    {
+        if (MountGhost < 0 || !Ghost.State.TryGetValue("mount", out object? ms) || ms is not string s || !s.EndsWith("/1", StringComparison.Ordinal))
+            return false;
+        if (ctx.FirstPersonOfControl && ctx.ControlGhost == MountGhost)
+            return true;
+        return M.Visuals.TryGetValue(MountGhost, out Visual? mv) && mv is ShapeVisual sv && !sv.DriverVisible;
+    }
+
     public override void Build(FrameContext ctx)
     {
         if (Inst == null || Shape == null || !HavePos || Hidden)
+            return;
+        if (PilotHidden(ctx))
             return;
         bool firstPerson = ctx.FirstPersonOfControl && ctx.ControlGhost == Index;
         Xf body = PoseXf();

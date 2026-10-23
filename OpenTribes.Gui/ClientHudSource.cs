@@ -32,6 +32,7 @@ public sealed class ClientHudSource : IHudSource
     public bool HasPlayerState => Psc.ControlGhost >= 0;
 
     public bool InPlayerView => HasPlayerState && Psc.ControlClass != "ObserverCamera";
+    public bool ControlIsPlayer => HasPlayerState && Psc.ControlClass == "Player";
     // Set by the host: PSC +0xa0 on and +0x9c == 0 (MoveBuilder.FirstPersonNow).
     public Func<bool>? FirstPersonSource;
     public bool FirstPersonView => FirstPersonSource?.Invoke() ?? true;

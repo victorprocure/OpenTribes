@@ -311,6 +311,34 @@ public class ShapeVisual : Visual
         return PoseXf().Apply(Shape.Cx, Shape.Cy, Shape.Cz);
     }
 
+    // Vehicle_isDriverVisible 004453cc (vtable +0x164): the datablock byte +0x170, `visibleDriver`.
+    public bool DriverVisible => Block == null || Db.Flag(Block, "visibleDriver");
+
+    // The inputs of Vehicle_getCameraTransform 00445d88: the object transform as drawn (Euler x, y, z and the position, rotation and
+    // translation flags) and the `dummy eye` node transform (animated, in object space), null without that node.
+    public bool TryCameraInputs(out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? eye)
+    {
+        obj = new OpenTribes.Sim.Transform();
+        eye = null;
+        if (!HavePos)
+            return false;
+        OpenTribes.Sim.MissionTransform.EulerToMatrix(new[] { (float)Roll, (float)Pitch, (float)Yaw }, ref obj);
+        obj.Flags |= 3u;
+        obj.P[0] = (float)X; obj.P[1] = (float)Y; obj.P[2] = (float)Z;
+        int n = Inst != null && Shape != null ? Shape.FindNodeBase("dummy eye", 0) : -1;
+        if (n < 0)
+            return true;
+        Inst!.Animate(0);
+        Xf e = Inst.NodeWorld[n];
+        var t = new OpenTribes.Sim.Transform { Flags = 3u };
+        double[] m = { e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8 };
+        for (int i = 0; i < 9; ++i)
+            t.M[i] = (float)m[i];
+        t.P[0] = (float)e.Px; t.P[1] = (float)e.Py; t.P[2] = (float)e.Pz;
+        eye = t;
+        return true;
+    }
+
     protected virtual Xf PoseXf() => Xf.Euler(Roll, Pitch, Yaw + SpinZ).Then(Xf.Translate(X, Y, Z));
 
     public override void Tick(double dt)

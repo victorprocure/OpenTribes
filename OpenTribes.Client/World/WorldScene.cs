@@ -186,8 +186,8 @@ public sealed class WorldScene : IDisposable
 
     // The camera of a render: near and far follow the terrain's visible distance for the world, a long far for the
     // background (open: world-render.md Q1).
-    public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background) =>
-        new(x, y, z, yaw, pitch, fov, w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10));
+    public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background, double roll = 0) =>
+        new(x, y, z, yaw, pitch, fov, w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10), roll);
 
     // The point lights of the frame (explosions, projectiles, items): they add to the light map of terrain and interior surfaces
     // within range (world-render.md 2.9, 3.7). Set by the caller before Render; the nearest ones to the camera are used.
@@ -226,13 +226,13 @@ public sealed class WorldScene : IDisposable
         mDev.SetDynamicLights(arr);
     }
 
-    public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null)
+    public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null, double roll = 0)
     {
         int w = mDev.Width, h = mDev.Height;
         mDev.BeginFrame();
         mDev.ClearRgb((byte)(ClearColor.r * 255), (byte)(ClearColor.g * 255), (byte)(ClearColor.b * 255));
-        Camera3D bg = MakeCamera(x, y, z, yaw, pitch, fov, w, h, true);
-        Camera3D world = MakeCamera(x, y, z, yaw, pitch, fov, w, h, false);
+        Camera3D bg = MakeCamera(x, y, z, yaw, pitch, fov, w, h, true, roll);
+        Camera3D world = MakeCamera(x, y, z, yaw, pitch, fov, w, h, false, roll);
         mDev.BeginScene3D(bg, HazeColor.r, HazeColor.g, HazeColor.b);
         using (FramePerf.Scope("sky"))
         {

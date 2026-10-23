@@ -76,7 +76,7 @@ public static class DemoRender
         return list;
     }
 
-    public readonly record struct CameraPose(double X, double Y, double Z, double YawDeg, double PitchDeg, bool FirstPerson, int ControlGhost);
+    public readonly record struct CameraPose(double X, double Y, double Z, double YawDeg, double PitchDeg, bool FirstPerson, int ControlGhost, double RollDeg = 0);
 
     // The camera of the control object (client-net.md 4.5, game-stream.md 6.6): an ObserverCamera in mode 0 to 2 stands at its
     // position, in mode 3 it orbits the centre of the orbit object at the stored distance (-1: the object's own view), a
@@ -127,7 +127,30 @@ public static class DemoRender
             var (px, py, pz) = EyeOf(m, psc.ControlGhost, p[0], p[1], p[2], D("rotZ"), D("pitch"));
             return new CameraPose(px, py, pz, D("rotZ") * 180 / Math.PI, D("pitch") * 180 / Math.PI, true, psc.ControlGhost);
         }
+        if (psc.ControlClass is "Vehicle" or "Flier")
+            return VehicleCamera(m, psc.ControlGhost, 0f, null, null);
         return null;
+    }
+
+    // The camera of a piloted Vehicle or Flier (Vehicle_getCameraTransform 00445d88, docs/client-net.md 4.2): `distance` is the
+    // PSC view distance timer (+0x9c). The `dummy eye` node transform times the drawn object transform, moved back by 2 * distance
+    // (placeBehind through `world`, the object itself ignored), pitch * 0.8 and roll * 0.5 while the distance is not 0. First person
+    // (distance 0) is the eye node itself, the view mode only changes the distance.
+    public static CameraPose? VehicleCamera(SceneModel m, int ghost, float distance, OpenTribes.World.Container? world, object? exclude)
+    {
+        if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || !sv.TryCameraInputs(out var obj, out var eye))
+            return null;
+        OpenTribes.Sim.Transform t = OpenTribes.Game.VehicleCamera.Compute(obj, eye, distance, world, exclude);
+        return PoseOf(t, distance == 0f, ghost);
+    }
+
+    // Yaw, pitch and roll of a camera transform (the Euler words of Mat3_toEuler, in degrees).
+    public static CameraPose PoseOf(in OpenTribes.Sim.Transform t, bool firstPerson, int ghost)
+    {
+        var e = new float[3];
+        OpenTribes.Sim.MissionTransform.MatrixToEuler(t, e);
+        double d = 180 / Math.PI;
+        return new CameraPose(t.P[0], t.P[1], t.P[2], e[2] * d, e[0] * d, firstPerson, ghost, e[1] * d);
     }
 
     // Camera position of a first person view: the body position plus the `dummy eye` node of the player shape, turned by the yaw,
@@ -351,7 +374,7 @@ public static class DemoRender
                 for (int i = 0; i <= bench; ++i)
                 {
                     FramePerf.FrameStart();
-                    scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, DrawShapes, null);
+                    scene.Render(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, fov, DrawShapes, null, c.RollDeg);
                 }
             }
             scene.DynamicLights = model.CollectLights().Points;
@@ -364,7 +387,7 @@ public static class DemoRender
                             Console.Error.WriteLine($"item {i} x{play.World.Psc.ItemCounts[i]} {blk.Class}: " + string.Join(" ", blk.Fields.Take(14).Select(f => f.Name + "=" + f.Value)));
                 ui.Canvas.Frame();
                 ui.Canvas.Render(dev);
-            });
+            }, c.RollDeg);
             byte[] px = dev.ReadPixels();
             string path = dir ? Path.Combine(output, $"{name}_{t.ToString("0.###", CultureInfo.InvariantCulture)}.png") : output;
             MissionRender.WritePng(path, px, dev.Width, dev.Height);

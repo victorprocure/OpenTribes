@@ -175,9 +175,12 @@ public sealed class GuiHost
 public interface IHudSource
 {
     bool HasPlayerState { get; }
-    // The weapon list, the sensor ping and the crosshair draw only while the client's own player or a vehicle it rides is the control object
-    // [code 004e8fe8, 004ea720, 004ab500]: not in the observer camera.
+    // The sensor ping and the crosshair draw only while the client's own player or a vehicle it rides is the control object
+    // [code 004ea720, 004ab500]: not in the observer camera.
     bool InPlayerView => HasPlayerState;
+    // The weapon list draws only while the control object is the client's own player (PSC +0xa4 == the controlled player 006a83cc), not in a
+    // vehicle it rides [code 004e8fe8]. The ping and the crosshair also take an object flagged 0x20000000 (Vehicle, Flier) [code 004ea720].
+    bool ControlIsPlayer => HasPlayerState;
     // PSC +0xa0 (first person on) and view distance +0x9c at 0: the crosshair draws only then [code 004ab500].
     bool FirstPersonView => true;
     // The control object's damage level, 0.0 healthy to 1.0 dead (vtable +0xf8).

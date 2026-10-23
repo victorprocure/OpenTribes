@@ -348,6 +348,14 @@ public sealed class LiveGame : IDisposable
             pose = DemoRender.ChaseCamera(Model, fp.ControlGhost, d[0], d[1], d[2], fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180,
                                           mApp.Play.Moves.ViewDist, predicted ? Net.PredictWorld!.Game.World : null, body);
         }
+        // Vehicle_getCameraTransform 00445d88 (Vehicle and Flier): the `dummy eye` node of the vehicle as drawn, moved back by twice the
+        // view distance (placeBehind with the vehicle ignored) and with pitch and roll scaled while the distance is not 0.
+        if (Model != null && World.Psc.ControlClass is "Vehicle" or "Flier" && World.Psc.ControlGhost >= 0 && Net != null)
+        {
+            OpenTribes.Game.Vehicle? self = Net.PredictWorld != null && Net.Remote.Vehicles.TryGetValue(World.Psc.ControlGhost, out RemoteVehicle? rv) ? rv.V : null;
+            float dist = mApp.Play.Moves.ViewDist;
+            pose = DemoRender.VehicleCamera(Model, World.Psc.ControlGhost, dist, self != null ? Net.PredictWorld!.Game.World : null, self) ?? pose;
+        }
         return pose;
     }
 
@@ -467,7 +475,7 @@ public sealed class LiveGame : IDisposable
         {
             using (FramePerf.Scope("shapes-draw"))
                 ctx.Lists.Draw(dev);
-        }, overlay2D);
+        }, overlay2D, c.RollDeg);
         return true;
     }
 

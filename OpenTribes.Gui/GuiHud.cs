@@ -358,7 +358,7 @@ public sealed class GuiWeaponHud : GuiHud
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Source == null || !Source.InPlayerView || Host == null)
+        if (Source == null || !Source.ControlIsPlayer || Host == null)
             return;
         bool lr = LowRes;
         PbmpBitmap? fallback = Host.BitmapByName(lr ? "lr_weapon_off.bmp" : "I_weapon_off.bmp");
