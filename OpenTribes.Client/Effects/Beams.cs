@@ -104,5 +104,38 @@ public static class Beams
         return img;
     }
 
+    // The laser beam of LaserProjectile_draw 00463fd0 / image setup 00463810: one quad from the start to the end point, facing the camera.
+    // side = unit((camera - start) x unit(end - start)); the half width is 0.04 (DAT_0061bff0) times 1 / projectRadius(point, 0.04) where
+    // that radius is under one pixel, else times 1, taken at each end, so the beam is at least one pixel wide at both ends. The texture
+    // coordinate u is one value for the whole beam, `u`, and v runs 0 to 1 across it (the bitmap column picked by the beam's age).
+    public const double LaserHalfWidth = 0.04;
+
+    public static RenderImage LaserQuad(FrameContext ctx, TexEntry? tex, double[] a, double[] b, double u)
+    {
+        var img = new RenderImage { Category = 1, SortKey = 0, Label = "laser" };
+        double dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], len = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 1e-9)
+            return img;
+        dx /= len; dy /= len; dz /= len;
+        double cx = ctx.Camera.X - a[0], cy = ctx.Camera.Y - a[1], cz = ctx.Camera.Z - a[2];
+        double sx = cy * dz - cz * dy, sy = cz * dx - cx * dz, sz = cx * dy - cy * dx, sl = Math.Sqrt(sx * sx + sy * sy + sz * sz);
+        if (sl < 1e-9)
+            return img;
+        sx /= sl; sy /= sl; sz /= sl;
+        double Half(double[] p)
+        {
+            double depth = ctx.Camera.ToCamera(p[0], p[1], p[2]).y;
+            double pr = depth > 1e-6 ? ctx.Camera.ProjectRadius(depth, LaserHalfWidth) : 1.0;
+            return LaserHalfWidth * (pr < 1.0 ? 1.0 / pr : 1.0);
+        }
+        double ha = Half(a), hb = Half(b);
+        Vertex3D V(double[] p, double h, double sgn, float vv) =>
+            new((float)(p[0] + sx * h * sgn), (float)(p[1] + sy * h * sgn), (float)(p[2] + sz * h * sgn), (float)u, vv, 0, 0, 0, 1, 1, 1, 1);
+        Vertex3D v0 = V(a, ha, -1, 0), v1 = V(a, ha, 1, 1), v2 = V(b, hb, 1, 1), v3 = V(b, hb, -1, 0);
+        BlendMode kind = tex != null && (tex.Blend == BlendMode.Additive || tex.Blend == BlendMode.Subtractive) ? tex.Blend : BlendMode.Additive;
+        img.Batches.Add(new DrawBatch { Vertices = new[] { v0, v1, v2, v0, v2, v3 }, State = new DrawState3D(tex?.Texture, null, true, 0, true, false, kind) });
+        return img;
+    }
+
     private static double Dist(double[] a, double[] b) => Math.Sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
 }

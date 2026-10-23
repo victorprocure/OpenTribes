@@ -7,6 +7,10 @@ way are added to Open.
 
 ## Open
 
+### Turrets and weapons
+
+- [ ] **L2** The laser rifle beam starts a little short of the gun tip in first person.
+
 ### Vehicles
 
 - [ ] Riders on turrets.
@@ -105,6 +109,7 @@ way are added to Open.
 - [x] Shape lighting per vertex, also from far lights and the sun.
 - [x] Team skin on mounted weapons.
 - [x] Grenade smoke puffs and grenade sounds.
+- [x] Laser beam shape.
 
 ### Menus and HUD
 

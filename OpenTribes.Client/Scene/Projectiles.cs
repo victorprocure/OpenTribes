@@ -378,9 +378,11 @@ public sealed class BeamVisual : Visual
         {
             TexEntry? tex = ctx.Assets.Texture(Db.Str(mBlock, "laserBitmapName") is { Length: > 0 } n ? n : "laserPulse.bmp");
             float strength = (float)(Num("energy5", 31) / 31.0);
-            double age = M.Time - mStart;
-            float fade = (float)Math.Clamp(1 - age / Math.Max(0.5, Db.Num(mBlock, "beamTime", 0.5)), 0.2, 1);
-            img = Beams.Strip(ctx, tex, new[] { a, b }, 0.35 * (0.4 + 0.6 * strength), 1, 1, 1, fade, Math.Max(1, Math.Sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2])) / 8), "laser");
+            double beamTime = Math.Max(Db.Num(mBlock, "beamTime", 0.5), 1e-3), age = M.Time - mStart;
+            if (age > beamTime)
+                return;   // 00463810: no image after beamTime
+            // u = (1 - strength) + age / beamTime * strength (inst +0x654)
+            img = Beams.LaserQuad(ctx, tex, a, b, (1 - strength) + age / beamTime * strength);
         }
         else if (Class == "TargetLaser")
         {
