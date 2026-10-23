@@ -134,6 +134,8 @@ public sealed class GuiCanvas
     public string Name = "MainWindow";
     public int Width = 640, Height = 480;
     public readonly List<GuiControl> Stack = new();
+    // Replaced content controls that are not deleted on replacement, by name.
+    public readonly Dictionary<string, GuiControl> Retained = new(StringComparer.OrdinalIgnoreCase);
     public readonly Dictionary<string, GuiDelegate> Delegates = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<GuiControl, GuiDelegate> mDelegateOf = new();
     public readonly CanvasRoot Root;
@@ -286,6 +288,10 @@ public sealed class GuiCanvas
             old.CloseTree();
             old.SetCanvas(null);
             mDelegateOf.Remove(old);
+            // A control whose flag bit 1 is clear is not deleted when replaced (play.gui and CmdInventory.gui have flags 1): it
+            // stays in the object manager and a lookup by name still finds it [code 00533fdc, 0040dbfc].
+            if (!old.DeleteOnLose && !string.IsNullOrEmpty(old.Name))
+                Retained[old.Name] = old;
         }
         if (del != null)
         {

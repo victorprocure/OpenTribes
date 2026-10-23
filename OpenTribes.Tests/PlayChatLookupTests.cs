@@ -29,4 +29,21 @@ public class PlayChatLookupTests
         f.Content(GuiFixture.Make("SimGui::Control"));
         Assert.Null(f.Runtime.FindChildOf("playGui", 140113));
     }
+
+    // play.gui has flags 1 (not deleted when replaced): while CmdInventory.gui is the content the object still exists, so the
+    // "Station Access Off" message that comes before the mode switch back reaches the chat display.
+    [Fact]
+    public void PlayGuiStaysFindableWhileAnotherContentIsUp()
+    {
+        var f = new GuiFixture();
+        GuiControl play = GuiFixture.Make("SimGui::Control");
+        play.Name = "playGui";
+        play.Flags = 1;
+        GuiControl chat = GuiFixture.Make("SimGui::Control");
+        chat.Id = 140113;
+        play.Children.Add(chat);
+        f.Content(play);
+        f.Content(GuiFixture.Make("SimGui::Control"));
+        Assert.Same(chat, f.Runtime.FindChildOf("playGui", 140113));
+    }
 }

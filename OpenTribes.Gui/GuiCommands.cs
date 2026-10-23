@@ -62,6 +62,8 @@ public sealed class GuiRuntime
             foreach (GuiControl root in Canvas.Stack)
                 if ((obj = root.FindByName(objectName)) != null)
                     break;
+        if (obj == null)
+            Canvas.Retained.TryGetValue(objectName, out obj);
         return obj?.FindById(id);
     }
 

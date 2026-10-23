@@ -127,12 +127,17 @@ public sealed class ProjectileVisual : Visual
             M.AddBulletHole(x, y, z);
     }
 
+    // The client update of Bullet (0045c1ec path), RocketDumb and SeekingMissile advances the `ambient` thread (ShapeThread_advanceTime
+    // 005c01b0); Grenade_clientUpdate (0045fb7d..0045ffd0, tribes111 bytes: no call to 005c01b0) never does, so the shell shows
+    // frame 0 of its blink (olite00, a white palette entry) for its whole flight.
+    public static bool AdvancesAmbient(string cls) => cls != "Grenade";
+
     public override void Tick(double dt)
     {
         if (!mHavePos || mExploded || mInst == null && mBlock == null)
             return;
         mSpin += dt;
-        if (mInst != null && mAmbient != null)
+        if (mInst != null && mAmbient != null && AdvancesAmbient(Class))
             mInst.Advance(mAmbient, dt);
         var (x, y, z) = PosNow();
         // Smoke: grenades puff `smokeName` and rockets of trailType 2 puff `trailString` every smokeDist units travelled.
