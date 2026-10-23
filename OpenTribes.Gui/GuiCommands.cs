@@ -388,6 +388,7 @@ public sealed class ClockedHudSource : IHudSource
     public bool InPlayerView => mInner.InPlayerView;
     public bool ControlIsPlayer => mInner.ControlIsPlayer;
     public bool FirstPersonView => mInner.FirstPersonView;
+    public HudZoom? Zoom => mInner.Zoom;
     public double DamageLevel => mInner.DamageLevel;
     public double EnergyLevel => mInner.EnergyLevel;
     public double Yaw => mInner.Yaw;

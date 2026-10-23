@@ -227,6 +227,7 @@ public sealed class ClientApp : IDisposable
     private void RegisterEngineVariables()
     {
         EngineVariables.Register(Interp);
+        Play.Moves.ZoomSpeed = () => Numbers.BorlandAtof(Interp.PeekVariable("$pref::PlayerZoomSpeed")) is var zs ? Math.Clamp(zs, 0.0, 1.0) : 0.0;
         Play.Moves.PrefFov = () => Numbers.BorlandAtof(Interp.PeekVariable("$pref::PlayerFov")) is var f and > 1 ? f : 90;
         // PlayerPSC_onAction PITCH (0x35b63) and PITCH_SPEED (0x35c41) negate the pitch for a control object of type 0x20000000 (the
         // Flier/Vehicle ghost classes) while the byte at 0x0061704c ($pref::flipFlierY) is set. No other pitch inversion exists in the
@@ -450,6 +451,7 @@ public sealed class ClientApp : IDisposable
             MenuSource = CurrentMenu,
             PlayMenuSource = PlayMenu,
             FirstPersonSource = () => Play.Moves.FirstPersonNow,
+            ZoomSource = () => Play.Moves.HudZoomState(),
             ViewCamera = (w, h) => g.Camera() is { } c
                 ? new Camera3D(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, Play.Moves.CurrentFov, w, h, World.WorldScene.NearPlane, 1000)
                 : null,

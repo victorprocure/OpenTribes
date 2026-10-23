@@ -36,6 +36,9 @@ public sealed class ClientHudSource : IHudSource
     // Set by the host: PSC +0xa0 on and +0x9c == 0 (MoveBuilder.FirstPersonNow).
     public Func<bool>? FirstPersonSource;
     public bool FirstPersonView => FirstPersonSource?.Invoke() ?? true;
+    // Set by the host: the zoom state of the move builder.
+    public Func<HudZoom?>? ZoomSource;
+    public HudZoom? Zoom => ZoomSource?.Invoke();
 
     // Vtable +0xf8 of the control object (docs/gui.md 4.1). Player 00413828 returns +0x72c, which the ghost update sets to 1.0 on
     // death (Player_unpackUpdate, mask 0x100) and to the 6 bit damage otherwise. ObserverCamera 004349e4 forwards the call to its

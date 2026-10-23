@@ -171,6 +171,10 @@ public sealed class GuiHost
     }
 }
 
+// The inputs of the zoom branch of Crosshair 004ab500 (docs/gui.md 4.2): Cur = 0060f0a0, ZoomFov = 0060f0a4, Target = PSC +0x40c,
+// Start = +0x414, End = +0x418, Now = 006a83a0 (ms), StepStamp = 0060f0b4 (time of the last INC_SNIPER_FOV with the zoom off).
+public readonly record struct HudZoom(double Cur, double ZoomFov, double Target, uint Start, uint End, uint Now, uint StepStamp);
+
 // docs/gui.md 4.1: what the HUD classes read from the client player state and the control object.
 public interface IHudSource
 {
@@ -183,6 +187,9 @@ public interface IHudSource
     bool ControlIsPlayer => HasPlayerState;
     // PSC +0xa0 (first person on) and view distance +0x9c at 0: the crosshair draws only then [code 004ab500].
     bool FirstPersonView => true;
+    // The zoom state the crosshair reads (00404578 getter: current FOV 0060f0a0, zoom FOV 0060f0a4, PSC +0x40c/+0x414/+0x418, time
+    // 006a83a0, last zoom step stamp 0060f0b4), null without one.
+    HudZoom? Zoom => null;
     // The control object's damage level, 0.0 healthy to 1.0 dead (vtable +0xf8).
     double DamageLevel { get; }
     // Energy level 0.0 to 1.0 (vtable +0xfc).

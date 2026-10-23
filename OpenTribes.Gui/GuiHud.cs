@@ -483,8 +483,22 @@ public sealed class GuiCrosshair : GuiHud
         if (Canvas == null || (Source != null && (!Source.InPlayerView || !Source.FirstPersonView)))
             return;
         int cx = ox + (Parent?.W ?? W) / 2, cy = oy + (Parent?.H ?? H) / 2;
-        // The reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view [code 004ab500]; without the
-        // picture the four arms of the stock capture at 640 x 480 (3 pixels, 2 from the centre).
+        bool reticleOnly = true;
+        if (Source?.Zoom is HudZoom z)
+            reticleOnly = DrawZoom(p, z, cx, cy);
+        if (reticleOnly)
+            DrawReticle(p, cx, cy);
+        // the control is 13 pixels wide: its clip would cut the marks and the label
+        GfxRect clip = p.Clip;
+        p.SetClip(new GfxRect(0, 0, Canvas.Width - 1, Canvas.Height - 1));
+        DrawTarget(p, cx, cy);
+        p.SetClip(clip);
+    }
+
+    // The reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view [code 004ab500]; without the
+    // picture the four arms of the stock capture at 640 x 480 (3 pixels, 2 from the centre).
+    private void DrawReticle(GuiPaint p, int cx, int cy)
+    {
         PbmpBitmap? reticle = Host?.BitmapByName(LowRes ? "LR_H_Reticle.bmp" : "H_Reticle.bmp");
         if (reticle != null)
             p.BitmapKeyed(reticle, cx - (reticle.Width >> 1), cy - (reticle.Height >> 1));
@@ -495,11 +509,98 @@ public sealed class GuiCrosshair : GuiHud
             p.Fill(cx, cy - 4, 1, 3, 0xfc);
             p.Fill(cx, cy + 2, 1, 3, 0xfc);
         }
-        // the control is 13 pixels wide: its clip would cut the marks and the label
-        GfxRect clip = p.Clip;
-        p.SetClip(new GfxRect(0, 0, Canvas.Width - 1, Canvas.Height - 1));
-        DrawTarget(p, cx, cy);
-        p.SetClip(clip);
+    }
+
+    // The sniper state of the control (+0x1f8): on while the view is zoomed to 30 degrees or less (and while the zoom-in animation
+    // heads there), it grows or shrinks with the animation.
+    private bool mSniper;
+
+    // The zoom branch of 004ab500 [code 004ab66d..004ac48f]. Returns true when the reticle picture follows, false when the sniper
+    // cross was drawn instead.
+    private bool DrawZoom(GuiPaint p, HudZoom z, int cx, int cy)
+    {
+        int pw = Parent?.W ?? W, ph = Parent?.H ?? H;
+        int halfW = pw >> 1, halfH = ph >> 1;
+        int sw = 0, sh = 0;
+        if (z.Now < z.End)
+        {
+            bool zoomingIn = z.Target < z.Cur;
+            if (zoomingIn)
+                mSniper = mSniper || z.Target <= 30;
+            if (mSniper)
+            {
+                double span = z.End - z.Start;
+                uint num = zoomingIn ? z.Now - z.Start : z.End - z.Now;
+                sw = (int)((double)(uint)(halfW * (int)num) / span);
+                sh = (int)((double)(uint)(halfH * (int)num) / span);
+            }
+        }
+        else if (z.Cur > 30)
+            mSniper = false;
+        else
+        {
+            mSniper = true;
+            sw = halfW;
+            sh = halfH;
+        }
+        bool lr = LowRes;
+        if (!mSniper)
+        {
+            // the box of the next zoom level with its text, for 2 s after a zoom step while the zoom is off
+            uint until = z.Target != z.Cur ? 0u : unchecked(z.StepStamp + 2000);
+            if (z.Now < until)
+                DrawZoomBox(p, z, cx, cy, halfW, halfH, pw, ph, lr);
+            return true;
+        }
+        if (string.Equals(Host?.GetVar("$pref::SniperCrosshair"), "FALSE", StringComparison.OrdinalIgnoreCase))
+        {
+            mSniper = false;
+            return true;
+        }
+        // the cross over the whole view: two lines wide, with a gap in the middle of each arm
+        p.Line(cx, cy - sh, cx, cy + sh, 0xfc);
+        p.Line(cx - 1, cy - sh, cx - 1, cy - sh / 3, 0xfc);
+        p.Line(cx - 1, cy + sh / 3, cx - 1, cy + sh, 0xfc);
+        p.Line(cx + 1, cy - sh, cx + 1, cy - sh / 3, 0xfc);
+        p.Line(cx + 1, cy + sh / 3, cx + 1, cy + sh, 0xfc);
+        p.Line(cx - sw, cy, cx + sw, cy, 0xfc);
+        p.Line(cx - sw, cy - 1, cx - sw / 3, cy - 1, 0xfc);
+        p.Line(cx + sw / 3, cy - 1, cx + sw, cy - 1, 0xfc);
+        p.Line(cx - sw, cy + 1, cx - sw / 3, cy + 1, 0xfc);
+        p.Line(cx + sw / 3, cy + 1, cx + sw, cy + 1, 0xfc);
+        return false;
+    }
+
+    // The corners of the zoom box in a view of pw x ph: half size = view size x tan(zoom FOV / 2) x 0.5 around the view centre [code 004ab8c3].
+    public static (int X0, int Y0, int X1, int Y1) ZoomBox(double zoomFov, int pw, int ph)
+    {
+        double t = Math.Tan((double)(float)zoomFov * Math.PI / 360.0);
+        float hw = (float)(t * pw * 0.5f), hh = (float)(t * ph * 0.5f);
+        int cx = pw >> 1, cy = ph >> 1;
+        return ((int)(cx - hw), (int)(cy - hh), (int)(cx + hw), (int)(cy + hh));
+    }
+
+    // Corner marks around the area the next zoom level would show (half size = view size x tan(zoom FOV / 2) x 0.5) and "ZOOM: %dx"
+    // below it, x being the view width over the box width [code 004ab8c3..004abe2c].
+    private void DrawZoomBox(GuiPaint p, HudZoom z, int cx, int cy, int halfW, int halfH, int pw, int ph, bool lr)
+    {
+        (int x0, int y0, int x1, int y1) = ZoomBox(z.ZoomFov, pw, ph);
+        int ox = cx - halfW, oy = cy - halfH;
+        int arm = lr ? 4 : 7;
+        void Mark(int x, int y, int dx, int dy)
+        {
+            p.Line(ox + x, oy + y, ox + x + dx, oy + y, 0xfc);
+            p.Line(ox + x, oy + y, ox + x, oy + y + dy, 0xfc);
+        }
+        Mark(x0, y0, arm, arm);
+        Mark(x1, y0, -arm, arm);
+        Mark(x0, y1, arm, -arm);
+        Mark(x1, y1, -arm, -arm);
+        if (Host == null || x1 == x0)
+            return;
+        string text = "ZOOM: " + (pw / (x1 - x0)).ToString(System.Globalization.CultureInfo.InvariantCulture) + "x";
+        PftFont? f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
+        p.Text(f, cx - (GuiPaint.TextWidth(f, text) >> 1), cy + (lr ? 18 : 30), text);
     }
 
     // The target marks and the label [code 004ab500, 004aca84]: friend or foe picture centred above the head of every player in
