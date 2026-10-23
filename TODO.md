@@ -80,7 +80,7 @@ way are added to Open.
 - [x] Dynamic lights on interiors and terrain, in the original steps.
 - [x] Team skins change with the team.
 - [x] Rain and snow follow the weather setting, with the original streak count, size, speed, colour and direction.
-- [x] Sky panels and sunlight inside buildings.
+- [x] Sky panels, the plain-colour sky and sunlight inside buildings.
 - [x] Interior lights that start on their own, timed in game time, per interior.
 - [x] Depth buffer like the original.
 - [x] Draw order and culling: interior surfaces, terrain and objects inside interiors.

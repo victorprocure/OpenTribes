@@ -119,7 +119,17 @@ public sealed class WorldScene : IDisposable
             double[] sc = sky.GetVector("skyColor"), hc = sky.GetVector("hazeColor");
             (float, float, float) C(double[] v) => ((float)Math.Clamp(Finite(v[0]), 0, 1), (float)Math.Clamp(Finite(v[1]), 0, 1), (float)Math.Clamp(Finite(v[2]), 0, 1));
             scene.Sky = new SkyRenderer(dev, scene.Assets, mats, tex, sky.GetDouble("size", 600), sky.GetDouble("featurePosition", 0), visible, C(sc), C(hc));
-            scene.ClearColor = scene.Sky.Textured ? scene.Sky.SolidColor : C(sc);
+            if (scene.Sky.Textured)
+                scene.ClearColor = scene.Sky.SolidColor;
+            else
+            {
+                // Solid sky (Sky_drawSolid 004779ac, colour pick 004778d4): the fill is the palette entry nearest to trunc(skyColor * 255),
+                // not the colour itself (a night sky of 0.05 0.05 0.1 on lush.night.ppl is entry 69, 19 22 20, a dark green).
+                var (cr, cg, cb) = C(sc);
+                int idx = scene.Assets.Palette.NearestColor((int)(cr * 255f), (int)(cg * 255f), (int)(cb * 255f));
+                scene.Assets.Palette.SubPalettes[0].Rgb(idx, out byte pr, out byte pg, out byte pb);
+                scene.ClearColor = (pr / 255f, pg / 255f, pb / 255f);
+            }
         }
         MissionObject? stars = all.FirstOrDefault(o => o.Class == "StarField");
         if (stars != null)
