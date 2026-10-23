@@ -86,6 +86,16 @@ public sealed class WorldScene : IDisposable
             scene.Terrain = TerrainParams.FromMission(3000, 2000, 120);
 
         scene.Interiors = new InteriorRenderer(dev, scene.Assets);
+        if (all.FirstOrDefault(o => o.Class == "Planet") is MissionObject planet)
+        {
+            // The planet light reaches the surfaces of interiors that see the outside (world-render.md 3.7 step 5).
+            var light = new Shapes.LightSet();
+            light.SetSun(planet.GetDouble("azimuth", 0), planet.GetDouble("incidence", 60));
+            double[] amb = planet.GetVector("ambient"), inten = planet.GetVector("intensity");
+            light.AmbR = (float)amb[0]; light.AmbG = (float)amb[1]; light.AmbB = (float)amb[2];
+            light.SunR = (float)inten[0]; light.SunG = (float)inten[1]; light.SunB = (float)inten[2];
+            scene.Interiors.Sun = light;
+        }
         foreach (MissionObject o in all.Where(o => o.Class == "InteriorShape"))
         {
             double[] p = o.GetVector("position"), r = o.GetVector("rotation");

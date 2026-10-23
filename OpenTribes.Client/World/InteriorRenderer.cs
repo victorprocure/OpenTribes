@@ -54,6 +54,43 @@ public static class InteriorLightMaps
         return maps;
     }
 
+    // 3.7 step 5, ITRInstance_mergeSunLight 005581a0 (identical bytes in 1.11): for a surface with the visible-to-outside flag (0x40) the
+    // planet light (type 6) gives t = (n . toSun + 1) / 2, n the plane normal (negated when the plane front flag 0x80 is clear), added to
+    // the scene ambient: c = ambient + sunColour * t. mono = 0.3 r + 0.6 g + 0.1 b (before the clamp), each channel above 0.99999999
+    // becomes 1, nibble = trunc(c * 16), and every pixel of the map takes the saturating nibble sum. Nothing is added when t <= 0.
+    // The stock code does not transform the light into interior space (the dot is of the light direction with the plane as stored), so the
+    // result does not depend on the instance rotation. [I]
+    public static void AddSun(ushort[]?[] maps, InteriorGeometryData geo, LightSet sun)
+    {
+        for (int s = 0; s < maps.Length && s < geo.Surfaces.Length; ++s)
+        {
+            ushort[]? map = maps[s];
+            InteriorGeometryData.Surface surf = geo.Surfaces[s];
+            if (map == null || !surf.VisibleToOutside || surf.Plane * 4 + 2 >= geo.Planes.Length)
+                continue;
+            int pi = surf.Plane * 4;
+            double nx = geo.Planes[pi], ny = geo.Planes[pi + 1], nz = geo.Planes[pi + 2];
+            if (!surf.PlaneFront)
+                (nx, ny, nz) = (-nx, -ny, -nz);
+            double t = (nx * sun.SunX + ny * sun.SunY + nz * sun.SunZ + 1.0) * 0.5;
+            if (t <= 0)
+                continue;
+            double r = sun.AmbR + sun.SunR * t, g = sun.AmbG + sun.SunG * t, b = sun.AmbB + sun.SunB * t;
+            double mono = 0.3 * r + 0.6 * g + 0.1 * b;
+            static int Nibble(double c) => (int)((c > 0.99999999 ? 1.0 : c) * 16.0);
+            int nm = Nibble(mono), nr = Nibble(r), ng = Nibble(g), nb = Nibble(b);
+            if (nm == 0 && nr == 0 && ng == 0 && nb == 0)
+                continue;
+            for (int i = 0; i < map.Length; ++i)
+            {
+                int w = map[i];
+                int m = Math.Min(15, (w >> 12) + nm), rr = Math.Min(15, ((w >> 8) & 15) + nr), gg = Math.Min(15, ((w >> 4) & 15) + ng),
+                    bb = Math.Min(15, (w & 15) + nb);
+                map[i] = (ushort)(m << 12 | rr << 8 | gg << 4 | bb);
+            }
+        }
+    }
+
     // The surfaces a light writes to in any of its states.
     public static IEnumerable<int> LightSurfaces(InteriorLighting baseLt, InteriorLighting.Light light)
     {
@@ -243,6 +280,9 @@ public sealed class InteriorRenderer : IDisposable
     // The skin base of a team (the client's team table); materials named `base.<name>` take `<skin>.<name>` when that exists.
     public Func<int, string>? TeamSkin;
 
+    // The scene light of the planet (ambient, sun colour and direction) for 3.7 step 5; null: no sun term.
+    public LightSet? Sun;
+
     public bool AddInstance(string fileName, double x, double y, double z, double rx, double ry, double rz, int team = -1)
     {
         string resolved = Interior.ResolveInteriorName(mAssets.Res, fileName);
@@ -255,6 +295,8 @@ public sealed class InteriorRenderer : IDisposable
             if (mAssets.Res.Read(resolved, out byte[] dis) && InteriorShapeFile.Parse(dis, shape) && shape.Lods.Count > 0)
                 model = new InteriorModel { Name = resolved, Shape = shape, Lods = new InteriorLodModel?[shape.Lods.Count] };
             mModels[resolved] = model;
+            if (model == null)
+                Console.Error.WriteLine($"interior: {fileName} ({resolved}) did not load");
         }
         if (model == null)
             return false;
@@ -281,12 +323,20 @@ public sealed class InteriorRenderer : IDisposable
             return model.Lods[index];
         InteriorShapeFile.Lod l = model.Shape.Lods[index];
         if (!mAssets.Res.Read(l.Geometry, out byte[] dig))
+        {
+            Console.Error.WriteLine($"interior: {model.Name} lod {index}: geometry {l.Geometry} not found");
             return null;
+        }
         InteriorGeometryData? geo = InteriorGeometryData.Parse(dig);
         if (geo == null)
+        {
+            Console.Error.WriteLine($"interior: {model.Name} lod {index}: geometry {l.Geometry} rejected");
             return null;
+        }
         var lod = new InteriorLodModel { Geo = geo, Leaves = InteriorGeometry.Parse(dig), MinPixels = (int)LodMinPixels(model.Shape, index) };
         lod.Materials = mAssets.MaterialList(model.Shape.MaterialList) ?? new List<string?>();
+        if (lod.Materials.Count == 0)
+            Console.Error.WriteLine($"interior: {model.Name}: material list {model.Shape.MaterialList} empty or missing");
         int li = (int)l.LightStateIndex;
         if (li < model.Shape.LodLights.Count)
         {
@@ -315,6 +365,8 @@ public sealed class InteriorRenderer : IDisposable
         }
         if (lod.Base != null && lod.Base.Surfaces.Length != geo.Surfaces.Length)
             lod.Base = null;
+        if (lod.Base == null)
+            Console.Error.WriteLine($"interior: {model.Name} lod {index}: no usable lighting ({(li < model.Shape.LodLights.Count ? model.Shape.LodLights[li] : "none")})");
         BuildAtlas(lod);
         float[] b = geo.Box;
         lod.Center = new[] { (b[0] + b[3]) / 2, (b[1] + b[4]) / 2, (b[2] + b[5]) / 2 };
@@ -360,6 +412,9 @@ public sealed class InteriorRenderer : IDisposable
             foreach (int surf in InteriorLightMaps.LightSurfaces(lt, lt.Lights[i]))
                 lod.RunSurfaces.Add(surf);
         lod.BaseMaps = InteriorLightMaps.BaseMaps(lt, lod.Mission);
+        // 3.7 step 5: the planet light on the surfaces visible to the outside of an instance without mission lighting.
+        if (Sun != null && lod.Mission == null)
+            InteriorLightMaps.AddSun(lod.BaseMaps, lod.Geo, Sun);
         ushort[]?[] maps = new ushort[]?[lod.BaseMaps.Length];
         for (int i = 0; i < maps.Length; ++i)
             maps[i] = (ushort[]?)lod.BaseMaps[i]?.Clone();
@@ -573,6 +628,8 @@ public sealed class InteriorRenderer : IDisposable
             ? mAssets.CreateTexture(mDev, bmp, mAssets.PackedRgba(bmp, true), true, true, true)
             : null;
         mTextures[name] = t;
+        if (t == null)
+            Console.Error.WriteLine($"interior: material bitmap {name} not found");
         return t;
     }
 
