@@ -9,8 +9,9 @@ namespace OpenTribes.Tests;
 
 public class GuiCrosshairZoomTests
 {
-    private sealed class ClipDev : IGfxDevice
+    internal sealed class ClipDev : IGfxDevice
     {
+        public readonly List<(GfxRect Rect, int Color)> Rects = new();
         public readonly List<(int X0, int Y0, int X1, int Y1)> Lines = new();
         public readonly List<string> Texts = new();
         private GfxRect mClip = new(0, 0, 639, 479);
@@ -35,9 +36,11 @@ public class GuiCrosshairZoomTests
         private bool Clipped(int x0, int y0, int x1, int y1) =>
             Math.Max(x0, x1) >= mClip.Left && Math.Min(x0, x1) <= mClip.Right && Math.Max(y0, y1) >= mClip.Top && Math.Min(y0, y1) <= mClip.Bottom;
         public void DrawRectOutline(GfxRect rect, int colorIndex) { }
-        public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f) { }
+        public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f) => Rects.Add((rect, colorIndex));
+        public readonly List<(int X, int Y, string Text)> TextAt = new();
         public int DrawText(PftFont font, int x, int y, string text)
         {
+            TextAt.Add((x, y, text));
             if (In(x, y))
                 Texts.Add(text);
             return y;
