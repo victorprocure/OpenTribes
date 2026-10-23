@@ -974,4 +974,16 @@ public sealed class GuiChat : GuiTextEdit
 public sealed class GuiPlayView : GuiControl
 {
     public bool Produce3dEvents => U("produce3dEvents") != 0;
+
+    // TSControl draw 00546dc4: when the camera set-up (00545f7c, the control object's camera query, vtable +0x24) fails, the control
+    // fills its rectangle with colour 0 (surface vtable +0x10, alpha 1.0) and returns without drawing its children (the HUD).
+    public override void Render(GuiPaint p, int ox, int oy)
+    {
+        if (Canvas is { ViewHasCamera: false })
+        {
+            p.Fill(ox + X, oy + Y, W, H, 0);
+            return;
+        }
+        base.Render(p, ox, oy);
+    }
 }

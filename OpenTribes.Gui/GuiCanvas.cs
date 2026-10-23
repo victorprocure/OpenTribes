@@ -649,6 +649,9 @@ public sealed class GuiCanvas
     public long KeyRepeatAt => mKeyRepeatAt;
     public long MouseRepeatAt => mMouseRepeatAt;
 
+    // False while the play view has no camera (no control object): its TSControl draws no HUD (GuiPlayView.Render).
+    public bool ViewHasCamera = true;
+
     public void Render(IGfxDevice dev)
     {
         var p = new GuiPaint(dev, Host);

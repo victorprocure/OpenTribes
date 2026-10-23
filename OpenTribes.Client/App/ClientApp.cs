@@ -637,6 +637,7 @@ public sealed class ClientApp : IDisposable
                 Canvas.Render(Dev);
                 DrawDamageFlash();
             });
+        Canvas.ViewHasCamera = drewWorld || Game == null || !PlayViewActive;
         if (!drewWorld)
         {
             Dev.BeginFrame();

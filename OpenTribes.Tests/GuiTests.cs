@@ -1046,6 +1046,25 @@ public class GuiTests
     }
 
     [Fact]
+    public void PlayViewWithoutCameraFillsBlackAndDrawsNoHud() // 3.3: TSControl draw 00546dc4, set-up 00545f7c failed
+    {
+        var fx = new GuiFixture();
+        fx.Host.Hud = new StaticHudSource { DamageLevel = 0.5, HasPlayerState = true };
+        var root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
+        root.AddChild(GuiFixture.Make("FearGui::HealthHud", 0, 0, 131, 35, ("hudX", 0u), ("hudY", 0u)));
+        fx.Content(root);
+        fx.Canvas.ViewHasCamera = false;
+        var dev = new RecDev();
+        fx.Canvas.Render(dev);
+        Assert.Equal(new[] { "fill 0,0,639,479 c0" }, dev.Calls.Where(c => c.StartsWith("fill", StringComparison.Ordinal)).ToArray());
+        Assert.DoesNotContain("clip 37,10,78,17", dev.Calls);
+        fx.Canvas.ViewHasCamera = true;
+        var dev2 = new RecDev();
+        fx.Canvas.Render(dev2);
+        Assert.Contains("clip 37,10,78,17", dev2.Calls);
+    }
+
+    [Fact]
     public void HealthHudDrawsNothingWithoutPlayerStateOrWhenDead() // 4.2
     {
         Assert.DoesNotContain(DrawHealth(0.5, state: false), c => c.StartsWith("fill"));

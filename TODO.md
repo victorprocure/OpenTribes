@@ -146,6 +146,7 @@ way are added to Open.
 - [x] Labels resize to their text.
 - [x] Sensor ping HUD.
 - [x] Health display after death.
+- [x] No HUD without a camera.
 
 ### Audio
 
