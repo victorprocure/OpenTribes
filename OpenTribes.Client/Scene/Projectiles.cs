@@ -124,7 +124,7 @@ public sealed class ProjectileVisual : Visual
         M.Smoke.RemoveInside(x, y, z, Math.Max(radius, 2));
         int hole = (int)Db.Num(mBlock, "bulletHoleIndex", -1);
         if (Class == "Bullet" && hole >= 0)
-            M.AddBulletHole(x, y, z);
+            M.AddBulletHole(x, y, z, n[0], n[1], n[2]);
     }
 
     // The client update of Bullet (0045c1ec path), RocketDumb and SeekingMissile advances the `ambient` thread (ShapeThread_advanceTime

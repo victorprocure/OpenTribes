@@ -160,17 +160,30 @@ public sealed class SceneModel
         ++FootprintsAdded;
     }
 
-    // 4.6 Bullet hole: the same quad at an impact point with a random rotation about the normal; only on the terrain.
-    public void AddBulletHole(double x, double y, double z)
+    // 4.6 Bullet hole (Bullet_getHoleIndex 0045d048): only when the hit object is an interior (type mask bit 4, $SimInteriorObjectType) and the
+    // BulletData bulletHoleIndex is set. The quad lies on the surface plane at the impact point with a random rotation about the normal
+    // (FUN_004335d0). The terrain (type 2), shapes and players never get one. `nx ny nz` is the impact normal of the explode record.
+    public void AddBulletHole(double x, double y, double z, double nx = 0, double ny = 0, double nz = 1)
     {
-        if (Terrain == null)
+        if (Probe?.Interior is not { } probe)
             return;
-        float h = 0;
-        var n = new Vec3(0, 0, 1);
-        if (!Terrain.Height((float)x, (float)y, ref h, ref n) || Math.Abs(z - h) > 0.6)
+        double nl = Math.Sqrt(nx * nx + ny * ny + nz * nz);
+        if (nl < 1e-6)
             return;
+        (nx, ny, nz) = (nx / nl, ny / nl, nz / nl);
+        // The impact point is on the surface: look for that interior surface just in front of it.
+        var (hit, t, _) = probe(x + nx * 0.25, y + ny * 0.25, z + nz * 0.25, -nx, -ny, -nz, 0.5);
+        if (!hit)
+            return;
+        double px = x + nx * 0.25 - nx * t, py = y + ny * 0.25 - ny * t, pz = z + nz * 0.25 - nz * t;
         double a = Rng.NextDouble() * Math.PI * 2;
-        Decals.Add(DecalRing.Quad(6, x, y, h, n.X, n.Y, n.Z, Math.Cos(a), Math.Sin(a), 0));
+        // forward = cos a * u + sin a * v, u and v an orthonormal pair in the surface plane
+        (double rx, double ry, double rz) = Math.Abs(nz) > 0.99 ? (1.0, 0.0, 0.0) : (0.0, 0.0, 1.0);
+        double ux = ry * nz - rz * ny, uy = rz * nx - rx * nz, uz = rx * ny - ry * nx, ul = Math.Sqrt(ux * ux + uy * uy + uz * uz);
+        (ux, uy, uz) = (ux / ul, uy / ul, uz / ul);
+        double vx = ny * uz - nz * uy, vy = nz * ux - nx * uz, vz = nx * uy - ny * ux;
+        double ca = Math.Cos(a), sa = Math.Sin(a);
+        Decals.Add(DecalRing.Quad(6, px, py, pz, nx, ny, nz, ca * ux + sa * vx, ca * uy + sa * vy, ca * uz + sa * vz));
         ++BulletHolesAdded;
     }
 

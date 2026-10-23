@@ -110,6 +110,7 @@ way are added to Open.
 - [x] Team skin on mounted weapons.
 - [x] Grenade smoke puffs and grenade sounds.
 - [x] Laser beam shape.
+- [x] Bullet holes only on buildings.
 
 ### Menus and HUD
 
