@@ -149,7 +149,7 @@ way are added to Open.
 - [x] Sensor ping HUD.
 - [x] Health display after death.
 - [x] No HUD without a camera.
-- [x] Zoom reticle and field of view.
+- [x] Zoom reticle (not clipped) and field of view.
 
 ### Audio
 

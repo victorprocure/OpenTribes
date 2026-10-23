@@ -253,6 +253,7 @@ public sealed class StaticHudSource : IHudSource
     public IReadOnlyList<WeaponRow> Weapons => WeaponList;
     public bool SensorPing { get; set; }
     public bool SensorLocked { get; set; }
+    public HudZoom? Zoom { get; set; }
     public List<InventoryEntry> Inventory { get; } = new();
     public IReadOnlyList<InventoryEntry> InventoryItems => Inventory;
     public ScoreBoard? Board { get; set; }

@@ -483,14 +483,14 @@ public sealed class GuiCrosshair : GuiHud
         if (Canvas == null || (Source != null && (!Source.InPlayerView || !Source.FirstPersonView)))
             return;
         int cx = ox + (Parent?.W ?? W) / 2, cy = oy + (Parent?.H ?? H) / 2;
+        // the control is 13 pixels wide: its clip would cut the sniper cross, the zoom box, its text, the marks and the label
+        GfxRect clip = p.Clip;
+        p.SetClip(new GfxRect(0, 0, Canvas.Width - 1, Canvas.Height - 1));
         bool reticleOnly = true;
         if (Source?.Zoom is HudZoom z)
             reticleOnly = DrawZoom(p, z, cx, cy);
         if (reticleOnly)
             DrawReticle(p, cx, cy);
-        // the control is 13 pixels wide: its clip would cut the marks and the label
-        GfxRect clip = p.Clip;
-        p.SetClip(new GfxRect(0, 0, Canvas.Width - 1, Canvas.Height - 1));
         DrawTarget(p, cx, cy);
         p.SetClip(clip);
     }
