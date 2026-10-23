@@ -114,7 +114,7 @@ way are added to Open.
 - [x] Inventory and score lists, working in the client.
 - [x] Version text on the main menu and team colours by team id.
 - [x] Command screen frame, menu panel, box frame and score window fonts.
-- [x] Weapon, compass, clock (with its brackets) and sensor HUDs and the centre print box.
+- [x] Weapon, compass, clock and sensor HUDs, the centre print box and a first-person-only crosshair.
 - [x] Progress bar, formatted text layout (also in centre prints and help pop-ups), fonts, alignment, variables and line spacing.
 - [x] Intro movie plays at start-up.
 - [x] Main menu emblem animation.

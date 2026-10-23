@@ -372,6 +372,7 @@ public sealed class ClockedHudSource : IHudSource
     public ClockedHudSource(IHudSource inner, Func<double> clock) { mInner = inner; mClock = clock; }
     public bool HasPlayerState => mInner.HasPlayerState;
     public bool InPlayerView => mInner.InPlayerView;
+    public bool FirstPersonView => mInner.FirstPersonView;
     public double DamageLevel => mInner.DamageLevel;
     public double EnergyLevel => mInner.EnergyLevel;
     public double Yaw => mInner.Yaw;

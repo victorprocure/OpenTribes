@@ -479,7 +479,8 @@ public sealed class GuiCrosshair : GuiHud
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Canvas == null || (Source != null && !Source.InPlayerView))
+        // 004ab500 draws nothing (reticle, zoom text, marks, label) unless PSC +0xa0 is on and +0x9c is 0 (third person off).
+        if (Canvas == null || (Source != null && (!Source.InPlayerView || !Source.FirstPersonView)))
             return;
         int cx = ox + (Parent?.W ?? W) / 2, cy = oy + (Parent?.H ?? H) / 2;
         // The reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view [code 004ab500]; without the

@@ -178,6 +178,8 @@ public interface IHudSource
     // The weapon list, the sensor ping and the crosshair draw only while the client's own player or a vehicle it rides is the control object
     // [code 004e8fe8, 004ea720, 004ab500]: not in the observer camera.
     bool InPlayerView => HasPlayerState;
+    // PSC +0xa0 (first person on) and view distance +0x9c at 0: the crosshair draws only then [code 004ab500].
+    bool FirstPersonView => true;
     // The control object's damage level, 0.0 healthy to 1.0 dead (vtable +0xf8).
     double DamageLevel { get; }
     // Energy level 0.0 to 1.0 (vtable +0xfc).

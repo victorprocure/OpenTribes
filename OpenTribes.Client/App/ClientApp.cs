@@ -449,6 +449,7 @@ public sealed class ClientApp : IDisposable
         {
             MenuSource = CurrentMenu,
             PlayMenuSource = PlayMenu,
+            FirstPersonSource = () => Play.Moves.FirstPersonNow,
             ViewCamera = (w, h) => g.Camera() is { } c
                 ? new Camera3D(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, Play.Moves.CurrentFov, w, h, World.WorldScene.NearPlane, 1000)
                 : null,
