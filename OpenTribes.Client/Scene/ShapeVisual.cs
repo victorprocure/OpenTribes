@@ -197,7 +197,7 @@ public class ShapeVisual : Visual
         (mFlierF, mFlierT, mFlierMax) = (f, t, maxSpeed);
     }
 
-    // The thread part of Flier_clientUpdate 0042e254 (the 0042e2c1 .. 0042e416 block): the `jet` position moves toward 1 while braking
+    // The thread part of Flier_clientUpdate 0042e254 (the 0042e2c1 .. 0042e416 block, found by disassembly): the `jet` position moves toward 1 while braking
     // with a forward speed, else toward 0.5 - 0.5 * T / maxSpeed (1 - (0.5 * T / maxSpeed + 0.5)) at 1 per second, clamped to 0..1;
     // the second thread runs `thrust` while active and `idle` otherwise.
     private void TickFlier(double dt)

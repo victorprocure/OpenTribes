@@ -132,7 +132,7 @@ public static class DemoRender
         return null;
     }
 
-    // Player_getEyeTransform 00419266 for a Player on a mount: the object transform (the mount point's times the yaw) times the `dummy eye`
+    // Player_getEyeTransform 0041248c for a Player on a mount: the object transform (the mount point's times the yaw) times the `dummy eye`
     // node turned by the pitch about x. The view direction is the second row, up the third. Null without the node.
     public static CameraPose? RiderCamera(SceneModel m, int ghost, in OpenTribes.Sim.Transform body, float[] pos, double pitchRad)
     {

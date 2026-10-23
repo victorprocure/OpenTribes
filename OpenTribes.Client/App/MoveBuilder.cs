@@ -45,7 +45,7 @@ public sealed class MoveBuilder
     // True when the control object may look (vtable +0x11c) and when PITCH is reversed (flier with $pref::flipFlierY).
     public Func<bool> CanLook = () => true;
     public Func<bool> ReversePitch = () => false;
-    // CENTERVIEW [code 0040693a of PlayerPSC_onActionDefault, action 0x35c46]: returns the pitch of the owned control Player (+0xfc4) and
+    // CENTERVIEW [code PlayerPSC_onActionDefault 00406ce8, action 0x35c46]: returns the pitch of the owned control Player (+0xfc4) and
     // sets it to 0; null when there is no owned object.
     public Func<float?> TakeControlPitch = () => null;
     public Func<double> PrefFov = () => 90;
