@@ -169,8 +169,10 @@ public sealed class NetClientSession : ConnectionEvents
         {
             if (PredictWorld != null)
             {
+                Prediction.BindControlMount(mWorld, Remote);
                 Prediction.Advance(mWorld.Psc, now);
                 Remote.Advance(now);
+                Prediction.PlaceControlRider();
                 mPendingCorrection = null;
             }
             if (mVc.State() == ConnectionState.Connected && mGame.Due(now))
@@ -449,8 +451,10 @@ public sealed class NetClientSession : ConnectionEvents
                 if (PredictWorld != null)
                 {
                     // 4.4: the replay after a correction and the prediction of the new moves, once per frame.
+                    Prediction.BindControlMount(mWorld, Remote);
                     Prediction.Advance(mWorld.Psc, now);
                     Remote.Advance(now);
+                    Prediction.PlaceControlRider();
                     if (mPendingCorrection != null)
                     {
                         mDump.WriteCorrection(mPendingCorrection, mClock.Elapsed.TotalSeconds);

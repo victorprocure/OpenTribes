@@ -368,6 +368,31 @@ public sealed class ClientPrediction
         return steps;
     }
 
+    // The control Player rides a vehicle that is not its control object (a passenger): the unpack of the mount fields binds +0x1028 and
+    // +0x102c to the client object of the mount ghost (a remote vehicle copy). Called before the step of every frame.
+    public void BindControlMount(ClientWorld world, RemoteGhosts remote)
+    {
+        if (Object is not Player p || Ghost < 0)
+            return;
+        ClientGhost? g = world.Ghosts.Get(Ghost);
+        if (g != null && RemoteGhosts.ParseMount(g, out int mg, out int point) && remote.RemoteMount(mg) is { } mo)
+        {
+            if (p.MountId != mo.Id())
+                p.MountId = mo.Id();
+            p.MountPoint = point;
+        }
+        else if (p.MountId != 0)
+            p.MountId = 0;
+    }
+
+    // The interpolation 00414a00 for the mounted control Player: its transform follows the mount as it is now (the vehicle copies have
+    // advanced), so the camera of a passenger moves with the vehicle.
+    public void PlaceControlRider()
+    {
+        if (Object is Player { MountId: not 0 } p && p.PlaceOnMount())
+            Array.Clear(TickDelta);
+    }
+
     // The drawn position of a Player copy (4.4.1): the stepped state plus the sub-tick fraction of the last delta.
     public float[] DisplayPosition()
     {

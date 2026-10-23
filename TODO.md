@@ -14,6 +14,9 @@ way are added to Open.
 ### Vehicles
 
 - [ ] Riders on turrets.
+- [ ] **V1** The compass heading while flying a vehicle.
+- [ ] **V2** The crosshair for vehicle passengers.
+- [ ] **V3** The HUD inside the heavy transport (HAPC).
 
 ### Client
 
@@ -69,7 +72,7 @@ way are added to Open.
 - [x] Terrain and network settings with their default values, including prediction timing.
 - [x] Smooth movement of other players and vehicles, riders included, in the right order. Dead players fall to the ground.
 - [x] Model checks when joining a server, with the file check messages.
-- [x] Vehicle camera, vehicle control and the seated pilot.
+- [x] Vehicle camera, passenger camera, vehicle control and the seated pilot.
 
 ### Graphics
 
@@ -178,6 +181,7 @@ way are added to Open.
 - [x] Third-person view (with camera collision) and zoom.
 - [x] Key maps are searched in the right order.
 - [x] Mouse axis flip.
+- [x] Centre view.
 
 ### Platforms
 

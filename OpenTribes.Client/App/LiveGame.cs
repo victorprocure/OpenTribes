@@ -338,8 +338,15 @@ public sealed class LiveGame : IDisposable
         if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && pose is { FirstPerson: true } cp)
         {
             float[] d = Net.Prediction.DisplayPosition();
-            var (ex, ey, ez) = DemoRender.EyeOf(Model, cp.ControlGhost, d[0], d[1], d[2], p.Rotation[2], p.Pitch);
-            pose = new DemoRender.CameraPose(ex, ey, ez, p.Rotation[2] * 180 / Math.PI, p.Pitch * 180 / Math.PI, true, cp.ControlGhost);
+            if (p.MountId != 0 && DemoRender.RiderCamera(Model, cp.ControlGhost, p.Transform, d, p.Pitch) is { } rc)
+            {
+                pose = rc;
+            }
+            else
+            {
+                var (ex, ey, ez) = DemoRender.EyeOf(Model, cp.ControlGhost, d[0], d[1], d[2], p.Rotation[2], p.Pitch);
+                pose = new DemoRender.CameraPose(ex, ey, ez, p.Rotation[2] * 180 / Math.PI, p.Pitch * 180 / Math.PI, true, cp.ControlGhost);
+            }
         }
         // Player_getCameraTransform 00412324: with the view distance (PSC +0x9c) at 0.01 or more the camera starts at the chase camera
         // node (z only) of the body at the pitch and moves back along the view direction by GameBase_placeBehind 00449604: a ray of
@@ -391,7 +398,15 @@ public sealed class LiveGame : IDisposable
         if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && psc.ControlClass == "Player")
         {
             float[] d = Net.Prediction.DisplayPosition();
-            s = new ControlSample(d[0], d[1], d[2], p.Velocity[0], p.Velocity[1], p.Velocity[2], p.ContactFlag, p.Jetting, p.Crouching, p.Rotation[2]);
+            float yaw = p.Rotation[2];
+            if (p.MountId != 0)
+            {
+                // A rider is drawn with the full transform of the mount point (as FeedRemote).
+                var e = new float[3];
+                OpenTribes.Sim.MissionTransform.MatrixToEuler(p.Transform, e);
+                (pv.TiltX, pv.TiltY, yaw) = (e[0], e[1], e[2]);
+            }
+            s = new ControlSample(d[0], d[1], d[2], p.Velocity[0], p.Velocity[1], p.Velocity[2], p.ContactFlag, p.Jetting, p.Crouching, yaw);
         }
         else
             s = ControlSample.FromControlState(psc, psc.ControlGhost);
@@ -411,12 +426,20 @@ public sealed class LiveGame : IDisposable
         {
             sv.Driven = true;
             sv.SetSmoothed(o.Rotation[0], o.Rotation[1], o.Rotation[2], o.Transform.P[0], o.Transform.P[1], o.Transform.P[2]);
+            FlierThreads(sv, o);
         }
         else if (psc.ControlState.TryGetValue("rot", out object? r) && r is double[] rot && psc.ControlState.TryGetValue("pos", out object? q) && q is double[] pos)
         {
             sv.Driven = true;
             sv.SetSmoothed(rot[0], rot[1], rot[2], pos[0], pos[1], pos[2]);
         }
+    }
+
+    // The Flier client threads (Flier_clientUpdate 0042e254) read the state of the simulated copy.
+    private static void FlierThreads(ShapeVisual sv, Vehicle o)
+    {
+        if (o is Flier f)
+            sv.SetFlierState(f.Piloted, f.Braking, f.ActiveFlag, f.SpeedF, f.SpeedT, f.Data.MaxSpeed);
     }
 
     // The remote Player and Vehicle ghosts draw from their simulated copies (client-net.md 4.4.2); the others keep the stream state.
@@ -456,6 +479,7 @@ public sealed class LiveGame : IDisposable
                     sv.Driven = true;
                     Vehicle o = rv.V;
                     sv.SetSmoothed(o.Rotation[0], o.Rotation[1], o.Rotation[2], o.Transform.P[0], o.Transform.P[1], o.Transform.P[2]);
+                    FlierThreads(sv, o);
                 }
                 else
                     sv.Driven = false;

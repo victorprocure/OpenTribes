@@ -96,4 +96,31 @@ public sealed class ClientViewTests
         Assert.False(b.ZoomOn);
         Assert.Equal(90, b.CurrentFov);
     }
+
+    // PlayerPSC_onActionDefault 0x35c46: the pending pitch drops by the player's pitch and the player's pitch is 0 at once.
+    [Fact]
+    public void CenterViewZeroesThePlayerPitchAndCancelsItInTheMove()
+    {
+        float pitch = -0.8f;
+        var b = new MoveBuilder { TakeControlPitch = () => { float h = pitch; pitch = 0; return h; } };
+        b.PitchAcc = 0.1f;
+        Assert.True(b.OnAction(MoveBuilder.CenterView, 1f));
+        Assert.Equal(0f, pitch);
+        Assert.Equal(0.9f, b.PitchAcc, 5);
+    }
+
+    [Fact]
+    public void CenterViewDoesNothingWithoutAnOwnedObjectOrWithoutLook()
+    {
+        var b = new MoveBuilder();
+        b.PitchAcc = 0.25f;
+        b.OnAction(MoveBuilder.CenterView, 1f);
+        Assert.Equal(0.25f, b.PitchAcc);
+        float pitch = 0.5f;
+        b.TakeControlPitch = () => { float h = pitch; pitch = 0; return h; };
+        b.CanLook = () => false;
+        b.OnAction(MoveBuilder.CenterView, 1f);
+        Assert.Equal(0f, pitch);          // the pitch is still set to 0, the move keeps its value
+        Assert.Equal(0.25f, b.PitchAcc);
+    }
 }

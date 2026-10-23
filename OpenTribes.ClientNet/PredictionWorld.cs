@@ -96,7 +96,7 @@ public sealed class PredictionWorld
             pos = string.Join(" ", p.Select(v => Numbers.FormatFloat((float)v)));
         string id = g.Class == "Player"
             ? Console.CallFunction("spawnPlayer", new[] { b.Name, pos, "0 0 0" })
-            : Console.Evaluate("return newObject(\"\", Flier, \"" + b.Name + "\", true);");
+            : Console.CallFunction("newObject", new[] { "", "Flier", b.Name, "true" });
         if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n))
             return null;
         GameBase? o = Sim.Server()?.FindById(n) as GameBase;
@@ -121,8 +121,8 @@ public sealed class PredictionWorld
         string id = g.Class switch
         {
             "Player" => Console.CallFunction("spawnPlayer", new[] { b.Name, pos, "0 0 0" }),
-            "Flier" => Console.Evaluate("return newObject(\"\", Flier, \"" + b.Name + "\", true);"),
-            _ => Console.Evaluate("return newObject(\"\", Vehicle, \"" + b.Name + "\", true);"),
+            "Flier" => Console.CallFunction("newObject", new[] { "", "Flier", b.Name, "true" }),
+            _ => Console.CallFunction("newObject", new[] { "", "Vehicle", b.Name, "true" }),
         };
         if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n))
             return null;

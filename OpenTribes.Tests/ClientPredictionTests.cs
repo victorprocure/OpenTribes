@@ -363,4 +363,39 @@ public class ClientPredictionTests
         p.UpdateMove(m);
         Assert.True(p.Crouching);
     }
+
+    // A passenger: the control Player's ghost has the mount fields (client-net.md 4.4.2) and the vehicle ghost has a copy, so the copy of the
+    // Player is bound to it and its transform is the mount point's, following the vehicle every frame.
+    [Fact]
+    public void ControlPlayerRidesTheCopyOfItsMount()
+    {
+        var side = new Side("cp_rider");
+        Player p = side.Spawn("100 100 50");
+        Flier f = side.Make("100 100 70");
+        f.SetPosition(new[] { 100f, 100f, 70f });
+        var cw = new ClientWorld();
+        var pred = new ClientPrediction { CreateObject = (g, c) => p };
+        cw.Ghosts.Insert(new ClientGhost { Index = kGhost, Class = "Player" });
+        Correct(cw, p, 0);
+        Assert.NotNull(pred.OnServerBlock(cw, 32 * kT0));
+        var remote = new RemoteGhosts();
+        pred.BindControlMount(cw, remote);
+        Assert.Equal(0, p.MountId);                                   // no mount fields
+        cw.Ghosts.Get(kGhost)!.State["mount"] = "9/2";
+        pred.BindControlMount(cw, remote);
+        Assert.Equal(0, p.MountId);                                   // the mount ghost has no copy yet
+        remote.Vehicles[9] = new RemoteVehicle(f);
+        pred.BindControlMount(cw, remote);
+        Assert.Equal(f.Id(), p.MountId);
+        Assert.Equal(2, p.MountPoint);
+        pred.PlaceControlRider();
+        Assert.Equal(100f, p.Transform.P[0], 3);
+        Assert.Equal(70f, p.Transform.P[2], 3);
+        f.SetPosition(new[] { 130f, 100f, 70f });
+        pred.PlaceControlRider();
+        Assert.Equal(130f, p.Transform.P[0], 3);                      // follows the mount as it is now
+        cw.Ghosts.Get(kGhost)!.State["mount"] = "none";
+        pred.BindControlMount(cw, remote);
+        Assert.Equal(0, p.MountId);
+    }
 }

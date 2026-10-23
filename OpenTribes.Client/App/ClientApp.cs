@@ -232,6 +232,16 @@ public sealed class ClientApp : IDisposable
         // PlayerPSC_onAction PITCH (0x35b63) and PITCH_SPEED (0x35c41) negate the pitch for a control object of type 0x20000000 (the
         // Flier/Vehicle ghost classes) while the byte at 0x0061704c ($pref::flipFlierY) is set. No other pitch inversion exists in the
         // stock code: the mouse's own flip is the Flip flag of the yaxis binding (InputDispatcher).
+        Play.Moves.TakeControlPitch = () =>
+        {
+            if (Game?.Net is { PredictWorld: not null } n && n.Prediction.Object is Player p && n.Prediction.Active && Game.World.Psc.ControlClass == "Player")
+            {
+                float held = p.Pitch;
+                p.Pitch = 0;
+                return held;
+            }
+            return null;
+        };
         Play.Moves.ReversePitch = () => Game?.World.Psc.ControlClass is "Flier" or "Vehicle" && EngineVariables.IsSet(Interp, "$pref::flipFlierY");
     }
 

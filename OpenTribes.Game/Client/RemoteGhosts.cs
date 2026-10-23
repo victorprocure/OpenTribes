@@ -91,6 +91,9 @@ public sealed class RemoteGhosts
     public Func<GameBase?>? ControlObject;
     private int mControlGhost = -1;
 
+    // The mount object of a rider that is not the control Player: the copy of a remote Vehicle or Flier ghost.
+    public GameBase? RemoteMount(int ghostIndex) => Vehicles.TryGetValue(ghostIndex, out RemoteVehicle? rv) ? rv.V : null;
+
     private GameBase? ResolveMount(int index)
     {
         if (Vehicles.TryGetValue(index, out RemoteVehicle? rv))
@@ -100,7 +103,7 @@ public sealed class RemoteGhosts
 
     // The mount fields of the Player unpack (0x00417e..: ghost int(10), point int(5); point 1 sets the rotation to 0): the pointer
     // +0x1028 is the client object of that ghost.
-    private static bool ParseMount(ClientGhost g, out int ghost, out int point)
+    public static bool ParseMount(ClientGhost g, out int ghost, out int point)
     {
         ghost = -1;
         point = 0;

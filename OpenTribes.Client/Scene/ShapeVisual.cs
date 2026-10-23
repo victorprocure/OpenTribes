@@ -157,6 +157,83 @@ public class ShapeVisual : Visual
             }
             if (Group is 5 or 23 && Shape.FindSequence("ambient") is int ia && ia >= 0)
                 Ambient = Inst.AddThread(ia, M.Rng.NextDouble(), 0);
+            if (Group == 10)
+                AddFlierThreads();
+        }
+    }
+
+    // Flier_onNewDataBlock 0042e0c0 on a ghost: when the shape has the names `jet` and `idle`, thread +0x950 runs the sequence `jet` at
+    // position 0.5 (Flier_clientUpdate sets its position every frame, so it is not advanced) and thread +0x954 the sequence `idle`
+    // at 0; the indices of `thrust` (+0x968) and `idle` (+0x96c) are looked up for the switch.
+    protected RenderThread? FlierJet, FlierIdle;
+    private int mThrustSeq = -1, mIdleSeq = -1;
+    private bool mFlierBraking, mFlierActive;
+    private float mFlierF, mFlierT, mFlierMax = 1;
+
+    private void AddFlierThreads()
+    {
+        FlierJet = FlierIdle = null;
+        if (Shape == null || Inst == null)
+            return;
+        if (Shape.FindSequence("jet") is int j && j >= 0)
+        {
+            FlierJet = Inst.AddThread(j, 0.5, 0);
+            FlierJet.TimeScale = 0;
+        }
+        if (Shape.FindSequence("idle") is int i && i >= 0)
+        {
+            FlierIdle = Inst.AddThread(i, 0, 0);
+            mIdleSeq = i;
+            mThrustSeq = Shape.FindSequence("thrust");
+        }
+    }
+
+    // The values Flier_clientUpdate reads: braking and active (+0x960, +0x961), forward speed F (+0x940), desired speed T (+0x8c8) and the
+    // datablock maxSpeed (+0x110). A Flier nobody pilots has both flags cleared first.
+    public void SetFlierState(bool piloted, bool braking, bool active, float f, float t, float maxSpeed)
+    {
+        mFlierBraking = piloted && braking;
+        mFlierActive = piloted && active;
+        (mFlierF, mFlierT, mFlierMax) = (f, t, maxSpeed);
+    }
+
+    // The thread part of Flier_clientUpdate 0042e254 (the 0042e2c1 .. 0042e416 block): the `jet` position moves toward 1 while braking
+    // with a forward speed, else toward 0.5 - 0.5 * T / maxSpeed (1 - (0.5 * T / maxSpeed + 0.5)) at 1 per second, clamped to 0..1;
+    // the second thread runs `thrust` while active and `idle` otherwise.
+    private void TickFlier(double dt)
+    {
+        if (FlierJet != null)
+        {
+            float cur = (float)FlierJet.Position;
+            float target = mFlierBraking && mFlierF != 0f ? 1f : 1f - ((mFlierT / mFlierMax) * 0.5f + 0.5f);
+            float step = (float)dt;
+            if (cur < target)
+            {
+                cur += step;
+                if (cur > target)
+                    cur = target;
+            }
+            else if (cur > target)
+            {
+                cur -= step;
+                if (cur < target)
+                    cur = target;
+            }
+            if (cur > 1f)
+                cur = 1f;
+            if (cur < 0f)
+                cur = 0f;
+            FlierJet.Position = cur;
+        }
+        if (FlierIdle != null)
+        {
+            int seq = mFlierActive ? mThrustSeq : mIdleSeq;
+            if (seq >= 0 && FlierIdle.Sequence != seq)
+            {
+                FlierIdle.Sequence = seq;
+                FlierIdle.Position = 0;
+            }
+            Inst!.Advance(FlierIdle, dt);
         }
     }
 
@@ -358,6 +435,8 @@ public class ShapeVisual : Visual
             Inst.Advance(Ambient, dt);
         if (Visibility != null)
             Visibility.Position = DamageState == 3 ? 1.0 : 0.0;
+        if (Group == 10)
+            TickFlier(dt);
     }
 
     // ShapeBase::startFadeOut / startFadeIn (0044e..., client side of the 0x200 mask): a fade that is not running starts now. Reversing a

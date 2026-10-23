@@ -132,6 +132,26 @@ public static class DemoRender
         return null;
     }
 
+    // Player_getEyeTransform 00419266 for a Player on a mount: the object transform (the mount point's times the yaw) times the `dummy eye`
+    // node turned by the pitch about x. The view direction is the second row, up the third. Null without the node.
+    public static CameraPose? RiderCamera(SceneModel m, int ghost, in OpenTribes.Sim.Transform body, float[] pos, double pitchRad)
+    {
+        if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not PlayerVisual pv || !pv.TryEyeLocal(pitchRad, out double ex, out double ey, out double ez))
+            return null;
+        var t = new OpenTribes.Sim.Transform();
+        float cp = (float)Math.Cos(pitchRad), sp = (float)Math.Sin(pitchRad);
+        float[] r0 = { body.M[0], body.M[1], body.M[2] }, r1 = { body.M[3], body.M[4], body.M[5] }, r2 = { body.M[6], body.M[7], body.M[8] };
+        for (int i = 0; i < 3; ++i)
+        {
+            t.M[i] = r0[i];
+            t.M[3 + i] = cp * r1[i] + sp * r2[i];
+            t.M[6 + i] = -sp * r1[i] + cp * r2[i];
+            t.P[i] = pos[i] + (float)(ex * r0[i] + ey * r1[i] + ez * r2[i]);
+        }
+        t.Flags = body.Flags;
+        return PoseOf(t, true, ghost);
+    }
+
     // The camera of a piloted Vehicle or Flier (Vehicle_getCameraTransform 00445d88, docs/client-net.md 4.2): `distance` is the
     // PSC view distance timer (+0x9c). The `dummy eye` node transform times the drawn object transform, moved back by 2 * distance
     // (placeBehind through `world`, the object itself ignored), pitch * 0.8 and roll * 0.5 while the distance is not 0. First person

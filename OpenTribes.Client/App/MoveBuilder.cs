@@ -45,6 +45,9 @@ public sealed class MoveBuilder
     // True when the control object may look (vtable +0x11c) and when PITCH is reversed (flier with $pref::flipFlierY).
     public Func<bool> CanLook = () => true;
     public Func<bool> ReversePitch = () => false;
+    // CENTERVIEW [code 0040693a of PlayerPSC_onActionDefault, action 0x35c46]: returns the pitch of the owned control Player (+0xfc4) and
+    // sets it to 0; null when there is no owned object.
+    public Func<float?> TakeControlPitch = () => null;
     public Func<double> PrefFov = () => 90;
 
     private static float Clamp(float v, float lo, float hi) => Math.Min(Math.Max(v, lo), hi);
@@ -93,6 +96,12 @@ public sealed class MoveBuilder
             case TurnRight: TurnRightKey = Clamp(v, 0, 1); return true;
             case PitchSpeed: PitchSpeedKey = Clamp(v, -1, 1) * (ReversePitch() ? -1 : 1); return true;
             case YawSpeed: YawSpeedKey = Clamp(v, -1, 1); return true;
+            case CenterView:
+                // The pending move pitch (+0x8c) drops by the player's pitch (when the object may look) and the player's pitch is 0 at
+                // once; the move then brings the server's pitch to 0 as well.
+                if (TakeControlPitch() is float held && CanLook())
+                    PitchAcc -= held;
+                return true;
             case View:
                 // 00406dc5: only the FOV target +0x40c changes, the frame update snaps to it
                 ThirdPerson = !ThirdPerson;
