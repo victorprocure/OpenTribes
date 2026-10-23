@@ -204,6 +204,8 @@ public interface IHudSource
     IReadOnlyList<WeaponRow> Weapons { get; }
     // The marks and the label of the crosshair target for a view of this size (docs/gui.md 4.2 Crosshair), null without a view.
     HudTargetResult? CrosshairTarget(int width, int height) => null;
+    // The aim triangles with their distance labels over the placed targets for a view of this size (docs/gui.md 4.2, `004ada90`).
+    IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => Array.Empty<HudTargetMarker>();
     bool SensorPing { get; }
     bool SensorLocked { get; }
     // The item datablocks with showInventory set, with the counts and the station masks of the client player state (the lists of
@@ -254,6 +256,8 @@ public sealed class StaticHudSource : IHudSource
     public bool SensorPing { get; set; }
     public bool SensorLocked { get; set; }
     public HudZoom? Zoom { get; set; }
+    public List<HudTargetMarker> Markers { get; } = new();
+    public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => Markers;
     public List<InventoryEntry> Inventory { get; } = new();
     public IReadOnlyList<InventoryEntry> InventoryItems => Inventory;
     public ScoreBoard? Board { get; set; }

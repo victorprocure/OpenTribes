@@ -492,7 +492,33 @@ public sealed class GuiCrosshair : GuiHud
         if (reticleOnly)
             DrawReticle(p, cx, cy);
         DrawTarget(p, cx, cy);
+        DrawMarkers(p, cx, cy);
         p.SetClip(clip);
+    }
+
+    // The aim triangles of the placed targets and their distances [code 004ada90, called at the end of 004ab500 unless 00623ed0 is set]:
+    // a filled triangle pointing down onto the aim point (palette 0xfb when the weapon reaches it, 0xf1 when not), the label centred
+    // under the tip in the target label font. The coordinates are canvas pixels.
+    private void DrawMarkers(GuiPaint p, int cx, int cy)
+    {
+        if (Host == null || Source == null)
+            return;
+        IReadOnlyList<HudTargetMarker> marks = Source.TargetMarkers(Canvas!.Width, Canvas.Height);
+        if (marks.Count == 0)
+            return;
+        bool lr = LowRes;
+        int ox = cx - (Parent?.W ?? W) / 2, oy = cy - (Parent?.H ?? H) / 2;
+        PftFont? f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
+        foreach (HudTargetMarker m in marks)
+            foreach (HudMarkPoint? mp in new[] { m.Low, m.High })
+            {
+                if (mp is not HudMarkPoint pt)
+                    continue;
+                int x = ox + pt.X, y = oy + pt.Y;
+                HudFrame.FillPolygon(p, HudMarkers.Triangle(x, y, lr), pt.Reaches ? HudMarkers.ReachColor : HudMarkers.ShortColor, 1f);
+                var (lx, ly) = HudMarkers.LabelOrigin(x, y, GuiPaint.TextWidth(f, m.Label), lr);
+                p.Text(f, lx, ly, m.Label);
+            }
     }
 
     // The reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view [code 004ab500]; without the

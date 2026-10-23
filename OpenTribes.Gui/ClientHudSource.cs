@@ -2,6 +2,7 @@
 // C3a unpack delivers (client-net.md 4.5). The server and the stream code are not touched.
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
+using X87 = OpenTribes.World.X87;
 
 namespace OpenTribes.Gui;
 
@@ -248,6 +249,8 @@ public sealed class ClientHudSource : IHudSource
     // plus 1.4) and the line test from the eye to a point (true when nothing blocks it).
     public Func<int, int, Camera3D?>? ViewCamera;
     public Func<int, (double X, double Y, double Z)?>? HeadMount;
+    // Set by the host: the muzzle of the image in slot 0 of a Player ghost in world space (null: use the body position).
+    public Func<int, (double X, double Y, double Z)?>? MuzzleMount;
     public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
     // Set by the host: the world box (min, max) and the transform origin of a shape ghost, for the objects of the label pick.
     public Func<int, (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)?>? ObjectBox;
@@ -348,5 +351,115 @@ public sealed class ClientHudSource : IHudSource
             list.Add(new HudTargetCandidate(name, top, (px, py, pz), Math.Min(bx1 - bx0, by1 - by0), bz1 - bz0, team, dmg, false, true, clear, true, icon));
         }
         return HudTargetPicker.Find(cam, list, me.Team, pm.TeamCount);
+    }
+
+    // ---- aim triangles (004ada90) ----
+
+    private static double Fld(ClientDataBlock? b, string name, double def)
+    {
+        if (b != null)
+            foreach (DecodedField f in b.Fields)
+                if (f.Name == name)
+                    return D(f.Value, def);
+        return def;
+    }
+
+    // Player vtable +0x114 [code 00412218]: the projectile datablock (group, index) of the image in slot 0: ItemData -> imageType ->
+    // ItemImageData projectileType (two 32 bit words: group at +0x70, index at +0x74). Null without an image or a projectile.
+    private ClientDataBlock? WeaponProjectile(ClientGhost g, out int group)
+    {
+        group = -1;
+        double item = D(g.State.GetValueOrDefault("item0"), -1);
+        if (item < 0
+            || !mWorld.DataBlocks.Blocks.TryGetValue((5, (int)item), out ClientDataBlock? ib)
+            || !mWorld.DataBlocks.Blocks.TryGetValue((6, (int)Fld(ib, "imageType", -1)), out ClientDataBlock? img))
+            return null;
+        string raw = img.Fields.FirstOrDefault(f => f.Name == "projectileType").Value as string ?? "";
+        if (raw.Length < 16)
+            return null;
+        byte[] bytes = Convert.FromHexString(raw);
+        int grp = BitConverter.ToInt32(bytes, 0), idx = BitConverter.ToInt32(bytes, 4);
+        if (grp == -1)
+            return null;
+        group = grp;
+        return mWorld.DataBlocks.Blocks.TryGetValue((grp, idx), out ClientDataBlock? pb) ? pb : null;
+    }
+
+    // The gravity of the control player: force 1 of its SimMovement, the world gravity of the terrain ghost; minus its length [code 004adb98].
+    private float Gravity()
+    {
+        foreach (ClientGhost t in mWorld.Ghosts.All())
+            if (t.State.GetValueOrDefault("contGravity") is double[] { Length: >= 3 } v)
+                return X87.F32(-X87.Len(new[] { (float)v[0], (float)v[1], (float)v[2] }));
+        return 0f;
+    }
+
+    // FUN_004ada90 [code 004ada90]: for every target of set 725 (objects with the target flag and enabled, the hit point of a targeting laser)
+    // of the control player's team the datablock of the weapon in slot 0 solves the aim from the eye (low arc, then the high arc); the
+    // direction x 2 from the eye is projected and gets a triangle, blue when the projectile reaches (0xfb), else 0xf1, with the distance
+    // from the muzzle under it. Without a projectile datablock the solution is the straight line, never reaching.
+    public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height)
+    {
+        var result = new List<HudTargetMarker>();
+        if (Ghost is not ClientGhost me || Psc.ControlClass != "Player" || ViewCamera?.Invoke(width, height) is not Camera3D cam
+            || mWorld.PlayerId == 0 || mWorld.Players.Get(mWorld.PlayerId) is not ClientPlayerRecord rec)
+            return result;
+        ClientDataBlock? block = WeaponProjectile(me, out int group);
+        float speed = group == Projectile.kRocketGroup ? (float)Fld(block, "field@0x6c", 0) : group is Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup
+            ? (float)Fld(block, "field@0x68", 0) : 1.0e7f;
+        float totalTime = (float)Fld(block, "totalTime", 10000);
+        float g = Gravity();
+        float[] eye = { (float)cam.X, (float)cam.Y, (float)cam.Z };
+        bool hasItem = D(me.State.GetValueOrDefault("item0"), -1) >= 0;
+        var body = me.State.GetValueOrDefault("pos") is double[] { Length: >= 3 } bp ? (bp[0], bp[1], bp[2]) : (cam.X, cam.Y, cam.Z);
+        var muzzle = hasItem ? MuzzleMount?.Invoke(me.Index) ?? body : body;
+        foreach (ClientGhost t in mWorld.Ghosts.All())
+        {
+            double[]? pos = null;
+            int team = int.MinValue;
+            if (t.Class == "TargetLaser")
+            {
+                if (D(t.State.GetValueOrDefault("hit"), 0) == 0 || t.State.GetValueOrDefault("end") is not double[] { Length: >= 3 } end)
+                    continue;
+                pos = end;
+                team = (int)D(t.State.GetValueOrDefault("team"), -1);
+            }
+            else if (D(t.State.GetValueOrDefault("isTarget"), 0) != 0 && D(t.State.GetValueOrDefault("damageState"), 1) == 1
+                && ObjectBox?.Invoke(t.Index) is var (bx0, by0, bz0, bx1, by1, bz1, _, _, _) && t.State.TryGetValue("team", out object? tv))
+            {
+                // StaticBase vtable +0x118 [code 0045047c]: the centre of the world box (+0x70, +0x7c) and the team (+0x20c).
+                pos = new[] { (bx0 + bx1) * 0.5, (by0 + by1) * 0.5, (bz0 + bz1) * 0.5 };
+                team = (int)D(tv, -1);
+            }
+            if (pos == null || team != rec.Team)
+                continue;
+            float[] target = { (float)pos[0], (float)pos[1], (float)pos[2] };
+            var dirLow = new float[3];
+            var dirHigh = new float[3];
+            bool okLow = false, okHigh = false, haveLow, haveHigh = false;
+            if (block == null)
+            {
+                float len = X87.F32(X87.Len(new[] { target[0] - eye[0], target[1] - eye[1], target[2] - eye[2] }));
+                float k = X87.F32(1.0f / len);
+                for (int i = 0; i < 3; ++i)
+                    dirLow[i] = X87.F32(k * (target[i] - eye[i]));
+                haveLow = true;
+            }
+            else
+            {
+                haveLow = AIAim.AiSolveAim(group, speed, totalTime, eye, target, false, g, ref okLow, dirLow);
+                haveHigh = AIAim.AiSolveAim(group, speed, totalTime, eye, target, true, g, ref okHigh, dirHigh);
+            }
+            if (!haveLow)
+                continue;
+            HudMarkPoint? Point(float[] dir, bool ok)
+            {
+                double px = (float)(eye[0] + (float)(dir[0] * 2.0f)), py = (float)(eye[1] + (float)(dir[1] * 2.0f)), pz = (float)(eye[2] + (float)(dir[2] * 2.0f));
+                return cam.Project(px, py, pz, out double sx, out double sy, out _) ? new HudMarkPoint(HudMarkers.Pixel(sx), HudMarkers.Pixel(sy), ok) : null;
+            }
+            HudMarkPoint? low = Point(dirLow, okLow), high = haveHigh ? Point(dirHigh, okHigh) : null;
+            result.Add(new HudTargetMarker(low, high, HudMarkers.Label(HudMarkers.Distance(muzzle, (target[0], target[1], target[2])))));
+        }
+        return result;
     }
 }
