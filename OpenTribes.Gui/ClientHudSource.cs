@@ -36,11 +36,22 @@ public sealed class ClientHudSource : IHudSource
     public Func<bool>? FirstPersonSource;
     public bool FirstPersonView => FirstPersonSource?.Invoke() ?? true;
 
+    // Vtable +0xf8 of the control object (docs/gui.md 4.1). Player 00413828 returns +0x72c, which the ghost update sets to 1.0 on
+    // death (Player_unpackUpdate, mask 0x100) and to the 6 bit damage otherwise. ObserverCamera 004349e4 forwards the call to its
+    // orbit object (+0x288, set by the control state reader 00434d60 in mode 3 when the ghost exists) and returns 0.0 without one.
     public double DamageLevel
     {
         get
         {
-            if (Ghost is not ClientGhost g)
+            ClientGhost? g = Ghost;
+            if (Psc.ControlClass == "ObserverCamera")
+            {
+                g = null;
+                if (Psc.ControlState.TryGetValue("camMode", out object? m) && D(m, 0) == 3
+                    && Psc.ControlState.TryGetValue("orbitGhost", out object? og) && D(og, -1) is double idx and >= 0)
+                    g = mWorld.Ghosts.Get((int)idx);
+            }
+            if (g == null)
                 return 0;
             if (g.State.ContainsKey("dead"))
                 return 1;

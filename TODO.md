@@ -144,6 +144,7 @@ way are added to Open.
 - [x] Text lists and list selection.
 - [x] Labels resize to their text.
 - [x] Sensor ping HUD.
+- [x] Health display after death.
 
 ### Audio
 

@@ -140,6 +140,28 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.False(src.InPlayerView);
     }
 
+    // 004349e4: the ObserverCamera forwards vtable +0xf8 to its orbit object, 0.0 without one; Player 00413828 is 1.0 once dead.
+    [Fact]
+    public void DamageLevelOfAnObserverCameraIsThatOfItsOrbitObject()
+    {
+        var world = new ClientWorld();
+        var src = new ClientHudSource(world);
+        var cam = new ClientGhost { Index = 2, Class = "ObserverCamera" };
+        var body = new ClientGhost { Index = 7, Class = "Player" };
+        world.Ghosts.Insert(cam);
+        world.Ghosts.Insert(body);
+        world.Psc.ControlGhost = 2;
+        world.Psc.ControlClass = "ObserverCamera";
+        world.Psc.ControlState = new Dictionary<string, object?> { ["camMode"] = 3L, ["orbitGhost"] = 7L };
+        Assert.Equal(0, src.DamageLevel);
+        body.State["damage"] = 0.25;
+        Assert.Equal(0.25, src.DamageLevel);
+        body.State["dead"] = 1L;
+        Assert.Equal(1, src.DamageLevel);
+        world.Psc.ControlState = new Dictionary<string, object?> { ["camMode"] = 4L };
+        Assert.Equal(0, src.DamageLevel);
+    }
+
     [Fact]
     public void InventoryListAnswersTheSelectedItemIndexAndCallsTheScript()
     {
