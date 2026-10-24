@@ -388,6 +388,25 @@ public sealed class LiveGame : IDisposable
         pv.SetImageSteps(predicted, steps);
     }
 
+    // The compass heading of the control object (CompassHud 004e7e5c reads vtable +0x178 = Euler z of the object's transform, `00413850`):
+    // a piloted Vehicle or Flier as drawn, a Player on a mount (passenger) the Euler z of its mount transform. Null: the control state's
+    // own rotation (a Player on foot, whose transform yaw is its rotZ).
+    public double? ControlHeading(int ghost)
+    {
+        ClientPsc psc = World.Psc;
+        if (ghost != psc.ControlGhost || Model == null)
+            return null;
+        if (psc.ControlClass is "Vehicle" or "Flier")
+            return Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual { Driven: true } sv ? sv.HeadingRad : null;
+        if (psc.ControlClass == "Player" && Net?.PredictWorld != null && Net.Prediction.Object is Player { MountId: not 0 } p && Net.Prediction.Active)
+        {
+            var e = new float[3];
+            OpenTribes.Sim.MissionTransform.MatrixToEuler(p.Transform, e);
+            return e[2];
+        }
+        return null;
+    }
+
     // The control player's visual follows the prediction (else the control state), see ControlSample.
     private void FeedControlPlayer()
     {

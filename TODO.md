@@ -138,7 +138,7 @@ way are added to Open.
 - [x] Objectives page on the command screen.
 - [x] Chat display size, message fonts, command line, early messages, the command slot and chat only when the HUD has it.
 - [x] Chat and command menu, drawn in full.
-- [x] Compass readout, waypoint and arrow, and when the weapon HUD wakes.
+- [x] Compass readout, waypoint, arrow and heading when piloting or riding, and when the weapon HUD wakes.
 - [x] Lists and menus leave keys to the game, like the original.
 - [x] Crosshair target marks and labels for players and friendly objects, picked by their box.
 - [x] Low resolution HUD layout and reticle.

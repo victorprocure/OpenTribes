@@ -468,6 +468,7 @@ public sealed class ClientApp : IDisposable
                 : null,
             HeadMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.MidBack() : null,
             MuzzleMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.Muzzle() : null,
+            ObjectYaw = ghost => g.ControlHeading(ghost),
             ObjectBox = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? sv.HudBox() : null,
             // the line from the eye to the target meets terrain or interior [code 004aca84, mask 0x20e00006]
             LineClear = (a, b) => g.Net?.PredictWorld is not { } pw ||

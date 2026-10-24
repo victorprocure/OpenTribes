@@ -96,7 +96,22 @@ public sealed class ClientHudSource : IHudSource
         return Math.Clamp(max > 0 ? energy / max : energy, 0, 1);
     }
 
-    public double Yaw => D(Psc.ControlState.GetValueOrDefault("rotZ"), Ghost != null ? D(Ghost.State.GetValueOrDefault("rotZ"), 0) : 0);
+    // Vtable +0x178 of the control object (docs/gui.md 4.2 Compass): the Euler rotation of the object's transform (`00413850`, shared by
+    // Player, Vehicle and Flier), third float. A piloted vehicle is the control object, so the dial turns with its drawn heading, and
+    // a mounted Player (passenger) reads the Euler z of its mount transform: the host's value (ObjectYaw), else the "rot" vector of a
+    // vehicle's control state, else the "rotZ" of a Player.
+    public Func<int, double?>? ObjectYaw;
+    public double Yaw
+    {
+        get
+        {
+            if (ObjectYaw?.Invoke(Psc.ControlGhost) is double drawn)
+                return drawn;
+            if (Psc.ControlClass is "Vehicle" or "Flier")
+                return Psc.ControlState.GetValueOrDefault("rot") is double[] { Length: >= 3 } r ? r[2] : 0;
+            return D(Psc.ControlState.GetValueOrDefault("rotZ"), Ghost != null ? D(Ghost.State.GetValueOrDefault("rotZ"), 0) : 0);
+        }
+    }
     public double ClockSeconds => mClock();
 
     // 006a83e4 != -1: the waypoint position and the control object's x and y (+0x188, +0x18c of the transform) [code 004e7e5c].

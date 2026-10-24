@@ -63,6 +63,8 @@ public class ShapeVisual : Visual
 
     // True while a simulated copy of the ghost (RemoteGhosts) sets the state each frame: the stream update leaves it alone.
     public bool Driven;
+    // The drawn heading (Euler z), the compass input of a piloted vehicle (docs/gui.md 4.2 Compass).
+    public double HeadingRad => Yaw;
 
     // The state of the simulated copy of a Vehicle or Flier: Euler angles x, y, z and the position.
     public void SetSmoothed(double rx, double ry, double rz, double x, double y, double z)

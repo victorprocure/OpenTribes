@@ -140,6 +140,36 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.False(src.InPlayerView);
     }
 
+    // CompassHud 004e7e5c reads vtable +0x178 of the control object (`00413850`, the Euler z of its transform; the same function for
+    // Player, Vehicle and Flier). A piloted Flier is the control object, so its rotation drives the dial, not a "rotZ" it does not have.
+    [Fact]
+    public void CompassYawOfAPilotedFlierIsItsRotationZ()
+    {
+        var world = new ClientWorld();
+        var src = new ClientHudSource(world);
+        world.Psc.ControlGhost = 5;
+        world.Psc.ControlClass = "Flier";
+        world.Psc.ControlState = new Dictionary<string, object?> { ["rot"] = new[] { 0.4, 0.0, -0.3 } };
+        Assert.Equal(-0.3, src.Yaw);
+        src.ObjectYaw = ghost => ghost == 5 ? -0.25 : null;
+        Assert.Equal(-0.25, src.Yaw);
+    }
+
+    [Fact]
+    public void CompassYawOfAPlayerIsRotZUnlessTheHostGivesTheMountHeading()
+    {
+        var world = new ClientWorld();
+        var src = new ClientHudSource(world);
+        world.Psc.ControlGhost = 5;
+        world.Psc.ControlClass = "Player";
+        world.Psc.ControlState = new Dictionary<string, object?> { ["rotZ"] = 1.5 };
+        Assert.Equal(1.5, src.Yaw);
+        src.ObjectYaw = _ => 2.25;
+        Assert.Equal(2.25, src.Yaw);
+        src.ObjectYaw = _ => null;
+        Assert.Equal(1.5, src.Yaw);
+    }
+
     // 004349e4: the ObserverCamera forwards vtable +0xf8 to its orbit object, 0.0 without one; Player 00413828 is 1.0 once dead.
     [Fact]
     public void DamageLevelOfAnObserverCameraIsThatOfItsOrbitObject()
