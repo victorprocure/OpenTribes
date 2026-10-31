@@ -202,8 +202,8 @@ public static class GuiFactory
             case "FearGuiFormattedText": return new GuiTextWrap { Formatted = true };
             case "FearGui::FGHCommandObjectivePage": return new GuiObjectivePage();
             case "SimGui::ScrollContentCtrl": return new GuiScrollContent();
-            case "SimGui::TSControl":
-            case "FearGui::TSCommander": return new GuiPlayView();
+            case "SimGui::TSControl": return new GuiPlayView();
+            case "FearGui::TSCommander": return new GuiCommandMap();
             case "FearGui::HealthHud": return new GuiHealthHud();
             case "FearGui::JetPackHud": return new GuiJetPackHud();
             case "FearGui::ClockHud": return new GuiClockHud();

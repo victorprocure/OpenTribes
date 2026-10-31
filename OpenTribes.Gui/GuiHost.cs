@@ -221,6 +221,10 @@ public interface IHudSource
     ChatMenuState? NamedMenu(string name) => null;
     // The rows of the command team list of the local player's team (CommandTeamCtrl, docs/gui.md 3.3 "The command screen panels").
     IReadOnlyList<CommandTeamRow> CommandTeam => Array.Empty<CommandTeamRow>();
+    // The base picture of the commander map, null until the world is rendered (docs/gui.md 3.3 "The command map").
+    CommandMapPicture? CommandMap => null;
+    // The slots and the local client for the marks over it (null without a client).
+    CommandMapMarks? CommandMapMarks => null;
     // The mission objective lines (TeamObjectiveEvent), 32 slots; a slot nobody set is null.
     IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
 }
@@ -271,4 +275,6 @@ public sealed class StaticHudSource : IHudSource
     public ServerMenuView? ServerMenu => Menu;
     public PlayMenuView? PlayMenuValue { get; set; }
     public PlayMenuView? PlayMenu => PlayMenuValue;
+    public CommandMapPicture? CommandMapValue { get; set; }
+    public CommandMapPicture? CommandMap => CommandMapValue;
 }

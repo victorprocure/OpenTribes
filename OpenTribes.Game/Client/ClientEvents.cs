@@ -481,6 +481,8 @@ public sealed class ClientEvents
                             rec.CommandStatus = (int)status;
                             rec.Commander = (int)icon;     // record +0x40
                             rec.CmdIssuer = issuer;
+                            rec.CmdTarget = (int)obj;
+                            (rec.CmdWaypointX, rec.CmdWaypointY) = ((int)wx, (int)wy);
                             if (id == local)
                             {
                                 pm.WaypointTarget = (int)icon;       // 006a83e4, 006a83e8, 006a83ec

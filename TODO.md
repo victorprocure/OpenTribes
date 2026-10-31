@@ -26,6 +26,7 @@ way are added to Open.
 - [ ] No sound when switching to the blaster or the mortar.
 - [ ] Server browser: refresh, favourites and "never ping".
 - [ ] Far hills and the in-game sky brightness.
+- [ ] Selecting players and giving orders on the command map.
 
 ### Project
 
@@ -162,6 +163,7 @@ way are added to Open.
 - [x] Zoom reticle (not clipped) and field of view.
 - [x] Aim markers with their distance.
 - [x] Command screen side panels, player list and chat menu.
+- [x] Command map screen.
 
 ### Audio
 

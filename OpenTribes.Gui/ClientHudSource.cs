@@ -253,6 +253,40 @@ public sealed class ClientHudSource : IHudSource
     public ServerMenuView? ServerMenu => MenuSource?.Invoke();
     public Func<PlayMenuView?>? PlayMenuSource;
     public PlayMenuView? PlayMenu => PlayMenuSource?.Invoke();
+    // Set by the host: the commander map picture (rendered on demand from the world).
+    public Func<CommandMapPicture?>? CommandMapSource;
+    public CommandMapPicture? CommandMap => CommandMapSource?.Invoke();
+    // The slot table of the PSC command block with the datablock fields and records the draw needs [code 004cf94c, 004d04e8].
+    public CommandMapMarks? CommandMapMarks
+    {
+        get
+        {
+            ClientPlayerManager pm = mWorld.Players;
+            if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
+                return null;
+            var slots = new List<CommandMapSlotMark>();
+            for (int i = 0; i < Psc.CommandSlots.Length; ++i)
+            {
+                ClientCommandSlot s = Psc.CommandSlots[i];
+                if (!s.Present || !mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out ClientDataBlock? b))
+                    continue;
+                string Str(string name) { foreach (DecodedField fld in b.Fields) if (fld.Name == name) return fld.Value as string ?? ""; return ""; }
+                int id = i < 128 ? 0x800 + i : -1;
+                ClientPlayerRecord? rec = s.Group == 3 && id >= 0 ? pm.Get(id) : null;
+                string? target = i >= 128 && pm.TargetNames.TryGetValue(i - 128, out string? tn) ? tn : null;
+                slots.Add(new CommandMapSlotMark(i, s.X, s.Y, s.Team, s.Group, id, Str("mapIcon"), Str("description"), target, (int)Fld(b, "mapFilter", -1),
+                    (int)Fld(b, "range", 0), Fld(b, "supression", 0) != 0, s.Active, rec?.Name ?? "", rec is { CmdIssuer: not -1, Commander: >= 0 and < 64 } ? rec.Commander : -1, rec?.CmdTarget ?? -1,
+                    rec?.CommandStatus ?? 0, rec?.CmdWaypointX ?? 0, rec?.CmdWaypointY ?? 0));
+            }
+            // (The port keeps the command icon, +0x40, in the field the select-commander event also writes: a record counts as commanded once an order event named an issuer.)
+            // The where-am-I mark turns with the control object's yaw: 256 - yaw * 256 / 2 pi [code 004cfc54].
+            // (a Player's block carries the z rotation as `rotZ`, an observer camera's the three angles as `rot`)
+            double yaw = Psc.ControlState.TryGetValue("rotZ", out object? zv) ? D(zv, 0)
+                : Psc.ControlState.TryGetValue("rot", out object? rv) && rv is double[] { Length: >= 3 } rot ? rot[2] : 0;
+            int heading = (int)(256.0 - yaw * 256.0 * (1.0 / (2 * Math.PI)));
+            return new CommandMapMarks(mWorld.PlayerId, me.Team, heading, slots);
+        }
+    }
     public Func<string, ChatMenuState?>? NamedMenuSource;
     public ChatMenuState? NamedMenu(string name) => NamedMenuSource?.Invoke(name);
 

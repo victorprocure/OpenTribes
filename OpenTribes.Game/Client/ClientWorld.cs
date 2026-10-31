@@ -10,6 +10,8 @@ public sealed class ClientPlayerRecord
     public string Name = "", Skin = "", Voice = "";
     public bool Male;
     public int Commander = -1;     // +0x40
+    public int CmdTarget = -1;     // +0x48: the target index of the current command, -1 for a waypoint command
+    public int CmdWaypointX, CmdWaypointY;   // +0x50, +0x54: the waypoint of the current command in 1/1024 of the mission area
     public int CmdIssuer = -1;     // +0x4c: the commander of the current command (PlayerManager_processEvent 0040d45a)
     public int Team = -1;          // +0x14
     public int CommandStatus;      // +0x58

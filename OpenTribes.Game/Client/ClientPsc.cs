@@ -14,8 +14,22 @@ public sealed class DecodedPsc
     public List<DecodedField> Fields = new();
 }
 
+// One entry of the command map slot table (`DAT_006a83d8` + 0x340, 0x28 bytes a slot, docs/client-net.md 4.5 mode 2): the position in 1/1024 of
+// the mission area (the 11 bit value minus 512, +0x340 and +0x344), the object's team (+0x354) and status (+0x358), the datablock group and
+// index (+0x348, +0x34c; Present is false when the index is -1), for the slots of clients (below 128) the command status (+0x35c, the record's
+// command status + 1) and for the other slots (target slots) the controllable flag (+0x361) and the second status flag (+0x35c, active).
+public struct ClientCommandSlot
+{
+    public bool Present;
+    public int X, Y, Team, Status, CommandStatus, Group, Index;
+    public bool Controllable, Active;
+}
+
 public sealed class ClientPsc
 {
+    // The command map slot table, 256 entries.
+    public readonly ClientCommandSlot[] CommandSlots = new ClientCommandSlot[256];
+
     // Server block state (4.5).
     public int GuiMode;                  // psc +0x3d8
     public bool ScoreFlag;               // score dialog visible
@@ -56,6 +70,7 @@ public sealed class ClientPsc
         Array.Clear(Buying);
         Array.Clear(Visible);
         CommandMap.Clear();
+        Array.Clear(CommandSlots);
         GuiModeChanges = 0;
         PlayGuiLoaded = false;
     }
@@ -345,18 +360,29 @@ public sealed class ClientPsc
                 uint s = slot;
                 slot = (slot + 1) & 0xff;
                 if (!r.Flag())
+                {
+                    CommandSlots[s].Present = false; // an empty slot sets the datablock index to -1 [code 00405ec8]
                     continue;
+                }
                 uint x = r.Int(11), y = r.Int(11), team = r.Int(3), a = r.Int(2);
                 string extra;
+                uint cmd = 0;
+                bool c = false, act = false;
                 if (s < 0x80)
-                    extra = "cmdstate=" + r.Int(3);
+                    extra = "cmdstate=" + (cmd = r.Int(3));
                 else
                 {
-                    bool c = r.Flag(), act = r.Flag();
+                    c = r.Flag();
+                    act = r.Flag();
                     extra = "ctl=" + (c ? 1 : 0) + " active=" + (act ? 1 : 0);
                 }
                 uint grp = r.Int(6);
                 uint idx = r.Int(r.DbBits((int)grp));
+                CommandSlots[s] = new ClientCommandSlot
+                {
+                    Present = true, X = (int)x - 512, Y = (int)y - 512, Team = (int)team, Status = (int)a, CommandStatus = (int)cmd,
+                    Group = (int)grp, Index = (int)idx, Controllable = c, Active = act,
+                };
                 string row = s + ":(" + x + "," + y + ") team=" + team + " status=" + a + " " + extra + " db=" + grp + "/" + idx;
                 rows.Add(row);
                 CommandMap[(int)s] = row;
