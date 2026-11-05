@@ -32,7 +32,7 @@ public sealed class ClientDelegates
     }
 
     private static readonly string[] Names =
-        { "MainMenu", "Connect", "PlayerSetup", "JoinGame", "CreateServer", "Recordings", "Options", "IRCChat", "play", "quit" };
+        { "MainMenu", "Connect", "PlayerSetup", "JoinGame", "CreateServer", "Recordings", "Options", "IRCChat", "play", "command", "quit" };
 
     public void Install()
     {
@@ -43,6 +43,9 @@ public sealed class ClientDelegates
             switch (n)
             {
                 case "PlayerSetup": d.OnMessage = PlayerSetupMessage; break;
+                // The play delegate is the delegate of play.gui and of command.gui (client-scripts.md 3.8): its message slot 004dd280 takes the buttons of the
+                // command screen.
+                case "play" or "command": d.OnMessage = (sender, tag) => mApp.Play.Message(sender, tag); break;
                 case "JoinGame":
                     d.OnMessage = JoinGameMessage;
                     d.OnRemove = Browser.SaveList;

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using OpenTribes.Core;
+using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Script;
 
@@ -634,6 +635,14 @@ public sealed class ClientCommandHandlers
                 return "False";
             }
             return mApp.Game?.PostRemoteEval(a[2..]) == true ? "True" : "False";
+        });
+        // setIssueCommand(action, text) [code 00421e14 -> 004d2614]: the command menu chose an order for the command map; False without a map.
+        Cmd("setIssueCommand", a =>
+        {
+            if (mApp.CommandMap is not GuiCommandMap map || a.Length != 3)
+                return "False";
+            map.SetIssueCommand(Numbers.BorlandAtoi(a[1]), a[2]);
+            return "True";
         });
         Cmd("resetSimTime", a => "");
         // The client keeps no ban list; onExit() still writes the file (client-scripts.md 5.4).

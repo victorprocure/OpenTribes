@@ -439,7 +439,10 @@ public sealed class GuiCanvas
         }
     }
 
-    private GuiEvent MouseEvent() => new() { X = (int)CursorX, Y = (int)CursorY, ClickCount = mClickCount };
+    // The modifier byte of the raw mouse event reaches the GUI event (+0x2e) [code 0053349c].
+    private byte mMods;
+
+    private GuiEvent MouseEvent() => new() { X = (int)CursorX, Y = (int)CursorY, ClickCount = mClickCount, Mod = mMods };
 
     private GuiControl? Target()
     {
@@ -557,6 +560,7 @@ public sealed class GuiCanvas
     {
         if (!CursorOn)
             return false;
+        mMods = ev.Mod;
         if (ev.ObjType is RawInput.ObjXAxis or RawInput.ObjYAxis)
         {
             GuiControl? top = Top;

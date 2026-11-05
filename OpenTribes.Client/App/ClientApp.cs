@@ -144,6 +144,22 @@ public sealed class ClientApp : IDisposable
         GameCommands.Register(Interp, game);
 
         Host = new GuiHost(Interp, Res) { Actions = Maps, Root = Opt.Root, Now = () => NowMs, Log = l => Interp.Print(1, l) };
+        // The command map drives the command chat menu by name [code 004d2a98, 00401fe0, 00402068].
+        SimObject? FindMenu(string name) => game.Sim?.Server()?.Find(name) is SimObject o && o.ClassName() == "ChatMenu" ? o : null;
+        Host.ChatMenuExists = name => FindMenu(name) != null;
+        Host.SetChatMenuMode = (name, mode) =>
+        {
+            if (FindMenu(name) is SimObject o)
+                game.ChatMenus.SetMode(o, name, mode);
+        };
+        game.ChatMenus.CommandMenuOff = () => CommandMap?.SetOrderMode(0);
+        game.ChatMenus.CancelOrder = () =>
+        {
+            GuiCommandMap? map = CommandMap;
+            bool ordering = map is { OrderMode: 1 };
+            map?.SetOrderMode(0);
+            return ordering;
+        };
         Canvas = new GuiCanvas(Host, Dev?.Width ?? Opt.Width, Dev?.Height ?? Opt.Height);
         GuiRt = new GuiRuntime(Interp, Host, Canvas);
         GuiRt.RenderRequested = () => { RenderFrame(); };
@@ -478,6 +494,9 @@ public sealed class ClientApp : IDisposable
                     ref sHitObj, ref sHit, ref sNormal),
         };
     }
+
+    // The command map control (DAT_006a83d8): found by its id while the command screen is loaded.
+    public GuiCommandMap? CommandMap => GuiRt?.FindControl(PlayDelegate.CommanderMapId.ToString(CultureInfo.InvariantCulture)) as GuiCommandMap;
 
     // The console world of the client: the chat menus of the scripts live in it.
     private GameState mGameState = null!;
