@@ -14,6 +14,10 @@ public sealed class Db
 
     public ClientDataBlock? Block(int group, long index) => mBlocks.Blocks.TryGetValue((group, (int)index), out ClientDataBlock? b) ? b : null;
 
+    // The blocks of one group in index order (the order of the data block manager).
+    public IEnumerable<(int Index, ClientDataBlock Block)> Group(int group) =>
+        mBlocks.Blocks.Where(kv => kv.Key.Item1 == group).OrderBy(kv => kv.Key.Item2).Select(kv => (kv.Key.Item2, kv.Value));
+
     public static object? Get(ClientDataBlock? b, string name)
     {
         if (b == null)

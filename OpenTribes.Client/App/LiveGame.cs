@@ -340,6 +340,8 @@ public sealed class LiveGame : IDisposable
                 return (hit, t, light);
             },
         };
+        Model.DebrisWorld = (sx, sy, sz, dx, dy, dz, len) =>
+            Scene.Interiors != null && Scene.Interiors.Probe(sx, sy, sz, dx, dy, dz, len, out double t, out _, out var n) ? (true, t, n.x, n.y, n.z) : (false, 0, 0, 0, 1);
         Model.BaseLight.SetSun(Scene.SunAzimuth, Scene.SunIncidence);
         Model.BaseLight.AmbR = (float)Scene.SunAmbient[0]; Model.BaseLight.AmbG = (float)Scene.SunAmbient[1]; Model.BaseLight.AmbB = (float)Scene.SunAmbient[2];
         Model.BaseLight.SunR = (float)Scene.SunIntensity[0]; Model.BaseLight.SunG = (float)Scene.SunIntensity[1]; Model.BaseLight.SunB = (float)Scene.SunIntensity[2];

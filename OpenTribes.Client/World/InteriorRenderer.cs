@@ -1037,9 +1037,15 @@ public sealed class InteriorRenderer : IDisposable
     // The ray of the shape light probe (ShapeBase_lightProbe 0044e6f4): the nearest surface of a drawn interior instance along start + t * dir,
     // 0 <= t <= length, and the nibbles of its light map at the hit point (the instance's current atlas, nearest texel of the surface's
     // light coordinates there), as 0..1 colours.
-    public bool Probe(double sx, double sy, double sz, double dx, double dy, double dz, double length, out double t, out (float r, float g, float b) light)
+    public bool Probe(double sx, double sy, double sz, double dx, double dy, double dz, double length, out double t, out (float r, float g, float b) light) =>
+        Probe(sx, sy, sz, dx, dy, dz, length, out t, out light, out _);
+
+    // The same ray with the unit normal of the surface it hits, turned to face the ray origin (the debris collision, Debris_collide 00472ad0).
+    public bool Probe(double sx, double sy, double sz, double dx, double dy, double dz, double length, out double t, out (float r, float g, float b) light,
+                      out (double x, double y, double z) normal)
     {
         t = double.MaxValue;
+        normal = default;
         light = default;
         foreach (Instance inst in Instances)
         {
@@ -1081,6 +1087,12 @@ public sealed class InteriorRenderer : IDisposable
                         continue;
                     t = tt;
                     light = (atlas.Rgba[o] / 255f, atlas.Rgba[o + 1] / 255f, atlas.Rgba[o + 2] / 255f);
+                    double nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x, nl = Math.Sqrt(nx * nx + ny * ny + nz * nz);
+                    if (nl > 1e-12)
+                    {
+                        double sign = nx * dx + ny * dy + nz * dz > 0 ? -1 : 1;
+                        normal = (sign * nx / nl, sign * ny / nl, sign * nz / nl);
+                    }
                 }
             }
         }

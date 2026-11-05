@@ -28,6 +28,7 @@ way are added to Open.
 - [ ] Server browser: refresh, favourites and "never ping".
 - [ ] Far hills and the in-game sky brightness.
 - [ ] Selecting players and giving orders on the command map.
+- [ ] How debris pieces split up and how big they are when they bounce.
 
 ### Project
 
@@ -116,7 +117,7 @@ way are added to Open.
 - [x] Grenade smoke puffs and grenade sounds.
 - [x] Laser beam shape.
 - [x] Bullet holes only on buildings.
-- [x] Debris ends in its explosion and rests on floors.
+- [x] Debris pieces fly, bounce, end in their explosion and rest on floors.
 
 ### Menus and HUD
 

@@ -118,12 +118,34 @@ public sealed class SceneModel
         Audio?.Frame(dt);
     }
 
-    // DebrisEffect of a dying shape: the DebrisData of `debrisId` (group 22), the interior floor from the light probe ray (straight down) and the
-    // explosion of a piece that ends.
+    // The static world for debris: the nearest interior surface along a ray with its normal (InteriorRenderer.Probe), set by the live game.
+    public DebrisRay? DebrisWorld;
+
+    // DebrisEffect of a dying shape (PartDebrisCloud 00476434): the DebrisData of `debrisId` (group 22), the interiors and the terrain as the world of the
+    // pieces, the explosion of a piece that ends and the secondary DebrisCloud of it.
     public DebrisEffect NewDebris(RenderInstance inst, Xf pose, double vx, double vy, double vz, int debrisId) =>
-        new(inst, pose, vx, vy, vz, Terrain, Rng, DebrisParams.From(Db.Block(22, debrisId)),
-            (x, y, z, len) => Probe?.Interior is { } probe && probe(x, y, z, 0, 0, -1, len) is (true, double t, _) ? z - t : null,
-            (e, x, y, z) => SpawnExplosion(e, x, y, z, 0, 0, 1));
+        new(inst, pose, vx, vy, vz, Terrain, Rng, DebrisParams.From(Db.Block(22, debrisId)), DebrisWorld,
+            (e, x, y, z) => SpawnExplosion(e, x, y, z, 0, 0, 1), SpawnDebrisCloud);
+
+    // DebrisCloud 00474478 of a piece that ended: the DebrisData rows whose type shares a bit with the mask. The stock rows have type 0, so no stock cloud has a piece.
+    public void SpawnDebrisCloud(DebrisCloudSpec spec)
+    {
+        var rows = Db.Group(22).Select(g => new DebrisRow(g.Index, (uint)Db.Num(g.Block, "type", 0), Db.Num(g.Block, "mass", 1), Db.Num(g.Block, "p", 1),
+            Db.Str(g.Block, "pShapeName"), DebrisParams.From(g.Block))).ToList();
+        if (!rows.Exists(r => ((uint)spec.Mask & r.Type) != 0))
+            return;
+        var cloud = new DebrisCloudEffect(rows, ShapeInstance, Terrain, Rng, spec, ray: DebrisWorld,
+            explode: (e, x, y, z) => SpawnExplosion(e, x, y, z, 0, 0, 1), cloud: SpawnDebrisCloud);
+        if (cloud.PieceCount > 0)
+            Effects.Add(cloud);
+    }
+
+    private RenderInstance? ShapeInstance(string name)
+    {
+        if (name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
+            name = name[..^4];
+        return Assets.Shape(name) is { } sh ? new RenderInstance(sh) : null;
+    }
 
     public void SpawnExplosion(int index, double x, double y, double z, double ax, double ay, double az)
     {

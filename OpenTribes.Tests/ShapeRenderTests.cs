@@ -390,7 +390,7 @@ public class ShapeRenderTests
         var piece = new DebrisParams(MinTimeout: 3, MaxTimeout: 6, ExplodeOnBounce: 0.3, ExplodeOnRest: true, Explosion: 7);
         // an interior floor at z 10 (no terrain): the pieces start above it and must stay on it
         var d = new DebrisEffect(new RenderInstance(s), Xf.Translate(0, 0, 12), 0, 0, 0, null, new Random(3), piece,
-            (x, y, z, len) => z - len <= 10 ? 10.0 : null, (e, x, y, z) => explosions.Add((e, z)));
+            FloorAtTen, (e, x, y, z) => explosions.Add((e, z)));
         Assert.True(d.PieceCount > 0);
         Assert.True(d.Alive);
         double minZ = double.MaxValue;
@@ -404,6 +404,142 @@ public class ShapeRenderTests
         Assert.Equal(d.PieceCount, explosions.Count);            // one explosion per piece
         Assert.All(explosions, e => Assert.Equal(7, e.index));
         Assert.True(minZ >= 10.0, "no piece went through the floor");
+    }
+
+    // The static world of the debris tests: a floor at z 10 (the ray returns the first hit of rays that go down).
+    private static (bool, double, double, double, double) FloorAtTen(double sx, double sy, double sz, double dx, double dy, double dz, double len)
+    {
+        if (dz >= 0)
+            return (false, 0, 0, 0, 0);
+        double t = (10 - sz) / dz;
+        return t >= 0 && t <= len ? (true, t, 0, 0, 1) : (false, 0, 0, 0, 0);
+    }
+
+    [Fact]
+    public void DebrisBounceKeepsElasticityTimesTheNormalSpeedAndLosesTheSidewaysSpeedToFriction() // Debris_bounce 00473500
+    {
+        var p = DebrisParams.Default;                           // elasticity 0.25, friction 0.5
+        var b = new DebrisBody { X = 0, Y = 0, Z = 10.3, Vx = 4, Vz = -10, Radius = 0.25, Life = 100 };
+        b.Integrate(p, null, FloorAtTen, new Random(1), 0, 0, 0);
+        // gravity first: vz = -10 - 20 / 30 = -10.667; friction removes 0.5 * 10.667 = 5.33 of the sideways 4; the normal speed returns times 0.25
+        Assert.True(b.Collided);
+        Assert.Equal(0, b.Vx, 6);
+        Assert.Equal(0.25 * (10 + 20 * DebrisBody.TimeSlice), b.Vz, 6);
+        Assert.True(b.Z >= 10.25 - 1e-9, "the sphere stays above the floor");
+    }
+
+    [Fact]
+    public void DebrisBounceMovingAwayFromTheSurfaceIsNoContact() // Debris_bounce 00473500: only a velocity against the normal bounces
+    {
+        var b = new DebrisBody { X = 0, Y = 0, Z = 10.3, Vx = 4, Vz = 12, Radius = 0.25, Life = 100 };
+        b.Integrate(DebrisParams.Default, null, FloorAtTen, new Random(1), 0, 0, 0);
+        Assert.False(b.Collided);
+        Assert.Equal(4, b.Vx, 9);
+    }
+
+    [Fact]
+    public void DebrisExplodesOnAFreshBounceByChanceOnTwoContactsInARowAndAtRest() // Debris_tick 004721f8
+    {
+        var never = DebrisParams.Default with { ExplodeOnBounce = 0, ExplodeOnRest = false };
+        var always = never with { ExplodeOnBounce = 1 };
+        var rng = new Random(5);
+        Assert.False(new DebrisBody { Collided = true, Vx = 1 }.WantsExplosion(never, rng));           // a bounce, chance 0
+        Assert.True(new DebrisBody { Collided = true, Vx = 1 }.WantsExplosion(always, rng));           // a bounce, chance 1
+        Assert.True(new DebrisBody { Collided = true, PrevCollided = true, Vx = 1 }.WantsExplosion(never, rng));   // contact in two ticks
+        Assert.False(new DebrisBody { Vx = 1 }.WantsExplosion(always, rng));                                        // flying
+        Assert.False(new DebrisBody().WantsExplosion(never, rng));                                                  // still, explodeOnRest off
+        Assert.True(new DebrisBody().WantsExplosion(never with { ExplodeOnRest = true }, rng));                     // still, explodeOnRest on
+        var b = new DebrisBody { Collided = true };
+        b.WantsExplosion(never, rng);
+        Assert.True(b.PrevCollided);
+        Assert.False(b.Collided);                                                                                   // the flags move one tick on
+    }
+
+    [Fact]
+    public void DebrisFreezesAfterASecondInContactWhenSlow() // Debris_tick 004721f8, flag +0x164 & 0x80
+    {
+        var b = new DebrisBody { X = 0, Y = 0, Z = 10.25, Radius = 0.25, Life = 100, Age = 2 };
+        var rng = new Random(2);
+        for (int i = 0; i < 400 && !b.Frozen; ++i)
+            b.Integrate(DebrisParams.Default, null, FloorAtTen, rng, 0, 0, 0);
+        Assert.True(b.Frozen);
+        Assert.Equal(0, b.Vz);
+        double z = b.Z;
+        b.Integrate(DebrisParams.Default, null, FloorAtTen, rng, 0, 0, 0);
+        Assert.Equal(z, b.Z);
+        Assert.True(b.Collided);
+    }
+
+    [Fact]
+    public void PartDebrisCloudThrowsEveryPieceOutFromTheShapeCentreAtBurstStrengthOverMass() // 00476858, ShapeBase_explode 0044cdec
+    {
+        RenderShape s = Shape();
+        var d = new DebrisEffect(new RenderInstance(s), Xf.Translate(0, 0, 50), 3, -2, 1, null, new Random(9));
+        Assert.True(d.PieceCount > 0);
+        foreach (DebrisBody b in d.Bodies)
+        {
+            double dv = Math.Sqrt((b.Vx - 3) * (b.Vx - 3) + (b.Vy + 2) * (b.Vy + 2) + (b.Vz - 1) * (b.Vz - 1));
+            Assert.True(Math.Abs(dv - 8) < 1e-9 || dv < 1e-9, $"burst of 2000 / 250 or none (a piece at the shape centre), got {dv}");
+            Assert.InRange(b.Wx, -2.5, 2.5);
+            Assert.InRange(b.Wy, -2.5, 2.5);
+            Assert.InRange(b.Wz, -2.5, 2.5);
+            Assert.Equal(250, b.Mass);
+        }
+    }
+
+    [Fact]
+    public void DebrisCloudRowsAreTheDataWhoseTypeSharesABitWithTheMaskUpToTheFirstRowOverTheBudget() // 00475484
+    {
+        var rows = new[]
+        {
+            new DebrisRow(0, 1, 10, 2, "a.dts", DebrisParams.Default), new DebrisRow(1, 2, 10, 1, "b.dts", DebrisParams.Default),
+            new DebrisRow(2, 3, 20, 4, "c.dts", DebrisParams.Default), new DebrisRow(3, 1, 500, 1, "d.dts", DebrisParams.Default),
+            new DebrisRow(4, 1, 5, 1, "e.dts", DebrisParams.Default),
+        };
+        var (found, total) = DebrisCloud.Find(rows, 1, 100);
+        Assert.Equal(new[] { 0, 2 }, found.Select(r => r.Index).ToArray());     // row 3 is over the budget and ends the walk; row 4 is never reached
+        Assert.Equal(6, total, 9);
+        Assert.Empty(DebrisCloud.Find(rows, 4, 100).Rows);                      // no row has bit 4
+        // the stock DebrisData have type 0 and mask 1: no row, no piece
+        Assert.Empty(DebrisCloud.Find(new[] { new DebrisRow(0, 0, 100, 1, "", DebrisParams.Default) }, 1, 90).Rows);
+    }
+
+    [Fact]
+    public void DebrisCloudSpendsItsBudgetRowByRowAndDropsRowsThatNoLongerFit() // DebrisCloud_spawn 00474478
+    {
+        var heavy = new DebrisRow(0, 1, 30, 1, "", DebrisParams.Default);
+        var light = new DebrisRow(1, 1, 10, 1, "", DebrisParams.Default);
+        Assert.Equal(2, DebrisCloud.Pick(new List<DebrisRow> { heavy }, 1, 70, new Random(4)).Count);   // 70 -> 40 -> 10 (< 30)
+        // with both rows the light one is dropped as soon as the budget is under 10, the heavy one under 30: at most 4 + 1 pieces for 45
+        Assert.InRange(DebrisCloud.Pick(new List<DebrisRow> { heavy, light }, 2, 45, new Random(4)).Count, 2, 5);
+        Assert.Equal(3, DebrisCloud.Pick(new List<DebrisRow> { light }, 1, 35, new Random(4)).Count);   // 35 -> 25 -> 15 -> 5 (< 10)
+        Assert.Empty(DebrisCloud.Pick(new List<DebrisRow>(), 0, 100, new Random(4)));
+    }
+
+    [Fact]
+    public void DebrisCloudLaunchThrowsAlongTheConeAxisByStrengthOverMass() // 00473e58 and the basis 00473c20
+    {
+        var basis = DebrisCloud.Basis(0, 0, 2, 0.5);                // a direction of any length, half angle 0.5
+        Assert.Equal(0.5, basis.Angle);
+        Assert.Equal(1, basis.Z[2], 9);
+        var b = new DebrisBody();
+        DebrisCloud.Launch(b, 1, 2, 3, 0, 0, -1, 0, 0, 0, 0, basis, 90, 0.2, 100, new Random(7));   // a cone of angle 0: straight along z
+        Assert.Equal(1, b.X, 9); Assert.Equal(2, b.Y, 9); Assert.Equal(3.2, b.Z, 9);
+        Assert.Equal(-1 + 0.9, b.Vz, 9);
+        Assert.InRange(b.Wx, -0.675 * 2, 0.675 * 2);
+        var none = DebrisCloud.Basis(0, 0, 0, 0.1);
+        Assert.Equal(Math.PI, none.Angle);                          // no direction: every direction
+    }
+
+    [Fact]
+    public void ADebrisEndHandsTheSecondaryCloudTheMassTimesPointNineAsBudget() // Debris_explode 00472954
+    {
+        var p = DebrisParams.Default with { SpawnMask = 3, SpawnStrength = 90, SpawnRadius = 0.4 };
+        var b = new DebrisBody { X = 1, Y = 2, Z = 3, Vx = 4, Mass = 100 };
+        DebrisCloudSpec spec = b.SecondaryCloud(p, 9990)!.Value;
+        Assert.Equal((3, 1.0, 2.0, 3.0, 4.0, 90.0, 90.0, 0.4, 9990.0), (spec.Mask, spec.X, spec.Y, spec.Z, spec.Vx, spec.Budget, spec.Strength, spec.Radius, spec.Remaining));
+        Assert.Null(b.SecondaryCloud(p with { SpawnMask = 0 }, 9990));
+        Assert.Null(b.SecondaryCloud(p, 0));
     }
 
     [Fact]
