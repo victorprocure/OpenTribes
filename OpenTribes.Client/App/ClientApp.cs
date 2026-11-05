@@ -32,6 +32,8 @@ public sealed class ClientApp : IDisposable
     public GuiRuntime GuiRt = null!;
     public GlWindow? Win;
     public GlGfxDevice? Dev;
+    // The joysticks found when the input system opened (client-app.md 3.1); none in headless runs.
+    public JoystickSet? Joysticks;
     public SoundManager? Sound;
     public SfxCommands? Sfx;
     public AudioOutput? AudioDev;
@@ -117,6 +119,7 @@ public sealed class ClientApp : IDisposable
             FramePerf.Device = Dev as IGfxStats;
             Win.SetSwapInterval(Opt.NoVsync || Opt.VirtualStep != 0 ? 0 : 1);
             Win.SetRelativeMouse(false);
+            Joysticks = JoystickSet.Open();
         }
         ForceWindowed = Opt.Windowed;
 
@@ -773,7 +776,8 @@ public sealed class ClientApp : IDisposable
             return true;
         var raw = new RawInput
         {
-            Device = ev.DeviceType == 3 ? RawInput.DevKeyboard : RawInput.DevMouse,
+            // Other devices (the joystick) go to the canvas as their own device: it consumes them only with capture-all (gui.md 2.7).
+            Device = ev.DeviceType == 3 ? RawInput.DevKeyboard : ev.DeviceType == 2 ? RawInput.DevMouse : ev.DeviceType,
             ObjType = ev.ObjType,
             Index = ev.ObjInst,
             Action = (byte)(ev.Action == 1 ? 1 : 0),
@@ -803,6 +807,34 @@ public sealed class ClientApp : IDisposable
         if (counts == 0 || !Handlers.DeviceActive("mouse0"))
             return;
         Input.Process(new InputEvent { DeviceType = 2, DeviceInst = 0, ObjType = (byte)(11 + axis), ObjInst = 0, Action = 3 }, counts);
+    }
+
+    // Joystick events (client-app.md 3.2, 3.3 and 3.6; JoystickEvents). An inactive device makes no events (0050f550 reads only
+    // active devices).
+    public void InjectJoyButton(int dev, int index, bool down)
+    {
+        if (!Handlers.DeviceActive("joystick" + dev))
+            return;
+        Input.Process(JoystickEvents.Button(dev, index, down), down ? 1f : 0f);
+    }
+
+    public void InjectJoyAxis(int dev, int sdlAxis, int raw)
+    {
+        if (!Handlers.DeviceActive("joystick" + dev))
+            return;
+        (byte type, byte inst) = JoystickEvents.AxisObject(sdlAxis);
+        Input.Process(new InputEvent { DeviceType = JoystickEvents.DeviceType, DeviceInst = (byte)dev, ObjType = type, ObjInst = inst, Action = 3 },
+            JoystickEvents.AxisValue(raw));
+    }
+
+    // A buffered device passes the new angle as the old one, so only the two move events are made.
+    public void InjectJoyHat(int dev, int hat, int sdlHat)
+    {
+        if (!Handlers.DeviceActive("joystick" + dev))
+            return;
+        int angle = JoystickEvents.HatAngle(sdlHat);
+        foreach (var (type, action, value) in JoystickEvents.PovEvents(angle, angle))
+            Input.Process(new InputEvent { DeviceType = JoystickEvents.DeviceType, DeviceInst = (byte)dev, ObjType = type, ObjInst = (byte)hat, Action = action }, value);
     }
 
     private void PumpEvents()
@@ -839,6 +871,22 @@ public sealed class ClientApp : IDisposable
                 case Sdl3.EventMouseWheel:
                     InjectAxis(2, ev.WheelY * 120f);
                     break;
+                case Sdl3.EventJoyAxisMotion:
+                case Sdl3.EventJoyHatMotion:
+                case Sdl3.EventJoyButtonDown:
+                case Sdl3.EventJoyButtonUp:
+                    {
+                        int dev = Joysticks?.InstanceOf(ev.JoyWhich) ?? -1;
+                        if (dev < 0)
+                            break;
+                        if (ev.Type == Sdl3.EventJoyAxisMotion)
+                            InjectJoyAxis(dev, ev.JoyIndex, ev.JoyAxisValue);
+                        else if (ev.Type == Sdl3.EventJoyHatMotion)
+                            InjectJoyHat(dev, ev.JoyIndex, ev.JoyHat);
+                        else
+                            InjectJoyButton(dev, ev.JoyIndex, ev.Type == Sdl3.EventJoyButtonDown);
+                        break;
+                    }
                 case Sdl3.EventWindowFocusLost:
                     Canvas.WindowActive = false;
                     Input.Clear();
@@ -889,6 +937,7 @@ public sealed class ClientApp : IDisposable
         Delegates.Browser.Dispose();
         AudioDev?.Dispose();
         Dev?.Dispose();
+        Joysticks?.Dispose();
         Win?.Dispose();
         mLogFile?.Dispose();
     }

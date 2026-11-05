@@ -210,4 +210,9 @@ public struct SdlEvent
     [FieldOffset(24)] public byte Button;        // mouse button events: 1 left, 2 middle, 3 right
     [FieldOffset(25)] public byte ButtonDown;    // mouse button events
     [FieldOffset(28)] public float WheelY;       // mouse wheel
+    [FieldOffset(16)] public uint JoyWhich;      // joystick events: instance id
+    [FieldOffset(20)] public byte JoyIndex;      // joystick events: axis, hat or button index
+    [FieldOffset(21)] public byte JoyHat;        // joystick hat events: SDL_HAT_* bits
+    [FieldOffset(21)] public byte JoyDown;       // joystick button events
+    [FieldOffset(24)] public short JoyAxisValue; // joystick axis events: -32768 to 32767
 }

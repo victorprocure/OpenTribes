@@ -7,6 +7,7 @@ using System.Text;
 using OpenTribes.Core;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
+using OpenTribes.Platform.Sdl;
 using OpenTribes.Script;
 
 namespace OpenTribes.Client.App;
@@ -30,7 +31,24 @@ public sealed class ClientCommandHandlers
 
     public ClientCommandHandlers(ClientApp app) => mApp = app;
 
-    public bool DeviceActive(string name) => !mInactive.Contains(name);
+    // Keyboard and mouse are active until deactivated (the stock start-up activates both). A joystick starts inactive: the
+    // device record's active flag is cleared when it is built (0050e9e8) and only inputActivate sets it (0050e220, case 8 of
+    // the command table at 00520cea); the stock start-up never activates one.
+    private readonly HashSet<string> mJoyActive = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool DeviceActive(string name) =>
+        name.StartsWith("joystick", StringComparison.OrdinalIgnoreCase) ? mJoyActive.Contains(name) : !mInactive.Contains(name);
+
+    private int JoystickCount => mApp.Joysticks?.Count ?? 0;
+
+    // The names a script can use: class name and instance (0050ed5c formats "mouse%d", "keyboard%d", "joystick%d").
+    private IEnumerable<string> DeviceNamesNow()
+    {
+        foreach (string d in kDevices)
+            yield return d;
+        for (int i = 0; i < JoystickCount; ++i)
+            yield return "joystick" + i;
+    }
 
     private void Cmd(string name, Func<string[], string?> body) => I.AddCommand(name, (_, a) => body(a));
 
@@ -388,13 +406,13 @@ public sealed class ClientCommandHandlers
         });
         Cmd("listInputDevices", a =>
         {
-            foreach (string d in kDevices)
-                I.Print(1, d + (mInactive.Contains(d) ? "" : " (active)") + (d.StartsWith("keyboard") ? ": SDL3 keyboard, 111 keys" : ": SDL3 mouse, 3 buttons, 3 axes"));
+            foreach (string d in DeviceNamesNow())
+                I.Print(1, d + (DeviceActive(d) ? " (active)" : "") + DeviceText(d));
             return "";
         });
         Cmd("getInputDeviceInfo", a =>
         {
-            if (a.Length != 2 || !kDevices.Contains(a[1], StringComparer.OrdinalIgnoreCase))
+            if (a.Length != 2 || !DeviceNamesNow().Contains(a[1], StringComparer.OrdinalIgnoreCase))
             {
                 I.Print(1, "getInputDeviceInfo: no such device " + (a.Length > 1 ? a[1] : ""));
                 return "False";
@@ -415,7 +433,7 @@ public sealed class ClientCommandHandlers
                 return "False";
             }
             var lines = new List<string>();
-            foreach (string d in kDevices)
+            foreach (string d in DeviceNamesNow())
                 DeviceInfo(d, lines.Add);
             File.WriteAllLines(Builtins.HostFilePath(mApp.Opt.Root, a[1]), lines);
             return "";
@@ -434,14 +452,19 @@ public sealed class ClientCommandHandlers
             if (string.Equals(a[1], "all", StringComparison.OrdinalIgnoreCase))
             {
                 mInactive.Clear();
+                for (int j = 0; j < JoystickCount; ++j)
+                    mJoyActive.Add("joystick" + j);
                 return "True";
             }
-            if (!kDevices.Contains(a[1], StringComparer.OrdinalIgnoreCase))
+            if (!DeviceNamesNow().Contains(a[1], StringComparer.OrdinalIgnoreCase))
             {
                 I.Print(1, "inputActivate: unknown device " + a[1]);
                 return "False";
             }
-            mInactive.Remove(a[1]);
+            if (a[1].StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
+                mJoyActive.Add(a[1]);
+            else
+                mInactive.Remove(a[1]);
             return "True";
         });
         Cmd("inputDeactivate", a =>
@@ -455,15 +478,19 @@ public sealed class ClientCommandHandlers
             {
                 foreach (string d in kDevices)
                     mInactive.Add(d);
+                mJoyActive.Clear();
                 mApp.Input.Clear();
                 return "True";
             }
-            if (!kDevices.Contains(a[1], StringComparer.OrdinalIgnoreCase))
+            if (!DeviceNamesNow().Contains(a[1], StringComparer.OrdinalIgnoreCase))
             {
                 I.Print(1, "inputDeactivate: unknown device " + a[1]);
                 return "False";
             }
-            mInactive.Add(a[1]);
+            if (a[1].StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
+                mJoyActive.Remove(a[1]);
+            else
+                mInactive.Add(a[1]);
             return "True";
         });
         // Test aid: the state of the input path (docs/client-scripts.md 3.6 to 3.8).
@@ -501,9 +528,35 @@ public sealed class ClientCommandHandlers
         _ = mInputOpen;
     }
 
-    private static void DeviceInfo(string device, Action<string> line)
+    private string DeviceText(string d)
+    {
+        if (d.StartsWith("keyboard"))
+            return ": SDL3 keyboard, 111 keys";
+        if (!d.StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
+            return ": SDL3 mouse, 3 buttons, 3 axes";
+        int i = int.Parse(d.AsSpan(8), CultureInfo.InvariantCulture);
+        JoystickSet j = mApp.Joysticks!;
+        return ": " + j.NameOf(i) + ", " + j.ButtonsOf(i) + " buttons, " + j.AxesOf(i) + " axes, " + j.HatsOf(i) + " povs";
+    }
+
+    private void DeviceInfo(string device, Action<string> line)
     {
         line("Type\tName");
+        if (device.StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
+        {
+            int i = int.Parse(device.AsSpan(8), CultureInfo.InvariantCulture);
+            JoystickSet j = mApp.Joysticks!;
+            for (int a = 0; a < j.AxesOf(i); ++a)
+            {
+                (byte type, byte inst) = JoystickEvents.AxisObject(a);
+                line((type == JoystickEvents.ObjSlider ? "Slider\tslider" : "Axis\t" + AxisWord(type)) + inst);
+            }
+            for (int b = 0; b < j.ButtonsOf(i); ++b)
+                line("Button\tbutton" + b);
+            for (int p = 0; p < j.HatsOf(i); ++p)
+                line("Pov\tpov" + p);
+            return;
+        }
         if (device.StartsWith("keyboard", StringComparison.OrdinalIgnoreCase))
         {
             foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
@@ -518,6 +571,12 @@ public sealed class ClientCommandHandlers
                 line("Button\tbutton" + b);
         }
     }
+
+    private static string AxisWord(byte type) => type switch
+    {
+        JoystickEvents.ObjXAxis => "xaxis", JoystickEvents.ObjYAxis => "yaxis", JoystickEvents.ObjZAxis => "zaxis",
+        JoystickEvents.ObjRxAxis => "rxaxis", JoystickEvents.ObjRyAxis => "ryaxis", _ => "rzaxis",
+    };
 
     // ---- 2.5 CD audio (D36) ----
 

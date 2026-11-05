@@ -258,6 +258,32 @@ public sealed class ClientAppTests : IDisposable
     }
 
     [Fact]
+    public void JoystickStartsInactiveAndEventsReachBindingsOnceActivated()
+    {
+        // Stock: the device's active flag starts clear (0050e9e8) and only inputActivate sets it (00520cea, 0050e220); with no
+        // device attached the name is unknown.
+        Boot("newActionMap(\"t.sae\"); bindCommand(joystick0, make, button2, TO, \"$Fire = $Fire @ 1;\"); pushActionMap(\"t.sae\");");
+        Assert.Equal("False", Eval("inputActivate(joystick0);"));
+        Assert.Contains("inputActivate: unknown device joystick0", mLines);
+        mApp!.Joysticks = OpenTribes.Platform.Sdl.JoystickSet.Simulated("Test stick");
+        mApp.InjectJoyButton(0, 2, true);
+        Assert.Equal("", mApp.Interp.PeekVariable("$Fire"));
+        mApp.InjectJoyButton(0, 2, false);
+        Assert.Equal("True", Eval("inputActivate(joystick0);"));
+        mApp.InjectJoyButton(0, 2, true);
+        Assert.Equal("1", mApp.Interp.PeekVariable("$Fire"));
+        mApp.InjectJoyButton(0, 2, false);
+        Eval("inputDeactivate(joystick0);");
+        mApp.InjectJoyButton(0, 2, true);
+        Assert.Equal("1", mApp.Interp.PeekVariable("$Fire"));
+        // inputActivate(all) activates every device (0050e220 with 0xff, 0xff).
+        Eval("inputActivate(all);");
+        mApp.InjectJoyButton(0, 2, false);
+        mApp.InjectJoyButton(0, 2, true);
+        Assert.Equal("11", mApp.Interp.PeekVariable("$Fire"));
+    }
+
+    [Fact]
     public void PushAndPopActionMapCommandsAreRealAndNeedAMap()
     {
         // 2.6 and 3.8: pushActionMap puts the map on the stack, popActionMap takes it off; a map binding a command works.
