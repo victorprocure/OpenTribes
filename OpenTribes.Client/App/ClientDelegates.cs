@@ -43,7 +43,10 @@ public sealed class ClientDelegates
             switch (n)
             {
                 case "PlayerSetup": d.OnMessage = PlayerSetupMessage; break;
-                case "JoinGame": d.OnMessage = JoinGameMessage; break;
+                case "JoinGame":
+                    d.OnMessage = JoinGameMessage;
+                    d.OnRemove = Browser.SaveList;
+                    break;
                 // The exit dialog loads quit.gui; the quit delegate ends the process when it is installed (client-app.md 6.1).
                 // 004dbc00: the main menu formats "Version %s" with the game version into its text control 140503.
                 case "MainMenu": d.OnOpenContent = c => c.FindById(140503)?.SetText("Version " + GameVersion); break;
@@ -53,11 +56,11 @@ public sealed class ClientDelegates
             }
             mApp.Canvas.Delegates[n] = d;
         }
-        // addGameServer(address, name, version, ping, favorite): adds a row to the join screen's list (client-scripts.md 6.3,
-        // GameServerList.cs).
+        // addGameServer(address, name, version, ping, favorite [, neverPing]) and the 11 argument form of the saved file: adds a row to the
+        // join screen's list (client-scripts.md 6.3, GameServerList.cs; command 0041e470, row 004c5320). A row with this address is replaced.
         mApp.Interp.AddCommand("addGameServer", (i, a) =>
         {
-            if (a.Length != 6)
+            if (a.Length < 6)
             {
                 i.Print(1, "addGameServer(address, name, version, ping, favorite <TRUE OR FALSE>);");
                 return "FALSE";
@@ -67,12 +70,29 @@ public sealed class ClientDelegates
                 i.Print(1, "Unable to locate the GAME server list control");
                 return "FALSE";
             }
-            int id = mNextRow++;
-            Servers[id] = (a[1], a[2]);
             if (list is GuiServerList browser)
-                browser.AddServer(new GuiServerList.Server(id, a[2], a[1], a[3], Numbers.BorlandAtoi(a[4]), ClientCommandHandlers.IsTrue(a[5])));
+            {
+                if (GuiServerList.ParseScriptRow(mNextRow, a) is { } row)
+                {
+                    if (browser.Find(row.Address) is { } old)
+                    {
+                        row.Id = old.Id;
+                        browser.ReplaceServer(old, row);
+                    }
+                    else
+                    {
+                        ++mNextRow;
+                        browser.AddServer(row);
+                    }
+                    Servers[row.Id] = (a[1], a[2]);
+                }
+            }
             else
+            {
+                int id = mNextRow++;
+                Servers[id] = (a[1], a[2]);
                 list.AddEntry($"{a[2]}   {a[1]}   {a[3]}   {a[4]} ms", id);
+            }
             return "TRUE";
         });
         // rebuildServerList() is TribesNet_queryServers (0041e4cc, 0042bb50): the LAN broadcast and the first master.

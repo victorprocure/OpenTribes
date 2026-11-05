@@ -1,5 +1,6 @@
 // docs/gui.md 3.3 "Column lists": the array controls with a header row and several columns per row.
 using System.Globalization;
+using OpenTribes.Script;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
@@ -555,7 +556,9 @@ public sealed class GuiServerList : GuiColumnList
         public int Id;
         public string Name, Address, Version;
         public int Ping;
-        public bool Favorite;
+        // +0x241 favorite (the star, kept through failed queries, saved), +0x244 never ping (the broadcast and master replies for it are
+        // ignored, 004c525c; the row shows the I_Timeout icon, 004c8278 column 0).
+        public bool Favorite, NeverPing;
         public int State = 3;
         public int Players, MaxPlayers, Cpu;
         public bool Password, Dedicated;
@@ -586,6 +589,8 @@ public sealed class GuiServerList : GuiColumnList
 
     // +0x3b0: rows that failed stay in the list (the stock refresh of visible servers and the cancel set it).
     public bool KeepFailed;
+    // +0x3b1: a REFRESH ALL has run since the list woke; +0x3b2: the favorites that did not answer are asked directly when it ends.
+    public bool RefreshedAll, Requery;
     // pref::ConnectionGoodPing and PoorPing: the ping icon (004c8278 column 1; the exe defaults are 200 and 350).
     public int GoodPing = 200, PoorPing = 350;
 
@@ -602,6 +607,96 @@ public sealed class GuiServerList : GuiColumnList
             s.State = StateUnknown;
         }
         KeepFailed = false;
+        RefreshedAll = true;
+        Requery = true;
+    }
+
+    // 004c6f..4c702e (the list's wake, last statements): rows that fail stay, nothing is re-asked, no refresh has run.
+    public void ResetSearchFlags()
+    {
+        KeepFailed = true;
+        Requery = false;
+        RefreshedAll = false;
+    }
+
+    // 004c7820 (the search ended; masterError is the delegate's +0x60): the rows that did not answer (unknown or being queried) are
+    // dropped unless they are favorites, never-ping rows or the failures are kept; a favorite (or any row after a master error) is
+    // asked directly when REFRESH ALL asked for it. Returns the rows to ask. The selection follows its row by address.
+    public List<Server> EndSearch(bool masterError)
+    {
+        KeepFailed = masterError;
+        var ask = new List<Server>();
+        var drop = new List<Server>();
+        foreach (Server s in mServers)
+        {
+            if (s.State != StateUnknown && s.State != StateQuerying)
+                continue;
+            if ((!s.Favorite && !KeepFailed) || !Requery)
+            {
+                if (!s.Favorite && !s.NeverPing && !KeepFailed && RefreshedAll)
+                    drop.Add(s);
+                else if (s.State == StateQuerying)
+                    s.State = StateUnknown;
+            }
+            else
+            {
+                s.State = StateQuerying;
+                ask.Add(s);
+            }
+        }
+        foreach (Server s in drop)
+            RemoveServer(s);
+        Requery = false;
+        return ask;
+    }
+
+    // 004c5320 (the console command addGameServer, argv[0] is the command name): a row of GameServerList.cs. The short form has
+    // address, name, version, ping and favorite; a 7 argument form adds never ping, an 11 argument form adds the mod, mission,
+    // mission type, cpu and never ping (the file 004c4e2c writes). Null when the first five are not all given.
+    public static Server? ParseScriptRow(int id, IReadOnlyList<string> a)
+    {
+        if (a.Count < 6 || a[1].Length == 0 || a[2].Length == 0 || a[3].Length == 0 || a[4].Length == 0 || a[5].Length == 0)
+            return null;
+        static bool Flag(string v) => v.Length != 0 && !string.Equals(v, "FALSE", StringComparison.OrdinalIgnoreCase);
+        var s = new Server(id, a[2], a[1], a[3], Numbers.BorlandAtoi(a[4]), Flag(a[5])) { Cpu = -1 };
+        if (a.Count == 7)
+            s.NeverPing = Flag(a[6]);
+        else if (a.Count == 11)
+        {
+            s.ModList = a[6];
+            s.Mission = a[7];
+            s.MissionType = a[8];
+            s.Cpu = Numbers.BorlandAtoi(a[9]);
+            s.NeverPing = Flag(a[10]);
+        }
+        return s;
+    }
+
+    // 004c4e2c: the text of config\GameServerList.cs, one addGameServer line per row.
+    public string BuildServerFile()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("//-----------------------------------\n//\n// Database of GAME servers\n//\n//-----------------------------------\n\n");
+        foreach (Server s in mServers)
+            sb.Append("addGameServer(\"").Append(s.Address).Append("\", \"").Append(s.Name).Append("\", \"").Append(s.Version)
+              .Append("\", \"").Append(s.Ping.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("\", \"")
+              .Append(s.Favorite ? "TRUE" : "FALSE").Append("\", \"").Append(s.ModList).Append("\", \"").Append(s.Mission)
+              .Append("\", \"").Append(s.MissionType).Append("\", \"").Append(s.Cpu.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append("\", \"").Append(s.NeverPing ? "TRUE" : "FALSE").Append("\");\n");
+        return sb.ToString();
+    }
+
+    // 004c51f0 / 004c52b4: the flags of the row with this address (ignoring case).
+    public void SetFavorite(string address, bool on)
+    {
+        if (Find(address) is { } s)
+            s.Favorite = on;
+    }
+
+    public void SetNeverPing(string address, bool on)
+    {
+        if (Find(address) is { } s)
+            s.NeverPing = on;
     }
 
     // 004c6888: the hand over the rows and the header; the horizontal adjust cursor on a column border of the header.
@@ -654,6 +749,17 @@ public sealed class GuiServerList : GuiColumnList
     {
         mServers.Add(s);
         AddEntry(s.Name, s.Id);
+    }
+
+    // 004c5320: a row for an address already listed takes the new fields in place.
+    public void ReplaceServer(Server old, Server row)
+    {
+        int i = mServers.IndexOf(old);
+        if (i < 0)
+            return;
+        mServers[i] = row;
+        if (i < Entries.Count)
+            Entries[i] = (row.Name, row.Id);
     }
 
     public void RemoveServer(Server s)
@@ -742,7 +848,10 @@ public sealed class GuiServerList : GuiColumnList
         switch (dataIndex)
         {
             case 0:
-                if (s.Favorite)
+                // 004c8278: a never-ping row shows the I_Timeout picture (and nothing else), else a favorite its star.
+                if (s.NeverPing)
+                    Put("I_Timeout.bmp", ref ix);
+                else if (s.Favorite)
                     Put("I_Favorite.bmp", ref ix);
                 break;
             case 1:
