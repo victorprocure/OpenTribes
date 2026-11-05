@@ -104,6 +104,7 @@ public sealed class LiveGame : IDisposable
         };
         Hook(Net.World);
         ClientWorld netWorld = Net.World;
+        Net.Prediction.Turret.Resolve = ResolveTurretAim;
         Net.OnConnection = (msg, reason) =>
         {
             if (msg != "Accepted")
@@ -243,6 +244,7 @@ public sealed class LiveGame : IDisposable
         {
             FeedRemote();
             FeedControlVehicle();
+            FeedControlTurret();
             FeedControlImages();
             mTickCarry += (now - prev) / 1000.0;
             while (mTickCarry >= 0.032)
@@ -420,6 +422,13 @@ public sealed class LiveGame : IDisposable
             float dist = mApp.Play.Moves.ViewDist;
             pose = DemoRender.VehicleCamera(Model, World.Psc.ControlGhost, dist, self != null ? Net.PredictWorld!.Game.World : null, self) ?? pose;
         }
+        // Turret_getCameraTransform 004564fc: the aim is the ghost's, replayed with the buffered moves (Turret_clientUpdate 00456428).
+        if (Model != null && World.Psc.ControlClass == "Turret" && World.Psc.ControlGhost >= 0 && Net is { Prediction.Turret.Active: true } tn)
+        {
+            TurretControl tc = tn.Prediction.Turret;
+            pose = DemoRender.TurretCamera(Model, World.Psc.ControlGhost, tc.Rotation, tc.Elevation, mApp.Play.Moves.ViewDist,
+                                           Net.PredictWorld?.Game.World, null) ?? pose;
+        }
         return pose;
     }
 
@@ -448,6 +457,9 @@ public sealed class LiveGame : IDisposable
             return null;
         if (psc.ControlClass is "Vehicle" or "Flier")
             return Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual { Driven: true } sv ? sv.HeadingRad : null;
+        // Turret vtable +0x178 (00452d28): the aim rotation (+0x8b4) plus the rotation z of the object (+0x24c).
+        if (psc.ControlClass == "Turret" && Net is { Prediction.Turret.Active: true } tn)
+            return Model.Visuals.TryGetValue(ghost, out Visual? tv) && tv is ShapeVisual tsv ? (float)(tn.Prediction.Turret.Rotation + tsv.HeadingRad) : null;
         if (psc.ControlClass == "Player" && Net?.PredictWorld != null && Net.Prediction.Object is Player { MountId: not 0 } p && Net.Prediction.Active)
         {
             var e = new float[3];
@@ -502,6 +514,38 @@ public sealed class LiveGame : IDisposable
             sv.Driven = true;
             sv.SetSmoothed(rot[0], rot[1], rot[2], pos[0], pos[1], pos[2]);
         }
+    }
+
+    // The values of the aim step for a Turret ghost: TurretData (group 19) speed, speedModifier and isSustained, and the elevation limits of
+    // the shape (Turret_onNewDataBlock 00452970). Null until the scene has the visual.
+    private TurretAimParams? ResolveTurretAim(ClientGhost g)
+    {
+        if (Model == null || !Model.Visuals.TryGetValue(g.Index, out Visual? v) || v is not ShapeVisual sv)
+            return null;
+        if (!g.State.TryGetValue("datablock", out object? di) || di is not long idx
+            || !World.DataBlocks.Blocks.TryGetValue((19, (int)idx), out ClientDataBlock? b))
+            return null;
+        double F(string name, double def)
+        {
+            foreach (DecodedField f in b.Fields)
+                if (f.Name == name)
+                    return Db.ToDouble(f.Value, def);
+            return def;
+        }
+        sv.TryElevationLimits(out float min, out float max);
+        return new TurretAimParams((float)F("speed", 1), (float)F("speedModifier", 0), F("isSustained", 0) != 0, min, max);
+    }
+
+    // The control Turret draws the aim the client keeps (TurretControl): its ghost is owner-only and carries no rotation or elevation.
+    private void FeedControlTurret()
+    {
+        ClientPsc psc = World.Psc;
+        if (psc.ControlClass != "Turret" || psc.ControlGhost < 0 || Model == null || Net is not { Prediction.Turret.Active: true } n
+            || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not ShapeVisual sv)
+            return;
+        TurretControl tc = n.Prediction.Turret;
+        sv.TryElevationLimits(out float min, out float max);
+        sv.SetTurretAim(tc.Rotation, tc.Elevation, min, max);
     }
 
     // The Flier client threads (Flier_clientUpdate 0042e254) read the state of the simulated copy.
