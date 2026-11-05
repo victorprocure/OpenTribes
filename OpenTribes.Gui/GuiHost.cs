@@ -40,6 +40,10 @@ public sealed class GuiHost
     public Action<byte[], int, int>? OnMoviePalette;
     public Action? OnMovieEnd;
     public Func<OpenTribes.Platform.Audio.WavData, Action?>? StartMovieAudio;
+    // The chat menu objects the command map drives by name (`CommandChatMenu`, TSCommander 004d2a98): whether an object of that name
+    // exists, and setCMMode on it.
+    public Func<string, bool>? ChatMenuExists;
+    public Action<string, int>? SetChatMenuMode;
     // The model views (FearGui::ShapeView, SkinView) draw through this: the client owns the shape renderer.
     public IModelViewRenderer? ModelViews;
 
@@ -232,7 +236,30 @@ public interface IHudSource
     CommandMapMarks? CommandMapMarks => null;
     // The mission objective lines (TeamObjectiveEvent), 32 slots; a slot nobody set is null.
     IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
+
+    // ---- what the command map and the team list read and write (TSCommander 004d1bf0 .. 004d3018, CommandTeamCtrl 004a8b00) ----
+    // The local human client of the command map (`PlayerManager_findHumanClient` of the manager id): id and team, null without one.
+    CommandLocalClient? CommandLocal => null;
+    // The 256 slots of the command map block as the map control reads them (+0x340 .. +0x364), null without a client.
+    OpenTribes.Game.ClientCommandSlot[]? CommandSlotTable => null;
+    // The mapFilter field (+0x18) of the datablock of that group and index, null when the datablock does not exist (`DataBlockManager_getByIndex` 0).
+    int? CommandBlockFilter(int group, int index) => null;
+    // The name of the human client with that id, null when there is none (`PlayerManager_findHumanClient`).
+    string? CommandClientName(int clientId) => null;
+    // The label a target slot (128 and up) was given (TargetNameEvent), null without one.
+    string? CommandTargetName(int slot) => null;
+    // The selected byte (+0x68) of the client record with that id (`PlayerManager_findClient`).
+    void CommandSetSelected(int clientId, bool on) { }
+    // The expanded byte (+0x69) of the record, flipped by a click on the tree glyph.
+    void CommandToggleExpanded(int clientId) { }
+    // `PlayerManager_isInCommandChain` [code 0040cad4]: whether `commander` stands above `clientId` in the command chain.
+    bool CommandInChain(int clientId, int commander) => false;
+    // The command tree links of a record (+0x74 first subordinate, +0x78 next sibling) as client ids, -1 for none; null for an unknown id.
+    (int FirstChild, int NextSibling, bool Selected)? CommandLinks(int clientId) => null;
 }
+
+// The id and team of the local human client record.
+public readonly record struct CommandLocalClient(int Id, int Team);
 
 // The compass input: the waypoint (006a83e8, 006a83ec) and the control object's x and y.
 public readonly record struct HudWaypoint(double X, double Y, double PlayerX, double PlayerY);

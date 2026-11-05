@@ -300,9 +300,14 @@ public sealed class ClientHudSource : IHudSource
 
     // The command tree of the local player's team [code 004a85c0, 0040b46c, 004a8548]: the records of the team whose commander is not a
     // human record are the top level (oldest first [I: the client table has no join order, the id order stands for it]), the others hang
-    // under their commander; every node is expanded (the +0x69 byte starts at 1 and nothing here clears it). Each row has the status of
-    // its command map slot: the damage level is not read from the PSC command block yet (low), the order is the record's command
-    // status + 1 [docs/client-net.md 4.5 mode 2].
+    // under their commander; the children of a node are listed while its expanded byte (+0x69, starts at 1) is set. Each row has the status
+    // of its command map slot: the damage level is not read from the PSC command block yet (low), the order is the record's command
+    // status + 1 [docs/client-net.md 4.5 mode 2]. A row is selected while the record's +0x68 byte is set.
+    private ClientPlayerRecord? CommandParent(ClientPlayerRecord r) => r.Commander != -1 && mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null;
+
+    private List<ClientPlayerRecord> CommandChildren(ClientPlayerRecord? parent, int team) =>
+        mWorld.Players.Clients.Values.Where(r => parent == null ? CommandParent(r) == null && r.Team == team : CommandParent(r) == parent).ToList();
+
     public IReadOnlyList<CommandTeamRow> CommandTeam
     {
         get
@@ -311,25 +316,68 @@ public sealed class ClientHudSource : IHudSource
             ClientPlayerManager pm = mWorld.Players;
             if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
                 return rows;
-            ClientPlayerRecord? Parent(ClientPlayerRecord r) => r.Commander != -1 && pm.Get(r.Commander) is { Ai: false } c ? c : null;
-            List<ClientPlayerRecord> Children(ClientPlayerRecord? parent, int team) =>
-                pm.Clients.Values.Where(r => parent == null ? Parent(r) == null && r.Team == team : Parent(r) == parent).ToList();
             void Add(List<ClientPlayerRecord> siblings, int depth, List<(int Depth, bool HasNext)> above)
             {
                 for (int i = 0; i < siblings.Count; ++i)
                 {
                     ClientPlayerRecord r = siblings[i];
-                    List<ClientPlayerRecord> kids = Children(r, me.Team);
+                    List<ClientPlayerRecord> kids = CommandChildren(r, me.Team);
                     bool next = i + 1 < siblings.Count;
-                    rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, true, next, 0, r.CommandStatus + 1, above.ToArray()));
+                    rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, r.Expanded, next, 0, r.CommandStatus + 1, above.ToArray(), r.Selected));
+                    if (!r.Expanded)
+                        continue;
                     var nested = new List<(int Depth, bool HasNext)> { (depth, next) };
                     nested.AddRange(above);
                     Add(kids, depth + 1, nested);
                 }
             }
-            Add(Children(null, me.Team), 0, new List<(int Depth, bool HasNext)>());
+            Add(CommandChildren(null, me.Team), 0, new List<(int Depth, bool HasNext)>());
             return rows;
         }
+    }
+
+    public CommandLocalClient? CommandLocal =>
+        mWorld.Players.Get(mWorld.PlayerId) is { Ai: false, Team: var team } ? new CommandLocalClient(mWorld.PlayerId, team) : null;
+
+    public ClientCommandSlot[]? CommandSlotTable => Psc.CommandSlots;
+
+    public int? CommandBlockFilter(int group, int index) =>
+        mWorld.DataBlocks.Blocks.TryGetValue((group, index), out ClientDataBlock? b) ? (int)Fld(b, "mapFilter", -1) : null;
+
+    public string? CommandClientName(int clientId) => mWorld.Players.Get(clientId) is { Ai: false } r ? r.Name : null;
+
+    public string? CommandTargetName(int slot) => slot >= 128 && mWorld.Players.TargetNames.TryGetValue(slot - 128, out string? n) ? n : null;
+
+    public void CommandSetSelected(int clientId, bool on)
+    {
+        if (mWorld.Players.Get(clientId) is { } r)
+            r.Selected = on;
+    }
+
+    public void CommandToggleExpanded(int clientId)
+    {
+        if (mWorld.Players.Get(clientId) is { } r)
+            r.Expanded = !r.Expanded;
+    }
+
+    public bool CommandInChain(int clientId, int commander)
+    {
+        for (ClientPlayerRecord? r = mWorld.Players.Get(clientId); r != null; r = mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null)
+            if (r.Commander == commander)
+                return true;
+        return false;
+    }
+
+    // +0x74 is the first record under this one in the tree (the oldest [I as for the rows]), +0x78 the next one under the same commander.
+    public (int FirstChild, int NextSibling, bool Selected)? CommandLinks(int clientId)
+    {
+        ClientPlayerManager pm = mWorld.Players;
+        if (pm.Get(clientId) is not { } r || pm.Get(mWorld.PlayerId) is not { } me)
+            return null;
+        int first = CommandChildren(r, me.Team) is { Count: > 0 } kids ? kids[0].Id : -1;
+        List<ClientPlayerRecord> siblings = CommandChildren(CommandParent(r), r.Team);
+        int at = siblings.IndexOf(r);
+        return (first, at >= 0 && at + 1 < siblings.Count ? siblings[at + 1].Id : -1, r.Selected);
     }
     public IReadOnlyList<string?> ObjectiveLines => mWorld.Players.ObjectiveLines;
 

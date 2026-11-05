@@ -188,6 +188,58 @@ public sealed class PlayDelegate : IActionConsumer
         }
     }
 
+    // The messages of the command screen's buttons [code 004dd280 cases 0x223b3 .. 0x223b8, 0x271f3, 0x22353 .. 0x22355]: the zoom (140211) and centre
+    // (140216) buttons hand their lit state to the map, the three tabs (140115 players, 140116 controllables, 140117 objects) tell it which kind it
+    // selects, the report button (140213) asks the server to make the first selected player of the list the commander, the unreport button (140214)
+    // clears it, and take control (160243) mounts the selected turret.
+    public const int ReportButton = 140213, UnreportButton = 140214, TakeControlButton = 160243, PlayersTab = 140115, TurretsTab = 140116, ObjectsTab = 140117,
+        TeamListId = 140202;
+
+    private GuiCommandMap? Map() => mApp.GuiRt.FindControl(CommanderMapId.ToString(System.Globalization.CultureInfo.InvariantCulture)) as GuiCommandMap;
+
+    public bool Message(GuiControl? sender, int tag)
+    {
+        GuiCommandMap? map = Map();
+        switch (tag)
+        {
+            case (int)ZoomButtonId when sender is GuiUniversalButton zoom:
+                if (map != null)
+                    map.ZoomMode = zoom.On;
+                return true;
+            case (int)CenterButtonId when sender is GuiUniversalButton center:
+                if (map != null)
+                    map.CenterMode = center.On;
+                return true;
+            case ReportButton:
+                {
+                    if (mApp.GuiRt.FindControl(TeamListId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is not GuiCommandTeam team || mApp.Host.Hud?.CommandLocal == null)
+                        return false;
+                    int id = team.FirstReportable();
+                    if (id < 0)
+                        return false;
+                    mApp.Interp.CallFunction("remoteEval", new[] { "2048", "SelectCommander", id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                    return true;
+                }
+            case UnreportButton:
+                if (mApp.Host.Hud?.CommandLocal == null)
+                    return false;
+                mApp.Interp.CallFunction("remoteEval", new[] { "2048", "SelectCommander", "-1" });
+                return true;
+            case TakeControlButton:
+                {
+                    int target = map?.SelectedTurretTarget() ?? -1;
+                    if (target >= 0)
+                        mApp.Interp.CallFunction("remoteEval", new[] { "2048", "CmdrMountObject", target.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                    return true;
+                }
+            case PlayersTab or TurretsTab or ObjectsTab:
+                if (map != null)
+                    map.Group = tag == PlayersTab ? 3 : tag == TurretsTab ? 0x13 : 4;
+                return true;
+        }
+        return false;
+    }
+
     // 4.4 / client-scripts 4.3: PlayDelegate_setGuiMode.
     public void SetGuiMode(int mode)
     {

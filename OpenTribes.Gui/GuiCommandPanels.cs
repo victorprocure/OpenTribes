@@ -8,7 +8,7 @@ namespace OpenTribes.Gui;
 // Damage is the status of its command map slot (0 low, 1 medium, 2 high), Order the command status of the slot (the record's command
 // status + 1: 2 pending, 3 acknowledged, else none).
 public sealed record CommandTeamRow(int Id, string Name, int Depth, bool HasChildren, bool Expanded, bool HasNext, int Damage, int Order,
-    IReadOnlyList<(int Depth, bool HasNext)> Ancestors);
+    IReadOnlyList<(int Depth, bool HasNext)> Ancestors, bool Selected = false);
 
 // A chat menu object on display in a FGChatMenu control: Active is false for a menu that is off (or has no items), Path is the headings
 // above the shown level joined with ':' (empty at the top level), Lines the items as "key: text".
@@ -80,6 +80,114 @@ public sealed class GuiChatMenu : GuiControl
 public sealed class GuiCommandTeam : GuiList
 {
     private IReadOnlyList<CommandTeamRow> mRows = Array.Empty<CommandTeamRow>();
+    private int mLastRow = -1;
+    private const int CellWidth = 640;
+    public IReadOnlyList<CommandTeamRow> Rows => mRows;
+    private const uint TagWaypointArrow = 160558;
+
+    private GuiCommandMap? Map
+    {
+        get
+        {
+            GuiControl top = this;
+            while (top.Parent != null)
+                top = top.Parent;
+            return (top.FindById(GuiCommandMap.MapId) ?? Canvas?.Content?.FindById(GuiCommandMap.MapId)) as GuiCommandMap;
+        }
+    }
+
+    // 004a8ad8: the waypoint arrow while the map waits for the order's target.
+    public override uint CursorTagAt(int lx, int ly) => Map is { OrderMode: 1 } ? TagWaypointArrow : base.CursorTagAt(lx, ly);
+
+    // 004a8a6c: the first selected row that is not the local client and does not already have the local client above it in the chain, -1 for none.
+    public int FirstReportable()
+    {
+        if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
+            return -1;
+        foreach (CommandTeamRow r in mRows)
+            if ((Host.Hud.CommandLinks(r.Id)?.Selected ?? false) && r.Id != me.Id && !Host.Hud.CommandInChain(r.Id, me.Id))
+                return r.Id;
+        return -1;
+    }
+
+    // 004a850c: select a record (the first of a level), then, for it and each later sibling, the first record under it and so on down.
+    private void SelectSubtree(GuiCommandMap map, int id, bool on)
+    {
+        if (id < 0)
+            return;
+        map.SelectClient(id, on);
+        for (int p = id; p >= 0; p = Host?.Hud?.CommandLinks(p)?.NextSibling ?? -1)
+            SelectSubtree(map, Host?.Hud?.CommandLinks(p)?.FirstChild ?? -1, on);
+    }
+
+    // 004a8b00: a click on a row. On the tree glyph of a node with children it flips the node open or closed. On the name: with the order cursor on, it
+    // gives the order to that player; else a plain click makes it the only selected player, ctrl flips it, shift selects the rows from the last plain click,
+    // and a double click does the same for the node and the records under it (004a850c). Any list selection first drops the turret and static selection.
+    public override bool MsDown(GuiEvent e)
+    {
+        GuiCommandMap? map = Map;
+        if (!Active || map == null)
+            return base.MsDown(e);
+        var (lx, ly) = GlobalToLocal(e.X, e.Y);
+        bool dbl = e.ClickCount > 1;
+        int col = lx < 0 ? -1 : lx / CellWidth, row = ly < 0 ? -1 : ly / RowHeight;
+        if (col < 0 || col >= 1 || row < 0 || row >= mRows.Count)
+            return true;
+        CommandTeamRow rec = mRows[row];
+        PbmaArray? pieces = Host?.ArrayByName(Low ? "LRCmdListCtrl.pba" : "CmdListCtrl.pba");
+        int step = (pieces != null && pieces.Bitmaps.Count > 11 ? pieces.Bitmaps[11].Width : 0) + 2;
+        int glyph = (Host?.BitmapByName("CMD_DamageHigh.bmp")?.Width ?? 0) + (Host?.BitmapByName("CMD_OrderAck.bmp")?.Width ?? 0) + step * rec.Depth + 4;
+        if (lx >= glyph && lx <= glyph + step && rec.HasChildren)
+        {
+            Host?.Hud?.CommandToggleExpanded(rec.Id);
+            return true;
+        }
+        if ((rec.Depth + 1) * step + 2 > lx)
+            return true;
+        if (map.OrderMode == 1)
+        {
+            Host?.SetVar("$CommandTargetName", rec.Name);
+            Host?.SetVar("$CommandTarget", "friendly player");
+            int slot = map.SlotOfClient(rec.Id);
+            if (slot >= 0)
+            {
+                map.IssueTargetOrder(slot);
+                map.SetOrderMode(0);
+            }
+            return true;
+        }
+        if (row != mLastRow)
+            dbl = false;
+        map.SelectTurret(-1);
+        map.SelectStatic(-1);
+        bool Live(int id) => Host?.Hud?.CommandLinks(id)?.Selected ?? false;
+        if (!e.Shift)
+        {
+            if (!e.Ctrl)
+            {
+                Selected = row;
+                map.SelectClient(-1, false);
+                if (!dbl)
+                    map.SelectClient(rec.Id, true);
+                else
+                    SelectSubtree(map, rec.Id, !Live(rec.Id));
+            }
+            else if (!dbl)
+                map.SelectClient(rec.Id, !Live(rec.Id));
+            else
+                SelectSubtree(map, rec.Id, !Live(rec.Id));
+        }
+        else
+        {
+            if (Selected < 0)
+                Selected = row;
+            map.SelectClient(-1, false);
+            for (int i = Math.Min(Selected, row); i <= Math.Max(Selected, row) && i < mRows.Count; ++i)
+                map.SelectClient(mRows[i].Id, true);
+        }
+        mLastRow = row;
+        return true;
+    }
 
     private bool Low => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
 
@@ -102,12 +210,16 @@ public sealed class GuiCommandTeam : GuiList
             return;
         PbmpBitmap? low = Host.BitmapByName("CMD_DamageLow.bmp"), med = Host.BitmapByName("CMD_DamageMed.bmp"), high = Host.BitmapByName("CMD_DamageHigh.bmp");
         PbmpBitmap? pending = Host.BitmapByName("CMD_OrderPending.bmp"), ack = Host.BitmapByName("CMD_OrderAck.bmp");
+        PbmpBitmap? ackPic = ack;
         PftFont? font = Host.FontByName(Low ? "if_w_6.pft" : "if_w_10b.pft");
         int step = pieces.Bitmaps[11].Width, rowH = RowHeight;
         for (int i = 0; i < mRows.Count; ++i)
         {
             CommandTeamRow r = mRows[i];
             int py = gy + i * rowH;
+            // A selected node first gets a 0xfc fill from the picture area to the cell's right edge [code 004a8638].
+            if (r.Selected)
+                p.Fill(gx + (high?.Width ?? 0) + (ackPic?.Width ?? 0) + 3, py, CellWidth - ((high?.Width ?? 0) + (ackPic?.Width ?? 0) + 3), rowH, 0xfc);
             PbmpBitmap? dmg = r.Damage == 2 ? high : r.Damage == 1 ? med : low;
             if (dmg == null)
                 continue;

@@ -1,4 +1,5 @@
 // FearGui::TSCommander, the commander map (command.gui): docs/gui.md 3.3 "The command map".
+using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
@@ -23,8 +24,9 @@ public sealed record CommandMapMarks(int LocalId, int LocalTeam, int Heading, IR
 // by min(parent width, parent height) / max(width, height) (both sides truncated) and centred in the parent on any axis where the parent
 // is larger [code 004cf3ed .. 004cf4f1]. Draw: the clip becomes the parent's rectangle, then the 16 tiles are stretched over the control,
 // each a quarter of its width and height (rounded up when four of them fall short), row by row from the control's top left corner.
-// Zoom (004d3424 in, 004d3710 out), the pan with the right button (004d2d78, 004d2e5c, 004d2fe0) and the zoom animation (004cf784) are ported; the
-// selection, the order cursor and the centring on the selected slots (004d1bf0, 004d2b1c, 004d3018) are not.
+// Zoom (004d3424 in, 004d3710 out), the pan with the right button (004d2d78, 004d2e5c, 004d2fe0), the zoom animation (004cf784), the selection
+// and the order cursor (left button 004d1bf0, 004d2754, 004d2b1c; 004d2a98, 004d291c, 004d2404, 004d2614, 004d23bc) and the centring on the
+// selected slots (004d3018, 004d3220, 004d32c4) are ported.
 public sealed class GuiCommandMap : GuiControl
 {
     private CommandMapPicture? mFitted;
@@ -32,7 +34,7 @@ public sealed class GuiCommandMap : GuiControl
     // The zoom mode (+0x28c: a left click zooms in, a right click out), the centre mode (+0x28d), the number of zoom steps (+0x290, 0 to 4), the
     // animation (+0x2d0 with its start tick +0x2d4, the rectangle it started from +0x2b0 and the one it ends at +0x2c0) and the pan (+0x274 with
     // the mouse (+0x264, +0x268) and the position (+0x278, +0x27c) where it started, +0x2d1 once the zoom or animation took the button).
-    public bool ZoomMode, CenterMode;
+    public bool ZoomMode;
     public int ZoomSteps;
     private bool mAnimating, mPanning, mButtonTaken;
     private long mAnimStart;
@@ -41,6 +43,31 @@ public sealed class GuiCommandMap : GuiControl
 
     public bool Animating => mAnimating;
     public const int MaxZoomSteps = 4;
+
+    // The ids of the controls of command.gui the map talks to: the current command line (0x223b2), the zoom (0x223b3) and centre (0x223b8) buttons
+    // are 140210, 140211 and 140216 in the file.
+    public const uint MapId = 140201, CurrentCommandId = 140210, CenterButtonId = 140216;
+    public const string CommandMenuName = "CommandChatMenu";
+    // The default cursors [code 004d23bc]: the arrow (0x27326) and the waypoint wait cursor (0x2732f) while the order cursor is on; the map's own
+    // cursors [code 004d1b54]: 0x2732d zoom, 0x27328 open hand, 0x27329 grab, 0x2732c waypoint.
+    private const uint TagArrow = 160550, TagWayWait = 160559, TagZoom = 160557, TagOpenHand = 160552, TagGrab = 160553, TagWaypoint = 160556;
+
+    // The selection and order state: +0x280 order mode (0 select, 1 the next click gives the order), +0x28f the kind the map selects (3 players, 4 statics
+    // and sensors, 0x13 turrets; the three list tabs of the screen set it), +0x360 the selected byte of each of the 256 slots, +0x28e (clear the selection
+    // when the next slot is added), +0x284 and +0x288 the order the menu chose, +0x275 (set while a script runs on behalf of an order, setIssueCommand
+    // then only stores), +0x260 to +0x270 the drag rectangle.
+    public int OrderMode { get; private set; }
+    public int Group = 3;
+    public readonly bool[] Selected = new bool[256];
+    public int OrderAction;
+    public string? OrderText;
+    private bool mClearOnAdd, mScriptGuard, mDragging;
+    private int mDragX0, mDragY0, mDragX1, mDragY1;
+
+    // The centre mode (+0x28d) and its animation (+0x2dc start position, +0x2e4 target, +0x2ec start tick).
+    private bool mCenterMode;
+    private long mCenterTick;
+    private (int X, int Y) mCenterFrom, mCenterTo;
 
     private int ZoomTime => int.TryParse(Host?.GetVar("$pref::CommanderZoomTime"), out int t) ? Math.Clamp(t, 1, 2000) : 250;
 
@@ -73,16 +100,28 @@ public sealed class GuiCommandMap : GuiControl
         mTo = to;
     }
 
-    // 004d3424: a step in. The control doubles in size around the cursor point and the change runs over `$pref::CommanderZoomTime`.
+    // 004d3424: a step in. The control doubles in size around the cursor point and the change runs over `$pref::CommanderZoomTime`. In centre mode
+    // the new place is the one that centres the selected slots (004d3018) and the centre animation restarts from the current place (004d3284).
     public void ZoomIn(int cursorX, int cursorY, bool overControl)
     {
         if (ZoomSteps >= MaxZoomSteps || Parent == null)
             return;
         var cur = mAnimating ? mTo : (X, Y, W, H);
         ++ZoomSteps;
-        var (cx, cy) = ZoomCentre(cursorX, cursorY, overControl);
-        int dx = cx - cur.Item1, dy = cy - cur.Item2;
-        StartAnimation(Clamp(cx - dx * 2, cy - dy * 2, cur.Item3 << 1, cur.Item4 << 1));
+        int nw = cur.Item3 << 1, nh = cur.Item4 << 1;
+        int px, py;
+        if (!mCenterMode)
+        {
+            var (cx, cy) = ZoomCentre(cursorX, cursorY, overControl);
+            int dx = cx - cur.Item1, dy = cy - cur.Item2;
+            (px, py) = (cx - dx * 2, cy - dy * 2);
+        }
+        else
+        {
+            (px, py) = CenterPos(nw, nh);
+            RestartCenter(px, py);
+        }
+        StartAnimation(Clamp(px, py, nw, nh));
     }
 
     // 004d3710: a step out; at no zoom the control is fitted again at once.
@@ -97,9 +136,20 @@ public sealed class GuiCommandMap : GuiControl
         }
         --ZoomSteps;
         var cur = mAnimating ? mTo : (X, Y, W, H);
-        var (cx, cy) = ZoomCentre(cursorX, cursorY, overControl);
-        int dx = cx - cur.Item1, dy = cy - cur.Item2;
-        StartAnimation(Clamp(cx - (dx >> 1), cy - (dy >> 1), cur.Item3 >> 1, cur.Item4 >> 1));
+        int nw = cur.Item3 >> 1, nh = cur.Item4 >> 1;
+        int px, py;
+        if (!mCenterMode)
+        {
+            var (cx, cy) = ZoomCentre(cursorX, cursorY, overControl);
+            int dx = cx - cur.Item1, dy = cy - cur.Item2;
+            (px, py) = (cx - (dx >> 1), cy - (dy >> 1));
+        }
+        else
+        {
+            (px, py) = CenterPos(nw, nh);
+            RestartCenter(px, py);
+        }
+        StartAnimation(Clamp(px, py, nw, nh));
     }
 
     // The keyboard forms (the play delegate actions ZOOM_IN and ZOOM_OUT [code 004dd280 cases 0x35c2f, 0x35c30]): the cursor counts as over the control when it is inside it.
@@ -123,54 +173,527 @@ public sealed class GuiCommandMap : GuiControl
         ZoomOut(cx, cy, over);
     }
 
-    // 004cf784: the animation step of every frame.
-    public override void PreRender()
+    // ---- centre mode [code 004d3018, 004d3220, 004d3284, 004d32c4] ----
+
+    // 004d3220: the centre mode on starts the centring from the current place; off only clears the flag.
+    public bool CenterMode
     {
-        if (!mAnimating)
-            return;
-        long now = Host?.TickMs ?? 0;
-        int time = ZoomTime;
-        if (now < mAnimStart + time)
+        get => mCenterMode;
+        set
         {
-            float f = (float)(now - mAnimStart) / time;
-            (X, Y, W, H) = ((int)(f * (mTo.X - mFrom.X)) + mFrom.X, (int)(f * (mTo.Y - mFrom.Y)) + mFrom.Y, (int)(f * (mTo.W - mFrom.W)) + mFrom.W,
-                (int)(f * (mTo.H - mFrom.H)) + mFrom.H);
-        }
-        else
-        {
-            (X, Y, W, H) = mTo;
-            mAnimating = false;
+            if (!value)
+            {
+                mCenterMode = false;
+                return;
+            }
+            mCenterMode = true;
+            mCenterTick = Host?.TickMs ?? 0;
+            mCenterFrom = (X, Y);
+            mCenterTo = CenterPos(W, H);
         }
     }
 
-    // The left button (004d1bf0): in zoom mode a click zooms in.
+    // 004d3284
+    private void RestartCenter(int x, int y)
+    {
+        mCenterTick = Host?.TickMs ?? 0;
+        mCenterFrom = (X, Y);
+        mCenterTo = (x, y);
+    }
+
+    private int PrefFilter => int.TryParse(Host?.GetVar("$pref::mapFilter"), out int f) ? f : 0;
+
+    // 004d3018: the place that puts the middle of the selected slots of the local team (the ones the map filter shows) in the middle of the parent, for a
+    // control of that size, kept over the parent; the current place when nothing counts.
+    private (int X, int Y) CenterPos(int w, int h)
+    {
+        IHudSource? hud = Host?.Hud;
+        CommandLocalClient? me = hud?.CommandLocal;
+        ClientCommandSlot[] slots = Slots;
+        long sumX = 0, sumY = 0;
+        int n = 0;
+        int pref = PrefFilter;
+        for (int i = 0; i < slots.Length; ++i)
+        {
+            ClientCommandSlot s = slots[i];
+            if (!Selected[i] || me == null || me.Value.Team != s.Team || !s.Present || hud!.CommandBlockFilter(s.Group, s.Index) is not int filter)
+                continue;
+            if (filter != -1 && ((filter & 0xff) & pref) == 0)
+                continue;
+            sumX += s.X;
+            sumY += s.Y;
+            ++n;
+        }
+        if (n == 0 || Parent == null)
+            return (X, Y);
+        int px = (Parent.W >> 1) - (w * (int)(sumX / n) >> 10);
+        int py = (Parent.H >> 1) - (h - (h * (int)(sumY / n) >> 10));
+        var (cx, cy, _, _) = Clamp(px, py, w, h);
+        return (cx, cy);
+    }
+
+    // 004d32c4: the centring step of every frame while the centre mode is on.
+    private void CenterStep()
+    {
+        var target = CenterPos(W, H);
+        if (target != mCenterTo)
+            RestartCenter(target.X, target.Y);
+        long now = Host?.TickMs ?? 0;
+        int time = ZoomTime;
+        if (now < mCenterTick + time)
+        {
+            float f = (float)(now - mCenterTick) / time;
+            X = (int)(f * (mCenterTo.X - mCenterFrom.X)) + mCenterFrom.X;
+            Y = (int)(f * (mCenterTo.Y - mCenterFrom.Y)) + mCenterFrom.Y;
+        }
+        else
+            (X, Y) = mCenterTo;
+    }
+
+    // 004cf784: the animation step of every frame. The pan and the drag end when the canvas no longer holds the mouse for the control.
+    public override void PreRender()
+    {
+        if (Canvas?.Lock != this)
+            mPanning = mDragging = false;
+        if (mAnimating)
+        {
+            long now = Host?.TickMs ?? 0;
+            int time = ZoomTime;
+            if (now < mAnimStart + time)
+            {
+                float f = (float)(now - mAnimStart) / time;
+                (X, Y, W, H) = ((int)(f * (mTo.X - mFrom.X)) + mFrom.X, (int)(f * (mTo.Y - mFrom.Y)) + mFrom.Y, (int)(f * (mTo.W - mFrom.W)) + mFrom.W,
+                    (int)(f * (mTo.H - mFrom.H)) + mFrom.H);
+            }
+            else
+            {
+                (X, Y, W, H) = mTo;
+                mAnimating = false;
+            }
+        }
+        if (mCenterMode)
+            CenterStep();
+    }
+
+    // ---- the slots ----
+
+    private ClientCommandSlot[] Slots => Host?.Hud?.CommandSlotTable ?? Array.Empty<ClientCommandSlot>();
+
+    // The place of a slot in the control: x = slot x * width >> 10, y = height - (slot y * height >> 10) [code 004cf94c].
+    private int SlotX(in ClientCommandSlot s) => s.X * W >> 10;
+    private int SlotY(in ClientCommandSlot s) => H - (s.Y * H >> 10);
+
+    // The slots of the same kind as the shown one: the statics list also selects sensors (group 8) [code 004d1bf0, 004d2b1c].
+    private bool InGroup(int slotGroup) => slotGroup == Group || (Group == 4 && slotGroup == 8);
+
+    private GuiControl? FindInView(uint id)
+    {
+        GuiControl top = this;
+        while (top.Parent != null)
+            top = top.Parent;
+        return top.FindById(id) ?? Canvas?.Content?.FindById(id);
+    }
+
+    // The two buttons the map unlights when it takes the mode over [code 004d1bf0, 004d2d78].
+    private void UnlightCenterButton()
+    {
+        if (FindInView(CenterButtonId) is GuiUniversalButton b)
+            b.On = false;
+    }
+
+    // 004d23bc: the order mode and the default cursor that goes with it.
+    public void SetOrderMode(int mode)
+    {
+        OrderMode = mode;
+        if (Canvas == null || Host == null)
+            return;
+        if (mode == 0 && Host.TagText(TagArrow) is string arrow)
+            Canvas.SetCursorBitmap(arrow);
+        else if (mode == 1 && Host.TagText(TagWayWait) is string wait)
+            Canvas.SetCursorBitmap(wait);
+    }
+
+    // 004d2a98: select or deselect a slot. Deselecting switches the command menu off, selecting a player switches it on and marks the player's record.
+    public void SelectSlot(int slot, bool on)
+    {
+        GuiHost? host = Host;
+        bool menu = host?.ChatMenuExists?.Invoke(CommandMenuName) == true;
+        if (menu && !on)
+            host!.SetChatMenuMode?.Invoke(CommandMenuName, 0);
+        Selected[slot] = on;
+        if (Slots[slot].Group == 3)
+        {
+            if (on && menu)
+                host!.SetChatMenuMode?.Invoke(CommandMenuName, 1);
+            host?.Hud?.CommandSetSelected(0x800 + slot, on);
+        }
+    }
+
+    // 004d291c: select the player with that client id (only while the map shows players), or, with a negative id, deselect every player.
+    public void SelectClient(int clientId, bool on)
+    {
+        ClientCommandSlot[] slots = Slots;
+        if (clientId < 0)
+        {
+            for (int i = 0; i < slots.Length; ++i)
+                if (slots[i].Group == 3)
+                    SelectSlot(i, false);
+            return;
+        }
+        if (Group != 3)
+            return;
+        int found = -1;
+        for (int i = 0; i < slots.Length; ++i)
+            if (slots[i].Group == 3 && 0x800 + i == clientId)
+            {
+                found = i;
+                break;
+            }
+        if (found < 0)
+            return;
+        // Selecting a player also points the observer view at it [code 004d291c: Client::cmdObservePlayer(id)].
+        if (on)
+            Host?.Call("Client::cmdObservePlayer", clientId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        SelectSlot(found, on);
+    }
+
+    // 004d27d0 / 004d28a8: deselect the turrets / statics (and sensors), then select the one at that slot if the map shows that kind.
+    public void SelectTurret(int slot)
+    {
+        ClientCommandSlot[] slots = Slots;
+        for (int i = 0; i < slots.Length; ++i)
+            if (slots[i].Group == 0x13)
+                SelectSlot(i, false);
+        if (slot >= 0 && Group == 0x13 && slot < slots.Length && slots[slot].Group == 0x13)
+            SelectSlot(slot, true);
+    }
+
+    public void SelectStatic(int slot)
+    {
+        ClientCommandSlot[] slots = Slots;
+        for (int i = 0; i < slots.Length; ++i)
+            if (slots[i].Group is 4 or 8)
+                SelectSlot(i, false);
+        if (slot >= 0 && Group == 4 && slot < slots.Length && slots[slot].Group is 4 or 8)
+            SelectSlot(slot, true);
+    }
+
+    // 004d2798 / 004d2830 / 004d2870: the first selected slot of the shown kind, as the target index (slot - 128 for objects, the slot for players), -1 for none.
+    public int SelectedTurretTarget() => Group != 0x13 ? -1 : FirstSelected(s => s.Group == 0x13) is int i and >= 0 ? i - 0x80 : -1;
+    public int SelectedStaticTarget() => Group != 4 ? -1 : FirstSelected(s => s.Group is 4 or 8) is int i and >= 0 ? i - 0x80 : -1;
+    public int SelectedPlayerSlot() => Group != 3 ? -1 : FirstSelected(s => s.Group == 3);
+
+    private int FirstSelected(Func<ClientCommandSlot, bool> kind)
+    {
+        ClientCommandSlot[] slots = Slots;
+        for (int i = 0; i < slots.Length; ++i)
+            if (kind(slots[i]) && Selected[i])
+                return i;
+        return -1;
+    }
+
+    // 004d2a44: the slot of the player with that client id, -1 for none.
+    public int SlotOfClient(int clientId)
+    {
+        ClientCommandSlot[] slots = Slots;
+        for (int i = 0; i < slots.Length; ++i)
+            if (slots[i].Group == 3 && 0x800 + i == clientId)
+                return i;
+        return -1;
+    }
+
+    // ---- the order [code 004d2614, 004d2404, 004d25ec] ----
+
+    // 004d2614 (the console function setIssueCommand, 00421e14): the menu chose an order. While an order runs its script this only stores it. Else the
+    // current command line shows the text up to its voice tag; an action of -1 or no selected player of the team ends the order cursor, anything else
+    // starts it and keeps the order for the next click.
+    public void SetIssueCommand(int action, string? text)
+    {
+        if (mScriptGuard)
+        {
+            OrderAction = action;
+            OrderText = text;
+            return;
+        }
+        IHudSource? hud = Host?.Hud;
+        if (hud?.CommandLocal is not CommandLocalClient me)
+            return;
+        string shown = text ?? "";
+        if (shown.Length > 255)
+            shown = shown[..255];
+        int tilde = shown.IndexOf('~');
+        if (tilde >= 0)
+            shown = shown[..tilde];
+        FindInView(CurrentCommandId)?.SetText(shown);
+        if (action == -1)
+        {
+            SetOrderMode(0);
+            return;
+        }
+        if (CountSelectedPlayers(me) == 0)
+        {
+            SetOrderMode(0);
+            return;
+        }
+        SetOrderMode(1);
+        OrderAction = action;
+        OrderText = text;
+    }
+
+    private int CountSelectedPlayers(CommandLocalClient me)
+    {
+        ClientCommandSlot[] slots = Slots;
+        int n = 0;
+        for (int i = 0; i < slots.Length; ++i)
+            if (Selected[i] && slots[i].Group == 3 && me.Team == slots[i].Team)
+                ++n;
+        return n;
+    }
+
+    // 004d2404: send the order to the selected players of the team. A text that starts with `*` is first resolved by `Commander::StarCommand`
+    // (which calls setIssueCommand back and so replaces the order); afterwards the chosen order is put back. With no target the order is the
+    // waypoint (x, y in 1/1024 of the mission area), else it names the slot: remoteEval(2048, IssueCommand, action, text, x, y, clients...) or
+    // remoteEval(2048, IssueTargCommand, action, text, slot, clients...).
+    private void IssueOrder(int wayX, int wayY, int targetSlot)
+    {
+        if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
+            return;
+        int savedAction = OrderAction;
+        string? savedText = OrderText;
+        if (!string.IsNullOrEmpty(OrderText) && OrderText[0] == '*')
+        {
+            mScriptGuard = true;
+            Host.Call("Commander::StarCommand", OrderText);
+            mScriptGuard = false;
+        }
+        var args = new List<string> { "2048", targetSlot == -1 ? "IssueCommand" : "IssueTargCommand", Inv(OrderAction), OrderText ?? "" };
+        if (targetSlot == -1)
+        {
+            args.Add(Inv(wayX));
+            args.Add(Inv(wayY));
+        }
+        else
+            args.Add(Inv(targetSlot));
+        ClientCommandSlot[] slots = Slots;
+        for (int i = 0; i < slots.Length; ++i)
+            if (Selected[i] && slots[i].Group == 3 && me.Team == slots[i].Team)
+                args.Add(Inv(0x800 + i));
+        Host.Call("remoteEval", args.ToArray());
+        OrderText = savedText;
+        OrderAction = savedAction;
+    }
+
+    private static string Inv(int v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    // 004d25ec: an order on the object at that slot.
+    public void IssueTargetOrder(int slot) => IssueOrder(0, 0, slot);
+
+    // ---- the mouse ----
+
+    // 004d1b54 (the cursor tag): the zoom cursor in zoom mode, the hand while the picture is dragged, the waypoint cursor while the order waits.
+    public override uint CursorTagAt(int lx, int ly)
+    {
+        if (ZoomMode)
+            return TagZoom;
+        if (mPanning)
+            return X == mPanX && Y == mPanY ? TagOpenHand : TagGrab;
+        return OrderMode == 1 ? TagWaypoint : 0;
+    }
+
+    // The left button (004d1bf0). Centre mode ends. In zoom mode a click zooms in. Else, unless the picture is animating, the click picks slots (order
+    // mode 0) or gives the order (order mode 1), and the mouse stays with the control until the button comes up.
     public override bool MsDown(GuiEvent e)
     {
-        if (CenterMode)
-            CenterMode = false;
+        if (mPanning)
+            return true;
+        if (mCenterMode)
+        {
+            mCenterMode = false;
+            UnlightCenterButton();
+        }
         if (ZoomMode)
         {
             ZoomIn(e.X, e.Y, true);
             return true;
         }
-        return base.MsDown(e);
+        if (mAnimating)
+            return true;
+        var (lx, ly) = GlobalToLocal(e.X, e.Y);
+        if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
+            return true;
+        if (OrderMode == 0)
+        {
+            PickSlots(e, lx, ly, me);
+            mDragX0 = mDragX1 = lx;
+            mDragY0 = mDragY1 = ly;
+            mDragging = true;
+            FindInView(CurrentCommandId)?.SetText("");
+        }
+        else
+            ClickOrder(lx, ly, me);
+        Canvas?.LockMouse(this);
+        return true;
     }
 
-    // The right button (004d2d78): in zoom mode a click zooms out, else it starts the pan unless an animation runs.
+    // 004d1bf0, order mode 0: the first slot of the shown kind and of the team within 3 pixels of the click that the map filter shows. Without shift it
+    // becomes the only selected slot of its kind; with shift it flips, but a kind that holds one slot (statics, turrets) takes no more once one is
+    // selected. The slots of the other kinds are always deselected.
+    private void PickSlots(GuiEvent e, int lx, int ly, CommandLocalClient me)
+    {
+        bool shift = (e.Mod & 3) != 0;
+        if (!shift)
+            mClearOnAdd = true;
+        bool single = Group != 3;
+        bool singleHeld = Group == 4 ? SelectedStaticTarget() >= 0 : Group == 0x13 && SelectedTurretTarget() >= 0;
+        IHudSource hud = Host!.Hud!;
+        ClientCommandSlot[] slots = Slots;
+        int pref = PrefFilter;
+        for (int i = 0; i < slots.Length; ++i)
+        {
+            ClientCommandSlot s = slots[i];
+            if (!s.Present || s.Team != me.Team || hud.CommandBlockFilter(s.Group, s.Index) is not int filter)
+                continue;
+            if (filter != -1 && ((filter & 0xff) & pref) == 0)
+                continue;
+            if (!InGroup(s.Group))
+                continue;
+            if (Math.Abs(lx - SlotX(s)) > 3 || Math.Abs(ly - SlotY(s)) > 3)
+                continue;
+            for (int j = 0; j < slots.Length; ++j)
+                if (Group == 4 ? slots[j].Group is not (4 or 8) : slots[j].Group != Group)
+                    SelectSlot(j, false);
+            if (shift)
+            {
+                if (!single || !singleHeld)
+                    SelectSlot(i, !Selected[i]);
+                continue;
+            }
+            for (int j = 0; j < slots.Length; ++j)
+                if (Group == 4 ? slots[j].Group is 4 or 8 : slots[j].Group == Group)
+                    SelectSlot(j, false);
+            mClearOnAdd = false;
+            SelectSlot(i, true);
+            return;
+        }
+    }
+
+    // 004d1bf0, order mode 1: the slot nearest to the click under 4 pixels (any slot) is the target, else the click is a waypoint. The kind of the
+    // target and its team set $CommandTarget, its name $CommandTargetName (the scripts of Commander::StarCommand read them).
+    private void ClickOrder(int lx, int ly, CommandLocalClient me)
+    {
+        IHudSource hud = Host!.Hud!;
+        ClientCommandSlot[] slots = Slots;
+        int best = -1;
+        float bestDist = 4.0f;
+        for (int i = 0; i < slots.Length; ++i)
+        {
+            if (!slots[i].Present)
+                continue;
+            float dx = SlotX(slots[i]) - lx, dy = SlotY(slots[i]) - ly;
+            float d = (float)Math.Sqrt(dy * dy + dx * dx);
+            if (d < bestDist)
+            {
+                best = i;
+                bestDist = d;
+            }
+        }
+        if (best < 0)
+        {
+            Host.SetVar("$CommandTarget", "waypoint");
+            IssueOrder(lx * 0x3ff / W, (H - ly) * 0x3ff / H, -1);
+            return;
+        }
+        ClientCommandSlot t = slots[best];
+        string name = best < 0x80 ? hud.CommandClientName(0x800 + best) ?? "" : hud.CommandTargetName(best) ?? "";
+        Host.SetVar("$CommandTargetName", name);
+        bool friendly = t.Team == me.Team;
+        string kind = t.Group switch
+        {
+            3 => "player",
+            4 => "static",
+            8 => "sensor",
+            10 => "vehicle",
+            0x13 => "turret",
+            _ => "",
+        };
+        Host.SetVar("$CommandTarget", kind.Length == 0 ? "waypoint" : (friendly ? "friendly " : "enemy ") + kind);
+        if (kind.Length == 0)
+            IssueOrder(t.X, t.Y, -1);
+        else
+            IssueTargetOrder(best);
+    }
+
+    // 004d2754: the drag moves the far corner of the rectangle.
+    public override bool MsDrag(GuiEvent e)
+    {
+        if (!ZoomMode && !mAnimating)
+            (mDragX1, mDragY1) = GlobalToLocal(e.X, e.Y);
+        return true;
+    }
+
+    // 004d2b1c: the button comes up. The mouse is let go; in order mode 0 the slots of the shown kind and team inside the rectangle are selected (the
+    // first selection after a plain click clears the old one; a kind of one slot takes the first), then the order cursor ends.
+    public override bool MsUp(GuiEvent e)
+    {
+        mDragging = false;
+        Canvas?.UnlockMouse(this);
+        if (ZoomMode || mAnimating)
+            return true;
+        if (OrderMode == 0)
+        {
+            if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
+                return true;
+            int left = Math.Min(mDragX0, mDragX1), top = Math.Min(mDragY0, mDragY1);
+            int right = Math.Max(mDragX1, mDragX0), bottom = Math.Max(mDragY1, mDragY0);
+            bool single = Group != 3;
+            bool singleHeld = Group == 4 ? SelectedStaticTarget() >= 0 : Group == 0x13 && SelectedTurretTarget() >= 0;
+            ClientCommandSlot[] slots = Slots;
+            for (int i = 0; i < slots.Length; ++i)
+            {
+                ClientCommandSlot s = slots[i];
+                if (!s.Present || me.Team != s.Team || !InGroup(s.Group))
+                    continue;
+                int sx = SlotX(s), sy = SlotY(s);
+                if (sx < left || right <= sx || sy < top || bottom <= sy)
+                    continue;
+                if (mClearOnAdd)
+                {
+                    for (int j = 0; j < slots.Length; ++j)
+                        SelectSlot(j, false);
+                    mClearOnAdd = false;
+                    singleHeld = false;
+                }
+                if (!single || !singleHeld)
+                    SelectSlot(i, true);
+                if (single)
+                    break;
+            }
+        }
+        SetOrderMode(0);
+        mClearOnAdd = false;
+        return true;
+    }
+
+    // The right button (004d2d78): in zoom mode a click zooms out, else it starts the pan unless an animation runs. It does nothing while the left
+    // button drags.
     public override bool MsRightDown(GuiEvent e)
     {
-        if (mPanning)
+        if (mDragging)
             return true;
         if (ZoomMode || mAnimating)
             mButtonTaken = true;
-        if (CenterMode)
-            CenterMode = false;
+        if (mCenterMode)
+        {
+            mCenterMode = false;
+            UnlightCenterButton();
+        }
         if (ZoomMode)
             ZoomOut(e.X, e.Y, true);
         else if (!mAnimating)
         {
             mPanning = true;
             (mPanMouseX, mPanMouseY, mPanX, mPanY) = (e.X, e.Y, X, Y);
+            Canvas?.LockMouse(this);
         }
         return true;
     }
@@ -178,7 +701,7 @@ public sealed class GuiCommandMap : GuiControl
     // 004d2e5c: the pan follows the mouse and keeps the picture over the parent.
     public override bool MsRightDrag(GuiEvent e)
     {
-        if (ZoomMode || CenterMode || mButtonTaken || Parent == null)
+        if (ZoomMode || mCenterMode || mButtonTaken || Parent == null)
             return true;
         (X, Y, _, _) = Clamp(e.X - mPanMouseX + mPanX, e.Y - mPanMouseY + mPanY, W, H);
         return true;
@@ -188,6 +711,7 @@ public sealed class GuiCommandMap : GuiControl
     public override bool MsRightUp(GuiEvent e)
     {
         mButtonTaken = false;
+        Canvas?.UnlockMouse(this);
         mPanning = false;
         return true;
     }
@@ -235,6 +759,10 @@ public sealed class GuiCommandMap : GuiControl
                 p.BitmapStretch(pic.Tiles[j * CommandMapPictureTiles + i], gx + i * tw, gy + j * th, tw, th);
         if (Host?.Hud?.CommandMapMarks is { } marks)
             RenderMarks(p, marks, pic, gx, gy);
+        // 004d04e8: the drag rectangle while the button is down, outline 0xff, from the corners as dragged.
+        if (mDragging)
+            p.Dev.DrawRectOutline(new GfxRect(Math.Min(mDragX0, mDragX1) + gx, Math.Min(mDragY0, mDragY1) + gy, Math.Max(mDragX1, mDragX0) + gx,
+                Math.Max(mDragY1, mDragY0) + gy), 0xff);
     }
 
     // The sensor circles of 004d04e8 and the five passes of 004cf94c (0 and 1 the objects: icon, label; 2 to 4 the players: icon, order line and
@@ -294,12 +822,18 @@ public sealed class GuiCommandMap : GuiControl
                             (piece, flip) = (pc, fl);
                             break;
                         }
+                    if (Selected[m.Slot])
+                        piece += 4;
                     PbmpBitmap? b = whereAmI?.Bitmaps.Count > piece ? whereAmI.Bitmaps[piece] : null;
                     if (b != null)
                         p.Dev.Blit(GuiPaint.KeyedBitmap(b), px - (b.Width >> 1), py - (b.Height >> 1), (BlitFlip)flip);
                 }
                 else if (icon != null && (pass == 0 || (pass == 2 && m.ClientId != marks.LocalId)))
                     p.Bitmap(icon, px - (icon.Width >> 1), py - (icon.Height >> 1));
+                // The outline of a selected slot, 0xff, 6 pixels around its place: a player other than the local client in pass 2 or 4, a static, sensor or
+                // turret in pass 0 [code 004cf94c].
+                if (Selected[m.Slot] && ((player && m.ClientId != marks.LocalId && pass is 2 or 4) || (m.Group is 4 or 8 or 0x13 && pass == 0)))
+                    p.Dev.DrawRectOutline(new GfxRect(px - 6, py - 6, px + 6, py + 6), 0xff);
                 if (player)
                 {
                     if (m.OrderIcon != -1 && (pass == 2 || pass == 4))
@@ -316,9 +850,19 @@ public sealed class GuiCommandMap : GuiControl
                     if (pass >= 3 && font != null)
                         p.Text(font, px + 4, py - 4, m.ClientName);
                 }
-                else if (pass == 1 && font != null && m.TargetName != null && showNames)
+                else if (pass == 1 && font != null && m.TargetName != null && (Selected[m.Slot] || showNames || CursorNear(gx, gy, px, py)))
                     p.Text(font, px + 4, py - 4, m.TargetName.Length > 0 ? m.TargetName : m.Description);
             }
+    }
+
+    // The label also shows while the cursor is within 4 pixels of the slot [code 004cf94c: the cursor minus the control place minus 4, tested 0 to 8].
+    private bool CursorNear(int gx, int gy, int px, int py)
+    {
+        if (Canvas == null)
+            return false;
+        int dx = (int)Canvas.CursorX - gx - 4, dy = (int)Canvas.CursorY - gy - 4;
+        int a = px - gx - dx, b = py - gy - dy;
+        return a is >= 0 and < 9 && b is >= 0 and < 9;
     }
 
     // The where-am-I table at 00629fe8: the heading (0 to 256) up to which a piece of CmdWhereAmI.pba is used, with the flip of the blit.

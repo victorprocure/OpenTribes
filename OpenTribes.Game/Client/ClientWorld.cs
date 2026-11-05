@@ -15,6 +15,10 @@ public sealed class ClientPlayerRecord
     public int CmdIssuer = -1;     // +0x4c: the commander of the current command (PlayerManager_processEvent 0040d45a)
     public int Team = -1;          // +0x14
     public int CommandStatus;      // +0x58
+    // +0x68: the command map selects this player (written by TSCommander 004d2a98, cleared when the record is added).
+    // +0x69: the command tree shows the children of this node (starts at 1, toggled by the team list 004a8b00).
+    public bool Selected;
+    public bool Expanded = true;
     public string ScoreText = "";  // +0xb0
     public int SortValue;          // +0x1b0
     public int PingMs;             // human record ping (x4 ms on the wire)

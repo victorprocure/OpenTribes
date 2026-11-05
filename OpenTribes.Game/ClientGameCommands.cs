@@ -60,7 +60,9 @@ public sealed class ChatMenuTree
     // One keyboard event offered to the menu (InputEvent handler [code 00402068]). Returns true when the menu consumed it.
     // `scan` is the key code (ObjInst), `action` 1 press and 2 release, `ch` the event's character, `mods` its modifier byte.
     // `run` executes a leaf's command words (function or command name first).
-    public bool OnKey(int scan, int action, char ch, byte mods, Action<IReadOnlyList<string>> run)
+    // `cancelOrder` is the order cursor of the command map for the command menu [code 00402068]: Escape resets it and, when it was on, the key
+    // is taken even at the top level of the menu.
+    public bool OnKey(int scan, int action, char ch, byte mods, Action<IReadOnlyList<string>> run, Func<bool>? cancelOrder = null)
     {
         if (action == 2)
         {
@@ -76,13 +78,14 @@ public sealed class ChatMenuTree
         if (scan == 1) // Escape [code 00402068]
         {
             mReleaseKey = 1;
+            bool wasOrdering = cancelOrder?.Invoke() ?? false;
             if (mMode == 2)
             {
                 Mode = 0;
                 return true;
             }
             if (mLevel == Root)
-                return false;
+                return wasOrdering;
             mLevel = Root;
             return true;
         }
@@ -173,11 +176,19 @@ public sealed class ChatMenuRegistry
         return slot.Tree;
     }
 
+    // The command map watches the menu named CommandChatMenu: switching it off ends its order cursor [code 00401fe0 with the name test].
+    public const string CommandMenuName = "CommandChatMenu";
+    public Action? CommandMenuOff;
+    // Escape in the command menu cancels the order cursor and tells whether it was on [code 00402068].
+    public Func<bool>? CancelOrder;
+
     // setCMMode: a menu switched to a mode above 0 is the one on display; switching it to 0 removes it.
     public void SetMode(SimObject obj, string name, int mode)
     {
         Of(obj).Mode = mode;
         mNames[obj] = name;
+        if (mode == 0 && string.Equals(name, CommandMenuName, StringComparison.OrdinalIgnoreCase))
+            CommandMenuOff?.Invoke();
         if (mode > 0)
         {
             mActive = obj;
@@ -196,7 +207,8 @@ public sealed class ChatMenuRegistry
             if (slot.Id != obj.Id() || !mNames.TryGetValue(obj, out string? name) ||
                 game.Sim?.Server()?.Find(name) is not SimObject now || !ReferenceEquals(now, obj))
                 continue;
-            if ((slot.Tree.Mode != 0 || action == 2) && slot.Tree.OnKey(scan, action, ch, mods, run))
+            if ((slot.Tree.Mode != 0 || action == 2) &&
+                slot.Tree.OnKey(scan, action, ch, mods, run, string.Equals(name, CommandMenuName, StringComparison.OrdinalIgnoreCase) ? CancelOrder : null))
                 return true;
         }
         return false;
