@@ -17,6 +17,9 @@ public sealed class ShapeDraw
     public double DetailScale = 1;     // instance +0x90: the shape detail preference
     public int ForceDetail = -2;       // -2 chooses by size
     public bool ForceTranslucent;      // category 1 whatever the materials say
+    // The device culls the back faces of every polygon (beginScene3d 005daa30: cull on, front face CW), so a face that crosses a clip plane and goes
+    // through the clipper 005b1f68 is culled by its winding too. Set for the explosion shapes (a camera inside a cone sees only back faces).
+    public bool CullClipped;
     public double? FixedSortKey;
     public double HazeStart = 1e9, Visible = 1e9;
     public bool NoHaze;                // the image fog amount stays 0 (projectile images never set it): haze none
@@ -192,7 +195,7 @@ public sealed class ShapeRenderer
                 int oc = mOut[f.V0] | mOut[f.V1] | mOut[f.V2];
                 if (oc != 0 && (mOut[f.V0] & mOut[f.V1] & mOut[f.V2]) != 0)
                     continue;
-                if (oc == 0 && (FlipWinding ? facing < 0 : facing > 0))
+                if ((oc == 0 || p.CullClipped) && (FlipWinding ? facing < 0 : facing > 0))
                 {
                     ++LastCulled;
                     continue;

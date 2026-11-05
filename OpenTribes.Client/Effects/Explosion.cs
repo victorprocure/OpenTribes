@@ -140,6 +140,7 @@ public sealed class ExplosionEffect : IEffect
             xf = AxisBasis();
         ShapeDraw d = ctx.Draw(xf, mInst.Shape.Name);
         d.ForceTranslucent = true;
+        d.CullClipped = true;
         d.Light = new LightSet { AmbR = 1, AmbG = 1, AmbB = 1, SunR = 0, SunG = 0, SunB = 0 };
         RenderImage? img = ctx.Renderer.Build(mInst, ctx.Camera, d);
         if (img != null)

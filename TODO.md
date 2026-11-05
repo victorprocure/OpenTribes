@@ -106,7 +106,7 @@ way are added to Open.
 - [x] First-person weapon follows the player's pose, field of view and item commands.
 - [x] Item images and other shapes placed by their shape root.
 - [x] Weapon state machine on other players.
-- [x] Explosion images face the camera.
+- [x] Explosion images face the camera, with clipped back faces culled.
 - [x] Rocket trail (drawn once), its texture scroll in game time and rocket orientation.
 - [x] Turret power animation.
 - [x] Projectiles drawn fullbright and without haze.
