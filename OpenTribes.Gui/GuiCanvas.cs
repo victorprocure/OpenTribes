@@ -30,6 +30,8 @@ public sealed class GuiDelegate : IGuiResponder
     public Action? OnOpen;
     // Slot 0x64 with the new content control (the main menu sets its version text, 004dbc00).
     public Action<GuiControl>? OnOpenContent;
+    // Slot 0x60: the canvas is removing the delegate's content (JoinGame saves its server list there, 004d7630).
+    public Action<GuiControl>? OnRemove;
     private IGuiResponder? Up => Canvas?.Root;
     public bool MsDown(GuiEvent e) => Up?.MsDown(e) ?? false;
     public bool MsRepeat(GuiEvent e) => Up?.MsRepeat(e) ?? false;
@@ -285,6 +287,8 @@ public sealed class GuiCanvas
         {
             GuiControl old = Stack[0];
             Stack.RemoveAt(0);
+            if (mDelegateOf.TryGetValue(old, out GuiDelegate? oldDel))
+                oldDel.OnRemove?.Invoke(old);
             old.CloseTree();
             old.SetCanvas(null);
             mDelegateOf.Remove(old);

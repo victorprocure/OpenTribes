@@ -4,6 +4,7 @@
 // 0042caf0 (ping), 0042c4cc (info), 0042cb88 (failure). R6: only 127.0.0.0/8 is contacted unless --allow-remote is given; the
 // broadcast then is the loopback broadcast (127.255.255.255), never the LAN's.
 using System.Globalization;
+using OpenTribes.Core;
 using OpenTribes.Gui;
 using OpenTribes.Net;
 using OpenTribes.Script;
@@ -15,6 +16,8 @@ public sealed class ServerBrowser : IDisposable
     // IDDLG_SERVER_INFO (the INFO button's message) and the controls of ServerInfo.gui.
     public const int InfoDialogTag = 110014, InfoNameId = 140500, InfoAddressId = 140501, InfoPingId = 140502, InfoVersionId = 140503,
         InfoModId = 140504, InfoMissionId = 140505, InfoPasswordId = 140506, InfoDedicatedId = 140509, InfoTableId = 140510;
+    // The info dialog's REFRESH, Favorite and Never Ping buttons (004d8754, 004d862c, 004d86bf).
+    public const int InfoRefreshId = 0x2230b, InfoFavoriteId = 0x2230c, InfoNeverPingId = 0x2230d, InfoFavoriteBoxId = 0x2230c, InfoNeverPingBoxId = 0x2230d;
     public const int ListId = 140016, JoinId = 140006, InfoId = 140018, RefreshAllId = 140017, RefreshVisId = 140042, CancelId = 140026,
         BoxId = 140027, ProgressId = 140024, TextId = 140025, MotdId = 140900;
 
@@ -28,6 +31,8 @@ public sealed class ServerBrowser : IDisposable
     private int mInfoCount;
     // DAT_0061682c / DAT_00616828: the master being asked and how many there are.
     private int mMasterIndex, mMasterCount;
+    // Delegate +0x60: no master answered (004d7864); REFRESH ALL clears it (004d7c1e).
+    private bool mMasterError;
 
     public ServerBrowser(ClientApp app, ClientDelegates owner)
     {
@@ -78,6 +83,8 @@ public sealed class ServerBrowser : IDisposable
     // The screen has just opened (004d749c after the list's own open ran config\GameServerList.cs).
     public void OnOpen()
     {
+        // 004c702e (the list's wake): failures stay, nothing is re-asked, no REFRESH ALL has run.
+        List?.ResetSearchFlags();
         UpdateButtons();
         UpdateMotd();
         if (Var("$pref::AutoRefresh").Length == 0)
@@ -107,6 +114,15 @@ public sealed class ServerBrowser : IDisposable
             case CancelId:
                 Cancel();
                 return true;
+            case InfoRefreshId:
+                RefreshSelected();
+                return true;
+            case InfoFavoriteId:
+                SetSelectedFlag(favorite: true);
+                return true;
+            case InfoNeverPingId:
+                SetSelectedFlag(favorite: false);
+                return true;
         }
         return false;
     }
@@ -114,6 +130,7 @@ public sealed class ServerBrowser : IDisposable
     // 0x222f1: the console function rebuildServerList() (queryServers), every row marked unknown, the buttons off, the box on.
     public void RefreshAll()
     {
+        mMasterError = false;
         QueryServers();
         List?.MarkAllUnknown();
         StartUi(IsTrue(Var("$pref::lanOnly")) || IntVar("$Server::numMasters", 0) == 0 ? "Searching for LAN servers" : "Querying master servers");
@@ -132,6 +149,7 @@ public sealed class ServerBrowser : IDisposable
             s.State = GuiServerList.StateQuerying;
         }
         list.KeepFailed = true;
+        list.Requery = false;
         StartUi("Pinging visible servers");
     }
 
@@ -144,7 +162,65 @@ public sealed class ServerBrowser : IDisposable
         GuiServerList.Server row = list.Servers[list.Selected];
         mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\ServerInfo.gui\");");
         FillInfoDialog(row);
+        ShowFlags(row);
         return true;
+    }
+
+    // 004d8532 and 004d856f: the two check boxes show the row's flags (only when the dialog opens, an info reply does not touch them).
+    public void ShowFlags(GuiServerList.Server row)
+    {
+        if (mApp.GuiRt.FindControl(InfoFavoriteBoxId.ToString(CultureInfo.InvariantCulture)) is GuiUniversalButton fav)
+            fav.On = row.Favorite;
+        if (mApp.GuiRt.FindControl(InfoNeverPingBoxId.ToString(CultureInfo.InvariantCulture)) is GuiUniversalButton never)
+            never.On = row.NeverPing;
+    }
+
+    public int PendingPings => mQuery?.PendingPings ?? 0;
+    public IReadOnlyList<string> SeenAddresses => mQuery?.Seen ?? Array.Empty<string>();
+
+    // 004d8754: the dialog's REFRESH asks the selected server again (SimNet_queueServerQuery 0054fff0); it needs a selected row that has its
+    // info and a query queue. The row keeps its state and flags until the answers come.
+    private void RefreshSelected()
+    {
+        GuiServerList? list = List;
+        if (list == null || list.Selected < 0 || list.Selected >= list.Servers.Count || list.Servers[list.Selected].State != GuiServerList.StateInfo)
+            return;
+        Query().Queue(list.Servers[list.Selected].Address);
+    }
+
+    // 004d862c and 004d86bf: the Favorite and Never Ping buttons write their state into the selected row (004c52b4 sets +0x241, 004c51f0 sets
+    // +0x244, found again by address). Both need a selected row that has its info. The file is written when the search ends or the screen closes.
+    private void SetSelectedFlag(bool favorite)
+    {
+        GuiServerList? list = List;
+        if (list == null || list.Selected < 0 || list.Selected >= list.Servers.Count || list.Servers[list.Selected].State != GuiServerList.StateInfo)
+            return;
+        if (Find(favorite ? InfoFavoriteBoxId : InfoNeverPingBoxId) is not GuiUniversalButton box)
+            return;
+        string address = list.Servers[list.Selected].Address;
+        if (favorite)
+            list.SetFavorite(address, box.On);
+        else
+            list.SetNeverPing(address, box.On);
+    }
+
+    // 004c4e2c, called from 004d7630 (the screen closes) and 004c7820 (a search ends): config\GameServerList.cs from the rows.
+    public void SaveList(GuiControl? content = null)
+    {
+        GuiServerList? list = content?.FindById(ListId) as GuiServerList ?? List;
+        if (list == null)
+            return;
+        string path = Builtins.ResolveGamePath(mApp.Opt.Root, "config\\GameServerList.cs");
+        if (path.Length == 0)
+            return;
+        try
+        {
+            File.WriteAllBytes(path, ByteString.ToBytes(list.BuildServerFile()));
+        }
+        catch (Exception)
+        {
+            // A stream that cannot open writes nothing.
+        }
     }
 
     // 004c5f24 and 004c91f8: the dialog's texts and the score table (ServerInfoCtrl) from a server record.
@@ -171,6 +247,7 @@ public sealed class ServerBrowser : IDisposable
         if (list != null)
         {
             list.KeepFailed = true;
+            list.Requery = false;
             foreach (GuiServerList.Server s in list.Servers)
                 if (s.State == GuiServerList.StateQuerying)
                     s.State = GuiServerList.StateUnknown;
@@ -195,10 +272,10 @@ public sealed class ServerBrowser : IDisposable
         ServerQuery q = Query();
         mInfoCount = 0;
         q.ClearSeen();
-        // 004c525c: the favorites count as answered, a broadcast reply from one is not queried again.
+        // 004c525c: the never-ping rows count as answered, a broadcast or master reply for one is not queried.
         if (List is { } list)
             foreach (GuiServerList.Server s in list.Servers)
-                if (s.Favorite && QueryAddress.TryResolve(s.Address, 0, out string canon, out _, out _, out _))
+                if (s.NeverPing && QueryAddress.TryResolve(s.Address, 0, out string canon, out _, out _, out _))
                     q.AddSeen(canon);
         string port = IntVar("$Server::Port", 0).ToString(CultureInfo.InvariantCulture);
         q.Queue("IP:BROADCAST:" + port);
@@ -301,8 +378,8 @@ public sealed class ServerBrowser : IDisposable
         if (list?.Find(address) is { } row)
         {
             row.State = GuiServerList.StateTimeout;
-            // 004c5054: a row that failed goes unless it is a favorite or the refresh keeps them.
-            if (!list.KeepFailed && !row.Favorite)
+            // 004c5054: a row that failed goes unless it is a favorite, a never-ping row or the refresh keeps them.
+            if (!list.KeepFailed && !row.Favorite && !row.NeverPing)
             {
                 list.RemoveServer(row);
                 mOwner.Servers.Remove(row.Id);
@@ -339,6 +416,7 @@ public sealed class ServerBrowser : IDisposable
     // 004d7864: no master answered.
     private void MasterError()
     {
+        mMasterError = true;
         mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\MessageDialog.gui\"); Control::setValue(MessageDialogTextFormat, \"Internet Connection Error\\nCould not contact any master server.  Please verify your internet connection.\");");
     }
 
@@ -366,6 +444,13 @@ public sealed class ServerBrowser : IDisposable
     // 004d7ac4: the search is over: the box goes, REFRESH ALL and REFRESH VIS work again.
     private void End()
     {
+        // 004d7ac4 -> 004c7820: rows that never answered go, favorites are asked directly, then the file is written.
+        if (List is { } list)
+        {
+            foreach (GuiServerList.Server s in list.EndSearch(mMasterError))
+                Query().Queue(s.Address);
+            SaveList();
+        }
         Find(BoxId)?.SetVisible(false);
         if (Find(RefreshAllId) is GuiActive a)
             a.Active = true;
