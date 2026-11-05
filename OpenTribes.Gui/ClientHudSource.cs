@@ -344,6 +344,8 @@ public sealed class ClientHudSource : IHudSource
     public Func<int, (double X, double Y, double Z)?>? HeadMount;
     // Set by the host: the muzzle of the image in slot 0 of a Player ghost in world space (null: use the body position).
     public Func<int, (double X, double Y, double Z)?>? MuzzleMount;
+    // Set by the host: the eye and muzzle transforms of a Vehicle, Flier or Turret control ghost (null while it has no drawn object).
+    public Func<int, HudControlAim?>? ControlAim;
     public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
     // Set by the host: the world box (min, max) and the transform origin of a shape ghost, for the objects of the label pick.
     public Func<int, (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)?>? ObjectBox;
@@ -474,6 +476,13 @@ public sealed class ClientHudSource : IHudSource
             || !mWorld.DataBlocks.Blocks.TryGetValue((5, (int)item), out ClientDataBlock? ib)
             || !mWorld.DataBlocks.Blocks.TryGetValue((6, (int)Fld(ib, "imageType", -1)), out ClientDataBlock? img))
             return null;
+        return ProjectileOf(img, out group);
+    }
+
+    // The projectile datablock a `projectileType` field names (two 32 bit words, group then index), null when it is unset.
+    private ClientDataBlock? ProjectileOf(ClientDataBlock img, out int group)
+    {
+        group = -1;
         string raw = img.Fields.FirstOrDefault(f => f.Name == "projectileType").Value as string ?? "";
         if (raw.Length < 16)
             return null;
@@ -494,25 +503,57 @@ public sealed class ClientHudSource : IHudSource
         return 0f;
     }
 
+    // Player vtable +0x114 [code 00412218] gives the projectile of the image in slot 0, Turret vtable +0x114 [code 00456074] the
+    // projectileType (group at +0x120, index at +0x124) of its TurretData, Vehicle and Flier [code 00430c88] nothing. Null without one.
+    private ClientDataBlock? TurretProjectile(ClientGhost g, out int group)
+    {
+        group = -1;
+        if (!g.State.TryGetValue("datablock", out object? di) || !mWorld.DataBlocks.Blocks.TryGetValue((19, (int)D(di, -1)), out ClientDataBlock? tb))
+            return null;
+        return ProjectileOf(tb, out group);
+    }
+
     // FUN_004ada90 [code 004ada90]: for every target of set 725 (objects with the target flag and enabled, the hit point of a targeting laser)
-    // of the control player's team the datablock of the weapon in slot 0 solves the aim from the eye (low arc, then the high arc); the
+    // of the control object's team the datablock of its weapon solves the aim from the eye (low arc, then the high arc); the
     // direction x 2 from the eye is projected and gets a triangle, blue when the projectile reaches (0xfb), else 0xf1, with the distance
-    // from the muzzle under it. Without a projectile datablock the solution is the straight line, never reaching.
+    // from the muzzle under it. Without a projectile datablock the solution is the straight line, never reaching. The routine casts the
+    // control object to ShapeBase [code 004adb1a..004adb37]: it runs for a Player, a Vehicle, a Flier and a Turret alike and only the
+    // virtual calls differ (eye +0x110, muzzle +0x10c, projectile +0x114, team +0x20c).
     public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height)
     {
         var result = new List<HudTargetMarker>();
-        if (Ghost is not ClientGhost me || Psc.ControlClass != "Player" || ViewCamera?.Invoke(width, height) is not Camera3D cam
+        string cls = Psc.ControlClass;
+        if (Ghost is not ClientGhost me || cls is not ("Player" or "Vehicle" or "Flier" or "Turret") || ViewCamera?.Invoke(width, height) is not Camera3D cam
             || mWorld.PlayerId == 0 || mWorld.Players.Get(mWorld.PlayerId) is not ClientPlayerRecord rec)
             return result;
-        ClientDataBlock? block = WeaponProjectile(me, out int group);
+        ClientDataBlock? block;
+        int group, ownTeam;
+        float[] eye;
+        (double, double, double) muzzle;
+        if (cls == "Player")
+        {
+            block = WeaponProjectile(me, out group);
+            ownTeam = rec.Team;
+            eye = new[] { (float)cam.X, (float)cam.Y, (float)cam.Z };
+            bool hasItem = D(me.State.GetValueOrDefault("item0"), -1) >= 0;
+            var body = me.State.GetValueOrDefault("pos") is double[] { Length: >= 3 } bp ? (bp[0], bp[1], bp[2]) : (cam.X, cam.Y, cam.Z);
+            muzzle = hasItem ? MuzzleMount?.Invoke(me.Index) ?? body : body;
+        }
+        else
+        {
+            // +0x20c of the control object: the team of its own ghost. Without the drawn object the eye and muzzle are not known.
+            if (!me.State.TryGetValue("team", out object? tv) || ControlAim?.Invoke(me.Index) is not HudControlAim aim)
+                return result;
+            ownTeam = (int)D(tv, -1);
+            group = -1;
+            block = cls == "Turret" ? TurretProjectile(me, out group) : null;
+            eye = aim.Eye;
+            muzzle = aim.MuzzleLabelPoint();
+        }
         float speed = group == Projectile.kRocketGroup ? (float)Fld(block, "field@0x6c", 0) : group is Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup
             ? (float)Fld(block, "field@0x68", 0) : 1.0e7f;
         float totalTime = (float)Fld(block, "totalTime", 10000);
         float g = Gravity();
-        float[] eye = { (float)cam.X, (float)cam.Y, (float)cam.Z };
-        bool hasItem = D(me.State.GetValueOrDefault("item0"), -1) >= 0;
-        var body = me.State.GetValueOrDefault("pos") is double[] { Length: >= 3 } bp ? (bp[0], bp[1], bp[2]) : (cam.X, cam.Y, cam.Z);
-        var muzzle = hasItem ? MuzzleMount?.Invoke(me.Index) ?? body : body;
         foreach (ClientGhost t in mWorld.Ghosts.All())
         {
             double[]? pos = null;
@@ -531,7 +572,7 @@ public sealed class ClientHudSource : IHudSource
                 pos = new[] { (bx0 + bx1) * 0.5, (by0 + by1) * 0.5, (bz0 + bz1) * 0.5 };
                 team = (int)D(tv, -1);
             }
-            if (pos == null || team != rec.Team)
+            if (pos == null || team != ownTeam)
                 continue;
             float[] target = { (float)pos[0], (float)pos[1], (float)pos[2] };
             var dirLow = new float[3];

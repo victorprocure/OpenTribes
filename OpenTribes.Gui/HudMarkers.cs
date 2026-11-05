@@ -11,6 +11,21 @@ public readonly record struct HudMarkPoint(int X, int Y, bool Reaches);
 // A marked target: the low arc triangle, the high arc one (grenades only) and the distance label drawn under each of them.
 public sealed record HudTargetMarker(HudMarkPoint? Low, HudMarkPoint? High, string Label);
 
+// The eye position and the muzzle transform of a Vehicle, Flier or Turret control object in world space (vtable +0x110 and +0x10c), with
+// the object transform (+0x94). `MuzzleP` is the translation of the muzzle transform, null when the object reports none.
+public sealed record HudControlAim(float[] Eye, float[]? MuzzleP, float[] ObjectM, float[] ObjectP)
+{
+    // The marker routine multiplies the translation of the muzzle transform by the object transform once more [code 004ae799..004ae7c1,
+    // m_mul_point 005ed17e]: the Player muzzle is in object space, the Vehicle and Turret ones already in world space, so for those the
+    // point is transformed twice. Without a muzzle the identity (the translation 0) gives the object position.
+    public (double, double, double) MuzzleLabelPoint()
+    {
+        var o = new float[3];
+        OpenTribes.World.X87.MulPoint(MuzzleP ?? new float[3], ObjectM, ObjectP, o);
+        return (o[0], o[1], o[2]);
+    }
+}
+
 public static class HudMarkers
 {
     public const int ReachColor = 0xfb, ShortColor = 0xf1;
