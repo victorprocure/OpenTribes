@@ -425,7 +425,26 @@ public class ShapeRenderTests
         Assert.True(b.Collided);
         Assert.Equal(0, b.Vx, 6);
         Assert.Equal(0.25 * (10 + 20 * DebrisBody.TimeSlice), b.Vz, 6);
-        Assert.True(b.Z >= 10.25 - 1e-9, "the sphere stays above the floor");
+        Assert.Equal(10.3 + (4 + 0) * 0 + -(10 + 20 * DebrisBody.TimeSlice / 2) * DebrisBody.TimeSlice, b.Z, 9);   // the integrated position, not the contact point
+    }
+
+    [Fact]
+    public void DebrisSelfDamageIsTakenOnlyOnTheDetailedCollisionPathAbovePositiveThreshold() // Debris_collide 00472ad0 at 004731cb, WantsExplosion 004721f8
+    {
+        var p = DebrisParams.Default with { CollisionDetail = 1, DamageThreshold = 1 };
+        // the rule subtracts (velocity . normal - damageThreshold) from the damage when that is positive: a bounce is a velocity against the normal, so only a
+        // piece whose contact test sees it leaving fast takes damage
+        var b = new DebrisBody { X = 0, Y = 0, Z = 10.3, Vz = 9, Radius = 0.25, Life = 100, Damage = 5 };
+        b.Integrate(p, null, FloorAtTen, new Random(1), 0, 0, 0);
+        Assert.False(b.Collided);
+        // a ray that reports a hit with a normal along the motion: velocity . normal = 8.33 > 1
+        b.Integrate(p, null, (double sx, double sy, double sz, double dx, double dy, double dz, double len) => (true, 0.1, 0, 0, 1), new Random(1), 0, 0, 0);
+        Assert.InRange(b.Damage, -10, 5 - 6);
+        Assert.True(b.WantsExplosion(p, new Random(1)));
+        // the stock DebrisData have collisionDetail 0: no damage
+        var c = new DebrisBody { Z = 10.3, Vz = 9, Radius = 0.25, Life = 100, Damage = 5 };
+        c.Integrate(p with { CollisionDetail = 0 }, null, (double sx, double sy, double sz, double dx, double dy, double dz, double len) => (true, 0.1, 0, 0, 1), new Random(1), 0, 0, 0);
+        Assert.Equal(5, c.Damage);
     }
 
     [Fact]

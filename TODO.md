@@ -7,6 +7,12 @@ way are added to Open.
 
 ## Open
 
+### Play-testing
+
+- [ ] **M1** Turrets keep firing after the enemy generators are destroyed. Check first whether this is correct: the solar panel was still standing, and a solar panel also powers a base.
+- [ ] **M2** Models clip oddly against buildings while flying near them.
+- [ ] **M3** Turret shots fired at the player are hard to see.
+
 ### Turrets and weapons
 
 - [ ] **L2** The laser rifle beam starts a little short of the gun tip in first person.
@@ -117,7 +123,7 @@ way are added to Open.
 - [x] Grenade smoke puffs and grenade sounds.
 - [x] Laser beam shape and how long the hit flash lasts.
 - [x] Bullet holes only on buildings.
-- [x] Debris pieces fly, bounce, end in their explosion and rest on floors.
+- [x] Debris pieces fly, bounce, explode and cause damage like the original.
 
 ### Menus and HUD
 

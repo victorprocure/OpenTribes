@@ -147,6 +147,7 @@ public sealed class DebrisCloudEffect : IEffect
             var body = new DebrisBody { Radius = Math.Max(0.1, inst.Shape.Radius) };
             DebrisCloud.Launch(body, spec.X, spec.Y, spec.Z, spec.Vx, spec.Vy, spec.Vz, ix, iy, iz, basis.Angle, basis, spec.Strength, spec.Radius, row.Params.Mass, rng);
             body.Life = row.Params.MinTimeout + (row.Params.MaxTimeout - row.Params.MinTimeout) * rng.NextDouble();
+            body.Damage = row.Params.Damage;
             mPieces.Add(new Piece { Body = body, Inst = inst, Params = row.Params, Remaining = spec.Remaining });
         }
     }

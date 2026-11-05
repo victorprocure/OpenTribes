@@ -13,15 +13,16 @@ namespace OpenTribes.Client.Effects;
 // and `SpawnRadius` (0x88) are what Debris_explode hands to the secondary DebrisCloud and what the cloud matches the rows with.
 public readonly record struct DebrisParams(double MinTimeout = 3, double MaxTimeout = 6, double ExplodeOnBounce = 0.3, bool ExplodeOnRest = true, int Explosion = -1,
                                            double Elasticity = 0.25, double Friction = 0.5, double Mass = 100, int SpawnMask = 1, double SpawnStrength = 50,
-                                           double SpawnRadius = 0.2)
+                                           double SpawnRadius = 0.2, int CollisionDetail = 0, double Damage = 100, double DamageThreshold = 1)
 {
-    public static DebrisParams Default => new(3, 6, 0.3, true, -1, 0.25, 0.5, 100, 1, 50, 0.2);
+    public static DebrisParams Default => new(3, 6, 0.3, true, -1, 0.25, 0.5, 100, 1, 50, 0.2, 0, 100, 1);
 
     public static DebrisParams From(ClientDataBlock? b) =>
         b == null ? Default : new DebrisParams(Scene.Db.Num(b, "minTimeout", 3), Scene.Db.Num(b, "maxTimeout", 6), Scene.Db.Num(b, "explodeOnBounce", 0.3),
             Scene.Db.Flag(b, "explodeOnRest"), (int)Scene.Db.Num(b, "spawnedExplosionID", -1), Scene.Db.Num(b, "elasticity", 0.25), Scene.Db.Num(b, "friction", 0.5),
             Scene.Db.Num(b, "mass", 100), (int)Scene.Db.Num(b, "spawnedDebrisMask", 1), Scene.Db.Num(b, "spawnedDebrisStrength", 50),
-            Scene.Db.Num(b, "spawnedDebrisRadius", 0.2));
+            Scene.Db.Num(b, "spawnedDebrisRadius", 0.2), (int)Scene.Db.Num(b, "collisionDetail", 0), Scene.Db.Num(b, "damage", 100),
+            Scene.Db.Num(b, "damageThreshold", 1));
 }
 
 // A ray against the static world: the first interior surface along (sx, sy, sz) + t * (dx, dy, dz), 0 <= t <= len, and its unit normal facing the ray origin.
@@ -41,8 +42,9 @@ public sealed class DebrisBody
     public double Vx, Vy, Vz, Wx, Wy, Wz;
     public double Ax, Ay, Az;            // accumulated spin angles
     public double Age, Life;             // seconds lived, lifetime (minTimeout + (maxTimeout - minTimeout) * random)
-    public double Radius = 0.25;         // collision sphere radius (Debris +0x318)
+    public double Radius = 0.25;         // collision sphere radius (Debris +0x318): PartDebris loadShape 0047603c, 0.5 x the length of the part's bounds box size
     public double Mass = 100;
+    public double Damage = double.PositiveInfinity;   // +0x348: the self damage left (DebrisData `damage`); below zero the piece explodes
     public bool Collided, PrevCollided, Frozen, Done;
     private double mSvx, mSvy, mSvz, mSwx, mSwy, mSwz;   // the smoothed velocities +0x358..+0x36c (0.9 old + 0.1 new, z velocity x 0.25)
 
@@ -54,7 +56,7 @@ public sealed class DebrisBody
         bool explode = false;
         if (Collided && !PrevCollided && rng.NextDouble() < p.ExplodeOnBounce)
             explode = true;
-        if (!explode && Collided && PrevCollided)
+        if (!explode && (Damage < 0 || (Collided && PrevCollided)))
             explode = true;
         PrevCollided = Collided;
         Collided = false;
@@ -86,13 +88,12 @@ public sealed class DebrisBody
             if (ray != null && len > 1e-9)
             {
                 double ux = dx / len, uy = dy / len, uz = dz / len;
-                var (ok, t, hx, hy, hz) = ray(X + offX, Y + offY, Z + offZ, ux, uy, uz, len + Radius);
+                var (ok, _, hx, hy, hz) = ray(X + offX, Y + offY, Z + offZ, ux, uy, uz, len + Radius);
                 if (ok)
                 {
-                    // the sphere touches the plane when the centre is `Radius` from it along the normal
-                    double cosine = Math.Max(0.2, -(ux * hx + uy * hy + uz * hz));
-                    double s = Math.Clamp(t - Radius / cosine, 0, len);
-                    (nx, ny, nz) = (X + ux * s, Y + uy * s, Z + uz * s);
+                    // Debris_collide 00472ad0 tests the sphere at the new position against the surface and only changes the velocity: the piece goes on to the
+                    // integrated position (Debris_tick sets the transform from the integrate result, and Debris_explode reads it at +0xbc). A ray from the old centre
+                    // stands in for the plane distance test: contact when the surface is within the movement plus the radius.
                     hit |= Bounce(p, hx, hy, hz, rng);
                 }
             }
@@ -108,7 +109,6 @@ public sealed class DebrisBody
                     double tl = Math.Sqrt(tx * tx + ty * ty + tz * tz);
                     (tx, ty, tz) = (tx / tl, ty / tl, tz / tl);
                 }
-                nz = h + Radius - offZ;
                 hit |= Bounce(p, tx, ty, tz, rng);
             }
             (X, Y, Z) = (nx, ny, nz);
@@ -130,6 +130,10 @@ public sealed class DebrisBody
     private bool Bounce(DebrisParams p, double nx, double ny, double nz, Random rng)
     {
         double vn = Vx * nx + Vy * ny + Vz * nz;
+        // Debris_collide 00472ad0, only on the detailed collision path (collisionDetail not 0; every stock DebrisData has 0): the dot of velocity and surface
+        // normal less damageThreshold (+0x7c), when positive, is taken off the self damage (+0x348) at 004731cb.
+        if (p.CollisionDetail != 0 && vn - p.DamageThreshold > 0)
+            Damage -= vn - p.DamageThreshold;
         if (vn > 0)
             return false;
         Vx -= vn * nx; Vy -= vn * ny; Vz -= vn * nz;
@@ -239,9 +243,11 @@ public sealed class DebrisEffect : IEffect
             DebrisBody body = piece.Body;
             body.X = wx; body.Y = wy; body.Z = wz;
             body.Mass = PieceMass;
+            // PartDebris loadShape 0047603c: radius +0x318 = 0.5 x |bounds max - min| of the part (= the half extents' length), sphere centre +0x30c = the box centre = the origin
             body.Radius = Math.Max(0.1, Math.Sqrt(ex * ex + ey * ey + ez * ez));
             // Debris_init: lifetime = minTimeout + (maxTimeout - minTimeout) * random
             body.Life = mParams.MinTimeout + (mParams.MaxTimeout - mParams.MinTimeout) * rng.NextDouble();
+            body.Damage = mParams.Damage;   // Debris_init: +0x348 = DebrisData damage (+0x78)
             // the cloud launch 00476858: the object velocity, plus the impulse along (piece - shape centre), plus a spin of +-strength * 0.0025 (at most 2.5) per axis
             double dx = wx - scx, dy = wy - scy, dz = wz - scz, dl = Math.Sqrt(dx * dx + dy * dy + dz * dz);
             double k = dl > 1e-9 ? BurstStrength / PieceMass / dl : 0;
