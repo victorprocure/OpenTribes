@@ -47,7 +47,10 @@ public class ShapeVisual : Visual
     protected readonly RenderThread?[] Slots = new RenderThread?[3];
     protected readonly int[] SlotSeq = { -1, -1, -1 };
     protected readonly bool[] SlotRunning = new bool[3];
-    protected RenderThread? Ambient, Visibility, Turn, Elevate;
+    protected RenderThread? Ambient, Visibility, Turn, Elevate, TurretPower;
+    // Turret_onNewDataBlock 0x00452970: the mode driven power / fire thread (+0x8a4) and its sequences.
+    protected TurretGhostPose? TurretPose;
+    private int mPowerSeq = -1, mFireSeq = -1;
     protected double X, Y, Z, Yaw, Pitch, Roll;
     protected bool HavePos;
     protected double Damage;
@@ -140,7 +143,8 @@ public class ShapeVisual : Visual
         Shape = M.Assets.Shape(name);
         Inst = Shape != null ? new RenderInstance(Shape) : null;
         Array.Clear(Slots);
-        Ambient = Visibility = Turn = Elevate = null;
+        Ambient = Visibility = Turn = Elevate = TurretPower = null;
+        TurretPose = null;
         if (Shape != null && Inst != null)
         {
             if (Group != 3 && Shape.FindSequence("ambient") is int a && a >= 0 && Group is 4 or 8 or 19)
@@ -156,6 +160,17 @@ public class ShapeVisual : Visual
             {
                 if (Shape.FindSequence("turn") is int t && t >= 0) { Turn = Inst.AddThread(t, 0, 0); Turn.TimeScale = 0; }
                 if (Shape.FindSequence("elevate") is int e && e >= 0) { Elevate = Inst.AddThread(e, 0, 0); Elevate.TimeScale = 0; }
+                // Turret_onNewDataBlock 0x00452970: the third thread exists only when the shape has both `fire` and `power`; it starts on
+                // `power` (priority -1, Turret_setPowerSequence 0x00452e1c) at position 0.
+                mFireSeq = Shape.FindSequence("fire");
+                mPowerSeq = Shape.FindSequence("power");
+                if (mFireSeq >= 0 && mPowerSeq >= 0)
+                {
+                    TurretPower = Inst.AddThread(mPowerSeq, 0, -1);
+                    TurretPower.TimeScale = 0;
+                    TurretPose = new TurretGhostPose(true, Shape.Sequences[mPowerSeq].Duration, Shape.Sequences[mPowerSeq].Cyclic,
+                        Shape.Sequences[mFireSeq].Duration, Shape.Sequences[mFireSeq].Cyclic, Db.Num(Block, "speed", 1));
+                }
             }
             if (Group is 5 or 23 && Shape.FindSequence("ambient") is int ia && ia >= 0)
                 Ambient = Inst.AddThread(ia, M.Rng.NextDouble(), 0);
@@ -308,10 +323,6 @@ public class ShapeVisual : Visual
             t.Position = 0;
             SlotSeq[s.Slot] = s.Sequence;
         }
-        // Turret_setPowerSequence [code Turret_setPowerSequence, Turret_setFireSequence]: the thread of slot 0 of a turret runs the power sequence at priority -1 (above the
-        // turn and elevate threads that drive the same nodes), Turret_setFireSequence the fire sequence at priority 0.
-        if (Group == 19 && s.Slot == 0)
-            t.Priority = Shape?.SequenceName(s.Sequence) == "power" ? -1 : 0;
         // state 0 playing, 1 stopped (position 0), 2 paused (3.5, static-sim.md 1.7)
         double dir = s.Forward ? 1 : -1;
         if (s.State == 0)
@@ -335,6 +346,30 @@ public class ShapeVisual : Visual
             Turn.Position = Math.Clamp(Num("rotation"), 0, 1);
         if (u.Fields.Any(f => f.Name == "elevation") && Elevate != null)
             Elevate.Position = Math.Clamp(Num("elevation"), 0, 1);
+        if (TurretPose is not { } pose)
+            return;
+        // Turret_unpackUpdate 0x0045750c reads rotation, elevation, fire count, mode in this order.
+        if (u.Fields.Any(f => f.Name == "rotation"))
+            pose.Rotation = Num("rotation") * TurretGhostPose.TwoPi;
+        if (u.Fields.Any(f => f.Name == "fireState"))
+            pose.OnFireCount();
+        if (u.Fields.Any(f => f.Name == "mode"))
+            pose.OnMode((int)Num("mode"));
+        SyncTurret();
+    }
+
+    // Copies the pose model to the render threads: the power / fire thread and the turn thread (Turret_updateAim 0x00456874 sets the turn
+    // thread from the rotation every tick).
+    private void SyncTurret()
+    {
+        if (TurretPose is not { } pose || TurretPower == null)
+            return;
+        TurretPower.Sequence = pose.OnFire ? mFireSeq : mPowerSeq;
+        TurretPower.Priority = pose.OnFire ? 0 : -1;
+        TurretPower.Position = pose.Position;
+        TurretPower.TimeScale = 0;
+        if (Turn != null)
+            Turn.Position = Math.Clamp(pose.Rotation / TurretGhostPose.TwoPi, 0, 1);
     }
 
     private void UpdateTeamSkin()
@@ -458,6 +493,11 @@ public class ShapeVisual : Visual
             Inst.Advance(Ambient, dt);
         if (Visibility != null)
             Visibility.Position = DamageState == 3 ? 1.0 : 0.0;
+        if (TurretPose != null)
+        {
+            TurretPose.Tick(dt);
+            SyncTurret();
+        }
         if (Group == 10)
             TickFlier(dt);
     }
