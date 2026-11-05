@@ -173,6 +173,7 @@ way are added to Open.
 - [x] Aim markers with their distance.
 - [x] Command screen side panels, player list and chat menu.
 - [x] Command map screen with the terrain picture.
+- [x] **M4** A destroyed generator, solar panel, sensor, command panel or ammo station stays on the map so it can be repaired (not yet play-tested).
 
 ### Audio
 

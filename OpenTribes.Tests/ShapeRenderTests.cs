@@ -27,6 +27,26 @@ public class ShapeRenderTests
 
     // ---- SR 1.1, 1.2: what the render reader keeps ----
 
+    // M4: ShapeBase_explode leaves a destroyed shape drawn when it has a debris0 detail (generator, solar panel, stations), so it can be repaired.
+    [Fact]
+    public void DestroyedShapeStaysDrawnOnlyWithDebrisDetail()
+    {
+        var wreck = new RenderShape
+        {
+            Names = new[] { "root", "debris0" },
+            Nodes = new[] { new RsNode { Name = 0, Parent = -1 }, new RsNode { Name = 1, Parent = -1 } },
+            Details = new[] { new RsDetail { RootNode = 0, Size = 25 }, new RsDetail { RootNode = 1, Size = 0 } },
+        };
+        Assert.True(ShapeVisual.HasDebrisDetail(wreck));
+        var plain = new RenderShape
+        {
+            Names = new[] { "root", "debris0" },
+            Nodes = new[] { new RsNode { Name = 0, Parent = -1 } },
+            Details = new[] { new RsDetail { RootNode = 0, Size = 25 } },
+        };
+        Assert.False(ShapeVisual.HasDebrisDetail(plain));
+    }
+
     [Fact]
     public void ReaderKeepsTextureVerticesTriggersImageListsAndMaterials()
     {

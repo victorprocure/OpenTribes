@@ -276,6 +276,9 @@ public class ShapeVisual : Visual
             int state = ds == 1 ? 1 : ds == 2 ? 2 : ds == 0 ? 3 : ds;
             if (state != DamageState && !isNew && state == 3)
                 Destroyed();
+            // StaticBase_setDamageState: Enabled and Disabled call 0044cfe4, which clears the no-draw flag +0x71d set by ShapeBase_explode.
+            if (state != 3 && DamageState == 3)
+                Hidden = false;
             DamageState = state;
         }
         Damage = Num("damage");
@@ -349,11 +352,29 @@ public class ShapeVisual : Visual
         var (cx, cy, cz) = BoxCenter();
         if (expl >= 0)
             M.SpawnExplosion(expl, cx, cy, cz, 0, 0, 1);
-        if (debris >= 0)
+        // ShapeBase_explode 0044cdec sets the no-draw flag +0x71d only when the datablock has no debris or the shape has no `debris0` detail.
+        // Otherwise the shape stays drawn (the frame detail pick never selects the size 0 debris0 detail), so a destroyed generator stays
+        // on the map to be repaired, and the pieces fly from the debris0 detail.
+        if (debris < 0)
         {
-            M.Effects.Add(M.NewDebris(Inst, PoseXf(), 0, 0, 0, debris));
             Hidden = true;
+            return;
         }
+        M.Effects.Add(M.NewDebris(Inst, PoseXf(), 0, 0, 0, debris));
+        if (!HasDebrisDetail(Inst.Shape))
+            Hidden = true;
+    }
+
+    // TSShapeInstance_findDetailNode (005b96a0) with "debris0": a detail whose root node is named debris0.
+    public static bool HasDebrisDetail(RenderShape sh)
+    {
+        int node = sh.FindNode("debris0");
+        if (node < 0)
+            return false;
+        foreach (RsDetail d in sh.Details)
+            if (d.RootNode == node)
+                return true;
+        return false;
     }
 
     // The world box of the object [code 004aca84 reads +0x70..+0x84]: the shape box bound by ShapeBase::onNewDataBlock (0044b274), widened to
