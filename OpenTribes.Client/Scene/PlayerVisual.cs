@@ -256,14 +256,14 @@ public sealed class PlayerVisual : ShapeVisual
         if (s.Image < 0)
         {
             if (im != null)
-                M.Audio?.ImageStateChanged(this, s.Slot);
+                M.Audio?.ImageReset(this, s.Slot);
             mImages[s.Slot] = null;
             return;
         }
         if (im == null || im.Image != s.Image)
         {
             if (im != null)
-                M.Audio?.ImageStateChanged(this, s.Slot);
+                M.Audio?.ImageReset(this, s.Slot);
             // The stream carries the ItemData index (client-net.md 3.4); its imageType names the ItemImageData (group 6).
             ClientDataBlock? item = M.Db.Block(5, s.Image);
             ClientDataBlock? db = M.Db.Block(6, (int)Db.Num(item, "imageType", -1));

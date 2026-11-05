@@ -36,4 +36,15 @@ public class ImageVoiceSlotsTests
         s.Started(9, 5, loops: true);
         Assert.Equal(0, s.StateChanged(-1));
     }
+
+    [Fact]
+    public void ResetStopsTheStoredVoiceEvenWhenItDoesNotLoop()
+    {
+        var s = new ImageVoiceSlots();
+        s.Started(3, 41, loops: false);
+        Assert.Equal(41, s.Reset(3));
+        Assert.Equal(0, s.Handles[3]);
+        Assert.Equal(0, s.Reset(3));
+        Assert.Equal(0, s.Reset(8));
+    }
 }

@@ -1,6 +1,6 @@
 // Voice handles of the eight item image slots of one player ghost (docs/audio.md 3.2). The slot keeps the handle of every image
 // sound, one shots included (+0x1a04), and the per frame update moves it to the player [code 0041aea0 Player_animateImage].
-// A state change or a reset stops the voice only when it loops (flag +0x1a00) [code 0041aa40 Player_setImageState].
+// A state change stops the voice only when it loops (flag +0x1a00) [code 0041aa40 Player_setImageState]. Replacing or removing the image stops it always [code 0041a64c Player_resetImage].
 namespace OpenTribes.Client.Audio;
 
 public sealed class ImageVoiceSlots
@@ -24,6 +24,18 @@ public sealed class ImageVoiceSlots
     public int StateChanged(int slot)
     {
         if (slot is < 0 or >= Count || !mLoops[slot])
+            return 0;
+        int h = mHandle[slot];
+        mHandle[slot] = 0;
+        mLoops[slot] = false;
+        return h;
+    }
+
+    // The handle to stop when the slot's image is replaced or removed, or 0 when none: the stored voice is stopped whether it loops or
+    // not, then forgotten [code 0041a64c Player_resetImage, called by 0041a168 Player_setImage].
+    public int Reset(int slot)
+    {
+        if (slot is < 0 or >= Count)
             return 0;
         int h = mHandle[slot];
         mHandle[slot] = 0;

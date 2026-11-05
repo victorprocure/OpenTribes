@@ -312,6 +312,14 @@ public sealed class SceneAudio
         Sound.Stop(Gs(pl.Index).Image.StateChanged(slot));
     }
 
+    // The image of a slot is replaced or removed: the stored voice stops, looping or not [code 0041a64c Player_resetImage].
+    public void ImageReset(PlayerVisual pl, int slot)
+    {
+        if (slot is < 0 or > 7)
+            return;
+        Sound.Stop(Gs(pl.Index).Image.Reset(slot));
+    }
+
     public void ImageSound(PlayerVisual pl, int slot, ClientDataBlock? image, string field)
     {
         if (slot is < 0 or > 7)
