@@ -970,7 +970,7 @@ public sealed class GuiChat : GuiTextEdit
     // bottom edge less one text line per wrapped line. A translucent shade with the two frame brackets covers the control, the
     // prompt is "SAY: " (channel 0) or "SAY TEAM: " (any other) in the channel's font, the typed text follows it and wraps below it,
     // and the cursor is a vertical bar in palette 0xfc that blinks.
-    public const int Margin = 40, PadX = 12, PadY = 4;
+    public const int Margin = 40, PadX = 12, PadY = 4, Lines = 2, ExtraHeight = 10;
 
     private bool LowRes => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
 
@@ -1021,9 +1021,12 @@ public sealed class GuiChat : GuiTextEdit
         string prompt = Prompt(channel);
         var lines = WrapLines(f, prompt, Text, W);
         int fh = GuiPaint.FontHeight(f);
-        H = fh * lines.Count + 2 * PadY;
+        // The control is two lines of sf_yellow_10b tall plus 10 (onWake: font height * [+0x464] = 2 + `DAT_00623204`), whatever the text, and
+        // the layout lifts it by the same two lines (004a3e68); the metrics never follow the wrapped line count or the low resolution font.
+        int mh = GuiPaint.FontHeight(Host.FontByName("sf_yellow_10b.pft") ?? f);
+        H = mh * Lines + ExtraHeight;
         X = (Parent.W - W) / 2;
-        Y = Parent.H - Margin - fh * lines.Count;
+        Y = Parent.H - Margin - mh * Lines;
         int x = ox + X, y = oy + Y;
         HudFrame.Panel(p, x, y, W, H);
         int ty = y + PadY - (low ? 0 : 2);
@@ -1045,7 +1048,9 @@ public sealed class GuiChat : GuiTextEdit
             if (focus && blink && Cursor >= start && (Cursor < start + len || last && Cursor == start + len))
             {
                 int cx = lx + GuiPaint.TextWidth(f, seg[..(Cursor - start)]);
-                p.Line(cx, ty, cx, ty + fh - 1, HudFrame.FaceColor);
+                // 004a3ebc: the cursor starts 3 below the text line (normal resolution) and is one font height long
+                int cy = ty + (low ? 0 : 3);
+                p.Line(cx, cy, cx, cy + fh - 1, HudFrame.FaceColor);
             }
             ty += fh;
         }

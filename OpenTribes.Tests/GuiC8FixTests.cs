@@ -84,7 +84,8 @@ public class GuiC8FixTests
         Assert.DoesNotContain("fill cff", calls);
         Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cfc"));           // brackets and cursor
         Assert.Equal((640 - 370) / 2, chat.X);                                              // centred
-        Assert.Equal(480 - GuiChat.Margin - 10, chat.Y);                                    // 40 above the bottom less one 10 pixel line
+        Assert.Equal(480 - GuiChat.Margin - 2 * 10, chat.Y);                                // 40 above the bottom less two 10 pixel lines (004a3e68, [+0x464] = 2)
+        Assert.Equal(2 * 10 + 10, chat.H);                                                  // onWake: two lines + DAT_00623204 (10)
     }
 
     [Fact]
