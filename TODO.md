@@ -91,7 +91,7 @@ way are added to Open.
 - [x] Sky panels, the plain-colour sky and sunlight inside buildings.
 - [x] Interior lights that start on their own, timed in game time, per interior.
 - [x] Depth buffer like the original.
-- [x] Draw order and culling: interior surfaces, terrain and objects inside interiors.
+- [x] Draw order and culling: interior surfaces, terrain (skipped when no outside is visible) and objects inside interiors.
 - [x] Interior haze distance.
 - [x] Texture mipmaps for interiors, terrain, sky and shapes, and edge clamping on shapes.
 - [x] Texture formats like the original, also for GUI bitmaps, with the unpacked texture options.

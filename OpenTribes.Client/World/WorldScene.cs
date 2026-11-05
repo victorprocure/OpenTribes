@@ -86,6 +86,19 @@ public sealed class WorldScene : IDisposable
             scene.Terrain = TerrainParams.FromMission(3000, 2000, 120);
 
         scene.Interiors = new InteriorRenderer(dev, scene.Assets);
+        if (scene.TerrainModel != null && all.FirstOrDefault(o => o.Class == "SimTerrain") is MissionObject tm)
+        {
+            // SimTerrain_updateBox 005193cc: x/y of the grid, z +-contHeight (10000 when unset) around the terrain z.
+            var tb = new float[6];
+            scene.TerrainModel.WorldBox(tb);
+            float h = (float)tm.GetDouble("contHeight", 10000);
+            float tz = (float)tm.GetVector("position")[2];
+            if (h == 0)
+                h = tb[5] - tz;
+            tb[2] = tz - h;
+            tb[5] = tz + h;
+            scene.Interiors.TerrainBox = tb;
+        }
         if (all.FirstOrDefault(o => o.Class == "Planet") is MissionObject planet)
         {
             // The planet light reaches the surfaces of interiors that see the outside (world-render.md 3.7 step 5).
@@ -270,7 +283,8 @@ public sealed class WorldScene : IDisposable
         if (TerrainDraw != null)
             TerrainDraw.DynamicLights = NearLights(x, y, z);
         using (FramePerf.Scope("terrain"))
-            TerrainDraw?.Draw(world);
+            if (Interiors?.TerrainReached(world) ?? true)
+                TerrainDraw?.Draw(world);
         SendDynamicLights(x, y, z);
         Prepare?.Invoke(world);
         using (FramePerf.Scope("interiors"))

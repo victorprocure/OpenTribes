@@ -726,6 +726,83 @@ public sealed class InteriorRenderer : IDisposable
         return leaves.IsSolid(leaf) || (leaf >= 43 && inst.ScopeLeaves.Contains(leaf)) || (leaf < 43 && inst.ScopeOutside);
     }
 
+    // The SimTerrain world box (min xyz, max xyz, z +-contHeight) for the render scope gate of `TerrainReached`; null: no gate.
+    public float[]? TerrainBox;
+    private Container? mGate;
+    private int mGateCount = -1;
+    private double mGateX = double.NaN, mGateY, mGateZ;
+    private bool mGateResult = true;
+
+    // The stock render walk reaches the terrain image only when the container interior the camera point lies in (a container of the
+    // terrain database, box = geometry box padded by 3) accepts the scope: `004fa9c8` (terrain, vtable +0x98) calls the scope of the
+    // open container of the point first and returns 0, before the terrain query `00518f80`, when it returns 0; `004804bc` returns
+    // whether the camera leaf sees outside (or a neighbour linked through a face does). A camera in an enclosed leaf of a container
+    // interior therefore sees no terrain (Broadside enemy base, play-flag 15: flat haze below the horizon). True: draw the terrain.
+    public bool TerrainReached(in Camera3D cam)
+    {
+        if (TerrainBox == null)
+            return true;
+        if (mGate == null || mGateCount != Instances.Count)
+        {
+            mGate = BuildGate();
+            mGateCount = Instances.Count;
+            mGateX = double.NaN;
+        }
+        if (mGateX != cam.X || mGateY != cam.Y || mGateZ != cam.Z)
+        {
+            (mGateX, mGateY, mGateZ) = (cam.X, cam.Y, cam.Z);
+            mGateResult = mGate.RenderReaches(new OpenTribes.World.Vec3((float)cam.X, (float)cam.Y, (float)cam.Z));
+        }
+        return mGateResult;
+    }
+
+    private Container BuildGate()
+    {
+        var c = new Container();
+        var terrain = new Container.Entry(this, ObjectType.kTerrainType, Float6.Of(TerrainBox!), false, null)
+        {
+            DatabaseKind = Container.Database.Terrain,
+            ContainerMask = 0xffffffffu,
+        };
+        c.Add(terrain);
+        foreach (Instance inst in Instances)
+        {
+            InteriorLodModel? lod0 = Lod(inst.Model, 0);
+            InteriorGeometry? g = lod0?.Leaves;
+            if (g == null)
+                continue;
+            g.LinkedInterior = inst.Model.Shape.LinkedInterior;
+            g.LinkableFaces = inst.Model.Shape.Lods[(int)inst.Model.Shape.State0Lod].LinkableFaces;
+            var m = new Mat();
+            for (int i = 0; i < 9; ++i)
+                m.M[i] = inst.M[i];
+            m.P = new OpenTribes.World.Vec3((float)inst.X, (float)inst.Y, (float)inst.Z);
+            var box = new float[] { 1e30f, 1e30f, 1e30f, -1e30f, -1e30f, -1e30f };
+            Float6 gb = g.Box;
+            for (int k = 0; k < 8; ++k)
+            {
+                OpenTribes.World.Vec3 w = m.ToWorld(new OpenTribes.World.Vec3(gb[(k & 1) != 0 ? 3 : 0], gb[(k & 2) != 0 ? 4 : 1], gb[(k & 4) != 0 ? 5 : 2]));
+                for (int i = 0; i < 3; ++i)
+                {
+                    box[i] = Math.Min(box[i], w[i]);
+                    box[i + 3] = Math.Max(box[i + 3], w[i]);
+                }
+            }
+            Container.PadInteriorBox(box);
+            var e = new Container.Entry(inst, ObjectType.kInteriorType, Float6.Of(box), false, null);
+            // isContainer -1 (the mission default): some extent >= 6 (docs/interiors.md 5.1)
+            if (gb[3] - gb[0] >= 6 || gb[4] - gb[1] >= 6 || gb[5] - gb[2] >= 6)
+            {
+                e.DatabaseKind = Container.Database.Interior;
+                e.ContainerMask = 0xffffffffu;
+                e.Geometry = g;
+                e.Transform = m;
+            }
+            c.Add(e);
+        }
+        return c;
+    }
+
     // The container of a shape for the frame: its index, -1 none, Culled when the container's scope misses it.
     public int ContainerOf(double[] objectBox, in Camera3D cam)
     {
