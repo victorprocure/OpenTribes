@@ -521,13 +521,11 @@ public sealed class ClientApp : IDisposable
         if (seen > chat.Count)
             seen = 0;
         List<int> types = g.World.Players.ChatTypes;
-        // PlayerManager_message 0040dbfc looks up `playGui` and its chat display (id 140113) and hands the text to 004a525c only
-        // when both exist: a line that arrives before play.gui is loaded (the join message of the local player comes during
-        // the load) goes to the console only.
-        bool display = GuiRt.FindChildOf("playGui", PlayDelegate.ChatDisplayId) != null;
         for (; seen < chat.Count; ++seen)
         {
             int type = seen < types.Count ? types[seen] : 0;
+            // The lookup of PlayerManager_message 0040dbfc ran when the message was made, in the packet read (ClientPlayerManager.Message).
+            bool display = seen < g.World.Players.ChatDisplayed.Count && g.World.Players.ChatDisplayed[seen];
             // Type 4 is the one-line current command (FearGuiChatDisplay slot 0x100), not a ring line (004a525c).
             if (display && type == 4)
                 Host.CommandText = chat[seen];

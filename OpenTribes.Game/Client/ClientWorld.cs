@@ -43,6 +43,11 @@ public sealed class ClientPlayerManager
     // The chat display type of each Chat line (PlayerManager_message 0040dbfc arg 2): 0 system, 1 and 4 red, 3 green, else yellow
     // (FearGuiChatDisplay font table 004a5124).
     public readonly List<int> ChatTypes = new();
+    // PlayerManager_message 0040dbfc looks up `playGui` and its chat display when the message is made (while the packet is read), not later:
+    // a line made before the PSC mode change that loads play.gui (loadPlayGui) is never handed to the chat ring (004a525c), it goes to
+    // the console only. This hook answers that lookup; ChatDisplayed holds its answer for each Chat line.
+    public Func<bool> ChatDisplayExists = () => true;
+    public readonly List<bool> ChatDisplayed = new();
     // $pref::playVoices as the engine reads it (0040940c): an empty value counts as true. Set by the client app.
     public Func<bool> PlayVoices = () => true;
     // Called with (client id, raw text with the ~w tag) when a command text carries a voice (the audio plays the wave).
@@ -76,12 +81,14 @@ public sealed class ClientPlayerManager
         TeamCount = -1;
         Chat.Clear();
         ChatTypes.Clear();
+        ChatDisplayed.Clear();
     }
 
     public void Message(string text, int type = 0)
     {
         Chat.Add(text);
         ChatTypes.Add(type);
+        ChatDisplayed.Add(ChatDisplayExists());
     }
 
     // 0040940c: with $pref::playVoices on, a `~w<sound>` tag ends the shown text (the sound is played from it).

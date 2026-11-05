@@ -134,7 +134,7 @@ way are added to Open.
 - [x] Progress bar, formatted text layout (also in centre prints and help pop-ups), fonts, alignment, variables and line spacing.
 - [x] Intro movie plays at start-up.
 - [x] Main menu emblem animation.
-- [x] Chat text without voice tags or empty lines, server messages without a sender prefix.
+- [x] Chat lines shown like the original: no voice tags or empty lines, server messages without a sender prefix.
 - [x] HUD positions, crosshair size and scroll bars.
 - [x] Loading screen palette and progress, mission reloads and the play screen ready on time.
 - [x] Damage flash (with the original strength), chat layout, inventory header and command view column.

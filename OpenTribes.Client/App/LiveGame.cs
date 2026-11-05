@@ -81,6 +81,7 @@ public sealed class LiveGame : IDisposable
             mGuiModeSeen = mode;
             mApp.Play.SetGuiMode(mode);
         };
+        w.Players.ChatDisplayExists = () => mApp.GuiRt.FindChildOf("playGui", PlayDelegate.ChatDisplayId) != null;
         w.Psc.OnScript = null;   // the play delegate evaluates loadPlayGui() on mode changes (PlayDelegate.SetGuiMode)
     }
 
