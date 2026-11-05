@@ -121,6 +121,10 @@ public sealed class SceneModel
     // The static world for debris: the nearest interior surface along a ray with its normal (InteriorRenderer.Probe), set by the live game.
     public DebrisRay? DebrisWorld;
 
+    // The container ray of the prediction world for Player +0xfd0 (Player_updateWeaponPullback 004198d4): ghost index of the player (it is
+    // left out of the cast), start and end; the hit point or null. Set by the live game.
+    public Func<int, (double, double, double), (double, double, double), (double, double, double)?>? PullbackRay;
+
     // DebrisEffect of a dying shape (PartDebrisCloud 00476434): the DebrisData of `debrisId` (group 22), the interiors and the terrain as the world of the
     // pieces, the explosion of a piece that ends and the secondary DebrisCloud of it.
     public DebrisEffect NewDebris(RenderInstance inst, Xf pose, double vx, double vy, double vz, int debrisId) =>
