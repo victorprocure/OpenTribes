@@ -151,6 +151,23 @@ public sealed class TerrainRenderer : IDisposable
             MaterialTexture(i);
     }
 
+    // The commander map picture of an area (CommandMapBake): the materials as the perspective view sees them (packed colours).
+    public byte[] RenderCommandMap(double areaX, double areaY, double areaW, double areaH, Func<int, int, int, int> nearest)
+    {
+        var rgbaCache = new Dictionary<int, (byte[]? Rgba, int W, int H)>();
+        (byte[]? Rgba, int W, int H) Material(int m)
+        {
+            if (!rgbaCache.TryGetValue(m, out var r))
+            {
+                string? name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
+                PbmpBitmap? b = name != null ? mAssets.Bitmap(name) : null;
+                rgbaCache[m] = r = b != null ? (mAssets.PackedRgba(b, true), b.Width, b.Height) : (null, 0, 0);
+            }
+            return r;
+        }
+        return CommandMapBake.Render(mData, OriginX, OriginY, areaX, areaY, areaW, areaH, m => Material(m).Rgba, m => (Material(m).W, Material(m).H), nearest);
+    }
+
     private readonly Dictionary<long, float> mGrow = new();
 
     public void Draw(in Camera3D cam)

@@ -260,6 +260,31 @@ public sealed class LiveGame : IDisposable
             mQueued.Add(pkt);
     }
 
+    // The commander map picture (rebuildCommandMap [code 0041e3d4]): rendered from the terrain when the script asks, or at the first
+    // draw of the map once the world exists, over the area of the MissionCenterPos ghost (the constructor values 1230 1230 1400 1400
+    // without one [code 004ceb18]).
+    private OpenTribes.Gui.CommandMapPicture? mCommandMap;
+    private bool mCommandMapDirty = true;
+
+    public void RebuildCommandMap() => mCommandMapDirty = true;
+
+    public OpenTribes.Gui.CommandMapPicture? CommandMapPicture()
+    {
+        if (!mCommandMapDirty)
+            return mCommandMap;
+        TerrainRenderer? terrain = Scene?.TerrainDraw;
+        if (terrain == null)
+            return mCommandMap;
+        double[] area = { 1230, 1230, 1400, 1400 };
+        if (World.Ghosts.All().FirstOrDefault(g => g.Class == "MissionCenterPos")?.State.GetValueOrDefault("rect") is double[] { Length: 4 } r)
+            area = r;
+        OpenTribes.Platform.Gfx.PaletteBank bank = Scene!.Assets.Palette;
+        byte[] picture = terrain.RenderCommandMap(area[0], area[1], area[2], area[3], (r8, g8, b8) => bank.NearestColor(r8, g8, b8));
+        mCommandMap = new OpenTribes.Gui.CommandMapPicture((float)area[0], (float)area[1], (float)area[2], (float)area[3], CommandMapBake.Tiles(picture));
+        mCommandMapDirty = false;
+        return mCommandMap;
+    }
+
     private void PollGuiMode()
     {
         int mode = World.Psc.GuiMode;

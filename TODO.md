@@ -163,7 +163,7 @@ way are added to Open.
 - [x] Zoom reticle (not clipped) and field of view.
 - [x] Aim markers with their distance.
 - [x] Command screen side panels, player list and chat menu.
-- [x] Command map screen.
+- [x] Command map screen with the terrain picture.
 
 ### Audio
 

@@ -676,7 +676,11 @@ public sealed class ClientCommandHandlers
             mApp.Play.Reset();
             return "";
         });
-        Cmd("rebuildCommandMap", a => "");
+        Cmd("rebuildCommandMap", a =>
+        {
+            mApp.Game?.RebuildCommandMap();
+            return "";
+        });
         // Client item commands (client.cs `use`, `getItemType`): the item type is the ItemData index (group 5) whose description
         // matches, case-insensitive [code 0041e60c, 0041e648]. useItem puts the type into the next move.
         Cmd("getItemType", a =>

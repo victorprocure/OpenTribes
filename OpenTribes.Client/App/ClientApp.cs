@@ -461,6 +461,7 @@ public sealed class ClientApp : IDisposable
             MenuSource = CurrentMenu,
             PlayMenuSource = PlayMenu,
             NamedMenuSource = NamedMenu,
+            CommandMapSource = () => g.CommandMapPicture(),
             FirstPersonSource = () => Play.Moves.FirstPersonNow,
             ZoomSource = () => Play.Moves.HudZoomState(),
             ViewCamera = (w, h) => g.Camera() is { } c

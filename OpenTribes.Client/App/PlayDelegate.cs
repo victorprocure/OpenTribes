@@ -10,7 +10,9 @@ namespace OpenTribes.Client.App;
 public sealed class PlayDelegate : IActionConsumer
 {
     public const uint PlayGuiId = 140114, CommandGuiId = 140200, ChatEntryId = 140112, ChatDisplayId = 140113, HudListId = 140220;
-    public const int Chat = 220200, ChatDispSize = 220201, ChatDispPage = 220202, MenuPage = 220203, EscapePressed = 220204;
+    public const int Chat = 220200, ChatDispSize = 220201, ChatDispPage = 220202, MenuPage = 220203, EscapePressed = 220204,
+        ZoomIn = 220207, ZoomOut = 220208, ZoomModeOn = 220210, ZoomModeOff = 220211, CenterModeOn = 220219, CenterModeOff = 220220;
+    public const uint CommanderMapId = 140201, ZoomButtonId = 140211, CenterButtonId = 140216;
 
     private readonly ClientApp mApp;
     public readonly MoveBuilder Moves = new();
@@ -106,6 +108,12 @@ public sealed class PlayDelegate : IActionConsumer
         return Dispatch(action, value);
     }
 
+    private void LightButton(uint id, bool on)
+    {
+        if (mApp.GuiRt.FindControl(id.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiUniversalButton b)
+            b.On = on;
+    }
+
     private bool Dispatch(int action, float value)
     {
         switch (action)
@@ -139,6 +147,31 @@ public sealed class PlayDelegate : IActionConsumer
                     mApp.Canvas.CursorOn = list.Visible;
                 }
                 return true;
+            // The commander map (docs/gui.md 3.3 "The command map") [code 004dd280 cases 0x35c2f .. 0x35c3c]: the zoom steps, and the zoom and centre modes
+            // with the lit state (+0x275) of their buttons.
+            case ZoomIn or ZoomOut or ZoomModeOn or ZoomModeOff or CenterModeOn or CenterModeOff:
+                {
+                    if (mApp.GuiRt.FindControl(CommanderMapId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is not GuiCommandMap map)
+                        return false;
+                    switch (action)
+                    {
+                        case ZoomIn:
+                            map.ZoomInAtCursor();
+                            break;
+                        case ZoomOut:
+                            map.ZoomOutAtCursor();
+                            break;
+                        case ZoomModeOn or ZoomModeOff:
+                            map.ZoomMode = action == ZoomModeOn;
+                            LightButton(ZoomButtonId, map.ZoomMode);
+                            break;
+                        default:
+                            map.CenterMode = action == CenterModeOn;
+                            LightButton(CenterButtonId, map.CenterMode);
+                            break;
+                    }
+                    return true;
+                }
             case EscapePressed:
                 {
                     if (mApp.GuiRt.FindControl(HudListId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiControl { Visible: true } hl)
