@@ -101,6 +101,23 @@ public sealed class ExplosionEffect : IEffect
         }
     }
 
+    // Hit shape of a LaserProjectile (LaserProjectile_loadResources 00463204, image setup 00463810): identity transform at the end
+    // point, only the `ambient` thread (none when the shape lacks it) with timeScale = sequence duration / beamTime so one cycle
+    // spans beamTime, and the image exists only while the beam lives (beamTime seconds after it started, `elapsed` already spent).
+    public ExplosionEffect(RenderShape shape, double x, double y, double z, double beamTime, double elapsed)
+    {
+        (mX, mY, mZ) = (x, y, z);
+        (mAx, mAy, mAz) = (0, 0, 1);
+        mInst = new RenderInstance(shape);
+        int amb = shape.FindSequence("ambient");
+        mMain = mInst.AddThread(amb, 0, 0);
+        double dur = amb >= 0 ? Math.Max(shape.Sequences[amb].Duration, 1e-6) : 1;
+        mMain.TimeScale = dur / Math.Max(beamTime, 1e-3);
+        mInst.Advance(mMain, Math.Max(elapsed, 0));
+        mAge = Math.Max(elapsed, 0) * 1000;
+        LifeMs = beamTime * 1000;
+    }
+
     public void Tick(double dt)
     {
         mAge += dt * 1000;

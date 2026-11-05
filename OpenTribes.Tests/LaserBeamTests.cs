@@ -26,3 +26,21 @@ public class LaserBeamTests
         Assert.Equal(0.04 / (0.04 * 320 / 200), farWidth, 3);
     }
 }
+
+// 00463810 / 00463204: the laser hit shape lives beamTime and its ambient cycle spans beamTime.
+public class LaserHitShapeTests
+{
+    [Fact]
+    public void HitShapeLivesBeamTimeAndCycleSpansBeamTime()
+    {
+        RenderShape shape = RenderShape.Parse(SyntheticShape.Build(), "synthetic")!;
+        var e = new ExplosionEffect(shape, 0, 0, 0, 0.5, 0.1);
+        Assert.Equal(500, e.LifeMs);
+        Assert.Equal(100, e.AgeMs, 3);
+        Assert.True(e.Alive);
+        e.Tick(0.39);
+        Assert.True(e.Alive);
+        e.Tick(0.02);
+        Assert.False(e.Alive);
+    }
+}

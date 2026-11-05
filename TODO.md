@@ -115,7 +115,7 @@ way are added to Open.
 - [x] Shape lighting per vertex, also from far lights and the sun.
 - [x] Team skin on mounted weapons.
 - [x] Grenade smoke puffs and grenade sounds.
-- [x] Laser beam shape.
+- [x] Laser beam shape and how long the hit flash lasts.
 - [x] Bullet holes only on buildings.
 - [x] Debris pieces fly, bounce, end in their explosion and rest on floors.
 

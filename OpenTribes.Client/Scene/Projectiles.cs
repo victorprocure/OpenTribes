@@ -324,7 +324,10 @@ public sealed class BeamVisual : Visual
             if (sh != null)
             {
                 double[] e = Vec("end");
-                M.Effects.Add(new ExplosionEffect(sh, null, e[0], e[1], e[2], 0, 0, 1, M.Rng));
+                if (Class == "LaserProjectile")   // 00463810: lives beamTime from the beam start, ambient thread over beamTime
+                    M.Effects.Add(new ExplosionEffect(sh, e[0], e[1], e[2], Math.Max(Db.Num(mBlock, "beamTime", 0.5), 1e-3), M.Time - mStart));
+                else
+                    M.Effects.Add(new ExplosionEffect(sh, null, e[0], e[1], e[2], 0, 0, 1, M.Rng));
             }
         }
     }
