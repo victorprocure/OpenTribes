@@ -1,0 +1,32 @@
+// docs/gui.md 4.2 Crosshair: Crosshair_findTarget 004aca84 skips the control object and the Players mounted on it.
+using OpenTribes.Gui;
+using Xunit;
+using static OpenTribes.Tests.GuiVehicleHudTests;
+
+namespace OpenTribes.Tests;
+
+public class GuiVehicleCrosshairTests
+{
+    [Fact]
+    public void PilotCrosshairSkipsThePlayersMountedOnTheVehicle()
+    {
+        var (world, src) = Scene("Flier", kVehicle);
+        world.Ghosts.Get(kOther)!.State["pos"] = new[] { 30.0, 60.0, -1.75 };
+        HudTargetResult? r = src.CrosshairTarget(640, 480);
+        // the pilot's own Player (6) and the passenger (7) sit dead ahead and are not listed, the walking Player (8) is off to the side
+        Assert.NotNull(r);
+        Assert.Single(r!.Marks);
+        Assert.Null(r.Name);
+    }
+
+    [Fact]
+    public void PassengerCrosshairStillMarksTheOtherRidersOfTheVehicle()
+    {
+        var (world, src) = Scene("Player", kPilot);
+        world.Ghosts.Get(kOther)!.State["pos"] = new[] { 30.0, 60.0, -1.75 };
+        HudTargetResult? r = src.CrosshairTarget(640, 480);
+        Assert.NotNull(r);
+        // the control Player (6) is skipped, the Player (7) on the same vehicle is on the other side of the label test
+        Assert.Equal("Pilot", r!.Name);
+    }
+}
