@@ -408,11 +408,32 @@ public sealed class PlayerVisual : ShapeVisual
     }
 
     // `pitch` set: the pitch-only node rotation of `Player_getImageMountTransform` (3.6 step 2) for mount points 0 and 1.
-    public Xf ImageTransform(ImageMount im, int detail, Xf body, double? pitch = null)
+    // `pullback` is Player +0xfd0 (WeaponPullback); the mount transform adds it to the offset y of a mount point 0 image only
+    // (Player_getImageMountTransform 00419ba0, the add reads image +0x38 == 0).
+    public Xf ImageTransform(ImageMount im, int detail, Xf body, double? pitch = null, double pullback = 0)
+    {
+        Xf mount = MountNode(im, detail, pitch, out _);
+        Xf local = ImageLocal(Db.Num(im.Db, "mountOffset.x"), Db.Num(im.Db, "mountOffset.y"), Db.Num(im.Db, "mountOffset.z"),
+                              Db.Num(im.Db, "mountRotation.x"), Db.Num(im.Db, "mountRotation.y"), Db.Num(im.Db, "mountRotation.z"),
+                              im.MountPoint, pullback);
+        return local.Then(mount).Then(body);
+    }
+
+    // The image's own transform: Euler rotation at the offset, with the pullback added to the offset y for mount point 0
+    // (Player_getImageMountTransform 00419ba0).
+    public static Xf ImageLocal(double ox, double oy, double oz, double rx, double ry, double rz, int mountPoint, double pullback)
+    {
+        Xf local = Xf.Euler(rx, ry, rz);
+        local.Px = ox; local.Py = mountPoint == 0 ? pullback + oy : oy; local.Pz = oz;
+        return local;
+    }
+
+    private Xf MountNode(ImageMount im, int detail, double? pitch, out bool found)
     {
         RenderShape sh = Inst!.Shape;
         string[] names = { "dummy hand", "dummy unused", "dummy midback", "dummy lowback" };
         int node = im.MountPoint >= 0 && im.MountPoint < 4 ? sh.FindNodeBase(names[im.MountPoint], detail) : -1;
+        found = node >= 0;
         Xf mount = node >= 0 ? Inst.NodeWorld[node] : Xf.Identity;
         if (node >= 0 && pitch is double pv && !mDead && im.MountPoint is 0 or 1)
         {
@@ -420,9 +441,48 @@ public sealed class PlayerVisual : ShapeVisual
             (r.Px, r.Py, r.Pz) = (mount.Px, mount.Py, mount.Pz);
             mount = r;
         }
-        Xf local = Xf.Euler(Db.Num(im.Db, "mountRotation.x"), Db.Num(im.Db, "mountRotation.y"), Db.Num(im.Db, "mountRotation.z"));
-        local.Px = Db.Num(im.Db, "mountOffset.x"); local.Py = Db.Num(im.Db, "mountOffset.y"); local.Pz = Db.Num(im.Db, "mountOffset.z");
-        return local.Then(mount).Then(body);
+        return mount;
+    }
+
+    // Player +0xfd0 (Player_updateWeaponPullback 004198d4, called from Player_updateMove 00415304, which Player_clientUpdate 00414c38
+    // runs for ghosts, Player_serverTick on the server): a container ray (mask 0xbfffffff, the player itself excluded) from the origin of the first mount point 0
+    // image's mount transform to its muzzle transform; on a hit the distance along the mount's y axis between the hit and the muzzle
+    // minus 0.2. Zero without a mount point 0 image, a mount node, or a hit. `Ray` is the container ray of the live game.
+    public double WeaponPullback(int detail, Xf body, double? pitch)
+    {
+        if (Ray == null || Inst == null)
+            return 0;
+        foreach (ImageMount? im in mImages)
+        {
+            if (im?.Inst == null || im.MountPoint != 0)
+                continue;
+            Xf mount = MountNode(im, detail, pitch, out bool found);
+            if (!found)
+                return 0;
+            Xf t = ImageTransform(im, detail, body, pitch);
+            // Player_getMuzzleTransform 00419d88: the "dummyalways muzzle" node of the image shape times the mount, else the mount.
+            int mn = im.Shape!.FindNodeBase("dummyalways muzzle", 0);
+            Xf mz = mn >= 0 ? im.Inst.NodeWorld[mn].Then(t) : t;
+            var (sx, sy, sz) = t.Apply(0, 0, 0);
+            var (ex, ey, ez) = mz.Apply(0, 0, 0);
+            var (fx, fy, fz) = t.Rotate(0, 1, 0);
+            if (Ray(Index, (sx, sy, sz), (ex, ey, ez)) is not var (hx, hy, hz))
+                return 0;
+            return PullbackFrom((sx, sy, sz), (ex, ey, ez), (hx, hy, hz), (fx, fy, fz));
+        }
+        return 0;
+    }
+
+    // The ray of the live game: ghost index, start, end to the hit point (null on a miss).
+    private Func<int, (double, double, double), (double, double, double), (double, double, double)?>? Ray => M.PullbackRay;
+
+    // 004198d4: (hit - start) . axis - (end - start) . axis - 0.2, the axis being the image's y axis in world space.
+    public static double PullbackFrom((double x, double y, double z) start, (double x, double y, double z) end,
+                                      (double x, double y, double z) hit, (double x, double y, double z) axis)
+    {
+        double d1 = (hit.x - start.x) * axis.x + (hit.y - start.y) * axis.y + (hit.z - start.z) * axis.z;
+        double d2 = (end.x - start.x) * axis.x + (end.y - start.y) * axis.y + (end.z - start.z) * axis.z;
+        return d1 - d2 - 0.2;
     }
 
     // Player_getMountPointTransform(2) [code 004aca84]: the `dummy midback` node in world space, null without the node or a position.
@@ -448,7 +508,9 @@ public sealed class PlayerVisual : ShapeVisual
                 continue;
             // First person draws detail 0 with the camera pitch (Build); the muzzle is taken from that same pose.
             int d = mFpBody != null ? 0 : Math.Max(M.Renderer.LastDetail, 0);
-            Xf t = ImageTransform(im, Math.Min(d, Math.Max(Inst!.Shape.Details.Length - 1, 0)), body, mFpBody != null ? mFpPitch : ViewModeSet(false) ? ViewPitch : null);
+            int dd = Math.Min(d, Math.Max(Inst!.Shape.Details.Length - 1, 0));
+            double? pt = mFpBody != null ? mFpPitch : ViewModeSet(false) ? ViewPitch : null;
+            Xf t = ImageTransform(im, dd, body, pt, WeaponPullback(dd, body, pt));
             int mn = im.Shape!.FindNodeBase("dummyalways muzzle", 0);
             if (mn < 0)
                 mn = im.Shape.FindNodeBase("dummy muzzle", 0);
@@ -547,6 +609,7 @@ public sealed class PlayerVisual : ShapeVisual
         if (detail < 0)
             return;
         // Mounted images (3.6, 5.2): first person draws only the weapons, with the fixed sort key 0.999.
+        double? pulled = null;
         foreach (ImageMount? im in mImages)
         {
             if (im?.Inst == null || im.Shape == null)
@@ -554,8 +617,9 @@ public sealed class PlayerVisual : ShapeVisual
             if (firstPerson && !im.FirstPerson)
                 continue;
             Inst.Animate(Math.Min(detail, Shape.Details.Length - 1));
+            double pullback = pulled ??= WeaponPullback(Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly);
             // The renderer puts the image's root transform (node 0 default) in front of the mount transform (3.6).
-            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly);
+            Xf xf = ImageTransform(im, Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)), body, pitchOnly, pullback);
             ShapeDraw d = ctx.Draw(xf, im.Shape.Name);
             d.Skin = Skins.ImageSkin(im.Team, M.TeamSkin(im.Team));
             d.Fade = fade;

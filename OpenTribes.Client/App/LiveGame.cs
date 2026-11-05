@@ -342,6 +342,21 @@ public sealed class LiveGame : IDisposable
         };
         Model.DebrisWorld = (sx, sy, sz, dx, dy, dz, len) =>
             Scene.Interiors != null && Scene.Interiors.Probe(sx, sy, sz, dx, dy, dz, len, out double t, out _, out var n) ? (true, t, n.x, n.y, n.z) : (false, 0, 0, 0, 1);
+        // Player_updateWeaponPullback 004198d4: the cast of mask 0xbfffffff in the prediction world, the player's own copy left out.
+        Model.PullbackRay = (ghost, a, b) =>
+        {
+            if (Net?.PredictWorld is not { } pw)
+                return null;
+            object? self = ghost == World.Psc.ControlGhost ? Net.Prediction.Object
+                           : Net.Remote.Players.TryGetValue(ghost, out RemotePlayer? rp) ? rp.P : null;
+            object? obj = null;
+            OpenTribes.World.Vec3 hit = default, normal = default;
+            return pw.Game.World.CastRay(new OpenTribes.World.Vec3((float)a.Item1, (float)a.Item2, (float)a.Item3),
+                                         new OpenTribes.World.Vec3((float)b.Item1, (float)b.Item2, (float)b.Item3), 0xbfffffffu, self,
+                                         ref obj, ref hit, ref normal)
+                ? (hit.X, hit.Y, hit.Z)
+                : null;
+        };
         Model.BaseLight.SetSun(Scene.SunAzimuth, Scene.SunIncidence);
         Model.BaseLight.AmbR = (float)Scene.SunAmbient[0]; Model.BaseLight.AmbG = (float)Scene.SunAmbient[1]; Model.BaseLight.AmbB = (float)Scene.SunAmbient[2];
         Model.BaseLight.SunR = (float)Scene.SunIntensity[0]; Model.BaseLight.SunG = (float)Scene.SunIntensity[1]; Model.BaseLight.SunB = (float)Scene.SunIntensity[2];
