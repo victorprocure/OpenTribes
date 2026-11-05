@@ -25,6 +25,13 @@ public sealed class ClientChatDisplayTests
     public void ChatFontFollowsTheMessageType(uint type, bool low, string expected) =>
         Assert.Equal(expected, GuiChatDisplay.FontName(type, low));
 
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("You have left the mission area.", true)]
+    [InlineData(" ", true)]
+    public void ALineWithoutTextIsNotAddedToTheRing(string text, bool shown) =>
+        Assert.Equal(shown, GuiHost.ChatLineShown(text));
+
     private static GuiChatDisplay Display(uint lines) => (GuiChatDisplay)GuiFixture.Make("FearGui::FearGuiChatDisplay", 132, 9, 370, 45, ("lines", lines));
 
     [Fact]

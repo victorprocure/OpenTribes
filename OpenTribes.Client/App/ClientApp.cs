@@ -531,7 +531,7 @@ public sealed class ClientApp : IDisposable
             // Type 4 is the one-line current command (FearGuiChatDisplay slot 0x100), not a ring line (004a525c).
             if (display && type == 4)
                 Host.CommandText = chat[seen];
-            else if (display)
+            else if (display && GuiHost.ChatLineShown(chat[seen]))
                 Host.AddChat(chat[seen], (uint)type);
             // PlayerManager_message 0040dbfc also prints the line to the console as MSG: "<escaped text>".
             Interp.Print(1, "MSG: \"" + Builtins.ExportEscape(chat[seen]) + "\"");

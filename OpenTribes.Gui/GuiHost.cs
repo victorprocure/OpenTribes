@@ -59,6 +59,11 @@ public sealed class GuiHost
     public readonly List<(string Text, uint FontTag)> Chat = new();
     public void AddChat(string text, uint fontTag = 0) => Chat.Add((text, fontTag));
 
+    // FearGuiChatDisplay add [code 004a525c]: a line that holds no text once the tags are cut (the alert sound of
+    // `Client::sendMessage(%c, 1, "~wLeftMissionArea.wav")` arrives as "") copies no characters, so the ring slot is given back
+    // (DAT_00623488 is decremented) and the display does not scroll. The console still prints it.
+    public static bool ChatLineShown(string text) => text.Length > 0;
+
     // The current command line of the chat display (message type 4) and the state that decides whether and how it is drawn.
     public string CommandText = "";
     public bool CommandActive, CommandAccepted;
