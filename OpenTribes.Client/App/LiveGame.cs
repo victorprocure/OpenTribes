@@ -32,6 +32,7 @@ public sealed class LiveGame : IDisposable
     private ShapeRenderer? mRenderer;
     private SceneAudio? mAudio;
     private bool mSceneTried;
+    private uint mAlwaysSeenMs;
     private double mTickCarry;
     private int mChatSeen;
     private int mGuiModeSeen = -1;
@@ -230,7 +231,13 @@ public sealed class LiveGame : IDisposable
         mApp.PumpChat(this, ref mChatSeen);
         PollGuiMode();
         mApp.Play.SetScoreVisible(World.Psc.ScoreFlag && World.Psc.GuiMode != 0);
-        if (!HasScene && !mSceneTried && World.AlwaysDone)
+        // The stock client answers the end of the ghost-always phase with CGADone in its next packet (about 170 ms after the server
+        // finished it, stock trace) and builds nothing first. The scene build takes about 0.6 s here, so it waits until that reply
+        // has been written (at most 1 s), or the server sees CGADone late: the PSC mode change and the join event then arrive
+        // in one packet and the join line is dropped (docs/gui.md 4.2).
+        if (World.AlwaysDone && mAlwaysSeenMs == 0)
+            mAlwaysSeenMs = now;
+        if (!HasScene && !mSceneTried && World.AlwaysDone && (Net == null || !Net.Game.OutgoingPending || now - mAlwaysSeenMs > 1000))
             BuildScene();
         if (HasScene)
         {

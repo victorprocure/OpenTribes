@@ -144,6 +144,9 @@ public sealed class ClientGameConnection
 
     // ---- send (4.3, game-stream.md 1.3) ----
 
+    // True while events wait for the next packet (the CGADone remote eval after the ghost-always phase).
+    public bool OutgoingPending => mQueue.Count != 0;
+
     public void Post(OutEvent e)
     {
         if (e.Ordered)

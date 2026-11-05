@@ -66,3 +66,17 @@ public class ChatLookupAtArrivalTests
         Assert.Empty(pm.ChatDisplayed);
     }
 }
+
+// The client answers the ghost-always phase (CGADone) before it builds the scene, so the server sees the reply about 170 ms after
+// the phase like the stock client (docs/gui.md 4.2): LiveGame waits for the queue to empty.
+public class CgaReplyTests
+{
+    [Fact]
+    public void QueuedRemoteEvalIsPendingUntilWritten()
+    {
+        var conn = new OpenTribes.Game.ClientGameConnection(new OpenTribes.Game.ClientWorld());
+        Assert.False(conn.OutgoingPending);
+        conn.PostRemoteEval("CGADone");
+        Assert.True(conn.OutgoingPending);
+    }
+}
