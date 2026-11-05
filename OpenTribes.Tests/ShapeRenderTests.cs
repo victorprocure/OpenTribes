@@ -380,6 +380,40 @@ public class ShapeRenderTests
         Assert.Null(e.Light);
     }
 
+    // ---- SR 4.4: debris pieces explode (Debris_tick 004721f8, Debris_explode 00472954) ----
+
+    [Fact]
+    public void DebrisPiecesLandOnTheFloorAndEachEndsInTheSpawnedExplosion()
+    {
+        RenderShape s = Shape();
+        var explosions = new List<(int index, double z)>();
+        var piece = new DebrisParams(MinTimeout: 3, MaxTimeout: 6, ExplodeOnBounce: 0.3, ExplodeOnRest: true, Explosion: 7);
+        // an interior floor at z 10 (no terrain): the pieces start above it and must stay on it
+        var d = new DebrisEffect(new RenderInstance(s), Xf.Translate(0, 0, 12), 0, 0, 0, null, new Random(3), piece,
+            (x, y, z, len) => z - len <= 10 ? 10.0 : null, (e, x, y, z) => explosions.Add((e, z)));
+        Assert.True(d.PieceCount > 0);
+        Assert.True(d.Alive);
+        double minZ = double.MaxValue;
+        for (int i = 0; i < 400 && d.Alive; ++i)
+        {
+            d.Tick(0.032);
+            foreach ((int _, double z) in explosions)
+                minZ = Math.Min(minZ, z);
+        }
+        Assert.False(d.Alive);                                   // every piece exploded: lifetime 3 to 6 s at most (the run is 12.8 s)
+        Assert.Equal(d.PieceCount, explosions.Count);            // one explosion per piece
+        Assert.All(explosions, e => Assert.Equal(7, e.index));
+        Assert.True(minZ >= 10.0, "no piece went through the floor");
+    }
+
+    [Fact]
+    public void DebrisDataFieldsFeedTheDebrisParameters() // SR 4.4
+    {
+        Assert.Equal(DebrisParams.Default, DebrisParams.From(null));
+        Assert.Equal(-1, DebrisParams.Default.Explosion);
+        Assert.Equal(0.3, DebrisParams.Default.ExplodeOnBounce);
+    }
+
     // ---- SR 4.5 smoke pool, 4.6 decals ----
 
     [Fact]

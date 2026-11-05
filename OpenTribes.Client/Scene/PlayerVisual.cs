@@ -159,7 +159,7 @@ public sealed class PlayerVisual : ShapeVisual
         if (expl >= 0)
             M.SpawnExplosion(expl, cx, cy, cz, 0, 0, 1);
         if (debris >= 0)
-            M.Effects.Add(new DebrisEffect(Inst, PoseXf(), mVx, mVy, mVz, M.Terrain, M.Rng));
+            M.Effects.Add(M.NewDebris(Inst, PoseXf(), mVx, mVy, mVz, debris));
         Hidden = true;
     }
 

@@ -351,7 +351,7 @@ public class ShapeVisual : Visual
             M.SpawnExplosion(expl, cx, cy, cz, 0, 0, 1);
         if (debris >= 0)
         {
-            M.Effects.Add(new DebrisEffect(Inst, PoseXf(), 0, 0, 0, M.Terrain, M.Rng));
+            M.Effects.Add(M.NewDebris(Inst, PoseXf(), 0, 0, 0, debris));
             Hidden = true;
         }
     }

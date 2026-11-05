@@ -118,6 +118,13 @@ public sealed class SceneModel
         Audio?.Frame(dt);
     }
 
+    // DebrisEffect of a dying shape: the DebrisData of `debrisId` (group 22), the interior floor from the light probe ray (straight down) and the
+    // explosion of a piece that ends.
+    public DebrisEffect NewDebris(RenderInstance inst, Xf pose, double vx, double vy, double vz, int debrisId) =>
+        new(inst, pose, vx, vy, vz, Terrain, Rng, DebrisParams.From(Db.Block(22, debrisId)),
+            (x, y, z, len) => Probe?.Interior is { } probe && probe(x, y, z, 0, 0, -1, len) is (true, double t, _) ? z - t : null,
+            (e, x, y, z) => SpawnExplosion(e, x, y, z, 0, 0, 1));
+
     public void SpawnExplosion(int index, double x, double y, double z, double ax, double ay, double az)
     {
         ClientDataBlock? db = Db.Block(20, index);

@@ -10,6 +10,7 @@ way are added to Open.
 ### Turrets and weapons
 
 - [ ] **L2** The laser rifle beam starts a little short of the gun tip in first person.
+- [ ] **T1** Turrets do not show their powered or unpowered pose. This also sends their debris the wrong way.
 
 ### Vehicles
 
@@ -115,6 +116,7 @@ way are added to Open.
 - [x] Grenade smoke puffs and grenade sounds.
 - [x] Laser beam shape.
 - [x] Bullet holes only on buildings.
+- [x] Debris ends in its explosion and rests on floors.
 
 ### Menus and HUD
 
