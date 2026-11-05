@@ -42,7 +42,7 @@ public sealed class DebrisBody
     public double Vx, Vy, Vz, Wx, Wy, Wz;
     public double Ax, Ay, Az;            // accumulated spin angles
     public double Age, Life;             // seconds lived, lifetime (minTimeout + (maxTimeout - minTimeout) * random)
-    public double Radius = 0.25;         // collision sphere radius (Debris +0x318): PartDebris loadShape 0047603c, 0.5 x the length of the part's bounds box size
+    public double Radius = 0.25;         // collision sphere radius (Debris +0x318): PartDebris loadShape 0047603c, see PartDebris.Measure
     public double Mass = 100;
     public double Damage = double.PositiveInfinity;   // +0x348: the self damage left (DebrisData `damage`); below zero the piece explodes
     public bool Collided, PrevCollided, Frozen, Done;
@@ -223,28 +223,20 @@ public sealed class DebrisEffect : IEffect
             RsObject ob = sh.Objects[oi];
             if (!nodes.Contains(ob.Node) || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length || sh.Meshes[ob.Mesh].Faces.Length == 0 || !inst.Objects[oi].Visible)
                 continue;
-            // centre of the frame 0 box (decoded vertices 0 and 1) in shape space: the part constructor 005c3b18 moves the part origin there
+            // the part box of 005c3b18 / 005ad14c at the object's current frame: the part origin moves to its centre (the middle of the frame box)
             RsMesh m = sh.Meshes[ob.Mesh];
-            RsFrame f = m.Frames.Length > 0 ? m.Frames[0] : default;
-            double lx = 0, ly = 0, lz = 0, ex = 0.1, ey = 0.1, ez = 0.1;
-            if (m.Verts.Length >= (f.FirstVert + 2) * 4)
-            {
-                int a = f.FirstVert * 4, b = a + 4;
-                lx = (m.Verts[a] + m.Verts[b]) * 0.5 * f.Sx + f.Ox;
-                ly = (m.Verts[a + 1] + m.Verts[b + 1]) * 0.5 * f.Sy + f.Oy;
-                lz = (m.Verts[a + 2] + m.Verts[b + 2]) * 0.5 * f.Sz + f.Oz;
-                ex = Math.Abs(m.Verts[b] - m.Verts[a]) * 0.5 * f.Sx;
-                ey = Math.Abs(m.Verts[b + 1] - m.Verts[a + 1]) * 0.5 * f.Sy;
-                ez = Math.Abs(m.Verts[b + 2] - m.Verts[a + 2]) * 0.5 * f.Sz;
-            }
+            PartBox box = PartDebris.Measure(m, inst.Objects[oi].Frame);
+            bool hasBox = m.Frames.Length > 0 && m.Verts.Length >= (m.Frames[Math.Clamp(inst.Objects[oi].Frame, 0, m.Frames.Length - 1)].FirstVert + 2) * 4;
+            double lx = box.Cx, ly = box.Cy, lz = box.Cz;
             var (sx, sy, sz) = inst.ObjectTransform(oi).Apply(lx, ly, lz);
             var (wx, wy, wz) = baseXf.Apply(sx, sy, sz);
             var piece = new Piece { Object = oi, Cx = wx, Cy = wy, Cz = wz };
             DebrisBody body = piece.Body;
             body.X = wx; body.Y = wy; body.Z = wz;
             body.Mass = PieceMass;
-            // PartDebris loadShape 0047603c: radius +0x318 = 0.5 x |bounds max - min| of the part (= the half extents' length), sphere centre +0x30c = the box centre = the origin
-            body.Radius = Math.Max(0.1, Math.Sqrt(ex * ex + ey * ey + ez * ez));
+            // PartDebris loadShape 0047603c: radius +0x318 = 0.5 x m_Point3F_lenf (005ed031, the bit trick root) of the part's bounds size, sphere centre +0x30c = the
+            // box centre = the piece origin (PartDebris.Measure); a mesh without a box (never in a stock shape) keeps a small sphere
+            body.Radius = hasBox ? box.Radius : 0.17;
             // Debris_init: lifetime = minTimeout + (maxTimeout - minTimeout) * random
             body.Life = mParams.MinTimeout + (mParams.MaxTimeout - mParams.MinTimeout) * rng.NextDouble();
             body.Damage = mParams.Damage;   // Debris_init: +0x348 = DebrisData damage (+0x78)
