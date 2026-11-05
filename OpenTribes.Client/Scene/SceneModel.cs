@@ -257,6 +257,8 @@ public sealed class SceneModel
         ctx.Time = Time;
         ctx.Light = CollectLights();
         ctx.Lists.Clear();
+        foreach (Visual v in Visuals.Values)
+            (v as PlayerVisual)?.PrepareFrame(ctx);
         using (FramePerf.Scope("build-shapes"))
             foreach (Visual v in Visuals.Values)
             {

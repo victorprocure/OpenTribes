@@ -441,13 +441,14 @@ public sealed class PlayerVisual : ShapeVisual
 
     public (double x, double y, double z) Muzzle()
     {
-        Xf body = PoseXf();
+        Xf body = mFpBody ?? PoseXf();
         foreach (ImageMount? im in mImages)
         {
             if (im?.Inst == null || im.MountPoint != 0)
                 continue;
-            int d = Math.Max(M.Renderer.LastDetail, 0);
-            Xf t = ImageTransform(im, Math.Min(d, Math.Max(Inst!.Shape.Details.Length - 1, 0)), body, ViewModeSet(false) ? ViewPitch : null);
+            // First person draws detail 0 with the camera pitch (Build); the muzzle is taken from that same pose.
+            int d = mFpBody != null ? 0 : Math.Max(M.Renderer.LastDetail, 0);
+            Xf t = ImageTransform(im, Math.Min(d, Math.Max(Inst!.Shape.Details.Length - 1, 0)), body, mFpBody != null ? mFpPitch : ViewModeSet(false) ? ViewPitch : null);
             int mn = im.Shape!.FindNodeBase("dummyalways muzzle", 0);
             if (mn < 0)
                 mn = im.Shape.FindNodeBase("dummy muzzle", 0);
@@ -472,6 +473,45 @@ public sealed class PlayerVisual : ShapeVisual
         return M.Visuals.TryGetValue(MountGhost, out Visual? mv) && mv is ShapeVisual sv && !sv.DriverVisible;
     }
 
+    // First person frame of the control player: the eye node (looks thread at the camera pitch, first person view mode) lands on the
+    // camera and the weapon hangs on the hand node of the same pose: the body is the yaw turned transform that puts the eye there
+    // (5.2, `Player_getEyeTransform`), and the mount pitch is the camera pitch (Player +0xfc4 of the control object).
+    private (Xf body, double? pitch) FirstPersonFrame(FrameContext ctx, Xf body, double? pitchOnly)
+    {
+        TryEyeLocal(ctx.Camera.Pitch, out double ex, out double ey, out double ez);
+        body = EyeAlignedBody(ctx.Camera.X, ctx.Camera.Y, ctx.Camera.Z, ctx.Camera.Yaw, ex, ey, ez);
+        if (pitchOnly != null)
+            pitchOnly = ctx.Camera.Pitch;
+        return (body, pitchOnly);
+    }
+
+    // The yaw turned body transform that puts the object space eye (ex, ey, ez) on the camera position.
+    public static Xf EyeAlignedBody(double cx, double cy, double cz, double yawRad, double ex, double ey, double ez)
+    {
+        Xf yaw = Xf.Euler(0, 0, yawRad);
+        var (rx, ry, rz) = yaw.Apply(ex, ey, ez);
+        return yaw.Then(Xf.Translate(cx - rx, cy - ry, cz - rz));
+    }
+
+    // Called by the scene before any visual builds, so a beam that starts at this player's muzzle sees this frame's first person pose
+    // (the stock beam reads the shooter's muzzle transform every frame: LaserProjectile 004632a8 -> Player_getMuzzleTransform 00419d88,
+    // whose mount transform 00419ba0 uses the control object's own pitch Player +0xfc4 and transform, here the camera's).
+    public void PrepareFrame(FrameContext ctx)
+    {
+        mFpBody = null;
+        if (Inst == null || Shape == null || !HavePos || Hidden || !(ctx.FirstPersonOfControl && ctx.ControlGhost == Index))
+            return;
+        Xf body = PoseXf();
+        double? pitch = ViewModeSet(true, true) ? ViewPitch : null;
+        (body, pitch) = FirstPersonFrame(ctx, body, pitch);
+        mFpBody = body;
+        mFpPitch = pitch;
+        Inst.Animate(0);
+    }
+
+    private Xf? mFpBody;
+    private double? mFpPitch;
+
     public override void Build(FrameContext ctx)
     {
         if (Inst == null || Shape == null || !HavePos || Hidden)
@@ -482,16 +522,7 @@ public sealed class PlayerVisual : ShapeVisual
         Xf body = PoseXf();
         double? pitchOnly = ViewModeSet(firstPerson, ctx.ControlGhost == Index) ? ViewPitch : null;
         if (firstPerson)
-        {
-            // The eye node (looks thread at the camera pitch, first person view mode) lands on the camera and the weapon hangs on the hand
-            // node of the same pose: the body is the yaw turned transform that puts the eye there (5.2, `Player_getEyeTransform`).
-            Xf yaw = Xf.Euler(0, 0, ctx.Camera.Yaw);
-            TryEyeLocal(ctx.Camera.Pitch, out double ex, out double ey, out double ez);
-            var (rx, ry, rz) = yaw.Apply(ex, ey, ez);
-            body = yaw.Then(Xf.Translate(ctx.Camera.X - rx, ctx.Camera.Y - ry, ctx.Camera.Z - rz));
-            if (pitchOnly != null)
-                pitchOnly = ctx.Camera.Pitch;
-        }
+            (body, pitchOnly) = FirstPersonFrame(ctx, body, pitchOnly);
         double fade = FadeAmount();
         int detail = -1;
         if (!firstPerson)
