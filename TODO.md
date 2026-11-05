@@ -2,44 +2,44 @@
 
 Work left and work finished on OpenTribes, compared with the original Tribes 1.11.
 
-This file is updated in the same commit as each fix or feature: the item moves to Done, and new gaps found along the
-way are added to Open.
+This file is frozen as of 2026-11-05 and is no longer updated. Open work is tracked in
+[GitHub issues](https://github.com/victorprocure/OpenTribes/issues). Each open item below links to its issue.
 
 ## Open
 
 ### Play-testing
 
-- [ ] **M1** Turrets keep firing after the enemy generators are destroyed. Check first whether this is correct: the solar panel was still standing, and a solar panel also powers a base.
-- [ ] **M2** Models clip oddly against buildings while flying near them.
-- [ ] **M3** Turret shots fired at the player are hard to see.
+- [ ] **M1** Turrets keep firing after the enemy generators are destroyed. Check first whether this is correct: the solar panel was still standing, and a solar panel also powers a base. ([#1](https://github.com/victorprocure/OpenTribes/issues/1))
+- [ ] **M2** Models clip oddly against buildings while flying near them. ([#2](https://github.com/victorprocure/OpenTribes/issues/2))
+- [ ] **M3** Turret shots fired at the player are hard to see. ([#3](https://github.com/victorprocure/OpenTribes/issues/3))
 
 ### Turrets and weapons
 
-- [ ] **L2** The laser rifle beam starts a little short of the gun tip in first person.
-- [ ] **T1** Turrets do not show their powered or unpowered pose. This also sends their debris the wrong way.
+- [ ] **L2** The laser rifle beam starts a little short of the gun tip in first person. ([#4](https://github.com/victorprocure/OpenTribes/issues/4))
+- [ ] **T1** Turrets do not show their powered or unpowered pose. This also sends their debris the wrong way. ([#5](https://github.com/victorprocure/OpenTribes/issues/5))
 
 ### Vehicles
 
-- [ ] Riders on turrets.
-- [ ] **V1** The compass heading while flying a vehicle.
-- [ ] **V2** The crosshair for vehicle passengers.
-- [ ] **V3** The HUD inside the heavy transport (HAPC).
+- [ ] Riders on turrets. ([#6](https://github.com/victorprocure/OpenTribes/issues/6))
+- [ ] **V1** The compass heading while flying a vehicle. ([#7](https://github.com/victorprocure/OpenTribes/issues/7))
+- [ ] **V2** The crosshair for vehicle passengers. ([#8](https://github.com/victorprocure/OpenTribes/issues/8))
+- [ ] **V3** The HUD inside the heavy transport (HAPC). ([#9](https://github.com/victorprocure/OpenTribes/issues/9))
 
 ### Client
 
-- [ ] Joystick support.
-- [ ] Hosting a game from the client menus.
-- [ ] Our voice chat plays about 3 dB quieter than the original.
-- [ ] No sound when switching to the blaster or the mortar.
-- [ ] Server browser: refresh, favourites and "never ping".
-- [ ] Far hills and the in-game sky brightness.
-- [ ] Selecting players and giving orders on the command map.
-- [ ] How debris pieces split up and how big they are when they bounce.
+- [ ] Joystick support. ([#10](https://github.com/victorprocure/OpenTribes/issues/10))
+- [ ] Hosting a game from the client menus. ([#11](https://github.com/victorprocure/OpenTribes/issues/11))
+- [ ] Our voice chat plays about 3 dB quieter than the original. ([#12](https://github.com/victorprocure/OpenTribes/issues/12))
+- [ ] No sound when switching to the blaster or the mortar. ([#13](https://github.com/victorprocure/OpenTribes/issues/13))
+- [ ] Server browser: refresh, favourites and "never ping". ([#14](https://github.com/victorprocure/OpenTribes/issues/14))
+- [ ] Far hills and the in-game sky brightness. ([#15](https://github.com/victorprocure/OpenTribes/issues/15))
+- [ ] Selecting players and giving orders on the command map. ([#16](https://github.com/victorprocure/OpenTribes/issues/16))
+- [ ] How debris pieces split up and how big they are when they bounce. ([#17](https://github.com/victorprocure/OpenTribes/issues/17))
 
 ### Project
 
-- [ ] Four tests (`PlayerTests.Main`, `VehicleTests.Main` and two `WorldTests` vector tests) fail because their data files are in the C++ repository (`OpenTribes-cpp/tests`).
-- [ ] Try the builds on Windows ARM64, Linux ARM64 and both macOS targets.
+- [ ] Four tests (`PlayerTests.Main`, `VehicleTests.Main` and two `WorldTests` vector tests) fail because their data files are in the C++ repository (`OpenTribes-cpp/tests`). ([#18](https://github.com/victorprocure/OpenTribes/issues/18))
+- [ ] Try the builds on Windows ARM64, Linux ARM64 and both macOS targets. ([#19](https://github.com/victorprocure/OpenTribes/issues/19))
 
 ## Done
 

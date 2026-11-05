@@ -63,7 +63,7 @@ The master server list is empty, so join servers by address.
 
     dotnet test OpenTribes.sln
 
-Some tests currently fail because their data files are in the C++ repository. See [TODO.md](TODO.md).
+Some tests currently fail because their data files are in the C++ repository. See [issue #18](https://github.com/victorprocure/OpenTribes/issues/18).
 
 ## Builds for other platforms
 
@@ -77,4 +77,4 @@ Only Linux x64 and Windows x64 (under Wine) have been tried so far.
 
 ## Status
 
-The server and client are playable. Known gaps, done and open, are listed in [TODO.md](TODO.md).
+The server and client are playable. Open gaps are tracked in [GitHub issues](https://github.com/victorprocure/OpenTribes/issues). [TODO.md](TODO.md) is a frozen list of what was done and open on 2026-11-05.
