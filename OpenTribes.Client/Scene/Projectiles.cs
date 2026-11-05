@@ -207,6 +207,36 @@ public sealed class ProjectileVisual : Visual
         }
     }
 
+    // Orientation of the projectile image, FUN_0045a5b8 (render query, vtable 0061b558 path 0045a170). Bullet_onAdd (0045bd00, flag +0x4c bit 2 = ghost
+    // branch) and SeekingMissile_onAdd (004663c8, same branch) set the image flag +0x2d4 = 1 and switch the image to camera facing: FUN_0052a2a0
+    // sets the axis to (position - camera) normalised, (0,1,0) when closer than 1e-3, and FUN_0052a3b4 builds the basis from it
+    // with FUN_00529e6c. Every other class keeps the Projectile_ctor default (+0x458 = 1): the axis is the normalised velocity
+    // (+0x194) through the same FUN_00529e6c basis (its world-up fallback for |axis.z| >= 0.95 is RocketBasis).
+    public static bool FacesCamera(string cls) => cls is "Bullet" or "SeekingMissile";
+
+    public static Xf ImageBasis(string cls, double x, double y, double z, double vx, double vy, double vz, double cx, double cy, double cz)
+    {
+        double ax, ay, az;
+        if (FacesCamera(cls))
+        {
+            (ax, ay, az) = (x - cx, y - cy, z - cz);
+            double l2 = ax * ax + ay * ay + az * az;
+            if (l2 * l2 >= 1e-12)
+            {
+                double inv = 1 / Math.Sqrt(l2);
+                (ax, ay, az) = (ax * inv, ay * inv, az * inv);
+            }
+            else
+                (ax, ay, az) = (0, 1, 0);
+        }
+        else
+        {
+            double sp = Math.Sqrt(vx * vx + vy * vy + vz * vz);
+            (ax, ay, az) = sp > 1e-6 ? (vx / sp, vy / sp, vz / sp) : (0, 1, 0);
+        }
+        return Mathx.RocketBasis(x, y, z, ax, ay, az);
+    }
+
     public override void Build(FrameContext ctx)
     {
         if (!mHavePos || mExploded)
@@ -214,10 +244,8 @@ public sealed class ProjectileVisual : Visual
         var (x, y, z) = PosNow();
         if (mInst != null && mShape != null && Db.Flag(mBlock, "isVisible"))
         {
-            // 4.5: velocity aligned (rocket, missile, bullet) or the object orientation from the velocity (grenade)
-            double sp = Math.Sqrt(mVx * mVx + mVy * mVy + mVz * mVz);
-            double fx = sp > 1e-6 ? mVx / sp : 0, fy = sp > 1e-6 ? mVy / sp : 1, fz = sp > 1e-6 ? mVz / sp : 0;
-            Xf xf = Class == "RocketDumb" ? Mathx.RocketBasis(x, y, z, fx, fy, fz) : Mathx.Basis(x, y, z, fx, fy, fz);
+            Xf xf = ImageBasis(Class, x, y, z, mVx, mVy, mVz - (Class == "Grenade" ? 20 * Math.Clamp(M.Time - mUpdate, 0, 5) : 0),
+                ctx.Camera.X, ctx.Camera.Y, ctx.Camera.Z);
             double period = Db.Num(mBlock, "rotationPeriod");
             if (period > 0)
                 xf = Mathx.SpinY((M.Time - mT0) % period / period * Math.PI * 2).Then(xf);
