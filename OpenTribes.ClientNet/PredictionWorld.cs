@@ -18,8 +18,6 @@ public sealed class PredictionWorld
     public readonly SimConsole Sim;
     public readonly GameState Game = new();
     public readonly List<string> Output = new();
-    private static bool sRegistered;
-    private static readonly object sLock = new();
 
     public PredictionWorld(string root, IReadOnlyList<string> args, Action<string>? log = null)
     {
@@ -40,15 +38,7 @@ public sealed class PredictionWorld
         Game.Console = Console;
         ctx.Game = Game;
         ctx.ServerCreated = m => Game.Players.StartPingTimer(m);
-        lock (sLock)
-        {
-            if (!sRegistered)
-            {
-                MissionClasses.Register();
-                GhostClasses.Register();
-                sRegistered = true;
-            }
-        }
+        ServerClasses.EnsureRegistered();
         Game.Resources = resources;
         GameCommands.Register(Console, Game);
         var net = new NetServer(new ServerConfig { Port = 0 });
@@ -67,7 +57,7 @@ public sealed class PredictionWorld
         for (int i = 0; i < args.Count; ++i)
             Console.SetVariable("$cargv" + (i + 1).ToString(CultureInfo.InvariantCulture), ByteString.FromHost(args[i]));
         Console.Evaluate(ByteString.FromBytes(File.ReadAllBytes(Path.Combine(root, "console.cs"))), "console.cs");
-        var gameServer = new GameServer(Game, Console, net);
+        var gameServer = new GameServer(Game, Console, net, claimGlobals: false);
         gameServer.RegisterCommands();
         // The mission load runs from scheduled script: frames on the virtual clock until the terrain exists.
         int frames = 0;

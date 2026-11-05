@@ -76,16 +76,48 @@ public sealed class SimConsole : IObjectInterface
     }
 
     // src/sim/sim_console.cpp SimConsole::SimConsole.
-    public SimConsole(Interpreter interp, ClassContext ctx, StringTable? strings = null)
+    // clockOwner: the world of a second SimConsole in the same process (the server world of a hosted game) takes the scaled
+    // clock of the first one, as the stock exe has one clock for both worlds (client-app.md 2.4, FearWorld_advance
+    // 004eba40 and FearWorld_clientAdvance 004eb7ac read the same updateClock 0050d304 value), and leaves its console
+    // variable alone.
+    public SimConsole(Interpreter interp, ClassContext ctx, StringTable? strings = null, SimConsole? clockOwner = null)
     {
+        mClockOwner = clockOwner;
         mIn = interp;
         mCtx = ctx;
         mStrings = strings ?? StringTable.Global();
         mDataBlocks = new DataBlockManager(mStrings, l => interp.Print(1, l));
         Stopwatch start = Stopwatch.StartNew();
         mClockSource = () => start.Elapsed.TotalSeconds;
-        mIn.SetVariable("$SimGame::TimeScale", "1.0"); // [live] initial value
-        mIn.BindVariable("$SimGame::TimeScale", SetTimeScale);
+        if (clockOwner == null)
+        {
+            mIn.SetVariable("$SimGame::TimeScale", "1.0"); // [live] initial value
+            mIn.BindVariable("$SimGame::TimeScale", SetTimeScale);
+        }
+    }
+
+    private readonly SimConsole? mClockOwner;
+
+    // The world commands of a client process that hosts a game (client-app.md 1.7): FearGame_consoleCallback 0x7b-0x7e
+    // and 0x79-0x7a. Null: the `tribes` client hosts nothing.
+    public interface IWorldHost
+    {
+        bool NewServer();
+        bool FocusServer();
+        void FocusClient();
+        void DeleteServer();
+    }
+
+    public IWorldHost? Worlds;
+
+    // The server world of this console, created by the hosting side (newServer, case 0x7c of FearGame_consoleCallback).
+    public void CreateWorld() => NewServer();
+
+    // case 0x7d / 0x7e: the slot is emptied and the world with its objects destroyed (MG1).
+    public void DestroyWorld()
+    {
+        mServer?.Destroy();
+        mServer = null;
     }
 
     // M9 C8: the `tribes` client keeps its client world in the one manager slot this class has (newClient makes it);
@@ -190,6 +222,12 @@ public sealed class SimConsole : IObjectInterface
     // offset.
     public void UpdateClock()
     {
+        if (mClockOwner != null)
+        {
+            mFrameReal = mClockOwner.mFrameReal;
+            mClock = mClockOwner.mClock;
+            return;
+        }
         mFrameReal = Elapsed();
         mClock = Add(Mul(mFrameReal, mClockScale), mClockOffset);
     }
@@ -423,18 +461,26 @@ public sealed class SimConsole : IObjectInterface
         {
             if (ClientMode)
             {
-                // The `tribes` client keeps no server world (M9 C8): hosting a game is the job of tribes-server.
-                mIn.Print(1, "newServer: this client does not host games; run tribes-server and join it");
-                return no;
+                // The `tribes` client keeps its server world in a second SimConsole (Worlds), 0x7c of FearGame_consoleCallback.
+                if (Worlds == null)
+                {
+                    mIn.Print(1, "newServer: this client does not host games; run tribes-server and join it");
+                    return no;
+                }
+                return Worlds.NewServer() ? yes : no;
             }
             NewServer();
             return yes;
         });
-        Cmd("focusServer", _ => mServer != null && !ClientMode ? yes : no);
+        // 0050d51c case 0x7a: focus slot 1 and return True, False when the slot is empty.
+        Cmd("focusServer", _ => ClientMode ? (Worlds != null && Worlds.FocusServer() ? yes : no) : mServer != null ? yes : no);
         Cmd("deleteServer", _ =>
         {
             if (ClientMode)
-                return yes;   // EndGame() calls it; the one manager is the client world
+            {
+                Worlds?.DeleteServer(); // EndGame() calls it; the client world stays (client-app.md 1.7)
+                return yes;
+            }
             mServer?.Destroy();
             mServer = null;
             return yes;
@@ -446,7 +492,12 @@ public sealed class SimConsole : IObjectInterface
                 NewServer();
             return yes;
         });
-        Cmd("focusClient", _ => yes);
+        Cmd("focusClient", _ =>
+        {
+            if (ClientMode)
+                Worlds?.FocusClient();   // case 0x79: always True
+            return yes;
+        });
         Cmd("deleteClient", _ => yes);
         // 0050b4c4 case 0x78: purge(force) whatever the arguments (docs/resources.md 8.7).
         Cmd("purgeResources", _ =>

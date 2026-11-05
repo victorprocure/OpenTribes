@@ -178,11 +178,16 @@ public sealed class NetServer : ConnectionEvents
     // src/server/net_server.cpp NetServer::open.
     public bool Open() => mSocket.Open(mConfig.Port);
 
-    public bool Open(ushort port)
+    public bool LoopbackOnly { get; private set; }
+
+    public bool Open(ushort port, bool loopbackOnly = false)
     {
+        LoopbackOnly = loopbackOnly;
         mConfig.Port = port;
-        return mSocket.Open(port);
+        return mSocket.Open(port, loopbackOnly);
     }
+
+    public void Close() => mSocket.Close();
 
     public bool IsOpen() => mSocket.Port() != 0;
     public void SetGameInfo(Func<GameInfo>? provider) => mGameInfo = provider;

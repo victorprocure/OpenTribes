@@ -303,32 +303,7 @@ public static class Program
         if (console != null)
         {
             // Query replies read the live script state (docs/net-protocol.md 6.1).
-            Interpreter inInfo = console;
-            server.SetGameInfo(() =>
-            {
-                var g = new GameInfo
-                {
-                    Hostname = inInfo.PeekVariable("$Server::HostName"),
-                    Password = inInfo.PeekVariable("$Server::Password"),
-                    MaxPlayers = inInfo.PeekVariable("$Server::MaxPlayers"),
-                    Info = inInfo.PeekVariable("$Server::Info"),
-                    ModList = inInfo.PeekVariable("$modList"),
-                    MissionType = inInfo.PeekVariable("$Game::MissionType"),
-                    MissionName = inInfo.PeekVariable("$MissionName"),
-                    Dedicated = Numbers.IsTrueString(inInfo.PeekVariable("$Dedicated")),
-                    CpuText = inInfo.PeekVariable("$CPU::estimatedSpeed"),
-                };
-                g.CpuSpeed = Numbers.BorlandAtoi(g.CpuText);
-                g.TeamCount = game.TeamCount;
-                g.TeamHeading = game.TeamScoreHeading;
-                g.ClientHeading = game.ClientScoreHeading;
-                for (int t = 0; t < game.TeamCount && t + 1 < game.Teams.Count; ++t)
-                    g.Teams.Add(new GameInfo.TeamRow(game.Teams[t + 1].Name, game.Teams[t + 1].Score, game.Teams[t + 1].SortValue));
-                foreach (int id in game.Players.Humans())
-                    if (game.Players.FindHuman(id) is ClientRecord r)
-                        g.Players.Add(new GameInfo.PlayerRow { Id = (uint)id, Team = r.Team, Score = r.ScoreText, Sort = r.ScoreSort, Ping = r.Ping, Loss = r.Loss });
-                return g;
-            });
+            server.SetGameInfo(GameInfoProvider.Create(console, game));
         }
         GameServer? gameServer = null;
         if (console != null)
