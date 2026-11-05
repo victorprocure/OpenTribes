@@ -167,6 +167,7 @@ public sealed class NetClientSession : ConnectionEvents
             return;
         if (mAccepted)
         {
+            Prediction.AdvanceTurret(mWorld.Psc, now);
             if (PredictWorld != null)
             {
                 Prediction.BindControlMount(mWorld, Remote);
@@ -269,6 +270,8 @@ public sealed class NetClientSession : ConnectionEvents
             FollowMission();
         if (PredictWorld != null && p.Ghosts != null)
             Remote.OnBlock(p.Ghosts, mWorld, mFrameNow, mWorld.Psc.HasControl ? mWorld.Psc.ControlGhost : -1);
+        if (p.Psc != null && p.Psc.Direction == "s2c")
+            Prediction.OnTurretBlock(mWorld, mFrameNow);
         if (PredictWorld != null && p.Psc != null && p.Psc.Direction == "s2c")
         {
             CorrectionRecord? rec = Prediction.OnServerBlock(mWorld, mFrameNow);
@@ -448,6 +451,7 @@ public sealed class NetClientSession : ConnectionEvents
             }
             if (acceptedAt >= 0)
             {
+                Prediction.AdvanceTurret(mWorld.Psc, now);
                 if (PredictWorld != null)
                 {
                     // 4.4: the replay after a correction and the prediction of the new moves, once per frame.

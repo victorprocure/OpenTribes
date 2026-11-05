@@ -340,6 +340,58 @@ public class ShapeVisual : Visual
             t.TimeScale = 0;
     }
 
+    // The aim of a Turret that is the control object (Turret_readControlState 0045711c and Turret_clientUpdate 00456428 write +0x8b4 and
+    // +0x8b8, Turret_updateAim 00456874 hands the thread positions on, item 7 of docs/static-sim.md 14.5): elevate = (elevation - min) /
+    // (max - min) when the limits differ, turn = rotation / 2 pi (the rotation limits are 0 and 0). The ghost sends no aim to its owner.
+    public void SetTurretAim(float rotation, float elevation, float minElevation, float maxElevation)
+    {
+        if (TurretPose is { } pose)
+        {
+            pose.Rotation = rotation;
+            SyncTurret();
+        }
+        else if (Turn != null)
+            Turn.Position = Math.Clamp(rotation / TurretGhostPose.TwoPi, 0, 1);
+        if (Elevate != null && maxElevation != minElevation)
+            Elevate.Position = Math.Clamp((elevation - minElevation) / (maxElevation - minElevation), 0, 1);
+    }
+
+    private float mMinElevation, mMaxElevation;
+    private bool mHaveLimits;
+
+    // The elevation limits of the turret shape: Turret_onNewDataBlock 00452970 reads the Euler x of the node `dummy muzzle` with the
+    // `elevate` thread at position 0 and at 1 (a minimum above pi loses 2 pi). False without the shape, the thread or the node.
+    public bool TryElevationLimits(out float min, out float max)
+    {
+        (min, max) = (mMinElevation, mMaxElevation);
+        if (mHaveLimits)
+            return true;
+        int n = Inst != null && Shape != null ? Shape.FindNodeBase("dummy muzzle", 0) : -1;
+        if (n < 0 || Elevate == null || Inst == null)
+            return false;
+        double keep = Elevate.Position;
+        float EulerX(double position)
+        {
+            Elevate.Position = position;
+            Inst.Animate(0);
+            Xf e = Inst.NodeWorld[n];
+            var t = new OpenTribes.Sim.Transform { Flags = 3u };
+            double[] m = { e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8 };
+            for (int i = 0; i < 9; ++i)
+                t.M[i] = (float)m[i];
+            var eu = new float[3];
+            OpenTribes.Sim.MissionTransform.MatrixToEuler(t, eu);
+            return eu[0];
+        }
+        float lo = EulerX(0), hi = EulerX(1);
+        Elevate.Position = keep;
+        if (lo > (float)Math.PI)
+            lo -= 2.0f * (float)Math.PI;
+        (mMinElevation, mMaxElevation, mHaveLimits) = (lo, hi, true);
+        (min, max) = (lo, hi);
+        return true;
+    }
+
     private void ApplyTurret(DecodedGhost u)
     {
         if (u.Fields.Any(f => f.Name == "rotation") && Turn != null)

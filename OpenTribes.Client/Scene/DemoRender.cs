@@ -129,7 +129,20 @@ public static class DemoRender
         }
         if (psc.ControlClass is "Vehicle" or "Flier")
             return VehicleCamera(m, psc.ControlGhost, 0f, null, null);
+        if (psc.ControlClass == "Turret")
+            return TurretCamera(m, psc.ControlGhost, (float)D("aimRot"), (float)D("aimElev"), 0f, null, null);
         return null;
+    }
+
+    // The camera of a controlled Turret (Turret_getCameraTransform 004564fc, vtable +0x170): the `dummy eye` node position of the animated
+    // shape with the Euler angles (elevation, 0, rotation), times the object transform, moved back by 1.3 * `distance`. Without the node
+    // the object transform. First person is distance 0.
+    public static CameraPose? TurretCamera(SceneModel m, int ghost, float rotation, float elevation, float distance, OpenTribes.World.Container? world, object? exclude)
+    {
+        if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || !sv.TryCameraInputs(out var obj, out var eye))
+            return null;
+        OpenTribes.Sim.Transform t = OpenTribes.Game.TurretCamera.Compute(obj, eye, rotation, elevation, distance, world, exclude);
+        return PoseOf(t, distance == 0f || eye == null, ghost);
     }
 
     // Player_getEyeTransform 0041248c for a Player on a mount: the object transform (the mount point's times the yaw) times the `dummy eye`

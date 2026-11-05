@@ -194,6 +194,7 @@ public sealed class ClientPsc
                     case "ObserverCamera": ControlObserver(r); break;
                     case "Flier":
                     case "Vehicle": ControlVehicle(r); break;
+                    case "Turret": ControlTurret(r); break;
                     default:
                         d.Text = head + " " + FieldsText(d.Fields.Skip(3));
                         throw new UnsupportedException("control state of ghost " + gidx + " class " + cls);
@@ -327,6 +328,18 @@ public sealed class ClientPsc
         r.AddUnit("unit7", 7);
         r.AddFlag("crouchfee");
         r.AddInt("fac", 4);
+    }
+
+    // Turret_readControlState 0045711c (vtable +0x160): rotation f32 (+0x8b4), elevation f32 (+0x8b8), fire count int(2) (+0x908), the
+    // beam flag (+0x918 == 2), state int(4) (+0x8cc), energy f32 (+0x724). The mirror of Turret_writeControlState 004572f8.
+    private static void ControlTurret(ClientReader r)
+    {
+        r.AddF32("aimRot");
+        r.AddF32("aimElev");
+        r.AddInt("fire2", 2);
+        r.AddFlag("beam");
+        r.AddInt("state4", 4);
+        r.AddF32("energy");
     }
 
     // Vehicle / Flier control state (vehicle-sim.md 6.2).

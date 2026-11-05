@@ -100,6 +100,23 @@ public sealed class ClientPrediction
         Steps = 0;
     }
 
+    // A Turret that is the control object: no copy, the aim of the ghost (TurretControl).
+    public readonly TurretControl Turret = new();
+
+    // The control state block of a Turret (Turret_readControlState 0045711c) and the per frame replay of its moves (Turret_clientUpdate
+    // 00456428). They need no prediction world.
+    public void OnTurretBlock(ClientWorld world, uint receiveTime)
+    {
+        ClientPsc psc = world.Psc;
+        ClientGhost? g = psc.HasControl && psc.ControlClass == "Turret" && psc.ControlGhost >= 0 ? world.Ghosts.Get(psc.ControlGhost) : null;
+        if (g is { Class: "Turret" })
+            Turret.OnServerBlock(psc, g, receiveTime);
+        else
+            Turret.Release();
+    }
+
+    public int AdvanceTurret(ClientPsc psc, uint now) => Turret.Advance(psc, now);
+
     private void Release()
     {
         if (Object != null)
