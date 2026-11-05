@@ -63,8 +63,6 @@ The master server list is empty, so join servers by address.
 
     dotnet test OpenTribes.sln
 
-Some tests currently fail because their data files are in the C++ repository. See [issue #18](https://github.com/victorprocure/OpenTribes/issues/18).
-
 ## Builds for other platforms
 
     dotnet publish OpenTribes.Client -c Release -r win-x64 --self-contained -o dist/win-x64
