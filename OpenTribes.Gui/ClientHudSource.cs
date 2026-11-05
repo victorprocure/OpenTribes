@@ -323,7 +323,7 @@ public sealed class ClientHudSource : IHudSource
                     ClientPlayerRecord r = siblings[i];
                     List<ClientPlayerRecord> kids = CommandChildren(r, me.Team);
                     bool next = i + 1 < siblings.Count;
-                    rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, r.Expanded, next, 0, r.CommandStatus + 1, above.ToArray(), r.Selected));
+                    rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, r.Expanded, next, CommandDamage(r.Id), r.CommandStatus + 1, above.ToArray(), r.Selected));
                     if (!r.Expanded)
                         continue;
                     var nested = new List<(int Depth, bool HasNext)> { (depth, next) };
@@ -335,6 +335,50 @@ public sealed class ClientHudSource : IHudSource
             return rows;
         }
     }
+
+    // 004d29fc: the status field of the first group 3 slot whose id (+0x350, 0x800 + slot) is that client id, 0 (low) for none.
+    private int CommandDamage(int clientId)
+    {
+        ClientCommandSlot[] slots = Psc.CommandSlots;
+        for (int i = 0; i < 128; ++i)
+            if (slots[i].Group == 3 && 0x800 + i == clientId)
+                return slots[i].Status;
+        return 0;
+    }
+
+    // 004a98b8 (CommandItemCtrl) and 004aa6b8 (CommandTurretCtrl) prepare: for the local human client, every slot of its team whose datablock group is
+    // one the list shows and whose datablock index is set, in slot order. The name is the slot's label when there is one, else the datablock's
+    // description; a slot with neither is left out.
+    private List<CommandListRow> CommandSlotRows(Func<int, bool> shows)
+    {
+        var rows = new List<CommandListRow>();
+        if (CommandLocal is not CommandLocalClient me)
+            return rows;
+        for (int i = 0; i < Psc.CommandSlots.Length; ++i)
+        {
+            ClientCommandSlot s = Psc.CommandSlots[i];
+            if (!s.Present || s.Team != me.Team || !shows(s.Group))
+                continue;
+            string? name = i >= 128 && mWorld.Players.TargetNames.TryGetValue(i - 128, out string? label) && label.Length > 0 ? label : null;
+            if (name == null)
+            {
+                if (!mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out ClientDataBlock? b))
+                    continue;
+                foreach (DecodedField f in b.Fields)
+                    if (f.Name == "description" && f.Value is string d && d.Length > 0)
+                        name = d;
+            }
+            if (name != null)
+                rows.Add(new CommandListRow(i, name));
+        }
+        return rows;
+    }
+
+    public IReadOnlyList<CommandListRow> CommandObjects => CommandSlotRows(g => g is 4 or 8);
+    public IReadOnlyList<CommandListRow> CommandControllables => CommandSlotRows(g => g is 0x13 or 10 or 0xb or 9);
+
+    // 004b48bc: the walk over the client records takes the first with the selected byte (+0x68) set. [I: the client table has no join order, the id order stands for it]
+    public int CommandFirstSelectedClient() => mWorld.Players.Clients.Values.OrderBy(r => r.Id).FirstOrDefault(r => r.Selected)?.Id ?? -1;
 
     public CommandLocalClient? CommandLocal =>
         mWorld.Players.Get(mWorld.PlayerId) is { Ai: false, Team: var team } ? new CommandLocalClient(mWorld.PlayerId, team) : null;

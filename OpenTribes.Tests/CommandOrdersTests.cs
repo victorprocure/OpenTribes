@@ -10,7 +10,7 @@ namespace OpenTribes.Tests;
 
 public class CommandOrdersTests
 {
-    private sealed class RectDev : IGfxDevice
+    internal sealed class RectDev : IGfxDevice
     {
         public readonly List<string> Calls = new();
         public int Width => 640;
@@ -28,7 +28,7 @@ public class CommandOrdersTests
         public void DrawRectOutline(GfxRect r, int colorIndex) => Calls.Add($"outline {r.Left},{r.Top},{r.Right},{r.Bottom} c{colorIndex:x}");
         public void FillRect(GfxRect r, int colorIndex, float alpha = 1f) => Calls.Add($"fill {r.Left},{r.Top},{r.Right},{r.Bottom} c{colorIndex:x}");
         public int DrawText(PftFont font, int x, int y, string text) { Calls.Add($"text {x},{y} '{text}'"); return y; }
-        public void Blit(PbmpBitmap bitmap, int x, int y, BlitFlip flip = BlitFlip.None) { }
+        public void Blit(PbmpBitmap bitmap, int x, int y, BlitFlip flip = BlitFlip.None) => Calls.Add($"blit w{bitmap.Width} {x},{y}");
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
@@ -44,7 +44,7 @@ public class CommandOrdersTests
         new() { Group = group, Index = index, Fields = fields.Select(f => new DecodedField(f.Item1, f.Item2)).ToList() };
 
     // The map is 408 x 408 at (31, 36) on the canvas. A slot at (x, y) in 1/1024 stands at (31 + x * 408 >> 10, 36 + 408 - (y * 408 >> 10)).
-    private sealed class Rig
+    internal sealed class Rig
     {
         public readonly GuiFixture Fx = new();
         public readonly ClientWorld World = new() { PlayerId = 2049 };
@@ -74,7 +74,7 @@ public class CommandOrdersTests
             Fx.Host.SetChatMenuMode = (n, m) => Menu.Add($"{n} {m}");
             Fx.Interp.AddCommand("remoteEval", (_, a) => { Remote.Add(string.Join("|", a.Skip(1))); return "True"; });
             Fx.Interp.SetVariable("$pref::mapFilter", "15");
-            GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+            GuiControl root = Root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
             GuiControl parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
             Map = (GuiCommandMap)GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
             Current = GuiFixture.Make("FearGui::FGCurrentCommand", 5, 5, 100, 20);
@@ -93,6 +93,7 @@ public class CommandOrdersTests
         }
 
         public GuiCommandTeam? Team;
+        public GuiControl Root = null!;
 
         public void Slot(int i, int x, int y, int team, int group) =>
             World.Psc.CommandSlots[i] = new ClientCommandSlot { Present = true, X = x, Y = y, Team = team, Group = group, Index = 0, Active = true };

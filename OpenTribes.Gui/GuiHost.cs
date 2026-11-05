@@ -230,6 +230,11 @@ public interface IHudSource
     ChatMenuState? NamedMenu(string name) => null;
     // The rows of the command team list of the local player's team (CommandTeamCtrl, docs/gui.md 3.3 "The command screen panels").
     IReadOnlyList<CommandTeamRow> CommandTeam => Array.Empty<CommandTeamRow>();
+    // The rows of the Objects list (CommandItemCtrl) and the Controllables list (CommandTurretCtrl) of the command screen.
+    IReadOnlyList<CommandListRow> CommandObjects => Array.Empty<CommandListRow>();
+    IReadOnlyList<CommandListRow> CommandControllables => Array.Empty<CommandListRow>();
+    // The client id of the first selected record of the local player's records (the CMDObserve toggle takes it), -1 for none.
+    int CommandFirstSelectedClient() => -1;
     // The base picture of the commander map, null until the world is rendered (docs/gui.md 3.3 "The command map").
     CommandMapPicture? CommandMap => null;
     // The slots and the local client for the marks over it (null without a client).
