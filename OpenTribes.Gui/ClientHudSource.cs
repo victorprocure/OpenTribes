@@ -48,6 +48,10 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
+            // A piloted Vehicle or Flier gets no state updates of its own ghost, its damage level (+0x72c, vtable +0xf8 `00430c80`) is the
+            // 6 bit field of the control state, scaled by 1/63 [code 00446830 Vehicle_readControlState, constant at 00446a9c].
+            if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("dmg6", out object? dmg6))
+                return Math.Clamp((float)(D(dmg6, 0) / 63.0), 0, 1);
             ClientGhost? g = Ghost;
             if (Psc.ControlClass == "ObserverCamera")
             {
@@ -71,6 +75,10 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
+            // A piloted Vehicle or Flier: energy (+0x724) is the 16 bit field of the control state times maxEnergy [code 00446830], and
+            // vtable +0xfc `0044b74c` divides it by maxEnergy again, so the fraction is the field over 65535.
+            if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("E16", out object? e16))
+                return Math.Clamp((float)(D(e16, 0) / 65535.0), 0, 1);
             if (Psc.ControlState.TryGetValue("energy", out object? v))
                 return Fraction(D(v, 1));
             return Ghost != null && Ghost.State.TryGetValue("energy", out object? e) ? Math.Clamp(D(e, 1), 0, 1) : 1;
@@ -373,6 +381,10 @@ public sealed class ClientHudSource : IHudSource
         return null;
     }
 
+    // The ghost index of the object a Player ghost is mounted on (the "ghost/point" stream field), -1 when it has none.
+    private static int MountGhost(ClientGhost g) =>
+        g.State.GetValueOrDefault("mount") is string m && m.IndexOf('/') is int i and > 0 && int.TryParse(m.AsSpan(0, i), out int ghost) ? ghost : -1;
+
     // Crosshair_findTarget [code 004aca84]: the other players the local player's client may see (the visible mask of the PSC, +0x490),
     // with their marks and the one under the view centre.
     public HudTargetResult? CrosshairTarget(int width, int height)
@@ -387,7 +399,10 @@ public sealed class ClientHudSource : IHudSource
         var list = new List<HudTargetCandidate>();
         foreach (ClientGhost g in mWorld.Ghosts.All())
         {
-            if (g.Class != "Player" || g.Index == Psc.ControlGhost || !g.State.TryGetValue("pos", out object? pv) || pv is not double[] { Length: >= 3 } pos)
+            // Crosshair_findTarget skips the control object and every Player whose mount object (+0x1028) is the control object: while
+            // piloting, the pilot's own Player and the passengers of the vehicle get no mark and no label [code 004aca84].
+            if (g.Class != "Player" || g.Index == Psc.ControlGhost || MountGhost(g) == Psc.ControlGhost
+                || !g.State.TryGetValue("pos", out object? pv) || pv is not double[] { Length: >= 3 } pos)
                 continue;
             int owner = (int)D(g.State.GetValueOrDefault("ownerClient"), 0);
             if (owner < 0x800 || pm.Get(owner) is not ClientPlayerRecord rec)
