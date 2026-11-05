@@ -457,6 +457,28 @@ public class WorldRenderTests
     }
 
     [Fact]
+    public void SkyGhostCarriesSizeFeaturePositionAndHazeColourToTheRenderer() // WR 4.1: Sky_unpackUpdate 00477824, fields 004776fc
+    {
+        var state = new Dictionary<string, object?>
+        {
+            ["dml"] = "marsdusk.dml",
+            ["vecB8"] = new[] { 0.25, 0.5, 1.0 },
+            ["vecC4"] = new[] { 0.75, 0.125, 0.0 },
+            ["f11c"] = 45.0,
+            ["f124"] = 1400.0,
+            ["textures"] = new List<object?> { 0L, 1L, 15L },
+        };
+        var o = new MissionObject { Class = "Sky" };
+        OpenTribes.Client.Scene.DemoRender.SkyFields(o, state);
+        Assert.Equal("marsdusk.dml", o.Get("dmlName"));
+        Assert.Equal(1400, o.GetDouble("size", 600));
+        Assert.Equal(45, o.GetDouble("featurePosition", 0));
+        Assert.Equal(new[] { 0.25, 0.5, 1.0 }, o.GetVector("skyColor"));
+        Assert.Equal(new[] { 0.75, 0.125, 0.0 }, o.GetVector("hazeColor"));
+        Assert.Equal(15, o.GetDouble("textures[2]", -1));
+    }
+
+    [Fact]
     public void PlanetDirectionFollowsAzimuthAndIncidence() // WR 4.3 Planet_setup
     {
         var (x, y, z) = PlanetRenderer.Direction(0, 0, 1000);

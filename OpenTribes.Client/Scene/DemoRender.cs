@@ -12,6 +12,24 @@ namespace OpenTribes.Client.Scene;
 
 public static class DemoRender
 {
+    // The Sky ghost update as the persistent fields the sky renderer reads: Sky_unpackUpdate 00477824 reads the material list name, the sky
+    // colour (+0xb8), the haze colour (+0xc4), the feature position (+0x11c), the size (+0x124) and the 16 panel indices (+0xdc); the
+    // persistent field table of Sky_initPersistFields (004776fc) names +0x11c featurePosition and +0x124 size. Sky_initTextures (00478548)
+    // and the band draw (00477b48) read both from the object, so the client uses the values the server sent.
+    public static void SkyFields(MissionObject o, IReadOnlyDictionary<string, object?> state)
+    {
+        static string V(object? o) => o is double[] d ? string.Join(" ", d.Select(x => x.ToString("R", CultureInfo.InvariantCulture))) : Convert.ToString(o, CultureInfo.InvariantCulture) ?? "";
+        object? S(string k) => state.GetValueOrDefault(k);
+        o.Fields["dmlName"] = V(S("dml"));
+        o.Fields["skyColor"] = V(S("vecB8"));
+        o.Fields["hazeColor"] = V(S("vecC4"));
+        o.Fields["featurePosition"] = V(S("f11c"));
+        o.Fields["size"] = V(S("f124"));
+        if (S("textures") is List<object?> tex)
+            for (int i = 0; i < tex.Count; ++i)
+                o.Fields[$"textures[{i}]"] = V(tex[i]);
+    }
+
     // The environment ghosts as the mission objects the world renderer reads (world-render.md 6.1).
     public static List<MissionObject> EnvironmentObjects(ClientWorld w)
     {
@@ -39,12 +57,7 @@ public static class DemoRender
                         break;
                     }
                 case "Sky":
-                    o.Fields["dmlName"] = V(S("dml"));
-                    o.Fields["skyColor"] = V(S("vecB8"));
-                    o.Fields["size"] = "600";
-                    if (S("textures") is List<object?> tex)
-                        for (int i = 0; i < tex.Count; ++i)
-                            o.Fields[$"textures[{i}]"] = V(tex[i]);
+                    SkyFields(o, g.State);
                     break;
                 case "StarField":
                     if (S("data7c") is double[] c && c.Length >= 9)
