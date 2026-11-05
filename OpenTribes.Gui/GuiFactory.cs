@@ -162,6 +162,9 @@ public static class GuiFactory
             case "FearGui::FGCommandPanel": return new GuiCommandPanel();
             case "FearGui::FGChatMenu": return new GuiChatMenu();
             case "FearGui::CommandTeamCtrl": return new GuiCommandTeam();
+            case "FearGui::CommandItemCtrl": return new GuiCommandItems();
+            case "FearGui::CommandTurretCtrl": return new GuiCommandTurrets();
+            case "FearGui::CMDObserve": return new GuiCmdObserve();
             case "FearGui::FearGuiBox":
             case "FearGui::FearGuiDialog":
             case "FearGui::FearGuiAbortDlg": return new GuiBox();

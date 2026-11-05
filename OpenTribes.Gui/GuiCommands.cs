@@ -105,8 +105,52 @@ public sealed class GuiRuntime
         });
     }
 
+    // `DAT_006a83dc`: the observer panel of the command screen [code 004b4718 sets it at construction]. The port looks for one in the loaded trees.
+    private GuiCmdObserve? FindObserver()
+    {
+        static GuiCmdObserve? In(GuiControl c)
+        {
+            if (c is GuiCmdObserve o)
+                return o;
+            foreach (GuiControl k in c.Children)
+                if (In(k) is GuiCmdObserve f)
+                    return f;
+            return null;
+        }
+        foreach (GuiControl root in Named.Values.Concat(Canvas.Stack))
+            if (In(root) is GuiCmdObserve o)
+                return o;
+        return null;
+    }
+
+    // C atoi: blanks, a sign, digits.
+    private static int Atoi(string s)
+    {
+        int i = 0, sign = 1;
+        long v = 0;
+        while (i < s.Length && char.IsWhiteSpace(s[i]))
+            ++i;
+        if (i < s.Length && (s[i] == '-' || s[i] == '+'))
+            sign = s[i++] == '-' ? -1 : 1;
+        for (; i < s.Length && s[i] is >= '0' and <= '9'; ++i)
+            v = Math.Min(v * 10 + (s[i] - '0'), int.MaxValue);
+        return (int)(sign * v);
+    }
+
     private void Register()
     {
+        // ---- the command screen observer [code 0043a670, 0043a6e8] ----
+        // Client::toggleCMDObserver(on): "true"/"false" or a number; False without the panel or with another argument count.
+        Interp.AddCommand("Client::toggleCMDObserver", (_, a) =>
+        {
+            if (FindObserver() is not GuiCmdObserve o || a.Length != 2)
+                return "False";
+            o.Toggle(a[1].Equals("true", StringComparison.OrdinalIgnoreCase) || (!a[1].Equals("false", StringComparison.OrdinalIgnoreCase) && Atoi(a[1]) != 0));
+            return "True";
+        });
+        // Client::cmdObservePlayer(id): True when the panel took a new player to follow.
+        Interp.AddCommand("Client::cmdObservePlayer", (_, a) =>
+            FindObserver() is GuiCmdObserve o && a.Length == 2 && o.Observe(Atoi(a[1])) ? "True" : "False");
         // ---- 5.1 canvas and content ----
         Cmd("GuiLoadContentCtrl", 3, "GuiLoadContentCtrl: simCanvas filename", a => CanvasArg(a[0], a[1]) is GuiCanvas c ? (c.LoadContent(a[2]) ? "" : "False") : "False");
         Cmd("GuiNewContentCtrl", 3, "GuiNewContentCtrl: simCanvas classname", a =>

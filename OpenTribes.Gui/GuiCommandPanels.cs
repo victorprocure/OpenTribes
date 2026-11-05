@@ -1,4 +1,5 @@
 // The side panels of the command screen (command.gui): docs/gui.md 3.3 "The command screen panels" "The command screen panels".
+using System.Globalization;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
@@ -9,6 +10,10 @@ namespace OpenTribes.Gui;
 // status + 1: 2 pending, 3 acknowledged, else none).
 public sealed record CommandTeamRow(int Id, string Name, int Depth, bool HasChildren, bool Expanded, bool HasNext, int Damage, int Order,
     IReadOnlyList<(int Depth, bool HasNext)> Ancestors, bool Selected = false);
+
+// One row of the Objects or Controllables list: the command map slot (the entry's first int) and the name shown (the slot's label, else the
+// datablock description) [code 004a98b8, 004aa6b8].
+public sealed record CommandListRow(int Slot, string Name);
 
 // A chat menu object on display in a FGChatMenu control: Active is false for a menu that is off (or has no items), Path is the headings
 // above the shown level joined with ':' (empty at the top level), Lines the items as "key: text".
@@ -245,5 +250,52 @@ public sealed class GuiCommandTeam : GuiList
                     p.Bitmap(pieces.Bitmaps[11], depth * step + x, py);
             p.Text(font, (r.Depth + 1) * step + x, py - 2, r.Name);
         }
+    }
+}
+
+// FearGui::CMDObserve [code 004b4718 ctor, 004b4818 observe, 004b48bc toggle]: the observer panel of the command screen (the TV button of the
+// Players tab shows it). Only the console side is ported: the panel is a plain control that holds the id of the player it follows (+0x1ac, 0 from
+// the constructor) and tells the server which player to follow. The small 3D view it carries (child TSControl 140208) is not drawn.
+public sealed class GuiCmdObserve : GuiControl
+{
+    public const uint ViewId = 140208;
+    public int Observed;
+
+    private void RemoteObserve(int id) =>
+        Host?.Call("remoteEval", "2048", "SCOM", id.ToString(CultureInfo.InvariantCulture));
+
+    // 004b4818 (Client::cmdObservePlayer 0043a6e8): another player than the followed one, and only while the panel is shown, is sent to the server as
+    // remoteEval(2048, SCOM, id) and becomes the followed one. Returns whether it did.
+    public bool Observe(int id)
+    {
+        if (id == Observed || !Visible)
+            return false;
+        RemoteObserve(id);
+        Observed = id;
+        return true;
+    }
+
+    // 004b48bc (Client::toggleCMDObserver 0043a670): a change of the shown state only. On: the first selected record of the local player's records
+    // is followed (none: the panel stays off); with the 3D view present the server is told (SCOM, id) and the followed id is set, then the panel is
+    // shown. Off: the server is told SCOM, -1 and the panel is hidden (the followed id stays).
+    public void Toggle(bool on)
+    {
+        if (on == Visible)
+            return;
+        if (!on)
+        {
+            RemoteObserve(-1);
+            SetVisible(false);
+            return;
+        }
+        int id = Host?.Hud?.CommandFirstSelectedClient() ?? -1;
+        if (id == -1)
+            return;
+        if (FindById(ViewId) != null)
+        {
+            RemoteObserve(id);
+            Observed = id;
+        }
+        SetVisible(true);
     }
 }

@@ -39,9 +39,12 @@ public class GuiList : GuiActive
     // The class's own reaction to a selected row (the master list sets its console variables).
     protected virtual void Selecting(int row) { }
 
+    // Whether the class takes the selection of that row (the command lists refuse it while the command map is missing).
+    protected virtual bool Accepts(int row) => true;
+
     public void Select(int row, bool notify = true)
     {
-        if (row < -1 || row >= Entries.Count)
+        if (row < -1 || row >= Entries.Count || !Accepts(row))
             return;
         Selected = row;
         Selecting(row);
