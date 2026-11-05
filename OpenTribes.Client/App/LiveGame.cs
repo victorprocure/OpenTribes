@@ -432,6 +432,52 @@ public sealed class LiveGame : IDisposable
         return pose;
     }
 
+    // The eye and muzzle transforms of the control Vehicle, Flier or Turret in world space for the aim markers (FUN_004ada90 calls vtable
+    // +0x110 and +0x10c of the control object [code 004adacd, 004ae719]). The vehicle fire counter (+0x948) is the one the ghost stream
+    // set: the owner only ghost of the pilot carries none, so it keeps the value of an earlier update or 0.
+    public HudControlAim? ControlAimInputs(int ghost)
+    {
+        if (Model == null || !Model.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || World.Ghosts.Get(ghost) is not { } g)
+            return null;
+        string cls = World.Psc.ControlClass;
+        OpenTribes.Sim.Transform obj, eye, muzzle;
+        bool haveMuzzle;
+        if (cls is "Vehicle" or "Flier")
+        {
+            if (!sv.TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out OpenTribes.Sim.Transform? eyeNode, out _))
+                return null;
+            eye = ControlAim.VehicleEye(obj, eyeNode);
+            int fire = g.State.TryGetValue("f948", out object? fv) ? Convert.ToInt32(fv, CultureInfo.InvariantCulture) : 0;
+            sv.TryNodeInputs(s =>
+            {
+                var table = new List<int>();
+                for (int i = 1; i < 256 && s.FindNode("dummy muzzle" + i.ToString(CultureInfo.InvariantCulture)) is int n and >= 0; ++i)
+                    table.Add(n);
+                return ControlAim.VehicleMuzzleNode(s.FindNode("dummy muzzle"), table, fire);
+            }, out _, out OpenTribes.Sim.Transform? muzzleNode, out _);
+            haveMuzzle = ControlAim.VehicleMuzzle(obj, muzzleNode, out muzzle);
+        }
+        else if (cls == "Turret")
+        {
+            float rot, elev;
+            if (Net is { Prediction.Turret.Active: true } tn)
+                (rot, elev) = (tn.Prediction.Turret.Rotation, tn.Prediction.Turret.Elevation);
+            else
+                (rot, elev) = ((float)Db.ToDouble(g.State.GetValueOrDefault("aimRot"), 0), (float)Db.ToDouble(g.State.GetValueOrDefault("aimElev"), 0));
+            if (!sv.TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out OpenTribes.Sim.Transform? eyeNode, out _)
+                || !sv.TryNodeInputs(s => s.FindNode("dummy muzzle"), out _, out OpenTribes.Sim.Transform? muzzleNode, out bool shape))
+                return null;
+            eye = ControlAim.TurretNode(obj, eyeNode, rot, elev);
+            // Turret_getMuzzleTransform 004565e0: false without a shape instance, else the node transform (the object transform without the node).
+            haveMuzzle = shape;
+            muzzle = ControlAim.TurretNode(obj, muzzleNode, rot, elev);
+        }
+        else
+            return null;
+        return new HudControlAim(((ReadOnlySpan<float>)eye.P).ToArray(), haveMuzzle ? ((ReadOnlySpan<float>)muzzle.P).ToArray() : null,
+                                 ((ReadOnlySpan<float>)obj.M).ToArray(), ((ReadOnlySpan<float>)obj.P).ToArray());
+    }
+
     private long mImageSteps;
 
     // The image state of the control player runs once per prediction step, replays included (ImageStateMachine.Stepped).

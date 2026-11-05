@@ -506,16 +506,22 @@ public class ShapeVisual : Visual
 
     // The inputs of Vehicle_getCameraTransform 00445d88: the object transform as drawn (Euler x, y, z and the position, rotation and
     // translation flags) and the `dummy eye` node transform (animated, in object space), null without that node.
-    public bool TryCameraInputs(out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? eye)
+    public bool TryCameraInputs(out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? eye) =>
+        TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out eye, out _);
+
+    // The object transform as drawn and the animated transform (object space) of the node `find` picks, null when it picks none.
+    // `haveShape` is false while the visual has no shape instance (the stock vtable +0x10c then reports no transform).
+    public bool TryNodeInputs(Func<RenderShape, int> find, out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? node, out bool haveShape)
     {
         obj = new OpenTribes.Sim.Transform();
-        eye = null;
+        node = null;
+        haveShape = Inst != null && Shape != null;
         if (!HavePos)
             return false;
         OpenTribes.Sim.MissionTransform.EulerToMatrix(new[] { (float)Roll, (float)Pitch, (float)Yaw }, ref obj);
         obj.Flags |= 3u;
         obj.P[0] = (float)X; obj.P[1] = (float)Y; obj.P[2] = (float)Z;
-        int n = Inst != null && Shape != null ? Shape.FindNodeBase("dummy eye", 0) : -1;
+        int n = haveShape ? find(Shape!) : -1;
         if (n < 0)
             return true;
         Inst!.Animate(0);
@@ -525,7 +531,7 @@ public class ShapeVisual : Visual
         for (int i = 0; i < 9; ++i)
             t.M[i] = (float)m[i];
         t.P[0] = (float)e.Px; t.P[1] = (float)e.Py; t.P[2] = (float)e.Pz;
-        eye = t;
+        node = t;
         return true;
     }
 
