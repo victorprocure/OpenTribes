@@ -654,6 +654,25 @@ public sealed class InteriorRenderer : IDisposable
         return lods.Count - 1;
     }
 
+    // The sphere the detail choice projects: ITRInstance_setState (005570c0) takes it from the geometry box of the LAST detail
+    // level of the state: centre = the box centre, radius = the longest box extent (not half the diagonal).
+    public static (double cx, double cy, double cz, double radius) DetailSphere(float[] box)
+    {
+        float r = Math.Max(Math.Max(box[3] - box[0], box[4] - box[1]), box[5] - box[2]);
+        return ((box[0] + box[3]) * 0.5, (box[1] + box[4]) * 0.5, (box[2] + box[5]) * 0.5, r);
+    }
+
+    // The projected size the detail choice compares with minPixels: 00480be4 calls the camera's project-sphere slot (vtable +0x10,
+    // 005aa704), multiplies by 2.0 (constant at 00481094), stores a float and truncates it (00556fa4). The slot divides the radius
+    // by the view depth (the camera space y of the centre, at least 0.001), not by the distance, and scales by pixels per unit at
+    // distance 1 (here FocalLength). Single precision throughout.
+    public static int DetailPixels(double depth, double radius, double focalLength)
+    {
+        float d = depth < 0.001 ? 0.001f : (float)depth;
+        float size = (float)(radius * focalLength) / d * 2.0f;
+        return size >= int.MaxValue ? int.MaxValue : (int)size;
+    }
+
     // Culled: the object is in a container interior whose camera scope does not reach it.
     public const int Culled = -2;
 
@@ -862,21 +881,27 @@ public sealed class InteriorRenderer : IDisposable
             if (lod0 == null)
                 return;
             float[] bx = lod0.Geo.Box;
-            bool inside = lx >= bx[0] && lx <= bx[3] && ly >= bx[1] && ly <= bx[4] && lz >= bx[2] && lz <= bx[5];
+            // 00480be4: the camera is inside the box of the first detail level when each coordinate is at least the minimum and below the maximum
+            bool inside = lx >= bx[0] && lx < bx[3] && ly >= bx[1] && ly < bx[4] && lz >= bx[2] && lz < bx[5];
             // distance cut: the box must be within the visible distance
             double ddx = Math.Max(Math.Max(bx[0] - lx, 0), lx - bx[3]), ddy = Math.Max(Math.Max(bx[1] - ly, 0), ly - bx[4]),
                    ddz = Math.Max(Math.Max(bx[2] - lz, 0), lz - bx[5]);
             if (Math.Sqrt(ddx * ddx + ddy * ddy + ddz * ddz) >= haze.Visible)
                 return;
-            // world centre of the box for the view test and the projected size
+            // world centre of the box for the view test
             double cxl = lod0.Center[0], cyl = lod0.Center[1], czl = lod0.Center[2];
             double wcx = cxl * m[0] + cyl * m[3] + czl * m[6] + inst.X, wcy = cxl * m[1] + cyl * m[4] + czl * m[7] + inst.Y,
                    wcz = cxl * m[2] + cyl * m[5] + czl * m[8] + inst.Z;
             var (ccx, ccy, ccz) = cam.ToCamera(wcx, wcy, wcz);
-            double distC = Math.Sqrt(ccx * ccx + ccy * ccy + ccz * ccz);
             if (!inside && !SphereVisible(cam, ccx, ccy, ccz, lod0.Radius))
                 return;
-            int pixels = distC > 0.001 ? (int)(2 * cam.ProjectRadius(distC, lod0.Radius)) : int.MaxValue;
+            // detail level (3.2): the sphere of the last level's box, projected by view depth
+            InteriorLodModel? lastLod = Lod(model, Math.Max(Math.Min(model.Shape.Lods.Count, model.Lods.Length) - 1, 0));
+            float[] lb = (lastLod ?? lod0).Geo.Box;
+            var (sx, sy, sz, sr) = DetailSphere(lb);
+            var (_, scy, _) = cam.ToCamera(sx * m[0] + sy * m[3] + sz * m[6] + inst.X, sx * m[1] + sy * m[4] + sz * m[7] + inst.Y,
+                                               sx * m[2] + sy * m[5] + sz * m[8] + inst.Z);
+            int pixels = DetailPixels(scy, sr, cam.FocalLength);
             int lodIndex = ModelLod(model, pixels, inside);
             InteriorLodModel? lod = Lod(model, lodIndex);
             if (lod == null || lod.Base == null || lod.Atlases.Count == 0)

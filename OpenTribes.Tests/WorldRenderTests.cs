@@ -504,6 +504,41 @@ public class WorldRenderTests
         Assert.Equal(2, InteriorRenderer.FindLod(mins, 0)); // else the last
     }
 
+    [Fact]
+    public void DetailSphereIsTheLongestExtentAroundTheBoxCentre() // 00480be4, ITRInstance_setState 005570c0
+    {
+        // acommand.*.dis: every level has the box (-30,-30,-41.75) to (30,46,49)
+        var (cx, cy, cz, r) = InteriorRenderer.DetailSphere(new float[] { -30, -30, -41.75f, 30, 46, 49 });
+        Assert.Equal(0, cx, 6);
+        Assert.Equal(8, cy, 6);
+        Assert.Equal(3.625, cz, 6);
+        Assert.Equal(90.75, r, 6); // not half the diagonal (66.4)
+    }
+
+    [Fact]
+    public void DetailPixelsDivideByViewDepthAndDouble() // 005aa704, 00481094 (2.0), 00556fa4 (truncation)
+    {
+        var cam = new OpenTribes.Platform.Gfx.Camera3D(0, 0, 0, 0, 0, 90, 640, 480, 0.01, 1000);
+        Assert.Equal(320.0, cam.FocalLength, 9);
+        Assert.Equal((int)(2.0f * (float)(90.75 * 320.0) / 100.0f), InteriorRenderer.DetailPixels(100, 90.75, 320));
+        Assert.Equal(580, InteriorRenderer.DetailPixels(100, 90.75, 320)); // 580.8 truncated
+        // behind the camera the depth is clamped to 0.001: the largest size, so the first detail level
+        Assert.Equal(58079996, InteriorRenderer.DetailPixels(-5, 90.75, 320));
+        Assert.Equal(0, InteriorRenderer.FindLod(new[] { 1000, 500, 150, 80 }, InteriorRenderer.DetailPixels(-5, 90.75, 320)));
+    }
+
+    [Fact]
+    public void DetailThresholdsOfTheBaseFollowTheLongestExtent() // acommand: minPixels 1000, 500, 150, 80
+    {
+        var mins = new[] { 1000, 500, 150, 80 };
+        // 640 wide, 90 degrees: the first level out to 58 m of depth, the second to 116 m, the third to 387 m
+        Assert.Equal(0, InteriorRenderer.FindLod(mins, InteriorRenderer.DetailPixels(57, 90.75, 320)));
+        Assert.Equal(1, InteriorRenderer.FindLod(mins, InteriorRenderer.DetailPixels(59, 90.75, 320)));
+        Assert.Equal(1, InteriorRenderer.FindLod(mins, InteriorRenderer.DetailPixels(115, 90.75, 320)));
+        Assert.Equal(2, InteriorRenderer.FindLod(mins, InteriorRenderer.DetailPixels(117, 90.75, 320)));
+        Assert.Equal(3, InteriorRenderer.FindLod(mins, InteriorRenderer.DetailPixels(500, 90.75, 320)));
+    }
+
     private static InteriorLighting.State St(float end, ushort c = 0, short dc = 0, short di = 0) =>
         new() { R = c, G = c, B = c, Mono = c, EndTime = end, DataCount = dc, DataIndex = di };
 
