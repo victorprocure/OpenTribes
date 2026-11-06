@@ -55,6 +55,7 @@ Useful options:
 | `--allow-remote` | Allow connecting to servers outside this machine. Without it the client only talks to 127.0.0.1 |
 | `--allow-browser` | Let in-game links open in your web browser |
 | `+connect HOST:PORT` | Join that server at start-up |
+| `-host MISSION` | Host that mission from this process and join it |
 | `-mod NAME` | Load a mod folder |
 
 The master server list is empty, so join servers by address.

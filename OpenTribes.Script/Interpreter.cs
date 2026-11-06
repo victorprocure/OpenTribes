@@ -29,7 +29,17 @@ public sealed class Interpreter
     private enum Completion { Normal = 0, ContinueLoop = 1, BreakLoop = 2, ReturnFn = 3 }
     private enum StaticType { TString = 0, TFloat = 1, TInt = 2 }
 
-    private sealed class Function
+    // One sim world of a process that runs two (a hosted game: the client world and the server world). The console
+    // variables and the script functions are shared, like the one console of the stock exe; the commands and the object
+    // interface follow the focus (the stock focus pointer DAT_006a8494, set per world by FearWorld_advance 004eba40 and
+    // FearWorld_clientAdvance 004eb7ac and by focusServer / focusClient, cases 0x7a / 0x79 of FearGame_consoleCallback).
+    public sealed class World
+    {
+        internal readonly Dictionary<string, Function> Commands = new(StringComparer.Ordinal);
+        public IObjectInterface? Objects;
+    }
+
+    internal sealed class Function
     {
         public Node? Decl;
         public Command? Builtin;
@@ -43,6 +53,10 @@ public sealed class Interpreter
     private readonly StringTable mStrings;
     private readonly Dictionary<string, string> mGlobals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Function> mFunctions = new(StringComparer.Ordinal);
+    private World? mFocus;               // the world whose commands answer first (null: only the shared set)
+    private World? mRegisterTarget;      // AddCommand fills this world while a registration runs
+    private IObjectInterface? mSharedObjects;
+    private readonly List<World> mWorlds = new();
     private readonly List<Frame> mFrames = new(); // [0] is the global frame
     private readonly Dictionary<int, string> mTagText = new();
     private readonly Dictionary<int, string> mTagRaw = new();
@@ -138,6 +152,11 @@ public sealed class Interpreter
     public void AddCommand(string name, Command cmd)
     {
         string key = mStrings.Intern(name);
+        if (mRegisterTarget != null)
+        {
+            mRegisterTarget.Commands[key] = new Function { Builtin = cmd };
+            return;
+        }
         if (mFunctions.TryGetValue(key, out Function? f) && f.Builtin != null)
             mReplacedCommands.Add(name);
         mFunctions[key] = new Function { Builtin = cmd };
@@ -149,7 +168,58 @@ public sealed class Interpreter
     public void SetLastHope(bool on) => mLastHope = on;
     public bool LastHope() => mLastHope;
     public void SetOutput(Action<string>? output) => mOutput = output;
-    public void SetObjects(IObjectInterface? objects) => mObjects = objects;
+    public void SetObjects(IObjectInterface? objects)
+    {
+        mSharedObjects = objects;
+        if (mFocus == null)
+            mObjects = objects;
+    }
+
+    // A new world: the commands registered inside Register(world, ...) answer only while it has the focus.
+    public World NewWorld()
+    {
+        var w = new World();
+        mWorlds.Add(w);
+        return w;
+    }
+
+    public void DropWorld(World w)
+    {
+        if (mFocus == w)
+            Focus(null);
+        mWorlds.Remove(w);
+    }
+
+    public void Register(World w, Action registrations)
+    {
+        World? previous = mRegisterTarget;
+        mRegisterTarget = w;
+        try
+        {
+            registrations();
+        }
+        finally
+        {
+            mRegisterTarget = previous;
+        }
+    }
+
+    // Removes commands from a world so the shared command answers in every focus (the world commands newServer,
+    // focusServer, ...).
+    public void Unregister(World w, params string[] names)
+    {
+        foreach (string n in names)
+            w.Commands.Remove(mStrings.Intern(n));
+    }
+
+    public World? FocusedWorld() => mFocus;
+
+    // The stock focus switch: null is the shared (client) world.
+    public void Focus(World? w)
+    {
+        mFocus = w;
+        mObjects = w?.Objects ?? mSharedObjects;
+    }
     public void SetResources(ResourceManager? res) => mResources = res;
     public int PrintLevel() => mPrintLevel;
     // src/script/interpreter.hpp unknownCommands: calls to names with no function or command, by interned name.
@@ -356,8 +426,13 @@ public sealed class Interpreter
             }
             return Completion.Normal;
         case NodeKind.Function:
-            mFunctions[mStrings.Intern(n.Name)] = new Function { Decl = n };
+        {
+            string fname = mStrings.Intern(n.Name);
+            mFunctions[fname] = new Function { Decl = n };
+            foreach (World w in mWorlds) // a script function replaces a native command, as in the shared set
+                w.Commands.Remove(fname);
             return Completion.Normal;
+        }
         case NodeKind.Return:
             mFrames[^1].Result = n.A != null ? EvalString(n.A) : "";
             return Completion.ReturnFn;
@@ -778,7 +853,7 @@ public sealed class Interpreter
     public bool HasFunction(string name)
     {
         string? key = mStrings.Lookup(name);
-        return key != null && mFunctions.ContainsKey(key);
+        return key != null && (mFocus != null && mFocus.Commands.ContainsKey(key) || mFunctions.ContainsKey(key));
     }
 
     // src/script/interpreter.cpp Interpreter::functionParamCount: -1 for a built-in or an unknown name.
@@ -786,6 +861,8 @@ public sealed class Interpreter
     {
         string? key = mStrings.Lookup(name);
         if (key == null)
+            return -1;
+        if (mFocus != null && mFocus.Commands.ContainsKey(key))
             return -1;
         return !mFunctions.TryGetValue(key, out Function? f) || f.Decl == null ? -1 : f.Decl.Params.Count;
     }
@@ -797,7 +874,10 @@ public sealed class Interpreter
     private string Call(string name, List<string> args)
     {
         string key = mStrings.Intern(name);
-        if (!mFunctions.TryGetValue(key, out Function? fn))
+        Function? fn = null;
+        if (mFocus == null || !mFocus.Commands.TryGetValue(key, out fn))
+            mFunctions.TryGetValue(key, out fn);
+        if (fn == null)
         {
             mUnknown[key] = mUnknown.TryGetValue(key, out int count) ? count + 1 : 1;
             Print(1, key + ": Unknown command.");

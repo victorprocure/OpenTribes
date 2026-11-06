@@ -41,6 +41,8 @@ public sealed class ClientApp : IDisposable
     public ClientCommandHandlers Handlers = null!;
     public ClientDelegates Delegates = null!;
     public LiveGame? Game;
+    // The server world of a hosted game (createServer, client-app.md 1.7), in this process next to the client world.
+    public OpenTribes.Server.HostedServer Hosted = null!;
     public readonly IActionConsumer ConsoleConsumer = new NullConsumer();
 
     public float Gamma = 1f;
@@ -137,6 +139,8 @@ public sealed class ClientApp : IDisposable
         var ctx = new ClassContext { Resources = Res, StartNetwork = _ => true };
         SimWorld = new SimConsole(Interp, ctx) { ClientMode = true };
         SimWorld.RegisterCommands();
+        Hosted = new OpenTribes.Server.HostedServer(Interp, Res, Opt.Root, SimWorld);
+        SimWorld.Worlds = Hosted;
         Interp.SetObjects(SimWorld);
         SimWorld.SetClockSource(() => NowMs / 1000.0);
         // The commands the dedicated server registers as inert stubs and the client scripts call on start-up
@@ -609,6 +613,10 @@ public sealed class ClientApp : IDisposable
         // F2: clock.
         SimWorld.UpdateClock();
         uint now = NowMs;
+        // F3: the server world of a hosted game runs before the client world (FearApp_onIdle 004ebc34 calls
+        // FearWorld_advance 004eba40 first), then the client focus is set for the rest of the frame (004eb7ac).
+        Hosted.Frame(now);
+        Interp.Focus(null);
         // test hooks: the timed script runs where the input poll runs (F6).
         mScript?.Run(now);
         if (mScript != null)
@@ -933,6 +941,7 @@ public sealed class ClientApp : IDisposable
     public void Dispose()
     {
         Game?.Dispose();
+        Hosted?.Dispose();
         SkinViews?.Dispose();
         Delegates.Browser.Dispose();
         AudioDev?.Dispose();

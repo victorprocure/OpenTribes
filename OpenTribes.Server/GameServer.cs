@@ -53,13 +53,16 @@ public sealed class GameServer
     }
 
     // src/game/game_server.cpp GameServer::GameServer.
-    public GameServer(GameState game, Interpreter interp, NetServer net)
+    // claimGlobals: the ghost priority container and the sound routes are process-wide hooks; the one world that talks to
+    // clients owns them (a world that is only stepped, like the prediction world of a client, leaves them alone).
+    public GameServer(GameState game, Interpreter interp, NetServer net, bool claimGlobals = true)
     {
         mGame = game;
         mIn = interp;
         mNet = net;
         GhostScope.RegisterPriorityVariables(mIn);
-        GhostScope.SetPriorityContainer(mGame.World);
+        if (claimGlobals)
+            GhostScope.SetPriorityContainer(mGame.World);
         GhostScope.RegisterGhostPriorities();
         var hooks = new NetHooks
         {
@@ -144,9 +147,12 @@ public sealed class GameServer
                 c.Value.Stream?.Ghosts().SetMaskBits(obj, bits);
         };
         // Sound routing (command_map.cpp): the ghost index of an object and the scope object of a client.
-        SoundRoute.GhostIndex = (id, obj) =>
-            mClients.TryGetValue(id, out Client? c) && c.Stream != null ? c.Stream.Ghosts().GhostIndex(obj) : -1;
-        SoundRoute.ScopeObject = id => mClients.TryGetValue(id, out Client? c) && c.Stream != null ? c.Stream.Ghosts().ScopeObject() : null;
+        if (claimGlobals)
+        {
+            SoundRoute.GhostIndex = (id, obj) =>
+                mClients.TryGetValue(id, out Client? c) && c.Stream != null ? c.Stream.Ghosts().GhostIndex(obj) : -1;
+            SoundRoute.ScopeObject = id => mClients.TryGetValue(id, out Client? c) && c.Stream != null ? c.Stream.Ghosts().ScopeObject() : null;
+        }
         mGame.Players.Send = (id, e) =>
         {
             if (mClients.TryGetValue(id, out Client? c))

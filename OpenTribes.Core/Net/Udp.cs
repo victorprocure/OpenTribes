@@ -32,7 +32,9 @@ public sealed class UdpSocket : IDisposable
     }
 
     // src/net/udp.cpp UdpSocket::open.
-    public bool Open(ushort port)
+    // loopbackOnly: the in-process transport of a hosted single-player game (LOOPBACK, 0058d7d4) is a datagram socket that
+    // only this machine can reach.
+    public bool Open(ushort port, bool loopbackOnly = false)
     {
         Close();
         try
@@ -55,7 +57,7 @@ public sealed class UdpSocket : IDisposable
         }
         try
         {
-            mFd.Bind(new IPEndPoint(IPAddress.Any, port));
+            mFd.Bind(new IPEndPoint(loopbackOnly ? IPAddress.Loopback : IPAddress.Any, port));
             mFd.Blocking = false;
         }
         catch (SocketException)
