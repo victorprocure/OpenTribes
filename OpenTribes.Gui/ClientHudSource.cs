@@ -52,14 +52,7 @@ public sealed class ClientHudSource : IHudSource
             // 6 bit field of the control state, scaled by 1/63 [code 00446830 Vehicle_readControlState, constant at 00446a9c].
             if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("dmg6", out object? dmg6))
                 return Math.Clamp((float)(D(dmg6, 0) / 63.0), 0, 1);
-            ClientGhost? g = Ghost;
-            if (Psc.ControlClass == "ObserverCamera")
-            {
-                g = null;
-                if (Psc.ControlState.TryGetValue("camMode", out object? m) && D(m, 0) == 3
-                    && Psc.ControlState.TryGetValue("orbitGhost", out object? og) && D(og, -1) is double idx and >= 0)
-                    g = mWorld.Ghosts.Get((int)idx);
-            }
+            ClientGhost? g = Psc.ControlClass == "ObserverCamera" ? OrbitGhost : Ghost;
             if (g == null)
                 return 0;
             if (g.State.ContainsKey("dead"))
@@ -68,6 +61,13 @@ public sealed class ClientHudSource : IHudSource
         }
     }
 
+    // The orbit object of an ObserverCamera control object (+0x288): the ghost of mode 3 of the control state.
+    private ClientGhost? OrbitGhost =>
+        Psc.ControlState.TryGetValue("camMode", out object? m) && D(m, 0) == 3
+        && Psc.ControlState.TryGetValue("orbitGhost", out object? og) && D(og, -1) is double idx and >= 0
+            ? mWorld.Ghosts.Get((int)idx)
+            : null;
+
     // The energy fraction of the control object: energy / maxEnergy (vtable +0xfc of the control object returns 1 - this and the
     // HUD draws 1 - that, docs/static-sim.md). The control player's PSC block carries the energy as an absolute value (+0x724), the
     // ghost update as a 7 bit fraction; maxEnergy is a field of the object's datablock (group 3, +0x58).
@@ -75,6 +75,9 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
+            // ObserverCamera vtable +0xfc `00434a04` forwards to its orbit object and answers 0.0 (a full bar) without one.
+            if (Psc.ControlClass == "ObserverCamera")
+                return OrbitGhost is { } og && og.State.TryGetValue("energy", out object? oe) ? Math.Clamp(D(oe, 1), 0, 1) : 1;
             // A piloted Vehicle or Flier: energy (+0x724) is the 16 bit field of the control state times maxEnergy [code 00446830], and
             // vtable +0xfc `0044b74c` divides it by maxEnergy again, so the fraction is the field over 65535.
             if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("E16", out object? e16))

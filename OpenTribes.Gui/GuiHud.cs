@@ -1107,10 +1107,32 @@ public sealed class GuiPlayView : GuiControl
 {
     public bool Produce3dEvents => U("produce3dEvents") != 0;
 
+    // The camera object of the control (+0x1ec, set by 005473ec). The play view of play.gui is drawn by the host before the GUI and
+    // never sets it here; the observer panel's view (GuiCmdObserve) sets it to the client's control object, which makes the control
+    // draw the world itself, inside its rectangle.
+    public bool CameraAttached;
+
     // TSControl draw 00546dc4: when the camera set-up (00545f7c, the control object's camera query, vtable +0x24) fails, the control
     // fills its rectangle with colour 0 (surface vtable +0x10, alpha 1.0) and returns without drawing its children (the HUD).
     public override void Render(GuiPaint p, int ox, int oy)
     {
+        if (CameraAttached && Canvas?.ViewRenderer is { } draw)
+        {
+            // 00546dc4 / 00545f7c: the view fills the control rectangle (the frustum comes from that rectangle, the field of view across
+            // its width); no camera: colour 0 over the rectangle and no children.
+            int gx = ox + X, gy = oy + Y;
+            if (W <= 0 || H <= 0)
+                return;
+            bool drew = draw(new GfxRect(gx, gy, gx + W - 1, gy + H - 1));
+            p.SetClip(p.Clip);
+            if (!drew)
+            {
+                p.Fill(gx, gy, W, H, 0);
+                return;
+            }
+            base.Render(p, ox, oy);
+            return;
+        }
         if (Canvas is { ViewHasCamera: false })
         {
             p.Fill(ox + X, oy + Y, W, H, 0);

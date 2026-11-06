@@ -259,11 +259,18 @@ public sealed class WorldScene : IDisposable
         mDev.SetDynamicLights(arr);
     }
 
-    public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null, double roll = 0)
+    public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null, double roll = 0, GfxRect? view = null)
     {
-        int w = mDev.Width, h = mDev.Height;
-        mDev.BeginFrame();
-        mDev.ClearRgb((byte)(ClearColor.r * 255), (byte)(ClearColor.g * 255), (byte)(ClearColor.b * 255));
+        // `view`: a TSControl that draws the world inside its own rectangle in the middle of the GUI draw [code 00546dc4]: the frame was
+        // started and cleared already, the scene goes into that rectangle only (camera size and depth clear), no 2D overlay, no present.
+        int w = view?.Width ?? mDev.Width, h = view?.Height ?? mDev.Height;
+        if (view is GfxRect vr)
+            mDev.SetViewport3D(vr);
+        else
+        {
+            mDev.BeginFrame();
+            mDev.ClearRgb((byte)(ClearColor.r * 255), (byte)(ClearColor.g * 255), (byte)(ClearColor.b * 255));
+        }
         Camera3D bg = MakeCamera(x, y, z, yaw, pitch, fov, w, h, true, roll);
         Camera3D world = MakeCamera(x, y, z, yaw, pitch, fov, w, h, false, roll);
         mDev.BeginScene3D(bg, HazeColor.r, HazeColor.g, HazeColor.b);
@@ -297,6 +304,11 @@ public sealed class WorldScene : IDisposable
         mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
         overlay?.Invoke(world);
         mDev.EndScene3D();
+        if (view != null)
+        {
+            mDev.SetViewport3D(null);
+            return;
+        }
         using (FramePerf.Scope("gui-draw"))
             overlay2D?.Invoke();
         using (FramePerf.Scope("present"))

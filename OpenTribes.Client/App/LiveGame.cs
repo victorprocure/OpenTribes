@@ -658,7 +658,8 @@ public sealed class LiveGame : IDisposable
     }
 
     // Step F16, the world part: draws the 3D view and then `overlay2D` (the GUI). False when there is no scene yet.
-    public bool Render(IGfxDevice dev, double fov, Action overlay2D)
+    // `view`: the rectangle of a TSControl that draws the world inside the GUI draw (the observer panel of the command screen).
+    public bool Render(IGfxDevice dev, double fov, Action overlay2D, GfxRect? view = null)
     {
         if (Scene == null || Model == null)
             return false;
@@ -685,7 +686,7 @@ public sealed class LiveGame : IDisposable
         {
             using (FramePerf.Scope("shapes-draw"))
                 ctx.Lists.Draw(dev);
-        }, overlay2D, c.RollDeg);
+        }, overlay2D, c.RollDeg, view);
         return true;
     }
 
