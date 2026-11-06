@@ -657,6 +657,9 @@ public sealed class LiveGame : IDisposable
         mAudio.Frame(dt);
     }
 
+    // The near plane the PSC camera query answers for the current view (WorldScene.ViewNear, 004077a8).
+    public double ViewNear() => OpenTribes.Client.World.WorldScene.ViewNear(mApp.Play.Moves.FirstPersonNow, World.Psc.ControlClass == "ObserverCamera");
+
     // Step F16, the world part: draws the 3D view and then `overlay2D` (the GUI). False when there is no scene yet.
     // `view`: the rectangle of a TSControl that draws the world inside the GUI draw (the observer panel of the command screen).
     public bool Render(IGfxDevice dev, double fov, Action overlay2D, GfxRect? view = null)
@@ -670,6 +673,7 @@ public sealed class LiveGame : IDisposable
         var ctx = new FrameContext { HazeStart = Scene.Terrain.HazeStart, Visible = Scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
         string precip = mApp.Interp.PeekVariable("$pref::weatherPrecipitation");
         Model.WeatherPrecipitation = precip.Length == 0 || Numbers.ParseBool(precip);
+        Scene.Near = ViewNear();
         Scene.DynamicLights = Model.CollectLights().Points;
         if (Scene.TerrainDraw != null)
             Scene.TerrainDraw.Params = Scene.TerrainDraw.Params with { ScreenError = Numbers.BorlandAtof(mApp.Interp.PeekVariable("$screenError")) };
