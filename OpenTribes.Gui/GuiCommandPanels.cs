@@ -253,31 +253,77 @@ public sealed class GuiCommandTeam : GuiList
     }
 }
 
-// FearGui::CMDObserve [code 004b4718 ctor, 004b4818 observe, 004b48bc toggle]: the observer panel of the command screen (the TV button of the
-// Players tab shows it). Only the console side is ported: the panel is a plain control that holds the id of the player it follows (+0x1ac, 0 from
-// the constructor) and tells the server which player to follow. The small 3D view it carries (child TSControl 140208) is not drawn.
+// FearGui::CMDObserve [code 004b4718 ctor, 004b47ac wake, 004b4818 observe, 004b48bc toggle, 004b4de4 draw, 004b4ad8 grow, 004b4d60 bars,
+// 004b4c9c and 004b4bdc noise]: the observer panel of the command screen (the TV button of the Players tab shows it). It tells the server which
+// player to follow (remoteEval SCOM: the server makes the client's control object an observer camera orbiting that player) and shows what that
+// camera sees in its child TSControl 140208: the child's camera object is the client's control object [005473ec with DAT_006a83b8], the same one
+// the play view uses, so the view is the world from the observer camera, drawn into the child's rectangle by the TSControl draw 00546dc4.
 public sealed class GuiCmdObserve : GuiControl
 {
     public const uint ViewId = 140208;
     public int Observed;
 
+    // The child view and its rectangle as the file has it (+0x620, +0x610 .. +0x61c), read at wake [004b47ac].
+    private GuiControl? mView;
+    private int mExtX, mExtY, mExtW, mExtH;
+    // The rectangle the view has now (+0x600 .. +0x60c): it opens from a thin line at the middle [004b48bc, 004b4ad8].
+    private int mCurX, mCurY, mCurW, mCurH;
+    private bool mActive;       // +0x5f8: a player was chosen
+    private bool mOpen;         // +0x5f9: the view has its full rectangle
+    private bool mNoiseDone;    // +0x5fa
+    private bool mBarsDone;     // +0x5fc
+    private int mNoiseMod = 4;  // +0x5e4: 1 in this many pixels (the middle value) is drawn white while the picture settles
+    private double mNoiseInterval; // +0x5ec seconds
+    private int mDamageBar, mEnergyBar; // +0x5f4, +0x5f0: the drawn bar heights
+    private long mNoiseTimerMs;
+    private long? mBarTimerMs;      // the constructor starts it; the first step is long overdue
+    // R250 seeded 0x8377 [004b4718]
+    private readonly OpenTribes.Script.RandomR250 mRandom = new(0x8377);
+
+    // [004b4c9c] the noise grows by this each interval until it reaches the limit; [004b48bc] values 4, 0x50, 6.
+    private const int NoiseStart = 4, NoiseLimit = 0x50, NoiseDecay = 6;
+
+    public bool IsActive => mActive;
+    public bool IsOpen => mOpen;
+    public bool NoiseDone => mNoiseDone;
+    public (int X, int Y, int W, int H) ViewRect => (mCurX, mCurY, mCurW, mCurH);
+    public (int Damage, int Energy) BarHeights => (mDamageBar, mEnergyBar);
+    public int NoiseValue => mNoiseMod;
+
     private void RemoteObserve(int id) =>
         Host?.Call("remoteEval", "2048", "SCOM", id.ToString(CultureInfo.InvariantCulture));
 
+    // 004b47ac (slot 0xb0): finds the child view (the control with the id, anywhere below), keeps its rectangle, hides the panel and
+    // forgets the followed player.
+    public override void Wake()
+    {
+        mView = FindById(ViewId);
+        if (mView != null)
+            (mExtX, mExtY, mExtW, mExtH) = (mView.X, mView.Y, mView.W, mView.H);
+        SetVisible(false);
+        Observed = 0;
+    }
+
     // 004b4818 (Client::cmdObservePlayer 0043a6e8): another player than the followed one, and only while the panel is shown, is sent to the server as
-    // remoteEval(2048, SCOM, id) and becomes the followed one. Returns whether it did.
+    // remoteEval(2048, SCOM, id) and becomes the followed one. Returns whether it did. The noise and the bars start again, the view keeps its size.
     public bool Observe(int id)
     {
         if (id == Observed || !Visible)
             return false;
         RemoteObserve(id);
+        mNoiseMod = NoiseStart;
+        mNoiseDone = false;
+        mDamageBar = mEnergyBar = 0;
+        mBarsDone = false;
+        mActive = true;
         Observed = id;
         return true;
     }
 
     // 004b48bc (Client::toggleCMDObserver 0043a670): a change of the shown state only. On: the first selected record of the local player's records
-    // is followed (none: the panel stays off); with the 3D view present the server is told (SCOM, id) and the followed id is set, then the panel is
-    // shown. Off: the server is told SCOM, -1 and the panel is hidden (the followed id stays).
+    // is followed (none: the panel stays off); with the 3D view present the server is told (SCOM, id), the followed id is set, the view starts as
+    // a line at the middle of its rectangle, the noise and the bars restart, the view gets the control object as camera; then the panel is shown.
+    // Off: the server is told SCOM, -1 and the panel is hidden (the followed id stays).
     public void Toggle(bool on)
     {
         if (on == Visible)
@@ -291,11 +337,139 @@ public sealed class GuiCmdObserve : GuiControl
         int id = Host?.Hud?.CommandFirstSelectedClient() ?? -1;
         if (id == -1)
             return;
-        if (FindById(ViewId) != null)
+        if (mView != null)
         {
             RemoteObserve(id);
+            mActive = true;
             Observed = id;
+            mCurX = (mExtW >> 1) + mExtX;
+            mCurY = (mExtH >> 1) + mExtY;
+            mCurW = 0;
+            mCurH = 2;
+            mNoiseMod = NoiseStart;
+            mNoiseInterval = NextNoiseInterval();
+            mDamageBar = mEnergyBar = 0;
+            mOpen = mNoiseDone = mBarsDone = false;
+            if (mView is GuiPlayView tv)
+                tv.CameraAttached = true;
+            mView.Resize(mCurX, mCurY, mCurW, mCurH);
         }
         SetVisible(true);
+    }
+
+    // [004b4c9c, 004b48bc] seconds until the next noise step: random * 2^-32 * 0.01 + 0.025 (floats).
+    private double NextNoiseInterval() => (float)((double)mRandom.Next() * 2.3283064365386963e-10 * 0.009999999776482582 + 0.02500000037252903);
+
+    private long Now => Host?.TickMs ?? 0;
+
+    // 004b4ad8: one step of the opening per draw. First the width (the rectangle moves 8 left and widens by 16 until it is the full
+    // width), then the height (10 up, 20 taller); then it is open and the noise timer starts. The view gets the rectangle every step.
+    private void GrowStep()
+    {
+        if (mExtX < mCurX || mCurW < mExtW)
+        {
+            mCurX = Math.Max(mCurX - 8, mExtX);
+            mCurW = Math.Min(mExtW, mCurW + 16);
+        }
+        else if (mExtY < mCurY || mCurH < mExtH)
+        {
+            mCurY = Math.Max(mCurY - 10, mExtY);
+            mCurH = Math.Min(mExtH, mCurH + 20);
+        }
+        else
+        {
+            mOpen = true;
+            mNoiseTimerMs = Now;
+        }
+        mView?.Resize(mCurX, mCurY, mCurW, mCurH);
+    }
+
+    // 004b4d60: every 0.03 s both bars grow by 4 pixels towards their targets; done when both have got there.
+    private void BarStep(int damageTarget, int energyTarget)
+    {
+        if (mBarTimerMs is long t && Now - t <= 30)
+            return;
+        mBarTimerMs = Now;
+        mEnergyBar += 4;
+        mDamageBar += 4;
+        if (damageTarget < mDamageBar && energyTarget < mEnergyBar)
+            mBarsDone = true;
+        if (damageTarget < mDamageBar)
+            mDamageBar = damageTarget;
+        if (energyTarget < mEnergyBar)
+            mEnergyBar = energyTarget;
+    }
+
+    // 004b4c9c: once open, every interval the noise gets thinner by a step; at the limit it stops.
+    private void NoiseStep()
+    {
+        if (!mActive || !mOpen || Now - mNoiseTimerMs <= mNoiseInterval * 1000.0)
+            return;
+        mNoiseTimerMs = Now;
+        mNoiseInterval = NextNoiseInterval();
+        mNoiseMod += NoiseDecay;
+        if (NoiseLimit <= mNoiseMod)
+            mNoiseDone = true;
+    }
+
+    // Bar targets [004b4de4]: the view height times (1 - damage level of the control object, slot 0xf8) and times the energy fraction
+    // (1 - slot 0xfc); a bar with a value above 0 is at least 1 pixel.
+    public (int Damage, int Energy) BarTargets()
+    {
+        float health = 1f - (float)(Host?.Hud?.DamageLevel ?? 0);
+        float energy = 1f - (1f - (float)(Host?.Hud?.EnergyLevel ?? 1));
+        int Bar(float v)
+        {
+            int n = (int)((double)mExtH * v);
+            return v > 0f ? Math.Max(n, 1) : n;
+        }
+        return (Bar(health), Bar(energy));
+    }
+
+    // 004b4de4 (slot 0x78): the panel fill (palette 0xf4); with the view: the opening, the two bars right of the view (palette 0xfc, 0xf2 or
+    // 0xf3 by the damage bar's target height, 0xe7 for the energy bar), the child view, and the noise until it has settled.
+    public override void Render(GuiPaint p, int ox, int oy)
+    {
+        int gx = ox + X, gy = oy + Y;
+        p.Fill(gx, gy, W, H, 0xf4);
+        if (mView == null)
+            return;
+        if (!mOpen)
+            GrowStep();
+        if (mActive)
+        {
+            if (mOpen)
+            {
+                (int hd, int he) = BarTargets();
+                if (!mBarsDone)
+                    BarStep(hd, he);
+                else
+                    (mDamageBar, mEnergyBar) = (hd, he);
+                int right = gx + mExtX + mExtW;
+                int bottom = gy + mExtY + mExtH;
+                if (mDamageBar != 0)
+                    p.Fill(right + 4, bottom - mDamageBar, 2, mDamageBar, hd >= 0x39 ? 0xfc : hd >= 0x1c ? 0xf2 : 0xf3);
+                if (mEnergyBar != 0)
+                    p.Fill(right + 8, bottom - mEnergyBar, 2, mEnergyBar, 0xe7);
+            }
+            RenderChildren(p, gx, gy);
+        }
+        if (!mNoiseDone)
+        {
+            NoiseStep();
+            DrawNoise(p, gx, gy);
+        }
+    }
+
+    // 004b4bdc: every pixel of the view rectangle is drawn white (palette 0xff) when a random number scaled to the noise value is its middle.
+    private void DrawNoise(GuiPaint p, int gx, int gy)
+    {
+        for (int c = 0; c < mCurW; ++c)
+            for (int r = 0; r < mCurH; ++r)
+            {
+                uint v = (uint)(((ulong)mRandom.Next() * (uint)mNoiseMod) / 0xffffffffUL);
+                if (v == (uint)(mNoiseMod >> 1))
+                    p.Fill(gx + mCurX + c, gy + mCurY + r, 1, 1, 0xff);
+            }
     }
 }

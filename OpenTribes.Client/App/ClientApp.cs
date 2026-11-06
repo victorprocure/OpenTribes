@@ -168,6 +168,8 @@ public sealed class ClientApp : IDisposable
             return ordering;
         };
         Canvas = new GuiCanvas(Host, Dev?.Width ?? Opt.Width, Dev?.Height ?? Opt.Height);
+        // A TSControl with a camera object other than the play view (the observer panel of the command screen) draws the world itself.
+        Canvas.ViewRenderer = r => Game != null && Dev != null && Game.Render(Dev, Play.Moves.CurrentFov, () => { }, r);
         GuiRt = new GuiRuntime(Interp, Host, Canvas);
         GuiRt.RenderRequested = () => { RenderFrame(); };
         Host.OnPalette = name =>

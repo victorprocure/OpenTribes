@@ -666,6 +666,11 @@ public sealed class GuiCanvas
     // False while the play view has no camera (no control object): its TSControl draws no HUD (GuiPlayView.Render).
     public bool ViewHasCamera = true;
 
+    // Draws the 3D world into one rectangle of the frame, in the middle of the GUI draw (the host's world renderer; false when it has
+    // no camera). A TSControl other than the play view's that has a camera object (GuiPlayView.CameraAttached) draws its view through
+    // it [code 00546dc4 renders the scene inside the control's own draw]. Null in tests and without a game.
+    public Func<GfxRect, bool>? ViewRenderer;
+
     public void Render(IGfxDevice dev)
     {
         var p = new GuiPaint(dev, Host);

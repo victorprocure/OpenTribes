@@ -265,6 +265,7 @@ public class CommandListsTests
             obs.AddChild(tv);
         }
         r.Root.AddChild(obs);
+        obs.WakeTree(); // 004b47ac: finds the view, hides the panel
         return (r, obs);
     }
 
