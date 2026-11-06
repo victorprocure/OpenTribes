@@ -490,7 +490,7 @@ public sealed class ClientApp : IDisposable
             FirstPersonSource = () => Play.Moves.FirstPersonNow,
             ZoomSource = () => Play.Moves.HudZoomState(),
             ViewCamera = (w, h) => g.Camera() is { } c
-                ? new Camera3D(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, Play.Moves.CurrentFov, w, h, World.WorldScene.NearPlane, 1000)
+                ? new Camera3D(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, Play.Moves.CurrentFov, w, h, g.ViewNear(), 1000)
                 : null,
             HeadMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.MidBack() : null,
             MuzzleMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.Muzzle() : null,

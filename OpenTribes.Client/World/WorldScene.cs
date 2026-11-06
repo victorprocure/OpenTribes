@@ -9,8 +9,11 @@ namespace OpenTribes.Client.World;
 // planet), then the world (terrain, interiors).
 public sealed class WorldScene : IDisposable
 {
-    // Open (world-render.md Q1): near plane, field of view and far plane are not transcribed from the camera slots.
+    // Open (world-render.md Q1): field of view and far plane are not transcribed from the camera slots.
+    // The near plane is the camera query answer of the PSC (0.01 or 0.2, see ViewNear) and the device takes it as the scale of the
+    // stored depth: z = near / d (setDepthRange 005daa14 gets camera +0x178 from FUN_004fb0e4).
     public const double NearPlane = 0.01;
+    public const double FirstPersonNearPlane = 0.2;
     public const double DefaultFov = 90;      // $pref::PlayerFov default, taken as the horizontal angle
     public const double BackgroundFar = 40000; // covers planet distances up to 11000
 
@@ -217,10 +220,20 @@ public sealed class WorldScene : IDisposable
         TerrainDraw = new TerrainRenderer(dev, Assets, data, mats, pos[0], pos[1], pos[2], Terrain);
     }
 
+    // The near plane of the camera query the PSC answers [PlayerPSC camera query 004077a8, message 0x400: bytes 004078a0 to 00407901]:
+    // 0.2 (0x3e4ccccd) when first person is on (+0xa0) with the view distance (+0x9c) at 0 and the control object is not an
+    // ObserverCamera (the dynamic cast at 004078ec to the 0x2a4 byte class fails), else 0.01 (0x3c23d70a). A Player, a Vehicle and a
+    // Flier in first person all answer 0.2 (stock trace of the blink-pad and play-vehicle scenarios).
+    public static double ViewNear(bool firstPerson, bool controlIsObserver) =>
+        firstPerson && !controlIsObserver ? FirstPersonNearPlane : NearPlane;
+
+    // Near plane of the next Render calls (camera +0x178): set by the caller from the view state.
+    public double Near = NearPlane;
+
     // The camera of a render: near and far follow the terrain's visible distance for the world, a long far for the
     // background (open: world-render.md Q1).
     public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background, double roll = 0) =>
-        new(x, y, z, yaw, pitch, fov, w, h, NearPlane, background ? BackgroundFar : Math.Max(Terrain.Visible, 10), roll);
+        new(x, y, z, yaw, pitch, fov, w, h, Near, background ? BackgroundFar : Math.Max(Terrain.Visible, 10), roll);
 
     // The point lights of the frame (explosions, projectiles, items): they add to the light map of terrain and interior surfaces
     // within range (world-render.md 2.9, 3.7). Set by the caller before Render; the nearest ones to the camera are used.
