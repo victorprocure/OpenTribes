@@ -35,14 +35,16 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     private readonly ResourceManager mRes;
     private readonly string mRoot;
     private readonly SimConsole mClientSim;
+    private readonly bool mAllowMasters;
     private Interpreter.World? mWorld;
     private SimConsole? mSim;
     private GameState? mGame;
     private NetServer? mNet;
     private bool mServing;
 
-    public HostedServer(Interpreter interp, ResourceManager resources, string root, SimConsole clientSim)
+    public HostedServer(Interpreter interp, ResourceManager resources, string root, SimConsole clientSim, bool allowMasters = false)
     {
+        mAllowMasters = allowMasters;
         mIn = interp;
         mRes = resources;
         mRoot = root;
@@ -81,6 +83,7 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         game.ReleaseRecordId = id => net.ReleasePlayerId((uint)id);
         // serverDelegate (FearCSDelegate, isServer): the IP transport opens the socket; a game with only LOOPBACK (the
         // $SinglePlayer form of createServer) is reachable from this machine only.
+        var master = new MasterHeartbeat(mIn, net, mAllowMasters);
         ctx.StartNetwork = args =>
         {
             bool ip = false;
@@ -98,6 +101,10 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
             if (net.IsOpen())
                 return true;
             mServing = net.Open(port, !ip);
+            // SimNet_activate 0x0054e86c (tail): a hosted game that is not $SinglePlayer and has an IP transport announces
+            // itself like a dedicated server, to the masters $inet::Master1.. (R6: loopback ones unless --allow-remote).
+            if (mServing && sim.Server() is { } m)
+                master.OnNetworkStart(args, true, (delay, action) => m.PostEvent(m, Fpu.AddF(m.Time(), delay), action));
             return mServing;
         };
         ctx.ServerCreated = m =>
@@ -117,8 +124,7 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
                 IsChatMenu = name => sim.Server()?.Find(name) is { } o && o.ClassName() == "ChatMenu",
                 Quit = () => { },
             });
-            // Heartbeats to master servers stay off (R6): the commands exist, nothing is announced.
-            new MasterHeartbeat(mIn, net, false).RegisterCommands();
+            master.RegisterCommands();
         });
         // The world commands are the process's, not a world's.
         mIn.Unregister(world, "newServer", "focusServer", "deleteServer", "newClient", "focusClient", "deleteClient");

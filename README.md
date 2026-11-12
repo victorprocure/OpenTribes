@@ -52,7 +52,7 @@ Useful options:
 |---|---|
 | `--windowed` | Stay in a window, even when the game settings ask for full screen |
 | `--no-audio` | Start without sound |
-| `--allow-remote` | Allow connecting to servers outside this machine. Without it the client only talks to 127.0.0.1 |
+| `--allow-remote` | Allow connecting to servers outside this machine, and let a hosted public game announce itself to master servers outside it. Without it the client only talks to 127.0.0.1 |
 | `--allow-browser` | Let in-game links open in your web browser |
 | `+connect HOST:PORT` | Join that server at start-up |
 | `-host MISSION` | Host that mission from this process and join it |
