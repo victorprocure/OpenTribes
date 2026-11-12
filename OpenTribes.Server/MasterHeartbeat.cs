@@ -172,6 +172,22 @@ public sealed class MasterHeartbeat
         });
     }
 
+    // SimNet_activate 0x0054e86c, its tail: once the transports of a FearCSDelegate have started, the first round runs
+    // when the delegate is a server (first argument starts with t, T or 1), a transport started and one of the
+    // (transport, port) pairs is named exactly "IP" (case-sensitive compare with 0x0063ead5), and $SinglePlayer is not
+    // true. A dedicated server and a game hosted by a client go through this same code.
+    public bool OnNetworkStart(IReadOnlyList<string> args, bool transportStarted, Schedule schedule)
+    {
+        bool isServer = args.Count > 0 && args[0].Length > 0 && args[0][0] is 't' or 'T' or '1';
+        bool ip = false;
+        for (int i = 1; i + 1 < args.Count; i += 2)
+            ip |= string.Equals(args[i], "IP", StringComparison.Ordinal);
+        if (!isServer || !transportStarted || !ip || Numbers.ParseBool(mIn.PeekVariable("$SinglePlayer")))
+            return false;
+        Start(schedule);
+        return true;
+    }
+
     // src/server/master.cpp MasterHeartbeat::start: server network start (not $SinglePlayer): first heartbeat, then
     // one every 120 s.
     public void Start(Schedule schedule)

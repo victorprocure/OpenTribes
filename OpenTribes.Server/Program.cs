@@ -202,11 +202,10 @@ public static class Program
                         if (!server.Open(unchecked((ushort)NetServer.CAtoi(args[i + 1]))))
                             return false;
                         // 0x0054fxxx: a server that is not $SinglePlayer announces itself.
-                        if (master != null && sim != null && sim.Server() != null &&
-                            !Numbers.ParseBool(console.PeekVariable("$SinglePlayer")))
+                        if (master != null && sim != null && sim.Server() != null)
                         {
                             SimManager m = sim.Server()!;
-                            master.Start((delay, action) => m.PostEvent(m, Fpu.AddF(m.Time(), delay), action));
+                            master.OnNetworkStart(args, true, (delay, action) => m.PostEvent(m, Fpu.AddF(m.Time(), delay), action));
                         }
                         return true;
                     }

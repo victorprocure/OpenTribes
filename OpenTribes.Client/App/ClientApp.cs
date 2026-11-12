@@ -139,7 +139,7 @@ public sealed class ClientApp : IDisposable
         var ctx = new ClassContext { Resources = Res, StartNetwork = _ => true };
         SimWorld = new SimConsole(Interp, ctx) { ClientMode = true };
         SimWorld.RegisterCommands();
-        Hosted = new OpenTribes.Server.HostedServer(Interp, Res, Opt.Root, SimWorld);
+        Hosted = new OpenTribes.Server.HostedServer(Interp, Res, Opt.Root, SimWorld, Opt.AllowRemote);
         SimWorld.Worlds = Hosted;
         Interp.SetObjects(SimWorld);
         SimWorld.SetClockSource(() => NowMs / 1000.0);

@@ -38,6 +38,24 @@ public class MasterTests
     private static readonly byte[] kBeat = { 0x10, 0x05, 0xff, 0, 0, 0, 0, 0 };
 
     [Fact]
+    public void NetworkStartAnnouncesOnlyAnIpServerThatIsNotSinglePlayer() // SimNet_activate 0x0054e86c tail
+    {
+        foreach ((string isServer, bool ip, string single, bool sent) in new[]
+        {
+            ("true", true, "false", true), ("T", true, "", true), ("1", true, "0", true), ("false", true, "false", false),
+            ("", true, "false", false), ("true", false, "false", false), ("true", true, "true", false),
+        })
+        {
+            var w = new World();
+            var hb = new MasterHeartbeat(w.In, w.Net, false);
+            w.Eval("$SinglePlayer = \"" + single + "\"; $Server::HostPublicGame = true; $inet::Master1 = \"IP:127.0.0.1:29000\"; " +
+                   "function checkMasterTranslation() {}");
+            Assert.Equal(sent, hb.OnNetworkStart(new[] { isServer, ip ? "IP" : "ip", "28001" }, true, w.Schedule()));
+            Assert.Equal(sent ? 1 : 0, w.Sent.Count);
+        }
+    }
+
+    [Fact]
     public void Master()
     {
         // Address text: "IP:a.b.c.d:port", prefix optional and case-insensitive.

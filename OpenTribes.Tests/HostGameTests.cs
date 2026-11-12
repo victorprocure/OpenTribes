@@ -140,6 +140,74 @@ public sealed class HostGameTests : IDisposable
         Assert.True(mApp!.Hosted.Net!.IsOpen());
         Assert.True(mApp.Hosted.Net.LoopbackOnly);
     }
+
+    // A tiny master: a loopback socket that stands in for the t1master style exchange (heartbeat, challenge, ping reply).
+    private static System.Net.Sockets.UdpClient FakeMaster(out int port)
+    {
+        var m = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
+        m.Client.ReceiveTimeout = 300;
+        port = ((System.Net.IPEndPoint)m.Client.LocalEndPoint!).Port;
+        return m;
+    }
+
+    private byte[]? Receive(System.Net.Sockets.UdpClient m, out System.Net.IPEndPoint from, int waitFrames)
+    {
+        from = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0);
+        for (int i = 0; i < waitFrames; ++i)
+        {
+            mApp!.Step();
+            if (m.Available > 0)
+                return m.Receive(ref from);
+            Thread.Sleep(2);
+        }
+        return null;
+    }
+
+    private void HostWithMaster(int masterPort, string single, string pub, string transports)
+    {
+        Boot("function checkMasterTranslation() { $inet::Master1 = \"IP:127.0.0.1:" + masterPort + "\"; }\n");
+        Eval("$SinglePlayer = " + single + "; $Server::HostPublicGame = " + pub + ";");
+        Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, " + transports + ");");
+    }
+
+    [Fact]
+    public void APublicHostedGameAnnouncesItselfAndAnswersTheMasterChallenge() // SimNet_activate 0x0054e86c tail, 0x0054f478, 0x0054f608
+    {
+        using var master = FakeMaster(out int port);
+        HostWithMaster(port, "false", "true", "\"IP\", 0, \"LOOPBACK\", 0");
+        // The heartbeat leaves at network start, from the game port.
+        byte[]? beat = Receive(master, out var from, 50);
+        Assert.NotNull(beat);
+        Assert.Equal(new byte[] { 0x10, 0x05, 0xff, 0, 0, 0, 0, 0 }, beat);
+        Assert.Equal(mApp!.Hosted.Net!.Port(), from.Port);
+        // The master answers an unknown server with a challenge; the server returns its ping reply with the same key.
+        master.Send(new byte[] { 0x10, 0x03, 0xff, 0x00, 0x34, 0x12 }, 6, from);
+        byte[]? reply = Receive(master, out _, 200);
+        Assert.NotNull(reply);
+        Assert.Equal(40, reply!.Length);
+        Assert.Equal(new byte[] { 0x10, 0x04, 0xff, 0xf0, 0x34, 0x12 }, reply[..6]);
+    }
+
+    [Fact]
+    public void AnUnsetHostPublicGameCountsAsPublicForAHostedGame() // 0x0054f478: an empty $Server::HostPublicGame becomes TRUE
+    {
+        using var master = FakeMaster(out int port);
+        HostWithMaster(port, "false", "\"\"", "\"IP\", 0");
+        Assert.NotNull(Receive(master, out _, 50));
+        Assert.Equal("TRUE", mApp!.Interp.PeekVariable("$Server::HostPublicGame"));
+    }
+
+    [Theory]
+    [InlineData("true", "true", "\"IP\", 0")]               // $SinglePlayer: no announcement
+    [InlineData("false", "false", "\"IP\", 0")]             // not public
+    [InlineData("false", "true", "\"LOOPBACK\", 0")]        // no IP transport
+    [InlineData("false", "true", "\"ip\", 0")]              // the transport name is compared exactly (0x0063ead5)
+    public void AHostedGameThatIsNotPublicSendsNoHeartbeat(string single, string pub, string transports)
+    {
+        using var master = FakeMaster(out int port);
+        HostWithMaster(port, single, pub, transports);
+        Assert.Null(Receive(master, out _, 40));
+    }
 }
 
 // The stock scripts end to end (createServer of server.cs, client-app.md 1.7): runs only when a stock game directory exists
