@@ -865,6 +865,38 @@ public class ControlObjectTests
             Assert.True(b.Flag() && b.U(8) == 127 && b.U(10) == (uint)index && b.U(8) == 0x5a);
         }
         c.Ghosts().ObjectRemoved(probe);
+
+        // Control set on an object created just now (issue 38, check-turret). Stock writes the ghost index through
+        // NetObject_getGhostIndex 0050a498 (0x3ff for no ghost or flags 0x58: create, creating, deleting); the read 00405ec8 calls vtable +0x160 on the ghost it finds, so stock never receives an index it cannot resolve, so a
+        // client is only named a control ghost after the create packet was acknowledged. Until then the block carries
+        // 0x3ff and no control state, even though the same packet carries the create.
+        var late = new Probe(ctx);
+        control = late;
+        c.Ghosts().MarkInScope(late, true);
+        uint LateIndex()
+        {
+            now += 100;
+            c.Tick(now);
+            var b = new Bits(f.Sent[^1].Data, (uint)(f.Sent[^1].Data.Length * 8));
+            Assert.True(!b.Flag() && !b.Flag() && !b.Flag() && b.Flag());
+            b.U(3); b.Flag(); b.U(32);
+            Assert.True(b.Flag());
+            b.U(8);
+            return b.U(10);
+        }
+        // Acknowledge everything sent so far except the packets after this point.
+        while (acked < f.Sent.Count)
+            c.Notify(f.Sent[acked++].Cookie, true);
+        Assert.True(LateIndex() == 0x3ff);          // create in flight
+        int firstCreate = f.Sent.Count - 1;
+        Assert.True(LateIndex() == 0x3ff);          // still unacknowledged
+        Assert.True(c.Ghosts().GhostIndex(late) < 0);
+        c.Notify(f.Sent[firstCreate].Cookie, false); // lost: create is sent again
+        Assert.True(LateIndex() == 0x3ff);
+        c.Notify(f.Sent[^1].Cookie, true);
+        Assert.True(c.Ghosts().GhostIndex(late) >= 0);
+        Assert.True(LateIndex() == (uint)c.Ghosts().GhostIndex(late));
+        c.Ghosts().ObjectRemoved(late);
     }
 
     // ---- docs/player-manager.md 12.5: links and commands ----
