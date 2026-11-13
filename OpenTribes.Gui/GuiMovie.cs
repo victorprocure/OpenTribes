@@ -1,30 +1,33 @@
-// docs/gui.md 3.3 and Q12: FearGui::SmackerCtrl plays a Smacker movie (the stock control calls smackw32.dll, this one decodes the
-// file itself) and SimGui::AnimateBMA steps through a bitmap array.
 using OpenTribes.Platform.Audio;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Video;
 
 namespace OpenTribes.Gui;
 
-// FearGui::SmackerCtrl [code 004d6dd0 .. 004d693c]. One frame per frame duration of the movie; the palette records of the movie
-// replace the palette entries palStart .. palStart + palColors - 1; the audio track 0 plays through the host's mixer. After the
-// last frame (or at once for a movie that will not open) the control posts its done event: the done tag as a message when the tag
-// is not 0, else its own command. A key or mouse press does the same, so the movie can be skipped.
+/// <summary>The Smacker movie control (FearGui::SmackerCtrl, docs/gui.md 3.3 and Q12).</summary>
+/// <remarks>
+/// <para>The stock control calls smackw32.dll, this one decodes the file itself. It shows one frame per frame duration of the movie. The palette records of the movie replace the palette entries palStart to palStart + palColors - 1. The audio track 0 plays through the host's mixer.</para>
+/// <para>After the last frame (or at once for a movie that will not open) the control posts its done event: the done tag as a message when the tag is not 0, else its own command. A key or mouse press does the same, so the movie can be skipped.</para>
+/// <para>Follows 004d6dd0 to 004d693c.</para>
+/// </remarks>
 public sealed class GuiSmacker : GuiActive
 {
     private SmackerDecoder? mMovie;
     private PbmpBitmap? mPicture;
     private Action? mStopAudio;
-    // The color translation of the stock control [code 004d670c]: movie color i draws as palette entry i + palStart for the first
-    // palColors colors, every other value draws as itself.
+    /// <summary>The color translation of the stock control (004d670c): movie color i draws as palette entry i + palStart for the first palColors colors, every other value draws as itself.</summary>
     private readonly byte[] mMap = new byte[256];
     private double mStartMs;
     private int mShown;            // frames decoded so far
     private bool mStarted, mFinished, mDonePosted, mPaletteDirty, mPictureDirty, mLastFrameDrawn;
+    /// <summary>Gets the number of frames decoded so far.</summary>
     public int FramesShown => mShown;
+    /// <summary>Gets a value that is true when a movie is open.</summary>
     public bool HasMovie => mMovie != null;
+    /// <summary>Gets the open movie, or null.</summary>
     public SmackerDecoder? Movie => mMovie;
 
+    /// <inheritdoc/>
     public override void Wake()
     {
         mDonePosted = false;
@@ -48,6 +51,7 @@ public sealed class GuiSmacker : GuiActive
         mPicture = new PbmpBitmap { Width = mMovie.Width, Height = mMovie.Height, Depth = 8, Pixels = new byte[mMovie.Width * mMovie.Height] };
     }
 
+    /// <inheritdoc/>
     public override void Close()
     {
         mStopAudio?.Invoke();
@@ -58,6 +62,7 @@ public sealed class GuiSmacker : GuiActive
         mPicture = null;
     }
 
+    /// <inheritdoc/>
     public override void PreRender()
     {
         if (Host == null)
@@ -72,7 +77,7 @@ public sealed class GuiSmacker : GuiActive
                 StartAudio();
             }
             double frameMs = mMovie.FrameMicroseconds / 1000.0;
-            // The frame that is due at this time; every frame before it is decoded as well because frames are deltas.
+            // Decode every frame up to the one due now: frames are deltas.
             int due = (int)Math.Floor((now - mStartMs) / frameMs) + 1;
             bool decoded = false;
             while (mShown < due && mShown < mMovie.FrameCount && !mFinished)
@@ -133,6 +138,10 @@ public sealed class GuiSmacker : GuiActive
         }
     }
 
+    /// <summary>Converts the PCM data of a Smacker audio track to a wave.</summary>
+    /// <param name="pcm">The 8 or 16 bit PCM bytes.</param>
+    /// <param name="a">The track description.</param>
+    /// <returns>The wave with float samples.</returns>
     public static WavData ToWave(byte[] pcm, SmackerAudioTrack a)
     {
         int bps = a.Bits / 8;
@@ -143,6 +152,7 @@ public sealed class GuiSmacker : GuiActive
         return new WavData { Channels = a.Channels, Rate = a.Rate, Bits = a.Bits, Frames = frames, Samples = s };
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
@@ -157,9 +167,8 @@ public sealed class GuiSmacker : GuiActive
             if (mPictureDirty)
             {
                 mPictureDirty = false;
-                // The draw below goes through the keyed copy of the picture, and the device caches its texture under that copy,
-                // so the copy is the bitmap to flush; flushing mPicture itself leaves the first frame on screen (black).
-                // The stock control redraws its surface every frame [code 004d693c, 004d670c].
+                // The draw goes through the keyed copy of the picture and the device caches its texture under that copy, so the copy is the bitmap to flush.
+                // The stock control redraws its surface every frame (004d693c, 004d670c).
                 p.Dev.FlushTexture(GuiPaint.KeyedBitmap(mPicture));
             }
             int h = mMovie.YDoubled ? mMovie.Height * 2 : mMovie.Height;
@@ -192,12 +201,14 @@ public sealed class GuiSmacker : GuiActive
         }
     }
 
+    /// <inheritdoc/>
     public override bool KeyDown(GuiEvent e)
     {
         PostDone();
         return true;
     }
 
+    /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
         PostDone();
@@ -205,20 +216,26 @@ public sealed class GuiSmacker : GuiActive
     }
 }
 
-// SimGui::AnimateBMA [code 005329d8 load, 005323ac construct, 00532414 wake, 00532584 prepare, 00532664 draw]. Frame f of the
-// array is drawn at the control origin. The file stores the inverse of the continuous flag (0 = continuous, the constructor
-// default, and what the stock files hold) [code 005329d8]. A control that is not continuous is stopped on wake and keeps
-// showing frame 0; a continuous one steps to the next frame every frameTime seconds and wraps after count + loopWait frames
-// (the draw shows the last frame while the counter is in the wait).
+/// <summary>The animated bitmap array control (SimGui::AnimateBMA): frame f of the array is drawn at the control origin.</summary>
+/// <remarks>
+/// <para>The file stores the inverse of the continuous flag (0 = continuous, the constructor default, and what the stock files hold) (005329d8). A control that is not continuous is stopped on wake and keeps showing frame 0. A continuous one steps to the next frame every frameTime seconds and wraps after count + loopWait frames (the draw shows the last frame while the counter is in the wait).</para>
+/// <para>Follows load 005329d8, construct 005323ac, wake 00532414, prepare 00532584 and draw 00532664.</para>
+/// </remarks>
 public sealed class GuiAnimate : GuiActive
 {
     private PbmaArray? mArray;
     private long mLastMs;
-    public bool Continuous, Running;
+    /// <summary>True when the control steps through the frames on its own.</summary>
+    public bool Continuous;
+    /// <summary>True while the control steps through the frames.</summary>
+    public bool Running;
+    /// <summary>The frame index drawn.</summary>
     public int Frame;
 
+    /// <inheritdoc/>
     public override bool WantsTab => false;
 
+    /// <inheritdoc/>
     public override void Wake()
     {
         mLastMs = Host?.TickMs ?? 0;
@@ -228,6 +245,7 @@ public sealed class GuiAnimate : GuiActive
         Running = Continuous;
     }
 
+    /// <inheritdoc/>
     public override void PreRender()
     {
         if (Host == null || mArray == null || !(Continuous || Running))
@@ -248,6 +266,7 @@ public sealed class GuiAnimate : GuiActive
         mLastMs = Host.TickMs;
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;

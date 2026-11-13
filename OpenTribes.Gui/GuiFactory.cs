@@ -1,21 +1,23 @@
-// Maps the class names of docs/gui.md 3.1 to the C# behaviour classes. Classes without their own traced behaviour use the
-// nearest family class: they load, hold their persistent fields and keep the children.
 using System.Globalization;
 
 namespace OpenTribes.Gui;
 
-// SimGui::TestCheck, TestRadial, MECheck, MERadio: toggle on action and set the console variable to 0 or 1.
+/// <summary>A check box or radio button (SimGui::TestCheck, TestRadial, MECheck, MERadio): toggles on action and sets the console variable to 0 or 1.</summary>
 public sealed class GuiCheck : GuiSimpleText
 {
+    /// <summary>Gets or sets the checked state.</summary>
     public bool Checked
     {
         get => U("checked") != 0;
         set => F["checked"] = (byte)(value ? 1 : 0);
     }
 
+    /// <inheritdoc/>
     public override string GetValue() => Checked ? "1" : "0";
+    /// <inheritdoc/>
     protected override void ApplyValue(string v) => Checked = v is "1" or "true" or "True" or "TRUE";
 
+    /// <inheritdoc/>
     protected override void Action()
     {
         Checked = ClassName.EndsWith("Radio", StringComparison.Ordinal) || ClassName.EndsWith("Radial", StringComparison.Ordinal) ? true : !Checked;
@@ -23,6 +25,7 @@ public sealed class GuiCheck : GuiSimpleText
         base.Action();
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
@@ -38,9 +41,10 @@ public sealed class GuiCheck : GuiSimpleText
     }
 }
 
-// The editor test buttons (TestButton, MEButton, MEPopupButton): text in a box.
+/// <summary>The editor test button (TestButton, MEButton, MEPopupButton): text in a box.</summary>
 public sealed class GuiTextButton : GuiSimpleText
 {
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
@@ -51,32 +55,48 @@ public sealed class GuiTextButton : GuiSimpleText
     }
 }
 
-// The 3D side of a model view: draws the control's model into its rectangle of the surface (the shape renderer, C5).
+/// <summary>The 3D side of a model view: draws the control's model into its rectangle of the surface (the shape renderer, C5).</summary>
 public interface IModelViewRenderer
 {
+    /// <summary>Draws the model of a view.</summary>
+    /// <param name="view">The view control.</param>
+    /// <param name="p">The surface to draw on.</param>
+    /// <param name="x">The left edge of the rectangle.</param>
+    /// <param name="y">The top edge of the rectangle.</param>
+    /// <param name="w">The rectangle width.</param>
+    /// <param name="h">The rectangle height.</param>
     void Draw(GuiShapeView view, GuiPaint p, int x, int y, int w, int h);
 }
 
-// FearGui::ShapeView / SkinView [code 004997c0 ctor, 0049a798 FGSkin::set, 0049a97c cycleArmor, 0049ad58 .. 0049ae84 mouse, 0049af20 draw]:
-// the model viewer of the player setup screen. It takes no focus. The skin view shows the armor of the gender (male or female) and
-// armor index 0 light, 1 medium, 2 heavy, in the skin FGSkin::set gave; a drag with the left button turns it (0.01 radians per pixel,
-// the angle stays in (0, 2 pi]). The right button (0049adb8, 0049ae00, 0049adec) takes the mouse and a drag of dy pixels adds -dy * 10 / height
-// to the camera distance, which stays between the fitted distance and ZoomMax.
+/// <summary>The model viewer of the player setup screen (FearGui::ShapeView, SkinView).</summary>
+/// <remarks>
+/// <para>It takes no focus. The skin view shows the armor of the gender (male or female) and armor index 0 light, 1 medium, 2 heavy, in the skin FGSkin::set gave. A drag with the left button turns it (0.01 radians per pixel, the angle stays in (0, 2 pi]).</para>
+/// <para>The right button (0049adb8, 0049ae00, 0049adec) takes the mouse and a drag of dy pixels adds -dy * 10 / height to the camera distance, which stays between the fitted distance and <see cref="ZoomMax"/>.</para>
+/// <para>Follows ctor 004997c0, FGSkin::set 0049a798, cycleArmor 0049a97c, mouse 0049ad58 to 0049ae84 and draw 0049af20.</para>
+/// </remarks>
 public sealed class GuiShapeView : GuiActive
 {
-    // +0x418: the angle of the view around the model, pi at the start (the model faces the viewer).
+    /// <summary>The angle of the view around the model (+0x418), pi at the start (the model faces the viewer).</summary>
     public double Yaw = Math.PI;
     private int mLastX, mLastY;
-    // +0x1e8: the camera distance, NaN until the renderer has fitted the model (+0x1ec: the fitted distance, the lowest).
-    public double Zoom = double.NaN, ZoomMin = double.NaN;
-    // +0x1f4: the highest distance, set with the fitted one by the renderer (SkinViewRenderer.MaxDistance, camera call 005aa65c).
+    /// <summary>The camera distance (+0x1e8), NaN until the renderer has fitted the model.</summary>
+    public double Zoom = double.NaN;
+    /// <summary>The fitted distance, the lowest (+0x1ec), NaN until the renderer has fitted the model.</summary>
+    public double ZoomMin = double.NaN;
+    /// <summary>The highest distance (+0x1f4), set with the fitted one by the renderer (SkinViewRenderer.MaxDistance, camera call 005aa65c).</summary>
     public double ZoomMax = double.NaN;
+    /// <inheritdoc/>
     public override bool WantsTab => false;
+    /// <inheritdoc/>
     public override bool CanTake() => false;
 
+    /// <summary>Gets the skin base name.</summary>
     public string SkinBase => S("skin");
+    /// <summary>Gets a value that is true for the male armor.</summary>
     public bool Male => !string.Equals(S("gender"), "FEMALE", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Gets the armor index: 0 light, 1 medium, 2 heavy.</summary>
     public int Armor => (int)(U("armor") % 3);
+    /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
         mLastX = e.X;
@@ -84,7 +104,8 @@ public sealed class GuiShapeView : GuiActive
         return base.MsDown(e);
     }
 
-    // 0049ae84: a drag of dx pixels turns the model by dx / 100 radians and keeps the angle in (0, 2 pi].
+    /// <inheritdoc/>
+    /// <remarks>Follows 0049ae84: a drag of dx pixels turns the model by dx / 100 radians and keeps the angle in (0, 2 pi].</remarks>
     public override bool MsDrag(GuiEvent e)
     {
         if (e.X != mLastX)
@@ -100,6 +121,7 @@ public sealed class GuiShapeView : GuiActive
         return base.MsDrag(e);
     }
 
+    /// <inheritdoc/>
     public override bool MsRightDown(GuiEvent e)
     {
         Canvas?.LockMouse(this);
@@ -108,13 +130,15 @@ public sealed class GuiShapeView : GuiActive
         return true;
     }
 
+    /// <inheritdoc/>
     public override bool MsRightUp(GuiEvent e)
     {
         Canvas?.UnlockMouse(this);
         return true;
     }
 
-    // 0049ae00: the distance grows by the pixels the mouse went up times 10 / height, then is clamped.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0049ae00: the distance grows by the pixels the mouse went up times 10 / height, then is clamped.</remarks>
     public override bool MsRightDrag(GuiEvent e)
     {
         if (!double.IsNaN(Zoom) && H > 0)
@@ -127,6 +151,7 @@ public sealed class GuiShapeView : GuiActive
         return true;
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
@@ -136,6 +161,8 @@ public sealed class GuiShapeView : GuiActive
     }
 }
 
+/// <summary>Creates the behaviour class for a GUI class name.</summary>
+/// <remarks>Maps the class names of docs/gui.md 3.1 to the C# behaviour classes. Classes without their own traced behaviour use the nearest family class: they load, hold their persistent fields and keep the children.</remarks>
 public static class GuiFactory
 {
     private static bool DerivesFrom(GuiClassRow row, string ancestor)
@@ -146,6 +173,9 @@ public static class GuiFactory
         return false;
     }
 
+    /// <summary>Creates the control for a class row.</summary>
+    /// <param name="row">The class row.</param>
+    /// <returns>A new control with its class name set.</returns>
     public static GuiControl Create(GuiClassRow row)
     {
         GuiControl c = Make(row);
