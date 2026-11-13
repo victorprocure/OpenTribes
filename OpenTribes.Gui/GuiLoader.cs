@@ -1,49 +1,73 @@
-// docs/gui.md 1: the `.gui` object file reader. The class tags, the block header (1.2), the SimGui::Control body (1.3) and
-// one body routine per load address of 1.4. Routines are written as op lists that the same code reads and writes.
 using System.Text;
 
 namespace OpenTribes.Gui;
 
+/// <summary>One row of the GUI class table (docs/gui.md 3.1).</summary>
+/// <param name="Name">The class name.</param>
+/// <param name="Tag">The four character file tag, empty for a class stored by name.</param>
+/// <param name="Parent">The parent class name.</param>
+/// <param name="Size">The object size of the stock class.</param>
+/// <param name="Load">The address of the load routine, as hex text.</param>
 public sealed record GuiClassRow(string Name, string Tag, string Parent, int Size, string Load);
 
+/// <summary>The error of reading a `.gui` file.</summary>
 public sealed class GuiLoadException : Exception
 {
+    /// <summary>The error code: 1 short block, 2 unknown or unusable class, 3 bad control body, 4 block not read to its end.</summary>
     public int Code;
+    /// <summary>Creates an exception.</summary>
+    /// <param name="code">The error code.</param>
+    /// <param name="message">The message.</param>
     public GuiLoadException(int code, string message) : base(message) => Code = code;
 }
 
+/// <summary>Lookups over the table of all GUI classes (docs/gui.md 3.1).</summary>
 public static partial class GuiClassTable
 {
     private static Dictionary<string, GuiClassRow>? sByTag, sByName;
 
+    /// <summary>Finds a class by its file tag.</summary>
+    /// <param name="tag">The four character tag.</param>
+    /// <returns>The row, or null.</returns>
     public static GuiClassRow? ByTag(string tag)
     {
         sByTag ??= Rows.Where(r => r.Tag.Length > 0).ToDictionary(r => r.Tag, StringComparer.Ordinal);
         return sByTag.GetValueOrDefault(tag);
     }
 
+    /// <summary>Finds a class by name, case insensitive.</summary>
+    /// <param name="name">The class name. The scripts also name the classes without the SimGui:: or FearGui:: namespace.</param>
+    /// <returns>The row, or null.</returns>
     public static GuiClassRow? ByName(string name)
     {
         sByName ??= Rows.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
         if (sByName.TryGetValue(name, out GuiClassRow? row))
             return row;
-        // The scripts also name the classes without the namespace.
         foreach (string ns in new[] { "SimGui::", "FearGui::" })
             if (sByName.TryGetValue(ns + name, out row))
                 return row;
         return null;
     }
 
-    // True when the class is a control (everything but the delegates and the canvas).
+    /// <summary>Returns whether a class is a control: everything but the delegates and the canvas.</summary>
+    /// <param name="r">The class row.</param>
+    /// <returns>True for a control class.</returns>
     public static bool IsControl(GuiClassRow r) => !r.Name.EndsWith("Delegate", StringComparison.Ordinal) && r.Name != "SimGui::Canvas";
 }
 
-// Little endian cursor over a block body.
+/// <summary>A little endian cursor over a block body.</summary>
 public sealed class GuiBytes
 {
+    /// <summary>The bytes of the file.</summary>
     public readonly byte[] Data;
+    /// <summary>The read position.</summary>
     public int Pos;
+    /// <summary>The end of the block body.</summary>
     public int End;
+    /// <summary>Creates a cursor.</summary>
+    /// <param name="data">The bytes of the file.</param>
+    /// <param name="pos">The start of the block body.</param>
+    /// <param name="end">The end of the block body.</param>
     public GuiBytes(byte[] data, int pos, int end) { Data = data; Pos = pos; End = end; }
 
     private void Need(int n)
@@ -52,9 +76,15 @@ public sealed class GuiBytes
             throw new GuiLoadException(1, "read past the end of the block");
     }
 
+    /// <summary>Reads one byte.</summary>
+    /// <returns>The byte.</returns>
     public byte U8() { Need(1); return Data[Pos++]; }
+    /// <summary>Returns the next byte without reading it.</summary>
+    /// <returns>The byte.</returns>
     public byte Peek() { Need(1); return Data[Pos]; }
 
+    /// <summary>Reads an unsigned 32 bit integer.</summary>
+    /// <returns>The value.</returns>
     public uint U32()
     {
         Need(4);
@@ -63,8 +93,12 @@ public sealed class GuiBytes
         return v;
     }
 
+    /// <summary>Reads a signed 32 bit integer.</summary>
+    /// <returns>The value.</returns>
     public int I32() => (int)U32();
 
+    /// <summary>Reads a string with a one byte length prefix.</summary>
+    /// <returns>The string.</returns>
     public string Pstr()
     {
         int n = U8();
@@ -74,6 +108,8 @@ public sealed class GuiBytes
         return s;
     }
 
+    /// <summary>Reads a string in a fixed 81 byte buffer.</summary>
+    /// <returns>The text up to the first zero byte.</returns>
     public string Buf81()
     {
         Need(81);
@@ -83,6 +119,8 @@ public sealed class GuiBytes
         return s;
     }
 
+    /// <summary>Reads a four character tag.</summary>
+    /// <returns>The tag.</returns>
     public string Tag4()
     {
         Need(4);
@@ -92,10 +130,12 @@ public sealed class GuiBytes
     }
 }
 
+/// <summary>The `.gui` object file reader (docs/gui.md 1).</summary>
+/// <remarks>It reads the class tags, the block header (1.2), the SimGui::Control body (1.3) and one body routine per load address of 1.4. Routines are written as op lists that <see cref="GuiWriter"/> reads the same way to write.</remarks>
 public static class GuiLoader
 {
-    // docs/gui.md 1.4: the body of each load routine in read order. `u8 x`, `u32 x`, `i32 x`, `pstr x`, `buf81 x`
-    // store a named field, `skip32`, `skip81` read and drop, `@R` runs routine R (a control body ends with @Control).
+    /// <summary>The body of each load routine in read order (docs/gui.md 1.4).</summary>
+    /// <remarks>`u8 x`, `u32 x`, `i32 x`, `pstr x` and `buf81 x` store a named field, `skip32` and `skip81` read and drop, `@R` runs routine R (a control body ends with @Control).</remarks>
     public static readonly Dictionary<string, string[]> Routines = new()
     {
         ["Active"] = new[] { "u8 active", "u32 messageTag", "@Control" },
@@ -152,9 +192,18 @@ public static class GuiLoader
         ["4ce4bc"] = "TextFormat", ["4d6dd0"] = "Smacker", ["49ec7c"] = "CFG", ["4d4d00"] = "Active",
     };
 
+    /// <summary>Returns the routine name of a class.</summary>
+    /// <param name="row">The class row.</param>
+    /// <returns>The routine, or null when its load address is unknown.</returns>
     public static string? RoutineFor(GuiClassRow row) => kByAddress.GetValueOrDefault(row.Load);
 
-    // docs/gui.md 1.2: reads one object block at `pos`; the result is the control and the padded end of its block.
+    /// <summary>Reads one object block (docs/gui.md 1.2).</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <param name="pos">The block start. On return, the padded end of the block.</param>
+    /// <param name="limit">The end of the enclosing body.</param>
+    /// <param name="ctx">The load context.</param>
+    /// <returns>The control.</returns>
+    /// <exception cref="GuiLoadException">The block is short, its class is unknown or not a control, or its body is not read to the end.</exception>
     public static GuiControl ReadObject(byte[] d, ref int pos, int limit, GuiLoadContext ctx)
     {
         if (pos + 8 > limit)
@@ -201,8 +250,7 @@ public static class GuiLoader
         if (routine == null)
             throw new GuiLoadException(2, "class " + className + " has no load routine");
         Run(c, routine, bytes, ctx, d, limit);
-        // The 62 loadable stock files end every block exactly at its declared end; a block of an older layout does not,
-        // and fails here the way it fails in the original (its reads run into other fields).
+        // The 62 loadable stock files end every block exactly at its declared end. A block of an older layout does not, and fails here as it does in the original.
         if (bytes.Pos != bodyEnd)
             throw new GuiLoadException(4, $"block {className} read {bytes.Pos - p} of {bodyEnd - p} bytes");
         pos += end;
@@ -282,7 +330,7 @@ public static class GuiLoader
         }
     }
 
-    // docs/gui.md 1.3.
+    /// <summary>Reads the SimGui::Control body and its children (docs/gui.md 1.3).</summary>
     private static void ReadControl(GuiControl c, GuiBytes b, GuiLoadContext ctx, byte[] file)
     {
         byte v = b.U8();
@@ -333,7 +381,10 @@ public static class GuiLoader
         }
     }
 
-    // docs/gui.md 1.1: the whole file is one object; the bytes after the root block are ignored.
+    /// <summary>Loads a whole `.gui` file (docs/gui.md 1.1): the file is one object and the bytes after the root block are ignored.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="error">Receives the error text, empty on success.</param>
+    /// <returns>The root control, null on an error.</returns>
     public static GuiControl Load(byte[] data, out string error)
     {
         error = "";
@@ -351,7 +402,9 @@ public static class GuiLoader
     }
 }
 
+/// <summary>The state shared by the blocks of one file.</summary>
 public sealed class GuiLoadContext
 {
+    /// <summary>The body version of the block being read.</summary>
     public uint BodyVersion;
 }

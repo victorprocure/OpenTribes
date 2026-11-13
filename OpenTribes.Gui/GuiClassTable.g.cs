@@ -3,6 +3,7 @@ namespace OpenTribes.Gui;
 
 public static partial class GuiClassTable
 {
+    /// <summary>The rows of the class table: name, file tag, parent, size and load routine address.</summary>
     public static readonly GuiClassRow[] Rows =
     {
         new("FearGui::FGControl", "FGkt", "SimGui::Control", 0x1b0, "539098"),
