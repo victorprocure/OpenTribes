@@ -653,11 +653,11 @@ public sealed class ClientHudSource : IHudSource
             return null;
         return ProjectileOf(img, out group);
     }
+
     /// <summary>Returns the projectile datablock a `projectileType` field names (two 32 bit words, group then index).</summary>
     /// <param name="img">The datablock with the field.</param>
     /// <param name="group">Receives the datablock group.</param>
     /// <returns>The datablock, null when it is unset.</returns>
-    // The projectile datablock a `projectileType` field names (two 32 bit words, group then index), null when it is unset.
     private ClientDataBlock? ProjectileOf(ClientDataBlock img, out int group)
     {
         group = -1;
@@ -671,8 +671,8 @@ public sealed class ClientHudSource : IHudSource
         group = grp;
         return mWorld.DataBlocks.Blocks.TryGetValue((grp, idx), out ClientDataBlock? pb) ? pb : null;
     }
+
     /// <summary>Returns the gravity of the control player: force 1 of its SimMovement, the world gravity of the terrain ghost, minus its length (004adb98).</summary>
-    // The gravity of the control player: force 1 of its SimMovement, the world gravity of the terrain ghost; minus its length [code 004adb98].
     private float Gravity()
     {
         foreach (ClientGhost t in mWorld.Ghosts.All())

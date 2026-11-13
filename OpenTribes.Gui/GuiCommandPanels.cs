@@ -109,9 +109,9 @@ public sealed class GuiCommandTeam : GuiList
             return (top.FindById(GuiCommandMap.MapId) ?? Canvas?.Content?.FindById(GuiCommandMap.MapId)) as GuiCommandMap;
         }
     }
+
     /// <inheritdoc/>
     /// <remarks>Follows 004a8ad8: the waypoint arrow while the map waits for the order's target.</remarks>
-    // 004a8ad8: the waypoint arrow while the map waits for the order's target.
     public override uint CursorTagAt(int lx, int ly) => Map is { OrderMode: 1 } ? TagWaypointArrow : base.CursorTagAt(lx, ly);
 
     /// <summary>Returns the first selected row that is not the local client and does not already have the local client above it in the chain (004a8a6c).</summary>
@@ -378,8 +378,8 @@ public sealed class GuiCmdObserve : GuiControl
         }
         SetVisible(true);
     }
+
     /// <summary>Returns the seconds until the next noise step: random * 2^-32 * 0.01 + 0.025 (floats) (004b4c9c, 004b48bc).</summary>
-    // [004b4c9c, 004b48bc] seconds until the next noise step: random * 2^-32 * 0.01 + 0.025 (floats).
     private double NextNoiseInterval() => (float)((double)mRandom.Next() * 2.3283064365386963e-10 * 0.009999999776482582 + 0.02500000037252903);
 
     private long Now => Host?.TickMs ?? 0;
@@ -405,8 +405,8 @@ public sealed class GuiCmdObserve : GuiControl
         }
         mView?.Resize(mCurX, mCurY, mCurW, mCurH);
     }
+
     /// <summary>Grows both bars by 4 pixels towards their targets every 0.03 s, done when both have got there (004b4d60).</summary>
-    // 004b4d60: every 0.03 s both bars grow by 4 pixels towards their targets; done when both have got there.
     private void BarStep(int damageTarget, int energyTarget)
     {
         if (mBarTimerMs is long t && Now - t <= 30)
@@ -421,8 +421,8 @@ public sealed class GuiCmdObserve : GuiControl
         if (energyTarget < mEnergyBar)
             mEnergyBar = energyTarget;
     }
+
     /// <summary>Thins the noise by a step every interval once open, and stops it at the limit (004b4c9c).</summary>
-    // 004b4c9c: once open, every interval the noise gets thinner by a step; at the limit it stops.
     private void NoiseStep()
     {
         if (!mActive || !mOpen || Now - mNoiseTimerMs <= mNoiseInterval * 1000.0)
