@@ -8,31 +8,43 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/game_connection.hpp struct OutEvent: one event, packed once; the body is copied into every packet that
-// carries it.
+/// <summary>One event, packed once. The body is copied into every packet that carries it.</summary>
 public sealed class OutEvent
 {
-    public ushort Tag;            // class tag (0x400..0x47f)
+    /// <summary>The class tag (0x400 to 0x47f).</summary>
+    public ushort Tag;
+    /// <summary>True when the event is delivered guaranteed.</summary>
     public bool Guaranteed = true;
+    /// <summary>True when the event is delivered in order.</summary>
     public bool Ordered = true;
+    /// <summary>The packed body bytes.</summary>
     public byte[] Body = Array.Empty<byte>();
+    /// <summary>The length of the body in bits.</summary>
     public uint BodyBits;
-    public int Seq = -1;          // ordered sequence, assigned when first written
+    /// <summary>The ordered sequence number, assigned when the event is first written.</summary>
+    public int Seq = -1;
 }
 
-// src/game/game_connection.hpp class EventWriter.
+/// <summary>Packs an event body bit by bit.</summary>
 public sealed class EventWriter
 {
     private readonly List<byte> mBuf = new();
     private uint mBits;
 
+    /// <summary>Returns the packed bytes.</summary>
+    /// <returns>The buffer, not a copy.</returns>
     public List<byte> Bytes() => mBuf;
+    /// <summary>Returns the number of bits written.</summary>
+    /// <returns>The bit count.</returns>
     public uint Bits() => mBits;
 
-    // src/game/game_connection.cpp EventWriter::putFlag.
+    /// <summary>Writes a one-bit flag.</summary>
+    /// <param name="v">The flag.</param>
     public void PutFlag(bool v) => PutInt(v ? 1u : 0u, 1);
 
-    // src/game/game_connection.cpp EventWriter::putInt.
+    /// <summary>Writes an unsigned value.</summary>
+    /// <param name="v">The value.</param>
+    /// <param name="bits">The number of bits.</param>
     public void PutInt(uint v, uint bits)
     {
         for (uint i = 0; i < bits; ++i, ++mBits)
@@ -44,7 +56,8 @@ public sealed class EventWriter
         }
     }
 
-    // src/game/game_connection.cpp EventWriter::putString.
+    /// <summary>Writes a string.</summary>
+    /// <param name="s">The string.</param>
     public void PutString(string s)
     {
         byte[] tmp = new byte[1024];
@@ -53,14 +66,20 @@ public sealed class EventWriter
         PutBits(tmp, bs.BitPosition());
     }
 
-    // src/game/game_connection.cpp EventWriter::putBits.
+    /// <summary>Writes bits from a byte buffer.</summary>
+    /// <param name="data">The source bytes.</param>
+    /// <param name="bits">The number of bits to copy.</param>
     public void PutBits(IReadOnlyList<byte> data, uint bits)
     {
         for (uint i = 0; i < bits; ++i)
             PutInt((uint)(data[(int)(i >> 3)] >> (int)(i & 7)) & 1, 1);
     }
 
-    // src/game/game_connection.cpp EventWriter::finish.
+    /// <summary>Ends the body and builds the event.</summary>
+    /// <param name="tag">The class tag.</param>
+    /// <param name="guaranteed">True for guaranteed delivery.</param>
+    /// <param name="ordered">True for ordered delivery.</param>
+    /// <returns>The event.</returns>
     public OutEvent Finish(ushort tag, bool guaranteed = true, bool ordered = true)
     {
         var e = new OutEvent { Tag = tag, Guaranteed = guaranteed, Ordered = ordered && guaranteed, Body = mBuf.ToArray(), BodyBits = mBits };
@@ -70,70 +89,104 @@ public sealed class EventWriter
     }
 }
 
-// src/game/game_connection.hpp struct CommandMapSlot: one slot of the PlayerPSC command map block (6.3 mode 2).
+/// <summary>One slot of the PlayerPSC command map block (docs/game-stream.md 6.3 mode 2).</summary>
 public sealed class CommandMapSlot
 {
-    public bool InRange;          // both coordinates fit in 11 bits; else the slot is sent as 0
-    public uint X, Y;             // 1/1023 of the mission area, offset by half the area
-    public uint Team;             // object team, 3 bits
-    public uint Status;           // vtable +0x128 first value, 2 bits
-    public uint CommandStatus;    // clients: record command status + 1
-    public bool Controllable;     // targets: vtable +0x148 (a Turret that can be taken over)
-    public bool Active;           // targets: vtable +0x128 second value
-    public uint DbGroup, DbIndex, DbIndexBits;
+    /// <summary>True when both coordinates fit in 11 bits. Otherwise the slot is sent as 0.</summary>
+    public bool InRange;
+    /// <summary>The x position, in 1/1023 of the mission area, offset by half the area.</summary>
+    public uint X;
+    /// <summary>The y position, in 1/1023 of the mission area, offset by half the area.</summary>
+    public uint Y;
+    /// <summary>The object team, 3 bits.</summary>
+    public uint Team;
+    /// <summary>The first status value of vtable +0x128, 2 bits.</summary>
+    public uint Status;
+    /// <summary>For clients: the record command status plus 1.</summary>
+    public uint CommandStatus;
+    /// <summary>For targets: whether the target can be taken over, as a Turret (vtable +0x148).</summary>
+    public bool Controllable;
+    /// <summary>For targets: the second status value of vtable +0x128.</summary>
+    public bool Active;
+    /// <summary>The datablock group of the target.</summary>
+    public uint DbGroup;
+    /// <summary>The datablock index of the target.</summary>
+    public uint DbIndex;
+    /// <summary>The number of bits of the datablock index.</summary>
+    public uint DbIndexBits;
 }
 
-// src/game/game_connection.hpp struct PscInput: what the server PlayerPSC block (6.3) reads from the game at each write.
+/// <summary>What the server PlayerPSC block (docs/game-stream.md 6.3) reads from the game at each write.</summary>
 public sealed class PscInput
 {
-    public int Team = -1;                                         // client record +0x14
-    public readonly uint[] Shopping = new uint[7], Buying = new uint[7]; // item masks (PSC +0x420, +0x43c)
-    public readonly uint[] Visible = new uint[8];                 // clients 0..127, then targets 0..127
-    public bool LimitCommand;                                     // PSC +0x90
+    /// <summary>The team of the client (client record +0x14).</summary>
+    public int Team = -1;
+    /// <summary>The shopping item mask (PSC +0x420).</summary>
+    public readonly uint[] Shopping = new uint[7];
+    /// <summary>The buying item mask (PSC +0x43c).</summary>
+    public readonly uint[] Buying = new uint[7];
+    /// <summary>The visibility mask: clients 0 to 127, then targets 0 to 127.</summary>
+    public readonly uint[] Visible = new uint[8];
+    /// <summary>The command limit flag (PSC +0x90).</summary>
+    public bool LimitCommand;
+    /// <summary>True when the waypoint changed.</summary>
     public bool WaypointChanged;
-    public uint WaypointX, WaypointY;
-    // False: the slot is sent as 0.
+    /// <summary>The waypoint x.</summary>
+    public uint WaypointX;
+    /// <summary>The waypoint y.</summary>
+    public uint WaypointY;
+    /// <summary>Fills a command map slot by index. Returning false sends the slot as 0.</summary>
     public Func<uint, CommandMapSlot, bool>? CommandSlot;
-    // 200 item counts of the inventory object (PSC +0xa8), or null without one.
+    /// <summary>The 200 item counts of the inventory object (PSC +0xa8), or null without one.</summary>
     public int[]? ItemCounts;
 }
 
-// src/game/game_connection.hpp struct EventDest: destination prefix of a Sim event (SimEvent_unpackDest 0x004fdd48).
+/// <summary>The destination prefix of a Sim event.</summary>
+/// <remarks>Follows SimEvent_unpackDest (0x004fdd48).</remarks>
 public struct EventDest
 {
+    /// <summary>The kinds of event destination.</summary>
     public enum KindT : byte
     {
-        ObjectId,    // 32-bit object id
-        ServerGhost, // event flag 0x20: the server object of a ghost index of this connection
-        ClientGhost, // event flag 0x10: the receiver's ghost object of an index; a server has none
+        /// <summary>A 32-bit object id.</summary>
+        ObjectId,
+        /// <summary>The server object of a ghost index of this connection (event flag 0x20).</summary>
+        ServerGhost,
+        /// <summary>The receiver's ghost object of an index (event flag 0x10). A server has none.</summary>
+        ClientGhost,
     }
+    /// <summary>The destination kind.</summary>
     public KindT Kind;
+    /// <summary>The object id or ghost index.</summary>
     public uint Value;
 }
 
-// src/game/game_connection.hpp class GameConnection.
+/// <summary>The server side of one client connection: the event queue, the ghost block and the PlayerPSC block of each packet.</summary>
+/// <remarks>Port of class GameConnection in src/game/game_connection.hpp.</remarks>
 public sealed class GameConnection
 {
-    // src/game/game_connection.hpp GameConnection::Hooks.
+    /// <summary>The callbacks into the game that a connection needs.</summary>
     public sealed class Hooks
     {
-        // Remote eval from the client: name is "remote" + argv[0], args start with the client id.
+        /// <summary>Runs a remote eval from the client. The name is "remote" plus argv[0], and the arguments start with the client id.</summary>
         public Action<string, List<string>>? RemoteCall;
-        // The client's control object (client record +0x94, PSC +0xa4), or null.
+        /// <summary>Returns the client's control object (client record +0x94, PSC +0xa4), or null.</summary>
         public Func<GameBase?>? ControlObject;
-        // Fills the inputs of the server PSC block; called only with a control object.
+        /// <summary>Fills the inputs of the server PSC block. Called only with a control object.</summary>
         public Action<PscInput>? PscInputFn;
-        // SimActionEvent (0x40b) from the client, at its dispatch (docs/game-stream.md 2.6).
+        /// <summary>Handles a SimActionEvent (0x40b) from the client at its dispatch (docs/game-stream.md 2.6).</summary>
         public Action<EventDest>? ActionEvent;
-        // A member block of a client packet was invalid ("Invalid packet", Net_invalidPacket 0x00553630).
+        /// <summary>Called when a member block of a client packet was invalid ("Invalid packet", Net_invalidPacket 0x00553630).</summary>
         public Action? InvalidPacket;
     }
 
-    // src/game/game_connection.hpp GameConnection::Transport: the VC calls the stream makes (Connection::state,
-    // Connection::send); tests supply fakes.
+    /// <summary>The calls the stream makes on the connection: state and send. Tests supply fakes.</summary>
+    /// <remarks>Mirrors Connection::state and Connection::send.</remarks>
     public sealed class Transport
     {
+        /// <summary>Returns whether the connection is up.</summary>
         public Func<bool> Connected = () => false;
+        /// <summary>Sends a packet: the buffer, its length in bytes, the time in milliseconds and the cookie. Returns false when it was not sent.</summary>
         public Func<byte[], int, uint, uint, bool> Send = (_, _, _, _) => false;
     }
 
@@ -188,15 +241,23 @@ public sealed class GameConnection
     private readonly Dictionary<uint, PacketMark> mMarks = new();
     private bool mInvalid;
 
-    // PlayerPSC server state (6.3)
+    /// <summary>The GUI mode of the PlayerPSC state (docs/game-stream.md 6.3).</summary>
     public uint GuiMode;
+    /// <summary>The PlayerPSC flag at +0x6a.</summary>
     public bool Flag6a;
-    public int MoveCount;          // moves received; lastMove = moveCount - 1
-    public bool InventoryReset;    // +0x3dc: sent once, re-armed when the packet is lost (6.4)
-    // The server's own rate prefs: 1000 / $pref::PacketRate and $pref::PacketSize (+0x9c8, +0x9cc).
-    public uint OwnIntervalMs = 100, OwnPacketBytes = 200;
+    /// <summary>The number of moves received. The last move is <c>MoveCount - 1</c>.</summary>
+    public int MoveCount;
+    /// <summary>True when the inventory is sent again (+0x3dc). It is sent once and re-armed when the packet is lost (docs/game-stream.md 6.4).</summary>
+    public bool InventoryReset;
+    /// <summary>The server's own packet interval in milliseconds (1000 / <c>$pref::PacketRate</c>, +0x9c8).</summary>
+    public uint OwnIntervalMs = 100;
+    /// <summary>The server's own packet size in bytes (<c>$pref::PacketSize</c>, +0x9cc).</summary>
+    public uint OwnPacketBytes = 200;
 
-    // src/game/game_connection.cpp GameConnection::GameConnection (Connection form).
+    /// <summary>Creates a connection over a stream connection.</summary>
+    /// <param name="clientId">The client id.</param>
+    /// <param name="vc">The stream connection.</param>
+    /// <param name="hooks">The callbacks into the game.</param>
     public GameConnection(int clientId, Connection vc, Hooks hooks)
         : this(clientId, new Transport
         {
@@ -206,7 +267,10 @@ public sealed class GameConnection
     {
     }
 
-    // src/game/game_connection.cpp GameConnection::GameConnection.
+    /// <summary>Creates a connection over a transport.</summary>
+    /// <param name="clientId">The client id.</param>
+    /// <param name="vc">The transport.</param>
+    /// <param name="hooks">The callbacks into the game.</param>
     public GameConnection(int clientId, Transport vc, Hooks hooks)
     {
         mClientId = clientId;
@@ -215,13 +279,26 @@ public sealed class GameConnection
         mGhosts = new GhostManager(clientId);
     }
 
+    /// <summary>Returns the client id.</summary>
+    /// <returns>The client id.</returns>
     public int ClientId() => mClientId;
+    /// <summary>Returns the number of queued events.</summary>
+    /// <returns>The queue length.</returns>
     public int Queued() => mQueue.Count;
+    /// <summary>Tells whether the connection received an invalid packet.</summary>
+    /// <returns>True after an invalid packet.</returns>
     public bool Invalid() => mInvalid;
+    /// <summary>Returns the ghost manager of the connection.</summary>
+    /// <returns>The ghost manager.</returns>
     public GhostManager Ghosts() => mGhosts;
-    public uint[] ClientVisible() => mHasVisible; // mask the client holds (+0x490)
+    /// <summary>Returns the visibility mask the client holds (+0x490).</summary>
+    /// <returns>The mask words.</returns>
+    public uint[] ClientVisible() => mHasVisible;
 
-    // src/game/game_connection.hpp GameConnection::setOwnRate: setOwnRate marks the rateReq section dirty when they
+    /// <summary>Sets the server's own packet rate. The rateReq section is marked dirty when the values change.</summary>
+    /// <param name="intervalMs">The packet interval in milliseconds.</param>
+    /// <param name="bytes">The packet size in bytes.</param>
+    /// <remarks>Follows GameConnection_loadPacketPrefs (0x00550c68).</remarks>
     // change (GameConnection_loadPacketPrefs 0x00550c68).
     public void SetOwnRate(uint intervalMs, uint bytes)
     {
@@ -233,7 +310,9 @@ public sealed class GameConnection
         }
     }
 
-    // src/game/game_connection.cpp GameConnection::post: ordered events take their sequence here (00551b7c).
+    /// <summary>Queues an event. Ordered events take their sequence here.</summary>
+    /// <param name="e">The event.</param>
+    /// <remarks>Follows 00551b7c.</remarks>
     public void Post(OutEvent e)
     {
         if (e.Ordered)
@@ -432,7 +511,8 @@ public sealed class GameConnection
             mHasItems[type] -= delta;
     }
 
-    // src/game/game_connection.cpp GameConnection::tick.
+    /// <summary>Writes a packet when the send interval has passed.</summary>
+    /// <param name="nowMs">The current time in milliseconds.</param>
     public void Tick(uint nowMs)
     {
         // Pacing (0x00550d2c): the interval since the last packet, and 1000 / interval below the packets written since
@@ -501,7 +581,10 @@ public sealed class GameConnection
         mLastSend = nowMs;
     }
 
-    // src/game/game_connection.cpp GameConnection::notify: 0x005508f0: a lost packet re-arms the rate sections it
+    /// <summary>Reports whether a packet was delivered.</summary>
+    /// <param name="cookie">The cookie of the packet.</param>
+    /// <param name="delivered">True when it was delivered.</param>
+    /// <remarks>Follows 0x005508f0. A lost packet re-arms the rate sections it carried. A delivered one moves the watermark.</remarks>
     // carried; a delivered one moves the watermark.
     public void Notify(uint cookie, bool delivered)
     {
@@ -703,7 +786,8 @@ public sealed class GameConnection
         mHooks.InvalidPacket?.Invoke();
     }
 
-    // src/game/game_connection.cpp GameConnection::receive.
+    /// <summary>Reads a client packet.</summary>
+    /// <param name="data">The packet data.</param>
     public void Receive(ReadOnlySpan<byte> data)
     {
         if (mInvalid)
@@ -767,9 +851,12 @@ public sealed class GameConnection
 }
 
 // The event builders of src/game/game_connection.cpp (docs/game-stream.md 2.5) and inventoryCounts of src/game/player.cpp.
+/// <summary>The builders of the game events (docs/game-stream.md 2.5).</summary>
 public static class GameEvents
 {
-    // src/game/game_connection.cpp makeRemoteEval.
+    /// <summary>Builds a remote eval event.</summary>
+    /// <param name="argv">The command arguments.</param>
+    /// <returns>The event.</returns>
     public static OutEvent MakeRemoteEval(IReadOnlyList<string> argv)
     {
         var w = new EventWriter();
@@ -779,7 +866,11 @@ public static class GameEvents
         return w.Finish(0x408);
     }
 
-    // src/game/game_connection.cpp makeTeamAdd.
+    /// <summary>Builds a team add event.</summary>
+    /// <param name="team">The team id.</param>
+    /// <param name="name">The team name.</param>
+    /// <param name="skin">The team skin.</param>
+    /// <returns>The event.</returns>
     public static OutEvent MakeTeamAdd(int team, string name, string skin)
     {
         var w = new EventWriter();
@@ -790,7 +881,16 @@ public static class GameEvents
         return w.Finish(0x44f);
     }
 
-    // src/game/game_connection.cpp makePlayerAdd: PlayerAddEvent: a copy of the client record (docs/player-manager.md 11).
+    /// <summary>Builds a PlayerAddEvent, a copy of the client record (docs/player-manager.md 11).</summary>
+    /// <param name="clientId">The client id.</param>
+    /// <param name="isAI">True for an AI player.</param>
+    /// <param name="name">The player name.</param>
+    /// <param name="skin">The skin.</param>
+    /// <param name="voice">The voice set.</param>
+    /// <param name="male">True for a male player.</param>
+    /// <param name="commander">The commander id.</param>
+    /// <param name="team">The team id.</param>
+    /// <returns>The event.</returns>
     public static OutEvent MakePlayerAdd(int clientId, bool isAI, string name, string skin, string voice, bool male, int commander, int team)
     {
         var w = new EventWriter();
@@ -807,7 +907,12 @@ public static class GameEvents
         return w.Finish(0x44b);
     }
 
-    // src/game/game_connection.cpp makeDeltaScore.
+    /// <summary>Builds a delta score event.</summary>
+    /// <param name="isTeam">True for a team score, false for a client score.</param>
+    /// <param name="who">The team or client id.</param>
+    /// <param name="sortValue">The sort value.</param>
+    /// <param name="text">The score text.</param>
+    /// <returns>The event.</returns>
     public static OutEvent MakeDeltaScore(bool isTeam, int who, int sortValue, string text)
     {
         var w = new EventWriter();
@@ -821,7 +926,10 @@ public static class GameEvents
         return w.Finish(0x44d);
     }
 
-    // src/game/game_connection.cpp makeTargetName.
+    /// <summary>Builds a target name event.</summary>
+    /// <param name="index">The target index.</param>
+    /// <param name="name">The target name.</param>
+    /// <returns>The event.</returns>
     public static OutEvent MakeTargetName(uint index, string name)
     {
         var w = new EventWriter();
@@ -830,8 +938,10 @@ public static class GameEvents
         return w.Finish(0x45d);
     }
 
-    // src/game/game_connection.cpp makePathRemoved: SimPathEvent without a path: the SimPathManager (object 42) drops
-    // path `index` (0052b8cc, flag 0).
+    /// <summary>Builds a SimPathEvent without a path, which makes the SimPathManager (object 42) drop a path.</summary>
+    /// <param name="index">The index of the dropped path.</param>
+    /// <returns>The event.</returns>
+    /// <remarks>Follows 0052b8cc, flag 0.</remarks>
     public static OutEvent MakePathRemoved(uint index)
     {
         var w = new EventWriter();
@@ -843,8 +953,9 @@ public static class GameEvents
         return w.Finish(0x425, false, false);
     }
 
-    // src/game/game_connection.cpp makeTargetNameEvents: one TargetNameEvent per named sensor target (an unnamed target
-    // sends none), in index order.
+    /// <summary>Builds one target name event per named sensor target, in index order.</summary>
+    /// <param name="names">The target names. An unnamed target sends none.</param>
+    /// <returns>The events.</returns>
     public static List<OutEvent> MakeTargetNameEvents(IReadOnlyList<string> names)
     {
         var output = new List<OutEvent>();
@@ -854,7 +965,8 @@ public static class GameEvents
         return output;
     }
 
-    // src/game/player.cpp inventoryCounts: inventory object of a control object (0x004052c8): the object if it is a
-    // Player, else the Player an ObserverCamera orbits. Its 200 item counts or null.
+    /// <summary>Returns the inventory object counts of a control object.</summary>
+    /// <param name="control">The control object.</param>
+    /// <returns>The 200 item counts, or null. The inventory object is the object if it is a Player, else the Player an ObserverCamera orbits (0x004052c8).</returns>
     public static int[]? InventoryCounts(GameBase? control) => Player.InventoryCounts(control);
 }
