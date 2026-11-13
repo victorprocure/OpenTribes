@@ -1,14 +1,12 @@
-using OpenTribes.Platform.Sdl;
-
 namespace OpenTribes.Platform.Gl;
+
+using OpenTribes.Platform.Sdl;
 
 /// <summary>One SDL window with an OpenGL 3.3 core context, made current on the creating thread, and the loaded GL functions.</summary>
 public sealed unsafe class GlWindow : IDisposable
 {
-    private static readonly object sLock = new();
+    private static readonly Lock sLock = new();
     private static int sUsers;
-
-    private IntPtr mWindow;
     private IntPtr mContext;
 
     /// <summary>Gets the GL function table.</summary>
@@ -22,7 +20,7 @@ public sealed unsafe class GlWindow : IDisposable
 
     private GlWindow(IntPtr window, IntPtr context, GlApi gl, string driver)
     {
-        mWindow = window;
+        Handle = window;
         mContext = context;
         Gl = gl;
         VideoDriver = driver;
@@ -51,7 +49,7 @@ public sealed unsafe class GlWindow : IDisposable
                     videoDriver ??= PlatformPaths.DefaultVideoDriver(PlatformPaths.CurrentOs, PlatformPaths.Env);
                     if (videoDriver != null)
                         Sdl3.SetHintOverride("SDL_VIDEO_DRIVER", videoDriver);
-                    string? audioDriver = PlatformPaths.DefaultAudioDriver(PlatformPaths.CurrentOs, PlatformPaths.Env, videoDriver);
+                    var audioDriver = PlatformPaths.DefaultAudioDriver(PlatformPaths.CurrentOs, PlatformPaths.Env, videoDriver);
                     if (audioDriver != null)
                         Sdl3.SetHintOverride("SDL_AUDIO_DRIVER", audioDriver);
                     if (!Sdl3.Init(Sdl3.InitVideo))
@@ -77,7 +75,7 @@ public sealed unsafe class GlWindow : IDisposable
             Sdl3.GlSetAttribute(Sdl3.GlContextProfileMask, Sdl3.GlProfileCore);
             Sdl3.GlSetAttribute(Sdl3.GlDoubleBuffer, 1);
             Sdl3.GlSetAttribute(Sdl3.GlDepthSize, 24);
-            ulong flags = Sdl3.WindowOpenGL | Sdl3.WindowResizable | PlatformPaths.HighDpiWindowFlag(PlatformPaths.CurrentOs, PlatformPaths.Env) | (hidden ? Sdl3.WindowHidden : 0);
+            var flags = Sdl3.WindowOpenGL | Sdl3.WindowResizable | PlatformPaths.HighDpiWindowFlag(PlatformPaths.CurrentOs, PlatformPaths.Env) | (hidden ? Sdl3.WindowHidden : 0);
             window = Sdl3.CreateWindow(title, width, height, flags);
             if (window == IntPtr.Zero)
             {
@@ -126,23 +124,23 @@ public sealed unsafe class GlWindow : IDisposable
     }
 
     /// <summary>Gets the SDL window handle.</summary>
-    public IntPtr Handle => mWindow;
+    public IntPtr Handle { get; private set; }
 
     /// <summary>Shows the window.</summary>
-    public void Show() => Sdl3.ShowWindow(mWindow);
+    public void Show() => Sdl3.ShowWindow(Handle);
 
     /// <summary>Turns relative mouse mode on or off.</summary>
     /// <param name="on">Whether relative mode is on.</param>
-    public void SetRelativeMouse(bool on) => Sdl3.SetWindowRelativeMouseMode(mWindow, on);
+    public void SetRelativeMouse(bool on) => Sdl3.SetWindowRelativeMouseMode(Handle, on);
 
     /// <summary>Sets the window title.</summary>
     /// <param name="title">The title.</param>
-    public void SetTitle(string title) => Sdl3.SetWindowTitle(mWindow, title);
+    public void SetTitle(string title) => Sdl3.SetWindowTitle(Handle, title);
 
     /// <summary>Sets the window size.</summary>
     /// <param name="w">The width.</param>
     /// <param name="h">The height.</param>
-    public void SetSize(int w, int h) => Sdl3.SetWindowSize(mWindow, w, h);
+    public void SetSize(int w, int h) => Sdl3.SetWindowSize(Handle, w, h);
 
     // Full screen state. mExclusive is the display mode that was set; mScaled is the requested size rendered scaled into
     // the window when no mode could be set. Neither is set windowed.
@@ -161,26 +159,26 @@ public sealed unsafe class GlWindow : IDisposable
         {
             if (!IsFullscreen())
             {
-                Sdl3.GetWindowSize(mWindow, out int ww, out int wh);
+                Sdl3.GetWindowSize(Handle, out var ww, out var wh);
                 mWindowedSize = (ww, wh);
             }
             mExclusive = mScaled = null;
             if (!desktopMode)
-                mExclusive = Sdl3.EnterExclusiveFullscreen(mWindow, w, h);
+                mExclusive = Sdl3.EnterExclusiveFullscreen(Handle, w, h);
             if (mExclusive == null)
             {
-                Sdl3.EnterDesktopFullscreen(mWindow);
+                Sdl3.EnterDesktopFullscreen(Handle);
                 if (!desktopMode)
                     mScaled = (w, h);
             }
         }
         else
         {
-            bool was = IsFullscreen();
+            var was = IsFullscreen();
             mExclusive = mScaled = null;
-            Sdl3.LeaveFullscreen(mWindow);
+            Sdl3.LeaveFullscreen(Handle);
             if (was && mWindowedSize.W > 0)
-                Sdl3.SetWindowSize(mWindow, mWindowedSize.W, mWindowedSize.H);
+                Sdl3.SetWindowSize(Handle, mWindowedSize.W, mWindowedSize.H);
         }
     }
 
@@ -192,24 +190,24 @@ public sealed unsafe class GlWindow : IDisposable
 
     /// <summary>Lists the full screen modes of the display the window is on, ascending.</summary>
     /// <returns>The (width, height) pairs.</returns>
-    public List<(int W, int H)> FullscreenModes() => Sdl3.FullscreenModes(mWindow);
+    public List<(int W, int H)> FullscreenModes() => Sdl3.FullscreenModes(Handle);
 
     /// <summary>Tests whether the window is full screen.</summary>
     /// <returns>True when full screen.</returns>
-    public bool IsFullscreen() => (Sdl3.GetWindowFlags(mWindow) & Sdl3.WindowFullscreen) != 0;
+    public bool IsFullscreen() => (Sdl3.GetWindowFlags(Handle) & Sdl3.WindowFullscreen) != 0;
 
     /// <summary>Sets the swap interval.</summary>
     /// <param name="interval">The interval, 0 for immediate and 1 for vsync.</param>
-    public void SetSwapInterval(int interval) => Sdl3.GlSetSwapInterval(interval);
+    public static void SetSwapInterval(int interval) => Sdl3.GlSetSwapInterval(interval);
 
     /// <summary>Swaps the window's buffers.</summary>
-    public void Swap() => Sdl3.GlSwapWindow(mWindow);
+    public void Swap() => Sdl3.GlSwapWindow(Handle);
 
     /// <summary>Gets the window's real pixel size.</summary>
     /// <returns>The width and height.</returns>
     public (int w, int h) WindowPixels()
     {
-        Sdl3.GetWindowSizeInPixels(mWindow, out int w, out int h);
+        Sdl3.GetWindowSizeInPixels(Handle, out var w, out var h);
         return (w, h);
     }
 
@@ -217,20 +215,20 @@ public sealed unsafe class GlWindow : IDisposable
     /// <returns>The width and height.</returns>
     public (int w, int h) PixelSize()
     {
-        (int w, int h) = WindowPixels();
+        (var w, var h) = WindowPixels();
         (int W, int H)? fs = IsFullscreen() ? mExclusive ?? mScaled : null;
-        (int cw, int ch) = FullscreenPlan.CanvasSize(fs != null, fs, fs ?? (w, h), (w, h));
+        (var cw, var ch) = FullscreenPlan.CanvasSize(fs != null, fs, fs ?? (w, h), (w, h));
         return (cw, ch);
     }
 
     /// <summary>Destroys the context and the window.</summary>
     public void Dispose()
     {
-        if (mWindow == IntPtr.Zero)
+        if (Handle == IntPtr.Zero)
             return;
         Sdl3.GlDestroyContext(mContext);
-        Sdl3.DestroyWindow(mWindow);
-        mWindow = IntPtr.Zero;
+        Sdl3.DestroyWindow(Handle);
+        Handle = IntPtr.Zero;
         mContext = IntPtr.Zero;
         Release();
     }

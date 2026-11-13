@@ -1,12 +1,12 @@
 // Unit tests of the client sound system (docs/audio.md, ROADMAP M9 C7) on synthetic waves and tables (R5, R9).
+namespace OpenTribes.Tests;
+
 using System.Text;
 using OpenTribes.Client.Audio;
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Audio;
 using OpenTribes.Script;
-
-namespace OpenTribes.Tests;
 
 public class AudioTests
 {
@@ -19,7 +19,7 @@ public class AudioTests
         l.AddRange(body);
         if (body.Length % 2 == 1)
             l.Add(0);
-        return l.ToArray();
+        return [.. l];
     }
 
     private static byte[] Fmt(int tag, int channels, int rate, int bits, int size = 16)
@@ -33,21 +33,21 @@ public class AudioTests
         l.AddRange(BitConverter.GetBytes((ushort)bits));
         while (l.Count < size)
             l.Add(0);
-        return l.ToArray();
+        return [.. l];
     }
 
     private static byte[] Riff(params byte[][] chunks)
     {
         var body = new List<byte>(Encoding.ASCII.GetBytes("WAVE"));
-        foreach (byte[] c in chunks)
+        foreach (var c in chunks)
             body.AddRange(c);
         var l = new List<byte>(Encoding.ASCII.GetBytes("RIFF"));
         l.AddRange(BitConverter.GetBytes((uint)body.Count));
         l.AddRange(body);
-        return l.ToArray();
+        return [.. l];
     }
 
-    private static byte[] Pcm16(params short[] s) => s.SelectMany(BitConverter.GetBytes).ToArray();
+    private static byte[] Pcm16(params short[] s) => [.. s.SelectMany(BitConverter.GetBytes)];
 
     private static byte[] Wave16(int rate, params short[] s) => Riff(Chunk("fmt ", Fmt(1, 1, rate, 16)), Chunk("data", Pcm16(s)));
 
@@ -56,10 +56,10 @@ public class AudioTests
     [Fact]
     public void Decodes8BitMono() // 1.1
     {
-        WavData? w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 1, 11025, 8)), Chunk("data", new byte[] { 128, 255, 0, 192 })));
+        WavData? w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 1, 11025, 8)), Chunk("data", [128, 255, 0, 192])));
         Assert.NotNull(w);
         Assert.Equal((1, 11025, 8, 4), (w.Channels, w.Rate, w.Bits, w.Frames));
-        Assert.Equal(new[] { 0f, 127 / 128f, -1f, 0.5f }, w.Samples);
+        Assert.Equal([0f, 127 / 128f, -1f, 0.5f], w.Samples);
     }
 
     [Fact]
@@ -67,15 +67,15 @@ public class AudioTests
     {
         WavData w = WavData.TryParse(Wave16(22050, 0, 16384, -32768, 32767))!;
         Assert.Equal((1, 22050, 16, 4), (w.Channels, w.Rate, w.Bits, w.Frames));
-        Assert.Equal(new[] { 0f, 0.5f, -1f, 32767 / 32768f }, w.Samples);
+        Assert.Equal([0f, 0.5f, -1f, 32767 / 32768f], w.Samples);
     }
 
     [Fact]
     public void Decodes8BitStereoInterleaved() // 1.1
     {
-        WavData w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 2, 11025, 8)), Chunk("data", new byte[] { 128, 0, 192, 255 })))!;
+        WavData w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 2, 11025, 8)), Chunk("data", [128, 0, 192, 255])))!;
         Assert.Equal((2, 2), (w.Channels, w.Frames));
-        Assert.Equal(new[] { 0f, -1f, 0.5f, 127 / 128f }, w.Samples);
+        Assert.Equal([0f, -1f, 0.5f, 127 / 128f], w.Samples);
     }
 
     [Fact]
@@ -83,13 +83,13 @@ public class AudioTests
     {
         WavData w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 2, 22050, 16)), Chunk("data", Pcm16(8192, -8192, 16384, 0))))!;
         Assert.Equal((2, 2), (w.Channels, w.Frames));
-        Assert.Equal(new[] { 0.25f, -0.25f, 0.5f, 0f }, w.Samples);
+        Assert.Equal([0.25f, -0.25f, 0.5f, 0f], w.Samples);
     }
 
     [Fact]
     public void SkipsExtraChunksWithEvenPadding() // 1.1: LIST, fact, cue, an odd sized chunk, an 18 byte fmt
     {
-        byte[] file = Riff(Chunk("fmt ", Fmt(1, 1, 22050, 16, 18)), Chunk("LIST", new byte[] { 1, 2, 3 }), Chunk("fact", new byte[4]),
+        var file = Riff(Chunk("fmt ", Fmt(1, 1, 22050, 16, 18)), Chunk("LIST", [1, 2, 3]), Chunk("fact", new byte[4]),
             Chunk("data", Pcm16(100, -100)), Chunk("smpl", new byte[36]));
         WavData w = WavData.TryParse(file)!;
         Assert.Equal(2, w.Frames);
@@ -97,15 +97,12 @@ public class AudioTests
     }
 
     [Fact]
-    public void FormatTagIsNotChecked() // 1.1: the tag and the channel count are not tested by the loader
-    {
-        Assert.NotNull(WavData.TryParse(Riff(Chunk("fmt ", Fmt(0x55, 1, 22050, 16)), Chunk("data", Pcm16(1, 2)))));
-    }
+    public void FormatTagIsNotChecked() => Assert.NotNull(WavData.TryParse(Riff(Chunk("fmt ", Fmt(0x55, 1, 22050, 16)), Chunk("data", Pcm16(1, 2))))); // 1.1: the tag and the channel count are not tested by the loader
 
     [Fact]
     public void TruncatedDataKeepsWholeFrames() // 1.1
     {
-        byte[] file = Riff(Chunk("fmt ", Fmt(1, 1, 22050, 16)), Chunk("data", Pcm16(1, 2, 3)));
+        var file = Riff(Chunk("fmt ", Fmt(1, 1, 22050, 16)), Chunk("data", Pcm16(1, 2, 3)));
         Array.Resize(ref file, file.Length - 1);
         // The data chunk now claims more bytes than the file holds; the declared size runs past the end.
         Assert.Equal(2, WavData.TryParse(file)!.Frames);
@@ -163,7 +160,7 @@ public class AudioTests
         Assert.Equal(1, a(900), 12);
         Assert.Equal(-5000, SoundGain.DeviceVolume(a(252.5)));   // -50 dB at the midpoint of a 5 to 500 m profile
         // Base volume joins before the distance term: a = base + (1 - base) * t.
-        Assert.Equal(0.2 + 0.8 * 0.5, SoundGain.Attenuation3D(P3D(10, 110, 0.2), new SoundXf(0, 60, 0), l, 1, out _), 12);
+        Assert.Equal(0.2 + (0.8 * 0.5), SoundGain.Attenuation3D(P3D(10, 110, 0.2), new SoundXf(0, 60, 0), l, 1, out _), 12);
         // The 3D pref adds master(v).
         Assert.Equal(0.069, SoundGain.Attenuation3D(p, new SoundXf(0, 2, 0), l, 0.5, out _), 12);
     }
@@ -173,7 +170,7 @@ public class AudioTests
     {
         Listener l = new() { X = 10, Y = 20, Z = 5, RightX = 1 };
         SoundProfile p = P3D(100, 200);
-        SoundGain.Attenuation3D(p, new SoundXf(20, 20, 5), l, 1, out double pan);
+        SoundGain.Attenuation3D(p, new SoundXf(20, 20, 5), l, 1, out var pan);
         Assert.Equal(0.2, pan, 12);                  // 10 m to the right
         SoundGain.Attenuation3D(p, new SoundXf(0, 20, 5), l, 1, out pan);
         Assert.Equal(-0.2, pan, 12);
@@ -213,7 +210,9 @@ public class AudioTests
     {
         var p = P3D(100, 200);
         p.ConeOutsideVolume = 0.6;
-        p.ConeX = 0; p.ConeY = 1; p.ConeZ = 0;
+        p.ConeX = 0;
+        p.ConeY = 1;
+        p.ConeZ = 0;
         Listener l = Listener.Identity;
         double a(double lx, double ly) => SoundGain.Attenuation3D(p, new SoundXf(0, 0, 0), new Listener { X = lx, Y = ly, RightX = 1 }, 1, out _);
         Assert.Equal(0, a(0, 10), 12);               // in front of the cone: inside
@@ -223,7 +222,7 @@ public class AudioTests
         Assert.Equal(0.6 / 12 * (0.5 - 0.25) / (0.75 - 0.25), a(10, 0), 12);   // between the angles
         // The sound's rotation turns the cone: a quarter turn about Z moves +Y to -X.
         var rot = new[] { 0.0, 1, 0, -1, 0, 0, 0, 0, 1 };
-        double b = SoundGain.Attenuation3D(p, new SoundXf(0, 0, 0) { Rot = rot }, new Listener { X = -10, RightX = 1 }, 1, out _);
+        var b = SoundGain.Attenuation3D(p, new SoundXf(0, 0, 0) { Rot = rot }, new Listener { X = -10, RightX = 1 }, 1, out _);
         Assert.Equal(0, b, 12);
     }
 
@@ -239,9 +238,9 @@ public class AudioTests
         m.Start(w, false, 1f, 1f);
         var o = new float[16];
         Render(m, o, 8);
-        float[] expect = { 0, 0.5f, -0.5f, 32767 / 32768f, -1f, 0.25f };
-        for (int i = 0; i < expect.Length; ++i)
-            Assert.Equal((expect[i], expect[i]), (o[i * 2], o[i * 2 + 1]));
+        float[] expect = [0, 0.5f, -0.5f, 32767 / 32768f, -1f, 0.25f];
+        for (var i = 0; i < expect.Length; ++i)
+            Assert.Equal((expect[i], expect[i]), (o[i * 2], o[(i * 2) + 1]));
         Assert.Equal((0f, 0f), (o[12], o[13]));      // after the end: silence, the voice is gone
         Assert.Equal(0, m.ActiveCount);
     }
@@ -250,13 +249,13 @@ public class AudioTests
     public void MixerSineToneAtUnityIsExact() // 4.2: a synthetic tone comes out sample for sample
     {
         var s = new short[200];
-        for (int i = 0; i < s.Length; ++i)
+        for (var i = 0; i < s.Length; ++i)
             s[i] = (short)Math.Round(20000 * Math.Sin(2 * Math.PI * 440 * i / 22050));
         var m = new SoundMixer(22050);
         m.Start(WavData.TryParse(Wave16(22050, s))!, false, 1f, 1f);
         var o = new float[400];
         Render(m, o, 200);
-        for (int i = 0; i < s.Length; ++i)
+        for (var i = 0; i < s.Length; ++i)
             Assert.Equal(s[i] / 32768f, o[i * 2]);
     }
 
@@ -300,14 +299,14 @@ public class AudioTests
     public void MixerRampsGainChanges() // 4.2: about 5 ms, no step
     {
         var m = new SoundMixer(48000);
-        short[] ones = Enumerable.Repeat((short)16384, 2000).ToArray();
+        var ones = Enumerable.Repeat((short)16384, 2000).ToArray();
         MixVoice v = m.Start(WavData.TryParse(Wave16(48000, ones))!, false, 1f, 1f)!;
         m.SetGains(v, 0f, 0f);
         var o = new float[2 * 400];
         Render(m, o, 400);
-        Assert.True(o[0] < 0.5f && o[0] > 0.45f);    // first sample already moved one step down
+        Assert.True(o[0] is < 0.5f and > 0.45f);    // first sample already moved one step down
         Assert.Equal(0f, o[2 * 399]);                // after 240 frames of ramp the gain is zero
-        for (int i = 1; i < 240; ++i)
+        for (var i = 1; i < 240; ++i)
             Assert.True(o[i * 2] <= o[(i - 1) * 2]);
     }
 
@@ -316,9 +315,9 @@ public class AudioTests
     private static SoundManager Mgr(int rate = 22050, int frames = 4000, short level = 8192, int maxBuffers = 16, bool loopWave = false)
     {
         var s = new short[frames];
-        for (int i = 0; i < frames; ++i)
-            s[i] = (short)(level + i % 7);
-        byte[] bytes = Wave16(rate, s);
+        for (var i = 0; i < frames; ++i)
+            s[i] = (short)(level + (i % 7));
+        var bytes = Wave16(rate, s);
         return new SoundManager { DeviceOpen = true, Mixer = new SoundMixer(rate), MaxBuffers = maxBuffers, ReadWave = n => n.StartsWith("miss") ? null : bytes };
     }
 
@@ -329,7 +328,7 @@ public class AudioTests
     {
         SoundManager sm = Mgr(maxBuffers: 3);
         var h = new int[8];
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
         {
             sm.NowMs = 100 + i;
             h[i] = sm.PlayWave("a.wav", P2D(), 0.1 * (i + 1));
@@ -337,7 +336,7 @@ public class AudioTests
         Assert.All(h, x => Assert.True(x > 0));
         sm.Tick(200);
         Assert.Equal(4, sm.PlayingCount);            // maxBuffers + 1
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
             Assert.Equal(i >= 4, !sm.IsDone(h[i])); // the four highest priorities live; the others are one-shots and died
     }
 
@@ -346,13 +345,13 @@ public class AudioTests
     {
         SoundManager sm = Mgr(maxBuffers: 1);
         var h = new int[5];
-        for (int i = 0; i < 5; ++i)
+        for (var i = 0; i < 5; ++i)
         {
             sm.NowMs = 10 * (i + 1);
             h[i] = sm.PlayWave("a.wav", P2D(), 0.5);
         }
         sm.Tick(100);
-        Assert.Equal(new[] { true, true, true, false, false }, h.Select(x => sm.IsDone(x)).ToArray());
+        Assert.Equal([true, true, true, false, false], h.Select(sm.IsDone).ToArray());
     }
 
     [Fact]
@@ -360,9 +359,9 @@ public class AudioTests
     {
         SoundManager sm = Mgr(maxBuffers: 0);
         sm.SetListener(0, 0, 0, 1, 0, 0);
-        int near = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 10, 0));
-        int far = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 300, 0));
-        int explicitLow = sm.PlayWave("a.wav", P2D(), 0.001);
+        var near = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 10, 0));
+        var far = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 300, 0));
+        var explicitLow = sm.PlayWave("a.wav", P2D(), 0.001);
         sm.Tick(5);
         Assert.False(sm.IsDone(near));               // 1 - a is about 0.99, beats the explicit 0.001 and the far voice
         Assert.True(sm.IsDone(far));
@@ -374,11 +373,11 @@ public class AudioTests
     public void LoudnessRankingBetweenPriorityZeroVoices() // 2.5
     {
         SoundManager sm = Mgr(maxBuffers: 1);
-        int a = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 200, 0));
-        int b = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 50, 0));
-        int c = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 100, 0));
+        var a = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 200, 0));
+        var b = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 50, 0));
+        var c = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 100, 0));
         sm.Tick(1);
-        Assert.Equal(new[] { true, false, false }, new[] { a, b, c }.Select(x => sm.IsDone(x)).ToArray());
+        Assert.Equal([true, false, false], new[] { a, b, c }.Select(sm.IsDone).ToArray());
         // The two nearest survive; the voice at 200 m was cut.
     }
 
@@ -386,11 +385,11 @@ public class AudioTests
     public void SuspendedLoopResumesAtSampleZero() // 2.5 step 3, D41
     {
         SoundManager sm = Mgr(maxBuffers: 0, level: 8000);
-        int loop = sm.PlayWave("a.wav", P2D(loop: true), 0.2);
+        var loop = sm.PlayWave("a.wav", P2D(loop: true), 0.2);
         sm.Tick(1);
         var o = new float[2 * 500];
         sm.Mixer!.Render(o, 500);                    // the loop has advanced to sample 500
-        int shot = sm.PlayWave("a.wav", P2D(), 0.9);
+        var shot = sm.PlayWave("a.wav", P2D(), 0.9);
         sm.Tick(2);
         Assert.False(sm.IsDone(loop));               // suspended, not dead
         Assert.Equal(1, sm.PlayingCount);
@@ -405,8 +404,8 @@ public class AudioTests
     public void OneShotCutByLimitIsGone() // 2.5
     {
         SoundManager sm = Mgr(maxBuffers: 0);
-        int lo = sm.PlayWave("a.wav", P2D(), 0.1);
-        int hi = sm.PlayWave("a.wav", P2D(), 0.9);
+        var lo = sm.PlayWave("a.wav", P2D(), 0.1);
+        var hi = sm.PlayWave("a.wav", P2D(), 0.9);
         sm.Tick(1);
         Assert.True(sm.IsDone(lo));
         sm.Stop(hi);
@@ -432,7 +431,7 @@ public class AudioTests
         sm.SetListener(0, 0, 0, 1, 0, 0);
         SoundProfile loop = P3D(5, 100);
         loop.Flags |= SoundProfile.Looping;
-        int h = sm.PlayWave("a.wav", loop, 0, new SoundXf(0, 250, 0));
+        var h = sm.PlayWave("a.wav", loop, 0, new SoundXf(0, 250, 0));
         Assert.True(h > 0);
         Assert.False(sm.IsDone(h));
         Assert.Equal(0, sm.PlayingCount);
@@ -448,7 +447,7 @@ public class AudioTests
     public void StaleHandlesDoNothing() // 2.3
     {
         SoundManager sm = Mgr();
-        int h = sm.PlayWave("a.wav", P2D(), 0.5);
+        var h = sm.PlayWave("a.wav", P2D(), 0.5);
         sm.Stop(h);
         sm.Tick(1);
         Assert.True(sm.IsDone(h));
@@ -457,7 +456,7 @@ public class AudioTests
         sm.Stop(h);
         Assert.Empty(sm.Voices);
         Assert.True(sm.IsDone(0));
-        int h2 = sm.PlayWave("a.wav", P2D(), 0.5);
+        var h2 = sm.PlayWave("a.wav", P2D(), 0.5);
         Assert.True(h2 > h);                          // handles are positive and increase
     }
 
@@ -479,7 +478,7 @@ public class AudioTests
     public void MuteStopsEveryVoice() // 2.3
     {
         SoundManager sm = Mgr();
-        int h = sm.PlayWave("a.wav", P2D(loop: true));
+        var h = sm.PlayWave("a.wav", P2D(loop: true));
         sm.Mute(true);
         sm.Tick(1);
         Assert.True(sm.IsDone(h));
@@ -491,7 +490,7 @@ public class AudioTests
     {
         SoundManager sm = Mgr();
         sm.Sfx2DVolume = 0.5;
-        int h = sm.PlayWave("a.wav", P2D());
+        var h = sm.PlayWave("a.wav", P2D());
         Assert.Equal(0.069, sm.Find(h)!.Attenuation, 12);
         sm.Sfx2DVolume = 0.01;
         sm.Tick(1);
@@ -506,7 +505,7 @@ public class AudioTests
     {
         SoundManager sm = Mgr();
         sm.SetListener(0, 0, 0, 1, 0, 0);
-        int h = sm.PlayWave("a.wav", P3D(50, 500), 0, new SoundXf(0, 10, 0));
+        var h = sm.PlayWave("a.wav", P3D(50, 500), 0, new SoundXf(0, 10, 0));
         Assert.Equal(0, sm.Find(h)!.Attenuation, 12);
         sm.Sfx3DVolume = 0.5;
         sm.SetListener(0, 0, 0, 1, 0, 0);            // listener moved bit
@@ -519,7 +518,7 @@ public class AudioTests
     {
         SoundManager sm = Mgr();
         sm.SetListener(0, 0, 0, 1, 0, 0);
-        int h = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(10, 0, 0));
+        var h = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(10, 0, 0));
         Assert.Equal(0.2, sm.Find(h)!.Pan, 12);
         sm.SetPosition(h, -10, 0, 0);
         sm.Tick(1);
@@ -535,7 +534,7 @@ public class AudioTests
         SoundManager sm = Mgr();
         SoundProfile p = P2D();
         p.BaseVolume = 2;
-        int h = sm.PlayWave("a.wav", p);
+        var h = sm.PlayWave("a.wav", p);
         Assert.False(sm.Find(h)!.Playing);
         Assert.True(sm.Find(h)!.WantsStart);
         Assert.Equal(0, sm.Mixer!.ActiveCount);
@@ -565,14 +564,19 @@ public class AudioTests
     private static ClientDataBlocks Blocks()
     {
         var b = new ClientDataBlocks();
-        b.Blocks[(0, 0)] = new ClientDataBlock { Group = 0, Index = 0, Fields = new List<DecodedField>
+        b.Blocks[(0, 0)] = new ClientDataBlock
         {
+            Group = 0,
+            Index = 0,
+            Fields =
+        [
             new("flags", 0x20L), new("baseVolume", 0.0), new("minDistance", 5.0), new("maxDistance", 40.0),
-        } };
-        b.Blocks[(0, 1)] = new ClientDataBlock { Group = 0, Index = 1, Fields = new List<DecodedField> { new("flags", 0L), new("baseVolume", 0.5) } };
-        b.Blocks[(1, 0)] = new ClientDataBlock { Group = 1, Index = 0, Fields = new List<DecodedField> { new("wavFileName", "a.wav"), new("priority", 0.0), new("profile", 0L) } };
-        b.Blocks[(1, 1)] = new ClientDataBlock { Group = 1, Index = 1, Fields = new List<DecodedField> { new("wavFileName", "a.wav"), new("priority", 0.0), new("profile", 1L) } };
-        b.Blocks[(1, 2)] = new ClientDataBlock { Group = 1, Index = 2, Fields = new List<DecodedField> { new("wavFileName", "miss.wav"), new("priority", 0.0), new("profile", 0L) } };
+        ]
+        };
+        b.Blocks[(0, 1)] = new ClientDataBlock { Group = 0, Index = 1, Fields = [new("flags", 0L), new("baseVolume", 0.5)] };
+        b.Blocks[(1, 0)] = new ClientDataBlock { Group = 1, Index = 0, Fields = [new("wavFileName", "a.wav"), new("priority", 0.0), new("profile", 0L)] };
+        b.Blocks[(1, 1)] = new ClientDataBlock { Group = 1, Index = 1, Fields = [new("wavFileName", "a.wav"), new("priority", 0.0), new("profile", 1L)] };
+        b.Blocks[(1, 2)] = new ClientDataBlock { Group = 1, Index = 2, Fields = [new("wavFileName", "miss.wav"), new("priority", 0.0), new("profile", 0L)] };
         return b;
     }
 
@@ -588,7 +592,7 @@ public class AudioTests
         Assert.True(p.Is3D);
         Assert.Equal(0, sm.PlayDatablock(0, new SoundXf(0, 41, 0)));      // beyond the profile maxDist
         Assert.True(sm.PlayDatablock(0, new SoundXf(0, 20, 0)) > 0);
-        int h2d = sm.PlayDatablock(1, new SoundXf(0, 0, 0));              // 2D profile: baseVolume 0.5 is ignored, no pref
+        var h2d = sm.PlayDatablock(1, new SoundXf(0, 0, 0));              // 2D profile: baseVolume 0.5 is ignored, no pref
         Assert.Equal(0, sm.Find(h2d)!.Attenuation);
         Assert.Equal(0, sm.PlayDatablock(2, new SoundXf(0, 1, 0)));       // missing wave: silent
         Assert.Equal(0, sm.PlayDatablock(9, new SoundXf(0, 1, 0)));       // no such SoundData
@@ -682,7 +686,7 @@ public class AudioTests
     [Fact]
     public void OfflineMixIsDeterministic() // 4.2: the same calls give the same bytes
     {
-        float[] Run()
+        static float[] Run()
         {
             SoundManager sm = Mgr(level: 3000);
             sm.SetListener(0, 0, 0, 1, 0, 0);
@@ -690,14 +694,14 @@ public class AudioTests
             sm.PlayWave("a.wav", P2D(loop: true), 0);
             var all = new List<float>();
             var o = new float[2 * 1000];
-            for (int t = 0; t < 8; ++t)
+            for (var t = 0; t < 8; ++t)
             {
                 sm.SetListener(t, 0, 0, 1, 0, 0);
                 sm.Tick(t * 32);
                 sm.Mixer!.Render(o, 1000);
                 all.AddRange(o);
             }
-            return all.ToArray();
+            return [.. all];
         }
         Assert.Equal(Run(), Run());
     }

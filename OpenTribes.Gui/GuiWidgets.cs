@@ -1,8 +1,8 @@
+namespace OpenTribes.Gui;
+
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Script;
-
-namespace OpenTribes.Gui;
 
 /// <summary>The base fill and border with the dimmed colors of docs/gui.md 2.5 (FearGui::FGControl, 00488a8c).</summary>
 public sealed class GuiFGControl : GuiControl
@@ -34,7 +34,7 @@ public sealed class GuiBox : GuiControl
     {
         if (w < 8 || h < 8)
             return;
-        int b = dimmed ? 4 : 0;
+        var b = dimmed ? 4 : 0;
         int c0 = 0xf0 - b, c1 = 0xef - b, c2 = 0xee - b, c3 = 0xed - b;
         int x1 = x + w - 1, y1 = y + h - 1;
         p.Line(x + 4, y, x1 - 4, y, c1);
@@ -85,28 +85,28 @@ public sealed class GuiCommandView : GuiControl
 
     private void DrawFrame(GuiPaint p, int gx, int gy)
     {
-        bool low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
+        var low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
         PbmaArray? a = Host?.ArrayByName(low ? "LRCmdViewCtrl.pba" : "CmdViewCtrl.pba");
         if (a == null || a.Bitmaps.Count < 15)
             return;
         PbmpBitmap B(int i) => a.Bitmaps[i];
         // Left column.
-        int y = gy;
+        var y = gy;
         p.Bitmap(B(0), gx, y);
         y += B(0).Height;
         p.Bitmap(B(1), gx, y);
         y += B(1).Height;
-        int fill = H - (y - gy) - B(2).Height;
+        var fill = H - (y - gy) - B(2).Height;
         p.BitmapStretch(B(12), gx, y, B(12).Width, fill);
         y += fill;
         p.Bitmap(B(2), gx, y);
         // Bottom strip.
-        int x = gx + B(2).Width;
+        var x = gx + B(2).Width;
         p.Bitmap(B(3), x, gy + H - B(3).Height);
         x += B(3).Width;
         p.Bitmap(B(4), x, gy + H - B(4).Height);
         x += B(4).Width;
-        int wfill = W - (x - gx) - B(5).Width - B(6).Width;
+        var wfill = W - (x - gx) - B(5).Width - B(6).Width;
         p.BitmapStretch(B(13), x, gy + H - B(13).Height, wfill, B(13).Height);
         x += wfill;
         p.Bitmap(B(5), x, gy + H - B(5).Height);
@@ -116,7 +116,7 @@ public sealed class GuiCommandView : GuiControl
         x = gx + 224;
         p.Bitmap(B(10), x, gy);
         x += B(10).Width;
-        int tfill = W - (x - gx) - B(9).Width - 44 - B(8).Width;
+        var tfill = W - (x - gx) - B(9).Width - 44 - B(8).Width;
         p.BitmapStretch(B(11), x, gy, tfill, B(11).Height);
         x += tfill;
         p.Bitmap(B(9), x, gy);
@@ -124,9 +124,9 @@ public sealed class GuiCommandView : GuiControl
         x += B(9).Width + 44;
         p.Bitmap(B(8), x, gy);
         // Right column.
-        int ry = gy;
+        var ry = gy;
         ry += B(8).Height;
-        int rfill = H - (ry - gy) - B(7).Height - B(6).Height;
+        var rfill = H - (ry - gy) - B(7).Height - B(6).Height;
         p.BitmapStretch(B(14), gx + W - B(14).Width, ry, B(14).Width, rfill);
         ry += rfill;
         p.Bitmap(B(7), gx + W - B(7).Width, ry);
@@ -151,10 +151,10 @@ public sealed class GuiMenuPanel : GuiControl
 public sealed class GuiDlgBox : GuiActive
 {
     private static readonly string[] kGrab =
-    {
+    [
         "ExitGameDialog", "RemoveDemoDialog", "RemovePlayerDialog", "MOTDDialog", "MessageDialog", "ServerInfoDialog",
         "HostWarnDialog", "DNSWarningDialog",
-    };
+    ];
 
     /// <inheritdoc/>
     public override bool WantsTab => false;
@@ -182,10 +182,10 @@ public sealed class GuiDlgBox : GuiActive
     /// <inheritdoc/>
     public override bool KeyDown(GuiEvent e)
     {
-        string[]? names = e.Scan switch
+        var names = e.Scan switch
         {
             0x1c => new[] { "DialogReturnButton", "DialogCloseButton" },
-            0x01 => new[] { "DialogEscapeButton", "DialogCloseButton" },
+            0x01 => ["DialogEscapeButton", "DialogCloseButton"],
             _ => null,
         };
         if (names != null)
@@ -193,7 +193,7 @@ public sealed class GuiDlgBox : GuiActive
             GuiControl root = this;
             while (root.Parent != null)
                 root = root.Parent;
-            foreach (string n in names)
+            foreach (var n in names)
                 if (root.FindByName(n) is GuiActive b)
                 {
                     b.DoAction();
@@ -214,15 +214,15 @@ public sealed class GuiDlgBox : GuiActive
             be = Host?.BitmapByName("DLG_BottomEdge.BMP");
         if (tl != null && te != null && le != null && bl != null && be != null)
         {
-            int right = gx + W;
+            var right = gx + W;
             p.Bitmap(tl, gx, gy);
-            int x = gx + tl.Width;
+            var x = gx + tl.Width;
             p.Bitmap(tl, x, gy);
             for (; x < right - tl.Width; x += te.Width)
                 p.Bitmap(te, x, gy);
             p.BitmapFlipX(tl, right - tl.Width, gy);
-            int bottom = gy + H - bl.Height;
-            for (int y = gy + tl.Height; y < bottom; y += le.Height)
+            var bottom = gy + H - bl.Height;
+            for (var y = gy + tl.Height; y < bottom; y += le.Height)
             {
                 p.Bitmap(le, gx, y);
                 p.BitmapFlipX(le, right - le.Width, y);
@@ -268,19 +268,19 @@ public sealed class GuiShellBorder : GuiControl
             return;
         PbmpBitmap B(int i) => a.Bitmaps[i];
         // Title bar.
-        int x = gx + 224 + B(9).Width;
+        var x = gx + 224 + B(9).Width;
         p.Bitmap(B(9), gx + 224, gy);
-        int tfill = W - (x - gx) - B(10).Width - 44 - B(13).Width;
+        var tfill = W - (x - gx) - B(10).Width - 44 - B(13).Width;
         p.BitmapStretch(B(8), x, gy, tfill, B(8).Height);
         x += tfill;
         p.Bitmap(B(10), x, gy);
         x += B(10).Width + 44;
         p.Bitmap(B(13), x, gy);
         // Right column.
-        int y = gy + B(13).Height;
+        var y = gy + B(13).Height;
         p.Bitmap(B(14), gx + W - B(14).Width, y);
         y += B(14).Height;
-        int rfill = H - (y - gy) - B(3).Height;
+        var rfill = H - (y - gy) - B(3).Height;
         p.BitmapStretch(B(7), gx + W - B(7).Width, y, B(7).Width, rfill);
         y += rfill;
         p.Bitmap(B(3), gx + W - B(3).Width, y);
@@ -290,16 +290,16 @@ public sealed class GuiShellBorder : GuiControl
         y += B(11).Height;
         p.Bitmap(B(12), gx, y);
         y += B(12).Height;
-        int lfill = H - (y - gy) - B(0).Height;
+        var lfill = H - (y - gy) - B(0).Height;
         p.BitmapStretch(B(6), gx, y, B(6).Width, lfill);
         y += lfill;
         p.Bitmap(B(0), gx, y);
         // Bottom strip.
         x = gx + B(0).Width;
-        int by = gy + H - B(1).Height;
+        var by = gy + H - B(1).Height;
         p.Bitmap(B(1), x, by);
         x += B(1).Width;
-        int bfill = W - (x - gx) - B(4).Width - B(3).Width;
+        var bfill = W - (x - gx) - B(4).Width - B(3).Width;
         p.BitmapStretch(B(5), x, by, bfill, B(5).Height);
         x += bfill;
         p.Bitmap(B(4), x, gy + H - B(4).Height);
@@ -317,7 +317,7 @@ public sealed class GuiBitmap : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        uint tag = U("bitmapTag", 169998);
+        var tag = U("bitmapTag", 169998);
         p.BitmapStretch(Host?.BitmapByTag(tag), gx, gy, W, H);
         RenderChildren(p, gx, gy);
     }
@@ -330,7 +330,7 @@ public sealed class GuiUniversalButton : GuiActive
     /// <remarks>Follows 0049f1cc: the hand while the button is active.</remarks>
     public override uint CursorTagAt(int lx, int ly) => Active ? CursorHand : 0;
 
-    private static readonly string[] kSuffixes = { "_DF", "_HI", "_MD", "_MH", "_ON", "_NA", "_BD", "_BO" };
+    private static readonly string[] kSuffixes = ["_DF", "_HI", "_MD", "_MH", "_ON", "_NA", "_BD", "_BO"];
     private long mFlashClock;
     /// <summary>True while the button is on.</summary>
     public bool On;
@@ -362,7 +362,7 @@ public sealed class GuiUniversalButton : GuiActive
     public override void Wake()
     {
         On = U("on") != 0;
-        bool lr = LowRes;
+        var lr = LowRes;
         PbmpBitmap? df = Pic("_DF", lr) ?? Pic("_DF", false);
         if (df != null)
         {
@@ -457,11 +457,11 @@ public sealed class GuiUniversalButton : GuiActive
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        bool lr = LowRes;
-        bool dimmed = Dimmed;
+        var lr = LowRes;
+        var dimmed = Dimmed;
         PbmpBitmap? df = Pic("_DF", lr), on = Pic("_ON", lr), na = Pic("_NA", lr), bd = Pic("_BD", lr), bo = Pic("_BO", lr);
         PbmpBitmap? pic;
-        bool radioMark = RadioId != 0 && IsSwitch && On && !Pressed && BtnVersion >= 2;
+        var radioMark = RadioId != 0 && IsSwitch && On && !Pressed && BtnVersion >= 2;
         if (dimmed)
             pic = !On ? bd ?? na : bo ?? bd ?? na;
         else if (!Active)
@@ -539,10 +539,10 @@ public sealed class GuiCFGButton : GuiSimpleText
     // 0049e7dc: the text of the binding the row describes.
     private void RefreshBinding()
     {
-        string map = S("actionMap");
+        var map = S("actionMap");
         ActionMap? m = Host?.Actions?.FindMap(ClientCommands.ActionMapName(map));
-        Binding = map.Length == 0 ? "" : BindingText.For(m, Command, (int)U("makeAction"), BitConverter.UInt32BitsToSingle((uint)U("makeValue")),
-            AltCommand, (int)U("breakAction"), BitConverter.UInt32BitsToSingle((uint)U("breakValue")), (uint)U("actionFlags"));
+        Binding = map.Length == 0 ? "" : BindingText.For(m, Command, (int)U("makeAction"), BitConverter.UInt32BitsToSingle(U("makeValue")),
+            AltCommand, (int)U("breakAction"), BitConverter.UInt32BitsToSingle(U("breakValue")), U("actionFlags"));
     }
 
     private static int Centered(int space) => space / 2;
@@ -551,18 +551,18 @@ public sealed class GuiCFGButton : GuiSimpleText
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        bool dimmed = Dimmed;
+        var dimmed = Dimmed;
         PftFont? fa = FontA, fb = FontB, fc = FontC, shadow = FontShadow;
-        string name = ResolvedText();
+        var name = ResolvedText();
         PbmpBitmap? pic = dimmed ? Pic("CFG_Controls_NA.BMP") : Pressed || WaitingForKey ? Pic("CFG_Controls_ON.BMP") : Pic("CFG_Controls_DF.BMP");
-        int fh = GuiPaint.FontHeight(fb);
+        var fh = GuiPaint.FontHeight(fb);
         if (pic != null)
             p.Bitmap(pic, gx + Centered(W - pic.Width), gy + fh - 1);
-        int tx = gx + Centered(W - (GuiPaint.TextWidth(fa, name) + 1));
+        var tx = gx + Centered(W - (GuiPaint.TextWidth(fa, name) + 1));
         p.Text(shadow, tx - 1, gy + 1, name);
         p.Text(dimmed ? fc : Binding.Length > 0 ? fb : fc, tx, gy, name);
-        int by = gy + fh + 1;
-        string b = Binding;
+        var by = gy + fh + 1;
+        var b = Binding;
         if (b.Length == 0)
             return;
         int codes = 0, iconsW = 0;
@@ -572,11 +572,11 @@ public sealed class GuiCFGButton : GuiSimpleText
             iconsW += (shiftPic?.Width ?? 0) + 2;
             ++codes;
         }
-        string key = b[codes..];
+        var key = b[codes..];
         if (codes == 3 && key.Length > 3)
             key = key[..3];                       // 0049d74c writes a terminator at the fourth character
-        int x = gx + Centered(W - (iconsW + GuiPaint.TextWidth(fa, key) + 1));
-        for (int i = 0; i < codes; ++i)
+        var x = gx + Centered(W - (iconsW + GuiPaint.TextWidth(fa, key) + 1));
+        for (var i = 0; i < codes; ++i)
         {
             PbmpBitmap? ic = b[i] == 1 ? shiftPic : b[i] == 2 ? ctrlPic : altPic;
             if (!dimmed && ic != null)
@@ -645,7 +645,7 @@ public sealed class GuiMenuItem : GuiSimpleText
     /// <inheritdoc/>
     protected override void Action()
     {
-        uint page = U("tabPage");
+        var page = U("tabPage");
         GuiControl menu = this;
         while (menu.Parent != null && !(menu.Parent is GuiActive && menu.Parent.ClassName.EndsWith("MenuCtrl", StringComparison.Ordinal)))
             menu = menu.Parent;
@@ -676,18 +676,18 @@ public sealed class GuiMenuItem : GuiSimpleText
         DrawBase(p, gx, gy);
         PbmpBitmap? pic = Host?.BitmapByName("MNU_Expand_DF.BMP");
         int indent = pic?.Width ?? 19, rowH = pic?.Height ?? 19;
-        string s = ResolvedText();
+        var s = ResolvedText();
         if (s.Length > 0 && Host != null)
         {
-            string main = Dimmed ? "sf_grey100_10b.pft" : Children.Count > 0 ? "sf_orange255_10.pft" : U("tabSet") != 0 ? "sf_white_10.pft" : "sf_orange214_10.pft";
+            var main = Dimmed ? "sf_grey100_10b.pft" : Children.Count > 0 ? "sf_orange255_10.pft" : U("tabSet") != 0 ? "sf_white_10.pft" : "sf_orange214_10.pft";
             PftFont? f = Host.FontByName(main);
-            int ty = gy + (rowH - GuiPaint.FontHeight(f)) / 2;
+            var ty = gy + ((rowH - GuiPaint.FontHeight(f)) / 2);
             p.Text(Host.FontByName("sf_black_10.pft"), gx + indent - 1, ty - 1, s);
             p.Text(f, gx + indent, ty - 2, s);
         }
         if (Children.Count > 0 && U("expanded") != 0)
         {
-            int y = gy + rowH;
+            var y = gy + rowH;
             foreach (GuiControl c in Children)
             {
                 c.Render(p, gx + indent - c.X, y - c.Y);
@@ -712,7 +712,7 @@ public sealed class GuiSlider : GuiActive
 
     /// <summary>Gets the thumb width: 30 pixels (the disassembly at 004ca1ee stores 0x1e at +0x1d0).</summary>
     /// <remarks>The right end of its travel is the extent less the width of piece 5 of ShellSliderCtrl.pba less the thumb (004ca760).</remarks>
-    private int Thumb => 30;
+    private static int Thumb => 30;
     // The thumb starts after the left cap.
     private int LeftCap => Pieces?.Bitmaps.Count > 2 ? Pieces.Bitmaps[2].Width : 0;
     private int RightEnd => Math.Max(1, W - (Pieces?.Bitmaps.Count > 5 ? Pieces.Bitmaps[5].Width : 11) - Thumb - LeftCap);
@@ -723,8 +723,8 @@ public sealed class GuiSlider : GuiActive
     public override void Wake()
     {
         Discrete = U("sliderVersion") >= 2 ? (int)U("minValue") : 0;
-        float frac = BitConverter.UInt32BitsToSingle(U("value"));
-        float max = U("sliderVersion") >= 2 ? MaxValue : 1f;
+        var frac = BitConverter.UInt32BitsToSingle(U("value"));
+        var max = U("sliderVersion") >= 2 ? MaxValue : 1f;
         if (max != 0)
             mPos = (int)(Math.Clamp(frac / max, 0, 1) * RightEnd);
         if (ConsoleVar.Length > 0 && Host != null)
@@ -744,7 +744,7 @@ public sealed class GuiSlider : GuiActive
     {
         if (Discrete <= 1)
             return pos;
-        double step = (double)RightEnd / (Discrete - 1);
+        var step = (double)RightEnd / (Discrete - 1);
         return (int)Math.Round(Math.Round(pos / step) * step);
     }
 
@@ -753,20 +753,20 @@ public sealed class GuiSlider : GuiActive
     {
         if (Discrete > 1)
             return ((int)Math.Round((double)mPos / RightEnd * (Discrete - 1))).ToString(CultureInfo.InvariantCulture);
-        float max = U("sliderVersion") >= 2 ? MaxValue : 1f;
+        var max = U("sliderVersion") >= 2 ? MaxValue : 1f;
         return ((double)mPos / RightEnd * max).ToString("F6", CultureInfo.InvariantCulture);
     }
 
     /// <inheritdoc/>
     protected override void ApplyValue(string v)
     {
-        if (!double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+        if (!double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
             return;
         if (Discrete > 1)
             mPos = (int)Math.Round(d / (Discrete - 1) * RightEnd);
         else
         {
-            float max = U("sliderVersion") >= 2 ? MaxValue : 1f;
+            var max = U("sliderVersion") >= 2 ? MaxValue : 1f;
             mPos = max != 0 ? (int)(d / max * RightEnd) : 0;
         }
         mPos = Math.Clamp(mPos, 0, RightEnd);
@@ -786,7 +786,7 @@ public sealed class GuiSlider : GuiActive
         var (lx, _) = GlobalToLocal(e.X, 0);
         Canvas?.LockMouse(this);
         mDragging = true;
-        int unit = Discrete > 1 ? Math.Max(1, RightEnd / (Discrete - 1)) : 1;
+        var unit = Discrete > 1 ? Math.Max(1, RightEnd / (Discrete - 1)) : 1;
         if (lx < 8)
             mPos = Snap(Math.Max(0, mPos - unit));
         else if (lx > W - 8)
@@ -839,20 +839,20 @@ public sealed class GuiSlider : GuiActive
         {
             // Draw [code 004ca7b8], pieces of ShellSliderCtrl.pba: left cap 2 (0 dimmed), the stretched bar 11 (9 dimmed), the right
             // cap 5 (3 dimmed); then, not dimmed, the 30 pixel thumb at its position: 7 + the stretched 6 + 8 (13, 12, 14 while dragged).
-            bool dim = Dimmed;
+            var dim = Dimmed;
             PbmpBitmap B(int i) => a.Bitmaps[i];
             PbmpBitmap lc = B(dim ? 0 : 2), rc = B(dim ? 3 : 5), bar = B(dim ? 9 : 11);
             p.Bitmap(lc, gx, gy);
-            int fill = W - lc.Width - B(5).Width;
+            var fill = W - lc.Width - B(5).Width;
             p.BitmapStretch(bar, gx + lc.Width, gy, fill, bar.Height);
             p.Bitmap(rc, gx + lc.Width + fill, gy);
             if (!dim)
             {
                 PbmpBitmap tl = B(mDragging ? 13 : 7), tm = B(mDragging ? 12 : 6), tr = B(mDragging ? 14 : 8);
-                int x = gx + LeftCap + mPos;
+                var x = gx + LeftCap + mPos;
                 p.Bitmap(tl, x, gy);
                 x += tl.Width;
-                int mid = Thumb - tl.Width - B(8).Width;
+                var mid = Thumb - tl.Width - B(8).Width;
                 p.BitmapStretch(tm, x, gy, mid, tm.Height);
                 p.Bitmap(tr, x + mid, gy);
             }
@@ -869,7 +869,7 @@ public sealed class GuiProgress : GuiActive
     /// <inheritdoc/>
     public override bool WantsTab => false;
     /// <inheritdoc/>
-    protected override void ApplyValue(string v) => Value = double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out double d) ? Math.Clamp(d, 0, 1) : 0;
+    protected override void ApplyValue(string v) => Value = double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? Math.Clamp(d, 0, 1) : 0;
     /// <inheritdoc/>
     public override string GetValue() => Value.ToString("F6", CultureInfo.InvariantCulture);
 
@@ -896,7 +896,7 @@ public sealed class GuiTimer : GuiControl
     /// <inheritdoc/>
     public override void Wake()
     {
-        float init = BitConverter.UInt32BitsToSingle(U("initialAlarm"));
+        var init = BitConverter.UInt32BitsToSingle(U("initialAlarm"));
         mNext = (Host?.TickMs ?? 0) + (long)(init * 1000);
     }
 
@@ -906,7 +906,7 @@ public sealed class GuiTimer : GuiControl
         if (mNext < 0 || Host == null || Host.TickMs < mNext)
             return;
         ++Fired;
-        float rep = BitConverter.UInt32BitsToSingle(U("repeatAlarm"));
+        var rep = BitConverter.UInt32BitsToSingle(U("repeatAlarm"));
         mNext = rep > 0 ? Host.TickMs + (long)(rep * 1000) : -1;
         if (U("messageTag") != 0)
             Next?.Message(this, (int)U("messageTag"));
@@ -971,14 +971,14 @@ public sealed class GuiTextWrap : GuiActive
     {
         if (Host == null)
             return null;
-        string text = Text;
+        var text = Text;
         if (mLayout == null || mLaidText != text || mLaidWidth != W || mLaidDimmed != Dim)
         {
             var fonts = new PftFont?[GuiTextFormat.FontCount];
             fonts[0] = BaseFont;
             fonts[1] = Host.FontByTag(Dim ? 150131u : 150121u);
             fonts[2] = Host.FontByTag(Dim ? 150131u : 150161u);
-            mLayout = GuiTextFormat.Layout(text, W, fonts, n => Host.BitmapByName(n), n => Host.GetVar("$" + n));
+            mLayout = GuiTextFormat.Layout(text, W, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
             mLaidText = text;
             mLaidWidth = W;
             mLaidDimmed = Dim;
@@ -1011,9 +1011,9 @@ public sealed class GuiTextWrap : GuiActive
             Layout()?.Draw(p, gx, gy);
         else if (f != null)
         {
-            int lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
-            int y = gy;
-            foreach (string line in Wrap(f, Text, W))
+            var lh = GuiPaint.FontHeight(f) + (int)U("lineSpacing");
+            var y = gy;
+            foreach (var line in Wrap(f, Text, W))
             {
                 p.Text(f, gx, y, line);
                 y += lh;
@@ -1030,12 +1030,12 @@ public sealed class GuiTextWrap : GuiActive
     public static List<string> Wrap(PftFont f, string text, int width)
     {
         var lines = new List<string>();
-        foreach (string para in text.Replace("\r", "").Split('\n'))
+        foreach (var para in text.Replace("\r", "").Split('\n'))
         {
-            string cur = "";
-            foreach (string w in para.Split(' '))
+            var cur = "";
+            foreach (var w in para.Split(' '))
             {
-                string t = cur.Length == 0 ? w : cur + " " + w;
+                var t = cur.Length == 0 ? w : cur + " " + w;
                 if (cur.Length > 0 && GuiPaint.TextWidth(f, t) > width)
                 {
                     lines.Add(cur);

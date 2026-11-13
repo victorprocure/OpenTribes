@@ -1,9 +1,9 @@
+namespace OpenTribes.Client.World;
+
 using OpenTribes.Client.Shapes;
 using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.World;
-
-namespace OpenTribes.Client.World;
 
 /// <summary>The frame order of the 3D view for a mission loaded locally (no server): background (sky, stars, planet), then the world (terrain, interiors).</summary>
 /// <remarks>world-render.md 1.1.</remarks>
@@ -32,13 +32,13 @@ public sealed class WorldScene : IDisposable
     /// <summary>The sky renderer, or null.</summary>
     public SkyRenderer? Sky;
     /// <summary>The stars.</summary>
-    public List<StarField.Star> Stars = new();
+    public List<StarField.Star> Stars = [];
     /// <summary>True to draw the stars after the sky, false before it.</summary>
     public bool StarsInFront = true;
     /// <summary>The colours of the star brightness classes.</summary>
-    public (float, float, float)[] StarColors = { (1, 1, 1), (.5f, .5f, .5f), (.25f, .25f, .25f) };
+    public (float, float, float)[] StarColors = [(1, 1, 1), (.5f, .5f, .5f), (.25f, .25f, .25f)];
     /// <summary>The planets.</summary>
-    public readonly List<PlanetRenderer> Planets = new();
+    public readonly List<PlanetRenderer> Planets = [];
     /// <summary>The number of interiors loaded.</summary>
     public int InteriorCount;
     /// <summary>The number of interiors that failed to load.</summary>
@@ -56,13 +56,13 @@ public sealed class WorldScene : IDisposable
     /// <summary>The incidence in degrees of the light of the first Planet.</summary>
     public double SunIncidence = 60;
     /// <summary>The sun colour intensity.</summary>
-    public double[] SunIntensity = { 0.55, 0.55, 0.55 };
+    public double[] SunIntensity = [0.55, 0.55, 0.55];
     /// <summary>The ambient colour.</summary>
-    public double[] SunAmbient = { 0.45, 0.45, 0.45 };
+    public double[] SunAmbient = [0.45, 0.45, 0.45];
     /// <summary>The world assets.</summary>
     public WorldAssets Assets = null!;
     /// <summary>The terrain for ground queries of the effects (footprints, bullet holes).</summary>
-    public OpenTribes.World.Terrain? TerrainModel;
+    public Terrain? TerrainModel;
     private readonly IGfxDevice mDev;
 
     private WorldScene(IGfxDevice dev) => mDev = dev;
@@ -77,8 +77,8 @@ public sealed class WorldScene : IDisposable
     {
         error = "";
         var scene = new WorldScene(dev) { MissionName = missionName };
-        string missions = Path.Combine(root, "base", "missions");
-        string? file = Directory.EnumerateFiles(missions, "*.mis", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive }).FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Equals(missionName, StringComparison.OrdinalIgnoreCase));
+        var missions = Path.Combine(root, "base", "missions");
+        var file = Directory.EnumerateFiles(missions, "*.mis", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive }).FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Equals(missionName, StringComparison.OrdinalIgnoreCase));
         if (file == null)
         {
             error = "mission not found: " + missionName;
@@ -133,8 +133,8 @@ public sealed class WorldScene : IDisposable
             // SimTerrain_updateBox 005193cc: x/y of the grid, z +-contHeight (10000 when unset) around the terrain z.
             var tb = new float[6];
             scene.TerrainModel.WorldBox(tb);
-            float h = (float)tm.GetDouble("contHeight", 10000);
-            float tz = (float)tm.GetVector("position")[2];
+            var h = (float)tm.GetDouble("contHeight", 10000);
+            var tz = (float)tm.GetVector("position")[2];
             if (h == 0)
                 h = tb[5] - tz;
             tb[2] = tz - h;
@@ -144,11 +144,15 @@ public sealed class WorldScene : IDisposable
         if (all.FirstOrDefault(o => o.Class == "Planet") is MissionObject planet)
         {
             // The planet light reaches the surfaces of interiors that see the outside (world-render.md 3.7 step 5).
-            var light = new Shapes.LightSet();
+            var light = new LightSet();
             light.SetSun(planet.GetDouble("azimuth", 0), planet.GetDouble("incidence", 60));
             double[] amb = planet.GetVector("ambient"), inten = planet.GetVector("intensity");
-            light.AmbR = (float)amb[0]; light.AmbG = (float)amb[1]; light.AmbB = (float)amb[2];
-            light.SunR = (float)inten[0]; light.SunG = (float)inten[1]; light.SunB = (float)inten[2];
+            light.AmbR = (float)amb[0];
+            light.AmbG = (float)amb[1];
+            light.AmbB = (float)amb[2];
+            light.SunR = (float)inten[0];
+            light.SunG = (float)inten[1];
+            light.SunB = (float)inten[2];
             scene.Interiors.Sun = light;
         }
         foreach (MissionObject o in all.Where(o => o.Class == "InteriorShape"))
@@ -162,17 +166,17 @@ public sealed class WorldScene : IDisposable
         scene.Interiors.Preload();
         scene.TerrainDraw?.Warm();
 
-        double visible = scene.Terrain.Visible;
+        var visible = scene.Terrain.Visible;
         MissionObject? sky = all.FirstOrDefault(o => o.Class == "Sky");
         if (sky != null)
         {
             var tex = new int[SkyRenderer.Panels];
-            for (int i = 0; i < tex.Length; ++i)
+            for (var i = 0; i < tex.Length; ++i)
                 tex[i] = (int)sky.GetDouble($"textures[{i}]", i % 2);
-            string dml = sky.Get("dmlName");
+            var dml = sky.Get("dmlName");
             List<string?>? mats = dml.Length > 0 ? scene.Assets.MaterialList(dml) : null;
             double[] sc = sky.GetVector("skyColor"), hc = sky.GetVector("hazeColor");
-            (float, float, float) C(double[] v) => ((float)Math.Clamp(Finite(v[0]), 0, 1), (float)Math.Clamp(Finite(v[1]), 0, 1), (float)Math.Clamp(Finite(v[2]), 0, 1));
+            static (float, float, float) C(double[] v) => ((float)Math.Clamp(Finite(v[0]), 0, 1), (float)Math.Clamp(Finite(v[1]), 0, 1), (float)Math.Clamp(Finite(v[2]), 0, 1));
             scene.Sky = new SkyRenderer(dev, scene.Assets, mats, tex, sky.GetDouble("size", 600), sky.GetDouble("featurePosition", 0), visible, C(sc), C(hc));
             if (scene.Sky.Textured)
                 scene.ClearColor = scene.Sky.SolidColor;
@@ -181,8 +185,8 @@ public sealed class WorldScene : IDisposable
                 // Solid sky (Sky_drawSolid 004779ac, colour pick 004778d4): the fill is the palette entry nearest to trunc(skyColor * 255),
                 // not the colour itself (a night sky of 0.05 0.05 0.1 on lush.night.ppl is entry 69, 19 22 20, a dark green).
                 var (cr, cg, cb) = C(sc);
-                int idx = scene.Assets.Palette.NearestColor((int)(cr * 255f), (int)(cg * 255f), (int)(cb * 255f));
-                scene.Assets.Palette.SubPalettes[0].Rgb(idx, out byte pr, out byte pg, out byte pb);
+                var idx = scene.Assets.Palette.NearestColor((int)(cr * 255f), (int)(cg * 255f), (int)(cb * 255f));
+                scene.Assets.Palette.SubPalettes[0].Rgb(idx, out var pr, out var pg, out var pb);
                 scene.ClearColor = (pr / 255f, pg / 255f, pb / 255f);
             }
         }
@@ -192,12 +196,12 @@ public sealed class WorldScene : IDisposable
             scene.Stars = StarField.Generate(StarField.DefaultSeed, 1.05 * visible);
             scene.StarsInFront = stars.GetBool("inFrontOfSky", true);
             var cols = new (float, float, float)[3];
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
-                double[] c = stars.GetVector($"colors[{i}]");
+                var c = stars.GetVector($"colors[{i}]");
                 // 4.2 Init: nearest palette entry of the colour
-                int idx = bank.NearestColor((int)(Math.Clamp(Finite(c[0]), 0, 1) * 255), (int)(Math.Clamp(Finite(c[1]), 0, 1) * 255), (int)(Math.Clamp(Finite(c[2]), 0, 1) * 255));
-                bank.SubPalettes[0].Rgb(idx, out byte rr, out byte gg, out byte bb);
+                var idx = bank.NearestColor((int)(Math.Clamp(Finite(c[0]), 0, 1) * 255), (int)(Math.Clamp(Finite(c[1]), 0, 1) * 255), (int)(Math.Clamp(Finite(c[2]), 0, 1) * 255));
+                bank.SubPalettes[0].Rgb(idx, out var rr, out var gg, out var bb);
                 cols[i] = (rr / 255f, gg / 255f, bb / 255f);
             }
             scene.StarColors = cols;
@@ -212,7 +216,7 @@ public sealed class WorldScene : IDisposable
         }
         foreach (MissionObject o in all.Where(o => o.Class == "Planet"))
         {
-            string bmp = o.Get("fileName");
+            var bmp = o.Get("fileName");
             if (bmp.Length == 0)
                 continue;
             var pr = new PlanetRenderer(dev, scene.Assets, bmp, o.GetDouble("azimuth", 0), o.GetDouble("incidence", 30), o.GetDouble("size", 2000), o.GetDouble("distance", 11000));
@@ -228,32 +232,32 @@ public sealed class WorldScene : IDisposable
 
     private void LoadTerrain(IGfxDevice dev, ResourceManager res, MissionObject o, ref string error)
     {
-        string ted = o.Get("tedFileName");
+        var ted = o.Get("tedFileName");
         Terrain = TerrainParams.FromMission(o.GetDouble("visibleDistance", 3000), o.GetDouble("hazeDistance", 2000), o.GetDouble("screenSize", 120));
-        OpenTribes.World.Terrain? t = OpenTribes.World.Terrain.Load(res, ted);
+        Terrain? t = OpenTribes.World.Terrain.Load(res, ted);
         if (t == null)
         {
             error = "terrain not loadable: " + ted;
             return;
         }
-        double[] tpos = o.GetVector("position");
-        t.SetPosition(new OpenTribes.World.Vec3((float)tpos[0], (float)tpos[1], (float)tpos[2]));
+        var tpos = o.GetVector("position");
+        t.SetPosition(new Vec3((float)tpos[0], (float)tpos[1], (float)tpos[2]));
         TerrainModel = t;
-        int dot = ted.LastIndexOf('.');
-        string stem = dot < 0 ? ted : ted[..dot];
+        var dot = ted.LastIndexOf('.');
+        var stem = dot < 0 ? ted : ted[..dot];
         var block = new GridBlock();
-        if (!res.Read(stem + "#0.dtb", out byte[] dtb) || !GridBlock.Parse(dtb, block))
+        if (!res.Read(stem + "#0.dtb", out var dtb) || !GridBlock.Parse(dtb, block))
         {
             error = "terrain block not loadable: " + stem;
             return;
         }
-        string dml = t.MaterialListName();
-        int mdot = dml.LastIndexOf('.');
+        var dml = t.MaterialListName();
+        var mdot = dml.LastIndexOf('.');
         dml = (mdot <= 0 ? dml : dml[..mdot]) + ".dml";
-        List<string?> mats = Assets.MaterialList(dml) ?? new List<string?>();
-        ushort[] light = TerrainData.ReadLightMap(dtb, block.Size);
+        List<string?> mats = Assets.MaterialList(dml) ?? [];
+        var light = TerrainData.ReadLightMap(dtb, block.Size);
         var data = new TerrainData(block, mats.Count, light);
-        double[] pos = o.GetVector("position");
+        var pos = o.GetVector("position");
         TerrainBlockSize = block.Size;
         (TerrainOriginX, TerrainOriginY) = (pos[0], pos[1]);
         TerrainDraw = new TerrainRenderer(dev, Assets, data, mats, pos[0], pos[1], pos[2], Terrain);
@@ -301,8 +305,8 @@ public sealed class WorldScene : IDisposable
         foreach (PointLight l in DynamicLights)
             if (l.Range > 0)
                 near.Add(l);
-        near.Sort((a, b) => ((a.X - cx) * (a.X - cx) + (a.Y - cy) * (a.Y - cy) + (a.Z - cz) * (a.Z - cz))
-                  .CompareTo((b.X - cx) * (b.X - cx) + (b.Y - cy) * (b.Y - cy) + (b.Z - cz) * (b.Z - cz)));
+        near.Sort((a, b) => (((a.X - cx) * (a.X - cx)) + ((a.Y - cy) * (a.Y - cy)) + ((a.Z - cz) * (a.Z - cz)))
+                  .CompareTo(((b.X - cx) * (b.X - cx)) + ((b.Y - cy) * (b.Y - cy)) + ((b.Z - cz) * (b.Z - cz))));
         return near;
     }
 
@@ -311,12 +315,12 @@ public sealed class WorldScene : IDisposable
         List<PointLight> near = NearLights(cx, cy, cz);
         if (near.Count == 0)
         {
-            mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
+            mDev.SetDynamicLights([]);
             return;
         }
-        int n = Math.Min(near.Count, IGfxDevice.MaxDynamicLights);
+        var n = Math.Min(near.Count, IGfxDevice.MaxDynamicLights);
         var arr = new DynamicLight[n];
-        for (int i = 0; i < n; ++i)
+        for (var i = 0; i < n; ++i)
             arr[i] = new DynamicLight((float)near[i].X, (float)near[i].Y, (float)near[i].Z, (float)near[i].Range, near[i].R, near[i].G, near[i].B);
         mDev.SetDynamicLights(arr);
     }
@@ -360,9 +364,8 @@ public sealed class WorldScene : IDisposable
         }
         mDev.SetCamera3D(world);
         // The terrain merges the lights per square on the CPU (TerrainLightSet), the interiors per fragment.
-        mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
-        if (TerrainDraw != null)
-            TerrainDraw.DynamicLights = NearLights(x, y, z);
+        mDev.SetDynamicLights([]);
+        TerrainDraw?.DynamicLights = NearLights(x, y, z);
         using (FramePerf.Scope("terrain"))
             if (Interiors?.TerrainReached(world) ?? true)
                 TerrainDraw?.Draw(world);
@@ -375,7 +378,7 @@ public sealed class WorldScene : IDisposable
                 DrawContents(i);
                 SendDynamicLights(x, y, z);
             });
-        mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
+        mDev.SetDynamicLights([]);
         overlay?.Invoke(world);
         mDev.EndScene3D();
         if (view != null)

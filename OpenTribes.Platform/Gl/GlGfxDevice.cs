@@ -1,16 +1,15 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Platform.Gl;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The OpenGL 3.3 core implementation of <see cref="IGfxDevice"/> (D30, D31).</summary>
 /// <remarks>Everything draws into an offscreen framebuffer of the window size. <see cref="EndFrame"/> copies it to the window and swaps, and <see cref="ReadPixels"/> reads it back. 2D calls are batched per call into a streaming vertex buffer. One shader draws flat colors and textures (docs/renderer.md 4).</remarks>
 public sealed unsafe partial class GlGfxDevice : IGfxDevice, IGfxStats
 {
-    private long mDrawCalls, mTriangles;
     /// <summary>Gets the draw calls issued so far.</summary>
-    public long DrawCalls => mDrawCalls;
+    public long DrawCalls { get; private set; }
     /// <summary>Gets the triangles issued so far.</summary>
-    public long Triangles => mTriangles;
+    public long Triangles { get; private set; }
 
     private const string VertexSource = @"#version 330 core
 in vec2 aPos;
@@ -44,53 +43,51 @@ void main() {
     }
 
     private readonly GlWindow mWin;
-    private readonly GlApi gl;
     private uint mFbo, mColorRb, mDepthRb;
-    private uint mProgram, mVao, mVbo, mSamplerNearest, mSamplerLinear;
-    private int mUViewport, mUUseTex, mUTex;
-    private int mWidth, mHeight;
+    private readonly uint mProgram, mVao, mVbo, mSamplerNearest, mSamplerLinear;
+    private readonly int mUViewport, mUUseTex, mUTex;
     private PaletteBank mBank = PaletteTables.Grayscale();
     private float mGamma = 1f;
     private byte[] mGammaTable = PaletteTables.GammaTable(1f);
-    private readonly Dictionary<PbmpBitmap, CachedTexture> mCache = new();
+    private readonly Dictionary<PbmpBitmap, CachedTexture> mCache = [];
     private GfxRect? mClip;
     private float[] mVerts = new float[8 * 6 * 64];
     private int mVertCount;
     private bool mDisposed;
 
     /// <inheritdoc/>
-    public int Width => mWidth;
+    public int Width { get; private set; }
     /// <inheritdoc/>
-    public int Height => mHeight;
+    public int Height { get; private set; }
     /// <summary>Gets the GL function table.</summary>
-    public GlApi Api => gl;
+    public GlApi Api { get; }
     /// <summary>Gets the GL renderer string.</summary>
-    public string Renderer => gl.GetString(GlApi.Renderer);
+    public string Renderer => Api.GetString(GlApi.Renderer);
 
     /// <summary>Creates a device that draws into a window.</summary>
     /// <param name="window">The window, with its GL context current.</param>
     public GlGfxDevice(GlWindow window)
     {
         mWin = window;
-        gl = window.Gl;
-        (mWidth, mHeight) = window.PixelSize();
-        if (mWidth <= 0 || mHeight <= 0)
-            (mWidth, mHeight) = (1, 1);
+        Api = window.Gl;
+        (Width, Height) = window.PixelSize();
+        if (Width <= 0 || Height <= 0)
+            (Width, Height) = (1, 1);
 
-        mProgram = gl.BuildProgram(VertexSource, FragmentSource, (0, "aPos"), (1, "aUv"), (2, "aColor"));
-        mUViewport = gl.UniformLocation(mProgram, "uViewport");
-        mUUseTex = gl.UniformLocation(mProgram, "uUseTex");
-        mUTex = gl.UniformLocation(mProgram, "uTex");
-        mVao = gl.GenVertexArray();
-        mVbo = gl.GenBuffer();
-        gl.BindVertexArray_(mVao);
-        gl.BindBuffer_(GlApi.ArrayBuffer, mVbo);
-        gl.VertexAttribPointer_(0, 2, GlApi.Float, 0, 32, (void*)0);
-        gl.VertexAttribPointer_(1, 2, GlApi.Float, 0, 32, (void*)8);
-        gl.VertexAttribPointer_(2, 4, GlApi.Float, 0, 32, (void*)16);
-        gl.EnableVertexAttribArray_(0);
-        gl.EnableVertexAttribArray_(1);
-        gl.EnableVertexAttribArray_(2);
+        mProgram = Api.BuildProgram(VertexSource, FragmentSource, (0, "aPos"), (1, "aUv"), (2, "aColor"));
+        mUViewport = Api.UniformLocation(mProgram, "uViewport");
+        mUUseTex = Api.UniformLocation(mProgram, "uUseTex");
+        mUTex = Api.UniformLocation(mProgram, "uTex");
+        mVao = Api.GenVertexArray();
+        mVbo = Api.GenBuffer();
+        Api.BindVertexArray_(mVao);
+        Api.BindBuffer_(GlApi.ArrayBuffer, mVbo);
+        Api.VertexAttribPointer_(0, 2, GlApi.Float, 0, 32, (void*)0);
+        Api.VertexAttribPointer_(1, 2, GlApi.Float, 0, 32, (void*)8);
+        Api.VertexAttribPointer_(2, 4, GlApi.Float, 0, 32, (void*)16);
+        Api.EnableVertexAttribArray_(0);
+        Api.EnableVertexAttribArray_(1);
+        Api.EnableVertexAttribArray_(2);
         mSamplerNearest = MakeSampler(GlApi.Nearest);
         mSamplerLinear = MakeSampler(GlApi.Linear);
         CreateTarget();
@@ -98,11 +95,11 @@ void main() {
 
     private uint MakeSampler(uint filter)
     {
-        uint s = gl.GenSampler();
-        gl.SamplerParameteri_(s, GlApi.TextureMinFilter, (int)filter);
-        gl.SamplerParameteri_(s, GlApi.TextureMagFilter, (int)filter);
-        gl.SamplerParameteri_(s, GlApi.TextureWrapS, (int)GlApi.ClampToEdge);
-        gl.SamplerParameteri_(s, GlApi.TextureWrapT, (int)GlApi.ClampToEdge);
+        var s = Api.GenSampler();
+        Api.SamplerParameteri_(s, GlApi.TextureMinFilter, (int)filter);
+        Api.SamplerParameteri_(s, GlApi.TextureMagFilter, (int)filter);
+        Api.SamplerParameteri_(s, GlApi.TextureWrapS, (int)GlApi.ClampToEdge);
+        Api.SamplerParameteri_(s, GlApi.TextureWrapT, (int)GlApi.ClampToEdge);
         return s;
     }
 
@@ -111,21 +108,21 @@ void main() {
         if (mFbo != 0)
         {
             uint f = mFbo, c = mColorRb, d = mDepthRb;
-            gl.DeleteFramebuffers_(1, &f);
-            gl.DeleteRenderbuffers_(1, &c);
-            gl.DeleteRenderbuffers_(1, &d);
+            Api.DeleteFramebuffers_(1, &f);
+            Api.DeleteRenderbuffers_(1, &c);
+            Api.DeleteRenderbuffers_(1, &d);
         }
-        mFbo = gl.GenFramebuffer();
-        mColorRb = gl.GenRenderbuffer();
-        mDepthRb = gl.GenRenderbuffer();
-        gl.BindRenderbuffer_(GlApi.Renderbuffer, mColorRb);
-        gl.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.Rgba8, mWidth, mHeight);
-        gl.BindRenderbuffer_(GlApi.Renderbuffer, mDepthRb);
-        gl.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.DepthComponent16, mWidth, mHeight);
-        gl.BindFramebuffer_(GlApi.Framebuffer, mFbo);
-        gl.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.ColorAttachment0, GlApi.Renderbuffer, mColorRb);
-        gl.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.DepthAttachment, GlApi.Renderbuffer, mDepthRb);
-        if (gl.CheckFramebufferStatus_(GlApi.Framebuffer) != GlApi.FramebufferComplete)
+        mFbo = Api.GenFramebuffer();
+        mColorRb = Api.GenRenderbuffer();
+        mDepthRb = Api.GenRenderbuffer();
+        Api.BindRenderbuffer_(GlApi.Renderbuffer, mColorRb);
+        Api.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.Rgba8, Width, Height);
+        Api.BindRenderbuffer_(GlApi.Renderbuffer, mDepthRb);
+        Api.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.DepthComponent16, Width, Height);
+        Api.BindFramebuffer_(GlApi.Framebuffer, mFbo);
+        Api.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.ColorAttachment0, GlApi.Renderbuffer, mColorRb);
+        Api.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.DepthAttachment, GlApi.Renderbuffer, mDepthRb);
+        if (Api.CheckFramebufferStatus_(GlApi.Framebuffer) != GlApi.FramebufferComplete)
             throw new InvalidOperationException("offscreen framebuffer incomplete");
         Prepare2D();
     }
@@ -133,15 +130,15 @@ void main() {
     // 1.8 item 2: 2D state. The depth test stays off for all 2D draws (5.4 endScene3d).
     private void Prepare2D()
     {
-        gl.BindFramebuffer_(GlApi.Framebuffer, mFbo);
-        gl.Viewport_(0, 0, mWidth, mHeight);
-        gl.Disable_(GlApi.DepthTest);
-        gl.Disable_(GlApi.CullFace);
-        gl.UseProgram_(mProgram);
-        gl.Uniform2f_(mUViewport, mWidth, mHeight);
-        gl.Uniform1i_(mUTex, 0);
-        gl.BindVertexArray_(mVao);
-        gl.BindBuffer_(GlApi.ArrayBuffer, mVbo);
+        Api.BindFramebuffer_(GlApi.Framebuffer, mFbo);
+        Api.Viewport_(0, 0, Width, Height);
+        Api.Disable_(GlApi.DepthTest);
+        Api.Disable_(GlApi.CullFace);
+        Api.UseProgram_(mProgram);
+        Api.Uniform2f_(mUViewport, Width, Height);
+        Api.Uniform1i_(mUTex, 0);
+        Api.BindVertexArray_(mVao);
+        Api.BindBuffer_(GlApi.ArrayBuffer, mVbo);
     }
 
     /// <inheritdoc/>
@@ -160,7 +157,7 @@ void main() {
     public void FlushTextureCache()
     {
         foreach (CachedTexture t in mCache.Values)
-            gl.DeleteTexture(t.Name);
+            Api.DeleteTexture(t.Name);
         mCache.Clear();
     }
 
@@ -168,7 +165,7 @@ void main() {
     public void FlushTexture(PbmpBitmap bitmap)
     {
         if (mCache.Remove(bitmap, out CachedTexture? t))
-            gl.DeleteTexture(t.Name);
+            Api.DeleteTexture(t.Name);
     }
 
     /// <summary>Gets the number of cached textures.</summary>
@@ -177,34 +174,34 @@ void main() {
     /// <inheritdoc/>
     public void BeginFrame()
     {
-        (int w, int h) = mWin.PixelSize();
-        if (w > 0 && h > 0 && (w != mWidth || h != mHeight))
+        (var w, var h) = mWin.PixelSize();
+        if (w > 0 && h > 0 && (w != Width || h != Height))
         {
-            mWidth = w;
-            mHeight = h;
+            Width = w;
+            Height = h;
             CreateTarget();
         }
         Prepare2D();
-        gl.Disable_(GlApi.ScissorTest);
+        Api.Disable_(GlApi.ScissorTest);
     }
 
     /// <inheritdoc/>
     public void EndFrame()
     {
-        gl.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
-        gl.BindFramebuffer_(GlApi.DrawFramebuffer, 0);
-        gl.Disable_(GlApi.ScissorTest);
+        Api.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
+        Api.BindFramebuffer_(GlApi.DrawFramebuffer, 0);
+        Api.Disable_(GlApi.ScissorTest);
         if (mWin.Scaled)
         {
             // No display mode was set: the canvas keeps the full screen resolution and is scaled into the window, aspect kept.
-            (int ww, int wh) = mWin.WindowPixels();
-            (int x, int y, int w, int h) = FullscreenPlan.Letterbox((mWidth, mHeight), (ww, wh));
-            gl.ClearColor_(0f, 0f, 0f, 1f);
-            gl.Clear_(GlApi.ColorBufferBit);
-            gl.BlitFramebuffer_(0, 0, mWidth, mHeight, x, y, x + w, y + h, GlApi.ColorBufferBit, GlApi.Nearest);
+            (var ww, var wh) = mWin.WindowPixels();
+            (var x, var y, var w, var h) = FullscreenPlan.Letterbox((Width, Height), (ww, wh));
+            Api.ClearColor_(0f, 0f, 0f, 1f);
+            Api.Clear_(GlApi.ColorBufferBit);
+            Api.BlitFramebuffer_(0, 0, Width, Height, x, y, x + w, y + h, GlApi.ColorBufferBit, GlApi.Nearest);
         }
         else
-            gl.BlitFramebuffer_(0, 0, mWidth, mHeight, 0, 0, mWidth, mHeight, GlApi.ColorBufferBit, GlApi.Nearest);
+            Api.BlitFramebuffer_(0, 0, Width, Height, 0, 0, Width, Height, GlApi.ColorBufferBit, GlApi.Nearest);
         mWin.Swap();
         Prepare2D();
     }
@@ -214,15 +211,15 @@ void main() {
     {
         SubPalette sub = mBank.SubPalettes[0];
         colorIndex = Math.Clamp(colorIndex, 0, 255);
-        ClearRgb(sub.Colors[colorIndex * 4], sub.Colors[colorIndex * 4 + 1], sub.Colors[colorIndex * 4 + 2]);
+        ClearRgb(sub.Colors[colorIndex * 4], sub.Colors[(colorIndex * 4) + 1], sub.Colors[(colorIndex * 4) + 2]);
     }
 
     /// <inheritdoc/>
     public void ClearRgb(byte r, byte g, byte b)
     {
-        gl.Disable_(GlApi.ScissorTest);
-        gl.ClearColor_(r / 255f, g / 255f, b / 255f, 1f);
-        gl.Clear_(GlApi.ColorBufferBit);
+        Api.Disable_(GlApi.ScissorTest);
+        Api.ClearColor_(r / 255f, g / 255f, b / 255f, 1f);
+        Api.Clear_(GlApi.ColorBufferBit);
     }
 
     /// <inheritdoc/>
@@ -234,7 +231,7 @@ void main() {
     {
         if ((mVertCount + 1) * 8 > mVerts.Length)
             Array.Resize(ref mVerts, mVerts.Length * 2);
-        int o = mVertCount++ * 8;
+        var o = mVertCount++ * 8;
         mVerts[o] = x;
         mVerts[o + 1] = y;
         mVerts[o + 2] = u;
@@ -260,15 +257,15 @@ void main() {
     {
         if (mClip is not GfxRect c)
         {
-            gl.Disable_(GlApi.ScissorTest);
+            Api.Disable_(GlApi.ScissorTest);
             return;
         }
-        GfxRect r = c.Intersect(new GfxRect(0, 0, mWidth - 1, mHeight - 1));
-        gl.Enable_(GlApi.ScissorTest);
+        GfxRect r = c.Intersect(new GfxRect(0, 0, Width - 1, Height - 1));
+        Api.Enable_(GlApi.ScissorTest);
         if (r.IsEmpty)
-            gl.Scissor_(0, 0, 0, 0);
+            Api.Scissor_(0, 0, 0, 0);
         else
-            gl.Scissor_(r.Left, mHeight - 1 - r.Bottom, r.Width, r.Height);
+            Api.Scissor_(r.Left, Height - 1 - r.Bottom, r.Width, r.Height);
     }
 
     private void SetBlend(BlendMode mode)
@@ -276,19 +273,19 @@ void main() {
         switch (mode)
         {
             case BlendMode.Opaque:
-                gl.Disable_(GlApi.Blend);
+                Api.Disable_(GlApi.Blend);
                 return;
             case BlendMode.Additive: // 5.4 add: (SRC_ALPHA, ONE)
-                gl.Enable_(GlApi.Blend);
-                gl.BlendFunc_(GlApi.SrcAlpha, GlApi.ONE);
+                Api.Enable_(GlApi.Blend);
+                Api.BlendFunc_(GlApi.SrcAlpha, GlApi.ONE);
                 return;
             case BlendMode.Subtractive: // 5.4 sub: (ZERO, ONE_MINUS_SRC_COLOR)
-                gl.Enable_(GlApi.Blend);
-                gl.BlendFunc_(GlApi.ZERO, GlApi.OneMinusSrcColor);
+                Api.Enable_(GlApi.Blend);
+                Api.BlendFunc_(GlApi.ZERO, GlApi.OneMinusSrcColor);
                 return;
             default: // transparent, translucent: (SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
-                gl.Enable_(GlApi.Blend);
-                gl.BlendFunc_(GlApi.SrcAlpha, GlApi.OneMinusSrcAlpha);
+                Api.Enable_(GlApi.Blend);
+                Api.BlendFunc_(GlApi.SrcAlpha, GlApi.OneMinusSrcAlpha);
                 return;
         }
     }
@@ -299,18 +296,18 @@ void main() {
             return;
         ApplyClip();
         SetBlend(blend);
-        gl.Uniform1i_(mUUseTex, tex != null ? 1 : 0);
+        Api.Uniform1i_(mUUseTex, tex != null ? 1 : 0);
         if (tex != null)
         {
-            gl.ActiveTexture_(GlApi.Texture0);
-            gl.BindTexture_(GlApi.Texture2D, tex.Name);
-            gl.BindSampler_(0, linear ? mSamplerLinear : mSamplerNearest);
+            Api.ActiveTexture_(GlApi.Texture0);
+            Api.BindTexture_(GlApi.Texture2D, tex.Name);
+            Api.BindSampler_(0, linear ? mSamplerLinear : mSamplerNearest);
         }
         fixed (float* p = mVerts)
-            gl.BufferData_(GlApi.ArrayBuffer, (nint)(mVertCount * 32), p, GlApi.StreamDraw);
-        gl.DrawArrays_(mode, 0, mVertCount);
-        ++mDrawCalls;
-        mTriangles += mVertCount / 3;
+            Api.BufferData_(GlApi.ArrayBuffer, mVertCount * 32, p, GlApi.StreamDraw);
+        Api.DrawArrays_(mode, 0, mVertCount);
+        ++DrawCalls;
+        Triangles += mVertCount / 3;
         mVertCount = 0;
     }
 
@@ -379,7 +376,7 @@ void main() {
             Pixels(x0, y0, x0, y0, colorIndex, 1f);
             if (x0 == x1 && y0 == y1)
                 break;
-            int e2 = 2 * err;
+            var e2 = 2 * err;
             if (e2 >= dy)
             {
                 err += dy;
@@ -401,19 +398,19 @@ void main() {
         if (mCache.TryGetValue(bmp, out CachedTexture? t))
             return t;
         SubPalette sub = mBank.FindSubPalette(bmp.PaletteId);
-        byte[] rgba = PaletteTables.ToRgba(bmp, sub, mGammaTable);
+        var rgba = PaletteTables.ToRgba(bmp, sub, mGammaTable);
         // Stock blit 005d8290 uploads through 005d3ecc, which packs palette-indexed bitmaps by subpalette kind (005d7148) unless
         // $pref::OpenGL::NoPackedTextures or Use32BitTex is set; then it uploads the 8 bit tables unpacked (005d5164, 005d5e34, 005d5a3c).
         if (bmp.Depth == 8 && (PackedTextures?.Invoke() ?? true))
             PaletteTables.Pack(rgba, sub);
-        t = new CachedTexture { Name = gl.GenTexture(), Width = Math.Max(1, bmp.Width), Height = Math.Max(1, bmp.Height) };
-        gl.BindTexture_(GlApi.Texture2D, t.Name);
-        gl.PixelStorei_(GlApi.UnpackAlignment, 1);
-        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter, (int)GlApi.Nearest);
-        gl.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)GlApi.Nearest);
+        t = new CachedTexture { Name = Api.GenTexture(), Width = Math.Max(1, bmp.Width), Height = Math.Max(1, bmp.Height) };
+        Api.BindTexture_(GlApi.Texture2D, t.Name);
+        Api.PixelStorei_(GlApi.UnpackAlignment, 1);
+        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter, (int)GlApi.Nearest);
+        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)GlApi.Nearest);
         if (bmp.Width > 0 && bmp.Height > 0)
             fixed (byte* p = rgba)
-                gl.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, bmp.Width, bmp.Height, 0, GlApi.Rgba,
+                Api.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, bmp.Width, bmp.Height, 0, GlApi.Rgba,
                                GlApi.UnsignedByte, p);
         mCache[bmp] = t;
         return t;
@@ -444,7 +441,7 @@ void main() {
         CachedTexture tex = Texture(bmp);
         BlendMode mode = bmp.Blend;
         // 4: translucent is a 50% blend [I]; a translucent (kind 2) subpalette carries its own alpha in the texture.
-        float alpha = 1f;
+        var alpha = 1f;
         if (mode == BlendMode.Translucent && mBank.FindSubPalette(bmp.PaletteId).Kind != 2)
             alpha = 0.5f;
         float u0 = (float)src.Left / tex.Width, u1 = (float)(src.Right + 1) / tex.Width;
@@ -460,21 +457,21 @@ void main() {
     /// <inheritdoc/>
     public byte[] ReadPixels()
     {
-        gl.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
-        gl.PixelStorei_(GlApi.PackAlignment, 1);
-        var raw = new byte[mWidth * mHeight * 4];
+        Api.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
+        Api.PixelStorei_(GlApi.PackAlignment, 1);
+        var raw = new byte[Width * Height * 4];
         fixed (byte* p = raw)
-            gl.ReadPixels_(0, 0, mWidth, mHeight, GlApi.Rgba, GlApi.UnsignedByte, p);
+            Api.ReadPixels_(0, 0, Width, Height, GlApi.Rgba, GlApi.UnsignedByte, p);
         var flipped = new byte[raw.Length];
-        int row = mWidth * 4;
-        for (int y = 0; y < mHeight; ++y)
-            Buffer.BlockCopy(raw, (mHeight - 1 - y) * row, flipped, y * row, row);
+        var row = Width * 4;
+        for (var y = 0; y < Height; ++y)
+            Buffer.BlockCopy(raw, (Height - 1 - y) * row, flipped, y * row, row);
         return flipped;
     }
 
     /// <summary>Gets the last GL error.</summary>
     /// <returns>The GL error code.</returns>
-    public uint GetError() => gl.GetError_();
+    public uint GetError() => Api.GetError_();
 
     /// <summary>Releases the GL objects of the device.</summary>
     public void Dispose()
@@ -484,14 +481,14 @@ void main() {
         mDisposed = true;
         FlushTextureCache();
         uint f = mFbo, c = mColorRb, d = mDepthRb, vao = mVao, vbo = mVbo, s0 = mSamplerNearest, s1 = mSamplerLinear;
-        gl.DeleteFramebuffers_(1, &f);
-        gl.DeleteRenderbuffers_(1, &c);
-        gl.DeleteRenderbuffers_(1, &d);
-        gl.DeleteVertexArrays_(1, &vao);
-        gl.DeleteBuffers_(1, &vbo);
-        gl.DeleteSamplers_(1, &s0);
-        gl.DeleteSamplers_(1, &s1);
-        gl.DeleteProgram_(mProgram);
+        Api.DeleteFramebuffers_(1, &f);
+        Api.DeleteRenderbuffers_(1, &c);
+        Api.DeleteRenderbuffers_(1, &d);
+        Api.DeleteVertexArrays_(1, &vao);
+        Api.DeleteBuffers_(1, &vbo);
+        Api.DeleteSamplers_(1, &s0);
+        Api.DeleteSamplers_(1, &s1);
+        Api.DeleteProgram_(mProgram);
         Dispose3D();
     }
 }

@@ -9,29 +9,39 @@ public static class Lzh
     private const int kMaxMatch = 60;
     private const int kThreshold = 2;
     private const int kNumChars = 256 - kThreshold + kMaxMatch; // 314
-    private const int kTableSize = kNumChars * 2 - 1;           // 627
+    private const int kTableSize = (kNumChars * 2) - 1;           // 627
     private const int kRoot = kTableSize - 1;
     private const ushort kMaxFreq = 0x8000;
 
     // src/core/lzh.cpp dCode: position decoding table.
     private static byte DCode(int i)
     {
-        if (i < 32) return 0;
-        if (i < 80) return (byte)(1 + (i - 32) / 16);
-        if (i < 144) return (byte)(4 + (i - 80) / 8);
-        if (i < 192) return (byte)(12 + (i - 144) / 4);
-        if (i < 240) return (byte)(24 + (i - 192) / 2);
+        if (i < 32)
+            return 0;
+        if (i < 80)
+            return (byte)(1 + ((i - 32) / 16));
+        if (i < 144)
+            return (byte)(4 + ((i - 80) / 8));
+        if (i < 192)
+            return (byte)(12 + ((i - 144) / 4));
+        if (i < 240)
+            return (byte)(24 + ((i - 192) / 2));
         return (byte)(48 + (i - 240));
     }
 
     // src/core/lzh.cpp dLen.
     private static byte DLen(int i)
     {
-        if (i < 32) return 3;
-        if (i < 80) return 4;
-        if (i < 144) return 5;
-        if (i < 192) return 6;
-        if (i < 240) return 7;
+        if (i < 32)
+            return 3;
+        if (i < 80)
+            return 4;
+        if (i < 144)
+            return 5;
+        if (i < 192)
+            return 6;
+        if (i < 240)
+            return 7;
         return 8;
     }
 
@@ -56,7 +66,7 @@ public static class Lzh
             mFreq = new ushort[kTableSize + 1];
             mParent = new ushort[kTableSize + kNumChars];
             mSon = new ushort[kTableSize];
-            for (int i = 0; i < kNumChars; ++i)
+            for (var i = 0; i < kNumChars; ++i)
             {
                 mFreq[i] = 1;
                 mSon[i] = (ushort)(i + kTableSize);
@@ -89,9 +99,9 @@ public static class Lzh
         // src/core/lzh.cpp Decoder::decodePosition.
         public int DecodePosition()
         {
-            int i = GetByte();
-            int c = DCode(i) << 6;
-            for (int j = DLen(i) - 2; j > 0; --j)
+            var i = GetByte();
+            var c = DCode(i) << 6;
+            for (var j = DLen(i) - 2; j > 0; --j)
                 i = (i << 1) + GetBit();
             return c | (i & 0x3f);
         }
@@ -113,7 +123,7 @@ public static class Lzh
         private int GetBit()
         {
             Fill();
-            int bit = mBits >> 15;
+            var bit = mBits >> 15;
             mBits = (ushort)(mBits << 1);
             --mBitCount;
             return bit;
@@ -123,7 +133,7 @@ public static class Lzh
         private int GetByte()
         {
             Fill();
-            int b = mBits >> 8;
+            var b = mBits >> 8;
             mBits = (ushort)(mBits << 8);
             mBitCount -= 8;
             return b;
@@ -132,8 +142,8 @@ public static class Lzh
         // src/core/lzh.cpp Decoder::reconstruct: halves frequencies and rebuilds the tree.
         private readonly void Reconstruct()
         {
-            int j = 0;
-            for (int i = 0; i < kTableSize; ++i)
+            var j = 0;
+            for (var i = 0; i < kTableSize; ++i)
             {
                 if (mSon[i] >= kTableSize)
                 {
@@ -144,9 +154,9 @@ public static class Lzh
             }
             for (int i = 0, jj = kNumChars; jj < kTableSize; i += 2, ++jj)
             {
-                ushort f = (ushort)(mFreq[i] + mFreq[i + 1]);
+                var f = (ushort)(mFreq[i] + mFreq[i + 1]);
                 mFreq[jj] = f;
-                int k = jj - 1;
+                var k = jj - 1;
                 while (f < mFreq[k])
                     --k;
                 ++k;
@@ -155,7 +165,7 @@ public static class Lzh
                 Array.Copy(mSon, k, mSon, k + 1, jj - k);
                 mSon[k] = (ushort)i;
             }
-            for (int i = 0; i < kTableSize; ++i)
+            for (var i = 0; i < kTableSize; ++i)
             {
                 int k = mSon[i];
                 if (k >= kTableSize)
@@ -173,8 +183,8 @@ public static class Lzh
             c = mParent[c + kTableSize];
             do
             {
-                ushort k = ++mFreq[c];
-                int l = c + 1;
+                var k = ++mFreq[c];
+                var l = c + 1;
                 if (k > mFreq[l])
                 {
                     while (k > mFreq[l + 1])
@@ -203,10 +213,7 @@ public static class Lzh
     /// <summary>Decodes exactly <paramref name="output"/>.Length bytes. Input past the end reads as zero.</summary>
     /// <param name="input">The compressed bytes.</param>
     /// <param name="output">Receives the decoded bytes.</param>
-    public static void LzhDecode(ReadOnlySpan<byte> input, Span<byte> output)
-    {
-        LzhDecodeCounted(input, output);
-    }
+    public static void LzhDecode(ReadOnlySpan<byte> input, Span<byte> output) => LzhDecodeCounted(input, output);
 
     /// <summary>Decodes like <see cref="LzhDecode"/> and reports how much input was used.</summary>
     /// <param name="input">The compressed bytes.</param>
@@ -217,12 +224,12 @@ public static class Lzh
         var dec = new Decoder(input);
         Span<byte> ring = stackalloc byte[kRingSize];
         ring.Fill((byte)' ');
-        int r = kRingSize - kMaxMatch;
+        var r = kRingSize - kMaxMatch;
 
-        int n = 0;
+        var n = 0;
         while (n < output.Length)
         {
-            int c = dec.DecodeChar();
+            var c = dec.DecodeChar();
             if (c < 256)
             {
                 output[n++] = (byte)c;
@@ -230,11 +237,11 @@ public static class Lzh
                 r = (r + 1) & (kRingSize - 1);
                 continue;
             }
-            int start = (r - dec.DecodePosition() - 1) & (kRingSize - 1);
-            int length = c - 255 + kThreshold;
-            for (int k = 0; k < length && n < output.Length; ++k)
+            var start = (r - dec.DecodePosition() - 1) & (kRingSize - 1);
+            var length = c - 255 + kThreshold;
+            for (var k = 0; k < length && n < output.Length; ++k)
             {
-                byte b = ring[(start + k) & (kRingSize - 1)];
+                var b = ring[(start + k) & (kRingSize - 1)];
                 output[n++] = b;
                 ring[r] = b;
                 r = (r + 1) & (kRingSize - 1);

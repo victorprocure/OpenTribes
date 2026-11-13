@@ -1,9 +1,9 @@
 // Port of src/game/ghost_classes.hpp and src/game/ghost_classes.cpp: ghost packUpdate of the mission environment classes
 // (docs/game-stream-ghosts.md 3) and of the GameBase family (4): StaticShape, Sensor, Turret, Item, Mine, Moveable,
 // Marker, Trigger; the Player, Vehicle and projectile classes register theirs from here.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public static partial class GhostClasses
 {
@@ -27,7 +27,7 @@ public static partial class GhostClasses
     // src/game/ghost_classes.cpp packSimVolume: SimVolume 0x005081b8: file name (+0x68).
     private static uint PackSimVolume(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
-        SimClasses.SimVolumeInfo(obj, out string file, out _);
+        SimClasses.SimVolumeInfo(obj, out var file, out _);
         bs.WriteString(file);
         return 0;
     }
@@ -137,14 +137,14 @@ public static partial class GhostClasses
             WritePoint(bs, f, "position", 0, 0, 0);
             WritePoint(bs, f, "rotation", 0, 0, 0);
             bs.WriteInt((uint)net.StateWords.Count, 32);
-            foreach (uint w in net.StateWords)
+            foreach (var w in net.StateWords)
                 bs.WriteInt(w, 32);
             bs.WriteInt((uint)net.Lights.Count, 32);
             foreach (InteriorNetInfo.Light l in net.Lights)
             {
                 // {f32 intensity, u8 on, 3 padding bytes, u32 0, u32 0}. The original's padding is uninitialized heap
                 // memory; sent as 0 (D12).
-                byte[] rec = new byte[16];
+                var rec = new byte[16];
                 BitConverter.TryWriteBytes(rec.AsSpan(0, 4), l.Intensity);
                 rec[4] = l.On ? (byte)1 : (byte)0;
                 bs.WriteBytes(rec);
@@ -175,8 +175,8 @@ public static partial class GhostClasses
     // so a negative value wraps (Item rotation) and nothing is clamped.
     private static void WriteUnit(BitStream bs, float v, uint bits)
     {
-        double x = Mul((double)(int)((1u << (int)bits) - 1), v);
-        long i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
+        var x = Mul((int)((1u << (int)bits) - 1), v);
+        var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
         bs.WriteInt((uint)i & ((1u << (int)bits) - 1), bits);
     }
 
@@ -184,8 +184,8 @@ public static partial class GhostClasses
     // writeFloat.
     private static void WriteSignedUnit(BitStream bs, float v, uint bits)
     {
-        double x = Mul(Mul(Add(v, 1.0f), 0.5f), (double)(int)((1u << (int)bits) - 1));
-        long i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
+        var x = Mul(Mul(Add(v, 1.0f), 0.5f), (int)((1u << (int)bits) - 1));
+        var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
         bs.WriteInt((uint)i & ((1u << (int)bits) - 1), bits);
     }
 
@@ -219,7 +219,7 @@ public static partial class GhostClasses
             WriteSignedUnit(bs, gb.FlashNormal[0], 7);
             WriteSignedUnit(bs, gb.FlashNormal[1], 7);
             bs.WriteFlag(gb.FlashNormal[2] < 0.0f);
-            float a = gb.FlashAmount;
+            var a = gb.FlashAmount;
             if (a > 5.0f)
                 a = 5.0f;
             if (a < -5.0f)
@@ -227,7 +227,7 @@ public static partial class GhostClasses
             WriteUnit(bs, StoreF32(Mul(0.1, Add(a, 5.0f))), 8);
         }
         if (bs.WriteFlag((mask & 0x400) != 0))
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 GameBase.Thread t = gb.Threads[i];
                 if (bs.WriteFlag(t.Sequence != -1 && (mask & (0x800u << i)) != 0))
@@ -324,7 +324,7 @@ public static partial class GhostClasses
             PackDataBlock(gb, bs);
             if (bs.WriteFlag(gb.TargetIndex != -1))
                 bs.WriteInt((uint)gb.TargetIndex, 7);
-            int thrower = gb.ItemThrower != null ? ctx.Manager.GhostIndex(gb.ItemThrower) : -1;
+            var thrower = gb.ItemThrower != null ? ctx.Manager.GhostIndex(gb.ItemThrower) : -1;
             if (bs.WriteFlag(thrower != -1))
                 bs.WriteInt((uint)thrower, 10);
             bs.WriteFlag(gb.ItemRotates);
@@ -408,7 +408,7 @@ public static partial class GhostClasses
         }
         if (bs.WriteFlag((mask & 0x80) != 0))
         {
-            float[] box = { 0, 0, 0, 0, 0, 0 };
+            float[] box = [0, 0, 0, 0, 0, 0];
             if (gb.PersistValue("boundingBox") is IReadOnlyList<string> v && v.Count != 0)
                 CScan.Floats(v[0], box);
             bs.WriteF32s(box);
@@ -420,7 +420,7 @@ public static partial class GhostClasses
     private static uint PackSnowfall(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
         PersistFields f = FieldsOf(obj);
-        bool rain = f.Boolean("rain", false);
+        var rain = f.Boolean("rain", false);
         if (bs.WriteFlag((mask & 0x01) != 0))
             WriteF32(bs, f.Real("intensity", 0.0f));
         if (bs.WriteFlag((mask & 0x02) != 0))
@@ -445,7 +445,7 @@ public static partial class GhostClasses
         WritePoint(bs, f, "hazeColor", 0, 0, 0);
         WriteF32(bs, f.Real("featurePosition", 0.0f));
         WriteF32(bs, f.Real("size", 600.0f));
-        for (int i = 0; i < 16; ++i)
+        for (var i = 0; i < 16; ++i)
             bs.WriteInt((uint)f.Integer("textures", i % 2, i), 4);
         return 0;
     }
@@ -454,7 +454,7 @@ public static partial class GhostClasses
     private static uint PackPlanet(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
         PersistFields f = FieldsOf(obj);
-        float incidence = f.Real("incidence", 30.0f);
+        var incidence = f.Real("incidence", 30.0f);
         if (incidence > 89.0f)
             incidence = 89.0f;
         if (incidence < -89.0f)

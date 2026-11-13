@@ -3,9 +3,9 @@
 // control, stepped move with the Player collision callback), the control state. The collision event dispatch of
 // player.cpp (GameState::postCollisionEvent, dispatchCollisionEvent) is in Displace.cs. The Chop class of the file is
 // X87.Chop; world::x87::f32 is X87.F32, the long double arithmetic is the Fpu double operations in C++ order.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The Player: the server side object a client controls on foot.</summary>
 /// <remarks>See docs/player-sim.md. This part holds creation, the datablock binding, move credit and the 32 ms step. The other parts are in the files named after the Player features.</remarks>
@@ -307,7 +307,7 @@ public sealed partial class Player : GameBase
     /// <summary>The ground traction (+0xfcc).</summary>
     public float Traction;
     /// <summary>The normal of the jump contact (+0xfb0).</summary>
-    public readonly float[] JumpNormal = { 0, 0, 1 };
+    public readonly float[] JumpNormal = [0, 0, 1];
     /// <summary>The ticks since the jump contact (+0xfac).</summary>
     public int TicksSinceJumpContact = 100;
     /// <summary>The ticks since a contact (+0xfc0).</summary>
@@ -371,7 +371,7 @@ public sealed partial class Player : GameBase
     public int MountPoint;
 
     private readonly GameState mGame;
-    private readonly List<Force> mForces = new();
+    private readonly List<Force> mForces = [];
     private readonly SteppedMove mMove = new();
     private object? mTerrainContainer;  // terrain entry the gravity came from
     private float mContainerDrag;       // SimMovement +0x124, set on container entry
@@ -386,12 +386,12 @@ public sealed partial class Player : GameBase
     public Player(GameState game) : base("Player", Kind.ShapeBase, 3, Array.Empty<PersistDef>(), OwnContext(game))
     {
         mGame = game;
-        for (int i = 0; i < kImageSlots; ++i)
+        for (var i = 0; i < kImageSlots; ++i)
             Images[i] = new ImageSlot();
-        for (int i = 0; i < kItemTypes; ++i)
+        for (var i = 0; i < kItemTypes; ++i)
             SlotOf[i] = -1;
         DamageState = kEnabled; // ShapeBase getDamageState: always Enabled
-        mMove.OnCollision = info => ProcessCollision(info);
+        mMove.OnCollision = ProcessCollision;
         mMove.OnTouch = owner => PostCollision(owner as SimObject, this);
     }
 
@@ -416,7 +416,7 @@ public sealed partial class Player : GameBase
             return def;
         if (f.Elems[0].Set)
             return f.Elems[0].F[0];
-        float v = def;
+        var v = def;
         if (f.Def.DefaultText.Length != 0)
             v = DataBlockManager.CtorFloat(f.Def.DefaultText);
         return v;
@@ -446,7 +446,7 @@ public sealed partial class Player : GameBase
         mGame.ScriptCallback(this, "onAdd", Array.Empty<string>());
         mGame.JoinSet(this, 719);
         CollisionMask = kLiveMask;
-        float[] p = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        float[] p = [Transform.P[0], Transform.P[1], Transform.P[2]];
         SetPosition(p);
         FreeLookCopy = FreeLookPref();
         return true;
@@ -457,7 +457,7 @@ public sealed partial class Player : GameBase
     {
         if (mGame.Console == null)
             return true;
-        string v = mGame.Console.GetVariable("$pref::freeLook", out bool found);
+        var v = mGame.Console.GetVariable("$pref::freeLook", out var found);
         return !found || Numbers.ParseBool(v);
     }
 
@@ -466,7 +466,7 @@ public sealed partial class Player : GameBase
     public override void OnRemove()
     {
         mGame.SensorJam(this, false); // Player_onRemove 0x0040fb30 unlinks, the radius stays (docs/static-sim.md 3.8)
-        for (int slot = 0; slot < kImageSlots; ++slot)
+        for (var slot = 0; slot < kImageSlots; ++slot)
             ResetImage(slot);
         // GameBase_onRemove (0x00448180): the script onRemove, then the container.
         if (mAdded && DataBlockName != null)
@@ -525,15 +525,15 @@ public sealed partial class Player : GameBase
         d.MaxEnergy = FieldFloat(b, "maxEnergy", 0);
         d.MaxDamage = FieldFloat(b, "maxDamage", 1);
         ShapeAnim? shapeAnim = null;
-        if (mGame.Resources != null && mGame.Sim!.DataBlocks().GetField(b, "shapeFile", "", out string shape) && shape.Length != 0)
+        if (mGame.Resources != null && mGame.Sim!.DataBlocks().GetField(b, "shapeFile", "", out var shape) && shape.Length != 0)
             shapeAnim = Shape.GetShapeAnim(mGame.Resources, shape);
         if (b.Find("animData") is DataBlockManager.Field af)
-            for (int i = 0; i < af.Elems.Count && i < 51; ++i)
+            for (var i = 0; i < af.Elems.Count && i < 51; ++i)
             {
                 d.AnimDirection[i] = af.Elems[i].I2;
                 d.AnimPriority[i] = af.Elems[i].I4;
                 // A missing sequence gives handle 0 (1.4 step 7).
-                int seq = shapeAnim != null && af.Elems[i].Str != null ? shapeAnim.FindSequence(af.Elems[i].Str!) : -1;
+                var seq = shapeAnim != null && af.Elems[i].Str != null ? shapeAnim.FindSequence(af.Elems[i].Str!) : -1;
                 if (seq < 0)
                     seq = 0;
                 d.AnimDuration[i] = shapeAnim != null && seq < shapeAnim.Sequences.Count ? shapeAnim.Sequences[seq].Duration : 0;
@@ -573,23 +573,25 @@ public sealed partial class Player : GameBase
             // Line image (collision.md 9, 0x0043599c): the segment goes into the space of the image transform (the object
             // transform, yaw included) and meets box B there (m_Box3F_collideLine). The position is (end - start) * t +
             // start on the world segment, one f32 store per component; the normal is (0, 0, 1).
-            entry.Cast = (Vec3 s, Vec3 en, ref Vec3 hit, ref Vec3 n) =>
+            entry.Cast = (s, en, ref hit, ref n) =>
             {
                 if (RaySkip)
                     return false; // image byte +0xd: rays skip a player that was killed
                 using var c = X87.Chop();
-                Span<float> a = stackalloc float[3] { s.X, s.Y, s.Z };
-                Span<float> bb = stackalloc float[3] { en.X, en.Y, en.Z };
-                var toWorld = new TMat3();
-                toWorld.Flags = Transform.Flags;
-                toWorld.M = Transform.M;
-                toWorld.P = Transform.P;
+                Span<float> a = [s.X, s.Y, s.Z];
+                Span<float> bb = [en.X, en.Y, en.Z];
+                var toWorld = new TMat3
+                {
+                    Flags = Transform.Flags,
+                    M = Transform.M,
+                    P = Transform.P
+                };
                 Shape.TmatInverse(toWorld, out TMat3 toLocal);
                 Span<float> la = stackalloc float[3], lb = stackalloc float[3];
                 X87.MulPoint(a, toLocal.M, toLocal.P, la);
                 X87.MulPoint(bb, toLocal.M, toLocal.P, lb);
-                Span<float> mx = stackalloc float[3] { BoxMax[0], BoxMax[1], BoxHeight };
-                float t = 0.0f;
+                Span<float> mx = [BoxMax[0], BoxMax[1], BoxHeight];
+                var t = 0.0f;
                 if (!Shape.BoxCollideLine(la, lb, BoxMin, mx, ref t))
                     return false;
                 float At(int i, ReadOnlySpan<float> aa, ReadOnlySpan<float> b2) => X87.F32(Add(Mul(Sub(b2[i], aa[i]), t), aa[i]));
@@ -612,7 +614,7 @@ public sealed partial class Player : GameBase
     public bool SetArmor(string name)
     {
         // GameBase_setDataBlockName (0x00447d20): a failed resolve restores the old block.
-        string? old = DataBlockName;
+        var old = DataBlockName;
         DataBlockName = StringTable.Global().Intern(name);
         if (!mAdded)
             return true;
@@ -646,16 +648,16 @@ public sealed partial class Player : GameBase
                 if (mGame.Sim.DataBlocks().At(6, f.Elems[0].I) is DataBlockManager.Block image)
                     sum = X87.F32(Add(sum, FieldFloat(image, "mass", 0)));
             }
-        float newMass = X87.F32(Add(PData.Mass, sum));
+        var newMass = X87.F32(Add(PData.Mass, sum));
         if (newMass == Mass && InvMass != 0)
             return;
-        float oldMass = Mass;
+        var oldMass = Mass;
         Mass = newMass;
         InvMass = X87.F32(Div(1.0, Mass));
         if (oldMass != 0)
             foreach (Force fc in mForces)
                 if (!fc.Acceleration)
-                    for (int i = 0; i < 3; ++i)
+                    for (var i = 0; i < 3; ++i)
                         fc.V[i] = X87.F32(Div(Mul(fc.V[i], oldMass), Mass));
     }
 
@@ -664,7 +666,7 @@ public sealed partial class Player : GameBase
     /// <remarks>The mass of the prediction is then the server's. The image state machine stays idle (docs/client-net.md 4.4).</remarks>
     public void SetClientItems(ReadOnlySpan<int> items)
     {
-        for (int slot = 0; slot < kImageSlots && slot < items.Length; ++slot)
+        for (var slot = 0; slot < kImageSlots && slot < items.Length; ++slot)
             Images[slot].Item = items[slot];
         RecomputeMass();
     }
@@ -672,7 +674,7 @@ public sealed partial class Player : GameBase
     // src/game/player.cpp Player::worldBox: 0x005069fc: the movement box translated, never rotated.
     private void WorldBox(Span<float> output)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             output[i] = X87.F32(Add(BoxMin[i], Transform.P[i]));
             output[i + 3] = X87.F32(Add(BoxMax[i], Transform.P[i]));
@@ -696,9 +698,9 @@ public sealed partial class Player : GameBase
         f.V[1] = v[1];
         f.V[2] = v[2];
         if (!acceleration)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 f.V[i] = X87.F32(Mul(InvMass, f.V[i]));
-        for (int i = 0; i < mForces.Count; ++i)
+        for (var i = 0; i < mForces.Count; ++i)
             if (mForces[i].Type == type)
             {
                 mForces[i] = f;
@@ -712,7 +714,7 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows 0x005048f4.</remarks>
     public void RemoveForce(uint type)
     {
-        for (int i = 0; i < mForces.Count; ++i)
+        for (var i = 0; i < mForces.Count; ++i)
             if (mForces[i].Type == type)
             {
                 mForces.RemoveAt(i);
@@ -745,7 +747,7 @@ public sealed partial class Player : GameBase
         MissionTransform.EulerToMatrix(Rotation, ref m);
         Transform.M = m.M;
         Transform.Flags = m.Flags | 3;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Transform.P[i] = position[i];
         AtRest = false;
         RefileBox();
@@ -765,7 +767,7 @@ public sealed partial class Player : GameBase
         // FC2/FC3: entering a container inside the terrain adds its gravity, leaving removes it; a move between nested
         // containers does both, which re-appends the entry (FC5).
         Container.Entry? terrain = mGame.World.TerrainOf(this);
-        object? parent = mGame.World.ParentOf(this);
+        var parent = mGame.World.ParentOf(this);
         if (parent == mParent && terrain == mTerrainContainer)
             return;
         if (mTerrainContainer != null)
@@ -802,8 +804,8 @@ public sealed partial class Player : GameBase
         if (Dead)
             return;
         SimManager? m = Manager();
-        int self = Id();
-        for (int i = 0; i < count; ++i)
+        var self = Id();
+        for (var i = 0; i < count; ++i)
         {
             if (Credit > 5)
                 break;
@@ -858,7 +860,7 @@ public sealed partial class Player : GameBase
         if (Jetting)
             LastJetTime = tickMs;
         // 0x00415108: freeLook went from TRUE to FALSE: zero the pitch and send it.
-        bool freeLook = FreeLookPref();
+        var freeLook = FreeLookPref();
         if (!freeLook && FreeLookCopy)
         {
             Pitch = 0;
@@ -876,14 +878,14 @@ public sealed partial class Player : GameBase
             PdaFlag = !(r != null && r.GuiMirror == 1);
         }
         // Mission area (6.6).
-        float[] area = { 0, 0, 0, 0 };
+        float[] area = [0, 0, 0, 0];
         mGame.Players.MissionArea(area);
         using var chop = X87.Chop();
-        bool inside = Transform.P[0] >= area[0] && X87.F32(Add(area[0], area[2])) >= Transform.P[0] && Transform.P[1] >= area[1] &&
+        var inside = Transform.P[0] >= area[0] && X87.F32(Add(area[0], area[2])) >= Transform.P[0] && Transform.P[1] >= area[1] &&
                       X87.F32(Add(area[1], area[3])) >= Transform.P[1];
         if (inside != InMissionArea && mGame.Console != null)
         {
-            string line = "Player::" + (inside ? "enter" : "leave") + "MissionArea(" + Numbers.FormatInt(Id()) + ");";
+            var line = "Player::" + (inside ? "enter" : "leave") + "MissionArea(" + Numbers.FormatInt(Id()) + ");";
             InMissionArea = inside;
             mGame.Console.Evaluate(line);
         }
@@ -903,17 +905,17 @@ public sealed partial class Player : GameBase
             ReadLiveData(blk, PData);
         Data d = PData;
         const float dt = kDt;
-        float[] v = Velocity;
+        var v = Velocity;
         UpdateContainer(); // a script setPosition since the last step (RA7, FC5)
-        float[] r0 = { Transform.M[0], Transform.M[1], Transform.M[2] };
-        float[] r1 = { Transform.M[3], Transform.M[4], Transform.M[5] };
-        float[] r2 = { Transform.M[6], Transform.M[7], Transform.M[8] };
+        float[] r0 = [Transform.M[0], Transform.M[1], Transform.M[2]];
+        float[] r1 = [Transform.M[3], Transform.M[4], Transform.M[5]];
+        float[] r2 = [Transform.M[6], Transform.M[7], Transform.M[8]];
 
         // S1 item images (7.5): slots 0..7 in order, dt 0.032.
         {
             SimManager? mgr = Manager();
-            int self = Id();
-            for (int slot = 0; slot < kImageSlots; ++slot)
+            var self = Id();
+            for (var slot = 0; slot < kImageSlots; ++slot)
             {
                 UpdateImageState(slot, dt);
                 if (mgr == null || mgr.FindById(self) != this)
@@ -922,13 +924,13 @@ public sealed partial class Player : GameBase
         }
 
         // MV1 desired speed.
-        float fwd = X87.F32(Sub(Mul(mv.Forward, d.MaxForwardSpeed), Mul(mv.Backward, d.MaxBackwardSpeed)));
-        float side = X87.F32(Mul(Sub(mv.Right, mv.Left), d.MaxSideSpeed));
-        float speed = X87.F32(Sqrt(X87.F32(Add(Mul(fwd, fwd), Mul(side, side)))));
-        float cap = fwd > 0.0f ? MaxF(d.MaxForwardSpeed, d.MaxSideSpeed) : MaxF(d.MaxBackwardSpeed, d.MaxSideSpeed);
+        var fwd = X87.F32(Sub(Mul(mv.Forward, d.MaxForwardSpeed), Mul(mv.Backward, d.MaxBackwardSpeed)));
+        var side = X87.F32(Mul(Sub(mv.Right, mv.Left), d.MaxSideSpeed));
+        var speed = X87.F32(Sqrt(X87.F32(Add(Mul(fwd, fwd), Mul(side, side)))));
+        var cap = fwd > 0.0f ? MaxF(d.MaxForwardSpeed, d.MaxSideSpeed) : MaxF(d.MaxBackwardSpeed, d.MaxSideSpeed);
         if (speed > cap)
         {
-            float k = X87.F32(Div(cap, speed));
+            var k = X87.F32(Div(cap, speed));
             fwd = X87.F32(Mul(k, fwd));
             side = X87.F32(Mul(k, side));
         }
@@ -942,7 +944,7 @@ public sealed partial class Player : GameBase
         void MoveDirection(float[] output)
         {
             float a = X87.F32(Sub(mv.Right, mv.Left)), b = X87.F32(Sub(mv.Forward, mv.Backward));
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 output[i] = X87.F32(Add(X87.F32(Mul(a, r0[i])), X87.F32(Mul(b, r1[i]))));
         }
 
@@ -953,25 +955,25 @@ public sealed partial class Player : GameBase
             TicksSinceJumpContact = 8;
             if (CurrentAnim != 6)
                 StartAnimation(6);
-            float[] dir = new float[3];
+            var dir = new float[3];
             MoveDirection(dir);
-            float l = X87.F32(X87.Len(dir));
-            float along = 0.0f;
+            var l = X87.F32(X87.Len(dir));
+            var along = 0.0f;
             if (l >= 0.01)
             {
-                float k = X87.F32(Div(1.0, X87.F32(X87.Len(dir))));
-                for (int i = 0; i < 3; ++i)
+                var k = X87.F32(Div(1.0, X87.F32(X87.Len(dir))));
+                for (var i = 0; i < 3; ++i)
                     dir[i] = X87.F32(Mul(k, dir[i]));
                 along = X87.F32(X87.Dot(dir, JumpNormal));
             }
-            float[] impulse = { 0, 0, X87.F32(Mul(JumpNormal[2], d.JumpImpulse)) };
+            float[] impulse = [0, 0, X87.F32(Mul(JumpNormal[2], d.JumpImpulse))];
             if (along > 0.0f)
             {
-                float k = X87.F32(Mul(along, d.JumpImpulse));
+                var k = X87.F32(Mul(along, d.JumpImpulse));
                 impulse[0] = X87.F32(Mul(k, dir[0]));
                 impulse[1] = X87.F32(Mul(k, dir[1]));
             }
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 v[i] = X87.F32(Add(Mul(impulse[i], InvMass), v[i]));
         }
 
@@ -988,26 +990,26 @@ public sealed partial class Player : GameBase
         if (Jetting && !Dead)
         {
             Energy = X87.F32(Sub(Energy, d.JetEnergyDrain));
-            float l = 0.0f;
-            float[] dir = { 0, 0, 0 };
+            var l = 0.0f;
+            float[] dir = [0, 0, 0];
             if (TicksSinceJumpContact > 8)
             {
                 MoveDirection(dir);
                 l = X87.F32(X87.Len(dir));
             }
-            float[] force = { 0, 0, d.JetForce };
+            float[] force = [0, 0, d.JetForce];
             if (l > 0.01)
             {
-                float k1 = X87.F32(Div(1.0, l));
-                for (int i = 0; i < 3; ++i)
+                var k1 = X87.F32(Div(1.0, l));
+                for (var i = 0; i < 3; ++i)
                     dir[i] = X87.F32(Mul(k1, dir[i]));
-                float fv = X87.F32(X87.Dot(dir, v));
-                float k = fv > d.MaxJetForwardVelocity ? 0.0f : fv < 0.0f ? 1.0f : X87.F32(Sub(1.0, Div(fv, d.MaxJetForwardVelocity)));
+                var fv = X87.F32(X87.Dot(dir, v));
+                var k = fv > d.MaxJetForwardVelocity ? 0.0f : fv < 0.0f ? 1.0f : X87.F32(Sub(1.0, Div(fv, d.MaxJetForwardVelocity)));
                 if (k > d.MaxJetSideForceFactor)
                     k = d.MaxJetSideForceFactor;
-                float upForce = X87.F32(Mul(Sub(1.0, k), d.JetForce));
-                float sideForce = X87.F32(Mul(k, d.JetForce));
-                for (int i = 0; i < 3; ++i)
+                var upForce = X87.F32(Mul(Sub(1.0, k), d.JetForce));
+                var sideForce = X87.F32(Mul(k, d.JetForce));
+                for (var i = 0; i < 3; ++i)
                     force[i] = X87.F32(Add(Mul(upForce, r2[i]), X87.F32(Mul(sideForce, dir[i]))));
             }
             SetForce(kJetForce, force, false);
@@ -1015,14 +1017,14 @@ public sealed partial class Player : GameBase
         else
         {
             Jetting = false;
-            float[] zero = { 0, 0, 0 };
+            float[] zero = [0, 0, 0];
             SetForce(kJetForce, zero, false);
         }
 
         // S5 yaw and pitch (section 4).
         {
             const double twoPi = 6.283185307179586;
-            float yaw = X87.F32(Add(mv.Turn, Rotation[2]));
+            var yaw = X87.F32(Add(mv.Turn, Rotation[2]));
             if (yaw < 0.0f)
                 yaw = X87.F32(Add(yaw, twoPi));
             else if (yaw > twoPi)
@@ -1077,25 +1079,25 @@ public sealed partial class Player : GameBase
             TicksWithoutMove = LocallyControlled ? 0 : TicksWithoutMove + 1;
 
         // MV4 velocity.
-        float[] desired = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var desired = new float[3];
+        for (var i = 0; i < 3; ++i)
             desired[i] = X87.F32(Add(Add(Mul(side, r0[i]), Mul(fwd, r1[i])), Mul(0.0, r2[i])));
-        float[] vOld = { v[0], v[1], v[2] };
+        float[] vOld = [v[0], v[1], v[2]];
         foreach (Force fc in mForces)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 v[i] = X87.F32(Add(Mul(fc.V[i], dt), v[i]));
         if (mContainerDrag != 0.0f)
         {
-            float c = X87.F32(Mul(Mul(d.Drag, mContainerDrag), dt));
-            for (int i = 0; i < 3; ++i)
+            var c = X87.F32(Mul(Mul(d.Drag, mContainerDrag), dt));
+            for (var i = 0; i < 3; ++i)
                 v[i] = X87.F32(Sub(v[i], Mul(v[i], c)));
         }
         if (d.HorzVelClamp > 3.0f)
         {
-            float h = X87.F32(Sqrt(X87.F32(Add(Mul(v[0], v[0]), Mul(v[1], v[1])))));
+            var h = X87.F32(Sqrt(X87.F32(Add(Mul(v[0], v[0]), Mul(v[1], v[1])))));
             if (h > d.HorzVelClamp)
             {
-                float k = X87.F32(Div(d.HorzVelClamp, h));
+                var k = X87.F32(Div(d.HorzVelClamp, h));
                 v[0] = X87.F32(Mul(k, v[0]));
                 v[1] = X87.F32(Mul(k, v[1]));
             }
@@ -1104,16 +1106,16 @@ public sealed partial class Player : GameBase
         // MV5 ground control.
         if (ContactFlag)
         {
-            float[] diff = { X87.F32(Sub(desired[0], v[0])), X87.F32(Sub(desired[1], v[1])), 0.0f };
-            float dl = X87.F32(X87.Len(diff));
-            float t = X87.F32(Mul(Traction, d.GroundTraction));
+            float[] diff = [X87.F32(Sub(desired[0], v[0])), X87.F32(Sub(desired[1], v[1])), 0.0f];
+            var dl = X87.F32(X87.Len(diff));
+            var t = X87.F32(Mul(Traction, d.GroundTraction));
             if (t > 1.0f)
                 t = 1.0f;
-            float maxDv = X87.F32(Mul(Mul(Div(d.GroundForce, Mass), t), dt));
+            var maxDv = X87.F32(Mul(Mul(Div(d.GroundForce, Mass), t), dt));
             if (dl > maxDv)
             {
-                float k = X87.F32(Div(maxDv, dl));
-                for (int i = 0; i < 3; ++i)
+                var k = X87.F32(Div(maxDv, dl));
+                for (var i = 0; i < 3; ++i)
                     diff[i] = X87.F32(Mul(k, diff[i]));
                 RestFlag = false;
             }
@@ -1121,7 +1123,7 @@ public sealed partial class Player : GameBase
             {
                 RestFlag = true;
             }
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 v[i] = X87.F32(Add(diff[i], v[i]));
         }
         else
@@ -1130,11 +1132,11 @@ public sealed partial class Player : GameBase
         }
 
         // MV6 target and traction decay.
-        float half = X87.F32(Mul(dt, 0.5f));
-        float[] target = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var half = X87.F32(Mul(dt, 0.5f));
+        var target = new float[3];
+        for (var i = 0; i < 3; ++i)
             target[i] = X87.F32(Add(Mul(Add(vOld[i], v[i]), half), Transform.P[i]));
-        float saved = X87.F32(Mul(Traction, 0.6));
+        var saved = X87.F32(Mul(Traction, 0.6));
         if (saved < 0.1)
             saved = 0.0f;
         Traction = 0.0f;
@@ -1159,9 +1161,9 @@ public sealed partial class Player : GameBase
     // container update. False when the move was blocked in every iteration.
     private bool SteppedMoveTo(float[] target, float step0, float step1, bool keepMatrix = false)
     {
-        float[] v = Velocity;
+        var v = Velocity;
         var rot = new Transform();
-        float[] euler = { Rotation[0], Rotation[1], Rotation[2] };
+        float[] euler = [Rotation[0], Rotation[1], Rotation[2]];
         MissionTransform.EulerToMatrix(euler, ref rot);
         // SimMovement_pushBy (0x005064f8) moves the object's own transform: a mounted Player keeps the matrix of its
         // mount point (the pilot carried by the displace of its vehicle).
@@ -1178,9 +1180,9 @@ public sealed partial class Player : GameBase
         mMove.Image.Radius = Radius;
         mMove.Dt = kDt;
         BuildCandidates(target);
-        float[] pos = { Transform.P[0], Transform.P[1], Transform.P[2] };
-        float[] goal = { target[0], target[1], target[2] };
-        bool moved = mMove.Run(pos, goal, step0, step1);
+        float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
+        float[] goal = [target[0], target[1], target[2]];
+        var moved = mMove.Run(pos, goal, step0, step1);
         if (!moved)
         {
             // Three blocked iterations: at rest, v = 0, and the fallback 0x00505720 clears the contact flag
@@ -1194,20 +1196,22 @@ public sealed partial class Player : GameBase
             var notified = new List<object>(mMove.Notify);
             BuildCandidates(pos);
             var hits = new List<CollisionHit>();
-            for (int it = 0; it < mMove.MaxIterations; ++it)
+            for (var it = 0; it < mMove.MaxIterations; ++it)
             {
                 if (mMove.TestAt(pos, hits))
                     break;
-                var info = new MoveInfo();
-                info.Iteration = it;
-                info.Used = 0.0f;
-                info.EndTime = 1.0f;
-                info.Current = new[] { pos[0], pos[1], pos[2] };
-                info.Attempted = new[] { pos[0], pos[1], pos[2] };
-                info.Target = new[] { pos[0], pos[1], pos[2] };
-                info.Candidates = mMove.Candidates;
-                info.Hits = hits;
-                info.Notify = notified;
+                var info = new MoveInfo
+                {
+                    Iteration = it,
+                    Used = 0.0f,
+                    EndTime = 1.0f,
+                    Current = [pos[0], pos[1], pos[2]],
+                    Attempted = [pos[0], pos[1], pos[2]],
+                    Target = [pos[0], pos[1], pos[2]],
+                    Candidates = mMove.Candidates,
+                    Hits = hits,
+                    Notify = notified
+                };
                 if (!ProcessCollision(info))
                     break;
             }
@@ -1215,12 +1219,12 @@ public sealed partial class Player : GameBase
         }
         Transform.M = rot.M;
         Transform.Flags = rot.Flags | 3;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Transform.P[i] = pos[i];
         // Collision events to both sides for every notified object (0x00507180).
         // The client prediction posts no events: they run server scripts in the prediction world (client-net.md 4.4).
         if (!ClientSide)
-            foreach (object other in mMove.Notify)
+            foreach (var other in mMove.Notify)
             {
                 PostCollision(other as SimObject, this);
                 PostCollision(this, other as SimObject);
@@ -1236,7 +1240,7 @@ public sealed partial class Player : GameBase
     {
         using var chop = X87.Chop();
         var rot = new Transform();
-        float[] euler = { Rotation[0], Rotation[1], Rotation[2] };
+        float[] euler = [Rotation[0], Rotation[1], Rotation[2]];
         MissionTransform.EulerToMatrix(euler, ref rot);
         mMove.Image.Rot = rot.M;
         mMove.Image.BoxMin = Float3.Of(BoxMin);
@@ -1246,7 +1250,7 @@ public sealed partial class Player : GameBase
         Action<object?>? touch = mMove.OnTouch; // a test posts no collision events
         mMove.OnTouch = null;
         var hits = new List<CollisionHit>();
-        bool free = mMove.TestAt(q, hits);
+        var free = mMove.TestAt(q, hits);
         mMove.OnTouch = touch;
         return free;
     }
@@ -1256,14 +1260,14 @@ public sealed partial class Player : GameBase
     public override bool ThrowDirection(Span<float> output)
     {
         using var chop = X87.Chop();
-        double c = Math.Cos((double)Pitch);
-        float term = X87.F32(Mul(c, 0.5f));
-        float angle = X87.F32(Add(Pitch, term));
+        var c = Math.Cos(Pitch);
+        var term = X87.F32(Mul(c, 0.5f));
+        var angle = X87.F32(Add(Pitch, term));
         var pitched = new Transform();
-        float[] euler = { angle, 0.0f, 0.0f };
+        float[] euler = [angle, 0.0f, 0.0f];
         MissionTransform.EulerToMatrix(euler, ref pitched);
         // Row 1 of pitched * transform (0x005ed570), the image of (0, 1, 0).
-        for (int j = 0; j < 3; ++j)
+        for (var j = 0; j < 3; ++j)
             output[j] = X87.F32(Add(Add(Mul(pitched.M[3], Transform.M[j]), Mul(pitched.M[4], Transform.M[3 + j])),
                                     Mul(pitched.M[5], Transform.M[6 + j])));
         return true;
@@ -1277,13 +1281,13 @@ public sealed partial class Player : GameBase
     public bool PushBy(ReadOnlySpan<float> delta, ReadOnlySpan<float> mover)
     {
         using var chop = X87.Chop();
-        uint savedMask = CollisionMask;
+        var savedMask = CollisionMask;
         CollisionMask = 6;
         // Bits 0x05 of +0x164 are cleared and stay cleared. Bit 0 is the Player's rest flag (CR5): a pushed Player is not
         // stopped by the rest rule of its contact response until its own next move sets the flag.
         RestFlag = false;
-        float[] box = { BoxMin[0], BoxMin[1], BoxMin[2], BoxMax[0], BoxMax[1], BoxMax[2] };
-        bool ok = Displace.PushBy(delta, mover, box, Velocity, ref AtRest, i => Transform.P[i],
+        float[] box = [BoxMin[0], BoxMin[1], BoxMin[2], BoxMax[0], BoxMax[1], BoxMax[2]];
+        var ok = Displace.PushBy(delta, mover, box, Velocity, ref AtRest, i => Transform.P[i],
                                   (target, step0, step1) => SteppedMoveTo(target, step0, step1, true));
         CollisionMask = savedMask;
         return ok;
@@ -1315,7 +1319,7 @@ public sealed partial class Player : GameBase
         mMove.Image.Detail = 0;
         mMove.Image.MeshMode = true;
         foreach (CollisionImage image in mMove.Candidates)
-            if (image.ImageKind == CollisionImage.Kind.TriggerSphere || image.ImageKind == CollisionImage.Kind.Trigger)
+            if (image.ImageKind is CollisionImage.Kind.TriggerSphere or CollisionImage.Kind.Trigger)
             {
                 mMove.Image.Instance = ShapeState.ShapeInstanceOf(mGame, this);
                 break;
@@ -1328,7 +1332,7 @@ public sealed partial class Player : GameBase
         List<CollisionHit> hits = info.Hits!;
         List<object> notify = info.Notify!;
         // Step 1: Items, Mines and corpses are notified and never block.
-        for (int i = 0; i < hits.Count;)
+        for (var i = 0; i < hits.Count;)
         {
             if ((hits[i].Type & kNonBlockingTypes) != 0)
             {
@@ -1341,13 +1345,13 @@ public sealed partial class Player : GameBase
             }
         }
         // Step 2: up = -normalize(gravity).
-        float[] up = { 0, 0, 1 };
+        float[] up = [0, 0, 1];
         foreach (Force f in mForces)
             if (f.Type == kGravityForce)
             {
-                float l = X87.F32(X87.Len(f.V));
-                float k = X87.F32(Div(1.0, l));
-                for (int i = 0; i < 3; ++i)
+                var l = X87.F32(X87.Len(f.V));
+                var k = X87.F32(Div(1.0, l));
+                for (var i = 0; i < 3; ++i)
                     up[i] = -X87.F32(Mul(k, f.V[i]));
                 break;
             }
@@ -1374,13 +1378,13 @@ public sealed partial class Player : GameBase
         if (contacts.Count > 1 && StepUp(info, contacts))
             return true;
         // Step 6: response on every contact in order.
-        bool any = false;
+        var any = false;
         foreach (Contact c in contacts)
             any = ContactResponse(c) || any;
         if (!any)
             return false;
-        float rem = X87.F32(Sub(mMove.Dt, info.Used));
-        for (int i = 0; i < 3; ++i)
+        var rem = X87.F32(Sub(mMove.Dt, info.Used));
+        for (var i = 0; i < 3; ++i)
             info.Target![i] = X87.F32(Add(X87.F32(Mul(Velocity[i], rem)), info.Current![i]));
         return true;
     }
@@ -1389,20 +1393,20 @@ public sealed partial class Player : GameBase
     private bool StepUp(MoveInfo info, List<Contact> contacts)
     {
         const double kWall = 0.707; // double at 0x00416de4
-        bool wall = false;
+        var wall = false;
         foreach (Contact c in contacts)
-            if ((c.Type & kStepUpTypes) != 0 && (double)c.UpDot <= kWall)
+            if ((c.Type & kStepUpTypes) != 0 && c.UpDot <= kWall)
                 wall = true;
         if (!wall)
             return false;
-        int best = -1;
-        float maxH = 0.0f;
-        for (int i = 0; i < contacts.Count; ++i)
+        var best = -1;
+        var maxH = 0.0f;
+        for (var i = 0; i < contacts.Count; ++i)
         {
             Contact c = contacts[i];
-            if ((c.Type & kStepUpTypes) == 0 || !((double)c.UpDot >= kWall))
+            if ((c.Type & kStepUpTypes) == 0 || !(c.UpDot >= kWall))
                 continue;
-            float h = c.StepHeight;
+            var h = c.StepHeight;
             if (h < 0.0f)
                 h = X87.F32(Sub(Radius, c.Surface.Distance));
             if (h > maxH)
@@ -1412,19 +1416,21 @@ public sealed partial class Player : GameBase
         }
         if (best < 0 || maxH > X87.F32(Mul(Radius, 0.6f)))
             return false;
-        float[] raised = { info.Attempted![0], info.Attempted[1], X87.F32(Add(Add(maxH, 0.001f), info.Attempted[2])) };
+        float[] raised = [info.Attempted![0], info.Attempted[1], X87.F32(Add(Add(maxH, 0.001f), info.Attempted[2]))];
         // Test with a copy of the candidate list (0x00505790); trigger images hit here get their event too.
         var scratch = new List<CollisionHit>();
         Contact response = contacts[best];
-        var probe = new SteppedMove();
-        probe.Image = mMove.Image;
-        probe.Candidates = new List<CollisionImage>(mMove.Candidates);
-        probe.OnTouch = mMove.OnTouch;
+        var probe = new SteppedMove
+        {
+            Image = mMove.Image,
+            Candidates = [.. mMove.Candidates],
+            OnTouch = mMove.OnTouch
+        };
         if (!probe.TestAt(raised, scratch))
             return false;
         ContactResponse(response);
-        float rem = X87.F32(Sub(mMove.Dt, info.EndTime));
-        for (int i = 0; i < 3; ++i)
+        var rem = X87.F32(Sub(mMove.Dt, info.EndTime));
+        for (var i = 0; i < 3; ++i)
         {
             info.Current![i] = raised[i];
             info.Target![i] = X87.F32(Add(X87.F32(Mul(Velocity[i], rem)), raised[i]));
@@ -1435,12 +1441,12 @@ public sealed partial class Player : GameBase
     // src/game/player.cpp Player::contactResponse: 0x00416e4c.
     private bool ContactResponse(in Contact c)
     {
-        float[] v = Velocity;
+        var v = Velocity;
         ContactFlag = true;
         if (c.Surface.Distance < 0.0f)
             return false;
         ReadOnlySpan<float> n = c.N;
-        float vn = X87.F32(X87.Dot(v, n));
+        var vn = X87.F32(X87.Dot(v, n));
         if (vn >= 0.0f)
             return false;
         if (n[2] > PData.JumpSurfaceMinDot && (n[2] > JumpNormal[2] || TicksSinceJumpContact > 1))
@@ -1453,20 +1459,20 @@ public sealed partial class Player : GameBase
         // Landing damage (CR4).
         if (-vn > PData.MinDamageSpeed)
         {
-            float[] origin = { 0, 0, 0 };
-            float value = X87.F32(Mul(PData.DamageScale, X87.F32(Sub(-(double)vn, PData.MinDamageSpeed))));
-            bool wasAlive = !Dead;
-            int anim = CurrentAnim;
+            float[] origin = [0, 0, 0];
+            var value = X87.F32(Mul(PData.DamageScale, X87.F32(Sub(-(double)vn, PData.MinDamageSpeed))));
+            var wasAlive = !Dead;
+            var anim = CurrentAnim;
             ApplyDamage(0, value, origin, OwnerClient);
             if (wasAlive && !Dead && anim != 15)
                 StartAnimation(15);
         }
-        float k = X87.F32(Add(-(double)vn, kSeparation));
-        for (int i = 0; i < 3; ++i)
+        var k = X87.F32(Add(-(double)vn, kSeparation));
+        for (var i = 0; i < 3; ++i)
             v[i] = X87.F32(Add(X87.F32(Mul(n[i], k)), v[i]));
         if (c.UpDot > 0.0f)
         {
-            float t = c.Surface.HasMaterial ? X87.F32(Mul(c.Surface.Friction, c.UpDot)) : c.UpDot;
+            var t = c.Surface.HasMaterial ? X87.F32(Mul(c.Surface.Friction, c.UpDot)) : c.UpDot;
             Traction = X87.F32(Add(t, Traction));
             if (RestFlag && Mul(t, 0.75f) > X87.Len(v))
                 v[0] = v[1] = v[2] = 0.0f;
@@ -1489,7 +1495,7 @@ public sealed partial class Player : GameBase
     {
         // The original reads the priority table without a range check (5.9 Q6); an index outside the table is refused
         // here (D11).
-        if (index < 0 || index > 50)
+        if (index is < 0 or > 50)
             return;
         if (index == PendingAnim)
             return;
@@ -1506,17 +1512,17 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows 0x004105d0.</remarks>
     public void StartAnimation(int index)
     {
-        bool inCrouch = CurrentAnim == 7 || CurrentAnim == 8 || (CurrentAnim >= 10 && CurrentAnim <= 13);
+        var inCrouch = CurrentAnim is 7 or 8 or >= 10 and <= 13;
         if ((index == 7 && inCrouch) || (index == 9 && !inCrouch))
             return;
-        if (index < 0 || index > 50) // index 51 passes the original's test: off by one, refused here
+        if (index is < 0 or > 50) // index 51 passes the original's test: off by one, refused here
             return;
         CurrentAnim = index;
         AnimPosition = PData.AnimDirection[index] > 0 ? 0.0f : 0.99f;
     }
 
     // The 80-bit constant at 0x00411160 rounded to 53 bits (portable build).
-    private static readonly double kLookScale = (double)0xa6adbac815dcea70UL * Math.ScaleB(1.0, -64);
+    private static readonly double kLookScale = 0xa6adbac815dcea70UL * Math.ScaleB(1.0, -64);
 
     /// <summary>Advances the animation, server branch.</summary>
     /// <param name="dt">The step length in seconds.</param>
@@ -1527,14 +1533,14 @@ public sealed partial class Player : GameBase
         // Look thread (0x004108e7..0x00410947): set-sequence resets the position to 0 every call, then the position is
         // set from the pitch unless it is exactly 0.
         {
-            float target = X87.F32(Add(Mul(Mul(-(double)Pitch, kLookScale), 0.5f), 0.5f));
+            var target = X87.F32(Add(Mul(Mul(-(double)Pitch, kLookScale), 0.5f), 0.5f));
             Pose.CrouchLooks = Crouching;
             Pose.LookSet = true;
             Pose.LookPosition = target != 0.0f ? X87.F32(Add(X87.F32(Sub(target, 0.0f)), 0.0f)) : 0.0f;
         }
         UpdateAnimationState(dt);
         // Server tail (0x00410acc..0x00410afb): first person flag from the current animation, then the shape is animated.
-        if (CurrentAnim >= 0 && CurrentAnim < 51)
+        if (CurrentAnim is >= 0 and < 51)
         {
             Pose.FirstPerson = (PData.AnimViewFlags[CurrentAnim] & 1) != 0;
             Pose.AnimIndex = CurrentAnim;
@@ -1546,26 +1552,26 @@ public sealed partial class Player : GameBase
     /// <param name="dt">The step length in seconds.</param>
     public void UpdateAnimationState(float dt)
     {
-        bool finished = true; // current == -1 reads a direction outside the table, normally 0
+        var finished = true; // current == -1 reads a direction outside the table, normally 0
         if (CurrentAnim >= 0)
             finished = PData.AnimDirection[CurrentAnim] > 0 ? AnimPosition >= 0.99 : AnimPosition <= 0.01;
         void Advance()
         {
-            float duration = CurrentAnim >= 0 ? PData.AnimDuration[CurrentAnim] : 0;
+            var duration = CurrentAnim >= 0 ? PData.AnimDuration[CurrentAnim] : 0;
             if (!(duration > 0.0f))
             {
                 AnimPosition = 1.0f;
                 return;
             }
-            float delta = X87.F32(Div(dt, duration));
+            var delta = X87.F32(Div(dt, duration));
             AnimPosition = X87.F32(Add(AnimPosition, delta));
             // TSSequence_normalizePosition (0x005b8d94): outside 0..1 a cyclic sequence keeps the fraction, a one-shot
             // sequence stops at the end. A cyclic request therefore finishes only when a step lands in the last
             // hundredth (docs/player-sim.md 5.5).
-            if (AnimPosition < 0.0f || AnimPosition > 1.0f)
+            if (AnimPosition is < 0.0f or > 1.0f)
             {
                 if (CurrentAnim >= 0 && PData.AnimCyclic[CurrentAnim])
-                    AnimPosition = X87.F32(Sub(AnimPosition, Math.Floor((double)AnimPosition)));
+                    AnimPosition = X87.F32(Sub(AnimPosition, Math.Floor(AnimPosition)));
                 else
                     AnimPosition = AnimPosition < 0.0f ? 0.0f : 1.0f;
             }
@@ -1586,7 +1592,7 @@ public sealed partial class Player : GameBase
             Advance();
             return;
         }
-        int bse = (Crouching && !Jetting && !Falling) ? 8 : 0;
+        var bse = (Crouching && !Jetting && !Falling) ? 8 : 0;
         if (bse != CurrentAnim)
         {
             CurrentAnim = bse;
@@ -1603,35 +1609,35 @@ public sealed partial class Player : GameBase
     /// <param name="sourceId">The id of the damage source.</param>
     public void ApplyDamage(int type, float value, ReadOnlySpan<float> pos, int sourceId)
     {
-        float[] zero = { 0, 0, 0 };
+        float[] zero = [0, 0, 0];
         ApplyDamage(type, value, pos, zero, zero, sourceId);
     }
 
     /// <inheritdoc/>
     /// <remarks>Follows 0x00412f94.</remarks>
     public override void ApplyDamage(int type, float value, ReadOnlySpan<float> pos, ReadOnlySpan<float> vec,
-                                     ReadOnlySpan<float> mom, int sourceId)
+                                     ReadOnlySpan<float> mom, int source)
     {
         LastDamage = value;
-        string fn = mGame.VirtualFunction(this, "onDamage");
+        var fn = mGame.VirtualFunction(this, "onDamage");
         if (fn.Length == 0 || mGame.Console == null)
             return;
         using var chop = X87.Chop();
         // Hit location (0x00413074): pos in object space.
-        float[] rel = { X87.F32(Sub(pos[0], Transform.P[0])), X87.F32(Sub(pos[1], Transform.P[1])), X87.F32(Sub(pos[2], Transform.P[2])) };
+        float[] rel = [X87.F32(Sub(pos[0], Transform.P[0])), X87.F32(Sub(pos[1], Transform.P[1])), X87.F32(Sub(pos[2], Transform.P[2]))];
         ReadOnlySpan<float> m = Transform.M;
         float[] local =
-        {
+        [
             X87.F32(Add(Add(Mul(rel[0], m[0]), Mul(rel[1], m[1])), Mul(rel[2], m[2]))),
             X87.F32(Add(Add(Mul(rel[0], m[3]), Mul(rel[1], m[4])), Mul(rel[2], m[5]))),
             X87.F32(Add(Add(Mul(rel[0], m[6]), Mul(rel[1], m[7])), Mul(rel[2], m[8]))),
-        };
+        ];
         DataBlockManager.Block? b = Block();
         float Pct(string name, float def) => b != null ? FieldFloat(b, name, def) : def;
-        float height = Crouching ? PData.BoxCrouchHeight : PData.BoxNormalHeight;
-        float torsoTop = X87.F32(Mul(height, Pct(Crouching ? "boxCrouchTorsoPercentage" : "boxNormalTorsoPercentage", 0.333299f)));
-        float headBase = X87.F32(Mul(height, Pct(Crouching ? "boxCrouchHeadPercentage" : "boxNormalHeadPercentage", 0.666599f)));
-        string vert = local[2] <= torsoTop ? "legs" : local[2] <= headBase ? "torso" : "head";
+        var height = Crouching ? PData.BoxCrouchHeight : PData.BoxNormalHeight;
+        var torsoTop = X87.F32(Mul(height, Pct(Crouching ? "boxCrouchTorsoPercentage" : "boxNormalTorsoPercentage", 0.333299f)));
+        var headBase = X87.F32(Mul(height, Pct(Crouching ? "boxCrouchHeadPercentage" : "boxNormalHeadPercentage", 0.666599f)));
+        var vert = local[2] <= torsoTop ? "legs" : local[2] <= headBase ? "torso" : "head";
         string quad;
         if (vert[0] != 'h')
         {
@@ -1641,20 +1647,20 @@ public sealed partial class Player : GameBase
         else
         {
             float w = X87.F32(Sub(BoxMax[0], BoxMin[0])), dd = X87.F32(Sub(BoxMax[1], BoxMin[1]));
-            float back = X87.F32(Mul(Sub(Pct("boxHeadBackPercentage", 0), 0.5), w));
-            float front = X87.F32(Mul(Sub(Pct("boxHeadFrontPercentage", 1), 0.5), w));
-            float left = X87.F32(Mul(Sub(Pct("boxHeadLeftPercentage", 0), 0.5), dd));
-            float right = X87.F32(Mul(Sub(Pct("boxHeadRightPercentage", 1), 0.5), dd));
-            string row = local[1] < back ? "back" : local[1] <= front ? "middle" : "front";
-            string col = local[0] < left ? "left" : local[0] <= right ? "middle" : "right";
+            var back = X87.F32(Mul(Sub(Pct("boxHeadBackPercentage", 0), 0.5), w));
+            var front = X87.F32(Mul(Sub(Pct("boxHeadFrontPercentage", 1), 0.5), w));
+            var left = X87.F32(Mul(Sub(Pct("boxHeadLeftPercentage", 0), 0.5), dd));
+            var right = X87.F32(Mul(Sub(Pct("boxHeadRightPercentage", 1), 0.5), dd));
+            var row = local[1] < back ? "back" : local[1] <= front ? "middle" : "front";
+            var col = local[0] < left ? "left" : local[0] <= right ? "middle" : "right";
             quad = col + "_" + row;
         }
         // A formatted script line (0x005f4280): every float goes through %g.
         static string G(float v) => Numbers.FormatFloat(v);
-        string line = fn + "(" + Numbers.FormatInt(Id()) + "," + Numbers.FormatInt(type) + "," + G(value) + ",\"" + G(pos[0]) +
+        var line = fn + "(" + Numbers.FormatInt(Id()) + "," + Numbers.FormatInt(type) + "," + G(value) + ",\"" + G(pos[0]) +
                       " " + G(pos[1]) + " " + G(pos[2]) + "\",\"" + G(vec[0]) + " " + G(vec[1]) + " " + G(vec[2]) +
                       "\",\"" + G(mom[0]) + " " + G(mom[1]) + " " + G(mom[2]) + "\"," + vert + "," + quad + "," +
-                      Numbers.FormatInt(sourceId) + ");";
+                      Numbers.FormatInt(source) + ");";
         mGame.Console.Evaluate(line);
     }
 
@@ -1664,7 +1670,7 @@ public sealed partial class Player : GameBase
     // (0x004111c4).
     public void SetDamage(float level)
     {
-        float value = level < 0.0f ? 0.0f : level >= MaxDamage ? MaxDamage : level;
+        var value = level < 0.0f ? 0.0f : level >= MaxDamage ? MaxDamage : level;
         if (value != Damage)
         {
             Damage = value;
@@ -1694,27 +1700,27 @@ public sealed partial class Player : GameBase
     public override float DamageCoverage(ReadOnlySpan<float> pos)
     {
         using var chop = X87.Chop();
-        float h = Radius; // +0x870: half the box height
-        float[] p = { Transform.P[0], Transform.P[1], Transform.P[2] };
-        float[][] ends = { new float[3], new float[3], new float[3], new float[3] };
-        float[] half = { 0, 0, X87.F32(Mul(h, 0.5f)) };
-        for (int i = 0; i < 3; ++i)
+        var h = Radius; // +0x870: half the box height
+        float[] p = [Transform.P[0], Transform.P[1], Transform.P[2]];
+        float[][] ends = [new float[3], new float[3], new float[3], new float[3]];
+        float[] half = [0, 0, X87.F32(Mul(h, 0.5f))];
+        for (var i = 0; i < 3; ++i)
             ends[0][i] = X87.F32(Add(p[i], half[i]));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             ends[1][i] = X87.F32(Add(ends[0][i], i == 2 ? h : 0.0f));
-        float[] xs = { X87.F32(Mul(BoxMin[0], 0.5f)), X87.F32(Mul(BoxMax[0], 0.5f)) };
-        for (int k = 0; k < 2; ++k)
+        float[] xs = [X87.F32(Mul(BoxMin[0], 0.5f)), X87.F32(Mul(BoxMax[0], 0.5f))];
+        for (var k = 0; k < 2; ++k)
         {
-            float[] v = { xs[k], 0, 0 };
-            float[] rv = new float[3];
+            float[] v = [xs[k], 0, 0];
+            var rv = new float[3];
             X87.MulVector(v, Transform.M, rv);
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 ends[2 + k][i] = X87.F32(Add(p[i], rv[i]));
             ends[2 + k][2] = X87.F32(Add(ends[2 + k][2], h));
             ends[2 + k][2] = X87.F32(Add(Mul(h, 0.25f), ends[2 + k][2]));
         }
-        float cover = 0.0f;
-        foreach (float[] e in ends)
+        var cover = 0.0f;
+        foreach (var e in ends)
         {
             object? hit = null;
             Vec3 hp = default, n = default;
@@ -1740,7 +1746,7 @@ public sealed partial class Player : GameBase
         SetMaskBits(0x100);
         mGame.SensorJam(this, false); // Player_kill 0x004112ac unlinks; the radius stays
         DeathTime = Manager() != null ? Manager()!.Time() : 0;
-        int self = Id();
+        var self = Id();
         SimManager? m = Manager();
         mGame.ScriptCallback(this, "onKilled", Array.Empty<string>());
         if (m == null || m.FindById(self) != this)
@@ -1752,7 +1758,7 @@ public sealed partial class Player : GameBase
         // Timer event 0x401 value 200 at time + 4.0: releases every image trigger.
         m.PostEvent(this, Store(Add(m.Time(), 4.0)), () =>
         {
-            for (int slot = 0; slot < kImageSlots; ++slot)
+            for (var slot = 0; slot < kImageSlots; ++slot)
                 TriggerImage(slot, false);
         });
         Jetting = false;
@@ -1763,7 +1769,7 @@ public sealed partial class Player : GameBase
     /// <summary>Returns the count of an item type.</summary>
     /// <param name="type">The item type.</param>
     /// <returns>The count, 0 for a type out of range.</returns>
-    public int ItemCountOf(int type) => type < 0 || type >= kItemTypes ? 0 : Counts[type];
+    public int ItemCountOf(int type) => type is < 0 or >= kItemTypes ? 0 : Counts[type];
 
     /// <summary>Sets the count of an item type.</summary>
     /// <param name="type">The item type.</param>
@@ -1772,7 +1778,7 @@ public sealed partial class Player : GameBase
     public int SetItemCount(int type, int count)
     {
         // The original has no upper bound on the type (7.1 F2); out-of-table types are refused.
-        if (type < 0 || type >= kItemTypes)
+        if (type is < 0 or >= kItemTypes)
             return 0;
         Counts[type] = Math.Max(count, 0);
         if (Counts[type] == 0 && SlotOf[type] >= 0)
@@ -1791,10 +1797,10 @@ public sealed partial class Player : GameBase
         if (item == null || mGame.Console == null)
             return;
         var names = new List<string> { item.Name + "::" + ev };
-        if (mGame.Sim!.DataBlocks().GetField(item, "className", "", out string cls) && cls.Length != 0)
+        if (mGame.Sim!.DataBlocks().GetField(item, "className", "", out var cls) && cls.Length != 0)
             names.Add(cls + "::" + ev);
         names.Add("item::" + ev);
-        foreach (string fn in names)
+        foreach (var fn in names)
             if (mGame.Console.HasFunction(fn))
             {
                 var args = new List<string> { Numbers.FormatInt(Id()), item.Name };
@@ -1843,13 +1849,13 @@ public sealed partial class Player : GameBase
         Rotation[2] = c.Yaw;
         if (c.HasPosition)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Velocity[i] = c.Vel[i];
             var m = new Transform();
             MissionTransform.EulerToMatrix(Rotation, ref m);
             Transform.M = m.M;
             Transform.Flags = m.Flags | 3;
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Transform.P[i] = c.Position[i];
             AtRest = false;
             RefileBox();
@@ -1884,7 +1890,7 @@ public sealed partial class Player : GameBase
         bs.WriteF32(Energy);
         bs.WriteFlag(ContactFlag);
         bs.WriteFlag(Jetting);
-        double t = Mul(Traction, 127.0);
+        var t = Mul(Traction, 127.0);
         bs.WriteInt((uint)(int)t & 0x7f, 7);
         bs.WriteFlag(Crouching);
         bs.WriteInt((uint)Math.Min(TicksSinceJumpContact, 15), 4);

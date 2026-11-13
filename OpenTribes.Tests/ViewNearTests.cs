@@ -1,11 +1,11 @@
 // The near plane of the PSC camera query (PlayerPSC camera query 004077a8, bytes 004078a0 to 00407901) and what it does to the stored
 // depth of the 16 bit buffer: the device keeps z = near / d (setDepthRange 005daa14).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.World;
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Tests;
 
 public sealed class ViewNearTests
 {
@@ -52,8 +52,8 @@ public sealed class ViewNearTests
         cam.ViewProjection(m);
         // a point 110 m ahead (+Y): clip z = 2 near - w, ndc z = 2 near / w - 1
         double w = 110;
-        double cz = m[1 * 4 + 2] * w + m[12 + 2];
-        double cw = m[1 * 4 + 3] * w + m[12 + 3];
-        Assert.Equal(2 * WorldScene.FirstPersonNearPlane / w - 1, cz / cw, 6);
+        var cz = (m[(1 * 4) + 2] * w) + m[12 + 2];
+        var cw = (m[(1 * 4) + 3] * w) + m[12 + 3];
+        Assert.Equal((2 * WorldScene.FirstPersonNearPlane / w) - 1, cz / cw, 6);
     }
 }

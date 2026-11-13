@@ -1,15 +1,14 @@
 // FGShellBorder / MMShellBorder frame (docs/gui.md 3.3, draw 0049bd0c): synthetic pieces only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using OpenTribes.Platform.Gl;
-
-namespace OpenTribes.Tests;
 
 public class GuiShellBorderTests
 {
     private sealed class BlitDev : IGfxDevice
     {
-        public readonly List<string> Calls = new();
+        public readonly List<string> Calls = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -29,7 +28,7 @@ public class GuiShellBorderTests
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) => Calls.Add($"stretch {bitmap.Width}x{bitmap.Height} {x},{y} {width}x{height}");
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
@@ -41,7 +40,7 @@ public class GuiShellBorderTests
     {
         // piece i is (10 + i) wide and (20 + i) high
         var a = new PbmaArray { BitmapCount = 15 };
-        for (int i = 0; i < 15; i++)
+        for (var i = 0; i < 15; i++)
             a.Bitmaps.Add(new PbmpBitmap { Width = 10 + i, Height = 20 + i });
         return a;
     }
@@ -133,7 +132,7 @@ public class GuiShellBorderTests
     {
         var fx = new GuiFixture(640, 480);
         var a = new PbmaArray { BitmapCount = 15 };
-        for (int i = 0; i < 15; i++)
+        for (var i = 0; i < 15; i++)
             a.Bitmaps.Add(new PbmpBitmap { Width = 4 + i, Height = 20 + i });   // piece i is (4 + i) x (20 + i)
         fx.Host.SetArray("ShellSliderCtrl.pba", a);
         GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);

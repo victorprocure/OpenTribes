@@ -1,9 +1,3 @@
-using System.Globalization;
-using OpenTribes.Core;
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
 
 /// <summary>The definition of one datablock field.</summary>
@@ -73,11 +67,11 @@ public sealed class ClassDef
 internal static class DataBlockTables
 {
     private static readonly FieldDef[] kDamageSkinDataFields =
-    {
+    [
         new("bmpName", 0, 10, "", false),
-    };
+    ];
     private static readonly FieldDef[] kGameBaseFields =
-    {
+    [
         new("className", 0, 1, "", false),
         new("visibleToSensor", 4, 1, "False", false),
         new("mapIcon", 0, 1, "", false),
@@ -85,9 +79,9 @@ internal static class DataBlockTables
         new("description", 1, 1, "Shape", false),
         new("validateShape", 4, 1, "False", false),
         new("validateMaterials", 4, 1, "False", false),
-    };
+    ];
     private static readonly FieldDef[] kShapeBaseFields =
-    {
+    [
         new("damageSkinData", 21, 1, "", false),
         new("shapeFile", 0, 1, "", false),
         new("shieldShapeName", 0, 1, "", false),
@@ -99,23 +93,23 @@ internal static class DataBlockTables
         new("maxDamage", 3, 1, "1", false),
         new("repairRate", 3, 1, "0.1", false),
         new("isPerspective", 4, 1, "", true),
-    };
+    ];
     private static readonly FieldDef[] kStaticBaseFields =
-    {
+    [
         new("sfxAmbient", 17, 1, "", false),
         new("damageLevel", 20, 1, "0.5 0.75", false),
         new("isTranslucent", 4, 1, "False", false),
         new("triggerRadius", 3, 1, "0", false),
         new("disableCollision", 4, 1, "False", false),
-    };
+    ];
     private static readonly FieldDef[] kCarDataFields =
-    {
-    };
+    [
+    ];
     private static readonly FieldDef[] kTriggerDataFields =
-    {
-    };
+    [
+    ];
     private static readonly FieldDef[] kVehicleDataFields =
-    {
+    [
         new("mass", 3, 1, "", true),
         new("drag", 3, 1, "", true),
         new("density", 3, 1, "", true),
@@ -134,14 +128,14 @@ internal static class DataBlockTables
         new("ramDamageType", 2, 1, "", true),
         new("visibleDriver", 4, 1, "", true),
         new("driverPose", 2, 1, "", true),
-    };
+    ];
     private static readonly FieldDef[] kTankDataFields =
-    {
+    [
         new("maxGrade", 3, 1, "", true),
         new("suspension", 5, 4, "", true),
-    };
+    ];
     private static readonly FieldDef[] kFlierDataFields =
-    {
+    [
         new("maxBank", 3, 1, "", true),
         new("maxPitch", 3, 1, "", true),
         new("lift", 3, 1, "", true),
@@ -149,9 +143,9 @@ internal static class DataBlockTables
         new("maxVertical", 3, 1, "", true),
         new("accel", 3, 1, "", true),
         new("groundDamageScale", 3, 1, "", true),
-    };
+    ];
     private static readonly FieldDef[] kPlayerDataFields =
-    {
+    [
         new("flameShapeName", 0, 1, "", true),
         new("canCrouch", 4, 1, "", true),
         new("animData", 9, 51, "", true),
@@ -188,16 +182,16 @@ internal static class DataBlockTables
         new("boxHeadFrontPercentage", 3, 1, "1", false),
         new("minDamageSpeed", 3, 1, "13", false),
         new("damageScale", 3, 1, "0.00899999", false),
-    };
+    ];
     private static readonly FieldDef[] kStaticShapeDataFields =
-    {
-    };
+    [
+    ];
     private static readonly FieldDef[] kMarkerDataFields =
-    {
+    [
         new("shapeFile", 0, 1, "", true),
-    };
+    ];
     private static readonly FieldDef[] kItemDataFields =
-    {
+    [
         new("imageType", 11, 1, "", false),
         new("price", 2, 1, "0", false),
         new("mass", 3, 1, "1", false),
@@ -214,16 +208,16 @@ internal static class DataBlockTables
         new("lightTime", 3, 1, "1.5", false),
         new("lightRadius", 3, 1, "3", false),
         new("lightColor", 5, 1, "1 1 1", false),
-    };
+    ];
     private static readonly FieldDef[] kMineDataFields =
-    {
+    [
         new("kickBackStrength", 3, 1, "100", false),
         new("explosionRadius", 3, 1, "1", false),
         new("damageValue", 3, 1, "1", false),
         new("damageType", 2, 1, "0", false),
-    };
+    ];
     private static readonly FieldDef[] kItemImageDataFields =
-    {
+    [
         new("shapeFile", 0, 1, "", false),
         new("mountPoint", 2, 1, "2", false),
         new("mountOffset", 5, 1, "0 0 0", false),
@@ -251,9 +245,9 @@ internal static class DataBlockTables
         new("sfxReload", 17, 1, "", false),
         new("sfxSpinUp", 17, 1, "", false),
         new("sfxSpinDown", 17, 1, "", false),
-    };
+    ];
     private static readonly FieldDef[] kMoveableDataFields =
-    {
+    [
         new("displace", 4, 1, "True", false),
         new("blockForward", 4, 1, "True", false),
         new("blockBackward", 4, 1, "True", false),
@@ -263,18 +257,18 @@ internal static class DataBlockTables
         new("sfxBlocked", 17, 1, "", false),
         new("speed", 3, 1, "1", false),
         new("side", 0, 1, "", false),
-    };
+    ];
     private static readonly FieldDef[] kSensorDataFields =
-    {
+    [
         new("castLOS", 4, 1, "False", false),
         new("range", 2, 1, "100", false),
         new("dopplerVelocity", 2, 1, "0", false),
         new("supression", 4, 1, "False", false),
         new("supressable", 4, 1, "True", false),
         new("pinger", 4, 1, "True", false),
-    };
+    ];
     private static readonly FieldDef[] kTurretDataFields =
-    {
+    [
         new("gunRange", 3, 1, "-1", false),
         new("speed", 3, 1, "1", false),
         new("speedModifier", 3, 1, "", true),
@@ -292,9 +286,9 @@ internal static class DataBlockTables
         new("isSustained", 4, 1, "False", false),
         new("firingTimeMS", 2, 1, "", true),
         new("energyRate", 3, 1, "", true),
-    };
+    ];
     private static readonly FieldDef[] kBulletDataFields =
-    {
+    [
         new("bulletShapeName", 0, 1, "", false),
         new("explosionTag", 18, 1, "@index0", false),
         new("expRandCycle", 2, 1, "0", false),
@@ -318,9 +312,9 @@ internal static class DataBlockTables
         new("soundId", 17, 1, "", false),
         new("validateShape", 4, 1, "False", false),
         new("validateMaterials", 4, 1, "False", false),
-    };
+    ];
     private static readonly FieldDef[] kGrenadeDataFields =
-    {
+    [
         new("bulletShapeName", 0, 1, "", false),
         new("explosionTag", 18, 1, "@index0", false),
         new("collideWithOwner", 4, 1, "False", false),
@@ -344,9 +338,9 @@ internal static class DataBlockTables
         new("soundId", 17, 1, "", false),
         new("validateShape", 4, 1, "False", false),
         new("validateMaterials", 4, 1, "False", false),
-    };
+    ];
     private static readonly FieldDef[] kLaserDataFields =
-    {
+    [
         new("laserBitmapName", 0, 1, "laserPulse.bmp", false),
         new("hitName", 0, 1, "", false),
         new("damageConversion", 3, 1, "0", false),
@@ -356,16 +350,16 @@ internal static class DataBlockTables
         new("lightColor", 6, 1, "0 0 0", false),
         new("detachFromShooter", 4, 1, "False", false),
         new("hitSoundId", 17, 1, "", false),
-    };
+    ];
     private static readonly FieldDef[] kTargetLaserDataFields =
-    {
+    [
         new("laserBitmapName", 0, 1, "laserPulse.bmp", false),
         new("lightRange", 3, 1, "0", false),
         new("lightColor", 6, 1, "0 0 0", false),
         new("hitShapeName", 0, 1, "", false),
-    };
+    ];
     private static readonly FieldDef[] kLightningDataFields =
-    {
+    [
         new("bitmapName", 0, 1, "lightningTemp.bmp", false),
         new("damageType", 2, 1, "0", false),
         new("boltLength", 3, 1, "5", false),
@@ -381,9 +375,9 @@ internal static class DataBlockTables
         new("lightRange", 3, 1, "0", false),
         new("lightColor", 6, 1, "0 0 0", false),
         new("soundId", 17, 1, "", false),
-    };
+    ];
     private static readonly FieldDef[] kRepairEffectDataFields =
-    {
+    [
         new("bitmapName", 0, 1, "lightningTemp.bmp", false),
         new("boltLength", 3, 1, "5", false),
         new("segmentDivisions", 2, 1, "1", false),
@@ -393,9 +387,9 @@ internal static class DataBlockTables
         new("displaceBias", 3, 1, "0.25", false),
         new("lightRange", 3, 1, "0", false),
         new("lightColor", 6, 1, "0 0 0", false),
-    };
+    ];
     private static readonly FieldDef[] kRocketDataFields =
-    {
+    [
         new("bulletShapeName", 0, 1, "", false),
         new("explosionTag", 18, 1, "@index0", false),
         new("collideWithOwner", 4, 1, "False", false),
@@ -423,9 +417,9 @@ internal static class DataBlockTables
         new("soundId", 17, 1, "", false),
         new("validateShape", 4, 1, "False", false),
         new("validateMaterials", 4, 1, "False", false),
-    };
+    ];
     private static readonly FieldDef[] kSeekingMissileDataFields =
-    {
+    [
         new("bulletShapeName", 0, 1, "", false),
         new("explosionTag", 18, 1, "@index0", false),
         new("collideWithOwner", 4, 1, "False", false),
@@ -450,9 +444,9 @@ internal static class DataBlockTables
         new("soundId", 17, 1, "", false),
         new("validateShape", 4, 1, "False", false),
         new("validateMaterials", 4, 1, "False", false),
-    };
+    ];
     private static readonly FieldDef[] kExplosionDataFields =
-    {
+    [
         new("shapeName", 0, 1, "", false),
         new("soundId", 17, 1, "", false),
         new("faceCamera", 4, 1, "False", false),
@@ -467,9 +461,9 @@ internal static class DataBlockTables
         new("timeScale", 3, 1, "1", false),
         new("validateShape", 4, 1, "False", false),
         new("validateMaterials", 4, 1, "False", false),
-    };
+    ];
     private static readonly FieldDef[] kSoundProfileDataFields =
-    {
+    [
         new("flags", 14, 1, "0", false),
         new("baseVolume", 3, 1, "0", false),
         new("minDistance", 3, 1, "30", false),
@@ -478,15 +472,15 @@ internal static class DataBlockTables
         new("coneOutsideAngle", 3, 1, "2.52233e-43", false),
         new("coneVector", 15, 1, "0 -1 0", false),
         new("coneOutsideVolume", 3, 1, "0", false),
-    };
+    ];
     private static readonly FieldDef[] kSoundDataFields =
-    {
+    [
         new("wavFileName", 0, 1, "", false),
         new("profile", 16, 1, "", false),
         new("priority", 3, 1, "0", false),
-    };
+    ];
     private static readonly FieldDef[] kDebrisDataFields =
-    {
+    [
         new("type", 2, 1, "0", false),
         new("pShapeName", 0, 1, "", false),
         new("imageType", 2, 1, "0", false),
@@ -511,14 +505,14 @@ internal static class DataBlockTables
         new("p", 3, 1, "", true),
         new("explodeOnRest", 2, 1, "1", false),
         new("collisionDetail", 2, 1, "0", false),
-    };
+    ];
     private static readonly FieldDef[] kIRCChannelFields =
-    {
+    [
         new("name", 0, 1, "", true),
         new("topic", 0, 1, "", true),
-    };
+    ];
     internal static readonly ClassDef[] kClasses =
-    {
+    [
         new("DamageSkinData", 2, null, kDamageSkinDataFields, true),
         new("GameBase", -1, null, kGameBaseFields, false),
         new("ShapeBase", -1, "GameBase", kShapeBaseFields, false),
@@ -550,5 +544,5 @@ internal static class DataBlockTables
         new("SoundData", 1, null, kSoundDataFields, true),
         new("DebrisData", 22, null, kDebrisDataFields, true),
         new("IRCChannel", 30, null, kIRCChannelFields, true),
-    };
+    ];
 }

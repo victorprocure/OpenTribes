@@ -1,10 +1,10 @@
+namespace OpenTribes.Client.App;
+
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Gui;
 using OpenTribes.Net;
 using OpenTribes.Script;
-
-namespace OpenTribes.Client.App;
 
 /// <summary>The query of the Join Server screen: what the stock exe does when the screen opens and when REFRESH ALL, REFRESH VIS or CANCEL is pressed.</summary>
 /// <remarks>docs/gui.md 3.3 (server browser), client-net.md 1.7 and net-protocol.md 6.2. Follows the message handler of the delegate (004d7bb4), its screen updates 004d793c (progress), 004d7ac4 (search ended), 004d7648 (JOIN and INFO), TribesNet_queryServers (0042bb50) and the reply handlers 0042caf0 (ping), 0042c4cc (info) and 0042cb88 (failure). R6: only 127.0.0.0/8 is contacted unless <c>--allow-remote</c> is given. The broadcast then is the loopback broadcast (127.255.255.255), never the one of the LAN.</remarks>
@@ -93,8 +93,8 @@ public sealed class ServerBrowser : IDisposable
     private string Var(string name) => mApp.Interp.PeekVariable(name);
     private int IntVar(string name, int fallback)
     {
-        string v = Var(name);
-        return v.Length > 0 && int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) ? n : fallback;
+        var v = Var(name);
+        return v.Length > 0 && int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : fallback;
     }
     private static bool IsTrue(string v) => v.Length > 0 && (v[0] is 't' or 'T' or '1');
 
@@ -111,15 +111,18 @@ public sealed class ServerBrowser : IDisposable
             MayContact = a => mApp.Opt.AllowRemote || (a.Ip >> 24) == 127,
             Prefs = new ServerQueryPrefs
             {
-                MaxPings = IntVar("$pref::maxConcurrentPings", 20), PingTimeoutMs = IntVar("$pref::pingTimeoutTime", 1500),
-                PingRetries = IntVar("$pref::pingRetryCount", 2), MaxRequests = IntVar("$pref::maxConcurrentRequests", 10),
-                RequestTimeoutMs = IntVar("$pref::requestTimeoutTime", 2000), RequestRetries = IntVar("$pref::requestRetryCount", 2),
+                MaxPings = IntVar("$pref::maxConcurrentPings", 20),
+                PingTimeoutMs = IntVar("$pref::pingTimeoutTime", 1500),
+                PingRetries = IntVar("$pref::pingRetryCount", 2),
+                MaxRequests = IntVar("$pref::maxConcurrentRequests", 10),
+                RequestTimeoutMs = IntVar("$pref::requestTimeoutTime", 2000),
+                RequestRetries = IntVar("$pref::requestRetryCount", 2),
             },
+            OnPing = OnPing,
+            OnInfo = OnInfo,
+            OnFail = OnFail,
+            OnMaster = OnMaster
         };
-        mQuery.OnPing = OnPing;
-        mQuery.OnInfo = OnInfo;
-        mQuery.OnFail = OnFail;
-        mQuery.OnMaster = OnMaster;
         return mQuery;
     }
 
@@ -210,14 +213,14 @@ public sealed class ServerBrowser : IDisposable
     /// <remarks>$pref::MSprevMOTD becomes the message that was shown and the button state is worked out again (004d7770).</remarks>
     public static string MotdText(string name, string motd)
     {
-        string text = "<f1>Message of the day from: " + name + "<f0>\n\n";
+        var text = "<f1>Message of the day from: " + name + "<f0>\n\n";
         return text + motd[..Math.Min(motd.Length, Math.Max(0, 1023 - text.Length))];
     }
 
     private bool OpenMotd()
     {
-        string name = Var("$pref::MSName");
-        string motd = Var("$pref::MSMOTD");
+        var name = Var("$pref::MSName");
+        var motd = Var("$pref::MSMOTD");
         mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\MasterMOTD.gui\");");
         mApp.GuiRt.Canvas.Top?.FindById(MotdId)?.SetText(MotdText(name, motd));
         mApp.Interp.SetVariable("$pref::MSprevMOTD", motd);
@@ -272,7 +275,7 @@ public sealed class ServerBrowser : IDisposable
             return;
         if (Find(favorite ? InfoFavoriteBoxId : InfoNeverPingBoxId) is not GuiUniversalButton box)
             return;
-        string address = list.Servers[list.Selected].Address;
+        var address = list.Servers[list.Selected].Address;
         if (favorite)
             list.SetFavorite(address, box.On);
         else
@@ -286,7 +289,7 @@ public sealed class ServerBrowser : IDisposable
         GuiServerList? list = content?.FindById(ListId) as GuiServerList ?? List;
         if (list == null)
             return;
-        string path = Builtins.ResolveGamePath(mApp.Opt.Root, "config\\GameServerList.cs");
+        var path = Builtins.ResolveGamePath(mApp.Opt.Root, "config\\GameServerList.cs");
         if (path.Length == 0)
             return;
         try
@@ -351,9 +354,9 @@ public sealed class ServerBrowser : IDisposable
         // 004c525c: the never-ping rows count as answered, a broadcast or master reply for one is not queried.
         if (List is { } list)
             foreach (GuiServerList.Server s in list.Servers)
-                if (s.NeverPing && QueryAddress.TryResolve(s.Address, 0, out string canon, out _, out _, out _))
+                if (s.NeverPing && QueryAddress.TryResolve(s.Address, 0, out var canon, out _, out _, out _))
                     q.AddSeen(canon);
-        string port = IntVar("$Server::Port", 0).ToString(CultureInfo.InvariantCulture);
+        var port = IntVar("$Server::Port", 0).ToString(CultureInfo.InvariantCulture);
         q.Queue("IP:BROADCAST:" + port);
         q.Queue("IPX:BROADCAST:" + port);
         if (!IsTrue(Var("$pref::lanOnly")))
@@ -420,7 +423,7 @@ public sealed class ServerBrowser : IDisposable
             if (Find(InfoAddressId) is { } shown && string.Equals(shown.GetText(), row.Address, StringComparison.OrdinalIgnoreCase))
                 FillInfoDialog(row);
         }
-        int requests = Query().PendingRequests;
+        var requests = Query().PendingRequests;
         if (requests > 0)
             UpdateProgress(requests, mInfoCount, false);
         else
@@ -442,7 +445,7 @@ public sealed class ServerBrowser : IDisposable
         }
         UpdateProgress(Query().PendingPings, Query().PendingRequests, true);
         if (List is { } list)
-            foreach (string a in Query().PendingPingAddresses)
+            foreach (var a in Query().PendingPingAddresses)
                 if (list.Find(a) is { } row)
                     row.State = GuiServerList.StateQuerying;
     }
@@ -464,10 +467,10 @@ public sealed class ServerBrowser : IDisposable
         // 0042cb88: the current master failed, the next one is asked, with none left the error dialog opens.
         if (mMasterIndex < mMasterCount && string.Equals(NormalAddress(Var("$Server::XLMasterN" + mMasterIndex.ToString(CultureInfo.InvariantCulture))), address, StringComparison.OrdinalIgnoreCase))
         {
-            bool queued = false;
+            var queued = false;
             while (++mMasterIndex < mMasterCount)
             {
-                string next = Var("$Server::XLMasterN" + mMasterIndex.ToString(CultureInfo.InvariantCulture));
+                var next = Var("$Server::XLMasterN" + mMasterIndex.ToString(CultureInfo.InvariantCulture));
                 if (next.Length == 0)
                     continue;
                 Query().Queue(next);
@@ -497,7 +500,7 @@ public sealed class ServerBrowser : IDisposable
     }
 
     private static string NormalAddress(string text) =>
-        QueryAddress.TryResolve(text, 0, out string c, out _, out _, out _) ? c : text;
+        QueryAddress.TryResolve(text, 0, out var c, out _, out _, out _) ? c : text;
 
     // A row's join address: the text the JoinGame script takes ("IP:a.b.c.d:port").
     private static string ToJoinAddress(string canonical) => canonical;
@@ -510,7 +513,7 @@ public sealed class ServerBrowser : IDisposable
             End();
             return;
         }
-        float f = pings + requests == 0 ? 1.0f : (float)requests / ((float)(pings + requests) * 2.0f);
+        var f = pings + requests == 0 ? 1.0f : requests / ((pings + requests) * 2.0f);
         if (!pinging)
             f += 0.5f;
         Find(ProgressId)?.SetValue(f.ToString("R", CultureInfo.InvariantCulture));
@@ -539,7 +542,7 @@ public sealed class ServerBrowser : IDisposable
     public void UpdateButtons()
     {
         GuiServerList? list = List;
-        bool sel = list != null && list.Selected >= 0 && list.Selected < list.Servers.Count;
+        var sel = list != null && list.Selected >= 0 && list.Selected < list.Servers.Count;
         if (Find(JoinId) is GuiActive join)
             join.Active = sel;
         if (Find(InfoId) is GuiActive info)

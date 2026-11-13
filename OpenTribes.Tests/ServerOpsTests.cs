@@ -1,12 +1,12 @@
 // Port of tests/test_server_ops.cpp: server operations unit tests (docs/server-ops.md): 0x10 game info (2), remote
 // console protocol (3), ban list (4), kick (5), console log (6), command surface (7). Synthetic input only: no socket
 // is opened; datagrams go through NetServer.Receive and the send seam, console bytes through TelnetSession.Receive.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Net;
 using OpenTribes.Script;
 using OpenTribes.Server;
-
-namespace OpenTribes.Tests;
 
 public class ServerOpsTests
 {
@@ -15,8 +15,8 @@ public class ServerOpsTests
     private sealed class Harness
     {
         public readonly NetServer Server;
-        public readonly List<(Address to, byte[] data)> Sent = new();
-        public readonly List<(int level, string line)> Log = new();
+        public readonly List<(Address to, byte[] data)> Sent = [];
+        public readonly List<(int level, string line)> Log = [];
         public uint NextId = 0x2000;
 
         public Harness(ServerConfig? cfg = null)
@@ -31,7 +31,7 @@ public class ServerOpsTests
             Sent.Clear();
             Server.Receive(from, req, 0);
             Assert.True(Sent.Count <= 1);
-            return Sent.Count == 0 ? Array.Empty<byte>() : Sent[0].data;
+            return Sent.Count == 0 ? [] : Sent[0].data;
         }
 
         // Connect request from `from`; returns the player id (0 when nothing was accepted).
@@ -41,8 +41,8 @@ public class ServerOpsTests
         {
             var buf = new byte[1500];
             var bs = new BitStream(buf, buf.Length);
-            bs.WriteBytes(new byte[] { 1, 0 });
-            foreach (string s in new[] { "Tribes", "1.11", "", name, "Male", "male1", "base" })
+            bs.WriteBytes([1, 0]);
+            foreach (var s in new[] { "Tribes", "1.11", "", name, "Male", "male1", "base" })
                 bs.WriteString(s);
             var p = new VcPacket { Id = NextId++ };
             p.IdBit = p.Id & 1;
@@ -50,7 +50,7 @@ public class ServerOpsTests
             p.Type = 3;
             p.Payload = buf.AsSpan(0, bs.BytePosition()).ToArray();
             connId = p.Id;
-            byte[] d = VcPacket.Build(p);
+            var d = VcPacket.Build(p);
             Sent.Clear();
             Server.Receive(from, d, 0);
             if (Sent.Count == 0)
@@ -72,18 +72,18 @@ public class ServerOpsTests
                       TeamHeading = "", ClientHeading = "";
         public byte Players, MaxPlayers, Dedicated, Password;
         public uint Cpu;
-        public List<string> Rows = new();
+        public List<string> Rows = [];
     }
 
     private static GameInfoReply DecodeGameInfo(byte[] d)
     {
         Assert.True(d.Length >= 8);
         var r = new GameInfoReply();
-        byte[] body = d.AsSpan(8).ToArray();
+        var body = d.AsSpan(8).ToArray();
         var bs = new BitStream(body, body.Length);
         var b = new byte[4];
         bs.ReadBytes(b.AsSpan(0, 2));
-        r.PacketVersion = (ushort)(b[0] | b[1] << 8);
+        r.PacketVersion = (ushort)(b[0] | (b[1] << 8));
         r.Game = bs.ReadString();
         r.Version = bs.ReadString();
         r.Hostname = bs.ReadString();
@@ -98,7 +98,7 @@ public class ServerOpsTests
         bs.ReadBytes(one);
         r.Password = one[0];
         bs.ReadBytes(b);
-        r.Cpu = (uint)b[0] | (uint)b[1] << 8 | (uint)b[2] << 16 | (uint)b[3] << 24;
+        r.Cpu = b[0] | ((uint)b[1] << 8) | ((uint)b[2] << 16) | ((uint)b[3] << 24);
         r.ModList = bs.ReadString();
         r.MissionType = bs.ReadString();
         r.Info = bs.ReadString();
@@ -106,7 +106,7 @@ public class ServerOpsTests
         r.ClientHeading = bs.ReadString();
         while (bs.BitPosition() + 9 <= (d.Length - 8) * 8)
         {
-            string row = bs.ReadString();
+            var row = bs.ReadString();
             if (bs.Error())
                 break;
             r.Rows.Add(row);
@@ -121,22 +121,22 @@ public class ServerOpsTests
     // ---- 2: 0x10 queries ----
     private static int TestGameInfo()
     {
-        int cases = 0;
-        byte[] request = { 0x10, 7, 0xff, 0, 0x34, 0x12, 0, 0 };
+        var cases = 0;
+        byte[] request = [0x10, 7, 0xff, 0, 0x34, 0x12, 0, 0];
 
         // 2.3 header and fixed fields from the configuration; no team heading: only the client
         // heading row, preceded by the "00" separator.
         {
             var cfg = new ServerConfig { Hostname = "Host", MaxPlayers = "12" };
             var h = new Harness(cfg);
-            byte[] d = h.Query(Addr(1), request);
-            byte[] header = { 0x10, 8, 0xff, 0, 0x34, 0x12, 0, 0 };
+            var d = h.Query(Addr(1), request);
+            byte[] header = [0x10, 8, 0xff, 0, 0x34, 0x12, 0, 0];
             Assert.True(d.Length > 8 && d.AsSpan(0, 8).SequenceEqual(header));
             GameInfoReply r = DecodeGameInfo(d);
             Assert.True(r.PacketVersion == 1 && r.Game == "Tribes" && r.Version == "1.11" && r.Hostname == "Host");
             Assert.True(r.Players == 0 && r.MaxPlayers == 12 && r.Mission == "N/A" && r.Dedicated == 1 && r.Password == 0);
             Assert.True(r.Cpu == 0 && r.ModList == "base" && r.TeamHeading.Length == 0 && r.ClientHeading.Length == 0);
-            Assert.Equal(new List<string> { "00", "11" }, r.Rows);
+            Assert.Equal(["00", "11"], r.Rows);
             Assert.True(h.Log.Count == 1 && h.Log[0].level == 3 &&
                         h.Log[0].line == "SimNET: Got server info request from IP:10.0.0.1:3001.");
             ++cases;
@@ -146,16 +146,16 @@ public class ServerOpsTests
         // echoed, a request cut before the key gets key 0; other types get no answer.
         {
             var h = new Harness();
-            byte[] d = h.Query(Addr(1), new byte[] { 0x10, 7, 1, 2, 0x56, 0x78, 9, 9, 1, 2, 3 });
+            var d = h.Query(Addr(1), [0x10, 7, 1, 2, 0x56, 0x78, 9, 9, 1, 2, 3]);
             Assert.True(d.Length > 8 && d[2] == 0xff && d[3] == 0 && d[4] == 0x56 && d[5] == 0x78 && d[6] == 0 && d[7] == 0);
-            d = h.Query(Addr(1), new byte[] { 0x10, 7 });
+            d = h.Query(Addr(1), [0x10, 7]);
             Assert.True(d.Length > 8 && d[4] == 0 && d[5] == 0);
-            d = h.Query(Addr(1), new byte[] { 0x10, 3 });
+            d = h.Query(Addr(1), [0x10, 3]);
             Assert.True(d.Length == 40 && d[1] == 4 && d[4] == 0 && d[5] == 0);
             Assert.True(h.Log[^1].level == 3 && h.Log[^1].line == "SimNET: Got ping request from IP:10.0.0.1:3001");
-            foreach (byte type in new byte[] { 0, 1, 2, 4, 5, 6, 8, 9, 255 })
-                Assert.Empty(h.Query(Addr(1), new byte[] { 0x10, type, 0xff, 0, 0, 0, 0, 0 }));
-            Assert.Empty(h.Query(Addr(1), new byte[] { 0x10 }));
+            foreach (var type in new byte[] { 0, 1, 2, 4, 5, 6, 8, 9, 255 })
+                Assert.Empty(h.Query(Addr(1), [0x10, type, 0xff, 0, 0, 0, 0, 0]));
+            Assert.Empty(h.Query(Addr(1), [0x10]));
             ++cases;
         }
 
@@ -181,9 +181,9 @@ public class ServerOpsTests
         // client heading, players by descending sort value with %n %t %p %l expanded.
         {
             var h = new Harness();
-            uint a = h.Join(Addr(2), "Alpha");
-            uint b = h.Join(Addr(3), "Bravo");
-            uint c = h.Join(Addr(4), "Carol");
+            var a = h.Join(Addr(2), "Alpha");
+            var b = h.Join(Addr(3), "Bravo");
+            var c = h.Join(Addr(4), "Carol");
             Assert.True(a == 2049 && b == 2050 && c == 2051);
             h.Server.SetGameInfo(() =>
             {
@@ -200,7 +200,7 @@ public class ServerOpsTests
                 var pa = new GameInfo.PlayerRow { Id = a, Team = 0, Score = "%n/%t/%p/%l/%x%", Sort = 3, Ping = 42, Loss = 0.257f };
                 var pb = new GameInfo.PlayerRow { Id = b, Team = 1, Score = "%n-%t", Sort = 9 };
                 var pc = new GameInfo.PlayerRow { Id = c, Team = -1, Score = "[%t]%n", Sort = -4 };
-                g.Players = new List<GameInfo.PlayerRow> { pa, pb, pc };
+                g.Players = [pa, pb, pc];
                 return g;
             });
             GameInfoReply r = DecodeGameInfo(h.Query(Addr(1), request));
@@ -211,7 +211,7 @@ public class ServerOpsTests
 
             // The 0x63 reply lists the same players newest first with raw score text, ping/4,
             // loss*100 and the team byte (net-protocol.md 6.1).
-            string text = S(h.Query(Addr(1), new byte[] { 0x62, 1, 2 }));
+            var text = S(h.Query(Addr(1), [0x62, 1, 2]));
             int carol = text.IndexOf("Carol", StringComparison.Ordinal), bravo = text.IndexOf("Bravo", StringComparison.Ordinal),
                 alpha = text.IndexOf("Alpha", StringComparison.Ordinal);
             Assert.True(carol < bravo && bravo < alpha);
@@ -226,7 +226,7 @@ public class ServerOpsTests
             var h = new Harness();
             h.Server.SetGameInfo(() => new GameInfo { TeamCount = -1, TeamHeading = "TH", ClientHeading = "CH" });
             GameInfoReply r = DecodeGameInfo(h.Query(Addr(1), request));
-            Assert.Equal(new List<string> { "00", "01TH" }, r.Rows);
+            Assert.Equal(["00", "01TH"], r.Rows);
             ++cases;
         }
 
@@ -243,14 +243,14 @@ public class ServerOpsTests
                 g.TeamCount = 8;
                 g.TeamHeading = new string('h', 300);
                 g.ClientHeading = new string('c', 300);
-                for (int t = 0; t < 8; ++t)
+                for (var t = 0; t < 8; ++t)
                     g.Teams.Add(new(new string('n', 200), new string('%', 120) + "t%t%t%t%t%t%t%t", t));
                 return g;
             });
-            byte[] d = h.Query(Addr(1), request);
-            Assert.True(d.Length >= 8 && d.Length <= 8 + 0x5d4);
-            d = h.Query(Addr(1), new byte[] { 0x62, 0, 0 });
-            Assert.True(d.Length != 0 && d.Length <= 0x578);
+            var d = h.Query(Addr(1), request);
+            Assert.True(d.Length is >= 8 and <= (8 + 0x5d4));
+            d = h.Query(Addr(1), [0x62, 0, 0]);
+            Assert.True(d.Length is not 0 and <= 0x578);
             ++cases;
         }
         return cases;
@@ -261,23 +261,20 @@ public class ServerOpsTests
     {
         public readonly TelnetSession Session = new();
         public string Out = "", Password = "pw", Prompt = "% ";
-        public readonly List<string> Evaluated = new();
+        public readonly List<string> Evaluated = [];
         public readonly TelnetSession.Host Host;
 
-        public TelnetHarness()
+        public TelnetHarness() => Host = new TelnetSession.Host
         {
-            Host = new TelnetSession.Host
+            Password = () => Password,
+            Prompt = () => Prompt,
+            Evaluate = line =>
             {
-                Password = () => Password,
-                Prompt = () => Prompt,
-                Evaluate = line =>
-                {
-                    Evaluated.Add(line);
-                    Out += "<" + line + ">";
-                },
-                Send = d => Out += S(d),
-            };
-        }
+                Evaluated.Add(line);
+                Out += "<" + line + ">";
+            },
+            Send = d => Out += S(d),
+        };
 
         // Feeds one chunk and returns what the client received for it.
         public string Feed(string data) => Feed(data, out _);
@@ -292,7 +289,7 @@ public class ServerOpsTests
 
     private static int TestTelnet()
     {
-        int cases = 0;
+        var cases = 0;
         const string retry = "Nope... try agian.\r\nEnter Password:";
 
         // 3.1 banner text.
@@ -306,13 +303,13 @@ public class ServerOpsTests
             Assert.Empty(t.Feed("abc"));
             Assert.Equal(retry + "\r\n", t.Feed("\r\n"));
             Assert.Equal(retry + "\r\n", t.Feed("\r\n")); // empty line counts as a try
-            Assert.True(t.Feed("bad\r\nworse\r\n", out bool open) == retry + "Too many tries... cya." && !open);
+            Assert.True(t.Feed("bad\r\nworse\r\n", out var open) == retry + "Too many tries... cya." && !open);
             ++cases;
         }
         {
             var t = new TelnetHarness();
             Assert.Equal(retry + retry + "\r\n\r\n", t.Feed("bad1\r\nbad2\r\n"));
-            Assert.True(t.Feed("pwx\b\r\n", out bool open) == "\r\n% " && open && t.Session.Authenticated());
+            Assert.True(t.Feed("pwx\b\r\n", out var open) == "\r\n% " && open && t.Session.Authenticated());
             Assert.Empty(t.Evaluated);
             ++cases;
         }
@@ -322,7 +319,7 @@ public class ServerOpsTests
         {
             var t = new TelnetHarness();
             t.Feed("1\n2\n3\n");
-            Assert.True(t.Feed("4\npw\necho(1);\n", out bool open) == "Too many tries... cya." && !open);
+            Assert.True(t.Feed("4\npw\necho(1);\n", out var open) == "Too many tries... cya." && !open);
             Assert.True(!t.Session.Authenticated() && t.Evaluated.Count == 0);
             ++cases;
         }
@@ -370,7 +367,7 @@ public class ServerOpsTests
 
         // 3.5 TelnetConsole without a port never opens a socket and ignores output.
         {
-            int port = 0;
+            var port = 0;
             var host = new TelnetConsole.Host
             {
                 Port = () => port,
@@ -394,9 +391,9 @@ public class ServerOpsTests
     // ---- 4: ban list ----
     private static int TestBanList()
     {
-        int cases = 0;
-        int now = 1000;
-        Func<int> clock = () => now;
+        var cases = 0;
+        var now = 1000;
+        int clock() => now;
 
         // 4.1 add: relative expiry, -1 permanent; the port of an IP address becomes '*'.
         {
@@ -481,8 +478,8 @@ public class ServerOpsTests
             h.Server.Bans().Add("IP:10.0.0.7:1", -1);
             var banned = new Address(0x0a000007u, 4242);
             var other = new Address(0x0a000008u, 4242);
-            foreach (byte[] q in new[] { new byte[] { 0x60, 1, 2 }, new byte[] { 0x62, 1, 2 }, new byte[] { 0x10, 3, 0xff, 0, 1, 2, 0, 0 },
-                                         new byte[] { 0x10, 7, 0xff, 0, 1, 2, 0, 0 } })
+            foreach (var q in new[] { new byte[] { 0x60, 1, 2 }, [0x62, 1, 2], [0x10, 3, 0xff, 0, 1, 2, 0, 0],
+                                         [0x10, 7, 0xff, 0, 1, 2, 0, 0] })
             {
                 h.Log.Clear();
                 Assert.Empty(h.Query(banned, q));
@@ -505,13 +502,13 @@ public class ServerOpsTests
     // ---- 5: kick ----
     private static int TestKick()
     {
-        int cases = 0;
+        var cases = 0;
         var h = new Harness();
         var closed = new List<uint>();
         h.Server.SetHooks(new NetHooks { OnClosed = p => closed.Add(p.Id) });
 
-        uint a = h.Join(Addr(1), "A", out uint connA);
-        uint b = h.Join(Addr(2), "B", out uint connB);
+        var a = h.Join(Addr(1), "A", out var connA);
+        var b = h.Join(Addr(2), "B", out var connB);
         Assert.True(a == 2049 && b == 2050);
 
         // Reason text on the wire: type 2 with the connection id, payload = text + NUL.
@@ -529,7 +526,7 @@ public class ServerOpsTests
         p = VcPacket.Parse(h.Sent[0].data);
         Assert.True(p.Type == 2 && p.Id == connB && p.Payload.SequenceEqual(VcPacket.Bytes("You were kicked from the game.", true)));
         h.Server.Poll(0);
-        uint c = h.Join(Addr(3), "C", out _);
+        var c = h.Join(Addr(3), "C", out _);
         Assert.Equal(2050u, c); // ids are reused last-freed-first
         h.Sent.Clear();
         Assert.True(h.Server.Kick(c, ""));
@@ -545,7 +542,7 @@ public class ServerOpsTests
         // dropInvalid (the SimNet error delegate after an invalid game packet, docs/game-stream.md 1.6): the game side
         // closes and the disconnect has no payload, not even the NUL of a reason text.
         h.Server.Poll(0);
-        uint inv = h.Join(Addr(6), "I", out uint connI);
+        var inv = h.Join(Addr(6), "I", out var connI);
         h.Sent.Clear();
         closed.Clear();
         Assert.True(h.Server.DropInvalid(inv));
@@ -580,8 +577,8 @@ public class ServerOpsTests
 
     private static int TestConsoleLog()
     {
-        int cases = 0;
-        string path = Path.Combine(sTmp, "test_server_ops_console.log");
+        var cases = 0;
+        var path = Path.Combine(sTmp, "test_server_ops_console.log");
         File.Delete(path);
         static DateTime When() => new(2026, 10, 9, 7, 5, 3);
         const string header = "-------------------------- 10/9/2026 -- 07:05:03 -----\r\n";
@@ -631,12 +628,12 @@ public class ServerOpsTests
     {
         public readonly Harness Net = new();
         public readonly Interpreter In = new();
-        public readonly List<string> Out = new();
+        public readonly List<string> Out = [];
         public bool Quit;
 
         public ConsoleFixture()
         {
-            In.SetOutput(line => Out.Add(line));
+            In.SetOutput(Out.Add);
             var ctx = new ServerCommandContext
             {
                 Net = Net.Server,
@@ -652,15 +649,15 @@ public class ServerOpsTests
         {
             Out.Clear();
             In.Evaluate("echo(\"r=\", " + expr + ");");
-            return new List<string>(Out);
+            return [.. Out];
         }
     }
 
-    private static List<string> Lines(params string[] l) => l.ToList();
+    private static List<string> Lines(params string[] l) => [.. l];
 
     private static int TestCommands()
     {
-        int cases = 0;
+        var cases = 0;
         var c = new ConsoleFixture();
 
         // 7.1 ban list commands: lower-case true/false by argument count.
@@ -672,7 +669,7 @@ public class ServerOpsTests
         Assert.Equal(Lines("r=true"), c.Run("BanList::addAbsolute(\"IP:10.9.8.7:99\", 2000000000)"));
         Assert.Equal(Lines("r=true"), c.Run("BanList::add(\"IP:10.9.8.6\", -1)"));
         Assert.Equal(2, c.Net.Server.Bans().Entries().Count);
-        string file = Path.Combine(sTmp, "test_server_ops_ban.cs");
+        var file = Path.Combine(sTmp, "test_server_ops_ban.cs");
         File.Delete(file);
         Assert.Equal(Lines("r=true"), c.Run("BanList::export(\"test_server_ops_ban.cs\")"));
         Assert.Equal("BanList::addAbsolute(\"IP:10.9.8.7:*\", 2000000000);\r\n" +
@@ -737,7 +734,7 @@ public class ServerOpsTests
     [Fact]
     public void TestServerOps()
     {
-        int cases = TestGameInfo() + TestTelnet() + TestBanList() + TestKick() + TestConsoleLog() + TestCommands();
+        var cases = TestGameInfo() + TestTelnet() + TestBanList() + TestKick() + TestConsoleLog() + TestCommands();
         _ = cases;
     }
 }

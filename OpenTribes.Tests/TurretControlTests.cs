@@ -1,12 +1,11 @@
 // A Turret as the control object: Turret_readControlState 0045711c (PSC control state), Turret_clientUpdate 00456428 with
 // Turret_updateAim 00456874 (the replay of the buffered moves), Turret_getCameraTransform 004564fc.
-using OpenTribes.Core;
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Script;
 using OpenTribes.Sim;
-
-namespace OpenTribes.Tests;
 
 public sealed class TurretControlTests
 {
@@ -15,7 +14,7 @@ public sealed class TurretControlTests
     // A server PSC block (game-stream.md 6.3, mode 1) whose control state is Turret_writeControlState 004572f8.
     private static void Block(ClientWorld cw, float rot, float elev, uint fire, bool beam, uint state, float energy)
     {
-        byte[] buf = new byte[256];
+        var buf = new byte[256];
         var bs = new BitStream(buf, buf.Length);
         bs.WriteInt(1, 3);
         bs.WriteFlag(false);
@@ -66,7 +65,7 @@ public sealed class TurretControlTests
         var pred = new ClientPrediction();
         pred.Turret.Resolve = _ => p;
         Block(cw, rot, elev, 0, false, state, 10);
-        for (int i = 0; i < moves; ++i)
+        for (var i = 0; i < moves; ++i)
             cw.Psc.AddMove(move(i));
         pred.OnTurretBlock(cw, receive);
         return pred;
@@ -86,7 +85,7 @@ public sealed class TurretControlTests
         Assert.Equal(3, pred.AdvanceTurret(cw.Psc, 3200));
         Assert.Equal(3200u, t.SimTime);
         // limit 2 * 1, scale 0.032 * 16: 0.25 * 0.512 per tick on the rotation, 0.125 * 0.512 on the elevation
-        Assert.Equal(1.0f + 3 * 0.25f * 0.512f, t.Rotation, 4);
+        Assert.Equal(1.0f + (3 * 0.25f * 0.512f), t.Rotation, 4);
         Assert.Equal(3 * 0.125f * 0.512f, t.Elevation, 4);
         // nothing left for the same time
         Assert.Equal(0, pred.AdvanceTurret(cw.Psc, 3200));
@@ -145,9 +144,11 @@ public sealed class TurretControlTests
     private static Transform Make(float rx, float ry, float rz, float x, float y, float z)
     {
         var t = new Transform();
-        MissionTransform.EulerToMatrix(new[] { rx, ry, rz }, ref t);
+        MissionTransform.EulerToMatrix([rx, ry, rz], ref t);
         t.Flags |= 3u;
-        t.P[0] = x; t.P[1] = y; t.P[2] = z;
+        t.P[0] = x;
+        t.P[1] = y;
+        t.P[2] = z;
         return t;
     }
 
@@ -157,7 +158,7 @@ public sealed class TurretControlTests
         Numbers.EnterScriptFpuMode();
         Transform obj = Make(0, 0, 0.7f, 5, 6, 7);
         Transform t = TurretCamera.Compute(obj, null, 1.0f, 0.3f, 3f, null, null);
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             Assert.Equal(obj.M[i], t.M[i]);
         Assert.Equal(7f, t.P[2]);
     }

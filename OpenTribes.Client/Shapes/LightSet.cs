@@ -33,7 +33,7 @@ public sealed class LightSet
     /// <summary>The sun blue.</summary>
     public float SunB = 0.55f;
     /// <summary>The point lights.</summary>
-    public readonly List<PointLight> Points = new();
+    public readonly List<PointLight> Points = [];
 
     /// <summary>Creates the default set.</summary>
     /// <returns>The set.</returns>
@@ -66,12 +66,14 @@ public sealed class LightSet
         l.Points.AddRange(Points);
         if (SunR != 0 || SunG != 0 || SunB != 0)
         {
-            l.SunR = SunR * (1 - s) + pr * s;
-            l.SunG = SunG * (1 - s) + pg * s;
-            l.SunB = SunB * (1 - s) + pb * s;
+            l.SunR = (SunR * (1 - s)) + (pr * s);
+            l.SunG = (SunG * (1 - s)) + (pg * s);
+            l.SunB = (SunB * (1 - s)) + (pb * s);
         }
-        float f = Math.Min(1f, (0.3f * pr + 0.5f * pg + 0.2f * pb) * s * 2f);
-        l.AmbR *= f; l.AmbG *= f; l.AmbB *= f;
+        var f = Math.Min(1f, ((0.3f * pr) + (0.5f * pg) + (0.2f * pb)) * s * 2f);
+        l.AmbR *= f;
+        l.AmbG *= f;
+        l.AmbB *= f;
         return l;
     }
 
@@ -95,10 +97,10 @@ public sealed class LightSet
         {
             mSet = set;
             mNear = new bool[set.Points.Count];
-            for (int i = 0; i < mNear.Length; ++i)
+            for (var i = 0; i < mNear.Length; ++i)
             {
                 PointLight l = set.Points[i];
-                double dx = cx - l.X, dy = cy - l.Y, dz = cz - l.Z, d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                double dx = cx - l.X, dy = cy - l.Y, dz = cz - l.Z, d = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
                 mNear[i] = l.Range + radius >= d && (radius * FarRadii >= d || d <= 1.0);
             }
         }
@@ -140,25 +142,27 @@ public sealed class LightSet
     private (float r, float g, float b) Shade(double px, double py, double pz, double nx, double ny, double nz, bool[]? near)
     {
         // The sun is a type 6 light: (1 + N.L) / 2 times its colour (005aee50, the planet light object has type 6).
-        double ndl = (1 + nx * SunX + ny * SunY + nz * SunZ) * 0.5;
-        double r = AmbR + SunR * ndl, g = AmbG + SunG * ndl, b = AmbB + SunB * ndl;
-        for (int i = 0; i < Points.Count; ++i)
+        var ndl = (1 + (nx * SunX) + (ny * SunY) + (nz * SunZ)) * 0.5;
+        double r = AmbR + (SunR * ndl), g = AmbG + (SunG * ndl), b = AmbB + (SunB * ndl);
+        for (var i = 0; i < Points.Count; ++i)
         {
             PointLight l = Points[i];
             if (near != null && !near[i])
                 continue;
             double dx = l.X - px, dy = l.Y - py, dz = l.Z - pz;
-            double d2 = dx * dx + dy * dy + dz * dz;
+            var d2 = (dx * dx) + (dy * dy) + (dz * dz);
             if (d2 > l.Range * l.Range || l.Range <= 0)
                 continue;
             // The point light of a vertex (005aeecc, mode 1): nothing beyond the range or behind the surface, otherwise
             // colour * cos(angle to the light), divided by c3 d^2 + c2 d + c1 only when that exceeds 1 (not in the modal case, above).
-            double d = Math.Sqrt(d2);
-            double dot = nx * dx + ny * dy + nz * dz;
+            var d = Math.Sqrt(d2);
+            var dot = (nx * dx) + (ny * dy) + (nz * dz);
             if (dot < 0)
                 continue;
-            double k = d > 0.001 ? dot / d : 1;
-            r += l.R * k; g += l.G * k; b += l.B * k;
+            var k = d > 0.001 ? dot / d : 1;
+            r += l.R * k;
+            g += l.G * k;
+            b += l.B * k;
         }
         return ((float)Math.Min(r, 1), (float)Math.Min(g, 1), (float)Math.Min(b, 1));
     }

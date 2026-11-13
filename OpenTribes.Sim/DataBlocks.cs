@@ -1,13 +1,13 @@
+namespace OpenTribes.Game;
+
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using static OpenTribes.Core.Fpu;
 
-namespace OpenTribes.Game;
-
 /// <summary>Holds the datablocks (docs/datablocks.md): 31 groups, declaration, typed field access, preload and network identity.</summary>
-/// <remarks>Port of src/game/datablocks.cpp. It lives in OpenTribes.Sim because the C++ SimConsole holds it. The script parse and the float products and stores follow the mode of <see cref="OpenTribes.Core.Fpu"/>, the script FPU mode while the console runs.</remarks>
+/// <remarks>Port of src/game/datablocks.cpp. It lives in OpenTribes.Sim because the C++ SimConsole holds it. The script parse and the float products and stores follow the mode of <see cref="Fpu"/>, the script FPU mode while the console runs.</remarks>
 public sealed class DataBlockManager
 {
     /// <summary>One element of a field. Unset elements read the class default text.</summary>
@@ -44,7 +44,7 @@ public sealed class DataBlockManager
         {
             Def = def;
             Elems = new List<Value>(count);
-            for (int i = 0; i < count; ++i)
+            for (var i = 0; i < count; ++i)
                 Elems.Add(new Value());
         }
     }
@@ -61,8 +61,8 @@ public sealed class DataBlockManager
         /// <summary>The index of the block in its group.</summary>
         public int Index;
         /// <summary>The fields, inherited first and then own, in registration order.</summary>
-        public readonly List<Field> Fields = new();
-        /// <summary>The shape validation CRC. <see cref="DataBlockManager.Preload"/> sets it when <c>validateShape</c> is set (section 7.1).</summary>
+        public readonly List<Field> Fields = [];
+        /// <summary>The shape validation CRC. <see cref="Preload"/> sets it when <c>validateShape</c> is set (section 7.1).</summary>
         public uint ValidationCrc;
 
         /// <summary>Finds a field by name.</summary>
@@ -80,10 +80,10 @@ public sealed class DataBlockManager
     private readonly StringTable mStrings;
     private readonly Action<string> mPrint;
     private readonly List<Block>[] mGroups = new List<Block>[31];
-    private readonly Dictionary<string, Block> mNames = new(ReferenceEqualityComparer.Instance as IEqualityComparer<string>);
+    private readonly Dictionary<string, Block> mNames = new(ReferenceEqualityComparer.Instance);
 
     // Projectile reference groups in search order (PR1, table 0x00614b50).
-    private static readonly int[] kProjectileGroups = { 14, 15, 16, 17, 24, 25, 28, 29 };
+    private static readonly int[] kProjectileGroups = [14, 15, 16, 17, 24, 25, 28, 29];
 
     // src/game/datablocks.cpp RefMessages.
     private sealed record RefMessages(int Group, string UndefinedFmt, string Multi);
@@ -104,7 +104,7 @@ public sealed class DataBlockManager
     // src/game/datablocks.cpp fmt: snprintf with one %s.
     private static string Fmt(string f, string v)
     {
-        int at = f.IndexOf("%s", StringComparison.Ordinal);
+        var at = f.IndexOf("%s", StringComparison.Ordinal);
         return at < 0 ? f : f[..at] + v + f[(at + 2)..];
     }
 
@@ -142,26 +142,26 @@ public sealed class DataBlockManager
             var table = new uint[256];
             for (uint n = 0; n < 256; ++n)
             {
-                uint c = n;
-                for (int k = 0; k < 8; ++k)
+                var c = n;
+                for (var k = 0; k < 8; ++k)
                     c = (c & 1) != 0 ? (c >> 1) ^ 0xedb88320u : c >> 1;
                 table[n] = c;
             }
             sCrcTable = table;
         }
-        foreach (byte b in data)
+        foreach (var b in data)
             crc = sCrcTable[(b ^ crc) & 0xff] ^ (crc >> 8);
         return crc;
     }
 
     private static uint ReadU32(byte[] d, long at) =>
-        (uint)d[at] | (uint)d[at + 1] << 8 | (uint)d[at + 2] << 16 | (uint)d[at + 3] << 24;
+        d[at] | ((uint)d[at + 1] << 8) | ((uint)d[at + 2] << 16) | ((uint)d[at + 3] << 24);
 
     private static bool BytesAre(byte[] d, long at, string s)
     {
         if (at < 0 || at + s.Length > d.Length)
             return false;
-        for (int i = 0; i < s.Length; ++i)
+        for (var i = 0; i < s.Length; ++i)
             if (d[at + i] != (byte)s[i])
                 return false;
         return true;
@@ -174,30 +174,30 @@ public sealed class DataBlockManager
         var output = new List<string>();
         if (d.Length < 8 || !BytesAre(d, 0, "PERS"))
             return output;
-        long end = Math.Min(d.Length, 8L + ReadU32(d, 4));
+        var end = Math.Min(d.Length, 8L + ReadU32(d, 4));
         const string kName = "TS::MaterialList";
-        int nameLen = kName.Length;
+        var nameLen = kName.Length;
         for (long p = 4; p + 10 + nameLen + 12 <= end; ++p)
         {
             if (!BytesAre(d, p, "PERS") || d[p + 8] != nameLen || d[p + 9] != 0 || !BytesAre(d, p + 10, kName) ||
                 p + 8 + ReadU32(d, p + 4) != end)
                 continue;
-            long q = p + 10 + nameLen; // even length: no pad byte
-            uint details = ReadU32(d, q + 4);
-            uint count = ReadU32(d, q + 8);
+            var q = p + 10 + nameLen; // even length: no pad byte
+            var details = ReadU32(d, q + 4);
+            var count = ReadU32(d, q + 8);
             q += 12;
             if (details == 0 || count == 0)
                 return output;
             // Material record: u32 flags, ..., char[32] name at +16; 60 bytes in v3, 64 in v4.
-            long size = (end - q) / ((long)details * count);
+            var size = (end - q) / ((long)details * count);
             if (size < 48)
                 return output;
             for (uint i = 0; i < count; ++i)
             {
-                long m = q + i * size;
+                var m = q + (i * size);
                 if ((ReadU32(d, m) & 0xf) != 3)
                     continue;
-                int len = 0;
+                var len = 0;
                 while (len < 32 && d[m + 16 + len] != 0)
                     ++len;
                 output.Add(ByteString.FromBytes(d.AsSpan((int)(m + 16), len)));
@@ -214,14 +214,14 @@ public sealed class DataBlockManager
     /// <returns>The CRC.</returns>
     public static uint ValidationCrc(ResourceManager res, string shape, bool materials)
     {
-        uint crc = 0xffffffff;
-        if (!res.Read(shape, out byte[] bytes))
+        var crc = 0xffffffff;
+        if (!res.Read(shape, out var bytes))
             return crc;
         crc = Crc32(bytes, crc);
         if (!materials)
             return crc;
-        foreach (string tex in ShapeTextures(bytes))
-            if (res.Read(tex, out byte[] t))
+        foreach (var tex in ShapeTextures(bytes))
+            if (res.Read(tex, out var t))
                 crc = Crc32(t, crc);
         return crc;
     }
@@ -250,14 +250,14 @@ public sealed class DataBlockManager
     {
         mStrings = strings;
         mPrint = print;
-        for (int i = 0; i < 31; ++i)
-            mGroups[i] = new List<Block>();
+        for (var i = 0; i < 31; ++i)
+            mGroups[i] = [];
     }
 
     /// <summary>Finds a datablock class by name, ignoring case.</summary>
     /// <param name="name">The class name.</param>
     /// <returns>The class, or null.</returns>
-    public ClassDef? FindClass(string name)
+    public static ClassDef? FindClass(string name)
     {
         foreach (ClassDef c in DataBlockTables.kClasses)
             if (SimClasses.EqualsNoCase(c.Name, name))
@@ -272,7 +272,7 @@ public sealed class DataBlockManager
     {
         if (name == null)
             return null;
-        string? key = mStrings.Lookup(name);
+        var key = mStrings.Lookup(name);
         return key != null && mNames.TryGetValue(key, out Block? b) ? b : null;
     }
 
@@ -324,7 +324,7 @@ public sealed class DataBlockManager
             foreach (FieldDef f in c.Fields)
                 b.Fields.Add(new Field(f, f.Count));
         // ItemData and MineData constructors write a different description (5, notes).
-        if (cls.Group == 5 || cls.Group == 23)
+        if (cls.Group is 5 or 23)
             if (b.Find("description") is Field d)
             {
                 d.Elems[0].Set = true;
@@ -339,7 +339,7 @@ public sealed class DataBlockManager
     private int LookupInGroup(int group, string name)
     {
         List<Block> g = mGroups[group];
-        for (int i = 0; i < g.Count; ++i)
+        for (var i = 0; i < g.Count; ++i)
             if (SimClasses.EqualsNoCase(g[i].Name, name))
                 return i;
         return -1;
@@ -352,7 +352,7 @@ public sealed class DataBlockManager
     private string Read(Field f, int i)
     {
         Value v = f.Elems[i];
-        int type = f.Def.Type;
+        var type = f.Def.Type;
         if (!v.Set)
         {
             if (f.Def.Uninit)
@@ -361,50 +361,27 @@ public sealed class DataBlockManager
                 return RefName(20, 0);
             return f.Def.DefaultText;
         }
-        switch (type)
+        return type switch
         {
-            case 0:
-            case 1:
-            case 9:
-                return v.Str ?? "";
-            case 2:
-            case 14:
-                return Numbers.FormatInt(v.I);
-            case 3:
-                return Numbers.FormatFloat(v.F[0]);
-            case 4:
-                return v.I != 0 ? "True" : "False";
-            case 5:
-            case 6:
-            case 15:
-                return Numbers.FormatFloat(v.F[0]) + " " + Numbers.FormatFloat(v.F[1]) + " " + Numbers.FormatFloat(v.F[2]);
-            case 10:
-            case 11:
-            case 16:
-            case 17:
-            case 18:
-            case 19:
-            case 21:
-                return v.I < 0 ? "" : RefName(RefMessagesOf(type)!.Group, v.I);
-            case 12:
-                // Original bug: group and index are swapped in the lookup (PR2).
-                return v.I < 0 ? "" : RefName(v.I2, v.I);
-            case 13:
-                return (v.Str ?? "(null)") + " " + (v.I < 0 ? "(null)" : RefName(1, v.I));
-            case 20:
-                return Numbers.FormatFloat(v.F[0]) + " " + Numbers.FormatFloat(v.F[1]);
-            case 23:
-                return Numbers.FormatFloat(Store(Mul(Mul(v.F[0], v.F[0]), 0.05)));
-            default:
-                return "";
-        }
+            0 or 1 or 9 => v.Str ?? "",
+            2 or 14 => Numbers.FormatInt(v.I),
+            3 => Numbers.FormatFloat(v.F[0]),
+            4 => v.I != 0 ? "True" : "False",
+            5 or 6 or 15 => Numbers.FormatFloat(v.F[0]) + " " + Numbers.FormatFloat(v.F[1]) + " " + Numbers.FormatFloat(v.F[2]),
+            10 or 11 or 16 or 17 or 18 or 19 or 21 => v.I < 0 ? "" : RefName(RefMessagesOf(type)!.Group, v.I),
+            12 => v.I < 0 ? "" : RefName(v.I2, v.I),// Original bug: group and index are swapped in the lookup (PR2).
+            13 => (v.Str ?? "(null)") + " " + (v.I < 0 ? "(null)" : RefName(1, v.I)),
+            20 => Numbers.FormatFloat(v.F[0]) + " " + Numbers.FormatFloat(v.F[1]),
+            23 => Numbers.FormatFloat(Store(Mul(Mul(v.F[0], v.F[0]), 0.05))),
+            _ => "",
+        };
     }
 
     // src/game/datablocks.cpp DataBlockManager::write.
     private void Write(Field f, int i, IReadOnlyList<string> vals)
     {
         Value v = f.Elems[i];
-        int type = f.Def.Type;
+        var type = f.Def.Type;
         bool Single(string what)
         {
             if (vals.Count == 1)
@@ -450,7 +427,7 @@ public sealed class DataBlockManager
                 }
                 else if (vals.Count == 3)
                 {
-                    for (int k = 0; k < 3; ++k)
+                    for (var k = 0; k < 3; ++k)
                         v.F[k] = ToFloat(vals[k]);
                 }
                 else
@@ -461,9 +438,9 @@ public sealed class DataBlockManager
                 }
                 if (type == 15)
                 {
-                    float len = SqrtF(AddF(AddF(MulF(v.F[0], v.F[0]), MulF(v.F[1], v.F[1])), MulF(v.F[2], v.F[2])));
-                    float inv = DivF(1.0f, len);
-                    for (int k = 0; k < 3; ++k)
+                    var len = SqrtF(AddF(AddF(MulF(v.F[0], v.F[0]), MulF(v.F[1], v.F[1])), MulF(v.F[2], v.F[2])));
+                    var inv = DivF(1.0f, len);
+                    for (var k = 0; k < 3; ++k)
                         v.F[k] = MulF(v.F[k], inv);
                 }
                 break;
@@ -473,7 +450,7 @@ public sealed class DataBlockManager
                     mPrint("ColorF must be set as { red, green, blue }");
                     return;
                 }
-                for (int k = 0; k < 3; ++k)
+                for (var k = 0; k < 3; ++k)
                     v.F[k] = ToFloat(vals[k]);
                 break;
             case 9:
@@ -486,7 +463,7 @@ public sealed class DataBlockManager
                 v.I = SimClasses.EqualsNoCase(vals[1], "none") ? -1 : LookupInGroup(1, vals[1]);
                 v.I2 = Numbers.BorlandAtoi(vals[2]);
                 v.I3 = 0;
-                for (int k = 0; k < 4; ++k)
+                for (var k = 0; k < 4; ++k)
                     if (ParseBool(vals[3 + k]))
                         v.I3 |= 1 << k;
                 v.I4 = Numbers.BorlandAtoi(vals[7]);
@@ -517,9 +494,9 @@ public sealed class DataBlockManager
                     return;
                 }
                 v.I = v.I2 = -1;
-                foreach (int g in kProjectileGroups)
+                foreach (var g in kProjectileGroups)
                 {
-                    int idx = LookupInGroup(g, vals[0]);
+                    var idx = LookupInGroup(g, vals[0]);
                     if (idx >= 0)
                     {
                         v.I = g;
@@ -543,21 +520,21 @@ public sealed class DataBlockManager
                 break;
             case 14:
             {
-                int flags = 0;
+                var flags = 0;
                 (string, int)[] kNames =
-                {
+                [
                     ("SFX_IS_LOOPING", 2), ("SFX_IS_STREAMING", 4), ("SFX_IS_PITCHING", 8), ("SFX_IS_SOFTWARE_3D", 16),
                     ("SFX_IS_HARDWARE_3D", 32),
-                };
-                foreach (string s in vals)
+                ];
+                foreach (var s in vals)
                 {
-                    int n = Numbers.BorlandAtoi(s);
+                    var n = Numbers.BorlandAtoi(s);
                     if (n != 0)
                     {
                         flags |= n;
                         continue;
                     }
-                    foreach ((string name, int bit) in kNames)
+                    foreach ((var name, var bit) in kNames)
                         if (SimClasses.EqualsNoCase(name, s))
                             flags |= bit;
                 }
@@ -591,13 +568,13 @@ public sealed class DataBlockManager
     /// <returns>The value, 0 when there is no number.</returns>
     public static float CtorFloat(string text, int start, out int end)
     {
-        int i = start;
+        var i = start;
         while (i < text.Length && (text[i] == ' ' || (text[i] >= '\t' && text[i] <= '\r')))
             ++i;
-        int s = i;
+        var s = i;
         if (i < text.Length && (text[i] == '+' || text[i] == '-'))
             ++i;
-        int digits = 0;
+        var digits = 0;
         while (i < text.Length && text[i] >= '0' && text[i] <= '9')
         {
             ++i;
@@ -619,7 +596,7 @@ public sealed class DataBlockManager
         }
         if (i < text.Length && (text[i] == 'e' || text[i] == 'E'))
         {
-            int j = i + 1;
+            var j = i + 1;
             if (j < text.Length && (text[j] == '+' || text[j] == '-'))
                 ++j;
             if (j < text.Length && text[j] >= '0' && text[j] <= '9')
@@ -653,7 +630,7 @@ public sealed class DataBlockManager
             mPrint("No such field: " + field + " in block type " + b.Name);
             return false;
         }
-        int count = f.Def.Count;
+        var count = f.Def.Count;
         if (index.Length == 0 || index == "-1")
         {
             if (count != 1)
@@ -661,7 +638,7 @@ public sealed class DataBlockManager
             output = Read(f, 0);
             return true;
         }
-        int i = Numbers.BorlandAtoi(index);
+        var i = Numbers.BorlandAtoi(index);
         if (i < 0 || i >= count)
             return false;
         output = Read(f, i);
@@ -678,7 +655,7 @@ public sealed class DataBlockManager
         Field? f = b.Find(field);
         if (f == null)
             return; // FA5: unknown fields are ignored on write
-        int count = f.Def.Count;
+        var count = f.Def.Count;
         if (index.Length == 0 || index == "-1")
         {
             if (count == 1)
@@ -688,14 +665,14 @@ public sealed class DataBlockManager
             }
             if (values.Count == count)
             {
-                for (int i = 0; i < count; ++i)
+                for (var i = 0; i < count; ++i)
                     Write(f, i, new[] { values[i] });
                 return;
             }
             mPrint("setDataField: array set access out of range.");
             return;
         }
-        int at = Numbers.BorlandAtoi(index);
+        var at = Numbers.BorlandAtoi(index);
         if (count >= 2 && at >= 0 && at < count)
         {
             Write(f, at, values);
@@ -710,7 +687,7 @@ public sealed class DataBlockManager
     /// <remarks>Follows preloadServerDataBlocks (section 7).</remarks>
     public bool Preload(ResourceManager res)
     {
-        bool ok = true;
+        var ok = true;
         static string Text(Block b, string field)
         {
             Field? f = b.Find(field);
@@ -722,22 +699,22 @@ public sealed class DataBlockManager
             return f != null && f.Elems[0].Set && f.Elems[0].I != 0;
         }
         const string kMissing = ".dts.  The server has new art data you are missing.  Check server info for possible download locations.";
-        for (int g = 0; g <= 30; ++g)
+        for (var g = 0; g <= 30; ++g)
         {
             foreach (Block b in mGroups[g])
             {
-                string cls = b.Cls.Name;
-                bool shapeBase = b.Find("shapeFile") != null && b.Find("maxDamage") != null;
+                var cls = b.Cls.Name;
+                var shapeBase = b.Find("shapeFile") != null && b.Find("maxDamage") != null;
                 if (shapeBase)
                 {
-                    string shield = Text(b, "shieldShapeName");
+                    var shield = Text(b, "shieldShapeName");
                     if (shield.Length != 0 && res.Find(shield + ".dts") == null)
                     {
                         mPrint("Unable to model: " + shield + kMissing);
                         ok = false;
                         continue;
                     }
-                    string shape = Text(b, "shapeFile");
+                    var shape = Text(b, "shapeFile");
                     if (shape.Length != 0)
                     {
                         if (res.Find(shape + ".dts") == null)
@@ -755,7 +732,7 @@ public sealed class DataBlockManager
                 }
                 else if (cls == "ItemImageData")
                 {
-                    string shape = Text(b, "shapeFile"); // NULL crashes the original (D11)
+                    var shape = Text(b, "shapeFile"); // NULL crashes the original (D11)
                     if (shape.Length != 0 && res.Find(shape + ".dts") == null)
                     {
                         mPrint("Unable to load ItemImageData shape: " + shape + ".dts");
@@ -764,8 +741,8 @@ public sealed class DataBlockManager
                 }
                 else if (b.Find("bulletShapeName") != null || cls == "ExplosionData")
                 {
-                    bool explosion = cls == "ExplosionData";
-                    string shape = Text(b, explosion ? "shapeName" : "bulletShapeName");
+                    var explosion = cls == "ExplosionData";
+                    var shape = Text(b, explosion ? "shapeName" : "bulletShapeName");
                     if (shape.Length != 0)
                     {
                         if (res.Find(shape) == null)

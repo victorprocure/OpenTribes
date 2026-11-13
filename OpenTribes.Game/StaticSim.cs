@@ -1,12 +1,9 @@
 // Port of src/game/static_sim.cpp: engine behavior of the non-player mission objects (docs/static-sim.md): the
 // StaticBase tick, collision callback records, energy, repair, fade, the delayed delete, Moveable binding and stepping,
 // SimPath. The Chop class of the file is Fpu.ChopScope; every float(...) inside it is Fpu.Store.
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>A SimPath: a group of waypoint markers, with the path id given by the registration order (SimPathManager, object 42).</summary>
 /// <remarks>Port of class SimPathObject in src/game/mission_objects.hpp (docs/static-sim.md 2.2). OnAdd registers the children and then records one point per child that has a transform.</remarks>
@@ -22,7 +19,7 @@ public sealed class SimPathObject : SimGroup
     }
 
     private readonly PersistFields mFields = new(new PersistDef[] { new("isLooping", 4, 1), new("isCompressed", 4, 1) });
-    private readonly List<Point> mPoints = new();
+    private readonly List<Point> mPoints = [];
 
     /// <inheritdoc/>
     public override string ClassName() => "SimPath";
@@ -53,7 +50,7 @@ public sealed class SimPathObject : SimGroup
             if (m is not GameBase gb)
                 continue;
             var p = new Point();
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 p.Pos[i] = gb.Transform.P[i];
             MissionTransform.MatrixToEuler(gb.Transform, p.Rot);
             mPoints.Add(p);
@@ -71,7 +68,7 @@ public sealed class SimPathObject : SimGroup
     public int GetPoint(int i, out Point rec, Span<float> dpos, Span<float> drot)
     {
         rec = new Point();
-        int n = mPoints.Count;
+        var n = mPoints.Count;
         if (n == 0)
             return 0;
         if (Looping())
@@ -81,7 +78,7 @@ public sealed class SimPathObject : SimGroup
         using var chop = ChopScope();
         rec = mPoints[i];
         Point next = mPoints[i + 1 < n ? i + 1 : 0];
-        for (int k = 0; k < 3; ++k)
+        for (var k = 0; k < 3; ++k)
         {
             dpos[k] = Store(Sub(next.Pos[k], rec.Pos[k]));
             drot[k] = Store(Sub(next.Rot[k], rec.Rot[k]));
@@ -128,7 +125,7 @@ public partial class GameBase
         ExpireCollisions();
         // 0x0044c710: threads in slot order. A non-cyclic sequence that sits at its end while not flagged ends first (the
         // script is told on the server), then every thread advances.
-        for (int slot = 0; slot < 3; ++slot)
+        for (var slot = 0; slot < 3; ++slot)
         {
             Thread t = Threads[slot];
             if (!t.Created)
@@ -136,7 +133,7 @@ public partial class GameBase
             ShapeSequence? seq = Anim != null && t.Sequence >= 0 && t.Sequence < Anim.Sequences.Count ? Anim.Sequences[t.Sequence] : null;
             if (seq != null && !seq.Cyclic && (t.Flags & kThreadAtEnd) == 0)
             {
-                bool done = (t.Flags & kThreadForward) != 0 ? t.Position >= 1.0f : t.Position <= 0.0f;
+                var done = (t.Flags & kThreadForward) != 0 ? t.Position >= 1.0f : t.Position <= 0.0f;
                 if (done)
                 {
                     t.Flags |= kThreadAtEnd;
@@ -146,8 +143,8 @@ public partial class GameBase
             }
             if (seq != null && t.Speed != 0 && seq.Duration > 0)
             {
-                float step = Store(Div(dt, seq.Duration));
-                float delta = Store(Mul(t.Speed, step));
+                var step = Store(Div(dt, seq.Duration));
+                var delta = Store(Mul(t.Speed, step));
                 t.Position = Store(Add(delta, t.Position));
                 if (!seq.Cyclic)
                 {
@@ -191,9 +188,9 @@ public partial class GameBase
         GameServices? game = services ?? mCtx.Game;
         if (game == null)
             return;
-        float now = Manager() != null ? Manager()!.Time() : 0.0f;
-        int rec = -1;
-        for (int i = 0; i < CollisionRecords.Count; ++i)
+        var now = Manager() != null ? Manager()!.Time() : 0.0f;
+        var rec = -1;
+        for (var i = 0; i < CollisionRecords.Count; ++i)
         {
             CollisionRecord r = CollisionRecords[i];
             if (r.Other == other.Id())
@@ -228,30 +225,15 @@ public partial class GameBase
     /// <remarks>Follows vtable +0xe8. The accepted types are the per-class masks of docs/collision.md E1.4. The type bits come from the container classes.</remarks>
     public void OnCollisionNotify(GameBase other)
     {
-        uint type;
-        switch (other.ShapeClass())
+        var type = other.ShapeClass() switch
         {
-            case ShapeKind.StaticShape:
-            case ShapeKind.Sensor:
-            case ShapeKind.Turret:
-                type = ObjectType.kStaticType;
-                break;
-            case ShapeKind.Moveable:
-                type = ObjectType.kMoveableType;
-                break;
-            case ShapeKind.Item:
-                type = ObjectType.kItemType;
-                break;
-            case ShapeKind.Mine:
-                type = ObjectType.kMineType;
-                break;
-            case ShapeKind.Vehicle:
-                type = ObjectType.kVehicleType;
-                break;
-            default:
-                type = GameUtil.EqualsNoCase(other.ClassName(), "Player") ? ObjectType.kPlayerType : 0u;
-                break;
-        }
+            ShapeKind.StaticShape or ShapeKind.Sensor or ShapeKind.Turret => ObjectType.kStaticType,
+            ShapeKind.Moveable => ObjectType.kMoveableType,
+            ShapeKind.Item => ObjectType.kItemType,
+            ShapeKind.Mine => ObjectType.kMineType,
+            ShapeKind.Vehicle => ObjectType.kVehicleType,
+            _ => GameUtil.EqualsNoCase(other.ClassName(), "Player") ? ObjectType.kPlayerType : 0u,
+        };
         uint mask;
         switch (mShapeClass)
         {
@@ -322,7 +304,7 @@ public partial class GameBase
         using var chop = ChopScope();
         if (RepairPending != 0)
         {
-            float step = Store(Mul(RepairRate, dt));
+            var step = Store(Mul(RepairRate, dt));
             if (RepairPending >= step)
             {
                 Damage = Store(Sub(Damage, step));
@@ -358,8 +340,8 @@ public partial class GameBase
     public void ActivateShield(ReadOnlySpan<float> vec, float zOffset)
     {
         using var chop = ChopScope();
-        double l = Len3(vec);
-        for (int i = 0; i < 3; ++i)
+        var l = Len3(vec);
+        for (var i = 0; i < 3; ++i)
             FlashNormal[i] = Store(Div(-(double)vec[i], l));
         FlashAmount = zOffset;
         SetMaskBits(0x80);
@@ -412,7 +394,7 @@ public partial class GameBase
         dpos.Clear();
         drot.Clear();
         WaypointCount = path != null ? path.GetPoint(Waypoint, out rec, dpos, drot) : 0;
-        bool valid = path != null && WaypointCount != 0 && Waypoint >= 0 && Waypoint < WaypointCount && Waypoint < path.Points().Count;
+        var valid = path != null && WaypointCount != 0 && Waypoint >= 0 && Waypoint < WaypointCount && Waypoint < path.Points().Count;
         if (!valid)
         {
             CachedSegment = -1;
@@ -421,7 +403,7 @@ public partial class GameBase
             return false;
         }
         using var chop = ChopScope();
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             SegPos[i] = rec.Pos[i];
             SegRot[i] = rec.Rot[i];
@@ -446,8 +428,8 @@ public partial class GameBase
         float[] rot = new float[3], pos = new float[3];
         if (SegmentTime != 0)
         {
-            float f = Store(Div(WaypointTime, SegmentTime));
-            for (int i = 0; i < 3; ++i)
+            var f = Store(Div(WaypointTime, SegmentTime));
+            for (var i = 0; i < 3; ++i)
             {
                 pos[i] = Store(Add(Mul(SegDPos[i], f), SegPos[i]));
                 rot[i] = Store(Add(Mul(SegDRot[i], f), SegRot[i]));
@@ -455,36 +437,36 @@ public partial class GameBase
         }
         else
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 pos[i] = SegPos[i];
                 rot[i] = SegRot[i];
             }
         }
-        double l = Len3(SegDPos);
-        float lf = Store(l);
+        var l = Len3(SegDPos);
+        var lf = Store(l);
         if (lf == 0 || MoveState == kMoveStopped)
         {
             Velocity[0] = Velocity[1] = Velocity[2] = 0;
         }
         else
         {
-            float k = Store(Div(MoveData.Speed, lf));
-            for (int i = 0; i < 3; ++i)
+            var k = Store(Div(MoveData.Speed, lf));
+            for (var i = 0; i < 3; ++i)
                 Velocity[i] = Store(Mul(k, SegDPos[i]));
             if (MoveState == kMoveBackward)
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     Velocity[i] = -Velocity[i];
         }
-        float[] oldRot = { Rotation[0], Rotation[1], Rotation[2] };
-        float[] oldPos = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        float[] oldRot = [Rotation[0], Rotation[1], Rotation[2]];
+        float[] oldPos = [Transform.P[0], Transform.P[1], Transform.P[2]];
         void Place(float[] r, float[] p)
         {
             SetRotation(r);
             SetPosition(p);
             mCtx.Game?.ObjectMoved(this);
         }
-        bool directionOpen = (MoveState == kMoveForward && !MoveData.BlockForward) ||
+        var directionOpen = (MoveState == kMoveForward && !MoveData.BlockForward) ||
                              (MoveState == kMoveBackward && !MoveData.BlockBackward);
         if (forced)
         {
@@ -495,7 +477,7 @@ public partial class GameBase
             Place(rot, pos);
             // Displace the objects the new transform overlaps; the move stands when that succeeded or this direction
             // cannot block.
-            bool ok = MoveableDisplaceOverride != null ? MoveableDisplaceOverride(this)
+            var ok = MoveableDisplaceOverride != null ? MoveableDisplaceOverride(this)
                                                        : (mCtx.Game == null || mCtx.Game.MoveableDisplace(this, oldPos));
             if (!ok && !directionOpen)
             {
@@ -512,7 +494,7 @@ public partial class GameBase
         else
         {
             // Doors: test the new transform first unless this direction cannot block.
-            bool free = directionOpen ||
+            var free = directionOpen ||
                         (MoveableTestOverride != null ? MoveableTestOverride(this)
                                                       : (mCtx.Game == null || mCtx.Game.MoveableTest(this, rot, pos)));
             if (!free)
@@ -542,7 +524,7 @@ public partial class GameBase
         {
             if (!GameUtil.EqualsNoCase(m.ClassName(), "SimPath"))
                 continue;
-            int id = mCtx.Game.PathIndex(m);
+            var id = mCtx.Game.PathIndex(m);
             if (id < 0)
                 continue;
             SetPath(id, 0);
@@ -559,9 +541,8 @@ public partial class GameBase
     {
         _ = points;
         PathId = id;
-        SimPathObject? path = mCtx.Game?.PathById(PathId) as SimPathObject;
         Span<float> dpos = stackalloc float[3], drot = stackalloc float[3];
-        WaypointCount = path != null ? path.GetPoint(Waypoint, out _, dpos, drot) : 0;
+        WaypointCount = mCtx.Game?.PathById(PathId) is SimPathObject path ? path.GetPoint(Waypoint, out _, dpos, drot) : 0;
         mCtx.Game?.ScriptCallback(this, "onNewPath", Array.Empty<string>());
         LoadSegment();
         ApplyMoveable(true);
@@ -595,7 +576,7 @@ public partial class GameBase
         {
             if (mCtx.Game == null)
                 return;
-            string[] extra = withIndex ? new[] { Numbers.FormatInt(Waypoint) } : Array.Empty<string>();
+            var extra = withIndex ? new[] { Numbers.FormatInt(Waypoint) } : [];
             mCtx.Game.ScriptCallback(this, name, extra);
         }
         if (MoveState == kMoveStopped)
@@ -605,8 +586,8 @@ public partial class GameBase
         }
         if (MoveState == kMoveForward)
         {
-            int wp0 = Waypoint;
-            float t0 = WaypointTime;
+            var wp0 = Waypoint;
+            var t0 = WaypointTime;
             LoadSegment();
             while (dt > 0 && MoveState == kMoveForward)
             {
@@ -646,8 +627,8 @@ public partial class GameBase
         }
         else if (MoveState == kMoveBackward)
         {
-            int wp0 = Waypoint;
-            float t0 = WaypointTime;
+            var wp0 = Waypoint;
+            var t0 = WaypointTime;
             LoadSegment();
             while (dt > 0 && MoveState == kMoveBackward)
             {
@@ -705,7 +686,7 @@ public partial class GameBase
             return;
         }
         LoadSegment();
-        int last = WaypointCount - 1;
+        var last = WaypointCount - 1;
         if (Waypoint > last)
         {
             Waypoint = last;
@@ -773,6 +754,6 @@ public partial class GameBase
     public float MoveablePosition()
     {
         using var chop = ChopScope();
-        return Store(Add((double)Waypoint, (double)Store(Div(WaypointTime, SegmentTime))));
+        return Store(Add(Waypoint, (double)Store(Div(WaypointTime, SegmentTime))));
     }
 }

@@ -1,8 +1,8 @@
 // The Video options lists (docs/gui.md 3.3, code 004d9228, 004d946c): synthetic modes and renderer text only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Gui;
-
-namespace OpenTribes.Tests;
 
 public class VideoOptionsTests
 {
@@ -10,7 +10,7 @@ public class VideoOptionsTests
     {
         var fx = new GuiFixture();
         GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        foreach (int id in new[] { VideoOptions.WindowedCombo, VideoOptions.FullscreenCombo, VideoOptions.ResolutionCombo })
+        foreach (var id in new[] { VideoOptions.WindowedCombo, VideoOptions.FullscreenCombo, VideoOptions.ResolutionCombo })
         {
             GuiControl c = GuiFixture.Make("FearGui::FGStandardComboBox", 0, 0, 200, 19);
             c.Id = (uint)id;
@@ -62,7 +62,7 @@ public class VideoOptionsTests
     public void FullscreenWindowedCheckFollowsTheFullscreenRadioAndWritesThePref()
     {
         var (fx, root) = Screen();
-        foreach (int id in new[] { VideoOptions.WindowedRadio, VideoOptions.FullscreenRadio })
+        foreach (var id in new[] { VideoOptions.WindowedRadio, VideoOptions.FullscreenRadio })
         {
             GuiControl r = GuiFixture.Make("FearGui::FGUniversalButton", 0, 0, 18, 15);
             r.Id = (uint)id;

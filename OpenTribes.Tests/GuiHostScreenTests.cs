@@ -1,10 +1,10 @@
 // Tests of the host game screen fixes (issue 36): console variable names without `$`, FGTextList rows and selection, the Connect screen's
 // game mode radio. Synthetic data only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Tests;
 
 public sealed class GuiHostScreenTests : IDisposable
 {
@@ -20,7 +20,9 @@ public sealed class GuiHostScreenTests : IDisposable
     public void Dispose()
     {
         mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        try
+        { Directory.Delete(mRoot, true); }
+        catch (IOException) { }
     }
 
     [Fact]
@@ -55,7 +57,7 @@ public sealed class GuiHostScreenTests : IDisposable
         content.AddChild(list);
         fx.Content(root);
         var l = (GuiList)list;
-        for (int i = 0; i < rows; ++i)
+        for (var i = 0; i < rows; ++i)
             l.AddEntry("Mission" + i, i);
         fx.Frame();
         return (fx, root, (GuiScroll)scroll, l);
@@ -99,10 +101,10 @@ public sealed class GuiHostScreenTests : IDisposable
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n$pref::PlayGameMode = \"HOST\";\n");
-        ClientOptions opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        ClientOptions opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
+        Assert.True(mApp.Start(out var error), error);
         foreach (var (mode, id) in new[] { ("HOST", 100105u), ("TRAIN", 100998u), ("JOIN", 100103u), ("", 100103u) })
         {
             mApp.Interp.SetVariable("$pref::PlayGameMode", mode);

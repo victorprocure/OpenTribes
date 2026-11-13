@@ -1,8 +1,8 @@
 // Client turret pose from the ghost mode (Turret_unpackUpdate 0x0045750c, Turret_updateAim 0x00456874 ghost branch,
 // Turret_activate 0x00455b34, Turret_deactivate 0x00455cc4).
-using OpenTribes.Game;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Game;
 
 public class TurretGhostPoseTests
 {
@@ -23,7 +23,7 @@ public class TurretGhostPoseTests
         TurretGhostPose p = New();
         p.OnMode(2);
         Assert.Equal(0, p.Position); // off -> activating restarts at 0
-        for (int i = 0; i < 42; ++i)
+        for (var i = 0; i < 42; ++i)
             p.Tick(0.05);
         Assert.True(p.OnFire);
         Assert.Equal(1.0, p.Position);
@@ -148,7 +148,7 @@ public class TurretGhostPoseTests
         p.OnMode(1);
         p.Tick(0.05);
         Assert.Equal(0, p.PowerSound);
-        for (int i = 0; i < 40 && p.PowerSound == 0; ++i)
+        for (var i = 0; i < 40 && p.PowerSound == 0; ++i)
             p.Tick(0.05);
         Assert.Equal(-1, p.PowerSound);
     }

@@ -1,9 +1,9 @@
 // Client PlayerPSC (docs/client-net.md 4.3, 4.4, 4.5; docs/game-stream.md 6): the read of the server block, the effects it
 // has on the PSC state (GUI mode, move buffer trim, control object, inventory, command map) and the client block that
 // carries the moves.
-using System.Globalization;
-
 namespace OpenTribes.Game;
+
+using System.Globalization;
 
 /// <summary>One block of the PSC member as read from the stream.</summary>
 public sealed class DecodedPsc
@@ -15,7 +15,7 @@ public sealed class DecodedPsc
     /// <summary>The number of bits the block took.</summary>
     public int Bits;
     /// <summary>The decoded fields.</summary>
-    public List<DecodedField> Fields = new();
+    public List<DecodedField> Fields = [];
 }
 
 /// <summary>One entry of the command map slot table (<c>DAT_006a83d8</c> + 0x340, 0x28 bytes a slot, docs/client-net.md 4.5 mode 2).</summary>
@@ -66,7 +66,7 @@ public sealed class ClientPsc
     /// <summary>The class name of the control object.</summary>
     public string ControlClass = "";
     /// <summary>The decoded control state.</summary>
-    public Dictionary<string, object?> ControlState = new();
+    public Dictionary<string, object?> ControlState = [];
     /// <summary>The item counts (+0xac).</summary>
     public readonly int[] ItemCounts = new int[200];
     /// <summary>The shopping item mask.</summary>
@@ -76,7 +76,7 @@ public sealed class ClientPsc
     /// <summary>The visibility mask.</summary>
     public readonly uint[] Visible = new uint[8];
     /// <summary>The command map entries by slot.</summary>
-    public readonly Dictionary<int, string> CommandMap = new();
+    public readonly Dictionary<int, string> CommandMap = [];
     /// <summary>The waypoint, or null.</summary>
     public (long X, long Y)? Waypoint;
     /// <summary>Called when the waypoint changes. 006a83e8 and 006a83ec are set from the play block pair.</summary>
@@ -87,7 +87,7 @@ public sealed class ClientPsc
     public bool PlayGuiLoaded;
 
     /// <summary>The moves not yet acknowledged (docs/client-net.md 4.2, 4.3).</summary>
-    public readonly List<Move> Moves = new();
+    public readonly List<Move> Moves = [];
     /// <summary>The global index of the first buffered move (+0x3d0).</summary>
     public uint FirstMove;
     /// <summary>The fov byte, unit(8) of currentFov / 135. 90 degrees sends 169.</summary>
@@ -143,7 +143,7 @@ public sealed class ClientPsc
         {
             bs.WriteFlag(true);
             Move copy = m;
-            OpenTribes.Game.Moves.PackMove(bs, copy, true, prev);
+            Game.Moves.PackMove(bs, copy, true, prev);
             prev = m;
         }
         bs.WriteFlag(false);
@@ -154,13 +154,13 @@ public sealed class ClientPsc
     /// <returns>The decoded block.</returns>
     public static DecodedPsc ReadClientBlock(ClientReader r)
     {
-        int start = r.Pos;
+        var start = r.Pos;
         var d = new DecodedPsc { Direction = "c2s" };
         long fov = r.Int(8);
         long first = r.Int(32);
         var moves = new List<Move>();
         var m = new Move();
-        bool havePrev = false;
+        var havePrev = false;
         while (r.Flag())
         {
             Game.Moves.UnpackMove(r.Bs, ref m, true, havePrev);
@@ -172,7 +172,7 @@ public sealed class ClientPsc
         d.Fields.Add(new DecodedField("fov", fov));
         d.Fields.Add(new DecodedField("firstMove", first));
         d.Fields.Add(new DecodedField("moves", (long)moves.Count));
-        for (int i = 0; i < moves.Count; ++i)
+        for (var i = 0; i < moves.Count; ++i)
             d.Fields.Add(new DecodedField("move" + (first + i), FormatMove(moves[i])));
         d.Text = "psc fov=" + fov + " (" + (fov / 255.0 * 135).ToString("0.0", CultureInfo.InvariantCulture) + " deg) firstMove=" + first +
                  " moves=" + moves.Count;
@@ -217,17 +217,17 @@ public sealed class ClientPsc
     /// <remarks>Follows the PlayerPSC server block, client branch (00405ec8).</remarks>
     public DecodedPsc ReadServerBlock(ClientReader r)
     {
-        int start = r.Pos;
+        var start = r.Pos;
         var d = new DecodedPsc { Direction = "s2c" };
         var save = r.Out;
         r.Out = d.Fields;
         try
         {
-            int mode = (int)r.Int(3);
-            bool f = r.Flag();
-            int last = unchecked((int)r.Int(32));
-            bool has = r.Flag();
-            string head = "psc mode=" + mode + " flag6a=" + (f ? 1 : 0) + " lastMove=" + last;
+            var mode = (int)r.Int(3);
+            var f = r.Flag();
+            var last = unchecked((int)r.Int(32));
+            var has = r.Flag();
+            var head = "psc mode=" + mode + " flag6a=" + (f ? 1 : 0) + " lastMove=" + last;
             var headFields = new List<DecodedField>
             {
                 new("mode", (long)mode), new("flag6a", f ? 1L : 0L), new("lastMove", (long)last),
@@ -243,18 +243,26 @@ public sealed class ClientPsc
                 return d;
             }
             r.Add("flash", DamageFlash = r.Unit(8));    // the control object's damage flash (vtable +0x100), not a fov
-            int gidx = (int)r.Add("controlGhost", (long)r.Int(10));
+            var gidx = (int)r.Add("controlGhost", (long)r.Int(10));
             string? cls = null;
             if (gidx != 0x3ff)
             {
                 cls = r.World.Ghosts.ClassOf(gidx);
                 switch (cls)
                 {
-                    case "Player": ControlPlayer(r); break;
-                    case "ObserverCamera": ControlObserver(r); break;
+                    case "Player":
+                        ControlPlayer(r);
+                        break;
+                    case "ObserverCamera":
+                        ControlObserver(r);
+                        break;
                     case "Flier":
-                    case "Vehicle": ControlVehicle(r); break;
-                    case "Turret": ControlTurret(r); break;
+                    case "Vehicle":
+                        ControlVehicle(r);
+                        break;
+                    case "Turret":
+                        ControlTurret(r);
+                        break;
                     default:
                         d.Text = head + " " + FieldsText(d.Fields.Skip(3));
                         throw new UnsupportedException("control state of ghost " + gidx + " class " + cls);
@@ -269,9 +277,9 @@ public sealed class ClientPsc
                 var sens = new List<object?>();
                 while (r.Flag())
                 {
-                    uint i = r.Int(4);
-                    uint a = r.Flag() ? r.Int(32) : 0;
-                    uint b = r.Flag() ? r.Int(32) : 0;
+                    var i = r.Int(4);
+                    var a = r.Flag() ? r.Int(32) : 0;
+                    var b = r.Flag() ? r.Int(32) : 0;
                     sens.Add(i + ":" + a.ToString("x8", CultureInfo.InvariantCulture) + "/" + b.ToString("x8", CultureInfo.InvariantCulture));
                     if (i < 7)
                     {
@@ -281,14 +289,14 @@ public sealed class ClientPsc
                 }
                 r.Add("mode4", sens);
             }
-            bool reset = r.AddFlag("invReset");
+            var reset = r.AddFlag("invReset");
             if (reset)
                 Array.Clear(ItemCounts);
             var inv = new List<object?>();
             while (r.Flag())
             {
-                uint item = r.Int(8);
-                int delta = r.SInt(10);
+                var item = r.Int(8);
+                var delta = r.SInt(10);
                 inv.Add(item + (delta >= 0 ? "+" : "") + delta);
                 if (item < ItemCounts.Length)
                     ItemCounts[item] += delta;
@@ -309,8 +317,8 @@ public sealed class ClientPsc
                 var vis = new List<object?>();
                 while (r.Flag())
                 {
-                    uint word = r.Int(3);
-                    uint x = r.Int(32);
+                    var word = r.Int(3);
+                    var x = r.Int(32);
                     vis.Add(word + ":" + x.ToString("x8", CultureInfo.InvariantCulture));
                     Visible[word] ^= x;
                 }
@@ -343,7 +351,7 @@ public sealed class ClientPsc
         }
         ScoreFlag = scoreFlag;
         LastMove = lastMove;
-        long n = (long)lastMove - (int)FirstMove;
+        var n = (long)lastMove - (int)FirstMove;
         while (n > 0 && Moves.Count > 0)
         {
             ++FirstMove;
@@ -357,7 +365,7 @@ public sealed class ClientPsc
     private static void ControlObserver(ClientReader r)
     {
         r.AddVec("rot");
-        long mode = r.AddInt("camMode", 3);
+        var mode = r.AddInt("camMode", 3);
         if (mode < 3)
             r.AddVec("pos");
         else if (mode == 3)
@@ -406,9 +414,9 @@ public sealed class ClientPsc
     private static void ControlVehicle(ClientReader r)
     {
         r.AddInt("state2", 2);
-        foreach (string n in new[] { "rot", "trot", "pos" })
+        foreach (var n in new[] { "rot", "trot", "pos" })
             r.Add(n, new[] { (double)r.F32(), r.F32(), r.F32() });
-        foreach (string n in new[] { "F16", "T16", "E16" })
+        foreach (var n in new[] { "F16", "T16", "E16" })
             r.AddInt(n, 16);
         r.AddInt("dmg6", 6);
         r.AddInt("fire2", 2);
@@ -421,16 +429,16 @@ public sealed class ClientPsc
     // Command map rows (4.5, mode 2): the first slot, then rows of 8 slots with one flag each.
     private void ReadCommandMap(ClientReader r)
     {
-        uint slot = r.Int(8);
+        var slot = r.Int(8);
         r.Add("cmdFirst", (long)slot);
         var rows = new List<object?>();
-        int nrows = 0;
+        var nrows = 0;
         while (r.Flag())
         {
             ++nrows;
-            for (int k = 0; k < 8; ++k)
+            for (var k = 0; k < 8; ++k)
             {
-                uint s = slot;
+                var s = slot;
                 slot = (slot + 1) & 0xff;
                 if (!r.Flag())
                 {
@@ -449,14 +457,22 @@ public sealed class ClientPsc
                     act = r.Flag();
                     extra = "ctl=" + (c ? 1 : 0) + " active=" + (act ? 1 : 0);
                 }
-                uint grp = r.Int(6);
-                uint idx = r.Int(r.DbBits((int)grp));
+                var grp = r.Int(6);
+                var idx = r.Int(r.DbBits((int)grp));
                 CommandSlots[s] = new ClientCommandSlot
                 {
-                    Present = true, X = (int)x - 512, Y = (int)y - 512, Team = (int)team, Status = (int)a, CommandStatus = (int)cmd,
-                    Group = (int)grp, Index = (int)idx, Controllable = c, Active = act,
+                    Present = true,
+                    X = (int)x - 512,
+                    Y = (int)y - 512,
+                    Team = (int)team,
+                    Status = (int)a,
+                    CommandStatus = (int)cmd,
+                    Group = (int)grp,
+                    Index = (int)idx,
+                    Controllable = c,
+                    Active = act,
                 };
-                string row = s + ":(" + x + "," + y + ") team=" + team + " status=" + a + " " + extra + " db=" + grp + "/" + idx;
+                var row = s + ":(" + x + "," + y + ") team=" + team + " status=" + a + " " + extra + " db=" + grp + "/" + idx;
                 rows.Add(row);
                 CommandMap[(int)s] = row;
             }

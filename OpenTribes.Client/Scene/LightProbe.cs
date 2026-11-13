@@ -1,5 +1,3 @@
-using OpenTribes.Client.Shapes;
-
 namespace OpenTribes.Client.Scene;
 
 /// <summary>The shape light probe: a ray from the top of the box of an object straight down to the nearest terrain or interior surface.</summary>
@@ -19,9 +17,9 @@ public sealed class LightProbe
     public (bool ok, (float r, float g, float b) rgb, float strength) Query(double[] box)
     {
         double cx = (box[0] + box[3]) * 0.5, cy = (box[1] + box[4]) * 0.5, cz = (box[2] + box[5]) * 0.5;
-        double h = (box[5] - box[2]) * 0.5; // the ray is straight down, so the half height is the largest projected half extent
+        var h = (box[5] - box[2]) * 0.5; // the ray is straight down, so the half height is the largest projected half extent
         double sz = cz + h, length = h + 20;
-        double best = double.MaxValue;
+        var best = double.MaxValue;
         (float r, float g, float b) col = default;
         if (Interior != null)
         {
@@ -52,7 +50,7 @@ public sealed class ProbeState
     private bool mValid;
     private int mCountdown;
     private (float r, float g, float b) mCur, mTarget;
-    private float mStrength, mTargetStrength;
+    private float mTargetStrength;
     /// <summary>The time of the last update, or -1 before the first.</summary>
     public double LastUpdate = -1;
 
@@ -81,7 +79,7 @@ public sealed class ProbeState
         if (mValid || mCountdown != 0)
         {
             mCur = ((mCur.r + mTarget.r) * 0.5f, (mCur.g + mTarget.g) * 0.5f, (mCur.b + mTarget.b) * 0.5f);
-            mStrength = (mStrength + mTargetStrength) * 0.5f;
+            Strength = (Strength + mTargetStrength) * 0.5f;
             if (mCountdown != 0)
                 --mCountdown;
         }
@@ -92,5 +90,5 @@ public sealed class ProbeState
     /// <summary>The smoothed light colour.</summary>
     public (float r, float g, float b) Colour => mCur;
     /// <summary>The smoothed strength.</summary>
-    public float Strength => mStrength;
+    public float Strength { get; private set; }
 }

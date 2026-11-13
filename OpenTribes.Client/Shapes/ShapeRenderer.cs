@@ -1,7 +1,7 @@
+namespace OpenTribes.Client.Shapes;
+
 using OpenTribes.Client.World;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Client.Shapes;
 
 /// <summary>The parameters of one shape draw.</summary>
 public sealed class ShapeDraw
@@ -49,8 +49,8 @@ public sealed class ShapeRenderer
 {
     private sealed class FrameData
     {
-        public float[] P = Array.Empty<float>();
-        public float[] N = Array.Empty<float>();
+        public float[] P = [];
+        public float[] N = [];
     }
 
     private struct MatState
@@ -61,15 +61,15 @@ public sealed class ShapeRenderer
 
     // Scratch kept between builds (the renderer is used by one thread): per-material vertex lists, material states of the
     // current build in order of first use, and the world-space vertex, normal and colour arrays of one object.
-    private readonly Dictionary<int, MatState> mStates = new();
-    private readonly Dictionary<int, List<Vertex3D>> mBatches = new();
-    private readonly List<int> mUsed = new();
-    private (double x, double y, double z)[] mWp = Array.Empty<(double, double, double)>(), mWn = Array.Empty<(double, double, double)>();
-    private (float r, float g, float b)?[] mCol = Array.Empty<(float, float, float)?>();
-    private byte[] mOut = Array.Empty<byte>();
+    private readonly Dictionary<int, MatState> mStates = [];
+    private readonly Dictionary<int, List<Vertex3D>> mBatches = [];
+    private readonly List<int> mUsed = [];
+    private (double x, double y, double z)[] mWp = [], mWn = [];
+    private (float r, float g, float b)?[] mCol = [];
+    private byte[] mOut = [];
 
     private readonly ShapeAssets mAssets;
-    private readonly Dictionary<(RsMesh, int), FrameData> mFrames = new();
+    private readonly Dictionary<(RsMesh, int), FrameData> mFrames = [];
     /// <summary>True to flip the winding, set by tests that check the cull rule.</summary>
     public bool FlipWinding;
     /// <summary>The detail of the last build.</summary>
@@ -79,7 +79,7 @@ public sealed class ShapeRenderer
     /// <summary>The culled faces of the last build.</summary>
     public int LastCulled;
     /// <summary>The names of the files already logged.</summary>
-    public readonly HashSet<string> Logged = new();
+    public readonly HashSet<string> Logged = [];
     /// <summary>The number of draws skipped for a missing texture.</summary>
     public int SkippedMissingTexture;
 
@@ -95,37 +95,41 @@ public sealed class ShapeRenderer
         if (mFrames.TryGetValue((mesh, frame), out FrameData? fd))
             return fd;
         RsFrame f = mesh.Frames[frame];
-        int count = mesh.VertsPerFrame > 0 ? mesh.VertsPerFrame : (frame + 1 < mesh.Frames.Length ? mesh.Frames[frame + 1].FirstVert - f.FirstVert : mesh.Verts.Length / 4 - f.FirstVert);
-        count = Math.Clamp(count, 0, Math.Max(0, mesh.Verts.Length / 4 - f.FirstVert));
+        var count = mesh.VertsPerFrame > 0 ? mesh.VertsPerFrame : (frame + 1 < mesh.Frames.Length ? mesh.Frames[frame + 1].FirstVert - f.FirstVert : (mesh.Verts.Length / 4) - f.FirstVert);
+        count = Math.Clamp(count, 0, Math.Max(0, (mesh.Verts.Length / 4) - f.FirstVert));
         fd = new FrameData { P = new float[count * 3], N = new float[count * 3] };
-        for (int k = 0; k < count; ++k)
+        for (var k = 0; k < count; ++k)
         {
-            int o = (f.FirstVert + k) * 4;
-            fd.P[k * 3] = mesh.Verts[o] * f.Sx + f.Ox;
-            fd.P[k * 3 + 1] = mesh.Verts[o + 1] * f.Sy + f.Oy;
-            fd.P[k * 3 + 2] = mesh.Verts[o + 2] * f.Sz + f.Oz;
+            var o = (f.FirstVert + k) * 4;
+            fd.P[k * 3] = (mesh.Verts[o] * f.Sx) + f.Ox;
+            fd.P[(k * 3) + 1] = (mesh.Verts[o + 1] * f.Sy) + f.Oy;
+            fd.P[(k * 3) + 2] = (mesh.Verts[o + 2] * f.Sz) + f.Oz;
         }
         foreach (RsFace fc in mesh.Faces)
         {
             if (fc.V0 < 0 || fc.V1 < 0 || fc.V2 < 0 || fc.V0 >= count || fc.V1 >= count || fc.V2 >= count)
                 continue;
-            float ax = fd.P[fc.V1 * 3] - fd.P[fc.V0 * 3], ay = fd.P[fc.V1 * 3 + 1] - fd.P[fc.V0 * 3 + 1], az = fd.P[fc.V1 * 3 + 2] - fd.P[fc.V0 * 3 + 2];
-            float bx = fd.P[fc.V2 * 3] - fd.P[fc.V0 * 3], by = fd.P[fc.V2 * 3 + 1] - fd.P[fc.V0 * 3 + 1], bz = fd.P[fc.V2 * 3 + 2] - fd.P[fc.V0 * 3 + 2];
-            float nx = az * by - ay * bz, ny = ax * bz - az * bx, nz = ay * bx - ax * by;   // clockwise faces: outward is the reverse of a x b
-            foreach (int v in new[] { fc.V0, fc.V1, fc.V2 })
+            float ax = fd.P[fc.V1 * 3] - fd.P[fc.V0 * 3], ay = fd.P[(fc.V1 * 3) + 1] - fd.P[(fc.V0 * 3) + 1], az = fd.P[(fc.V1 * 3) + 2] - fd.P[(fc.V0 * 3) + 2];
+            float bx = fd.P[fc.V2 * 3] - fd.P[fc.V0 * 3], by = fd.P[(fc.V2 * 3) + 1] - fd.P[(fc.V0 * 3) + 1], bz = fd.P[(fc.V2 * 3) + 2] - fd.P[(fc.V0 * 3) + 2];
+            float nx = (az * by) - (ay * bz), ny = (ax * bz) - (az * bx), nz = (ay * bx) - (ax * by);   // clockwise faces: outward is the reverse of a x b
+            foreach (var v in new[] { fc.V0, fc.V1, fc.V2 })
             {
-                fd.N[v * 3] += nx; fd.N[v * 3 + 1] += ny; fd.N[v * 3 + 2] += nz;
+                fd.N[v * 3] += nx;
+                fd.N[(v * 3) + 1] += ny;
+                fd.N[(v * 3) + 2] += nz;
             }
         }
-        for (int k = 0; k < count; ++k)
+        for (var k = 0; k < count; ++k)
         {
-            double l = Math.Sqrt(fd.N[k * 3] * fd.N[k * 3] + fd.N[k * 3 + 1] * fd.N[k * 3 + 1] + fd.N[k * 3 + 2] * fd.N[k * 3 + 2]);
+            var l = Math.Sqrt((fd.N[k * 3] * fd.N[k * 3]) + (fd.N[(k * 3) + 1] * fd.N[(k * 3) + 1]) + (fd.N[(k * 3) + 2] * fd.N[(k * 3) + 2]));
             if (l > 1e-12)
             {
-                fd.N[k * 3] = (float)(fd.N[k * 3] / l); fd.N[k * 3 + 1] = (float)(fd.N[k * 3 + 1] / l); fd.N[k * 3 + 2] = (float)(fd.N[k * 3 + 2] / l);
+                fd.N[k * 3] = (float)(fd.N[k * 3] / l);
+                fd.N[(k * 3) + 1] = (float)(fd.N[(k * 3) + 1] / l);
+                fd.N[(k * 3) + 2] = (float)(fd.N[(k * 3) + 2] / l);
             }
             else
-                fd.N[k * 3 + 2] = 1;
+                fd.N[(k * 3) + 2] = 1;
         }
         mFrames[(mesh, frame)] = fd;
         return fd;
@@ -137,13 +141,13 @@ public sealed class ShapeRenderer
     /// <param name="toWorld">The transform to the world.</param>
     /// <param name="scale">The instance scale.</param>
     /// <returns>The detail index.</returns>
-    public int DetailFor(RenderShape shape, in Camera3D cam, in Xf toWorld, double scale)
+    public static int DetailFor(RenderShape shape, in Camera3D cam, in Xf toWorld, double scale)
     {
         var (cx, cy, cz) = toWorld.Apply(shape.Cx, shape.Cy, shape.Cz);
         var (_, depth, _) = cam.ToCamera(cx, cy, cz);
         double dx = cx - cam.X, dy = cy - cam.Y, dz = cz - cam.Z;
-        double dist = Math.Max(Math.Sqrt(dx * dx + dy * dy + dz * dz), 1e-3);
-        double size = cam.ProjectRadius(dist, shape.Radius) * scale;
+        var dist = Math.Max(Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)), 1e-3);
+        var size = cam.ProjectRadius(dist, shape.Radius) * scale;
         _ = depth;
         return shape.ChooseDetail(size);
     }
@@ -158,37 +162,37 @@ public sealed class ShapeRenderer
         RenderShape sh = inst.Shape;
         // Every instance draws with the default transform of node 0 in front of its nodes (shapes-render.md 3.6 step 4).
         Xf toWorld = p.NoRootTransform ? p.ToWorld : sh.RootTransform().Then(p.ToWorld);
-        int detail = p.ForceDetail != -2 ? p.ForceDetail : DetailFor(sh, cam, toWorld, p.DetailScale);
+        var detail = p.ForceDetail != -2 ? p.ForceDetail : DetailFor(sh, cam, toWorld, p.DetailScale);
         LastDetail = detail;
         if (detail < 0)
             return null;
         inst.Animate(detail);
-        bool[] nodeMask = sh.NodesOfDetail(detail).Mask;
+        var nodeMask = sh.NodesOfDetail(detail).Mask;
         var (ccx, ccy, ccz) = toWorld.Apply(sh.Cx, sh.Cy, sh.Cz);
         LightSet.ShapeFrame lights = p.Light.ForShape(ccx, ccy, ccz, sh.Radius);
         var (_, depth, _) = cam.ToCamera(ccx, ccy, ccz);
-        double dist = Math.Sqrt((ccx - cam.X) * (ccx - cam.X) + (ccy - cam.Y) * (ccy - cam.Y) + (ccz - cam.Z) * (ccz - cam.Z));
+        var dist = Math.Sqrt(((ccx - cam.X) * (ccx - cam.X)) + ((ccy - cam.Y) * (ccy - cam.Y)) + ((ccz - cam.Z) * (ccz - cam.Z)));
         // A shape whose bounding sphere (padded for moving parts) is wholly outside the view makes no image: nothing of it can
         // reach the screen. Forced details (debris, tests) always build.
         if (p.ForceDetail == -2 && sh.Radius > 0)
         {
             var (vx, vy, vz) = cam.ToCamera(ccx, ccy, ccz);
-            if (!World.InteriorRenderer.SphereVisible(cam, vx, vy, vz, sh.Radius * 2 + 2))
+            if (!InteriorRenderer.SphereVisible(cam, vx, vy, vz, (sh.Radius * 2) + 2))
             {
                 LastFaces = LastCulled = 0;
                 return null;
             }
         }
-        float haze = p.NoHaze ? 0 : (float)TerrainLod.ObjectHaze(dist, p.HazeStart, p.Visible);
+        var haze = p.NoHaze ? 0 : (float)TerrainLod.ObjectHaze(dist, p.HazeStart, p.Visible);
         var img = new RenderImage { Label = p.Label.Length > 0 ? p.Label : sh.Name };
         Dictionary<int, MatState> states = mStates;
         states.Clear();
         mUsed.Clear();
-        bool translucent = p.ForceTranslucent || p.Fade > 0;
-        int matBase = sh.MaterialDetails > 1 ? Math.Min(detail, sh.MaterialDetails - 1) * sh.MaterialCount : 0;
-        double alphaFade = 1 - p.Fade;
+        var translucent = p.ForceTranslucent || p.Fade > 0;
+        var matBase = sh.MaterialDetails > 1 ? Math.Min(detail, sh.MaterialDetails - 1) * sh.MaterialCount : 0;
+        var alphaFade = 1 - p.Fade;
         LastFaces = LastCulled = 0;
-        for (int oi = 0; oi < sh.Objects.Length; ++oi)
+        for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
             RsObject ob = sh.Objects[oi];
             RsObjectState st = inst.Objects[oi];
@@ -199,7 +203,7 @@ public sealed class ShapeRenderer
                 continue;
             Xf ox = inst.ObjectTransform(oi).Then(toWorld);
             FrameData fd = Frame(mesh, Math.Clamp(st.Frame, 0, mesh.Frames.Length - 1));
-            int nv = fd.P.Length / 3;
+            var nv = fd.P.Length / 3;
             if (mWp.Length < nv)
             {
                 mWp = new (double x, double y, double z)[nv * 2];
@@ -210,26 +214,28 @@ public sealed class ShapeRenderer
             (double x, double y, double z)[] wp = mWp, wn = mWn;
             (float r, float g, float b)?[] col = mCol;
             Array.Clear(col, 0, nv);
-            for (int k = 0; k < nv; ++k)
+            for (var k = 0; k < nv; ++k)
             {
-                wp[k] = ox.Apply(fd.P[k * 3], fd.P[k * 3 + 1], fd.P[k * 3 + 2]);
-                wn[k] = ox.Rotate(fd.N[k * 3], fd.N[k * 3 + 1], fd.N[k * 3 + 2]);
+                wp[k] = ox.Apply(fd.P[k * 3], fd.P[(k * 3) + 1], fd.P[(k * 3) + 2]);
+                wn[k] = ox.Rotate(fd.N[k * 3], fd.N[(k * 3) + 1], fd.N[(k * 3) + 2]);
                 mOut[k] = ClipCode(cam, wp[k]);
             }
-            int tvOffset = mesh.TexVertsPerFrame > 0 && mesh.TexVerts.Length / 2 >= (st.TextureFrame + 1) * mesh.TexVertsPerFrame ? st.TextureFrame * mesh.TexVertsPerFrame : 0;
+            var tvOffset = mesh.TexVertsPerFrame > 0 && mesh.TexVerts.Length / 2 >= (st.TextureFrame + 1) * mesh.TexVertsPerFrame ? st.TextureFrame * mesh.TexVertsPerFrame : 0;
             foreach (RsFace f in mesh.Faces)
             {
                 ++LastFaces;
                 if (f.V0 < 0 || f.V1 < 0 || f.V2 < 0 || f.V0 >= nv || f.V1 >= nv || f.V2 >= nv)
                     continue;
-                var a = wp[f.V0]; var b = wp[f.V1]; var c = wp[f.V2];
-                double ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z, vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
-                double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-                double facing = nx * (cam.X - a.x) + ny * (cam.Y - a.y) + nz * (cam.Z - a.z);
+                var (x, y, z) = wp[f.V0];
+                var b = wp[f.V1];
+                var c = wp[f.V2];
+                double ux = b.x - x, uy = b.y - y, uz = b.z - z, vx = c.x - x, vy = c.y - y, vz = c.z - z;
+                double nx = (uy * vz) - (uz * vy), ny = (uz * vx) - (ux * vz), nz = (ux * vy) - (uy * vx);
+                var facing = (nx * (cam.X - x)) + (ny * (cam.Y - y)) + (nz * (cam.Z - z));
                 // 2.4 step 6: the stock faces are clockwise seen from outside and the cull drops the counter-clockwise ones, but
                 // only for a face wholly inside every clip plane. One that crosses a plane goes to the clipper, which draws it
                 // whatever its winding. A face outside one shared plane is dropped.
-                int oc = mOut[f.V0] | mOut[f.V1] | mOut[f.V2];
+                var oc = mOut[f.V0] | mOut[f.V1] | mOut[f.V2];
                 if (oc != 0 && (mOut[f.V0] & mOut[f.V1] & mOut[f.V2]) != 0)
                     continue;
                 if ((oc == 0 || p.CullClipped) && (FlipWinding ? facing < 0 : facing > 0))
@@ -237,7 +243,7 @@ public sealed class ShapeRenderer
                     ++LastCulled;
                     continue;
                 }
-                int mi = f.Material >= 0 && f.Material < inst.Remap.Length ? inst.Remap[f.Material] : f.Material;
+                var mi = f.Material >= 0 && f.Material < inst.Remap.Length ? inst.Remap[f.Material] : f.Material;
                 mi += matBase;
                 if (mi < 0 || mi >= sh.Materials.Length)
                     continue;
@@ -246,17 +252,17 @@ public sealed class ShapeRenderer
                 {
                     DrawState3D made = default;
                     mUsed.Add(mi);
-                    if (!MakeState(sh, m, p, ref made, out bool blended))
+                    if (!MakeState(sh, m, p, ref made, out var blended))
                     {
                         ++SkippedMissingTexture;
                         states[mi] = default;
                         continue;
                     }
-                    bool pa = m.Type == 3 && mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed) is TexEntry te && te.PaletteAlpha;
+                    var pa = m.Type == 3 && mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed) is TexEntry te && te.PaletteAlpha;
                     ms = new MatState { Ds = made, PaletteAlpha = pa };
                     states[mi] = ms;
                     if (!mBatches.ContainsKey(mi))
-                        mBatches[mi] = new List<Vertex3D>();
+                        mBatches[mi] = [];
                     if (blended)
                         translucent = true;
                 }
@@ -264,8 +270,8 @@ public sealed class ShapeRenderer
                 if (ds.Texture == null && m.Type == 3)
                     continue;
                 float alpha = 1;
-                bool group = (m.Flags & 0x2000) != 0;
-                bool paletteAlpha = ms.PaletteAlpha;
+                var group = (m.Flags & 0x2000) != 0;
+                var paletteAlpha = ms.PaletteAlpha;
                 if (group && !paletteAlpha && ds.BlendKind == BlendMode.Translucent)
                     alpha = 0.5f;
                 if (p.Fade > 0)
@@ -275,30 +281,30 @@ public sealed class ShapeRenderer
                 {
                     if (m.Type == 1)
                     {
-                        mAssets.World.Palette.SubPalettes[0].Rgb(Math.Clamp(m.PaletteIndex, 0, 255), out byte pr, out byte pg, out byte pb);
+                        mAssets.World.Palette.SubPalettes[0].Rgb(Math.Clamp(m.PaletteIndex, 0, 255), out var pr, out var pg, out var pb);
                         (fr, fg, fb) = (pr / 255f, pg / 255f, pb / 255f);
                     }
                     else
                         (fr, fg, fb) = (m.R / 255f, m.G / 255f, m.B / 255f);
                 }
-                int shading = m.Shading;
-                float hz = (ds.BlendKind == BlendMode.Additive || ds.BlendKind == BlendMode.Subtractive) && ds.Blend ? 0 : haze;
+                var shading = m.Shading;
+                var hz = (ds.BlendKind == BlendMode.Additive || ds.BlendKind == BlendMode.Subtractive) && ds.Blend ? 0 : haze;
                 (float r, float g, float b)? faceCol = null;
                 if (!group && shading == 2)
                 {
-                    double l = Math.Sqrt(nx * nx + ny * ny + nz * nz);
-                    faceCol = lights.At((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3, l > 0 ? -nx / l : 0, l > 0 ? -ny / l : 0, l > 0 ? -nz / l : 1);
+                    var l = Math.Sqrt((nx * nx) + (ny * ny) + (nz * nz));
+                    faceCol = lights.At((x + b.x + c.x) / 3, (y + b.y + c.y) / 3, (z + b.z + c.z) / 3, l > 0 ? -nx / l : 0, l > 0 ? -ny / l : 0, l > 0 ? -nz / l : 1);
                 }
                 List<Vertex3D> list = mBatches[mi];
-                for (int k = 0; k < 3; ++k)
+                for (var k = 0; k < 3; ++k)
                 {
-                    int vi = k == 0 ? f.V0 : k == 1 ? f.V1 : f.V2;
-                    int ti = (k == 0 ? f.T0 : k == 1 ? f.T1 : f.T2) + tvOffset;
+                    var vi = k == 0 ? f.V0 : k == 1 ? f.V1 : f.V2;
+                    var ti = (k == 0 ? f.T0 : k == 1 ? f.T1 : f.T2) + tvOffset;
                     float u = 0, v = 0;
-                    if (ti >= 0 && ti * 2 + 1 < mesh.TexVerts.Length)
+                    if (ti >= 0 && (ti * 2) + 1 < mesh.TexVerts.Length)
                     {
                         u = mesh.TexVerts[ti * 2];
-                        v = mesh.TexVerts[ti * 2 + 1];
+                        v = mesh.TexVerts[(ti * 2) + 1];
                     }
                     (float r, float g, float b) lc;
                     if (group || shading == 1 || shading == 0)
@@ -311,12 +317,12 @@ public sealed class ShapeRenderer
                 }
             }
         }
-        foreach (int mi in mUsed)
+        foreach (var mi in mUsed)
         {
             if (!mBatches.TryGetValue(mi, out List<Vertex3D>? list))
                 continue;
             if (list.Count > 0)
-                img.Batches.Add(new DrawBatch { Vertices = list.ToArray(), State = states[mi].Ds });
+                img.Batches.Add(new DrawBatch { Vertices = [.. list], State = states[mi].Ds });
             list.Clear();
         }
         img.Category = translucent ? 1 : 0;
@@ -329,14 +335,22 @@ public sealed class ShapeRenderer
     private static byte ClipCode(in Camera3D cam, (double x, double y, double z) w)
     {
         var (cx, cy, cz) = cam.ToCamera(w.x, w.y, w.z);
-        int c = 0;
-        if (cy < cam.Near) c |= 1;
-        else if (cy > cam.Far) c |= 2;
+        var c = 0;
+        if (cy < cam.Near)
+            c |= 1;
+        else if (cy > cam.Far)
+            c |= 2;
         if (cy > 1e-9)
         {
             double sx = cx * cam.FocalLength / cy, sy = cz * cam.FocalLength / cy;
-            if (sx < -cam.Width / 2.0) c |= 8; else if (sx > cam.Width / 2.0) c |= 16;
-            if (sy > cam.Height / 2.0) c |= 32; else if (sy < -cam.Height / 2.0) c |= 64;
+            if (sx < -cam.Width / 2.0)
+                c |= 8;
+            else if (sx > cam.Width / 2.0)
+                c |= 16;
+            if (sy > cam.Height / 2.0)
+                c |= 32;
+            else if (sy < -cam.Height / 2.0)
+                c |= 64;
         }
         return (byte)c;
     }
@@ -347,7 +361,7 @@ public sealed class ShapeRenderer
         blended = false;
         IGfxTexture? tex = null;
         BlendMode kind = BlendMode.Translucent;
-        bool group = (m.Flags & 0x2000) != 0;
+        var group = (m.Flags & 0x2000) != 0;
         if (m.Type == 3)
         {
             TexEntry? te = mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed);
@@ -358,10 +372,10 @@ public sealed class ShapeRenderer
                 return false;
             }
             tex = te.Texture;
-            if (te.Blend == BlendMode.Additive || te.Blend == BlendMode.Subtractive)
+            if (te.Blend is BlendMode.Additive or BlendMode.Subtractive)
                 kind = te.Blend;
         }
-        bool fade = p.Fade > 0;
+        var fade = p.Fade > 0;
         if (group)
         {
             // Translucent group: depth test only, blend by the bitmap (additive, subtractive, else texture alpha).

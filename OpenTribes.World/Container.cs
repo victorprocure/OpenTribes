@@ -1,8 +1,8 @@
+namespace OpenTribes.World;
+
 using System.Runtime.CompilerServices;
 using OpenTribes.Core;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.World;
 
 /// <summary>The object type bits (object +0x48), tested against container masks.</summary>
 public static class ObjectType
@@ -146,12 +146,12 @@ public sealed class Container
         public Kind NodeKind = Kind.None;
         public bool Terrain;
         public bool Interior;
-        public readonly List<Node?> Items = new();       // vector order, or slots (null = empty slot)
-        public readonly List<Node> Subs = new();         // terrain database: sub-containers (+0x14 list)
-        public readonly List<SweepEnd> XEnds = new();    // terrain database: x end list (+0x40)
+        public readonly List<Node?> Items = [];       // vector order, or slots (null = empty slot)
+        public readonly List<Node> Subs = [];         // terrain database: sub-containers (+0x14 list)
+        public readonly List<SweepEnd> XEnds = [];    // terrain database: x end list (+0x40)
         // InteriorShapeDatabase (PVS, 00483548): one list per leaf number + 1 (0 for objects in solid leaves), newest
         // first; the object's list in its parent's database.
-        public readonly List<List<Node>> Buckets = new();
+        public readonly List<List<Node>> Buckets = [];
         public int Bucket;
         public int Leaf = -1;              // leaf number stored with the entry (the update test compares it)
         public Mat Inverse = new();        // InteriorShape +0xc8
@@ -163,7 +163,7 @@ public sealed class Container
             public Node NodeRef;
             public uint Bits;
         }
-        public readonly List<Link> Links = new();
+        public readonly List<Link> Links = [];
         public bool ViaLink;               // InteriorShape +0x418: 2 while scoped through a link record, else 0
         public ulong Seq;                  // add order (castRay tie rule)
         public bool HasDb() => NodeKind != Kind.None;
@@ -178,7 +178,7 @@ public sealed class Container
     }
 
     private readonly Node mRoot;
-    private readonly List<Node> mNodes = new();
+    private readonly List<Node> mNodes = [];
     private readonly Dictionary<object, Node> mByObject = new(ReferenceEqualityComparer.Instance);
     private Node? mNullObject; // the map entry of a null object pointer
     private ulong mSeq;
@@ -187,7 +187,7 @@ public sealed class Container
     // src/world/container.cpp overlaps: SimContainer_boxOverlap (004f9ae8), inclusive.
     private static bool Overlaps(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             if (a[i + 3] < b[i] || b[i + 3] < a[i])
                 return false;
         return true;
@@ -196,7 +196,7 @@ public sealed class Container
     // src/world/container.cpp inside: SimContainer_boxInside (004f9b3c), inner lies inside outer, inclusive.
     private static bool Inside(ReadOnlySpan<float> outer, ReadOnlySpan<float> inner)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             if (outer[i + 3] < inner[i + 3] || inner[i] < outer[i])
                 return false;
         return true;
@@ -207,7 +207,7 @@ public sealed class Container
     // inner.min and inner.max <= outer.max. z is strict on both ends.
     private static bool InsideTerrainDb(ReadOnlySpan<float> outer, ReadOnlySpan<float> inner)
     {
-        for (int i = 0; i < 2; ++i)
+        for (var i = 0; i < 2; ++i)
             if (!(outer[i] < inner[i]) || !(inner[i + 3] <= outer[i + 3]))
                 return false;
         return outer[2] < inner[2] && inner[5] < outer[5];
@@ -217,23 +217,23 @@ public sealed class Container
     // y-max.
     private static bool Clip(ref Vec3 a, ref Vec3 b, ReadOnlySpan<float> box)
     {
-        ReadOnlySpan<int> kOrder = stackalloc int[12] { 2, 0, 2, 1, 0, 0, 0, 1, 1, 0, 1, 1 };
-        for (int k = 0; k < 6; ++k)
+        ReadOnlySpan<int> kOrder = [2, 0, 2, 1, 0, 0, 0, 1, 1, 0, 1, 1];
+        for (var k = 0; k < 6; ++k)
         {
-            int axis = kOrder[2 * k];
-            bool isMax = kOrder[2 * k + 1] != 0;
-            float plane = box[axis + (isMax ? 3 : 0)];
-            float pa = a[axis];
-            float pb = b[axis];
-            bool aOut = isMax ? pa > plane : pa < plane;
-            bool bOut = isMax ? pb > plane : pb < plane;
+            var axis = kOrder[2 * k];
+            var isMax = kOrder[(2 * k) + 1] != 0;
+            var plane = box[axis + (isMax ? 3 : 0)];
+            var pa = a[axis];
+            var pb = b[axis];
+            var aOut = isMax ? pa > plane : pa < plane;
+            var bOut = isMax ? pb > plane : pb < plane;
             if (aOut && bOut)
                 return false;
             if (pa == plane && pb == plane)
                 return false; // lying in a clip plane
             if (aOut != bOut)
             {
-                double t = Div(Sub(plane, pa), Sub(pb, pa));
+                var t = Div(Sub(plane, pa), Sub(pb, pa));
                 var m = new Vec3(Store(Fpu.Add(a.X, Mul(Sub(b.X, a.X), t))), Store(Fpu.Add(a.Y, Mul(Sub(b.Y, a.Y), t))),
                                  Store(Fpu.Add(a.Z, Mul(Sub(b.Z, a.Z), t))));
                 m[axis] = plane;
@@ -270,7 +270,7 @@ public sealed class Container
     // src/world/container.cpp insideHalfOpen: camera point inside the instance box: [min, max) on every axis (004807d8).
     private static bool InsideHalfOpen(Vec3 p, ReadOnlySpan<float> box)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             if (p[i] < box[i] || !(p[i] < box[i + 3]))
                 return false;
         return true;
@@ -281,7 +281,7 @@ public sealed class Container
     /// <remarks>Objects fit an interior database only inside this padded box.</remarks>
     public static void PadInteriorBox(Span<float> box)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             box[i] = Store(Sub(box[i], 3.0f));
             box[i + 3] = Store(Fpu.Add(box[i + 3], 3.0f));
@@ -295,18 +295,18 @@ public sealed class Container
     public static uint InteriorLinkFace(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         // Faces in test order: own face index into a, opposite face index into b, the two other axes, bit.
-        ReadOnlySpan<int> kFaces = stackalloc int[30]
-        {
+        ReadOnlySpan<int> kFaces =
+        [
             0, 3, 1, 2, 0x80, 3, 0, 1, 2, 0x10, 1, 4, 0, 2, 0x40,
             4, 1, 0, 2, 0x08, 2, 5, 0, 1, 0x20, 5, 2, 0, 1, 0x04,
-        };
-        for (int k = 0; k < 6; ++k)
+        ];
+        for (var k = 0; k < 6; ++k)
         {
-            int own = kFaces[5 * k], other = kFaces[5 * k + 1], u = kFaces[5 * k + 2], v = kFaces[5 * k + 3];
+            int own = kFaces[5 * k], other = kFaces[(5 * k) + 1], u = kFaces[(5 * k) + 2], v = kFaces[(5 * k) + 3];
             if (!(AbsDiff(a[own], b[other]) < (double)0.001f))
                 continue;
             if (LinkOverlap(a[u], a[u + 3], b[u], b[u + 3]) && LinkOverlap(a[v], a[v + 3], b[v], b[v + 3]))
-                return (uint)kFaces[5 * k + 4];
+                return (uint)kFaces[(5 * k) + 4];
         }
         return 0;
     }
@@ -317,13 +317,13 @@ public sealed class Container
     /// <returns>The face bits.</returns>
     public static uint InteriorNearFaces(Vec3 p, ReadOnlySpan<float> box)
     {
-        ReadOnlySpan<uint> kBelow = stackalloc uint[3] { 0x80, 0x40, 0x20 };
-        ReadOnlySpan<uint> kAbove = stackalloc uint[3] { 0x10, 0x08, 0x04 };
+        ReadOnlySpan<uint> kBelow = [0x80, 0x40, 0x20];
+        ReadOnlySpan<uint> kAbove = [0x10, 0x08, 0x04];
         uint bits = 0;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             if (p[i] < box[i] && AbsDiff(p[i], box[i]) < 3.0f) // f32 0061db9c
                 bits |= kBelow[i];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             if (p[i] > box[i + 3] && AbsDiff(p[i], box[i + 3]) < 3.0f)
                 bits |= kAbove[i];
         return bits;
@@ -335,7 +335,7 @@ public sealed class Container
         int lo = 0, hi = l.Count;
         while (lo < hi)
         {
-            int mid = lo + (hi - lo) / 2;
+            var mid = lo + ((hi - lo) / 2);
             if (v <= l[mid].Value)
                 hi = mid;
             else
@@ -347,7 +347,7 @@ public sealed class Container
     // src/world/container.cpp sweepPos.
     private static int SweepPos(List<SweepEnd> l, Node n, bool isMax)
     {
-        for (int i = 0; i < l.Count; ++i)
+        for (var i = 0; i < l.Count; ++i)
             if (l[i].NodeRef == n && l[i].IsMax == isMax)
                 return i;
         return l.Count;
@@ -367,13 +367,13 @@ public sealed class Container
             return;
         }
         SweepEnd e = l[p];
-        bool down = value <= e.Value;
+        var down = value <= e.Value;
         e.Value = value;
         if (down)
         {
             if (t > p)
                 return;
-            for (int i = p; i > t; --i)
+            for (var i = p; i > t; --i)
                 l[i] = l[i - 1];
             l[t] = e;
         }
@@ -381,7 +381,7 @@ public sealed class Container
         {
             if (t == 0 || t - 1 < p || t - 1 >= l.Count)
                 return;
-            for (int i = p; i < t - 1; ++i)
+            for (var i = p; i < t - 1; ++i)
                 l[i] = l[i + 1];
             l[t - 1] = e;
         }
@@ -406,10 +406,10 @@ public sealed class Container
     {
         List<SweepEnd> l = c.XEnds;
         int lo = SweepLower(l, n.E.Box[0]), hi = SweepLower(l, n.E.Box[3]);
-        int pMin = SweepPos(l, n, false);
+        var pMin = SweepPos(l, n, false);
         if (pMin >= l.Count)
             return;
-        bool before = pMin < hi;
+        var before = pMin < hi;
         SweepMove(l, pMin, lo, n.E.Box[0]);
         SweepMove(l, SweepPos(l, n, true), before ? hi : hi + 1, n.E.Box[3]);
     }
@@ -417,10 +417,14 @@ public sealed class Container
     /// <summary>Creates container 7 (004fb754): box +-1e30, every type, default database.</summary>
     public Container()
     {
-        mRoot = new Node();
-        mRoot.E = new Entry(null, 0, Float6.Of(-1e30f, -1e30f, -1e30f, 1e30f, 1e30f, 1e30f), false, null);
-        mRoot.E.ContainerMask = 0xffffffffu;
-        mRoot.NodeKind = Kind.Vector;
+        mRoot = new Node
+        {
+            E = new Entry(null, 0, Float6.Of(-1e30f, -1e30f, -1e30f, 1e30f, 1e30f, 1e30f), false, null)
+            {
+                ContainerMask = 0xffffffffu
+            },
+            NodeKind = Kind.Vector
+        };
     }
 
     // src/world/container.cpp Container::nodeOf.
@@ -442,8 +446,8 @@ public sealed class Container
     {
         Mat m = node.E.Transform;
         var inv = new Mat();
-        ReadOnlySpan<int> t = stackalloc int[9] { 0, 3, 6, 1, 4, 7, 2, 5, 8 };
-        for (int i = 0; i < 9; ++i)
+        ReadOnlySpan<int> t = [0, 3, 6, 1, 4, 7, 2, 5, 8];
+        for (var i = 0; i < 9; ++i)
             inv.M[i] = m.M[t[i]];
         Mat rot = inv;
         rot.P = new Vec3(0, 0, 0);
@@ -476,8 +480,10 @@ public sealed class Container
     /// <remarks>The object descends into the first open sub-container that holds its box. A new container pulls in the objects of the database it lands in that it contains.</remarks>
     public void Add(Entry e)
     {
-        var node = new Node();
-        node.E = e.Clone();
+        var node = new Node
+        {
+            E = e.Clone()
+        };
         if (node.E.DatabaseKind != Database.None)
         {
             node.Terrain = node.E.DatabaseKind == Database.Terrain;
@@ -487,9 +493,9 @@ public sealed class Container
         if (node.Interior && node.E.Geometry != null)
         {
             SetInverse(node);
-            int count = node.E.Geometry.EmptyCount() + (int)node.E.Geometry.SolidCount() + 1;
+            var count = node.E.Geometry.EmptyCount() + (int)node.E.Geometry.SolidCount() + 1;
             while (node.Buckets.Count < count)
-                node.Buckets.Add(new List<Node>());
+                node.Buckets.Add([]);
         }
         Node n = node;
         n.Seq = ++mSeq;
@@ -510,7 +516,7 @@ public sealed class Container
     {
         Vec3 lo = toLocal.ToWorld(toWorld.ToWorld(new Vec3(box[0], box[1], box[2])));
         Vec3 hi = toLocal.ToWorld(toWorld.ToWorld(new Vec3(box[3], box[4], box[5])));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             output[i] = hi[i] < lo[i] ? hi[i] : lo[i];         // std::min
             output[i + 3] = lo[i] < hi[i] ? hi[i] : lo[i];     // std::max
@@ -525,7 +531,7 @@ public sealed class Container
     {
         UnlinkAll(n);
         var q = new Query { Exclude = n.E.Object, Mask = ObjectType.kInteriorType };
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             q.Box[i] = Store(Sub(n.E.Box[i], 1.0f));
             q.Box[i + 3] = Store(Fpu.Add(n.E.Box[i + 3], 1.0f));
@@ -539,11 +545,11 @@ public sealed class Container
             if (m == n || !m.Interior || m.E.Geometry == null || (m.E.Type & ObjectType.kInteriorType) == 0)
                 continue;
             BoxIn(m.E.Geometry.Box, m.E.Transform, n.Inverse, b);
-            uint bits = InteriorLinkFace(g.Box, b);
+            var bits = InteriorLinkFace(g.Box, b);
             if ((bits & g.LinkableFaces) == 0)
                 continue;
             BoxIn(g.Box, n.E.Transform, m.Inverse, b);
-            uint back = InteriorLinkFace(m.E.Geometry.Box, b);
+            var back = InteriorLinkFace(m.E.Geometry.Box, b);
             if ((back & m.E.Geometry.LinkableFaces) == 0)
                 continue;
             m.Links.Add(new Node.Link { NodeRef = n, Bits = back });
@@ -558,7 +564,7 @@ public sealed class Container
         foreach (Node.Link l in n.Links)
         {
             List<Node.Link> v = l.NodeRef.Links;
-            int it = v.FindIndex(x => x.NodeRef == n);
+            var it = v.FindIndex(x => x.NodeRef == n);
             if (it >= 0)
                 v.RemoveAt(it);
         }
@@ -624,8 +630,8 @@ public sealed class Container
                 if (m != null && m != n && m.E.Box[0] >= n.E.Box[0] && m.E.Box[3] < n.E.Box[3] &&
                     m.E.Box[1] >= n.E.Box[1] && m.E.Box[4] < n.E.Box[4])
                     output.Add(m);
-            output = output.OrderBy(x => x.E.Box[4]).ToList(); // std::stable_sort
-            for (int i = 0; i < output.Count; ++i)
+            output = [.. output.OrderBy(x => x.E.Box[4])]; // std::stable_sort
+            for (var i = 0; i < output.Count; ++i)
             {
                 Node m = output[i];
                 if (m.E.Box[2] < n.E.Box[2] || n.E.Box[5] < m.E.Box[5])
@@ -649,9 +655,9 @@ public sealed class Container
         if (c.E.Geometry == null)
             return -1;
         var center = new Vec3();
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            float s = Store(Fpu.Add(n.E.Box[i], n.E.Box[i + 3]));
+            var s = Store(Fpu.Add(n.E.Box[i], n.E.Box[i + 3]));
             center[i] = Store(Mul(s, 0.5f));
         }
         return c.E.Geometry.LeafAt(c.Inverse.ToWorld(center));
@@ -662,7 +668,7 @@ public sealed class Container
     // entry changed on every update.
     private static void BucketInsert(Node c, Node n)
     {
-        int leaf = LeafOf(c, n);
+        var leaf = LeafOf(c, n);
         n.Leaf = -1;
         n.Bucket = 0;
         if (c.E.Geometry != null && !c.E.Geometry.IsSolid(leaf) && (long)(uint)leaf + 1 < c.Buckets.Count)
@@ -671,7 +677,7 @@ public sealed class Container
             n.Bucket = leaf + 1;
         }
         if (c.Buckets.Count == 0)
-            c.Buckets.Add(new List<Node>());
+            c.Buckets.Add([]);
         c.Buckets[n.Bucket].Insert(0, n);
     }
 
@@ -696,7 +702,7 @@ public sealed class Container
         if (c.Terrain)
         {
             // ContainerDatabase_allocSlot (004fbe00): lowest empty slot, else append.
-            int slot = c.Items.IndexOf(null);
+            var slot = c.Items.IndexOf(null);
             if (slot >= 0)
                 c.Items[slot] = n;
             else
@@ -719,10 +725,10 @@ public sealed class Container
         {
             // ContainerDatabase_freeSlot (004fbeec): the slot empties; the sub-container list fills the hole with its
             // last element.
-            for (int i = 0; i < c.Items.Count; ++i)
+            for (var i = 0; i < c.Items.Count; ++i)
                 if (c.Items[i] == n)
                     c.Items[i] = null;
-            int it = c.Subs.IndexOf(n);
+            var it = c.Subs.IndexOf(n);
             if (it >= 0)
             {
                 c.Subs[it] = c.Subs[^1];
@@ -858,7 +864,7 @@ public sealed class Container
     {
         if (!c.HasDb() || (c.E.ContainerMask & q.Mask) == 0)
             return;
-        int first = output.Count;
+        var first = output.Count;
         // Database findObjects (+0x1c): sub-containers by box overlap, other objects by id, type and overlap.
         if (c.Terrain)
         {
@@ -887,8 +893,8 @@ public sealed class Container
                                             : !ReferenceEquals(m.E.Object, q.Exclude) && (m.E.Type & q.Mask) != 0 && Overlaps(m.E.Box, q.Box)))
                     output.Add(m);
         }
-        int endIndex = output.Count;
-        for (int i = first; i < endIndex; ++i)
+        var endIndex = output.Count;
+        for (var i = first; i < endIndex; ++i)
         {
             Node m = output[i];
             if (!m.HasDb())
@@ -967,7 +973,7 @@ public sealed class Container
         var candidates = new List<Node>();
         candidates.AddRange(found.Where(a => a.Terrain)); // std::stable_partition
         candidates.AddRange(found.Where(a => !a.Terrain));
-        float best = 1e30f;
+        var best = 1e30f;
         Vec3 e = eIn;
         obj = null;
         Span<float> w = stackalloc float[3];
@@ -987,7 +993,7 @@ public sealed class Container
             w[0] = X87.F32(Sub(s.X, h.X));
             w[1] = X87.F32(Sub(s.Y, h.Y));
             w[2] = X87.F32(Sub(s.Z, h.Z));
-            float d = X87.Lenf(w);
+            var d = X87.Lenf(w);
             if (d < best)
             {
                 best = d;
@@ -1022,7 +1028,7 @@ public sealed class Container
             ++mTag; // the interior visit tag (+0x420) starts at 0 and skips the first query
         var q = new ScopeQuery { Point = point, VisibleDistance = float.MaxValue, OnViaLink = onViaLink };
         var stack = new List<bool> { true };
-        bool reached = ScopeContainer(mRoot, q, stack);
+        var reached = ScopeContainer(mRoot, q, stack);
         ++mTag;
         return reached;
     }
@@ -1057,7 +1063,7 @@ public sealed class Container
             q.Mark(c.E.Object);
         stack.Add(false);
         Span<float> v = stackalloc float[3];
-        for (int i = 0; i < c.Items.Count; ++i)
+        for (var i = 0; i < c.Items.Count; ++i)
         {
             Node? n = c.Items[i];
             if (n == null)
@@ -1065,9 +1071,9 @@ public sealed class Container
             if (c.Terrain)
             {
                 // SimTerrainDatabase_scope (004fcc00): box centre within the visible distance.
-                for (int k = 0; k < 3; ++k)
+                for (var k = 0; k < 3; ++k)
                     v[k] = Store(Sub(Mul(Fpu.Add(n.E.Box[k + 3], n.E.Box[k]), 0.5), q.Point[k]));
-                double len = Sqrt(Fpu.Add(Fpu.Add(Mul(v[0], v[0]), Mul(v[1], v[1])), Mul(v[2], v[2])));
+                var len = Sqrt(Fpu.Add(Fpu.Add(Mul(v[0], v[0]), Mul(v[1], v[1])), Mul(v[2], v[2])));
                 if (!(len <= q.VisibleDistance))
                     continue;
             }
@@ -1084,7 +1090,7 @@ public sealed class Container
         if (g == null)
             return false;
         // A linked interior is scoped only on the start container path or through a link record.
-        bool start = stack[^1];
+        var start = stack[^1];
         if (g.LinkedInterior && !c.ViaLink && !start)
             return false;
         if (c.VisitTag == mTag)
@@ -1106,7 +1112,7 @@ public sealed class Container
         // PVS database scope (00484050): the lists of the leaves visible from the camera's leaf (leaf numbers above 42),
         // then list 0, then the outside leaves 0..42 when the camera leaf sees outside. A camera in a solid leaf scopes
         // nothing.
-        int leaf = g.LeafAt(c.Inverse.ToWorld(q.Point));
+        var leaf = g.LeafAt(c.Inverse.ToWorld(q.Point));
         void ScopeList(int b)
         {
             if (b >= c.Buckets.Count)
@@ -1117,12 +1123,12 @@ public sealed class Container
         }
         if (!g.IsSolid(leaf))
         {
-            foreach (int v in g.VisibleLeaves(leaf))
+            foreach (var v in g.VisibleLeaves(leaf))
                 if (v > 42)
                     ScopeList(v + 1);
             ScopeList(0);
             if (g.SeesOutside(leaf))
-                for (int i = 0; i < 43; ++i)
+                for (var i = 0; i < 43; ++i)
                     ScopeList(i + 1);
         }
         stack.RemoveAt(stack.Count - 1);
@@ -1141,19 +1147,19 @@ public sealed class Container
         stack.Add(false);
         Vec3 p = c.Inverse.ToWorld(q.Point);
         uint faces = g.OutsideFaces(g.LeafAt(p));
-        bool inBox = InsideHalfOpen(p, g.Box);
-        bool linked = false;
+        var inBox = InsideHalfOpen(p, g.Box);
+        var linked = false;
         if (!g.LinkedInterior || c.ViaLink || start)
         {
-            uint mask = faces;
+            var mask = faces;
             if (!inBox && start)
                 mask |= InteriorNearFaces(p, g.Box);
-            for (int i = 0; i < c.Links.Count; ++i)
+            for (var i = 0; i < c.Links.Count; ++i)
             {
                 Node m = c.Links[i].NodeRef;
                 if ((c.Links[i].Bits & mask) == 0 || m.VisitTag == mTag)
                     continue;
-                bool saved = m.ViaLink;
+                var saved = m.ViaLink;
                 m.ViaLink = true;
                 linked |= ScopeNode(m, q, stack);
                 m.ViaLink = saved;

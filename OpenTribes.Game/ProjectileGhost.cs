@@ -19,7 +19,7 @@ public static partial class ProjectileGhost
             if (bs.WriteFlag(p.OwnerClient != 0))
                 bs.WriteInt((uint)(p.OwnerClient - 0x800), 7);
         }
-        bool initial = (mask & 0x80000000u) != 0;
+        var initial = (mask & 0x80000000u) != 0;
         bs.WriteFlag(initial);
         if (!initial)
         {
@@ -35,7 +35,7 @@ public static partial class ProjectileGhost
         {
             Pj.WriteIndex(bs, p.DataBlockIndex, p.DataBlockCount());
             GameBase? sh = p.Shooter();
-            int ghost = sh != null ? ctx.Manager.GhostIndex(sh) : -1;
+            var ghost = sh != null ? ctx.Manager.GhostIndex(sh) : -1;
             if (bs.WriteFlag(ghost != -1))
                 bs.WriteInt((uint)ghost, 10);
             p.PackInitial(bs, ctx);
@@ -51,11 +51,11 @@ public static partial class ProjectileGhost
     public static void Register()
     {
         (string cls, uint tag)[] kClasses =
-        {
+        [
             ("Bullet", 0x258), ("Grenade", 0x259), ("RocketDumb", 0x25a), ("LaserProjectile", 0x25b), ("TargetLaser", 0x25c),
             ("SeekingMissile", 0x25d), ("Lightning", 0x25e), ("RepairEffect", 0x25f),
-        };
-        foreach ((string cls, uint tag) in kClasses)
+        ];
+        foreach ((var cls, var tag) in kClasses)
             GhostManager.RegisterGhostClass(cls, new GhostClass { Tag = tag, Pack = PackProjectile });
     }
 }

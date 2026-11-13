@@ -1,11 +1,11 @@
 // Port of tests/test_player_manager.cpp: PlayerManager (docs/player-manager.md): records, lists, game events and script
 // commands. 103 asserts.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
-
-namespace OpenTribes.Tests;
 
 public class PlayerManagerTests
 {
@@ -18,7 +18,7 @@ public class PlayerManagerTests
         public readonly Interpreter In;
         public string Out = "";
         public readonly GameState Game = new();
-        public readonly List<Sent> SentEvents = new();
+        public readonly List<Sent> SentEvents = [];
 
         public Fx()
         {
@@ -34,7 +34,7 @@ public class PlayerManagerTests
             Run("resetPlayerManager();");
             Game.AddTeam(0);
             Game.AddTeam(1);
-            Assert.True(Game.TeamCount == 2);
+            Assert.Equal(2, Game.TeamCount);
         }
 
         public string Run(string s)
@@ -46,7 +46,7 @@ public class PlayerManagerTests
 
         public PlayerManager Pm() => Game.Players;
         public ClientRecord? Add(int id, string name = "P", bool male = true) => Pm().AddClient(id, name, "male1", male);
-        public void Finished(int id) => Assert.True(Run("echo(Client::setDataFinished(" + id + "));") == "True");
+        public void Finished(int id) => Assert.Equal("True", Run("echo(Client::setDataFinished(" + id + "));"));
 
         // (recipient, tag) pairs of the captured events, then clears them.
         public List<(int, uint)> Take()
@@ -67,10 +67,15 @@ public class PlayerManagerTests
         var b = new Bits(e);
         switch (e.Tag)
         {
-            case 0x44f: b.U(32); return b.S32();
-            case 0x44b: return b.S32();
-            case 0x455: return (int)b.U(10) + 2048;
-            default: return (int)b.U(7) + 2048;
+            case 0x44f:
+                b.U(32);
+                return b.S32();
+            case 0x44b:
+                return b.S32();
+            case 0x455:
+                return (int)b.U(10) + 2048;
+            default:
+                return (int)b.U(7) + 2048;
         }
     }
 
@@ -88,12 +93,12 @@ public class PlayerManagerTests
 
     private static Delta DeltaOf(OutEvent e)
     {
-        Assert.True(e.Tag == 0x44d);
+        Assert.Equal(0x44d, e.Tag);
         var b = new Bits(e);
-        bool team = b.Flag();
-        int who = team ? (int)b.U(4) - 1 : (int)b.U(7) + 2048;
-        int sort = b.S32();
-        string text = b.Str();
+        var team = b.Flag();
+        var who = team ? (int)b.U(4) - 1 : (int)b.U(7) + 2048;
+        var sort = b.S32();
+        var text = b.Str();
         Assert.True(b.Done());
         return new Delta(team, who, sort, text);
     }
@@ -115,22 +120,20 @@ public class PlayerManagerTests
         // 1.1: record 0 (2048) is never handed out; 2049..2175 are.
         Assert.True(fx.Add(2048) == null && fx.Add(2176) == null);
         Assert.True(fx.Add(2049) != null && fx.Add(2050) != null && fx.Add(2051) != null);
-        Assert.True(fx.Add(2050) == null); // in use
+        Assert.Null(fx.Add(2050)); // in use
         // 3: lists insert at the head: getFirst is the newest human, getNext walks to older ones.
-        Assert.True(fx.Run("echo(getNumClients());") == "3");
-        Assert.True(fx.Run("echo(Client::getFirst());") == "2051");
-        Assert.True(fx.Run("echo(Client::getNext(2051), \" \", Client::getNext(2050), \" \", Client::getNext(2049));") ==
-                    "2050 2049 -1");
-        Assert.True(fx.Run("echo(getClientByIndex(0), \" \", getClientByIndex(2), \" \", getClientByIndex(3), \" \", " +
-                           "getClientByIndex(-1));") == "2051 2049 0 0");
+        Assert.Equal("3", fx.Run("echo(getNumClients());"));
+        Assert.Equal("2051", fx.Run("echo(Client::getFirst());"));
+        Assert.Equal("2050 2049 -1", fx.Run("echo(Client::getNext(2051), \" \", Client::getNext(2050), \" \", Client::getNext(2049));"));
+        Assert.Equal("2051 2049 0 0", fx.Run("echo(getClientByIndex(0), \" \", getClientByIndex(2), \" \", getClientByIndex(3), \" \", " +
+                           "getClientByIndex(-1));"));
         // 4.2: a removed id leaves the list and can be added again with a fresh record (2.1).
         fx.Run("Client::setSkin(2050, beagle);");
         fx.Pm().RemoveClient(2050);
-        Assert.True(fx.Run("echo(Client::getNext(2051), \" \", getNumClients(), \" \", Client::getName(2050));") ==
-                    "2049 2 ");
+        Assert.Equal("2049 2 ", fx.Run("echo(Client::getNext(2051), \" \", getNumClients(), \" \", Client::getName(2050));"));
         ClientRecord? r = fx.Add(2050, "Again", false);
         Assert.True(r != null && r.Skin == "base" && r.Team == -1 && r.Commander == -1 && r.JoinOrder == 3);
-        Assert.True(fx.Run("echo(Client::getFirst(), \" \", Client::getGender(2050));") == "2050 Female");
+        Assert.Equal("2050 Female", fx.Run("echo(Client::getFirst(), \" \", Client::getGender(2050));"));
     }
 
     private static void Connect()
@@ -178,10 +181,10 @@ public class PlayerManagerTests
         fx.SentEvents.Clear();
         fx.Out = "";
         fx.Pm().RemoveClient(2050);
-        int disc = fx.Out.IndexOf("disc 2050", StringComparison.Ordinal);
-        int drop = fx.Out.IndexOf("dropped - id = 2050", StringComparison.Ordinal);
+        var disc = fx.Out.IndexOf("disc 2050", StringComparison.Ordinal);
+        var drop = fx.Out.IndexOf("dropped - id = 2050", StringComparison.Ordinal);
         Assert.True(disc >= 0 && drop >= 0 && disc < drop);
-        Assert.True(fx.Pm().Find(2049)!.Commander == 2051);
+        Assert.Equal(2051, fx.Pm().Find(2049)!.Commander);
         Assert.True(Keys(fx.SentEvents, 0x44c).SequenceEqual(new[] { (2051, 2050), (2049, 2050) }) && fx.SentEvents.Count == 2);
         var b = new Bits(fx.SentEvents[0].E);
         Assert.True(b.U(7) == 2 && b.Done());
@@ -199,23 +202,22 @@ public class PlayerManagerTests
         // GameBase::setTeam on a client returns -1.
         fx.Pm().Find(2050)!.Commander = 2049;
         fx.Pm().Find(2049)!.Commander = 2051;
-        Assert.True(fx.Run("echo(GameBase::setTeam(2049, 0));") == "-1");
+        Assert.Equal("-1", fx.Run("echo(GameBase::setTeam(2049, 0));"));
         Assert.True(TagsEq(fx.Take(), (2051, 0x452), (2050, 0x452), (2049, 0x452)));
         Assert.True(fx.Pm().Find(2050)!.Commander == 2051 && fx.Pm().Find(2049)!.Commander == -1);
-        Assert.True(fx.Run("echo(Client::getTeam(2049), \" \", Client::getSkinBase(2049), \" \", GameBase::getTeam(2049));") ==
-                    "0 beagle 0");
+        Assert.Equal("0 beagle 0", fx.Run("echo(Client::getTeam(2049), \" \", Client::getSkinBase(2049), \" \", GameBase::getTeam(2049));"));
         fx.Pm().SetTeam(2049, 0);  // unchanged
         fx.Pm().SetTeam(2049, 2);  // >= team count
         fx.Pm().SetTeam(2049, -2);
-        Assert.True(fx.SentEvents.Count == 0);
+        Assert.Equal(0, fx.SentEvents.Count);
         fx.Pm().SetTeam(2049, -1);
-        Assert.True(fx.SentEvents.Count == 3);
+        Assert.Equal(3, fx.SentEvents.Count);
         var b = new Bits(fx.SentEvents[0].E);
         Assert.True(b.U(7) == 1 && b.U(4) == 0 && b.Done());
         fx.SentEvents.Clear();
 
         // 12.2: setInitialTeam writes the team only (no event, no skin).
-        Assert.True(fx.Run("echo(Client::setInitialTeam(2051, 1));") == "True");
+        Assert.Equal("True", fx.Run("echo(Client::setInitialTeam(2051, 1));"));
         Assert.True(fx.SentEvents.Count == 0 && fx.Pm().Find(2051)!.Skin == "base");
         // 6 step 2: entering Command mode replays every teammate's command entry whose stamp is newer or whose target
         // index is set (+0x48 starts 0, never -1: a zeroed allocation [I]).
@@ -246,7 +248,7 @@ public class PlayerManagerTests
         t.WaypointY = 700;
         fx.SentEvents.Clear();
         fx.Run("Client::setGuiMode(2049, 2);");
-        Assert.True(fx.SentEvents.Count == 1);
+        Assert.Equal(1, fx.SentEvents.Count);
         var b = new Bits(fx.SentEvents[0].E);
         Assert.True(b.U(10) == 2 && b.U(2) == 1 && !b.Flag() && b.Flag() && b.U(10) == 1 && b.U(6) == 5);
         Assert.True(b.Flag() && b.U(8) == 9 && b.U(10) == 300 && b.U(10) == 700 && !b.Flag() && b.Done());
@@ -254,7 +256,7 @@ public class PlayerManagerTests
         t.CommandTarget = -1;
         fx.SentEvents.Clear();
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 2);");
-        Assert.True(fx.SentEvents.Count == 0);
+        Assert.Equal(0, fx.SentEvents.Count);
     }
 
     private static void Objectives()
@@ -272,7 +274,7 @@ public class PlayerManagerTests
             {
                 Assert.True(s.To == 2049 && s.E.Tag == 0x459);
                 var b = new Bits(s.E);
-                uint k = b.U(32);
+                var k = b.U(32);
                 r.Add((k, b.Str()));
                 Assert.True(b.Done());
             }
@@ -281,17 +283,17 @@ public class PlayerManagerTests
         }
         // 6 step 3: entering 3 or 5 from another mode sends every line with stamp > mark. Stamps start at 1 and the
         // counter at 0, so all 32 lines go on every entry until the first set.
-        Assert.True(fx.Run("echo(Client::setGuiMode(2049, 5));") == "True");
+        Assert.Equal("True", fx.Run("echo(Client::setGuiMode(2049, 5));"));
         List<(uint, string)> all = Lines();
         Assert.True(all.Count == 32 && all[0].Item1 == 0 && all[31].Item1 == 31 && all[7].Item2.Length == 0);
         fx.Run("Client::setGuiMode(2049, 3);"); // 5 -> 3: no objectives
-        Assert.True(Lines().Count == 0);
+        Assert.Equal(0, Lines().Count);
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
-        Assert.True(Lines().Count == 32);
+        Assert.Equal(32, Lines().Count);
         // 9: setObjective posts only to team members in mode 5.
         fx.Run("Client::setGuiMode(2049, 1);");
-        Assert.True(fx.Run("echo(Team::setObjective(0, 3, \"Hold the flag\"));") == "0");
-        Assert.True(Lines().Count == 0);
+        Assert.Equal("0", fx.Run("echo(Team::setObjective(0, 3, \"Hold the flag\"));"));
+        Assert.Equal(0, Lines().Count);
         fx.Run("Client::setGuiMode(2049, 5);");
         all = Lines();
         Assert.True(all.Count == 32 && all[3].Item2 == "Hold the flag");
@@ -299,17 +301,17 @@ public class PlayerManagerTests
         Assert.True(Lines().SequenceEqual(new[] { (4u, "Defend") }));
         fx.Run("Team::setObjective(0, 4, \"Defend\"); Team::setObjective(0, 32, x); Team::setObjective(2, 1, x); " +
                "Team::setObjective(1, 1, x);");
-        Assert.True(Lines().Count == 0); // unchanged, bad line, bad team, other team
+        Assert.Equal(0, Lines().Count); // unchanged, bad line, bad team, other team
         // Victory members are not updated live; they catch up on the next entry.
         fx.Run("Client::setGuiMode(2049, 3); Team::setObjective(0, 5, \"Late\");");
-        Assert.True(Lines().Count == 0);
+        Assert.Equal(0, Lines().Count);
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
         Assert.True(Lines().SequenceEqual(new[] { (5u, "Late") }));
         // clearObjectives: an empty text for every non-empty line, to members in mode 5.
-        Assert.True(fx.Run("echo(Team::clearObjectives(0));") == "0");
+        Assert.Equal("0", fx.Run("echo(Team::clearObjectives(0));"));
         Assert.True(Lines().SequenceEqual(new[] { (3u, ""), (4u, ""), (5u, "") }));
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
-        Assert.True(Lines().Count == 0);
+        Assert.Equal(0, Lines().Count);
     }
 
     private static void GuiMode()
@@ -317,59 +319,59 @@ public class PlayerManagerTests
         var fx = new Fx();
         fx.Add(2049);
         // 12.2: setGuiMode needs a data-finished human; 6: mode 0..6, PSC mode updated.
-        Assert.True(fx.Run("echo(Client::setGuiMode(2049, 1));") == "False");
+        Assert.Equal("False", fx.Run("echo(Client::setGuiMode(2049, 1));"));
         fx.Finished(2049);
-        Assert.True(fx.Run("echo(Client::setGuiMode(2049, 1), \" \", Client::getGuiMode(2049));") == "True 1");
-        Assert.True(fx.Run("echo(Client::setGuiMode(2049, 7), \" \", Client::getGuiMode(2049));") == "True 1");
-        Assert.True(fx.Run("echo(Client::setGuiMode(2060, 1), \" \", Client::getGuiMode(2060));") == "False -1");
+        Assert.Equal("True 1", fx.Run("echo(Client::setGuiMode(2049, 1), \" \", Client::getGuiMode(2049));"));
+        Assert.Equal("True 1", fx.Run("echo(Client::setGuiMode(2049, 7), \" \", Client::getGuiMode(2049));"));
+        Assert.Equal("False -1", fx.Run("echo(Client::setGuiMode(2060, 1), \" \", Client::getGuiMode(2060));"));
     }
 
     private static void Scores()
     {
         var fx = new Fx();
-        foreach (int id in new[] { 2049, 2050, 2051, 2052 })
+        foreach (var id in new[] { 2049, 2050, 2051, 2052 })
             fx.Add(id);
-        foreach (int id in new[] { 2049, 2050, 2051 })
+        foreach (var id in new[] { 2049, 2050, 2051 })
             fx.Finished(id);
         fx.Run("Client::setMenuScoreVis(2049, true); Client::setMenuScoreVis(2050, true);");
         fx.Run("Client::setGuiMode(2050, 3);");
-        Assert.True(fx.Run("echo(Client::setMenuScoreVis(2052, true));") == "1"); // not data-finished: not stored
+        Assert.Equal("1", fx.Run("echo(Client::setMenuScoreVis(2052, true));")); // not data-finished: not stored
         fx.SentEvents.Clear();
         // 7: setScore to every human with menu score visible and mode != 3.
-        Assert.True(fx.Run("echo(Client::setScore(2051, \"%n\\t10\", 10));") == "True");
+        Assert.Equal("True", fx.Run("echo(Client::setScore(2051, \"%n\\t10\", 10));"));
         Assert.True(DeltasTo(fx.SentEvents, 2049).SequenceEqual(new[] { new Delta(false, 2051, 10, "%n\t10") }) &&
                     fx.SentEvents.Count == 1);
         fx.SentEvents.Clear();
         fx.Run("Client::setScore(2051, \"%n\\t10\", 10);"); // unchanged
-        Assert.True(fx.SentEvents.Count == 0);
+        Assert.Equal(0, fx.SentEvents.Count);
         fx.Run("Client::setScore(2051, \"%n\\t10\", 11); Team::setScore(0, \"BE\", 5); Team::setScore(-1, \"H\", 0);");
         Assert.True(DeltasTo(fx.SentEvents, 2049).SequenceEqual(new[] { new Delta(false, 2051, 11, "%n\t10"),
                                                                         new Delta(true, 0, 5, "BE"),
                                                                         new Delta(true, -1, 0, "H") }));
-        Assert.True(fx.SentEvents.Count == 3);
+        Assert.Equal(3, fx.SentEvents.Count);
         fx.SentEvents.Clear();
         // 6 step 4: entering Victory with the menu score hidden flushes once (setMenuScoreVis 1 then 0, checked against
         // the old mode): humans newest first, then teams 0..n-1, never team -1. The menu stays hidden afterwards.
         fx.Run("Client::setGuiMode(2051, 3);");
         Assert.True(DeltasTo(fx.SentEvents, 2051).SequenceEqual(new[] { new Delta(false, 2051, 11, "%n\t10"),
                                                                         new Delta(true, 0, 5, "BE") }));
-        Assert.True(DeltaCount(fx.SentEvents) == 2);
+        Assert.Equal(2, DeltaCount(fx.SentEvents));
         fx.SentEvents.Clear();
         fx.Run("Client::setGuiMode(2051, 1); Client::setScore(2049, a, 1);");
-        Assert.True(DeltasTo(fx.SentEvents, 2051).Count == 0);
+        Assert.Equal(0, DeltasTo(fx.SentEvents, 2051).Count);
         fx.SentEvents.Clear();
         // Leaving Victory with the menu score visible flushes what was held back.
         fx.Run("Client::setGuiMode(2050, 1);");
         Assert.True(DeltasTo(fx.SentEvents, 2050).SequenceEqual(new[] { new Delta(false, 2051, 11, "%n\t10"),
                                                                         new Delta(false, 2049, 1, "a"),
                                                                         new Delta(true, 0, 5, "BE") }));
-        Assert.True(DeltaCount(fx.SentEvents) == 3);
+        Assert.Equal(3, DeltaCount(fx.SentEvents));
         fx.SentEvents.Clear();
         // setMenuScoreVis(1) with nothing newer sends nothing.
         fx.Run("Client::setMenuScoreVis(2049, true);");
-        Assert.True(fx.SentEvents.Count == 0);
+        Assert.Equal(0, fx.SentEvents.Count);
         // Headings go to every human, team -1 / client 2048, sort 0.
-        Assert.True(fx.Run("echo(setTeamScoreHeading(\"Team\\tScore\"));") == "True");
+        Assert.Equal("True", fx.Run("echo(setTeamScoreHeading(\"Team\\tScore\"));"));
         Assert.True(fx.SentEvents.Count == 4 && fx.SentEvents[0].To == 2052 && fx.SentEvents[3].To == 2049);
         Assert.True(DeltaOf(fx.SentEvents[0].E) == new Delta(true, -1, 0, "Team\tScore"));
         fx.SentEvents.Clear();
@@ -393,17 +395,17 @@ public class PlayerManagerTests
         m.AdvanceTo(10.0f);
         fx.Pm().StartPingTimer(m);
         m.AdvanceTo(11.4f);
-        Assert.True(fx.SentEvents.Count == 0);
+        Assert.Equal(0, fx.SentEvents.Count);
         m.AdvanceTo(11.5f);
         Assert.True(fx.SentEvents.Count == 1 && fx.SentEvents[0].To == 2049 && fx.SentEvents[0].E.Tag == 0x461 &&
                     !fx.SentEvents[0].E.Guaranteed);
         var b = new Bits(fx.SentEvents[0].E);
-        Assert.True(b.U(7) == 2);
+        Assert.Equal(2u, b.U(7));
         Assert.True(b.U(7) == 2 && b.U(8) == 25 && b.U(6) == 63);
         Assert.True(b.U(7) == 1 && b.U(8) == 249 && b.U(6) == 31 && b.Done());
-        Assert.True(fx.Pm().Find(2049)!.Ping == 999);
+        Assert.Equal(999u, fx.Pm().Find(2049)!.Ping);
         m.AdvanceTo(12.9f);
-        Assert.True(fx.SentEvents.Count == 1);
+        Assert.Equal(1, fx.SentEvents.Count);
         m.AdvanceTo(13.0f);
         Assert.True(fx.SentEvents.Count == 2 && m.PendingEvents() == 1);
     }
@@ -416,20 +418,20 @@ public class PlayerManagerTests
         fx.SentEvents.Clear();
         // 12.2 setSkin: 1..19 of [0-9A-Za-z]; a different StringTable entry (no case) posts PlayerSkinEvent (int(7) id -
         // 2048, str skin) to every human.
-        Assert.True(fx.Run("echo(Client::setSkin(2049, beagle));") == "True");
+        Assert.Equal("True", fx.Run("echo(Client::setSkin(2049, beagle));"));
         Assert.True(TagsEq(fx.Take(), (2050, 0x462), (2049, 0x462)));
         fx.Run("Client::setSkin(2049, BEAGLE); Client::setSkin(2049, \"has space\"); Client::setSkin(2049, \"\");" +
                "Client::setSkin(2049, abcdefghijklmnopqrst);");
-        Assert.True(fx.SentEvents.Count == 0);
+        Assert.Equal(0, fx.SentEvents.Count);
         fx.Run("Client::setSkin(2049, abcdefghijklmnopqrs);");
         {
             var b = new Bits(fx.SentEvents[0].E);
             Assert.True(fx.SentEvents.Count == 2 && b.U(7) == 1 && b.Str() == "abcdefghijklmnopqrs" && b.Done());
         }
         fx.SentEvents.Clear();
-        Assert.True(fx.Run("echo(Client::setSkin(2049));") == "False");
+        Assert.Equal("False", fx.Run("echo(Client::setSkin(2049));"));
         // sendMessage: PlayerSayEvent (int(12) source, int(5) type, str) to that client only.
-        Assert.True(fx.Run("echo(Client::sendMessage(2050, 2, hello), Client::sendMessage(2060, 2, hello));") == "TrueTrue");
+        Assert.Equal("TrueTrue", fx.Run("echo(Client::sendMessage(2050, 2, hello), Client::sendMessage(2060, 2, hello));"));
         Assert.True(TagsEq(fx.Take(), (2050, 0x453)));
         Assert.True(fx.Run("echo(Client::sendMessage(2050, 2));") == "false" && fx.SentEvents.Count == 0);
     }
@@ -441,9 +443,9 @@ public class PlayerManagerTests
         fx.SentEvents.Clear();
         fx.Run("Client::sendMessage(2049, 2, hello); Client::sendMessage(2049, 0, hi, 2049); " +
                "Client::sendMessage(2049, 1, x, -1); Client::sendMessage(2060, 1, x);");
-        Assert.True(fx.SentEvents.Count == 3);
-        (uint, uint)[] want = { (0, 2), (2049, 0), (0, 1) };
-        for (int i = 0; i < 3; ++i)
+        Assert.Equal(3, fx.SentEvents.Count);
+        (uint, uint)[] want = [(0, 2), (2049, 0), (0, 1)];
+        for (var i = 0; i < 3; ++i)
         {
             var b = new Bits(fx.SentEvents[i].E);
             Assert.True(b.U(12) == want[i].Item1 && b.U(5) == want[i].Item2);
@@ -473,7 +475,7 @@ public class PlayerManagerTests
         fx.Game.SetTargetName(1, "Station");
         fx.Game.SetTargetName(7, "x");
         fx.Game.SetTargetName(-1, "x");
-        Assert.True(fx.SentEvents.Count == 0);
+        Assert.Equal(0, fx.SentEvents.Count);
         fx.Game.SetTargetName(0, "");
         Assert.True(fx.SentEvents.Count == 2 && fx.Game.TargetNames[0].Length == 0);
     }
@@ -486,7 +488,7 @@ public class PlayerManagerTests
         fx.Add(2050);
         fx.SentEvents.Clear();
         fx.Run("resetPlayerManager();");
-        foreach (int id in new[] { 2049, 2050 })
+        foreach (var id in new[] { 2049, 2050 })
         {
             var tags = new List<uint>();
             foreach (Sent s in fx.SentEvents)
@@ -503,7 +505,7 @@ public class PlayerManagerTests
         var fx = new Fx();
         fx.Add(2049);
         (string, string)[] cases =
-        {
+        [
             ("echo(getNumClients());", "1"),
             ("echo(getClientByIndex());", "0"),
             ("echo(Client::getFirst(1));", "invalid call to Client::getFirst()\n-1"),
@@ -542,18 +544,18 @@ public class PlayerManagerTests
             ("echo(Client::setControlObject(2060, 1));", "false"),
             ("echo(GameBase::setTeam(2049));", "wrong argcount to setTeam(object,team)\n-1"),
             ("echo(GameBase::setTeam(2060, 0));", "-1"),
-        };
-        int failures = 0;
-        foreach ((string src, string want) in cases)
+        ];
+        var failures = 0;
+        foreach ((var src, var want) in cases)
         {
-            string got = fx.Run(src);
+            var got = fx.Run(src);
             if (got != want)
             {
                 Console.Error.WriteLine("FAIL " + src + "\n  want: " + want + "\n  got:  " + got);
                 ++failures;
             }
         }
-        Assert.True(failures == 0);
+        Assert.Equal(0, failures);
     }
 
     [Fact]

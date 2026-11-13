@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
-
 namespace OpenTribes.Platform.Sdl;
+
+using System.Runtime.InteropServices;
 
 // The SDL3 joystick subset: enumerate, open, close and the event codes. Values checked against SDL 3.4 (SDL_joystick.h,
 // SDL_events.h, SDL_init.h). The device event fields are in SdlEvent.
@@ -57,10 +57,10 @@ public static partial class Sdl3
     public static unsafe List<uint> GetJoystickIds()
     {
         var ids = new List<uint>();
-        uint* p = GetJoysticksPtr(out int count);
+        var p = GetJoysticksPtr(out var count);
         if (p == null)
             return ids;
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
             ids.Add(p[i]);
         Free((IntPtr)p);
         return ids;

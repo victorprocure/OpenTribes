@@ -1,8 +1,8 @@
+namespace OpenTribes.Client.Audio;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Platform.Audio;
-
-namespace OpenTribes.Client.Audio;
 
 /// <summary>One voice of the sound manager.</summary>
 public sealed class SoundVoice
@@ -73,11 +73,11 @@ public sealed class SoundManager
     public long NowMs;
 
     /// <summary>The sound profiles by id.</summary>
-    public readonly Dictionary<int, SoundProfile> Profiles = new();
+    public readonly Dictionary<int, SoundProfile> Profiles = [];
     /// <summary>The sound pairs by id: the profile, the wave and the priority.</summary>
-    public readonly Dictionary<int, (int Profile, string Wave, double Priority)> Pairs = new();
-    private readonly List<SoundVoice> mVoices = new();
-    private readonly Dictionary<int, SoundVoice> mByHandle = new();
+    public readonly Dictionary<int, (int Profile, string Wave, double Priority)> Pairs = [];
+    private readonly List<SoundVoice> mVoices = [];
+    private readonly Dictionary<int, SoundVoice> mByHandle = [];
     private readonly Dictionary<string, WavData?> mWaves = new(StringComparer.OrdinalIgnoreCase);
     private int mNextHandle;
     private Listener mListener = Listener.Identity;
@@ -127,7 +127,7 @@ public sealed class SoundManager
     {
         if (mWaves.TryGetValue(name, out WavData? w))
             return w;
-        byte[]? bytes = ReadWave?.Invoke(name);
+        var bytes = ReadWave?.Invoke(name);
         w = bytes == null ? null : WavData.TryParse(bytes);
         mWaves[name] = w;
         if (w == null)
@@ -270,7 +270,7 @@ public sealed class SoundManager
     /// <returns>The voice handle, or 0 for a missing block or wave.</returns>
     public int PlayDatablock(long index, SoundXf at, double? priorityOverride = null)
     {
-        if (!TryDatablock(index, out string wave, out SoundProfile p, out double priority))
+        if (!TryDatablock(index, out var wave, out SoundProfile p, out var priority))
             return Reject();
         return Acquire(wave, p, priorityOverride ?? priority, at, datablock2D: true);
     }
@@ -306,12 +306,18 @@ public sealed class SoundManager
         SoundProfile p = SoundProfile.Default;
         p.Flags = (uint)ToD(Field(b, "flags"));
         p.BaseVolume = ToD(Field(b, "baseVolume"));
-        if (Field(b, "coneInsideAngle") != null) p.ConeInside = (int)ToD(Field(b, "coneInsideAngle"));
-        if (Field(b, "coneOutsideAngle") != null) p.ConeOutside = (int)ToD(Field(b, "coneOutsideAngle"));
-        if (Field(b, "coneVector") is double[] cv && cv.Length >= 3) { p.ConeX = cv[0]; p.ConeY = cv[1]; p.ConeZ = cv[2]; }
-        if (Field(b, "coneOutsideVolume") != null) p.ConeOutsideVolume = ToD(Field(b, "coneOutsideVolume"));
-        if (Field(b, "minDistance") != null) p.MinDist = ToD(Field(b, "minDistance"));
-        if (Field(b, "maxDistance") != null) p.MaxDist = ToD(Field(b, "maxDistance"));
+        if (Field(b, "coneInsideAngle") != null)
+            p.ConeInside = (int)ToD(Field(b, "coneInsideAngle"));
+        if (Field(b, "coneOutsideAngle") != null)
+            p.ConeOutside = (int)ToD(Field(b, "coneOutsideAngle"));
+        if (Field(b, "coneVector") is double[] cv && cv.Length >= 3)
+        { p.ConeX = cv[0]; p.ConeY = cv[1]; p.ConeZ = cv[2]; }
+        if (Field(b, "coneOutsideVolume") != null)
+            p.ConeOutsideVolume = ToD(Field(b, "coneOutsideVolume"));
+        if (Field(b, "minDistance") != null)
+            p.MinDist = ToD(Field(b, "minDistance"));
+        if (Field(b, "maxDistance") != null)
+            p.MaxDist = ToD(Field(b, "maxDistance"));
         return p;
     }
 
@@ -328,7 +334,12 @@ public sealed class SoundManager
 
     private static double ToD(object? o) => o switch
     {
-        double d => d, long l => l, int i => i, float f => f, uint u => u, _ => 0,
+        double d => d,
+        long l => l,
+        int i => i,
+        float f => f,
+        uint u => u,
+        _ => 0,
     };
 
     private int Reject()
@@ -345,7 +356,7 @@ public sealed class SoundManager
         if (p.Is3D && !p.Loops)
         {
             double dx = at.X - mListener.X, dy = at.Y - mListener.Y, dz = at.Z - mListener.Z;
-            if (Math.Sqrt(dx * dx + dy * dy + dz * dz) > p.MaxDist)
+            if (Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)) > p.MaxDist)
                 return Reject();
         }
         WavData? data = LoadWave(wave);
@@ -353,8 +364,15 @@ public sealed class SoundManager
             return Reject();
         var v = new SoundVoice
         {
-            Handle = NewHandle(), Profile = p, Priority = priority, Wave = wave, Data = data, Xf = at, StartMs = NowMs,
-            Spatial = p.Is3D, WantsStart = true,
+            Handle = NewHandle(),
+            Profile = p,
+            Priority = priority,
+            Wave = wave,
+            Data = data,
+            Xf = at,
+            StartMs = NowMs,
+            Spatial = p.Is3D,
+            WantsStart = true,
         };
         // 2.8: wave and pair plays fix the 2D attenuation at start; a datablock 2D sound is at full volume.
         if (!p.Is3D)
@@ -419,15 +437,15 @@ public sealed class SoundManager
         foreach (SoundVoice v in mVoices)
             if (v.Playing && !v.Dead && !v.Loops && v.Mix != null && v.Mix.Done)
                 Kill(v);
-        Borland.BorlandQsort<SoundVoice>(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mVoices), Compare);
-        int n = 0;
+        Borland.BorlandQsort(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mVoices), Compare);
+        var n = 0;
         foreach (SoundVoice v in mVoices)
         {
             if (v.Dead)
                 continue;
             if (v.Playing)
             {
-                double pr = v.Rank;
+                var pr = v.Rank;
                 if (pr * pr < 1e-12 || n > MaxBuffers)
                     Suspend(v);
                 else
@@ -450,7 +468,7 @@ public sealed class SoundManager
                 Apply(v);
         }
         mListenerMoved = false;
-        for (int i = mVoices.Count - 1; i >= 0; --i)
+        for (var i = mVoices.Count - 1; i >= 0; --i)
             if (mVoices[i].Dead)
             {
                 mByHandle.Remove(mVoices[i].Handle);

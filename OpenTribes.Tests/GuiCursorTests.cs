@@ -1,8 +1,8 @@
 // The cursor tag of the hovered control (docs/gui.md 2.6; code 0049f1cc, 004958bc, 004b65e0, 004cd838, 004c2c70, 004c6888): synthetic controls only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Tests;
 
 public class GuiCursorTests
 {
@@ -27,10 +27,7 @@ public class GuiCursorTests
     [InlineData("FearGui::FGMenuItem")]
     [InlineData("FearGui::FGTab")]
     [InlineData("FearGui::FGStandardComboBox")]
-    public void MenuItemsTabsAndCombosAlwaysShowTheHand(string cls)
-    {
-        Assert.Equal(GuiControl.CursorHand, GuiFixture.Make(cls).CursorTagAt(1, 1));
-    }
+    public void MenuItemsTabsAndCombosAlwaysShowTheHand(string cls) => Assert.Equal(GuiControl.CursorHand, GuiFixture.Make(cls).CursorTagAt(1, 1));
 
     [Fact]
     public void TextEditsOfTheIrcAndTheTestEditShowTheTextCursor()
@@ -41,10 +38,7 @@ public class GuiCursorTests
     }
 
     [Fact]
-    public void ThePlainControlKeepsTheDefault()
-    {
-        Assert.Equal(0u, GuiFixture.Make("SimGui::Control").CursorTagAt(1, 1));
-    }
+    public void ThePlainControlKeepsTheDefault() => Assert.Equal(0u, GuiFixture.Make("SimGui::Control").CursorTagAt(1, 1));
 
     [Fact]
     public void TheCanvasTakesTheTagOfTheHoveredControlAndLetsGoOnLeaving()

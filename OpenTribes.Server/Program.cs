@@ -1,3 +1,5 @@
+namespace OpenTribes.Server;
+
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -5,8 +7,6 @@ using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
-
-namespace OpenTribes.Server;
 
 // Port convention (no C++ file): fgets on a byte file, the C++ console line readers.
 internal sealed class CFile : IDisposable
@@ -34,7 +34,7 @@ internal sealed class CFile : IDisposable
         var line = new System.Text.StringBuilder();
         while (line.Length < size - 1)
         {
-            int b = mStream.ReadByte();
+            var b = mStream.ReadByte();
             if (b < 0)
                 break;
             line.Append((char)b);
@@ -54,9 +54,7 @@ public static class Program
     private static volatile bool sStop;
 
     // src/server/main.cpp usage.
-    private static void Usage()
-    {
-        StdIo.Err(
+    private static void Usage() => StdIo.Err(
             "usage: tribes-server [--port N] [--hostname S] [--password S] [--max-players N]\n" +
             "                     [--info S] [--lasthope] [--console-log FILE] [--allow-masters]\n" +
             "                     [--root DIR [--report-unknown | --report-unknown-at-exit] [-- ARGS...]]\n" +
@@ -65,11 +63,10 @@ public static class Program
             "  --virtual-time[=MS] test mode: the clock advances MS (default 1) per frame, no sleeping\n" +
             "  --frame-eval FILE   console lines, one per frame at the frame-end step; \"@wait MS\"\n" +
             "                      runs frames for MS of clock time; the server exits at the end\n");
-    }
 
     private static string StripLineEnd(string l)
     {
-        int n = l.Length;
+        var n = l.Length;
         while (n > 0 && (l[n - 1] == '\n' || l[n - 1] == '\r'))
             --n;
         return l[..n];
@@ -82,8 +79,8 @@ public static class Program
     {
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < a.Length; ++i)
-            if ((a[i] >= 'A' && a[i] <= 'Z' ? a[i] + 32 : a[i]) != (b[i] >= 'A' && b[i] <= 'Z' ? b[i] + 32 : b[i]))
+        for (var i = 0; i < a.Length; ++i)
+            if ((a[i] is >= 'A' and <= 'Z' ? a[i] + 32 : a[i]) != (b[i] is >= 'A' and <= 'Z' ? b[i] + 32 : b[i]))
                 return false;
         return true;
     }
@@ -101,27 +98,27 @@ public static class Program
     public static int Main(string[] argv)
     {
         var config = new ServerConfig();
-        string root = "";
-        bool reportUnknown = false;
-        bool reportUnknownAtExit = false;
-        bool listDataBlocks = false;
-        string evalFile = "";
-        string frameEvalFile = "";
+        var root = "";
+        var reportUnknown = false;
+        var reportUnknownAtExit = false;
+        var listDataBlocks = false;
+        var evalFile = "";
+        var frameEvalFile = "";
         uint virtualStep = 0;       // ms per frame; 0: real time
-        bool allowMasters = false;  // R6: heartbeats and name lookups leave the machine only with this
-        string consoleLogPath = "console.log"; // relative to the working directory, like the original
+        var allowMasters = false;  // R6: heartbeats and name lookups leave the machine only with this
+        var consoleLogPath = "console.log"; // relative to the working directory, like the original
         var gameArgs = new List<string>();
-        for (int i = 0; i < argv.Length; ++i)
+        for (var i = 0; i < argv.Length; ++i)
         {
-            string arg = argv[i];
+            var arg = argv[i];
             if (arg == "--")
             {
                 for (++i; i < argv.Length; ++i)
                     gameArgs.Add(argv[i]);
                 break;
             }
-            string v = "";
-            bool needsValue = arg is "--port" or "--hostname" or "--password" or "--max-players" or "--info" or "--root" or
+            var v = "";
+            var needsValue = arg is "--port" or "--hostname" or "--password" or "--max-players" or "--info" or "--root" or
                                      "--console-log" or "--eval" or "--frame-eval";
             if (needsValue)
             {
@@ -199,7 +196,7 @@ public static class Program
             // server.cs creates serverDelegate (FearCSDelegate): (isServer, transport, port, ...).
             simContext.StartNetwork = args =>
             {
-                for (int i = 1; i + 1 < args.Count; i += 2)
+                for (var i = 1; i + 1 < args.Count; i += 2)
                     if (StrcaseEquals(args[i], "IP"))
                     {
                         if (!server.Open(unchecked((ushort)NetServer.CAtoi(args[i + 1]))))
@@ -220,7 +217,7 @@ public static class Program
             game.Sim = sim;
             game.Console = console;
             simContext.Game = game;
-            simContext.ServerCreated = m => game.Players.StartPingTimer(m);
+            simContext.ServerCreated = game.Players.StartPingTimer;
             MissionClasses.Register();
             GhostClasses.Register();
             game.Resources = resources;
@@ -242,14 +239,14 @@ public static class Program
                 master = new MasterHeartbeat(console, server, allowMasters);
                 master.RegisterCommands();
                 Interpreter inLog = console;
-                server.SetLeveledLog((level, line) => inLog.Print(level, line));
+                server.SetLeveledLog(inLog.Print);
             }
             ResourceManager res = resources;
-            console.BindVariable("$ConsoleWorld::DefaultSearchPath", path => res.SetSearchPath(path));
+            console.BindVariable("$ConsoleWorld::DefaultSearchPath", res.SetSearchPath);
             // Engine variable; the reference under Wine reports 0 (docs/server-ops.md 2.3).
             console.SetVariable("$CPU::estimatedSpeed", "0");
             console.SetVariable("$cargv0", "Tribes.exe");
-            for (int i = 0; i < gameArgs.Count; ++i)
+            for (var i = 0; i < gameArgs.Count; ++i)
                 console.SetVariable("$cargv" + Num(i + 1), ByteString.FromHost(gameArgs[i]));
             if (config.LastHope)
             {
@@ -364,7 +361,7 @@ public static class Program
         uint waitUntil = 0;
         while (!sStop)
         {
-            uint ms = ClockMs();
+            var ms = ClockMs();
             sim?.UpdateClock();        // step 2
             server.ReceivePackets(ms); // step 3: receive, ticks, send
             sim?.AdvanceServer();
@@ -377,10 +374,10 @@ public static class Program
             if (frameInput != null && console != null && unchecked((int)(ClockMs() - waitUntil)) >= 0)
             {
                 // Step 6, console input: one line per frame, like a remote console line.
-                string? line = frameInput.Fgets(8192);
+                var line = frameInput.Fgets(8192);
                 if (line == null)
                     break;
-                string l = StripLineEnd(line);
+                var l = StripLineEnd(line);
                 if (l.StartsWith("@wait ", StringComparison.Ordinal))
                     waitUntil = ClockMs() + unchecked((uint)NetServer.CAtoi(l[6..]));
                 else

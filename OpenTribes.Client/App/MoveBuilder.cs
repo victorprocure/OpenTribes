@@ -1,7 +1,7 @@
+namespace OpenTribes.Client.App;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
-
-namespace OpenTribes.Client.App;
 
 /// <summary>Builds the moves of the control player from the actions of the play maps.</summary>
 /// <remarks>docs/client-net.md 4.1 and 4.2. The actions fill the accumulators of the move being built (PlayerPSC_onAction 004070b0) and every crossed 32 ms boundary appends a move (PlayerPSC_collectMoves 00404c3c). The action ids are 220000 plus the number in fear.strings.cs (client-scripts.md 3.10).</remarks>
@@ -98,9 +98,9 @@ public sealed class MoveBuilder
     /// <summary>The look down key rate.</summary>
     public float LookDownKey;
     /// <summary>The fire counter.</summary>
-    public uint FireCounter = 0;
+    public uint FireCounter;
     /// <summary>The fire counter of the last sampled move.</summary>
-    public uint SampledFire = 0;
+    public uint SampledFire;
     /// <summary>True for the third person view: not +0xa0 (first person), the VIEW toggle (0040706c, PlayerPSC_onActionDefault).</summary>
     public bool ThirdPerson;
     /// <summary>The current field of view.</summary>
@@ -151,42 +151,86 @@ public sealed class MoveBuilder
     {
         switch (id)
         {
-            case Fire1: FireCounter += (FireCounter & 1) == 0 ? 1u : 2u; return true;
-            case Break1: FireCounter += (FireCounter & 1) == 1 ? 1u : 2u; return true;
-            case MoveForward: Forward = Clamp(v, 0, 1); return true;
-            case MoveBack: Backward = Clamp(v, 0, 1); return true;
-            case MoveLeft: Left = Clamp(v, 0, 1); return true;
-            case MoveRight: Right = Clamp(v, 0, 1); return true;
+            case Fire1:
+                FireCounter += (FireCounter & 1) == 0 ? 1u : 2u;
+                return true;
+            case Break1:
+                FireCounter += (FireCounter & 1) == 1 ? 1u : 2u;
+                return true;
+            case MoveForward:
+                Forward = Clamp(v, 0, 1);
+                return true;
+            case MoveBack:
+                Backward = Clamp(v, 0, 1);
+                return true;
+            case MoveLeft:
+                Left = Clamp(v, 0, 1);
+                return true;
+            case MoveRight:
+                Right = Clamp(v, 0, 1);
+                return true;
             case Run:
-                if (v < -0.01f) { Backward = 1; Forward = 0; }
-                else if (v > 0.01f) { Forward = 1; Backward = 0; }
-                else { Forward = Backward = 0; }
+                if (v < -0.01f)
+                { Backward = 1; Forward = 0; }
+                else if (v > 0.01f)
+                { Forward = 1; Backward = 0; }
+                else
+                { Forward = Backward = 0; }
                 return true;
             case Strafe:
-                if (v < -0.01f) { Right = 1; Left = 0; }
-                else if (v > 0.01f) { Left = 1; Right = 0; }
-                else { Left = Right = 0; }
+                if (v < -0.01f)
+                { Right = 1; Left = 0; }
+                else if (v > 0.01f)
+                { Left = 1; Right = 0; }
+                else
+                { Left = Right = 0; }
                 return true;
-            case MoveUp: JumpOn = true; return true;
-            case Jet: JetOn = v != 0; return true;
-            case Crouch: CrouchOn = true; return true;
-            case Stand: CrouchOn = false; return true;
-            case ToggleCrouch: CrouchOn = !CrouchOn; return true;
-            case UseItem: UseItemType = (int)v; return true;
-            case Yaw: TurnAcc += Scaled(v) * (float)Math.PI; return true;
+            case MoveUp:
+                JumpOn = true;
+                return true;
+            case Jet:
+                JetOn = v != 0;
+                return true;
+            case Crouch:
+                CrouchOn = true;
+                return true;
+            case Stand:
+                CrouchOn = false;
+                return true;
+            case ToggleCrouch:
+                CrouchOn = !CrouchOn;
+                return true;
+            case UseItem:
+                UseItemType = (int)v;
+                return true;
+            case Yaw:
+                TurnAcc += Scaled(v) * (float)Math.PI;
+                return true;
             case Pitch:
                 if (CanLook())
                 {
-                    float d = Scaled(v) * (float)Math.PI;
+                    var d = Scaled(v) * (float)Math.PI;
                     PitchAcc += ReversePitch() ? -d : d;
                 }
                 return true;
-            case LookUp: LookUpKey = Clamp(v, 0, 1); return true;
-            case LookDown: LookDownKey = Clamp(v, 0, 1); return true;
-            case TurnLeft: TurnLeftKey = Clamp(v, 0, 1); return true;
-            case TurnRight: TurnRightKey = Clamp(v, 0, 1); return true;
-            case PitchSpeed: PitchSpeedKey = Clamp(v, -1, 1) * (ReversePitch() ? -1 : 1); return true;
-            case YawSpeed: YawSpeedKey = Clamp(v, -1, 1); return true;
+            case LookUp:
+                LookUpKey = Clamp(v, 0, 1);
+                return true;
+            case LookDown:
+                LookDownKey = Clamp(v, 0, 1);
+                return true;
+            case TurnLeft:
+                TurnLeftKey = Clamp(v, 0, 1);
+                return true;
+            case TurnRight:
+                TurnRightKey = Clamp(v, 0, 1);
+                return true;
+            case PitchSpeed:
+                PitchSpeedKey = Clamp(v, -1, 1) * (ReversePitch() ? -1 : 1);
+                return true;
+            case YawSpeed:
+                YawSpeedKey = Clamp(v, -1, 1);
+                return true;
             case CenterView:
                 // The pending move pitch (+0x8c) drops by the player's pitch (when the object may look) and the player's pitch is 0 at
                 // once; the move then brings the server's pitch to 0 as well.
@@ -218,26 +262,27 @@ public sealed class MoveBuilder
                 StartFovAnimation();
                 return true;
             case IncSniperFov:
+            {
+                var cur = (int)ZoomTarget;
+                ZoomTarget = v > 0
+                    ? cur switch { 5 => 45, 11 => 5.625, 22 => 11.25, 45 => 22.5, _ => 45 }
+                    : cur switch { 5 => 11.25, 11 => 22.5, 22 => 45, 45 => 5.625, _ => 45 };
+                // 00406ecb: the zoom on restarts the animation toward the new value, off only stamps the time
+                if (ZoomOn)
                 {
-                    int cur = (int)ZoomTarget;
-                    ZoomTarget = v > 0
-                        ? cur switch { 5 => 45, 11 => 5.625, 22 => 11.25, 45 => 22.5, _ => 45 }
-                        : cur switch { 5 => 11.25, 11 => 22.5, 22 => 45, 45 => 5.625, _ => 45 };
-                    // 00406ecb: the zoom on restarts the animation toward the new value, off only stamps the time
-                    if (ZoomOn)
-                    {
-                        FovTo = ZoomTarget;
-                        StartFovAnimation();
-                    }
-                    else
-                    {
-                        if (FovEnd < LastNow)
-                            FovStart = LastNow;
-                        ZoomStepStamp = LastNow;
-                    }
-                    return true;
+                    FovTo = ZoomTarget;
+                    StartFovAnimation();
                 }
-            default: return false;
+                else
+                {
+                    if (FovEnd < LastNow)
+                        FovStart = LastNow;
+                    ZoomStepStamp = LastNow;
+                }
+                return true;
+            }
+            default:
+                return false;
         }
     }
 
@@ -245,7 +290,7 @@ public sealed class MoveBuilder
     {
         FovFrom = CurrentFov;
         FovStart = LastNow;
-        FovEnd = (uint)(long)(LastNow + (float)ZoomSpeed() * 1000f);
+        FovEnd = (uint)(long)(LastNow + ((float)ZoomSpeed() * 1000f));
     }
 
     /// <summary>Updates the field of view of the camera getter (004077cd): inside the animation the value is interpolated linearly. After it the value snaps to 90 (third person), the zoom FOV (zoom on) or <c>$pref::PlayerFov</c>.</summary>
@@ -253,7 +298,7 @@ public sealed class MoveBuilder
     public void UpdateFov(uint now)
     {
         if (now < FovEnd)
-            CurrentFov = (float)((double)(now - FovStart) / (double)(FovEnd - FovStart) * (FovTo - FovFrom) + FovFrom);
+            CurrentFov = (float)(((now - FovStart) / (double)(FovEnd - FovStart) * (FovTo - FovFrom)) + FovFrom);
         else
         {
             CurrentFov = ThirdPerson ? 90 : ZoomOn ? ZoomTarget : PrefFov();
@@ -270,16 +315,24 @@ public sealed class MoveBuilder
     /// <param name="now">The new client time in milliseconds.</param>
     public void UpdateViewDist(uint prev, uint now)
     {
-        float step = 15f * (now - prev) * 0.001f;
-        float target = ThirdPerson ? MaxViewDist : 0f;
+        var step = 15f * (now - prev) * 0.001f;
+        var target = ThirdPerson ? MaxViewDist : 0f;
         ViewDist = ViewDist < target ? Math.Min(ViewDist + step, target) : Math.Max(ViewDist - step, target);
     }
 
     private Move Current(bool fire, float turn, float pitch) => new()
     {
-        Forward = Forward, Backward = Backward, Left = Left, Right = Right,
-        Jet = JetOn, Crouch = CrouchOn, Jump = JumpOn, Fire = fire, UseItem = UseItemType,
-        Turn = turn, Pitch = pitch,
+        Forward = Forward,
+        Backward = Backward,
+        Left = Left,
+        Right = Right,
+        Jet = JetOn,
+        Crouch = CrouchOn,
+        Jump = JumpOn,
+        Fire = fire,
+        UseItem = UseItemType,
+        Turn = turn,
+        Pitch = pitch,
     };
 
     /// <summary>Appends the moves of the 32 ms boundaries crossed since the last frame to the PSC buffer (4.2). At most 30 wait for acknowledgement.</summary>
@@ -292,23 +345,23 @@ public sealed class MoveBuilder
         UpdateViewDist(prev, now);
         LastNow = now;
         UpdateFov(now);
-        long n = (((long)now - 1) >> 5) - (((long)prev - 1) >> 5);
+        var n = (((long)now - 1) >> 5) - (((long)prev - 1) >> 5);
         if (n <= 0)
             return 0;
-        float pitchKeys = PitchSpeedKey + LookUpKey - LookDownKey;
-        float turnKeys = TurnLeftKey - YawSpeedKey - TurnRightKey;
-        int made = 0;
+        var pitchKeys = PitchSpeedKey + LookUpKey - LookDownKey;
+        var turnKeys = TurnLeftKey - YawSpeedKey - TurnRightKey;
+        var made = 0;
         if (psc.Moves.Count < MaxMoves)
         {
             PitchAcc += pitchKeys;
             TurnAcc += turnKeys;
-            bool fire = (FireCounter & 1) == 1 || ((SampledFire & 1) == 0 && SampledFire != FireCounter);
+            var fire = (FireCounter & 1) == 1 || ((SampledFire & 1) == 0 && SampledFire != FireCounter);
             Move m = ClientPrediction.Quantize(Current(fire, TurnAcc, PitchAcc));
             SampledFire = FireCounter;
             psc.AddMove(m);
             ++made;
         }
-        bool held = (FireCounter & 1) == 1;
+        var held = (FireCounter & 1) == 1;
         JumpOn = false;
         UseItemType = -1;
         for (long k = 1; k < n && psc.Moves.Count < MaxMoves; ++k)

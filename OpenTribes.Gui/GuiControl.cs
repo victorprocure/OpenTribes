@@ -1,6 +1,6 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The GUI event (type 0x412) the canvas builds from a raw device event (docs/gui.md 2.7).</summary>
 public struct GuiEvent
@@ -18,9 +18,9 @@ public struct GuiEvent
     /// <summary>The click count of a mouse press: 2 or more for a double click.</summary>
     public int ClickCount;
     /// <summary>Gets a value that is true when a shift key is held.</summary>
-    public bool Shift => (Mod & 0x03) != 0;
+    public readonly bool Shift => (Mod & 0x03) != 0;
     /// <summary>Gets a value that is true when a ctrl key is held.</summary>
-    public bool Ctrl => (Mod & 0x0c) != 0;
+    public readonly bool Ctrl => (Mod & 0x0c) != 0;
 }
 
 /// <summary>The 17 responder slots (docs/gui.md 2.7). A control forwards what it does not handle to the next responder.</summary>
@@ -29,66 +29,66 @@ public interface IGuiResponder
     /// <summary>Handles a left button press.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsDown(GuiEvent e);
+    public bool MsDown(GuiEvent e);
     /// <summary>Handles a left button repeat while held.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsRepeat(GuiEvent e);
+    public bool MsRepeat(GuiEvent e);
     /// <summary>Handles a left button release.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsUp(GuiEvent e);
+    public bool MsUp(GuiEvent e);
     /// <summary>Handles a mouse move.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsMove(GuiEvent e);
+    public bool MsMove(GuiEvent e);
     /// <summary>Handles the mouse entering the control.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsEnter(GuiEvent e);
+    public bool MsEnter(GuiEvent e);
     /// <summary>Handles the mouse leaving the control.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsLeave(GuiEvent e);
+    public bool MsLeave(GuiEvent e);
     /// <summary>Handles a mouse drag with the left button.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsDrag(GuiEvent e);
+    public bool MsDrag(GuiEvent e);
     /// <summary>Handles a right button press.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsRightDown(GuiEvent e);
+    public bool MsRightDown(GuiEvent e);
     /// <summary>Handles a right button release.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsRightUp(GuiEvent e);
+    public bool MsRightUp(GuiEvent e);
     /// <summary>Handles a mouse drag with the right button.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool MsRightDrag(GuiEvent e);
+    public bool MsRightDrag(GuiEvent e);
     /// <summary>Handles a key release.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool KeyUp(GuiEvent e);
+    public bool KeyUp(GuiEvent e);
     /// <summary>Handles a key repeat.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool KeyRepeat(GuiEvent e);
+    public bool KeyRepeat(GuiEvent e);
     /// <summary>Handles a key press.</summary>
     /// <param name="e">The event.</param>
     /// <returns>True when handled.</returns>
-    bool KeyDown(GuiEvent e);
+    public bool KeyDown(GuiEvent e);
     /// <summary>Handles a message from another control.</summary>
     /// <param name="sender">The sending control, or null.</param>
     /// <param name="tag">The message tag.</param>
     /// <returns>True when handled.</returns>
-    bool Message(GuiControl? sender, int tag);
+    public bool Message(GuiControl? sender, int tag);
     /// <summary>Returns whether the responder lets go of the keyboard focus.</summary>
     /// <returns>True when it can release.</returns>
-    bool CanRelease();
+    public bool CanRelease();
     /// <summary>Returns whether the responder takes the keyboard focus.</summary>
     /// <returns>True when it can take it.</returns>
-    bool CanTake();
+    public bool CanTake();
 }
 
 /// <summary>The base control (SimGui::Control, docs/gui.md 2.3 to 2.6).</summary>
@@ -108,7 +108,7 @@ public class GuiControl : IGuiResponder
     /// <summary>The canvas the control belongs to, or null.</summary>
     public GuiCanvas? Canvas;
     /// <summary>The child controls in member order.</summary>
-    public readonly List<GuiControl> Children = new();
+    public readonly List<GuiControl> Children = [];
     /// <summary>The persistent fields of docs/gui.md 1.4 by the names of <see cref="GuiLoader.Routines"/>.</summary>
     public readonly Dictionary<string, object> F = new(StringComparer.Ordinal);
 
@@ -170,11 +170,11 @@ public class GuiControl : IGuiResponder
     /// <param name="name">The field name.</param>
     /// <param name="def">The value when the field is missing.</param>
     /// <returns>The value.</returns>
-    public uint U(string name, uint def = 0) => F.TryGetValue(name, out object? v) ? Convert.ToUInt32(v) : def;
+    public uint U(string name, uint def = 0) => F.TryGetValue(name, out var v) ? Convert.ToUInt32(v) : def;
     /// <summary>Reads a persistent field as a string.</summary>
     /// <param name="name">The field name.</param>
     /// <returns>The value, empty when the field is missing or not a string.</returns>
-    public string S(string name) => F.TryGetValue(name, out object? v) && v is string s ? s : "";
+    public string S(string name) => F.TryGetValue(name, out var v) && v is string s ? s : "";
     /// <summary>Gets the host of the canvas, or null.</summary>
     public GuiHost? Host => Canvas?.Host;
 
@@ -245,7 +245,7 @@ public class GuiControl : IGuiResponder
     /// <returns>The control, or this control when no child is hit.</returns>
     public virtual GuiControl Pick(int px, int py)
     {
-        for (int i = Children.Count - 1; i >= 0; --i)
+        for (var i = Children.Count - 1; i >= 0; --i)
         {
             GuiControl k = Children[i];
             if (!k.Visible)
@@ -311,7 +311,10 @@ public class GuiControl : IGuiResponder
         int ow = W, oh = H;
         foreach (GuiControl k in Children.ToArray())
             k.ParentResized(ow, oh, w, h);
-        X = x; Y = y; W = w; H = h;
+        X = x;
+        Y = y;
+        W = w;
+        H = h;
         Parent?.ChildResized(this);
     }
 
@@ -330,15 +333,27 @@ public class GuiControl : IGuiResponder
         int nx = X, ny = Y, nw = W, nh = H;
         switch (HSizing)
         {
-            case 1: nw += dx; break;
-            case 2: nx += dx; break;
-            case 3: nx = (newW - W) >> 1; break;
+            case 1:
+                nw += dx;
+                break;
+            case 2:
+                nx += dx;
+                break;
+            case 3:
+                nx = (newW - W) >> 1;
+                break;
         }
         switch (VSizing)
         {
-            case 1: nh += dy; break;
-            case 2: ny += dy; break;
-            case 3: ny = (newH - H) >> 1; break;
+            case 1:
+                nh += dy;
+                break;
+            case 2:
+                ny += dy;
+                break;
+            case 3:
+                ny = (newH - H) >> 1;
+                break;
         }
         if (nx != X || ny != Y || nw != W || nh != H)
             Resize(nx, ny, nw, nh);
@@ -521,7 +536,7 @@ public class GuiControl : IGuiResponder
     // ---- responder defaults (2.7): hand the event to the next responder ----
 
     /// <summary>Gets the next responder: the parent, else the responder the canvas puts above.</summary>
-    public IGuiResponder? Next => Parent != null ? Parent : Canvas?.ResponderAbove(this);
+    public IGuiResponder? Next => Parent ?? (Canvas?.ResponderAbove(this));
 
     /// <inheritdoc/>
     public virtual bool MsDown(GuiEvent e) => Next?.MsDown(e) ?? false;
@@ -633,7 +648,7 @@ public sealed class GuiPaint
     /// <param name="color">The palette index.</param>
     public void Line(int x0, int y0, int x1, int y1, int color) => Dev.DrawLine(x0, y0, x1, y1, color);
 
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PbmpBitmap, PbmpBitmap> sKeyed = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PbmpBitmap, PbmpBitmap> sKeyed = [];
 
     /// <summary>Returns the copy of a bitmap with the transparent flag set.</summary>
     /// <param name="b">The bitmap.</param>
@@ -643,8 +658,15 @@ public sealed class GuiPaint
     private static PbmpBitmap Keyed(PbmpBitmap b) => (b.Attributes & BitmapAttributes.Transparent) != 0 || b.Depth != 8 ? b :
         sKeyed.GetValue(b, o => new PbmpBitmap
         {
-            Width = o.Width, Height = o.Height, Depth = o.Depth, Attributes = o.Attributes | BitmapAttributes.Transparent,
-            ChunkCount = o.ChunkCount, Pixels = o.Pixels, MipCount = o.MipCount, MipLevels = o.MipLevels, PaletteId = o.PaletteId,
+            Width = o.Width,
+            Height = o.Height,
+            Depth = o.Depth,
+            Attributes = o.Attributes | BitmapAttributes.Transparent,
+            ChunkCount = o.ChunkCount,
+            Pixels = o.Pixels,
+            MipCount = o.MipCount,
+            MipLevels = o.MipLevels,
+            PaletteId = o.PaletteId,
         });
 
     /// <summary>Draws a bitmap.</summary>

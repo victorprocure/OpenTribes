@@ -1,7 +1,7 @@
+namespace OpenTribes.Sim;
+
 using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.Sim;
 
 /// <summary>A mission object transform: a flag word, a 3x3 matrix and a position.</summary>
 /// <remarks>Port of the transform part of src/game/mission_objects.cpp (namespace ot::sim), docs/mission.md 5.1. The rest of that file (persist fields, GameBase, TeamGroup, registerMissionClasses) is in <c>OpenTribes.Game/MissionObjects.cs</c>.</remarks>
@@ -24,7 +24,7 @@ public struct Transform
 }
 
 /// <summary>The Euler angle conversions of the original.</summary>
-/// <remarks>Portable form: asinl and atan2l are <see cref="Math.Asin"/> and <see cref="Math.Atan2"/>. Float differences and products follow the mode of <see cref="OpenTribes.Core.Fpu"/> and float stores use <c>Fpu.Store</c>.</remarks>
+/// <remarks>Portable form: asinl and atan2l are <see cref="Math.Asin"/> and <see cref="Math.Atan2"/>. Float differences and products follow the mode of <see cref="Core.Fpu"/> and float stores use <c>Fpu.Store</c>.</remarks>
 public static class MissionTransform
 {
     /// <summary>Sets the matrix of a transform from three Euler angles.</summary>
@@ -33,8 +33,10 @@ public static class MissionTransform
     /// <remarks>Follows m_mat3_setEuler (005ed42e), with the x87 fsincos and the product grouping of the original (world eulerMatrix).</remarks>
     public static void EulerToMatrix(ReadOnlySpan<float> e, ref Transform t)
     {
-        var m = new TMat3();
-        m.Flags = t.Flags;
+        var m = new TMat3
+        {
+            Flags = t.Flags
+        };
         Shape.EulerMatrix(e, ref m);
         t.Flags = m.Flags;
         t.M = m.M;

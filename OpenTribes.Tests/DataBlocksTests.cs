@@ -1,12 +1,11 @@
 // Port of tests/test_datablocks.cpp: the datablock layer (docs/datablocks.md): classes and groups, typed fields, defaults,
 // field access, declaration, preload. Expected values are the [live] reference results quoted in the spec. 16 asserts.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
-using OpenTribes.Script;
 using static OpenTribes.Tests.Fixtures;
 using Block = OpenTribes.Game.DataBlockManager.Block;
-
-namespace OpenTribes.Tests;
 
 public class DataBlocksTests
 {
@@ -14,10 +13,10 @@ public class DataBlocksTests
     private static uint ZlibCrc(IReadOnlyList<byte> b, uint crc)
     {
         crc = ~crc;
-        foreach (byte c in b)
+        foreach (var c in b)
         {
             crc ^= c;
-            for (int k = 0; k < 8; ++k)
+            for (var k = 0; k < 8; ++k)
                 crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1)));
         }
         return ~crc;
@@ -32,12 +31,12 @@ public class DataBlocksTests
         var list = new List<byte>();
         PutU32(list, 1); // details
         PutU32(list, 2); // count
-        foreach ((uint flags, string name) in new[] { (3u, "t1.bmp"), (1u, "t2.bmp") })
+        foreach ((var flags, var name) in new[] { (3u, "t1.bmp"), (1u, "t2.bmp") })
         {
             var rec = new List<byte>(new byte[64]);
             SetU32(rec, 0, flags);
-            byte[] nb = ByteString.ToBytes(name);
-            for (int i = 0; i < nb.Length; ++i)
+            var nb = ByteString.ToBytes(name);
+            for (var i = 0; i < nb.Length; ++i)
                 rec[16 + i] = nb[i];
             list.AddRange(rec);
         }
@@ -50,7 +49,7 @@ public class DataBlocksTests
     [Fact]
     public void Main()
     {
-        string root = Path.Combine(TestPaths.TmpDir(""), "db_root");
+        var root = Path.Combine(TestPaths.TmpDir(""), "db_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
         PutFile(Path.Combine(root, "base/larmor.dts"), "abc");
@@ -68,20 +67,20 @@ public class DataBlocksTests
 
         // 1.2: the 31 classes, their groups (-1 abstract) and parents' fields.
         (string, int)[] kGroups =
-        {
+        [
             ("DamageSkinData", 2), ("GameBase", -1), ("ShapeBase", -1), ("StaticBase", -1), ("CarData", 27), ("TriggerData", 26),
             ("VehicleData", 9), ("TankData", 11), ("FlierData", 10), ("PlayerData", 3), ("StaticShapeData", 4), ("MarkerData", 21),
             ("ItemData", 5), ("MineData", 23), ("ItemImageData", 6), ("MoveableData", 7), ("SensorData", 8), ("TurretData", 19),
             ("BulletData", 14), ("GrenadeData", 15), ("LaserData", 17), ("TargetLaserData", 24), ("LightningData", 28),
             ("RepairEffectData", 29), ("RocketData", 16), ("SeekingMissileData", 25), ("ExplosionData", 20),
             ("SoundProfileData", 0), ("SoundData", 1), ("DebrisData", 22), ("IRCChannel", 30),
-        };
-        foreach ((string name, int group) in kGroups)
+        ];
+        foreach ((var name, var group) in kGroups)
         {
-            ClassDef? cls = db.FindClass(name);
+            ClassDef? cls = DataBlockManager.FindClass(name);
             Assert.True(cls != null && cls.Group == group);
         }
-        Assert.True(db.FindClass("itemdata") == db.FindClass("ItemData")); // CR4 case-insensitive
+        Assert.True(DataBlockManager.FindClass("itemdata") == DataBlockManager.FindClass("ItemData")); // CR4 case-insensitive
         // D11: classes without a factory are rejected instead of crashing (9 note 3).
         c.Check(w, "CarData Car1; TankData Tank1; GameBase GB1; ShapeBase SB1; StaticBase StB1; echo(Car1.maxDamage);",
                 "Unknown class CarData\nUnknown class TankData\nUnknown class GameBase\nUnknown class ShapeBase\n" +
@@ -280,13 +279,13 @@ public class DataBlocksTests
         c.Check(w2, "echo(preloadServerDataBlocks(1));", "False");
         // 7.1 CRC: shape bytes, then each texture material when validateMaterials.
         {
-            byte[] larmor = { (byte)'a', (byte)'b', (byte)'c' };
+            byte[] larmor = [(byte)'a', (byte)'b', (byte)'c'];
             Assert.True(db2.Find("LightArmor")!.ValidationCrc == SpecCrc(larmor, 0xffffffffu));
-            Assert.True(db2.Find("LightArmor")!.ValidationCrc == 0xcadbbe3du);
+            Assert.Equal(0xcadbbe3du, db2.Find("LightArmor")!.ValidationCrc);
             List<byte> shape = ShapeWithMaterials();
-            byte[] t1 = ByteString.ToBytes("texture one");
+            var t1 = ByteString.ToBytes("texture one");
             Assert.True(db2.Find("MatItem")!.ValidationCrc == SpecCrc(t1, SpecCrc(shape, 0xffffffffu)));
-            Assert.True(db2.Find("PadA")!.ValidationCrc == 0); // not validated
+            Assert.Equal(0u, db2.Find("PadA")!.ValidationCrc); // not validated
         }
         // Failures print and the loop continues; the command returns False.
         const string kModel = ".dts.  The server has new art data you are missing.  Check server info for possible download locations.";
@@ -302,6 +301,6 @@ public class DataBlocksTests
                 "Unable to load ProjectileData shape: nobul.dts\nServer: Validation required for e.dts\n" +
                 "Unable to load ExplosionData shape: missingex\nFalse");
 
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
 }

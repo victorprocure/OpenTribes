@@ -1,13 +1,13 @@
 // The client's server query (docs/net-protocol.md 6.2; code 0054ee8c queue, 0054f608 replies, 0042c4cc info): synthetic packets only (R5, R6).
-using OpenTribes.Net;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Net;
 
 public class ServerQueryTests
 {
     private sealed class FakeNet : IQueryTransport
     {
-        public readonly List<(Address To, byte[] Data)> Sent = new();
+        public readonly List<(Address To, byte[] Data)> Sent = [];
         public readonly Queue<(Address From, byte[] Data)> Inbox = new();
 
         public bool Send(Address to, byte[] data)
@@ -21,7 +21,7 @@ public class ServerQueryTests
             if (Inbox.Count == 0)
             {
                 from = default;
-                data = Array.Empty<byte>();
+                data = [];
                 return false;
             }
             (from, data) = Inbox.Dequeue();
@@ -35,7 +35,7 @@ public class ServerQueryTests
     {
         var d = new byte[40];
         new byte[] { 0x10, 4, 0xff, 0xf0, (byte)key, (byte)(key >> 8), 0x20, players, (byte)version, (byte)(version >> 8) }.CopyTo(d, 0);
-        for (int i = 0; i < name.Length && i < 29; ++i)
+        for (var i = 0; i < name.Length && i < 29; ++i)
             d[10 + i] = (byte)name[i];
         return d;
     }
@@ -44,16 +44,16 @@ public class ServerQueryTests
     {
         var body = new byte[0x400];
         var bs = new BitStream(body, body.Length);
-        bs.WriteBytes(new[] { (byte)version, (byte)(version >> 8) });
+        bs.WriteBytes([(byte)version, (byte)(version >> 8)]);
         bs.WriteString(game);
         bs.WriteString("1.11");
         bs.WriteString("Test Host");
-        bs.WriteBytes(new byte[] { 3 });
-        bs.WriteBytes(new byte[] { 8 });
+        bs.WriteBytes([3]);
+        bs.WriteBytes([8]);
         bs.WriteString("Broadside");
-        bs.WriteBytes(new byte[] { 1 });
-        bs.WriteBytes(new byte[] { 0 });
-        bs.WriteBytes(new byte[] { 0x10, 0x0e, 0, 0 });
+        bs.WriteBytes([1]);
+        bs.WriteBytes([0]);
+        bs.WriteBytes([0x10, 0x0e, 0, 0]);
         bs.WriteString("base");
         bs.WriteString("CTF");
         bs.WriteString("info text");
@@ -122,7 +122,7 @@ public class ServerQueryTests
     [InlineData("ip:broadcast:28001", "IP:Broadcast:28001", true)]
     public void ResolvesAddressText(string text, string canonical, bool broadcast)
     {
-        Assert.True(QueryAddress.TryResolve(text, 0xffffffff, out string c, out Address t, out bool b, out _));
+        Assert.True(QueryAddress.TryResolve(text, 0xffffffff, out var c, out Address t, out var b, out _));
         Assert.Equal(canonical, c);
         Assert.Equal(broadcast, b);
         Assert.Equal((ushort)28001, t.Port);
@@ -137,7 +137,7 @@ public class ServerQueryTests
         q.Queue("IP:127.0.0.1:28001");
         var d = new List<byte> { 0x10, 6, 1, 2, 0, 0, 0, 0, 3, (byte)'M', (byte)'s', (byte)'t', 2, (byte)'h', (byte)'i', 0, 1 };
         d.AddRange(new byte[] { 6, 127, 0, 0, 1, 0x71, 0x6d });
-        q.OnDatagram(Server, d.ToArray(), 1000);
+        q.OnDatagram(Server, [.. d], 1000);
         Assert.Equal("Mst", master);
         Assert.Equal("hi", motd);
         // The request entry is gone, part 2 is awaited and the listed server (127.0.0.1:28017) is pinged.

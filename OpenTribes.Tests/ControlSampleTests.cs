@@ -1,8 +1,8 @@
 // The control player's sample for its ghost visual (docs/audio.md 3.2), synthetic control state (R5, R9).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Game;
-
-namespace OpenTribes.Tests;
 
 public class ControlSampleTests
 {

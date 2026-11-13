@@ -1,8 +1,8 @@
+namespace OpenTribes.Client.App;
+
 using System.Globalization;
 using OpenTribes.Gui;
 using OpenTribes.Script;
-
-namespace OpenTribes.Client.App;
 
 /// <summary>The automation hook of the client: <c>tribes --input FILE</c> drives a whole session from a timed script.</summary>
 /// <remarks>
@@ -18,8 +18,8 @@ namespace OpenTribes.Client.App;
 public sealed class ClientScript
 {
     private readonly ClientApp mApp;
-    private readonly List<(double At, string Line)> mLines = new();
-    private readonly List<(double At, Action Do)> mQueued = new();
+    private readonly List<(double At, string Line)> mLines = [];
+    private readonly List<(double At, Action Do)> mQueued = [];
     private int mNext;
     private string? mWaitFor;
     private double mWaitStart, mWaitLimit, mShift, mBusyUntil;
@@ -29,15 +29,19 @@ public sealed class ClientScript
 
     private bool Check(string what)
     {
-        string[] w = what.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var w = what.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         switch (w[0].ToLowerInvariant())
         {
-            case "play": return mApp.Game != null && mApp.Game.HasScene && mApp.Canvas.Content?.Id == PlayDelegate.PlayGuiId;
-            case "player": return mApp.Game?.World.Psc.ControlClass == "Player";
-            case "connected": return mApp.Game != null && mApp.Game.Joined;
-            case "content": return w.Length > 1 && mApp.Canvas.Content?.Id.ToString(CultureInfo.InvariantCulture) == w[1];
+            case "play":
+                return mApp.Game != null && mApp.Game.HasScene && mApp.Canvas.Content?.Id == PlayDelegate.PlayGuiId;
+            case "player":
+                return mApp.Game?.World.Psc.ControlClass == "Player";
+            case "connected":
+                return mApp.Game != null && mApp.Game.Joined;
+            case "content":
+                return w.Length > 1 && mApp.Canvas.Content?.Id.ToString(CultureInfo.InvariantCulture) == w[1];
         }
-        string r = what.StartsWith('$') && !what.Contains(' ') && !what.Contains('(')
+        var r = what.StartsWith('$') && !what.Contains(' ') && !what.Contains('(')
             ? mApp.Interp.PeekVariable(what)
             : mApp.Interp.Evaluate(what.EndsWith(';') ? what : what + ";");
         return r.Equals("true", StringComparison.OrdinalIgnoreCase) || r == "1";
@@ -51,22 +55,22 @@ public sealed class ClientScript
     {
         var s = new ClientScript(app);
         double t = 0;
-        foreach (string raw in File.ReadAllLines(path))
+        foreach (var raw in File.ReadAllLines(path))
         {
-            string line = raw.Trim();
+            var line = raw.Trim();
             if (line.Length == 0 || line[0] == '#')
                 continue;
             if (line[0] == '@')
             {
-                int sp = line.IndexOf(' ');
-                string num = sp < 0 ? line[1..] : line[1..sp];
-                if (double.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out double at))
+                var sp = line.IndexOf(' ');
+                var num = sp < 0 ? line[1..] : line[1..sp];
+                if (double.TryParse(num, NumberStyles.Float, CultureInfo.InvariantCulture, out var at))
                     t = at;
                 line = sp < 0 ? "" : line[(sp + 1)..].Trim();
                 if (line.Length == 0)
                     continue;
             }
-            if (line.StartsWith("wait ", StringComparison.Ordinal) && double.TryParse(line[5..], NumberStyles.Float, CultureInfo.InvariantCulture, out double w))
+            if (line.StartsWith("wait ", StringComparison.Ordinal) && double.TryParse(line[5..], NumberStyles.Float, CultureInfo.InvariantCulture, out var w))
             {
                 t += w;
                 continue;
@@ -83,8 +87,8 @@ public sealed class ClientScript
     /// <param name="nowMs">The app time in milliseconds.</param>
     public void Run(uint nowMs)
     {
-        double sec = nowMs / 1000.0;
-        for (int i = 0; i < mQueued.Count;)
+        var sec = nowMs / 1000.0;
+        for (var i = 0; i < mQueued.Count;)
         {
             if (mQueued[i].At <= sec)
             {
@@ -97,7 +101,7 @@ public sealed class ClientScript
         }
         if (mWaitFor != null)
         {
-            bool done = Check(mWaitFor);
+            var done = Check(mWaitFor);
             if (!done && sec - mWaitStart < mWaitLimit)
                 return;
             if (!done)
@@ -127,7 +131,7 @@ public sealed class ClientScript
     {
         if (name.Length == 1)
         {
-            char c = name[0];
+            var c = name[0];
             foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
                 if (k.Lower == c && (k.Name == null || k.Name.Length > 1 || k.Lower == c))
                     return (k.Code, false);
@@ -138,17 +142,20 @@ public sealed class ClientScript
         foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
             if (k.Name != null && string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase))
                 return (k.Code, false);
-        switch (name.ToLowerInvariant())
+        return name.ToLowerInvariant() switch
         {
-            case "esc": return (1, false);
-            case "return": return (0x1c, false);
-        }
-        return (0, false);
+            "esc" => (1, false),
+            "return" => (0x1c, false),
+            _ => (0, false),
+        };
     }
 
     private static readonly Dictionary<string, int> ModKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["shift"] = 0x2a, ["ctrl"] = 0x1d, ["control"] = 0x1d, ["alt"] = 0x38,
+        ["shift"] = 0x2a,
+        ["ctrl"] = 0x1d,
+        ["control"] = 0x1d,
+        ["alt"] = 0x38,
     };
 
     private void PressKey(int scan, bool shift, params int[] mods)
@@ -156,11 +163,11 @@ public sealed class ClientScript
         var all = new List<int>(mods);
         if (shift && !all.Contains(0x2a))
             all.Add(0x2a);
-        foreach (int m in all)
+        foreach (var m in all)
             mApp.InjectKey(m, true);
         mApp.InjectKey(scan, true);
         mApp.InjectKey(scan, false);
-        for (int i = all.Count - 1; i >= 0; --i)
+        for (var i = all.Count - 1; i >= 0; --i)
             mApp.InjectKey(all[i], false);
     }
 
@@ -175,14 +182,16 @@ public sealed class ClientScript
     private void Exec(string line, double now)
     {
         Echo("> " + line);
-        string[] w = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        string cmd = w[0].ToLowerInvariant();
-        string rest = w.Length > 1 ? w[1] : "";
-        string[] a = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var w = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var cmd = w[0].ToLowerInvariant();
+        var rest = w.Length > 1 ? w[1] : "";
+        var a = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         void After(double dt, Action act) => mQueued.Add((now + dt, act));
         switch (cmd)
         {
-            case "move": MoveTo(int.Parse(a[0], CultureInfo.InvariantCulture), int.Parse(a[1], CultureInfo.InvariantCulture)); break;
+            case "move":
+                MoveTo(int.Parse(a[0], CultureInfo.InvariantCulture), int.Parse(a[1], CultureInfo.InvariantCulture));
+                break;
             case "mouse":
                 mApp.InjectAxis(0, float.Parse(a[0], CultureInfo.InvariantCulture));
                 mApp.InjectAxis(1, float.Parse(a[1], CultureInfo.InvariantCulture));
@@ -190,109 +199,131 @@ public sealed class ClientScript
             case "click":
             case "rclick":
             case "dblclick":
+            {
+                if (a.Length >= 2)
+                    MoveTo(int.Parse(a[0], CultureInfo.InvariantCulture), int.Parse(a[1], CultureInfo.InvariantCulture));
+                var b = cmd == "rclick" ? 1 : 0;
+                var times = cmd == "dblclick" ? 2 : 1;
+                mBusyUntil = now + (0.1 * times);
+                for (var i = 0; i < times; ++i)
                 {
-                    if (a.Length >= 2)
-                        MoveTo(int.Parse(a[0], CultureInfo.InvariantCulture), int.Parse(a[1], CultureInfo.InvariantCulture));
-                    int b = cmd == "rclick" ? 1 : 0;
-                    int times = cmd == "dblclick" ? 2 : 1;
-                    mBusyUntil = now + 0.1 * times;
-                    for (int i = 0; i < times; ++i)
-                    {
-                        double t0 = i * 0.06;
-                        After(t0, () => mApp.InjectButton(b, true));
-                        After(t0 + 0.03, () => mApp.InjectButton(b, false));
-                    }
-                    break;
+                    var t0 = i * 0.06;
+                    After(t0, () => mApp.InjectButton(b, true));
+                    After(t0 + 0.03, () => mApp.InjectButton(b, false));
                 }
-            case "down": mApp.InjectButton(0, true); break;
-            case "up": mApp.InjectButton(0, false); break;
-            case "rdown": mApp.InjectButton(1, true); break;
-            case "rup": mApp.InjectButton(1, false); break;
-            case "wheel": mApp.InjectAxis(2, float.Parse(a[0], CultureInfo.InvariantCulture) * 120f); break;
+                break;
+            }
+            case "down":
+                mApp.InjectButton(0, true);
+                break;
+            case "up":
+                mApp.InjectButton(0, false);
+                break;
+            case "rdown":
+                mApp.InjectButton(1, true);
+                break;
+            case "rup":
+                mApp.InjectButton(1, false);
+                break;
+            case "wheel":
+                mApp.InjectAxis(2, float.Parse(a[0], CultureInfo.InvariantCulture) * 120f);
+                break;
             case "key":
+            {
+                (var scan, var shift) = Lookup(a[0]);
+                if (scan == 0)
                 {
-                    (int scan, bool shift) = Lookup(a[0]);
-                    if (scan == 0)
-                    {
-                        Echo("input: unknown key " + a[0]);
-                        break;
-                    }
-                    var mods = a.Skip(1).Where(m => ModKeys.ContainsKey(m)).Select(m => ModKeys[m]).ToArray();
-                    PressKey(scan, shift, mods);
+                    Echo("input: unknown key " + a[0]);
                     break;
                 }
+                var mods = a.Skip(1).Where(ModKeys.ContainsKey).Select(m => ModKeys[m]).ToArray();
+                PressKey(scan, shift, mods);
+                break;
+            }
             case "keydown":
             case "keyup":
+            {
+                (var scan, var shift) = Lookup(a[0]);
+                if (scan == 0)
                 {
-                    (int scan, bool shift) = Lookup(a[0]);
-                    if (scan == 0)
-                    {
-                        Echo("input: unknown key " + a[0]);
-                        break;
-                    }
-                    mApp.InjectKey(scan, cmd == "keydown");
+                    Echo("input: unknown key " + a[0]);
                     break;
                 }
+                mApp.InjectKey(scan, cmd == "keydown");
+                break;
+            }
             case "hold":
-                {
-                    (int scan, _) = Lookup(a[0]);
-                    double secs = double.Parse(a[1], CultureInfo.InvariantCulture);
-                    mApp.InjectKey(scan, true);
-                    After(secs, () => mApp.InjectKey(scan, false));
-                    break;
-                }
+            {
+                (var scan, _) = Lookup(a[0]);
+                var secs = double.Parse(a[1], CultureInfo.InvariantCulture);
+                mApp.InjectKey(scan, true);
+                After(secs, () => mApp.InjectKey(scan, false));
+                break;
+            }
             case "type":
+            {
+                double t0 = 0;
+                mBusyUntil = now + (0.03 * rest.Length) + 0.06;
+                foreach (var ch in rest)
                 {
-                    double t0 = 0;
-                    mBusyUntil = now + 0.03 * rest.Length + 0.06;
-                    foreach (char ch in rest)
-                    {
-                        (int scan, bool shift) = ch == ' ' ? (0x39, false) : Lookup(ch.ToString());
-                        if (scan == 0)
-                            continue;
-                        After(t0, () => PressKey(scan, shift));
-                        t0 += 0.03;
-                    }
-                    break;
+                    (var scan, var shift) = ch == ' ' ? (0x39, false) : Lookup(ch.ToString());
+                    if (scan == 0)
+                        continue;
+                    After(t0, () => PressKey(scan, shift));
+                    t0 += 0.03;
                 }
-            case "eval": Echo("= " + mApp.Interp.Evaluate(rest)); break;
-            case "echo": Echo(rest); break;
-            case "var": Echo($"{a[0]} = {mApp.Interp.PeekVariable(a[0])}"); break;
+                break;
+            }
+            case "eval":
+                Echo("= " + mApp.Interp.Evaluate(rest));
+                break;
+            case "echo":
+                Echo(rest);
+                break;
+            case "var":
+                Echo($"{a[0]} = {mApp.Interp.PeekVariable(a[0])}");
+                break;
             case "where":
             case "clickctl":
+            {
+                GuiControl? c = mApp.GuiRt.FindControl(a[0]);
+                if (c == null)
                 {
-                    GuiControl? c = mApp.GuiRt.FindControl(a[0]);
-                    if (c == null)
-                    {
-                        Echo("input: no control " + a[0]);
-                        break;
-                    }
-                    var (gx, gy) = c.GlobalOrigin();
-                    if (cmd == "where")
-                    {
-                        Echo($"{c.ClassName} {c.Name} at {gx},{gy} {c.W}x{c.H}");
-                        break;
-                    }
-                    MoveTo(gx + c.W / 2, gy + c.H / 2);
-                    After(0.02, () => mApp.InjectButton(0, true));
-                    After(0.06, () => mApp.InjectButton(0, false));
+                    Echo("input: no control " + a[0]);
                     break;
                 }
-            case "focus": Echo("focus: " + ((mApp.Canvas.FirstResponder as GuiControl)?.ToString() ?? "root")); break;
+                var (gx, gy) = c.GlobalOrigin();
+                if (cmd == "where")
+                {
+                    Echo($"{c.ClassName} {c.Name} at {gx},{gy} {c.W}x{c.H}");
+                    break;
+                }
+                MoveTo(gx + (c.W / 2), gy + (c.H / 2));
+                After(0.02, () => mApp.InjectButton(0, true));
+                After(0.06, () => mApp.InjectButton(0, false));
+                break;
+            }
+            case "focus":
+                Echo("focus: " + ((mApp.Canvas.FirstResponder as GuiControl)?.ToString() ?? "root"));
+                break;
             case "shot":
                 mApp.QueueScreenshot(Path.Combine(mApp.Opt.ShotDir, rest.EndsWith(".png") ? rest : rest + ".png"));
                 mYield = true;
                 break;
-            case "quit": mApp.RequestQuit(); break;
+            case "quit":
+                mApp.RequestQuit();
+                break;
             case "waitfor":
-                {
-                    int last = a.Length > 1 && double.TryParse(a[^1], NumberStyles.Float, CultureInfo.InvariantCulture, out double lim) && !a[0].Equals("content", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-                    mWaitLimit = last == 1 ? double.Parse(a[^1], CultureInfo.InvariantCulture) : 60;
-                    mWaitFor = last == 1 ? string.Join(' ', a[..^1]) : rest;
-                    mWaitStart = now;
-                    break;
-                }
-            default: Echo("input: unknown command " + cmd); break;
+            {
+                var last = a.Length > 1 && double.TryParse(a[^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var lim) && !a[0].Equals("content", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                mWaitLimit = last == 1 ? double.Parse(a[^1], CultureInfo.InvariantCulture) : 60;
+                mWaitFor = last == 1 ? string.Join(' ', a[..^1]) : rest;
+                mWaitStart = now;
+                break;
+            }
+            default:
+                Echo("input: unknown command " + cmd);
+                break;
         }
     }
 }

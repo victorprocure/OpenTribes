@@ -1,11 +1,9 @@
 // Port of src/game/item_sim.cpp: Item and Mine engine behavior (docs/static-sim.md 5): the tick, the physics step against
 // the terrain, interiors and shapes (docs/collision.md T3, E5), throw, hide and the mine alignment. The Chop class of the
 // file is Fpu.ChopScope; float(...) inside it is Fpu.Store.
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public partial class GameBase
 {
@@ -33,25 +31,25 @@ public partial class GameBase
             return false;
         Vec3 tp = terr.Position();
         // M.t = P + (-terrainPos), then the centre through the object rotation (m_mul_point).
-        Span<float> mt = stackalloc float[3] { Store(Add(at[0], -tp.X)), Store(Add(at[1], -tp.Y)), Store(Add(at[2], -tp.Z)) };
+        Span<float> mt = [Store(Add(at[0], -tp.X)), Store(Add(at[1], -tp.Y)), Store(Add(at[2], -tp.Z))];
         Span<float> c = stackalloc float[3];
         ReadOnlySpan<float> m = obj.Transform.M;
-        for (int j = 0; j < 3; ++j)
+        for (var j = 0; j < 3; ++j)
         {
-            double s = Mul(obj.ShapeCenter[0], m[j]);
+            var s = Mul(obj.ShapeCenter[0], m[j]);
             s = Add(s, Mul(obj.ShapeCenter[1], m[3 + j]));
             s = Add(s, Mul(obj.ShapeCenter[2], m[6 + j]));
             c[j] = Store(Add(s, mt[j]));
         }
         float h = 0;
         Vec3 n = default;
-        int material = 0;
+        var material = 0;
         if (!terr.SurfaceLocal(c[0], c[1], ref h, ref n, ref material))
             return false;
-        Span<float> nn = stackalloc float[3] { n.X, n.Y, n.Z }, pos = stackalloc float[3] { c[0], c[1], h };
-        float a = Store(Dot3(c, nn));
-        double b = Dot3(pos, nn);
-        float d = Store(Sub(a, b));
+        Span<float> nn = [n.X, n.Y, n.Z], pos = [c[0], c[1], h];
+        var a = Store(Dot3(c, nn));
+        var b = Dot3(pos, nn);
+        var d = Store(Sub(a, b));
         if (!(Math.Abs((double)d) < obj.ShapeRadius))
             return false;
         output.N0 = n.X;
@@ -109,21 +107,25 @@ public partial class GameBase
         if (TerrainContact(game, this, q, out TerrainContactRec c))
         {
             var h = new CollisionHit { Type = ObjectType.kTerrainType };
-            var s = new CollisionSurface();
-            s.Normal = Float3.Of(c.N0, c.N1, c.N2);
-            s.Distance = c.Distance;
-            s.Material = c.MaterialIndex;
+            var s = new CollisionSurface
+            {
+                Normal = Float3.Of(c.N0, c.N1, c.N2),
+                Distance = c.Distance,
+                Material = c.MaterialIndex
+            };
             h.Surfaces.Add(s);
             hits.Add(h);
         }
-        var mover = new MoverImage();
-        mover.Pos = Float3.Of(q);
-        mover.Rot = Transform.M;
-        mover.BoxMin = Float3.Of(ShapeBox.AsSpan(0, 3));
-        mover.BoxMax = Float3.Of(ShapeBox.AsSpan(3, 3));
-        mover.Radius = ShapeRadius;
-        mover.CentreLocal = Float3.Of(ShapeCenter);
-        mover.ShapeMover = true;
+        var mover = new MoverImage
+        {
+            Pos = Float3.Of(q),
+            Rot = Transform.M,
+            BoxMin = Float3.Of(ShapeBox.AsSpan(0, 3)),
+            BoxMax = Float3.Of(ShapeBox.AsSpan(3, 3)),
+            Radius = ShapeRadius,
+            CentreLocal = Float3.Of(ShapeCenter),
+            ShapeMover = true
+        };
         // The Item's own image for the candidates that run the test themselves (Players).
         var own = new CollisionImage();
         if (game.ShapeImage(this, own))
@@ -132,7 +134,7 @@ public partial class GameBase
             mover.Detail = own.Detail;
             mover.MeshMode = own.MeshMode;
         }
-        for (int i = 0; i < candidates.Count; ++i)
+        for (var i = 0; i < candidates.Count; ++i)
         {
             CollisionImage image = candidates[i];
             if (image.ImageKind == CollisionImage.Kind.Terrain)
@@ -143,7 +145,7 @@ public partial class GameBase
                 // with `triggered` only (docs/collision.md E2). A non-collideable Item is not tested here.
                 if (triggered == null || image.Object is not GameBase other)
                     continue;
-                bool trigger = other.GetKind() == Kind.Trigger;
+                var trigger = other.GetKind() == Kind.Trigger;
                 if (!trigger && (image.ImageKind != CollisionImage.Kind.TriggerSphere || !other.IsStaticBase()))
                     continue;
                 var th = new CollisionHit();
@@ -210,13 +212,13 @@ public partial class GameBase
             ItemThrower = null;
         if (!ItemRotates && (DamageState != kDestroyed || VisibilityThread))
         {
-            bool nowRest = AtRest;
-            bool changed = nowRest != ItemPrevAtRest;
+            var nowRest = AtRest;
+            var changed = nowRest != ItemPrevAtRest;
             ItemPrevAtRest = nowRest;
             if (!nowRest)
             {
                 ItemPhysics(0.032f);
-                float now = Manager() != null ? Manager()!.Time() : 0.0f;
+                var now = Manager() != null ? Manager()!.Time() : 0.0f;
                 if (ItemNextUpdate < now)
                 {
                     ItemNextUpdate = Store(Add(now, 1.0f));
@@ -245,27 +247,27 @@ public partial class GameBase
         ItemContact = false;
         AtRest = false;
         // 0x005050f0: the time slice. 0x00505144: forces. 0x00505328: target position.
-        float slice = dt;
-        float[] oldV = { Velocity[0], Velocity[1], Velocity[2] };
+        var slice = dt;
+        float[] oldV = [Velocity[0], Velocity[1], Velocity[2]];
         Span<float> gravity = stackalloc float[3];
         gravity.Clear();
         float drag = 0;
         // The gravity force and the drag as taken on container entry (FC2); the drag outlives the container.
-        bool inContainer = ItemVisible && game.EnteredForces(this, gravity, ref drag);
+        var inContainer = ItemVisible && game.EnteredForces(this, gravity, ref drag);
         if (inContainer)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Velocity[i] = Store(Add(Mul(gravity[i], slice), Velocity[i]));
         if (ItemVisible && drag != 0)
         {
             // Flag 0x10, medium drag: v -= v * ((drag * mediumDrag) * slice).
-            float s = Store(Mul(Store(Mul(ItemData.Drag, drag)), slice));
-            for (int i = 0; i < 3; ++i)
+            var s = Store(Mul(Store(Mul(ItemData.Drag, drag)), slice));
+            for (var i = 0; i < 3; ++i)
                 Velocity[i] = Store(Sub(Velocity[i], Mul(Velocity[i], s)));
         }
         ItemGravity = inContainer ? Store(Len3(gravity)) : 0.0f;
-        float half = Store(Mul(slice, 0.5f));
-        float[] target = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var half = Store(Mul(slice, 0.5f));
+        var target = new float[3];
+        for (var i = 0; i < 3; ++i)
             target[i] = Store(Add(Mul(Add(oldV[i], Velocity[i]), half), Transform.P[i]));
         // The matrix is rebuilt from the Euler rotation (+0x244) with rotation and translation flags.
         MissionTransform.EulerToMatrix(Rotation, ref Transform);
@@ -285,10 +287,10 @@ public partial class GameBase
     public bool ItemProcessCollision(List<CollisionHit> hits, int iteration)
     {
         GameServices game = mCtx.Game!;
-        int flags = ItemFlags; // 0x181 | 0x1d (docs/static-sim.md 5.1)
+        var flags = ItemFlags; // 0x181 | 0x1d (docs/static-sim.md 5.1)
         // No collision with the thrower.
         if (ItemThrower != null)
-            for (int h = 0; h < hits.Count;)
+            for (var h = 0; h < hits.Count;)
             {
                 if (hits[h].Object == ItemThrower)
                 {
@@ -321,8 +323,8 @@ public partial class GameBase
                     }
         // Callback 0x00506d80: the response of every contact with a non-negative distance; iterations after the first
         // drop friction (0x01) and 0x20.
-        int f = iteration != 0 ? (flags & ~0x21) : flags;
-        bool handled = false;
+        var f = iteration != 0 ? (flags & ~0x21) : flags;
+        var handled = false;
         foreach (CollisionHit h in hits)
             foreach (CollisionSurface s in h.Surfaces)
             {
@@ -343,9 +345,9 @@ public partial class GameBase
         AtRest = false;
         var candidates = new List<CollisionImage>();
         var hits = new List<CollisionHit>();
-        float[] p = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        float[] p = [Transform.P[0], Transform.P[1], Transform.P[2]];
         ItemCandidates(p, candidates, mask);
-        for (int round = 0; round < 3; ++round)
+        for (var round = 0; round < 3; ++round)
         {
             if (ItemTestAt(p, candidates, hits) || !ItemProcessCollision(hits, round))
             {
@@ -364,7 +366,7 @@ public partial class GameBase
     public void ItemPostEvents()
     {
         List<SimObject> notified = ItemNotify;
-        ItemNotify = new List<SimObject>();
+        ItemNotify = [];
         if (mCtx.Game == null)
             return;
         foreach (SimObject other in notified)
@@ -379,7 +381,7 @@ public partial class GameBase
     {
         if (!ItemContact || AtRest)
             return;
-        float e = Store(Mul(Store(Mul(ItemGravity, slice)), 2.0));
+        var e = Store(Mul(Store(Mul(ItemGravity, slice)), 2.0));
         if (Math.Abs((double)Velocity[0]) < e && Math.Abs((double)Velocity[1]) < e && Math.Abs((double)Velocity[2]) < e)
             AtRest = true;
     }
@@ -402,62 +404,62 @@ public partial class GameBase
         var candidates = new List<CollisionImage>();
         var hits = new List<CollisionHit>();
         ItemCandidates(target, candidates, mask);
-        float step = step0;
+        var step = step0;
         float used = 0;
-        float[] p = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        float[] p = [Transform.P[0], Transform.P[1], Transform.P[2]];
         void Commit(float[] at)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Transform.P[i] = at[i];
             Transform.Flags |= 3;
         }
-        bool blocked = true;
+        var blocked = true;
         float[] delta = new float[3], dd = new float[3], qpos = new float[3];
-        for (int iteration = 0; iteration < 3; ++iteration)
+        for (var iteration = 0; iteration < 3; ++iteration)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 delta[i] = Store(Sub(target[i], p[i]));
-            float L = Store(Len3(delta));
-            double q = Div(L, step);
-            long n = (long)Math.Ceiling(q);
+            var L = Store(Len3(delta));
+            var q = Div(L, step);
+            var n = (long)Math.Ceiling(q);
             if (n > 100000)
                 n = 100000;
-            bool callbackTrue = false;
+            var callbackTrue = false;
             if (n != 0)
             {
-                float k = Store(Div(1.0, (double)(float)n));
-                for (int i = 0; i < 3; ++i)
+                var k = Store(Div(1.0, (double)(float)n));
+                for (var i = 0; i < 3; ++i)
                     dd[i] = Store(Mul(k, delta[i]));
                 qpos[0] = p[0];
                 qpos[1] = p[1];
                 qpos[2] = p[2];
                 for (long i = 0; i < n; ++i)
                 {
-                    for (int j = 0; j < 3; ++j)
+                    for (var j = 0; j < 3; ++j)
                         qpos[j] = Store(Add(dd[j], qpos[j]));
-                    bool free = ItemTestAt(qpos, candidates, hits);
+                    var free = ItemTestAt(qpos, candidates, hits);
                     if (free)
                     {
-                        for (int j = 0; j < 3; ++j)
+                        for (var j = 0; j < 3; ++j)
                             p[j] = qpos[j];
                         Commit(p);
                         continue;
                     }
-                    float sliceT = Store(Div(Sub(slice, used), (double)(float)n));
+                    var sliceT = Store(Div(Sub(slice, used), (double)(float)n));
                     used = Store(Add(Mul((double)(float)i, sliceT), used));
-                    bool handled = ItemProcessCollision(hits, iteration);
+                    var handled = ItemProcessCollision(hits, iteration);
                     if (handled)
                     {
-                        float left = Store(Sub(slice, used));
-                        for (int j = 0; j < 3; ++j)
+                        var left = Store(Sub(slice, used));
+                        for (var j = 0; j < 3; ++j)
                         {
-                            float tv = Store(Mul(left, Velocity[j]));
+                            var tv = Store(Mul(left, Velocity[j]));
                             target[j] = Store(Add(p[j], tv));
                         }
                         callbackTrue = true;
                         break;
                     }
-                    for (int j = 0; j < 3; ++j)
+                    for (var j = 0; j < 3; ++j)
                         p[j] = qpos[j];
                     Commit(p);
                 }
@@ -511,7 +513,7 @@ public partial class GameBase
         if (Carried.Count == 0)
             return;
         SimManager? m = Manager();
-        foreach (int other in Carried)
+        foreach (var other in Carried)
             if (m?.FindById(other) is GameBase g)
                 g.Carried.RemoveAll(x => x == Id());
         Carried.Clear();
@@ -539,41 +541,41 @@ public partial class GameBase
     public bool SurfaceResponse(ReadOnlySpan<float> n, Material? mat, int flags)
     {
         MaterialTable? table = mCtx.Game?.GetMaterialTable();
-        float vn = Store(Dot3(n, Velocity));
+        var vn = Store(Dot3(n, Velocity));
         if (!(vn < 0))
             return false;
         ItemContact = true;
-        float k = Store(Add(-(double)vn, (double)9.99999974737875e-05f));
+        var k = Store(Add(-(double)vn, (double)9.99999974737875e-05f));
         Span<float> nk = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             nk[i] = Store(Mul(k, n[i]));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Velocity[i] = Store(Add(nk[i], Velocity[i]));
         if ((flags & 0x01) != 0)
         {
-            Span<float> tmp = stackalloc float[3] { Velocity[0], Velocity[1], Velocity[2] };
-            float f = Store(Mul(-(double)vn, ItemData.Friction));
+            Span<float> tmp = [Velocity[0], Velocity[1], Velocity[2]];
+            var f = Store(Mul(-(double)vn, ItemData.Friction));
             if (mat != null && table != null)
                 f = Store(Mul(table.FrictionOf(mat), f));
-            float s = Store(Len3(tmp));
+            var s = Store(Len3(tmp));
             if (s > f)
             {
-                float scale = Store(Div(f, s));
-                for (int i = 0; i < 3; ++i)
+                var scale = Store(Div(f, s));
+                for (var i = 0; i < 3; ++i)
                     tmp[i] = Store(Mul(scale, tmp[i]));
             }
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Velocity[i] = Store(Sub(Velocity[i], tmp[i]));
         }
         if ((flags & 0x04) != 0)
         {
-            float e = ItemData.Elasticity;
+            var e = ItemData.Elasticity;
             if (mat != null && table != null)
                 e = Store(Mul(table.ElasticityOf(mat), e));
             Span<float> nk2 = stackalloc float[3];
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 nk2[i] = Store(Mul(e, nk[i]));
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Velocity[i] = Store(Add(nk2[i], Velocity[i]));
         }
         return true;
@@ -620,9 +622,9 @@ public partial class GameBase
         ItemThrower = thrower;
         ItemThrowerClient = thrower.ControlClient != 0 ? thrower.ControlClient : thrower.OwnerClient;
         ItemThrowerJoin = -1;
-        float[] pos = { thrower.Transform.P[0], thrower.Transform.P[1], thrower.Transform.P[2] };
+        float[] pos = [thrower.Transform.P[0], thrower.Transform.P[1], thrower.Transform.P[2]];
         if (mCtx.Game?.GetContainer()?.Find(thrower) is Container.Entry e)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 pos[i] = Store(Mul(Add(e.Box[i], e.Box[i + 3]), 0.5));
         Span<float> dir = stackalloc float[3];
         if (!random)
@@ -630,27 +632,27 @@ public partial class GameBase
             if (!thrower.ThrowDirection(dir))
             {
                 // GameBase (0x0044801c): (0, 8, 0) through the thrower matrix (m_mul_vector).
-                for (int j = 0; j < 3; ++j)
+                for (var j = 0; j < 3; ++j)
                     dir[j] = Store(Mul(8.0f, thrower.Transform.M[3 + j]));
             }
         }
         else
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
-                double rr = Mul(gen.Next(), 2.3283064365386963e-10);
+                var rr = Mul(gen.Next(), 2.3283064365386963e-10);
                 dir[i] = i < 2 ? Store(Sub(Mul(rr, 1.466f), 0.733f)) : Store(Add(Mul(rr, 0.5f), 0.5f));
             }
         }
-        float f = Store(Div(speed, ItemData.Mass));
-        for (int i = 0; i < 3; ++i)
+        var f = Store(Div(speed, ItemData.Mass));
+        for (var i = 0; i < 3; ++i)
             Velocity[i] = Store(Add(Mul(dir[i], f), thrower.Velocity[i]));
         AtRest = false;
-        double r = Mul(gen.Next(), 2.3283064365386963e-10);
+        var r = Mul(gen.Next(), 2.3283064365386963e-10);
         Rotation[0] = Rotation[1] = 0;
         Rotation[2] = Store(Mul(r, 6.2831853071795864769));
         SetMaskBits(0x10);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Transform.P[i] = pos[i];
         Transform.Flags |= 2;
         MissionTransform.EulerToMatrix(Rotation, ref Transform);
@@ -669,11 +671,11 @@ public partial class GameBase
     public void MineHit(ReadOnlySpan<float> n)
     {
         Span<float> sum = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             sum[i] = Store(Add(MineNormal[i], n[i]));
-        double l = Len3(sum);
+        var l = Len3(sum);
         if (l > 0)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 MineNormal[i] = Store(Div(sum[i], l));
     }
 
@@ -685,16 +687,16 @@ public partial class GameBase
             return;
         using var chop = ChopScope();
         double cz = Math.Cos(-(double)Rotation[2]), sz = Math.Sin(-(double)Rotation[2]);
-        float nx = Store(Sub(Mul(MineNormal[0], cz), Mul(MineNormal[1], sz)));
-        float ny = Store(Add(Mul(MineNormal[0], sz), Mul(MineNormal[1], cz)));
+        var nx = Store(Sub(Mul(MineNormal[0], cz), Mul(MineNormal[1], sz)));
+        var ny = Store(Add(Mul(MineNormal[0], sz), Mul(MineNormal[1], cz)));
         // The original's atan2 returns a double: atan2(1, 0) - pi/2 is then exactly 0 [live: minethrow].
-        float tx = Store(Sub(Math.Atan2(MineNormal[2], ny), 1.5707963267948966));
-        float ty = -Store(Sub(Math.Atan2(MineNormal[2], nx), 1.5707963267948966));
-        bool changed = false;
-        float[] target = { tx, ty };
-        for (int i = 0; i < 2; ++i)
+        var tx = Store(Sub(Math.Atan2(MineNormal[2], ny), 1.5707963267948966));
+        var ty = -Store(Sub(Math.Atan2(MineNormal[2], nx), 1.5707963267948966));
+        var changed = false;
+        float[] target = [tx, ty];
+        for (var i = 0; i < 2; ++i)
         {
-            float d = Store(Sub(target[i], Rotation[i]));
+            var d = Store(Sub(target[i], Rotation[i]));
             const float stepRad = 0.05f;
             if (Math.Abs((double)d) > stepRad)
             {

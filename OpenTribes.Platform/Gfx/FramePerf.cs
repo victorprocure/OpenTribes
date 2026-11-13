@@ -1,15 +1,15 @@
+namespace OpenTribes.Platform.Gfx;
+
 using System.Diagnostics;
 using System.Text;
-
-namespace OpenTribes.Platform.Gfx;
 
 /// <summary>Counters a device can expose to the frame timer.</summary>
 public interface IGfxStats
 {
     /// <summary>Gets the draw calls submitted so far.</summary>
-    long DrawCalls { get; }
+    public long DrawCalls { get; }
     /// <summary>Gets the triangles submitted so far.</summary>
-    long Triangles { get; }
+    public long Triangles { get; }
 }
 
 /// <summary>The frame timing log for play-tests. <c>OT_PERF=N</c>, the frames per report, turns it on.</summary>
@@ -22,9 +22,9 @@ public static class FramePerf
         public long Draws, Tris, Count, Bytes;
     }
 
-    private static readonly Dictionary<string, Acc> sSections = new();
-    private static readonly List<string> sOrder = new();
-    private static readonly List<double> sFrameMs = new();
+    private static readonly Dictionary<string, Acc> sSections = [];
+    private static readonly List<string> sOrder = [];
+    private static readonly List<double> sFrameMs = [];
     private static readonly StringBuilder sFrameDetail = new();
     private static int sGcAtFrame;
     private static TimeSpan sPauseAtFrame, sPauseStart;
@@ -43,7 +43,7 @@ public static class FramePerf
     /// <summary>The writer the reports go to.</summary>
     public static TextWriter Out = Console.Error;
 
-    private static int ParseEvery() => int.TryParse(Environment.GetEnvironmentVariable("OT_PERF"), out int n) && n > 0 ? n : 0;
+    private static int ParseEvery() => int.TryParse(Environment.GetEnvironmentVariable("OT_PERF"), out var n) && n > 0 ? n : 0;
 
     /// <summary>Turns the log on.</summary>
     /// <param name="every">The number of frames per report.</param>
@@ -71,7 +71,7 @@ public static class FramePerf
         {
             if (mName == null)
                 return;
-            long end = Stopwatch.GetTimestamp();
+            var end = Stopwatch.GetTimestamp();
             if (!sSections.TryGetValue(mName, out Acc? a))
             {
                 sSections[mName] = a = new Acc();
@@ -96,10 +96,10 @@ public static class FramePerf
     {
         if (!On)
             return;
-        long now = Stopwatch.GetTimestamp();
+        var now = Stopwatch.GetTimestamp();
         if (sFrameStart != 0)
         {
-            double ms = (now - sFrameStart) * sTickMs;
+            var ms = (now - sFrameStart) * sTickMs;
             sFrameMs.Add(ms);
             if (ms > SpikeMs)
                 Out.WriteLine($"perf spike {ms:F1} ms (gc2 +{GC.CollectionCount(2) - sGcAtFrame}, gc pause {(GC.GetTotalPauseDuration() - sPauseAtFrame).TotalMilliseconds:F1} ms):{sFrameDetail}");
@@ -121,16 +121,16 @@ public static class FramePerf
 
     private static void Report()
     {
-        int n = sFrameMs.Count;
+        var n = sFrameMs.Count;
         double sum = 0;
-        foreach (double d in sFrameMs)
+        foreach (var d in sFrameMs)
             sum += d;
         sFrameMs.Sort();
         double avg = sum / n, p95 = sFrameMs[Math.Min(n - 1, (int)(n * 0.95))], max = sFrameMs[n - 1];
-        long alloc = GC.GetAllocatedBytesForCurrentThread() - sAllocStart;
+        var alloc = GC.GetAllocatedBytesForCurrentThread() - sAllocStart;
         var sb = new StringBuilder();
         sb.Append($"perf {n} frames: {avg:F2} ms avg ({1000 / avg:F0} fps) p95 {p95:F2} max {max:F2} | alloc {alloc / (double)n / 1024:F0} KB/frame gc {GC.CollectionCount(0) - sGc0}/{GC.CollectionCount(1) - sGc1}/{GC.CollectionCount(2) - sGc2} pause {(GC.GetTotalPauseDuration() - sPauseStart).TotalMilliseconds / n:F2} ms/frame");
-        foreach (string name in sOrder)
+        foreach (var name in sOrder)
         {
             Acc a = sSections[name];
             sb.Append($" | {name} {a.Ms / n:F2}ms");

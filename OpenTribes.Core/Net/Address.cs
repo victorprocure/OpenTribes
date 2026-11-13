@@ -56,4 +56,14 @@ public struct Address : IEquatable<Address>, IComparable<Address>
     /// <returns>The text.</returns>
     public override readonly string ToString() =>
         "IP:" + (Ip >> 24) + "." + ((Ip >> 16) & 0xff) + "." + ((Ip >> 8) & 0xff) + "." + (Ip & 0xff) + ":" + Port;
+
+    public static bool operator <=(Address left, Address right)
+    {
+        return left.CompareTo(right) <= 0;
+    }
+
+    public static bool operator >=(Address left, Address right)
+    {
+        return left.CompareTo(right) >= 0;
+    }
 }

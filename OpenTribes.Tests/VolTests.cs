@@ -1,7 +1,7 @@
 // Port of tests/test_vol.cpp.
-using OpenTribes.Core;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Core;
 
 public class VolTests
 {
@@ -9,7 +9,7 @@ public class VolTests
 
     private static void PutU32(List<byte> b, uint v)
     {
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             b.Add((byte)(v >> (i * 8)));
     }
 
@@ -47,11 +47,11 @@ public class VolTests
             while (b.Count % 4 != 0)
                 b.Add(0);
         }
-        uint dir = (uint)b.Count;
-        for (int i = 0; i < 4; ++i)
+        var dir = (uint)b.Count;
+        for (var i = 0; i < 4; ++i)
             b[4 + i] = (byte)(dir >> (i * 8));
 
-        string strings = "";
+        var strings = "";
         var nameOffsets = new List<uint>();
         foreach (Spec s in specs)
         {
@@ -67,7 +67,7 @@ public class VolTests
 
         PutTag(b, "voli");
         PutU32(b, (uint)(specs.Count * 17));
-        for (int i = 0; i < specs.Count; ++i)
+        for (var i = 0; i < specs.Count; ++i)
         {
             PutU32(b, 0);
             PutU32(b, nameOffsets[i]);
@@ -75,12 +75,12 @@ public class VolTests
             PutU32(b, (uint)specs[i].Data.Length);
             b.Add(specs[i].Compression);
         }
-        return b.ToArray();
+        return [.. b];
     }
 
     private static string WriteTemp(byte[] bytes, string name)
     {
-        string path = Path.Combine(sTmp, name);
+        var path = Path.Combine(sTmp, name);
         bool ok;
         try
         {
@@ -108,14 +108,14 @@ public class VolTests
             new("packed.dat", "xx", 1),
             new("weird.dat", "xx", 2),
         };
-        string path = WriteTemp(BuildVol(specs, align4), align4 ? "a4.vol" : "a2.vol");
+        var path = WriteTemp(BuildVol(specs, align4), align4 ? "a4.vol" : "a2.vol");
 
         using var vol = new VolArchive();
         Assert.True(vol.Open(path));
         Assert.Equal(specs.Count, vol.Entries().Count);
         Assert.Empty(vol.Entries()[3].Name);
 
-        byte[] buf = Array.Empty<byte>();
+        var buf = Array.Empty<byte>();
         VolEntry? e = vol.Find("zeta.CS");
         Assert.True(e != null && vol.Read(e, out buf));
         Assert.Equal("echo(\"z\");", Str(buf));
@@ -140,10 +140,10 @@ public class VolTests
     private static string RleEncode(string input)
     {
         var output = new System.Text.StringBuilder();
-        int i = 0;
+        var i = 0;
         while (i < input.Length)
         {
-            int run = 1;
+            var run = 1;
             while (i + run < input.Length && input[i + run] == input[i] && run < 127)
                 ++run;
             if (run >= 3)
@@ -153,10 +153,10 @@ public class VolTests
                 i += run;
                 continue;
             }
-            int lit = 0;
+            var lit = 0;
             while (i + lit < input.Length && lit < 127)
             {
-                int r = 1;
+                var r = 1;
                 while (i + lit + r < input.Length && input[i + lit + r] == input[i + lit] && r < 3)
                     ++r;
                 if (r >= 3)
@@ -172,16 +172,16 @@ public class VolTests
 
     private static void TestRle()
     {
-        string pattern = "";
-        for (int i = 0; i < 700; ++i)
-            pattern += (char)('a' + (i * 7) % 5); // no runs: literal blocks of 127
-        string runs = new string('z', 300);       // 127 + 127 + 46
+        var pattern = "";
+        for (var i = 0; i < 700; ++i)
+            pattern += (char)('a' + (i * 7 % 5)); // no runs: literal blocks of 127
+        var runs = new string('z', 300);       // 127 + 127 + 46
         runs += "ab";
         runs += new string('q', 3);
-        string mixed = pattern + runs + pattern[..10] + new string('r', 127) + new string('s', 128);
+        var mixed = pattern + runs + pattern[..10] + new string('r', 127) + new string('s', 128);
         var specs = new List<Spec>();
-        var plain = new List<string> { mixed, runs, new string('\0', 1000) };
-        for (int i = 0; i < plain.Count; ++i)
+        var plain = new List<string> { mixed, runs, new('\0', 1000) };
+        for (var i = 0; i < plain.Count; ++i)
             specs.Add(new Spec(null, RleEncode(plain[i]), 1, (uint)plain[i].Length));
         // Hand-made streams: zero-length headers are skipped, a run may end the output early.
         const string skip = "\u0080A\u0000\u0000\u008a" + "k\u0002" + "hi"; // zero run (value A), two zero literals, 10 x k, "hi"
@@ -195,15 +195,15 @@ public class VolTests
         // is the uncompressed length): the original's memory stream runs dry and the read fails.
         specs.Add(new Spec(null, RleEncode(pattern), 1, (uint)pattern.Length));
         specs.Add(new Spec(null, RleEncode("A"), 1, 1));
-        string[] names = { "m.rle", "r.rle", "z.rle", "skip.rle", "cut.rle", "short.rle", "end.rle", "big.rle", "empty.rle",
-                           "pattern.rle", "one.rle" };
-        for (int i = 0; i < specs.Count; ++i)
+        string[] names = [ "m.rle", "r.rle", "z.rle", "skip.rle", "cut.rle", "short.rle", "end.rle", "big.rle", "empty.rle",
+                           "pattern.rle", "one.rle" ];
+        for (var i = 0; i < specs.Count; ++i)
             specs[i].Name = names[i];
-        string path = WriteTemp(BuildVol(specs, false), "rle.vol");
+        var path = WriteTemp(BuildVol(specs, false), "rle.vol");
         using var vol = new VolArchive();
         Assert.True(vol.Open(path));
-        byte[] buf = Array.Empty<byte>();
-        for (int i = 0; i < plain.Count; ++i)
+        var buf = Array.Empty<byte>();
+        for (var i = 0; i < plain.Count; ++i)
         {
             VolEntry? pe = vol.Find(names[i]);
             Assert.True(pe != null && vol.Read(pe, out buf));
@@ -213,7 +213,7 @@ public class VolTests
         Assert.True(e != null && vol.Read(e, out buf) && Str(buf) == "kkkkkkkkkkhi");
         e = vol.Find("cut.rle");
         Assert.True(e != null && vol.Read(e, out buf) && Str(buf) == "yy");
-        foreach (string bad in new[] { "short.rle", "end.rle", "big.rle", "pattern.rle", "one.rle" })
+        foreach (var bad in new[] { "short.rle", "end.rle", "big.rle", "pattern.rle", "one.rle" })
         {
             e = vol.Find(bad);
             Assert.True(e != null && !vol.Read(e, out buf));
@@ -222,17 +222,17 @@ public class VolTests
         Assert.True(e != null && vol.Read(e, out buf) && buf.Length == 0);
 
         // The decoder on its own: every prefix of a valid stream fails or yields a prefix of the text.
-        byte[] enc = ByteString.ToBytes(RleEncode(mixed));
-        byte[] output = new byte[mixed.Length];
+        var enc = ByteString.ToBytes(RleEncode(mixed));
+        var output = new byte[mixed.Length];
         Assert.True(VolArchive.RleDecode(enc, output));
-        for (int cut = 0; cut < enc.Length; ++cut)
+        for (var cut = 0; cut < enc.Length; ++cut)
             Assert.False(VolArchive.RleDecode(enc.AsSpan(0, cut), output));
     }
 
     private static void TestRejectsGarbage()
     {
         using var vol = new VolArchive();
-        byte[] junk = { (byte)'P', (byte)'V', (byte)'O', (byte)'L', 0xe4, 0x01, 0x20, 0x20, (byte)'V', (byte)'B', (byte)'L', (byte)'K' };
+        byte[] junk = [(byte)'P', (byte)'V', (byte)'O', (byte)'L', 0xe4, 0x01, 0x20, 0x20, (byte)'V', (byte)'B', (byte)'L', (byte)'K'];
         Assert.False(vol.Open(WriteTemp(junk, "junk.vol")));
         junk[0] = (byte)'X';
         Assert.False(vol.Open(WriteTemp(junk, "junk2.vol")));

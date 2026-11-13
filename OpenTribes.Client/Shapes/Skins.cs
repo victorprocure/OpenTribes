@@ -1,6 +1,6 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Client.Shapes;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The skin rules: the texture name rule, the damage skin level and the deterministic damage decal placement.</summary>
 /// <remarks>docs/shapes-render.md 2.9. Names and numbers only. <see cref="ShapeAssets"/> applies them.</remarks>
@@ -35,7 +35,7 @@ public static class Skins
     /// <returns>The candidate name when it exists, else the original name.</returns>
     public static string Resolve(string map, string skin, Func<string, bool> exists, bool custom = true)
     {
-        string c = Candidate(map, skin, custom);
+        var c = Candidate(map, skin, custom);
         return c != map && exists(c) ? c : map;
     }
 
@@ -66,7 +66,7 @@ public static class Skins
     /// <returns>The position of the decal on the skin.</returns>
     public static (int x, int y) DecalPosition(int i, int skinW, int decalW, int skinH, int decalH)
     {
-        uint x = unchecked(0x01cc0a03u * (uint)i), y = unchecked((uint)(-0x34328f9b) * (uint)i);
+        uint x = unchecked(0x01cc0a03u * (uint)i), y = unchecked((uint)-0x34328f9b * (uint)i);
         int dx = skinW - decalW, dy = skinH - decalH;
         return (dx > 0 ? (int)(x % (uint)dx) : 0, dy > 0 ? (int)(y % (uint)dy) : 0);
     }
@@ -82,7 +82,11 @@ public static class Skins
             return skin;
         var copy = new PbmpBitmap
         {
-            Width = skin.Width, Height = skin.Height, Depth = skin.Depth, Attributes = skin.Attributes, PaletteId = skin.PaletteId,
+            Width = skin.Width,
+            Height = skin.Height,
+            Depth = skin.Depth,
+            Attributes = skin.Attributes,
+            PaletteId = skin.PaletteId,
             Pixels = (byte[])skin.Pixels.Clone(),
         };
         long target = (long)level * skin.Width * skin.Height / 4, covered = 0;
@@ -93,13 +97,13 @@ public static class Skins
             ++n;
             if (d.Depth != 8 || d.Width >= skin.Width || d.Height >= skin.Height)
                 continue;
-            (int px, int py) = DecalPosition(n, skin.Width, d.Width, skin.Height, d.Height);
-            for (int y = 0; y < d.Height; ++y)
-                for (int x = 0; x < d.Width; ++x)
+            (var px, var py) = DecalPosition(n, skin.Width, d.Width, skin.Height, d.Height);
+            for (var y = 0; y < d.Height; ++y)
+                for (var x = 0; x < d.Width; ++x)
                 {
-                    byte v = d.Pixels[y * d.Stride + x];
+                    var v = d.Pixels[(y * d.Stride) + x];
                     if (v != 0)
-                        copy.Pixels[(py + y) * copy.Stride + px + x] = v;
+                        copy.Pixels[((py + y) * copy.Stride) + px + x] = v;
                 }
             covered += (long)d.Width * d.Height;
         }

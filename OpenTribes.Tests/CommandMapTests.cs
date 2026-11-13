@@ -1,18 +1,18 @@
 // The commander map (docs/gui.md 3.3 "The command map", docs/world-render.md 2.11): TSCommander [004ceb18, 004cef14, 004d04e8] and its picture.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.World;
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.World;
 
-namespace OpenTribes.Tests;
-
 public class CommandMapTests
 {
     private sealed class StretchDev : IGfxDevice
     {
-        public readonly List<string> Calls = new();
-        public readonly List<GfxRect?> Clips = new();
+        public readonly List<string> Calls = [];
+        public readonly List<GfxRect?> Clips = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -33,7 +33,7 @@ public class CommandMapTests
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) =>
             Calls.Add($"stretch {bitmap.Width}x{bitmap.Height} {x},{y} {width}x{height}");
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
@@ -107,12 +107,12 @@ public class CommandMapTests
     private static GridBlock Block(int n, Func<int, int, (byte flags, byte mat)> sq)
     {
         var b = new GridBlock { Size = n, Heights = new float[(n + 1) * (n + 1)], Squares = new byte[n * n * 2] };
-        for (int y = 0; y < n; ++y)
-            for (int x = 0; x < n; ++x)
+        for (var y = 0; y < n; ++y)
+            for (var x = 0; x < n; ++x)
             {
                 var (f, m) = sq(x, y);
-                b.Squares[(y * n + x) * 2] = f;
-                b.Squares[(y * n + x) * 2 + 1] = m;
+                b.Squares[((y * n) + x) * 2] = f;
+                b.Squares[(((y * n) + x) * 2) + 1] = m;
             }
         return b;
     }
@@ -121,11 +121,11 @@ public class CommandMapTests
     private static byte[]? Material(int m)
     {
         var rgba = new byte[4 * 4 * 4];
-        for (int y = 0; y < 4; ++y)
-            for (int x = 0; x < 4; ++x)
+        for (var y = 0; y < 4; ++y)
+            for (var x = 0; x < 4; ++x)
             {
-                int o = (y * 4 + x) * 4;
-                byte v = (byte)(x < 2 ? 100 : 200);
+                var o = ((y * 4) + x) * 4;
+                var v = (byte)(x < 2 ? 100 : 200);
                 rgba[o] = m == 0 ? v : (byte)0;
                 rgba[o + 2] = m == 1 ? v : (byte)0;
                 rgba[o + 3] = 255;
@@ -143,12 +143,12 @@ public class CommandMapTests
     public void PictureHasTheNorthEdgeOnTopAndOnePixelPerAreaOver1024()
     {
         // two materials in rows: cell row y < 128 red, else blue; the area is the lower left 2048 / 2 square of the terrain at origin 0
-        var t = new TerrainData(Block(256, (x, y) => (0, (byte)(y < 128 ? 0 : 1))), 2, Array.Empty<ushort>());
+        var t = new TerrainData(Block(256, (x, y) => (0, (byte)(y < 128 ? 0 : 1))), 2, []);
         // the whole 2048 x 2048 terrain: the picture's top rows are the north (y near 2048, blue), the bottom rows the south (red)
-        byte[] pic = Bake(t, 0, 0, 0, 0, 2048, 2048);
+        var pic = Bake(t, 0, 0, 0, 0, 2048, 2048);
         Assert.Equal(CommandMapBake.Size * CommandMapBake.Size, pic.Length);
-        Assert.True(pic[10 * 1024 + 500] >= 20);
-        Assert.True(pic[1000 * 1024 + 500] is >= 10 and < 20);
+        Assert.True(pic[(10 * 1024) + 500] >= 20);
+        Assert.True(pic[(1000 * 1024) + 500] is >= 10 and < 20);
         // the halfway row is the cell row 128 (y = 1024): rows 0 to 511 are blue, 512 to 1023 red
         Assert.True(pic[511 * 1024] >= 20);
         Assert.True(pic[512 * 1024] is >= 10 and < 20);
@@ -158,11 +158,11 @@ public class CommandMapTests
     public void PictureFollowsTheAreaOrigin()
     {
         // 1024 x 1024 world units at (-512, -512) over a terrain at origin (-1024, -1024): cell x 64..192 of the 256
-        var t = new TerrainData(Block(256, (x, y) => (0, (byte)(x < 128 ? 0 : 1))), 2, Array.Empty<ushort>());
-        byte[] pic = Bake(t, -1024, -1024, -512, -512, 1024, 1024);
+        var t = new TerrainData(Block(256, (x, y) => (0, (byte)(x < 128 ? 0 : 1))), 2, []);
+        var pic = Bake(t, -1024, -1024, -512, -512, 1024, 1024);
         // world x 0 (cell 128) is the middle column: left of it red, right of it blue
-        Assert.True(pic[100 * 1024 + 100] is >= 10 and < 20);
-        Assert.True(pic[100 * 1024 + 900] >= 20);
+        Assert.True(pic[(100 * 1024) + 100] is >= 10 and < 20);
+        Assert.True(pic[(100 * 1024) + 900] >= 20);
     }
 
     [Fact]
@@ -170,16 +170,16 @@ public class CommandMapTests
     {
         // one terrain of material 0 with flag 0 (mirror v) and flag 4 (e = 0, no change): the dark half of the picture is the left half in x
         // for both, since neither flag swaps u and v or mirrors u (the element bits 2 and 0)
-        var t = new TerrainData(Block(256, (x, y) => (x == 0 ? (byte)(1 << 3) : (byte)0, (byte)0)), 2, Array.Empty<ushort>());
-        byte[] pic = Bake(t, 0, 0, 0, 0, 2048, 2048); // 2 world units a pixel, 4 pixels a cell
-        Assert.Equal(0, pic[500 * 1024 + 1]);             // cell column 0 is an empty square
-        Assert.Equal(11, pic[500 * 1024 + 4]);            // dark half of the next cell: the material's left half is 100
-        Assert.Equal(12, pic[500 * 1024 + 6]);            // light half: 200
+        var t = new TerrainData(Block(256, (x, y) => (x == 0 ? (byte)(1 << 3) : (byte)0, 0)), 2, []);
+        var pic = Bake(t, 0, 0, 0, 0, 2048, 2048); // 2 world units a pixel, 4 pixels a cell
+        Assert.Equal(0, pic[(500 * 1024) + 1]);             // cell column 0 is an empty square
+        Assert.Equal(11, pic[(500 * 1024) + 4]);            // dark half of the next cell: the material's left half is 100
+        Assert.Equal(12, pic[(500 * 1024) + 6]);            // light half: 200
         // flag 1 (rotate: element bits 3, swap and mirror u): the dark half moves to the top of the cell
-        var r = new TerrainData(Block(256, (x, y) => ((byte)1, (byte)0)), 2, Array.Empty<ushort>());
-        byte[] rp = Bake(r, 0, 0, 0, 0, 2048, 2048);
+        var r = new TerrainData(Block(256, (x, y) => (1, 0)), 2, []);
+        var rp = Bake(r, 0, 0, 0, 0, 2048, 2048);
         // the row 500 is in cell row 127 (y 1000 .. 1008 is pixel rows 496 .. 500 from the top 2048 down): rows are not all one value
-        Assert.NotEqual(rp[496 * 1024 + 8], rp[499 * 1024 + 8]);
+        Assert.NotEqual(rp[(496 * 1024) + 8], rp[(499 * 1024) + 8]);
     }
 
     [Fact]
@@ -187,40 +187,40 @@ public class CommandMapTests
     {
         // light words: 0xf000 (mono nibble only) is black for the colour nibbles, 0x0888 is half
         var light = new ushort[257 * 257];
-        for (int i = 0; i < light.Length; ++i)
+        for (var i = 0; i < light.Length; ++i)
             light[i] = 0x0fff;
-        var t = new TerrainData(Block(256, (x, y) => (0, (byte)0)), 2, light);
-        byte[] bright = Bake(t, 0, 0, 0, 0, 2048, 2048);
-        Assert.Equal(11, bright[300 * 1024 + 300]); // red, dark half of the material (100) at full light
-        for (int i = 0; i < light.Length; ++i)
+        var t = new TerrainData(Block(256, (x, y) => (0, 0)), 2, light);
+        var bright = Bake(t, 0, 0, 0, 0, 2048, 2048);
+        Assert.Equal(11, bright[(300 * 1024) + 300]); // red, dark half of the material (100) at full light
+        for (var i = 0; i < light.Length; ++i)
             light[i] = 0x0000;
-        var dark = new TerrainData(Block(256, (x, y) => (0, (byte)0)), 2, light);
-        byte[] black = Bake(dark, 0, 0, 0, 0, 2048, 2048);
+        var dark = new TerrainData(Block(256, (x, y) => (0, 0)), 2, light);
+        var black = Bake(dark, 0, 0, 0, 0, 2048, 2048);
         // r = g = b = 0 maps through the nearest function to the blue family (r > b is false)
-        Assert.Equal(21, black[300 * 1024 + 300]);
+        Assert.Equal(21, black[(300 * 1024) + 300]);
     }
 
     [Fact]
     public void TilesAreTheSixteenQuartersInRowMajorOrder()
     {
         var pic = new byte[CommandMapBake.Size * CommandMapBake.Size];
-        for (int y = 0; y < CommandMapBake.Size; ++y)
-            for (int x = 0; x < CommandMapBake.Size; ++x)
-                pic[y * CommandMapBake.Size + x] = (byte)((y / 256) * 4 + x / 256 + 1);
+        for (var y = 0; y < CommandMapBake.Size; ++y)
+            for (var x = 0; x < CommandMapBake.Size; ++x)
+                pic[(y * CommandMapBake.Size) + x] = (byte)((y / 256 * 4) + (x / 256) + 1);
         PbmpBitmap[] tiles = CommandMapBake.Tiles(pic);
         Assert.Equal(16, tiles.Length);
-        for (int i = 0; i < 16; ++i)
+        for (var i = 0; i < 16; ++i)
         {
             Assert.Equal(256, tiles[i].Width);
             Assert.Equal(i + 1, tiles[i].Pixels[0]);
-            Assert.Equal(i + 1, tiles[i].Pixels[255 * tiles[i].Stride + 255]);
+            Assert.Equal(i + 1, tiles[i].Pixels[(255 * tiles[i].Stride) + 255]);
         }
     }
 
     // ---- the marks over the picture ----
 
     private static ClientDataBlock Block(int group, int index, params (string, object)[] fields) =>
-        new() { Group = group, Index = index, Fields = fields.Select(f => new DecodedField(f.Item1, f.Item2)).ToList() };
+        new() { Group = group, Index = index, Fields = [.. fields.Select(f => new DecodedField(f.Item1, f.Item2))] };
 
     private static ClientWorld MarkWorld()
     {
@@ -272,11 +272,11 @@ public class CommandMapTests
         fx.Host.SetFont("if_small.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 8 });
         fx.Host.SetBitmap("M_turret_green.bmp", new PbmpBitmap { Width = 8, Height = 6 });
         var order = new PbmaArray { BitmapCount = 8 };
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
             order.Bitmaps.Add(new PbmpBitmap { Width = 10 + i, Height = 10 });
         fx.Host.SetArray("CmdIconsCtrl.pba", order);
         var here = new PbmaArray { BitmapCount = 8 };
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
             here.Bitmaps.Add(new PbmpBitmap { Width = 9, Height = 9 });
         fx.Host.SetArray("CmdWhereAmI.pba", here);
         GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
@@ -355,12 +355,12 @@ public class CommandMapTests
     public void ZoomStopsAtFourStepsAndOutAtNoZoomRefits()
     {
         var (fx, map) = ZoomSetup();
-        for (int i = 0; i < 6; ++i)
+        for (var i = 0; i < 6; ++i)
             map.ZoomIn(231, 240, true);
         Assert.Equal(GuiCommandMap.MaxZoomSteps, map.ZoomSteps);
         fx.Frame(500);
         Assert.Equal(408 * 16, map.W);
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             map.ZoomOut(231, 240, true);
         Assert.Equal(0, map.ZoomSteps);
         fx.Frame(500);

@@ -1,11 +1,11 @@
 // Port of tests/test_ghost_scope.cpp: net flags, camera record, the GameBase priority (004488e8) and the scope query
 // (docs/game-stream-ghosts.md 6.1-6.3). 31 asserts.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
-
-namespace OpenTribes.Tests;
 
 public class GhostScopeTests
 {
@@ -33,20 +33,20 @@ public class GhostScopeTests
     {
         Named marker = new("Marker", ""), cam = new("ObserverCamera", ""), shape = new("StaticShape", ""),
               itr = new("InteriorShape", ""), other = new("SimGroup", ""), trigger = new("Trigger", "");
-        Assert.True(GhostScope.NetFlags(marker) == 0x180);
-        Assert.True(GhostScope.NetFlags(cam) == 0);
-        Assert.True(GhostScope.NetFlags(shape) == 0x100);
-        Assert.True(GhostScope.NetFlags(itr) == 0x140);
-        Assert.True(GhostScope.NetFlags(other) == 0);
-        Assert.True(GhostScope.NetFlags(trigger) == 0);
+        Assert.Equal(0x180u, GhostScope.NetFlags(marker));
+        Assert.Equal(0u, GhostScope.NetFlags(cam));
+        Assert.Equal(0x100u, GhostScope.NetFlags(shape));
+        Assert.Equal(0x140u, GhostScope.NetFlags(itr));
+        Assert.Equal(0u, GhostScope.NetFlags(other));
+        Assert.Equal(0u, GhostScope.NetFlags(trigger));
         var vol = new ArgsVolume();
-        Assert.True(GhostScope.NetFlags(vol) == 0); // a script SimVolume without the true argument
+        Assert.Equal(0u, GhostScope.NetFlags(vol)); // a script SimVolume without the true argument
     }
 
     private static CameraRecord Observer()
     {
         var rec = new CameraRecord();
-        float[] pos = { 0, 0, 0 }, rot = { 0, 0, 0 };
+        float[] pos = [0, 0, 0], rot = [0, 0, 0];
         GhostScope.ObserverCameraRecord(pos, rot, rec);
         rec.VisibleDistance = 1500;
         return rec;
@@ -58,8 +58,8 @@ public class GhostScopeTests
     private static PriorityInputs At(float x, float y, float z, uint type = ObjectType.kStaticType)
     {
         var input = new PriorityInputs();
-        float[] c = { x, y, z };
-        for (int i = 0; i < 3; ++i)
+        float[] c = [x, y, z];
+        for (var i = 0; i < 3; ++i)
         {
             input.Box[i] = c[i] - 1;
             input.Box[i + 3] = c[i] + 1;
@@ -72,7 +72,7 @@ public class GhostScopeTests
     {
         CameraRecord rec = Observer();
         Assert.True(rec.Dir[0] == 0 && rec.Dir[1] == 1 && rec.Dir[2] == 0);
-        Assert.True(rec.Fov == 45.0f);
+        Assert.Equal(45.0f, rec.Fov);
         Assert.True(Near(rec.SinHalfFov, -0.487174, 1e-5) && Near(rec.CosHalfFov, -0.873305, 1e-5));
     }
 
@@ -80,38 +80,38 @@ public class GhostScopeTests
     {
         CameraRecord rec = Observer();
         // In front: fov term + distance term.
-        Assert.True(Near(Prio(At(0, 100, 0), rec), 1.0 + 0.4 * (1 - 100.0 / 1500)));
+        Assert.True(Near(Prio(At(0, 100, 0), rec), 1.0 + (0.4 * (1 - (100.0 / 1500)))));
         // Straight behind (outside cos 22.5 rad): distance term only.
-        Assert.True(Near(Prio(At(0, -100, 0), rec), 0.4 * (1 - 100.0 / 1500)));
+        Assert.True(Near(Prio(At(0, -100, 0), rec), 0.4 * (1 - (100.0 / 1500))));
         // Beyond the visible distance only the fov term remains.
         Assert.True(Near(Prio(At(0, 2000, 0), rec), 1.0));
         // Item interest, skips, ownership, Player interest.
-        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kItemType), rec), 1.0 + 0.4 * (1 - 100.0 / 1500) + 0.05));
-        Assert.True(Near(Prio(At(0, 100, 0), rec, 3), 1.0 + 0.4 * (1 - 100.0 / 1500) + 0.3));
+        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kItemType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.05));
+        Assert.True(Near(Prio(At(0, 100, 0), rec, 3), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.3));
         PriorityInputs owned = At(0, 100, 0);
         owned.OwnerId = 100;
-        Assert.True(Near(Prio(owned, rec), 1.0 + 0.4 * (1 - 100.0 / 1500) + 0.2));
-        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kPlayerType), rec), 1.0 + 0.4 * (1 - 100.0 / 1500) + 0.15));
+        Assert.True(Near(Prio(owned, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.2));
+        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kPlayerType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.15));
         // Velocity term: |dir x v| through the bit-level square root, (0,0,-10) -> 10.25.
         PriorityInputs moving = At(0, 100, 0);
         moving.Velocity[0] = 10;
-        Assert.True(Near(Prio(moving, rec), 1.0 + 0.4 * (1 - 100.0 / 1500) + 0.4 * (10.25 / 1500)));
+        Assert.True(Near(Prio(moving, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + (0.4 * (10.25 / 1500))));
         // Projectile coming at the camera: 0.3 + 0.2 * speed toward it.
         PriorityInputs shot = At(0, 100, 0, 0x100);
         shot.Velocity[1] = -10;
-        Assert.True(Near(Prio(shot, rec), 1.0 + 0.4 * (1 - 100.0 / 1500) + 0.2 * 2.3, 1e-5));
+        Assert.True(Near(Prio(shot, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + (0.2 * 2.3), 1e-5));
         shot.Velocity[1] = 10;
-        Assert.True(Near(Prio(shot, rec), 1.0 + 0.4 * (1 - 100.0 / 1500) + 0.2 * 0.3));
+        Assert.True(Near(Prio(shot, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + (0.2 * 0.3)));
         // The record object itself; a laser with mask bit 27; a centre on the camera.
-        Assert.True(GhostScope.GameBasePriority(At(0, 100, 0), rec, 100, true, 0xffffffffu, 0, new PriorityWeights()) == 10.0f);
+        Assert.Equal(10.0f, GhostScope.GameBasePriority(At(0, 100, 0), rec, 100, true, 0xffffffffu, 0, new PriorityWeights()));
         PriorityInputs laser = At(0, 100, 0);
         laser.Laser = true;
-        Assert.True(Prio(laser, rec, 0, 100, 0x08000000u) == 9.89999962f);
-        Assert.True(Prio(laser, rec, 0, 100, 0x1u) != 9.89999962f);
-        Assert.True(Near(Prio(At(0, 0, 0), rec), 1.0 + 0.4 * (1 - 0.001 / 1500)));
+        Assert.Equal(9.89999962f, Prio(laser, rec, 0, 100, 0x08000000u));
+        Assert.NotEqual(9.89999962f, Prio(laser, rec, 0, 100, 0x1u));
+        Assert.True(Near(Prio(At(0, 0, 0), rec), 1.0 + (0.4 * (1 - (0.001 / 1500)))));
         // Weights come from the variables.
         var w = new PriorityWeights { Fov = 2 };
-        Assert.True(Near(GhostScope.GameBasePriority(At(0, 100, 0), rec, 100, false, 0xffffffffu, 0, w), 2.0 + 0.4 * (1 - 100.0 / 1500)));
+        Assert.True(Near(GhostScope.GameBasePriority(At(0, 100, 0), rec, 100, false, 0xffffffffu, 0, w), 2.0 + (0.4 * (1 - (100.0 / 1500)))));
     }
 
     private static Container.Entry E(object obj, uint type, float x0, float y0, float z0, float x1, float y1, float z1) =>
@@ -131,14 +131,14 @@ public class GhostScopeTests
         c.Add(E(m, ObjectType.kMarkerType, 20, 10, 10, 22, 12, 12));
         c.Add(E(b, ObjectType.kStaticType, 30, 10, 10, 32, 12, 12));
         c.Add(E(itr, ObjectType.kInteriorType, 40, 10, 10, 42, 12, 12));
-        foreach (int client in new[] { 2050, 2049 })
+        foreach (var client in new[] { 2050, 2049 })
         {
             var gm = new GhostManager(client);
-            string order = "";
+            var order = "";
             gm.OnNewGhost = (index, obj) =>
             {
                 Assert.True(index == order.Length);
-                bool camera = obj.ClassName() == "ObserverCamera";
+                var camera = obj.ClassName() == "ObserverCamera";
                 order += camera ? "C" : ((Named)obj).Label;
             };
             var cam = new ObserverCamera();
@@ -161,7 +161,7 @@ public class GhostScopeTests
         public override Transform EyeTransform()
         {
             Transform t = Transform;
-            t.P[2] = OpenTribes.Core.Fpu.AddF(t.P[2], EyeHeight);
+            t.P[2] = Core.Fpu.AddF(t.P[2], EyeHeight);
             return t;
         }
     }
@@ -184,17 +184,17 @@ public class GhostScopeTests
         body.Transform.P[1] = 1;
         body.Transform.P[2] = 100;
         body.Fov = 1.5707964f;
-        foreach (float eye in new[] { 0.0f, 1.8f, 900.0f })
+        foreach (var eye in new[] { 0.0f, 1.8f, 900.0f })
         {
             body.EyeHeight = eye;
             var gm = new GhostManager(2049);
-            int marked = 0;
+            var marked = 0;
             gm.OnNewGhost = (_, obj) => marked += obj == far ? 1 : 0;
             gm.SetScopeObject(body);
             GhostScope.ScopeGhosts(gm, c);
             // The camera record holds the eye translation and row 1 of the eye transform.
             Assert.True(gm.Camera.Object == body && Near(gm.Camera.Pos[0], 1) && Near(gm.Camera.Pos[2], 100.0 + eye, 1e-3));
-            Assert.True(gm.Camera.Dir[1] == 1.0f);
+            Assert.Equal(1.0f, gm.Camera.Dir[1]);
             // 1600 m from the object transform (out of 1500); 700 m from the eye at +900 (in).
             Assert.True(marked == (eye > 800 ? 1 : 0));
         }

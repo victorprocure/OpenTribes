@@ -1,26 +1,26 @@
 // Port of tests/test_net_server.cpp: NetServer unit tests, connectionless queries and connect request checks
 // (docs/net-protocol.md 5 and 6, docs/lasthope-1.30.md 2.1 and 2.2). No socket is opened: datagrams go in through
 // NetServer.Receive and out through the send seam.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Net;
 using OpenTribes.Server;
-
-namespace OpenTribes.Tests;
 
 public class NetServerTests
 {
     private sealed class Harness
     {
         public readonly NetServer Server;
-        public readonly List<(Address to, byte[] data)> Sent = new();
-        public readonly List<string> Log = new();
+        public readonly List<(Address to, byte[] data)> Sent = [];
+        public readonly List<string> Log = [];
         public uint NextId = 0x1000; // client connection ids; low bit varies
 
         public Harness(ServerConfig cfg)
         {
             Server = new NetServer(cfg);
             Server.SetSendFunction((to, d) => Sent.Add((to, d.ToArray())));
-            Server.SetLog(line => Log.Add(line));
+            Server.SetLog(Log.Add);
         }
 
         public byte[] Query(Address from, byte[] req)
@@ -28,7 +28,7 @@ public class NetServerTests
             Sent.Clear();
             Server.Receive(from, req, 0);
             Assert.True(Sent.Count <= 1);
-            return Sent.Count == 0 ? Array.Empty<byte>() : Sent[0].data;
+            return Sent.Count == 0 ? [] : Sent[0].data;
         }
     }
 
@@ -43,8 +43,8 @@ public class NetServerTests
     {
         var buf = new byte[1500];
         var bs = new BitStream(buf, buf.Length);
-        bs.WriteBytes(new[] { (byte)r.PacketVersion, (byte)(r.PacketVersion >> 8) });
-        foreach (string s in new[] { r.Game, r.Version, r.Password, r.Name, r.Gender, r.Voice, r.Skin })
+        bs.WriteBytes([(byte)r.PacketVersion, (byte)(r.PacketVersion >> 8)]);
+        foreach (var s in new[] { r.Game, r.Version, r.Password, r.Name, r.Gender, r.Voice, r.Skin })
             bs.WriteString(s);
         return buf.AsSpan(0, bs.BytePosition()).ToArray();
     }
@@ -67,7 +67,7 @@ public class NetServerTests
         p.Seq = 1;
         p.Type = 3;
         p.Payload = RequestPayload(r);
-        byte[] d = VcPacket.Build(p);
+        var d = VcPacket.Build(p);
         h.Sent.Clear();
         h.Server.Receive(from, d, now);
         Assert.Single(h.Sent);
@@ -121,7 +121,7 @@ public class NetServerTests
     [Fact]
     public void TestNetServer()
     {
-        int cases = 0;
+        var cases = 0;
         var cfg = new ServerConfig { Hostname = "Host", MaxPlayers = "8" };
 
         // 6.1: 0x60 ping reply, byte stream with length-prefixed strings (4.2).
@@ -132,9 +132,9 @@ public class NetServerTests
             want.AddRange(Str("1.11"));
             want.AddRange(Str("Host"));
             want.AddRange(new byte[] { 1, 0, 0, 8 });
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x60, 0xaa, 0xbb }));
+            Assert.Equal([.. want], h.Query(Client(1), [0x60, 0xaa, 0xbb]));
             // Any length is answered.
-            Assert.Equal(0x61, h.Query(Client(1), new byte[] { 0x60, 0xaa, 0xbb, 0x00, 0x01 })[0]);
+            Assert.Equal(0x61, h.Query(Client(1), [0x60, 0xaa, 0xbb, 0x00, 0x01])[0]);
             ++cases;
         }
 
@@ -150,7 +150,7 @@ public class NetServerTests
             want.AddRange(Str("1.30"));
             want.AddRange(Str(new string('h', 32)));
             want.AddRange(new byte[] { 1, 1, 0, 8 });
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x60, 1, 2 }));
+            Assert.Equal([.. want], h.Query(Client(1), [0x60, 1, 2]));
             ++cases;
         }
 
@@ -158,8 +158,8 @@ public class NetServerTests
         // teams and per-player rows (ping/4, loss*100, team, name).
         {
             var h = new Harness(cfg);
-            Assert.Empty(h.Query(Client(1), new byte[] { 0x62, 1, 2, 3 }));
-            Assert.Empty(h.Query(Client(1), new byte[] { 0x62, 1 }));
+            Assert.Empty(h.Query(Client(1), [0x62, 1, 2, 3]));
+            Assert.Empty(h.Query(Client(1), [0x62, 1]));
             Reply r = Connect(h, Client(5), new Request());
             Assert.True(r.Accepted);
             h.Server.SetGameInfo(() => new GameInfo
@@ -196,25 +196,25 @@ public class NetServerTests
             want.AddRange(new byte[] { 0, 0, 0xff }); // no client record yet: ping 0, loss 0, no team
             want.AddRange(Str("Player"));
             want.AddRange(Str(""));
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x62, 7, 9 }));
+            Assert.Equal([.. want], h.Query(Client(1), [0x62, 7, 9]));
             ++cases;
         }
 
         // 6.2: 0x10 type 3 ping, 40-byte reply with the packet version (1 for "1.11" and "1.30").
-        foreach (bool lastHope in new[] { false, true })
+        foreach (var lastHope in new[] { false, true })
         {
             ServerConfig c = cfg.Clone();
             c.LastHope = lastHope;
             c.Hostname = new string('x', 35);
             var h = new Harness(c);
-            byte[] reply = h.Query(Client(1), new byte[] { 0x10, 0x03, 0xff, 0x00, 0x34, 0x12, 0x00, 0x00 });
+            var reply = h.Query(Client(1), [0x10, 0x03, 0xff, 0x00, 0x34, 0x12, 0x00, 0x00]);
             var want = new List<byte> { 0x10, 0x04, 0xff, 0xf0, 0x34, 0x12, 0x20, 0x00, 0x01, 0x00 };
             want.AddRange(Enumerable.Repeat((byte)'x', 29));
             want.Add(0);
-            Assert.Equal(want.ToArray(), reply);
+            Assert.Equal([.. want], reply);
             // A request cut before the key is answered with key 0 (docs/server-ops.md 2.2).
             want[4] = want[5] = 0;
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x10, 0x03, 0xff, 0x00 }));
+            Assert.Equal([.. want], h.Query(Client(1), [0x10, 0x03, 0xff, 0x00]));
             ++cases;
         }
 
@@ -359,8 +359,8 @@ public class NetServerTests
         // 3.5 / 5.6: the accept ack establishes the stream; data reaches the hooks.
         {
             var h = new Harness(cfg);
-            int accepted = 0;
-            string data = "";
+            var accepted = 0;
+            var data = "";
             var hooks = new NetHooks
             {
                 OnAccepted = (p, c) => ++accepted,
@@ -379,13 +379,13 @@ public class NetServerTests
 
         // DECISIONS D11 / lasthope 2.2 L2: more than 20 ack ranges is dropped; in LastHope mode the
         // drop logs "Crash Attempt: <address>".
-        foreach (bool lastHope in new[] { false, true })
+        foreach (var lastHope in new[] { false, true })
         {
             ServerConfig c = cfg.Clone();
             c.LastHope = lastHope;
             var h = new Harness(c);
             var p = new VcPacket { Id = 0x2001, IdBit = 1, Seq = 1, Type = 3 };
-            for (int i = 0; i < 21; ++i)
+            for (var i = 0; i < 21; ++i)
                 p.Ranges.Add((1, 3));
             var r = new Request { Version = lastHope ? "1.30" : "1.11" };
             p.Payload = RequestPayload(r);
@@ -402,7 +402,7 @@ public class NetServerTests
         // Frame steps (docs/sim.md 8.3 step 3): the game tick hook runs in sendPackets only.
         {
             var h = new Harness(cfg);
-            int ticks = 0;
+            var ticks = 0;
             uint last = 0;
             var hooks = new NetHooks
             {

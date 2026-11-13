@@ -1,6 +1,6 @@
-using OpenTribes.Gui;
-
 namespace OpenTribes.Client.Audio;
+
+using OpenTribes.Gui;
 
 /// <summary>Plays the sounds of the GUI screens through the sound manager.</summary>
 /// <remarks>Follows docs/audio.md 3.5: GUI sounds are wave plays with the static 2D profile (flags 0, base volume 0) and priority 0, so the 2D pref applies.</remarks>

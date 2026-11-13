@@ -1,9 +1,6 @@
-using OpenTribes.Core;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The third person camera of a turret.</summary>
 /// <remarks>Follows Turret_getCameraTransform (004564fc, Turret slot 0x170).</remarks>
@@ -27,9 +24,9 @@ public static class TurretCamera
         if (eyeNode is not { } node)
             return obj;
         var local = new Transform();
-        MissionTransform.EulerToMatrix(new[] { elevation, 0.0f, rotation }, ref local);
+        MissionTransform.EulerToMatrix([elevation, 0.0f, rotation], ref local);
         local.Flags |= 2u;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             local.P[i] = node.P[i];
         var a = new TMat3 { Flags = local.Flags, M = local.M, P = local.P };
         var b = new TMat3 { Flags = obj.Flags, M = obj.M, P = obj.P };
@@ -37,7 +34,7 @@ public static class TurretCamera
         var p = new float[] { w.P[0], w.P[1], w.P[2] };
         ObserverCamera.PlaceBehind(container, exclude, p, w.M[3], w.M[4], w.M[5], Store(Mul(arg, DistanceFactor)));
         var t = new Transform { Flags = w.Flags, M = w.M };
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             t.P[i] = p[i];
         return t;
     }

@@ -4,10 +4,10 @@
 // The x87 helpers of src/core/ldouble.hpp are their portable forms: fpatan Math.Atan2, fptan Math.Tan, fldpi the double
 // pi, fprem fmod with the quotient's low three bits; the 80-bit constants are the 53-bit rounded doubles. The C++
 // struct copies of a directive are AIDirective.Clone().
+namespace OpenTribes.Game;
+
 using System.Runtime.InteropServices;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.Game;
 
 /// <summary>A directive record of an AI player (docs/ai-sim.md 2.1, 0x38 bytes in the original).</summary>
 public sealed class AIDirective
@@ -163,7 +163,7 @@ public sealed class AISkill
     /// <remarks>Follows 0x00440eb8.</remarks>
     public float Accuracy(float dist)
     {
-        float p = X87.F32(AIMath.FractionOf(Range, 0.0f, dist));
+        var p = X87.F32(AIMath.FractionOf(Range, 0.0f, dist));
         return X87.F32(AIMath.LerpF(p, MinAccuracy, Skill));
     }
 
@@ -191,26 +191,26 @@ internal static class AIMath
     {
         if (r == 0)
             return r;
-        bool negative = double.IsNegative(r);
-        double a = Math.Abs(r);
+        var negative = double.IsNegative(r);
+        var a = Math.Abs(r);
         if (a == 1)
         {
-            double v1 = Div(X87Pi(), 4);
+            var v1 = Div(X87Pi(), 4);
             return negative ? -v1 : v1;
         }
         if (a < 1)
         {
-            double v2 = X87Fpatan(a, 1.0);
+            var v2 = X87Fpatan(a, 1.0);
             return negative ? -v2 : v2;
         }
-        double v = Sub(X87Fpatan(1.0, a), kHalfPiD);
+        var v = Sub(X87Fpatan(1.0, a), kHalfPiD);
         return negative ? v : -v;
     }
 
     // src/game/ai_object.cpp borlandAtan2: Borland atan2 (0x006067ac) for finite arguments.
     public static double BorlandAtan2(double a, double b)
     {
-        double pi = X87Pi();
+        var pi = X87Pi();
         if (a == 0.0)
         {
             if (b == 0.0)
@@ -221,7 +221,7 @@ internal static class AIMath
         }
         if (b == 0.0)
             return double.IsNegative(a) ? -kHalfPiD : kHalfPiD;
-        double v = BorlandAtan(Div(a, b));
+        var v = BorlandAtan(Div(a, b));
         if (double.IsNegative(b))
             v = double.IsNegative(a) ? Sub(v, pi) : Add(v, pi);
         return v;
@@ -237,12 +237,12 @@ internal static class AIMath
     }
 
     // The 80-bit pi / 4 of crtTrig, rounded to 53 bits.
-    private static readonly double kQuarter = Math.ScaleB((double)0xc90fdaa22168c235UL, -64);
+    private static readonly double kQuarter = Math.ScaleB(0xc90fdaa22168c235UL, -64);
 
     // src/core/ldouble.hpp fpremLD (portable): the remainder by `quarter`, and the low three bits of the quotient.
     private static double FpremLD(double ax, double quarter, out uint octant)
     {
-        double rem = ax % quarter; // std::fmod (exact)
+        var rem = ax % quarter; // std::fmod (exact)
         octant = (uint)((ulong)Math.Truncate(Div(Sub(ax, rem), quarter)) & 7u);
         return rem;
     }
@@ -255,24 +255,24 @@ internal static class AIMath
             return cosine ? 1.0 : x;
         if (!(Math.Abs(x) < 9007199254740992.0))
             return 0; // the original reports a range error
-        bool negative = double.IsNegative(x);
-        double quarter = kQuarter;
-        double ax = Math.Abs(x);
-        double rem = FpremLD(ax, quarter, out uint n); // n: the octant, quotient mod 8
-        uint sign = negative ? 1u : 0u;
+        var negative = double.IsNegative(x);
+        var quarter = kQuarter;
+        var ax = Math.Abs(x);
+        var rem = FpremLD(ax, quarter, out var n); // n: the octant, quotient mod 8
+        var sign = negative ? 1u : 0u;
         if (cosine)
         {
             n = (n + 2) & 7;
             sign = 0;
         }
-        double r = rem;
+        var r = rem;
         if ((n & 1) != 0)
             r = Sub(quarter, r);
-        double t = X87Fptan(r);
-        double root = Sqrt(Add(1.0, Mul(t, t)));
+        var t = X87Fptan(r);
+        var root = Sqrt(Add(1.0, Mul(t, t)));
         if ((((n >> 2) & 1) ^ sign) != 0)
             root = -root;
-        bool tangentOverRoot = (n & 3) == 0 || (n & 3) == 3;
+        var tangentOverRoot = (n & 3) is 0 or 3;
         return tangentOverRoot ? Div(t, root) : Div(1.0, root);
     }
 
@@ -394,7 +394,7 @@ public sealed partial class AIObject : SimObject
     /// <summary>The line of sight period.</summary>
     public int LosPeriod = 5;
     /// <summary>The seek offset.</summary>
-    public readonly float[] SeekOff = { 3, 3, 0 };
+    public readonly float[] SeekOff = [3, 3, 0];
     /// <summary>The previous waypoint point.</summary>
     public readonly float[] PreviousPoint = new float[3];
     /// <summary>The attack mode.</summary>
@@ -451,7 +451,7 @@ public sealed partial class AIObject : SimObject
     /// <summary>The Player object of the AI.</summary>
     public Player? PlayerPtr;
     /// <summary>The directives in order.</summary>
-    public List<AIDirective> Directives = new();
+    public List<AIDirective> Directives = [];
 
     /// <summary>The per-tick frame state (docs/ai-sim.md 1.6).</summary>
     public sealed class FrameState
@@ -459,7 +459,7 @@ public sealed partial class AIObject : SimObject
         /// <summary>True when the frame has a move target.</summary>
         public bool HasMoveTarget;
         /// <summary>The move target.</summary>
-        public readonly float[] MoveTarget = { -1e6f, -1e6f, -1e6f };
+        public readonly float[] MoveTarget = [-1e6f, -1e6f, -1e6f];
         /// <summary>The own position.</summary>
         public readonly float[] Own = new float[3];
     }
@@ -510,13 +510,13 @@ public sealed partial class AIObject : SimObject
         Span<float> mn = stackalloc float[3], mx = stackalloc float[3];
         if (!Pj.WorldBox(g, p, mn, mx))
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 output[i] = p.Transform.P[i];
             return;
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            float s = X87.F32(Add(mx[i], mn[i]));
+            var s = X87.F32(Add(mx[i], mn[i]));
             output[i] = X87.F32(Mul(s, 0.5f));
         }
     }
@@ -544,8 +544,8 @@ public sealed partial class AIObject : SimObject
         if (p == null)
             return false;
         RepId = Game.AllocateRecordId != null ? Game.AllocateRecordId() : Game.Players.NextFreeId();
-        string playerName = p.MapName ?? "";
-        bool male = Voice.Length >= 4 && GameUtil.EqualsNoCase(Voice[..4], "male");
+        var playerName = p.MapName ?? "";
+        var male = Voice.Length >= 4 && GameUtil.EqualsNoCase(Voice[..4], "male");
         if (RepId < 2049 || RepId >= 2176 || Game.Players.AddClient(RepId, playerName, Voice, male, true) == null)
         {
             if (Game.ReleaseRecordId != null && RepId >= 2049)
@@ -597,7 +597,7 @@ public sealed partial class AIObject : SimObject
     private enum VarType { FloatG, Int, Point, FloatF }
     private readonly record struct VarDef(string Name, VarType Type, bool Recompute);
     private static readonly VarDef[] kVars =
-    {
+    [
         new("iq", VarType.FloatG, true),
         new("pathType", VarType.Int, false),
         new("spotDist", VarType.FloatG, false),
@@ -608,7 +608,7 @@ public sealed partial class AIObject : SimObject
         new("smartGuyWeaponRange", VarType.FloatG, true),
         new("dumbGuyWeaponRange", VarType.FloatG, true),
         new("smartGuyMinAccuracy", VarType.FloatG, true),
-    };
+    ];
 
     /// <summary>Returns the console variable name of an AI variable.</summary>
     /// <param name="var">The variable name.</param>
@@ -627,17 +627,28 @@ public sealed partial class AIObject : SimObject
         VarType type = VarType.Int;
         int which; // the field: the C++ float* / int32_t*
         bool eq(string n) => GameUtil.EqualsNoCase(var, n);
-        if (eq("iq")) { which = 0; type = VarType.FloatG; }
-        else if (eq("pathType")) { which = 1; }
-        else if (eq("spotDist")) { which = 2; type = VarType.FloatG; }
-        else if (eq("seekOff")) { which = 3; type = VarType.Point; }
-        else if (eq("attackMode")) { which = 4; }
-        else if (eq("triggerWindup")) { which = 5; }
-        else if (eq("triggerPct")) { which = 6; type = VarType.FloatF; }
-        else if (eq("smartGuyWeaponRange")) { which = 7; type = VarType.FloatG; }
-        else if (eq("dumbGuyWeaponRange")) { which = 8; type = VarType.FloatG; }
-        else if (eq("smartGuyMinAccuracy")) { which = 9; type = VarType.FloatG; }
-        else return;
+        if (eq("iq"))
+        { which = 0; type = VarType.FloatG; }
+        else if (eq("pathType"))
+        { which = 1; }
+        else if (eq("spotDist"))
+        { which = 2; type = VarType.FloatG; }
+        else if (eq("seekOff"))
+        { which = 3; type = VarType.Point; }
+        else if (eq("attackMode"))
+        { which = 4; }
+        else if (eq("triggerWindup"))
+        { which = 5; }
+        else if (eq("triggerPct"))
+        { which = 6; type = VarType.FloatF; }
+        else if (eq("smartGuyWeaponRange"))
+        { which = 7; type = VarType.FloatG; }
+        else if (eq("dumbGuyWeaponRange"))
+        { which = 8; type = VarType.FloatG; }
+        else if (eq("smartGuyMinAccuracy"))
+        { which = 9; type = VarType.FloatG; }
+        else
+            return;
         if (sCanonicalizing)
             return;
         string canon;
@@ -649,18 +660,24 @@ public sealed partial class AIObject : SimObject
         }
         else if (type == VarType.Int)
         {
-            int v = Numbers.BorlandAtoi(value);
+            var v = Numbers.BorlandAtoi(value);
             switch (which)
             {
-                case 1: PathType = v; break;
-                case 4: AttackMode = v; break;
-                default: Trigger.Windup = v; break;
+                case 1:
+                    PathType = v;
+                    break;
+                case 4:
+                    AttackMode = v;
+                    break;
+                default:
+                    Trigger.Windup = v;
+                    break;
             }
             canon = Numbers.FormatInt(v);
         }
         else
         {
-            float f = X87.F32(Numbers.BorlandAtof(value));
+            var f = X87.F32(Numbers.BorlandAtof(value));
             if (type == VarType.FloatF)
             { // the console's percent type (0x005f52bf) clamps to 0..1
                 if (f < 0.0f)
@@ -670,12 +687,24 @@ public sealed partial class AIObject : SimObject
             }
             switch (which)
             {
-                case 0: Iq = f; break;
-                case 2: Sk.SpotDist = f; break;
-                case 6: Trigger.Pct = f; break;
-                case 7: Sk.SmartRange = f; break;
-                case 8: Sk.DumbRange = f; break;
-                default: Sk.SmartMinAccuracy = f; break;
+                case 0:
+                    Iq = f;
+                    break;
+                case 2:
+                    Sk.SpotDist = f;
+                    break;
+                case 6:
+                    Trigger.Pct = f;
+                    break;
+                case 7:
+                    Sk.SmartRange = f;
+                    break;
+                case 8:
+                    Sk.DumbRange = f;
+                    break;
+                default:
+                    Sk.SmartMinAccuracy = f;
+                    break;
             }
             canon = type == VarType.FloatF ? AIMath.FmtF(f) : Numbers.FormatFloat(f);
         }
@@ -698,11 +727,11 @@ public sealed partial class AIObject : SimObject
             return;
         Interpreter inr = Game.Console;
         GameState g = Game;
-        string aiName = AiName;
+        var aiName = AiName;
         foreach (VarDef d in kVars)
         {
-            string full = VarName(d.Name);
-            string var = d.Name;
+            var full = VarName(d.Name);
+            var var = d.Name;
             void Bind() =>
                 inr.BindVariable(full, v =>
                 {
@@ -718,8 +747,8 @@ public sealed partial class AIObject : SimObject
                 Bind();
                 continue;
             }
-            string s = "";
-            string n = d.Name;
+            var s = "";
+            var n = d.Name;
             switch (d.Type)
             {
                 case VarType.FloatG:
@@ -757,14 +786,14 @@ public sealed partial class AIObject : SimObject
     // 0x0043b104 holds 0.01 as an 80-bit constant, which is below 0.01. Rounded toward zero to 53 bits, not to the
     // nearest double (above 0.01): with the nearest double f32(100 x 0.01) is 1, where the original gets 0.99999994 and
     // think period 4 (tests/test_ai.cpp testBehavior iq 100; aidiff motion c_rates, d_follow, target e_target_iq100).
-    private static readonly double kHundredth = Math.ScaleB((double)(0xa3d70a3d70a3d70aUL & ~0x7ffUL), -70);
+    private static readonly double kHundredth = Math.ScaleB(0xa3d70a3d70a3d70aUL & ~0x7ffUL, -70);
 
     /// <summary>Recomputes the skill block from the IQ and the variables.</summary>
     /// <remarks>Follows 0x0043b0ac.</remarks>
     public void RecomputeSkill()
     {
-        double v = Mul(kHundredth, Iq);
-        float s = X87.F32(v);
+        var v = Mul(kHundredth, Iq);
+        var s = X87.F32(v);
         if (!(v >= 0.0f))
             s = 0;
         else if (s > 1.0f)
@@ -779,7 +808,7 @@ public sealed partial class AIObject : SimObject
     // src/game/ai_object.cpp defaultCallbacks: 0x004409bc.
     private static void DefaultCallbacks(AIDirective d)
     {
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             d.Callback[i] = null;
         if (d.Type == AIDirective.kTarget)
         {
@@ -798,7 +827,7 @@ public sealed partial class AIObject : SimObject
     // src/game/ai_object.cpp AIObject::findDirective: 0x00440008.
     private int FindDirective(int order, int mask, bool upper)
     {
-        for (int i = 0; i < Directives.Count; ++i)
+        for (var i = 0; i < Directives.Count; ++i)
         {
             AIDirective d = Directives[i];
             if ((d.Type & mask) == 0)
@@ -824,7 +853,7 @@ public sealed partial class AIObject : SimObject
         if (order >= 1)
         {
             d.Order = order;
-            int at = FindDirective(order, 0xffff, false);
+            var at = FindDirective(order, 0xffff, false);
             if (at >= 0)
             {
                 Directives[at] = d;
@@ -848,12 +877,12 @@ public sealed partial class AIObject : SimObject
                 v = Directives[^1].Order;
                 if (v >= 0x2eb2c000)
                 {
-                    int i = Directives.Count - 1;
+                    var i = Directives.Count - 1;
                     while (i >= 0 && unchecked(Directives[i].Order + 150) >= 0x2eb2c000)
                         --i;
                     v = i < 0 ? 100 : unchecked(Directives[i].Order + 150);
                 }
-                v = v - v % 100;
+                v -= v % 100;
             }
             d.Order = v;
             Directives.Add(d);
@@ -875,7 +904,7 @@ public sealed partial class AIObject : SimObject
     public float Dist3(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         Span<float> d = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             d[i] = X87.F32(Sub(a[i], b[i]));
         if ((Flags & 4) != 0)
             return X87.F32(X87.Len(d));
@@ -887,10 +916,10 @@ public sealed partial class AIObject : SimObject
     /// <param name="b">The second point.</param>
     /// <returns>The distance.</returns>
     /// <remarks>Follows 0x0043a924.</remarks>
-    public float Dist2(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
+    public static float Dist2(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         float dx = X87.F32(Sub(a[0], b[0])), dy = X87.F32(Sub(a[1], b[1]));
-        float s = X87.F32(Add(Mul(dx, dx), Mul(dy, dy)));
+        var s = X87.F32(Add(Mul(dx, dx), Mul(dy, dy)));
         return X87.F32(Sqrt(s));
     }
 
@@ -902,7 +931,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x00440a28.</remarks>
     public void Callback(AIDirective? d, int slot)
     {
-        string? fn = d != null ? d.Callback[slot] : (slot == 0 ? CbDied : slot == 1 ? CbBored : CbPeriodic);
+        var fn = d != null ? d.Callback[slot] : (slot == 0 ? CbDied : slot == 1 ? CbBored : CbPeriodic);
         if (string.IsNullOrEmpty(fn) || Game.Console == null)
             return;
         var args = new List<string> { AiName };
@@ -926,7 +955,7 @@ public sealed partial class AIObject : SimObject
         {
             Span<float> tp = stackalloc float[3];
             AIMath.TargetPoint(Game, p, tp);
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 output[i] = X87.F32(Add(SeekOff[i], tp[i]));
             return;
         }
@@ -940,20 +969,20 @@ public sealed partial class AIObject : SimObject
     private int NextWaypoint(int order)
     {
         const int mask = 3;
-        int cur = FindDirective(order, mask, false);
-        int result = -1;
-        int count = Directives.Count;
+        var cur = FindDirective(order, mask, false);
+        var result = -1;
+        var count = Directives.Count;
         if (PathType == 2)
         {
             var list = new List<int>();
-            for (int i = 0; i < count; ++i)
+            for (var i = 0; i < count; ++i)
                 if ((Directives[i].Type & mask) != 0)
                     list.Add(i);
-            int n = list.Count;
-            int pos = 0;
+            var n = list.Count;
+            var pos = 0;
             while (pos < n && Directives[list[pos]].Order != order)
                 ++pos;
-            bool found = n > pos;
+            var found = n > pos;
             if (n > 1)
             {
                 if (found)
@@ -976,7 +1005,7 @@ public sealed partial class AIObject : SimObject
                 }
                 else
                 {
-                    for (int i = 0; i < n - 1; ++i)
+                    for (var i = 0; i < n - 1; ++i)
                     {
                         AIDirective lo = Directives[list[i]];
                         AIDirective hi = Directives[list[i + 1]];
@@ -999,10 +1028,10 @@ public sealed partial class AIObject : SimObject
         }
         else
         {
-            int idx = cur;
-            for (int left = count - 1; left > 0; --left)
+            var idx = cur;
+            for (var left = count - 1; left > 0; --left)
             {
-                int next = (idx + 1) % count;
+                var next = (idx + 1) % count;
                 if (idx > next && PathType != 0)
                     break;
                 idx = next;
@@ -1044,11 +1073,11 @@ public sealed partial class AIObject : SimObject
         Player? p = AIMath.PlayerOfRep(Game, d.Client);
         if (p == null || p.Dead)
             return false;
-        float spot = Sk.SpotDistance();
+        var spot = Sk.SpotDistance();
         Span<float> tp = stackalloc float[3];
         AIMath.TargetPoint(Game, p, tp);
         Span<float> diff = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             diff[i] = X87.F32(Sub(Frame.Own[i], tp[i]));
         return X87.Lenf(diff) < spot;
     }
@@ -1057,13 +1086,13 @@ public sealed partial class AIObject : SimObject
     private void ScanTargets()
     {
         var list = new List<int>();
-        for (int i = 0; i < Directives.Count; ++i)
+        for (var i = 0; i < Directives.Count; ++i)
             if ((Directives[i].Type & AIDirective.kTarget) != 0)
                 list.Add(i);
-        int n = list.Count;
+        var n = list.Count;
         if (n == 0)
             return;
-        foreach (int i in list)
+        foreach (var i in list)
         {
             AIDirective d = Directives[i];
             if (TargetInRange(d))
@@ -1075,17 +1104,17 @@ public sealed partial class AIObject : SimObject
             LosCounter = 0;
         if (LosCounter == 0)
         {
-            int idx = -1;
+            var idx = -1;
             if (LastLosClient != 0)
-                for (int i = 0; i < n; ++i)
+                for (var i = 0; i < n; ++i)
                     if (Directives[list[i]].Client == LastLosClient)
                     {
                         idx = i;
                         break;
                     }
-            int start = (idx + 1) % n;
+            var start = (idx + 1) % n;
             LastLosClient = 0;
-            int k = start;
+            var k = start;
             do
             {
                 AIDirective d = Directives[list[k]];
@@ -1095,7 +1124,7 @@ public sealed partial class AIObject : SimObject
                     {
                         Player? tp = AIMath.PlayerOfRep(Game, d.Client);
                         Player? self = Player();
-                        bool seen = tp != null && self != null && Los(self, tp);
+                        var seen = tp != null && self != null && Los(self, tp);
                         if (seen)
                         {
                             if ((d.Flags & AIDirective.kLOS) == 0)
@@ -1125,8 +1154,8 @@ public sealed partial class AIObject : SimObject
             } while (k != start);
         }
         CurrentTarget = -1;
-        float best = 3.0e14f; // 0x578edcf4
-        for (int k = 0; k < n; ++k)
+        var best = 3.0e14f; // 0x578edcf4
+        for (var k = 0; k < n; ++k)
         {
             if (list[k] >= Directives.Count)
                 break;
@@ -1151,12 +1180,12 @@ public sealed partial class AIObject : SimObject
                 }
                 else if ((d.Flags & AIDirective.kLOS) != 0)
                 {
-                    float[] p = new float[3];
+                    var p = new float[3];
                     AIMath.TargetPoint(Game, tp, p);
-                    float[] diff = new float[3];
-                    for (int i = 0; i < 3; ++i)
+                    var diff = new float[3];
+                    for (var i = 0; i < 3; ++i)
                         diff[i] = X87.F32(Sub(Frame.Own[i], p[i]));
-                    float len = X87.Lenf(diff);
+                    var len = X87.Lenf(diff);
                     if (CurrentTarget < 0 || len < best)
                     {
                         CurrentTarget = list[k];
@@ -1194,18 +1223,18 @@ public sealed partial class AIObject : SimObject
             ScanTargets();
         if (WaypointsDone)
             return;
-        int guard = Directives.Count;
-        for (;;)
+        var guard = Directives.Count;
+        for (; ; )
         {
             if (guard-- == 0)
                 break;
-            int di = FindDirective(WaypointOrder, 3, false);
+            var di = FindDirective(WaypointOrder, 3, false);
             if (di < 0)
                 di = NextWaypoint(WaypointOrder);
             if (di < 0)
                 break;
             AIDirective d = Directives[di].Clone();
-            float[] p = new float[3];
+            var p = new float[3];
             DirectivePoint(d, p);
             if (d.Type == AIDirective.kFollow || !AtWaypoint(p))
             {
@@ -1250,8 +1279,8 @@ public sealed partial class AIObject : SimObject
                 }
                 else
                 {
-                    int bit = d.Client - 2048;
-                    if (bit >= 0 && bit < 144)
+                    var bit = d.Client - 2048;
+                    if (bit is >= 0 and < 144)
                         AutoBits[bit >> 3] &= (byte)~(1u << (bit & 7));
                 }
                 continue;
@@ -1259,13 +1288,13 @@ public sealed partial class AIObject : SimObject
             kept.Add(d);
         }
         Directives = kept;
-        bool added = false;
-        foreach (int id in Game.Players.PlayerIds())
+        var added = false;
+        foreach (var id in Game.Players.PlayerIds())
         {
             ClientRecord? r = Game.Players.Find(id);
             if (r == null || !Enemy(r))
                 continue;
-            int bit = r.Id - 2048;
+            var bit = r.Id - 2048;
             if (bit < 0 || bit >= 144 || ((AutoBits[bit >> 3] >> (bit & 7)) & 1) != 0)
                 continue;
             var d = new AIDirective
@@ -1340,7 +1369,7 @@ public sealed partial class AIObject : SimObject
             return null;
         Span<float> tp = stackalloc float[3];
         AIMath.TargetPoint(Game, p, tp);
-        float d = Dist3(Frame.Own, tp);
+        var d = Dist3(Frame.Own, tp);
         if (!(Sk.SpotDistance() > d))
             return null;
         Player? self = Player();
@@ -1456,7 +1485,7 @@ public sealed partial class AIObject : SimObject
         }
         if (Player() is Player pl)
         {
-            Move[] moves = { Move }; // applyMoves(&move, 1)
+            Move[] moves = [Move]; // applyMoves(&move, 1)
             pl.ApplyMoves(moves, 1);
             Move = moves[0];
         }
@@ -1471,20 +1500,20 @@ public sealed partial class AIObject : SimObject
     public YawError YawErrorOf(ReadOnlySpan<float> point)
     {
         Player self = Player()!;
-        float dx = X87.F32(Sub(point[0], Frame.Own[0]));
-        float dy = X87.F32(Sub(point[1], Frame.Own[1]));
-        double t = AIMath.Atan2Safe(dy, dx);
-        float desired0 = X87.F32(Sub(t, AIMath.kHalfPiD));
-        float desired = AIMath.WrapAngle(0.0f, desired0);
-        float cur = AIMath.WrapAngle(AIMath.kTwoPiF, self.Rotation[2]);
+        var dx = X87.F32(Sub(point[0], Frame.Own[0]));
+        var dy = X87.F32(Sub(point[1], Frame.Own[1]));
+        var t = AIMath.Atan2Safe(dy, dx);
+        var desired0 = X87.F32(Sub(t, AIMath.kHalfPiD));
+        var desired = AIMath.WrapAngle(0.0f, desired0);
+        var cur = AIMath.WrapAngle(AIMath.kTwoPiF, self.Rotation[2]);
         YawError e;
         float diff;
         float abs;
-        for (;;)
+        for (; ; )
         {
             diff = X87.F32(Sub(desired, cur));
-            double d = Sub(desired, cur);
-            double a = Math.Abs(d);
+            var d = Sub(desired, cur);
+            var a = Math.Abs(d);
             abs = X87.F32(a);
             if (a > 3.1415937f)
                 desired = X87.F32(Add(desired, AIMath.kTwoPiD));
@@ -1501,7 +1530,7 @@ public sealed partial class AIObject : SimObject
     // src/game/ai_object.cpp rateStep: 0x00440be4: the yaw step against the rate triple (r, threshold, floor).
     private static float RateStep(float[] rates, float x)
     {
-        float v = rates[0];
+        var v = rates[0];
         if (x < rates[1])
         {
             v = X87.F32(Mul(Div(x, rates[1]), v));
@@ -1520,7 +1549,7 @@ public sealed partial class AIObject : SimObject
     public YawError SteerYaw(ReadOnlySpan<float> point)
     {
         YawError e = YawErrorOf(point);
-        float v = RateStep(Sk.Rate, e.Abs);
+        var v = RateStep(Sk.Rate, e.Abs);
         Move.Turn = e.Diff >= 0.0f ? v : -v;
         return e;
     }
@@ -1532,13 +1561,13 @@ public sealed partial class AIObject : SimObject
     public YawError SteerPitch(ReadOnlySpan<float> point)
     {
         Player self = Player()!;
-        float d2 = Dist2(point, Frame.Own);
-        float dz = X87.F32(Sub(point[2], Frame.Own[2]));
-        float desired = X87.F32(AIMath.Atan2Safe(dz, d2));
-        float cur = self.Pitch;
-        float diff = X87.F32(Sub(desired, cur));
-        float abs = Math.Abs(diff);
-        float v = 0.084f;
+        var d2 = Dist2(point, Frame.Own);
+        var dz = X87.F32(Sub(point[2], Frame.Own[2]));
+        var desired = X87.F32(AIMath.Atan2Safe(dz, d2));
+        var cur = self.Pitch;
+        var diff = X87.F32(Sub(desired, cur));
+        var abs = Math.Abs(diff);
+        var v = 0.084f;
         if (abs < 0.168f)
         {
             v = X87.F32(Mul(Div(abs, 0.168f), 0.084f));
@@ -1552,8 +1581,8 @@ public sealed partial class AIObject : SimObject
     }
 
     // 2/3 and 1/3 as the 80-bit constants of 0x0043d0e4, rounded to 53 bits.
-    private static readonly double kTwoThirds = Math.ScaleB((double)0xaaaaaaaaaaaaaaabUL, -64);
-    private static readonly double kOneThird = Math.ScaleB((double)0xaaaaaaaaaaaaaaabUL, -65);
+    private static readonly double kTwoThirds = Math.ScaleB(0xaaaaaaaaaaaaaaabUL, -64);
+    private static readonly double kOneThird = Math.ScaleB(0xaaaaaaaaaaaaaaabUL, -65);
 
     /// <summary>Computes the speed for a distance to the goal.</summary>
     /// <param name="dist">The distance.</param>
@@ -1565,8 +1594,8 @@ public sealed partial class AIObject : SimObject
             return Sk.MaxSpeed;
         if (!(dist > 0.2))
             return 0.0f;
-        float t = X87.F32(Mul(Sub(dist, 0.2), kTwoThirds));
-        float lo = X87.F32(Mul(kOneThird, Sk.MaxSpeed));
+        var t = X87.F32(Mul(Sub(dist, 0.2), kTwoThirds));
+        var lo = X87.F32(Mul(kOneThird, Sk.MaxSpeed));
         if (lo > 0.25f)
             lo = 0.25f;
         return X87.F32(AIMath.LerpF(t, Sk.MaxSpeed, lo));
@@ -1580,9 +1609,9 @@ public sealed partial class AIObject : SimObject
     public void SetMoveDirection(in YawError e, float speed, float adjust)
     {
         _ = adjust;
-        float ang = X87.F32(Sub(e.Desired, e.Cur));
-        float s = X87.F32(Mul(AIMath.CrtTrig(ang, false), speed));
-        float c = X87.F32(Mul(AIMath.CrtTrig(ang, true), speed));
+        var ang = X87.F32(Sub(e.Desired, e.Cur));
+        var s = X87.F32(Mul(AIMath.CrtTrig(ang, false), speed));
+        var c = X87.F32(Mul(AIMath.CrtTrig(ang, true), speed));
         if (s > 0.0f)
         {
             Move.Left = s;
@@ -1610,7 +1639,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043d298.</remarks>
     public void MoveToward(ReadOnlySpan<float> point)
     {
-        float dist = Dist3(point, Frame.Own);
+        var dist = Dist3(point, Frame.Own);
         if (!(dist > 1.0f))
             return;
         YawError e = SteerYaw(point);
@@ -1622,7 +1651,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043d198.</remarks>
     public void MoveTowardKeepTurn(ReadOnlySpan<float> point)
     {
-        float dist = Dist3(point, Frame.Own);
+        var dist = Dist3(point, Frame.Own);
         if (!(dist > 0.2))
             return;
         YawError e = YawErrorOf(point);
@@ -1636,13 +1665,13 @@ public sealed partial class AIObject : SimObject
     /// <param name="pct">The probability.</param>
     /// <returns>True when the roll succeeded.</returns>
     /// <remarks>Follows 0x00440c60.</remarks>
-    public bool Roll(float pct)
+    public static bool Roll(float pct)
     {
         if (!(pct >= 0.0f))
             pct = 0.0f;
         else if (pct > 1.0f)
             pct = 1.0f;
-        uint u = AIMath.AiRandom().Next();
+        var u = AIMath.AiRandom().Next();
         return Mul(u, 2.3283064365386963e-10) < pct;
     }
 
@@ -1673,21 +1702,12 @@ public sealed partial class AIObject : SimObject
         DataBlockManager.Block? b = Game.Sim.DataBlocks().At(group, index);
         if (b == null)
             return false;
-        float speed;
-        switch (group)
+        var speed = group switch
         {
-            case Projectile.kRocketGroup:
-                speed = Pj.Real(b, "terminalVelocity", 0.0f);
-                break;
-            case Projectile.kBulletGroup:
-            case Projectile.kGrenadeGroup: // +0x68 of a GrenadeData is maxLevelFlightDist
-            case Projectile.kSeekerGroup:
-                speed = Pj.Real(b, "muzzleVelocity", Pj.Real(b, "maxLevelFlightDist", 0.0f));
-                break;
-            default:
-                speed = 1.0e7f;
-                break;
-        }
+            Projectile.kRocketGroup => Pj.Real(b, "terminalVelocity", 0.0f),
+            Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup => Pj.Real(b, "muzzleVelocity", Pj.Real(b, "maxLevelFlightDist", 0.0f)),
+            _ => 1.0e7f,
+        };
         ProjectileSpeed = speed;
         return !(Mul(speed, speed) < 1e-12f);
     }
@@ -1699,13 +1719,13 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043c004.</remarks>
     public void AimError(Player? target, float[]? point, Span<float> output)
     {
-        float[] p = new float[3];
+        var p = new float[3];
         if (point != null)
             point.CopyTo(p, 0);
         else
             AIMath.TargetPoint(Game, target!, p);
-        float[] D = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var D = new float[3];
+        for (var i = 0; i < 3; ++i)
             D[i] = X87.F32(Sub(p[i], Frame.Own[i]));
         const float eps = 1e-12f;
         if (Mul(D[0], D[0]) < eps && Mul(D[1], D[1]) < eps && Mul(D[2], D[2]) < eps)
@@ -1715,16 +1735,16 @@ public sealed partial class AIObject : SimObject
         }
         else
         {
-            float len = X87.F32(X87.Len(D));
-            float k = X87.F32(Div(1.0f, len));
-            for (int i = 0; i < 3; ++i)
+            var len = X87.F32(X87.Len(D));
+            var k = X87.F32(Div(1.0f, len));
+            for (var i = 0; i < 3; ++i)
                 D[i] = X87.F32(Mul(k, D[i]));
         }
-        float[] up = { 0, 0, 1.0f };
+        float[] up = [0, 0, 1.0f];
         Span<float> side = stackalloc float[3];
         AIMath.Cross3(up, D, side);
-        float dist = X87.F32(Dist3(p, Frame.Own));
-        float acc = X87.F32(Sk.Accuracy(dist));
+        var dist = X87.F32(Dist3(p, Frame.Own));
+        var acc = X87.F32(Sk.Accuracy(dist));
         float scale;
         if (Roll(acc))
         {
@@ -1732,13 +1752,13 @@ public sealed partial class AIObject : SimObject
         }
         else
         {
-            float @base = X87.F32(AIMath.LerpD(Skill, 1.0, 2.2));
-            uint u = AIMath.AiRandom().Next();
+            var @base = X87.F32(AIMath.LerpD(Skill, 1.0, 2.2));
+            var u = AIMath.AiRandom().Next();
             scale = X87.F32(Add(Mul(Mul(u, 2.3283064365386963e-10), @base), @base));
         }
-        float phase = X87.F32(Mul(Mul(ErrorPhase, AIMath.kTwoPiD), 0.00390625f));
+        var phase = X87.F32(Mul(Mul(ErrorPhase, AIMath.kTwoPiD), 0.00390625f));
         {
-            uint u = AIMath.AiRandom().Next();
+            var u = AIMath.AiRandom().Next();
             phase = X87.F32(Add(Add(Mul(Mul(u, 2.3283064365386963e-10), 0.6f), -0.3f), phase));
         }
         if (Roll(0.001f))
@@ -1751,7 +1771,7 @@ public sealed partial class AIObject : SimObject
             }
             else
             {
-                float q = X87.F32(AIMath.FractionOf(22.0f, 1.7f, dist));
+                var q = X87.F32(AIMath.FractionOf(22.0f, 1.7f, dist));
                 q = X87.F32(Mul(q, q));
                 scale = X87.F32(AIMath.LerpF(q, scale, 0.0f));
             }
@@ -1767,14 +1787,14 @@ public sealed partial class AIObject : SimObject
             hw = X87.F32(Mul(Sub(target!.BoxMax[0], target.BoxMin[0]), 0.5f));
             hh = X87.F32(Mul(Sub(target.BoxMax[2], target.BoxMin[2]), 0.5f));
         }
-        float t1 = X87.F32(Mul(Mul(AIMath.CrtTrig(phase, false), hh), scale));
+        var t1 = X87.F32(Mul(Mul(AIMath.CrtTrig(phase, false), hh), scale));
         Span<float> u3 = stackalloc float[3], s3 = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             u3[i] = X87.F32(Mul(t1, up[i]));
-        float t2 = X87.F32(Mul(Mul(AIMath.CrtTrig(phase, true), hw), scale));
-        for (int i = 0; i < 3; ++i)
+        var t2 = X87.F32(Mul(Mul(AIMath.CrtTrig(phase, true), hw), scale));
+        for (var i = 0; i < 3; ++i)
             s3[i] = X87.F32(Mul(t2, side[i]));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             output[i] = X87.F32(Add(u3[i], s3[i]));
     }
 }

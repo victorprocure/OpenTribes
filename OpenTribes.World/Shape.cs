@@ -1,8 +1,8 @@
+namespace OpenTribes.World;
+
 using System.Runtime.CompilerServices;
 using OpenTribes.Core;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.World;
 
 /// <summary>Three ints stored inline.</summary>
 [InlineArray(3)]
@@ -80,27 +80,27 @@ public sealed class ShapeAnim
     }
 
     /// <summary>The sequences.</summary>
-    public List<ShapeSequence> Sequences = new();
+    public List<ShapeSequence> Sequences = [];
     /// <summary>The name table.</summary>
-    public List<string> Names = new();
+    public List<string> Names = [];
     /// <summary>The name index of each sequence.</summary>
-    public List<int> SequenceNames = new();
+    public List<int> SequenceNames = [];
     /// <summary>The nodes.</summary>
-    public List<Node> Nodes = new();
+    public List<Node> Nodes = [];
     /// <summary>The sub-sequences.</summary>
-    public List<SubSequence> SubSequences = new();
+    public List<SubSequence> SubSequences = [];
     /// <summary>The keyframes.</summary>
-    public List<Key> Keys = new();
+    public List<Key> Keys = [];
     /// <summary>The key rotations.</summary>
-    public List<Quat> Rotations = new();
+    public List<Quat> Rotations = [];
 
     /// <summary>Finds a sequence by name (005b9798).</summary>
     /// <param name="name">The sequence name, matched ASCII case-insensitively.</param>
     /// <returns>The index of the first matching sequence, or -1. The first matching entry of the name table decides.</returns>
     public int FindSequence(string name)
     {
-        int n = Shape.FindName(this, name);
-        for (int i = 0; i < SequenceNames.Count; ++i)
+        var n = Shape.FindName(this, name);
+        for (var i = 0; i < SequenceNames.Count; ++i)
             if (SequenceNames[i] == n)
                 return i;
         return -1;
@@ -114,10 +114,10 @@ public sealed class ShapeAnim
     /// <returns>False when the node or the sequence is missing.</returns>
     public bool NodePitchRange(string sequence, string node, ref float first, ref float last)
     {
-        int seq = FindSequence(sequence);
-        int nodeName = Shape.FindName(this, node);
-        int target = -1;
-        for (int i = 0; i < Nodes.Count; ++i)
+        var seq = FindSequence(sequence);
+        var nodeName = Shape.FindName(this, node);
+        var target = -1;
+        for (var i = 0; i < Nodes.Count; ++i)
             if (Nodes[i].Name == nodeName)
             {
                 target = i;
@@ -127,20 +127,20 @@ public sealed class ShapeAnim
             return false;
         Span<float> output = stackalloc float[2];
         Span<double> total = stackalloc double[9], m = stackalloc double[9], next = stackalloc double[9];
-        for (int end = 0; end < 2; ++end)
+        for (var end = 0; end < 2; ++end)
         {
             // Shape-space rotation: the node's rotation, then its ancestors'. A node the sequence animates takes its
             // first (position 0) or last (position 1) keyframe.
             total.Clear();
             total[0] = total[4] = total[8] = 1;
-            int guard = 0;
-            for (int n = target; n >= 0 && n < Nodes.Count && guard < 256; n = Nodes[n].Parent, ++guard)
+            var guard = 0;
+            for (var n = target; n >= 0 && n < Nodes.Count && guard < 256; n = Nodes[n].Parent, ++guard)
             {
                 Node nd = Nodes[n];
-                uint t = (uint)nd.DefaultTransform;
-                for (int k = 0; k < nd.NumSub; ++k)
+                var t = (uint)nd.DefaultTransform;
+                for (var k = 0; k < nd.NumSub; ++k)
                 {
-                    long si = (long)nd.FirstSub + k;
+                    var si = (long)nd.FirstSub + k;
                     if (si < 0 || si >= SubSequences.Count || SubSequences[(int)si].Sequence != seq ||
                         SubSequences[(int)si].NumKeys < 1)
                         continue;
@@ -154,7 +154,7 @@ public sealed class ShapeAnim
                 Shape.Mul3(total, m, next);
                 next.CopyTo(total);
             }
-            double s = total[5];
+            var s = total[5];
             if (s > 1)
                 s = 1;
             if (s < -1)
@@ -275,11 +275,11 @@ public sealed class ShapeModel
     public sealed class Mesh
     {
         /// <summary>The packed vertices, 4 bytes each: x, y, z and the normal index.</summary>
-        public byte[] Verts = Array.Empty<byte>();
+        public byte[] Verts = [];
         /// <summary>The faces.</summary>
-        public Face[] Faces = Array.Empty<Face>();
+        public Face[] Faces = [];
         /// <summary>The frames.</summary>
-        public Frame[] Frames = Array.Empty<Frame>();
+        public Frame[] Frames = [];
 
         /// <summary>Decodes one vertex of a frame (docs/collision.md T2.7).</summary>
         /// <param name="f">The frame.</param>
@@ -288,11 +288,11 @@ public sealed class ShapeModel
         /// <returns>False when the index is outside the vertex array.</returns>
         public bool Vertex(in Frame f, int index, Span<float> output)
         {
-            long i = (long)f.FirstVert + index;
-            if (i < 0 || i * 4 + 3 >= Verts.Length)
+            var i = (long)f.FirstVert + index;
+            if (i < 0 || (i * 4) + 3 >= Verts.Length)
                 return false;
-            for (int k = 0; k < 3; ++k)
-                output[k] = F32Chop(Add(Mul(Verts[i * 4 + k], f.Scale[k]), f.Origin[k]));
+            for (var k = 0; k < 3; ++k)
+                output[k] = F32Chop(Add(Mul(Verts[(i * 4) + k], f.Scale[k]), f.Origin[k]));
             return true;
         }
     }
@@ -308,32 +308,32 @@ public sealed class ShapeModel
     /// <summary>The "always" node (TS::Shape +0xe4, version 6 and up), -1 when none.</summary>
     public int AlwaysNode = -1;
     /// <summary>The nodes.</summary>
-    public Node[] Nodes = Array.Empty<Node>();
+    public Node[] Nodes = [];
     /// <summary>The sequences.</summary>
-    public Sequence[] Sequences = Array.Empty<Sequence>();
+    public Sequence[] Sequences = [];
     /// <summary>The sub-sequences.</summary>
-    public SubSequence[] SubSequences = Array.Empty<SubSequence>();
+    public SubSequence[] SubSequences = [];
     /// <summary>The keyframes.</summary>
-    public Key[] Keys = Array.Empty<Key>();
+    public Key[] Keys = [];
     /// <summary>The transforms.</summary>
-    public Transform[] Transforms = Array.Empty<Transform>();
+    public Transform[] Transforms = [];
     /// <summary>The name table.</summary>
-    public string[] Names = Array.Empty<string>();
+    public string[] Names = [];
     /// <summary>The objects.</summary>
-    public Object[] Objects = Array.Empty<Object>();
+    public Object[] Objects = [];
     /// <summary>The details.</summary>
-    public Detail[] Details = Array.Empty<Detail>();
+    public Detail[] Details = [];
     /// <summary>The transitions.</summary>
-    public Transition[] Transitions = Array.Empty<Transition>();
+    public Transition[] Transitions = [];
     /// <summary>The meshes.</summary>
-    public Mesh[] Meshes = Array.Empty<Mesh>();
+    public Mesh[] Meshes = [];
 
     /// <summary>Finds a name in the name table (005b96d8).</summary>
     /// <param name="name">The name, matched ASCII case-insensitively.</param>
     /// <returns>The index of the first match, -1 if none.</returns>
     public int FindName(string name)
     {
-        for (int i = 0; i < Names.Length; ++i)
+        for (var i = 0; i < Names.Length; ++i)
             if (Shape.NameEquals(Names[i], name))
                 return i;
         return -1;
@@ -344,10 +344,10 @@ public sealed class ShapeModel
     /// <returns>The first node whose name index is that name, -1 if none.</returns>
     public int FindNode(string name)
     {
-        int n = FindName(name);
+        var n = FindName(name);
         if (n < 0)
             return -1;
-        for (int i = 0; i < Nodes.Length; ++i)
+        for (var i = 0; i < Nodes.Length; ++i)
             if (Nodes[i].Name == n)
                 return i;
         return -1;
@@ -357,9 +357,9 @@ public sealed class ShapeModel
     /// <returns>The last detail whose root is the node named "collision", 0 when there is none.</returns>
     public int CollisionDetail()
     {
-        int node = FindNode("collision");
-        int detail = 0;
-        for (int d = 0; d < Details.Length; ++d)
+        var node = FindNode("collision");
+        var detail = 0;
+        for (var d = 0; d < Details.Length; ++d)
             if (Details[d].RootNode == node)
                 detail = d;
         return detail;
@@ -370,10 +370,10 @@ public sealed class ShapeModel
     /// <returns>The sequence index, -1 if none.</returns>
     public int FindSequence(string name)
     {
-        int n = FindName(name);
+        var n = FindName(name);
         if (n < 0)
             return -1;
-        for (int i = 0; i < Sequences.Length; ++i)
+        for (var i = 0; i < Sequences.Length; ++i)
             if (Sequences[i].Name == n)
                 return i;
         return -1;
@@ -387,26 +387,26 @@ public sealed class ShapeModel
     {
         output.Reset();
         var r = new Reader(dts);
-        uint ver = r.Pers(out _);
+        var ver = r.Pers(out _);
         if (!r.Ok || ver < 1 || ver > 8)
             return false;
         output.Version = ver;
         var counts = new int[9];
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             counts[i] = r.GetI32();
-        int nTransitions = ver >= 2 ? r.GetI32() : 0;
-        int nTriggers = ver >= 4 ? r.GetI32() : 0;
+        var nTransitions = ver >= 2 ? r.GetI32() : 0;
+        var nTriggers = ver >= 4 ? r.GetI32() : 0;
         output.Radius = r.GetF32();
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             output.Center[i] = r.GetF32();
         if (ver >= 8)
         {
-            for (int i = 0; i < 6; ++i)
+            for (var i = 0; i < 6; ++i)
                 output.Box[i] = r.GetF32();
         }
         else
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 output.Box[i] = Store(Sub(output.Center[i], output.Radius));
                 output.Box[i + 3] = Store(Add(output.Radius, output.Center[i]));
@@ -414,12 +414,12 @@ public sealed class ShapeModel
         }
         long[] sizes;
         if (ver == 8)
-            sizes = new long[] { 10, 32, 6, 8, 20, 24, 28, 8, 40, 8 };
+            sizes = [10, 32, 6, 8, 20, 24, 28, 8, 40, 8];
         else
             sizes = Shape.RecordSizes(ver);
-        int[] n = { counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], nTransitions, nTriggers };
+        int[] n = [counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], nTransitions, nTriggers];
         var at = new long[10];
-        for (int i = 0; i < 10 && r.Ok; ++i)
+        for (var i = 0; i < 10 && r.Ok; ++i)
         {
             // A count the file cannot hold is malformed (D11): every record is at least 6 bytes.
             if (n[i] < 0 || n[i] > dts.Length / 6)
@@ -434,22 +434,22 @@ public sealed class ShapeModel
         if (!r.Ok || counts[8] < 0 || counts[8] > dts.Length / 16)
             return false;
         // Every array lies inside the file from here on (the skips above checked the ends).
-        bool v8 = ver == 8;
+        var v8 = ver == 8;
         output.Nodes = new Node[n[0]];
-        for (int i = 0; i < output.Nodes.Length; ++i)
+        for (var i = 0; i < output.Nodes.Length; ++i)
         {
-            long o = at[0] + i * sizes[0], step = v8 ? 2 : 4; // older files hold i32 fields
+            long o = at[0] + (i * sizes[0]), step = v8 ? 2 : 4; // older files hold i32 fields
             ref Node nd = ref output.Nodes[i];
             nd.Name = Reader.I16At(dts, o);
             nd.Parent = Reader.I16At(dts, o + step);
-            nd.NumSub = Reader.I16At(dts, o + 2 * step);
-            nd.FirstSub = Reader.I16At(dts, o + 3 * step);
-            nd.DefaultTransform = Reader.I16At(dts, o + 4 * step);
+            nd.NumSub = Reader.I16At(dts, o + (2 * step));
+            nd.FirstSub = Reader.I16At(dts, o + (3 * step));
+            nd.DefaultTransform = Reader.I16At(dts, o + (4 * step));
         }
         output.Sequences = new Sequence[n[1]];
-        for (int i = 0; i < output.Sequences.Length; ++i)
+        for (var i = 0; i < output.Sequences.Length; ++i)
         {
-            long o = at[1] + i * sizes[1];
+            var o = at[1] + (i * sizes[1]);
             ref Sequence s = ref output.Sequences[i];
             s.Name = Reader.I32At(dts, o);
             s.Cyclic = Reader.I32At(dts, o + 4) != 0;
@@ -457,21 +457,21 @@ public sealed class ShapeModel
             s.Priority = Reader.I32At(dts, o + 12);
         }
         output.SubSequences = new SubSequence[n[2]];
-        for (int i = 0; i < output.SubSequences.Length; ++i)
+        for (var i = 0; i < output.SubSequences.Length; ++i)
         {
-            long o = at[2] + i * sizes[2], step = v8 ? 2 : 4;
+            long o = at[2] + (i * sizes[2]), step = v8 ? 2 : 4;
             ref SubSequence s = ref output.SubSequences[i];
             s.Sequence = Reader.I16At(dts, o);
             s.NumKeys = Reader.I16At(dts, o + step);
-            s.FirstKey = Reader.I16At(dts, o + 2 * step);
+            s.FirstKey = Reader.I16At(dts, o + (2 * step));
         }
         output.Keys = new Key[n[3]];
-        for (int i = 0; i < output.Keys.Length; ++i)
+        for (var i = 0; i < output.Keys.Length; ++i)
         {
-            long o = at[3] + i * sizes[3];
+            var o = at[3] + (i * sizes[3]);
             ref Key k = ref output.Keys[i];
             k.Position = Reader.F32At(dts, o);
-            uint key = Reader.U32At(dts, o + 4);
+            var key = Reader.U32At(dts, o + 4);
             k.Index = (ushort)key;
             if (v8)
             {
@@ -480,7 +480,7 @@ public sealed class ShapeModel
             else if (ver >= 3)
             {
                 // {position, key, m}: the low 16 bits of m and its four top bits (0x005b9998).
-                uint m = Reader.U32At(dts, o + 8);
+                var m = Reader.U32At(dts, o + 8);
                 k.Flags = (ushort)((m & 0xffffu) | ((m >> 16) & 0xf000u));
             }
             else
@@ -489,58 +489,58 @@ public sealed class ShapeModel
             }
         }
         output.Transforms = new Transform[n[4]];
-        for (int i = 0; i < output.Transforms.Length; ++i)
+        for (var i = 0; i < output.Transforms.Length; ++i)
         {
-            long o = at[4] + i * sizes[4];
+            var o = at[4] + (i * sizes[4]);
             ref Transform t = ref output.Transforms[i];
             t = new Transform();
             if (ver >= 7)
             {
-                for (int k = 0; k < 4; ++k)
-                    t.Q[k] = Reader.I16At(dts, o + k * 2);
-                for (int k = 0; k < 3; ++k)
-                    t.T[k] = Reader.F32At(dts, o + 8 + k * 4);
+                for (var k = 0; k < 4; ++k)
+                    t.Q[k] = Reader.I16At(dts, o + (k * 2));
+                for (var k = 0; k < 3; ++k)
+                    t.T[k] = Reader.F32At(dts, o + 8 + (k * 4));
             }
             else
             {
                 // Float quaternions are converted with crt_ftol(q * 32767) (editor shapes only).
-                for (int k = 0; k < 4; ++k)
+                for (var k = 0; k < 4; ++k)
                 {
-                    double v = Mul(Reader.F32At(dts, o + k * 4), 32767.0);
-                    t.Q[k] = v > -32769.0 && v < 32768.0 ? (short)(int)v : (short)0;
+                    var v = Mul(Reader.F32At(dts, o + (k * 4)), 32767.0);
+                    t.Q[k] = v is > (-32769.0) and < 32768.0 ? (short)(int)v : (short)0;
                 }
-                for (int k = 0; k < 3; ++k)
-                    t.T[k] = Reader.F32At(dts, o + 16 + k * 4);
+                for (var k = 0; k < 3; ++k)
+                    t.T[k] = Reader.F32At(dts, o + 16 + (k * 4));
             }
         }
         output.Names = new string[n[5]];
-        for (int i = 0; i < output.Names.Length; ++i)
-            output.Names[i] = Reader.CString(dts, at[5] + i * 24, 24);
+        for (var i = 0; i < output.Names.Length; ++i)
+            output.Names[i] = Reader.CString(dts, at[5] + (i * 24), 24);
         output.Objects = new Object[n[6]];
-        for (int i = 0; i < output.Objects.Length; ++i)
+        for (var i = 0; i < output.Objects.Length; ++i)
         {
-            long o = at[6] + i * sizes[6];
+            var o = at[6] + (i * sizes[6]);
             ref Object ob = ref output.Objects[i];
             ob.Name = Reader.I16At(dts, o);
             ob.Flags = Reader.U16At(dts, o + 2);
             ob.Mesh = Reader.I32At(dts, o + 4);
             ob.Node = Reader.I16At(dts, o + 8);
-            long off = v8 ? o + 12 : o + 52;
-            for (int k = 0; k < 3; ++k)
-                ob.Offset[k] = Reader.F32At(dts, off + k * 4);
+            var off = v8 ? o + 12 : o + 52;
+            for (var k = 0; k < 3; ++k)
+                ob.Offset[k] = Reader.F32At(dts, off + (k * 4));
             ob.NumSub = Reader.I16At(dts, v8 ? o + 24 : o + 64);
             ob.FirstSub = Reader.I16At(dts, v8 ? o + 26 : o + 68);
         }
         output.Details = new Detail[n[7]];
-        for (int i = 0; i < output.Details.Length; ++i)
+        for (var i = 0; i < output.Details.Length; ++i)
         {
-            output.Details[i].RootNode = Reader.I32At(dts, at[7] + i * 8);
-            output.Details[i].Size = Reader.F32At(dts, at[7] + i * 8 + 4);
+            output.Details[i].RootNode = Reader.I32At(dts, at[7] + (i * 8));
+            output.Details[i].Size = Reader.F32At(dts, at[7] + (i * 8) + 4);
         }
         output.Transitions = new Transition[n[8]];
-        for (int i = 0; i < output.Transitions.Length; ++i)
+        for (var i = 0; i < output.Transitions.Length; ++i)
         {
-            long o = at[8] + i * sizes[8];
+            var o = at[8] + (i * sizes[8]);
             ref Transition t = ref output.Transitions[i];
             t.Transform = new Transform();
             t.StartSequence = Reader.I32At(dts, o);
@@ -550,50 +550,50 @@ public sealed class ShapeModel
             t.Duration = Reader.F32At(dts, o + 16);
             if (ver >= 7)
             {
-                for (int k = 0; k < 4; ++k)
-                    t.Transform.Q[k] = Reader.I16At(dts, o + 20 + k * 2);
-                for (int k = 0; k < 3; ++k)
-                    t.Transform.T[k] = Reader.F32At(dts, o + 28 + k * 4);
+                for (var k = 0; k < 4; ++k)
+                    t.Transform.Q[k] = Reader.I16At(dts, o + 20 + (k * 2));
+                for (var k = 0; k < 3; ++k)
+                    t.Transform.T[k] = Reader.F32At(dts, o + 28 + (k * 4));
             }
             else
             {
-                for (int k = 0; k < 4; ++k)
+                for (var k = 0; k < 4; ++k)
                 {
-                    double v = Mul(Reader.F32At(dts, o + 20 + k * 4), 32767.0);
-                    t.Transform.Q[k] = v > -32769.0 && v < 32768.0 ? (short)(int)v : (short)0;
+                    var v = Mul(Reader.F32At(dts, o + 20 + (k * 4)), 32767.0);
+                    t.Transform.Q[k] = v is > (-32769.0) and < 32768.0 ? (short)(int)v : (short)0;
                 }
-                for (int k = 0; k < 3; ++k)
-                    t.Transform.T[k] = Reader.F32At(dts, o + 36 + k * 4);
+                for (var k = 0; k < 3; ++k)
+                    t.Transform.T[k] = Reader.F32At(dts, o + 36 + (k * 4));
             }
         }
         // Meshes: nested PERS TS::CelAnimMesh blocks (docs/interiors.md 8.3). Only version 3 meshes are decoded; an
         // older mesh (editor shapes) stays empty and is never hit.
         output.Meshes = new Mesh[counts[8]];
-        for (int mi = 0; mi < output.Meshes.Length; ++mi)
+        for (var mi = 0; mi < output.Meshes.Length; ++mi)
         {
             var mesh = output.Meshes[mi] = new Mesh();
-            uint mver = r.Pers(out long meshEnd);
+            var mver = r.Pers(out var meshEnd);
             if (!r.Ok || meshEnd <= r.Pos || meshEnd > dts.Length)
                 return false;
             var m = new Reader(dts) { Pos = r.Pos };
             r.Pos = meshEnd;
             if (mver != 3)
                 continue;
-            int nVerts = m.GetI32();
+            var nVerts = m.GetI32();
             m.GetI32(); // vertsPerFrame
             int nTex = m.GetI32(), nFaces = m.GetI32(), nFrames = m.GetI32();
             m.Skip(8); // texVertsPerFrame, radius
-            long left = m.Ok && m.Pos <= meshEnd ? meshEnd - m.Pos : 0;
+            var left = m.Ok && m.Pos <= meshEnd ? meshEnd - m.Pos : 0;
             if (!m.Ok || nVerts < 0 || nTex < 0 || nFaces < 0 || nFrames < 0 || nVerts > left / 4 || nTex > left / 8 ||
-                nFaces > left / 28 || nFrames > left / 28 || (long)nVerts * 4 + (long)nTex * 8 + (long)nFaces * 28 + (long)nFrames * 28 > left)
+                nFaces > left / 28 || nFrames > left / 28 || ((long)nVerts * 4) + ((long)nTex * 8) + ((long)nFaces * 28) + ((long)nFrames * 28) > left)
                 return false;
             mesh.Verts = dts.AsSpan((int)m.Pos, nVerts * 4).ToArray();
-            m.Skip((long)nVerts * 4 + (long)nTex * 8);
+            m.Skip(((long)nVerts * 4) + ((long)nTex * 8));
             mesh.Faces = new Face[nFaces];
-            for (int fi = 0; fi < nFaces; ++fi)
+            for (var fi = 0; fi < nFaces; ++fi)
             {
                 ref Face f = ref mesh.Faces[fi];
-                for (int k = 0; k < 3; ++k)
+                for (var k = 0; k < 3; ++k)
                 {
                     f.V[k] = m.GetI32();
                     m.GetI32(); // texture vertex
@@ -601,13 +601,13 @@ public sealed class ShapeModel
                 f.Material = m.GetI32();
             }
             mesh.Frames = new Frame[nFrames];
-            for (int fi = 0; fi < nFrames; ++fi)
+            for (var fi = 0; fi < nFrames; ++fi)
             {
                 ref Frame f = ref mesh.Frames[fi];
                 f.FirstVert = m.GetI32();
-                for (int k = 0; k < 3; ++k)
+                for (var k = 0; k < 3; ++k)
                     f.Scale[k] = m.GetF32();
-                for (int k = 0; k < 3; ++k)
+                for (var k = 0; k < 3; ++k)
                     f.Origin[k] = m.GetF32();
             }
             if (!m.Ok)
@@ -626,7 +626,7 @@ public sealed class ShapeModel
                     Span<float> lo = stackalloc float[3], hi = stackalloc float[3];
                     if (mesh.Frames.Length != 0 && mesh.Vertex(mesh.Frames[0], 0, lo) && mesh.Vertex(mesh.Frames[0], 1, hi))
                     {
-                        for (int i = 0; i < 3; ++i)
+                        for (var i = 0; i < 3; ++i)
                         {
                             output.Box[i] = lo[i];
                             output.Box[i + 3] = hi[i];
@@ -647,16 +647,16 @@ public sealed class ShapeModel
         Center = default;
         Box = default;
         AlwaysNode = -1;
-        Nodes = Array.Empty<Node>();
-        Sequences = Array.Empty<Sequence>();
-        SubSequences = Array.Empty<SubSequence>();
-        Keys = Array.Empty<Key>();
-        Transforms = Array.Empty<Transform>();
-        Names = Array.Empty<string>();
-        Objects = Array.Empty<Object>();
-        Details = Array.Empty<Detail>();
-        Transitions = Array.Empty<Transition>();
-        Meshes = Array.Empty<Mesh>();
+        Nodes = [];
+        Sequences = [];
+        SubSequences = [];
+        Keys = [];
+        Transforms = [];
+        Names = [];
+        Objects = [];
+        Details = [];
+        Transitions = [];
+        Meshes = [];
     }
 }
 
@@ -768,24 +768,24 @@ public sealed class ShapeInstance
     /// <summary>The shape model.</summary>
     public ShapeModel? ShapeData;
     /// <summary>The node transforms to root space, identity until animated.</summary>
-    public TMat3[] Entries = Array.Empty<TMat3>();
+    public TMat3[] Entries = [];
     /// <summary>The active flag of each node (node instance +0x08).</summary>
-    public byte[] NodeActive = Array.Empty<byte>();
+    public byte[] NodeActive = [];
     /// <summary>The object states.</summary>
-    public ObjectState[] Objects = Array.Empty<ObjectState>();
+    public ObjectState[] Objects = [];
     /// <summary>The animation threads.</summary>
-    public List<ShapeThread> Threads = new();
+    public List<ShapeThread> Threads = [];
     /// <summary>The view mode (instance +0x9e). The player sets 2 for first person animations.</summary>
     public byte ViewMode;
     /// <summary>The default transform of node 0 (instance +0xa0), flags 3.</summary>
     public TMat3 Root = new();
     /// <summary>The node overrides (docs/collision.md T2.5a, 005c2f54): a thread-driven node marked here takes, in view mode 2, the override matrix with the height of the source node as its parent.</summary>
-    public byte[] OverrideNode = Array.Empty<byte>();
+    public byte[] OverrideNode = [];
     /// <summary>The source node of the override, -1 when none.</summary>
     public int OverrideSource = -1;
     /// <summary>The override matrix.</summary>
     public TMat3 OverrideMatrix = new();
-    private readonly List<KeyValuePair<int, List<int>>> mDetailNodes = new();
+    private readonly List<KeyValuePair<int, List<int>>> mDetailNodes = [];
 
     /// <summary>Gets the root node of a detail (docs/collision.md T2.2).</summary>
     /// <param name="detail">The detail index.</param>
@@ -794,7 +794,7 @@ public sealed class ShapeInstance
     {
         if (ShapeData == null || detail < 0)
             return -1;
-        int node = 1; // a shape without details uses node 1 (T2.2)
+        var node = 1; // a shape without details uses node 1 (T2.2)
         if (ShapeData.Details.Length != 0)
         {
             if (detail >= ShapeData.Details.Length)
@@ -811,12 +811,12 @@ public sealed class ShapeInstance
         ShapeData = model;
         mDetailNodes.Clear();
         Entries = new TMat3[model.Nodes.Length];
-        for (int i = 0; i < Entries.Length; ++i)
+        for (var i = 0; i < Entries.Length; ++i)
             Entries[i] = new TMat3();
         NodeActive = new byte[model.Nodes.Length];
         Array.Fill(NodeActive, (byte)1);
         Objects = new ObjectState[model.Objects.Length];
-        for (int i = 0; i < Objects.Length; ++i)
+        for (var i = 0; i < Objects.Length; ++i)
             Objects[i] = new ObjectState();
         OverrideNode = new byte[model.Nodes.Length];
         OverrideSource = -1;
@@ -828,7 +828,7 @@ public sealed class ShapeInstance
             {
                 ref ShapeModel.Transform tr = ref model.Transforms[t];
                 Span<float> q = stackalloc float[4];
-                for (int k = 0; k < 4; ++k)
+                for (var k = 0; k < 4; ++k)
                     q[k] = F32Chop(Mul(Shape.kQuatScale, tr.Q[k]));
                 Shape.QuatToMatrix(q, ref Root);
                 Root.P = tr.T;
@@ -852,7 +852,7 @@ public sealed class ShapeInstance
         if (sh.AlwaysNode >= 0 && sh.AlwaysNode < sh.Nodes.Length)
             Shape.Subtree(kids, sh.AlwaysNode, order);
         Shape.Subtree(kids, DetailRoot(0), order);
-        foreach (int node in order)
+        foreach (var node in order)
         {
             // TSNodeInstance_animate (0x005bd9b0): nothing for a node without a parent entry.
             if (!Shape.HasParentEntry(sh, node))
@@ -901,14 +901,14 @@ public sealed class ShapeInstance
             return;
         // 0x005c2f54: every node whose name starts with the prefix. The matrix is the Player's global at 0x0065f628:
         // yaw pi / 2 (0x3fc90fdb), flags 3.
-        for (int i = 0; i < ShapeData.Nodes.Length; ++i)
+        for (var i = 0; i < ShapeData.Nodes.Length; ++i)
         {
             int n = ShapeData.Nodes[i].Name;
             if (n >= 0 && n < ShapeData.Names.Length && ShapeData.Names[n].StartsWith(prefix, StringComparison.Ordinal))
                 OverrideNode[i] = 1;
         }
         OverrideSource = ShapeData.FindNode(sourceNode);
-        ReadOnlySpan<float> yaw = stackalloc float[3] { 0.0f, 0.0f, 1.57079637f };
+        ReadOnlySpan<float> yaw = [0.0f, 0.0f, 1.57079637f];
         OverrideMatrix = new TMat3();
         Shape.EulerMatrix(yaw, ref OverrideMatrix);
         OverrideMatrix.Flags |= 2u;
@@ -952,11 +952,11 @@ public sealed class ShapeInstance
         var order = new List<int>();
         Shape.Subtree(Shape.ChildLists(sh), DetailRoot(0), order);
         Span<float> lo = stackalloc float[3], hi = stackalloc float[3];
-        foreach (int node in order)
+        foreach (var node in order)
         {
             if (NodeActive[node] == 0)
                 continue;
-            for (int oi = 0; oi < sh.Objects.Length; ++oi)
+            for (var oi = 0; oi < sh.Objects.Length; ++oi)
             {
                 ref ShapeModel.Object ob = ref sh.Objects[oi];
                 if (ob.Node != node || !Objects[oi].Visible)
@@ -964,15 +964,17 @@ public sealed class ShapeInstance
                 if (ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                     continue;
                 ShapeModel.Mesh mesh = sh.Meshes[ob.Mesh];
-                int frame = Objects[oi].Frame;
+                var frame = Objects[oi].Frame;
                 if (frame < 0 || frame >= mesh.Frames.Length)
                     continue;
-                var c = new Candidate();
-                c.Obj = oi;
-                c.Mesh = mesh;
-                c.Frame = frame;
-                // T2.7: the node entry with the object offset carried into its translation.
-                c.T = Entries[node];
+                var c = new Candidate
+                {
+                    Obj = oi,
+                    Mesh = mesh,
+                    Frame = frame,
+                    // T2.7: the node entry with the object offset carried into its translation.
+                    T = Entries[node]
+                };
                 X87.MulPoint(ob.Offset, c.T.M, Entries[node].P, c.T.P);
                 Shape.TmatInverse(c.T, out TMat3 Ti);
                 X87.MulPoint(S, Ti.M, Ti.P, c.Sm);
@@ -987,11 +989,11 @@ public sealed class ShapeInstance
         if (cands.Count == 0)
             return false;
         output = new ShapeSurface();
-        void SetPosition(ref ShapeSurface o, ReadOnlySpan<float> s, ReadOnlySpan<float> e, float t)
+        static void SetPosition(ref ShapeSurface o, ReadOnlySpan<float> s, ReadOnlySpan<float> e, float t)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
-                float p = F32Chop(Sub(e[i], s[i]));
+                var p = F32Chop(Sub(e[i], s[i]));
                 p = F32Chop(Mul(t, p));
                 o.Position[i] = F32Chop(Add(s[i], p));
             }
@@ -1005,47 +1007,47 @@ public sealed class ShapeInstance
             return true;
         }
         var sorted = new int[cands.Count];
-        for (int i = 0; i < sorted.Length; ++i)
+        for (var i = 0; i < sorted.Length; ++i)
             sorted[i] = i;
-        Borland.BorlandQsort<int>(sorted, (a, b) => cands[a].Tval < cands[b].Tval ? -1 : cands[b].Tval < cands[a].Tval ? 1 : 0);
+        Borland.BorlandQsort(sorted, (a, b) => cands[a].Tval < cands[b].Tval ? -1 : cands[b].Tval < cands[a].Tval ? 1 : 0);
         output.T = 1.1f;
-        bool hit = false;
+        var hit = false;
         Span<float> D = stackalloc float[3], A = stackalloc float[3], B = stackalloc float[3], C = stackalloc float[3];
         Span<float> ac = stackalloc float[3], bc = stackalloc float[3], N = stackalloc float[3], H = stackalloc float[3];
         Span<float> bestN = stackalloc float[3];
-        foreach (int ci in sorted)
+        foreach (var ci in sorted)
         {
             Candidate c = cands[ci];
             if (!(c.Tval < output.T))
                 break;
             // TSCelAnimMesh_lineFaces (0x005ab0fc, T7.2).
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 D[i] = F32Chop(Sub(c.Em[i], c.Sm[i]));
-            float tmin = F32Chop(Mul(0.9f, c.Tval));
-            float best = output.T;
-            int bestFace = -1;
+            var tmin = F32Chop(Mul(0.9f, c.Tval));
+            var best = output.T;
+            var bestFace = -1;
             bestN.Clear();
             ref ShapeModel.Frame fr = ref c.Mesh.Frames[c.Frame];
-            for (int fi = 0; fi < c.Mesh.Faces.Length; ++fi)
+            for (var fi = 0; fi < c.Mesh.Faces.Length; ++fi)
             {
                 ref ShapeModel.Face face = ref c.Mesh.Faces[fi];
                 if (!c.Mesh.Vertex(fr, face.V[0], A) || !c.Mesh.Vertex(fr, face.V[1], B) || !c.Mesh.Vertex(fr, face.V[2], C))
                     continue;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                 {
                     ac[i] = F32Chop(Sub(A[i], C[i]));
                     bc[i] = F32Chop(Sub(B[i], C[i]));
                 }
                 Shape.Cross(bc, ac, N);
-                float dN = F32Chop(X87.Dot(N, C));
-                float den = F32Chop(X87.Dot(N, D));
+                var dN = F32Chop(X87.Dot(N, C));
+                var den = F32Chop(X87.Dot(N, D));
                 if (den >= 0.0f)
                     continue;
-                float num = F32Chop(Sub(dN, X87.Dot(N, c.Sm)));
+                var num = F32Chop(Sub(dN, X87.Dot(N, c.Sm)));
                 if (!(Mul(tmin, den) > num && Mul(best, den) <= num))
                     continue;
-                float t = F32Chop(Div(num, den));
-                for (int i = 0; i < 3; ++i)
+                var t = F32Chop(Div(num, den));
+                for (var i = 0; i < 3; ++i)
                     H[i] = F32Chop(Add(Mul(t, D[i]), c.Sm[i]));
                 if (Shape.PointInTriangle(H, N, A, B, C))
                 {
@@ -1067,8 +1069,8 @@ public sealed class ShapeInstance
             return false;
         SetPosition(ref output, S, E, output.T);
         // 0x005c1555: the length is stored as f32 before the division.
-        float k = F32Chop(Div(1.0, F32Chop(X87.Len(output.Normal))));
-        for (int i = 0; i < 3; ++i)
+        var k = F32Chop(Div(1.0, F32Chop(X87.Len(output.Normal))));
+        for (var i = 0; i < 3; ++i)
             output.Normal[i] = F32Chop(Mul(k, output.Normal[i]));
         return true;
     }
@@ -1100,11 +1102,11 @@ public sealed class ShapeInstance
         using var chop = ChopScope();
         ShapeModel sh = ShapeData;
         Span<float> lo = stackalloc float[3], hi = stackalloc float[3], a = stackalloc float[3];
-        foreach (int node in DetailNodes(detail))
+        foreach (var node in DetailNodes(detail))
         {
             if (NodeActive[node] == 0)
                 continue;
-            for (int oi = 0; oi < sh.Objects.Length; ++oi)
+            for (var oi = 0; oi < sh.Objects.Length; ++oi)
             {
                 ref ShapeModel.Object ob = ref sh.Objects[oi];
                 if (ob.Node != node || !Objects[oi].Visible)
@@ -1112,7 +1114,7 @@ public sealed class ShapeInstance
                 if (ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                     continue;
                 ShapeModel.Mesh mesh = sh.Meshes[ob.Mesh];
-                int fi = Objects[oi].Frame;
+                var fi = Objects[oi].Frame;
                 if (fi < 0 || fi >= mesh.Frames.Length)
                     continue;
                 ref ShapeModel.Frame frame = ref mesh.Frames[fi];
@@ -1125,7 +1127,7 @@ public sealed class ShapeInstance
                 if (!mesh.Vertex(frame, 0, lo) || !mesh.Vertex(frame, 1, hi))
                     continue;
                 // TSCelAnimMesh_boxTest (0x005acff8): the frame box as centre and half extents.
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                 {
                     a[i] = F32Chop(Mul(Sub(hi[i], lo[i]), 0.5f));
                     M.P[i] = F32Chop(Sub(M.P[i], lo[i]));
@@ -1157,17 +1159,17 @@ public sealed class ShapeInstance
             X87.MulPoint(p0, rm.M, rm.P, P);
         else
             p0[..3].CopyTo(P);
-        float rr = F32Chop(Mul(radius, radius)); // stored before the bounds call (0x005ac665)
+        var rr = F32Chop(Mul(radius, radius)); // stored before the bounds call (0x005ac665)
         Span<float> pm = stackalloc float[3], lo = stackalloc float[3], hi = stackalloc float[3];
         Span<float> A = stackalloc float[3], B = stackalloc float[3], C = stackalloc float[3];
         Span<float> pos = stackalloc float[3], n = stackalloc float[3];
         Span<float> h = stackalloc float[3], ctr = stackalloc float[3], d = stackalloc float[3];
         Span<float> local = stackalloc float[3], w = stackalloc float[3];
-        foreach (int node in DetailNodes(detail))
+        foreach (var node in DetailNodes(detail))
         {
             if (NodeActive[node] == 0)
                 continue;
-            for (int oi = 0; oi < sh.Objects.Length; ++oi)
+            for (var oi = 0; oi < sh.Objects.Length; ++oi)
             {
                 ref ShapeModel.Object ob = ref sh.Objects[oi];
                 if (ob.Node != node || !Objects[oi].Visible)
@@ -1175,7 +1177,7 @@ public sealed class ShapeInstance
                 if (ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                     continue;
                 ShapeModel.Mesh mesh = sh.Meshes[ob.Mesh];
-                int fi = Objects[oi].Frame;
+                var fi = Objects[oi].Frame;
                 if (fi < 0 || fi >= mesh.Frames.Length)
                     continue;
                 ref ShapeModel.Frame frame = ref mesh.Frames[fi];
@@ -1189,7 +1191,7 @@ public sealed class ShapeInstance
                 // Sphere bounds (0x005bf128 -> 0x005ac5a4 -> 0x005ec688): squared distance to the frame box, strictly
                 // below r * r.
                 float d2 = 0;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                 {
                     if (pm[i] < lo[i])
                         d2 = F32Chop(Add(Mul(Sub(pm[i], lo[i]), Sub(pm[i], lo[i])), d2));
@@ -1201,7 +1203,7 @@ public sealed class ShapeInstance
                 if (faces)
                 {
                     // T4.1 (0x005bf3a0 -> 0x005ac684): every face, then the records into root space.
-                    for (int f = 0; f < mesh.Faces.Length; ++f)
+                    for (var f = 0; f < mesh.Faces.Length; ++f)
                     {
                         ref ShapeModel.Face face = ref mesh.Faces[f];
                         if (!mesh.Vertex(frame, face.V[0], A) || !mesh.Vertex(frame, face.V[1], B) ||
@@ -1222,26 +1224,26 @@ public sealed class ShapeInstance
                     continue;
                 }
                 // T4.2 (0x005c1e18): one record per axis the sphere reaches past the half extent.
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                 {
                     h[i] = F32Chop(Mul(0.5, F32Chop(Sub(hi[i], lo[i]))));
                     ctr[i] = F32Chop(Mul(0.5, F32Chop(Add(hi[i], lo[i]))));
                     d[i] = F32Chop(Sub(pm[i], ctr[i]));
                 }
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                 {
                     if (!(Add(Math.Abs((double)d[i]), radius) >= h[i]))
                         continue;
                     n.Clear();
                     n[i] = 1.0f;
                     if (d[i] < 0.0f)
-                        for (int k = 0; k < 3; ++k)
+                        for (var k = 0; k < 3; ++k)
                             n[k] = F32Chop(Mul(-1.0, n[k]));
-                    for (int j = 0; j < 3; ++j)
+                    for (var j = 0; j < 3; ++j)
                         local[j] = F32Chop(Add(ctr[j], F32Chop(Mul(radius, n[j]))));
                     var c = new ShapeContact();
                     X87.MulPoint(local, T.M, T.P, c.Position);
-                    for (int k = 0; k < 3; ++k)
+                    for (var k = 0; k < 3; ++k)
                         w[k] = F32Chop(Sub(c.Position[k], p0[k]));
                     c.Distance = F32Chop(X87.Lenf(w));
                     X87.MulVector(n, T.M, c.Normal);
@@ -1278,7 +1280,7 @@ public static class Shape
         long trans = v == 7 ? 32 : 40;
         long sub = 12;
         long transitions = v == 7 ? 52 : 60;
-        return new[] { nodes, seq, sub, key, trans, names, objects, details, transitions, triggers };
+        return [nodes, seq, sub, key, trans, names, objects, details, transitions, triggers];
     }
 
     /// <summary>Reads the shape box (TS::Shape +0x14 to +0x28) of a PERS TS::Shape block.</summary>
@@ -1289,25 +1291,25 @@ public static class Shape
     public static bool ReadShapeBox(byte[] dts, Span<float> box)
     {
         var r = new Reader(dts);
-        uint ver = r.Pers(out _);
+        var ver = r.Pers(out _);
         if (!r.Ok || ver < 1 || ver > 8)
             return false;
         var counts = new int[9];
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             counts[i] = r.GetI32();
-        int nTransitions = ver >= 2 ? r.GetI32() : 0;
-        int nTriggers = ver >= 4 ? r.GetI32() : 0;
+        var nTransitions = ver >= 2 ? r.GetI32() : 0;
+        var nTriggers = ver >= 4 ? r.GetI32() : 0;
         r.Skip(16); // radius, center
         if (ver >= 8)
         {
-            for (int i = 0; i < 6; ++i)
+            for (var i = 0; i < 6; ++i)
                 box[i] = r.GetF32();
             return r.Ok;
         }
-        long[] sizes = RecordSizes(ver);
-        int[] n = { counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], nTransitions, nTriggers };
+        var sizes = RecordSizes(ver);
+        int[] n = [counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], nTransitions, nTriggers];
         long objects = 0;
-        for (int i = 0; i < 10 && r.Ok; ++i)
+        for (var i = 0; i < 10 && r.Ok; ++i)
         {
             if (n[i] < 0)
                 return false;
@@ -1322,11 +1324,11 @@ public static class Shape
         if (!r.Ok)
             return false;
         // The first object whose node index is 0 names the mesh.
-        int mesh = -1;
-        for (int k = 0; k < counts[6]; ++k)
+        var mesh = -1;
+        for (var k = 0; k < counts[6]; ++k)
         {
-            long o = objects + (long)k * 72;
-            short node = Reader.I16At(dts, o + 8);
+            var o = objects + ((long)k * 72);
+            var node = Reader.I16At(dts, o + 8);
             if (node == 0)
             {
                 mesh = Reader.I32At(dts, o + 4);
@@ -1335,15 +1337,15 @@ public static class Shape
         }
         if (mesh < 0 || mesh >= counts[8])
             return false;
-        for (int m = 0; m < mesh; ++m)
+        for (var m = 0; m < mesh; ++m)
         {
-            r.Pers(out long me);
+            r.Pers(out var me);
             if (!r.Ok)
                 return false;
             r.Pos = me;
         }
-        uint mver = r.Pers(out _);
-        int nVerts = r.GetI32();
+        var mver = r.Pers(out _);
+        var nVerts = r.GetI32();
         r.GetI32(); // vertsPerFrame
         int nTex = r.GetI32(), nFaces = r.GetI32(), nFrames = r.GetI32();
         if (mver >= 2)
@@ -1351,23 +1353,23 @@ public static class Shape
         if (mver < 3)
             r.Skip(24);
         r.Skip(4); // radius
-        long verts = r.Pos;
+        var verts = r.Pos;
         if (!r.Ok || nVerts < 2 || nTex < 0 || nFaces < 0 || nFrames < 1)
             return false;
-        r.Skip((long)nVerts * 4 + (long)nTex * 8 + (long)nFaces * 28);
-        int first = r.GetI32();
+        r.Skip(((long)nVerts * 4) + ((long)nTex * 8) + ((long)nFaces * 28));
+        var first = r.GetI32();
         Span<float> scale = stackalloc float[3], origin = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             scale[i] = r.GetF32();
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             origin[i] = r.GetF32();
         if (!r.Ok || first < 0 || first >= nVerts - 1)
             return false;
-        for (int k = 0; k < 2; ++k)
+        for (var k = 0; k < 2; ++k)
         {
-            long v = verts + (long)(first + k) * 4;
-            for (int i = 0; i < 3; ++i)
-                box[k * 3 + i] = Store(Add(Mul(dts[v + i], scale[i]), origin[i]));
+            var v = verts + ((long)(first + k) * 4);
+            for (var i = 0; i < 3; ++i)
+                box[(k * 3) + i] = Store(Add(Mul(dts[v + i], scale[i]), origin[i]));
         }
         return true;
     }
@@ -1380,17 +1382,17 @@ public static class Shape
     public static bool ReadShapeSphere(byte[] dts, ref float radius, Span<float> center)
     {
         var r = new Reader(dts);
-        uint ver = r.Pers(out _);
+        var ver = r.Pers(out _);
         if (!r.Ok || ver < 1 || ver > 8)
             return false;
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             r.GetI32();
         if (ver >= 2)
             r.GetI32();
         if (ver >= 4)
             r.GetI32();
         radius = r.GetF32();
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             center[i] = r.GetF32();
         return r.Ok;
     }
@@ -1414,7 +1416,7 @@ public static class Shape
         if (!sSphereCache.TryGetValue(name, out CachedSphere? c))
         {
             c = new CachedSphere();
-            if (res.Read(name + ".dts", out byte[] data))
+            if (res.Read(name + ".dts", out var data))
                 c.Ok = ReadShapeSphere(data, ref c.Radius, c.Center);
             sSphereCache.Add(name, c);
         }
@@ -1443,7 +1445,7 @@ public static class Shape
         if (!sBoxCache.TryGetValue(name, out CachedBox? c))
         {
             c = new CachedBox();
-            if (res.Read(name + ".dts", out byte[] data))
+            if (res.Read(name + ".dts", out var data))
                 c.Ok = ReadShapeBox(data, c.Box);
             sBoxCache.Add(name, c);
         }
@@ -1457,12 +1459,12 @@ public static class Shape
     {
         if (a.Length != b.Length)
             return 1;
-        for (int i = 0; i < a.Length; ++i)
+        for (var i = 0; i < a.Length; ++i)
         {
             char x = a[i], y = b[i];
-            if (x >= 'A' && x <= 'Z')
+            if (x is >= 'A' and <= 'Z')
                 x = (char)(x + 32);
-            if (y >= 'A' && y <= 'Z')
+            if (y is >= 'A' and <= 'Z')
                 y = (char)(y + 32);
             if (x != y)
                 return 1;
@@ -1473,7 +1475,7 @@ public static class Shape
     // src/world/shape.cpp findName (ShapeAnim).
     internal static int FindName(ShapeAnim a, string name)
     {
-        for (int i = 0; i < a.Names.Count; ++i)
+        for (var i = 0; i < a.Names.Count; ++i)
             if (AsciiCompareNoCase(a.Names[i], name) == 0)
                 return i;
         return -1;
@@ -1498,9 +1500,9 @@ public static class Shape
     // src/world/shape.cpp mul3.
     internal static void Mul3(ReadOnlySpan<double> a, ReadOnlySpan<double> b, Span<double> output)
     {
-        for (int r = 0; r < 3; ++r)
-            for (int c = 0; c < 3; ++c)
-                output[r * 3 + c] = Add(Add(Mul(a[r * 3], b[c]), Mul(a[r * 3 + 1], b[3 + c])), Mul(a[r * 3 + 2], b[6 + c]));
+        for (var r = 0; r < 3; ++r)
+            for (var c = 0; c < 3; ++c)
+                output[(r * 3) + c] = Add(Add(Mul(a[r * 3], b[c]), Mul(a[(r * 3) + 1], b[3 + c])), Mul(a[(r * 3) + 2], b[6 + c]));
     }
 
     /// <summary>Reads the animation data of a .dts shape.</summary>
@@ -1510,11 +1512,11 @@ public static class Shape
     public static bool ReadShapeAnim(byte[] dts, ShapeAnim output)
     {
         var r = new Reader(dts);
-        uint ver = r.Pers(out _);
+        var ver = r.Pers(out _);
         if (!r.Ok || ver < 1 || ver > 8)
             return false;
         var counts = new int[9];
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             counts[i] = r.GetI32();
         if (ver >= 2)
             r.GetI32();
@@ -1523,17 +1525,17 @@ public static class Shape
         r.Skip(16);
         if (ver >= 8)
             r.Skip(24);
-        for (int i = 0; i < 6; ++i)
+        for (var i = 0; i < 6; ++i)
             if (counts[i] < 0 || counts[i] > dts.Length)
                 return false;
-        output.Sequences = new List<ShapeSequence>();
-        output.Names = new List<string>();
-        output.SequenceNames = new List<int>();
-        output.Nodes = new List<ShapeAnim.Node>();
-        output.SubSequences = new List<ShapeAnim.SubSequence>();
-        output.Keys = new List<ShapeAnim.Key>();
-        output.Rotations = new List<ShapeAnim.Quat>();
-        for (int i = 0; i < counts[0] && r.Ok; ++i)
+        output.Sequences = [];
+        output.Names = [];
+        output.SequenceNames = [];
+        output.Nodes = [];
+        output.SubSequences = [];
+        output.Keys = [];
+        output.Rotations = [];
+        for (var i = 0; i < counts[0] && r.Ok; ++i)
         {
             var n = new ShapeAnim.Node();
             if (ver >= 8)
@@ -1556,7 +1558,7 @@ public static class Shape
         }
         long seqSize = ver >= 5 ? 32 : ver == 4 ? 24 : 16;
         var seqs = new List<ShapeSequence>();
-        for (int i = 0; i < counts[1] && r.Ok; ++i)
+        for (var i = 0; i < counts[1] && r.Ok; ++i)
         {
             var s = new ShapeSequence();
             output.SequenceNames.Add(r.GetI32());
@@ -1565,7 +1567,7 @@ public static class Shape
             r.Skip(seqSize - 12);
             seqs.Add(s);
         }
-        for (int i = 0; i < counts[2] && r.Ok; ++i)
+        for (var i = 0; i < counts[2] && r.Ok; ++i)
         {
             var s = new ShapeAnim.SubSequence();
             if (ver >= 8)
@@ -1582,17 +1584,19 @@ public static class Shape
             }
             output.SubSequences.Add(s);
         }
-        for (int i = 0; i < counts[3] && r.Ok; ++i)
+        for (var i = 0; i < counts[3] && r.Ok; ++i)
         {
-            var k = new ShapeAnim.Key();
-            k.Position = r.GetF32();
-            uint v = r.GetU32();
+            var k = new ShapeAnim.Key
+            {
+                Position = r.GetF32()
+            };
+            var v = r.GetU32();
             k.Transform = ver >= 8 ? (v & 0xffffu) : v;
-            if (ver >= 3 && ver < 8)
+            if (ver is >= 3 and < 8)
                 r.Skip(4);
             output.Keys.Add(k);
         }
-        for (int i = 0; i < counts[4] && r.Ok; ++i)
+        for (var i = 0; i < counts[4] && r.Ok; ++i)
         {
             var q = new ShapeAnim.Quat { W = 1 };
             if (ver >= 7)
@@ -1614,17 +1618,17 @@ public static class Shape
             output.Rotations.Add(q);
         }
         var name = new byte[24];
-        for (int i = 0; i < counts[5] && r.Ok; ++i)
+        for (var i = 0; i < counts[5] && r.Ok; ++i)
         {
-            for (int k = 0; k < 24; ++k)
+            for (var k = 0; k < 24; ++k)
                 name[k] = r.GetU8();
             output.Names.Add(Reader.CString(name, 0, 24));
         }
         if (!r.Ok)
             return false;
-        for (int i = 0; i < seqs.Count; ++i)
+        for (var i = 0; i < seqs.Count; ++i)
         {
-            int n = output.SequenceNames[i];
+            var n = output.SequenceNames[i];
             if (n >= 0 && n < output.Names.Count)
                 seqs[i].Name = output.Names[n];
         }
@@ -1643,7 +1647,7 @@ public static class Shape
         if (!sAnimCache.TryGetValue(name, out var c))
         {
             var anim = new ShapeAnim();
-            bool ok = res.Read(name + ".dts", out byte[] data) && ReadShapeAnim(data, anim);
+            var ok = res.Read(name + ".dts", out var data) && ReadShapeAnim(data, anim);
             c = (ok, anim);
             sAnimCache.Add(name, c);
         }
@@ -1660,25 +1664,25 @@ public static class Shape
         // Half-sum centre and half extents, each stored as f32.
         var c = new Vec3();
         var e = new Vec3();
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            float s = Store(Add(local[i], local[i + 3]));
+            var s = Store(Add(local[i], local[i + 3]));
             c[i] = Store(Mul(s, 0.5f));
-            float d = Store(Sub(local[i + 3], local[i]));
+            var d = Store(Sub(local[i + 3], local[i]));
             e[i] = Store(Mul(d, 0.5f));
         }
         Vec3 wc = m.ToWorldVector(c);
         // Extent axis j: sum over i of |m[i*3 + j]| * e[i]; products and partial sums are stored as f64, the result as
         // f32.
-        for (int j = 0; j < 3; ++j)
+        for (var j = 0; j < 3; ++j)
         {
-            double acc = Mul(Math.Abs((double)m.M[j]), e[0]);
+            var acc = Mul(Math.Abs((double)m.M[j]), e[0]);
             acc = Add(Mul(Math.Abs((double)m.M[3 + j]), e[1]), acc);
-            float ext = Store(Add(Mul(Math.Abs((double)m.M[6 + j]), e[2]), acc));
+            var ext = Store(Add(Mul(Math.Abs((double)m.M[6 + j]), e[2]), acc));
             output[j] = Store(Sub(wc[j], ext));
             output[j + 3] = Store(Add(ext, wc[j]));
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             output[i + 3] = Store(Add(m.P[i], output[i + 3]));
             output[i] = Store(Add(m.P[i], output[i]));
@@ -1688,12 +1692,12 @@ public static class Shape
     // src/world/shape.cpp sameNameNoCase.
     private static bool SameNameNoCase(string a, string b)
     {
-        for (int i = 0; ; ++i)
+        for (var i = 0; ; ++i)
         {
             char x = i < a.Length ? a[i] : '\0', y = i < b.Length ? b[i] : '\0';
-            if (x >= 'A' && x <= 'Z')
+            if (x is >= 'A' and <= 'Z')
                 x = (char)(x + 32);
-            if (y >= 'A' && y <= 'Z')
+            if (y is >= 'A' and <= 'Z')
                 y = (char)(y + 32);
             if (x != y)
                 return false;
@@ -1710,19 +1714,19 @@ public static class Shape
     {
         output.Clear();
         var r = new Reader(dts);
-        uint ver = r.Pers(out _);
+        var ver = r.Pers(out _);
         if (!r.Ok || (ver != 7 && ver != 8))
             return false;
         var counts = new int[9];
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             counts[i] = r.GetI32();
         int nTransitions = r.GetI32(), nTriggers = r.GetI32();
         r.Skip(ver >= 8 ? 40 : 16); // radius, centre, box
-        bool v8 = ver == 8;
-        long[] sizes = { v8 ? 10 : 20, 32, v8 ? 6 : 12, v8 ? 8 : 12, v8 ? 20 : 32, 24, v8 ? 28 : 72, 8, v8 ? 40 : 52, 8 };
-        int[] n = { counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], nTransitions, nTriggers };
+        var v8 = ver == 8;
+        long[] sizes = [v8 ? 10 : 20, 32, v8 ? 6 : 12, v8 ? 8 : 12, v8 ? 20 : 32, 24, v8 ? 28 : 72, 8, v8 ? 40 : 52, 8];
+        int[] n = [counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], nTransitions, nTriggers];
         var at = new long[10];
-        for (int i = 0; i < 10 && r.Ok; ++i)
+        for (var i = 0; i < 10 && r.Ok; ++i)
         {
             // A count the file cannot hold is malformed (D11).
             if (n[i] < 0 || n[i] > dts.Length)
@@ -1733,59 +1737,59 @@ public static class Shape
         r.Skip(8); // the v >= 5 and v >= 6 words
         if (!r.Ok || counts[8] < 0 || counts[8] > dts.Length)
             return false;
-        int NodeName(int node) => v8 ? Reader.I16At(dts, at[0] + (long)node * 10) : Reader.I32At(dts, at[0] + (long)node * 20);
+        int NodeName(int node) => v8 ? Reader.I16At(dts, at[0] + ((long)node * 10)) : Reader.I32At(dts, at[0] + ((long)node * 20));
         int NodeParent(int node) =>
-            v8 ? Reader.I16At(dts, at[0] + (long)node * 10 + 2) : Reader.I32At(dts, at[0] + (long)node * 20 + 4);
+            v8 ? Reader.I16At(dts, at[0] + ((long)node * 10) + 2) : Reader.I32At(dts, at[0] + ((long)node * 20) + 4);
         // T2.1: the first name "collision", the first node with that name, a detail rooted at that node.
-        int name = -1;
-        for (int i = 0; i < counts[5] && name < 0; ++i)
-            if (SameNameNoCase(Reader.CString(dts, at[5] + (long)i * 24, 24), "collision"))
+        var name = -1;
+        for (var i = 0; i < counts[5] && name < 0; ++i)
+            if (SameNameNoCase(Reader.CString(dts, at[5] + ((long)i * 24), 24), "collision"))
                 name = i;
-        int root = -1;
-        for (int i = 0; i < counts[0] && root < 0 && name >= 0; ++i)
+        var root = -1;
+        for (var i = 0; i < counts[0] && root < 0 && name >= 0; ++i)
             if (NodeName(i) == name)
                 root = i;
-        bool detail = false;
-        for (int i = 0; i < counts[7] && root >= 0; ++i)
-            detail = detail || Reader.I32At(dts, at[7] + (long)i * 8) == root;
+        var detail = false;
+        for (var i = 0; i < counts[7] && root >= 0; ++i)
+            detail = detail || Reader.I32At(dts, at[7] + ((long)i * 8)) == root;
         if (!detail)
             return false;
         // Nodes of the subtree: the root, then by descending index (T2.4 visits children in descending node index).
         var nodes = new List<int> { root };
-        for (int i = counts[0] - 1; i >= 0; --i)
+        for (var i = counts[0] - 1; i >= 0; --i)
         {
-            int p = i;
-            for (int depth = 0; depth < counts[0] && p >= 0 && p < counts[0] && p != root; ++depth)
+            var p = i;
+            for (var depth = 0; depth < counts[0] && p >= 0 && p < counts[0] && p != root; ++depth)
                 p = NodeParent(p);
             if (i != root && p == root)
                 nodes.Add(i);
         }
         var meshes = new List<long>();
-        for (int m = 0; m < counts[8] && r.Ok; ++m)
+        for (var m = 0; m < counts[8] && r.Ok; ++m)
         {
             meshes.Add(r.Pos);
-            r.Pers(out long meshEnd);
+            r.Pers(out var meshEnd);
             if (!r.Ok || meshEnd <= r.Pos)
                 return false;
             r.Pos = meshEnd;
         }
         Span<float> offset = stackalloc float[3], scale = stackalloc float[3], origin = stackalloc float[3];
-        foreach (int node in nodes)
-            for (int k = 0; k < counts[6]; ++k)
+        foreach (var node in nodes)
+            for (var k = 0; k < counts[6]; ++k)
             {
-                long o = at[6] + (long)k * sizes[6];
+                var o = at[6] + (k * sizes[6]);
                 if (Reader.I16At(dts, o + 8) != node)
                     continue;
-                int mesh = Reader.I32At(dts, o + 4);
+                var mesh = Reader.I32At(dts, o + 4);
                 if (mesh < 0 || mesh >= meshes.Count)
                     continue;
                 offset.Clear();
                 if (v8)
-                    for (int i = 0; i < 3; ++i)
-                        offset[i] = Reader.F32At(dts, o + 12 + i * 4);
+                    for (var i = 0; i < 3; ++i)
+                        offset[i] = Reader.F32At(dts, o + 12 + (i * 4));
                 var m = new Reader(dts) { Pos = meshes[mesh] };
-                uint mver = m.Pers(out _);
-                int nVerts = m.GetI32();
+                var mver = m.Pers(out _);
+                var nVerts = m.GetI32();
                 m.GetI32();
                 int nTex = m.GetI32(), nFaces = m.GetI32(), nFrames = m.GetI32();
                 if (mver >= 2)
@@ -1793,25 +1797,25 @@ public static class Shape
                 if (mver < 3)
                     m.Skip(24);
                 m.Skip(4);
-                long verts = m.Pos;
+                var verts = m.Pos;
                 if (!m.Ok || nVerts < 2 || nTex < 0 || nFaces < 0 || nFrames < 1 || nVerts > dts.Length ||
                     nTex > dts.Length || nFaces > dts.Length)
                     continue;
-                m.Skip((long)nVerts * 4 + (long)nTex * 8 + (long)nFaces * 28);
-                int first = m.GetI32();
-                for (int i = 0; i < 3; ++i)
+                m.Skip(((long)nVerts * 4) + ((long)nTex * 8) + ((long)nFaces * 28));
+                var first = m.GetI32();
+                for (var i = 0; i < 3; ++i)
                     scale[i] = m.GetF32();
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     origin[i] = m.GetF32();
                 if (!m.Ok || first < 0 || first >= nVerts - 1)
                     continue;
                 // Frame box: decoded vertices firstVert and firstVert + 1, plus the object offset.
                 var box = new Float6();
-                for (int c = 0; c < 2; ++c)
+                for (var c = 0; c < 2; ++c)
                 {
-                    long v = verts + (long)(first + c) * 4;
-                    for (int i = 0; i < 3; ++i)
-                        box[c * 3 + i] = Store(Add(Store(Add(Mul(dts[v + i], scale[i]), origin[i])), offset[i]));
+                    var v = verts + ((long)(first + c) * 4);
+                    for (var i = 0; i < 3; ++i)
+                        box[(c * 3) + i] = Store(Add(Store(Add(Mul(dts[v + i], scale[i]), origin[i])), offset[i]));
                 }
                 output.Add(box);
             }
@@ -1828,8 +1832,8 @@ public static class Shape
     {
         if (!sCollisionCache.TryGetValue(name, out List<Float6>? boxes))
         {
-            boxes = new List<Float6>();
-            if (res.Read(name + ".dts", out byte[] data))
+            boxes = [];
+            if (res.Read(name + ".dts", out var data))
                 ReadShapeCollisionBoxes(data, boxes);
             sCollisionCache.Add(name, boxes);
         }
@@ -1843,9 +1847,9 @@ public static class Shape
     private static double LdConstant(ulong mantissa, int exp2)
     {
         const int shift = 11;
-        ulong kept = mantissa >> shift;
-        ulong rest = mantissa & ((1UL << shift) - 1);
-        ulong half = 1UL << (shift - 1);
+        var kept = mantissa >> shift;
+        var rest = mantissa & ((1UL << shift) - 1);
+        var half = 1UL << (shift - 1);
         if (rest > half || (rest == half && (kept & 1) != 0))
             ++kept;
         return Math.ScaleB(kept, exp2 + shift);
@@ -1871,9 +1875,9 @@ public static class Shape
             u = 1;
             v = 2;
         }
-        float s1 = F32Chop(Add(Mul(Sub(a[u], q[u]), Sub(a[v], b[v])), Mul(Sub(a[v], q[v]), Sub(b[u], a[u]))));
-        float s2 = F32Chop(Add(Mul(Sub(b[u], q[u]), Sub(b[v], c[v])), Mul(Sub(b[v], q[v]), Sub(c[u], b[u]))));
-        float s3 = F32Chop(Add(Mul(Sub(c[u], q[u]), Sub(c[v], a[v])), Mul(Sub(c[v], q[v]), Sub(a[u], c[u]))));
+        var s1 = F32Chop(Add(Mul(Sub(a[u], q[u]), Sub(a[v], b[v])), Mul(Sub(a[v], q[v]), Sub(b[u], a[u]))));
+        var s2 = F32Chop(Add(Mul(Sub(b[u], q[u]), Sub(b[v], c[v])), Mul(Sub(b[v], q[v]), Sub(c[u], b[u]))));
+        var s3 = F32Chop(Add(Mul(Sub(c[u], q[u]), Sub(c[v], a[v])), Mul(Sub(c[v], q[v]), Sub(a[u], c[u]))));
         return !(Mul(s1, s2) < 0.0 || Mul(s2, s3) < 0.0);
     }
 
@@ -1881,7 +1885,7 @@ public static class Shape
     internal static bool SlabTest(ReadOnlySpan<float> s, ReadOnlySpan<float> e, ReadOnlySpan<float> mn, ReadOnlySpan<float> mx,
                                   ref float t)
     {
-        for (int a = 0; a < 3; ++a)
+        for (var a = 0; a < 3; ++a)
         {
             int b = (a + 1) % 3, c = (a + 2) % 3;
             float num, den;
@@ -1911,7 +1915,7 @@ public static class Shape
                 return true;
             }
         }
-        for (int a = 0; a < 3; ++a)
+        for (var a = 0; a < 3; ++a)
             if (!(mn[a] <= s[a] && s[a] <= mx[a]))
                 return false;
         t = 0.0f;
@@ -1921,9 +1925,9 @@ public static class Shape
     // src/world/shape.cpp cross: 0x005ece6f, each component one f32 store.
     internal static void Cross(ReadOnlySpan<float> a, ReadOnlySpan<float> b, Span<float> output)
     {
-        float x = F32Chop(Sub(Mul(a[1], b[2]), Mul(a[2], b[1])));
-        float y = F32Chop(Sub(Mul(a[2], b[0]), Mul(a[0], b[2])));
-        float z = F32Chop(Sub(Mul(a[0], b[1]), Mul(a[1], b[0])));
+        var x = F32Chop(Sub(Mul(a[1], b[2]), Mul(a[2], b[1])));
+        var y = F32Chop(Sub(Mul(a[2], b[0]), Mul(a[0], b[2])));
+        var z = F32Chop(Sub(Mul(a[0], b[1]), Mul(a[1], b[0])));
         output[0] = x;
         output[1] = y;
         output[2] = z;
@@ -1949,10 +1953,10 @@ public static class Shape
     public static void TmatMul(in TMat3 a, in TMat3 b, out TMat3 output)
     {
         var o = new TMat3();
-        for (int r = 0; r < 3; ++r)
-            for (int c = 0; c < 3; ++c)
-                o.M[r * 3 + c] = F32Chop(Add(Add(Mul(a.M[r * 3], b.M[c]), Mul(a.M[r * 3 + 1], b.M[3 + c])), Mul(a.M[r * 3 + 2], b.M[6 + c])));
-        for (int c = 0; c < 3; ++c)
+        for (var r = 0; r < 3; ++r)
+            for (var c = 0; c < 3; ++c)
+                o.M[(r * 3) + c] = F32Chop(Add(Add(Mul(a.M[r * 3], b.M[c]), Mul(a.M[(r * 3) + 1], b.M[3 + c])), Mul(a.M[(r * 3) + 2], b.M[6 + c])));
+        for (var c = 0; c < 3; ++c)
             o.P[c] = F32Chop(Add(Add(Add(Mul(a.P[0], b.M[c]), Mul(a.P[1], b.M[3 + c])), b.P[c]), Mul(a.P[2], b.M[6 + c])));
         o.Flags = a.Flags | b.Flags;
         output = o;
@@ -1976,27 +1980,29 @@ public static class Shape
             // determinant from unrounded cofactors along the first column, the unrounded square compared with 1e-12f,
             // then cofactor x f32(1 / det). No stock transform sets flag 4 on a server (docs/collision.md T1.1).
             ReadOnlySpan<float> m = a.M;
-            Span<float> co = stackalloc float[9];
-            co[0] = F32Chop(Sub(Mul(m[4], m[8]), Mul(m[5], m[7])));
-            co[1] = F32Chop(Sub(Mul(m[7], m[2]), Mul(m[8], m[1])));
-            co[2] = F32Chop(Sub(Mul(m[1], m[5]), Mul(m[2], m[4])));
-            co[3] = F32Chop(Sub(Mul(m[5], m[6]), Mul(m[3], m[8])));
-            co[4] = F32Chop(Sub(Mul(m[8], m[0]), Mul(m[6], m[2])));
-            co[5] = F32Chop(Sub(Mul(m[2], m[3]), Mul(m[0], m[5])));
-            co[6] = F32Chop(Sub(Mul(m[3], m[7]), Mul(m[4], m[6])));
-            co[7] = F32Chop(Sub(Mul(m[6], m[1]), Mul(m[7], m[0])));
-            co[8] = F32Chop(Sub(Mul(m[0], m[4]), Mul(m[1], m[3])));
-            float det = F32Chop(Add(Add(Mul(Sub(Mul(m[4], m[8]), Mul(m[5], m[7])), m[0]),
+            Span<float> co =
+            [
+                F32Chop(Sub(Mul(m[4], m[8]), Mul(m[5], m[7]))),
+                F32Chop(Sub(Mul(m[7], m[2]), Mul(m[8], m[1]))),
+                F32Chop(Sub(Mul(m[1], m[5]), Mul(m[2], m[4]))),
+                F32Chop(Sub(Mul(m[5], m[6]), Mul(m[3], m[8]))),
+                F32Chop(Sub(Mul(m[8], m[0]), Mul(m[6], m[2]))),
+                F32Chop(Sub(Mul(m[2], m[3]), Mul(m[0], m[5]))),
+                F32Chop(Sub(Mul(m[3], m[7]), Mul(m[4], m[6]))),
+                F32Chop(Sub(Mul(m[6], m[1]), Mul(m[7], m[0]))),
+                F32Chop(Sub(Mul(m[0], m[4]), Mul(m[1], m[3]))),
+            ];
+            var det = F32Chop(Add(Add(Mul(Sub(Mul(m[4], m[8]), Mul(m[5], m[7])), m[0]),
                                         Mul(Sub(Mul(m[2], m[7]), Mul(m[1], m[8])), m[3])),
                                     Mul(Sub(Mul(m[1], m[5]), Mul(m[2], m[4])), m[6])));
             if (Mul(det, det) >= 1e-12f)
             {
-                float inv = F32Chop(Div(1.0f, det));
-                for (int i = 0; i < 9; ++i)
+                var inv = F32Chop(Div(1.0f, det));
+                for (var i = 0; i < 9; ++i)
                     o.M[i] = F32Chop(Mul(co[i], inv));
             }
         }
-        ReadOnlySpan<float> neg = stackalloc float[3] { -a.P[0], -a.P[1], -a.P[2] };
+        ReadOnlySpan<float> neg = [-a.P[0], -a.P[1], -a.P[2]];
         X87.MulVector(neg, o.M, o.P);
         output = o;
     }
@@ -2051,7 +2057,7 @@ public static class Shape
                 output.Flags &= ~5u;
                 return;
             }
-            SinCos(e[2], out double sz1, out double cz1);
+            SinCos(e[2], out var sz1, out var cz1);
             Float9 m = default;
             m[0] = F32Chop(cz1);
             m[1] = F32Chop(sz1);
@@ -2062,9 +2068,9 @@ public static class Shape
             output.Flags = (output.Flags | 1u) & ~4u;
             return;
         }
-        SinCos(e[2], out double sz, out double cz);
-        SinCos(e[1], out double sy, out double cy);
-        SinCos(e[0], out double sx, out double cx);
+        SinCos(e[2], out var sz, out var cz);
+        SinCos(e[1], out var sy, out var cy);
+        SinCos(e[0], out var sx, out var cx);
         double cysz = Mul(cy, sz), cycz = Mul(cy, cz), szsy = Mul(sz, sy), czsy = Mul(cz, sy);
         output.M[8] = F32Chop(Mul(cy, cx));
         output.M[4] = F32Chop(Mul(cz, cx));
@@ -2089,7 +2095,7 @@ public static class Shape
         if (!sModelCache.TryGetValue(name, out var c))
         {
             var model = new ShapeModel();
-            bool ok = res.Read(name + ".dts", out byte[] data) && ShapeModel.Parse(data, model);
+            var ok = res.Read(name + ".dts", out var data) && ShapeModel.Parse(data, model);
             c = (ok, model);
             sModelCache.Add(name, c);
         }
@@ -2102,9 +2108,9 @@ public static class Shape
     internal static List<int>[] ChildLists(ShapeModel s)
     {
         var kids = new List<int>[s.Nodes.Length];
-        for (int i = 0; i < kids.Length; ++i)
-            kids[i] = new List<int>();
-        for (int i = s.Nodes.Length - 1; i >= 1; --i)
+        for (var i = 0; i < kids.Length; ++i)
+            kids[i] = [];
+        for (var i = s.Nodes.Length - 1; i >= 1; --i)
         {
             int p = s.Nodes[i].Parent;
             if (p >= 0 && p < i)
@@ -2121,11 +2127,11 @@ public static class Shape
         var stack = new List<int> { root };
         while (stack.Count != 0)
         {
-            int n = stack[^1];
+            var n = stack[^1];
             stack.RemoveAt(stack.Count - 1);
             output.Add(n);
             List<int> k = kids[n];
-            for (int i = k.Count - 1; i >= 0; --i)
+            for (var i = k.Count - 1; i >= 0; --i)
                 stack.Add(k[i]);
         }
     }
@@ -2144,7 +2150,7 @@ public static class Shape
     {
         if (sub.NumKeys <= 0 || sub.FirstKey < 0 || sub.FirstKey + sub.NumKeys > sh.Keys.Length)
             return -1;
-        int last = sub.FirstKey - 1;
+        var last = sub.FirstKey - 1;
         for (int i = sub.FirstKey; i < sub.FirstKey + sub.NumKeys; ++i)
         {
             if (sh.Keys[i].Position > position)
@@ -2153,7 +2159,7 @@ public static class Shape
         }
         if (last < sub.FirstKey)
         {
-            bool cyclic = sub.Sequence >= 0 && sub.Sequence < sh.Sequences.Length && sh.Sequences[sub.Sequence].Cyclic;
+            var cyclic = sub.Sequence >= 0 && sub.Sequence < sh.Sequences.Length && sh.Sequences[sub.Sequence].Cyclic;
             last = cyclic ? sub.FirstKey + sub.NumKeys - 1 : sub.FirstKey;
         }
         return last;
@@ -2165,7 +2171,7 @@ public static class Shape
     {
         if (first < 0 || count <= 0)
             return -1;
-        for (int i = first; i < first + count && i < sh.SubSequences.Length; ++i)
+        for (var i = first; i < first + count && i < sh.SubSequences.Length; ++i)
             if (sh.SubSequences[i].Sequence == sequence)
                 return i;
         return -1;
@@ -2188,7 +2194,7 @@ public static class Shape
     {
         if (x == 0.0)
             return Mul(X87Pi(), 0.5);
-        double s = Sqrt(Sub(1.0, Mul(x, x)));
+        var s = Sqrt(Sub(1.0, Mul(x, x)));
         if (s > x)
             return Sub(Mul(X87Pi(), 0.5), X87Fpatan(x, s));
         if (s == x)
@@ -2201,8 +2207,8 @@ public static class Shape
     // reports a domain error, D11).
     private static double CrtAsin(double x)
     {
-        bool neg = double.IsNegative(x);
-        double ax = Math.Abs(x);
+        var neg = double.IsNegative(x);
+        var ax = Math.Abs(x);
         double r;
         if (ax == 0.0)
         {
@@ -2214,7 +2220,7 @@ public static class Shape
         }
         else
         {
-            double s = Sqrt(Sub(1.0, Mul(ax, ax)));
+            var s = Sqrt(Sub(1.0, Mul(ax, ax)));
             if (s > ax)
                 r = X87Fpatan(ax, s);
             else if (s == ax)
@@ -2232,9 +2238,9 @@ public static class Shape
     {
         if (x == 0.0)
             return x;
-        double quarter = kQuarterPi;
-        double r = x;
-        int k = 0;
+        var quarter = kQuarterPi;
+        var r = x;
+        var k = 0;
         while (r >= quarter && k < 8)
         { // fprem is exact, and so is each subtraction here
             r = Sub(r, quarter);
@@ -2242,25 +2248,25 @@ public static class Shape
         }
         if ((k & 1) != 0)
             r = Sub(quarter, r);
-        double tn = X87Fptan(r);
-        double root = Sqrt(Add(1.0, Mul(tn, tn)));
+        var tn = X87Fptan(r);
+        var root = Sqrt(Add(1.0, Mul(tn, tn)));
         if ((k >> 2) != 0)
             root = -root;
-        return ((k & 3) == 0 || (k & 3) == 3) ? Div(tn, root) : Div(1.0, root);
+        return ((k & 3) is 0 or 3) ? Div(tn, root) : Div(1.0, root);
     }
 
     // src/world/shape.cpp crtCosCore: cos (crt_cos 0x00606890 -> crt_trig_core 0x00606a90 with the quadrant offset 2):
     // the same reduction by pi / 4 and fptan as the sine; below pi / 4 the result is 1 / sqrt(1 + tan^2).
     private static double CrtCosCore(double x)
     {
-        double ax = Math.Abs(x);
+        var ax = Math.Abs(x);
         if (ax == 0.0)
             return 1.0;
-        double quarter = kQuarterPi;
+        var quarter = kQuarterPi;
         if (!(ax < Mul(8.0, quarter)))
             return Math.Cos(ax); // more than one turn: the fprem loop of the original, not needed by any caller
-        double r = ax;
-        int k = 0;
+        var r = ax;
+        var k = 0;
         while (r >= quarter && k < 8)
         {
             r = Sub(r, quarter);
@@ -2269,19 +2275,19 @@ public static class Shape
         k = (k + 2) & 7;
         if ((k & 1) != 0)
             r = Sub(quarter, r);
-        double tn = X87Fptan(r);
-        double root = Sqrt(Add(Mul(tn, tn), 1.0));
+        var tn = X87Fptan(r);
+        var root = Sqrt(Add(Mul(tn, tn), 1.0));
         if ((k >> 2) != 0)
             root = -root;
-        return ((k & 3) == 0 || (k & 3) == 3) ? Div(tn, root) : Div(1.0, root);
+        return ((k & 3) is 0 or 3) ? Div(tn, root) : Div(1.0, root);
     }
 
     // src/world/shape.cpp quatInterpolate: m_quat_interpolate (0x005ee2e0), slerp with f64 scale factors, linear when
     // the quaternions are within 1e-5 of each other.
     private static void QuatInterpolate(ReadOnlySpan<float> q1, ReadOnlySpan<float> q2, float t, Span<float> output)
     {
-        double c = Add(Add(Add(Mul(q1[0], q2[0]), Mul(q1[1], q2[1])), Mul(q1[2], q2[2])), Mul(q1[3], q2[3]));
-        float sign = 1.0f;
+        var c = Add(Add(Add(Mul(q1[0], q2[0]), Mul(q1[1], q2[1])), Mul(q1[2], q2[2])), Mul(q1[3], q2[3]));
+        var sign = 1.0f;
         if (c < 0.0)
         {
             c = -c;
@@ -2290,8 +2296,8 @@ public static class Shape
         double s0, s1;
         if (Sub(1.0, c) > 1e-5)
         {
-            double omega = CrtAcos(c);
-            double sinom = CrtSin(omega);
+            var omega = CrtAcos(c);
+            var sinom = CrtSin(omega);
             s0 = Div(CrtSin(Mul(Sub(1.0, t), omega)), sinom);
             s1 = Div(Mul(CrtSin(Mul(t, omega)), sign), sinom);
         }
@@ -2300,19 +2306,19 @@ public static class Shape
             s0 = Sub(1.0, t);
             s1 = Mul(sign, t);
         }
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             output[i] = F32Chop(Add(Mul(s0, q1[i]), Mul(s1, q2[i])));
     }
 
     // src/world/shape.cpp interpolateToMatrix: TSTransform_interpolateToMatrix (0x005c53d4).
     private static void InterpolateToMatrix(in ShapeModel.Transform ta, in ShapeModel.Transform tb, float t, ref TMat3 output)
     {
-        float omt = F32Chop(Sub(1.0, t));
+        var omt = F32Chop(Sub(1.0, t));
         Span<float> qa = stackalloc float[4], qb = stackalloc float[4], q = stackalloc float[4];
         var trans = new Float3();
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             trans[i] = F32Chop(Add(Mul(ta.T[i], omt), Mul(tb.T[i], t)));
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
         {
             qb[i] = F32Chop(Mul(kQuatScale, tb.Q[i]));
             qa[i] = F32Chop(Mul(kQuatScale, ta.Q[i]));
@@ -2331,11 +2337,11 @@ public static class Shape
         int n = nd.NumSub, first = nd.FirstSub;
         if (n <= 0 || first < 0 || first + n > sh.SubSequences.Length || s < 0)
             return -1;
-        int mid = s < n ? first + s : first + (n >> 1);
+        var mid = s < n ? first + s : first + (n >> 1);
         int lo = first, hi = first + n;
         while (hi > lo + 1)
         {
-            int d = sh.SubSequences[mid].Sequence - s;
+            var d = sh.SubSequences[mid].Sequence - s;
             if (d > 0)
                 hi = mid;
             else if (d < 0)
@@ -2358,20 +2364,20 @@ public static class Shape
             return false;
         float K(int i) => sh.Keys[i].Position;
         int lo = f - 1, hi = f + n;
-        double probe = Add(Mul(Sub(n, 0.01f), p), f);
-        int mid = probe > f ? (probe < f + n - 1 ? (int)probe : f + n - 1) : f; // outside: clamped (D11)
+        var probe = Add(Mul(Sub(n, 0.01f), p), f);
+        var mid = probe > f ? (probe < f + n - 1 ? (int)probe : f + n - 1) : f; // outside: clamped (D11)
         // A key position that is not a number moves neither bound: the original never leaves the loop then (D11). The
         // search halves the range otherwise.
-        for (int guard = 0; lo + 1 < hi && guard < 64; ++guard)
+        for (var guard = 0; lo + 1 < hi && guard < 64; ++guard)
         {
-            float kp = K(mid);
+            var kp = K(mid);
             if (Add(p, 0.001f) >= kp)
                 lo = mid;
             if (Sub(p, 0.001f) <= kp)
                 hi = mid;
             mid = (lo + hi) >> 1;
         }
-        bool cyclic = sub.Sequence >= 0 && sub.Sequence < sh.Sequences.Length && sh.Sequences[sub.Sequence].Cyclic;
+        var cyclic = sub.Sequence >= 0 && sub.Sequence < sh.Sequences.Length && sh.Sequences[sub.Sequence].Cyclic;
         if (cyclic)
         {
             float span;
@@ -2397,7 +2403,7 @@ public static class Shape
             }
             else if (Mul(span, span) < 1e-12f)
             {
-                float d = F32Chop(Sub(p, K(lo)));
+                var d = F32Chop(Sub(p, K(lo)));
                 frac = Mul(d, d) < 1e-12f ? 0.0f : 1.0f;
             }
             else
@@ -2425,7 +2431,7 @@ public static class Shape
             }
             else
             {
-                float d = F32Chop(Sub(K(hi), K(lo)));
+                var d = F32Chop(Sub(K(hi), K(lo)));
                 frac = d == 0.0f ? 0.0f : F32Chop(Div(Sub(p, K(lo)), d));
             }
         }
@@ -2439,20 +2445,20 @@ public static class Shape
     internal static List<int> ThreadOrder(ShapeInstance inst)
     {
         var order = new int[inst.Threads.Count];
-        bool sorted = true;
-        for (int i = 0; i < order.Length; ++i)
+        var sorted = true;
+        for (var i = 0; i < order.Length; ++i)
         {
             order[i] = i;
             if (i != 0 && inst.Threads[i].Priority < inst.Threads[i - 1].Priority)
                 sorted = false;
         }
         if (!sorted)
-            Borland.BorlandQsort<int>(order, (a, b) =>
+            Borland.BorlandQsort(order, (a, b) =>
             {
                 int pa = inst.Threads[a].Priority, pb = inst.Threads[b].Priority;
                 return pa < pb ? -1 : pb < pa ? 1 : 0;
             });
-        return new List<int>(order);
+        return [.. order];
     }
 
     // src/world/shape.cpp threadTransform: local transform of a node from its controlling thread (0x005bd1ec,
@@ -2462,13 +2468,13 @@ public static class Shape
     {
         ShapeModel sh = inst.ShapeData!;
         ref ShapeModel.Node nd = ref sh.Nodes[node];
-        foreach (int ti in order)
+        foreach (var ti in order)
         {
             ShapeThread th = inst.Threads[ti];
             if (SubSequenceFor(sh, nd.FirstSub, nd.NumSub, th.Sequence) < 0)
                 continue;
-            int sub = NodeSubSequence(sh, nd, th.Sequence);
-            if (sub < 0 || !FindKeys(sh, sh.SubSequences[sub], th.Position, out int lo, out int hi, out float frac))
+            var sub = NodeSubSequence(sh, nd, th.Sequence);
+            if (sub < 0 || !FindKeys(sh, sh.SubSequences[sub], th.Position, out var lo, out var hi, out var frac))
                 return false; // the original reads through a null sub-sequence here (D11)
             ref ShapeModel.Key ka = ref sh.Keys[lo];
             ref ShapeModel.Key kb = ref sh.Keys[hi];
@@ -2488,11 +2494,11 @@ public static class Shape
     {
         ShapeModel sh = inst.ShapeData!;
         ref ShapeModel.Object ob = ref sh.Objects[obj];
-        for (int i = order.Count; i-- > 0;)
+        for (var i = order.Count; i-- > 0;)
         {
             ShapeThread th = inst.Threads[order[i]];
-            int sub = SubSequenceFor(sh, ob.FirstSub, ob.NumSub, th.Sequence);
-            int key = sub >= 0 ? CurrentKey(sh, sh.SubSequences[sub], th.Position) : -1;
+            var sub = SubSequenceFor(sh, ob.FirstSub, ob.NumSub, th.Sequence);
+            var key = sub >= 0 ? CurrentKey(sh, sh.SubSequences[sub], th.Position) : -1;
             if (key < 0)
                 continue;
             ref ShapeModel.Key k = ref sh.Keys[key];
@@ -2523,7 +2529,7 @@ public static class Shape
     internal static void TransformMatrix(in ShapeModel.Transform tr, ref TMat3 local)
     {
         Span<float> q = stackalloc float[4];
-        for (int k = 0; k < 4; ++k)
+        for (var k = 0; k < 4; ++k)
             q[k] = F32Chop(Mul(kQuatScale, tr.Q[k]));
         local.Flags = 0;
         QuatToMatrix(q, ref local);
@@ -2536,7 +2542,7 @@ public static class Shape
     internal static void AnimateObjects(ShapeInstance inst, List<int> order, int node)
     {
         ShapeModel sh = inst.ShapeData!;
-        for (int oi = 0; oi < sh.Objects.Length; ++oi)
+        for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
             ref ShapeModel.Object ob = ref sh.Objects[oi];
             if (ob.Node != node)
@@ -2563,26 +2569,26 @@ public static class Shape
     {
         // Steps 1-2: unit normal of cross(B - C, A - C), both differences stored first.
         Span<float> bc = stackalloc float[3], ac = stackalloc float[3], n = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             bc[i] = F32Chop(Sub(b[i], c[i]));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             ac[i] = F32Chop(Sub(a[i], c[i]));
         Cross(bc, ac, n);
-        float l = F32Chop(X87.Len(n));
+        var l = F32Chop(X87.Len(n));
         if (l == 0.0f)
             return false;
-        float k = F32Chop(Div(1.0, l));
-        for (int i = 0; i < 3; ++i)
+        var k = F32Chop(Div(1.0, l));
+        for (var i = 0; i < 3; ++i)
             n[i] = F32Chop(Mul(k, n[i]));
         // Steps 3-5: plane distance of the centre, its projection and the squared reach left.
-        float dist = F32Chop(Sub(F32Chop(X87.Dot(n, pm)), F32Chop(X87.Dot(n, a))));
+        var dist = F32Chop(Sub(F32Chop(X87.Dot(n, pm)), F32Chop(X87.Dot(n, a))));
         if (!(dist >= 0.0f && dist < r))
             return false;
         Span<float> q = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             q[i] = F32Chop(Sub(pm[i], Mul(dist, n[i])));
-        float rem = F32Chop(Sub(Mul(r, r), Mul(dist, dist)));
-        bool emit = false;
+        var rem = F32Chop(Sub(Mul(r, r), Mul(dist, dist)));
+        var emit = false;
         if (PointInTriangle(q, n, a, b, c))
         {
             q.CopyTo(position);
@@ -2592,29 +2598,29 @@ public static class Shape
         {
             // Step 7: the first edge whose nearest point is within reach.
             Span<float> e = stackalloc float[3], w = stackalloc float[3], x = stackalloc float[3];
-            for (int i = 0; i < 3 && !emit; ++i)
+            for (var i = 0; i < 3 && !emit; ++i)
             {
                 ReadOnlySpan<float> v0 = i == 0 ? a : i == 1 ? b : c;
                 ReadOnlySpan<float> v1 = i == 0 ? b : i == 1 ? c : a;
-                for (int j = 0; j < 3; ++j)
+                for (var j = 0; j < 3; ++j)
                 {
                     e[j] = F32Chop(Sub(v1[j], v0[j]));
                     w[j] = F32Chop(Sub(q[j], v0[j]));
                 }
-                float el = F32Chop(X87.Len(e));
+                var el = F32Chop(X87.Len(e));
                 if (el == 0.0f)
                     continue;
-                float inv = F32Chop(Div(1.0, el));
-                for (int j = 0; j < 3; ++j)
+                var inv = F32Chop(Div(1.0, el));
+                for (var j = 0; j < 3; ++j)
                     e[j] = F32Chop(Mul(inv, e[j]));
-                float t = F32Chop(X87.Dot(w, e));
-                for (int j = 0; j < 3; ++j)
+                var t = F32Chop(X87.Dot(w, e));
+                for (var j = 0; j < 3; ++j)
                     x[j] = F32Chop(Add(Mul(t, e[j]), v0[j]));
-                float d2 = F32Chop(Add(Add(Mul(Sub(q[0], x[0]), Sub(q[0], x[0])), Mul(Sub(q[1], x[1]), Sub(q[1], x[1]))),
+                var d2 = F32Chop(Add(Add(Mul(Sub(q[0], x[0]), Sub(q[0], x[0])), Mul(Sub(q[1], x[1]), Sub(q[1], x[1]))),
                                        Mul(Sub(q[2], x[2]), Sub(q[2], x[2]))));
                 if (d2 > rem)
                     continue;
-                float slack = F32Chop(Sub(rem, d2));
+                var slack = F32Chop(Sub(rem, d2));
                 if (t < 0.0f)
                 {
                     if (Mul(t, t) > slack)
@@ -2622,7 +2628,7 @@ public static class Shape
                 }
                 else if (t > el)
                 {
-                    float u = F32Chop(Sub(t, el));
+                    var u = F32Chop(Sub(t, el));
                     if (Mul(u, u) > slack)
                         continue;
                 }
@@ -2630,7 +2636,7 @@ public static class Shape
                     t = 0.0f;
                 if (t > el)
                     t = el;
-                for (int j = 0; j < 3; ++j)
+                for (var j = 0; j < 3; ++j)
                     position[j] = F32Chop(Add(Mul(t, e[j]), v0[j]));
                 emit = true;
             }
@@ -2650,20 +2656,33 @@ public static class Shape
 
         public Edge(params int[] v)
         {
-            Ta = v[0]; Ma = v[1]; Tb = v[2]; Mb = v[3];
-            A0 = v[4]; C0r = v[5]; C0c = v[6]; A1 = v[7]; C1r = v[8]; C1c = v[9];
-            B0 = v[10]; D0r = v[11]; D0c = v[12]; B1 = v[13]; D1r = v[14]; D1c = v[15];
+            Ta = v[0];
+            Ma = v[1];
+            Tb = v[2];
+            Mb = v[3];
+            A0 = v[4];
+            C0r = v[5];
+            C0c = v[6];
+            A1 = v[7];
+            C1r = v[8];
+            C1c = v[9];
+            B0 = v[10];
+            D0r = v[11];
+            D0c = v[12];
+            B1 = v[13];
+            D1r = v[14];
+            D1c = v[15];
         }
     }
 
     private static readonly Edge[] sEdges =
-    {
+    [
         new(2, 1, 1, 2, 1, 0, 2, 2, 0, 1, 1, 2, 0, 2, 1, 0), new(2, 4, 1, 5, 1, 1, 2, 2, 1, 1, 0, 2, 0, 2, 0, 0),
         new(2, 7, 1, 8, 1, 2, 2, 2, 2, 1, 0, 1, 0, 1, 0, 0), new(0, 2, 2, 0, 0, 0, 2, 2, 0, 0, 1, 2, 1, 2, 1, 1),
         new(0, 5, 2, 3, 0, 1, 2, 2, 1, 0, 0, 2, 1, 2, 0, 1), new(0, 8, 2, 6, 0, 2, 2, 2, 2, 0, 0, 1, 1, 1, 0, 1),
         new(1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 2, 2, 2, 1, 2), new(1, 3, 0, 4, 0, 1, 1, 1, 1, 0, 0, 2, 2, 2, 0, 2),
         new(1, 6, 0, 7, 0, 2, 1, 1, 2, 0, 0, 1, 2, 1, 0, 2),
-    };
+    ];
 
     /// <summary>Tests two oriented boxes with a separating axis test (m_Box3F_collideOrientedBox, 005ec754, docs/collision.md T6).</summary>
     /// <param name="a">The half extents of the box on the axes of the frame.</param>
@@ -2675,32 +2694,32 @@ public static class Shape
     {
         using var chop = ChopScope();
         Span<float> C = stackalloc float[9];
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             C[i] = (float)Math.Abs((double)m[i]);
         static double Mag(double v) => Math.Abs(v); // rounded to a double first
         // 1 to 3: the frame axes.
-        for (int j = 0; j < 3; ++j)
+        for (var j = 0; j < 3; ++j)
         {
-            float slack = F32Chop(Sub(Add(Add(Add(Mul(b[0], C[j]), a[j]), Mul(b[1], C[3 + j])), Mul(b[2], C[6 + j])),
+            var slack = F32Chop(Sub(Add(Add(Add(Mul(b[0], C[j]), a[j]), Mul(b[1], C[3 + j])), Mul(b[2], C[6 + j])),
                                       Math.Abs((double)t[j])));
             if (slack < 0.0f)
                 return false;
         }
         // 4 to 6: the axes of the other box.
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            double p = Mag(Add(Add(Mul(t[0], m[3 * i]), Mul(t[1], m[3 * i + 1])), Mul(t[2], m[3 * i + 2])));
-            float slack = F32Chop(Sub(Add(Add(Add(Mul(a[0], C[3 * i]), Mul(a[1], C[3 * i + 1])), Mul(a[2], C[3 * i + 2])), b[i]), p));
+            var p = Mag(Add(Add(Mul(t[0], m[3 * i]), Mul(t[1], m[(3 * i) + 1])), Mul(t[2], m[(3 * i) + 2])));
+            var slack = F32Chop(Sub(Add(Add(Add(Mul(a[0], C[3 * i]), Mul(a[1], C[(3 * i) + 1])), Mul(a[2], C[(3 * i) + 2])), b[i]), p));
             if (slack < 0.0f)
                 return false;
         }
         // 7 to 15: the edge pairs, frame axis i against box axis r (extended sums, pass on >=).
         foreach (Edge e in sEdges)
         {
-            double p = Mag(Sub(Mul(t[e.Ta], m[e.Ma]), Mul(t[e.Tb], m[e.Mb])));
-            double reach = Add(Add(Add(Mul(a[e.A0], C[3 * e.C0r + e.C0c]), Mul(a[e.A1], C[3 * e.C1r + e.C1c])),
-                                   Mul(b[e.B0], C[3 * e.D0r + e.D0c])),
-                               Mul(b[e.B1], C[3 * e.D1r + e.D1c]));
+            var p = Mag(Sub(Mul(t[e.Ta], m[e.Ma]), Mul(t[e.Tb], m[e.Mb])));
+            var reach = Add(Add(Add(Mul(a[e.A0], C[(3 * e.C0r) + e.C0c]), Mul(a[e.A1], C[(3 * e.C1r) + e.C1c])),
+                                   Mul(b[e.B0], C[(3 * e.D0r) + e.D0c])),
+                               Mul(b[e.B1], C[(3 * e.D1r) + e.D1c]));
             if (!(reach >= p))
                 return false;
         }
@@ -2722,16 +2741,16 @@ public static class Shape
         var sf = new ShapeSurface();
         return ShapeLine(inst, obj, s, e, faces, point, normal, ref sf);
     }
-/// <summary>Tests a line against a shape image and also reports the surface.</summary>
-/// <param name="inst">The shape instance.</param>
-/// <param name="obj">The image transform, object to world.</param>
-/// <param name="s">The segment start.</param>
-/// <param name="e">The segment end.</param>
-/// <param name="faces">True to test faces, false for the bounds mode.</param>
-/// <param name="point">Receives the hit point in world space.</param>
-/// <param name="normal">Receives the hit normal in world space.</param>
-/// <param name="surface">Receives the surface in shape root space.</param>
-/// <returns>True on a hit.</returns>
+    /// <summary>Tests a line against a shape image and also reports the surface.</summary>
+    /// <param name="inst">The shape instance.</param>
+    /// <param name="obj">The image transform, object to world.</param>
+    /// <param name="s">The segment start.</param>
+    /// <param name="e">The segment end.</param>
+    /// <param name="faces">True to test faces, false for the bounds mode.</param>
+    /// <param name="point">Receives the hit point in world space.</param>
+    /// <param name="normal">Receives the hit normal in world space.</param>
+    /// <param name="surface">Receives the surface in shape root space.</param>
+    /// <returns>True on a hit.</returns>
 
     public static bool ShapeLine(ShapeInstance inst, in TMat3 obj, ReadOnlySpan<float> s, ReadOnlySpan<float> e, bool faces,
                                  Span<float> point, Span<float> normal, ref ShapeSurface surface)

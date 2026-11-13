@@ -1,9 +1,6 @@
 // Client GameConnection (docs/client-net.md 2.2, 4.3; docs/game-stream.md 1): the receive path of one packet payload
 // (rate sections, EventManager, PlayerPSC, GhostManager) and the packet writer (rate sections, remote evals, the
 // PSC block with the moves, the empty ghost block).
-using System.Globalization;
-using OpenTribes.Script;
-
 namespace OpenTribes.Game;
 
 /// <summary>What one received payload decoded to, with the bit accounting of tools/stream_decode.py game_packet.</summary>
@@ -30,7 +27,7 @@ public sealed class DecodedPacket
     /// <summary>The rate request section: interval and size, or null.</summary>
     public (int Interval, int Size)? RateReq;
     /// <summary>The decoded events.</summary>
-    public readonly List<DecodedEvent> Events = new();
+    public readonly List<DecodedEvent> Events = [];
     /// <summary>The decoded PlayerPSC block, or null.</summary>
     public DecodedPsc? Psc;
     /// <summary>The decoded ghost block, or null.</summary>
@@ -41,7 +38,6 @@ public sealed class DecodedPacket
 /// <remarks>Covers the rate sections, the EventManager, the PlayerPSC and the GhostManager on receive, and the rate sections, remote evals, the PSC block with the moves and the empty ghost block on send (docs/client-net.md 2.2, 4.3; docs/game-stream.md 1).</remarks>
 public sealed class ClientGameConnection
 {
-    private const int kMaxMoves = 30;
 
     /// <summary>The client world.</summary>
     public readonly ClientWorld World;
@@ -60,8 +56,8 @@ public sealed class ClientGameConnection
 
     // Send side.
     private readonly LinkedList<OutEvent> mQueue = new();
-    private readonly Dictionary<uint, List<OutEvent>> mInFlight = new();
-    private readonly Dictionary<uint, (uint Number, bool Set, bool Req)> mMarks = new();
+    private readonly Dictionary<uint, List<OutEvent>> mInFlight = [];
+    private readonly Dictionary<uint, (uint Number, bool Set, bool Req)> mMarks = [];
     private readonly bool[] mSeqInFlight = new bool[128];
     private int mNextSeq, mLowSeq, mMaxSeq;
     private uint mNextCookie = 1, mPacketCount = 1, mDeliveredNo, mLastSend;
@@ -73,11 +69,11 @@ public sealed class ClientGameConnection
     /// <remarks>As in the 1.11 exe. A value that differs from the held request marks the rateReq section dirty (GameConnection_loadPacketPrefs 0x00550c68). An unset pref reads as the default through the empty text.</remarks>
     public void LoadPacketPrefs(string rateText, string sizeText)
     {
-        uint rate = rateText.Length == 0 ? 10u : unchecked((uint)Numbers.BorlandAtoi(rateText));
-        int size = sizeText.Length == 0 ? 200 : Numbers.BorlandAtoi(sizeText);
+        var rate = rateText.Length == 0 ? 10u : unchecked((uint)Numbers.BorlandAtoi(rateText));
+        var size = sizeText.Length == 0 ? 200 : Numbers.BorlandAtoi(sizeText);
         rate = rate > 30 ? 30u : (rate < 1 ? 1u : rate);
         size = size > 450 ? 450 : (size < 100 ? 100 : size);
-        uint interval = 1000u / rate;
+        var interval = 1000u / rate;
         if (interval != OwnIntervalMs || (uint)size != OwnPacketBytes)
         {
             OwnIntervalMs = interval;
@@ -133,7 +129,7 @@ public sealed class ClientGameConnection
                 pkt.Psc = direction == "c2s" ? ClientPsc.ReadClientBlock(r) : World.Psc.ReadServerBlock(r);
             if (r.Flag())
                 pkt.Ghosts = World.Ghosts.Read(r);
-            int pad = r.Left;
+            var pad = r.Left;
             if (pad >= 8)
             {
                 pkt.UnknownBits = pad;
@@ -192,8 +188,8 @@ public sealed class ClientGameConnection
 
     private bool WriteEvents(BitStream bs, List<OutEvent> sent)
     {
-        bool any = false;
-        int prev = -4;
+        var any = false;
+        var prev = -4;
         while (mQueue.Count != 0 && bs.BitPosition() <= PacketBytes * 8)
         {
             OutEvent e = mQueue.First!.Value;
@@ -207,7 +203,7 @@ public sealed class ClientGameConnection
             {
                 if (e.Ordered)
                 {
-                    bool next = e.Seq == prev + 1;
+                    var next = e.Seq == prev + 1;
                     bs.WriteFlag(next);
                     if (!next)
                     {
@@ -246,7 +242,7 @@ public sealed class ClientGameConnection
     /// <returns>True when the interval (or the packet frame) has passed and 1000 / interval is not below the packets written since the last delivered one.</returns>
     public bool Due(uint nowMs)
     {
-        uint interval = PacketFrame != 0 ? PacketFrame : Math.Max(IntervalMs, 1u);
+        var interval = PacketFrame != 0 ? PacketFrame : Math.Max(IntervalMs, 1u);
         return !mSentAny || (unchecked(nowMs - mLastSend) >= interval && 1000u / interval >= unchecked(mPacketCount - mDeliveredNo));
     }
 
@@ -256,7 +252,7 @@ public sealed class ClientGameConnection
     /// <returns>True when the packet was sent. On false the contents are put back.</returns>
     public bool WritePacket(uint nowMs, Func<byte[], int, uint, bool> send)
     {
-        byte[] buf = new byte[Connection.kMaxPacket - 32];
+        var buf = new byte[Connection.kMaxPacket - 32];
         var bs = new BitStream(buf, buf.Length);
         bool setWas = mRateSetDirty, reqWas = mRateReqDirty;
         if (bs.WriteFlag(mRateSetDirty))
@@ -272,7 +268,7 @@ public sealed class ClientGameConnection
             mRateReqDirty = false;
         }
         var sent = new List<OutEvent>();
-        uint flagPos = bs.BitPosition();
+        var flagPos = bs.BitPosition();
         bs.WriteFlag(true);
         if (!WriteEvents(bs, sent))
         {
@@ -286,10 +282,10 @@ public sealed class ClientGameConnection
         bs.WriteFlag(false);
         bs.WriteInt(1, 3);
         bs.WriteFlag(false);
-        uint cookie = mNextCookie++;
+        var cookie = mNextCookie++;
         if (!send(buf, bs.BytePosition(), cookie))
         {
-            for (int i = sent.Count - 1; i >= 0; --i)
+            for (var i = sent.Count - 1; i >= 0; --i)
                 mQueue.AddFirst(sent[i]);
             mRateSetDirty |= setWas;
             mRateReqDirty |= reqWas;
@@ -331,7 +327,7 @@ public sealed class ClientGameConnection
         }
         else
         {
-            for (int i = events.Count - 1; i >= 0; --i)
+            for (var i = events.Count - 1; i >= 0; --i)
                 mQueue.AddFirst(events[i]);
         }
         mInFlight.Remove(cookie);

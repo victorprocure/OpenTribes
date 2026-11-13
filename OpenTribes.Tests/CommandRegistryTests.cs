@@ -10,7 +10,7 @@ public class CommandRegistryTests
     [Fact]
     public void TestCommandRegistry()
     {
-        string root = Path.Combine(TestPaths.TmpDir("command_registry_root"));
+        var root = Path.Combine(TestPaths.TmpDir("command_registry_root"));
         Directory.Delete(root, true);
         Directory.CreateDirectory(Path.Combine(root, "base"));
         var w = new Fixtures.World(root);
@@ -21,7 +21,7 @@ public class CommandRegistryTests
         var allowed = new HashSet<string>();
 
         var bad = new List<string>();
-        foreach (string name in w.In.ReplacedCommands())
+        foreach (var name in w.In.ReplacedCommands())
             if (!allowed.Contains(name))
                 bad.Add("command registered twice: " + name);
         Assert.True(bad.Count == 0, string.Join("\n", bad));

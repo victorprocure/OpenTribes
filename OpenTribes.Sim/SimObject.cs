@@ -1,7 +1,7 @@
 namespace OpenTribes.Sim;
 
 /// <summary>The base of all simulation objects (docs/sim.md 4).</summary>
-/// <remarks>Port of src/sim/sim_object.cpp. Names are interned strings (<see cref="OpenTribes.Core.StringTable"/>) compared by reference, as the C++ compares the pointers. The C++ <c>delete</c> of an object is <see cref="Destroy"/>, and the destructors of <see cref="SimSet"/> and <see cref="SimGroup"/> delete their members.</remarks>
+/// <remarks>Port of src/sim/sim_object.cpp. Names are interned strings (<see cref="Core.StringTable"/>) compared by reference, as the C++ compares the pointers. The C++ <c>delete</c> of an object is <see cref="Destroy"/>, and the destructors of <see cref="SimSet"/> and <see cref="SimGroup"/> delete their members.</remarks>
 public abstract class SimObject
 {
     internal int mId;
@@ -11,8 +11,8 @@ public abstract class SimObject
     internal uint mSequence;
     internal bool mOwnsPoolId;
     internal bool mRemoved;
-    private readonly List<KeyValuePair<string, string>> mFields = new();
-    internal readonly List<SimSet> mInSets = new(); // sets that hold this object (delete notification)
+    private readonly List<KeyValuePair<string, string>> mFields = [];
+    internal readonly List<SimSet> mInSets = []; // sets that hold this object (delete notification)
 
     /// <summary>Gets the C++ RTTI-style class name that <c>listObjects</c> shows, for example <c>SimSet</c>.</summary>
     /// <returns>The class name.</returns>
@@ -100,7 +100,7 @@ public abstract class SimObject
     /// <returns>The value, or null when unset.</returns>
     public string? DataField(string name)
     {
-        for (int i = mFields.Count - 1; i >= 0; --i)
+        for (var i = mFields.Count - 1; i >= 0; --i)
             if (ReferenceEquals(mFields[i].Key, name))
                 return mFields[i].Value;
         return null;
@@ -111,7 +111,7 @@ public abstract class SimObject
     /// <param name="value">The value.</param>
     public void SetDataField(string name, string value)
     {
-        int it = mFields.FindIndex(f => ReferenceEquals(f.Key, name));
+        var it = mFields.FindIndex(f => ReferenceEquals(f.Key, name));
         if (value.Length == 0)
         {
             if (it >= 0)
@@ -130,7 +130,7 @@ public abstract class SimObject
 public class SimSet : SimObject
 {
     /// <summary>The members in order.</summary>
-    protected readonly List<SimObject> mMembers = new();
+    protected readonly List<SimObject> mMembers = [];
     /// <summary>True when the set deletes its members with itself.</summary>
     protected bool mOwnsMembers;
     /// <summary>True when removal keeps the member order.</summary>
@@ -183,7 +183,7 @@ public class SimSet : SimObject
     /// <remarks>The ordered flag is checked at 004fe430.</remarks>
     public virtual void RemoveObject(SimObject obj)
     {
-        int it = mMembers.IndexOf(obj);
+        var it = mMembers.IndexOf(obj);
         if (it < 0)
             return;
         if (mOrdered)
@@ -231,7 +231,7 @@ public class SimSet : SimObject
     public override bool OnAdd()
     {
         var failed = new List<SimObject>();
-        for (int i = 0; i < mMembers.Count; ++i)
+        for (var i = 0; i < mMembers.Count; ++i)
         {
             SimObject m = mMembers[i];
             if (m.Manager() != null || Manager()!.RegisterObject(m))
@@ -249,7 +249,7 @@ public class SimSet : SimObject
 /// <remarks>Port of src/sim/sim_object.cpp SimGroup.</remarks>
 public class SimGroup : SimSet
 {
-    private readonly List<SimObject> mNamed = new(); // newest at the back
+    private readonly List<SimObject> mNamed = []; // newest at the back
 
     /// <summary>Deletes all members.</summary>
     public override void Destroy()
@@ -303,7 +303,7 @@ public class SimGroup : SimSet
     /// <param name="obj">The object.</param>
     public override void RemoveObject(SimObject obj)
     {
-        int it = mMembers.IndexOf(obj);
+        var it = mMembers.IndexOf(obj);
         if (it < 0)
             return;
         NameErase(obj);
@@ -325,7 +325,7 @@ public class SimGroup : SimSet
     /// <returns>The child, or null.</returns>
     public SimObject? FindChild(string interned)
     {
-        for (int i = mNamed.Count - 1; i >= 0; --i)
+        for (var i = mNamed.Count - 1; i >= 0; --i)
             if (ReferenceEquals(mNamed[i].mName, interned))
                 return mNamed[i];
         return null;

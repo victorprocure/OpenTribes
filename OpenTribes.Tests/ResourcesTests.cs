@@ -1,7 +1,7 @@
 // Port of tests/test_resources.cpp.
-using OpenTribes.Core;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Core;
 
 public class ResourcesTests
 {
@@ -13,7 +13,7 @@ public class ResourcesTests
 
     private static void PutU32(List<byte> b, uint v)
     {
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             b.Add((byte)(v >> (i * 8)));
     }
 
@@ -35,15 +35,15 @@ public class ResourcesTests
             while (b.Count % 4 != 0)
                 b.Add(0);
         }
-        uint dir = (uint)b.Count;
-        for (int i = 0; i < 4; ++i)
+        var dir = (uint)b.Count;
+        for (var i = 0; i < 4; ++i)
             b[4 + i] = (byte)(dir >> (i * 8));
-        string names = "";
+        var names = "";
         var nameOffsets = new List<uint>();
-        foreach (var e in entries)
+        foreach (var (name, data) in entries)
         {
             nameOffsets.Add((uint)names.Length);
-            names += e.name + '\0';
+            names += name + '\0';
         }
         PutStr(b, "vols");
         PutU32(b, (uint)names.Length);
@@ -52,7 +52,7 @@ public class ResourcesTests
             b.Add(0);
         PutStr(b, "voli");
         PutU32(b, (uint)(17 * entries.Length));
-        for (int i = 0; i < entries.Length; ++i)
+        for (var i = 0; i < entries.Length; ++i)
         {
             PutU32(b, 0);
             PutU32(b, nameOffsets[i]);
@@ -65,7 +65,7 @@ public class ResourcesTests
 
     private static string Text(ResourceManager res, string name)
     {
-        if (!res.Read(name, out byte[] buf))
+        if (!res.Read(name, out var buf))
             return "<missing>";
         return ByteString.FromBytes(buf);
     }
@@ -73,7 +73,7 @@ public class ResourcesTests
     private static List<string> List(ResourceManager res, string pattern)
     {
         var output = new List<string>();
-        for (var e = res.FindNext(pattern, null, out string name); e != null; e = res.FindNext(pattern, e, out name))
+        for (var e = res.FindNext(pattern, null, out var name); e != null; e = res.FindNext(pattern, e, out name))
             output.Add(name);
         return output;
     }
@@ -83,7 +83,7 @@ public class ResourcesTests
     [Fact]
     public void TestResources()
     {
-        string root = Path.Combine(TestPaths.TmpDir("resources"), "res_root");
+        var root = Path.Combine(TestPaths.TmpDir("resources"), "res_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
         Put(root + "/config/dup.cs", "config");
@@ -93,8 +93,8 @@ public class ResourcesTests
         Put(root + "/base/sub/deep.cs", "deep");
         Put(root + "/base/b.cs", "b");
         Put(root + "/base/A.cs", "A");
-        PutVol(root + "/base/one.vol", new[] { ("loose.cs", "vol-one"), ("vonly.cs", "one"), ("dir\\pathed.cs", "pathed") });
-        PutVol(root + "/base/two.vol", new[] { ("VONLY.cs", "two") });
+        PutVol(root + "/base/one.vol", [("loose.cs", "vol-one"), ("vonly.cs", "one"), ("dir\\pathed.cs", "pathed")]);
+        PutVol(root + "/base/two.vol", [("VONLY.cs", "two")]);
 
         var strings = new StringTable();
         var res = new ResourceManager(root, strings);
@@ -124,7 +124,7 @@ public class ResourcesTests
         Put(root + "/base/later.cs", "later");
         Assert.Null(res.Find("later.cs"));
         // RS3: a new volume file cannot be mounted before a rescan.
-        PutVol(root + "/base/three.vol", new[] { ("t.cs", "t") });
+        PutVol(root + "/base/three.vol", [("t.cs", "t")]);
         Assert.False(res.AddVolume("three.vol"));
         res.SetSearchPath(kPath);
         Assert.Equal("later", Text(res, "later.cs"));
@@ -139,15 +139,15 @@ public class ResourcesTests
         // base\missions scanned after base: the bare missions entry is newer than "missions\dup.cs".
         List<string> all = List(res, "*dup.cs");
         Assert.Equal(4, all.Count);
-        Assert.True(all[0] == "later.cs" || all[0] == "dup.cs");
-        bool sawPrefixed = false;
-        foreach (string n in all)
+        Assert.True(all[0] is "later.cs" or "dup.cs");
+        var sawPrefixed = false;
+        foreach (var n in all)
             sawPrefixed |= n == "Missions\\dup.cs";
         Assert.True(sawPrefixed);
 
         // OF3: loose files in reverse case-insensitive order within a directory.
         List<string> ab = List(res, "?.cs");
-        Assert.Equal(new List<string> { "t.cs", "b.cs", "A.cs" }, ab);
+        Assert.Equal(["t.cs", "b.cs", "A.cs"], ab);
 
         // OF5/RQ2: the first spelling interned is displayed for later case variants.
         Assert.Same(strings.Lookup("VONLY.cs"), strings.Lookup("vonly.cs"));
@@ -165,8 +165,8 @@ public class ResourcesTests
         Assert.Null(res.Find("later.cs"));
 
         // 8.7 (G42): an unmounted volume keeps the entries that hold an instance until purge.
-        PutVol(root + "/base/mis.vol", new[] { ("kept.dis", "k"), ("held.dig", "h"), ("never.bmp", "n"), ("early.dil", "e") });
-        PutVol(root + "/base/other.vol", new[] { ("o.cs", "o") });
+        PutVol(root + "/base/mis.vol", [("kept.dis", "k"), ("held.dig", "h"), ("never.bmp", "n"), ("early.dil", "e")]);
+        PutVol(root + "/base/other.vol", [("o.cs", "o")]);
         res.SetSearchPath(kPath);
         Assert.True(res.AddVolume("mis.vol") && res.AddVolume("other.vol"));
         Assert.Null(res.Load("missing.dis"));
@@ -181,7 +181,7 @@ public class ResourcesTests
             var holder = new ResourceLocks(); // an object that still holds its resource
             Assert.True(holder.Load(res, "held.dig") && !holder.Load(res, "missing.dig"));
             res.RemoveVolume("mis.vol");
-            Assert.Equal(new List<string> { "held.dig", "kept.dis" }, List(res, "*.d??"));
+            Assert.Equal(["held.dig", "kept.dis"], List(res, "*.d??"));
             Assert.True(res.Find("never.bmp") == null && res.Find("early.dil") == null);
             Assert.True(res.Find("kept.dis")!.Flags == ResourceManager.Stale && Text(res, "kept.dis") == "<missing>");
             // A load of a stale entry returns its instance.

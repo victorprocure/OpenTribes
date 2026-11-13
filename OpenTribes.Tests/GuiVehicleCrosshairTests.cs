@@ -1,10 +1,9 @@
 // docs/gui.md 4.2 Crosshair: Crosshair_findTarget 004aca84 skips the control object and the Players mounted on it.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
-using Xunit;
 using static OpenTribes.Tests.GuiVehicleHudTests;
-
-namespace OpenTribes.Tests;
 
 public class GuiVehicleCrosshairTests
 {
@@ -38,10 +37,10 @@ public class GuiTurretCrosshairTests
     [Fact]
     public void ControlledTurretGetsNoLabelButAnotherTurretDoes()
     {
-        var (world, src) = GuiVehicleHudTests.Scene("Turret", 20);
-        foreach (int body in new[] { 6, 7, 8 })
+        var (world, src) = Scene("Turret", 20);
+        foreach (var body in new[] { 6, 7, 8 })
             world.Ghosts.Get(body)!.State["pos"] = new[] { 0.0, -50.0, -1.75 };   // behind the view
-        foreach (int index in new[] { 20, 21 })
+        foreach (var index in new[] { 20, 21 })
         {
             var t = new ClientGhost { Index = index, Class = "Turret" };
             t.State["team"] = 0L;

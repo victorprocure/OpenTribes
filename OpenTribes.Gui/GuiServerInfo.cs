@@ -1,13 +1,13 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The key/value table of the server info dialog (ServerInfo.gui).</summary>
 /// <remarks>Shows the team and player score rows of the server's info reply. The dialog's own texts are set by ServerBrowser. Follows FearGui::ServerInfoCtrl: setServer (004c91f8), cell draw (004c92c8), draw (004c952c).</remarks>
 public sealed class GuiServerInfo : GuiList
 {
     /// <summary>The column starts of the team and player rows: the first column starts at 0 and the list ends at 0x280 (004c91f8).</summary>
-    private int[] mTeamColumns = { 0, 0x280 }, mPlayerColumns = { 0, 0x280 };
+    private int[] mTeamColumns = [0, 0x280], mPlayerColumns = [0, 0x280];
     private IReadOnlyList<string> mRows = Array.Empty<string>();
 
     /// <summary>Gets the number of rows.</summary>
@@ -31,7 +31,7 @@ public sealed class GuiServerInfo : GuiList
     private static int[] Columns(string heading)
     {
         var cols = new List<int> { 0 };
-        for (int i = 0; i < heading.Length && cols.Count < 16;)
+        for (var i = 0; i < heading.Length && cols.Count < 16;)
         {
             if (heading[i] == '\t' && i + 1 < heading.Length)
             {
@@ -42,7 +42,7 @@ public sealed class GuiServerInfo : GuiList
                 ++i;
         }
         cols.Add(0x280);
-        return cols.ToArray();
+        return [.. cols];
     }
 
     private PftFont? HeadingFont => Host?.FontByName("sf_orange_7.pft");
@@ -66,9 +66,9 @@ public sealed class GuiServerInfo : GuiList
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y, rh = RowHeight;
-        for (int r = 0; r < mRows.Count; ++r)
+        for (var r = 0; r < mRows.Count; ++r)
         {
-            int y = gy + r * rh;
+            var y = gy + (r * rh);
             if (y > p.Clip.Bottom)
                 break;
             if (y + rh <= p.Clip.Top)
@@ -83,14 +83,14 @@ public sealed class GuiServerInfo : GuiList
     {
         if (row.Length < 2)
             return;
-        int[] cols = row[0] == '0' ? mTeamColumns : mPlayerColumns;
-        bool heading = row[1] != '0';
+        var cols = row[0] == '0' ? mTeamColumns : mPlayerColumns;
+        var heading = row[1] != '0';
         PftFont? font = heading ? HeadingFont : RowTextFont;
         int i = 2, col = 0;
         GfxRect saved = p.Clip;
         while (col + 1 < cols.Length)
         {
-            int start = i;
+            var start = i;
             while (i < row.Length && row[i] != '\t')
                 ++i;
             if (i > start)

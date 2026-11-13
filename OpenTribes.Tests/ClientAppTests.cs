@@ -1,18 +1,17 @@
 // Tests of the `tribes` client (ROADMAP M9 C8): the command table with real effects (docs/client-scripts.md 2.2 to 2.15), the
 // engine variables and prefs files (5.1, 5.4), the play delegate and the move builder (3.8, client-net.md 4.1, 4.2), the timed
 // script and the command line. The client runs headless on a synthetic game directory (R5): no window, no game data.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
-using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Script;
 
-namespace OpenTribes.Tests;
-
 public sealed class ClientAppTests : IDisposable
 {
     private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-c8-" + Guid.NewGuid().ToString("N"));
-    private readonly List<string> mLines = new();
+    private readonly List<string> mLines = [];
     private ClientApp? mApp;
 
     public ClientAppTests()
@@ -24,7 +23,9 @@ public sealed class ClientAppTests : IDisposable
     public void Dispose()
     {
         mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        try
+        { Directory.Delete(mRoot, true); }
+        catch (IOException) { }
     }
 
     private ClientApp Boot(string consoleCs = "", params string[] args)
@@ -36,11 +37,11 @@ public sealed class ClientAppTests : IDisposable
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
         var all = new List<string> { "--root", mRoot, "--headless" };
         all.AddRange(args);
-        ClientOptions opt = ClientOptions.Parse(all.ToArray(), out string err)!;
+        ClientOptions opt = ClientOptions.Parse([.. all], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
-        mApp.Interp.SetOutput(l => mLines.Add(l));
+        Assert.True(mApp.Start(out var error), error);
+        mApp.Interp.SetOutput(mLines.Add);
         return mApp;
     }
 
@@ -77,7 +78,10 @@ public sealed class ClientAppTests : IDisposable
         world.Ghosts.Insert(ghost);
         world.DataBlocks.Blocks[(3, 2)] = new ClientDataBlock
         {
-            Group = 3, Index = 2, Class = "Armor", Fields = new List<DecodedField> { new("maxEnergy", 60.0) },
+            Group = 3,
+            Index = 2,
+            Class = "Armor",
+            Fields = [new("maxEnergy", 60.0)],
         };
         world.Psc.ControlState["energy"] = 15.0;
         var src = new ClientHudSource(world);
@@ -231,7 +235,7 @@ public sealed class ClientAppTests : IDisposable
     public void LocalAddressRule(string address, bool local)
     {
         Boot();
-        Assert.Equal(local, mApp!.IsLocalAddress(address));
+        Assert.Equal(local, ClientApp.IsLocalAddress(address));
     }
 
     [Fact]
@@ -269,7 +273,7 @@ public sealed class ClientAppTests : IDisposable
         Boot("newActionMap(\"t.sae\"); bindCommand(joystick0, make, button2, TO, \"$Fire = $Fire @ 1;\"); pushActionMap(\"t.sae\");");
         Assert.Equal("False", Eval("inputActivate(joystick0);"));
         Assert.Contains("inputActivate: unknown device joystick0", mLines);
-        mApp!.Joysticks = OpenTribes.Platform.Sdl.JoystickSet.Simulated("Test stick");
+        mApp!.Joysticks = Platform.Sdl.JoystickSet.Simulated("Test stick");
         mApp.InjectJoyButton(0, 2, true);
         Assert.Equal("", mApp.Interp.PeekVariable("$Fire"));
         mApp.InjectJoyButton(0, 2, false);
@@ -317,11 +321,9 @@ public sealed class ClientAppTests : IDisposable
     [InlineData(5, "0.25", "0.250000")]
     [InlineData(3, "90", "90")]
     [InlineData(0, "anything", "anything")]
-    public void TypedVariablesReadBackInTheirFormat(int type, string input, string expected)
-    {
+    public void TypedVariablesReadBackInTheirFormat(int type, string input, string expected) =>
         // client-scripts.md 5.1 types 0 string, 1 bool, 2 int, 3 float, 5 float clamped to 0..1.
         Assert.Equal(expected, EngineVariables.Normalize(type, input));
-    }
 
     [Fact]
     public void EngineVariablesStartAtTheirImageDefaultAndNormalise()
@@ -372,8 +374,8 @@ public sealed class ClientAppTests : IDisposable
         // 5.4: export writes sorted `$name = "value";` lines to config\ClientPrefs.cs; exec of that file restores them.
         Boot();
         Eval("$pref::zeta = \"last\"; $pref::alpha = \"first\"; $pref::TerrainDetail = 0.5; export(\"pref::*\", \"config\\\\ClientPrefs.cs\", False);");
-        string text = File.ReadAllText(Path.Combine(mRoot, "config", "ClientPrefs.cs"));
-        string[] lines = text.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        var text = File.ReadAllText(Path.Combine(mRoot, "config", "ClientPrefs.cs"));
+        var lines = text.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
         Assert.Contains("$pref::alpha = \"first\";", lines);
         Assert.Contains("$pref::TerrainDetail = \"0.500000\";", lines);
         Assert.True(Array.IndexOf(lines, "$pref::alpha = \"first\";") < Array.IndexOf(lines, "$pref::zeta = \"last\";"));
@@ -406,7 +408,7 @@ public sealed class ClientAppTests : IDisposable
              "bindAction(keyboard0, make, \"w\", TO, IDACTION_MOVEFORWARD, 1.0);" +
              "bindCommand(keyboard0, make, control, \"p\", TO, \"drop(BackPack);\");" +
              "saveActionMap(\"config\\\\config.cs\", \"playMap.sae\");");
-        string text = File.ReadAllText(Path.Combine(mRoot, "config", "config.cs"));
+        var text = File.ReadAllText(Path.Combine(mRoot, "config", "config.cs"));
         Assert.StartsWith("NewActionMap(\"playMap.sae\");\n", text);
         Assert.Contains("bindAction(mouse0, xaxis0, TO, IDACTION_YAW, Flip, Scale, 0.00099", text);
         Assert.Contains("bindAction(keyboard0, make, \"w\", TO, IDACTION_MOVEFORWARD, 1.000000);", text);
@@ -535,34 +537,31 @@ public sealed class ClientAppTests : IDisposable
     [InlineData("space", 0x39, false)]
     [InlineData("numpad5", 0x4c, false)]
     [InlineData("nosuchkey", 0, false)]
-    public void ScriptKeyNamesFollowTheKeyTable(string name, int scan, bool shift)
-    {
-        Assert.Equal((scan, shift), ClientScript.Lookup(name));
-    }
+    public void ScriptKeyNamesFollowTheKeyTable(string name, int scan, bool shift) => Assert.Equal((scan, shift), ClientScript.Lookup(name));
 
     [Fact]
     public void TimedScriptRunsLinesInOrderAndWaitsForCondition()
     {
         Boot();
-        string path = Path.Combine(mRoot, "run.txt");
+        var path = Path.Combine(mRoot, "run.txt");
         File.WriteAllText(path, "@0.5 eval $A = 1;\n@1.0 eval $B = 1;\nwaitfor $Gate 5\neval $C = 1;\n");
         // Load through a second app so the script object is built by the public path (--input).
         mApp!.Dispose();
         mApp = null;
         File.WriteAllText(Path.Combine(mRoot, "console.cs"), "newClient(); focusClient(); newObject(MainWindow, SimGui::Canvas, \"T\", 640, 480, True, \"512 384\", \"1024 768\");");
-        var opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless", "--input", path }, out _)!;
+        var opt = ClientOptions.Parse(["--root", mRoot, "--headless", "--input", path], out _)!;
         mApp = new ClientApp(opt);
         Assert.True(mApp.Start(out _));
-        for (int i = 0; i < 40; ++i)
+        for (var i = 0; i < 40; ++i)
             mApp.Step();   // 16 ms of virtual time each: 0.64 s
         Assert.Equal("1", mApp.Interp.PeekVariable("$A"));
         Assert.Equal("", mApp.Interp.PeekVariable("$B"));
-        for (int i = 0; i < 40; ++i)
+        for (var i = 0; i < 40; ++i)
             mApp.Step();   // 1.28 s
         Assert.Equal("1", mApp.Interp.PeekVariable("$B"));
         Assert.Equal("", mApp.Interp.PeekVariable("$C"));      // held back by waitfor
         mApp.Interp.SetVariable("$Gate", "1");
-        for (int i = 0; i < 5; ++i)
+        for (var i = 0; i < 5; ++i)
             mApp.Step();
         Assert.Equal("1", mApp.Interp.PeekVariable("$C"));
     }
@@ -572,7 +571,7 @@ public sealed class ClientAppTests : IDisposable
     [Fact]
     public void OwnOptionsAreRemovedAndGameTokensGoToCargv()
     {
-        ClientOptions o = ClientOptions.Parse(new[] { "--root", "/x", "-mod", "m", "+connect", "127.0.0.1:1", "--no-audio", "--screenshot-at", "3,1.5", "+exec", "a.cs" }, out string e)!;
+        ClientOptions o = ClientOptions.Parse(["--root", "/x", "-mod", "m", "+connect", "127.0.0.1:1", "--no-audio", "--screenshot-at", "3,1.5", "+exec", "a.cs"], out var e)!;
         Assert.Equal("", e);
         Assert.Equal("/x", o.Root);
         Assert.True(o.NoAudio);
@@ -583,17 +582,17 @@ public sealed class ClientAppTests : IDisposable
     [Fact]
     public void BadOptionsAreRejected()
     {
-        Assert.Null(ClientOptions.Parse(new[] { "--bogus" }, out string e));
+        Assert.Null(ClientOptions.Parse(["--bogus"], out var e));
         Assert.Contains("--bogus", e);
-        Assert.Null(ClientOptions.Parse(new[] { "--size", "640" }, out e));
-        Assert.Null(ClientOptions.Parse(new[] { "--screenshot-at" }, out e));
+        Assert.Null(ClientOptions.Parse(["--size", "640"], out e));
+        Assert.Null(ClientOptions.Parse(["--screenshot-at"], out e));
     }
 
     [Fact]
     public void ToolFlagsKeepTheEarlierStagesRunnable()
     {
-        Assert.True(ClientOptions.IsToolInvocation(new[] { "--root", "x", "--gui", "MainMenu" }));
-        Assert.True(ClientOptions.IsToolInvocation(new[] { "--demo", "a.rec", "--at", "3" }));
-        Assert.False(ClientOptions.IsToolInvocation(new[] { "--root", "x", "+connect", "127.0.0.1:28001" }));
+        Assert.True(ClientOptions.IsToolInvocation(["--root", "x", "--gui", "MainMenu"]));
+        Assert.True(ClientOptions.IsToolInvocation(["--demo", "a.rec", "--at", "3"]));
+        Assert.False(ClientOptions.IsToolInvocation(["--root", "x", "+connect", "127.0.0.1:28001"]));
     }
 }

@@ -1,8 +1,7 @@
-using OpenTribes.Client.World;
-using OpenTribes.Core;
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Client.Shapes;
+
+using OpenTribes.Client.World;
+using OpenTribes.Platform.Gfx;
 
 /// <summary>A texture of a shape bitmap with the blend it needs.</summary>
 public sealed class TexEntry
@@ -75,8 +74,8 @@ public sealed class ShapeAssets : IDisposable
             return null;
         if (mShapes.TryGetValue(name, out RenderShape? s))
             return s;
-        string file = name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase) ? name : name + ".dts";
-        s = GfxAssets.Read(World.Res, file, out byte[] data) ? RenderShape.Parse(data, name) : null;
+        var file = name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase) ? name : name + ".dts";
+        s = GfxAssets.Read(World.Res, file, out var data) ? RenderShape.Parse(data, name) : null;
         if (s == null)
             Missing.Add(file);
         mShapes[name] = s;
@@ -94,7 +93,7 @@ public sealed class ShapeAssets : IDisposable
         var key = new TexKey(map, skin, damageLevel > 0 ? damageLevel : 0, keyed);
         if (mTextures.TryGetValue(key, out TexEntry? t))
             return t;
-        string resolved = skin.Length > 0 ? Skins.Resolve(map, skin, Exists, UseCustomSkins) : map;
+        var resolved = skin.Length > 0 ? Skins.Resolve(map, skin, Exists, UseCustomSkins) : map;
         t = null;
         PbmpBitmap? bmp = World.Bitmap(resolved);
         if (bmp == null)
@@ -106,20 +105,22 @@ public sealed class ShapeAssets : IDisposable
             if (damageLevel > 0)
                 bmp = Skins.ApplyDamage(bmp, damageLevel, DamageDecals);
             SubPalette sub = World.Palette.FindSubPalette(bmp.PaletteId);
-            byte[] rgba = World.Rgba(bmp, false);
+            var rgba = World.Rgba(bmp, false);
             if (keyed && bmp.Depth == 8)
-                for (int i = 0; i < bmp.Width * bmp.Height; ++i)
+                for (var i = 0; i < bmp.Width * bmp.Height; ++i)
                 {
-                    int idx = bmp.Pixels[(i / bmp.Width) * bmp.Stride + i % bmp.Width];
+                    int idx = bmp.Pixels[(i / bmp.Width * bmp.Stride) + (i % bmp.Width)];
                     if (idx == 0)
-                        rgba[i * 4 + 3] = 0;
+                        rgba[(i * 4) + 3] = 0;
                 }
             // the stock upload packs every palette indexed bitmap (5551, or 4444 for a translucent palette, 005d7148)
             if (bmp.Depth == 8)
                 PaletteTables.Pack(rgba, sub);
             t = new TexEntry
             {
-                Blend = bmp.Blend, Width = bmp.Width, Height = bmp.Height,
+                Blend = bmp.Blend,
+                Width = bmp.Width,
+                Height = bmp.Height,
                 PaletteAlpha = bmp.Blend == BlendMode.Translucent && sub.Kind == 2,
                 Texture = mDev != null ? World.CreateTexture(mDev, bmp, rgba, false, false, true, keyed) : null,
             };
@@ -143,7 +144,7 @@ public sealed class ShapeAssets : IDisposable
     public void SetDamageDecals(IEnumerable<string> names)
     {
         var l = new List<PbmpBitmap>();
-        foreach (string n in names)
+        foreach (var n in names)
             if (n.Length > 0 && World.Bitmap(n) is PbmpBitmap b)
                 l.Add(b);
         DamageDecals = l;

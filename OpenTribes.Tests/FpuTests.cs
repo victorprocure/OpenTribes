@@ -1,8 +1,8 @@
 // Tests of Fpu (no C++ test file): the rounding of the portable truncating build (docs/portable-float.md 1).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Script;
-
-namespace OpenTribes.Tests;
 
 public class FpuTests
 {
@@ -79,7 +79,7 @@ public class FpuTests
     public void TestScriptToward()
     {
         var interp = new Interpreter();
-        string output = "";
+        var output = "";
         interp.SetOutput(line => output = line);
         Builtins.RegisterBuiltins(interp, null, ".");
         interp.Evaluate("echo(0.1 + 0.1);");

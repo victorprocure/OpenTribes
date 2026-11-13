@@ -1,7 +1,7 @@
+namespace OpenTribes.ClientNet;
+
 using System.Text.Json;
 using OpenTribes.Game;
-
-namespace OpenTribes.ClientNet;
 
 /// <summary>The totals of a capture decode.</summary>
 public sealed class CaptureTotals
@@ -21,9 +21,9 @@ public sealed class CaptureTotals
     /// <summary>The packets that overran their payload.</summary>
     public long Overruns;
     /// <summary>The event counts by name.</summary>
-    public readonly SortedDictionary<string, long> Events = new();
+    public readonly SortedDictionary<string, long> Events = [];
     /// <summary>The ghost update counts by class, deletes excluded.</summary>
-    public readonly SortedDictionary<string, long> Ghosts = new();
+    public readonly SortedDictionary<string, long> Ghosts = [];
 }
 
 /// <summary>Decodes a capture file in the format <c>tools/stream_decode.py</c> reads: JSON lines <c>{t, dir: c2s|s2c, client, hex}</c>.</summary>
@@ -38,7 +38,7 @@ public static class CaptureDecoder
         /// <summary>The packet type with its flags.</summary>
         public int Type;
         /// <summary>The bytes after the header.</summary>
-        public byte[] Payload = Array.Empty<byte>();
+        public byte[] Payload = [];
     }
 
     /// <summary>Parses the VC header (net-protocol.md 3.2). The payload starts at the next byte.</summary>
@@ -46,7 +46,7 @@ public static class CaptureDecoder
     /// <returns>The header, or null when it is malformed.</returns>
     public static VcHeader? ParseVc(byte[] data)
     {
-        var bs = new OpenTribes.Net.BitStream(data, data.Length);
+        var bs = new Net.BitStream(data, data.Length);
         bs.ReadInt(1);
         bs.ReadInt(1);
         var h = new VcHeader { Seq = (int)bs.ReadInt(9) };
@@ -62,8 +62,8 @@ public static class CaptureDecoder
             bs.ReadInt(32);
         if (bs.Error())
             return null;
-        int at = bs.BytePosition();
-        h.Payload = at < data.Length ? data[at..] : Array.Empty<byte>();
+        var at = bs.BytePosition();
+        h.Payload = at < data.Length ? data[at..] : [];
         return h;
     }
 
@@ -72,7 +72,7 @@ public static class CaptureDecoder
         public readonly ClientWorld World = new();
         public readonly ClientGameConnection S2c;
         public readonly ClientGameConnection C2s;
-        public readonly List<int> SeenS2c = new(), SeenC2s = new();
+        public readonly List<int> SeenS2c = [], SeenC2s = [];
 
         public ClientCtx()
         {
@@ -91,7 +91,7 @@ public static class CaptureDecoder
     {
         var tot = new CaptureTotals();
         var ctxs = new Dictionary<string, ClientCtx>();
-        foreach (string line in File.ReadLines(path))
+        foreach (var line in File.ReadLines(path))
         {
             if (line.Length == 0)
                 continue;
@@ -99,18 +99,18 @@ public static class CaptureDecoder
             JsonElement root = doc.RootElement;
             if (!root.TryGetProperty("hex", out JsonElement hexEl))
                 continue;
-            string client = root.GetProperty("client").GetString() ?? "";
+            var client = root.GetProperty("client").GetString() ?? "";
             if (onlyClient != null && client != onlyClient)
                 continue;
-            string dir = root.GetProperty("dir").GetString() ?? "s2c";
-            double t = root.GetProperty("t").GetDouble();
-            byte[] data = Convert.FromHexString(hexEl.GetString() ?? "");
+            var dir = root.GetProperty("dir").GetString() ?? "s2c";
+            var t = root.GetProperty("t").GetDouble();
+            var data = Convert.FromHexString(hexEl.GetString() ?? "");
             if (data.Length == 0 || (data[0] & 1) == 0)
                 continue;
             VcHeader? h = ParseVc(data);
             if (h == null)
                 continue;
-            int ty = h.Type;
+            var ty = h.Type;
             if ((ty & ~0x18) != 0 || h.Payload.Length == 0 || ((ty & 0x10) != 0 && (ty & 0x08) == 0))
                 continue;
             if (!ctxs.TryGetValue(client, out ClientCtx? ctx))

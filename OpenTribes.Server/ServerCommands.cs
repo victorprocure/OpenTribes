@@ -1,7 +1,7 @@
+namespace OpenTribes.Server;
+
 using OpenTribes.Core;
 using OpenTribes.Script;
-
-namespace OpenTribes.Server;
 
 /// <summary>What the server commands need from the host.</summary>
 /// <remarks>Port of src/server/server_commands.hpp.</remarks>
@@ -49,20 +49,20 @@ public static class ServerCommands
             net.Bans().Remove(a[1]);
             return "true";
         });
-        string root = ctx.RootDir;
+        var root = ctx.RootDir;
         interp.AddCommand("BanList::export", (i, a) =>
         {
             if (a.Length != 2)
                 return "false";
             // The original opens the file with no directory rule and dies when it cannot be
             // created (D11). Here: paths inside the game directory only (D13), failures ignored.
-            string path = Builtins.ResolveGamePath(root, a[1]);
+            var path = Builtins.ResolveGamePath(root, a[1]);
             if (path.Length == 0)
                 return "true";
             try
             {
                 using var f = new FileStream(path, FileMode.Create, FileAccess.Write);
-                foreach (string line in net.Bans().ExportLines())
+                foreach (var line in net.Bans().ExportLines())
                 {
                     f.Write(ByteString.ToBytes(line));
                     f.Write("\r\n"u8);
@@ -77,7 +77,7 @@ public static class ServerCommands
 
         interp.AddCommand("net::kick", (i, a) =>
         {
-            if (a.Length != 2 && a.Length != 3)
+            if (a.Length is not 2 and not 3)
             {
                 i.Print(1, "kick(playerId, <reason>);");
                 return null;
@@ -88,7 +88,7 @@ public static class ServerCommands
 
         interp.AddCommand("listPlayers", (i, a) =>
         {
-            foreach (string line in net.PlayerList())
+            foreach (var line in net.PlayerList())
                 i.Print(1, line);
             return null;
         });

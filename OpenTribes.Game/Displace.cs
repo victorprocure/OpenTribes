@@ -3,12 +3,9 @@
 // and 0x005062e4, the push 0x005064f8 and the blocking test of doors 0x00505790), of src/game/move_candidates.cpp (the
 // candidate list of a stepped move, docs/collision.md 2.1, 2.2) and of the collision event of src/game/player.cpp
 // (GameState::postCollisionEvent and dispatchCollisionEvent, docs/collision.md 8 E1).
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>Pushing and displacing objects out of the way of moving objects, plus the collision candidate lists.</summary>
 public static class Displace
@@ -29,46 +26,46 @@ public static class Displace
     public static bool PushBy(ReadOnlySpan<float> deltaIn, ReadOnlySpan<float> mover, float[] box, float[] velocity, ref bool atRest,
                               Func<int, float> position, Func<float[], float, float, bool> stepMove)
     {
-        float[] delta = { deltaIn[0], deltaIn[1], deltaIn[2] };
+        float[] delta = [deltaIn[0], deltaIn[1], deltaIn[2]];
         // Sub-steps: one third of the sum of the box extents, and half of it.
-        double extent = Sub(box[3], box[0]);
+        var extent = Sub(box[3], box[0]);
         extent = Add(extent, Sub(box[4], box[1]));
         extent = Add(extent, Sub(box[5], box[2]));
-        float step0 = X87.F32(Mul(kThird, extent));
-        float step1 = X87.F32(Mul(step0, 0.5f));
+        var step0 = X87.F32(Mul(kThird, extent));
+        var step1 = X87.F32(Mul(step0, 0.5f));
         float[] target = new float[3], goal = new float[3], moved = new float[3];
-        for (int attempt = 0; attempt < 3; ++attempt)
+        for (var attempt = 0; attempt < 3; ++attempt)
         {
             // SimMovement_matchVelocity (0x00505008): raise the velocity along the mover's to the mover's.
-            float uu = X87.F32(X87.Dot(mover, mover));
+            var uu = X87.F32(X87.Dot(mover, mover));
             if (uu != 0.0f)
             {
-                float ov = X87.F32(X87.Dot(mover, velocity));
+                var ov = X87.F32(X87.Dot(mover, velocity));
                 if (ov < uu)
                 {
-                    float factor = X87.F32(Div(ov, uu));
-                    for (int i = 0; i < 3; ++i)
+                    var factor = X87.F32(Div(ov, uu));
+                    for (var i = 0; i < 3; ++i)
                         velocity[i] = X87.F32(Add(Sub(mover[i], Mul(mover[i], factor)), velocity[i]));
                     atRest = false;
                 }
             }
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 goal[i] = target[i] = X87.F32(Add(delta[i], position(i)));
             if (!stepMove(target, step0, step1))
                 return false;
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
-                float shortfall = X87.F32(Sub(position(i), goal[i]));
+                var shortfall = X87.F32(Sub(position(i), goal[i]));
                 moved[i] = X87.F32(Add(delta[i], shortfall));
             }
-            float l = X87.F32(X87.Len(delta));
-            float d = X87.F32(X87.Dot(moved, delta));
+            var l = X87.F32(X87.Len(delta));
+            var d = X87.F32(X87.Dot(moved, delta));
             if (!(Mul(l, l) > d))
                 return true;
-            float scale = X87.F32(Div(d, Mul(l, l)));
-            for (int i = 0; i < 3; ++i)
+            var scale = X87.F32(Div(d, Mul(l, l)));
+            for (var i = 0; i < 3; ++i)
             {
-                float part = X87.F32(Mul(scale, delta[i]));
+                var part = X87.F32(Mul(scale, delta[i]));
                 delta[i] = X87.F32(Sub(delta[i], part));
             }
         }
@@ -95,14 +92,16 @@ public sealed partial class GameState
     // sphere (image +0x64, +0x70) under its transform.
     private static MoverImage SphereImageOf(GameBase gb, in Float9 rot, in Float3 pos)
     {
-        var output = new MoverImage();
-        output.Pos = pos;
-        output.Rot = rot;
-        output.BoxMin = Float3.Of(gb.ShapeBox.AsSpan(0, 3));
-        output.BoxMax = Float3.Of(gb.ShapeBox.AsSpan(3, 3));
-        output.Radius = gb.ShapeRadius;
-        output.CentreLocal = Float3.Of(gb.ShapeCenter);
-        output.ShapeMover = true;
+        var output = new MoverImage
+        {
+            Pos = pos,
+            Rot = rot,
+            BoxMin = Float3.Of(gb.ShapeBox.AsSpan(0, 3)),
+            BoxMax = Float3.Of(gb.ShapeBox.AsSpan(3, 3)),
+            Radius = gb.ShapeRadius,
+            CentreLocal = Float3.Of(gb.ShapeCenter),
+            ShapeMover = true
+        };
         return output;
     }
 
@@ -150,7 +149,7 @@ public sealed partial class GameState
             return Collision.TestImage(mv, image, hit);
         }
         GameBase.ShapeKind cls = o.ShapeClass();
-        bool hulls = cls == GameBase.ShapeKind.Vehicle && mover.ShapeClass() == GameBase.ShapeKind.Vehicle;
+        var hulls = cls == GameBase.ShapeKind.Vehicle && mover.ShapeClass() == GameBase.ShapeKind.Vehicle;
         if (cls != GameBase.ShapeKind.Item && cls != GameBase.ShapeKind.Mine && !hulls)
             return false;
         var other = new CollisionImage();
@@ -200,16 +199,16 @@ public sealed partial class GameState
 
     /// <inheritdoc/>
     /// <remarks>Builds the shape image of a ShapeBase object at its current transform (docs/collision.md T1.2).</remarks>
-    public override bool ShapeImage(SimObject o, CollisionImage image)
+    public override bool ShapeImage(SimObject obj, CollisionImage image)
     {
-        if (o is not GameBase gb)
+        if (obj is not GameBase gb)
             return false;
         image.Rot = gb.Transform.M;
         image.Pos = gb.Transform.P;
         image.Object = gb;
         DataBlockManager.Block? b = Sim != null && gb.DataBlockName != null ? Sim.DataBlocks().Find(gb.DataBlockName) : null;
         Span<float> box = stackalloc float[6];
-        if (b == null || Resources == null || !Sim!.DataBlocks().GetField(b, "shapeFile", "", out string shape) || shape.Length == 0 ||
+        if (b == null || Resources == null || !Sim!.DataBlocks().GetField(b, "shapeFile", "", out var shape) || shape.Length == 0 ||
             !Shape.ShapeBox(Resources, shape, box))
             return false;
         image.Box = Float6.Of(box);
@@ -221,20 +220,20 @@ public sealed partial class GameState
         // the Mine bind) puts the image in bounds mode.
         image.Instance = ShapeState.ShapeInstanceOf(this, gb);
         image.Detail = image.Instance?.ShapeData != null ? image.Instance.ShapeData.CollisionDetail() : 0;
-        image.MeshMode = cls != GameBase.ShapeKind.Item && cls != GameBase.ShapeKind.Mine;
+        image.MeshMode = cls is not GameBase.ShapeKind.Item and not GameBase.ShapeKind.Mine;
         return true;
     }
 
     /// <inheritdoc/>
-    public override bool MoveableDisplace(SimObject m, ReadOnlySpan<float> oldPos)
+    public override bool MoveableDisplace(SimObject mover, ReadOnlySpan<float> oldPos)
     {
-        if (m is not GameBase mover)
+        if (mover is not GameBase gameMover)
             return true;
         using var chop = X87.Chop();
-        float[] delta = new float[3];
-        for (int i = 0; i < 3; ++i)
-            delta[i] = X87.F32(Sub(mover.Transform.P[i], oldPos[i]));
-        return DisplaceBy(mover, delta, true);
+        var delta = new float[3];
+        for (var i = 0; i < 3; ++i)
+            delta[i] = X87.F32(Sub(gameMover.Transform.P[i], oldPos[i]));
+        return DisplaceBy(gameMover, delta, true);
     }
 
     /// <summary>Displaces the objects that a mover pushes.</summary>
@@ -246,7 +245,7 @@ public sealed partial class GameState
     public bool DisplaceBy(GameBase mover, float[] delta, bool top)
     {
         Player? playerMover = Player.From(mover);
-        bool vehicleMover = mover.ShapeClass() == GameBase.ShapeKind.Vehicle && playerMover == null;
+        var vehicleMover = mover.ShapeClass() == GameBase.ShapeKind.Vehicle && playerMover == null;
         if (playerMover == null)
         {
             // No image (vtable +0xcc, the first image of query 0x407), no displace: a destroyed StaticBase object or one
@@ -262,7 +261,7 @@ public sealed partial class GameState
         var records = new List<DisplaceRecord>();
         void Record(GameBase o)
         {
-            var r = new DisplaceRecord { Object = o, Xf = o.Transform, Velocity = new[] { o.Velocity[0], o.Velocity[1], o.Velocity[2] } };
+            var r = new DisplaceRecord { Object = o, Xf = o.Transform, Velocity = [o.Velocity[0], o.Velocity[1], o.Velocity[2]] };
             if (Player.From(o) is Player p)
             {
                 r.Mask = p.CollisionMask;
@@ -277,19 +276,19 @@ public sealed partial class GameState
         // The object type of the mover is 0 while its two lists are walked: no query of a pushed object or of a nested
         // displace finds it. The type is back before a blocker callback and stays.
         mDisplaceHidden.Add(mover);
-        bool hiddenHere = true;
+        var hiddenHere = true;
         void Unhide()
         {
             if (!hiddenHere)
                 return;
             hiddenHere = false;
-            int it = mDisplaceHidden.LastIndexOf(mover);
+            var it = mDisplaceHidden.LastIndexOf(mover);
             if (it >= 0)
                 mDisplaceHidden.RemoveAt(it);
         }
         bool Hidden(GameBase o) => mDisplaceHidden.Contains(o);
         bool Overlaps(GameBase o) => ImagesOverlap(mover, o);
-        float[] zero = { 0, 0, 0 };
+        float[] zero = [0, 0, 0];
         // Moveable::onBlocker (0x004449f0, vtable +0xbc): Items and corpses are never blockers.
         bool Blocker(GameBase o)
         {
@@ -324,14 +323,14 @@ public sealed partial class GameState
                     o.ItemFlags = r.Flags;
                     ObjectMoved(o);
                 }
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     o.Velocity[i] = r.Velocity[i];
             }
         }
         // Phase A (0x0050613c): the objects on the carry list. A rider that could not be pushed and is clear of the
         // mover's image displaces what it overlaps itself.
         var riders = new List<int>(mover.Carried);
-        foreach (int id in riders)
+        foreach (var id in riders)
         {
             if (manager?.FindById(id) is not GameBase o || ContainerTypeOf(o) == 0 || Hidden(o))
                 continue;
@@ -361,7 +360,7 @@ public sealed partial class GameState
             // Sphere and box images (a Trigger, the trigger sphere of a station, a door or a Mine) are tested against the
             // Player's own shape (Player::buildCandidates).
             foreach (CollisionImage im in images)
-                if (im.ImageKind == CollisionImage.Kind.TriggerSphere || im.ImageKind == CollisionImage.Kind.Trigger)
+                if (im.ImageKind is CollisionImage.Kind.TriggerSphere or CollisionImage.Kind.Trigger)
                 {
                     self.Instance = ShapeState.ShapeInstanceOf(this, mover);
                     self.Detail = 0;
@@ -386,7 +385,7 @@ public sealed partial class GameState
         else
         {
             Span<float> query = stackalloc float[6];
-            uint overlapMask = (top ? 0x24a00080u : DisplaceMaskOf(mover)) & ~0x46u;
+            var overlapMask = (top ? 0x24a00080u : DisplaceMaskOf(mover)) & ~0x46u;
             if (vehicleMover)
             {
                 // A Vehicle moves with the collision mask 0x80 during its own displace (Flier_update U16). Its object box
@@ -402,7 +401,7 @@ public sealed partial class GameState
                 Collision.SweptBox(mover.ShapeQueryBox.AsSpan(0, 3), mover.ShapeQueryBox.AsSpan(3, 3), mover.Transform.P,
                                    mover.Velocity, 0.032f, query);
             }
-            foreach (object? so in World.FindObjects(query, overlapMask, mover))
+            foreach (var so in World.FindObjects(query, overlapMask, mover))
                 if (so is GameBase o)
                     found.Add(o);
         }
@@ -432,7 +431,7 @@ public sealed partial class GameState
                 o.AtRest = false;
                 o.SetMaskBits(0x08);
             }
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 o.Velocity[i] = r.Velocity[i];
         }
         return true;
@@ -440,33 +439,37 @@ public sealed partial class GameState
 
     /// <inheritdoc/>
     /// <remarks>Follows SimMovement_testTransform (0x00505790) for a door: its shape image at the new transform against the Players (and collideable Items) in its way.</remarks>
-    public override bool MoveableTest(SimObject m, ReadOnlySpan<float> rotation, ReadOnlySpan<float> position)
+    public override bool MoveableTest(SimObject mover, ReadOnlySpan<float> rotation, ReadOnlySpan<float> position)
     {
-        if (m is not GameBase mover)
+        if (mover is not GameBase gameMover)
             return true;
         using var chop = X87.Chop();
-        var xf = new Transform();
-        xf.Flags = 3;
+        var xf = new Transform
+        {
+            Flags = 3
+        };
         MissionTransform.EulerToMatrix(rotation, ref xf);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             xf.P[i] = position[i];
         var image = new CollisionImage();
-        if (!ShapeImage(mover, image))
+        if (!ShapeImage(gameMover, image))
             return true;
         image.Rot = xf.M;
         image.Pos = xf.P;
-        var wm = new Mat();
-        wm.M = xf.M;
-        wm.P = new Vec3(position[0], position[1], position[2]);
+        var wm = new Mat
+        {
+            M = xf.M,
+            P = new Vec3(position[0], position[1], position[2])
+        };
         Span<float> box = stackalloc float[6];
-        Shape.RotatedWorldBox(mover.ShapeQueryBox, wm, box);
-        foreach (object? so in World.FindObjects(box, 0x24a00080u, mover))
+        Shape.RotatedWorldBox(gameMover.ShapeQueryBox, wm, box);
+        foreach (var so in World.FindObjects(box, 0x24a00080u, gameMover))
         {
             if (so is not GameBase o)
                 continue;
             if (Player.From(o) == null && !(o.ShapeClass() == GameBase.ShapeKind.Item && o.ItemCollideable))
                 continue;
-            if (ImagesOverlap(mover, o, image))
+            if (ImagesOverlap(gameMover, o, image))
                 return false;
         }
         return true;
@@ -478,9 +481,8 @@ public sealed partial class GameState
     /// <remarks>Follows StaticBase_getCollisionImages (0x0044fff0).</remarks>
     public bool StaticHasImage(GameBase gb)
     {
-        string v = "";
         DataBlockManager.Block? b = gb.DataBlockName != null ? Sim!.DataBlocks().Find(gb.DataBlockName) : null;
-        bool disabled = b != null && Sim!.DataBlocks().GetField(b, "disableCollision", "", out v) && Numbers.ParseBool(v);
+        var disabled = b != null && Sim!.DataBlocks().GetField(b, "disableCollision", "", out var v) && Numbers.ParseBool(v);
         return !((disabled || gb.DamageState == GameBase.kDestroyed) && !gb.VisibilityThread);
     }
 
@@ -491,7 +493,7 @@ public sealed partial class GameState
         // InteriorShape world boxes are padded by 3.0 (2.2): widen the container query and gate every object on its own
         // box.
         Span<float> wide = stackalloc float[6];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             wide[i] = SubF(query[i], 3.5f);
             wide[i + 3] = AddF(query[i + 3], 3.5f);
@@ -500,14 +502,16 @@ public sealed partial class GameState
         // (an object whose box starts exactly at the query's end is not found: 0x004fc3fc, docs/collision.md 11.8).
         List<object?> exact = World.FindObjects(query, mask, mover);
         Span<float> padded = stackalloc float[6];
-        foreach (object? obj in World.FindObjects(wide, mask, mover))
+        foreach (var obj in World.FindObjects(wide, mask, mover))
         {
             Container.Entry? e = World.Find(obj);
             if (e == null)
                 continue;
-            var image = new CollisionImage();
-            image.Object = obj;
-            image.Type = e.Type;
+            var image = new CollisionImage
+            {
+                Object = obj,
+                Type = e.Type
+            };
             if (e.TerrainData != null)
             {
                 if (!Collision.BoxesOverlap(e.Box, query))
@@ -569,7 +573,7 @@ public sealed partial class GameState
             {
                 // Shape image (ShapeCollisionImage): the shape instance with the collision detail and mode. A
                 // non-collideable Item never blocks (image byte +0xd).
-                uint type = image.Type;
+                var type = image.Type;
                 if (!ShapeImage(gb, image))
                     continue;
                 image.Type = type;
@@ -583,15 +587,17 @@ public sealed partial class GameState
                     if (gb.ShapeTriggerRadius != 0.0f)
                     {
                         output.Add(image);
-                        var sphere = new CollisionImage();
-                        sphere.ImageKind = CollisionImage.Kind.TriggerSphere;
-                        sphere.Object = obj;
-                        sphere.Type = type;
-                        sphere.NonBlocking = true;
-                        sphere.Rot = image.Rot;
-                        sphere.Pos = image.Pos;
-                        sphere.Centre = Float3.Of(gb.ShapeCenter);
-                        sphere.Radius = gb.ShapeTriggerRadius;
+                        var sphere = new CollisionImage
+                        {
+                            ImageKind = CollisionImage.Kind.TriggerSphere,
+                            Object = obj,
+                            Type = type,
+                            NonBlocking = true,
+                            Rot = image.Rot,
+                            Pos = image.Pos,
+                            Centre = Float3.Of(gb.ShapeCenter),
+                            Radius = gb.ShapeTriggerRadius
+                        };
                         image = sphere;
                     }
                 }
@@ -617,7 +623,7 @@ public sealed partial class GameState
         SimManager? m = target?.Manager();
         if (m == null || sender == null)
             return;
-        int senderId = sender.Id();
+        var senderId = sender.Id();
         m.PostEvent(target, m.Time(), () =>
         {
             if (m.FindById(senderId) != sender)
@@ -634,7 +640,7 @@ public sealed partial class GameState
     public void DispatchCollisionEvent(GameBase target, GameBase sender)
     {
         // Handlers (vtable +0xe8) by class and the type mask of `other` (8 E1.4).
-        uint other = TypeOf(sender);
+        var other = TypeOf(sender);
         uint mask;
         if (Player.From(target) != null)
         {

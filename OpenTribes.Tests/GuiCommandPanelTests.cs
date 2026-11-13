@@ -1,16 +1,15 @@
 // The command screen panels (docs/gui.md 3.6): FGCommandPanel [004a159c], FGChatMenu [004a7934], CommandTeamCtrl [004a8638]. Synthetic data only.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using OpenTribes.Platform.Gl;
-
-namespace OpenTribes.Tests;
 
 public class GuiCommandPanelTests
 {
     private sealed class CallDev : IGfxDevice
     {
-        public readonly List<string> Calls = new();
+        public readonly List<string> Calls = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -30,7 +29,7 @@ public class GuiCommandPanelTests
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
@@ -130,7 +129,7 @@ public class GuiCommandPanelTests
     {
         var fx = new GuiFixture();
         var pieces = new PbmaArray { BitmapCount = 12 };
-        for (int i = 0; i < 12; i++)
+        for (var i = 0; i < 12; i++)
             pieces.Bitmaps.Add(new PbmpBitmap { Width = 4 + i, Height = 13 });
         fx.Host.SetArray("CmdListCtrl.pba", pieces);
         foreach (var (n, w) in new[] { ("CMD_DamageLow.bmp", 11), ("CMD_DamageMed.bmp", 11), ("CMD_DamageHigh.bmp", 11), ("CMD_OrderPending.bmp", 9), ("CMD_OrderAck.bmp", 9) })

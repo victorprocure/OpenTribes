@@ -2,14 +2,14 @@
 // (2.2), typed variables (5.1), the manager tick (1.6), steering (3.3), the trigger (3.6), callbacks (4) and the record
 // bookkeeping (1.5, 7). Synthetic flat terrain, no game data. Expected texts and sequences are those the reference
 // server printed (tools/aidiff.py). 52 asserts, one to one.
+namespace OpenTribes.Tests;
+
 using System.Globalization;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
 using static OpenTribes.Tests.Fixtures;
-
-namespace OpenTribes.Tests;
 
 public class AITests
 {
@@ -25,11 +25,13 @@ public class AITests
             Root = Path.Combine(TestPaths.TmpDir(""), name);
             if (Directory.Exists(Root))
                 Directory.Delete(Root, true);
-            var t = new TerrainSpec(); // 2 x 2 blocks of 4 x 4 squares of 32 m: 256 m x 256 m, flat
-            t.Scale = 5;
-            t.Height = 2;
-            t.Heights = Enumerable.Repeat(kFlat, 25).ToList();
-            t.Squares = new List<byte>(new byte[32]);
+            var t = new TerrainSpec
+            {
+                Scale = 5,
+                Height = 2,
+                Heights = [.. Enumerable.Repeat(kFlat, 25)],
+                Squares = [.. new byte[32]]
+            }; // 2 x 2 blocks of 4 x 4 squares of 32 m: 256 m x 256 m, flat
             PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, kFlat, kFlat));
             PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, kFlat, kFlat));
             PutFile(Path.Combine(Root, "base/t.dml"), "dml");
@@ -51,9 +53,9 @@ public class AITests
         // Exactly n world ticks (a 32 ms step of the virtual clock can cross zero or two boundaries).
         public void Tick(int n = 1)
         {
-            for (int i = 0; i < n; ++i)
+            for (var i = 0; i < n; ++i)
             {
-                uint before = W.Sim.TickMs();
+                var before = W.Sim.TickMs();
                 while (W.Sim.TickMs() == before)
                     W.Sim.AdvanceRealTime(1);
             }
@@ -67,7 +69,7 @@ public class AITests
     // The z rotation the script reads (from the transform, not the stored angle).
     private static string RotZ(Fixtures.World w, Player p)
     {
-        string r = w.Run("echo(GameBase::getRotation(" + p.Id().ToString(CultureInfo.InvariantCulture) + "));");
+        var r = w.Run("echo(GameBase::getRotation(" + p.Id().ToString(CultureInfo.InvariantCulture) + "));");
         return r[(r.LastIndexOf(' ') + 1)..];
     }
 
@@ -82,7 +84,7 @@ public class AITests
         c.Check(w, "echo(isObject(726));", "False");
         c.Check(w, "echo(AI::GetCount());", "0");
         c.Check(w, "echo(isObject(726));", "True");
-        Assert.True(w.Game.Ai != null);
+        Assert.NotNull(w.Game.Ai);
         // Usage texts (the reference prints these lines for argc < the minimum).
         c.Check(w, "AI::GetId();",
                 "AI::getId(<ai name>);\nReturns the rep Id of the given AI.  The rep Id can in many\n" +
@@ -139,11 +141,11 @@ public class AITests
         c.Check(w, "function ai::idarg(%id, %x) { echo(\"idarg \", %id, \" \", %x); return 5; }" +
                    " echo(AI::CallWithId(\"?2\", ai::idarg, 7));", "idarg 2050 7\nTrue");
         {
-            string many = "echo(AI::CallWithId(A1, echo";
-            for (int i = 0; i < 99; ++i)
+            var many = "echo(AI::CallWithId(A1, echo";
+            for (var i = 0; i < 99; ++i)
                 many += ", x" + i.ToString(CultureInfo.InvariantCulture);
             many += "));";
-            string got = w.Run(many);
+            var got = w.Run(many);
             Assert.True(got.Length > 100 && got[^4..] == "True");
             many = many.Insert(many.Length - 3, ", z"); // one argument more
             c.Check(w, many, "echo has too many args (99 is maximum). Not invoked.\nFalse");
@@ -155,7 +157,7 @@ public class AITests
         c.Check(w, "echo(AI::GetCount(), \" \", BaseRep::getFirst());", "0 -1");
         c.Check(w, "echo(AI::Spawn(C3, tarmor, \"100 100 52\"), AI::GetId(C3));",
                 "MSG: \"Server: Player \\\"C3\\\" added - id = 2049\"\nTrue2049");
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
 
     // ---- directives (2.2, 2.3) ----
@@ -200,7 +202,7 @@ public class AITests
         c.Check(w, "AI::DirectiveList(A1, 4);",
                 "Listing directives with bitset mask of 4:\nOrd=400  Type=Target(player)\nOrd=600  Type=Target(laser)\n" +
                 "Ord=700  Type=Target(point)");
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
 
     // ---- typed variables (5.1) ----
@@ -232,12 +234,12 @@ public class AITests
         w.Run("$AI::D4::iq = 80;");
         w.Run("AI::Spawn(D4, tarmor, \"120 100 52\");");
         c.Check(w, "echo($AI::D4::iq);", "80");
-        Assert.True(f.Ai("D4")!.Iq == 80.0f);
+        Assert.Equal(80.0f, f.Ai("D4")!.Iq);
         // Variables go away with the AI (4.3).
         w.Run("AI::Spawn(E5, tarmor, \"140 100 52\"); Player::kill(Client::getOwnedObject(AI::GetId(E5)));");
         f.Tick(2);
         c.Check(w, "echo($AI::E5::iq == \"\", \" \", AI::SetVar(\"Corpse*\", iq, 1));", "1 True");
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
     // ---- manager tick: steering, think gate, trigger, callbacks, death (1.6, 3, 4) ----
 
@@ -249,20 +251,20 @@ public class AITests
         // tick (reference run, tools/aidiff.py c_rates).
         w.Run("AI::Spawn(W, tarmor, \"100 100 51\", \"0 0 0\");");
         Player? p = f.Player("W");
-        Assert.True(p != null);
+        Assert.NotNull(p);
         f.Tick(5); // idle: state 1, the think counter runs
         w.Run("AI::DirectiveWaypoint(W, \"99.97 68 50\", 7);");
-        int first = -1;
-        for (int i = 0; i < 80 && first < 0; ++i)
+        var first = -1;
+        for (var i = 0; i < 80 && first < 0; ++i)
         {
             f.Tick();
             if (p!.Rotation[2] != 0.0f)
                 first = i;
         }
-        Assert.True(first >= 0 && first <= 50);
-        string[] want0 = { "0.0499999", "0.0999999", "0.149999", "0.199999", "0.249999", "0.299999", "0.349999", "0.399999" };
+        Assert.True(first is >= 0 and <= 50);
+        string[] want0 = ["0.0499999", "0.0999999", "0.149999", "0.199999", "0.249999", "0.299999", "0.349999", "0.399999"];
         Assert.True(RotZ(w, p!) == want0[0]);
-        for (int i = 1; i < 8; ++i)
+        for (var i = 1; i < 8; ++i)
         {
             f.Tick();
             Assert.True(RotZ(w, p!) == want0[i]);
@@ -275,20 +277,20 @@ public class AITests
         f.Tick(5);
         w.Run("AI::DirectiveWaypoint(I, \"140 68 50\", 7);");
         Player q = f.Player("I")!;
-        int firstQ = -1;
-        for (int i = 0; i < 20 && firstQ < 0; ++i)
+        var firstQ = -1;
+        for (var i = 0; i < 20 && firstQ < 0; ++i)
         {
             f.Tick();
             if (q.Rotation[2] != 0.0f)
                 firstQ = i;
         }
-        Assert.True(firstQ >= 0 && firstQ < 8);
+        Assert.True(firstQ is >= 0 and < 8);
         // iq 100: skill = f32(100 * 0.01) truncates to 0.999999, so the think period is 4 and the speed 0.999999.
         Assert.True(f.Ai("I")!.Skill == 0.99999994f && f.Ai("I")!.Sk.MaxSpeed == 0.99999994f && f.Ai("I")!.Sk.Think == 4);
         Assert.True(f.Ai("I")!.Sk.Rate[0] == X87.F32(0.07));
-        string[] wantQ = { "-0.0699999", "-0.14", "-0.21", "-0.28", "-0.35" };
+        string[] wantQ = ["-0.0699999", "-0.14", "-0.21", "-0.28", "-0.35"];
         Assert.True(RotZ(w, q) == wantQ[0]);
-        for (int i = 1; i < 5; ++i)
+        for (var i = 1; i < 5; ++i)
         {
             f.Tick();
             Assert.True(RotZ(w, q) == wantQ[i]);
@@ -313,7 +315,7 @@ public class AITests
         int fired = 0, aimed = 0, windup = 0;
         string pattern = "", expected = "";
         AIObject t = f.Ai("T")!;
-        for (int i = 0; i < 40; ++i)
+        for (var i = 0; i < 40; ++i)
         {
             f.Tick();
             if (t.Move.Fire)
@@ -331,7 +333,7 @@ public class AITests
             }
         }
         Assert.True(aimed > 0 && fired >= 6);
-        Assert.True(pattern[..6] == "111111");
+        Assert.Equal("111111", pattern[..6]);
         Assert.True(pattern == expected);
         w.Run("AI::Delete(\"*\");");
         f.Tick(2);
@@ -341,15 +343,15 @@ public class AITests
         w.Run("AI::Spawn(X, tarmor, \"100 100 51\"); AI::Spawn(Y, tarmor, \"100 120 51\");");
         f.Tick(5);
         w.Run("AI::Attack(X, AI::GetId(Y));");
-        int engaged = 0;
-        for (int i = 0; i < 80; ++i)
+        var engaged = 0;
+        for (var i = 0; i < 80; ++i)
         {
             f.Tick();
             if (f.Ai("X")!.State == 3)
                 ++engaged;
         }
         Assert.True(engaged > 20);
-        Assert.True(w.Run("echo(AI::GetTarget(X));") == "-1");
+        Assert.Equal("-1", w.Run("echo(AI::GetTarget(X));"));
         w.Run("AI::Delete(\"X\"); AI::Delete(\"Y\");");
         f.Tick(2);
 
@@ -359,26 +361,26 @@ public class AITests
         f.Tick();
         Assert.True(w.In.PeekVariable("$per") == "1" && w.In.PeekVariable("$perName") == "P");
         f.Tick(31);
-        Assert.True(w.In.PeekVariable("$per") == "1");
+        Assert.Equal("1", w.In.PeekVariable("$per"));
         f.Tick(1);
-        Assert.True(w.In.PeekVariable("$per") == "2");
+        Assert.Equal("2", w.In.PeekVariable("$per"));
         // Death: the died callback runs once, the AI is renamed and its variables go (4.3).
         w.Run("$died = \"\"; function died(%n) { $died = %n @ \" \" @ AI::GetId(%n); }" +
               "AI::CallbackDied(P, died); Player::kill(Client::getOwnedObject(AI::GetId(P)));");
         f.Tick();
-        string died = w.In.PeekVariable("$died");
-        Assert.True(died == "P 2049");
+        var died = w.In.PeekVariable("$died");
+        Assert.Equal("P 2049", died);
         AIObject? corpse = f.Ai("P");
         Assert.True(corpse == null && w.Game.Ai!.Ais.Count == 1);
         Assert.True(w.Game.Ai.Ais[0].AiName.StartsWith("Corpse", StringComparison.Ordinal) && w.Game.Ai.Ais[0].AiName.Length > 8);
-        Assert.True(!w.In.HasVariable("$AI::P::iq"));
+        Assert.False(w.In.HasVariable("$AI::P::iq"));
         // The periodic callback continues with the corpse name.
         f.Tick(33);
-        Assert.True(string.CompareOrdinal(w.In.PeekVariable("$perName"), 0, "Corpse", 0, 6) == 0); // rfind("Corpse", 0) == 0
+        Assert.Equal(0, string.CompareOrdinal(w.In.PeekVariable("$perName"), 0, "Corpse", 0, 6)); // rfind("Corpse", 0) == 0
         // Deleting the corpse removes the record at the next tick (4.3).
         w.Run("deleteObject(Client::getOwnedObject(2049));");
         f.Tick();
-        Assert.True(w.Run("echo(AI::GetCount());") == "0");
+        Assert.Equal("0", w.Run("echo(AI::GetCount());"));
     }
 
     // ---- the AI math (3.3, 3.5, 5.2) ----
@@ -408,36 +410,36 @@ public class AITests
     private static void TestAimSolver()
     {
         using var chop = X87.Chop();
-        float[] s = { 0, 0, 0 };
-        float[] dir = new float[3];
-        bool ok = false;
+        float[] s = [0, 0, 0];
+        var dir = new float[3];
+        var ok = false;
         // Bullet and Rocket: the straight line; ok when speed x totalTime is above the distance; no high arc.
-        float[] far = { 300, 400, 0 };
+        float[] far = [300, 400, 0];
         Assert.True(AIAim.AiSolveAim(Projectile.kBulletGroup, 100.0f, 10.0f, s, far, false, -20.0f, ref ok, dir) && ok);
         Assert.True(Math.Abs(SubF(dir[0], 0.6f)) < 1e-6f && Math.Abs(SubF(dir[1], 0.8f)) < 1e-6f && dir[2] == 0.0f);
         Assert.True(AIAim.AiSolveAim(Projectile.kBulletGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && !ok); // 400 < 500
-        Assert.True(!AIAim.AiSolveAim(Projectile.kBulletGroup, 100.0f, 10.0f, s, far, true, -20.0f, ref ok, dir));
+        Assert.False(AIAim.AiSolveAim(Projectile.kBulletGroup, 100.0f, 10.0f, s, far, true, -20.0f, ref ok, dir));
         Assert.True(AIAim.AiSolveAim(Projectile.kRocketGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && !ok);
         Assert.True(AIAim.AiSolveAim(Projectile.kSeekerGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && ok); // the base solver
-        Assert.True(!AIAim.AiSolveAim(Projectile.kSeekerGroup, 100.0f, 4.0f, s, far, true, -20.0f, ref ok, dir));
+        Assert.False(AIAim.AiSolveAim(Projectile.kSeekerGroup, 100.0f, 4.0f, s, far, true, -20.0f, ref ok, dir));
         // Grenade: both arcs land on the target under the gravity -20 (the low arc is flatter).
-        float[] tgt = { 150, 200, 12 };
+        float[] tgt = [150, 200, 12];
         float[] lo = new float[3], hi = new float[3];
         bool okLo = false, okHi = false;
         Assert.True(AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, tgt, false, -20.0f, ref okLo, lo) && okLo);
         Assert.True(AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, tgt, true, -20.0f, ref okHi, hi) && okHi);
         Assert.True(lo[2] < hi[2]);
-        foreach (float[] d in new[] { lo, hi })
+        foreach (var d in new[] { lo, hi })
         {
-            double hl = Sqrt(Add(Mul(d[0], d[0]), Mul(d[1], d[1])));
-            double dist = Sqrt(Add(Mul(150.0, 150.0), Mul(200.0, 200.0)));
-            double T = Div(dist, Mul(100.0, hl));
-            double z = Sub(Mul(Mul(100.0, d[2]), T), Mul(Mul(10.0, T), T));
+            var hl = Sqrt(Add(Mul(d[0], d[0]), Mul(d[1], d[1])));
+            var dist = Sqrt(Add(Mul(150.0, 150.0), Mul(200.0, 200.0)));
+            var T = Div(dist, Mul(100.0, hl));
+            var z = Sub(Mul(Mul(100.0, d[2]), T), Mul(Mul(10.0, T), T));
             Assert.True(Math.Abs(Sub(z, 12.0)) < 0.05);
             Assert.True(Math.Abs(Sub(Sqrt(Add(Add(Mul(d[0], d[0]), Mul(d[1], d[1])), Mul(d[2], d[2]))), 1.0)) < 1e-5);
         }
         // Out of reach: the straight line with ok false, and no high arc when the discriminant is under 1.
-        float[] distant = { 5000, 0, 0 };
+        float[] distant = [5000, 0, 0];
         Assert.True(AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, distant, false, -20.0f, ref ok, dir) && !ok);
         Assert.True(Math.Abs(SubF(dir[0], 1.0f)) < 1e-6f && dir[1] == 0.0f && dir[2] == 0.0f);
         Assert.True(!AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, distant, true, -20.0f, ref ok, dir) || !ok);
@@ -448,9 +450,9 @@ public class AITests
     private static void TestLaserAimPoint()
     {
         using var chop = X87.Chop();
-        float[] eye = { 10.0f, 200.0f, 30.0f };
-        float[] dir = { 0.0f, -0.1f, 1.0f };
-        float[] aim = new float[3];
+        float[] eye = [10.0f, 200.0f, 30.0f];
+        float[] dir = [0.0f, -0.1f, 1.0f];
+        var aim = new float[3];
         AIAim.LaserAimPoint(eye, dir, aim);
         Assert.True(aim[0] == 10.0f && aim[1] == 195.0f && aim[2] == 80.0f);
     }

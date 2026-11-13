@@ -1,20 +1,18 @@
 // Tests of the C8 follow-up fixes (ROADMAP M9 C8): the chat entry draw, the HUD formatted-text markup, the weapon list layout, the
 // undefined `Game::EndFrame` callback and the prefs round trip. Synthetic data only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
-using OpenTribes.Core;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using OpenTribes.Platform.Gl;
 using OpenTribes.Script;
-
-namespace OpenTribes.Tests;
 
 public class GuiC8FixTests
 {
     // A device that records fills, lines and text with the width of the font it was drawn in.
     private sealed class TextDev : IGfxDevice
     {
-        public readonly List<string> Calls = new();
+        public readonly List<string> Calls = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -34,7 +32,7 @@ public class GuiC8FixTests
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
@@ -84,8 +82,8 @@ public class GuiC8FixTests
         Assert.DoesNotContain("fill cff", calls);
         Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cfc"));           // brackets and cursor
         Assert.Equal((640 - 370) / 2, chat.X);                                              // centred
-        Assert.Equal(480 - GuiChat.Margin - 2 * 10, chat.Y);                                // 40 above the bottom less two 10 pixel lines (004a3e68, [+0x464] = 2)
-        Assert.Equal(2 * 10 + 10, chat.H);                                                  // onWake: two lines + DAT_00623204 (10)
+        Assert.Equal(480 - GuiChat.Margin - (2 * 10), chat.Y);                                // 40 above the bottom less two 10 pixel lines (004a3e68, [+0x464] = 2)
+        Assert.Equal((2 * 10) + 10, chat.H);                                                  // onWake: two lines + DAT_00623204 (10)
     }
 
     [Fact]
@@ -168,7 +166,7 @@ public class GuiC8FixTests
         fx.Content(root);
         var t = (GuiTextWrap)root.Children[0];
         t.SetValue("a<n>b");
-        Assert.Equal(2 * 10 + 2 + 4, t.H);
+        Assert.Equal((2 * 10) + 2 + 4, t.H);
     }
 
     // ---- 3. weapon list ----
@@ -198,7 +196,7 @@ public class GuiC8FixTests
         root.AddChild(hud);
         fx.Content(root);
         Draw(fx);                                   // the first frame resizes the control
-        Assert.Equal((62, (24 + 4) * 2 + 10), (hud.W, hud.H));   // no bitmaps in the fixture: the icon is taken as 24 x 24
+        Assert.Equal((62, ((24 + 4) * 2) + 10), (hud.W, hud.H));   // no bitmaps in the fixture: the icon is taken as 24 x 24
         List<string> calls = Draw(fx);
         Assert.Contains(calls, c => c.StartsWith("text w5 ") && c.EndsWith("'100'"));   // the dim font of a weapon that is not mounted
     }
@@ -218,8 +216,8 @@ public class GuiC8FixTests
         Assert.Contains(calls, c => c.StartsWith("text w6 ") && c.EndsWith("'gh'"));      // f7 has no font in slot 7: font 0 (also <n> breaks the line)
         Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.EndsWith("'ab'"));
         Assert.Contains(calls, c => c.StartsWith("text w9 ") && c.EndsWith("'cd'"));
-        Assert.DoesNotContain(calls, c => c.Contains("<") && !c.Contains("'<'"));
-        Assert.Equal(2 * 10 + 2 + 8, cp.H);                                              // two lines of the 10 pixel fonts, + 2, + 8
+        Assert.DoesNotContain(calls, c => c.Contains('<') && !c.Contains("'<'"));
+        Assert.Equal((2 * 10) + 2 + 8, cp.H);                                              // two lines of the 10 pixel fonts, + 2, + 8
     }
 
     [Fact]
@@ -232,7 +230,7 @@ public class GuiC8FixTests
         fx.Content(root);
         fx.Host.CenterPrint("<jc>abcd", 2);
         List<string> calls = Draw(fx);
-        int x = 35 + 2 + ((570 - 4 - 1) - 24) / 2;        // box x, inset, then the room left of the line (right margin is width - 1)
+        var x = 35 + 2 + ((570 - 4 - 1 - 24) / 2);        // box x, inset, then the room left of the line (right margin is width - 1)
         Assert.Contains(calls, c => c.StartsWith("text w6 ") && c.Contains($" {x},") && c.EndsWith("'abcd'"));
     }
 
@@ -294,9 +292,9 @@ public class GuiC8FixTests
     public void PrefTextSurvivesTenSaveLoadCycles(int type, string text) // script.md 3.2 (truncating print) with D27 (toward-zero parse)
     {
         Numbers.EnterScriptFpuMode();
-        string cur = EngineVariables.Normalize(type, text);
+        var cur = EngineVariables.Normalize(type, text);
         Assert.Equal(text, cur);                       // the printed digits are kept
-        for (int i = 0; i < 10; ++i)
+        for (var i = 0; i < 10; ++i)
             cur = EngineVariables.Normalize(type, cur);
         Assert.Equal(text, cur);
     }
@@ -316,10 +314,10 @@ public class GuiC8FixTests
     public void ActionMapScaleSurvivesSaveAndLoad() // client-scripts.md 3.9 saveActionMap, E7: `%f` of the scale
     {
         Numbers.EnterScriptFpuMode();
-        Assert.True(ClientCommands.ScanFloat("0.000991", out float f));
-        string once = CFormat.F(f, 6);
+        Assert.True(ClientCommands.ScanFloat("0.000991", out var f));
+        var once = CFormat.F(f, 6);
         Assert.Equal("0.000991", once);
-        for (int i = 0; i < 10; ++i)
+        for (var i = 0; i < 10; ++i)
         {
             Assert.True(ClientCommands.ScanFloat(once, out f));
             once = CFormat.F(f, 6);

@@ -1,19 +1,19 @@
+namespace OpenTribes.Script;
+
 using System.Text;
 using OpenTribes.Core;
-
-namespace OpenTribes.Script;
 
 /// <summary>Built-in script commands that do not need the simulation: the console core (005f3a7c), the File and String utilities (004018c8) and getWord.</summary>
 /// <remarks>Port of src/script/builtins.cpp. Behaviour notes are in docs/script.md 5. Game paths are byte strings and the root directory is a host path.</remarks>
 public static class Builtins
 {
-    private static char LowerAscii(char c) => (c >= 'A' && c <= 'Z') ? (char)(c + 0x20) : c;
+    private static char LowerAscii(char c) => (c is >= 'A' and <= 'Z') ? (char)(c + 0x20) : c;
 
     // src/script/builtins.cpp lessIgnoreCase, as a three-way comparison.
     private static int CompareIgnoreCase(string a, string b)
     {
-        int n = Math.Min(a.Length, b.Length);
-        for (int i = 0; i < n; ++i)
+        var n = Math.Min(a.Length, b.Length);
+        for (var i = 0; i < n; ++i)
         {
             char x = LowerAscii(a[i]), y = LowerAscii(b[i]);
             if (x != y)
@@ -25,13 +25,13 @@ public static class Builtins
     // src/script/builtins.cpp stricmpAscii (0x00488150): upper-cases a-z and returns the difference of the first mismatch.
     internal static int StricmpAscii(string a, string b)
     {
-        for (int i = 0; ; ++i)
+        for (var i = 0; ; ++i)
         {
-            char ca = i < a.Length ? a[i] : '\0';
-            char cb = i < b.Length ? b[i] : '\0';
-            if (ca > '`' && ca < '{')
+            var ca = i < a.Length ? a[i] : '\0';
+            var cb = i < b.Length ? b[i] : '\0';
+            if (ca is > '`' and < '{')
                 ca = (char)(ca - 0x20);
-            if (cb > '`' && cb < '{')
+            if (cb is > '`' and < '{')
                 cb = (char)(cb - 0x20);
             if (ca != cb || cb == '\0')
                 return (sbyte)(byte)ca - (sbyte)(byte)cb;
@@ -44,11 +44,11 @@ public static class Builtins
     // docs/resources.md 8.1).
     private static bool Writeable(string path)
     {
-        string[] kDirs = { "recordings", "temp", "config", "base\\missions", "base\\recordings", "base\\gui" };
-        string p = path.Replace('/', '\\');
-        int slash = p.LastIndexOf('\\');
-        string dir = slash < 0 ? "" : p[..slash];
-        foreach (string d in kDirs)
+        string[] kDirs = ["recordings", "temp", "config", "base\\missions", "base\\recordings", "base\\gui"];
+        var p = path.Replace('/', '\\');
+        var slash = p.LastIndexOf('\\');
+        var dir = slash < 0 ? "" : p[..slash];
+        foreach (var d in kDirs)
             if (StricmpAscii(dir, d) == 0)
                 return true;
         return false;
@@ -59,21 +59,21 @@ public static class Builtins
     private static string HostPath(string root, string path)
     {
         path = path.Replace('\\', '/');
-        string output = root;
-        int start = 0;
+        var output = root;
+        var start = 0;
         while (start <= path.Length)
         {
-            int end = path.IndexOf('/', start);
-            string part = end < 0 ? path[start..] : path[start..end];
+            var end = path.IndexOf('/', start);
+            var part = end < 0 ? path[start..] : path[start..end];
             start = end < 0 ? path.Length + 1 : end + 1;
             if (part.Length == 0)
                 continue;
-            string next = Path.Join(output, ByteString.ToHost(part));
+            var next = Path.Join(output, ByteString.ToHost(part));
             if (!File.Exists(next) && !Directory.Exists(next) && Directory.Exists(output))
             {
                 try
                 {
-                    foreach (string entry in Directory.EnumerateFileSystemEntries(output))
+                    foreach (var entry in Directory.EnumerateFileSystemEntries(output))
                         if (StricmpAscii(ByteString.FromHost(Path.GetFileName(entry)), part) == 0)
                         {
                             next = entry;
@@ -98,13 +98,13 @@ public static class Builtins
     private static PathParts SplitPath(string s)
     {
         var p = new PathParts();
-        int slash = s.LastIndexOfAny(new[] { '\\', '/' });
+        var slash = s.LastIndexOfAny(['\\', '/']);
         p.Path = slash < 0 ? "" : s[..(slash + 1)];
         p.Title = slash < 0 ? s : s[(slash + 1)..];
-        int dot = p.Title.LastIndexOf('.');
+        var dot = p.Title.LastIndexOf('.');
         p.Base = dot < 0 ? p.Title : p.Title[..dot];
         // The extension is searched in the whole string: "dir.d\file" has extension "d\file".
-        int anyDot = s.LastIndexOf('.');
+        var anyDot = s.LastIndexOf('.');
         p.Ext = anyDot < 0 ? "" : s[(anyDot + 1)..];
         return p;
     }
@@ -116,11 +116,11 @@ public static class Builtins
         {
             if (!Writeable(argv[2]))
                 return;
-            bool append = argv.Length >= 4 && (Numbers.IsTrueString(argv[3]) || Numbers.BorlandAtoi(argv[3]) != 0);
+            var append = argv.Length >= 4 && (Numbers.IsTrueString(argv[3]) || Numbers.BorlandAtoi(argv[3]) != 0);
             try
             {
                 using var f = new FileStream(HostPath(root, argv[2]), append ? FileMode.Append : FileMode.Create, FileAccess.Write);
-                foreach (string l in lines)
+                foreach (var l in lines)
                     f.Write(ByteString.ToBytes(l + "\r\n"));
             }
             catch (Exception)
@@ -129,7 +129,7 @@ public static class Builtins
             }
             return;
         }
-        foreach (string l in lines)
+        foreach (var l in lines)
             interp.Print(1, l);
     }
 
@@ -139,12 +139,12 @@ public static class Builtins
     /// <returns>The host path, empty when the path is absolute, names a drive or contains "..".</returns>
     public static string ResolveGamePath(string rootDir, string path)
     {
-        string p = path.Replace('\\', '/');
+        var p = path.Replace('\\', '/');
         if (p.Length == 0 || p[0] == '/' || p.Contains(':'))
             return "";
-        for (int start = 0; start <= p.Length;)
+        for (var start = 0; start <= p.Length;)
         {
-            int end = p.IndexOf('/', start);
+            var end = p.IndexOf('/', start);
             if (end < 0)
                 end = p.Length;
             if (p[start..end] == "..")
@@ -170,7 +170,7 @@ public static class Builtins
     public static void ApplyLastHopeMode(Interpreter interp)
     {
         interp.SetLastHope(true);
-        foreach (string gone in new[] { "debug", "trace", "dbecho" })
+        foreach (var gone in new[] { "debug", "trace", "dbecho" })
             interp.EraseFunction(gone);
         interp.AddCommand("version", (i, a) => "1.30");
         // L6: timeStamp() is the local wall clock, "YYYY/MM/DD HH:MM:SS.mmm" [live 1.30].
@@ -192,7 +192,7 @@ public static class Builtins
     public static string ExportEscape(string value)
     {
         var output = new StringBuilder();
-        foreach (char c in value)
+        foreach (var c in value)
         {
             if (c == '\t')
                 output.Append("\\t");
@@ -204,7 +204,7 @@ public static class Builtins
                 output.Append("\\\\");
             else if (c == '"')
                 output.Append("\\\"");
-            else if (c < 0x20 || c >= 0x80)
+            else if (c is < (char)0x20 or >= (char)0x80)
             {
                 static char Digit(int d) => (char)(d < 10 ? '0' + d : 'A' + d);
                 output.Append("\\x");
@@ -230,12 +230,12 @@ public static class Builtins
         // ---- console core ----
         interp.AddCommand("export", (i, argv) =>
         {
-            if (argv.Length < 2 || argv.Length > 4)
+            if (argv.Length is < 2 or > 4)
             {
                 i.Print(1, "export(searchString, [fileName], [append]);");
                 return "False";
             }
-            string pattern = argv[1];
+            var pattern = argv[1];
             if (pattern.Length == 0 || pattern[0] != '$')
                 pattern = "$" + pattern;
             var vars = i.Globals();
@@ -249,7 +249,7 @@ public static class Builtins
         });
         interp.AddCommand("exportFunctions", (i, argv) =>
         {
-            if (argv.Length < 2 || argv.Length > 4)
+            if (argv.Length is < 2 or > 4)
             {
                 i.Print(1, "exportFunctions(searchString, [fileName], [append]);");
                 return "False";
@@ -257,7 +257,7 @@ public static class Builtins
             var names = i.FunctionNames();
             names.Sort(CompareIgnoreCase);
             var lines = new List<string>();
-            foreach (string n in names)
+            foreach (var n in names)
                 if (ResourceManager.WildcardMatch(CString.CStr(argv[1]), n))
                     lines.Add(n + "();");
             Emit(i, lines, argv, rootDir);
@@ -270,7 +270,7 @@ public static class Builtins
                 i.Print(1, "deleteVariables(searchString);");
                 return "False";
             }
-            string pattern = argv[1];
+            var pattern = argv[1];
             if (pattern.Length == 0 || pattern[0] != '$')
                 pattern = "$" + pattern;
             foreach (var kv in i.Globals())
@@ -285,7 +285,7 @@ public static class Builtins
                 i.Print(1, "deleteFunctions(searchString);");
                 return "False";
             }
-            foreach (string n in i.FunctionNames())
+            foreach (var n in i.FunctionNames())
                 if (ResourceManager.WildcardMatch(CString.CStr(argv[1]), n))
                     i.EraseFunction(n);
             return "True";
@@ -306,7 +306,7 @@ public static class Builtins
                 i.Print(1, "isFile: fileName [fileName] ...");
                 return "False";
             }
-            for (int k = 1; k < argv.Length; ++k)
+            for (var k = 1; k < argv.Length; ++k)
                 if (!File.Exists(HostPath(rootDir, argv[k])))
                     return "False";
             return "True";
@@ -323,16 +323,16 @@ public static class Builtins
                 i.Print(1, "wrong argcount to getWord(String,nWord)");
                 return "-1";
             }
-            int want = Numbers.BorlandAtoi(argv[2]);
-            string s = argv[1];
-            int p = 0;
-            for (int word = 0; p < s.Length; ++word)
+            var want = Numbers.BorlandAtoi(argv[2]);
+            var s = argv[1];
+            var p = 0;
+            for (var word = 0; p < s.Length; ++word)
             {
                 while (p < s.Length && s[p] == ' ')
                     ++p;
                 if (p >= s.Length)
                     break;
-                int start = p;
+                var start = p;
                 while (p < s.Length && s[p] != ' ')
                     ++p;
                 if (word == want)
@@ -347,15 +347,15 @@ public static class Builtins
             if (argv.Length != 3)
                 return "-1";
             string a = Lower(argv[1]), b = Lower(argv[2]);
-            int pos = a.IndexOf(b, StringComparison.Ordinal);
+            var pos = a.IndexOf(b, StringComparison.Ordinal);
             return pos < 0 ? "-1" : Numbers.FormatInt(pos);
         });
         interp.AddCommand("String::getSubStr", (i, argv) =>
         {
             if (argv.Length != 4)
                 return "";
-            int start = Numbers.BorlandAtoi(argv[2]);
-            int len = Numbers.BorlandAtoi(argv[3]);
+            var start = Numbers.BorlandAtoi(argv[2]);
+            var len = Numbers.BorlandAtoi(argv[3]);
             if (start < 0 || len < 1 || argv[1].Length < start)
                 return "";
             return argv[1].Substring(start, Math.Min(Math.Min(len, 255), argv[1].Length - start));
@@ -375,10 +375,7 @@ public static class Builtins
         interp.AddCommand("String::convertSpaces", (i, argv) => (argv.Length == 2 ? argv[1] : "").Replace(' ', '_'));
 
         // ---- File:: ----
-        void PathCommand(string name, Func<PathParts, string> part)
-        {
-            interp.AddCommand(name, (i, argv) => argv.Length == 2 ? part(SplitPath(argv[1])) : "");
-        }
+        void PathCommand(string name, Func<PathParts, string> part) => interp.AddCommand(name, (i, argv) => argv.Length == 2 ? part(SplitPath(argv[1])) : "");
         PathCommand("File::getExt", p => p.Ext);
         PathCommand("File::getBase", p => p.Base);
         PathCommand("File::getTitle", p => p.Title);
@@ -406,7 +403,7 @@ public static class Builtins
         {
             if (argv.Length != 2 || !Writeable(argv[1]))
                 return "FALSE";
-            string host = HostPath(rootDir, argv[1]);
+            var host = HostPath(rootDir, argv[1]);
             try
             {
                 // std::filesystem::remove: a file or an empty directory; false when nothing was there.
@@ -433,7 +430,7 @@ public static class Builtins
         {
             if (argv.Length != 2 || res == null)
                 return "";
-            cursor = res.FindNext(argv[1], null, out string r);
+            cursor = res.FindNext(argv[1], null, out var r);
             return cursor == null ? "" : r;
         });
         interp.AddCommand("File::findNext", (i, argv) =>
@@ -441,7 +438,7 @@ public static class Builtins
             if (argv.Length != 2 || res == null)
                 return "";
             // A null cursor (before any findFirst, or after the end of a search) starts at the first entry [live].
-            cursor = res.FindNext(argv[1], cursor, out string r);
+            cursor = res.FindNext(argv[1], cursor, out var r);
             return cursor == null ? "" : r;
         });
         return clientState;
@@ -450,7 +447,7 @@ public static class Builtins
     private static string Lower(string s)
     {
         var sb = new StringBuilder(s.Length);
-        foreach (char c in s)
+        foreach (var c in s)
             sb.Append(LowerAscii(c));
         return sb.ToString();
     }

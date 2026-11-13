@@ -1,17 +1,17 @@
+namespace OpenTribes.Client.App;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Client.World;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
 
-namespace OpenTribes.Client.App;
-
 /// <summary>The model of the Player Setup screen: the player armor of the gender in the chosen skin, looping its "run" sequence, drawn into the rectangle of the control.</summary>
 /// <remarks>Follows FearGui::SkinView draw (0049af20), the armor choice (0049a9bc) and FGSkin::set (0049a798), with the camera of 004998e0 and 0049a9bc. The stock fits the camera from the bounds of the shape and lights it with an ambient and a headlight.</remarks>
 public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
 {
-    private static readonly string[] sMale = { "larmor.dts", "marmor.dts", "harmor.dts" };
-    private static readonly string[] sFemale = { "lfemale.dts", "mfemale.dts", "harmor.dts" };
+    private static readonly string[] sMale = ["larmor.dts", "marmor.dts", "harmor.dts"];
+    private static readonly string[] sFemale = ["lfemale.dts", "mfemale.dts", "harmor.dts"];
 
     // 004998e0: the horizontal half angle is 0.3 radians; the fit is 0.85 (male, 0.75 female) wide and 1.325 (1.25) high around the
     // centre of the bounds, 0.3 below it for the male armor.
@@ -82,8 +82,8 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
     /// <returns>The camera.</returns>
     public static Camera3D CameraFor(double cx, double cy, double cz, bool male, double yaw, int w, int h, double? distance = null)
     {
-        double dist = distance ?? FitDistance(male, w, h);
-        double zOff = (male ? -0.3 : -0.1) + ZShift;
+        var dist = distance ?? FitDistance(male, w, h);
+        var zOff = (male ? -0.3 : -0.1) + ZShift;
         Xf rot = Xf.Euler(-0.25, 0, -yaw);
         var (px, py, pz) = rot.Apply(cx, cy - dist, cz + zOff);
         var (fx, fy, fz) = rot.Rotate(0, 1, 0);
@@ -96,7 +96,7 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
     private const float Ambient = 0.7f;
     private static LightSet Light(in Camera3D cam, double cx, double cy, double cz)
     {
-        double dx = cam.X - cx, dy = cam.Y - cy, dz = cam.Z - cz, len = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        double dx = cam.X - cx, dy = cam.Y - cy, dz = cam.Z - cz, len = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
         if (len < 1e-9)
             len = 1;
         return new() { AmbR = Ambient, AmbG = Ambient, AmbB = Ambient, SunX = dx / len, SunY = dy / len, SunZ = dz / len, SunR = 1f, SunG = 1f, SunB = 1f };
@@ -114,8 +114,8 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         if (view.ClassName != "FearGui::SkinView" || w <= 0 || h <= 0 || !Ensure() || view.SkinBase.Length == 0)
             return;
         IGfxDevice dev = mApp.Dev!;
-        string name = (view.Male ? sMale : sFemale)[view.Armor];
-        string key = name + "|" + view.SkinBase;
+        var name = (view.Male ? sMale : sFemale)[view.Armor];
+        var key = name + "|" + view.SkinBase;
         if (key != mKey || mInst == null)
         {
             mKey = key;
@@ -127,12 +127,12 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         }
         if (mInst == null || mShape == null || mRenderer == null)
             return;
-        long now = mApp.Host.TickMs;
+        var now = mApp.Host.TickMs;
         if (mThread != null && mLastMs >= 0)
             mInst.Advance(mThread, Math.Min(now - mLastMs, 200) / 1000.0);
         mLastMs = now;
         // +0x1ec, +0x1e8: the fitted distance is the lowest and the first one; the right button moves it.
-        double fit = FitDistance(view.Male, w, h);
+        var fit = FitDistance(view.Male, w, h);
         if (double.IsNaN(view.Zoom) || Math.Abs(view.ZoomMin - fit) > 1e-9)
             view.Zoom = fit;
         view.ZoomMin = fit;

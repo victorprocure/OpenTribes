@@ -1,6 +1,6 @@
-using OpenTribes.Platform.Audio;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Platform.Audio;
 
 // WavData.AtRate: the band-limited conversion to the device rate (levels of the recording harness, docs/audio.md 2.9).
 public class ResampleTests
@@ -8,7 +8,7 @@ public class ResampleTests
     private static WavData Tone(int rate, double hz, int frames)
     {
         var s = new float[frames];
-        for (int i = 0; i < frames; ++i)
+        for (var i = 0; i < frames; ++i)
             s[i] = (float)(0.5 * Math.Sin(2 * Math.PI * hz * i / rate));
         return new WavData { Channels = 1, Rate = rate, Bits = 16, Frames = frames, Samples = s };
     }
@@ -16,9 +16,9 @@ public class ResampleTests
     private static double RmsDb(float[] s, int from, int to)
     {
         double a = 0;
-        for (int i = from; i < to; ++i)
+        for (var i = from; i < to; ++i)
             a += s[i] * s[i];
-        return 10 * Math.Log10(a / (to - from) + 1e-20);
+        return 10 * Math.Log10((a / (to - from)) + 1e-20);
     }
 
     [Theory]
@@ -43,12 +43,12 @@ public class ResampleTests
         WavData low = Tone(11025, 4500, 11025).AtRate(48000, false);
         // a 4.5 kHz tone sampled at 11025 Hz has its mirror at 6525 Hz in a linear interpolation; measure by correlating with 6525 Hz
         double re = 0, im = 0;
-        for (int i = 4000; i < 44000; ++i)
+        for (var i = 4000; i < 44000; ++i)
         {
             re += low.Samples[i] * Math.Cos(2 * Math.PI * 6525 * i / 48000.0);
             im += low.Samples[i] * Math.Sin(2 * Math.PI * 6525 * i / 48000.0);
         }
-        double mirror = 2 * Math.Sqrt(re * re + im * im) / 40000;
+        var mirror = 2 * Math.Sqrt((re * re) + (im * im)) / 40000;
         Assert.True(mirror < 0.5 * 0.01, "mirror amplitude " + mirror);
     }
 

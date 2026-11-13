@@ -1,14 +1,13 @@
 // Vehicle_getCameraTransform 00445d88 (docs/client-net.md 4.2), the roll of Camera3D and the HUD gates of a piloted vehicle.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.Scene;
-using OpenTribes.Core;
-using OpenTribes.Script;
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
+using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
-
-namespace OpenTribes.Tests;
 
 public sealed class VehicleCameraTests
 {
@@ -20,9 +19,11 @@ public sealed class VehicleCameraTests
     private static Transform Make(float rx, float ry, float rz, float x, float y, float z)
     {
         var t = new Transform();
-        MissionTransform.EulerToMatrix(new[] { rx, ry, rz }, ref t);
+        MissionTransform.EulerToMatrix([rx, ry, rz], ref t);
         t.Flags |= 3u;
-        t.P[0] = x; t.P[1] = y; t.P[2] = z;
+        t.P[0] = x;
+        t.P[1] = y;
+        t.P[2] = z;
         return t;
     }
 
@@ -32,7 +33,7 @@ public sealed class VehicleCameraTests
         Numbers.EnterScriptFpuMode();
         Transform obj = Make(0.2f, 0.1f, 1f, 5, 6, 7);
         Transform t = VehicleCamera.Compute(obj, null, 3f, null, null);
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             Assert.Equal(obj.M[i], t.M[i]);
         Assert.Equal(7f, t.P[2]);
     }
@@ -49,7 +50,7 @@ public sealed class VehicleCameraTests
         Assert.Equal(20f, t.P[1], 3);
         Assert.Equal(32f, t.P[2], 3);
         // distance 0: no placeBehind and no Euler scaling, the rotation is the object's
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             Assert.Equal(obj.M[i], t.M[i], 4);
     }
 
@@ -66,7 +67,7 @@ public sealed class VehicleCameraTests
         Assert.Equal(0.2f, e[1], 4);   // roll * 0.5
         Assert.Equal(0f, e[2], 4);     // yaw kept
         // the position moved back by 4 (2.0 * 2) along the forward row of the unscaled transform
-        double back = Math.Sqrt(t.P[0] * t.P[0] + t.P[1] * t.P[1] + (t.P[2] - 100) * (t.P[2] - 100));
+        var back = Math.Sqrt((t.P[0] * t.P[0]) + (t.P[1] * t.P[1]) + ((t.P[2] - 100) * (t.P[2] - 100)));
         Assert.Equal(4.0, back, 3);
         Assert.True(t.P[1] < 0);
     }
@@ -78,7 +79,7 @@ public sealed class VehicleCameraTests
         var c = new Container();
         c.Add(new Container.Entry(new Wall(), ObjectType.kInteriorType, Float6.Of(-50, -50, -50, 50, 50, 50), false, null)
         {
-            Cast = (Vec3 s, Vec3 end, ref Vec3 hit, ref Vec3 n) =>
+            Cast = (s, end, ref hit, ref n) =>
             {
                 hit = new Vec3(s.X, -2f, s.Z);
                 n = new Vec3(0, 1, 0);
@@ -97,10 +98,18 @@ public sealed class VehicleCameraTests
         Transform t = Make(0.3f, -0.6f, 1.1f, 1, 2, 3);
         DemoRender.CameraPose pose = DemoRender.PoseOf(t, true, 7);
         var cam = new Camera3D(0, 0, 0, pose.YawDeg, pose.PitchDeg, 90, 640, 480, 0.1, 1000, pose.RollDeg);
-        var r = cam.Right; var f = cam.Forward; var u = cam.Up;
-        Assert.Equal(t.M[0], (float)r.x, 4); Assert.Equal(t.M[1], (float)r.y, 4); Assert.Equal(t.M[2], (float)r.z, 4);
-        Assert.Equal(t.M[3], (float)f.x, 4); Assert.Equal(t.M[4], (float)f.y, 4); Assert.Equal(t.M[5], (float)f.z, 4);
-        Assert.Equal(t.M[6], (float)u.x, 4); Assert.Equal(t.M[7], (float)u.y, 4); Assert.Equal(t.M[8], (float)u.z, 4);
+        var (x, y, z) = cam.Right;
+        var f = cam.Forward;
+        var u = cam.Up;
+        Assert.Equal(t.M[0], (float)x, 4);
+        Assert.Equal(t.M[1], (float)y, 4);
+        Assert.Equal(t.M[2], (float)z, 4);
+        Assert.Equal(t.M[3], (float)f.x, 4);
+        Assert.Equal(t.M[4], (float)f.y, 4);
+        Assert.Equal(t.M[5], (float)f.z, 4);
+        Assert.Equal(t.M[6], (float)u.x, 4);
+        Assert.Equal(t.M[7], (float)u.y, 4);
+        Assert.Equal(t.M[8], (float)u.z, 4);
     }
 
     [Fact]

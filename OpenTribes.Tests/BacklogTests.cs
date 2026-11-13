@@ -2,14 +2,14 @@
 // their events, voice and sound events, item masks, terrain and object file commands. Expected values come from the
 // reference server (tests/ref/backlog*.txt, tools/cmddiff.py). Check-style like the C++ test: every failed check is
 // printed and counted, one assertion at the end.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
 using static OpenTribes.Tests.Fixtures;
-
-namespace OpenTribes.Tests;
 
 public class BacklogTests
 {
@@ -39,19 +39,19 @@ public class BacklogTests
     private static string DescribeCommand(OutEvent e)
     {
         var b = new Bits(e);
-        int client = (int)b.U(10) + 2048;
-        uint status = b.U(2);
-        bool ack = b.Flag();
-        string s = "client=" + client + " status=" + status;
+        var client = (int)b.U(10) + 2048;
+        var status = b.U(2);
+        var ack = b.Flag();
+        var s = "client=" + client + " status=" + status;
         if (ack)
         {
             s += " ack";
         }
         else if (b.Flag())
         {
-            int issuer = (int)b.U(10) + 2048;
-            uint icon = b.U(6);
-            int target = b.Flag() ? (int)b.U(8) : -1;
+            var issuer = (int)b.U(10) + 2048;
+            var icon = b.U(6);
+            var target = b.Flag() ? (int)b.U(8) : -1;
             uint x = b.U(10), y = b.U(10);
             s += " issuer=" + issuer + " icon=" + icon + " target=" + target + " x=" + x + " y=" + y;
         }
@@ -61,21 +61,21 @@ public class BacklogTests
         return s;
     }
 
-    private static List<byte> Zeros(int n, byte v = 0) => Enumerable.Repeat(v, n).ToList();
+    private static List<byte> Zeros(int n, byte v = 0) => [.. Enumerable.Repeat(v, n)];
 
     private static void Helpers()
     {
         // WaypointToWorld on the Broadside mission area {-827, -717, 1000, 1000} (reference values).
-        float[] area = { -827, -717, 1000, 1000 };
+        float[] area = [-827, -717, 1000, 1000];
         (float X, float Y, string Want)[] cases =
-        {
+        [
             (1, 2, "-826.023 -715.046"), (0, 0, "-827 -717"), (512, 512, "-327 -217"),
             (1023, 1023, "172.023 282.023"), (1024, 0, "173 -717"), (-5, -5, "-831.882 -721.882"),
             (1.5f, 2.5f, "-825.535 -714.558"),
-        };
-        foreach ((float x, float y, string want) in cases)
+        ];
+        foreach ((var x, var y, var want) in cases)
         {
-            float[] o = new float[2];
+            var o = new float[2];
             BacklogCommands.WaypointToWorld(area, x, y, o);
             ExpectEq(MathCommands.FormatF32(o[0]) + " " + MathCommands.FormatF32(o[1]), want, "waypointToWorld");
         }
@@ -90,23 +90,23 @@ public class BacklogTests
         Expect(BacklogCommands.ParseItemType("Blaster", 44, Lookup) == 7, "name");
         Expect(BacklogCommands.ParseItemType("", 44, Lookup) == -1, "empty");
 
-        uint[] mask = new uint[7];
+        var mask = new uint[7];
         Expect(!BacklogCommands.ItemMaskTest(mask, 3) && !BacklogCommands.ItemMaskTest(mask, -1), "empty mask");
         mask[1] = 1u << 4; // bit 36
         Expect(BacklogCommands.ItemMaskTest(mask, 36) && !BacklogCommands.ItemMaskTest(mask, 35), "bit test");
         Expect(BacklogCommands.ItemMaskTest(mask, 200) && BacklogCommands.ItemMaskTest(mask, -1), "out of range type tests any bit");
 
         // Persistent stream heads (loadObject).
-        Expect(ObjectFiles.ClassifyPersistentFile(Pers("TS::Shape", 8, Zeros(4)).ToArray()) == ObjectFiles.PersistentFileKind.NotSimObject,
+        Expect(ObjectFiles.ClassifyPersistentFile([.. Pers("TS::Shape", 8, Zeros(4))]) == ObjectFiles.PersistentFileKind.NotSimObject,
                "TS::Shape is not a SimObject");
-        Expect(ObjectFiles.ClassifyPersistentFile(Pers("SimFoo", 1, Zeros(4)).ToArray()) == ObjectFiles.PersistentFileKind.Invalid,
+        Expect(ObjectFiles.ClassifyPersistentFile([.. Pers("SimFoo", 1, Zeros(4))]) == ObjectFiles.PersistentFileKind.Invalid,
                "unknown class");
-        Expect(ObjectFiles.ClassifyPersistentFile(new byte[] { (byte)'P', (byte)'E', (byte)'R' }) == ObjectFiles.PersistentFileKind.Invalid,
+        Expect(ObjectFiles.ClassifyPersistentFile([(byte)'P', (byte)'E', (byte)'R']) == ObjectFiles.PersistentFileKind.Invalid,
                "short file");
-        Expect(ObjectFiles.ClassifyPersistentFile(Zeros(40, (byte)'x').ToArray()) == ObjectFiles.PersistentFileKind.Invalid, "no PERS tag");
-        byte[] dis = { (byte)'I', (byte)'T', (byte)'R', (byte)'s', 0, 0, 0, 0 };
+        Expect(ObjectFiles.ClassifyPersistentFile([.. Zeros(40, (byte)'x')]) == ObjectFiles.PersistentFileKind.Invalid, "no PERS tag");
+        byte[] dis = [(byte)'I', (byte)'T', (byte)'R', (byte)'s', 0, 0, 0, 0];
         Expect(ObjectFiles.ClassifyPersistentFile(dis) == ObjectFiles.PersistentFileKind.NotSimObject, "ITRs block stream");
-        byte[] ppl = { (byte)'P', (byte)'L', (byte)'9', (byte)'8', 0, 0, 0, 0, 0, 0 };
+        byte[] ppl = [(byte)'P', (byte)'L', (byte)'9', (byte)'8', 0, 0, 0, 0, 0, 0];
         Expect(ObjectFiles.ClassifyPersistentFile(ppl) == ObjectFiles.PersistentFileKind.Invalid, "palette files are not persistent streams");
 
         // Event bodies (reference captures, tools/cmddiff.py).
@@ -138,23 +138,23 @@ public class BacklogTests
             var s = new Bits(e);
             Expect(e.Tag == 0x460 && e.Guaranteed && !e.Ordered, "sound event is guaranteed unordered");
             Expect(s.U(10) == 22 && s.U(2) == 1 && s.U(8) == 87 && s.Done(), "sound event body");
-            float[] zero = { 0, 0, 0 };
+            float[] zero = [0, 0, 0];
             e = CommandMap.MakeLocSoundEvent(86, zero, 0.0f, 300.0f);
             var l = new Bits(e);
             Expect(e.Tag == 0x45c && !e.Guaranteed, "loc sound event is unguaranteed");
             Expect(l.U(8) == 87 && !l.Flag() && l.Done(), "loc sound at distance 0 has no direction");
-            float[] d = { 0, -3, 0 };
+            float[] d = [0, -3, 0];
             e = CommandMap.MakeLocSoundEvent(86, d, 3.0f, 300.0f);
             var n = new Bits(e);
             Expect(n.U(8) == 87 && n.Flag(), "loc sound with direction");
-            Expect(n.U(8) == 127 && n.U(8) == 0 && n.Flag() == false && n.U(9) == 5 && n.Done(),
+            Expect(n.U(8) == 127 && n.U(8) == 0 && !n.Flag() && n.U(9) == 5 && n.Done(),
                    "direction (0,-1,0): x 127, y 0, z >= 0; distance 3/300 * 511 = 5");
         }
         {
             // Terrain parameter text must read back to the same float.
-            foreach (float v in new[] { 1234.5f, 777.25f, 0.1f, 1e-8f, 3.0e30f, -4.9f })
+            foreach (var v in new[] { 1234.5f, 777.25f, 0.1f, 1e-8f, 3.0e30f, -4.9f })
             {
-                float back = Fpu.Store(Numbers.BorlandAtof(TerrainCommands.PersistFloatText(v)));
+                var back = Fpu.Store(Numbers.BorlandAtof(TerrainCommands.PersistFloatText(v)));
                 Expect(back == v, "persistFloatText " + TerrainCommands.PersistFloatText(v));
             }
         }
@@ -162,7 +162,7 @@ public class BacklogTests
 
     private static void Commands()
     {
-        string root = Path.Combine(Path.GetTempPath(), "ot_test_backlog");
+        var root = Path.Combine(Path.GetTempPath(), "ot_test_backlog");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
         Directory.CreateDirectory(root);
@@ -180,7 +180,7 @@ public class BacklogTests
         w.Game.AddTeam(1);
 
         // ---- argument counts and failure texts (tests/ref/backlog.txt, identical on the reference) ----
-        var c = new Fixtures.Cases();
+        var c = new Cases();
         c.Check(w, "echo(issueCommand());", "False");
         c.Check(w, "echo(issueCommandI(1, 2, 3, \"x\", 4));", "False");
         c.Check(w, "echo(issueTargCommand(1, 2, 3, \"x\", 4, 5));", "False");
@@ -244,7 +244,7 @@ public class BacklogTests
                  "loadObject: Persistent object not a SimObject\n0", "loadObject of a shape file");
 
         // ---- mouse getters (reference values) ----
-        c = new Fixtures.Cases();
+        c = new Cases();
         c.Check(w, "echo(Client::getMouseSensitivity());", "invalid call to Client::getMouseSensitivity(actionMap)\n");
         c.Check(w, "echo(Client::getMouseSensitivity(\"\"));", "1");
         c.Check(w, "echo(Client::getMouseSensitivity(\"SimGame.sae\"));", "-1");
@@ -284,8 +284,8 @@ public class BacklogTests
                 else if (s.E.Tag == 0x456)
                 {
                     var b = new Bits(s.E);
-                    uint cl = b.U(7) + 2048;
-                    int cm = b.Flag() ? (int)b.U(7) + 2048 : 0;
+                    var cl = b.U(7) + 2048;
+                    var cm = b.Flag() ? (int)b.U(7) + 2048 : 0;
                     o.Add(s.To + " select " + cl + " " + cm);
                 }
             }
@@ -294,8 +294,8 @@ public class BacklogTests
         }
         static string Join(List<string> v)
         {
-            string r = "";
-            foreach (string s in v)
+            var r = "";
+            foreach (var s in v)
                 r += (r.Length == 0 ? "" : "\n") + s;
             return r;
         }
@@ -357,17 +357,17 @@ public class BacklogTests
     // leave the ghost light records alone.
     private static void InteriorLightsTest()
     {
-        string root = Path.Combine(Path.GetTempPath(), "ot_test_backlog_lights");
+        var root = Path.Combine(Path.GetTempPath(), "ot_test_backlog_lights");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
-        float[] box = { 0, -1, -1, 10, 1, 1 };
+        float[] box = [0, -1, -1, 10, 1, 1];
         PutFile(Path.Combine(root, "base/hut.dis"), DisFile("hut-00.dig", "hut-000.dil"));
         PutFile(Path.Combine(root, "base/hut-00.dig"), DigFile(0x1234, box, new[] { new Fixtures.Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
         PutFile(Path.Combine(root, "base/hut-000.dil"),
                 DilLightingFile(0x1234, new[] { new LightDef(7, 0, 2, 0, 1.0f, 1), new LightDef(9, 5, 3, 2, 2.0f, 0) },
-                                new[] { new StateDef(new ushort[] { 0, 0, 0, 0 }, 0.0f), new StateDef(new ushort[] { 256, 0, 0, 0 }, 0.5f),
-                                        new StateDef(new ushort[] { 0, 0, 0, 0 }, 0.0f), new StateDef(new ushort[] { 0, 0, 0, 0 }, 0.25f),
-                                        new StateDef(new ushort[] { 0, 0, 0, 0 }, 0.5f) },
+                                new[] { new StateDef([0, 0, 0, 0], 0.0f), new StateDef([256, 0, 0, 0], 0.5f),
+                                        new StateDef([0, 0, 0, 0], 0.0f), new StateDef([0, 0, 0, 0], 0.25f),
+                                        new StateDef([0, 0, 0, 0], 0.5f) },
                                 "lamp\0pulse\0"));
         PutFile(Path.Combine(root, "base/nodil.dis"), DisFile("nodil-00.dig", "nodil-000.dil"));
         PutFile(Path.Combine(root, "base/nodil-00.dig"), DigFile(0x1234, box, new[] { new Fixtures.Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
@@ -383,7 +383,7 @@ public class BacklogTests
             return;
         InteriorLights lights = hut.InteriorNet.Lighting;
         int State(int id) => lights.StateOf(id);
-        string answers = "";
+        var answers = "";
         void Run(string line) => answers += w.Run("echo(" + line + ");") + "\n";
         const string hutName = "\"MissionGroup/Hut\"";
         // Toggle: 0 becomes 1, anything else 0. Switch on sets 1. Switch off also sets 1 (0x004222b0 passes 1).
@@ -434,6 +434,6 @@ public class BacklogTests
         InteriorLightsTest();
         if (sFailures != 0)
             Console.Error.WriteLine(sFailures + " failures");
-        Assert.True(sFailures == 0);
+        Assert.Equal(0, sFailures);
     }
 }

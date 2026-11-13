@@ -1,17 +1,17 @@
-using OpenTribes.Core;
-
 namespace OpenTribes.Server;
+
+using OpenTribes.Core;
 
 /// <summary>The stdio streams of the C++ server. Byte strings go out as their bytes. Stdout is line buffered (<c>setvbuf _IOLBF</c> in src/server/main.cpp).</summary>
 public static class StdIo
 {
     private static readonly Stream sOut = Console.OpenStandardOutput();
     private static readonly Stream sErr = Console.OpenStandardError();
-    private static readonly object sLock = new();
+    private static readonly Lock sLock = new();
 
     private static string CStr(string s)
     {
-        int nul = s.IndexOf('\0');
+        var nul = s.IndexOf('\0');
         return nul < 0 ? s : s[..nul];
     }
 

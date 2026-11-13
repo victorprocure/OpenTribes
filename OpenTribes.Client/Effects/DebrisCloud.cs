@@ -1,8 +1,8 @@
+namespace OpenTribes.Client.Effects;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.World;
-
-namespace OpenTribes.Client.Effects;
 
 /// <summary>A DebrisData row as the cloud sees it.</summary>
 /// <param name="Index">The index in the group (the order of the data block manager).</param>
@@ -51,11 +51,11 @@ public static class DebrisCloud
     public static List<DebrisRow> Pick(List<DebrisRow> rows, double total, double budget, Random rng, int maxPieces = 256)
     {
         var picked = new List<DebrisRow>();
-        int count = rows.Count;
+        var count = rows.Count;
         while (count != 0 && picked.Count < maxPieces)
         {
-            double r = rng.NextDouble() * total;
-            int i = count - 1;
+            var r = rng.NextDouble() * total;
+            var i = count - 1;
             while (i > 0 && rows[i].Weight < r)
             {
                 r -= rows[i].Weight;
@@ -81,15 +81,15 @@ public static class DebrisCloud
     /// <remarks>Follows 00473c20.</remarks>
     public static (double[] X, double[] Y, double[] Z, double Angle) Basis(double dx, double dy, double dz, double angle)
     {
-        double len2 = dx * dx + dy * dy + dz * dz;
+        var len2 = (dx * dx) + (dy * dy) + (dz * dz);
         if (len2 < 1e-12)
             return (new double[] { 1, 0, 0 }, new double[] { 0, 1, 0 }, new double[] { 0, 0, 1 }, Math.PI);
-        double l = Math.Sqrt(len2);
-        double[] z = { dx / l, dy / l, dz / l };
-        double[] x = { z[1], -z[0], 0 };
-        double xl = Math.Sqrt(x[0] * x[0] + x[1] * x[1]);
-        x = xl < 1e-6 ? new double[] { 1, 0, 0 } : new[] { x[0] / xl, x[1] / xl, 0 };
-        double[] y = { z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0] };
+        var l = Math.Sqrt(len2);
+        double[] z = [dx / l, dy / l, dz / l];
+        double[] x = [z[1], -z[0], 0];
+        var xl = Math.Sqrt((x[0] * x[0]) + (x[1] * x[1]));
+        x = xl < 1e-6 ? [1, 0, 0] : [x[0] / xl, x[1] / xl, 0];
+        double[] y = [(z[1] * x[2]) - (z[2] * x[1]), (z[2] * x[0]) - (z[0] * x[2]), (z[0] * x[1]) - (z[1] * x[0])];
         return (x, y, z, angle);
     }
 
@@ -114,24 +114,28 @@ public static class DebrisCloud
     public static void Launch(DebrisBody body, double px, double py, double pz, double vx, double vy, double vz, double ix, double iy, double iz, double angle,
                               (double[] X, double[] Y, double[] Z, double Angle) basis, double strength, double radius, double mass, Random rng)
     {
-        double a = rng.NextDouble() * Math.PI * 2;
-        double polar = rng.NextDouble() * (2 * angle) - angle;
+        var a = rng.NextDouble() * Math.PI * 2;
+        var polar = (rng.NextDouble() * (2 * angle)) - angle;
         double sp = Math.Sin(polar), cx = Math.Cos(a) * sp, cy = Math.Sin(a) * sp, cz = Math.Cos(polar);
-        double[] d = new double[3];
-        for (int k = 0; k < 3; ++k)
-            d[k] = basis.Z[k] * cz + basis.Y[k] * cy + basis.X[k] * cx;
-        body.X = px + radius * d[0]; body.Y = py + radius * d[1]; body.Z = pz + radius * d[2];
+        var d = new double[3];
+        for (var k = 0; k < 3; ++k)
+            d[k] = (basis.Z[k] * cz) + (basis.Y[k] * cy) + (basis.X[k] * cx);
+        body.X = px + (radius * d[0]);
+        body.Y = py + (radius * d[1]);
+        body.Z = pz + (radius * d[2]);
         body.Mass = mass;
-        double inv = mass > 0 ? 1 / mass : 0;
-        body.Vx = vx + (d[0] * strength + ix) * inv;
-        body.Vy = vy + (d[1] * strength + iy) * inv;
-        body.Vz = vz + (d[2] * strength + iz) * inv;
-        double s = Math.Min(strength * 0.015, 6);
-        body.Wx = rng.NextDouble() * s - s * 0.5;
-        body.Wy = rng.NextDouble() * s - s * 0.5;
-        body.Wz = rng.NextDouble() * s - s * 0.5;
+        var inv = mass > 0 ? 1 / mass : 0;
+        body.Vx = vx + (((d[0] * strength) + ix) * inv);
+        body.Vy = vy + (((d[1] * strength) + iy) * inv);
+        body.Vz = vz + (((d[2] * strength) + iz) * inv);
+        var s = Math.Min(strength * 0.015, 6);
+        body.Wx = (rng.NextDouble() * s) - (s * 0.5);
+        body.Wy = (rng.NextDouble() * s) - (s * 0.5);
+        body.Wz = (rng.NextDouble() * s) - (s * 0.5);
         // the stock piece starts at a random entry of a table of 16 orientations; the table is filled at run time and not decoded, so the start spin is random
-        body.Ax = rng.NextDouble() * Math.PI * 2; body.Ay = rng.NextDouble() * Math.PI * 2; body.Az = rng.NextDouble() * Math.PI * 2;
+        body.Ax = rng.NextDouble() * Math.PI * 2;
+        body.Ay = rng.NextDouble() * Math.PI * 2;
+        body.Az = rng.NextDouble() * Math.PI * 2;
     }
 }
 
@@ -146,7 +150,7 @@ public sealed class DebrisCloudEffect : IEffect
         public double Remaining;     // the piece budget +0x344: the cloud's budget argument
     }
 
-    private readonly List<Piece> mPieces = new();
+    private readonly List<Piece> mPieces = [];
     private readonly Terrain? mTerrain;
     private readonly Random mRng;
     private readonly DebrisRay? mRay;
@@ -197,7 +201,7 @@ public sealed class DebrisCloudEffect : IEffect
                 continue;
             var body = new DebrisBody { Radius = Math.Max(0.1, inst.Shape.Radius) };
             DebrisCloud.Launch(body, spec.X, spec.Y, spec.Z, spec.Vx, spec.Vy, spec.Vz, ix, iy, iz, basis.Angle, basis, spec.Strength, spec.Radius, row.Params.Mass, rng);
-            body.Life = row.Params.MinTimeout + (row.Params.MaxTimeout - row.Params.MinTimeout) * rng.NextDouble();
+            body.Life = row.Params.MinTimeout + ((row.Params.MaxTimeout - row.Params.MinTimeout) * rng.NextDouble());
             body.Damage = row.Params.Damage;
             mPieces.Add(new Piece { Body = body, Inst = inst, Params = row.Params, Remaining = spec.Remaining });
         }
@@ -216,7 +220,7 @@ public sealed class DebrisCloudEffect : IEffect
                 if (b.Done)
                     continue;
                 RenderShape sh = p.Inst.Shape;
-                bool explode = b.WantsExplosion(p.Params, mRng) || b.Integrate(p.Params, mTerrain, mRay, mRng, sh.Cx, sh.Cy, sh.Cz);
+                var explode = b.WantsExplosion(p.Params, mRng) || b.Integrate(p.Params, mTerrain, mRay, mRng, sh.Cx, sh.Cy, sh.Cz);
                 if (!explode)
                     continue;
                 b.Done = true;

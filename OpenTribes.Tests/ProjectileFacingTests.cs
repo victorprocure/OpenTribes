@@ -1,8 +1,7 @@
-using OpenTribes.Client.Shapes;
-using OpenTribes.Client.Scene;
-using Xunit;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Scene;
+using OpenTribes.Client.Shapes;
 
 // Projectile image orientation, FUN_0045a5b8: Bullet and SeekingMissile ghosts face the camera (0045bd00, 004663c8 set +0x2d4),
 // the other classes align the +Y axis with the velocity.

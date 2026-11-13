@@ -102,7 +102,7 @@ public sealed class Connection
     private ConnectionState mState = ConnectionState.Idle;
     private bool mDead;
     private uint mRtt = 100;
-    private float mLoss = 0.0f;
+    private float mLoss;
 
     private readonly bool[] mReceived = new bool[32];
     private uint mLastRecvSeq;
@@ -112,7 +112,7 @@ public sealed class Connection
     private uint mLastRecvTick;
     private uint mRetries;
     private readonly Slot[] mSlots = new Slot[32];
-    private byte[] mLastPayload = Array.Empty<byte>(); // resent by retransmits
+    private byte[] mLastPayload = []; // resent by retransmits
 
     /// <summary>Caller data attached to the connection.</summary>
     public object? UserData;
@@ -120,8 +120,8 @@ public sealed class Connection
     // src/net/connection.cpp carriesId.
     private static bool CarriesId(uint type)
     {
-        uint b = type & ~FlagAckRequest;
-        return b >= Disconnect && b <= Reject;
+        var b = type & ~FlagAckRequest;
+        return b is >= Disconnect and <= Reject;
     }
 
     /// <summary>Creates a connection.</summary>
@@ -137,7 +137,7 @@ public sealed class Connection
         mEvents = events;
         mSend = send;
         mLastRecvTick = nowMs;
-        for (int i = 0; i < 32; ++i)
+        for (var i = 0; i < 32; ++i)
             mSlots[i].Type = kFree;
     }
 
@@ -162,13 +162,13 @@ public sealed class Connection
     public void Close(uint type, string? reason, uint nowMs)
     {
         // A null reason sends the packet with no payload (the deleted connection of an invalid packet).
-        byte[] payload = Array.Empty<byte>();
+        var payload = Array.Empty<byte>();
         if (reason != null)
         {
-            int len = reason.IndexOf('\0'); // strlen
-            string text = len < 0 ? reason : reason[..len];
+            var len = reason.IndexOf('\0'); // strlen
+            var text = len < 0 ? reason : reason[..len];
             payload = new byte[text.Length + 1];
-            for (int i = 0; i < text.Length; ++i)
+            for (var i = 0; i < text.Length; ++i)
                 payload[i] = (byte)text[i];
         }
         Transmit(type, payload, nowMs, 0);
@@ -186,11 +186,11 @@ public sealed class Connection
         else if (type == Accept && mState == ConnectionState.Requested)
             mState = ConnectionState.AcceptSent;
 
-        byte[] buf = new byte[kMaxPacket];
+        var buf = new byte[kMaxPacket];
         var bs = new BitStream(buf, buf.Length);
-        uint wireType = type;
-        uint seq = mLastSentSeq;
-        bool withId = false;
+        var wireType = type;
+        var seq = mLastSentSeq;
+        var withId = false;
 
         if ((type & FlagAckRequest) != 0)
         {
@@ -201,11 +201,11 @@ public sealed class Connection
             withId = CarriesId(slot.Type);
             payload = mLastPayload;
         }
-        else if (type == KeepAlive || type == FlagAckReply)
+        else if (type is KeepAlive or FlagAckReply)
         {
             // Unsequenced. The original also resets the stored payload length here.
-            mLastPayload = Array.Empty<byte>();
-            payload = ReadOnlySpan<byte>.Empty;
+            mLastPayload = [];
+            payload = [];
         }
         else
         {
@@ -223,8 +223,8 @@ public sealed class Connection
         bs.WriteInt(mAckedByPeer, 5);
 
         // One range per run of received sequences, scanning from lastRecv + 2 around the ring.
-        uint stop = (mLastRecvSeq + 1) & 31;
-        uint i = stop;
+        var stop = (mLastRecvSeq + 1) & 31;
+        var i = stop;
         while (true)
         {
             i = (i + 1) & 31;
@@ -232,7 +232,7 @@ public sealed class Connection
                 break;
             if (!mReceived[i])
                 continue;
-            uint start = i;
+            var start = i;
             uint count = 0;
             while (i != stop && mReceived[i])
             {
@@ -256,7 +256,7 @@ public sealed class Connection
         if (withId)
             bs.WriteInt(mId, 32);
 
-        int header = bs.BytePosition();
+        var header = bs.BytePosition();
         if (header + payload.Length > buf.Length)
             return;
         payload.CopyTo(buf.AsSpan(header));
@@ -266,7 +266,7 @@ public sealed class Connection
     // src/net/connection.cpp Connection::flush.
     private void Flush()
     {
-        for (uint i = (mLastSentSeq + 1) & 31; i != (mLastSentSeq & 31); i = (i + 1) & 31)
+        for (var i = (mLastSentSeq + 1) & 31; i != (mLastSentSeq & 31); i = (i + 1) & 31)
         {
             if (mSlots[i].Type == kFree)
                 continue;
@@ -282,14 +282,14 @@ public sealed class Connection
     /// <param name="nowMs">The current time in milliseconds.</param>
     public void Receive(ReadOnlySpan<byte> data, uint nowMs)
     {
-        byte[] copy = data.ToArray();
-        int size = copy.Length;
+        var copy = data.ToArray();
+        var size = copy.Length;
         var bs = new BitStream(copy, size);
         if (!bs.ReadFlag())
             return;
-        uint idBit = bs.ReadInt(1);
-        uint seq = bs.ReadInt(9);
-        uint peerAckAck = bs.ReadInt(5);
+        var idBit = bs.ReadInt(1);
+        var seq = bs.ReadInt(9);
+        var peerAckAck = bs.ReadInt(5);
 
         Span<uint> rangeStart = stackalloc uint[20];
         Span<uint> rangeCountOf = stackalloc uint[20];
@@ -308,30 +308,30 @@ public sealed class Connection
             rangeCountOf[(int)rangeCount] = cnt;
             ++rangeCount;
         }
-        uint rawType = bs.ReadInt(5);
+        var rawType = bs.ReadInt(5);
         if (bs.Error())
             return;
-        bool needAck = (rawType == KeepAlive || (rawType & FlagAckRequest) != 0) && (rawType & FlagAckReply) == 0;
-        uint type = rawType & ~(FlagAckRequest | FlagAckReply);
+        var needAck = (rawType == KeepAlive || (rawType & FlagAckRequest) != 0) && (rawType & FlagAckReply) == 0;
+        var type = rawType & ~(FlagAckRequest | FlagAckReply);
         if (type == Accept)
             needAck = true;
 
-        ReadOnlySpan<byte> payload = ReadOnlySpan<byte>.Empty;
+        ReadOnlySpan<byte> payload = [];
         void TakePayload(ReadOnlySpan<byte> d, ref ReadOnlySpan<byte> p)
         {
-            int at = bs.BytePosition();
-            p = at < d.Length ? d[at..] : ReadOnlySpan<byte>.Empty;
+            var at = bs.BytePosition();
+            p = at < d.Length ? d[at..] : [];
         }
 
         if (type == ConnectRequest)
         {
-            uint id = bs.ReadInt(32);
+            var id = bs.ReadInt(32);
             TakePayload(data, ref payload);
             if (mState != ConnectionState.Idle && id != mId)
             {
                 // A new connection id from the same address replaces the old connection.
                 Flush();
-                mEvents.OnClosed(this, ReadOnlySpan<byte>.Empty, true);
+                mEvents.OnClosed(this, [], true);
                 mDead = true;
                 return;
             }
@@ -342,8 +342,8 @@ public sealed class Connection
             return; // "packet ordering incorrect"
 
         // Extend the 9-bit sequence into the window [lastRecv, lastRecv + 30].
-        uint full = seq | (mLastRecvSeq & ~0x1ffu);
-        uint windowEnd = mLastRecvSeq + 30;
+        var full = seq | (mLastRecvSeq & ~0x1ffu);
+        var windowEnd = mLastRecvSeq + 30;
         if (full < mLastRecvSeq || full > windowEnd)
         {
             full = seq | (windowEnd & ~0x1ffu);
@@ -351,13 +351,13 @@ public sealed class Connection
                 return; // "bad seqNum"
         }
 
-        for (uint s = mLastRecvSeq + 1; s < full; ++s)
+        for (var s = mLastRecvSeq + 1; s < full; ++s)
             mReceived[s & 31] = false;
         if (type != KeepAlive)
             mReceived[full & 31] = true;
-        for (uint i = (full + 1) & 31; i != ((peerAckAck + 1) & 31); i = (i + 1) & 31)
+        for (var i = (full + 1) & 31; i != ((peerAckAck + 1) & 31); i = (i + 1) & 31)
             mReceived[i] = false;
-        int gap = (int)(full & 31) - (int)peerAckAck;
+        var gap = (int)(full & 31) - (int)peerAckAck;
         if (gap < 0)
             gap += 32;
         if (gap > 11)
@@ -368,14 +368,14 @@ public sealed class Connection
             uint end = 0;
             for (uint r = 0; r < rangeCount; ++r)
             {
-                uint s = rangeStart[(int)r];
+                var s = rangeStart[(int)r];
                 for (uint c = 0; c < rangeCountOf[(int)r]; ++c, s = (s + 1) & 31)
                     if (mSlots[s].Type != kFree)
                         mSlots[s].Acked = true;
                 end = s;
             }
             mOldestUnacked = rangeStart[0];
-            uint i = (mLastSentSeq + 1) & 31;
+            var i = (mLastSentSeq + 1) & 31;
             do
             {
                 ref Slot slot = ref mSlots[i];
@@ -383,7 +383,7 @@ public sealed class Connection
                 {
                     if (!slot.Acked)
                     {
-                        mLoss = 0.01f * (mLoss * 99.0f + 1.0f);
+                        mLoss = 0.01f * ((mLoss * 99.0f) + 1.0f);
                         if (slot.Cookie != 0)
                             mEvents.OnNotify(this, slot.Cookie, false);
                         slot.Type = kFree;
@@ -399,7 +399,7 @@ public sealed class Connection
                             mEvents.OnEstablished(this);
                         }
                         slot.Type = kFree;
-                        mRtt = ((nowMs - slot.SendTick) + mRtt * 31) >> 5;
+                        mRtt = (nowMs - slot.SendTick + (mRtt * 31)) >> 5;
                     }
                 }
                 i = (i + 1) & 31;
@@ -409,15 +409,15 @@ public sealed class Connection
 
         mLastRecvTick = nowMs;
         mRetries = 0;
-        bool isNew = mLastRecvSeq != full;
+        var isNew = mLastRecvSeq != full;
         mLastRecvSeq = full;
 
         if (needAck)
         {
             if (mSlots[mLastSentSeq & 31].Type == kFree)
-                Transmit(FlagAckReply, ReadOnlySpan<byte>.Empty, nowMs, 0);
+                Transmit(FlagAckReply, [], nowMs, 0);
             else
-                Transmit(FlagAckRequest | FlagAckReply, ReadOnlySpan<byte>.Empty, nowMs, 0);
+                Transmit(FlagAckRequest | FlagAckReply, [], nowMs, 0);
         }
         if (!isNew)
             return;
@@ -430,7 +430,7 @@ public sealed class Connection
         else if ((type == Disconnect && mState == ConnectionState.Connected) ||
                  ((type == Accept || type == Reject) && mState == ConnectionState.RequestSent))
         {
-            uint id = bs.ReadInt(32);
+            var id = bs.ReadInt(32);
             TakePayload(data, ref payload);
             if (id != mId)
                 return;
@@ -458,16 +458,16 @@ public sealed class Connection
     /// <param name="nowMs">The current time in milliseconds.</param>
     public void Tick(uint nowMs)
     {
-        if (mDead || nowMs <= mLastRecvTick + 3000 * (mRetries + 1))
+        if (mDead || nowMs <= mLastRecvTick + (3000 * (mRetries + 1)))
             return;
         if (mSlots[mLastSentSeq & 31].Type == kFree)
-            Transmit(KeepAlive, ReadOnlySpan<byte>.Empty, nowMs, 0);
+            Transmit(KeepAlive, [], nowMs, 0);
         else
-            Transmit(FlagAckRequest, ReadOnlySpan<byte>.Empty, nowMs, 0);
+            Transmit(FlagAckRequest, [], nowMs, 0);
         if (++mRetries > kMaxRetries)
         {
             Flush();
-            mEvents.OnClosed(this, ReadOnlySpan<byte>.Empty, true);
+            mEvents.OnClosed(this, [], true);
             mDead = true;
         }
     }

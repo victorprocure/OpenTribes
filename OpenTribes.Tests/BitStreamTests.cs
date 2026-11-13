@@ -1,7 +1,7 @@
 // Port of tests/test_bitstream.cpp.
-using OpenTribes.Net;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Net;
 
 public class BitStreamTests
 {
@@ -9,7 +9,7 @@ public class BitStreamTests
     public void TestBitStream()
     {
         // LSB-first packing: 1 then 0b101 (3 bits) then 0xff (8 bits) -> 0xfb 0x0f.
-        byte[] buf = new byte[512];
+        var buf = new byte[512];
         var w = new BitStream(buf, buf.Length);
         w.WriteFlag(true);
         w.WriteInt(5, 3);
@@ -18,29 +18,29 @@ public class BitStreamTests
 
         // Prefix-free codes: every symbol decodes back to itself.
         uint maxLen = 0;
-        for (int c = 0; c < 256; ++c)
+        for (var c = 0; c < 256; ++c)
         {
             HuffmanCode code = Huffman.HuffmanCode((byte)c);
             Assert.True(code.Length > 0);
             maxLen = code.Length > maxLen ? code.Length : maxLen;
-            int bit = 0;
-            byte sym = Huffman.HuffmanDecode(() => ((code.Bits >> bit++) & 1) != 0);
+            var bit = 0;
+            var sym = Huffman.HuffmanDecode(() => ((code.Bits >> bit++) & 1) != 0);
             Assert.True(sym == c && bit == code.Length);
         }
         Assert.True(maxLen <= 32); // the original stores codes in 32 bits
 
         Array.Clear(buf);
         var output = new BitStream(buf, buf.Length);
-        string[] strings = { "Tribes", "1.11", "", "\u0001\u0080ÿ binary", new string('z', 300) };
+        string[] strings = ["Tribes", "1.11", "", "\u0001\u0080ÿ binary", new string('z', 300)];
         output.WriteInt(1, 16);
-        foreach (string s in strings)
+        foreach (var s in strings)
             output.WriteString(s);
         output.WriteSignedInt(-1234, 16);
         Assert.False(output.Error());
 
         var input = new BitStream(buf, buf.Length);
         Assert.Equal(1u, input.ReadInt(16));
-        foreach (string s in strings)
+        foreach (var s in strings)
             Assert.Equal(s[..Math.Min(s.Length, 255)], input.ReadString());
         Assert.Equal(-1234, input.ReadSignedInt(16));
         Assert.False(input.Error());

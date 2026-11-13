@@ -2,9 +2,9 @@
 // RocketDumb, Bullet, Grenade, the line queries and the creation (docs/projectile-sim.md 0-3). The beam classes are
 // ProjectileBeam.cs, the SeekingMissile ProjectileSeeker.cs, the ghost frame ProjectileGhost.cs. The Chop class of the
 // files is X87.Chop; world::x87::f32 is X87.F32.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>A ray hit with the data a projectile impact needs (the "info" of 0x00505f6c).</summary>
 public struct RayHit
@@ -118,7 +118,7 @@ public static class Pj
         Container.Entry? e = obj != null ? game.World.Find(obj) : null;
         if (e == null)
             return false;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             mn[i] = e.Box[i];
             mx[i] = e.Box[i + 3];
@@ -143,7 +143,7 @@ public static class Pj
             candidates.Add(obj.DataBlockName + "::" + method);
         candidates.Add(obj.ScriptClass() + "::" + method);
         candidates.Add(method);
-        foreach (string fn in candidates)
+        foreach (var fn in candidates)
             if (game.Console.HasFunction(fn))
                 return fn;
         return "";
@@ -159,8 +159,8 @@ public static class Pj
     {
         if (game.Console == null)
             return "";
-        string line = fn + "(";
-        for (int i = 0; i < args.Count; ++i)
+        var line = fn + "(";
+        for (var i = 0; i < args.Count; ++i)
             line += (i != 0 ? ", " : "") + args[i];
         return game.Console.Evaluate(line + ");");
     }
@@ -173,7 +173,7 @@ public static class Pj
     // src/game/projectile_ghost.cpp ftolBits.
     private static uint FtolBits(double x, uint bits)
     {
-        long i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
+        var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
         return (uint)i & ((1u << (int)bits) - 1);
     }
 
@@ -188,7 +188,7 @@ public static class Pj
     /// <param name="bits">The number of bits.</param>
     /// <remarks>Follows BitStream::writeFloat (0x00582fb0).</remarks>
     public static void WriteUnit(BitStream bs, float v, uint bits) =>
-        bs.WriteInt(FtolBits(Mul((double)(int)((1u << (int)bits) - 1), v), bits), bits);
+        bs.WriteInt(FtolBits(Mul((int)((1u << (int)bits) - 1), v), bits), bits);
 
     /// <summary>Writes a unit normal: x and y as signed floats, then the sign of z.</summary>
     /// <param name="bs">The stream.</param>
@@ -197,9 +197,9 @@ public static class Pj
     /// <remarks>Follows writeSignedFloat (0x00583018).</remarks>
     public static void WriteNormal(BitStream bs, ReadOnlySpan<float> n, uint bits)
     {
-        for (int i = 0; i < 2; ++i)
+        for (var i = 0; i < 2; ++i)
         {
-            double x = Mul(Mul(Add(n[i], 1.0f), 0.5f), (double)(int)((1u << (int)bits) - 1));
+            var x = Mul(Mul(Add(n[i], 1.0f), 0.5f), (int)((1u << (int)bits) - 1));
             bs.WriteInt(FtolBits(x, bits), bits);
         }
         bs.WriteFlag(n[2] < 0.0f);
@@ -350,7 +350,7 @@ public abstract class Projectile : GameBase
     /// <summary>The explosion position (+0x43c).</summary>
     protected readonly float[] mExpPos = new float[3];
     /// <summary>The explosion normal (+0x448).</summary>
-    protected readonly float[] mExpNormal = { 0, 0, 1 };
+    protected readonly float[] mExpNormal = [0, 0, 1];
     /// <summary>The explosion datablock index (+0x454).</summary>
     protected int mExpIndex;
     /// <summary>The box of the shape.</summary>
@@ -374,9 +374,9 @@ public abstract class Projectile : GameBase
     }
 
     private static readonly string[] kNames =
-    {
+    [
         "Bullet", "Grenade", "RocketDumb", "LaserProjectile", "TargetLaser", "SeekingMissile", "Lightning", "RepairEffect",
-    };
+    ];
 
     /// <summary>Casts an object to a projectile.</summary>
     /// <param name="obj">The object, or null.</param>
@@ -385,7 +385,7 @@ public abstract class Projectile : GameBase
     {
         if (obj == null)
             return null;
-        foreach (string n in kNames)
+        foreach (var n in kNames)
             if (obj.ClassName() == n)
                 return obj as Projectile;
         return null;
@@ -494,7 +494,7 @@ public abstract class Projectile : GameBase
     private static bool Slab(ReadOnlySpan<float> s, ReadOnlySpan<float> e, ReadOnlySpan<float> mn, ReadOnlySpan<float> mx, out float t,
                              out int axisOut, out bool neg)
     {
-        for (int a = 0; a < 3; ++a)
+        for (var a = 0; a < 3; ++a)
         {
             int b = (a + 1) % 3, c = (a + 2) % 3;
             float num, den;
@@ -528,7 +528,7 @@ public abstract class Projectile : GameBase
                 return true;
             }
         }
-        for (int a = 0; a < 3; ++a)
+        for (var a = 0; a < 3; ++a)
             if (s[a] < mn[a] || s[a] > mx[a])
             {
                 t = 0;
@@ -568,18 +568,18 @@ public abstract class Projectile : GameBase
     /// <remarks>Follows SimMovement_integrate (0x00505460). The drag applies as <c>v -= v * ((mediumDrag 1.0 * drag) * dt)</c> after the forces (0x00505144).</remarks>
     protected static void Integrate(Projectile p, float dt, float[]? acc, float[] target, float drag = 0)
     {
-        float[] old = { p.Velocity[0], p.Velocity[1], p.Velocity[2] };
+        float[] old = [p.Velocity[0], p.Velocity[1], p.Velocity[2]];
         if (acc != null)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 p.Velocity[i] = X87.F32(Add(Mul(acc[i], dt), p.Velocity[i]));
         if (drag != 0)
         {
-            float s = X87.F32(Mul(X87.F32(Mul(1.0f, drag)), dt));
-            for (int i = 0; i < 3; ++i)
+            var s = X87.F32(Mul(X87.F32(Mul(1.0f, drag)), dt));
+            for (var i = 0; i < 3; ++i)
                 p.Velocity[i] = X87.F32(Sub(p.Velocity[i], Mul(p.Velocity[i], s)));
         }
-        float h = X87.F32(Mul(dt, 0.5f));
-        for (int i = 0; i < 3; ++i)
+        var h = X87.F32(Mul(dt, 0.5f));
+        for (var i = 0; i < 3; ++i)
             target[i] = X87.F32(Add(Mul(Add(old[i], p.Velocity[i]), h), p.Transform.P[i]));
     }
 
@@ -598,8 +598,8 @@ public abstract class Projectile : GameBase
         using var chop = X87.Chop();
         object? obj = null;
         Vec3 hp = default, n = default;
-        bool found = false;
-        float best = 3.0e38f;
+        var found = false;
+        var best = 3.0e38f;
         var before = new Vec3(e[0], e[1], e[2]);
         if (game.World.CastRay(new Vec3(s[0], s[1], s[2]), new Vec3(e[0], e[1], e[2]), mask, exclude, ref obj, ref hp, ref n,
                                ref before) && obj != null)
@@ -617,15 +617,15 @@ public abstract class Projectile : GameBase
         if ((mask & ~0x6u) != 0)
         {
             float[] box =
-            {
+            [
                 Math.Min(s[0], e[0]), Math.Min(s[1], e[1]), Math.Min(s[2], e[2]), Math.Max(s[0], e[0]), Math.Max(s[1], e[1]),
                 Math.Max(s[2], e[2]),
-            };
+            ];
             // SimContainer_castRay (0x004fa030, docs/interiors.md 6.3 step 4): a hit shortens the segment, and every later
             // candidate is tested against (s, best hit) and computes its hit point from that segment. The terrain and the
             // shapes of the world cast above come first in the candidate order, so the Player and box tests below start
             // from their hit.
-            float[] cur = { e[0], e[1], e[2] };
+            float[] cur = [e[0], e[1], e[2]];
             // A Player the world cast returned is tested again below; it keeps the segment it had in the cast (what the
             // candidates ahead of it left), not the one ending at its own hit.
             if (found)
@@ -643,7 +643,7 @@ public abstract class Projectile : GameBase
                     cur[2] = hit.Point[2];
                 }
             }
-            foreach (object? o in game.World.FindObjects(box, mask & ~0x6u, exclude))
+            foreach (var o in game.World.FindObjects(box, mask & ~0x6u, exclude))
             {
                 var gb = o as GameBase;
                 Container.Entry? en = gb != null ? game.World.Find(o) : null;
@@ -651,9 +651,9 @@ public abstract class Projectile : GameBase
                 if (gb == null || en == null || (en.Cast != null && Player.From(gb) == null))
                     continue;
                 float t = 0;
-                float[] hpos = new float[3], hn = { 0, 0, 0 };
-                bool ok = false;
-                bool direct = false;
+                float[] hpos = new float[3], hn = [0, 0, 0];
+                var ok = false;
+                var direct = false;
                 if (Player.From(gb) != null)
                 {
                     // The Player's own line test (its container entry), record normal (0, 0, 1) (0x0043599c).
@@ -669,7 +669,7 @@ public abstract class Projectile : GameBase
                 }
                 else if (game.Resources != null)
                 {
-                    string? shape = ShapeNameOf(game, gb);
+                    var shape = ShapeNameOf(game, gb);
                     if (shape == null)
                         continue;
                     var local = new List<Float6>();
@@ -679,23 +679,23 @@ public abstract class Projectile : GameBase
                     }
                     else
                     {
-                        float[] sb = new float[6];
+                        var sb = new float[6];
                         if (!Shape.ShapeBox(game.Resources, shape, sb))
                             continue;
                         local.Add(Float6.Of(sb));
                     }
                     Mat m = gb.WorldMat();
                     Vec3 ls = m.ToLocal(new Vec3(s[0], s[1], s[2])), le = m.ToLocal(new Vec3(cur[0], cur[1], cur[2]));
-                    float[] sl = { ls.X, ls.Y, ls.Z }, el = { le.X, le.Y, le.Z };
-                    float bestT = 1.1f;
+                    float[] sl = [ls.X, ls.Y, ls.Z], el = [le.X, le.Y, le.Z];
+                    var bestT = 1.1f;
                     foreach (Float6 b in local)
                     {
-                        float[] mn = { b[0], b[1], b[2] }, mx = { b[3], b[4], b[5] };
-                        if (Slab(sl, el, mn, mx, out float bt, out int axis, out bool neg) && bt < bestT)
+                        float[] mn = [b[0], b[1], b[2]], mx = [b[3], b[4], b[5]];
+                        if (Slab(sl, el, mn, mx, out var bt, out var axis, out var neg) && bt < bestT)
                         {
                             bestT = bt;
                             ok = true;
-                            float[] ln = { 0, 0, 0 };
+                            float[] ln = [0, 0, 0];
                             if (axis >= 0)
                                 ln[axis] = neg ? -1.0f : 1.0f;
                             Vec3 wn = m.ToWorldVector(new Vec3(ln[0], ln[1], ln[2]));
@@ -708,13 +708,13 @@ public abstract class Projectile : GameBase
                 }
                 if (!ok)
                     continue;
-                for (int i = 0; i < 3 && !direct; ++i)
+                for (var i = 0; i < 3 && !direct; ++i)
                 {
-                    float d = X87.F32(Sub(cur[i], s[i]));
+                    var d = X87.F32(Sub(cur[i], s[i]));
                     d = X87.F32(Mul(t, d));
                     hpos[i] = X87.F32(Add(s[i], d));
                 }
-                float dist = DistanceOf(s, hpos);
+                var dist = DistanceOf(s, hpos);
                 if (!found || dist < best)
                 {
                     found = true;
@@ -739,9 +739,9 @@ public abstract class Projectile : GameBase
     {
         if (mInContainer)
             return;
-        string shape = "";
+        var shape = "";
         if (mBlock != null)
-            foreach (string f in new[] { "bulletShapeName", "shapeName" })
+            foreach (var f in new[] { "bulletShapeName", "shapeName" })
             {
                 DataBlockManager.Field? fl = Pj.Field(mBlock, f);
                 if (fl != null && !string.IsNullOrEmpty(fl.Elems[0].Str))
@@ -750,7 +750,7 @@ public abstract class Projectile : GameBase
                     break;
                 }
             }
-        float[] local = { 0, 0, 0, 0, 0, 0 };
+        float[] local = [0, 0, 0, 0, 0, 0];
         if (shape.Length != 0 && mGame.Resources != null)
             Shape.ShapeBox(mGame.Resources, shape, local);
         Array.Copy(local, mShapeBox, 6);
@@ -848,7 +848,7 @@ public abstract class Projectile : GameBase
         d.Elasticity = Pj.Real(b, "elasticity", 0.5f);
         ReadData(b);
         mGame.JoinSet(this, 719);
-        uint now = mGame.Sim != null ? mGame.Sim.TickMs() : 0;
+        var now = mGame.Sim != null ? mGame.Sim.TickMs() : 0;
         // Shooter and owner client (1.4 step 2).
         SimManager? m = Manager();
         SimObject? so = m != null && mInitShooter > 0 ? m.FindById(mInitShooter) : null;
@@ -861,27 +861,27 @@ public abstract class Projectile : GameBase
         }
         mInitShooter = -1;
         // Muzzle velocity along the forward axis plus the inherited part, then the deflection.
-        float[] fwd = { Transform.M[3], Transform.M[4], Transform.M[5] };
-        for (int i = 0; i < 3; ++i)
+        float[] fwd = [Transform.M[3], Transform.M[4], Transform.M[5]];
+        for (var i = 0; i < 3; ++i)
             Velocity[i] = X87.F32(Add(X87.F32(Mul(fwd[i], d.MuzzleVelocity)), X87.F32(Mul(mInherited[i], d.InheritedScale))));
         if (d.AimDeflection != 0.0f)
         {
             // Projectile_applyDeflection (0x00459fa4): three draws, each angle one extended chain stored once:
             // (((n * 2^-32 (f32) - 0.5f) * 2.0f) * pi (f64)) * aimDeflection with n the 32-bit draw loaded as an integer
             // (fild qword). Then Mat3_fromEulerWrap (0x005ed000, which is m_mat3_setEuler) and m_mul_vector on the velocity.
-            float[] a = new float[3];
-            for (int k = 0; k < 3; ++k)
+            var a = new float[3];
+            for (var k = 0; k < 3; ++k)
             {
                 double n = sDeflection.Next();
                 a[k] = X87.F32(Mul(Mul(Mul(Sub(Mul(n, (double)2.3283064365386963e-10f), 0.5f), 2.0f), 3.141592653589793), d.AimDeflection));
             }
             var rot = new Transform();
             MissionTransform.EulerToMatrix(a, ref rot);
-            float[] output = new float[3];
+            var output = new float[3];
             X87.MulVector(Velocity, rot.M, output);
             output.CopyTo(Velocity, 0);
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             mLaunch[i] = X87.F32(Mul(fwd[i], d.TerminalVelocity));
         mExclude = (!d.CollideWithOwner || d.OwnerGraceMS > 0) ? mShooter : 0;
         mLast = now;
@@ -919,7 +919,7 @@ public abstract class Projectile : GameBase
     {
         if (mData.ExpRandCycle <= 1)
             return mData.ExplosionTag;
-        float u = X87.F32(Mul(Store(sExplosion.Next()), 2.3283064365386963e-10));
+        var u = X87.F32(Mul(Store(sExplosion.Next()), 2.3283064365386963e-10));
         return mData.ExplosionTag + unchecked((int)Pj.Ftol(X87.F32(Mul(u, mData.ExpRandCycle))));
     }
 
@@ -945,7 +945,7 @@ public abstract class Projectile : GameBase
         SetMaskBits(0x04);
     }
 
-    private static readonly float[] kUp = { 0, 0, 1 };
+    private static readonly float[] kUp = [0, 0, 1];
 
     /// <summary>Explodes at a position.</summary>
     /// <param name="pos">The position.</param>
@@ -968,7 +968,7 @@ public abstract class Projectile : GameBase
     {
         if (hit.Object == null || (hit.Type & 0x24c00080u) == 0)
             return;
-        float[] zero = { 0, 0, 0 };
+        float[] zero = [0, 0, 0];
         hit.Object.ApplyDamage(mData.DamageType, DirectDamageValue(now), hit.Point, Velocity, zero, OwnerClientId());
     }
 
@@ -996,7 +996,7 @@ public abstract class Projectile : GameBase
         }
         else if (mData.DamageClass == 1)
         {
-            float[] pos = { Transform.P[0], Transform.P[1], Transform.P[2] };
+            float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
             RadiusDamageAt(pos);
             ExplodeAtPosition(pos);
         }
@@ -1014,10 +1014,10 @@ public abstract class Projectile : GameBase
     {
         using var chop = X87.Chop();
         int ms;
-        float dt = kSlice;
+        var dt = kSlice;
         if (variableSlice)
         {
-            int d = unchecked((int)(now - mLast));
+            var d = unchecked((int)(now - mLast));
             if (d <= 0)
                 return false;
             dt = X87.F32(Mul(d, 0.001f));
@@ -1027,10 +1027,10 @@ public abstract class Projectile : GameBase
             ms = unchecked((int)(now - mLast));
         while (unchecked(mLast + (uint)ms) <= now)
         {
-            float[] target = new float[3];
-            float[] grav = { 0, 0, 0 };
+            var target = new float[3];
+            float[] grav = [0, 0, 0];
             float drag = 0;
-            bool inAir = mGravity && mGame.EnteredForces(this, grav, ref drag);
+            var inAir = mGravity && mGame.EnteredForces(this, grav, ref drag);
             Integrate(this, dt, inAir ? grav : null, target);
             GraceTick(ms);
             if (CastWorld(mGame, Transform.P, target, 0x24e000a6u, ExcludeObject(), ref hit))
@@ -1090,8 +1090,7 @@ public abstract class Projectile : GameBase
             kRocketGroup => new RocketDumb(game),
             _ => ProjectileBeam.CreateBeamProjectile(game, group),
         };
-        if (p != null)
-            p.DataBlockName = b.Name;
+        p?.DataBlockName = b.Name;
         return p;
     }
 }
@@ -1172,41 +1171,41 @@ internal sealed class Bullet : Projectile
     protected override void ClassOnAdd()
     {
         // The velocity is replaced by what the ghost decodes from the initial data.
-        float s = X87.F32(X87.Len(Velocity));
-        float[] d = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var s = X87.F32(X87.Len(Velocity));
+        var d = new float[3];
+        for (var i = 0; i < 3; ++i)
             d[i] = X87.F32(Div(Velocity[i], s));
-        uint qx = Pj.Ftol(Mul(Mul(Add(d[0], 1.0f), 0.5f), 1048575.0f));
-        uint qy = Pj.Ftol(Mul(Mul(Add(d[1], 1.0f), 0.5f), 1048575.0f));
-        bool neg = d[2] < 0.0f;
+        var qx = Pj.Ftol(Mul(Mul(Add(d[0], 1.0f), 0.5f), 1048575.0f));
+        var qy = Pj.Ftol(Mul(Mul(Add(d[1], 1.0f), 0.5f), 1048575.0f));
+        var neg = d[2] < 0.0f;
         float x = X87.F32(Sub(Mul(kInv, Mul(2.0, qx)), 1.0f)), y = X87.F32(Sub(Mul(kInv, Mul(2.0, qy)), 1.0f));
-        float z2 = X87.F32(Sub(Sub(1.0, Mul(x, x)), Mul(y, y)));
-        float z = z2 < 0.0f ? 0.0f : X87.F32(Sqrt(z2));
+        var z2 = X87.F32(Sub(Sub(1.0, Mul(x, x)), Mul(y, y)));
+        var z = z2 < 0.0f ? 0.0f : X87.F32(Sqrt(z2));
         if (neg)
             z = -z;
-        float s2 = X87.F32(Mul(Pj.Ftol(Mul(s, 16.0f)), 0.0625f));
-        float[] dir = { x, y, z };
-        for (int i = 0; i < 3; ++i)
+        var s2 = X87.F32(Mul(Pj.Ftol(Mul(s, 16.0f)), 0.0625f));
+        float[] dir = [x, y, z];
+        for (var i = 0; i < 3; ++i)
             mVel[i] = Velocity[i] = X87.F32(Mul(s2, dir[i]));
         mStart[0] = Transform.P[0];
         mStart[1] = Transform.P[1];
         mStart[2] = Transform.P[2];
         mSpeed = X87.F32(X87.Len(mVel));
         // The static world is tested once (0x0045dfa0).
-        uint now = mGame.Sim!.TickMs();
-        float[] end = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var now = mGame.Sim!.TickMs();
+        var end = new float[3];
+        for (var i = 0; i < 3; ++i)
             end[i] = X87.F32(Add(Transform.P[i], X87.F32(Mul(mVel[i], mData.TotalTime))));
         SimManager? m = Manager();
         SimObject? ex = m != null && mShooter > 0 ? m.FindById(mShooter) : null;
         var h = new RayHit();
         if (CastWorld(mGame, Transform.P, end, 0x6u, ex, ref h))
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 h.Point[i] = X87.F32(Add(h.Point[i], X87.F32(Mul(h.Normal[i], 0.1f))));
             mStatic = h;
             mHasStatic = true;
-            float[] dd = { X87.F32(Sub(h.Point[0], Transform.P[0])), X87.F32(Sub(h.Point[1], Transform.P[1])), X87.F32(Sub(h.Point[2], Transform.P[2])) };
+            float[] dd = [X87.F32(Sub(h.Point[0], Transform.P[0])), X87.F32(Sub(h.Point[1], Transform.P[1])), X87.F32(Sub(h.Point[2], Transform.P[2]))];
             mEndTime = unchecked(Pj.Ftol(Mul(X87.F32(Div(X87.F32(X87.Len(dd)), X87.Len(mVel))), 1000.0f)) + now);
         }
         else
@@ -1244,15 +1243,15 @@ internal sealed class Bullet : Projectile
             mDeleteTime = unchecked(now + 500);
             return;
         }
-        int ms = unchecked((int)(now - mLast));
+        var ms = unchecked((int)(now - mLast));
         if (ms == 0)
             return;
         mLast = now;
         if (now > mEndTime)
             ms -= unchecked((int)(now - mEndTime));
-        float[] end = new float[3];
-        float dt = X87.F32(Mul(ms, 0.001f));
-        for (int i = 0; i < 3; ++i)
+        var end = new float[3];
+        var dt = X87.F32(Mul(ms, 0.001f));
+        for (var i = 0; i < 3; ++i)
             end[i] = X87.F32(Add(Transform.P[i], X87.F32(Mul(mVel[i], dt))));
         GraceTick(ms);
         var hit = new RayHit();
@@ -1281,10 +1280,10 @@ internal sealed class Bullet : Projectile
     public override void PackInitial(BitStream bs, GhostContext ctx)
     {
         Pj.WriteVec(bs, mStart);
-        float[] d = { X87.F32(Sub(Transform.P[0], mStart[0])), X87.F32(Sub(Transform.P[1], mStart[1])), X87.F32(Sub(Transform.P[2], mStart[2])) };
+        float[] d = [X87.F32(Sub(Transform.P[0], mStart[0])), X87.F32(Sub(Transform.P[1], mStart[1])), X87.F32(Sub(Transform.P[2], mStart[2]))];
         bs.WriteInt(Pj.Ftol(Mul(X87.F32(Div(X87.F32(X87.Len(d)), mSpeed)), 1000.0f)) & 0x7fff, 15);
-        float[] u = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var u = new float[3];
+        for (var i = 0; i < 3; ++i)
             u[i] = X87.F32(Div(mVel[i], mSpeed));
         Pj.WriteNormal(bs, u, 20);
         bs.WriteInt(Pj.Ftol(Mul(mSpeed, 16.0f)) & 0x3fff, 14);
@@ -1292,7 +1291,7 @@ internal sealed class Bullet : Projectile
 
     public override void PackExplode(BitStream bs)
     {
-        float[] d = { X87.F32(Sub(mExpPos[0], mStart[0])), X87.F32(Sub(mExpPos[1], mStart[1])), X87.F32(Sub(mExpPos[2], mStart[2])) };
+        float[] d = [X87.F32(Sub(mExpPos[0], mStart[0])), X87.F32(Sub(mExpPos[1], mStart[1])), X87.F32(Sub(mExpPos[2], mStart[2]))];
         bs.WriteInt(Pj.Ftol(Mul(Div(X87.F32(X87.Len(d)), mSpeed), 1000.0f)) & 0x7fff, 15);
         Pj.WriteNormal(bs, mExpNormal, 6);
         Pj.WriteIndex(bs, mExpIndex, Pj.ExplosionCount(mGame));
@@ -1310,7 +1309,7 @@ internal sealed class Bullet : Projectile
         }
         else if (mData.DamageClass == 1)
         {
-            float[] pos = { Transform.P[0], Transform.P[1], Transform.P[2] };
+            float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
             if (fromStatic)
             {
                 pos[0] = mStatic.Point[0];
@@ -1351,7 +1350,7 @@ internal sealed class Grenade : Projectile
                 Manager()!.DeleteObject(this);
             return;
         }
-        int ms = unchecked((int)Pj.Ftol(Mul(kSlice, 1000.0f)));
+        var ms = unchecked((int)Pj.Ftol(Mul(kSlice, 1000.0f)));
         if (unchecked((int)(now - mLastSend)) > 500)
         {
             mLastSend = now;
@@ -1366,19 +1365,19 @@ internal sealed class Grenade : Projectile
             mArmed = true;
         while (unchecked(mLast + (uint)ms) < now)
         {
-            float[] grav = { 0, 0, 0 };
+            float[] grav = [0, 0, 0];
             float drag = 0;
-            bool inAir = mGame.EnteredForces(this, grav, ref drag);
-            float[] target = new float[3];
+            var inAir = mGame.EnteredForces(this, grav, ref drag);
+            var target = new float[3];
             Integrate(this, kSlice, inAir ? grav : null, target, drag);
-            int rem = ms;
-            bool bounced = false;
+            var rem = ms;
+            var bounced = false;
             mContact = false;
-            bool r = Step(target, ref rem, now);
+            var r = Step(target, ref rem, now);
             while (r && rem != 0)
             {
-                float dtr = X87.F32(Mul(rem, 0.001f));
-                for (int i = 0; i < 3; ++i)
+                var dtr = X87.F32(Mul(rem, 0.001f));
+                for (var i = 0; i < 3; ++i)
                     target[i] = X87.F32(Add(Transform.P[i], X87.F32(Mul(Velocity[i], dtr))));
                 if (mContact)
                     bounced = true;
@@ -1415,9 +1414,9 @@ internal sealed class Grenade : Projectile
         }
         else
         {
-            float l = X87.F32(X87.Len(Velocity));
-            float k = X87.F32(Div(1.0, l));
-            float[] u = { X87.F32(Mul(Velocity[0], k)), X87.F32(Mul(Velocity[1], k)), X87.F32(Mul(Velocity[2], k)) };
+            var l = X87.F32(X87.Len(Velocity));
+            var k = X87.F32(Div(1.0, l));
+            float[] u = [X87.F32(Mul(Velocity[0], k)), X87.F32(Mul(Velocity[1], k)), X87.F32(Mul(Velocity[2], k))];
             Pj.WriteNormal(bs, u, 9);
         }
         if (bs.WriteFlag((mask & 0x08) != 0))
@@ -1428,18 +1427,18 @@ internal sealed class Grenade : Projectile
     private bool Step(float[] target, ref int rem, uint now)
     {
         var hit = new RayHit();
-        float[] start = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        float[] start = [Transform.P[0], Transform.P[1], Transform.P[2]];
         if (!CastWorld(mGame, start, target, 0x24e000a6u, ExcludeObject(), ref hit))
         {
             rem = 0;
             MoveTo(target);
             return false;
         }
-        float s0 = X87.F32(X87.Len(Velocity));
+        var s0 = X87.F32(X87.Len(Velocity));
         if (CollideSurface(hit, now))
         {
             MoveTo(hit.Point);
-            float[] rel = { X87.F32(Sub(hit.Point[0], start[0])), X87.F32(Sub(hit.Point[1], start[1])), X87.F32(Sub(hit.Point[2], start[2])) };
+            float[] rel = [X87.F32(Sub(hit.Point[0], start[0])), X87.F32(Sub(hit.Point[1], start[1])), X87.F32(Sub(hit.Point[2], start[2]))];
             rem -= unchecked((int)Pj.Ftol(Mul(X87.F32(Div(X87.F32(X87.Len(rel)), s0)), 1000.0f)));
             if (((uint)rem & 0x08000000u) != 0)
                 rem = 0;
@@ -1454,20 +1453,20 @@ internal sealed class Grenade : Projectile
     private bool CollideSurface(in RayHit hit, uint now)
     {
         ReadOnlySpan<float> n = hit.Normal;
-        float vn = X87.F32(X87.Dot(n, Velocity));
+        var vn = X87.F32(X87.Dot(n, Velocity));
         if (!(vn < 0.0f))
             return false;
         mContact = true;
-        float k = X87.F32(Sub(0.01f, vn));
-        float[] kn = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var k = X87.F32(Sub(0.01f, vn));
+        var kn = new float[3];
+        for (var i = 0; i < 3; ++i)
             kn[i] = X87.F32(Mul(k, n[i]));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Velocity[i] = X87.F32(Add(Velocity[i], X87.F32(Mul(kn[i], 2.0f))));
-        float e = mData.Elasticity;
+        var e = mData.Elasticity;
         if (hit.Material != null)
             e = X87.F32(Mul(mGame.Materials.ElasticityOf(hit.Material), e));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Velocity[i] = X87.F32(Mul(e, Velocity[i]));
         if (Mul(mData.MuzzleVelocity, 0.15) < (double)X87.F32(X87.Len(Velocity)))
         {
@@ -1480,7 +1479,7 @@ internal sealed class Grenade : Projectile
 
     private void Explode(uint now)
     {
-        float[] pos = { Transform.P[0], Transform.P[1], Transform.P[2] };
+        float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
         RadiusDamageAt(pos);
         mExploded = true;
         mLastSend = now;

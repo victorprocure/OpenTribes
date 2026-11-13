@@ -1,8 +1,7 @@
-using OpenTribes.Client.Shapes;
-using OpenTribes.Game;
-using OpenTribes.World;
-
 namespace OpenTribes.Client.Effects;
+
+using OpenTribes.Client.Shapes;
+using OpenTribes.World;
 
 /// <summary>The box of the part of one object, in the object's own space, as the part keeps it after 005c3b18.</summary>
 /// <param name="MinX">The frame box minimum x before the move (005ad14c).</param>
@@ -39,10 +38,10 @@ public static class PartDebris
         float x1 = Dec(mesh.Verts[b], f.Sx, f.Ox), y1 = Dec(mesh.Verts[b + 1], f.Sy, f.Oy), z1 = Dec(mesh.Verts[b + 2], f.Sz, f.Oz);
         float cx = (x0 + x1) * 0.5f, cy = (y0 + y1) * 0.5f, cz = (z0 + z1) * 0.5f;
         float nx0 = x0 - cx, ny0 = y0 - cy, nz0 = z0 - cz, nx1 = x1 - cx, ny1 = y1 - cy, nz1 = z1 - cz;
-        Span<float> size = stackalloc float[3] { nx1 - nx0, ny1 - ny0, nz1 - nz0 };
-        float r = X87.Lenf(size) * 0.5f;
+        Span<float> size = [nx1 - nx0, ny1 - ny0, nz1 - nz0];
+        var r = X87.Lenf(size) * 0.5f;
         return new PartBox(x0, y0, z0, x1, y1, z1, cx, cy, cz, r, (nx0 + nx1) * 0.5f, (ny0 + ny1) * 0.5f, (nz0 + nz1) * 0.5f);
     }
 
-    private static float Dec(byte v, float scale, float origin) => (float)(v * (double)scale + origin);
+    private static float Dec(byte v, float scale, float origin) => (float)((v * (double)scale) + origin);
 }

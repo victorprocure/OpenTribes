@@ -25,7 +25,7 @@ public sealed class DemoRecord
     /// <summary>The raw kind byte.</summary>
     public byte KindByte;
     /// <summary>The packet bytes of a packet record.</summary>
-    public byte[] Packet = Array.Empty<byte>();
+    public byte[] Packet = [];
     /// <summary>The move of a move record.</summary>
     public Move Move = new();
     /// <summary>The value of an action record.</summary>
@@ -43,7 +43,7 @@ public sealed class DemoFile
     /// <summary>The server id of the header.</summary>
     public uint ServerId;
     /// <summary>The records in file order.</summary>
-    public readonly List<DemoRecord> Records = new();
+    public readonly List<DemoRecord> Records = [];
     /// <summary>True when the file ended with the 0xffffffff end record.</summary>
     public bool Complete;
     /// <summary>The number of packet records.</summary>
@@ -59,15 +59,16 @@ public sealed class DemoFile
     public static DemoFile Parse(byte[] data)
     {
         var d = new DemoFile();
-        int p = 0;
-        uint U32() { uint v = BitConverter.ToUInt32(data, p); p += 4; return v; }
+        var p = 0;
+        uint U32()
+        { var v = BitConverter.ToUInt32(data, p); p += 4; return v; }
         if (data.Length < 8)
             throw new InvalidDataException("demo shorter than its header");
         d.ClientId = U32();
         d.ServerId = U32();
         while (p + 4 <= data.Length)
         {
-            uint time = U32();
+            var time = U32();
             if (time == 0xffffffffu)
             {
                 d.Complete = true;
@@ -75,7 +76,7 @@ public sealed class DemoFile
             }
             if (p >= data.Length)
                 break;
-            byte kind = data[p++];
+            var kind = data[p++];
             var rec = new DemoRecord { Time = time, KindByte = kind };
             if (kind == 0xff)
             {
@@ -90,7 +91,7 @@ public sealed class DemoFile
             }
             else if (kind == 0x01)
             {
-                byte sub = data[p++];
+                var sub = data[p++];
                 if (sub == 1)
                 {
                     // 32 byte raw Move: 4 x f32 axes, jet/crouch/jump/fire bytes, i32 useItem, f32 turn, f32 pitch.

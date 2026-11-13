@@ -1,8 +1,8 @@
+namespace OpenTribes.Client.Effects;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
-
-namespace OpenTribes.Client.Effects;
 
 /// <summary>The light curve of an explosion.</summary>
 /// <param name="TimeScale">The time scale of the datablock.</param>
@@ -33,20 +33,20 @@ public readonly record struct LightCurve(double TimeScale, double Duration, doub
         float[] c0 = Colors[0], c1 = Colors[1], c2 = Colors[2];
         if (e < tA)
         {
-            double f = tA > 0 ? (tA - e) / tA : 0;
-            return Mix(c0, c1, f, (Rad[0] - Rad[1]) * f + Rad[1]);
+            var f = tA > 0 ? (tA - e) / tA : 0;
+            return Mix(c0, c1, f, ((Rad[0] - Rad[1]) * f) + Rad[1]);
         }
         if (e < tB)
         {
-            double g = tB > tA ? (tB - e) / (tB - tA) : 0;
-            return Mix(c1, c2, g, Rad[1] * g + Rad[2] * (1 - g));
+            var g = tB > tA ? (tB - e) / (tB - tA) : 0;
+            return Mix(c1, c2, g, (Rad[1] * g) + (Rad[2] * (1 - g)));
         }
-        double h = life > tB ? (life - e) / (life - tB) : 0;
+        var h = life > tB ? (life - e) / (life - tB) : 0;
         return ((float)(c2[0] * h), (float)(c2[1] * h), (float)(c2[2] * h), Rad[2] * h);
     }
 
     private static (float, float, float, double) Mix(float[] a, float[] b, double f, double rad) =>
-        ((float)(a[0] * f + b[0] * (1 - f)), (float)(a[1] * f + b[1] * (1 - f)), (float)(a[2] * f + b[2] * (1 - f)), rad);
+        ((float)((a[0] * f) + (b[0] * (1 - f))), (float)((a[1] * f) + (b[1] * (1 - f))), (float)((a[2] * f) + (b[2] * (1 - f))), rad);
 }
 
 /// <summary>A one shot shape with a life, a three phase light curve, camera facing, random spin and an optional position shift.</summary>
@@ -57,24 +57,24 @@ public sealed class ExplosionEffect : IEffect
     private readonly RenderThread mMain;
     private readonly double mX, mY, mZ, mAx, mAy, mAz, mSpin;
     private readonly bool mFace, mShift;
-    private double mAge;                       // ms
+
     /// <summary>The light curve, or null when the datablock has none.</summary>
     public readonly LightCurve? Curve;
     /// <summary>The position of the explosion.</summary>
     public (double x, double y, double z) Origin => (mX, mY, mZ);
     /// <summary>The age in milliseconds.</summary>
-    public double AgeMs => mAge;
+    public double AgeMs { get; private set; }
     /// <summary>The life in milliseconds.</summary>
     public double LifeMs { get; }
 
     /// <inheritdoc/>
-    public bool Alive => mAge < LifeMs;
+    public bool Alive => AgeMs < LifeMs;
     /// <inheritdoc/>
     public PointLight? Light
     {
         get
         {
-            if (Curve is not LightCurve c || c.At(mAge) is not (float r, float g, float b, double rad) || rad <= 0)
+            if (Curve is not LightCurve c || c.At(AgeMs) is not (float r, float g, float b, double rad) || rad <= 0)
                 return null;
             return new PointLight(mX, mY, mZ, r, g, b, c.Range * rad);
         }
@@ -93,36 +93,36 @@ public sealed class ExplosionEffect : IEffect
     public ExplosionEffect(RenderShape shape, ClientDataBlock? db, double x, double y, double z, double ax, double ay, double az, Random rng)
     {
         (mX, mY, mZ) = (x, y, z);
-        double l = Math.Sqrt(ax * ax + ay * ay + az * az);
+        var l = Math.Sqrt((ax * ax) + (ay * ay) + (az * az));
         if (l < 0.1)
             (ax, ay, az, l) = (0, 0, 1, 1);
         (mAx, mAy, mAz) = (ax / l, ay / l, az / l);
-        double ts = Db.Num(db, "timeScale", 1);
+        var ts = Db.Num(db, "timeScale", 1);
         if (ts <= 0)
             ts = 1;
         mFace = Db.Flag(db, "faceCamera");
         mShift = Db.Flag(db, "shiftPosition");
         mSpin = Db.Flag(db, "randomSpin") ? rng.NextDouble() * Math.PI * 2 : 0;
         mInst = new RenderInstance(shape);
-        int main = shape.Sequences.Length > 0 ? 0 : -1;
+        var main = shape.Sequences.Length > 0 ? 0 : -1;
         mMain = mInst.AddThread(main, 0, 0);
         mMain.TimeScale = 1 / ts;
-        int vis = shape.FindSequence("visibility");
+        var vis = shape.FindSequence("visibility");
         if (vis >= 0 && vis != main)
         {
             RenderThread v = mInst.AddThread(vis, 0, 0);
-            v.Position = 2.0 / 3 + rng.NextDouble() / 3;
+            v.Position = (2.0 / 3) + (rng.NextDouble() / 3);
             v.TimeScale = 0;
         }
-        double dur = main >= 0 ? shape.Sequences[main].Duration : 0.5;
+        var dur = main >= 0 ? shape.Sequences[main].Duration : 0.5;
         LifeMs = Math.Truncate(ts * dur * 1000);
         if (Db.Flag(db, "hasLight"))
         {
             var cols = new float[3][];
             var rad = new double[3];
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
-                cols[i] = new[] { (float)Db.Num(db, $"colors[{i}].r"), (float)Db.Num(db, $"colors[{i}].g"), (float)Db.Num(db, $"colors[{i}].b") };
+                cols[i] = [(float)Db.Num(db, $"colors[{i}].r"), (float)Db.Num(db, $"colors[{i}].g"), (float)Db.Num(db, $"colors[{i}].b")];
                 rad[i] = Db.Num(db, $"radFactors[{i}]");
             }
             Curve = new LightCurve(ts, dur, Db.Num(db, "timeZero"), Db.Num(db, "timeOne"), cols, rad, Db.Num(db, "lightRange"));
@@ -142,19 +142,19 @@ public sealed class ExplosionEffect : IEffect
         (mX, mY, mZ) = (x, y, z);
         (mAx, mAy, mAz) = (0, 0, 1);
         mInst = new RenderInstance(shape);
-        int amb = shape.FindSequence("ambient");
+        var amb = shape.FindSequence("ambient");
         mMain = mInst.AddThread(amb, 0, 0);
-        double dur = amb >= 0 ? Math.Max(shape.Sequences[amb].Duration, 1e-6) : 1;
+        var dur = amb >= 0 ? Math.Max(shape.Sequences[amb].Duration, 1e-6) : 1;
         mMain.TimeScale = dur / Math.Max(beamTime, 1e-3);
         mInst.Advance(mMain, Math.Max(elapsed, 0));
-        mAge = Math.Max(elapsed, 0) * 1000;
+        AgeMs = Math.Max(elapsed, 0) * 1000;
         LifeMs = beamTime * 1000;
     }
 
     /// <inheritdoc/>
     public void Tick(double dt)
     {
-        mAge += dt * 1000;
+        AgeMs += dt * 1000;
         mInst.Advance(dt);
     }
 
@@ -168,20 +168,24 @@ public sealed class ExplosionEffect : IEffect
         if (mFace)
         {
             double fx = ctx.Camera.X - mX, fy = ctx.Camera.Y - mY, fz = ctx.Camera.Z - mZ;
-            double l = Math.Sqrt(fx * fx + fy * fy + fz * fz);
+            var l = Math.Sqrt((fx * fx) + (fy * fy) + (fz * fz));
             if (l < 1e-6)
                 return;
-            fx /= l; fy /= l; fz /= l;
+            fx /= l;
+            fy /= l;
+            fz /= l;
             if (mShift)
             {
                 // 4.3: when the camera is in front of the hit surface (axis against the view ray) the image moves toward the camera by
                 // radius / |cos| (at most 3 radii and 0.3 of the distance), which puts the quad's plane clear of the surface.
-                double dot = -(mAx * fx + mAy * fy + mAz * fz);
+                var dot = -((mAx * fx) + (mAy * fy) + (mAz * fz));
                 if (dot < 0)
                 {
-                    double k = dot <= -1.0 / 3 ? 1 / dot : -3;
-                    double s = Math.Min(mInst.Shape.Radius * -k, l * 0.3);
-                    px += fx * s; py += fy * s; pz += fz * s;
+                    var k = dot <= -1.0 / 3 ? 1 / dot : -3;
+                    var s = Math.Min(mInst.Shape.Radius * -k, l * 0.3);
+                    px += fx * s;
+                    py += fy * s;
+                    pz += fz * s;
                 }
             }
             // The shape's +Y axis is the view ray, camera to image (4.3): the mesh depth of the cone shaped clouds (local y from -3 to +1)
@@ -204,8 +208,8 @@ public sealed class ExplosionEffect : IEffect
     {
         // local +Z along the axis: forward (local +Y) is any vector perpendicular to the axis.
         double ux = Math.Abs(mAz) < 0.99 ? 0 : 1, uy = 0, uz = Math.Abs(mAz) < 0.99 ? 1 : 0;
-        double fx = mAy * uz - mAz * uy, fy = mAz * ux - mAx * uz, fz = mAx * uy - mAy * ux;
-        double l = Math.Sqrt(fx * fx + fy * fy + fz * fz);
+        double fx = (mAy * uz) - (mAz * uy), fy = (mAz * ux) - (mAx * uz), fz = (mAx * uy) - (mAy * ux);
+        var l = Math.Sqrt((fx * fx) + (fy * fy) + (fz * fz));
         return Mathx.Basis(mX, mY, mZ, fx / l, fy / l, fz / l, mAx, mAy, mAz);
     }
 }

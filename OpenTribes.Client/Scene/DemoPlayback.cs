@@ -1,6 +1,6 @@
-using OpenTribes.Game;
-
 namespace OpenTribes.Client.Scene;
+
+using OpenTribes.Game;
 
 /// <summary>Plays a <c>.rec</c> demo: the records run through the same receive path as the network, in 32 ms client frames.</summary>
 /// <remarks>docs/client-net.md 5. Moves are appended to the PSC buffer and packets feed the ghost tables. A listener gets every decoded packet.</remarks>

@@ -4,12 +4,9 @@
 // The copy lives in a prediction world the host supplies (a GameState with the mission's terrain, interiors and shapes):
 // `CreateObject` makes it for a control ghost. The copy carries the ghost flag (GameBase.ClientSide), so the step skips
 // its server-only parts.
-using OpenTribes.Core;
-using OpenTribes.Net;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The predicted or the server state of the control object after a move.</summary>
 public sealed class PredictedState
@@ -38,7 +35,7 @@ public sealed class PredictedState
     public static PredictedState Of(GameBase o, long move)
     {
         var s = new PredictedState { Move = move, Energy = o.Energy };
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             s.Position[i] = o.Transform.P[i];
             s.Velocity[i] = o.Velocity[i];
@@ -86,19 +83,19 @@ public sealed class CorrectionRecord
         static double Dist(float[] a, float[] b)
         {
             double s = 0;
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 s += ((double)a[i] - b[i]) * ((double)a[i] - b[i]);
             return Math.Sqrt(s);
         }
         static double Angle(double a, double b)
         {
-            double d = Math.IEEERemainder(a - b, 2 * Math.PI);
+            var d = Math.IEEERemainder(a - b, 2 * Math.PI);
             return Math.Abs(d);
         }
         PosError = Server.HasPosition ? Dist(Predicted.Position, Server.Position) : 0;
         VelError = Server.HasVelocity ? Dist(Predicted.Velocity, Server.Velocity) : 0;
         RotError = 0;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             RotError = Math.Max(RotError, Angle(Predicted.Rotation[i], Server.Rotation[i]));
         PitchError = Math.Abs((double)Predicted.Pitch - Server.Pitch);
         EnergyError = Math.Abs((double)Predicted.Energy - Server.Energy);
@@ -129,13 +126,13 @@ public sealed class ClientPrediction
     /// <summary>The per-tick position delta (+0x788, docs/client-net.md 4.4.1).</summary>
     public readonly float[] TickDelta = new float[3];
     /// <summary>The corrections made so far.</summary>
-    public readonly List<CorrectionRecord> Corrections = new();
+    public readonly List<CorrectionRecord> Corrections = [];
     /// <summary>The number of steps run in all.</summary>
     public long Steps;
     /// <summary>Called for every correction.</summary>
     public Action<CorrectionRecord>? OnCorrection;
 
-    private readonly Dictionary<long, PredictedState> mHistory = new();
+    private readonly Dictionary<long, PredictedState> mHistory = [];
     private CorrectionRecord? mPending;
 
     /// <summary>Clears the prediction state.</summary>
@@ -197,11 +194,11 @@ public sealed class ClientPrediction
 
     private static Move RoundTrip(in Move m, bool towardZero)
     {
-        bool old = Fpu.TowardZero;
-        Fpu.TowardZero = towardZero;
+        var old = TowardZero;
+        TowardZero = towardZero;
         try
         {
-            byte[] buf = new byte[64];
+            var buf = new byte[64];
             var bs = new BitStream(buf, buf.Length);
             Moves.PackMove(bs, m, true, null);
             var rd = new BitStream(buf, buf.Length);
@@ -211,7 +208,7 @@ public sealed class ClientPrediction
         }
         finally
         {
-            Fpu.TowardZero = old;
+            TowardZero = old;
         }
     }
 
@@ -227,8 +224,8 @@ public sealed class ClientPrediction
     {
         m = new Move();
         index = -1;
-        int count = psc.Moves.Count;
-        long back = (long)((now - 1) >> 5) - (t >> 5);
+        var count = psc.Moves.Count;
+        var back = (long)((now - 1) >> 5) - (t >> 5);
         if (count == 30 || count <= back || back < 0)
             return false;
         index = (int)(count - 1 - back);
@@ -247,7 +244,7 @@ public sealed class ClientPrediction
         if (!psc.HasControl)
             return null;
         ClientGhost? g = psc.ControlGhost >= 0 ? world.Ghosts.Get(psc.ControlGhost) : null;
-        bool predictable = g != null && (g.Class == "Player" || g.Class == "Flier") && !(g.State.TryGetValue("dead", out object? dv) && dv is long dl && dl != 0);
+        var predictable = g != null && (g.Class == "Player" || g.Class == "Flier") && !(g.State.TryGetValue("dead", out var dv) && dv is long dl && dl != 0);
         if (g == null || !predictable)
         {
             if (Object != null)
@@ -276,10 +273,10 @@ public sealed class ClientPrediction
         rec.Server.HasVelocity = psc.ControlState.ContainsKey("vel");
         rec.Measure();
         // Older predictions are acknowledged.
-        foreach (long k in mHistory.Keys.Where(k => k < psc.LastMove).ToList())
+        foreach (var k in mHistory.Keys.Where(k => k < psc.LastMove).ToList())
             mHistory.Remove(k);
         // 4.4 step 3: buffer entry i is the move of the tick at +0x218 + 32 i.
-        SimTime = unchecked((uint)((int)((receiveTime - 1) & ~31u) - (psc.Moves.Count - 1) * 32));
+        SimTime = unchecked((uint)((int)((receiveTime - 1) & ~31u) - ((psc.Moves.Count - 1) * 32)));
         if (!Active)
             LastFrame = receiveTime;
         Active = true;
@@ -302,26 +299,26 @@ public sealed class ClientPrediction
     /// <param name="g">The ghost.</param>
     public static void SyncPlayerGhost(Player p, ClientGhost g)
     {
-        if (g.State.TryGetValue("f728", out object? r) && r is double rr)
+        if (g.State.TryGetValue("f728", out var r) && r is double rr)
             p.RechargeRate = (float)rr;
         Span<int> items = stackalloc int[8];
-        bool any = false;
-        for (int i = 0; i < 8; ++i)
+        var any = false;
+        for (var i = 0; i < 8; ++i)
         {
-            items[i] = g.State.TryGetValue("item" + i, out object? v) && v is long l ? (int)l : -1;
+            items[i] = g.State.TryGetValue("item" + i, out var v) && v is long l ? (int)l : -1;
             any |= items[i] != -1;
         }
         if (any)
             p.SetClientItems(items);
     }
 
-    private static float F(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out object? v) && v is double d ? (float)d : 0.0f;
-    private static long L(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out object? v) && v is long l ? l : 0;
+    private static float F(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out var v) && v is double d ? (float)d : 0.0f;
+    private static long L(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out var v) && v is long l ? l : 0;
 
     private static void Vec(Dictionary<string, object?> s, string k, float[] output)
     {
-        if (s.TryGetValue(k, out object? v) && v is double[] a)
-            for (int i = 0; i < 3; ++i)
+        if (s.TryGetValue(k, out var v) && v is double[] a)
+            for (var i = 0; i < 3; ++i)
                 output[i] = (float)a[i];
     }
 
@@ -332,11 +329,16 @@ public sealed class ClientPrediction
         {
             var c = new Player.ClientControl
             {
-                Yaw = F(s, "rotZ"), HasPosition = s.ContainsKey("pos"), Pitch = F(s, "pitch"), Energy = F(s, "energy"),
-                Contact = L(s, "flag1f4") != 0, Jetting = L(s, "flagfe4") != 0, Crouch = L(s, "crouchfee") != 0,
+                Yaw = F(s, "rotZ"),
+                HasPosition = s.ContainsKey("pos"),
+                Pitch = F(s, "pitch"),
+                Energy = F(s, "energy"),
+                Contact = L(s, "flag1f4") != 0,
+                Jetting = L(s, "flagfe4") != 0,
+                Crouch = L(s, "crouchfee") != 0,
                 JumpContact = (int)L(s, "fac"),
             };
-            if (s.TryGetValue("unit7", out object? u) && u is double ud)
+            if (s.TryGetValue("unit7", out var u) && u is double ud)
                 c.Traction7 = (uint)Math.Round(ud * 127.0);
             Vec(s, "pos", c.Position);
             Vec(s, "vel", c.Vel);
@@ -347,8 +349,13 @@ public sealed class ClientPrediction
         {
             var c = new Vehicle.ClientControl
             {
-                SpeedF16 = (uint)L(s, "F16"), SpeedT16 = (uint)L(s, "T16"), Energy16 = (uint)L(s, "E16"),
-                HasFlier = s.ContainsKey("L"), L = F(s, "L"), S = F(s, "S"), Landed = L(s, "landed") != 0,
+                SpeedF16 = (uint)L(s, "F16"),
+                SpeedT16 = (uint)L(s, "T16"),
+                Energy16 = (uint)L(s, "E16"),
+                HasFlier = s.ContainsKey("L"),
+                L = F(s, "L"),
+                S = F(s, "S"),
+                Landed = L(s, "landed") != 0,
             };
             Vec(s, "rot", c.Rot);
             Vec(s, "trot", c.TargetRot);
@@ -366,45 +373,42 @@ public sealed class ClientPrediction
     {
         if (!Active || Object == null)
             return 0;
-        int steps = 0;
+        var steps = 0;
         if (Object is Player p)
             steps = AdvancePlayer(p, psc, now);
         else if (Object is Flier f)
             steps = AdvanceFlier(f, psc, now);
         LastFrame = now;
-        if (mPending != null)
-        {
-            mPending.Replayed = steps;
-            mPending = null;
-        }
+        mPending?.Replayed = steps;
+        mPending = null;
         Steps += steps;
         return steps;
     }
 
     private void Record(GameBase o, ClientPsc psc, int index)
     {
-        long move = psc.FirstMove + (long)index;
+        var move = psc.FirstMove + index;
         mHistory[move] = PredictedState.Of(o, move);
     }
 
     private int AdvancePlayer(Player p, ClientPsc psc, uint now)
     {
-        int steps = 0;
+        var steps = 0;
         while ((int)(SimTime - now) < 0)
         {
-            uint next = Math.Min((SimTime + 32) & ~31u, now);
-            uint covered = next - SimTime;
+            var next = Math.Min((SimTime + 32) & ~31u, now);
+            var covered = next - SimTime;
             if ((SimTime & 31) == 0)
             {
-                float[] before = { p.Transform.P[0], p.Transform.P[1], p.Transform.P[2] };
-                if (MoveForTick(psc, SimTime, now, out Move bm, out int idx))
+                float[] before = [p.Transform.P[0], p.Transform.P[1], p.Transform.P[2]];
+                if (MoveForTick(psc, SimTime, now, out Move bm, out var idx))
                 {
                     Move m = ServerMove(bm);
                     p.LastMove = m;           // +0xff0
                     p.UpdateMove(m);          // Player_updateMove(move, 0)
                     p.UpdateAnimation(0.032f);
                     ++steps;
-                    for (int i = 0; i < 3; ++i)
+                    for (var i = 0; i < 3; ++i)
                         TickDelta[i] = X87.F32(Sub(p.Transform.P[i], before[i]));
                     Record(p, psc, idx);
                 }
@@ -429,16 +433,16 @@ public sealed class ClientPrediction
         // Flier_clientUpdate: an active or braking piloted Flier is not landed.
         if (f.Piloted && (f.ActiveFlag || f.Braking))
             f.Landed = false;
-        int steps = 0;
+        var steps = 0;
         while ((int)(SimTime - now) < 0)
         {
-            uint next = Math.Min((SimTime + 32) & ~31u, now);
-            if (MoveForTick(psc, SimTime, now, out Move bm, out int idx))
+            var next = Math.Min((SimTime + 32) & ~31u, now);
+            if (MoveForTick(psc, SimTime, now, out Move bm, out var idx))
             {
                 Move m = ServerMove(bm);
                 // Vehicle_clientUpdate: dt = covered part of the tick, in seconds (the frame may end inside a tick).
-                uint ms = ((next - 1) & 31) + 1 - (SimTime & 31);
-                float dt = (float)(ms * 0.001);
+                var ms = ((next - 1) & 31) + 1 - (SimTime & 31);
+                var dt = (float)(ms * 0.001);
                 Move mv = m;
                 f.LastMove = m;
                 f.Update(ref mv, dt);
@@ -462,7 +466,7 @@ public sealed class ClientPrediction
         if (Object is not Player p || Ghost < 0)
             return;
         ClientGhost? g = world.Ghosts.Get(Ghost);
-        if (g != null && RemoteGhosts.ParseMount(g, out int mg, out int point) && remote.RemoteMount(mg) is { } mo)
+        if (g != null && RemoteGhosts.ParseMount(g, out var mg, out var point) && remote.RemoteMount(mg) is { } mo)
         {
             if (p.MountId != mo.Id())
                 p.MountId = mo.Id();
@@ -487,8 +491,8 @@ public sealed class ClientPrediction
         var r = new float[3];
         if (Object == null)
             return r;
-        for (int i = 0; i < 3; ++i)
-            r[i] = (float)(Object.Transform.P[i] + DisplayFraction * TickDelta[i]);
+        for (var i = 0; i < 3; ++i)
+            r[i] = Object.Transform.P[i] + (DisplayFraction * TickDelta[i]);
         return r;
     }
 }

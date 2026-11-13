@@ -8,9 +8,9 @@ public interface IActionConsumer
     /// <param name="kind">The event kind: 2 for make and break events, 4 for mouse movement, 10 for POV events, else 1 (3.6 step 5).</param>
     /// <param name="value">The shaped value.</param>
     /// <returns>True when the consumer handled the action.</returns>
-    bool OnAction(int action, int kind, float value);
+    public bool OnAction(int action, int kind, float value);
     /// <summary>Gets whether the consumer is flagged as removing (flags &amp; 3): every action then counts as handled.</summary>
-    bool Removing { get; }
+    public bool Removing { get; }
 }
 
 /// <summary>The path of one device event to an action or a script call (docs/client-scripts.md 3.5 to 3.8).</summary>
@@ -24,8 +24,8 @@ public sealed class InputDispatcher
 
     /// <summary>The client state that holds the action maps.</summary>
     public readonly ClientState State;
-    private readonly List<(ActionMap Map, IActionConsumer Consumer)> mStack = new();
-    private readonly List<Held> mHeld = new();
+    private readonly List<(ActionMap Map, IActionConsumer Consumer)> mStack = [];
+    private readonly List<Held> mHeld = [];
 
     /// <summary>Gets the manager's modifier byte (3.6 step 1).</summary>
     public byte Modifiers { get; private set; }
@@ -52,7 +52,13 @@ public sealed class InputDispatcher
     /// <returns>The modifier bit, 0 for other keys.</returns>
     public static byte ModifierBit(int scan) => scan switch
     {
-        0x2a => 1, 0x36 => 2, 0x1d => 4, 0x9d => 8, 0x38 => 16, 0xb8 => 32, _ => 0,
+        0x2a => 1,
+        0x36 => 2,
+        0x1d => 4,
+        0x9d => 8,
+        0x38 => 16,
+        0xb8 => 32,
+        _ => 0,
     };
 
     /// <summary>Gets the character of a key (3.4 InputKey_characterFor).</summary>
@@ -77,8 +83,8 @@ public sealed class InputDispatcher
     public static bool GroupMatches(int binding, int ev) => binding switch
     {
         0 => ev == 0,
-        1 => ev == 1 || ev == 3,
-        2 => ev == 2 || ev == 3,
+        1 => ev is 1 or 3,
+        2 => ev is 2 or 3,
         _ => ev is 1 or 2 or 3,
     };
 
@@ -99,12 +105,12 @@ public sealed class InputDispatcher
     {
         if (b.DeviceType != ev.DeviceType || b.DeviceInst != ev.DeviceInst)
             return false;
-        bool modAlone = b.DeviceType == 3 && b.ObjType == 10 && b.ObjInst == 0 && b.Modifiers != 0 && (b.Action == 1 || b.Action == 2);
+        var modAlone = b.DeviceType == 3 && b.ObjType == 10 && b.ObjInst == 0 && b.Modifiers != 0 && (b.Action == 1 || b.Action == 2);
         if (modAlone)
         {
             if (ev.ObjType != 10 || ev.Action != b.Action)
                 return false;
-            byte bit = ModifierBit(ev.ObjInst);
+            var bit = ModifierBit(ev.ObjInst);
             return bit != 0 && (b.Modifiers & bit) != 0;
         }
         if (b.ObjType != ev.ObjType || b.ObjInst != ev.ObjInst)
@@ -129,13 +135,13 @@ public sealed class InputDispatcher
     {
         if ((b.Flags & ActionBinding.Value) != 0)
             return b.ValueF;
-        float v = input;
-        bool center = (b.Flags & ActionBinding.Center) != 0;
+        var v = input;
+        var center = (b.Flags & ActionBinding.Center) != 0;
         if (center && !mouse)
-            v = 1f - 2f * v;
+            v = 1f - (2f * v);
         if ((b.Flags & ActionBinding.DeadZone) != 0)
         {
-            float d = b.DeadZoneF;
+            var d = b.DeadZoneF;
             if (v <= 0f)
                 v = v <= -d ? (v + d) / (1f - d) : 0f;
             else
@@ -145,7 +151,7 @@ public sealed class InputDispatcher
             v = !center && !mouse ? 1f - v : -v;
         if ((b.Flags & ActionBinding.Square) != 0)
         {
-            bool neg = v < 0f;
+            var neg = v < 0f;
             v *= v;
             if (neg)
                 v = -v;
@@ -159,7 +165,7 @@ public sealed class InputDispatcher
 
     private static int KindOf(in InputEvent ev)
     {
-        if (ev.Action == 1 || ev.Action == 2)
+        if (ev.Action is 1 or 2)
             return 2;
         if (ev.DeviceType == 2 && ev.Action == 3)
             return 4;
@@ -240,8 +246,8 @@ public sealed class InputDispatcher
     /// <returns>True when something handled the event.</returns>
     public bool Process(InputEvent ev, float value)
     {
-        bool isKey = ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10;
-        char ch = '\0';
+        var isKey = ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10;
+        var ch = '\0';
         // 1: modifier state; the modifier key's own event carries 0, every other event the current byte.
         if (isKey && (ev.Action == 1 || ev.Action == 2) && ModifierBit(ev.ObjInst) is byte bit && bit != 0)
         {
@@ -254,7 +260,7 @@ public sealed class InputDispatcher
             ch = CharacterFor(ev.ObjInst, Modifiers);
 
         // 3: a break whose make is held goes straight to the maps; everything else is offered to the GUI first.
-        bool heldBreak = ev.Action == 2 && FindHeld(ev) != null;
+        var heldBreak = ev.Action == 2 && FindHeld(ev) != null;
         if (!heldBreak && OfferToGui != null && OfferToGui(ev, value, ch))
             return true;
 
@@ -309,8 +315,8 @@ public sealed class InputDispatcher
                 Eval(b.Command);
                 return true;
             }
-            float v = ShapeValue(b, value, ev.DeviceType == 2);
-            bool r = consumer.OnAction(b.Action, KindOf(ev), v);
+            var v = ShapeValue(b, value, ev.DeviceType == 2);
+            var r = consumer.OnAction(b.Action, KindOf(ev), v);
             if (consumer.Removing || r)
                 return true;
         }
@@ -331,19 +337,19 @@ public static class ScanCodeMap
     /// <returns>The key code, 0 when the key has no code.</returns>
     public static int FromSdl(int sdl)
     {
-        if (sdl >= 4 && sdl <= 29)          // A..Z
+        if (sdl is >= 4 and <= 29)          // A..Z
             return kLetters[sdl - 4];
-        if (sdl >= 30 && sdl <= 38)         // 1..9
+        if (sdl is >= 30 and <= 38)         // 1..9
             return 2 + (sdl - 30);
         if (sdl == 39)
             return 0x0b;                    // 0
-        if (sdl >= 58 && sdl <= 67)         // F1..F10
+        if (sdl is >= 58 and <= 67)         // F1..F10
             return 0x3b + (sdl - 58);
-        if (sdl >= 89 && sdl <= 91)         // keypad 1 2 3
+        if (sdl is >= 89 and <= 91)         // keypad 1 2 3
             return 0x4f + (sdl - 89);
-        if (sdl >= 92 && sdl <= 94)         // keypad 4 5 6
+        if (sdl is >= 92 and <= 94)         // keypad 4 5 6
             return 0x4b + (sdl - 92);
-        if (sdl >= 95 && sdl <= 97)         // keypad 7 8 9
+        if (sdl is >= 95 and <= 97)         // keypad 7 8 9
             return 0x47 + (sdl - 95);
         return sdl switch
         {
@@ -408,8 +414,8 @@ public static class ScanCodeMap
 
     // A..Z in SDL order to the key codes: Q W E R T Y U I O P = 0x10.., A S D F G H J K L = 0x1e.., Z X C V B N M = 0x2c..
     private static readonly int[] kLetters =
-    {
+    [
         0x1e, 0x30, 0x2e, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,   // A B C D E F G H I J K L M
         0x31, 0x18, 0x19, 0x10, 0x13, 0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c,   // N O P Q R S T U V W X Y Z
-    };
+    ];
 }

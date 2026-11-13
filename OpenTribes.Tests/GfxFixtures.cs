@@ -1,8 +1,8 @@
 // Synthetic graphics files for the renderer tests (R5, R9): every byte is built here from docs/renderer.md section 2.
+namespace OpenTribes.Tests;
+
 using System.Text;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Tests;
 
 internal static class GfxFixtures
 {
@@ -21,9 +21,9 @@ internal static class GfxFixtures
     public static byte[] Dwords(params uint[] v)
     {
         var b = new List<byte>();
-        foreach (uint x in v)
+        foreach (var x in v)
             U32(b, x);
-        return b.ToArray();
+        return [.. b];
     }
 
     // 2.2.1: PBMP with head and the chunks given. `count` defaults to the number of chunks after head.
@@ -47,7 +47,7 @@ internal static class GfxFixtures
         Chunk(b, "head", Dwords(count ?? (uint)chunks.Count, (uint)w, (uint)h, 8, attrs));
         foreach (var (t, body) in chunks)
             Chunk(b, t, body);
-        return b.ToArray();
+        return [.. b];
     }
 
     // 2.5: RIFF PAL form with `n` entries, color i = (i, 2 i, 3 i, flags).
@@ -56,17 +56,17 @@ internal static class GfxFixtures
         var data = new List<byte>();
         U16(data, 0x0300);
         U16(data, (ushort)n);
-        for (int i = 0; i < n; ++i)
+        for (var i = 0; i < n; ++i)
             data.AddRange(new[] { (byte)i, (byte)(2 * i), (byte)(3 * i), flags });
         var form = new List<byte>();
         Tag(form, "PAL ");
-        Chunk(form, "data", data.ToArray());
+        Chunk(form, "data", [.. data]);
         if (withExtra)
-            foreach (string t in new[] { "offl", "tran", "unde" })
+            foreach (var t in new[] { "offl", "tran", "unde" })
                 Chunk(form, t, new byte[32]);
         var b = new List<byte>();
-        Chunk(b, "RIFF", form.ToArray());
-        return b.ToArray();
+        Chunk(b, "RIFF", [.. form]);
+        return [.. b];
     }
 
     // 2.3: PBMA of PBMP chunks, with optional user and rmap chunks.
@@ -84,7 +84,7 @@ internal static class GfxFixtures
             Chunk(body, "rmap", Dwords(rmap));
             ++n;
         }
-        foreach (byte[] bmp in bitmaps)
+        foreach (var bmp in bitmaps)
         {
             body.AddRange(bmp);
             ++n;
@@ -94,7 +94,7 @@ internal static class GfxFixtures
         U32(b, 0x77777);
         Chunk(b, "head", Dwords(count ?? n, (uint)bitmaps.Count));
         b.AddRange(body);
-        return b.ToArray();
+        return [.. b];
     }
 
     // 2.4: PL98 set. Subpalette k has color i = (i, k, seed, k) and the id and kind given. The map blob lists the
@@ -108,38 +108,38 @@ internal static class GfxFixtures
         U32(b, shadeBits);
         U32(b, hazeSteps);
         U32(b, hazeColor);
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
             U32(b, i == 0 ? 0xFFFFFFFF : 0);
-        for (int k = 0; k < pals.Length; ++k)
+        for (var k = 0; k < pals.Length; ++k)
         {
-            for (int i = 0; i < 256; ++i)
+            for (var i = 0; i < 256; ++i)
                 b.AddRange(new[] { (byte)i, (byte)k, (byte)0x55, (byte)k });
             U32(b, pals[k].id);
             U32(b, pals[k].kind);
         }
-        int shadeSteps = 1 << (int)shadeBits;
+        var shadeSteps = 1 << (int)shadeBits;
         foreach (var (_, kind) in pals)
         {
             if (kind == 1)
-                for (int i = 0; i < shadeSteps * 256 * (hazeSteps + 1); ++i)
+                for (var i = 0; i < shadeSteps * 256 * (hazeSteps + 1); ++i)
                     b.Add((byte)(i * 7));
             else if (kind is 2 or 6 or 8)
                 b.AddRange(new byte[65536]);
         }
-        for (int k = 0; k < pals.Length; ++k)
+        for (var k = 0; k < pals.Length; ++k)
         {
             if (pals[k].kind is not (1 or 2 or 6 or 8))
                 continue;
-            for (int i = 0; i < 256; ++i)
+            for (var i = 0; i < 256; ++i)
                 b.Add((byte)i);
-            for (int m = 0; m < 4; ++m)
-                for (int i = 0; i < 256; ++i)
-                    b.AddRange(BitConverter.GetBytes((k * 4 + m) / 100f + i / 1000f));
+            for (var m = 0; m < 4; ++m)
+                for (var i = 0; i < 256; ++i)
+                    b.AddRange(BitConverter.GetBytes((((k * 4) + m) / 100f) + (i / 1000f)));
         }
         if (weights)
         {
             b.Add(1);
-            for (int i = 0; i < 256; ++i)
+            for (var i = 0; i < 256; ++i)
                 b.AddRange(BitConverter.GetBytes(i * 0.5f));
             U32(b, 12);
             U32(b, 34);
@@ -147,7 +147,7 @@ internal static class GfxFixtures
         else
             b.Add(0);
         U32(b, 0);
-        return b.ToArray();
+        return [.. b];
     }
 
     // 2.6: PFON font. Glyph g (0..n-1) is the character `offset + g` unless `lookup` says otherwise.
@@ -159,29 +159,29 @@ internal static class GfxFixtures
         Tag(b, "PFON");
         U32(b, 0);
         U32(b, 2);
-        foreach (uint v in new uint[]
+        foreach (var v in new uint[]
                  { flags, justification, (uint)glyphs.Length, cellH, cellW, 255, 0, baseline, (uint)scale, (uint)scale, (uint)spacing })
             U32(b, v);
         U16(b, (ushort)lookup.Length);
         U16(b, lookupOffset);
-        foreach (short l in lookup)
+        foreach (var l in lookup)
             U16(b, (ushort)l);
-        foreach (var g in glyphs)
-            b.AddRange(new[] { g.sheet, g.x, g.y, g.w, g.h, (byte)g.bl, (byte)0, (byte)0 });
+        foreach (var (sheet, x, y, w, h, bl) in glyphs)
+            b.AddRange(new[] { sheet, x, y, w, h, (byte)bl, (byte)0, (byte)0 });
         b.AddRange(sheets);
         U32(b, 0);
-        return b.ToArray();
+        return [.. b];
     }
 
     // 2.2.4: classic Windows bitmap. Rows are given top-first and stored bottom-up when `bottomUp`.
     public static byte[] WindowsBmp(int w, int h, int bits, byte[] topDownRows, bool bottomUp, byte[]? bgra = null,
                                     ushort res1 = 0, ushort res2 = 0)
     {
-        int stride = ((w * bits / 8) + 3) & ~3;
-        int palBytes = bits == 8 ? 1024 : 0;
+        var stride = ((w * bits / 8) + 3) & ~3;
+        var palBytes = bits == 8 ? 1024 : 0;
         var b = new List<byte>();
         Tag(b, "BM");
-        U32(b, (uint)(14 + 40 + palBytes + stride * h));
+        U32(b, (uint)(14 + 40 + palBytes + (stride * h)));
         U16(b, res1);
         U16(b, res2);
         U32(b, (uint)(14 + 40 + palBytes));
@@ -198,12 +198,12 @@ internal static class GfxFixtures
         U32(b, 0);
         if (bits == 8)
             b.AddRange(bgra ?? new byte[1024]);
-        for (int y = 0; y < h; ++y)
+        for (var y = 0; y < h; ++y)
         {
-            int sy = bottomUp ? h - 1 - y : y;
+            var sy = bottomUp ? h - 1 - y : y;
             b.AddRange(topDownRows.AsSpan(sy * stride, stride).ToArray());
         }
-        return b.ToArray();
+        return [.. b];
     }
 
     public static byte[] Pad4(byte[] d)
@@ -211,12 +211,12 @@ internal static class GfxFixtures
         var l = new List<byte>(d);
         while (l.Count % 4 != 0)
             l.Add(0);
-        return l.ToArray();
+        return [.. l];
     }
 
     public static PbmpBitmap Bitmap(byte[] bytes, bool palette = false)
     {
-        Assert.True(PbmpBitmap.TryParse(bytes, palette, out PbmpBitmap? bmp, out string err), err);
+        Assert.True(PbmpBitmap.TryParse(bytes, palette, out PbmpBitmap? bmp, out var err), err);
         return bmp!;
     }
 }

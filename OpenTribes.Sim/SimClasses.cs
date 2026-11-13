@@ -1,7 +1,7 @@
+namespace OpenTribes.Sim;
+
 using OpenTribes.Core;
 using OpenTribes.World;
-
-namespace OpenTribes.Sim;
 
 /// <summary>The game-layer services that GameBase objects use while they register (docs/mission.md 3.2).</summary>
 /// <remarks>Port of src/sim/sim_classes.hpp GameServices. GameBase and SimPathObject are classes of src/game (project OpenTribes.Game), so the members that take them take their <see cref="SimObject"/> base here.</remarks>
@@ -247,8 +247,8 @@ public sealed class SimTimerSet : SimSet
     // callback are notified in the same pass; a removal moves the last member into the freed slot (GS4).
     private void Fire()
     {
-        float now = Manager()!.Time();
-        for (int i = 0; i < Members().Count; ++i)
+        var now = Manager()!.Time();
+        for (var i = 0; i < Members().Count; ++i)
             Members()[i].OnTimerEvent(now, mFixed, mInterval);
         Post();
     }
@@ -284,12 +284,12 @@ public static class SimClasses
     {
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < a.Length; ++i)
+        for (var i = 0; i < a.Length; ++i)
         {
             char x = a[i], y = b[i];
-            if (x >= 'A' && x <= 'Z')
+            if (x is >= 'A' and <= 'Z')
                 x = (char)(x + 32);
-            if (y >= 'A' && y <= 'Z')
+            if (y is >= 'A' and <= 'Z')
                 y = (char)(y + 32);
             if (x != y)
                 return false;
@@ -528,8 +528,8 @@ public static class SimClasses
 
     // src/sim/sim_classes.cpp registry: script-creatable classes implemented so far. Mission object classes are
     // registered by the game layer (MissionClasses.Register in OpenTribes.Game).
-    private static readonly List<ClassEntry> sRegistry = new()
-    {
+    private static readonly List<ClassEntry> sRegistry =
+    [
         new() { Name = "SimSet", Make = Plain(() => new SimSet()) },
         new() { Name = "SimGroup", Make = Plain(() => new SimGroup()) },
         new() { Name = "SimVolume", Make = c => new SimVolume(c.Resources) },
@@ -546,11 +546,11 @@ public static class SimClasses
         // MEObjectList kills the original when it is created (D28): registration fails here.
         new() { Name = "MEObjectList", Make = Plain(() => new FailingClass("MEObjectList", FailingClass.Mode.Register)) },
         new() { Name = "FearGui::ServerListCtrl", Make = Plain(() => new GuiServerList("FearGui::ServerListCtrl")) },
-    };
+    ];
 
     // src/sim/gui_classes.inc: the GUI and editor classes a dedicated server can create (docs/sim.md 6.2, Q5).
     private static readonly string[] sGuiControls =
-    {
+    [
         "CenterPrint", "FearGui::CFGButton", "FearGui::CMDObserve",
         "FearGui::ClockHud", "FearGui::ColumnListCtrl", "FearGui::CommandItemCtrl",
         "FearGui::CommandTeamCtrl", "FearGui::CommandTurretCtrl", "FearGui::CompassHud",
@@ -592,29 +592,29 @@ public static class SimClasses
         "SimGui::TestButton", "SimGui::TestCheck", "SimGui::TestControl",
         "SimGui::TestRadial", "SimGui::TextEdit", "SimGui::TextFormat",
         "SimGui::TextList", "SimGui::TextWrap", "SimGui::TimerCtrl",
-    };
+    ];
 
     private static readonly string[] sGuiScrollControls =
-    {
+    [
         "FearGui::FearGuiScrollCtrl", "FearGui::FGHudMatrix", "SimGui::MatrixCtrl",
         "SimGui::ScrollCtrl",
-    };
+    ];
 
     private static readonly string[] sGuiDelegates =
-    {
+    [
         "SimGui::ConnectDelegate", "SimGui::CreateServerDelegate", "SimGui::IRCChatDelegate",
         "SimGui::JoinGameDelegate", "SimGui::MainMenuDelegate", "SimGui::OptionsDelegate",
         "SimGui::playDelegate", "SimGui::PlayerSetupDelegate", "SimGui::quitDelegate",
         "SimGui::RecordingsDelegate",
-    };
+    ];
 
     static SimClasses()
     {
-        foreach (string name in sGuiControls)
+        foreach (var name in sGuiControls)
             sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiGroup(name)) });
-        foreach (string name in sGuiScrollControls)
+        foreach (var name in sGuiScrollControls)
             sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiScrollGroup(name)) });
-        foreach (string name in sGuiDelegates)
+        foreach (var name in sGuiDelegates)
             sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiDelegate(name)) });
     }
 

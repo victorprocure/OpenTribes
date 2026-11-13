@@ -1,11 +1,9 @@
 // PartDebris radius, end and split (docs/shapes-render.md 4.4): loadShape 0047603c, part box 005c3b18 / 005ad14c, end of a piece 004762e0,
 // split cloud 004764f8 / 004765c0, row choice 00475edc, part split 005c4060 / 005c41ac.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Shapes;
-using OpenTribes.Game;
-using Xunit;
-
-namespace OpenTribes.Tests;
 
 public class PartDebrisTests
 {
@@ -15,14 +13,16 @@ public class PartDebrisTests
         var m = new RsMesh();
         var verts = new List<byte>();
         var fr = new List<RsFrame>();
-        foreach (var f in frames)
+        foreach (var (v0, v1, scale, origin) in frames)
         {
-            fr.Add(new RsFrame { FirstVert = verts.Count / 4, Sx = f.scale[0], Sy = f.scale[1], Sz = f.scale[2], Ox = f.origin[0], Oy = f.origin[1], Oz = f.origin[2] });
-            verts.AddRange(f.v0); verts.Add(0);
-            verts.AddRange(f.v1); verts.Add(0);
+            fr.Add(new RsFrame { FirstVert = verts.Count / 4, Sx = scale[0], Sy = scale[1], Sz = scale[2], Ox = origin[0], Oy = origin[1], Oz = origin[2] });
+            verts.AddRange(v0);
+            verts.Add(0);
+            verts.AddRange(v1);
+            verts.Add(0);
         }
-        m.Verts = verts.ToArray();
-        m.Frames = fr.ToArray();
+        m.Verts = [.. verts];
+        m.Frames = [.. fr];
         return m;
     }
 
@@ -42,7 +42,7 @@ public class PartDebrisTests
     public void BoxIsReadAtTheObjectsCurrentFrameAndTheCentreIsTheMiddleOfIt() // 005ad14c, 005c3b18
     {
         var m = Mesh((new byte[] { 0, 0, 0 }, new byte[] { 200, 100, 50 }, new[] { 0.01f, 0.01f, 0.01f }, new[] { -1f, -0.5f, -0.25f }),
-                     (new byte[] { 10, 20, 30 }, new byte[] { 110, 220, 130 }, new[] { 0.02f, 0.01f, 0.05f }, new[] { 1f, 2f, 3f }));
+                     (new byte[] { 10, 20, 30 }, "n܂"u8.ToArray(), new[] { 0.02f, 0.01f, 0.05f }, new[] { 1f, 2f, 3f }));
         PartBox b = PartDebris.Measure(m, 1);
         Assert.Equal((1.2f, 2.2f, 4.5f), (b.MinX, b.MinY, b.MinZ));
         Assert.Equal((3.2f, 4.2f, 9.5f), (b.MaxX, b.MaxY, b.MaxZ), new BoxComparer());

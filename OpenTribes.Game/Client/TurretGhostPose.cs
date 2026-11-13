@@ -50,21 +50,21 @@ public sealed class TurretGhostPose
 
     private void Set(double pos)
     {
-        bool cyclic = OnFire ? mFireCyclic : mPowerCyclic;
+        var cyclic = OnFire ? mFireCyclic : mPowerCyclic;
         Position = Normalise(pos, cyclic);
     }
 
     private static double Normalise(double p, bool cyclic)
     {
-        if (p < 0 || p > 1)
+        if (p is < 0 or > 1)
             return cyclic ? p - Math.Floor(p) : Math.Clamp(p, 0, 1);
         return p;
     }
 
     private void Advance(double dt)
     {
-        double dur = OnFire ? mFireDuration : mPowerDuration;
-        Set(Position + dt / dur);
+        var dur = OnFire ? mFireDuration : mPowerDuration;
+        Set(Position + (dt / dur));
     }
 
     // Turret_setPowerSequence: the thread takes `power` and keeps its position.
@@ -145,10 +145,10 @@ public sealed class TurretGhostPose
             PowerSound = -1;
         if (Rotation != 0)
         {
-            double local = Rotation;
+            var local = Rotation;
             while (local > Math.PI)
                 local -= TwoPi;
-            double step = mSpeed * dt;
+            var step = mSpeed * dt;
             if (local > 0)
             {
                 Rotation -= step;

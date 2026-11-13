@@ -1,9 +1,9 @@
 // Port of src/game/ai_manager.hpp (AIManager, aiSolveAim) and src/game/ai_manager.cpp: the AI manager (object 726) and
 // the pre-tick, post-tick and engage routines of the AI object (docs/ai-sim.md 1.6, 3.4, 3.7, 3.8, 4). The Chop class of
 // the file is X87.Chop; world::x87::f32 is X87.F32, the long double arithmetic the Fpu double operations in C++ order.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public sealed partial class AIObject
 {
@@ -44,7 +44,7 @@ public sealed partial class AIObject
             Flags |= 1;
             Callback(null, 0);
             RemoveVariables();
-            string buf = "Corpse" + CorpseCounterNext().ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + AiName;
+            var buf = "Corpse" + CorpseCounterNext().ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + AiName;
             if (buf.Length > 159)
                 buf = buf[..159]; // snprintf into 160 bytes
             AiName = buf.Length > 31 ? buf[..31] : buf;
@@ -82,14 +82,14 @@ public sealed partial class AIObject
         if (WeaponSpeed())
         {
             Span<float> rel = stackalloc float[3];
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 rel[i] = X87.F32(Sub(target.Velocity[i], self.Velocity[i]));
             PointOf(Game, target, tp);
-            float dist = Dist3(Frame.Own, tp);
-            float t = X87.F32(Div(dist, ProjectileSpeed));
-            for (int i = 0; i < 3; ++i)
+            var dist = Dist3(Frame.Own, tp);
+            var t = X87.F32(Div(dist, ProjectileSpeed));
+            for (var i = 0; i < 3; ++i)
             {
-                float r = X87.F32(Mul(rel[i], t));
+                var r = X87.F32(Mul(rel[i], t));
                 aim[i] = X87.F32(Add(r, tp[i]));
             }
         }
@@ -99,7 +99,7 @@ public sealed partial class AIObject
         }
         Span<float> err = stackalloc float[3];
         AimError(target, null, err);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             aim[i] = X87.F32(Add(err[i], aim[i]));
         YawError ye = SteerYaw(aim);
         if (ye.Abs < 0.08f)
@@ -119,23 +119,23 @@ public sealed partial class AIObject
         }
         else if (AttackMode == 0)
         {
-            float[] P = new float[3];
+            var P = new float[3];
             PointOf(Game, target, P);
             if (Dist2(P, Frame.Own) < 17.0f)
             {
-                float[] v = new float[3];
-                for (int i = 0; i < 3; ++i)
+                var v = new float[3];
+                for (var i = 0; i < 3; ++i)
                     v[i] = X87.F32(Sub(P[i], Frame.Own[i]));
-                float len = X87.F32(X87.Len(v));
-                float k = X87.F32(Div(1.0f, len));
-                for (int i = 0; i < 3; ++i)
+                var len = X87.F32(X87.Len(v));
+                var k = X87.F32(Div(1.0f, len));
+                for (var i = 0; i < 3; ++i)
                     v[i] = X87.F32(Mul(k, v[i]));
                 const float neg = -17.0f;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     v[i] = X87.F32(Mul(neg, v[i]));
                 Span<float> P2 = stackalloc float[3];
                 PointOf(Game, target, P2);
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     P[i] = X87.F32(Add(P2[i], v[i]));
             }
             MoveTowardKeepTurn(P);
@@ -161,8 +161,8 @@ public sealed partial class AIObject
     private void EngageLaser(AIDirective d)
     {
         SimManager? m = Game.Sim?.Server();
-        bool moveAfter = AttackMode == 1 && Frame.HasMoveTarget;
-        bool aimed = false;
+        var moveAfter = AttackMode == 1 && Frame.HasMoveTarget;
+        var aimed = false;
         Player? owner = AIMath.PlayerOfRep(Game, d.Client);
         Player? self = Player();
         if (m != null && self != null && WeaponSpeed())
@@ -173,17 +173,17 @@ public sealed partial class AIObject
             SimSet? members = set?.AsSet();
             if (block != null && owner != null && members != null)
             {
-                int group = slot.Info.ProjGroup;
-                float totalTime = Pj.Real(block, "totalTime", 10000.0f);
-                for (int i = 0; i < members.Members().Count; ++i)
+                var group = slot.Info.ProjGroup;
+                var totalTime = Pj.Real(block, "totalTime", 10000.0f);
+                for (var i = 0; i < members.Members().Count; ++i)
                 {
                     Projectile? pr = Projectile.From(members.Members()[i]);
                     if (pr == null || pr.Shooter() != owner)
                         continue;
-                    float[] point = new float[3];
+                    var point = new float[3];
                     if (!pr.BeamTargetPoint(point, out _))
                         continue;
-                    float g = 0.0f;
+                    var g = 0.0f;
                     foreach (Player.Force f in self.Forces())
                         if (f.Type == 1)
                         {
@@ -195,14 +195,14 @@ public sealed partial class AIObject
                     float[] low = new float[3], high = new float[3];
                     if (!AIAim.AiSolveAim(group, ProjectileSpeed, totalTime, eye.P, point, false, g, ref ok1, low))
                         continue;
-                    float[] use = high;
+                    var use = high;
                     if (!AIAim.AiSolveAim(group, ProjectileSpeed, totalTime, eye.P, point, true, g, ref ok2, high) || !ok2)
                     {
                         if (!ok1)
                             break;
                         use = low;
                     }
-                    float[] aim = new float[3];
+                    var aim = new float[3];
                     AIAim.LaserAimPoint(eye.P, use, aim);
                     Flags |= 4;
                     YawError ye = SteerYaw(aim);
@@ -231,7 +231,7 @@ public static class AIAim
     /// <remarks>Follows 0x0043cec0 to 0x0043cf13 (docs/ai-sim.md 12.5). <c>dir x 50</c> is stored as a Point3F first, then the eye is added, so each component is rounded twice.</remarks>
     public static void LaserAimPoint(ReadOnlySpan<float> eye, ReadOnlySpan<float> dir, Span<float> aim)
     {
-        for (int k = 0; k < 3; ++k)
+        for (var k = 0; k < 3; ++k)
             aim[k] = X87.F32(Add(eye[k], X87.F32(Mul(dir[k], 50.0f))));
     }
 
@@ -254,11 +254,11 @@ public static class AIAim
             return false;
         static float Straight(ReadOnlySpan<float> s, ReadOnlySpan<float> t, Span<float> dir)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 dir[i] = X87.F32(Sub(t[i], s[i]));
-            float len = X87.F32(X87.Len(dir));
-            float k = X87.F32(Div(1.0f, X87.F32(X87.Len(dir))));
-            for (int i = 0; i < 3; ++i)
+            var len = X87.F32(X87.Len(dir));
+            var k = X87.F32(Div(1.0f, X87.F32(X87.Len(dir))));
+            for (var i = 0; i < 3; ++i)
                 dir[i] = X87.F32(Mul(k, dir[i]));
             return len;
         }
@@ -266,20 +266,20 @@ public static class AIAim
         if (group != Projectile.kGrenadeGroup)
         {
             len = Straight(s, t, dir);
-            ok = group == Projectile.kBulletGroup || group == Projectile.kRocketGroup ? Mul(speed, totalTime) > len : true;
+            ok = group is not Projectile.kBulletGroup and not Projectile.kRocketGroup || Mul(speed, totalTime) > len;
             return true;
         }
         // 0x0045ed40 (fastcall: datablock, start, target; arc, ok, dir, force on the stack).
-        float dz = X87.F32(Sub(t[2], s[2]));
+        var dz = X87.F32(Sub(t[2], s[2]));
         double dx = Sub(t[0], s[0]), dy = Sub(t[1], s[1]);
-        float h2 = X87.F32(Add(Mul(dx, dx), Mul(dy, dy)));
-        float v2 = X87.F32(Mul(speed, speed));
-        double A = Add(Mul(dz, g), v2);
-        double B = Add(Div(Mul(dz, dz), h2), 1.0);
-        double t1 = Mul(B, g);
+        var h2 = X87.F32(Add(Mul(dx, dx), Mul(dy, dy)));
+        var v2 = X87.F32(Mul(speed, speed));
+        var A = Add(Mul(dz, g), v2);
+        var B = Add(Div(Mul(dz, dz), h2), 1.0);
+        var t1 = Mul(B, g);
         t1 = Mul(t1, g);
         t1 = Mul(t1, h2);
-        float D = X87.F32(Sub(Mul(A, A), t1));
+        var D = X87.F32(Sub(Mul(A, A), t1));
         if (D < 0.0f)
         {
             Straight(s, t, dir);
@@ -288,42 +288,42 @@ public static class AIAim
         }
         if (D < 1.0f && high)
             return false;
-        float S = high ? -1.0f : 1.0f;
-        double root = Sqrt(D);
-        double num = Mul(S, root);
+        var S = high ? -1.0f : 1.0f;
+        var root = Sqrt(D);
+        var num = Mul(S, root);
         num = Add(Add(Mul(dz, g), v2), num);
-        float Q = X87.F32(Div(num, Mul(Add(Div(Mul(dz, dz), h2), 1.0), 2.0)));
+        var Q = X87.F32(Div(num, Mul(Add(Div(Mul(dz, dz), h2), 1.0), 2.0)));
         if (Q < 0.0f)
         {
             Straight(s, t, dir);
             ok = false;
             return true;
         }
-        float w = X87.F32(Sqrt(Sub(v2, Q)));
+        var w = X87.F32(Sqrt(Sub(v2, Q)));
         Q = X87.F32(Sqrt(Q));
-        float r = X87.F32(Div(Sqrt(h2), Q));
-        double half = Mul(0.5f, g);
+        var r = X87.F32(Div(Sqrt(h2), Q));
+        var half = Mul(0.5f, g);
         half = Mul(half, r);
         half = Mul(half, r);
-        float p1 = X87.F32(Sub(Add(half, Mul(r, w)), dz));
-        float p2 = X87.F32(Sub(Sub(half, Mul(r, w)), dz));
+        var p1 = X87.F32(Sub(Add(half, Mul(r, w)), dz));
+        var p2 = X87.F32(Sub(Sub(half, Mul(r, w)), dz));
         int i2 = unchecked((int)Pj.Ftol(p2)), i1 = unchecked((int)Pj.Ftol(p1));
         i2 = i2 < 0 ? -i2 : i2;
         i1 = i1 < 0 ? -i1 : i1;
         if (i2 < i1)
             w = X87.F32(Mul(-1.0f, w));
-        float[] h = { X87.F32(Sub(t[0], s[0])), X87.F32(Sub(t[1], s[1])), 0.0f };
+        float[] h = [X87.F32(Sub(t[0], s[0])), X87.F32(Sub(t[1], s[1])), 0.0f];
         {
-            float k = X87.F32(Div(1.0f, X87.F32(X87.Len(h))));
-            for (int i = 0; i < 3; ++i)
+            var k = X87.F32(Div(1.0f, X87.F32(X87.Len(h))));
+            for (var i = 0; i < 3; ++i)
                 h[i] = X87.F32(Mul(k, h[i]));
         }
-        float[] sum = new float[3];
-        float[] b = { X87.F32(Mul(0.0f, w)), X87.F32(Mul(0.0f, w)), X87.F32(Mul(1.0f, w)) };
-        for (int i = 0; i < 3; ++i)
+        var sum = new float[3];
+        float[] b = [X87.F32(Mul(0.0f, w)), X87.F32(Mul(0.0f, w)), X87.F32(Mul(1.0f, w))];
+        for (var i = 0; i < 3; ++i)
             sum[i] = X87.F32(Add(X87.F32(Mul(h[i], Q)), b[i]));
-        float k2 = X87.F32(Div(1.0f, X87.F32(X87.Len(sum))));
-        for (int i = 0; i < 3; ++i)
+        var k2 = X87.F32(Div(1.0f, X87.F32(X87.Len(sum))));
+        for (var i = 0; i < 3; ++i)
             dir[i] = X87.F32(Mul(k2, sum[i]));
         ok = true;
         return true;
@@ -337,7 +337,7 @@ public sealed class AIManager : SimObject
     /// <summary>The game state.</summary>
     public readonly GameState Game;
     /// <summary>The AI objects in spawn order.</summary>
-    public readonly List<AIObject> Ais = new();
+    public readonly List<AIObject> Ais = [];
     /// <summary>True when the AI must recompute (0x00617ddc).</summary>
     public bool Recompute = true;
     /// <summary>The tick count (+0x4c).</summary>
@@ -426,7 +426,7 @@ public sealed class AIManager : SimObject
         }
         // 2. deletion (0x0043dbf8), from the last collected AI to the first (reference: the record of the AI collected
         // first is freed last and handed out first).
-        for (int i = remove.Count; i-- > 0;)
+        for (var i = remove.Count; i-- > 0;)
             if (Alive(remove[i]))
                 m.DeleteObject(remove[i].Ai);
         // 3. one AI refreshes its automatic targets

@@ -1,14 +1,13 @@
+namespace OpenTribes.Client.Audio;
+
 using System.Globalization;
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Client.World;
 using OpenTribes.Core;
-using OpenTribes.Game;
 using OpenTribes.Platform.Audio;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.World;
-
-namespace OpenTribes.Client.Audio;
 
 /// <summary>Command line helpers of the audio stage.</summary>
 /// <remarks><c>--cat NAME</c> writes a resource to stdout. <c>--sound-census</c> runs every wave and sound datablock through the offline mixer. <c>--audio-live WAVE</c> plays on the SDL3 device. <c>--demo ... --audio-out</c> mixes a span of a demo offline.</remarks>
@@ -24,7 +23,7 @@ public static class AudioTools
     public static int Cat(string root, string name)
     {
         ResourceManager res = GfxAssets.Mount(root, out _, SearchPath);
-        if (!GfxAssets.Read(res, name, out byte[] d))
+        if (!GfxAssets.Read(res, name, out var d))
         {
             Console.Error.WriteLine("not found: " + name);
             return 1;
@@ -42,25 +41,35 @@ public static class AudioTools
     {
         using var f = File.Create(path);
         using var w = new BinaryWriter(f);
-        int bytes = interleaved.Length * 2;
-        w.Write("RIFF"u8); w.Write(36 + bytes); w.Write("WAVE"u8);
-        w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write((short)2); w.Write(rate); w.Write(rate * 4); w.Write((short)4); w.Write((short)16);
-        w.Write("data"u8); w.Write(bytes);
-        foreach (short s in interleaved)
+        var bytes = interleaved.Length * 2;
+        w.Write("RIFF"u8);
+        w.Write(36 + bytes);
+        w.Write("WAVE"u8);
+        w.Write("fmt "u8);
+        w.Write(16);
+        w.Write((short)1);
+        w.Write((short)2);
+        w.Write(rate);
+        w.Write(rate * 4);
+        w.Write((short)4);
+        w.Write((short)16);
+        w.Write("data"u8);
+        w.Write(bytes);
+        foreach (var s in interleaved)
             w.Write(s);
     }
 
     private static List<string> AllWaves(ResourceManager res)
     {
         var names = new List<string>();
-        for (ResourceManager.Entry? e = res.FindNext("*.wav", null, out string name); e != null; e = res.FindNext("*.wav", e, out name))
+        for (ResourceManager.Entry? e = res.FindNext("*.wav", null, out var name); e != null; e = res.FindNext("*.wav", e, out name))
             names.Add(name);
         return names;
     }
 
     private static string? FirstDemo(string root)
     {
-        string dir = Path.Combine(root, "Recordings");
+        var dir = Path.Combine(root, "Recordings");
         return Directory.Exists(dir) ? Directory.GetFiles(dir, "*.rec").OrderBy(x => x, StringComparer.Ordinal).FirstOrDefault() : null;
     }
 
@@ -71,11 +80,11 @@ public static class AudioTools
     /// <returns>The process exit code.</returns>
     public static int Census(string root)
     {
-        ResourceManager res = GfxAssets.Mount(root, out int volumes, SearchPath);
+        ResourceManager res = GfxAssets.Mount(root, out var volumes, SearchPath);
         using AudioSession s = AudioSession.Create(root, live: false, res);
-        bool scripts = s.RunSoundScripts();
+        var scripts = s.RunSoundScripts();
         Console.WriteLine($"volumes {volumes}; sound scripts ok {scripts}; profiles {s.Sound.Profiles.Count}, pairs {s.Sound.Pairs.Count}");
-        foreach (string l in s.Log.Where(l => l.Length > 0).Take(8))
+        foreach (var l in s.Log.Where(l => l.Length > 0).Take(8))
             Console.WriteLine("  log: " + l);
 
         // Every wave of the volumes decodes and plays through the mixer.
@@ -83,9 +92,9 @@ public static class AudioTools
         int decoded = 0, failed = 0, played = 0;
         var formats = new Dictionary<string, int>();
         var spare = new float[2 * 1024];
-        foreach (string w in waves.Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var w in waves.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            WavData? d = GfxAssets.Read(res, w, out byte[] bytes) ? WavData.TryParse(bytes) : null;
+            WavData? d = GfxAssets.Read(res, w, out var bytes) ? WavData.TryParse(bytes) : null;
             if (d == null)
             {
                 ++failed;
@@ -93,9 +102,9 @@ public static class AudioTools
                 continue;
             }
             ++decoded;
-            string key = $"{d.Rate} Hz {d.Bits} bit {(d.Channels == 1 ? "mono" : "stereo")}";
+            var key = $"{d.Rate} Hz {d.Bits} bit {(d.Channels == 1 ? "mono" : "stereo")}";
             formats[key] = formats.GetValueOrDefault(key) + 1;
-            int h = s.Sound.PlayWave(w);
+            var h = s.Sound.PlayWave(w);
             if (h != 0)
                 ++played;
             s.Sound.Tick(0);
@@ -111,11 +120,14 @@ public static class AudioTools
         int pairOk = 0, pairSilent = 0;
         foreach (var (id, pair) in s.Sound.Pairs.OrderBy(p => p.Key))
         {
-            bool exists = GfxAssets.Read(res, pair.Wave, out _);
-            int h = s.Sound.PlayPair(id);
-            if (exists && h != 0) ++pairOk;
-            else if (!exists && h == 0) ++pairSilent;
-            else Console.WriteLine($"  pair {id} {pair.Wave}: exists {exists}, handle {h}");
+            var exists = GfxAssets.Read(res, pair.Wave, out _);
+            var h = s.Sound.PlayPair(id);
+            if (exists && h != 0)
+                ++pairOk;
+            else if (!exists && h == 0)
+                ++pairSilent;
+            else
+                Console.WriteLine($"  pair {id} {pair.Wave}: exists {exists}, handle {h}");
             s.Sound.Tick(0);
             s.Sound.StopAll();
             s.Sound.Tick(0);
@@ -123,7 +135,7 @@ public static class AudioTools
         Console.WriteLine($"pairs {s.Sound.Pairs.Count}: play {pairOk}, silent because the wave is missing {pairSilent}");
 
         // Sound datablocks come from a recording (the server sends them at join).
-        string? demo = FirstDemo(root);
+        var demo = FirstDemo(root);
         if (demo == null)
         {
             Console.WriteLine("no recording found: datablock census skipped");
@@ -133,7 +145,7 @@ public static class AudioTools
         pb.StepUntilEnvironment();
         s.Sound.DataBlocks = pb.World.DataBlocks;
         int sounds = 0, ok = 0, missing = 0, loops = 0, threeD = 0, noProfile = 0;
-        for (int i = 0; ; ++i)
+        for (var i = 0; ; ++i)
         {
             if (!pb.World.DataBlocks.Blocks.ContainsKey((1, i)))
             {
@@ -142,18 +154,23 @@ public static class AudioTools
                 continue;
             }
             ++sounds;
-            if (!s.Sound.TryDatablock(i, out string wave, out SoundProfile p, out _))
+            if (!s.Sound.TryDatablock(i, out var wave, out SoundProfile p, out _))
             {
                 ++noProfile;
                 continue;
             }
-            if (p.Loops) ++loops;
-            if (p.Is3D) ++threeD;
+            if (p.Loops)
+                ++loops;
+            if (p.Is3D)
+                ++threeD;
             s.Sound.SetListener(0, 0, 0, 1, 0, 0);
-            int h = s.Sound.PlayDatablock(i, new SoundXf(0, 1, 0));
+            var h = s.Sound.PlayDatablock(i, new SoundXf(0, 1, 0));
             s.Sound.Tick(0);
             s.Mixer!.Render(spare, 1024);
-            if (h != 0) ++ok; else { ++missing; Console.WriteLine($"  sound {i} {wave}: no voice"); }
+            if (h != 0)
+                ++ok;
+            else
+            { ++missing; Console.WriteLine($"  sound {i} {wave}: no voice"); }
             s.Sound.StopAll();
             s.Sound.Tick(0);
         }
@@ -171,8 +188,8 @@ public static class AudioTools
     public static int Live(string root, string wave, double seconds)
     {
         using AudioSession s = AudioSession.Create(root, live: true);
-        bool ok = s.RunSoundScripts();
-        foreach (string l in s.Log.Take(4))
+        var ok = s.RunSoundScripts();
+        foreach (var l in s.Log.Take(4))
             Console.WriteLine("  log: " + l);
         if (s.Device == null || !s.Device.Opened)
         {
@@ -180,10 +197,10 @@ public static class AudioTools
             return 3;
         }
         Console.WriteLine("audio device opened (scripts ok " + ok + "): " + s.Device.Description);
-        int h = s.Sound.PlayWave(wave);
+        var h = s.Sound.PlayWave(wave);
         Console.WriteLine($"play {wave}: handle {h}");
-        long t0 = Environment.TickCount64;
-        int peakVoices = 0;
+        var t0 = Environment.TickCount64;
+        var peakVoices = 0;
         while (Environment.TickCount64 - t0 < seconds * 1000)
         {
             s.Sound.Tick(Environment.TickCount64 - t0);
@@ -205,8 +222,8 @@ public static class AudioTools
     /// <returns>The process exit code.</returns>
     public static int RenderDemo(string root, string demoPath, string at, double seconds, string outPath)
     {
-        double start = double.Parse(at.Split(',')[0], CultureInfo.InvariantCulture);
-        byte[] data = File.ReadAllBytes(demoPath);
+        var start = double.Parse(at.Split(',')[0], CultureInfo.InvariantCulture);
+        var data = File.ReadAllBytes(demoPath);
         var pre = new DemoPlayback(data);
         pre.StepUntilEnvironment();
         List<MissionObject> env = DemoRender.EnvironmentObjects(pre.World);
@@ -228,13 +245,13 @@ public static class AudioTools
         MissionObject? terr = env.FirstOrDefault(o => o.Class == "SimTerrain");
         if (terr != null && Terrain.Load(res, terr.Get("tedFileName")) is Terrain t)
         {
-            double[] tp = terr.GetVector("position");
+            var tp = terr.GetVector("position");
             t.SetPosition(new Vec3((float)tp[0], (float)tp[1], (float)tp[2]));
             terrain = t;
-            string dml = t.MaterialListName();
-            int dot = dml.LastIndexOf('.');
-            materials = new List<Material>();
-            if (!res.Read((dot <= 0 ? dml : dml[..dot]) + ".dml", out byte[] dm) || !MaterialList.ParseMaterialList(dm, materials))
+            var dml = t.MaterialListName();
+            var dot = dml.LastIndexOf('.');
+            materials = [];
+            if (!res.Read((dot <= 0 ? dml : dml[..dot]) + ".dml", out var dm) || !MaterialList.ParseMaterialList(dm, materials))
                 materials = null;
         }
         var play = new DemoPlayback(data);
@@ -245,8 +262,8 @@ public static class AudioTools
         play.OnPacket = model.OnPacket;
         play.OnFrame = model.Tick;
 
-        int rate = s.Mixer!.DeviceRate;
-        double end = start + seconds;
+        var rate = s.Mixer!.DeviceRate;
+        var end = start + seconds;
         var pcm = new List<short>((int)(seconds * rate * 2) + 4096);
         var stats = new List<string>();
         var block = new float[2 * (rate / 20)];
@@ -254,7 +271,7 @@ public static class AudioTools
         int sec = 0, secMax = 0, secEnd = 0;
         float secPeak = 0;
         double clock = 0;
-        string demoName = Path.GetFileNameWithoutExtension(demoPath);
+        var demoName = Path.GetFileNameWithoutExtension(demoPath);
         stats.Add($"# {demoName} from {start} s for {seconds} s, device rate {rate}");
         stats.Add("# second voices_max voices_end peak sounds_started_so_far");
         while (clock < end * 1000)
@@ -265,21 +282,21 @@ public static class AudioTools
             if (pose is DemoRender.CameraPose c)
                 audio.SetListener(c.X, c.Y, c.Z, c.YawDeg * Math.PI / 180);
             s.Sound.Tick((long)clock);
-            int frames = (int)(Math.Round(clock * rate / 1000) - rendered);
+            var frames = (int)(Math.Round(clock * rate / 1000) - rendered);
             rendered += frames;
             if (block.Length < frames * 2)
                 block = new float[frames * 2];
             s.Mixer.Render(block, frames);
             if (clock / 1000 < start)
                 continue;
-            for (int i = 0; i < frames * 2; ++i)
+            for (var i = 0; i < frames * 2; ++i)
             {
                 pcm.Add((short)Math.Clamp((int)Math.Round(block[i] * 32767), -32768, 32767));
                 secPeak = Math.Max(secPeak, Math.Abs(block[i]));
             }
             secMax = Math.Max(secMax, s.Sound.PlayingCount);
             secEnd = s.Sound.PlayingCount;
-            int cur = (int)(clock / 1000 - start);
+            var cur = (int)((clock / 1000) - start);
             if (cur > sec)
             {
                 stats.Add($"{sec}\t{secMax}\t{secEnd}\t{secPeak:F3}\t{audio.Started.Values.Sum()}");
@@ -288,12 +305,12 @@ public static class AudioTools
                 secPeak = 0;
             }
         }
-        string by = string.Join(", ", audio.Started.OrderByDescending(k => k.Value).Select(k => $"{k.Key} {k.Value}"));
+        var by = string.Join(", ", audio.Started.OrderByDescending(k => k.Value).Select(k => $"{k.Key} {k.Value}"));
         stats.Add($"# started: {by}");
         stats.Add($"# manager: played {s.Sound.Played}, rejected {s.Sound.Rejected}, waves loaded {s.Sound.WavesLoaded}, failed {s.Sound.WaveFailures}");
-        WriteWav(outPath, pcm.ToArray(), rate);
+        WriteWav(outPath, [.. pcm], rate);
         File.WriteAllLines(outPath + ".stats.txt", stats);
-        foreach (string l in stats)
+        foreach (var l in stats)
             Console.WriteLine(l);
         Console.WriteLine($"wrote {outPath} ({pcm.Count / 2} frames at {rate} Hz)");
         return 0;

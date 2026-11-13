@@ -1,10 +1,9 @@
 // Smoothing and look-ahead of remote Player and Vehicle ghosts (docs/client-net.md 4.4.2): the window arithmetic of 1.11
 // (Player_applyControlState 0x004140f7 and 0x00414133, Vehicle_clientSetState 0x0044600d, 0x0044604f and 0x00446071) and the
 // snap path.
-using OpenTribes.Game;
-using static OpenTribes.Tests.Fixtures;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Game;
 
 public class RemoteGhostsTests
 {
@@ -41,7 +40,7 @@ public class RemoteGhostsTests
         Assert.False(SmoothWindow.VehicleSnap(64));         // the vehicle has no snap flag
     }
 
-    private static readonly float[] kStart = { 100, 100, 60 }, kVel = { 0, 0, 0 };
+    private static readonly float[] kStart = [100, 100, 60], kVel = [0, 0, 0];
 
     private static (RemotePlayer, Player) MakePlayer(string name)
     {
@@ -49,7 +48,7 @@ public class RemoteGhostsTests
         return (new RemotePlayer(p), p);
     }
 
-    private static Move Forward() => new Move { Forward = 1.0f, Turn = 0.05f, Pitch = 0.01f };
+    private static Move Forward() => new() { Forward = 1.0f, Turn = 0.05f, Pitch = 0.01f };
 
     private static void Apply(RemotePlayer rp, uint now, bool snapFlag, int interp, int predict) =>
         rp.Update(now, Forward(), kStart, kVel, false, 0.1f, 0.5f, 3, snapFlag, interp, predict);
@@ -71,10 +70,10 @@ public class RemoteGhostsTests
         Assert.Equal(0.05f, p.Pitch);
         Assert.NotEqual(kStart[2], sp.Transform.P[2]);
         rp.Advance(2000);                                 // 1008 of 1088 ms
-        float part = (p.Transform.P[2] - kStart[2]) / (sp.Transform.P[2] - kStart[2]);
-        Assert.InRange(part, 1008.0f / 1088 - 1e-3f, 1008.0f / 1088 + 1e-3f);
+        var part = (p.Transform.P[2] - kStart[2]) / (sp.Transform.P[2] - kStart[2]);
+        Assert.InRange(part, (1008.0f / 1088) - 1e-3f, (1008.0f / 1088) + 1e-3f);
         rp.Advance(2080);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Assert.Equal(sp.Transform.P[i], p.Transform.P[i], 2);
         Assert.Equal(sp.Rotation[2], p.Rotation[2], 4);
         Assert.Equal(sp.Pitch, p.Pitch, 4);
@@ -84,7 +83,7 @@ public class RemoteGhostsTests
     [Fact]
     public void PlayerSnapSkipsTheWindow()
     {
-        foreach ((bool flag, int interp) in new[] { (false, 0), (true, 64) })
+        foreach ((var flag, var interp) in new[] { (false, 0), (true, 64) })
         {
             var (rp, p) = MakePlayer("rg_snap" + interp);
             rp.Place(1000, kStart, kVel, 0.4f, 0.05f, false);
@@ -102,7 +101,7 @@ public class RemoteGhostsTests
     [Fact]
     public void PlayerLookAheadRunsPredictPlus32OverTickSteps()
     {
-        foreach ((int predict, int steps) in new[] { (0, 1), (32, 2), (64, 3) })
+        foreach ((var predict, var steps) in new[] { (0, 1), (32, 2), (64, 3) })
         {
             var (rp, _) = MakePlayer("rg_pred" + predict);
             rp.Place(1000, kStart, kVel, 0.4f, 0.05f, false);
@@ -127,7 +126,7 @@ public class RemoteGhostsTests
         var (rp, _) = MakePlayer("rg_loop");
         rp.Place(1000, kStart, kVel, 0.4f, 0.05f, false);
         Apply(rp, 2000, false, 0, 0);                     // SimTime 1984
-        long before = rp.Steps;
+        var before = rp.Steps;
         rp.Advance(2048);                                 // 1984 -> 2016 -> 2048: two ticks starting on a boundary
         Assert.Equal(before + 2, rp.Steps);
         Assert.Equal(2048u, rp.SimTime);
@@ -143,26 +142,26 @@ public class RemoteGhostsTests
         return (new RemoteVehicle(f), f);
     }
 
-    private static readonly float[] kRot = { 0.1f, 0.0f, 0.3f }, kPos = { 120, 100, 70 };
+    private static readonly float[] kRot = [0.1f, 0.0f, 0.3f], kPos = [120, 100, 70];
 
     [Fact]
     public void VehicleWindowAndSnap()
     {
         var (snap, sf) = MakeFlier("rg_vref");
-        snap.Place(new float[3], new[] { 100f, 100f, 70f });
+        snap.Place(new float[3], [100f, 100f, 70f]);
         snap.SetState(2000, new Move { Forward = 1.0f }, kPos, kRot, 2, 0.0f, 20.0f, 0, 0);
         Assert.Equal(0u, snap.End);
         Assert.Equal(1984u, snap.SimTime);
         Assert.Equal(2, sf.TicksWithoutMove);
         var (rv, f) = MakeFlier("rg_vwin");
-        rv.Place(new float[3], new[] { 100f, 100f, 70f });
+        rv.Place(new float[3], [100f, 100f, 70f]);
         rv.SetState(2000, new Move { Forward = 1.0f }, kPos, kRot, 2, 0.0f, 20.0f, 64, 0);
         Assert.Equal(2080u, rv.End);
         Assert.Equal(1984u, rv.SimTime);                  // the vehicle resets its clock to the tick
         Assert.Equal(100.0f, f.Transform.P[0]);
         Assert.Equal(0.0f, f.Rotation[2]);
         rv.Advance(2080);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             Assert.Equal(sf.Transform.P[i], f.Transform.P[i], 2);
             Assert.Equal(sf.Rotation[i], f.Rotation[i], 4);
@@ -173,10 +172,10 @@ public class RemoteGhostsTests
     [Fact]
     public void VehicleLookAheadRunsPredictPlus32OverTickSteps()
     {
-        foreach ((int predict, long steps) in new[] { (0, 1L), (32, 2L), (64, 3L) })
+        foreach ((var predict, var steps) in new[] { (0, 1L), (32, 2L), (64, 3L) })
         {
             var (rv, _) = MakeFlier("rg_vpred" + predict);
-            rv.Place(new float[3], new[] { 100f, 100f, 70f });
+            rv.Place(new float[3], [100f, 100f, 70f]);
             rv.SetState(2000, new Move(), kPos, kRot, 0, 0.0f, 0.0f, 0, predict);
             Assert.Equal(steps, rv.Steps);
         }
@@ -192,11 +191,11 @@ public class RemoteGhostsTests
         rp.Register(2000);
         Assert.Equal(2000u, rp.SimTime);
         Assert.Equal(2000u, rp.LastTime);
-        long steps = rp.Steps;
+        var steps = rp.Steps;
         rp.Advance(2000);                                 // nothing left to run
         Assert.Equal(steps, rp.Steps);
         var (rv, _) = MakeFlier("rg_vreg");
-        rv.Place(new float[3], new[] { 100f, 100f, 70f });
+        rv.Place(new float[3], [100f, 100f, 70f]);
         rv.SetState(2000, new Move { Forward = 1.0f }, kPos, kRot, 2, 0.0f, 20.0f, 64, 0);
         rv.Register(2000);
         Assert.Equal(2000u, rv.SimTime);
@@ -214,10 +213,10 @@ public class RemoteGhostsTests
         var (rp, p) = MakePlayer("rg_corpse");
         float h = 0;
         Assert.True(p.Game().World.TerrainOf(p)!.TerrainData!.Height(100, 100, ref h));
-        p.SetPosition(new[] { 100f, 100f, h + 0.1f });
+        p.SetPosition([100f, 100f, h + 0.1f]);
         p.Dead = true;
-        p.SetRotation(new[] { 0.3f, -0.2f, 0.5f });
-        float[] before = { p.Transform.P[0], p.Transform.P[1], p.Transform.P[2] };
+        p.SetRotation([0.3f, -0.2f, 0.5f]);
+        float[] before = [p.Transform.P[0], p.Transform.P[1], p.Transform.P[2]];
         p.ClientCorpseStep(0.032f);                       // one tick
         Assert.Equal(0.25f, p.Rotation[0], 4);
         Assert.Equal(-0.15f, p.Rotation[1], 4);
@@ -228,10 +227,10 @@ public class RemoteGhostsTests
         p.ClientCorpseStep(0.1f);
         Assert.Equal(0.0f, p.Rotation[0], 5);             // stops on the target, no overshoot
         Assert.Equal(0.0f, p.Rotation[1], 5);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Assert.Equal(before[i], p.Transform.P[i]);
-        p.SetPosition(new[] { 100f, 100f, h + 0.6f });    // more than 0.5 above the ground: untouched
-        p.SetRotation(new[] { 0.3f, -0.2f, 0.5f });
+        p.SetPosition([100f, 100f, h + 0.6f]);    // more than 0.5 above the ground: untouched
+        p.SetRotation([0.3f, -0.2f, 0.5f]);
         p.ClientCorpseStep(0.032f);
         Assert.Equal(0.3f, p.Rotation[0], 5);
         Assert.Equal(-0.2f, p.Rotation[1], 5);
@@ -243,11 +242,11 @@ public class RemoteGhostsTests
         var (rp, p) = MakePlayer("rg_corpse2");
         float h = 0;
         p.Game().World.TerrainOf(p)!.TerrainData!.Height(100, 100, ref h);
-        p.SetPosition(new[] { 100f, 100f, h + 0.1f });
-        rp.Place(1000, new[] { 100f, 100f, h + 0.1f }, kVel, 0.5f, 0.0f, true);
+        p.SetPosition([100f, 100f, h + 0.1f]);
+        rp.Place(1000, [100f, 100f, h + 0.1f], kVel, 0.5f, 0.0f, true);
         rp.Register(1000);
         p.Dead = true;
-        p.SetRotation(new[] { 0.3f, 0.0f, 0.5f });
+        p.SetRotation([0.3f, 0.0f, 0.5f]);
         rp.Advance(1032);                                 // dt = 32 ms: one tick of 0.05
         Assert.Equal(0.25f, p.Rotation[0], 3);
         Assert.Equal(1032u, rp.LastTime);
@@ -260,19 +259,19 @@ public class RemoteGhostsTests
         var side = new ClientPredictionTests.Side("rg_mount");
         Player p = side.Spawn("100 100 60");
         Flier f = side.Make("100 100 70");
-        f.SetPosition(new[] { 100f, 100f, 70f });
+        f.SetPosition([100f, 100f, 70f]);
         var rp = new RemotePlayer(p);
-        rp.Place(1000, new[] { 99f, 99f, 69f }, kVel, 0.4f, 0.05f, false);
+        rp.Place(1000, [99f, 99f, 69f], kVel, 0.4f, 0.05f, false);
         rp.Register(1000);
         p.MountId = f.Id();
         p.MountPoint = 2;
-        rp.Update(2000, Forward(), new[] { 99f, 99f, 69f }, kVel, false, 0.1f, 0.5f, 3, false, 64, 0);
+        rp.Update(2000, Forward(), [99f, 99f, 69f], kVel, false, 0.1f, 0.5f, 3, false, 64, 0);
         Assert.Equal(100f, p.Transform.P[0], 3);            // the mount point, not the stream position
         Assert.Equal(70f, p.Transform.P[2], 3);
-        f.SetPosition(new[] { 130f, 100f, 70f });
+        f.SetPosition([130f, 100f, 70f]);
         rp.Advance(2040);
         Assert.Equal(130f, p.Transform.P[0], 3);            // follows the mount as it is now
-        f.SetPosition(new[] { 140f, 90f, 70f });
+        f.SetPosition([140f, 90f, 70f]);
         rp.Advance(2200);                                   // past the end of the window: the stepped state follows too
         Assert.Equal(140f, p.Transform.P[0], 3);
         Assert.Equal(90f, p.Transform.P[1], 3);

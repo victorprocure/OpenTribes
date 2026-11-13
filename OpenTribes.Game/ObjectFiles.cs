@@ -22,17 +22,17 @@ public static class ObjectFiles
         // Block streams with their own tag: ITRShape (.dis), GridFile (.dtf), GridBlock (.dtb). They are persistent classes
         // but not SimObjects; PL98 (.ppl) is not a persistent stream.
         static bool Tag(byte[] d, string t) => d.Length >= 4 && d[0] == t[0] && d[1] == t[1] && d[2] == t[2] && d[3] == t[3];
-        foreach (string tag in new[] { "ITRs", "GFIL", "GBLK" })
+        foreach (var tag in new[] { "ITRs", "GFIL", "GBLK" })
             if (d.Length >= 8 && Tag(d, tag))
                 return PersistentFileKind.NotSimObject;
         // PERS, u32 size (bit 31: padding flag), u16 name length, the class name.
         if (d.Length < 10 || !Tag(d, "PERS"))
             return PersistentFileKind.Invalid;
-        ushort nameLen = BitConverter.ToUInt16(d, 8);
+        var nameLen = BitConverter.ToUInt16(d, 8);
         if (nameLen == 0 || 10 + nameLen > d.Length)
             return PersistentFileKind.Invalid;
-        string name = ByteString.FromBytes(d.AsSpan(10, nameLen));
-        foreach (string known in new[] { "TS::Shape", "TS::MaterialList", "ITRGeometry", "ITRLighting", "ITRMissionLighting" })
+        var name = ByteString.FromBytes(d.AsSpan(10, nameLen));
+        foreach (var known in new[] { "TS::Shape", "TS::MaterialList", "ITRGeometry", "ITRLighting", "ITRMissionLighting" })
             if (GameUtil.EqualsNoCase(name, known))
                 return PersistentFileKind.NotSimObject;
         return PersistentFileKind.Invalid;
@@ -53,8 +53,8 @@ public static class ObjectFiles
                 inr.Print(1, "loadObject: objectName fileName");
                 return "0";
             }
-            byte[] data = Array.Empty<byte>();
-            bool ok = false;
+            var data = Array.Empty<byte>();
+            var ok = false;
             try
             {
                 data = File.ReadAllBytes(ByteString.ToHost(a[2]));
@@ -77,7 +77,7 @@ public static class ObjectFiles
         // (DECISIONS D11, docs/script.md 6.8); here it fails with the write error text.
         interp.AddCommand("storeObject", (inr, a) =>
         {
-            if (a.Length != 3 && a.Length != 4)
+            if (a.Length is not 3 and not 4)
             {
                 inr.Print(1, "storeObject: objectName fileName [userField]");
                 return "False";

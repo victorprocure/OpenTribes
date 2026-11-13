@@ -11,8 +11,8 @@ public static class FullscreenPlan
     {
         if (text == null)
             return null;
-        string[] wh = text.Trim().Split('x', 'X');
-        if (wh.Length == 2 && int.TryParse(wh[0], out int w) && int.TryParse(wh[1], out int h) && w > 0 && h > 0)
+        var wh = text.Trim().Split('x', 'X');
+        if (wh.Length == 2 && int.TryParse(wh[0], out var w) && int.TryParse(wh[1], out var h) && w > 0 && h > 0)
             return (w, h);
         return null;
     }
@@ -25,10 +25,10 @@ public static class FullscreenPlan
     public static (int W, int H)? NearestMode(IReadOnlyList<(int W, int H)> modes, int w, int h)
     {
         (int W, int H)? best = null;
-        long bestDist = long.MaxValue;
+        var bestDist = long.MaxValue;
         foreach ((int W, int H) m in modes)
         {
-            long d = Math.Abs((long)m.W - w) + Math.Abs((long)m.H - h);
+            var d = Math.Abs((long)m.W - w) + Math.Abs((long)m.H - h);
             if (d < bestDist || d == bestDist && best is { } b && (long)m.W * m.H > (long)b.W * b.H)
             {
                 best = m;

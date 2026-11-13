@@ -1,7 +1,7 @@
 // The ~w voice tag in shown chat text and the type of a chat line (PlayerManager_message, ROADMAP M9).
-using OpenTribes.Game;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Game;
 
 public sealed class ClientChatTextTests
 {

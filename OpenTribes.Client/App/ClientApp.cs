@@ -1,3 +1,5 @@
+namespace OpenTribes.Client.App;
+
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -13,8 +15,6 @@ using OpenTribes.Platform.Gl;
 using OpenTribes.Platform.Sdl;
 using OpenTribes.Script;
 using OpenTribes.Sim;
-
-namespace OpenTribes.Client.App;
 
 /// <summary>The <c>tribes</c> client process: start-up, frame loop, input and shutdown.</summary>
 /// <remarks>docs/client-app.md 1 (start-up), 2 (frame), 3 (input) and 6 (shutdown), and docs/client-scripts.md 6 (the stock start-up). console.cs runs on the client branch. Everything after it is the stock scripts talking to the engine through the commands of <see cref="ClientCommandHandlers"/> and the callbacks raised here.</remarks>
@@ -59,7 +59,7 @@ public sealed class ClientApp : IDisposable
     /// <summary>The joined game or the playing demo, or null.</summary>
     public LiveGame? Game;
     /// <summary>The server world of a hosted game (createServer, client-app.md 1.7), in this process next to the client world.</summary>
-    public OpenTribes.Server.HostedServer Hosted = null!;
+    public Server.HostedServer Hosted = null!;
     /// <summary>The consumer for actions nobody handles.</summary>
     public readonly IActionConsumer ConsoleConsumer = new NullConsumer();
 
@@ -84,14 +84,14 @@ public sealed class ClientApp : IDisposable
 
     private readonly Stopwatch mClock = Stopwatch.StartNew();
     private uint mVirtualMs;
-    private bool mQuit;
+
     /// <summary>The process exit code.</summary>
     public int ExitCode;
     private StreamWriter? mLogFile;
     /// <summary>The last console lines.</summary>
-    public readonly List<string> LogTail = new();
+    public readonly List<string> LogTail = [];
     private ClientScript? mScript;
-    private readonly List<string> mPendingShots = new();
+    private readonly List<string> mPendingShots = [];
     private int mNextAutoShot;
     private bool mPaletteSet;
     private uint mLastFrameMs;
@@ -116,10 +116,7 @@ public sealed class ClientApp : IDisposable
 
     /// <summary>Writes a line to the console.</summary>
     /// <param name="line">The line.</param>
-    public void Log(string line)
-    {
-        Interp?.Print(1, line);
-    }
+    public void Log(string line) => Interp?.Print(1, line);
 
     private void Sink(string line)
     {
@@ -139,7 +136,7 @@ public sealed class ClientApp : IDisposable
     public bool Start(out string error)
     {
         error = "";
-        string consoleCs = Path.Combine(Opt.Root, "console.cs");
+        var consoleCs = Path.Combine(Opt.Root, "console.cs");
         if (!File.Exists(consoleCs))
         {
             error = "console.cs not found in " + Opt.Root;
@@ -151,15 +148,15 @@ public sealed class ClientApp : IDisposable
         }
         if (!Opt.Headless)
         {
-            Win = GlWindow.TryCreate("Tribes", Opt.Width, Opt.Height, false, Opt.VideoDriver, out string winError);
+            Win = GlWindow.TryCreate("Tribes", Opt.Width, Opt.Height, false, Opt.VideoDriver, out var winError);
             if (Win == null)
             {
                 error = "cannot open a window with an OpenGL 3.3 core context: " + winError;
                 return false;
             }
             Dev = new GlGfxDevice(Win);
-            FramePerf.Device = Dev as IGfxStats;
-            Win.SetSwapInterval(Opt.NoVsync || Opt.VirtualStep != 0 ? 0 : 1);
+            FramePerf.Device = Dev;
+            GlWindow.SetSwapInterval(Opt.NoVsync || Opt.VirtualStep != 0 ? 0 : 1);
             Win.SetRelativeMouse(false);
             Joysticks = JoystickSet.Open();
         }
@@ -170,8 +167,7 @@ public sealed class ClientApp : IDisposable
         Interp.SetOutput(Sink);
         Interp.SetResources(Res);
         Interp.SetVariable("$Console::Prompt", "% ");
-        if (Dev != null)
-            Dev.PackedTextures = () => !EngineVariables.IsSet(Interp, "$pref::OpenGL::NoPackedTextures") &&
+        Dev?.PackedTextures = () => !EngineVariables.IsSet(Interp, "$pref::OpenGL::NoPackedTextures") &&
                                        !EngineVariables.IsSet(Interp, "$pref::OpenGL::Use32BitTex");
         Interp.BindVariable("$ConsoleWorld::DefaultSearchPath", path => Res.SetSearchPath(path));
         Interp.BindVariable("$Console::logMode", _ => { });
@@ -179,7 +175,7 @@ public sealed class ClientApp : IDisposable
         var ctx = new ClassContext { Resources = Res, StartNetwork = _ => true };
         SimWorld = new SimConsole(Interp, ctx) { ClientMode = true };
         SimWorld.RegisterCommands();
-        Hosted = new OpenTribes.Server.HostedServer(Interp, Res, Opt.Root, SimWorld, Opt.AllowRemote);
+        Hosted = new Server.HostedServer(Interp, Res, Opt.Root, SimWorld, Opt.AllowRemote);
         SimWorld.Worlds = Hosted;
         Interp.SetObjects(SimWorld);
         SimWorld.SetClockSource(() => NowMs / 1000.0);
@@ -203,15 +199,19 @@ public sealed class ClientApp : IDisposable
         game.ChatMenus.CancelOrder = () =>
         {
             GuiCommandMap? map = CommandMap;
-            bool ordering = map is { OrderMode: 1 };
+            var ordering = map is { OrderMode: 1 };
             map?.SetOrderMode(0);
             return ordering;
         };
-        Canvas = new GuiCanvas(Host, Dev?.Width ?? Opt.Width, Dev?.Height ?? Opt.Height);
-        // A TSControl with a camera object other than the play view (the observer panel of the command screen) draws the world itself.
-        Canvas.ViewRenderer = r => Game != null && Dev != null && Game.Render(Dev, Play.Moves.CurrentFov, () => { }, r);
-        GuiRt = new GuiRuntime(Interp, Host, Canvas);
-        GuiRt.RenderRequested = () => { RenderFrame(); };
+        Canvas = new GuiCanvas(Host, Dev?.Width ?? Opt.Width, Dev?.Height ?? Opt.Height)
+        {
+            // A TSControl with a camera object other than the play view (the observer panel of the command screen) draws the world itself.
+            ViewRenderer = r => Game != null && Dev != null && Game.Render(Dev, Play.Moves.CurrentFov, () => { }, r)
+        };
+        GuiRt = new GuiRuntime(Interp, Host, Canvas)
+        {
+            RenderRequested = RenderFrame
+        };
         Host.OnPalette = name =>
         {
             PaletteBank? p = GfxAssets.LoadPalette(Res, name);
@@ -229,9 +229,12 @@ public sealed class ClientApp : IDisposable
         SkinViews = new SkinViewRenderer(this);
         Host.ModelViews = SkinViews;
 
-        Input = new InputDispatcher(Maps) { Eval = t => Interp.Evaluate(t) };
-        Input.OfferToGui = OfferToGui;
-        Input.GlobalMap = Maps.FindMap("SimGame.sae");
+        Input = new InputDispatcher(Maps)
+        {
+            Eval = t => Interp.Evaluate(t),
+            OfferToGui = OfferToGui,
+            GlobalMap = Maps.FindMap("SimGame.sae")
+        };
         Play = new PlayDelegate(this);
         Handlers = new ClientCommandHandlers(this);
 
@@ -242,7 +245,7 @@ public sealed class ClientApp : IDisposable
         RegisterEngineVariables();
 
         Interp.SetVariable("$cargv0", "Tribes.exe");
-        for (int i = 0; i < Opt.GameArgs.Count; ++i)
+        for (var i = 0; i < Opt.GameArgs.Count; ++i)
             Interp.SetVariable("$cargv" + (i + 1).ToString(CultureInfo.InvariantCulture), ByteString.FromHost(Opt.GameArgs[i]));
         Interp.SetVariable("$cargc", (Opt.GameArgs.Count + 1).ToString(CultureInfo.InvariantCulture));
         Interp.SetVariable("$CommandLinePath", Opt.Root);
@@ -259,7 +262,7 @@ public sealed class ClientApp : IDisposable
 
     private void SetupAudio()
     {
-        Sound = new SoundManager { ReadWave = n => GfxAssets.Read(Res, n, out byte[] d) ? d : null };
+        Sound = new SoundManager { ReadWave = n => GfxAssets.Read(Res, n, out var d) ? d : null };
         Sfx = new SfxCommands(Interp, Sound)
         {
             OpenDevice = () =>
@@ -280,7 +283,7 @@ public sealed class ClientApp : IDisposable
                 Sound.Mixer = AudioDev.Mixer;
                 return true;
             },
-            CloseDevice = () => { Sound.Mixer = null; },
+            CloseDevice = () => Sound.Mixer = null,
         };
         Host.Audio = new GuiAudio(Sound);
     }
@@ -300,7 +303,7 @@ public sealed class ClientApp : IDisposable
         {
             if (Game?.Net is { PredictWorld: not null } n && n.Prediction.Object is Player p && n.Prediction.Active && Game.World.Psc.ControlClass == "Player")
             {
-                float held = p.Pitch;
+                var held = p.Pitch;
                 p.Pitch = 0;
                 return held;
             }
@@ -327,7 +330,7 @@ public sealed class ClientApp : IDisposable
         PaletteBank cur = CurrentPalette ?? PaletteTables.Grayscale();
         SubPalette sub = cur.SubPalettes[0];
         var colors = (byte[])sub.Colors.Clone();
-        for (int i = 0; i < count && start + i < 256; ++i)
+        for (var i = 0; i < count && start + i < 256; ++i)
             Array.Copy(rgb, i * 3, colors, (start + i) * 4, 3);
         var bank = new PaletteBank
         {
@@ -413,7 +416,7 @@ public sealed class ClientApp : IDisposable
     private void UpdateRelativeMouse()
     {
         // client-app.md 3.8 (D48): relative mouse mode whenever the window has focus and mouse0 is active.
-        bool want = mGrab || Canvas != null && (Canvas.WindowActive && !WindowsMouse);
+        var want = mGrab || Canvas != null && Canvas.WindowActive && !WindowsMouse;
         want = want && Canvas?.WindowActive == true && Handlers.DeviceActive("mouse0");
         if (want == mRelativeMouse)
             return;
@@ -426,24 +429,24 @@ public sealed class ClientApp : IDisposable
     public void QueueScreenshot(string path) => mPendingShots.Add(path);
 
     /// <summary>Asks the main loop to end.</summary>
-    public void RequestQuit() => mQuit = true;
+    public void RequestQuit() => QuitRequested = true;
     /// <summary>True after <see cref="RequestQuit"/>.</summary>
-    public bool QuitRequested => mQuit;
+    public bool QuitRequested { get; private set; }
 
     // ---- addresses and the net (R6) ----
 
     /// <summary>Tells whether an address is a loopback address (R6).</summary>
     /// <param name="address">The address, optionally with <c>IP:</c> and a port.</param>
     /// <returns>True for <c>LOOPBACK</c>, <c>localhost</c> and 127.0.0.0/8.</returns>
-    public bool IsLocalAddress(string address)
+    public static bool IsLocalAddress(string address)
     {
-        string a = address.Trim();
+        var a = address.Trim();
         if (a.StartsWith("IP:", StringComparison.OrdinalIgnoreCase))
             a = a[3..];
         if (a.StartsWith("LOOPBACK", StringComparison.OrdinalIgnoreCase))
             return true;
-        int colon = a.LastIndexOf(':');
-        string host = colon >= 0 ? a[..colon] : a;
+        var colon = a.LastIndexOf(':');
+        var host = colon >= 0 ? a[..colon] : a;
         if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
             return true;
         return System.Net.IPAddress.TryParse(host, out System.Net.IPAddress? ip) && System.Net.IPAddress.IsLoopback(ip);
@@ -457,7 +460,7 @@ public sealed class ClientApp : IDisposable
         Game?.Stop();
         Game?.Dispose();
         Game = null;
-        string a = address.Trim();
+        var a = address.Trim();
         if (a.StartsWith("IP:", StringComparison.OrdinalIgnoreCase))
             a = a[3..];
         if (!IsLocalAddress(a) && !Opt.AllowRemote)
@@ -517,12 +520,12 @@ public sealed class ClientApp : IDisposable
     {
         Game?.Stop();
         Game?.Dispose();
-        string name = file;
-        string[] tries = { name, "recordings\\" + name, "recordings\\" + name + ".rec", name + ".rec" };
+        var name = file;
+        string[] tries = [name, "recordings\\" + name, "recordings\\" + name + ".rec", name + ".rec"];
         string? path = null;
-        foreach (string t in tries)
+        foreach (var t in tries)
         {
-            string host = Builtins.ResolveGamePath(Opt.Root, t);
+            var host = Builtins.ResolveGamePath(Opt.Root, t);
             if (host.Length > 0 && File.Exists(host))
             {
                 path = host;
@@ -531,8 +534,8 @@ public sealed class ClientApp : IDisposable
         }
         if (path == null && Res.Find(file) != null)
         {
-            string tmp = Path.Combine(Path.GetTempPath(), "ot-demo-" + Guid.NewGuid().ToString("N") + ".rec");
-            if (Res.Read(file, out byte[] data))
+            var tmp = Path.Combine(Path.GetTempPath(), "ot-demo-" + Guid.NewGuid().ToString("N") + ".rec");
+            if (Res.Read(file, out var data))
             {
                 File.WriteAllBytes(tmp, data);
                 path = tmp;
@@ -569,7 +572,7 @@ public sealed class ClientApp : IDisposable
             MenuSource = CurrentMenu,
             PlayMenuSource = PlayMenu,
             NamedMenuSource = NamedMenu,
-            CommandMapSource = () => g.CommandMapPicture(),
+            CommandMapSource = g.CommandMapPicture,
             FirstPersonSource = () => Play.Moves.FirstPersonNow,
             ZoomSource = () => Play.Moves.HudZoomState(),
             ViewCamera = (w, h) => g.Camera() is { } c
@@ -577,8 +580,8 @@ public sealed class ClientApp : IDisposable
                 : null,
             HeadMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.MidBack() : null,
             MuzzleMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.Muzzle() : null,
-            ControlAim = ghost => g.ControlAimInputs(ghost),
-            ObjectYaw = ghost => g.ControlHeading(ghost),
+            ControlAim = g.ControlAimInputs,
+            ObjectYaw = g.ControlHeading,
             ObjectBox = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? sv.HudBox() : null,
             // the line from the eye to the target meets terrain or interior [code 004aca84, mask 0x20e00006]
             LineClear = (a, b) => g.Net?.PredictWorld is not { } pw ||
@@ -620,7 +623,7 @@ public sealed class ClientApp : IDisposable
     {
         if (mGameState.ChatMenus.Showing(mGameState, "PlayChatMenu") is not var (title, tree))
             return null;
-        string path = tree.Path();
+        var path = tree.Path();
         return new PlayMenuView(path.Length == 0 ? title : path, tree.Lines());
     }
 
@@ -641,9 +644,9 @@ public sealed class ClientApp : IDisposable
         List<int> types = g.World.Players.ChatTypes;
         for (; seen < chat.Count; ++seen)
         {
-            int type = seen < types.Count ? types[seen] : 0;
+            var type = seen < types.Count ? types[seen] : 0;
             // The lookup of PlayerManager_message 0040dbfc ran when the message was made, in the packet read (ClientPlayerManager.Message).
-            bool display = seen < g.World.Players.ChatDisplayed.Count && g.World.Players.ChatDisplayed[seen];
+            var display = seen < g.World.Players.ChatDisplayed.Count && g.World.Players.ChatDisplayed[seen];
             // Type 4 is the one-line current command (FearGuiChatDisplay slot 0x100), not a ring line (004a525c).
             if (display && type == 4)
                 Host.CommandText = chat[seen];
@@ -666,14 +669,14 @@ public sealed class ClientApp : IDisposable
     /// <returns>The process exit code.</returns>
     public int Run()
     {
-        if (!Start(out string error))
+        if (!Start(out var error))
         {
             Console.Error.WriteLine("tribes: " + error);
             return 1;
         }
         Win?.Show();
         var realStart = Stopwatch.StartNew();
-        while (!mQuit)
+        while (!QuitRequested)
         {
             Step();
             if (Opt.Seconds > 0 && NowMs / 1000.0 >= Opt.Seconds)
@@ -706,7 +709,7 @@ public sealed class ClientApp : IDisposable
         PumpEvents();
         // F2: clock.
         SimWorld.UpdateClock();
-        uint now = NowMs;
+        var now = NowMs;
         // F3: the server world of a hosted game runs before the client world (FearApp_onIdle 004ebc34 calls
         // FearWorld_advance 004eba40 first), then the client focus is set for the rest of the frame (004eb7ac).
         Hosted.Frame(now);
@@ -715,7 +718,7 @@ public sealed class ClientApp : IDisposable
         mScript?.Run(now);
         if (mScript != null)
         {
-            foreach (string t in Canvas.Trace)
+            foreach (var t in Canvas.Trace)
                 Interp.Print(1, "  [canvas] " + t);
             Canvas.Trace.Clear();
         }
@@ -731,7 +734,7 @@ public sealed class ClientApp : IDisposable
             SimWorld.AdvanceServer();
         }
         // F15: sound.
-        double dt = Math.Max(0, (now - mLastFrameMs) / 1000.0);
+        var dt = Math.Max(0, (now - mLastFrameMs) / 1000.0);
         mLastFrameMs = now;
         if (Sound != null)
         {
@@ -742,7 +745,7 @@ public sealed class ClientApp : IDisposable
         RenderFrame();
         // F17: end of frame.
         SimWorld.EndFrame();
-        if (mQuit)
+        if (QuitRequested)
             return;
         if (Win != null && !Canvas.WindowActive && Opt.VirtualStep == 0)
         {
@@ -761,7 +764,7 @@ public sealed class ClientApp : IDisposable
         if (Dev == null || Win == null)
             return;
         ApplyFullscreenModeChange();
-        (int w, int h) = Win.PixelSize();
+        (var w, var h) = Win.PixelSize();
         if (w > 0 && h > 0)
         {
             Canvas.Width = w;
@@ -769,7 +772,7 @@ public sealed class ClientApp : IDisposable
         }
         if (!mPaletteSet)
         {
-            string shell = Host.TagText(180001) is string t ? GuiHost.FirstItem(t) : "feargui.pal";
+            var shell = Host.TagText(180001) is string t ? GuiHost.FirstItem(t) : "feargui.pal";
             PaletteBank? pal = GfxAssets.LoadPalette(Res, shell) ?? GfxAssets.LoadPalette(Res, "feargui.pal");
             if (pal != null)
                 SetPalette(pal);
@@ -777,7 +780,7 @@ public sealed class ClientApp : IDisposable
         UpdateRelativeMouse();
         using (FramePerf.Scope("gui-frame"))
             Canvas.Frame();
-        bool drewWorld = false;
+        var drewWorld = false;
         // The play view draws world and HUD with the mission palette. A shell palette control that wakes late (the loading
         // screen) or a gamma or movie restore must not leave the shell palette active during play (HUD colours).
         if (Game?.WorldPalette is { } worldPalette && PlayViewActive && !ReferenceEquals(CurrentPalette, worldPalette))
@@ -808,25 +811,25 @@ public sealed class ClientApp : IDisposable
 
     private void DrawDamageFlash()
     {
-        float f = Math.Min((float)(Game?.World.Psc.DamageFlash ?? 0), DamageFlashCap);
+        var f = Math.Min((float)(Game?.World.Psc.DamageFlash ?? 0), DamageFlashCap);
         if (Dev != null && f > 0f)
             Dev.FillRectRgb(new GfxRect(0, 0, Dev.Width - 1, Dev.Height - 1), 255, 0, 0, f);
     }
 
     private void TakeShots()
     {
-        double sec = NowMs / 1000.0;
+        var sec = NowMs / 1000.0;
         while (mNextAutoShot < Opt.ScreenshotAt.Count && Opt.ScreenshotAt[mNextAutoShot] <= sec)
         {
-            double t = Opt.ScreenshotAt[mNextAutoShot++];
+            var t = Opt.ScreenshotAt[mNextAutoShot++];
             mPendingShots.Add(Path.Combine(Opt.ShotDir, "shot_" + t.ToString("0.###", CultureInfo.InvariantCulture) + ".png"));
         }
         if (mPendingShots.Count == 0 || Dev == null)
             return;
-        byte[] px = Dev.ReadPixels();
-        foreach (string path in mPendingShots)
+        var px = Dev.ReadPixels();
+        foreach (var path in mPendingShots)
         {
-            string full = Path.GetFullPath(path);
+            var full = Path.GetFullPath(path);
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             if (full.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase))
                 WriteBmp(full, px, Dev.Width, Dev.Height);
@@ -840,11 +843,11 @@ public sealed class ClientApp : IDisposable
     // temp\sshotNNNN.bmp: 24-bit Windows bitmap, bottom-up rows.
     private static void WriteBmp(string path, byte[] rgba, int w, int h)
     {
-        int row = (w * 3 + 3) & ~3;
+        var row = ((w * 3) + 3) & ~3;
         using var f = File.Create(path);
         using var bw = new BinaryWriter(f);
         bw.Write((ushort)0x4d42);
-        bw.Write(54 + row * h);
+        bw.Write(54 + (row * h));
         bw.Write(0);
         bw.Write(54);
         bw.Write(40);
@@ -859,14 +862,14 @@ public sealed class ClientApp : IDisposable
         bw.Write(0);
         bw.Write(0);
         var line = new byte[row];
-        for (int y = h - 1; y >= 0; --y)
+        for (var y = h - 1; y >= 0; --y)
         {
-            for (int x = 0; x < w; ++x)
+            for (var x = 0; x < w; ++x)
             {
-                int s = (y * w + x) * 4;
+                var s = ((y * w) + x) * 4;
                 line[x * 3] = rgba[s + 2];
-                line[x * 3 + 1] = rgba[s + 1];
-                line[x * 3 + 2] = rgba[s];
+                line[(x * 3) + 1] = rgba[s + 1];
+                line[(x * 3) + 2] = rgba[s];
             }
             bw.Write(line);
         }
@@ -941,7 +944,7 @@ public sealed class ClientApp : IDisposable
     {
         if (!Handlers.DeviceActive("joystick" + dev))
             return;
-        (byte type, byte inst) = JoystickEvents.AxisObject(sdlAxis);
+        (var type, var inst) = JoystickEvents.AxisObject(sdlAxis);
         Input.Process(new InputEvent { DeviceType = JoystickEvents.DeviceType, DeviceInst = (byte)dev, ObjType = type, ObjInst = inst, Action = 3 },
             JoystickEvents.AxisValue(raw));
     }
@@ -954,7 +957,7 @@ public sealed class ClientApp : IDisposable
     {
         if (!Handlers.DeviceActive("joystick" + dev))
             return;
-        int angle = JoystickEvents.HatAngle(sdlHat);
+        var angle = JoystickEvents.HatAngle(sdlHat);
         foreach (var (type, action, value) in JoystickEvents.PovEvents(angle, angle))
             Input.Process(new InputEvent { DeviceType = JoystickEvents.DeviceType, DeviceInst = (byte)dev, ObjType = type, ObjInst = (byte)hat, Action = action }, value);
     }
@@ -983,13 +986,13 @@ public sealed class ClientApp : IDisposable
                     break;
                 case Sdl3.EventMouseButtonDown:
                 case Sdl3.EventMouseButtonUp:
-                    {
-                        // SDL: 1 left, 2 middle, 3 right; the device: button0 left, button1 right, button2 middle.
-                        int b = ev.Button switch { 1 => 0, 3 => 1, 2 => 2, _ => -1 };
-                        if (b >= 0)
-                            InjectButton(b, ev.Type == Sdl3.EventMouseButtonDown);
-                        break;
-                    }
+                {
+                    // SDL: 1 left, 2 middle, 3 right; the device: button0 left, button1 right, button2 middle.
+                    var b = ev.Button switch { 1 => 0, 3 => 1, 2 => 2, _ => -1 };
+                    if (b >= 0)
+                        InjectButton(b, ev.Type == Sdl3.EventMouseButtonDown);
+                    break;
+                }
                 case Sdl3.EventMouseWheel:
                     InjectAxis(2, ev.WheelY * 120f);
                     break;
@@ -997,18 +1000,18 @@ public sealed class ClientApp : IDisposable
                 case Sdl3.EventJoyHatMotion:
                 case Sdl3.EventJoyButtonDown:
                 case Sdl3.EventJoyButtonUp:
-                    {
-                        int dev = Joysticks?.InstanceOf(ev.JoyWhich) ?? -1;
-                        if (dev < 0)
-                            break;
-                        if (ev.Type == Sdl3.EventJoyAxisMotion)
-                            InjectJoyAxis(dev, ev.JoyIndex, ev.JoyAxisValue);
-                        else if (ev.Type == Sdl3.EventJoyHatMotion)
-                            InjectJoyHat(dev, ev.JoyIndex, ev.JoyHat);
-                        else
-                            InjectJoyButton(dev, ev.JoyIndex, ev.Type == Sdl3.EventJoyButtonDown);
+                {
+                    var dev = Joysticks?.InstanceOf(ev.JoyWhich) ?? -1;
+                    if (dev < 0)
                         break;
-                    }
+                    if (ev.Type == Sdl3.EventJoyAxisMotion)
+                        InjectJoyAxis(dev, ev.JoyIndex, ev.JoyAxisValue);
+                    else if (ev.Type == Sdl3.EventJoyHatMotion)
+                        InjectJoyHat(dev, ev.JoyIndex, ev.JoyHat);
+                    else
+                        InjectJoyButton(dev, ev.JoyIndex, ev.Type == Sdl3.EventJoyButtonDown);
+                    break;
+                }
                 case Sdl3.EventWindowFocusLost:
                     Canvas.WindowActive = false;
                     Input.Clear();
@@ -1026,7 +1029,7 @@ public sealed class ClientApp : IDisposable
         if (Interp.HasFunction("onQuit"))
             Interp.CallFunction("onQuit", Array.Empty<string>());
         else
-            mQuit = true;
+            QuitRequested = true;
     }
 
     // ---- shutdown (client-app.md 6.2) ----

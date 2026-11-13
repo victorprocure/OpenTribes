@@ -24,7 +24,7 @@ public class ScriptParserTests
     {
         // Valid forms (docs/script.md 2.1).
         string[] valid =
-        {
+        [
             "$x = $y = 2;",
             "echo($x = 1 + 2);",
             "echo(- - 1);",
@@ -53,20 +53,20 @@ public class ScriptParserTests
             "echo(\"a\" $+ \"b\" @ 'c');",
             "",
             "// comment only\n# another\n",
-        };
-        foreach (string s in valid)
+        ];
+        foreach (var s in valid)
             Assert.True(Ok(s), "should parse: " + s);
 
         // Invalid forms.
         string[] invalid =
-        {
+        [
             ";", "echo(1);;", "if (1) ;", "if (1) {};", "function f() {};", "{ echo(1); }",
             "5+1;", "for(;;) echo(1);", "++$x;", "--5;", "function a.b() {}", "$a[1][2] = 1;",
             "echo(1)(2);", "echo(class);", "($x = 1);", "echo(nil);", "global $x = 1;",
             "Foo { };", "instant Foo { };", "instant Foo { instant Bar; a = 1; };", "a::b::c = 1;",
             "echo(1)", "$x = ;", "\"str\" = 1;", "$0x = 1;",
-        };
-        foreach (string s in invalid)
+        ];
+        foreach (var s in invalid)
             Assert.False(Ok(s), "should fail: " + s);
 
         // Statements completed before an error are kept; the error line is the token's line.

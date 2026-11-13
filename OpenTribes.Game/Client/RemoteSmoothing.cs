@@ -6,9 +6,6 @@
 // (predict + 32) / 32 ticks with the echoed move, and the drawn state then moves from the old to the new state over
 // the window ending at (now + interpolate + 31) & ~31. Player_clientUpdate (0x00414c38) and Vehicle_clientUpdate
 // (0x0044549c) advance the window each frame and then step the copy with the echoed move for the time left.
-using OpenTribes.Core;
-using OpenTribes.Sim;
-
 namespace OpenTribes.Game;
 
 /// <summary>The smoothing window arithmetic of 1.11.</summary>
@@ -28,9 +25,9 @@ public static class SmoothWindow
     /// <returns>The tick count, as the loops at 0x004140f7 and 0x0044600d run: <c>edi = predict + 32, esi = 0, while (esi &lt; edi) { step; esi += 32 }</c>.</returns>
     public static int Ticks(int predict)
     {
-        uint limit = unchecked((uint)predict + 32u);
-        ulong n = ((ulong)limit + 31u) / 32u;
-        return (int)Math.Min(n, (ulong)MaxTicks);
+        var limit = unchecked((uint)predict + 32u);
+        var n = ((ulong)limit + 31u) / 32u;
+        return (int)Math.Min(n, MaxTicks);
     }
 
     /// <summary>Tells whether a Player update takes the snap path.</summary>
@@ -122,10 +119,10 @@ public sealed class RemotePlayer
         SimTime = SmoothWindow.Floor(now);
         End = 0;
         P.SetPosition(pos);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             P.Velocity[i] = vel[i];
         P.AtRest = false;
-        float[] rot = { P.Rotation[0], P.Rotation[1], yaw };
+        float[] rot = [P.Rotation[0], P.Rotation[1], yaw];
         P.SetRotation(rot);
         P.Pitch = pitch;
         P.ContactFlag = contact;
@@ -150,18 +147,18 @@ public sealed class RemotePlayer
     {
         P.LastMove = move;                                 // +0xff0
         float oldYaw = P.Rotation[2], oldPitch = P.Pitch;
-        float[] oldPos = { P.Transform.P[0], P.Transform.P[1], P.Transform.P[2] };
-        for (int i = 0; i < 3; ++i)
+        float[] oldPos = [P.Transform.P[0], P.Transform.P[1], P.Transform.P[2]];
+        for (var i = 0; i < 3; ++i)
             P.Velocity[i] = vel[i];                        // SimMovement_setLinearVelocity
         P.AtRest = false;
         P.SetPosition(pos);                                // vtable +0x19c
         P.ContactFlag = contact;
         P.Pitch = pitch;
-        P.SetRotation(new[] { P.Rotation[0], P.Rotation[1], yaw });   // vtable +0x1a0
+        P.SetRotation([P.Rotation[0], P.Rotation[1], yaw]);   // vtable +0x1a0
         End = 0;
         P.TicksWithoutMove = 0;
-        int ticks = SmoothWindow.Ticks(predict);
-        for (int k = 0; k < ticks; ++k)
+        var ticks = SmoothWindow.Ticks(predict);
+        for (var k = 0; k < ticks; ++k)
         {
             P.UpdateMove(P.LastMove);
             ++Steps;
@@ -175,23 +172,23 @@ public sealed class RemotePlayer
             return;
         }
         End = SmoothWindow.End(now, interpolate);
-        float span = unchecked((uint)(End - SimTime));
+        float span = unchecked(End - SimTime);
         PitchRate = (P.Pitch - oldPitch) / span;
         P.Pitch = oldPitch;
-        float dyaw = P.Rotation[2] - oldYaw;
+        var dyaw = P.Rotation[2] - oldYaw;
         if (dyaw < -Pi)
             dyaw += (float)TwoPi;
         if (dyaw > Pi)
             dyaw -= (float)TwoPi;
         YawRate = dyaw / span;
-        P.SetRotation(new[] { P.Rotation[0], P.Rotation[1], oldYaw });
+        P.SetRotation([P.Rotation[0], P.Rotation[1], oldYaw]);
         if (P.MountId != 0)
         {
             // Mounted: no position rates (+0x1e2.. keep their old values); the drawn transform is the mount point's with the old yaw.
             P.PlaceOnMount();
             return;
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PosRate[i] = (P.Transform.P[i] - oldPos[i]) / span;
         P.SetPosition(oldPos);
     }
@@ -199,21 +196,21 @@ public sealed class RemotePlayer
     // FUN_00414a00: adds `f` times the rates to the drawn state (f in ms inside a window, in ticks after a step).
     private void Interpolate(float f)
     {
-        float yaw = YawRate * f + P.Rotation[2];
+        var yaw = (YawRate * f) + P.Rotation[2];
         if (yaw < 0.0)
             yaw += (float)TwoPi;
         if (yaw > TwoPi)
             yaw -= (float)TwoPi;
-        P.SetRotation(new[] { P.Rotation[0], P.Rotation[1], yaw });
-        P.Pitch = PitchRate * f + P.Pitch;
+        P.SetRotation([P.Rotation[0], P.Rotation[1], yaw]);
+        P.Pitch = (PitchRate * f) + P.Pitch;
         if (P.MountId != 0)
         {
             P.PlaceOnMount();                              // follows the mount node as it is now
             return;
         }
         Span<float> pos = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
-            pos[i] = PosRate[i] * f + P.Transform.P[i];
+        for (var i = 0; i < 3; ++i)
+            pos[i] = (PosRate[i] * f) + P.Transform.P[i];
         P.PlaceRaw(pos);
     }
 
@@ -221,11 +218,11 @@ public sealed class RemotePlayer
     private void Step()
     {
         Move m = P.LastMove;
-        float[] before = { P.Transform.P[0], P.Transform.P[1], P.Transform.P[2] };
-        float pitchBefore = P.Pitch;
+        float[] before = [P.Transform.P[0], P.Transform.P[1], P.Transform.P[2]];
+        var pitchBefore = P.Pitch;
         P.UpdateMove(m);
         ++Steps;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PosRate[i] = P.Transform.P[i] - before[i];
         YawRate = m.Turn;
         PitchRate = P.Pitch - pitchBefore;
@@ -242,7 +239,7 @@ public sealed class RemotePlayer
             P.ClientCorpseStep((float)((now - LastTime) * 0.001));    // 0x0041447c, before the window
         if (End != 0)
         {
-            uint t = Math.Min(End, now);
+            var t = Math.Min(End, now);
             if (SimTime < t)
             {
                 Interpolate(t - SimTime);
@@ -253,8 +250,8 @@ public sealed class RemotePlayer
         }
         while (SimTime < now)
         {
-            uint next = Math.Min((SimTime + 32) & ~31u, now);
-            uint covered = ((next - 1) & 31) + 1;          // puVar10
+            var next = Math.Min((SimTime + 32) & ~31u, now);
+            var covered = ((next - 1) & 31) + 1;          // puVar10
             if ((SimTime & 31) == 0)
             {
                 Step();
@@ -334,14 +331,14 @@ public sealed class RemoteVehicle
         float oldF = V.SpeedF, oldL = V.SpeedL;
         V.SpeedF = speedF;
         V.SpeedL = speedL;
-        float[] oldRot = { V.Rotation[0], V.Rotation[1], V.Rotation[2] };
-        float[] oldPos = { V.Transform.P[0], V.Transform.P[1], V.Transform.P[2] };
+        float[] oldRot = [V.Rotation[0], V.Rotation[1], V.Rotation[2]];
+        float[] oldPos = [V.Transform.P[0], V.Transform.P[1], V.Transform.P[2]];
         V.SetPosition(pos);
         V.SetRotation(rot);
         End = 0;
         V.TicksWithoutMove = 0;
-        int ticks = SmoothWindow.Ticks(predict);
-        for (int k = 0; k < ticks; ++k)
+        var ticks = SmoothWindow.Ticks(predict);
+        for (var k = 0; k < ticks; ++k)
         {
             Move m = V.LastMove;
             V.Update(ref m, 0.032f);
@@ -359,13 +356,13 @@ public sealed class RemoteVehicle
             SimTime = SmoothWindow.Floor(now);
             End = SmoothWindow.End(now, interpolate);
             float span = End - SimTime;
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 PosRate[i] = (V.Transform.P[i] - oldPos[i]) / span;
             V.SetPosition(oldPos);
-            float[] cur = { V.Rotation[0], V.Rotation[1], V.Rotation[2] };
-            for (int i = 0; i < 3; ++i)
+            float[] cur = [V.Rotation[0], V.Rotation[1], V.Rotation[2]];
+            for (var i = 0; i < 3; ++i)
             {
-                float d = cur[i] - oldRot[i];
+                var d = cur[i] - oldRot[i];
                 if (d < -Pi)
                     d += (float)TwoPi;
                 if (d > Pi)
@@ -387,12 +384,12 @@ public sealed class RemoteVehicle
             return;                                        // skipped by the caller (+0x218 equals now)
         if (End != 0)
         {
-            uint t = Math.Min(End, now);
+            var t = Math.Min(End, now);
             if (SimTime < t)
             {
                 float dt = t - SimTime;
-                V.SetRotation(new[] { RotRate[0] * dt + V.Rotation[0], RotRate[1] * dt + V.Rotation[1], RotRate[2] * dt + V.Rotation[2] });
-                V.SetPosition(new[] { PosRate[0] * dt + V.Transform.P[0], PosRate[1] * dt + V.Transform.P[1], PosRate[2] * dt + V.Transform.P[2] });
+                V.SetRotation([(RotRate[0] * dt) + V.Rotation[0], (RotRate[1] * dt) + V.Rotation[1], (RotRate[2] * dt) + V.Rotation[2]]);
+                V.SetPosition([(PosRate[0] * dt) + V.Transform.P[0], (PosRate[1] * dt) + V.Transform.P[1], (PosRate[2] * dt) + V.Transform.P[2]]);
                 SimTime = t;
             }
             else
@@ -400,8 +397,8 @@ public sealed class RemoteVehicle
         }
         while (SimTime < now)
         {
-            uint next = Math.Min((SimTime + 32) & ~31u, now);
-            uint ms = ((next - 1) & 31) + 1 - (SimTime & 31);
+            var next = Math.Min((SimTime + 32) & ~31u, now);
+            var ms = ((next - 1) & 31) + 1 - (SimTime & 31);
             Move m = V.LastMove;
             V.Update(ref m, (float)(ms * 0.001));
             SimTime = next;

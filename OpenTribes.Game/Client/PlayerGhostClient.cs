@@ -30,7 +30,7 @@ public static partial class PlayerGhost
         }
         if (r.Flag())
         {
-            bool dead = r.Flag();
+            var dead = r.Flag();
             if (!dead)
                 r.Add("damage", r.Int(6) / 63.0);
             else
@@ -46,8 +46,8 @@ public static partial class PlayerGhost
             r.AddVec("pos");
             if (r.Flag())
             {
-                double speed = r.Int(17) / 512.0;
-                double[] n = r.Normal(10);
+                var speed = r.Int(17) / 512.0;
+                var n = r.Normal(10);
                 r.Add("vel", new[] { n[0] * speed, n[1] * speed, n[2] * speed });
             }
             r.AddFlag("flag1f4");
@@ -74,15 +74,15 @@ public static partial class PlayerGhost
         if (r.Flag())
         {
             var imgs = new List<object?>();
-            for (int i = 0; i < 8; ++i)
+            for (var i = 0; i < 8; ++i)
                 if (r.Flag())
                 {
-                    long img = (long)r.Int(8) - 1;
+                    var img = (long)r.Int(8) - 1;
                     g.State["item" + i] = img;           // the slot's item, kept for the prediction's mass (4.4)
                     long st = r.Flag() ? r.Int(3) : -1;
                     bool a = r.Flag(), b = r.Flag();
                     long c = r.Int(3);
-                    string s = i + ":img=" + img + " state=" + st + " " + (a ? 1 : 0) + (b ? 1 : 0) + " " + c;
+                    var s = i + ":img=" + img + " state=" + st + " " + (a ? 1 : 0) + (b ? 1 : 0) + " " + c;
                     if (isNew)
                         s += " f=" + (r.Flag() ? 1 : 0);
                     imgs.Add(s);

@@ -23,15 +23,15 @@ public sealed class R250
     {
         mIndex = 0;
         mState = seed;
-        for (int i = 0; i < 250; ++i)
+        for (var i = 0; i < 250; ++i)
             mTable[i] = Lcg();
-        for (int i = 0; i < 250; ++i)
+        for (var i = 0; i < 250; ++i)
             if (Lcg() > 0x40000000u)
                 mTable[i] |= 0x80000000u;
         uint keep = 0xffffffffu, set = 0x80000000u;
-        for (int i = 0; i < 32; ++i)
+        for (var i = 0; i < 32; ++i)
         {
-            ref uint w = ref mTable[i * 7 + 3];
+            ref var w = ref mTable[(i * 7) + 3];
             w = (w & keep) | set;
             keep >>= 1;
             set >>= 1;
@@ -43,8 +43,8 @@ public sealed class R250
     /// <remarks>Follows the stock draw (0x005eb660).</remarks>
     public uint Next()
     {
-        uint tap = mIndex < 0x93 ? mIndex + 0x67 : mIndex - 0x93;
-        uint v = mTable[mIndex] ^ mTable[tap];
+        var tap = mIndex < 0x93 ? mIndex + 0x67 : mIndex - 0x93;
+        var v = mTable[mIndex] ^ mTable[tap];
         mTable[mIndex] = v;
         mIndex = mIndex < 0xf9 ? mIndex + 1 : 0;
         return v;
@@ -59,11 +59,11 @@ public sealed class R250
 
     /// <summary>Draws a value scaled to [0, 1) as the engine computes it (<c>u * 2^-32</c>).</summary>
     /// <returns>The scaled draw.</returns>
-    public double Unit() => OpenTribes.Core.Fpu.Mul(Next(), 2.3283064365386963e-10);
+    public double Unit() => Fpu.Mul(Next(), 2.3283064365386963e-10);
 
     private uint Lcg()
     {
-        mState = unchecked(mState * 0x19660du + 0x3c6ef35fu);
+        mState = unchecked((mState * 0x19660du) + 0x3c6ef35fu);
         return mState;
     }
 }

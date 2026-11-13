@@ -1,8 +1,8 @@
 // Port of tests/event_reader.hpp: test helpers: read an event body or a packet with the BitStream reader.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Net;
-
-namespace OpenTribes.Tests;
 
 // tests/event_reader.hpp class Bits: reads bits from a copy of a byte buffer; Done() checks that exactly `bits` were
 // consumed.
@@ -15,7 +15,7 @@ public sealed class Bits
     public Bits(IReadOnlyList<byte> data, uint bits)
     {
         mBuf = new byte[data.Count + 8];
-        for (int i = 0; i < data.Count; ++i)
+        for (var i = 0; i < data.Count; ++i)
             mBuf[i] = data[i];
         mBits = bits;
         mStream = new BitStream(mBuf, mBuf.Length);
@@ -35,7 +35,7 @@ public sealed class Bits
     // tests/event_reader.hpp strBits: bit count of a string as the stream writes it.
     public static uint StrBits(string s)
     {
-        byte[] buf = new byte[1024];
+        var buf = new byte[1024];
         var bs = new BitStream(buf, buf.Length);
         bs.WriteString(s);
         return bs.BitPosition();

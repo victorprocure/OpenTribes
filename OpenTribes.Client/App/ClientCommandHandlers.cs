@@ -1,13 +1,11 @@
+namespace OpenTribes.Client.App;
+
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using OpenTribes.Core;
 using OpenTribes.Gui;
-using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Sdl;
 using OpenTribes.Script;
-
-namespace OpenTribes.Client.App;
 
 /// <summary>The console commands of the client with their real effect, registered over the stub table of OpenTribes.Script (<c>ClientCommandTable</c>).</summary>
 /// <remarks>docs/client-scripts.md 2.2 to 2.15. Hardware and Windows services follow D36: the OpenGL device is the only device (D31), the CD layer is absent, the browser and the editor tools are not opened unless the user opts in.</remarks>
@@ -16,20 +14,20 @@ public sealed class ClientCommandHandlers
     private readonly ClientApp mApp;
     private Interpreter I => mApp.Interp;
     private int mShotSeq;
-    private readonly List<string> mResolvedMasters = new();
+    private readonly List<string> mResolvedMasters = [];
     private bool mInputOpen = true;
     private readonly HashSet<string> mInactive = new(StringComparer.OrdinalIgnoreCase);
-    private string mFsDevice = "Software", mWinDevice = "Software";
+
     /// <summary>The device used full screen.</summary>
-    public string FullscreenDevice => mFsDevice;
+    public string FullscreenDevice { get; private set; } = "Software";
     /// <summary>The device used windowed.</summary>
-    public string WindowedDevice => mWinDevice;
+    public string WindowedDevice { get; private set; } = "Software";
     private int mResIndex;
 
     /// <summary>The modes the one device lists (docs/client-app.md 4.3): the fixed 4:3 ladder, plus the desktop.</summary>
-    public static readonly (int W, int H)[] Modes = { (640, 480), (800, 600), (1024, 768), (1280, 1024), (1600, 1200) };
+    public static readonly (int W, int H)[] Modes = [(640, 480), (800, 600), (1024, 768), (1280, 1024), (1600, 1200)];
     /// <summary>The device names.</summary>
-    public static readonly string[] DeviceNames = { "OpenGL", "Software", "Glide" };
+    public static readonly string[] DeviceNames = ["OpenGL", "Software", "Glide"];
 
     /// <summary>Creates the handlers.</summary>
     /// <param name="app">The client.</param>
@@ -49,9 +47,9 @@ public sealed class ClientCommandHandlers
     // The names a script can use: class name and instance (0050ed5c formats "mouse%d", "keyboard%d", "joystick%d").
     private IEnumerable<string> DeviceNamesNow()
     {
-        foreach (string d in kDevices)
+        foreach (var d in kDevices)
             yield return d;
-        for (int i = 0; i < JoystickCount; ++i)
+        for (var i = 0; i < JoystickCount; ++i)
             yield return "joystick" + i;
     }
 
@@ -65,8 +63,6 @@ public sealed class ClientCommandHandlers
             I.Print(1, "Could not find simCanvas: " + name);
         return false;
     }
-
-    private static string B(bool v) => v ? "True" : "False";
 
     /// <summary>Tells whether a script value is true.</summary>
     /// <param name="s">The value.</param>
@@ -87,7 +83,7 @@ public sealed class ClientCommandHandlers
 
     // ---- 2.2 shell ----
 
-    private static readonly string[] kUrlSchemes = { "http://", "https://", "ftp://", "mailto:", "file://" };
+    private static readonly string[] kUrlSchemes = ["http://", "https://", "ftp://", "mailto:", "file://"];
 
     private bool OpenWithSystem(string what)
     {
@@ -111,7 +107,7 @@ public sealed class ClientCommandHandlers
     {
         string? Html(string[] a, int urlIndex)
         {
-            string url = a[urlIndex];
+            var url = a[urlIndex];
             if (!kUrlSchemes.Any(s => url.StartsWith(s, StringComparison.OrdinalIgnoreCase)))
             {
                 I.Print(1, "HTMLOpen: can only open properly prefixed HTML URLs.");
@@ -183,8 +179,8 @@ public sealed class ClientCommandHandlers
             }
             if (!IsCanvas(a[0], a[1]))
                 return "False";
-            double g = Numbers.BorlandAtof(a[2]);
-            if (g < 0.05 || g > 20)
+            var g = Numbers.BorlandAtof(a[2]);
+            if (g is < 0.05 or > 20)
             {
                 I.Print(1, "Out of bounds gamma, must be between 0.05 and 20, value clamped");
                 g = Math.Clamp(g, 0.05, 20);
@@ -207,7 +203,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "Failed to set Fullscreen Device to " + a[2]);
                 return "False";
             }
-            mFsDevice = a[2];
+            FullscreenDevice = a[2];
             return "True";
         });
         Cmd("setWindowedDevice", a =>
@@ -224,13 +220,13 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "Failed to set windowed Device to " + a[2]);
                 return "False";
             }
-            mWinDevice = a[2];
+            WindowedDevice = a[2];
             return "True";
         });
         Cmd("listDevices", a =>
         {
             I.Print(1, "Number of devices: 1");
-            var sb = new StringBuilder("OpenGL (SDL3)" + (string.Equals(mFsDevice, "OpenGL", StringComparison.OrdinalIgnoreCase) ? " *" : "") + ": ");
+            var sb = new StringBuilder("OpenGL (SDL3)" + (string.Equals(FullscreenDevice, "OpenGL", StringComparison.OrdinalIgnoreCase) ? " *" : "") + ": ");
             sb.Append(string.Join(", ", Modes.Select(m => $"{m.W} x {m.H}")));
             I.Print(1, sb.ToString());
             return "";
@@ -268,7 +264,7 @@ public sealed class ClientCommandHandlers
         });
         Cmd("screenShot", a =>
         {
-            if (a.Length < 2 || a.Length > 3)
+            if (a.Length is < 2 or > 3)
             {
                 I.Print(1, "screenShot(canvasName [, fileName]);");
                 return "False";
@@ -319,10 +315,10 @@ public sealed class ClientCommandHandlers
             }
             if (!IsCanvas(a[0], a[1]))
                 return "False";
-            string[] wh = a[2].Split('x');
-            if (wh.Length == 2 && int.TryParse(wh[0], out int w) && int.TryParse(wh[1], out int h) && w > 0 && h > 0)
+            var wh = a[2].Split('x');
+            if (wh.Length == 2 && int.TryParse(wh[0], out var w) && int.TryParse(wh[1], out var h) && w > 0 && h > 0)
             {
-                int k = Array.FindIndex(Modes, m => m.W == w && m.H == h);
+                var k = Array.FindIndex(Modes, m => m.W == w && m.H == h);
                 if (k >= 0)
                     mResIndex = k;
                 mApp.FullscreenSize = (w, h);
@@ -396,11 +392,11 @@ public sealed class ClientCommandHandlers
 
     // ---- 2.6 input ----
 
-    private static readonly string[] kDevices = { "keyboard0", "mouse0" };
+    private static readonly string[] kDevices = ["keyboard0", "mouse0"];
 
     private void RegisterInput()
     {
-        bool created = true;
+        var created = true;
         Cmd("newInputManager", a =>
         {
             if (a.Length != 1)
@@ -415,7 +411,7 @@ public sealed class ClientCommandHandlers
         });
         Cmd("listInputDevices", a =>
         {
-            foreach (string d in DeviceNamesNow())
+            foreach (var d in DeviceNamesNow())
                 I.Print(1, d + (DeviceActive(d) ? " (active)" : "") + DeviceText(d));
             return "";
         });
@@ -442,7 +438,7 @@ public sealed class ClientCommandHandlers
                 return "False";
             }
             var lines = new List<string>();
-            foreach (string d in DeviceNamesNow())
+            foreach (var d in DeviceNamesNow())
                 DeviceInfo(d, lines.Add);
             File.WriteAllLines(Builtins.HostFilePath(mApp.Opt.Root, a[1]), lines);
             return "";
@@ -461,7 +457,7 @@ public sealed class ClientCommandHandlers
             if (string.Equals(a[1], "all", StringComparison.OrdinalIgnoreCase))
             {
                 mInactive.Clear();
-                for (int j = 0; j < JoystickCount; ++j)
+                for (var j = 0; j < JoystickCount; ++j)
                     mJoyActive.Add("joystick" + j);
                 return "True";
             }
@@ -485,7 +481,7 @@ public sealed class ClientCommandHandlers
             }
             if (string.Equals(a[1], "all", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (string d in kDevices)
+                foreach (var d in kDevices)
                     mInactive.Add(d);
                 mJoyActive.Clear();
                 mApp.Input.Clear();
@@ -543,7 +539,7 @@ public sealed class ClientCommandHandlers
             return ": SDL3 keyboard, 111 keys";
         if (!d.StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
             return ": SDL3 mouse, 3 buttons, 3 axes";
-        int i = int.Parse(d.AsSpan(8), CultureInfo.InvariantCulture);
+        var i = int.Parse(d.AsSpan(8), CultureInfo.InvariantCulture);
         JoystickSet j = mApp.Joysticks!;
         return ": " + j.NameOf(i) + ", " + j.ButtonsOf(i) + " buttons, " + j.AxesOf(i) + " axes, " + j.HatsOf(i) + " povs";
     }
@@ -553,16 +549,16 @@ public sealed class ClientCommandHandlers
         line("Type\tName");
         if (device.StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
         {
-            int i = int.Parse(device.AsSpan(8), CultureInfo.InvariantCulture);
+            var i = int.Parse(device.AsSpan(8), CultureInfo.InvariantCulture);
             JoystickSet j = mApp.Joysticks!;
-            for (int a = 0; a < j.AxesOf(i); ++a)
+            for (var a = 0; a < j.AxesOf(i); ++a)
             {
-                (byte type, byte inst) = JoystickEvents.AxisObject(a);
+                (var type, var inst) = JoystickEvents.AxisObject(a);
                 line((type == JoystickEvents.ObjSlider ? "Slider\tslider" : "Axis\t" + AxisWord(type)) + inst);
             }
-            for (int b = 0; b < j.ButtonsOf(i); ++b)
+            for (var b = 0; b < j.ButtonsOf(i); ++b)
                 line("Button\tbutton" + b);
-            for (int p = 0; p < j.HatsOf(i); ++p)
+            for (var p = 0; p < j.HatsOf(i); ++p)
                 line("Pov\tpov" + p);
             return;
         }
@@ -576,15 +572,19 @@ public sealed class ClientCommandHandlers
             line("Axis\txaxis0");
             line("Axis\tyaxis0");
             line("Axis\tzaxis0");
-            for (int b = 0; b < 3; ++b)
+            for (var b = 0; b < 3; ++b)
                 line("Button\tbutton" + b);
         }
     }
 
     private static string AxisWord(byte type) => type switch
     {
-        JoystickEvents.ObjXAxis => "xaxis", JoystickEvents.ObjYAxis => "yaxis", JoystickEvents.ObjZAxis => "zaxis",
-        JoystickEvents.ObjRxAxis => "rxaxis", JoystickEvents.ObjRyAxis => "ryaxis", _ => "rzaxis",
+        JoystickEvents.ObjXAxis => "xaxis",
+        JoystickEvents.ObjYAxis => "yaxis",
+        JoystickEvents.ObjZAxis => "zaxis",
+        JoystickEvents.ObjRxAxis => "rxaxis",
+        JoystickEvents.ObjRyAxis => "ryaxis",
+        _ => "rzaxis",
     };
 
     // ---- 2.5 CD audio (D36) ----
@@ -606,7 +606,7 @@ public sealed class ClientCommandHandlers
             // `unable to find Redbook Obj CD` (client-scripts.md 2.5 says `Err, could not open a device.`: spec error E1).
             return "False";
         });
-        foreach (string n in new[] { "rbOpen", "rbClose", "rbEject", "rbRetract", "rbGetStatus", "rbGetTrackCount", "rbGetTrackInfo",
+        foreach (var n in new[] { "rbOpen", "rbClose", "rbEject", "rbRetract", "rbGetStatus", "rbGetTrackCount", "rbGetTrackInfo",
                                      "rbGetTrackPosition", "rbPlay", "rbStop", "rbPause", "rbResume", "rbSetVolume", "rbGetVolume", "rbSetPlayMode" })
             Cmd(n, a =>
             {
@@ -684,19 +684,19 @@ public sealed class ClientCommandHandlers
         Cmd("DNet::resolveMasters", a =>
         {
             mResolvedMasters.Clear();
-            int count = 0;
-            for (int k = 1; k < a.Length && k <= 10 && a[k].Length != 0; ++k, ++count)
+            var count = 0;
+            for (var k = 1; k < a.Length && k <= 10 && a[k].Length != 0; ++k, ++count)
             {
-                string slot = "";
-                if (mApp.IsLocalAddress(a[k]) && OpenTribes.Net.QueryAddress.TryResolve("IP:" + a[k].Replace("IP:", "", StringComparison.OrdinalIgnoreCase), 0, out string canon, out _, out _, out _))
+                var slot = "";
+                if (ClientApp.IsLocalAddress(a[k]) && Net.QueryAddress.TryResolve("IP:" + a[k].Replace("IP:", "", StringComparison.OrdinalIgnoreCase), 0, out var canon, out _, out _, out _))
                     slot = canon;
                 mResolvedMasters.Add(slot);
             }
             return count.ToString(CultureInfo.InvariantCulture);
         });
         Cmd("DNet::getResolvedMaster", a =>
-            a.Length >= 2 && int.TryParse(a[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int i) && i >= 0 && i < mResolvedMasters.Count ? mResolvedMasters[i] : "");
-        Cmd("DNet::TranslateAddress", a => a.Length >= 2 && mApp.IsLocalAddress(a[1]) ? a[1] : "");
+            a.Length >= 2 && int.TryParse(a[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) && i >= 0 && i < mResolvedMasters.Count ? mResolvedMasters[i] : "");
+        Cmd("DNet::TranslateAddress", a => a.Length >= 2 && ClientApp.IsLocalAddress(a[1]) ? a[1] : "");
         Cmd("remoteEval", a =>
         {
             // remoteEval(manager, function, args...): the wire call is the function name and its arguments.
@@ -721,12 +721,12 @@ public sealed class ClientCommandHandlers
         {
             if (a.Length != 2)
                 return "false";
-            string path = Builtins.ResolveGamePath(mApp.Opt.Root, a[1]);
+            var path = Builtins.ResolveGamePath(mApp.Opt.Root, a[1]);
             if (path.Length > 0 && Builtins.IsWriteablePath(a[1]))
             {
                 try
                 {
-                    File.WriteAllBytes(path, Array.Empty<byte>());
+                    File.WriteAllBytes(path, []);
                 }
                 catch (IOException)
                 {
@@ -741,9 +741,9 @@ public sealed class ClientCommandHandlers
     private int ItemTypeOf(string description)
     {
         var blocks = mApp.Game?.World.DataBlocks;
-        if (blocks == null || !blocks.Counts.TryGetValue(5, out int n))
+        if (blocks == null || !blocks.Counts.TryGetValue(5, out var n))
             return -1;
-        for (int i = 0; i < n; ++i)
+        for (var i = 0; i < n; ++i)
             if (blocks.Blocks.TryGetValue((5, i), out var b) && string.Equals(Scene.Db.Str(b, "description"), description, StringComparison.OrdinalIgnoreCase))
                 return i;
         return -1;
@@ -770,7 +770,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "wrong argcount to getItemType(description)");
                 return "False";
             }
-            return ItemTypeOf(a[1]).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return ItemTypeOf(a[1]).ToString(CultureInfo.InvariantCulture);
         });
         Cmd("getItemCount", a =>
         {
@@ -779,9 +779,9 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "wrong argcount to getItemCount(description)");
                 return "0";
             }
-            int t = ItemTypeOf(a[1]);
+            var t = ItemTypeOf(a[1]);
             var psc = mApp.Game?.World.Psc;
-            return psc != null && t >= 0 && t < psc.ItemCounts.Length ? psc.ItemCounts[t].ToString(System.Globalization.CultureInfo.InvariantCulture) : "0";
+            return psc != null && t >= 0 && t < psc.ItemCounts.Length ? psc.ItemCounts[t].ToString(CultureInfo.InvariantCulture) : "0";
         });
         Cmd("useItem", a =>
         {
@@ -805,7 +805,7 @@ public sealed class ClientCommandHandlers
     private void RegisterMisc()
     {
         // getManagerId 00422ac0 on a client: the id of its own player (2049 on a first join), 2048 without a connection.
-        Cmd("getManagerId", a => mApp.Game is { Joined: true } g ? g.World.PlayerId.ToString(System.Globalization.CultureInfo.InvariantCulture) : "2048");
+        Cmd("getManagerId", a => mApp.Game is { Joined: true } g ? g.World.PlayerId.ToString(CultureInfo.InvariantCulture) : "2048");
         // cmd_Client_getName 0041de34 and cmd_Client_getTeam 0041e1c0 read the client PlayerManager's records here.
         Cmd("Client::getName", a =>
         {
@@ -823,7 +823,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "wrong argcount to getPlayerName(playerId);");
                 return "-1";
             }
-            return (mApp.Game?.World.Players.Get(Numbers.BorlandAtoi(a[1]))?.Team ?? -1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return (mApp.Game?.World.Players.Get(Numbers.BorlandAtoi(a[1]))?.Team ?? -1).ToString(CultureInfo.InvariantCulture);
         });
         Cmd("quit", a =>
         {

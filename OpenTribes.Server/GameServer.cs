@@ -1,12 +1,11 @@
-using OpenTribes.Core;
+namespace OpenTribes.Server;
+
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.Server;
 
 /// <summary>The server side of client connections: client objects, the join sequence (docs/game-stream.md 5.1) and remote evals in both directions.</summary>
 /// <remarks>Port of src/game/game_server.cpp. It lives in OpenTribes.Server because it drives the <see cref="NetServer"/> of this project. The C# project graph is acyclic and OpenTribes.Game does not reference the server.</remarks>
@@ -36,14 +35,14 @@ public sealed class GameServer
     private readonly GameState mGame;
     private readonly Interpreter mIn;
     private readonly NetServer mNet;
-    private readonly SortedDictionary<int, Client> mClients = new(); // join order by id is not guaranteed; mOrder keeps it
-    private readonly List<int> mOrder = new();
+    private readonly SortedDictionary<int, Client> mClients = []; // join order by id is not guaranteed; mOrder keeps it
+    private readonly List<int> mOrder = [];
 
     // src/game/game_server.cpp collectAlways: set 34: objects with net flags 0x40 and 0x100 (docs/game-stream-ghosts.md
     // 1.1).
     private static void CollectAlways(SimObject obj, List<SimObject> output)
     {
-        uint f = GhostScope.NetFlags(obj);
+        var f = GhostScope.NetFlags(obj);
         if ((f & GhostScope.kNetGhostable) != 0 && (f & GhostScope.kNetScopeAlways) != 0)
             output.Add(obj);
         if (obj.AsSet() is SimSet set)
@@ -85,7 +84,7 @@ public sealed class GameServer
             OnClosed = Closed,
             OnTick = now =>
             {
-                foreach (int id in mOrder.ToList())
+                foreach (var id in mOrder.ToList())
                 {
                     if (!mClients.TryGetValue(id, out Client? c))
                         continue;
@@ -97,10 +96,10 @@ public sealed class GameServer
                     // $pref::PacketRate 1-30 (unsigned compare) and $pref::PacketSize 100-450, defaults 10 and 200
                     // (GameConnection_loadPacketPrefs 0x00550c68, same clamps in the 1.11 exe; the 1.30 exe uses 10-30 and 200-450; docs/game-stream.md 1.3). A change is sent to the
                     // client as rateReq.
-                    string rateText = mIn.GetVariable("$pref::PacketRate", out bool haveRate);
-                    string sizeText = mIn.GetVariable("$pref::PacketSize", out bool haveSize);
-                    uint rate = haveRate ? unchecked((uint)Numbers.BorlandAtoi(rateText)) : 10u;
-                    int bytes = haveSize ? Numbers.BorlandAtoi(sizeText) : 200;
+                    var rateText = mIn.GetVariable("$pref::PacketRate", out var haveRate);
+                    var sizeText = mIn.GetVariable("$pref::PacketSize", out var haveSize);
+                    var rate = haveRate ? unchecked((uint)Numbers.BorlandAtoi(rateText)) : 10u;
+                    var bytes = haveSize ? Numbers.BorlandAtoi(sizeText) : 200;
                     rate = rate > 30 ? 30u : (rate < 1 ? 1u : rate);
                     bytes = bytes > 450 ? 450 : (bytes < 100 ? 100 : bytes);
                     c.Stream!.SetOwnRate(1000u / rate, (uint)bytes);
@@ -115,7 +114,7 @@ public sealed class GameServer
             // every ghost manager, so one created while clients are connected reaches them.
             m.OnRegister = obj =>
             {
-                uint f = GhostScope.NetFlags(obj);
+                var f = GhostScope.NetFlags(obj);
                 if ((f & GhostScope.kNetGhostable) == 0 || (f & GhostScope.kNetScopeAlways) == 0)
                     return;
                 foreach (var c in mClients)
@@ -127,7 +126,7 @@ public sealed class GameServer
                 // A SimPath leaving tells every client to drop its path (SimPathManager, 0052b8cc).
                 if (GameUtil.EqualsNoCase(obj.ClassName(), "SimPath"))
                 {
-                    int index = mGame.PathIndex(obj);
+                    var index = mGame.PathIndex(obj);
                     if (index >= 0)
                         foreach (var c in mClients)
                             c.Value.Stream!.Post(GameEvents.MakePathRemoved((uint)index));
@@ -186,7 +185,7 @@ public sealed class GameServer
             CollectPaths(m, paths);
         paths.Sort((a, b) => a.Sequence().CompareTo(b.Sequence()));
         var output = new List<OutEvent>();
-        for (int i = 0; i < paths.Count; ++i)
+        for (var i = 0; i < paths.Count; ++i)
         {
             var pts = new List<(float[] Delta, float[] Rot, float[] Pos)>();
             foreach (SimObject o in paths[i].AsSet()!.Members())
@@ -198,20 +197,20 @@ public sealed class GameServer
                 gb.PersistPoint("position", pos);
                 pts.Add((new float[6], rot, pos));
             }
-            bool moveable = false;
+            var moveable = false;
             if (paths[i].Group() is SimSet parent)
                 foreach (SimObject o in parent.Members())
                     moveable = moveable || GameUtil.EqualsNoCase(o.ClassName(), "Moveable");
             if (moveable && pts.Count != 0)
             {
-                var next = pts[pts.Count > 1 ? 1 : 0];
-                for (int k = 0; k < 3; ++k)
+                var (Delta, Rot, Pos) = pts[pts.Count > 1 ? 1 : 0];
+                for (var k = 0; k < 3; ++k)
                 {
-                    pts[0].Delta[k] = SubF(next.Rot[k], pts[0].Rot[k]);
-                    pts[0].Delta[3 + k] = SubF(next.Pos[k], pts[0].Pos[k]);
+                    pts[0].Delta[k] = SubF(Rot[k], pts[0].Rot[k]);
+                    pts[0].Delta[3 + k] = SubF(Pos[k], pts[0].Pos[k]);
                 }
             }
-            bool looping = false;
+            var looping = false;
             if (paths[i].PersistValue("isLooping") is IReadOnlyList<string> v)
                 looping = v.Count != 0 && Numbers.IsTrueString(v[0]);
             var w = new EventWriter();
@@ -222,9 +221,9 @@ public sealed class GameServer
             w.PutFlag(true);
             w.PutFlag(looping);
             w.PutInt((uint)pts.Count, 32);
-            foreach (var p in pts)
-                foreach (float f in new[] { p.Delta[0], p.Delta[1], p.Delta[2], p.Delta[3], p.Delta[4], p.Delta[5], p.Rot[0], p.Rot[1],
-                                            p.Rot[2], p.Pos[0], p.Pos[1], p.Pos[2] })
+            foreach (var (Delta, Rot, Pos) in pts)
+                foreach (var f in new[] { Delta[0], Delta[1], Delta[2], Delta[3], Delta[4], Delta[5], Rot[0], Rot[1],
+                                            Rot[2], Pos[0], Pos[1], Pos[2] })
                     w.PutInt(BitConverter.SingleToUInt32Bits(f), 32);
             output.Add(w.Finish(0x425, false, false));
         }
@@ -246,23 +245,23 @@ public sealed class GameServer
     // an index is taken.
     private void TraceGhost(int client, uint index, SimObject obj)
     {
-        float[] p = { 0, 0, 0 };
-        bool known = true;
+        float[] p = [0, 0, 0];
+        var known = true;
         if (obj is GameBase gb)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 p[i] = gb.Transform.P[i];
         }
         else if (mGame.World.Find(obj) is Container.Entry e)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 p[i] = Store(Div(Add(e.Box[i], e.Box[i + 3]), 2));
         }
         else
         {
             known = false;
         }
-        string s = "client " + client + " ghost " + index + " " + obj.ClassName() + " " + obj.Id();
+        var s = "client " + client + " ghost " + index + " " + obj.ClassName() + " " + obj.Id();
         if (known)
             s += " " + CFormat.G(p[0], 6) + " " + CFormat.G(p[1], 6) + " " + CFormat.G(p[2], 6);
         // The container holding the object: its id, 7 for container 7, - for none.
@@ -278,7 +277,7 @@ public sealed class GameServer
     // src/game/game_server.cpp GameServer::accepted.
     private void Accepted(Player p, Connection vc)
     {
-        int id = (int)p.Id;
+        var id = (int)p.Id;
         if (!mClients.TryGetValue(id, out Client? c))
         {
             c = new Client();
@@ -344,9 +343,9 @@ public sealed class GameServer
     private void QueueDataBlocks(GameConnection c)
     {
         DataBlockManager db = mGame.Sim!.DataBlocks();
-        for (int g = 0; g <= 30; ++g)
+        for (var g = 0; g <= 30; ++g)
         {
-            int count = db.GroupSize(g);
+            var count = db.GroupSize(g);
             if (count == 0)
             {
                 var w = new EventWriter();
@@ -356,7 +355,7 @@ public sealed class GameServer
                 c.Post(w.Finish(0x458));
                 continue;
             }
-            for (int i = 0; i < count; ++i)
+            for (var i = 0; i < count; ++i)
             {
                 var w = new EventWriter();
                 w.PutInt((uint)g, 6);
@@ -377,7 +376,7 @@ public sealed class GameServer
     // src/game/game_server.cpp GameServer::closed.
     private void Closed(Player p)
     {
-        int id = (int)p.Id;
+        var id = (int)p.Id;
         if (!mClients.TryGetValue(id, out Client? c))
             return;
         mGame.Players.RemoveClient(id);
@@ -398,12 +397,12 @@ public sealed class GameServer
                 inr.Print(1, "remoteEval: <managerId> cmd args...");
                 return "True";
             }
-            int id = Numbers.BorlandAtoi(a[1]);
+            var id = Numbers.BorlandAtoi(a[1]);
             if (!mClients.TryGetValue(id, out Client? c))
                 return "True";
-            string[] argv = a[2..];
-            int total = 0;
-            foreach (string s in argv)
+            var argv = a[2..];
+            var total = 0;
+            foreach (var s in argv)
                 total += s.Length;
             if (argv.Length > 31 || total > 512)
                 return "True"; // dropped silently

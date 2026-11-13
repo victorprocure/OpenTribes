@@ -1,8 +1,8 @@
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.Shapes;
 using OpenTribes.Client.World;
 using OpenTribes.World;
-
-namespace OpenTribes.Tests;
 
 public class ShadeTests
 {
@@ -14,7 +14,7 @@ public class ShadeTests
         Array.Fill(lm, (ushort)0x4444);
         var t = new TerrainData(b, 1, lm);
         var set = new TerrainLightSet(new[] { new PointLight(12, 12, 2, 1f, 0f, 0.5f, 8) }, 0, 0, 0);
-        uint mask = set.Mask(t, 0, 1, 1);
+        var mask = set.Mask(t, 0, 1, 1);
         Assert.Equal(1u, mask);
         var nib = new byte[81 * 3];
         set.Nodes(t, 0, 1, 1, mask, nib);

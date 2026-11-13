@@ -1,6 +1,6 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The text layout of SimGui::TextFormat (docs/gui.md 3.3.1): text with a table of ten fonts and inline tags, laid out into positioned text pieces and bitmaps.</summary>
 /// <remarks>
@@ -25,10 +25,10 @@ public sealed class GuiTextFormat
 
     /// <summary>The font file of each table entry, as the objective page loads them.</summary>
     public static readonly string[] ObjectiveFonts =
-    {
+    [
         "sf_white_10b.pft", "sf_green_10b.pft", "sf_yellow_10b.pft", "sf_orange214_10.pft", "sf_red_10b.pft",
         "sf_green_12.pft", "sf_yellow_12.pft", "sf_orange_12.pft", "sf_green_14.pft", "sf_yellow_14.pft",
-    };
+    ];
 
     /// <summary>A positioned run of text.</summary>
     public sealed class Piece
@@ -63,9 +63,9 @@ public sealed class GuiTextFormat
     }
 
     /// <summary>The text pieces in layout order.</summary>
-    public readonly List<Piece> Pieces = new();
+    public readonly List<Piece> Pieces = [];
     /// <summary>The bitmaps in layout order.</summary>
-    public readonly List<Image> Images = new();
+    public readonly List<Image> Images = [];
     /// <summary>The height of the layout: the y of the end of the text plus 2.</summary>
     public int Height;         // y of the end of the text + 2
     /// <summary>The width of the widest line.</summary>
@@ -134,7 +134,7 @@ public sealed class GuiTextFormat
     {
         if (mFonts[0] == null)
             return;
-        int widest = 0;
+        var widest = 0;
         foreach (PftFont? f in mFonts)
             if (f != null)
                 widest = Math.Max(widest, Advance(f, 'W'));
@@ -142,14 +142,14 @@ public sealed class GuiTextFormat
         if (widest > mWidth)
             return;
         mUnit = Advance(mFonts[0]!, ' ');
-        int tab = mUnit * 3;
+        var tab = mUnit * 3;
         mRight = mRightBase = mWidth - 1;
-        int i = 0;
-        bool complete = true;
+        var i = 0;
+        var complete = true;
         while (i < text.Length)
         {
             int start = i, j = i;
-            bool ended = false;
+            var ended = false;
             while (!ended)
             {
                 if (j >= text.Length)
@@ -158,7 +158,7 @@ public sealed class GuiTextFormat
                 {
                     if (j == start)
                     {
-                        int stop = mLeft;
+                        var stop = mLeft;
                         while (stop <= mX)
                             stop += tab;
                         mX = stop;
@@ -181,7 +181,7 @@ public sealed class GuiTextFormat
                 }
                 else if (text[j] == '<')
                 {
-                    bool hasClose = text.IndexOf('>', j) >= 0;
+                    var hasClose = text.IndexOf('>', j) >= 0;
                     if (j == start && hasClose)
                     {
                         if (j + 1 < text.Length && text[j + 1] == '<')
@@ -193,13 +193,13 @@ public sealed class GuiTextFormat
                         }
                         else
                         {
-                            int close = text.IndexOf('>', j + 1);
+                            var close = text.IndexOf('>', j + 1);
                             if (close < 0 || close - (j + 1) > 255)
                             {
                                 complete = false;
                                 goto done;
                             }
-                            string tag = text.Substring(j + 1, close - j - 1);
+                            var tag = text.Substring(j + 1, close - j - 1);
                             j = start = close + 1;
                             if (!Tag(tag, ref text, ref j, ref start))
                             {
@@ -217,15 +217,15 @@ public sealed class GuiTextFormat
                     ++j;
             }
             if (j > start)
-                Place(text.Substring(start, j - start));
+                Place(text[start..j]);
             i = j;
         }
-    done:
+        done:
         if (!complete)
             return;
         if (mLeft < mX)
             NewLine();
-        int bottom = Math.Max(mLeftFloat, mRightFloat);
+        var bottom = Math.Max(mLeftFloat, mRightFloat);
         if (!FloatsClear())
             mY = bottom;
         Height = mY + 2;
@@ -238,7 +238,7 @@ public sealed class GuiTextFormat
     {
         if (tag.Length == 0)
             return true;
-        string arg = tag.Substring(1);
+        var arg = tag[1..];
         switch (char.ToLowerInvariant(tag[0]))
         {
             case 'b':
@@ -246,7 +246,7 @@ public sealed class GuiTextFormat
                 break;
             case 'f':
             {
-                int n = Math.Clamp(Atoi(arg), 0, FontCount - 1);
+                var n = Math.Clamp(Atoi(arg), 0, FontCount - 1);
                 mFont = mFonts[n] == null ? 0 : n;
                 break;
             }
@@ -264,7 +264,7 @@ public sealed class GuiTextFormat
             }
             case 'r':
             {
-                mRightBase = Math.Max(mWidth - 1 - mUnit * Math.Max(0, Atoi(arg)), mMinWidth + 1);
+                mRightBase = Math.Max(mWidth - 1 - (mUnit * Math.Max(0, Atoi(arg))), mMinWidth + 1);
                 mRight = mRightBase;
                 if (mRight - Advance(Font!, 'W') < mX)
                     NewLine();
@@ -284,9 +284,9 @@ public sealed class GuiTextFormat
             case 'v':
             {
                 // the variable's text replaces the tag in the text still to be laid out
-                string value = arg.Length > 0 ? mVariable(arg) : "";
-                text = text.Substring(0, start - (tag.Length + 2)) + value + text.Substring(start);
-                j = start = start - (tag.Length + 2);
+                var value = arg.Length > 0 ? mVariable(arg) : "";
+                text = text[..(start - (tag.Length + 2))] + value + text[start..];
+                j = start -= tag.Length + 2;
                 break;
             }
         }
@@ -315,7 +315,7 @@ public sealed class GuiTextFormat
         if (i < s.Length && (s[i] == '-' || s[i] == '+'))
             sign = s[i++] == '-' ? -1 : 1;
         while (i < s.Length && char.IsAsciiDigit(s[i]))
-            v = v * 10 + (s[i++] - '0');
+            v = (v * 10) + (s[i++] - '0');
         return sign * v;
     }
 
@@ -324,22 +324,22 @@ public sealed class GuiTextFormat
         if (Images.Count >= MaxBitmaps)
             return;
         int dx = 4, dy = 0;
-        string name = arg;
-        int colon = arg.IndexOf(':');
+        var name = arg;
+        var colon = arg.IndexOf(':');
         if (colon >= 0)
         {
-            int comma = arg.IndexOf(',');
+            var comma = arg.IndexOf(',');
             if (comma >= 0)
             {
-                dx = Atoi(arg.Substring(0, comma));
-                dy = Atoi(arg.Substring(comma + 1));
+                dx = Atoi(arg[..comma]);
+                dy = Atoi(arg[(comma + 1)..]);
             }
-            name = arg.Substring(colon + 1);
+            name = arg[(colon + 1)..];
         }
         PbmpBitmap? bmp = mBitmaps(name);
         if (bmp == null)
             return;
-        int w = bmp.Width + dx * 2;
+        var w = bmp.Width + (dx * 2);
         if (w > mWidth)
             return;
         while (mRight - mX + 1 < w)
@@ -351,20 +351,20 @@ public sealed class GuiTextFormat
             im.Y = mY + dy;
             mX += w;
             MaxWidth = Math.Max(MaxWidth, mX);
-            mLeftFloat = Math.Max(mLeftFloat, bmp.Height + mY + dy * 2);
+            mLeftFloat = Math.Max(mLeftFloat, bmp.Height + mY + (dy * 2));
             mLeft = mX;
         }
         else if (mJust == 1)
         {
             im.X = mLeft + dx;
             im.Y = mY + dy;
-            mLeftFloat = Math.Max(mLeftFloat, bmp.Height + mY + dy * 2);
+            mLeftFloat = Math.Max(mLeftFloat, bmp.Height + mY + (dy * 2));
             mLeft += w;
             MaxWidth = Math.Max(MaxWidth, w);
         }
         else
         {
-            mRightFloat = Math.Max(mRightFloat, bmp.Height + mY + dy * 2);
+            mRightFloat = Math.Max(mRightFloat, bmp.Height + mY + (dy * 2));
             mRight -= w;
             im.X = mRight + dx;
             im.Y = mY + dy;
@@ -381,13 +381,13 @@ public sealed class GuiTextFormat
             return;
         if (mRight - mX + 1 < Advance(f, 'W'))
             NewLine();
-        int pos = 0;
+        var pos = 0;
         while (pos < run.Length)
         {
-            int avail = mRight - mX + 1;
-            string rest = run.Substring(pos);
-            int fit = rest.Length;
-            while (fit > 0 && Measure(rest.Substring(0, fit)) > avail)
+            var avail = mRight - mX + 1;
+            var rest = run[pos..];
+            var fit = rest.Length;
+            while (fit > 0 && Measure(rest[..fit]) > avail)
                 --fit;
             if (fit == rest.Length)
             {
@@ -397,7 +397,7 @@ public sealed class GuiTextFormat
                 return;
             }
             // break before the last space within the part that fits (or right at the fit when a space follows)
-            int cut = fit;
+            var cut = fit;
             while (cut > 0 && rest[cut] != ' ')
                 --cut;
             if (cut == 0)
@@ -412,7 +412,7 @@ public sealed class GuiTextFormat
                 }
                 cut = Math.Max(fit, 1);
             }
-            string piece = rest.Substring(0, cut);
+            var piece = rest[..cut];
             AddPiece(piece, avail);
             mX += Measure(piece);
             MaxWidth = Math.Max(MaxWidth, mX);
@@ -423,16 +423,14 @@ public sealed class GuiTextFormat
         }
     }
 
-    private void AddPiece(string text, int avail)
-    {
+    private void AddPiece(string text, int avail) =>
         // a right justified piece centres or aligns inside the room from the cursor, the others inside the margins
         Pieces.Add(new Piece { Font = mFont, Just = mJust, X = mX, Y = mY, Text = text, Avail = mJust == 2 ? mRight - mX : mRight - mLeft });
-    }
 
     // Moves centred and right justified pieces and bitmaps by the room left on their line.
     private void Justify()
     {
-        for (int i = 0; i < Pieces.Count;)
+        for (var i = 0; i < Pieces.Count;)
         {
             Piece p = Pieces[i];
             int k = i, total = 0;
@@ -447,11 +445,11 @@ public sealed class GuiTextFormat
                 total += f == null ? 0 : f.MeasureTextWidth(Pieces[k].Text);
                 ++k;
             }
-            for (int m = i; m < k; ++m)
+            for (var m = i; m < k; ++m)
                 Pieces[m].X += p.Just == 1 ? (Pieces[m].Avail - total) / 2 : Pieces[m].Avail - total;
             i = k;
         }
-        for (int i = 0; i < Images.Count;)
+        for (var i = 0; i < Images.Count;)
         {
             Image im = Images[i];
             if (im.Just != 1)
@@ -462,7 +460,7 @@ public sealed class GuiTextFormat
             int k = i, total = 0;
             while (k < Images.Count && Images[k].Y == im.Y && Images[k].Just == 1)
                 total += Images[k++].Width;
-            for (int m = i; m < k; ++m)
+            for (var m = i; m < k; ++m)
                 Images[m].X += (mWidth - total) / 2;
             i = k;
         }

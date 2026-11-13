@@ -1,10 +1,10 @@
+namespace OpenTribes.Sim;
+
 using System.Diagnostics;
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.Sim;
 
 /// <summary>The console side of the simulation: the object interface the interpreter uses (fields, datablocks, instant) and the SimConsolePlugin commands (docs/sim.md 5-8).</summary>
 /// <remarks>Port of src/sim/sim_console.cpp. The datablock manager the C++ class holds is <see cref="DataBlockManager"/>. Clock arithmetic follows the current rounding mode of <see cref="Fpu"/>, as the C++ double operations do.</remarks>
@@ -38,21 +38,21 @@ public sealed class SimConsole : IObjectInterface
     // glibc atoi (std::atoi): strtol (white space, sign, decimal digits, saturating at the long range), cast to int.
     internal static int CAtoi(string s)
     {
-        int i = 0;
+        var i = 0;
         while (i < s.Length && (s[i] == ' ' || (s[i] >= '\t' && s[i] <= '\r')))
             ++i;
-        bool negative = false;
+        var negative = false;
         if (i < s.Length && (s[i] == '+' || s[i] == '-'))
             negative = s[i++] == '-';
         long v = 0;
-        bool overflow = false;
+        var overflow = false;
         while (i < s.Length && s[i] >= '0' && s[i] <= '9')
         {
-            int d = s[i++] - '0';
+            var d = s[i++] - '0';
             if (v > (long.MaxValue - d) / 10)
                 overflow = true;
             else
-                v = v * 10 + d;
+                v = (v * 10) + d;
         }
         if (overflow)
             return negative ? 0 : -1; // (int)LONG_MIN, (int)LONG_MAX
@@ -62,10 +62,10 @@ public sealed class SimConsole : IObjectInterface
     // src/sim/sim_console.cpp joinArgs.
     private static string JoinArgs(string[] a, int from)
     {
-        string s = "";
-        for (int i = from; i < a.Length; ++i)
+        var s = "";
+        for (var i = from; i < a.Length; ++i)
         {
-            string piece = (i > from ? ", " : "") + a[i];
+            var piece = (i > from ? ", " : "") + a[i];
             if (s.Length + piece.Length > 383)
                 break;
             s += piece;
@@ -102,14 +102,14 @@ public sealed class SimConsole : IObjectInterface
     {
         /// <summary>Creates the server world.</summary>
         /// <returns>True on success.</returns>
-        bool NewServer();
+        public bool NewServer();
         /// <summary>Focuses the server world.</summary>
         /// <returns>True on success.</returns>
-        bool FocusServer();
+        public bool FocusServer();
         /// <summary>Focuses the client world.</summary>
-        void FocusClient();
+        public void FocusClient();
         /// <summary>Destroys the server world.</summary>
-        void DeleteServer();
+        public void DeleteServer();
     }
 
     /// <summary>The host of the world commands. Null for the <c>tribes</c> client that hosts nothing.</summary>
@@ -162,7 +162,7 @@ public sealed class SimConsole : IObjectInterface
         });
         // Fixed objects of the manager, world and game plugin constructors (docs/sim.md 2.2).
         Fixed[] fixedObjects =
-        {
+        [
             new("SimSet", 5, true, null), new("SimResource", 2, true, null),
             new("SimInputConsumerSet", 25, true, null), new("SimActionHandler", 1, false, null),
             new("SimCanvasSet", 3, true, null), new("SimSet", 38, true, null),
@@ -176,7 +176,7 @@ public sealed class SimConsole : IObjectInterface
             new("SimSet", 727, true, null), new("PlayerManager", 713, false, null),
             new("SimPathManager", 42, false, null), new("DataBlockManager", 721, false, null),
             new("SimSet", 723, true, null), new("SensorManager", 720, false, null),
-        };
+        ];
         // 004eb5e4 case 0x7c: the tick clock starts at the scaled clock of the current frame.
         mTick = (uint)(long)Mul(mClock, 1000.0) & ~31u;
         mTickBase = mTick;
@@ -218,7 +218,7 @@ public sealed class SimConsole : IObjectInterface
     /// <summary>Applies a new <c>$SimGame::TimeScale</c> (0050b4c4, case 0x65): folds the elapsed time into the offset and restarts the timer. The scale has a floor of 0.0001.</summary>
     private void SetTimeScale(string value)
     {
-        double now = mClockSource();
+        var now = mClockSource();
         mClockOffset = Add(mClockOffset, Mul(Sub(now, mTimerStart), mClockScale));
         mTimerStart = now;
         mFrameReal = 0;
@@ -247,25 +247,25 @@ public sealed class SimConsole : IObjectInterface
         if (mServer == null)
             return 0;
         SimManager m = mServer;
-        uint target = (uint)(long)Mul(mClock, 1000.0) & ~31u;
-        ReadOnlySpan<int> kTickSets = stackalloc int[3] { 718, 719, 727 };
-        int ticks = 0;
+        var target = (uint)(long)Mul(mClock, 1000.0) & ~31u;
+        ReadOnlySpan<int> kTickSets = [718, 719, 727];
+        var ticks = 0;
         while (target > mTick)
         {
-            uint previous = mTick;
+            var previous = mTick;
             mTick += 32;
             ++ticks;
             if (mIn.PrintLevel() >= 4)
                 mIn.Print(4, "TIME: " + Numbers.FormatInt((int)(previous >> 5)));
-            m.AdvanceTo(Store(Mul((double)unchecked(mTick - mTickBase), 0.001)));
-            foreach (int id in kTickSets)
+            m.AdvanceTo(Store(Mul(unchecked(mTick - mTickBase), 0.001)));
+            foreach (var id in kTickSets)
             {
                 SimSet? set = m.FindById(id)?.AsSet();
                 if (set == null)
                     continue;
                 // Index loop over the live list (TK4): additions run in the same pass, a removal moves the last member
                 // into the freed slot (GS4).
-                for (int i = 0; i < set.Members().Count; ++i)
+                for (var i = 0; i < set.Members().Count; ++i)
                     set.Members()[i].ServerTick(mTick);
                 // 004eba40: the AI manager (object 726) runs between sets 718 and 719.
                 if (id == 718)
@@ -375,7 +375,7 @@ public sealed class SimConsole : IObjectInterface
         }
         SimObject top = mCurrent;
         mCurrent = null;
-        string? name = mPendingName.Length == 0 ? null : mStrings.Intern(mPendingName);
+        var name = mPendingName.Length == 0 ? null : mStrings.Intern(mPendingName);
         if (mInstantGroup != null)
         {
             mInstantGroup.AddObject(top); // never registered (IN6)
@@ -404,10 +404,10 @@ public sealed class SimConsole : IObjectInterface
         }
         if (mSkipDepth != 0 || mCurrent == null)
             return;
-        string key = mStrings.Intern(field + index);
+        var key = mStrings.Intern(field + index);
         if (index.Length == 0 && mCurrent.SetPersistField(key, values))
             return;
-        if (index.Length != 0 && index.All(c => c >= '0' && c <= '9') && index.Length < 6 &&
+        if (index.Length != 0 && index.All(c => c is >= '0' and <= '9') && index.Length < 6 &&
             mCurrent.SetPersistElement(mStrings.Intern(field), CAtoi(index), values))
             return;
         mCurrent.SetDataField(key, values.Count == 0 ? "" : values[0]);
@@ -440,7 +440,7 @@ public sealed class SimConsole : IObjectInterface
     /// <param name="index">The array index text, empty for none.</param>
     public void SetField(string obj, string field, IReadOnlyList<string> values, string index)
     {
-        string first = values.Count == 0 ? "" : values[0];
+        var first = values.Count == 0 ? "" : values[0];
         SimObject? o = mServer?.Find(obj);
         if (o != null)
         {
@@ -455,7 +455,7 @@ public sealed class SimConsole : IObjectInterface
     // src/sim/sim_console.cpp SimConsole::listLine.
     private static string ListLine(SimObject obj)
     {
-        string s = "   " + Numbers.FormatInt(obj.Id());
+        var s = "   " + Numbers.FormatInt(obj.Id());
         if (obj.Name() != null)
             s += ",\"" + obj.Name() + "\"";
         s += ": " + obj.ClassName() + " " + (obj.AsSet() != null ? "(g)" : "");
@@ -467,7 +467,7 @@ public sealed class SimConsole : IObjectInterface
     {
         if (s.Length != 0 && s[0] >= '0' && s[0] <= '9' && Numbers.BorlandAtoi(s) == m.Id())
             return true;
-        string? n = strings.Lookup(s);
+        var n = strings.Lookup(s);
         return n != null && ReferenceEquals(m.Name(), n);
     }
 
@@ -533,7 +533,7 @@ public sealed class SimConsole : IObjectInterface
             if (set != null)
                 foreach (SimObject m in set.Members())
                 {
-                    string file = SimClasses.SimVolumeInfo(m, out string f, out bool _) ? f : "(null)";
+                    var file = SimClasses.SimVolumeInfo(m, out var f, out var _) ? f : "(null)";
                     mIn.Print(1, "   \"" + (m.Name() ?? "") + "\": \"" + file + "\"");
                 }
             return yes;
@@ -563,7 +563,7 @@ public sealed class SimConsole : IObjectInterface
             }
             if (a[1].Length != 0)
                 focus.AssignName(raw, mStrings.Intern(a[1]));
-            string[] args = a[3..];
+            var args = a[3..];
             if (!raw.ProcessArguments(args))
             {
                 focus.DeleteObject(raw);
@@ -579,7 +579,7 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "deleteObject: objectName [objectName] ...");
                 return no;
             }
-            for (int i = 1; i < a.Length; ++i)
+            for (var i = 1; i < a.Length; ++i)
             {
                 SimObject? obj = Focus()?.Find(a[i]);
                 if (obj != null && obj != Focus())
@@ -598,7 +598,7 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "isObject: objectName [objectName] ...");
                 return no;
             }
-            for (int i = 1; i < a.Length; ++i)
+            for (var i = 1; i < a.Length; ++i)
                 if (Focus() == null || Focus()!.Find(a[i]) == null)
                     return no;
             return yes;
@@ -640,8 +640,8 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "addToSet: Object \"" + a[1] + "\" is not a set");
                 return no;
             }
-            bool error = false;
-            for (int i = 2; i < a.Length; ++i)
+            var error = false;
+            for (var i = 2; i < a.Length; ++i)
             {
                 SimObject? obj = Focus()!.Find(a[i]);
                 if (obj == null || obj == Focus())
@@ -667,7 +667,7 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "renameObject: object does not exist '" + a[1] + "'.");
                 return no;
             }
-            string? name = a[2].Length == 0 ? null : mStrings.Intern(a[2]);
+            var name = a[2].Length == 0 ? null : mStrings.Intern(a[2]);
             obj.Group()?.AssignName(obj, name);
             return yes;
         });
@@ -710,7 +710,7 @@ public sealed class SimConsole : IObjectInterface
             if (set == null)
                 return no;
             IReadOnlyList<SimObject> m = set.Members();
-            for (int i = 0; i < m.Count; ++i)
+            for (var i = 0; i < m.Count; ++i)
                 if (Matches(m[i], a[2], mStrings))
                     return i + 1 < m.Count ? Numbers.FormatInt(m[i + 1].Id()) : "0";
             return m.Count == 0 ? "0" : Numbers.FormatInt(m[0].Id());
@@ -761,7 +761,7 @@ public sealed class SimConsole : IObjectInterface
         });
         Cmd("schedule", a =>
         {
-            if (a.Length != 3 && a.Length != 4)
+            if (a.Length is not 3 and not 4)
             {
                 mIn.Print(1, "schedule(statement, deltaTime, <object>);");
                 return no;
@@ -775,9 +775,9 @@ public sealed class SimConsole : IObjectInterface
             SimObject? dest = a.Length == 3 ? scheduler : Focus()!.Find(a[3]);
             if (dest == null)
                 return no;
-            double parsed = Numbers.BorlandAtof(a[2]);
-            double delay = 0.0 < parsed ? parsed : 0.0; // std::max(0.0, x)
-            float t = Store(Add(Focus()!.Time(), delay));
+            var parsed = Numbers.BorlandAtof(a[2]);
+            var delay = 0.0 < parsed ? parsed : 0.0; // std::max(0.0, x)
+            var t = Store(Add(Focus()!.Time(), delay));
             Focus()!.PostConsoleEvent(dest, t, a[1]);
             return Numbers.FormatInt(Numbers.FloatToInt(t));
         });

@@ -17,7 +17,7 @@ public static class JoystickEvents
     /// <summary>Normalises a raw axis value of a device that is not a mouse (0050f658).</summary>
     /// <param name="raw">The raw SDL axis value.</param>
     /// <returns>(raw - min) / (max - min) as floats, 0 to 1.</returns>
-    public static float AxisValue(int raw) => (float)(raw - AxisMin) / (float)(AxisMax - AxisMin);
+    public static float AxisValue(int raw) => (raw - AxisMin) / (float)(AxisMax - AxisMin);
 
     /// <summary>Maps an SDL axis index to an event object type and instance.</summary>
     /// <param name="sdlAxis">The SDL axis index.</param>
@@ -25,12 +25,12 @@ public static class JoystickEvents
     /// <remarks>0050ed5c walks the device objects in order and numbers each type from 0 (x, y, z, rx, ry, rz, slider). SDL gives plain axis indexes: the first six are taken as x, y, z, rx, ry, rz and every one after as the next slider.</remarks>
     public static (byte ObjType, byte ObjInst) AxisObject(int sdlAxis) => sdlAxis switch
     {
-        0 => (ObjXAxis, (byte)0),
-        1 => (ObjYAxis, (byte)0),
-        2 => (ObjZAxis, (byte)0),
-        3 => (ObjRxAxis, (byte)0),
-        4 => (ObjRyAxis, (byte)0),
-        5 => (ObjRzAxis, (byte)0),
+        0 => (ObjXAxis, 0),
+        1 => (ObjYAxis, 0),
+        2 => (ObjZAxis, 0),
+        3 => (ObjRxAxis, 0),
+        4 => (ObjRyAxis, 0),
+        5 => (ObjRzAxis, 0),
         _ => (ObjSlider, (byte)(sdlAxis - 6)),
     };
 
@@ -57,7 +57,7 @@ public static class JoystickEvents
     /// <param name="angle">The POV angle.</param>
     /// <returns>0 up, 1 right, 2 down, 3 left, or 5 when centred.</returns>
     public static int PovSector(int angle) =>
-        (angle & 0xffff) == 0xffff ? 5 : (((angle & 0xffff) + 0x7b0c) / 9000 - 3) & 3;
+        (angle & 0xffff) == 0xffff ? 5 : ((((angle & 0xffff) + 0x7b0c) / 9000) - 3) & 3;
 
     /// <summary>Makes the events 0050f658 makes for one POV object.</summary>
     /// <param name="angle">The new POV angle.</param>
@@ -74,7 +74,7 @@ public static class JoystickEvents
         }
         else
         {
-            float a = (float)angle * 2.7777778e-05f * 6.2831855f;
+            var a = angle * 2.7777778e-05f * 6.2831855f;
             list.Add((ObjXPov, 3, (MathF.Sin(a) + 1f) * 0.5f));
             list.Add((ObjYPov, 3, (-MathF.Cos(a) + 1f) * 0.5f));
         }
@@ -98,6 +98,10 @@ public static class JoystickEvents
     /// <returns>A make event with 1.0 when down, else a break event with 0.0.</returns>
     public static InputEvent Button(int device, int index, bool down) => new()
     {
-        DeviceType = DeviceType, DeviceInst = (byte)device, ObjType = ObjButton, ObjInst = (byte)index, Action = (byte)(down ? 1 : 2),
+        DeviceType = DeviceType,
+        DeviceInst = (byte)device,
+        ObjType = ObjButton,
+        ObjInst = (byte)index,
+        Action = (byte)(down ? 1 : 2),
     };
 }

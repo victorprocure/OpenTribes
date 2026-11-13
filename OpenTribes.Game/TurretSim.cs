@@ -1,12 +1,9 @@
 // Port of src/game/turret_sim.cpp: the Turret tick (docs/static-sim.md 4) and the Trigger (docs/static-sim.md 6). The
 // turret activation of this file, the target search, aim, sustained fire and the shape bind (turret_fire.cpp,
 // turret_control.cpp) are TurretFire.cs.
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public partial class GameBase
 {
@@ -35,7 +32,7 @@ public partial class GameBase
                 case 0:
                 {
                     // 0x00457db0: ready again after reloadDelay.
-                    uint ms = unchecked((uint)(int)Mul(TurretData.ReloadDelay, 1000.0f));
+                    var ms = unchecked((uint)(int)Mul(TurretData.ReloadDelay, 1000.0f));
                     if (TurretTickMs >= unchecked(ms + TurretStamp))
                     {
                         TurretStamp = TurretTickMs;
@@ -61,7 +58,7 @@ public partial class GameBase
             if (TurretBarrelState == 2)
             {
                 // The beam drains energyRate * 0.032 (f64 constant) per tick.
-                float e = Store(Sub(Energy, Mul(TurretData.EnergyRate, 0.032)));
+                var e = Store(Sub(Energy, Mul(TurretData.EnergyRate, 0.032)));
                 if (e < 0.0f)
                 {
                     TurretStopBeam();
@@ -78,27 +75,20 @@ public partial class GameBase
     /// <returns>The type bits.</returns>
     public uint TypeBits()
     {
-        switch (mShapeClass)
+        return mShapeClass switch
         {
-            case ShapeKind.StaticShape:
-            case ShapeKind.Sensor:
-            case ShapeKind.Turret:
-                return ObjectType.kStaticType;
-            case ShapeKind.Moveable:
-                return ObjectType.kMoveableType;
-            case ShapeKind.Item:
-                return ObjectType.kItemType;
-            case ShapeKind.Mine:
-                return ObjectType.kMineType;
-            case ShapeKind.Vehicle:
-                return ObjectType.kVehicleType;
-        }
-        return mKind switch
-        {
-            Kind.Trigger => ObjectType.kTriggerType,
-            Kind.Marker => ObjectType.kMarkerType,
-            Kind.Interior => ObjectType.kInteriorType,
-            _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.kPlayerType : 0u,
+            ShapeKind.StaticShape or ShapeKind.Sensor or ShapeKind.Turret => ObjectType.kStaticType,
+            ShapeKind.Moveable => ObjectType.kMoveableType,
+            ShapeKind.Item => ObjectType.kItemType,
+            ShapeKind.Mine => ObjectType.kMineType,
+            ShapeKind.Vehicle => ObjectType.kVehicleType,
+            _ => mKind switch
+            {
+                Kind.Trigger => ObjectType.kTriggerType,
+                Kind.Marker => ObjectType.kMarkerType,
+                Kind.Interior => ObjectType.kInteriorType,
+                _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.kPlayerType : 0u,
+            },
         };
     }
 
@@ -109,8 +99,8 @@ public partial class GameBase
     {
         if (!TriggerActive || Manager() == null || (source.TypeBits() & 0x24400180u) == 0)
             return;
-        float now = Manager()!.Time();
-        for (int i = 0; i < Occupants.Count; ++i)
+        var now = Manager()!.Time();
+        for (var i = 0; i < Occupants.Count; ++i)
             if (Occupants[i].Object == source.Id())
             {
                 Occupant o = Occupants[i];
@@ -131,9 +121,9 @@ public partial class GameBase
     {
         if (Manager() == null || mCtx.Game == null)
             return;
-        float now = Manager()!.Time();
+        var now = Manager()!.Time();
         using var chop = ChopScope();
-        for (int i = 0; i < Occupants.Count;)
+        for (var i = 0; i < Occupants.Count;)
         {
             Occupant o = Occupants[i];
             if (Manager()!.FindById(o.Object) == null)
@@ -177,7 +167,7 @@ public partial class GameBase
         {
             while (Occupants.Count != 0)
             {
-                int obj = Occupants[^1].Object;
+                var obj = Occupants[^1].Object;
                 Occupants.RemoveAt(Occupants.Count - 1);
                 mCtx.Game?.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(obj) });
             }

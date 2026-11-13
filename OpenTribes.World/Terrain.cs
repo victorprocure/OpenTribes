@@ -1,8 +1,8 @@
+namespace OpenTribes.World;
+
 using System.Buffers.Binary;
 using OpenTribes.Core;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.World;
 
 /// <summary>One terrain block: a grid of heights plus a flags and material byte pair per square.</summary>
 public sealed class GridBlock
@@ -10,20 +10,20 @@ public sealed class GridBlock
     /// <summary>The number of squares per side. Blocks are square in all data.</summary>
     public int Size;
     /// <summary>The corner heights, (Size + 1)^2 values in row-major order.</summary>
-    public float[] Heights = Array.Empty<float>();
+    public float[] Heights = [];
     /// <summary>The per-square data, Size^2 pairs of flags byte and material byte.</summary>
-    public byte[] Squares = Array.Empty<byte>();
+    public byte[] Squares = [];
 
     /// <summary>Reads a corner height.</summary>
     /// <param name="x">The corner column, 0 to <see cref="Size"/>.</param>
     /// <param name="y">The corner row, 0 to <see cref="Size"/>.</param>
     /// <returns>The height at the corner.</returns>
-    public float H(int x, int y) => Heights[(long)y * (Size + 1) + x];
+    public float H(int x, int y) => Heights[((long)y * (Size + 1)) + x];
     /// <summary>Tests whether a square is empty (no surface).</summary>
     /// <param name="x">The square column.</param>
     /// <param name="y">The square row.</param>
     /// <returns>True when the square's empty bits (flags bits 3 to 5) are set.</returns>
-    public bool Empty(int x, int y) => ((Squares[((long)y * Size + x) * 2] >> 3) & 7) != 0;
+    public bool Empty(int x, int y) => ((Squares[(((long)y * Size) + x) * 2] >> 3) & 7) != 0;
 
     private static bool Get(byte[] d, ref long pos, out int v)
     {
@@ -74,18 +74,18 @@ public sealed class GridBlock
         if (d.Length < 12 || d[0] != 'G' || d[1] != 'B' || d[2] != 'L' || d[3] != 'K')
             return false;
         long pos = 8;
-        Get(d, ref pos, out int versionI);
-        uint version = (uint)versionI;
+        Get(d, ref pos, out var versionI);
+        var version = (uint)versionI;
         pos += 16; // name
         if (!Get(d, ref pos, out _) || !Get(d, ref pos, out _) || !GetF(d, ref pos, out _) || !GetF(d, ref pos, out _) ||
-            !Get(d, ref pos, out int sx) || !Get(d, ref pos, out int sy) || sx <= 0 || sx != sy || sx > 4096)
+            !Get(d, ref pos, out var sx) || !Get(d, ref pos, out var sy) || sx <= 0 || sx != sy || sx > 4096)
             return false;
         output.Size = sx;
-        long hcount = (long)(sx + 1) * (sx + 1);
-        bool ok = true;
+        var hcount = (long)(sx + 1) * (sx + 1);
+        var ok = true;
         if (version >= 4)
         {
-            byte[] h = LzhSection(d, ref pos, hcount * 4, ref ok);
+            var h = LzhSection(d, ref pos, hcount * 4, ref ok);
             output.Squares = LzhSection(d, ref pos, (long)sx * sx * 2, ref ok);
             output.Heights = new float[hcount];
             for (long i = 0; i < hcount; ++i)
@@ -93,11 +93,11 @@ public sealed class GridBlock
         }
         else if (version == 0)
         {
-            if (pos + hcount * 4 + (long)sx * sx * 2 > d.Length)
+            if (pos + (hcount * 4) + ((long)sx * sx * 2) > d.Length)
                 return false;
             output.Heights = new float[hcount];
             for (long i = 0; i < hcount; ++i)
-                output.Heights[i] = BinaryPrimitives.ReadSingleLittleEndian(d.AsSpan((int)(pos + i * 4), 4));
+                output.Heights[i] = BinaryPrimitives.ReadSingleLittleEndian(d.AsSpan((int)(pos + (i * 4)), 4));
             pos += hcount * 4;
             output.Squares = d.AsSpan((int)pos, sx * sx * 2).ToArray();
             pos += (long)sx * sx * 2;
@@ -117,9 +117,9 @@ public sealed class Terrain
 {
     private int mDetail, mScale, mWidth, mHeight;
     private float mHmin, mHmax;
-    private int[] mMap = Array.Empty<int>();
-    private readonly Dictionary<int, GridBlock> mBlocks = new();
-    private readonly List<string> mBlockFiles = new(); // block list order
+    private int[] mMap = [];
+    private readonly Dictionary<int, GridBlock> mBlocks = [];
+    private readonly List<string> mBlockFiles = []; // block list order
     private string mMaterialList = "";
     // Held while the terrain lives: the .dtf, the blocks and the .dml. Call ReleaseLocks when the owner is deleted.
     private readonly ResourceLocks mLocks = new();
@@ -142,7 +142,7 @@ public sealed class Terrain
     public float Hmax() => mHmax;
 
     // Truncation as crt_ftol does. A value out of range gives 0x80000000 as cvttsd2si does.
-    private static int Ftol(double v) => v > -2147483649.0 && v < 2147483648.0 ? (int)v : int.MinValue;
+    private static int Ftol(double v) => v is > (-2147483649.0) and < 2147483648.0 ? (int)v : int.MinValue;
 
     /// <summary>Interpolates the 4.2 height on square (sx, sy) at square-relative (u, v).</summary>
     /// <remarks>Every intermediate runs in the current rounding mode and the result is stored as float.</remarks>
@@ -201,8 +201,8 @@ public sealed class Terrain
 
     private static Vec3 Normalize(ReadOnlySpan<float> n)
     {
-        float len = Store(Sqrt(Add(Add(Mul(n[0], n[0]), Mul(n[1], n[1])), Mul(n[2], n[2]))));
-        float inv = Store(Div(1.0, len));
+        var len = Store(Sqrt(Add(Add(Mul(n[0], n[0]), Mul(n[1], n[1])), Mul(n[2], n[2]))));
+        var inv = Store(Div(1.0, len));
         return new Vec3(Store(Mul(inv, n[0])), Store(Mul(inv, n[1])), Store(Mul(inv, n[2])));
     }
 
@@ -218,7 +218,7 @@ public sealed class Terrain
 
     private static void GetInto(byte[] d, ref long pos, ref int v)
     {
-        if (Get(d, ref pos, out int x))
+        if (Get(d, ref pos, out var x))
             v = x;
     }
 
@@ -237,7 +237,7 @@ public sealed class Terrain
     /// <remarks>Locks the .dtf (SimTerrain_load 0051792c), the block list (GridBlockList 00567270) and the material list with its extension replaced by .dml (00517e04), see docs/resources.md 8.7.</remarks>
     public static Terrain? Load(ResourceManager res, string dtfName)
     {
-        if (!res.Read(dtfName, out byte[] d) || d.Length < 12 || d[0] != 'G' || d[1] != 'F' || d[2] != 'I' || d[3] != 'L')
+        if (!res.Read(dtfName, out var d) || d.Length < 12 || d[0] != 'G' || d[1] != 'F' || d[2] != 'I' || d[3] != 'L')
             return null;
         long pos = 8;
         int version = 0, n = 0;
@@ -245,10 +245,12 @@ public sealed class Terrain
         GetInto(d, ref pos, ref n);
         if (pos + (uint)n > d.Length)
             return null;
-        var t = new Terrain();
-        t.mMaterialList = Reader.CString(d, pos, (uint)n);
+        var t = new Terrain
+        {
+            mMaterialList = Reader.CString(d, pos, (uint)n)
+        };
         pos += (uint)n;
-        int nextId = 0;
+        var nextId = 0;
         GetInto(d, ref pos, ref nextId);
         GetInto(d, ref pos, ref t.mDetail);
         GetInto(d, ref pos, ref t.mScale);
@@ -262,23 +264,23 @@ public sealed class Terrain
         if (t.mWidth <= 0 || t.mHeight <= 0 || t.mWidth > 64 || t.mHeight > 64)
             return null;
         t.mMap = new int[t.mWidth * t.mHeight];
-        for (int i = 0; i < t.mMap.Length; ++i)
+        for (var i = 0; i < t.mMap.Length; ++i)
             if (!Get(d, ref pos, out t.mMap[i]))
                 return null;
-        int count = 0;
+        var count = 0;
         GetInto(d, ref pos, ref count);
-        int dot = dtfName.LastIndexOf('.');
-        string stem = dtfName[..(dot < 0 ? dtfName.Length : dot)];
+        var dot = dtfName.LastIndexOf('.');
+        var stem = dtfName[..(dot < 0 ? dtfName.Length : dot)];
         for (uint i = 0; i < (uint)count; ++i)
         {
-            if (!Get(d, ref pos, out int id) || !Get(d, ref pos, out int len))
+            if (!Get(d, ref pos, out var id) || !Get(d, ref pos, out var len))
                 return null;
             pos += (uint)len;
-            string name = stem + "#" + id.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".dtb";
+            var name = stem + "#" + id.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".dtb";
             if (name.Length > 511) // char name[512]
                 name = name[..511];
             var blk = new GridBlock();
-            if (!res.Read(name, out byte[] b) || !GridBlock.Parse(b, blk))
+            if (!res.Read(name, out var b) || !GridBlock.Parse(b, blk))
                 return null;
             t.mBlocks[id] = blk;
             t.mBlockFiles.Add(name);
@@ -287,10 +289,10 @@ public sealed class Terrain
         // 8.7): the .dtf (SimTerrain_load 0051792c), the blocks (GridBlockList 00567270, every stock
         // terrain has one) and the material list with its extension replaced by .dml (00517e04), no textures.
         t.mLocks.Load(res, dtfName);
-        foreach (string name in t.mBlockFiles)
+        foreach (var name in t.mBlockFiles)
             t.mLocks.Load(res, name);
-        string dml = t.mMaterialList;
-        int mdot = dml.LastIndexOf('.');
+        var dml = t.mMaterialList;
+        var mdot = dml.LastIndexOf('.');
         t.mLocks.Load(res, (mdot <= 0 ? dml : dml[..mdot]) + ".dml");
         return t;
     }
@@ -305,8 +307,8 @@ public sealed class Terrain
         var table = new uint[256];
         for (uint n = 0; n < 256; ++n)
         {
-            uint c = n;
-            for (int k = 0; k < 8; ++k)
+            var c = n;
+            for (var k = 0; k < 8; ++k)
                 c = (c & 1) != 0 ? (c >> 1) ^ 0xedb88320u : c >> 1;
             table[n] = c;
         }
@@ -316,7 +318,7 @@ public sealed class Terrain
     // CRC-32, reflected polynomial 0xedb88320, no final inversion (0x00588324).
     private static uint Crc32(byte[] data, uint crc)
     {
-        foreach (byte b in data)
+        foreach (var b in data)
             crc = sCrcTable[(crc ^ b) & 0xff] ^ (crc >> 8);
         return crc;
     }
@@ -331,19 +333,19 @@ public sealed class Terrain
     /// <remarks>Follows GridFile_getSurfaceInfo (0056c138, docs/collision.md 5.1 step 4).</remarks>
     public bool SurfaceInfo(float lx, float ly, ref float h, Span<float> n, ref byte material)
     {
-        int shift = mDetail + mScale - 1;
+        var shift = mDetail + mScale - 1;
         if (!(lx > -2147483648.0f && lx < 2147483648.0f && ly > -2147483648.0f && ly < 2147483648.0f))
             return false;
         int bx = Ftol(lx) >> shift, by = Ftol(ly) >> shift;
         if (bx < 0 || by < 0 || bx >= mWidth || by >= mHeight)
             return false;
-        if (!mBlocks.TryGetValue(mMap[by * mWidth + bx], out GridBlock? b))
+        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out GridBlock? b))
             return false;
         float px = Store(Sub(lx, bx << shift)), py = Store(Sub(ly, by << shift));
         int sx = Ftol(px) >> mScale, sy = Ftol(py) >> mScale;
         if (sx < 0 || sy < 0 || sx >= b.Size || sy >= b.Size || b.Empty(sx, sy))
             return false;
-        float s = Store(1 << mScale);
+        var s = Store(1 << mScale);
         float u = Store(Sub(px, sx << mScale)), v = Store(Sub(py, sy << mScale));
         h = Interp(b, sx, sy, s, u, v);
         Span<float> raw = stackalloc float[3];
@@ -352,7 +354,7 @@ public sealed class Terrain
         n[0] = unit.X;
         n[1] = unit.Y;
         n[2] = unit.Z;
-        material = b.Squares[((long)sy * b.Size + sx) * 2 + 1];
+        material = b.Squares[((((long)sy * b.Size) + sx) * 2) + 1];
         return true;
     }
 
@@ -364,11 +366,11 @@ public sealed class Terrain
     /// <remarks>Follows the stock terrain CRC (00517048, docs/terrain.md 3).</remarks>
     public bool Crc(ResourceManager res, string dtfName, ref uint output)
     {
-        uint c = 0xffffffffu;
-        if (!res.Read(dtfName, out byte[] d))
+        var c = 0xffffffffu;
+        if (!res.Read(dtfName, out var d))
             return false;
         c = Crc32(d, c);
-        foreach (string name in mBlockFiles)
+        foreach (var name in mBlockFiles)
         {
             if (!res.Read(name, out d))
                 return false;
@@ -385,7 +387,7 @@ public sealed class Terrain
     /// <remarks>Follows 005193cc. Used for container queries.</remarks>
     public void WorldBox(Span<float> box)
     {
-        int shift = mDetail + mScale - 1;
+        var shift = mDetail + mScale - 1;
         box[0] = mPos.X;
         box[1] = mPos.Y;
         box[2] = AddF(mHmin, mPos.Z);
@@ -403,7 +405,7 @@ public sealed class Terrain
     public bool Height(float x, float y, ref float output)
     {
         Vec3 n = default;
-        int material = 0;
+        var material = 0;
         return Surface(x, y, ref output, ref n, ref material);
     }
 
@@ -416,7 +418,7 @@ public sealed class Terrain
     public bool Height(float x, float y, ref float output, ref Vec3 normal)
     {
         Vec3 n = default;
-        int material = 0;
+        var material = 0;
         if (!Surface(x, y, ref output, ref n, ref material))
             return false;
         normal = n;
@@ -442,23 +444,23 @@ public sealed class Terrain
     /// <returns>False where there is no terrain.</returns>
     public bool SurfaceLocal(float lx, float ly, ref float output, ref Vec3 normal, ref int material)
     {
-        int shift = mDetail + mScale - 1;
+        var shift = mDetail + mScale - 1;
         int bx = Ftol(lx) >> shift, by = Ftol(ly) >> shift;
         if (bx < 0 || by < 0 || bx >= mWidth || by >= mHeight)
             return false;
-        if (!mBlocks.TryGetValue(mMap[by * mWidth + bx], out GridBlock? b))
+        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out GridBlock? b))
             return false;
         float px = Store(Sub(lx, bx << shift)), py = Store(Sub(ly, by << shift));
         int sx = Ftol(px) >> mScale, sy = Ftol(py) >> mScale;
         if (sx < 0 || sy < 0 || sx >= b.Size || sy >= b.Size || b.Empty(sx, sy))
             return false;
-        float s = Store(1 << mScale);
+        var s = Store(1 << mScale);
         float u = Store(Sub(px, sx << mScale)), v = Store(Sub(py, sy << mScale));
         output = Interp(b, sx, sy, s, u, v);
         Span<float> n = stackalloc float[3];
         RawNormal(b, sx, sy, s, u, v, n);
         normal = Normalize(n);
-        material = b.Squares[((long)sy * b.Size + sx) * 2 + 1];
+        material = b.Squares[((((long)sy * b.Size) + sx) * 2) + 1];
         return true;
     }
 
@@ -486,7 +488,7 @@ public sealed class Terrain
     // crt_ftol of a value that may not fit: the original stores 0x80000000.
     private static int FtolSafe(double v)
     {
-        if (!(v > -2147483648.0 && v < 2147483648.0))
+        if (v is not (> (-2147483648.0) and < 2147483648.0))
             return int.MinValue;
         return (int)v;
     }
@@ -501,9 +503,9 @@ public sealed class Terrain
     private static TriPlane PlaneOf(ReadOnlySpan<float> raw, ReadOnlySpan<float> v)
     {
         var pl = new TriPlane();
-        float len = Store(Sqrt(Add(Add(Mul(raw[0], raw[0]), Mul(raw[1], raw[1])), Mul(raw[2], raw[2]))));
-        float r = Store(Div(1.0, len));
-        for (int i = 0; i < 3; ++i)
+        var len = Store(Sqrt(Add(Add(Mul(raw[0], raw[0]), Mul(raw[1], raw[1])), Mul(raw[2], raw[2]))));
+        var r = Store(Div(1.0, len));
+        for (var i = 0; i < 3; ++i)
             pl.N[i] = Store(Mul(r, raw[i]));
         pl.D = Store(-Add(Add(Mul(v[0], pl.N[0]), Mul(v[1], pl.N[1])), Mul(v[2], pl.N[2])));
         return pl;
@@ -513,18 +515,18 @@ public sealed class Terrain
     private static bool SegPlane(in TriPlane pl, ReadOnlySpan<float> a, ReadOnlySpan<float> b, Span<float> output)
     {
         Span<float> dv = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             dv[i] = Store(Sub(b[i], a[i]));
-        double den80 = Add(Add(Mul(pl.N[0], dv[0]), Mul(pl.N[1], dv[1])), Mul(pl.N[2], dv[2]));
+        var den80 = Add(Add(Mul(pl.N[0], dv[0]), Mul(pl.N[1], dv[1])), Mul(pl.N[2], dv[2]));
         if (den80 == 0)
             return false;
-        float den = Store(den80);
-        float num = Store(-Add(Add(Add(Mul(pl.N[0], a[0]), Mul(pl.N[1], a[1])), Mul(pl.N[2], a[2])), pl.D));
+        var den = Store(den80);
+        var num = Store(-Add(Add(Add(Mul(pl.N[0], a[0]), Mul(pl.N[1], a[1])), Mul(pl.N[2], a[2])), pl.D));
         if (den > 0 ? (num < 0 || num > den) : (num > 0 || num < den))
             return false;
         if (den == 0)
             return false; // a denominator below the f32 range: the original divides by zero (D11)
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             output[i] = Store(Add(Div(Mul(dv[i], num), den), a[i]));
         return true;
     }
@@ -535,19 +537,19 @@ public sealed class Terrain
                            ref int material)
     {
         int S = mScale, N = blk.Size;
-        float sq = Store(1 << S);
+        var sq = Store(1 << S);
         float inv = Store(Div(1.0, sq)), half = Store(Mul(0.5, inv));
-        int row = N + 1;
+        var row = N + 1;
         long nHeights = blk.Heights.Length, nSquares = blk.Squares.Length;
         if (N < 1 || nHeights < (long)row * row || nSquares < (long)N * N * 2)
             return false;
-        bool oob = false;
+        var oob = false;
         // Height read with both indices clamped to [0, N].
         float H(int x, int y)
         {
             x = Math.Min(Math.Max(x, 0), N);
             y = Math.Min(Math.Max(y, 0), N);
-            return blk.Heights[(long)y * row + x];
+            return blk.Heights[((long)y * row) + x];
         }
         // Flag byte (0x00567974): indices clamped to [0, N], so row and column N read past the square array in the
         // original. Those reads end the test without a hit (section 9 Q1).
@@ -555,7 +557,7 @@ public sealed class Terrain
         {
             x = Math.Min(Math.Max(x, 0), N);
             y = Math.Min(Math.Max(y, 0), N);
-            long i = ((long)y * N + x) * 2;
+            var i = (((long)y * N) + x) * 2;
             if (i < 0 || i >= nSquares)
             {
                 oob = true;
@@ -566,7 +568,7 @@ public sealed class Terrain
         // Corner heights through the unclamped pointer (0x00564820).
         bool Corners(int ix, int iy, Span<float> h)
         {
-            long i = (long)iy * row + ix;
+            var i = ((long)iy * row) + ix;
             if (i < 0 || i + row + 1 >= nHeights)
             {
                 oob = true;
@@ -580,15 +582,15 @@ public sealed class Terrain
         }
         int ClampSq(double v)
         {
-            int q = FtolSafe(v) >> S;
+            var q = FtolSafe(v) >> S;
             return q >= N ? N - 1 : q < 0 ? 0 : q;
         }
         int sx = ClampSq(a[0]), sy = ClampSq(a[1]), ex = ClampSq(b[0]), ey = ClampSq(b[1]);
-        float hs = Interp(blk, sx, sy, sq, Store(Sub(a[0], sx << S)), Store(Sub(a[1], sy << S)));
-        float he = Interp(blk, ex, ey, sq, Store(Sub(b[0], ex << S)), Store(Sub(b[1], ey << S)));
-        bool above = a[2] > hs;
+        var hs = Interp(blk, sx, sy, sq, Store(Sub(a[0], sx << S)), Store(Sub(a[1], sy << S)));
+        var he = Interp(blk, ex, ey, sq, Store(Sub(b[0], ex << S)), Store(Sub(b[1], ey << S)));
+        var above = a[2] > hs;
         Span<float> d = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             d[i] = Store(Sub(b[i], a[i]));
         Span<float> t = stackalloc float[4], dt = stackalloc float[4];
         Family(Store(Mul(a[1], inv)), Store(Mul(b[1], inv)), out t[0], out dt[0]);
@@ -598,11 +600,11 @@ public sealed class Terrain
         Span<float> q = stackalloc float[3], h4 = stackalloc float[4], raw = stackalloc float[3], v = stackalloc float[3];
         // Every iteration advances one family; a step that does not advance (dt of 0 after the f32 store) would never
         // end in the original (D11).
-        for (int guard = 0; guard < 1 << 20; ++guard)
+        for (var guard = 0; guard < 1 << 20; ++guard)
         {
-            float tm = 1.0f;
-            int k = -1;
-            for (int i = 0; i < 4; ++i)
+            var tm = 1.0f;
+            var k = -1;
+            for (var i = 0; i < 4; ++i)
                 if (t[i] < tm)
                 {
                     k = i;
@@ -611,7 +613,7 @@ public sealed class Terrain
             if (k < 0)
                 break;
             t[k] = Store(Add(dt[k], t[k]));
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 q[i] = Store(Add(Mul(d[i], tm), a[i]));
             float gx = Store(Mul(q[0], inv)), gy = Store(Mul(q[1], inv));
             int ix, iy;
@@ -648,15 +650,15 @@ public sealed class Terrain
                 hB = H(ix + 1, iy);
                 fr = Store(Sub(gx, ix));
             }
-            float hedge = Store(Add(Mul(Sub(hB, hA), fr), hA));
-            bool now = q[2] > hedge;
+            var hedge = Store(Add(Mul(Sub(hB, hA), fr), hA));
+            var now = q[2] > hedge;
             if (now == above)
                 continue;
             if (k == 0 && d[1] > 0)
                 iy -= 1;
             else if (k == 1 && d[0] > 0)
                 ix -= 1;
-            int fl = Flags(ix, iy);
+            var fl = Flags(ix, iy);
             if (oob)
                 return false;
             if (((fl >> 3) & 7) != 0)
@@ -665,7 +667,7 @@ public sealed class Terrain
                 continue;
             }
             q[2] = hedge;
-            int par = (ix ^ iy) & 1;
+            var par = (ix ^ iy) & 1;
             // 0 = LR, 1 = UL, 2 = LL, 3 = UR (section 4.4 step 9).
             int tri;
             if (k == 0)
@@ -717,7 +719,7 @@ public sealed class Terrain
             q.CopyTo(hit);
             SegPlane(pl, a, b, hit); // result flag ignored: a failed test keeps the crossing point
             ((ReadOnlySpan<float>)pl.N).CopyTo(normal);
-            long mi = ((long)Math.Min(Math.Max(iy, 0), N) * N + Math.Min(Math.Max(ix, 0), N)) * 2 + 1;
+            var mi = ((((long)Math.Min(Math.Max(iy, 0), N) * N) + Math.Min(Math.Max(ix, 0), N)) * 2) + 1;
             material = mi < nSquares ? blk.Squares[mi] : 0;
             return true;
         }
@@ -726,9 +728,9 @@ public sealed class Terrain
             return false;
         if (((Flags(ex, ey) >> 3) & 7) != 0)
             return false;
-        ReadOnlySpan<float> o = stackalloc float[3] { Store(ex << S), Store(ey << S), 0.0f };
+        ReadOnlySpan<float> o = [Store(ex << S), Store(ey << S), 0.0f];
         Span<float> sa = stackalloc float[3], sb = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             sa[i] = Store(Sub(a[i], o[i]));
             sb[i] = Store(Sub(b[i], o[i]));
@@ -737,43 +739,43 @@ public sealed class Terrain
         if (!Corners(ex, ey, h))
             return false;
         float h00 = h[0], h10 = h[1], h01 = h[2], h11 = h[3];
-        int parity = (ex ^ ey) & 1;
+        var parity = (ex ^ ey) & 1;
         const float eps = 0.0001f;
         Span<float> p = stackalloc float[3];
-        bool found = false;
+        var found = false;
         // GridSquare_intersectLine (0x0056cebc).
         if (parity == 0)
         {
-            ReadOnlySpan<float> n1 = stackalloc float[3] { Store(Sub(h01, h11)), Store(Sub(h00, h01)), sq };
-            ReadOnlySpan<float> v0 = stackalloc float[3] { 0, 0, h00 };
+            ReadOnlySpan<float> n1 = [Store(Sub(h01, h11)), Store(Sub(h00, h01)), sq];
+            ReadOnlySpan<float> v0 = [0, 0, h00];
             if (SegPlane(PlaneOf(n1, v0), sa, sb, p) && p[0] > -eps && Add(sq, eps) > p[1] && !(p[0] > p[1]))
             {
                 found = true;
             }
             else
             {
-                ReadOnlySpan<float> n2 = stackalloc float[3] { Store(Sub(h00, h10)), Store(Sub(h10, h11)), sq };
+                ReadOnlySpan<float> n2 = [Store(Sub(h00, h10)), Store(Sub(h10, h11)), sq];
                 found = SegPlane(PlaneOf(n2, v0), sa, sb, p) && p[0] > p[1];
             }
         }
         else
         {
-            ReadOnlySpan<float> n1 = stackalloc float[3] { Store(Sub(h00, h10)), Store(Sub(h00, h01)), sq };
-            ReadOnlySpan<float> v0 = stackalloc float[3] { 0, sq, h01 };
+            ReadOnlySpan<float> n1 = [Store(Sub(h00, h10)), Store(Sub(h00, h01)), sq];
+            ReadOnlySpan<float> v0 = [0, sq, h01];
             if (SegPlane(PlaneOf(n1, v0), sa, sb, p) && p[0] > -eps && p[1] > -eps && Sub(sq, p[0]) > p[1])
             {
                 found = true;
             }
             else
             {
-                ReadOnlySpan<float> n2 = stackalloc float[3] { Store(Sub(h01, h11)), Store(Sub(h10, h11)), sq };
+                ReadOnlySpan<float> n2 = [Store(Sub(h01, h11)), Store(Sub(h10, h11)), sq];
                 found = SegPlane(PlaneOf(n2, v0), sa, sb, p) && !(Sub(sq, p[0]) > p[1]);
             }
         }
         if (!found)
             return false;
         // Normal of the triangle under the hit (0x0056cc38).
-        Span<float> rawEnd = stackalloc float[3] { 0, 0, sq };
+        Span<float> rawEnd = [0, 0, sq];
         if (parity == 0)
         {
             if (p[0] > p[1])
@@ -800,12 +802,12 @@ public sealed class Terrain
                 rawEnd[1] = Store(Sub(h10, h11));
             }
         }
-        ReadOnlySpan<float> zero = stackalloc float[3] { 0, 0, 0 };
+        ReadOnlySpan<float> zero = [0, 0, 0];
         TriPlane plEnd = PlaneOf(rawEnd, zero);
         ((ReadOnlySpan<float>)plEnd.N).CopyTo(normal);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             hit[i] = Store(Add(o[i], p[i]));
-        material = blk.Squares[((long)ey * N + ex) * 2 + 1];
+        material = blk.Squares[((((long)ey * N) + ex) * 2) + 1];
         return true;
     }
 
@@ -818,7 +820,7 @@ public sealed class Terrain
     /// <remarks>Follows the line test at 005679f0.</remarks>
     public bool CastLine(Vec3 start, Vec3 end, ref Vec3 hit, ref Vec3 normal)
     {
-        int material = 0;
+        var material = 0;
         return CastLine(start, end, ref hit, ref normal, ref material);
     }
 
@@ -833,31 +835,31 @@ public sealed class Terrain
     public bool CastLine(Vec3 start, Vec3 end, ref Vec3 hitOut, ref Vec3 normalOut, ref int material)
     {
         using var chop = ChopScope();
-        ReadOnlySpan<float> pos = stackalloc float[3] { mPos.X, mPos.Y, mPos.Z };
-        ReadOnlySpan<float> ws = stackalloc float[3] { start.X, start.Y, start.Z };
-        ReadOnlySpan<float> we = stackalloc float[3] { end.X, end.Y, end.Z };
+        ReadOnlySpan<float> pos = [mPos.X, mPos.Y, mPos.Z];
+        ReadOnlySpan<float> ws = [start.X, start.Y, start.Z];
+        ReadOnlySpan<float> we = [end.X, end.Y, end.Z];
         Span<float> s = stackalloc float[3], e = stackalloc float[3], d = stackalloc float[3], cur = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             if (!float.IsFinite(ws[i]) || !float.IsFinite(we[i]))
                 return false;
             s[i] = Store(Sub(ws[i], pos[i]));
             e[i] = Store(Sub(we[i], pos[i]));
         }
-        int B = mScale + mDetail - 1;
-        float inv = Store(Div(1.0, 1 << B));
-        for (int i = 0; i < 3; ++i)
+        var B = mScale + mDetail - 1;
+        var inv = Store(Div(1.0, 1 << B));
+        for (var i = 0; i < 3; ++i)
         {
             d[i] = Store(Sub(e[i], s[i]));
             cur[i] = s[i];
         }
-        Span<float> t = stackalloc float[3] { 0, 0, 0 }, dt = stackalloc float[3] { 0, 0, 0 };
+        Span<float> t = [0, 0, 0], dt = [0, 0, 0];
         Family(Store(Mul(s[1], inv)), Store(Mul(e[1], inv)), out t[0], out dt[0]);
         Family(Store(Mul(s[0], inv)), Store(Mul(e[0], inv)), out t[1], out dt[1]);
-        bool visited = false;
+        var visited = false;
         Span<float> p = stackalloc float[3], a = stackalloc float[3], b = stackalloc float[3];
         Span<float> h = stackalloc float[3], n = stackalloc float[3], o = stackalloc float[3];
-        for (int guard = 0; guard < 1 << 20; ++guard)
+        for (var guard = 0; guard < 1 << 20; ++guard)
         {
             float tc;
             int k;
@@ -877,7 +879,7 @@ public sealed class Terrain
                 k = 2;
             }
             t[k] = Store(Add(dt[k], t[k]));
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 p[i] = Store(Mul(tc, d[i]));
                 p[i] = Store(Add(s[i], p[i]));
@@ -905,11 +907,11 @@ public sealed class Terrain
             }
             if (bx >= 0 && bx < mWidth && by >= 0 && by < mHeight)
             {
-                mBlocks.TryGetValue(mMap[by * mWidth + bx], out GridBlock? blk);
+                mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out GridBlock? blk);
                 o[0] = Store(bx << B);
                 o[1] = Store(by << B);
                 o[2] = 0.0f;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                 {
                     a[i] = Store(Sub(cur[i], o[i]));
                     b[i] = Store(Sub(p[i], o[i]));

@@ -1,8 +1,8 @@
 // Port of tests/test_numbers.cpp: script number conversion edge cases (docs/script.md 3.1-3.3 and 6.4 S2) not covered
 // by the interpreter vectors in ScriptEvalTests. Runs in the script FPU mode (round toward zero, Fpu).
-using OpenTribes.Script;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Script;
 
 public class NumbersTests
 {
@@ -10,7 +10,7 @@ public class NumbersTests
     public void TestNumbers()
     {
         Numbers.EnterScriptFpuMode();
-        int cases = 0;
+        var cases = 0;
 
         // 3.3.1: Borland atoi skips whitespace, takes one sign, stops at the first non-digit and
         // wraps modulo 2^32.
@@ -33,7 +33,7 @@ public class NumbersTests
             Assert.True(Numbers.BorlandAtof("1e") == 1 && Numbers.BorlandAtof("1e+") == 1 && Numbers.BorlandAtof("2E2") == 200);
             Assert.True(Numbers.BorlandAtof("-.5e1") == -5 && Numbers.BorlandAtof("\v 7") == 7);
             Assert.Equal(double.NegativeInfinity, Numbers.BorlandAtof("-INF"));
-            double nan = Numbers.BorlandAtof("+NANx");
+            var nan = Numbers.BorlandAtof("+NANx");
             Assert.True(double.IsNaN(nan) && !double.IsNegative(nan));
             Assert.True(Numbers.BorlandAtof("+inf") == 0 && Numbers.BorlandAtof("NAN") == 0);
             // -HUGE_VALL in the C++: the 80-bit parse holds 1e400 and the store overflows (Fpu.ParseChop).

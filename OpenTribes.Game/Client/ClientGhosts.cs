@@ -1,9 +1,9 @@
 // Client GhostManager (docs/client-net.md 3.1, docs/game-stream-ghosts.md 2): read of the ghost block (00552cc8),
 // creation and deletion of client ghost objects, the always phase list. The per-class unpack routines sit next to the
 // pack routine of each class (GhostClasses, PlayerGhost, ProjectileGhost) and register here.
-using System.Globalization;
-
 namespace OpenTribes.Game;
+
+using System.Globalization;
 
 /// <summary>A client ghost object: the decoded state of the class, as the unpack routines leave it (docs/game-stream-ghosts.md 3.2 to 3.6).</summary>
 public sealed class ClientGhost
@@ -23,7 +23,7 @@ public sealed class ClientGhost
     /// <summary>The decoded state by field name.</summary>
     public readonly Dictionary<string, object?> State = new(StringComparer.Ordinal);
     /// <summary>The fields of the last update.</summary>
-    public List<DecodedField> Last = new();
+    public List<DecodedField> Last = [];
 }
 
 /// <summary>Reads the update of one class into the reader output.</summary>
@@ -48,7 +48,7 @@ public sealed class DecodedGhost
     /// <summary>The number of bits the entry took.</summary>
     public int Bits;
     /// <summary>The decoded fields.</summary>
-    public List<DecodedField> Fields = new();
+    public List<DecodedField> Fields = [];
     /// <summary>The one line text.</summary>
     public string Text = "";
 }
@@ -65,7 +65,7 @@ public sealed class DecodedGhostBlock
     /// <summary>The number of bits the block took.</summary>
     public int Bits;
     /// <summary>The entries.</summary>
-    public readonly List<DecodedGhost> Updates = new();
+    public readonly List<DecodedGhost> Updates = [];
 }
 
 /// <summary>The client GhostManager: reads the ghost block, creates and deletes client ghost objects and keeps the always phase list.</summary>
@@ -74,7 +74,7 @@ public sealed class ClientGhostManager
 {
     private readonly ClientWorld mWorld;
     private readonly ClientGhost?[] mTable = new ClientGhost?[1024];
-    private readonly List<ClientGhost> mAlways = new();           // always phase ghosts waiting for registration (2.7)
+    private readonly List<ClientGhost> mAlways = [];           // always phase ghosts waiting for registration (2.7)
     /// <summary>Called when a ghost is created.</summary>
     public Action<ClientGhost>? OnCreate;
     /// <summary>Called when a ghost is deleted.</summary>
@@ -82,8 +82,8 @@ public sealed class ClientGhostManager
     /// <summary>Called once when the always phase completes.</summary>
     public Action? OnAlwaysDone;
 
-    private static readonly Dictionary<uint, (string Name, ClientUnpackFn Fn)> sClasses = new();
-    private static readonly object sLock = new();
+    private static readonly Dictionary<uint, (string Name, ClientUnpackFn Fn)> sClasses = [];
+    private static readonly Lock sLock = new();
 
     /// <summary>Creates a manager for a client world.</summary>
     /// <param name="world">The client world.</param>
@@ -157,14 +157,17 @@ public sealed class ClientGhostManager
     /// <remarks>Follows GhostManager readPacket (00552cc8).</remarks>
     public DecodedGhostBlock Read(ClientReader r)
     {
-        int start = r.Pos;
-        var block = new DecodedGhostBlock { Always = r.Flag() };
-        block.IdBits = (int)r.Int(3) + 3;
+        var start = r.Pos;
+        var block = new DecodedGhostBlock
+        {
+            Always = r.Flag(),
+            IdBits = (int)r.Int(3) + 3
+        };
         try
         {
             while (r.Flag())
             {
-                int idx = (int)r.Int((uint)block.IdBits);
+                var idx = (int)r.Int((uint)block.IdBits);
                 if (idx >= mTable.Length)
                     throw new UnsupportedException("ghost index " + idx);
                 if (r.Flag())
@@ -182,25 +185,25 @@ public sealed class ClientGhostManager
                     continue;
                 }
                 ClientGhost? g = mTable[idx];
-                bool isNew = g == null;
+                var isNew = g == null;
                 long objValue = -1;
                 if (isNew)
                 {
                     if (block.Always)
                         objValue = r.Int(32);
-                    uint tag = r.Int(10);
+                    var tag = r.Int(10);
                     if (!Classes.TryGetValue(tag, out var cls))
                         throw new UnsupportedException("new ghost " + idx + " class 0x" + tag.ToString("x", CultureInfo.InvariantCulture) + " objid=" + (block.Always ? objValue.ToString(CultureInfo.InvariantCulture) : "None"));
                     g = new ClientGhost { Index = idx, Tag = tag, Class = cls.Name, ObjectValue = objValue };
                 }
-                (string Name, ClientUnpackFn Fn) c = Classes[g!.Tag];
-                int bodyStart = r.Pos;
+                (string Name, ClientUnpackFn Fn) = Classes[g!.Tag];
+                var bodyStart = r.Pos;
                 var save = r.Out;
                 var fields = new List<DecodedField>();
                 r.Out = fields;
                 try
                 {
-                    c.Fn(r, g, isNew);
+                    Fn(r, g, isNew);
                 }
                 finally
                 {
@@ -223,8 +226,13 @@ public sealed class ClientGhostManager
                 }
                 var dg = new DecodedGhost
                 {
-                    Index = idx, Op = isNew ? "new" : "update", Class = g.Class, Tag = g.Tag, ObjectValue = objValue,
-                    Bits = r.Pos - bodyStart, Fields = fields,
+                    Index = idx,
+                    Op = isNew ? "new" : "update",
+                    Class = g.Class,
+                    Tag = g.Tag,
+                    ObjectValue = objValue,
+                    Bits = r.Pos - bodyStart,
+                    Fields = fields,
                 };
                 dg.Text = "ghost " + idx + (isNew ? " NEW " : " ") + g.Class + (isNew && block.Always ? " obj=" + objValue : "") + " (" + dg.Bits +
                           " bits) " + ClientPsc.FieldsText(fields);

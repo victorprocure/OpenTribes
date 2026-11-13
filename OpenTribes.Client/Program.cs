@@ -1,11 +1,11 @@
+namespace OpenTribes.Client;
+
 using System.Diagnostics;
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Gl;
 using OpenTribes.Platform.Sdl;
-
-namespace OpenTribes.Client;
 
 /// <summary>The <c>tribes</c> executable: the client, plus the viewer, census and test tools.</summary>
 public static class Program
@@ -65,7 +65,7 @@ public static class Program
             return 2;
         }
 
-        int si = Array.IndexOf(args, "--shape-info");
+        var si = Array.IndexOf(args, "--shape-info");
         if (si >= 0 && si + 1 < args.Length)
             return Shapes.ShapeInfo.Report(o.Root, args[si + 1]);
         if (args.Contains("--shape-census"))
@@ -80,10 +80,10 @@ public static class Program
         if (o.Demo != null && o.AudioOut != null)
             return Audio.AudioTools.RenderDemo(o.Root, o.Demo, o.At ?? "0", o.Seconds, o.AudioOut);
 
-        int gl = Array.IndexOf(args, "--gui-list");
+        var gl = Array.IndexOf(args, "--gui-list");
         if (gl >= 0 && gl + 1 < args.Length)
             return Gui.GuiCensus.List(o.Root, args[gl + 1]);
-        int gt = Array.IndexOf(args, "--gui-tree");
+        var gt = Array.IndexOf(args, "--gui-tree");
         if (gt >= 0 && gt + 1 < args.Length)
             return Gui.GuiCensus.Tree(o.Root, args[gt + 1]);
         if (args.Contains("--gui-census"))
@@ -101,12 +101,12 @@ public static class Program
         if (o.Mission != null)
             return World.MissionRender.Run(o.Root, o.Mission, o.Camera, o.Cameras, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
-        ResourceManager res = GfxAssets.Mount(o.Root, out int volumes);
+        ResourceManager res = GfxAssets.Mount(o.Root, out var volumes);
         Console.Error.WriteLine($"mounted {volumes} volumes from {o.Root}");
 
         PaletteBank? palette = null;
-        string paletteName = "";
-        foreach (string name in o.Palette != null ? new[] { o.Palette } : new[] { "feargui.pal", "darkpal.pal" })
+        var paletteName = "";
+        foreach (var name in o.Palette != null ? new[] { o.Palette } : ["feargui.pal", "darkpal.pal"])
         {
             palette = GfxAssets.LoadPalette(res, name);
             if (palette != null)
@@ -148,8 +148,8 @@ public static class Program
         else
             Console.Error.WriteLine($"palette {paletteName.Length switch { 0 => "(embedded)", _ => paletteName }}");
 
-        bool shot = o.Screenshot != null;
-        using GlWindow? win = GlWindow.TryCreate("Tribes", o.Width, o.Height, shot, o.VideoDriver, out string error);
+        var shot = o.Screenshot != null;
+        using GlWindow? win = GlWindow.TryCreate("Tribes", o.Width, o.Height, shot, o.VideoDriver, out var error);
         if (win == null)
         {
             Console.Error.WriteLine("tribes: cannot open a window with an OpenGL 3.3 core context: " + error);
@@ -159,7 +159,7 @@ public static class Program
         using var glDevice = new GlGfxDevice(win);
         IGfxDevice dev = glDevice;
         dev.SetPalette(palette);
-        win.SetSwapInterval(shot ? 0 : 1);
+        GlWindow.SetSwapInterval(shot ? 0 : 1);
 
         void Frame()
         {
@@ -175,21 +175,21 @@ public static class Program
         if (shot)
         {
             var sw = Stopwatch.StartNew();
-            for (int i = 0; i < o.Frames; ++i)
+            for (var i = 0; i < o.Frames; ++i)
                 Frame();
-            byte[] px = dev.ReadPixels();
+            var px = dev.ReadPixels();
             WritePpm(o.Screenshot!, px, dev.Width, dev.Height);
             Console.Error.WriteLine($"{o.Frames} frames in {sw.ElapsedMilliseconds} ms, wrote {o.Screenshot} ({dev.Width}x{dev.Height})");
             return 0;
         }
 
         win.Show();
-        bool running = true;
+        var running = true;
         while (running)
         {
             while (Sdl3.PollEvent(out SdlEvent ev))
             {
-                if (ev.Type == Sdl3.EventQuit || ev.Type == Sdl3.EventWindowCloseRequested)
+                if (ev.Type is Sdl3.EventQuit or Sdl3.EventWindowCloseRequested)
                     running = false;
                 else if (ev.Type == Sdl3.EventKeyDown && ev.Key == Sdl3.KeyEscape)
                     running = false;
@@ -202,16 +202,16 @@ public static class Program
     // The real client process: console.cs, the stock scripts, the frame loop.
     private static int RunClient(string[] args)
     {
-        App.ClientOptions? opt = App.ClientOptions.Parse(args, out string error);
+        App.ClientOptions? opt = App.ClientOptions.Parse(args, out var error);
         if (opt == null)
         {
             Console.Error.WriteLine("tribes: " + error);
             Console.Error.Write(Usage);
             return 2;
         }
-        string? root = Platform.PlatformPaths.EnsureWritableRoot(opt.Root,
+        var root = Platform.PlatformPaths.EnsureWritableRoot(opt.Root,
             Platform.PlatformPaths.UserDataDir(Platform.PlatformPaths.CurrentOs, Platform.PlatformPaths.Env,
-                                               Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), out string rootError);
+                                               Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), out var rootError);
         if (root == null)
         {
             Console.Error.WriteLine("tribes: " + rootError);
@@ -234,9 +234,9 @@ public static class Program
     private static Options? Parse(string[] args)
     {
         var o = new Options();
-        for (int i = 0; i < args.Length; ++i)
+        for (var i = 0; i < args.Length; ++i)
         {
-            string a = args[i];
+            var a = args[i];
             if (a is "-h" or "--help")
                 return null;
             if (a is "--shape-census" or "--gui-census" or "--hud" or "--sound-census")
@@ -246,33 +246,82 @@ public static class Program
                 Console.Error.WriteLine($"tribes: {a} needs a value");
                 return null;
             }
-            string v = args[++i];
+            var v = args[++i];
             switch (a)
             {
-                case "--root": o.Root = v; break;
-                case "--cat": o.Cat = v; break;
-                case "--audio-out": o.AudioOut = v; break;
-                case "--audio-live": o.AudioLive = v; break;
-                case "--seconds": o.Seconds = double.Parse(v, CultureInfo.InvariantCulture); break;
-                case "--shape-info": case "--gui-list": case "--gui-tree": break;
-                case "--show": o.Show = v; break;
-                case "--gui": o.Gui = v; break;
-                case "--exec": o.Exec = v; break;
-                case "--input": o.Input = v; break;
-                case "--palette": o.Palette = v; break;
-                case "--font": o.Font = v; break;
-                case "--text": o.Text = v; break;
-                case "--screenshot": o.Screenshot = v; break;
-                case "--video-driver": o.VideoDriver = v; break;
-                case "--mission": o.Mission = v; break;
-                case "--demo": o.Demo = v; break;
-                case "--shape": o.Shape = v; break;
-                case "--seq": o.Seq = v; break;
-                case "--skin": o.Skin = v; break;
-                case "--pos": o.Pos = double.Parse(v, CultureInfo.InvariantCulture); break;
-                case "--at": o.At = v; break;
-                case "--camera": o.Camera = v; break;
-                case "--cameras": o.Cameras = v; break;
+                case "--root":
+                    o.Root = v;
+                    break;
+                case "--cat":
+                    o.Cat = v;
+                    break;
+                case "--audio-out":
+                    o.AudioOut = v;
+                    break;
+                case "--audio-live":
+                    o.AudioLive = v;
+                    break;
+                case "--seconds":
+                    o.Seconds = double.Parse(v, CultureInfo.InvariantCulture);
+                    break;
+                case "--shape-info":
+                case "--gui-list":
+                case "--gui-tree":
+                    break;
+                case "--show":
+                    o.Show = v;
+                    break;
+                case "--gui":
+                    o.Gui = v;
+                    break;
+                case "--exec":
+                    o.Exec = v;
+                    break;
+                case "--input":
+                    o.Input = v;
+                    break;
+                case "--palette":
+                    o.Palette = v;
+                    break;
+                case "--font":
+                    o.Font = v;
+                    break;
+                case "--text":
+                    o.Text = v;
+                    break;
+                case "--screenshot":
+                    o.Screenshot = v;
+                    break;
+                case "--video-driver":
+                    o.VideoDriver = v;
+                    break;
+                case "--mission":
+                    o.Mission = v;
+                    break;
+                case "--demo":
+                    o.Demo = v;
+                    break;
+                case "--shape":
+                    o.Shape = v;
+                    break;
+                case "--seq":
+                    o.Seq = v;
+                    break;
+                case "--skin":
+                    o.Skin = v;
+                    break;
+                case "--pos":
+                    o.Pos = double.Parse(v, CultureInfo.InvariantCulture);
+                    break;
+                case "--at":
+                    o.At = v;
+                    break;
+                case "--camera":
+                    o.Camera = v;
+                    break;
+                case "--cameras":
+                    o.Cameras = v;
+                    break;
                 case "--fov":
                     if (!double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out o.Fov) || o.Fov < 5 || o.Fov > 170)
                         return null;
@@ -282,7 +331,7 @@ public static class Program
                         return null;
                     break;
                 case "--size":
-                    string[] wh = v.Split('x');
+                    var wh = v.Split('x');
                     if (wh.Length != 2 || !int.TryParse(wh[0], out o.Width) || !int.TryParse(wh[1], out o.Height) ||
                         o.Width < 1 || o.Height < 1)
                         return null;
@@ -304,16 +353,16 @@ public static class Program
     internal static void WritePpm(string path, byte[] rgba, int w, int h)
     {
         using var f = File.Create(path);
-        byte[] header = System.Text.Encoding.ASCII.GetBytes($"P6\n{w} {h}\n255\n");
+        var header = System.Text.Encoding.ASCII.GetBytes($"P6\n{w} {h}\n255\n");
         f.Write(header);
         var row = new byte[w * 3];
-        for (int y = 0; y < h; ++y)
+        for (var y = 0; y < h; ++y)
         {
-            for (int x = 0; x < w; ++x)
+            for (var x = 0; x < w; ++x)
             {
-                row[x * 3] = rgba[(y * w + x) * 4];
-                row[x * 3 + 1] = rgba[(y * w + x) * 4 + 1];
-                row[x * 3 + 2] = rgba[(y * w + x) * 4 + 2];
+                row[x * 3] = rgba[((y * w) + x) * 4];
+                row[(x * 3) + 1] = rgba[(((y * w) + x) * 4) + 1];
+                row[(x * 3) + 2] = rgba[(((y * w) + x) * 4) + 2];
             }
             f.Write(row);
         }

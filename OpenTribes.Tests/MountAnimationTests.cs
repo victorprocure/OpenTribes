@@ -1,7 +1,6 @@
-using OpenTribes.Client.Scene;
-using Xunit;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Scene;
 
 public class MountAnimationTests
 {

@@ -1,8 +1,7 @@
 // Port of src/game/player_mount.cpp: Player mounting (docs/vehicle-sim.md 2.1 MT1, MT3, MT4; docs/player-sim.md 2.7).
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public sealed partial class Player
 {
@@ -28,14 +27,14 @@ public sealed partial class Player
         if (obj == null)
             return;
         obj.GetMountTransform(point, out Transform t);
-        float[] e = { 0, 0, 0 };
+        float[] e = [0, 0, 0];
         MissionTransform.MatrixToEuler(t, e);
-        float yaw = e[2];
+        var yaw = e[2];
         if (point == 0)
         {
             // Only the translation, with the player's own rotation.
             MissionTransform.EulerToMatrix(Rotation, ref Transform);
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Transform.P[i] = t.P[i];
             Transform.Flags |= 3;
         }
@@ -74,7 +73,7 @@ public sealed partial class Player
         m.GetMountTransform(MountPoint, out Transform mt);
         var r = new TMat3();
         var mm = new TMat3();
-        float[] yawOnly = { 0, 0, Rotation[2] };
+        float[] yawOnly = [0, 0, Rotation[2]];
         r.Flags = 0;
         Shape.EulerMatrix(yawOnly, ref r);
         mm.Flags = mt.Flags;
@@ -108,7 +107,7 @@ public sealed partial class Player
         m.GetMountTransform(MountPoint, out Transform mt);
         var r = new TMat3();
         var mm = new TMat3();
-        float[] yawOnly = { 0, 0, Rotation[2] };
+        float[] yawOnly = [0, 0, Rotation[2]];
         r.Flags = 0;
         Shape.EulerMatrix(yawOnly, ref r);
         mm.Flags = mt.Flags;
@@ -126,7 +125,7 @@ public sealed partial class Player
             // MT4 (server only, 0x00415304): the vehicle's passengerJump(vehicle, player, "up row"); the map name takes part in the lookup.
             if (Vehicle.From(m) is Vehicle v)
             {
-                string fn = Vehicle.FindVehicleMethod(mGame, v, "passengerJump", true);
+                var fn = Vehicle.FindVehicleMethod(mGame, v, "passengerJump", true);
                 if (fn.Length != 0 && mGame.Console != null)
                 {
                     static string G(float f) => Numbers.FormatFloat(f);

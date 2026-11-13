@@ -91,17 +91,17 @@ public sealed class Node
     /// <summary>The third child.</summary>
     public Node? C;
     /// <summary>The subscript expressions.</summary>
-    public readonly List<Node> Index = new();
+    public readonly List<Node> Index = [];
     /// <summary>The arguments or values.</summary>
-    public readonly List<Node> List = new();
+    public readonly List<Node> List = [];
     /// <summary>The statements of the body.</summary>
-    public readonly List<Node> Body = new();
+    public readonly List<Node> Body = [];
     /// <summary>The statements of the else body.</summary>
-    public readonly List<Node> ElseBody = new();
+    public readonly List<Node> ElseBody = [];
     /// <summary>The slots of a datablock or instant.</summary>
-    public readonly List<Node> Slots = new();
+    public readonly List<Node> Slots = [];
     /// <summary>The child instants of an instant.</summary>
-    public readonly List<Node> Children = new();
+    public readonly List<Node> Children = [];
     /// <summary>The parameter names of a function.</summary>
-    public readonly List<string> Params = new();
+    public readonly List<string> Params = [];
 }

@@ -1,6 +1,6 @@
-using System.Buffers.Binary;
-
 namespace OpenTribes.Platform.Gfx;
+
+using System.Buffers.Binary;
 
 // docs/renderer.md 2.3: `.pba` PBMA bitmap array.
 /// <summary>A <c>.pba</c> PBMA bitmap array (docs/renderer.md 2.3).</summary>
@@ -11,7 +11,7 @@ public sealed class PbmaArray
     /// <summary>The bitmapCount of the head. <c>Bitmaps.Count</c> is the number of PBMP chunks actually read.</summary>
     public uint BitmapCount;
     /// <summary>The bitmaps.</summary>
-    public List<PbmpBitmap> Bitmaps = new();
+    public List<PbmpBitmap> Bitmaps = [];
     /// <summary>The <c>user</c> data, BitmapCount * userSize bytes, or null.</summary>
     public byte[]? User;
     /// <summary>The <c>rmap</c> sorted sparse ids, one per bitmap, or null. Then the id is the slot.</summary>
@@ -30,7 +30,7 @@ public sealed class PbmaArray
             int lo = 0, hi = Rmap.Length - 1;
             while (lo <= hi)
             {
-                int mid = (lo + hi) >> 1;
+                var mid = (lo + hi) >> 1;
                 if (Rmap[mid] == id)
                     return mid < Bitmaps.Count ? Bitmaps[mid] : null;
                 if (Rmap[mid] < id)
@@ -76,7 +76,7 @@ public sealed class PbmaArray
         }
         if (c.Tag() != "head")
             throw new GfxFormatException("first chunk is not head");
-        uint headSize = c.U32();
+        var headSize = c.U32();
         if (headSize < 8)
             throw new GfxFormatException("head chunk too small");
         var head = c.Bytes(headSize);
@@ -87,7 +87,7 @@ public sealed class PbmaArray
         };
         for (uint i = 0; i < arr.ChunkCount; ++i)
         {
-            string tag = c.PeekTag();
+            var tag = c.PeekTag();
             if (tag == "PBMP")
             {
                 // The bitmap reader consumes the tag, ignores the size and reads its own chunks.
@@ -95,14 +95,14 @@ public sealed class PbmaArray
                 continue;
             }
             c.Tag();
-            uint size = c.U32();
+            var size = c.U32();
             var body = c.Bytes(size);
             if (tag == "user")
                 arr.User = body.ToArray();
             else if (tag == "rmap")
             {
                 var ids = new uint[size / 4];
-                for (int k = 0; k < ids.Length; ++k)
+                for (var k = 0; k < ids.Length; ++k)
                     ids[k] = BinaryPrimitives.ReadUInt32LittleEndian(body[(k * 4)..]);
                 arr.Rmap = ids;
             }

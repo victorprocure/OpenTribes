@@ -4,7 +4,7 @@ namespace OpenTribes.Platform.Sdl;
 /// <remarks>The stock input manager enumerates the attached devices once when the input system opens (0050e134 via 0050df34, instance numbers in order from 0 per class, 0050e9e8) and does not follow hot plugging, so the set is read once here. Joystick events reach the client only while the window has focus, since the stock access is foreground (docs/client-app.md 3.6).</remarks>
 public sealed class JoystickSet : IDisposable
 {
-    private readonly List<(uint Id, IntPtr Handle, string Name, int Axes, int Buttons, int Hats)> mDevices = new();
+    private readonly List<(uint Id, IntPtr Handle, string Name, int Axes, int Buttons, int Hats)> mDevices = [];
 
     /// <summary>Gets the number of open devices.</summary>
     public int Count => mDevices.Count;
@@ -19,9 +19,9 @@ public sealed class JoystickSet : IDisposable
             Sdl3.EnsureLoaded();
             if (!Sdl3.InitSubSystem(Sdl3.InitJoystick))
                 return set;
-            foreach (uint id in Sdl3.GetJoystickIds())
+            foreach (var id in Sdl3.GetJoystickIds())
             {
-                IntPtr h = Sdl3.OpenJoystick(id);
+                var h = Sdl3.OpenJoystick(id);
                 if (h != IntPtr.Zero)
                     set.mDevices.Add((id, h, Sdl3.JoystickName(h), Sdl3.GetNumJoystickAxes(h), Sdl3.GetNumJoystickButtons(h), Sdl3.GetNumJoystickHats(h)));
             }
@@ -38,7 +38,7 @@ public sealed class JoystickSet : IDisposable
     public static JoystickSet Simulated(params string[] names)
     {
         var set = new JoystickSet();
-        for (int i = 0; i < names.Length; ++i)
+        for (var i = 0; i < names.Length; ++i)
             set.mDevices.Add(((uint)(i + 1), IntPtr.Zero, names[i], 6, 12, 1));
         return set;
     }
@@ -48,7 +48,7 @@ public sealed class JoystickSet : IDisposable
     /// <returns>The device number, or -1 when it is not one of the open devices.</returns>
     public int InstanceOf(uint id)
     {
-        for (int i = 0; i < mDevices.Count; ++i)
+        for (var i = 0; i < mDevices.Count; ++i)
             if (mDevices[i].Id == id)
                 return i;
         return -1;
@@ -74,9 +74,9 @@ public sealed class JoystickSet : IDisposable
     /// <summary>Closes every device.</summary>
     public void Dispose()
     {
-        foreach (var d in mDevices)
-            if (d.Handle != IntPtr.Zero)
-                Sdl3.CloseJoystick(d.Handle);
+        foreach (var (Id, Handle, Name, Axes, Buttons, Hats) in mDevices)
+            if (Handle != IntPtr.Zero)
+                Sdl3.CloseJoystick(Handle);
         mDevices.Clear();
     }
 }

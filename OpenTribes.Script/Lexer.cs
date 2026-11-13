@@ -1,6 +1,6 @@
-using OpenTribes.Core;
-
 namespace OpenTribes.Script;
+
+using OpenTribes.Core;
 
 /// <summary>The kind of a lexer token.</summary>
 /// <remarks>Port of src/script/lexer.cpp.</remarks>
@@ -117,22 +117,22 @@ public sealed class Lexer
     private const int kTokenBuffer = 4096;
 
     private static readonly (string text, Tok tok)[] kKeywords =
-    {
+    [
         ("break", Tok.Break), ("nil", Tok.Nil), ("class", Tok.Class), ("return", Tok.Return),
         ("else", Tok.Else), ("global", Tok.Global), ("while", Tok.While), ("if", Tok.If),
         ("for", Tok.For), ("continue", Tok.Continue), ("function", Tok.Function), ("instant", Tok.Instant),
-    };
+    ];
 
     // Longest first.
     private static readonly (string text, Tok tok)[] kOps =
-    {
+    [
         ("<<=", Tok.ShlAssign), (">>=", Tok.ShrAssign), ("==", Tok.Eq), ("!=", Tok.Ne),
         (">=", Tok.Ge), ("<=", Tok.Le), ("&&", Tok.AndAnd), ("||", Tok.OrOr),
         ("::", Tok.ColonColon), ("--", Tok.MinusMinus), ("++", Tok.PlusPlus), ("$+", Tok.DollarPlus),
         ("<<", Tok.Shl), (">>", Tok.Shr), ("+=", Tok.PlusAssign), ("-=", Tok.MinusAssign),
         ("*=", Tok.MulAssign), ("/=", Tok.DivAssign), ("%=", Tok.ModAssign), ("&=", Tok.AndAssign),
         ("^=", Tok.XorAssign), ("|=", Tok.OrAssign),
-    };
+    ];
     private const string kSingles = "@[]()+-*/<>|.!:;{},&%^~=";
 
     /// <summary>Creates a lexer.</summary>
@@ -143,8 +143,8 @@ public sealed class Lexer
     /// <returns>The line number.</returns>
     public int Line() => mLine;
 
-    private static bool IsAlpha(char c) => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
-    private static bool IsDigit(char c) => c >= '0' && c <= '9';
+    private static bool IsAlpha(char c) => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '_';
+    private static bool IsDigit(char c) => c is >= '0' and <= '9';
     private static bool IsIdentChar(char c) => IsAlpha(c) || IsDigit(c) || c == ':';
     private static bool IsHex(char c) => IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     private static int HexValue(char c) => IsDigit(c) ? c - '0' : (c | 0x20) - 'a' + 10;
@@ -159,7 +159,7 @@ public sealed class Lexer
             t.Kind = Tok.Illegal; // the original exits on "Token buffer overflow" (D11)
         // Identifier, variable and tag text is interned while lexing (0x005f75c0): the first
         // spelling ever lexed, executed or not, is the one every later use prints.
-        if (kind == Tok.Ident || kind == Tok.Var || kind == Tok.Tag)
+        if (kind is Tok.Ident or Tok.Var or Tok.Tag)
             t.Text = StringTable.Global().Intern(t.Text);
         return t;
     }
@@ -168,12 +168,12 @@ public sealed class Lexer
     /// <returns>The token. A token of kind <see cref="Tok.End"/> marks the end.</returns>
     public Token Next()
     {
-        for (;;)
+        for (; ; )
         {
-            char ch = Peek();
+            var ch = Peek();
             if (ch == '\0')
                 return Make(Tok.End);
-            if (ch == ' ' || ch == '\t' || ch == '\v' || ch == '\f' || ch == '\r')
+            if (ch is ' ' or '\t' or '\v' or '\f' or '\r')
             {
                 ++mPos;
                 continue;
@@ -193,7 +193,7 @@ public sealed class Lexer
             break;
         }
 
-        char c = Peek();
+        var c = Peek();
         if (c == '"')
             return LexDoubleQuoted();
         if (c == '\'')
@@ -201,37 +201,37 @@ public sealed class Lexer
         if (IsDigit(c))
             return LexNumber();
 
-        if (c == '$' || c == '%')
+        if (c is '$' or '%')
         {
             if (IsAlpha(Peek(1)))
             {
-                int start = mPos++;
+                var start = mPos++;
                 while (IsIdentChar(Peek()))
                     ++mPos;
-                return Make(Tok.Var, mSrc.Substring(start, mPos - start));
+                return Make(Tok.Var, mSrc[start..mPos]);
             }
             if (IsDigit(Peek(1)))
             {
-                int i = 1;
+                var i = 1;
                 while (IsDigit(Peek(i)))
                     ++i;
                 if (IsAlpha(Peek(i)))
                 { // rule 71
-                    int start = mPos;
+                    var start = mPos;
                     mPos += i;
                     while (IsIdentChar(Peek()))
                         ++mPos;
-                    return Make(Tok.Illegal, mSrc.Substring(start, mPos - start));
+                    return Make(Tok.Illegal, mSrc[start..mPos]);
                 }
             }
         }
 
         if (IsAlpha(c))
         {
-            int start = mPos;
+            var start = mPos;
             while (IsIdentChar(Peek()))
                 ++mPos;
-            string word = mSrc.Substring(start, mPos - start);
+            var word = mSrc[start..mPos];
             foreach (var (text, tok) in kKeywords)
                 if (word == text)
                     return Make(tok, word);
@@ -249,7 +249,7 @@ public sealed class Lexer
             }
         }
         ++mPos;
-        if (kSingles.IndexOf(c) >= 0)
+        if (kSingles.Contains(c))
         {
             Token t = Make(Tok.Char, c.ToString());
             t.Ch = c;
@@ -261,19 +261,19 @@ public sealed class Lexer
     // src/script/lexer.cpp Lexer::lexNumber.
     private Token LexNumber()
     {
-        int start = mPos;
+        var start = mPos;
         if (Peek() == '0' && (Peek(1) == 'x' || Peek(1) == 'X') && IsHex(Peek(2)))
         {
             mPos += 2;
             while (IsHex(Peek()))
                 ++mPos;
-            return Make(Tok.Int, mSrc.Substring(start, mPos - start));
+            return Make(Tok.Int, mSrc[start..mPos]);
         }
         while (IsDigit(Peek()))
             ++mPos;
         int ExponentLength(int at)
         {
-            int i = at;
+            var i = at;
             if (Peek(i) != 'e' && Peek(i) != 'E')
                 return 0;
             ++i;
@@ -285,7 +285,7 @@ public sealed class Lexer
                 ++i;
             return i - at;
         }
-        bool isFloat = false;
+        var isFloat = false;
         if (Peek() == '.' && IsDigit(Peek(1)))
         {
             ++mPos;
@@ -296,27 +296,27 @@ public sealed class Lexer
         }
         else
         {
-            int n = ExponentLength(0);
+            var n = ExponentLength(0);
             if (n != 0)
             {
                 mPos += n;
                 isFloat = true;
             }
         }
-        return Make(isFloat ? Tok.Float : Tok.Int, mSrc.Substring(start, mPos - start));
+        return Make(isFloat ? Tok.Float : Tok.Int, mSrc[start..mPos]);
     }
 
     // src/script/lexer.cpp Lexer::lexDoubleQuoted.
     private Token LexDoubleQuoted()
     {
         // Pattern: "([^"\\\n\r]|\\[^\n])*"
-        int i = 1;
-        for (;;)
+        var i = 1;
+        for (; ; )
         {
-            char c = Peek(i);
+            var c = Peek(i);
             if (c == '"')
                 break;
-            if (c == '\0' || c == '\n' || c == '\r')
+            if (c is '\0' or '\n' or '\r')
             {
                 ++mPos; // no match: the quote alone is an ILLEGAL token
                 return Make(Tok.Illegal, "\"");
@@ -333,19 +333,19 @@ public sealed class Lexer
             }
             ++i;
         }
-        string raw = mSrc.Substring(mPos + 1, i - 1);
+        var raw = mSrc.Substring(mPos + 1, i - 1);
         mPos += i + 1;
 
         // Escapes (0x005f7644).
         var value = new System.Text.StringBuilder();
-        for (int k = 0; k < raw.Length; ++k)
+        for (var k = 0; k < raw.Length; ++k)
         {
             if (raw[k] != '\\')
             {
                 value.Append(raw[k]);
                 continue;
             }
-            char e = raw[++k];
+            var e = raw[++k];
             if (e == 'n')
             {
                 value.Append('\n');
@@ -358,7 +358,7 @@ public sealed class Lexer
             {
                 if (k + 2 >= raw.Length || !IsHex(raw[k + 1]) || !IsHex(raw[k + 2]))
                     return Make(Tok.End); // the original lexer returns -1
-                value.Append((char)(HexValue(raw[k + 1]) * 16 + HexValue(raw[k + 2])));
+                value.Append((char)((HexValue(raw[k + 1]) * 16) + HexValue(raw[k + 2])));
                 k += 2;
             }
             else
@@ -373,10 +373,10 @@ public sealed class Lexer
     private Token LexSingleQuoted()
     {
         // Pattern: '([^'\\\n]|\\[^\n])*' with the raw text as value.
-        int i = 1;
-        for (;;)
+        var i = 1;
+        for (; ; )
         {
-            char c = Peek(i);
+            var c = Peek(i);
             if (c == '\'')
                 break;
             if (c == '\0' || c == '\n' || (c == '\\' && (Peek(i + 1) == '\n' || Peek(i + 1) == '\0')))
@@ -386,7 +386,7 @@ public sealed class Lexer
             }
             i += c == '\\' ? 2 : 1;
         }
-        string raw = mSrc.Substring(mPos + 1, i - 1);
+        var raw = mSrc.Substring(mPos + 1, i - 1);
         mPos += i + 1;
         return Make(Tok.String, raw);
     }

@@ -1,11 +1,8 @@
 // Port of src/game/control_object.hpp and src/game/control_object.cpp: moves and control objects (docs/game-stream.md
 // 6.1, 6.5; docs/player-control.md): the move record, its wire form, and the ObserverCamera every human client owns.
-using OpenTribes.Core;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>A move record: the control input of one 32 ms tick (32 bytes in the original, docs/game-stream.md 6.1).</summary>
 public struct Move
@@ -68,7 +65,7 @@ public static class BitStreamF
     /// <param name="v">The values.</param>
     public static void WriteF32s(this BitStream bs, ReadOnlySpan<float> v)
     {
-        foreach (float f in v)
+        foreach (var f in v)
             bs.WriteF32(f);
     }
 
@@ -96,7 +93,7 @@ public static class Moves
     /// <remarks>Follows 00404860.</remarks>
     public static float ClampMoveAngle(float v)
     {
-        uint bits = BitConverter.SingleToUInt32Bits(v);
+        var bits = BitConverter.SingleToUInt32Bits(v);
         if (((bits >> 23) & 0xff) == 0xff)
             return 0; // NaN and infinity
         if (!(-kMoveMaxTurn < v))
@@ -112,16 +109,16 @@ public static class Moves
     /// <remarks>Follows the move pack (004046a0).</remarks>
     public static void PackMove(BitStream bs, in Move m, bool full, Move? prev)
     {
-        bool body = true;
+        var body = true;
         if (prev is Move p)
         {
-            bool same = m.Forward == p.Forward && m.Backward == p.Backward && m.Left == p.Left && m.Right == p.Right &&
+            var same = m.Forward == p.Forward && m.Backward == p.Backward && m.Left == p.Left && m.Right == p.Right &&
                         m.Jet == p.Jet && m.Jump == p.Jump && m.Crouch == p.Crouch;
             body = !bs.WriteFlag(same);
         }
         if (body)
         {
-            foreach (float f in new[] { m.Forward, m.Backward, m.Left, m.Right })
+            foreach (var f in new[] { m.Forward, m.Backward, m.Left, m.Right })
                 bs.WriteInt(GameUtil.Ftol(Mul(f, 15.0)), 4);
             bs.WriteFlag(m.Jet);
             bs.WriteFlag(m.Jump);
@@ -146,7 +143,7 @@ public static class Moves
     /// <remarks>Follows the move unpack (004048b8).</remarks>
     public static void UnpackMove(BitStream bs, ref Move m, bool full, bool havePrev)
     {
-        bool body = true;
+        var body = true;
         if (havePrev)
             body = !bs.ReadFlag();
         if (body)
@@ -179,7 +176,7 @@ public static class Moves
     /// <param name="prev">The preceding move.</param>
     public static void UnpackMove(BitStream bs, ref Move m, bool full, in Move prev)
     {
-        bool body = !bs.ReadFlag();
+        var body = !bs.ReadFlag();
         if (body)
         {
             m.Forward = Store(Div(bs.ReadInt(4), 15.0));
@@ -275,14 +272,14 @@ public sealed class ObserverCamera : GameBase
     }
 
     // src/game/control_object.cpp ObserverCamera::call.
-    private void Call(string function, int arg) => mServices.Evaluate?.Invoke(function + "(" + Script.Numbers.FormatInt(arg) + ");");
+    private void Call(string function, int arg) => mServices.Evaluate?.Invoke(function + "(" + Numbers.FormatInt(arg) + ");");
 
     // src/game/control_object.cpp ObserverCamera::setTransform.
     private void SetTransform(ReadOnlySpan<float> rot, ReadOnlySpan<float> pos)
     {
         MissionTransform.EulerToMatrix(rot, ref Transform);
         Transform.Flags |= 2;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Transform.P[i] = pos[i];
     }
 
@@ -291,11 +288,11 @@ public sealed class ObserverCamera : GameBase
     private bool ObjectCentre(GameBase obj, Span<float> output)
     {
         Container.Entry? e = mServices.Container?.Find(obj);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             if (e != null)
             {
-                float sum = Store(Add(e.Box[i + 3], e.Box[i]));
+                var sum = Store(Add(e.Box[i + 3], e.Box[i]));
                 output[i] = Store(Mul(0.5f, sum));
             }
             else
@@ -316,7 +313,7 @@ public sealed class ObserverCamera : GameBase
     {
         DamageObject = null;
         OrbitObject = null;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             Position[i] = pos[i];
             CamRotation[i] = rot[i];
@@ -345,10 +342,10 @@ public sealed class ObserverCamera : GameBase
         else
         {
             Mode = kOrbitPoint;
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 Position[i] = point[i];
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             CamRotation[i] = rot[i];
         MinDistance = min;
         MaxDistance = max;
@@ -386,7 +383,7 @@ public sealed class ObserverCamera : GameBase
         if (sFlashDepth >= 4)
             return 0.0f;
         ++sFlashDepth;
-        float flash = DamageObject != null ? DamageObject.DamageFlash() : OrbitObject != null ? OrbitObject.DamageFlash() : 0.0f;
+        var flash = DamageObject != null ? DamageObject.DamageFlash() : OrbitObject != null ? OrbitObject.DamageFlash() : 0.0f;
         --sFlashDepth;
         return flash;
     }
@@ -398,7 +395,7 @@ public sealed class ObserverCamera : GameBase
     {
         var p = new float[] { t.P[0], t.P[1], t.P[2] };
         PlaceBehind(mServices.Container, this, p, t.M[3], t.M[4], t.M[5], dist);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             t.P[i] = p[i];
     }
 
@@ -413,19 +410,19 @@ public sealed class ObserverCamera : GameBase
     /// <remarks>Follows GameBase_placeBehind (00449604). The ray goes from p to <c>p - 2.5 * dist * f</c>, all products stored as float. A hit whose <c>normal . f</c> is 0.01 or more puts the camera <c>(p - hit) . f - 0.025 / (normal . f)</c> back, clamped to [0, dist]. A smaller dot product keeps the full distance.</remarks>
     public static void PlaceBehind(Container? container, object? exclude, float[] p, float f0, float f1, float f2, float dist)
     {
-        float reach = Store(Mul(-(double)dist, 2.5f));
+        var reach = Store(Mul(-(double)dist, 2.5f));
         var start = new Vec3(p[0], p[1], p[2]);
         var end = new Vec3(Store(Add(p[0], Mul(reach, f0))), Store(Add(p[1], Mul(reach, f1))), Store(Add(p[2], Mul(reach, f2))));
-        float back = dist;
+        var back = dist;
         object? hitObject = null;
         Vec3 hit = default, normal = default;
         if (container != null && container.CastRay(start, end, 0x20c00006u, exclude, ref hitObject, ref hit, ref normal))
         {
-            float d = Store(Add(Add(Mul(f0, normal.X), Mul(f1, normal.Y)), Mul(f2, normal.Z)));
+            var d = Store(Add(Add(Mul(f0, normal.X), Mul(f1, normal.Y)), Mul(f2, normal.Z)));
             if (!(d < 0.01))
             {
                 float v0 = Store(Sub(p[0], hit.X)), v1 = Store(Sub(p[1], hit.Y)), v2 = Store(Sub(p[2], hit.Z));
-                double along = Add(Add(Mul(v0, f0), Mul(v1, f1)), Mul(v2, f2));
+                var along = Add(Add(Mul(v0, f0), Mul(v1, f1)), Mul(v2, f2));
                 back = Store(Sub(along, Mul(Div(1.0f, d), 0.025)));
                 if (back > dist)
                     back = dist;
@@ -433,10 +430,10 @@ public sealed class ObserverCamera : GameBase
                     back = 0.0f;
             }
         }
-        float[] fwd = { f0, f1, f2 };
-        for (int i = 0; i < 3; ++i)
+        float[] fwd = [f0, f1, f2];
+        for (var i = 0; i < 3; ++i)
         {
-            float off = Store(Mul(back, fwd[i]));
+            var off = Store(Mul(back, fwd[i]));
             p[i] = Store(Sub(p[i], off));
         }
     }
@@ -450,26 +447,26 @@ public sealed class ObserverCamera : GameBase
         // 32 * 0.001 (double) stored to a float under round toward zero: 0x3d03126e, one ulp below the nearest float to
         // 0.032.
         const float dt = 0.031999998f;
-        float scale = Store(Mul(32.0, 0.03125f));
-        float dist = Distance;
-        float[] rot = { CamRotation[0], CamRotation[1], CamRotation[2] };
-        float[] pos = { Position[0], Position[1], Position[2] };
+        var scale = Store(Mul(32.0, 0.03125f));
+        var dist = Distance;
+        float[] rot = [CamRotation[0], CamRotation[1], CamRotation[2]];
+        float[] pos = [Position[0], Position[1], Position[2]];
         var m = new Transform();
         MissionTransform.EulerToMatrix(CamRotation, ref m);
-        int speed = mv.Jet ? 30 : 10;
-        float fwd = Store(Mul(Sub(mv.Forward, mv.Backward), speed));
-        float side = Store(Mul(Sub(mv.Right, mv.Left), speed));
+        var speed = mv.Jet ? 30 : 10;
+        var fwd = Store(Mul(Sub(mv.Forward, mv.Backward), speed));
+        var side = Store(Mul(Sub(mv.Right, mv.Left), speed));
 
         if (Mode == kFly)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
-                float v = Store(Add(Mul(side, m.M[i]), Mul(fwd, m.M[3 + i])));
+                var v = Store(Add(Mul(side, m.M[i]), Mul(fwd, m.M[3 + i])));
                 v = Store(Mul(dt, v));
                 pos[i] = Store(Add(v, pos[i]));
             }
         }
-        else if (Mode == kOrbitObject || Mode == kOrbitPoint)
+        else if (Mode is kOrbitObject or kOrbitPoint)
         {
             dist = Store(Sub(dist, Mul(fwd, dt)));
             if (dist < MinDistance)
@@ -491,7 +488,7 @@ public sealed class ObserverCamera : GameBase
             else if (rot[0] < -1.3962)
                 rot[0] = -1.3962f;
         }
-        if (Mode == kOrbitObject || Mode == kOrbitPoint)
+        if (Mode is kOrbitObject or kOrbitPoint)
         {
             if (Mode == kOrbitObject && OrbitObject == null)
                 Mode = kOrbitPoint; // not reachable through setOrbit / objectDeleted
@@ -508,7 +505,7 @@ public sealed class ObserverCamera : GameBase
                 var t = new Transform();
                 MissionTransform.EulerToMatrix(rot, ref t);
                 t.Flags |= 2;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     t.P[i] = Position[i];
                 OrbitPlace(ref t, dist);
                 Transform = t;
@@ -518,10 +515,10 @@ public sealed class ObserverCamera : GameBase
         {
             SetTransform(rot, pos);
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             CamRotation[i] = rot[i];
-        if (Mode != kOrbitObject && Mode != kOrbitPoint)
-            for (int i = 0; i < 3; ++i)
+        if (Mode is not kOrbitObject and not kOrbitPoint)
+            for (var i = 0; i < 3; ++i)
                 Position[i] = pos[i];
         Distance = dist;
     }
@@ -530,7 +527,7 @@ public sealed class ObserverCamera : GameBase
     /// <remarks>Follows 00435064.</remarks>
     public override void ApplyMoves(Move[] moves, int count)
     {
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
             Move mv = moves[i];
             if (mv.Fire && !LastMove.Fire)
@@ -542,9 +539,9 @@ public sealed class ObserverCamera : GameBase
             Step(LastMove); // the step runs with the previous move
             LastMove = mv;
         }
-        float[] area = { 0, 0, 0, 0 };
+        float[] area = [0, 0, 0, 0];
         mServices.MissionArea?.Invoke(area);
-        bool inside = Position[0] >= area[0] && Add(area[0], area[2]) >= Position[0] && Position[1] >= area[1] &&
+        var inside = Position[0] >= area[0] && Add(area[0], area[2]) >= Position[0] && Position[1] >= area[1] &&
                       Add(area[1], area[3]) >= Position[1];
         if (InMissionArea && !inside)
             Call("Observer::leaveMissionArea", Id());
@@ -558,11 +555,11 @@ public sealed class ObserverCamera : GameBase
     public override void WriteControlState(BitStream bs, ControlContext ctx)
     {
         bs.WriteF32s(CamRotation);
-        uint m = (uint)Mode;
+        var m = (uint)Mode;
         uint index = 0x3ff;
         if (m == kOrbitObject)
         {
-            int g = ctx.Ghosts != null && OrbitObject != null ? ctx.Ghosts.GhostIndex(OrbitObject) : -1;
+            var g = ctx.Ghosts != null && OrbitObject != null ? ctx.Ghosts.GhostIndex(OrbitObject) : -1;
             if (g >= 0)
                 index = (uint)g;
             if (index == 0x3ff)

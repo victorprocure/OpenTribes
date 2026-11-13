@@ -4,7 +4,7 @@ namespace OpenTribes.Script;
 public sealed class ParseResult
 {
     /// <summary>The complete top-level statements, in order.</summary>
-    public readonly List<Node> Statements = new();
+    public readonly List<Node> Statements = [];
     /// <summary>Whether a syntax error occurred.</summary>
     public bool Error;
     /// <summary>The line of the syntax error.</summary>
@@ -96,7 +96,7 @@ public static class ScriptParser
             Advance();
             return true;
         }
-        private Node MakeNode(NodeKind k) => new Node { Kind = k, Line = mTok.Line };
+        private Node MakeNode(NodeKind k) => new() { Kind = k, Line = mTok.Line };
 
         // ---- statements ----
         private Node? Statement()
@@ -105,46 +105,51 @@ public static class ScriptParser
                 return null;
             switch (mTok.Kind)
             {
-            case Tok.If: return IfStatement();
-            case Tok.While: return WhileStatement();
-            case Tok.For: return ForStatement();
-            case Tok.Function: return FunctionDecl();
-            case Tok.Instant: return InstantDecl();
-            case Tok.Return:
-            {
-                Node n = MakeNode(NodeKind.Return);
-                Advance();
-                if (!At(';'))
-                    n.A = Expression();
-                Expect(';');
-                return n;
-            }
-            case Tok.Continue:
-            {
-                Node n = MakeNode(NodeKind.Continue);
-                Advance();
-                Expect(';');
-                return n;
-            }
-            case Tok.Break:
-                if (IsChar(mNext, ';'))
+                case Tok.If:
+                    return IfStatement();
+                case Tok.While:
+                    return WhileStatement();
+                case Tok.For:
+                    return ForStatement();
+                case Tok.Function:
+                    return FunctionDecl();
+                case Tok.Instant:
+                    return InstantDecl();
+                case Tok.Return:
                 {
-                    Node n = MakeNode(NodeKind.BreakStmt);
+                    Node n = MakeNode(NodeKind.Return);
                     Advance();
-                    Advance();
+                    if (!At(';'))
+                        n.A = Expression();
+                    Expect(';');
                     return n;
                 }
-                break;
-            case Tok.Tag:
-                if (IsChar(mNext, '='))
-                    return TagDecl();
-                break;
-            case Tok.Ident:
-                if (mNext.Kind == Tok.Ident || IsChar(mNext, '{'))
-                    return DatablockDecl();
-                break;
-            default:
-                break;
+                case Tok.Continue:
+                {
+                    Node n = MakeNode(NodeKind.Continue);
+                    Advance();
+                    Expect(';');
+                    return n;
+                }
+                case Tok.Break:
+                    if (IsChar(mNext, ';'))
+                    {
+                        Node n = MakeNode(NodeKind.BreakStmt);
+                        Advance();
+                        Advance();
+                        return n;
+                    }
+                    break;
+                case Tok.Tag:
+                    if (IsChar(mNext, '='))
+                        return TagDecl();
+                    break;
+                case Tok.Ident:
+                    if (mNext.Kind == Tok.Ident || IsChar(mNext, '{'))
+                        return DatablockDecl();
+                    break;
+                default:
+                    break;
             }
             return ExpressionStatement();
         }
@@ -165,18 +170,11 @@ public static class ScriptParser
         {
             if (e.Parenthesized)
                 return false;
-            switch (e.Kind)
+            return e.Kind switch
             {
-            case NodeKind.Assign:
-            case NodeKind.FieldListAssign:
-            case NodeKind.CompoundAssign:
-            case NodeKind.PostIncDec:
-            case NodeKind.Call:
-            case NodeKind.MethodCall:
-                return true;
-            default:
-                return false;
-            }
+                NodeKind.Assign or NodeKind.FieldListAssign or NodeKind.CompoundAssign or NodeKind.PostIncDec or NodeKind.Call or NodeKind.MethodCall => true,
+                _ => false,
+            };
         }
 
         private void Block(List<Node> output)
@@ -261,7 +259,7 @@ public static class ScriptParser
             Expect('(');
             if (!mFailed && At(Tok.Var))
             {
-                for (;;)
+                for (; ; )
                 {
                     n.Params.Add(mTok.Text);
                     Advance();
@@ -403,39 +401,34 @@ public static class ScriptParser
         }
         private void ExprList(List<Node> output) => IndexList(output);
 
-        private static int Precedence(Token t)
+        private static int Precedence(Token t) => t.Kind switch
         {
-            switch (t.Kind)
+            Tok.OrOr => 1,
+            Tok.AndAnd => 2,
+            Tok.Eq or Tok.Ne => 6,
+            Tok.Le or Tok.Ge => 7,
+            Tok.DollarPlus => 8,
+            Tok.Shl or Tok.Shr => 9,
+            Tok.Char => t.Ch switch
             {
-            case Tok.OrOr: return 1;
-            case Tok.AndAnd: return 2;
-            case Tok.Eq: case Tok.Ne: return 6;
-            case Tok.Le: case Tok.Ge: return 7;
-            case Tok.DollarPlus: return 8;
-            case Tok.Shl: case Tok.Shr: return 9;
-            case Tok.Char:
-                switch (t.Ch)
-                {
-                case '|': return 3;
-                case '^': return 4;
-                case '&': return 5;
-                case '<': case '>': return 7;
-                case '@': return 8;
-                case '+': case '-': return 10;
-                case '*': case '/': case '%': return 11;
-                default: return 0;
-                }
-            default:
-                return 0;
-            }
-        }
+                '|' => 3,
+                '^' => 4,
+                '&' => 5,
+                '<' or '>' => 7,
+                '@' => 8,
+                '+' or '-' => 10,
+                '*' or '/' or '%' => 11,
+                _ => 0,
+            },
+            _ => 0,
+        };
 
         private Node? Expression(int minPrec = 1)
         {
             Node? left = Unary();
             while (!mFailed)
             {
-                int prec = Precedence(mTok);
+                var prec = Precedence(mTok);
                 if (prec < minPrec || prec == 0)
                     break;
                 Node n = MakeNode(NodeKind.Binary);
@@ -472,69 +465,82 @@ public static class ScriptParser
             Node n;
             switch (mTok.Kind)
             {
-            case Tok.Int: n = MakeNode(NodeKind.Int); n.Name = mTok.Text; Advance(); return n;
-            case Tok.Float: n = MakeNode(NodeKind.Float); n.Name = mTok.Text; Advance(); return n;
-            case Tok.String: n = MakeNode(NodeKind.String); n.Name = mTok.Text; Advance(); return n;
-            case Tok.Tag: n = MakeNode(NodeKind.TagRef); n.Name = mTok.Text; Advance(); return n;
-            case Tok.Break: n = MakeNode(NodeKind.BreakWord); n.Name = "break"; Advance(); return n;
-            case Tok.Ident:
-                if (IsChar(mNext, '('))
-                {
-                    n = MakeNode(NodeKind.Call);
+                case Tok.Int:
+                    n = MakeNode(NodeKind.Int);
                     n.Name = mTok.Text;
                     Advance();
+                    return n;
+                case Tok.Float:
+                    n = MakeNode(NodeKind.Float);
+                    n.Name = mTok.Text;
                     Advance();
-                    if (!At(')'))
-                        ExprList(n.List);
-                    Expect(')');
+                    return n;
+                case Tok.String:
+                    n = MakeNode(NodeKind.String);
+                    n.Name = mTok.Text;
+                    Advance();
+                    return n;
+                case Tok.Tag:
+                    n = MakeNode(NodeKind.TagRef);
+                    n.Name = mTok.Text;
+                    Advance();
+                    return n;
+                case Tok.Break:
+                    n = MakeNode(NodeKind.BreakWord);
+                    n.Name = "break";
+                    Advance();
+                    return n;
+                case Tok.Ident:
+                    if (IsChar(mNext, '('))
+                    {
+                        n = MakeNode(NodeKind.Call);
+                        n.Name = mTok.Text;
+                        Advance();
+                        Advance();
+                        if (!At(')'))
+                            ExprList(n.List);
+                        Expect(')');
+                        return mFailed ? null : n;
+                    }
+                    n = MakeNode(NodeKind.Ident);
+                    n.Name = mTok.Text;
+                    Advance();
+                    return n;
+                case Tok.Var:
+                    n = MakeNode(NodeKind.Var);
+                    n.Name = mTok.Text;
+                    Advance();
+                    if (At('['))
+                    {
+                        Advance();
+                        IndexList(n.Index);
+                        Expect(']');
+                    }
                     return mFailed ? null : n;
-                }
-                n = MakeNode(NodeKind.Ident);
-                n.Name = mTok.Text;
-                Advance();
-                return n;
-            case Tok.Var:
-                n = MakeNode(NodeKind.Var);
-                n.Name = mTok.Text;
-                Advance();
-                if (At('['))
-                {
-                    Advance();
-                    IndexList(n.Index);
-                    Expect(']');
-                }
-                return mFailed ? null : n;
-            case Tok.Char:
-                if (mTok.Ch == '(')
-                {
-                    Advance();
-                    Node? e = Expression();
-                    Expect(')');
-                    if (mFailed)
-                        return null;
-                    e!.Parenthesized = true;
-                    return e;
-                }
-                return Fail();
-            default:
-                return Fail();
+                case Tok.Char:
+                    if (mTok.Ch == '(')
+                    {
+                        Advance();
+                        Node? e = Expression();
+                        Expect(')');
+                        if (mFailed)
+                            return null;
+                        e!.Parenthesized = true;
+                        return e;
+                    }
+                    return Fail();
+                default:
+                    return Fail();
             }
         }
 
         private static bool IsLvalue(Node n) => !n.Parenthesized && (n.Kind == NodeKind.Var || n.Kind == NodeKind.Field);
 
-        private static bool IsCompound(Tok k)
+        private static bool IsCompound(Tok k) => k switch
         {
-            switch (k)
-            {
-            case Tok.PlusAssign: case Tok.MinusAssign: case Tok.MulAssign: case Tok.DivAssign:
-            case Tok.ModAssign: case Tok.AndAssign: case Tok.XorAssign: case Tok.OrAssign:
-            case Tok.ShlAssign: case Tok.ShrAssign:
-                return true;
-            default:
-                return false;
-            }
-        }
+            Tok.PlusAssign or Tok.MinusAssign or Tok.MulAssign or Tok.DivAssign or Tok.ModAssign or Tok.AndAssign or Tok.XorAssign or Tok.OrAssign or Tok.ShlAssign or Tok.ShrAssign => true,
+            _ => false,
+        };
 
         private Node? Postfix(Node? e)
         {
@@ -545,8 +551,8 @@ public static class ScriptParser
                     Advance();
                     if (!At(Tok.Ident))
                         return Fail();
-                    string name = mTok.Text;
-                    int line = mTok.Line;
+                    var name = mTok.Text;
+                    var line = mTok.Line;
                     Advance();
                     if (At('('))
                     {

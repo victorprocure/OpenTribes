@@ -1,7 +1,7 @@
+namespace OpenTribes.Platform.Gl;
+
 using System.Runtime.InteropServices;
 using System.Text;
-
-namespace OpenTribes.Platform.Gl;
 
 /// <summary>An OpenGL 3.3 core function loader through SDL_GL_GetProcAddress (D30). It loads only the calls the renderer uses.</summary>
 public sealed unsafe class GlApi
@@ -42,7 +42,7 @@ public sealed unsafe class GlApi
 
     private IntPtr Load(string name)
     {
-        IntPtr p = mLoader(name);
+        var p = mLoader(name);
         if (p == IntPtr.Zero)
             throw new InvalidOperationException("OpenGL function missing: " + name);
         return p;
@@ -266,7 +266,7 @@ public sealed unsafe class GlApi
     /// <returns>The string, empty when null.</returns>
     public string GetString(uint name)
     {
-        byte* p = GetString_(name);
+        var p = GetString_(name);
         return p == null ? "" : Marshal.PtrToStringUTF8((IntPtr)p) ?? "";
     }
 
@@ -334,7 +334,7 @@ public sealed unsafe class GlApi
     /// <returns>The location, -1 when absent.</returns>
     public int UniformLocation(uint program, string name)
     {
-        byte[] n = Encoding.ASCII.GetBytes(name + "\0");
+        var n = Encoding.ASCII.GetBytes(name + "\0");
         fixed (byte* p = n)
             return GetUniformLocation_(program, p);
     }
@@ -347,14 +347,14 @@ public sealed unsafe class GlApi
     /// <exception cref="InvalidOperationException">Compiling or linking fails. The message holds the info log.</exception>
     public uint BuildProgram(string vertexSource, string fragmentSource, params (uint index, string name)[] attributes)
     {
-        uint vs = Compile(VertexShader, vertexSource);
-        uint fs = Compile(FragmentShader, fragmentSource);
-        uint prog = CreateProgram_();
+        var vs = Compile(VertexShader, vertexSource);
+        var fs = Compile(FragmentShader, fragmentSource);
+        var prog = CreateProgram_();
         AttachShader_(prog, vs);
         AttachShader_(prog, fs);
         foreach (var (index, name) in attributes)
         {
-            byte[] n = Encoding.ASCII.GetBytes(name + "\0");
+            var n = Encoding.ASCII.GetBytes(name + "\0");
             fixed (byte* p = n)
                 BindAttribLocation_(prog, index, p);
         }
@@ -377,11 +377,11 @@ public sealed unsafe class GlApi
 
     private uint Compile(uint type, string source)
     {
-        uint sh = CreateShader_(type);
-        byte[] src = Encoding.UTF8.GetBytes(source + "\0");
+        var sh = CreateShader_(type);
+        var src = Encoding.UTF8.GetBytes(source + "\0");
         fixed (byte* sp = src)
         {
-            byte* s = sp;
+            var s = sp;
             ShaderSource_(sh, 1, &s, null);
         }
         CompileShader_(sh);

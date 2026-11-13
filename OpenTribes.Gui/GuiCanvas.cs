@@ -1,7 +1,6 @@
-using System.Globalization;
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>A device event as the input manager delivers it (docs/gui.md 2.7): the device byte +0x28 and the fields behind it.</summary>
 public struct RawInput
@@ -137,7 +136,10 @@ public sealed class CanvasRoot : IGuiResponder
         switch (e.Scan)
         {
             case 0x0f:
-                if (e.Shift) mCanvas.FocusPrevious(); else mCanvas.FocusNext();
+                if (e.Shift)
+                    mCanvas.FocusPrevious();
+                else
+                    mCanvas.FocusNext();
                 return true;
             case 0xcd:
             case 0xd0:
@@ -145,7 +147,10 @@ public sealed class CanvasRoot : IGuiResponder
             case 0xc8:
                 if (mCanvas.Top != null && (mCanvas.Top.Flags & 4) == 0)
                 {
-                    if (e.Scan is 0xcd or 0xd0) mCanvas.FocusNext(); else mCanvas.FocusPrevious();
+                    if (e.Scan is 0xcd or 0xd0)
+                        mCanvas.FocusNext();
+                    else
+                        mCanvas.FocusPrevious();
                     return true;
                 }
                 return false;
@@ -158,8 +163,8 @@ public sealed class CanvasRoot : IGuiResponder
     public bool Message(GuiControl? sender, int tag)
     {
         GuiHost host = mCanvas.Host;
-        string? text = host.TagText((uint)tag);
-        if (tag > 100001 && tag < 109999)
+        var text = host.TagText((uint)tag);
+        if (tag is > 100001 and < 109999)
         {
             if (text == null)
                 return false;
@@ -171,14 +176,14 @@ public sealed class CanvasRoot : IGuiResponder
             mCanvas.PopDialog(tag);
             return true;
         }
-        if (tag > 110000 && tag < 119999)
+        if (tag is > 110000 and < 119999)
         {
             if (text == null)
                 return false;
             mCanvas.PushDialog(text);
             return true;
         }
-        if (tag > 120000 && tag < 129999)
+        if (tag is > 120000 and < 129999)
         {
             if (text == null)
                 return false;
@@ -202,12 +207,12 @@ public sealed class GuiCanvas
     /// <summary>The canvas height in pixels.</summary>
     public int Height = 480;
     /// <summary>The content control at index 0 and the dialogs above it.</summary>
-    public readonly List<GuiControl> Stack = new();
+    public readonly List<GuiControl> Stack = [];
     /// <summary>The replaced content controls that are not deleted on replacement, by name.</summary>
     public readonly Dictionary<string, GuiControl> Retained = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The delegates by screen name.</summary>
     public readonly Dictionary<string, GuiDelegate> Delegates = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<GuiControl, GuiDelegate> mDelegateOf = new();
+    private readonly Dictionary<GuiControl, GuiDelegate> mDelegateOf = [];
     /// <summary>The canvas root responder.</summary>
     public readonly CanvasRoot Root;
     /// <summary>The responder that gets the keys.</summary>
@@ -259,7 +264,6 @@ public sealed class GuiCanvas
     private long mHoverTick;
     // +0x268: a button went down while this control was hovered; the pop-up stays away until the hover changes.
     private bool mPressedOnHover;
-    private uint mHelpTag;
     private (int X, int Y, int W, int H) mHelpBox;
     private GuiTextFormat? mHelpLayout;
     /// <summary>The time the cursor rests on a control before its help pop-up shows, in milliseconds.</summary>
@@ -268,24 +272,22 @@ public sealed class GuiCanvas
     /// <remarks>The first screen of the main menu, Connect, JoinGame, Options and IRCChat delegates creates it (00534308).</remarks>
     public bool HelpInstalled;
     /// <summary>Gets a value that is true while the help pop-up is shown.</summary>
-    public bool HelpVisible => mHelpTag != 0 && mHelpLayout != null;
+    public bool HelpVisible => HelpShownTag != 0 && mHelpLayout != null;
     /// <summary>Gets the rectangle of the help pop-up.</summary>
     public (int X, int Y, int W, int H) HelpBox => mHelpBox;
     /// <summary>Gets the tag of the help text shown.</summary>
-    public uint HelpShownTag => mHelpTag;
+    public uint HelpShownTag { get; private set; }
     /// <summary>The controls the Tab key moves between, in tree order.</summary>
-    public readonly List<GuiControl> TabList = new();
+    public readonly List<GuiControl> TabList = [];
     /// <summary>The load and stack events, for tests and tools.</summary>
-    public readonly List<string> Trace = new();
+    public readonly List<string> Trace = [];
     /// <summary>True when the canvas needs a redraw.</summary>
     public bool Dirty = true;
-
-    private long mKeyRepeatAt = -1, mMouseRepeatAt = -1;
     private GuiEvent mLastKey;
     private int mClickCount;
     private long mLastClickAt;
     private bool mLastClickLeft;
-    private readonly Dictionary<GuiControl, string> mVarSeen = new();
+    private readonly Dictionary<GuiControl, string> mVarSeen = [];
 
     /// <summary>Creates a canvas.</summary>
     /// <param name="host">The GUI host.</param>
@@ -323,7 +325,7 @@ public sealed class GuiCanvas
         GuiControl top = c;
         while (top.Parent != null)
             top = top.Parent;
-        int i = Stack.IndexOf(top);
+        var i = Stack.IndexOf(top);
         if (i > 0)
             return Stack[i - 1];
         return mDelegateOf.TryGetValue(top, out GuiDelegate? d) ? d : Root;
@@ -350,12 +352,12 @@ public sealed class GuiCanvas
     /// <returns>The root control, null when the file is missing or invalid.</returns>
     public GuiControl? LoadFile(string name)
     {
-        if (!Host.ReadGuiFile(name, out byte[] data))
+        if (!Host.ReadGuiFile(name, out var data))
         {
             Host.Print("Could not load gui: " + name);
             return null;
         }
-        GuiControl c = GuiLoader.Load(data, out string error);
+        GuiControl c = GuiLoader.Load(data, out var error);
         if (c == null)
         {
             Host.Print("Could not load gui: " + name);
@@ -367,7 +369,7 @@ public sealed class GuiCanvas
 
     private GuiDelegate? DelegateFor(string file)
     {
-        string baseName = Path.GetFileNameWithoutExtension(file.Replace('\\', '/'));
+        var baseName = Path.GetFileNameWithoutExtension(file.Replace('\\', '/'));
         return Delegates.GetValueOrDefault(baseName);
     }
 
@@ -395,7 +397,7 @@ public sealed class GuiCanvas
     {
         if (c == null || string.IsNullOrEmpty(c.Name))
             return;
-        string fn = c.Name + "::" + hook;
+        var fn = c.Name + "::" + hook;
         if (Host.HasFunction(fn))
             Host.Call(fn);
     }
@@ -439,8 +441,7 @@ public sealed class GuiCanvas
         Stack.Add(c);
         c.SetCanvas(this);
         c.WakeTree();
-        if (del != null)
-            del.OnContentReady?.Invoke(c);
+        del?.OnContentReady?.Invoke(c);
         AfterStackChange();
         CallContentHook(c, "onOpen");
         Trace.Add($"content control {c.ClassName} {c.Name} ({c.Children.Count} children)");
@@ -523,7 +524,7 @@ public sealed class GuiCanvas
         IGuiResponder next = r.CanTake() ? r : Root;
         FirstResponder = next;
         if (next != old && (next == Root || old == Root))
-            mKeyRepeatAt = -1;
+            KeyRepeatAt = -1;
         return next == r;
     }
 
@@ -552,12 +553,12 @@ public sealed class GuiCanvas
 
     private void MoveFocus(int dir, bool first)
     {
-        int n = TabList.Count;
+        var n = TabList.Count;
         if (n == 0)
             return;
-        int cur = first ? -1 : TabList.FindIndex(c => ReferenceEquals(c, FirstResponder));
-        int idx = cur < 0 ? (dir > 0 ? -1 : 0) : cur;
-        for (int step = 0; step < n; ++step)
+        var cur = first ? -1 : TabList.FindIndex(c => ReferenceEquals(c, FirstResponder));
+        var idx = cur < 0 ? (dir > 0 ? -1 : 0) : cur;
+        for (var step = 0; step < n; ++step)
         {
             idx = (idx + dir + n) % n;
             GuiControl cand = TabList[idx];
@@ -636,32 +637,54 @@ public sealed class GuiCanvas
     {
         switch (name.ToLowerInvariant())
         {
-            case "escape": case "esc": return 1;
-            case "backspace": return 0x0e;
-            case "tab": return 0x0f;
-            case "enter": case "return": return 0x1c;
-            case "space": return 0x39;
-            case "up": return 0xc8;
-            case "down": return 0xd0;
-            case "left": return 0xcb;
-            case "right": return 0xcd;
-            case "home": return 0xc7;
-            case "end": return 0xcf;
-            case "insert": return 0xd2;
-            case "delete": return 0xd3;
+            case "escape":
+            case "esc":
+                return 1;
+            case "backspace":
+                return 0x0e;
+            case "tab":
+                return 0x0f;
+            case "enter":
+            case "return":
+                return 0x1c;
+            case "space":
+                return 0x39;
+            case "up":
+                return 0xc8;
+            case "down":
+                return 0xd0;
+            case "left":
+                return 0xcb;
+            case "right":
+                return 0xcd;
+            case "home":
+                return 0xc7;
+            case "end":
+                return 0xcf;
+            case "insert":
+                return 0xd2;
+            case "delete":
+                return 0xd3;
         }
         if (name.Length == 1)
         {
-            char ch = char.ToLowerInvariant(name[0]);
+            var ch = char.ToLowerInvariant(name[0]);
             const string row1 = "qwertyuiop", row2 = "asdfghjkl", row3 = "zxcvbnm";
             int i;
-            if ((i = row1.IndexOf(ch)) >= 0) return 0x10 + i;
-            if ((i = row2.IndexOf(ch)) >= 0) return 0x1e + i;
-            if ((i = row3.IndexOf(ch)) >= 0) return 0x2c + i;
-            if (ch >= '1' && ch <= '9') return 2 + (ch - '1');
-            if (ch == '0') return 11;
-            if (ch == '-') return 12;
-            if (ch == '.') return 0x34;
+            if ((i = row1.IndexOf(ch)) >= 0)
+                return 0x10 + i;
+            if ((i = row2.IndexOf(ch)) >= 0)
+                return 0x1e + i;
+            if ((i = row3.IndexOf(ch)) >= 0)
+                return 0x2c + i;
+            if (ch is >= '1' and <= '9')
+                return 2 + (ch - '1');
+            if (ch == '0')
+                return 11;
+            if (ch == '-')
+                return 12;
+            if (ch == '.')
+                return 0x34;
         }
         return 0;
     }
@@ -673,7 +696,7 @@ public sealed class GuiCanvas
     {
         if (!WindowActive)
             return false;
-        long now = Now;
+        var now = Now;
         if (ev.Device == RawInput.DevKeyboard)
             return HandleKey(ev, now);
         if (ev.Device is RawInput.DevMouse or RawInput.DevWinMouse)
@@ -683,13 +706,13 @@ public sealed class GuiCanvas
 
     private bool HandleKey(in RawInput ev, long now)
     {
-        bool make = ev.Action == 1;
+        var make = ev.Action == 1;
         var ge = new GuiEvent { Scan = ev.Index, Ascii = ev.Ascii, Mod = ev.Mod };
         if (ev.Index == 0x1c && (ev.Mod & 0x30) != 0)
             return false;
         if (make && ev.Index == 1 && Host.HasFunction("Canvas::handleEscapeKey") && Stack.Count < 2)
         {
-            string r = Host.Call("Canvas::handleEscapeKey");
+            var r = Host.Call("Canvas::handleEscapeKey");
             if (string.Equals(r, "true", StringComparison.OrdinalIgnoreCase))
                 return true;
         }
@@ -698,12 +721,12 @@ public sealed class GuiCanvas
         {
             mLastKey = ge;
             if (ev.Index != 0x0f)
-                mKeyRepeatAt = now + KeyRepeatDelay;
+                KeyRepeatAt = now + KeyRepeatDelay;
             entry.KeyDown(ge);
         }
         else
         {
-            mKeyRepeatAt = -1;
+            KeyRepeatAt = -1;
             entry.KeyUp(ge);
         }
         if (entry == Root && FirstResponder == Root)
@@ -722,21 +745,24 @@ public sealed class GuiCanvas
             int mx = top?.W ?? Width, my = top?.H ?? Height;
             int ox = (int)CursorX, oy = (int)CursorY;
             if (ev.ObjType == RawInput.ObjXAxis)
-                CursorX = Math.Clamp(CursorX + ev.Value * MouseSpeed, 0, mx - 1);
+                CursorX = Math.Clamp(CursorX + (ev.Value * MouseSpeed), 0, mx - 1);
             else
-                CursorY = Math.Clamp(CursorY + ev.Value * MouseSpeed, 0, my - 1);
+                CursorY = Math.Clamp(CursorY + (ev.Value * MouseSpeed), 0, my - 1);
             if ((int)CursorX != ox || (int)CursorY != oy)
             {
                 var e = MouseEvent();
-                if (!LeftDown && !RightDown) Dispatch(e, false);
-                else if (LeftDown) Dispatch(e, true);
-                else Target()?.MsRightDrag(e);
+                if (!LeftDown && !RightDown)
+                    Dispatch(e, false);
+                else if (LeftDown)
+                    Dispatch(e, true);
+                else
+                    Target()?.MsRightDrag(e);
             }
             return true;
         }
         if (ev.ObjType != RawInput.ObjButton)
             return true;   // wheel and extra axes: consumed and dropped
-        bool make = ev.Action == 1;
+        var make = ev.Action == 1;
         if (ev.Index == 0)
         {
             if (make)
@@ -744,14 +770,14 @@ public sealed class GuiCanvas
                 mClickCount = mLastClickLeft && now - mLastClickAt <= DoubleClickMs ? mClickCount + 1 : 1;
                 mLastClickAt = now;
                 mLastClickLeft = true;
-                mMouseRepeatAt = now + MouseRepeatDelay;
+                MouseRepeatAt = now + MouseRepeatDelay;
                 LeftDown = true;
                 mPressedOnHover = true;
                 Target()?.MsDown(MouseEvent());
             }
             else
             {
-                mMouseRepeatAt = -1;
+                MouseRepeatAt = -1;
                 LeftDown = false;
                 Target()?.MsUp(MouseEvent());
             }
@@ -780,15 +806,15 @@ public sealed class GuiCanvas
     /// <summary>Runs the per-frame steps (docs/gui.md 2.9): the delegate frame hooks, the key and mouse repeat, the resize and pre-render of the stack, the cursor, the help pop-up and the console variable changes.</summary>
     public void Frame()
     {
-        long now = Now;
+        var now = Now;
         foreach (GuiDelegate d in mDelegateOf.Values.Distinct())
             d.OnFrame?.Invoke();
-        if (mKeyRepeatAt >= 0 && now > mKeyRepeatAt && FirstResponder != Root)
+        if (KeyRepeatAt >= 0 && now > KeyRepeatAt && FirstResponder != Root)
         {
             FirstResponder.KeyRepeat(mLastKey);
-            mKeyRepeatAt = mLastKey.Scan == 0x0f ? -1 : now + KeyRepeatInterval;
+            KeyRepeatAt = mLastKey.Scan == 0x0f ? -1 : now + KeyRepeatInterval;
         }
-        if (mMouseRepeatAt >= 0 && now > mMouseRepeatAt && LeftDown && Lock != null)
+        if (MouseRepeatAt >= 0 && now > MouseRepeatAt && LeftDown && Lock != null)
             Lock.MsRepeat(MouseEvent());
         // A pre-render may replace the content (the movie control runs its done command there), so walk a copy.
         foreach (GuiControl el in Stack.ToArray())
@@ -806,8 +832,8 @@ public sealed class GuiCanvas
             foreach (GuiControl c in el.Descendants())
                 if (c.ConsoleVar.Length > 0)
                 {
-                    string v = Host.GetVar(c.ConsoleVar);
-                    if (!mVarSeen.TryGetValue(c, out string? seen) || seen != v)
+                    var v = Host.GetVar(c.ConsoleVar);
+                    if (!mVarSeen.TryGetValue(c, out var seen) || seen != v)
                     {
                         mVarSeen[c] = v;
                         c.VariableChanged(v);
@@ -816,9 +842,9 @@ public sealed class GuiCanvas
     }
 
     /// <summary>Gets the tick of the key repeat timer, -1 when unarmed. For tests.</summary>
-    public long KeyRepeatAt => mKeyRepeatAt;
+    public long KeyRepeatAt { get; private set; } = -1;
     /// <summary>Gets the tick of the mouse repeat timer, -1 when unarmed. For tests.</summary>
-    public long MouseRepeatAt => mMouseRepeatAt;
+    public long MouseRepeatAt { get; private set; } = -1;
 
     /// <summary>False while the play view has no camera (no control object): its TSControl draws no HUD (<see cref="GuiPlayView"/>).</summary>
     public bool ViewHasCamera = true;
@@ -846,13 +872,11 @@ public sealed class GuiCanvas
         }
         if (CursorOn && ShownCursor is { } cur)
         {
-            (int hx, int hy) = OverrideBitmap != null ? OverrideHot : CursorHot;
+            (var hx, var hy) = OverrideBitmap != null ? OverrideHot : CursorHot;
             // palette index 0 is clear in every GUI picture, the cursor's too
             dev.Blit(GuiPaint.KeyedBitmap(cur), (int)CursorX - hx, (int)CursorY - hy);
         }
     }
-
-    private GuiDelegate? DelegateOfTop => Top != null && mDelegateOf.TryGetValue(Top, out GuiDelegate? d) ? d : null;
 
     private PftFont? HelpFont(int n) => Host.FontByTag(n == 1 ? 150114u : 150104u);
 
@@ -864,21 +888,21 @@ public sealed class GuiCanvas
         if (HelpInstalled && Hover != null && CursorOn && Lock == null && !LeftDown && !RightDown && !mPressedOnHover
             && !string.Equals(Host.GetVar("$pref::HelpPopups"), "FALSE", StringComparison.OrdinalIgnoreCase))
         {
-            long ms = now - mHoverTick;
+            var ms = now - mHoverTick;
             var (lx, ly) = Hover.GlobalToLocal((int)CursorX, (int)CursorY);
             tag = ms >= HelpDelayMs ? Hover.HelpTagAt(lx, ly, ms) : 0;
         }
-        if (tag == mHelpTag)
+        if (tag == HelpShownTag)
             return;
-        mHelpTag = 0;
+        HelpShownTag = 0;
         mHelpLayout = null;
         if (tag == 0 || Host.TagText(tag) is not string text)
             return;
         // "width,text": the width is atoi of what stands before the first comma (at most 7 characters), -1 or less is 200, at most 256.
-        int comma = text.IndexOf(',');
+        var comma = text.IndexOf(',');
         if (comma < 0 || comma + 1 >= text.Length)
             return;
-        int.TryParse(text[..Math.Min(comma, 7)].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int req);
+        int.TryParse(text[..Math.Min(comma, 7)].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var req);
         req = req < 0 ? 200 : Math.Min(req, 256);
         // The box [code 004af248]: the text is laid out by the TextFormat child [005370b8] for the width asked less 6 with the fonts of
         // slots 0 and 1 (tags 150104 and 150114, the constructor 004af164); the box is min(asked width, widest line + 6) wide and
@@ -886,7 +910,7 @@ public sealed class GuiCanvas
         var fonts = new PftFont?[GuiTextFormat.FontCount];
         fonts[0] = HelpFont(0);
         fonts[1] = HelpFont(1);
-        GuiTextFormat layout = GuiTextFormat.Layout(text[(comma + 1)..], req - 6, fonts, n => Host.BitmapByName(n), n => Host.GetVar("$" + n));
+        GuiTextFormat layout = GuiTextFormat.Layout(text[(comma + 1)..], req - 6, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
         int w = Math.Min(req, layout.MaxWidth + 6), h = Math.Min(0xc0, layout.Height + 6);
         // Below the cursor (the height of the default cursor bitmap), pushed back inside the window by three pixels.
         int x = (int)CursorX, y = (int)CursorY + (CursorBitmap?.Height ?? 0);
@@ -896,7 +920,7 @@ public sealed class GuiCanvas
             y -= y + h - (Height - 3);
         mHelpBox = (x, y, w, h);
         mHelpLayout = layout;
-        mHelpTag = tag;
+        HelpShownTag = tag;
     }
 
     /// <summary>Draws the help pop-up: the box in color 0xf7 with an outline of 0xf1, the text three pixels in (004af6d8).</summary>
@@ -911,8 +935,8 @@ public sealed class GuiCanvas
     /// <summary>Splits a cursor string "name, x, y" into the bitmap name and the hot spot, which default to 0, 0 (00533138).</summary>
     private static (string Name, int X, int Y) ParseCursor(string text)
     {
-        string[] parts = text.Split(',');
-        int Num(int i) => i < parts.Length && int.TryParse(parts[i].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : 0;
+        var parts = text.Split(',');
+        int Num(int i) => i < parts.Length && int.TryParse(parts[i].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
         return (parts[0].Trim(), Num(1), Num(2));
     }
 

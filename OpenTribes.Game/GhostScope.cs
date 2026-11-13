@@ -1,9 +1,9 @@
 // Port of src/game/ghost_scope.hpp and src/game/ghost_scope.cpp: normal-phase ghost scoping and update priority
 // (docs/game-stream-ghosts.md 6.1-6.3): object net flags, the scope object's camera query, container traversal marks and
 // the GameBase priority with the $GameBase::up* weights.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The weights of the update priority, bound to the console variables <c>$GameBase::upFov</c> to <c>upInterest</c> (004246f0).</summary>
 public sealed class PriorityWeights
@@ -51,7 +51,7 @@ public static class GhostScope
 
     // src/game/ghost_scope.cpp kClasses: constructors (docs/game-stream-ghosts.md 6.1).
     private static readonly ClassFlags[] kClasses =
-    {
+    [
         new("SimVolume", 0x140, 0x001, false), new("SimTerrain", 0x140, 0x002, false),
         new("SimPalette", 0x140, 0x003, false), new("SimLight", 0x140, 0x006, false),
         new("Snowfall", 0x140, 0x216, false), new("Sky", 0x140, 0x230, false),
@@ -67,7 +67,7 @@ public static class GhostScope
         new("SeekingMissile", 0x100, 0x25d, true), new("Lightning", 0x100, 0x25e, true),
         new("RepairEffect", 0x100, 0x25f, true), new("Marker", 0x180, 0x21b, true),
         new("Trigger", 0, 0x21f, true), new("ObserverCamera", 0, 0x231, true),
-    };
+    ];
 
     // src/game/ghost_scope.cpp classOf.
     private static ClassFlags? ClassOf(SimObject obj)
@@ -85,8 +85,8 @@ public static class GhostScope
     // square root approximation (bits >> 1) + 0x1fc00000.
     private static float LenApprox(ReadOnlySpan<float> v)
     {
-        float sq = Store(Add(Add(Mul(v[0], v[0]), Mul(v[1], v[1])), Mul(v[2], v[2])));
-        uint bits = BitConverter.SingleToUInt32Bits(sq);
+        var sq = Store(Add(Add(Mul(v[0], v[0]), Mul(v[1], v[1])), Mul(v[2], v[2])));
+        var bits = BitConverter.SingleToUInt32Bits(sq);
         bits = (bits >> 1) + 0x1fc00000u;
         return BitConverter.UInt32BitsToSingle(bits);
     }
@@ -103,13 +103,13 @@ public static class GhostScope
         var input = new PriorityInputs();
         if (sContainer?.Find(obj) is Container.Entry e)
         {
-            for (int i = 0; i < 6; ++i)
+            for (var i = 0; i < 6; ++i)
                 input.Box[i] = e.Box[i];
             input.Type = e.Type;
         }
         input.Laser = GameUtil.EqualsNoCase(obj.ClassName(), "LaserProjectile");
         if (obj is GameBase gb)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 input.Velocity[i] = gb.Velocity[i]; // +0x194
         SimObject? recObj = gm.Camera.Object;
         return GameBasePriority(input, gm.Camera, recObj != null ? recObj.Id() : 0, recObj == obj, mask, skipCount, sWeights);
@@ -155,15 +155,15 @@ public static class GhostScope
         sWeights.Ownership = d.Ownership;
         sWeights.Interest = d.Interest;
         (string, Func<float>, Action<float>)[] vars =
-        {
+        [
             ("$GameBase::upFov", () => sWeights.Fov, v => sWeights.Fov = v),
             ("$GameBase::upDistance", () => sWeights.Distance, v => sWeights.Distance = v),
             ("$GameBase::upVelocity", () => sWeights.Velocity, v => sWeights.Velocity = v),
             ("$GameBase::upSkips", () => sWeights.Skips, v => sWeights.Skips = v),
             ("$GameBase::upOwnership", () => sWeights.Ownership, v => sWeights.Ownership = v),
             ("$GameBase::upInterest", () => sWeights.Interest, v => sWeights.Interest = v),
-        };
-        foreach ((string name, Func<float> get, Action<float> set) in vars)
+        ];
+        foreach ((var name, Func<float> get, Action<float> set) in vars)
         {
             interp.SetVariable(name, Numbers.FormatFloat(get()));
             interp.BindVariable(name, s => set(Store(Numbers.BorlandAtof(s))));
@@ -188,38 +188,38 @@ public static class GhostScope
         if (obj.Laser && (mask & 0x08000000u) != 0)
             return 9.89999962f;
         Span<float> v = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            float s = Store(Add(obj.Box[i + 3], obj.Box[i]));
-            float c = Store(Mul(0.5f, s));
+            var s = Store(Add(obj.Box[i + 3], obj.Box[i]));
+            var c = Store(Mul(0.5f, s));
             v[i] = Store(Sub(c, rec.Pos[i]));
         }
-        float d = Store(Sqrt(Dot(v, v)));
+        var d = Store(Sqrt(Dot(v, v)));
         if (d == 0.0f)
             d = 0.001f;
-        float r = Store(Div(1.0, d));
+        var r = Store(Div(1.0, d));
         Span<float> u = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             u[i] = Store(Mul(r, v[i]));
-        float dist = d < rec.VisibleDistance ? Store(Sub(1.0, Div(d, rec.VisibleDistance))) : 0.0f;
-        float cosine = Store(Dot(u, rec.Dir));
-        bool inFov = cosine > rec.CosHalfFov;
-        float fovTerm = inFov ? 1.0f : 0.0f;
-        float vel = 0.0f;
+        var dist = d < rec.VisibleDistance ? Store(Sub(1.0, Div(d, rec.VisibleDistance))) : 0.0f;
+        var cosine = Store(Dot(u, rec.Dir));
+        var inFov = cosine > rec.CosHalfFov;
+        var fovTerm = inFov ? 1.0f : 0.0f;
+        var vel = 0.0f;
         if (inFov)
         {
-            float[] a = rec.Dir;
-            float[] b = obj.Velocity;
-            Span<float> cr = stackalloc float[3]
-            {
+            var a = rec.Dir;
+            var b = obj.Velocity;
+            Span<float> cr =
+            [
                 Store(Sub(Mul(a[1], b[2]), Mul(a[2], b[1]))), Store(Sub(Mul(a[2], b[0]), Mul(a[0], b[2]))),
                 Store(Sub(Mul(a[0], b[1]), Mul(a[1], b[0]))),
-            };
+            ];
             vel = Store(Div(Mul(LenApprox(cr), rec.Fov), Mul(rec.Fov, rec.VisibleDistance)));
             if (vel > 1.0f)
                 vel = 1.0f;
         }
-        float interest = 0.0f;
+        var interest = 0.0f;
         if ((obj.Type & 0x80) != 0)
         {
             interest = 0.75f;
@@ -227,7 +227,7 @@ public static class GhostScope
         else if ((obj.Type & 0x100) != 0)
         {
             interest = 0.3f;
-            float away = Store(-Dot(u, obj.Velocity));
+            var away = Store(-Dot(u, obj.Velocity));
             if (away > 0.0f)
                 interest = Store(Add(Mul(0.2, away), interest));
         }
@@ -235,9 +235,9 @@ public static class GhostScope
         {
             interest = 0.25f;
         }
-        float skips = Store(Mul(skipCount, 0.5f));
-        float own = recordObjectId == obj.OwnerId ? 1.0f : 0.0f;
-        double sum = Mul(fovTerm, w.Fov);
+        var skips = Store(Mul(skipCount, 0.5f));
+        var own = recordObjectId == obj.OwnerId ? 1.0f : 0.0f;
+        var sum = Mul(fovTerm, w.Fov);
         sum = Add(sum, Mul(dist, w.Distance));
         sum = Add(sum, Mul(vel, w.Velocity));
         sum = Add(sum, Mul(skips, w.Skips));
@@ -255,7 +255,7 @@ public static class GhostScope
     {
         var t = new Transform();
         MissionTransform.EulerToMatrix(rotation, ref t);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             rec.Pos[i] = position[i];
             rec.Dir[i] = t.M[3 + i];
@@ -279,12 +279,12 @@ public static class GhostScope
         // markInScope (005532a8): net flag 0x80 objects only for connection 2049.
         void Mark(SimObject obj)
         {
-            uint f = NetFlags(obj);
+            var f = NetFlags(obj);
             if ((f & kNetLocalOnly) != 0 && gm.ClientId() != 2049)
                 return;
             gm.MarkInScope(obj, (f & kNetScopeAlways) != 0);
         }
-        float vis = 1500.0f; // no container (004351d8, 004498ec)
+        var vis = 1500.0f; // no container (004351d8, 004498ec)
         float inContainer = 0;
         if (container.VisibleDistance(so, ref inContainer))
             vis = inContainer;
@@ -292,8 +292,8 @@ public static class GhostScope
         {
             var cam = (ObserverCamera)so;
             ObserverCameraRecord(cam.Position, cam.CamRotation, rec);
-            if (cam.Mode == ObserverCamera.kOrbitObject || cam.Mode == ObserverCamera.kOrbitPoint)
-                for (int i = 0; i < 3; ++i)
+            if (cam.Mode is ObserverCamera.kOrbitObject or ObserverCamera.kOrbitPoint)
+                for (var i = 0; i < 3; ++i)
                 {
                     // Orbiting: the transform (+0x188, row 1) differs from the orbit centre.
                     rec.Pos[i] = cam.Transform.P[i];
@@ -310,12 +310,12 @@ public static class GhostScope
             // 004498ec: translation and row 1 of the eye transform (vtable +0x110), half of fov +0x22c.
             rec.Object = so;
             Transform eye = gb.EyeTransform();
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 rec.Pos[i] = eye.P[i];
                 rec.Dir[i] = eye.M[3 + i];
             }
-            float half = Store(Mul(gb.Fov, 0.5f));
+            var half = Store(Mul(gb.Fov, 0.5f));
             rec.Fov = half;
             rec.SinHalfFov = Store(Math.Sin(half));
             rec.CosHalfFov = Store(Math.Cos(half));
@@ -335,7 +335,7 @@ public static class GhostScope
             VisibleDistance = rec.VisibleDistance,
             Markable = o =>
             {
-                uint f = NetFlags((SimObject)o!);
+                var f = NetFlags((SimObject)o!);
                 return (f & kNetGhostable) != 0 && (f & kNetScopeAlways) == 0; // rule M
             },
             Mark = o => Mark((SimObject)o!),
@@ -374,7 +374,7 @@ public static class GhostScope
             }
             else if (c.GameBase)
             {
-                bool camera = GameUtil.EqualsNoCase(c.Cls, "ObserverCamera");
+                var camera = GameUtil.EqualsNoCase(c.Cls, "ObserverCamera");
                 GhostManager.RegisterGhostClass(c.Cls, new GhostClass { Tag = c.Tag, Pack = camera ? PackObserverCamera : null, Priority = prio });
             }
         }

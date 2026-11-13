@@ -1,8 +1,8 @@
+namespace OpenTribes.Gui;
+
 using OpenTribes.Platform.Audio;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Video;
-
-namespace OpenTribes.Gui;
 
 /// <summary>The Smacker movie control (FearGui::SmackerCtrl, docs/gui.md 3.3 and Q12).</summary>
 /// <remarks>
@@ -12,20 +12,18 @@ namespace OpenTribes.Gui;
 /// </remarks>
 public sealed class GuiSmacker : GuiActive
 {
-    private SmackerDecoder? mMovie;
     private PbmpBitmap? mPicture;
     private Action? mStopAudio;
     /// <summary>The color translation of the stock control (004d670c): movie color i draws as palette entry i + palStart for the first palColors colors, every other value draws as itself.</summary>
     private readonly byte[] mMap = new byte[256];
     private double mStartMs;
-    private int mShown;            // frames decoded so far
     private bool mStarted, mFinished, mDonePosted, mPaletteDirty, mPictureDirty, mLastFrameDrawn;
     /// <summary>Gets the number of frames decoded so far.</summary>
-    public int FramesShown => mShown;
+    public int FramesShown { get; private set; }
     /// <summary>Gets a value that is true when a movie is open.</summary>
-    public bool HasMovie => mMovie != null;
+    public bool HasMovie => Movie != null;
     /// <summary>Gets the open movie, or null.</summary>
-    public SmackerDecoder? Movie => mMovie;
+    public SmackerDecoder? Movie { get; private set; }
 
     /// <inheritdoc/>
     public override void Wake()
@@ -34,21 +32,21 @@ public sealed class GuiSmacker : GuiActive
         mFinished = false;
         mLastFrameDrawn = false;
         mStarted = false;
-        mShown = 0;
-        string? name = Host?.TagText(U("movieTag")) is string t ? GuiHost.FirstItem(t) : null;
+        FramesShown = 0;
+        var name = Host?.TagText(U("movieTag")) is string t ? GuiHost.FirstItem(t) : null;
         byte[]? data = null;
-        if (name != null && name.Length > 0 && Host?.Res != null && GfxAssets.Read(Host.Res, name, out byte[] d))
+        if (name != null && name.Length > 0 && Host?.Res != null && GfxAssets.Read(Host.Res, name, out var d))
             data = d;
-        mMovie = data == null ? null : SmackerDecoder.TryOpen(data, out _);
-        if (mMovie == null)
+        Movie = data == null ? null : SmackerDecoder.TryOpen(data, out _);
+        if (Movie == null)
         {
             mFinished = true;
             return;
         }
         int start = (int)U("palStart"), count = (int)U("palColors");
-        for (int i = 0; i < 256; ++i)
+        for (var i = 0; i < 256; ++i)
             mMap[i] = (byte)(i < count ? i + start : i);
-        mPicture = new PbmpBitmap { Width = mMovie.Width, Height = mMovie.Height, Depth = 8, Pixels = new byte[mMovie.Width * mMovie.Height] };
+        mPicture = new PbmpBitmap { Width = Movie.Width, Height = Movie.Height, Depth = 8, Pixels = new byte[Movie.Width * Movie.Height] };
     }
 
     /// <inheritdoc/>
@@ -56,9 +54,9 @@ public sealed class GuiSmacker : GuiActive
     {
         mStopAudio?.Invoke();
         mStopAudio = null;
-        if (mMovie != null)
+        if (Movie != null)
             Host?.OnMovieEnd?.Invoke();
-        mMovie = null;
+        Movie = null;
         mPicture = null;
     }
 
@@ -67,7 +65,7 @@ public sealed class GuiSmacker : GuiActive
     {
         if (Host == null)
             return;
-        if (mMovie != null && !mFinished)
+        if (Movie != null && !mFinished)
         {
             double now = Host.TickMs;
             if (!mStarted)
@@ -76,28 +74,28 @@ public sealed class GuiSmacker : GuiActive
                 mStartMs = now;
                 StartAudio();
             }
-            double frameMs = mMovie.FrameMicroseconds / 1000.0;
+            var frameMs = Movie.FrameMicroseconds / 1000.0;
             // Decode every frame up to the one due now: frames are deltas.
-            int due = (int)Math.Floor((now - mStartMs) / frameMs) + 1;
-            bool decoded = false;
-            while (mShown < due && mShown < mMovie.FrameCount && !mFinished)
+            var due = (int)Math.Floor((now - mStartMs) / frameMs) + 1;
+            var decoded = false;
+            while (FramesShown < due && FramesShown < Movie.FrameCount && !mFinished)
             {
-                if (!mMovie.DecodeNext())
+                if (!Movie.DecodeNext())
                 {
                     mFinished = true;
                     break;
                 }
-                ++mShown;
+                ++FramesShown;
                 decoded = true;
-                if (mMovie.PaletteChanged || mShown == 1)
+                if (Movie.PaletteChanged || FramesShown == 1)
                     mPaletteDirty = true;
-                if (mShown >= mMovie.FrameCount)
+                if (FramesShown >= Movie.FrameCount)
                 {
                     if (U("loop") != 0)
                     {
-                        mMovie.Rewind();
-                        mShown = 0;
-                        mStartMs += mMovie.FrameCount * frameMs;
+                        Movie.Rewind();
+                        FramesShown = 0;
+                        mStartMs += Movie.FrameCount * frameMs;
                         due = 0;
                     }
                     else
@@ -108,28 +106,28 @@ public sealed class GuiSmacker : GuiActive
             }
             if (decoded && mPicture != null)
             {
-                byte[] src = mMovie.Pixels, dst = mPicture.Pixels;
-                for (int i = 0; i < src.Length; ++i)
+                byte[] src = Movie.Pixels, dst = mPicture.Pixels;
+                for (var i = 0; i < src.Length; ++i)
                     dst[i] = mMap[src[i]];
                 mPictureDirty = true;
             }
             return;
         }
         // The last frame was drawn by a render pass already; the done event goes out now (a movie that did not open posts at once).
-        if (mFinished && !mDonePosted && (mMovie == null || mLastFrameDrawn))
+        if (mFinished && !mDonePosted && (Movie == null || mLastFrameDrawn))
             PostDone();
     }
 
     private void StartAudio()
     {
-        if (mMovie == null || Host?.StartMovieAudio == null)
+        if (Movie == null || Host?.StartMovieAudio == null)
             return;
-        for (int t = 0; t < mMovie.Audio.Length; ++t)
+        for (var t = 0; t < Movie.Audio.Length; ++t)
         {
-            SmackerAudioTrack a = mMovie.Audio[t];
+            SmackerAudioTrack a = Movie.Audio[t];
             if (!a.HasData)
                 continue;
-            byte[]? pcm = mMovie.ReadAudio(t);
+            var pcm = Movie.ReadAudio(t);
             if (pcm == null || pcm.Length == 0)
                 return;
             WavData wav = ToWave(pcm, a);
@@ -144,11 +142,11 @@ public sealed class GuiSmacker : GuiActive
     /// <returns>The wave with float samples.</returns>
     public static WavData ToWave(byte[] pcm, SmackerAudioTrack a)
     {
-        int bps = a.Bits / 8;
-        int frames = pcm.Length / (bps * a.Channels);
+        var bps = a.Bits / 8;
+        var frames = pcm.Length / (bps * a.Channels);
         var s = new float[frames * a.Channels];
-        for (int i = 0; i < s.Length; ++i)
-            s[i] = bps == 2 ? (short)(pcm[i * 2] | (pcm[i * 2 + 1] << 8)) / 32768f : (pcm[i] - 128) / 128f;
+        for (var i = 0; i < s.Length; ++i)
+            s[i] = bps == 2 ? (short)(pcm[i * 2] | (pcm[(i * 2) + 1] << 8)) / 32768f : (pcm[i] - 128) / 128f;
         return new WavData { Channels = a.Channels, Rate = a.Rate, Bits = a.Bits, Frames = frames, Samples = s };
     }
 
@@ -157,12 +155,12 @@ public sealed class GuiSmacker : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        if (mMovie != null && mPicture != null && mShown > 0)
+        if (Movie != null && mPicture != null && FramesShown > 0)
         {
             if (mPaletteDirty)
             {
                 mPaletteDirty = false;
-                Host?.OnMoviePalette?.Invoke(mMovie.Palette, (int)U("palStart"), (int)U("palColors"));
+                Host?.OnMoviePalette?.Invoke(Movie.Palette, (int)U("palStart"), (int)U("palColors"));
             }
             if (mPictureDirty)
             {
@@ -171,14 +169,14 @@ public sealed class GuiSmacker : GuiActive
                 // The stock control redraws its surface every frame (004d693c, 004d670c).
                 p.Dev.FlushTexture(GuiPaint.KeyedBitmap(mPicture));
             }
-            int h = mMovie.YDoubled ? mMovie.Height * 2 : mMovie.Height;
+            var h = Movie.YDoubled ? Movie.Height * 2 : Movie.Height;
             if (U("stretch") != 0)
                 p.BitmapStretch(mPicture, gx, gy, W, H);
-            else if (h != mMovie.Height)
-                p.BitmapStretch(mPicture, gx, gy, mMovie.Width, h);
+            else if (h != Movie.Height)
+                p.BitmapStretch(mPicture, gx, gy, Movie.Width, h);
             else
                 p.Bitmap(mPicture, gx, gy);
-            if (mFinished && mShown >= mMovie.FrameCount)
+            if (mFinished && FramesShown >= Movie.FrameCount)
                 mLastFrameDrawn = true;
         }
         RenderChildren(p, gx, gy);
@@ -189,7 +187,7 @@ public sealed class GuiSmacker : GuiActive
         if (mDonePosted)
             return;
         mDonePosted = true;
-        uint tag = U("movieDoneTag");
+        var tag = U("movieDoneTag");
         if (tag == 0)
         {
             if (Command.Length > 0)
@@ -250,7 +248,7 @@ public sealed class GuiAnimate : GuiActive
     {
         if (Host == null || mArray == null || !(Continuous || Running))
             return;
-        float frameTime = BitConverter.UInt32BitsToSingle(U("frameTime"));
+        var frameTime = BitConverter.UInt32BitsToSingle(U("frameTime"));
         if ((Host.TickMs - mLastMs) / 1000.0 <= frameTime)
             return;
         ++Frame;

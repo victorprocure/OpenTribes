@@ -1,8 +1,8 @@
-using System.Globalization;
-using OpenTribes.Script;
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using System.Globalization;
+using OpenTribes.Platform.Gfx;
+using OpenTribes.Script;
 
 /// <summary>One column of a column list.</summary>
 /// <param name="HeaderTag">The header tag, -1 draws no heading.</param>
@@ -102,7 +102,7 @@ public abstract class GuiColumnList : GuiList
         if (pc.Parent is GuiScroll sc)
             sc.Disabled = Disabled;
         W = Math.Max(ColumnsWidth, pc.W);
-        H = HeaderH + RowCount * RowHeight;
+        H = HeaderH + (RowCount * RowHeight);
     }
 
     /// <summary>Returns the row at a local y.</summary>
@@ -110,17 +110,17 @@ public abstract class GuiColumnList : GuiList
     /// <returns>The row index, -1 for none.</returns>
     protected int RowAt(int ly)
     {
-        int h = HeaderH;
+        var h = HeaderH;
         if (ly < h)
             return -1;
-        int row = (ly - h) / RowHeight;
+        var row = (ly - h) / RowHeight;
         return row < RowCount ? row : -1;
     }
 
     /// <inheritdoc/>
     public override bool MsMove(GuiEvent e)
     {
-        bool r = base.MsMove(e);
+        var r = base.MsMove(e);
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
         HoverRow = Active && lx >= 0 && lx < W ? RowAt(ly) : -1;
         return r;
@@ -138,9 +138,9 @@ public abstract class GuiColumnList : GuiList
     {
         if (!Active)
             return base.MsDown(e);
-        bool r = base.MsDown(e);
+        var r = base.MsDown(e);
         var (_, ly) = GlobalToLocal(e.X, e.Y);
-        int row = RowAt(ly);
+        var row = RowAt(ly);
         if (row >= 0)
             Select(row);
         return r;
@@ -152,12 +152,12 @@ public abstract class GuiColumnList : GuiList
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        bool off = Disabled;
+        var off = Disabled;
         DrawHeader(p, ox, oy, gx, off);
         int rh = RowHeight, top = gy + HeaderH, count = RowCount;
-        for (int row = 0; row < count; ++row)
+        for (var row = 0; row < count; ++row)
         {
-            int y = top + row * rh;
+            var y = top + (row * rh);
             if (y > p.Clip.Bottom)
                 break;
             if (y + rh <= p.Clip.Top)
@@ -176,12 +176,12 @@ public abstract class GuiColumnList : GuiList
     /// <summary>Draws the header, which stays at the top of the scroll's view: x and y are the parent's origin, its columns follow the list (004b3e1c).</summary>
     private void DrawHeader(GuiPaint p, int ox, int oy, int gx, bool off)
     {
-        int hh = HeaderH;
+        var hh = HeaderH;
         if (hh <= 0)
             return;
-        int pw = Parent?.W ?? W;
+        var pw = Parent?.W ?? W;
         p.Fill(ox, oy, pw, hh, off ? HeaderFillOff : HeaderFill);
-        int x = gx;
+        var x = gx;
         foreach (ListColumn c in Columns)
         {
             if (!c.Visible)
@@ -212,11 +212,11 @@ public abstract class GuiColumnList : GuiList
     /// <param name="off">True when the list is disabled.</param>
     protected virtual void DrawRow(GuiPaint p, int ox, int gx, int y, int row, int rh, bool off)
     {
-        bool selected = row == Selected;
+        var selected = row == Selected;
         PftFont? font = off ? RowFontOff : selected ? RowFontSelected : HoverRow == row ? RowFontHover : RowFontNormal;
-        int pw = Parent?.W ?? W;
-        int line = RowLine(off);
-        int x = gx;
+        var pw = Parent?.W ?? W;
+        var line = RowLine(off);
+        var x = gx;
         foreach (ListColumn c in Columns)
         {
             if (!c.Visible)
@@ -255,21 +255,21 @@ public abstract class GuiColumnList : GuiList
         if (font == null)
             return;
         PftFont? sh = shadow ? ShadowFont : null;
-        int fh = GuiPaint.FontHeight(font);
-        int cy = Div2(h - fh) + y;
-        int tw = GuiPaint.TextWidth(font, text);
+        var fh = GuiPaint.FontHeight(font);
+        var cy = Div2(h - fh) + y;
+        var tw = GuiPaint.TextWidth(font, text);
         if (tw < w)
         {
-            int tx = center ? Div2(w - tw) + x : x;
+            var tx = center ? Div2(w - tw) + x : x;
             if (sh != null)
                 p.Text(sh, tx - 1, cy, text);
             p.Text(font, tx, cy - 1, text);
             return;
         }
-        int ell = GuiPaint.TextWidth(font, "...");
+        var ell = GuiPaint.TextWidth(font, "...");
         if (ell > w)
             return;
-        string s = text;
+        var s = text;
         while (s.Length > 0 && GuiPaint.TextWidth(font, s) > w - ell)
             s = s[..^1];
         s += "...";
@@ -289,12 +289,12 @@ public abstract class GuiColumnList : GuiList
 public sealed class GuiMasterList : GuiColumnList
 {
     private static readonly ListColumn[] sColumns =
-    {
+    [
         new(131310, 0, 122), // IDSTR_SI_MASTER_SERVER
         new(131306, 1, 122), // IDSTR_SI_ADDRESS
-    };
+    ];
 
-    private readonly List<string> mAddresses = new();
+    private readonly List<string> mAddresses = [];
 
     /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
@@ -317,11 +317,13 @@ public sealed class GuiMasterList : GuiColumnList
     /// <remarks>Follows 004d55e0: the list is sorted again, and the selection stays at its row.</remarks>
     public void AddMaster(string name, string address, int id)
     {
-        if (name.Length > 255) name = name[..255];
-        if (address.Length > 255) address = address[..255];
-        int selId = Selected >= 0 ? Entries[Selected].Id : int.MinValue;
+        if (name.Length > 255)
+            name = name[..255];
+        if (address.Length > 255)
+            address = address[..255];
+        var selId = Selected >= 0 ? Entries[Selected].Id : int.MinValue;
         var all = new List<(string Name, string Addr, int Id)>();
-        for (int i = 0; i < Entries.Count; ++i)
+        for (var i = 0; i < Entries.Count; ++i)
             all.Add((Entries[i].Text, mAddresses[i], Entries[i].Id));
         all.Add((name, address, id));
         var sorted = all.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -338,13 +340,16 @@ public sealed class GuiMasterList : GuiColumnList
     /// <inheritdoc/>
     public override void DeleteById(int id)
     {
-        for (int i = Entries.Count - 1; i >= 0; --i)
+        for (var i = Entries.Count - 1; i >= 0; --i)
         {
             if (Entries[i].Id != id)
                 continue;
             Entries.RemoveAt(i);
             mAddresses.RemoveAt(i);
-            if (Selected == i) Selected = -1; else if (Selected > i) --Selected;
+            if (Selected == i)
+                Selected = -1;
+            else if (Selected > i)
+                --Selected;
         }
     }
 
@@ -372,9 +377,9 @@ public sealed class GuiMasterList : GuiColumnList
 public sealed class GuiFilterCtrl : GuiColumnList
 {
     private static readonly ListColumn[] sColumns =
-    {
+    [
         new(131600, 0, 70), new(131601, 1, 87), new(131602, 2, 67), new(-1, 3, 32),
-    };
+    ];
 
     /// <summary>The chosen filter, 0 or less for none (DAT_00628370 of the original).</summary>
     public int ChosenFilter;
@@ -423,11 +428,11 @@ public sealed class ServerColumns
 
     // Name tag, description tag, width: the default order is the table order and every column shows.
     private static readonly (int Name, int Desc, int Width)[] sTable =
-    {
+    [
         (131309, 131519, 52), (131308, 131517, 52), (131307, 131516, 54), (131301, 131510, 105), (131303, 131512, 43),
         (131311, 131520, 100), (131302, 131511, 90), (132054, 131513, 59), (131305, 131514, 33), (131306, 131515, 102),
         (131803, 131518, 100), (131312, 131521, 100),
-    };
+    ];
 
     /// <summary>The number of columns.</summary>
     public const int Count = 12;
@@ -437,7 +442,7 @@ public sealed class ServerColumns
     /// <summary>Creates the default state: the table order and every column shows.</summary>
     public ServerColumns()
     {
-        for (int i = 0; i < Count; ++i)
+        for (var i = 0; i < Count; ++i)
             Entries[i] = new Entry { NameTag = sTable[i].Name, DescTag = sTable[i].Desc, Order = i, Width = sTable[i].Width };
     }
 
@@ -446,26 +451,26 @@ public sealed class ServerColumns
     /// <remarks>Follows 004bcc58: a variable that is set overrides the entry. When the orders are no permutation of 0 to 11 they reset and are written back.</remarks>
     public void Load(GuiHost host)
     {
-        for (int i = 0; i < Count; ++i)
+        for (var i = 0; i < Count; ++i)
         {
-            string v = host.GetVar("$pref::ServerColumnDisplay" + i.ToString(CultureInfo.InvariantCulture));
+            var v = host.GetVar("$pref::ServerColumnDisplay" + i.ToString(CultureInfo.InvariantCulture));
             if (string.IsNullOrEmpty(v))
                 continue;
-            string[] parts = v.Split(',');
+            var parts = v.Split(',');
             if (parts.Length < 2)
                 continue;
-            if (int.TryParse(parts[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int order))
+            if (int.TryParse(parts[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var order))
                 Entries[i].Order = order;
             if (parts.Length >= 3)
             {
                 Entries[i].Display = string.Equals(parts[1].Trim(), "YES", StringComparison.OrdinalIgnoreCase);
-                if (int.TryParse(parts[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int w))
+                if (int.TryParse(parts[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var w))
                     Entries[i].Width = w;
             }
         }
         if (!IsPermutation())
         {
-            for (int i = 0; i < Count; ++i)
+            for (var i = 0; i < Count; ++i)
                 Entries[i].Order = i;
             Save(host);
         }
@@ -489,7 +494,7 @@ public sealed class ServerColumns
     /// <param name="host">The GUI host.</param>
     public void Save(GuiHost host)
     {
-        for (int i = 0; i < Count; ++i)
+        for (var i = 0; i < Count; ++i)
             host.SetVar("$pref::ServerColumnDisplay" + i.ToString(CultureInfo.InvariantCulture),
                 $"{Entries[i].Order}, {(Entries[i].Display ? "YES" : "NO")}, {Entries[i].Width}");
     }
@@ -505,16 +510,16 @@ public sealed class ServerColumns
     public void MoveTo(Entry e, int target)
     {
         target = Math.Clamp(target, 0, Count - 1);
-        int step = Math.Sign(target - e.Order);
+        var step = Math.Sign(target - e.Order);
         if (step == 0)
             return;
-        int cur = e.Order;
+        var cur = e.Order;
         // The lookup by order is taken before any order changes (the original fills a table first).
         var byOrder = new Entry?[Count];
         foreach (Entry x in Entries)
-            if (x.Order >= 0 && x.Order < Count)
+            if (x.Order is >= 0 and < Count)
                 byOrder[x.Order] = x;
-        for (int o = target; o != cur; o -= step)
+        for (var o = target; o != cur; o -= step)
             if (byOrder[o] is Entry shifted)
                 shifted.Order -= step;
         e.Order = target;
@@ -525,7 +530,7 @@ public sealed class ServerColumns
 /// <remarks>Follows ctor 004bd678, wake 004bce4c, row 004bcf44, down 004bc9a4, drag 004bcad4 and up 004bcc28. A press on a name picks the row up (white) and dragging moves it, a press in DISP toggles YES and NO. The release writes the preferences.</remarks>
 public sealed class GuiOptionColumns : GuiColumnList
 {
-    private static readonly ListColumn[] sColumns = { new(131501, 0, 70), new(131502, 1, 161), new(131503, 2, 36) };
+    private static readonly ListColumn[] sColumns = [new(131501, 0, 70), new(131502, 1, 161), new(131503, 2, 36)];
 
     /// <summary>The state of the columns.</summary>
     public readonly ServerColumns Data = new();
@@ -565,12 +570,12 @@ public sealed class GuiOptionColumns : GuiColumnList
     protected override void DrawRow(GuiPaint p, int ox, int gx, int y, int row, int rh, bool off)
     {
         ServerColumns.Entry? e = Data.AtOrder(row);
-        bool held = !off && mDrag != null && e == mDrag;
+        var held = !off && mDrag != null && e == mDrag;
         PftFont? font = off ? RowFontOff : held ? RowFontSelected : mDrag == null && HoverRow == row ? RowFontHover : RowFontNormal;
         PftFont? dispFont = !off && mToggle != null && e == mToggle ? RowFontSelected : font;
-        int pw = Parent?.W ?? W;
-        int line = RowLine(off);
-        int x = gx;
+        var pw = Parent?.W ?? W;
+        var line = RowLine(off);
+        var x = gx;
         foreach (ListColumn c in Columns)
         {
             p.Line(x, y, x, y + rh - 1, line);
@@ -594,7 +599,7 @@ public sealed class GuiOptionColumns : GuiColumnList
     {
         if (!Active)
             return base.MsDown(e);
-        bool r = base.MsDown(e);
+        var r = base.MsDown(e);
         mDrag = mToggle = null;
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
         if (ly < HeaderH || Selected < 0)
@@ -621,7 +626,7 @@ public sealed class GuiOptionColumns : GuiColumnList
         if (mDrag != null)
         {
             var (_, ly) = GlobalToLocal(e.X, e.Y);
-            int target = ly < 0 || HeaderH * 2 + RowHeight * ServerColumns.Count < ly ? mDragRow : Math.Clamp((ly - HeaderH) / RowHeight, 0, ServerColumns.Count - 1);
+            var target = ly < 0 || (HeaderH * 2) + (RowHeight * ServerColumns.Count) < ly ? mDragRow : Math.Clamp((ly - HeaderH) / RowHeight, 0, ServerColumns.Count - 1);
             if (target != mDrag.Order)
             {
                 Data.MoveTo(mDrag, target);
@@ -722,12 +727,12 @@ public sealed class GuiServerList : GuiColumnList
     public const int StateTimeout = 4;
 
     // The widths of the browser's column records [table at 00628cf4]; the third number of the preference is not the width.
-    private static readonly int[] sWidths = { 52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90 };
+    private static readonly int[] sWidths = [52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90];
 
     /// <summary>The state of the browser columns.</summary>
     public readonly ServerColumns Data = new();
-    private readonly List<Server> mServers = new();
-    private List<ListColumn> mColumns = new();
+    private readonly List<Server> mServers = [];
+    private List<ListColumn> mColumns = [];
 
     /// <summary>True when rows that failed stay in the list (+0x3b0). The stock refresh of visible servers and the cancel set it.</summary>
     public bool KeepFailed;
@@ -779,7 +784,7 @@ public sealed class GuiServerList : GuiColumnList
         var drop = new List<Server>();
         foreach (Server s in mServers)
         {
-            if (s.State != StateUnknown && s.State != StateQuerying)
+            if (s.State is not StateUnknown and not StateQuerying)
                 continue;
             if ((!s.Favorite && !KeepFailed) || !Requery)
             {
@@ -832,9 +837,9 @@ public sealed class GuiServerList : GuiColumnList
         sb.Append("//-----------------------------------\n//\n// Database of GAME servers\n//\n//-----------------------------------\n\n");
         foreach (Server s in mServers)
             sb.Append("addGameServer(\"").Append(s.Address).Append("\", \"").Append(s.Name).Append("\", \"").Append(s.Version)
-              .Append("\", \"").Append(s.Ping.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("\", \"")
+              .Append("\", \"").Append(s.Ping.ToString(CultureInfo.InvariantCulture)).Append("\", \"")
               .Append(s.Favorite ? "TRUE" : "FALSE").Append("\", \"").Append(s.ModList).Append("\", \"").Append(s.Mission)
-              .Append("\", \"").Append(s.MissionType).Append("\", \"").Append(s.Cpu.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append("\", \"").Append(s.MissionType).Append("\", \"").Append(s.Cpu.ToString(CultureInfo.InvariantCulture))
               .Append("\", \"").Append(s.NeverPing ? "TRUE" : "FALSE").Append("\");\n");
         return sb.ToString();
     }
@@ -861,10 +866,10 @@ public sealed class GuiServerList : GuiColumnList
     /// <remarks>Follows 004c6888: the hand over the rows and the header, the horizontal adjust cursor on a column border of the header.</remarks>
     public override uint CursorTagAt(int lx, int ly)
     {
-        int y = Y + ly;
+        var y = Y + ly;
         if (y < 0 || y >= HeaderH)
             return CursorHand;
-        int edge = 0;
+        var edge = 0;
         foreach (ListColumn c in Columns)
         {
             if (!c.Visible)
@@ -879,16 +884,16 @@ public sealed class GuiServerList : GuiColumnList
     }
 
     /// <summary>The help tags of the columns, the IDHELP_SERVER_* entries: 220603 favorite, 220604 connection, 220605 status, 220606 name, 220608 ping, 220614 mission type, 220607 mission, 220609 players, 220610 cpu, 220611 address, 220612 version, 220613 mod.</summary>
-    private static readonly uint[] sHelp = { 220603, 220604, 220605, 220606, 220608, 220614, 220607, 220609, 220610, 220611, 220612, 220613 };
+    private static readonly uint[] sHelp = [220603, 220604, 220605, 220606, 220608, 220614, 220607, 220609, 220610, 220611, 220612, 220613];
 
     /// <inheritdoc/>
     /// <remarks>Follows 004c6940: after 500 ms the header shows the description tag of the column under the cursor (a column border shows none).</remarks>
     public override uint HelpTagAt(int lx, int ly, long ms)
     {
-        int y = Y + ly;
+        var y = Y + ly;
         if (ms < 500 || y < 0 || y >= HeaderH)
             return 0;
-        int edge = 0;
+        var edge = 0;
         foreach (ListColumn c in Columns)
         {
             if (!c.Visible)
@@ -920,7 +925,7 @@ public sealed class GuiServerList : GuiColumnList
     /// <param name="row">The new row.</param>
     public void ReplaceServer(Server old, Server row)
     {
-        int i = mServers.IndexOf(old);
+        var i = mServers.IndexOf(old);
         if (i < 0)
             return;
         mServers[i] = row;
@@ -932,7 +937,7 @@ public sealed class GuiServerList : GuiColumnList
     /// <param name="s">The row.</param>
     public void RemoveServer(Server s)
     {
-        int i = mServers.IndexOf(s);
+        var i = mServers.IndexOf(s);
         if (i < 0)
             return;
         mServers.RemoveAt(i);
@@ -964,14 +969,10 @@ public sealed class GuiServerList : GuiColumnList
         Rebuild();
     }
 
-    private static int ParsePref(string v, int d) => int.TryParse(v, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : d;
+    private static int ParsePref(string v, int d) => int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : d;
 
     /// <summary>Builds the visible columns in browser order. The data index is the entry index (0 favorites to 11 server type).</summary>
-    private void Rebuild()
-    {
-        mColumns = Data.Entries.Select((e, i) => (e, i)).OrderBy(t => t.e.Order)
-            .Select(t => new ListColumn(t.e.NameTag, t.i, sWidths[t.i], t.e.Display)).ToList();
-    }
+    private void Rebuild() => mColumns = [.. Data.Entries.Select((e, i) => (e, i)).OrderBy(t => t.e.Order).Select(t => new ListColumn(t.e.NameTag, t.i, sWidths[t.i], t.e.Display))];
 
     /// <inheritdoc/>
     /// <remarks>Follows 004c8278: the numbers use "%d", the players "%d / %d", an empty mission or a cpu speed of zero shows N/A. Columns 0 to 2 are icons (<see cref="DrawIcons"/>).</remarks>
@@ -980,7 +981,7 @@ public sealed class GuiServerList : GuiColumnList
         if (row < 0 || row >= mServers.Count)
             return null;
         Server s = mServers[row];
-        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var inv = CultureInfo.InvariantCulture;
         return dataIndex switch
         {
             3 => s.Name,
@@ -1014,7 +1015,7 @@ public sealed class GuiServerList : GuiColumnList
             p.Bitmap(b, px, y + Div2(rh - b.Height) + 1);
             px += b.Width + 3;
         }
-        int ix = x + 5;
+        var ix = x + 5;
         switch (dataIndex)
         {
             case 0:

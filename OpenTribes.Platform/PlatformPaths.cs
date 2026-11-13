@@ -23,9 +23,9 @@ public static class PlatformPaths
     /// <returns>The names. The one the platform's official package uses comes first.</returns>
     public static string[] SdlLibraryNames(OsKind os) => os switch
     {
-        OsKind.Windows => new[] { "SDL3.dll", "SDL3" },
-        OsKind.MacOS => new[] { "libSDL3.0.dylib", "libSDL3.dylib", "SDL3.framework/SDL3", "SDL3" },
-        _ => new[] { "libSDL3.so.0", "libSDL3.so", "SDL3" },
+        OsKind.Windows => ["SDL3.dll", "SDL3"],
+        OsKind.MacOS => ["libSDL3.0.dylib", "libSDL3.dylib", "SDL3.framework/SDL3", "SDL3"],
+        _ => ["libSDL3.so.0", "libSDL3.so", "SDL3"],
     };
 
     /// <summary>Gets the per-user directory the client uses as its game directory overlay when the install is read-only (D54).</summary>
@@ -39,14 +39,14 @@ public static class PlatformPaths
         {
             case OsKind.Windows:
             {
-                string? appData = env("APPDATA");
+                var appData = env("APPDATA");
                 return Path.Combine(string.IsNullOrEmpty(appData) ? Path.Combine(home, "AppData", "Roaming") : appData, "OpenTribes");
             }
             case OsKind.MacOS:
                 return Path.Combine(home, "Library", "Application Support", "OpenTribes");
             default:
             {
-                string? xdg = env("XDG_DATA_HOME");
+                var xdg = env("XDG_DATA_HOME");
                 return Path.Combine(string.IsNullOrEmpty(xdg) || !Path.IsPathRooted(xdg) ? Path.Combine(home, ".local", "share") : xdg,
                                     "opentribes");
             }
@@ -75,7 +75,7 @@ public static class PlatformPaths
     {
         if (!string.IsNullOrEmpty(env("SDL_AUDIO_DRIVER")))
             return null;
-        return videoDriver == "offscreen" || videoDriver == "dummy" ? "dummy" : null;
+        return videoDriver is "offscreen" or "dummy" ? "dummy" : null;
     }
 
     /// <summary>Gets the window flag for pixel density.</summary>
@@ -97,8 +97,9 @@ public static class PlatformPaths
     {
         try
         {
-            string probe = Path.Combine(dir, ".ot-write-" + Environment.ProcessId);
-            using (File.Create(probe)) { }
+            var probe = Path.Combine(dir, ".ot-write-" + Environment.ProcessId);
+            using (File.Create(probe))
+            { }
             File.Delete(probe);
             return true;
         }
@@ -125,17 +126,17 @@ public static class PlatformPaths
         try
         {
             Directory.CreateDirectory(overlay);
-            foreach (string full in Directory.EnumerateFileSystemEntries(root))
+            foreach (var full in Directory.EnumerateFileSystemEntries(root))
             {
-                string name = Path.GetFileName(full);
-                string target = Path.Combine(overlay, name);
+                var name = Path.GetFileName(full);
+                var target = Path.Combine(overlay, name);
                 if (Directory.Exists(full) && IsWriteDir(name))
                 {
                     if (Directory.Exists(target))
                         continue;
                     Directory.CreateDirectory(target);
                     if (name.Equals("config", StringComparison.OrdinalIgnoreCase))
-                        foreach (string f in Directory.EnumerateFiles(full))
+                        foreach (var f in Directory.EnumerateFiles(full))
                             File.Copy(f, Path.Combine(target, Path.GetFileName(f)), false);
                     continue;
                 }
@@ -146,7 +147,7 @@ public static class PlatformPaths
                 else
                     File.CreateSymbolicLink(target, full);
             }
-            foreach (string d in new[] { "config", "temp", "recordings" })
+            foreach (var d in new[] { "config", "temp", "recordings" })
                 if (!Directory.Exists(Path.Combine(overlay, d)))
                     Directory.CreateDirectory(Path.Combine(overlay, d));
             return overlay;

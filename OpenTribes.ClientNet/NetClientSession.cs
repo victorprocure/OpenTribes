@@ -1,11 +1,11 @@
-using OpenTribes.Script;
+namespace OpenTribes.ClientNet;
+
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using OpenTribes.Game;
 using OpenTribes.Net;
-
-namespace OpenTribes.ClientNet;
+using OpenTribes.Script;
 
 /// <summary>One line of a move script: from <see cref="At"/> seconds on, the held move state changes by the given keys.</summary>
 public sealed class ScriptStep
@@ -13,7 +13,7 @@ public sealed class ScriptStep
     /// <summary>The time in seconds after the accept.</summary>
     public double At;
     /// <summary>The key values that change at this step.</summary>
-    public Dictionary<string, double> Keys = new();
+    public Dictionary<string, double> Keys = [];
 }
 
 /// <summary>Parser of the move script of the headless client.</summary>
@@ -26,23 +26,23 @@ public static class MoveScript
     public static List<ScriptStep> Parse(string text)
     {
         var steps = new List<ScriptStep>();
-        foreach (string raw in text.Split('\n'))
+        foreach (var raw in text.Split('\n'))
         {
-            string line = raw.Split('#')[0].Trim();
+            var line = raw.Split('#')[0].Trim();
             if (line.Length == 0)
                 continue;
-            string[] words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var s = new ScriptStep { At = double.Parse(words[0], CultureInfo.InvariantCulture) };
-            foreach (string w in words.Skip(1))
+            foreach (var w in words.Skip(1))
             {
-                string[] kv = w.Split('=');
+                var kv = w.Split('=');
                 if (kv.Length != 2)
                     throw new FormatException("bad script word: " + w);
                 s.Keys[kv[0]] = double.Parse(kv[1], CultureInfo.InvariantCulture);
             }
             steps.Add(s);
         }
-        return steps.OrderBy(s => s.At).ToList();
+        return [.. steps.OrderBy(s => s.At)];
     }
 }
 
@@ -84,28 +84,26 @@ public sealed class SessionResult
     /// <summary>True when the ghost-always phase finished.</summary>
     public bool AlwaysDone;
     /// <summary>The event counts by name.</summary>
-    public SortedDictionary<string, long> EventCounts = new();
+    public SortedDictionary<string, long> EventCounts = [];
     /// <summary>The ghost update counts by class.</summary>
-    public SortedDictionary<string, long> GhostCounts = new();
+    public SortedDictionary<string, long> GhostCounts = [];
     /// <summary>The reasons packets could not be fully decoded.</summary>
-    public List<string> UnknownReasons = new();
+    public List<string> UnknownReasons = [];
 }
 
 /// <summary>A headless client session (docs/client-net.md 1, 2.5, 2.7, 4.3): connect, challenge and accept as a client, the game stream receive path, the mission-load handshake (SetCLInfo, dataFinished, CGADone), moves at the 32 ms tick from a script, and disconnect. The <c>tribes</c> client reuses this class for its network side.</summary>
-public sealed class NetClientSession : ConnectionEvents
+public sealed class NetClientSession : ConnectionEvents, IDisposable
 {
     private readonly UdpSocket mSock = new();
     private readonly Stopwatch mClock = Stopwatch.StartNew();
     private Connection? mVc;
-    private ClientWorld mWorld = new();
-    private ClientGameConnection mGame;
     private readonly string mName;
     private readonly PacketDump mDump;
     private readonly List<ScriptStep> mScript;
     private int mScriptPos;
-    private readonly Dictionary<string, double> mHeld = new();
+    private readonly Dictionary<string, double> mHeld = [];
     private int mCgaCount;
-    private bool mAccepted, mDataSent, mCgaSent, mClosed, mRejected, mSpawn;
+    private bool mDataSent, mCgaSent, mClosed, mRejected, mSpawn;
     private string mReason = "";
     private long mLastTick;
     private long mMovesSent;
@@ -123,7 +121,7 @@ public sealed class NetClientSession : ConnectionEvents
     public string SkinBase = "base";
 
     /// <summary>The client world built from the stream.</summary>
-    public ClientWorld World => mWorld;
+    public ClientWorld World { get; private set; } = new();
     /// <summary>Receives log lines.</summary>
     public Action<string>? Log;
 
@@ -147,9 +145,9 @@ public sealed class NetClientSession : ConnectionEvents
     {
         mName = name;
         mDump = dump;
-        mScript = script ?? new List<ScriptStep>();
+        mScript = script ?? [];
         Version = version;
-        mGame = new ClientGameConnection(mWorld);
+        Game = new ClientGameConnection(World);
     }
 
     private uint Now => ClockMs != null ? ClockMs() : (uint)mClock.ElapsedMilliseconds;
@@ -174,14 +172,14 @@ public sealed class NetClientSession : ConnectionEvents
     private void ApplyPacketPrefs()
     {
         if (PrefReader != null)
-            mGame.LoadPacketPrefs(PrefReader("$pref::PacketRate"), PrefReader("$pref::PacketSize"));
+            Game.LoadPacketPrefs(PrefReader("$pref::PacketRate"), PrefReader("$pref::PacketSize"));
     }
     /// <summary>Tells whether the connection is open.</summary>
     public bool IsOpen => mVc != null && !mClosed;
     /// <summary>Tells whether the server accepted the connection.</summary>
-    public bool IsAccepted => mAccepted;
+    public bool IsAccepted { get; private set; }
     /// <summary>The game stream connection.</summary>
-    public ClientGameConnection Game => mGame;
+    public ClientGameConnection Game { get; private set; }
     private bool mOpened;
 
     /// <summary>Opens the socket and sends the connect request (client-net.md 1.2). The replies arrive in <see cref="Frame"/>.</summary>
@@ -195,7 +193,7 @@ public sealed class NetClientSession : ConnectionEvents
         if (!mSock.OpenToward(server))
             return false;
         var rng = new Random();
-        uint id = (uint)rng.NextInt64(1, 0xffffffffL);
+        var id = (uint)rng.NextInt64(1, 0xffffffffL);
         mVc = new Connection(server, id, this, (to, data) => mSock.Send(to, data), Now);
         mVc.Send(Connection.ConnectRequest, ConnectPayload(), Now);
         mOpened = true;
@@ -204,7 +202,7 @@ public sealed class NetClientSession : ConnectionEvents
     }
 
     // A console variable of type int (atoi of its text), the default when the host has no console.
-    private int ReadIntPref(string name, int def) => PrefReader == null ? def : unchecked((int)Numbers.BorlandAtoi(PrefReader(name) ?? ""));
+    private int ReadIntPref(string name, int def) => PrefReader == null ? def : unchecked(Numbers.BorlandAtoi(PrefReader(name) ?? ""));
 
     private Address mServerAddress;
     private readonly byte[] mRx = new byte[0x10000];
@@ -224,21 +222,21 @@ public sealed class NetClientSession : ConnectionEvents
             mVc.Tick(Now);
         if (mClosed)
             return;
-        if (mAccepted)
+        if (IsAccepted)
         {
-            Prediction.AdvanceTurret(mWorld.Psc, now);
+            Prediction.AdvanceTurret(World.Psc, now);
             if (PredictWorld != null)
             {
-                Prediction.BindControlMount(mWorld, Remote);
-                Prediction.Advance(mWorld.Psc, now);
+                Prediction.BindControlMount(World, Remote);
+                Prediction.Advance(World.Psc, now);
                 Remote.Advance(now);
                 Prediction.PlaceControlRider();
                 mPendingCorrection = null;
             }
-            if (mVc.State() == ConnectionState.Connected && mGame.Due(now))
+            if (mVc.State() == ConnectionState.Connected && Game.Due(now))
             {
                 Connection vc = mVc;
-                mGame.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
+                Game.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
             }
         }
     }
@@ -265,20 +263,20 @@ public sealed class NetClientSession : ConnectionEvents
     public override void OnAccepted(Connection c, ReadOnlySpan<byte> payload)
     {
         // net-protocol.md 5.4: the player id and the server manager id (1.5 step 2).
-        byte[] b = payload.ToArray();
+        var b = payload.ToArray();
         if (b.Length >= 8 && External)
         {
-            mWorld.PlayerId = BitConverter.ToInt32(b, 0);
-            mWorld.ServerId = BitConverter.ToInt32(b, 4);
+            World.PlayerId = BitConverter.ToInt32(b, 0);
+            World.ServerId = BitConverter.ToInt32(b, 4);
         }
         else if (b.Length >= 8)
         {
-            mWorld = new ClientWorld { PlayerId = BitConverter.ToInt32(b, 0), ServerId = BitConverter.ToInt32(b, 4) };
-            mGame = new ClientGameConnection(mWorld);
+            World = new ClientWorld { PlayerId = BitConverter.ToInt32(b, 0), ServerId = BitConverter.ToInt32(b, 4) };
+            Game = new ClientGameConnection(World);
             ApplyPacketPrefs();
         }
-        mAccepted = true;
-        Log?.Invoke("accepted: player " + mWorld.PlayerId + ", server " + mWorld.ServerId);
+        IsAccepted = true;
+        Log?.Invoke("accepted: player " + World.PlayerId + ", server " + World.ServerId);
         if (External)
         {
             OnConnection?.Invoke("Accepted", "");
@@ -286,7 +284,7 @@ public sealed class NetClientSession : ConnectionEvents
         }
         // onConnection("Accepted") (1.6): remoteEval(2048, "SetCLInfo", skin, real name, email, tribe, url, info,
         // autoWaypoint, noEnterInvStation, messageMask).
-        mGame.PostRemoteEval("SetCLInfo", "base", mName, "", "", "", "", "true", "false", "-1");
+        Game.PostRemoteEval("SetCLInfo", "base", mName, "", "", "", "", "true", "false", "-1");
     }
 
     /// <summary>Records the reject reason and reports <c>Rejected</c> to the script.</summary>
@@ -328,14 +326,14 @@ public sealed class NetClientSession : ConnectionEvents
     /// <param name="c">The connection.</param>
     /// <param name="cookie">The cookie of the sent packet.</param>
     /// <param name="delivered">True when the server acknowledged it.</param>
-    public override void OnNotify(Connection c, uint cookie, bool delivered) => mGame.Notify(cookie, delivered);
+    public override void OnNotify(Connection c, uint cookie, bool delivered) => Game.Notify(cookie, delivered);
 
     /// <summary>Decodes a data packet, feeds the prediction and answers the mission-load handshake: <c>dataFinished()</c> and <c>onClientGhostAlwaysDone()</c> answer with remote evals (client-net.md 2.6, 2.7).</summary>
     /// <param name="c">The connection.</param>
     /// <param name="payload">The packet payload.</param>
     public override void OnData(Connection c, ReadOnlySpan<byte> payload)
     {
-        DecodedPacket p = mGame.Receive(payload.ToArray());
+        DecodedPacket p = Game.Receive(payload.ToArray());
         mDump.Write(p, mClock.Elapsed.TotalSeconds);
         if (p.Error != null)
         {
@@ -346,48 +344,48 @@ public sealed class NetClientSession : ConnectionEvents
         if (PredictFactory != null)
             FollowMission();
         if (PredictWorld != null && p.Ghosts != null)
-            Remote.OnBlock(p.Ghosts, mWorld, mFrameNow, mWorld.Psc.HasControl ? mWorld.Psc.ControlGhost : -1);
+            Remote.OnBlock(p.Ghosts, World, mFrameNow, World.Psc.HasControl ? World.Psc.ControlGhost : -1);
         if (p.Psc != null && p.Psc.Direction == "s2c")
-            Prediction.OnTurretBlock(mWorld, mFrameNow);
+            Prediction.OnTurretBlock(World, mFrameNow);
         if (PredictWorld != null && p.Psc != null && p.Psc.Direction == "s2c")
         {
-            CorrectionRecord? rec = Prediction.OnServerBlock(mWorld, mFrameNow);
+            CorrectionRecord? rec = Prediction.OnServerBlock(World, mFrameNow);
             if (rec != null)
                 mPendingCorrection = rec;
         }
         if (p.UnknownReason != null)
             Log?.Invoke("UNKNOWN " + p.UnknownReason);
         // dataFinished() and onClientGhostAlwaysDone() answer with remote evals (2.6, 2.7).
-        if (!mDataSent && mWorld.DataBlocks.Finished)
+        if (!mDataSent && World.DataBlocks.Finished)
         {
             mDataSent = true;
             if (External)
                 OnDataFinished?.Invoke();
             else
-                mGame.PostRemoteEval("dataFinished");
+                Game.PostRemoteEval("dataFinished");
         }
         // a mission reload ghosts the connected client again and the server waits for the next CGADone
-        if (mCgaSent && mWorld.AlwaysDoneCount > mCgaCount)
+        if (mCgaSent && World.AlwaysDoneCount > mCgaCount)
             mCgaSent = false;
-        if (!mCgaSent && mWorld.AlwaysDone)
+        if (!mCgaSent && World.AlwaysDone)
         {
             mCgaSent = true;
-            mCgaCount = mWorld.AlwaysDoneCount;
+            mCgaCount = World.AlwaysDoneCount;
             if (External)
                 OnAlwaysDone?.Invoke();
             else
-                mGame.PostRemoteEval("CGADone");
+                Game.PostRemoteEval("CGADone");
         }
     }
 
     // The prediction world follows the server's mission: the last MInfo names it.
     private void FollowMission()
     {
-        for (int i = mWorld.RemoteCalls.Count - 1; i >= 0; --i)
+        for (var i = World.RemoteCalls.Count - 1; i >= 0; --i)
         {
-            if (!mWorld.RemoteCalls[i].Name.Equals("MInfo", StringComparison.OrdinalIgnoreCase) || mWorld.RemoteCalls[i].Args.Length == 0)
+            if (!World.RemoteCalls[i].Name.Equals("MInfo", StringComparison.OrdinalIgnoreCase) || World.RemoteCalls[i].Args.Length == 0)
                 continue;
-            string mission = mWorld.RemoteCalls[i].Args[0];
+            var mission = World.RemoteCalls[i].Args[0];
             if (mission.Equals(Mission, StringComparison.OrdinalIgnoreCase))
                 return;
             Prediction.Reset();
@@ -412,21 +410,21 @@ public sealed class NetClientSession : ConnectionEvents
 
     private static Address Resolve(string hostPort)
     {
-        int colon = hostPort.LastIndexOf(':');
-        string host = colon < 0 ? hostPort : hostPort[..colon];
-        ushort port = colon < 0 ? (ushort)28001 : ushort.Parse(hostPort[(colon + 1)..], CultureInfo.InvariantCulture);
+        var colon = hostPort.LastIndexOf(':');
+        var host = colon < 0 ? hostPort : hostPort[..colon];
+        var port = colon < 0 ? (ushort)28001 : ushort.Parse(hostPort[(colon + 1)..], CultureInfo.InvariantCulture);
         IPAddress ip = host == "localhost" ? IPAddress.Loopback : IPAddress.Parse(host);
-        byte[] b = ip.GetAddressBytes();
-        return new Address((uint)b[0] << 24 | (uint)b[1] << 16 | (uint)b[2] << 8 | b[3], port);
+        var b = ip.GetAddressBytes();
+        return new Address(((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3], port);
     }
 
     // net-protocol.md 5.1: version, "Tribes", version string, password, name, gender, voice, skin base.
     private byte[] ConnectPayload()
     {
-        byte[] buf = new byte[1500];
+        var buf = new byte[1500];
         var bs = new BitStream(buf, buf.Length);
         bs.WriteInt(1, 16);
-        foreach (string s in new[] { "Tribes", Version, Password, mName, Gender, Voice, SkinBase })
+        foreach (var s in new[] { "Tribes", Version, Password, mName, Gender, Voice, SkinBase })
             bs.WriteString(s);
         return buf.AsSpan(0, bs.BytePosition()).ToArray();
     }
@@ -462,13 +460,13 @@ public sealed class NetClientSession : ConnectionEvents
             Turn = (float)D("turn"),
             Pitch = (float)D("pitch"),
         };
-        if (mHeld.TryGetValue("useItem", out double u) && u >= 0)
+        if (mHeld.TryGetValue("useItem", out var u) && u >= 0)
             m.UseItem = (int)u;
         // Jump and useItem fire once per script step (4.2 step 5 resets them after the next move).
         mHeld.Remove("jump");
         mHeld.Remove("useItem");
-        if (mSpawn && mWorld.Psc.ControlClass != "Player")
-            m.Fire = (tick / 8) % 2 == 0;           // press and release every 256 ms until a Player is the control object
+        if (mSpawn && World.Psc.ControlClass != "Player")
+            m.Fire = tick / 8 % 2 == 0;           // press and release every 256 ms until a Player is the control object
         // 4.2 step 4: the buffered move is the quantised one the server reads.
         return ClientPrediction.Quantize(m);
     }
@@ -485,25 +483,25 @@ public sealed class NetClientSession : ConnectionEvents
         if (!mSock.OpenToward(server))
             throw new IOException("cannot open a UDP socket");
         var rng = new Random();
-        uint id = (uint)rng.NextInt64(1, 0xffffffffL);
+        var id = (uint)rng.NextInt64(1, 0xffffffffL);
         mVc = new Connection(server, id, this, (to, data) => mSock.Send(to, data), Now);
         mVc.Send(Connection.ConnectRequest, ConnectPayload(), Now);
-        byte[] rx = new byte[0x10000];
+        var rx = new byte[0x10000];
         double acceptedAt = -1;
         double timeout = 60;
         while (!mClosed)
         {
-            uint now = Now;
+            var now = Now;
             mFrameNow = now;
             // client-net.md 2.1: the moves of the ticks crossed are made (step 4) before the receive (step 5), so a
             // correction in this frame sees them and +0x218 is computed from the frame's net time.
             if (acceptedAt >= 0)
             {
-                ApplyScript(now / 1000.0 - acceptedAt);
-                long tickNow = ((long)now - 1) >> 5;
+                ApplyScript((now / 1000.0) - acceptedAt);
+                var tickNow = ((long)now - 1) >> 5;
                 for (; mLastTick < tickNow; ++mLastTick)
                 {
-                    mWorld.Psc.AddMove(MakeMove(mLastTick));
+                    World.Psc.AddMove(MakeMove(mLastTick));
                     ++mMovesSent;
                 }
             }
@@ -518,8 +516,8 @@ public sealed class NetClientSession : ConnectionEvents
             mVc.Tick(Now);
             if (mClosed)
                 break;
-            double t = now / 1000.0;
-            if (mAccepted && acceptedAt < 0)
+            var t = now / 1000.0;
+            if (IsAccepted && acceptedAt < 0)
             {
                 acceptedAt = t;
                 mLastTick = (now - 1) >> 5;
@@ -531,12 +529,12 @@ public sealed class NetClientSession : ConnectionEvents
             }
             if (acceptedAt >= 0)
             {
-                Prediction.AdvanceTurret(mWorld.Psc, now);
+                Prediction.AdvanceTurret(World.Psc, now);
                 if (PredictWorld != null)
                 {
                     // 4.4: the replay after a correction and the prediction of the new moves, once per frame.
-                    Prediction.BindControlMount(mWorld, Remote);
-                    Prediction.Advance(mWorld.Psc, now);
+                    Prediction.BindControlMount(World, Remote);
+                    Prediction.Advance(World.Psc, now);
                     Remote.Advance(now);
                     Prediction.PlaceControlRider();
                     if (mPendingCorrection != null)
@@ -545,10 +543,10 @@ public sealed class NetClientSession : ConnectionEvents
                         mPendingCorrection = null;
                     }
                 }
-                if (mVc.State() == ConnectionState.Connected && mGame.Due(now))
+                if (mVc.State() == ConnectionState.Connected && Game.Due(now))
                 {
                     Connection vc = mVc;
-                    mGame.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
+                    Game.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
                 }
                 if (t - acceptedAt >= seconds)
                     break;
@@ -561,27 +559,30 @@ public sealed class NetClientSession : ConnectionEvents
             res.Disconnected = true;
         }
         mSock.Close();
-        res.Connected = mAccepted;
+        res.Connected = IsAccepted;
         res.Rejected = mRejected;
         res.Dropped = mClosed && !mRejected;
         res.Reason = mReason;
-        res.Seconds = acceptedAt < 0 ? 0 : Now / 1000.0 - acceptedAt;
-        res.Packets = mWorld.Packets;
-        res.Events = mWorld.Events;
-        res.GhostUpdates = mWorld.GhostUpdates;
-        res.GhostDeletes = mWorld.GhostDeletes;
-        res.UnknownBits = mWorld.UnknownBits;
-        res.Errors = mWorld.Errors;
+        res.Seconds = acceptedAt < 0 ? 0 : (Now / 1000.0) - acceptedAt;
+        res.Packets = World.Packets;
+        res.Events = World.Events;
+        res.GhostUpdates = World.GhostUpdates;
+        res.GhostDeletes = World.GhostDeletes;
+        res.UnknownBits = World.UnknownBits;
+        res.Errors = World.Errors;
         res.MovesSent = mMovesSent;
-        res.Ghosts = mWorld.Ghosts.Count;
-        res.ControlClass = mWorld.Psc.ControlClass;
-        res.DataFinished = mWorld.DataBlocks.Finished;
-        res.AlwaysDone = mWorld.AlwaysDone;
-        foreach (var kv in mWorld.EventCounts)
+        res.Ghosts = World.Ghosts.Count;
+        res.ControlClass = World.Psc.ControlClass;
+        res.DataFinished = World.DataBlocks.Finished;
+        res.AlwaysDone = World.AlwaysDone;
+        foreach (var kv in World.EventCounts)
             res.EventCounts[kv.Key] = kv.Value;
-        foreach (var kv in mWorld.GhostCounts)
+        foreach (var kv in World.GhostCounts)
             res.GhostCounts[kv.Key] = kv.Value;
-        res.UnknownReasons = mWorld.UnknownReasons.Take(20).ToList();
+        res.UnknownReasons = [.. World.UnknownReasons.Take(20)];
         return res;
     }
+
+    /// <inheritdoc/>
+    public void Dispose() => mSock.Dispose();
 }

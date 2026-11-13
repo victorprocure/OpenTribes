@@ -1,9 +1,9 @@
 // The server browser's favorite, never ping and refresh behaviour (docs/gui.md 3.3; code 004c51f0, 004c52b4, 004c525c, 004c5054, 004c5320,
 // 004c4e2c, 004c7820, 004c8278, delegate 004d7bb4). Synthetic data only: no window, no game data, no network beyond a queued loopback address.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Gui;
-
-namespace OpenTribes.Tests;
 
 public class ServerListFlagsTests
 {
@@ -66,9 +66,9 @@ public class ServerListFlagsTests
         a.Cpu = 9;
         l.AddServer(a);
         l.AddServer(Row(2, never: true));
-        string text = l.BuildServerFile();
+        var text = l.BuildServerFile();
         Assert.StartsWith("//-----------------------------------\n//\n// Database of GAME servers\n//\n//-----------------------------------\n\n", text);
-        string[] lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(x => x.StartsWith("addGameServer", StringComparison.Ordinal)).ToArray();
+        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(x => x.StartsWith("addGameServer", StringComparison.Ordinal)).ToArray();
         Assert.Equal("addGameServer(\"IP:10.0.0.1:28001\", \"S1\", \"1.11\", \"50\", \"TRUE\", \"base\", \"Raindance\", \"CTF\", \"9\", \"FALSE\");", lines[0]);
         Assert.EndsWith("\"FALSE\", \"\", \"\", \"\", \"0\", \"TRUE\");", lines[1]);
     }
@@ -168,7 +168,9 @@ public sealed class ServerBrowserFlagsTests : IDisposable
     public void Dispose()
     {
         mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        try
+        { Directory.Delete(mRoot, true); }
+        catch (IOException) { }
     }
 
     // A join screen of synthetic controls: the server list (140016) in the content, the delegate of the real client.
@@ -179,15 +181,15 @@ public sealed class ServerBrowserFlagsTests : IDisposable
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function onConnection(%m) { $conn = %m; }\nfunction Game::EndFrame() {}\n" +
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n");
-        ClientOptions opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        ClientOptions opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
+        Assert.True(mApp.Start(out var error), error);
         GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
         GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
         GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
-        list.Id = (uint)ClientDelegates.ServerList;
+        list.Id = ClientDelegates.ServerList;
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
@@ -197,7 +199,7 @@ public sealed class ServerBrowserFlagsTests : IDisposable
 
     private static GuiControl Box(int id)
     {
-        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10 + (id - 140044) * 40, 20, 20, ("isSwitch", (byte)1), ("bodyVersion", 3u), ("messageTag", (uint)id));
+        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10 + ((id - 140044) * 40), 20, 20, ("isSwitch", (byte)1), ("bodyVersion", 3u), ("messageTag", (uint)id));
         b.Id = (uint)id;
         return b;
     }
@@ -314,7 +316,7 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         Assert.Single(l.Servers);
         Assert.True(l.Servers[0].Favorite && l.Servers[0].NeverPing);
         app.Canvas.SetContent(new GuiControl { Name = "Other" });
-        string file = Path.Combine(mRoot, "config", "GameServerList.cs");
+        var file = Path.Combine(mRoot, "config", "GameServerList.cs");
         Assert.True(File.Exists(file));
         Assert.Contains("addGameServer(\"IP:127.0.0.1:28001\", \"A\", \"1.11\", \"30\", \"TRUE\", \"base\", \"Raindance\", \"CTF\", \"7\", \"TRUE\");\n", File.ReadAllText(file));
     }
@@ -345,7 +347,7 @@ public class MasterMotdTests
     [Fact]
     public void DialogTextIsCutAt1023Characters() // 004d7fbf
     {
-        string text = ServerBrowser.MotdText("M", new string('x', 5000));
+        var text = ServerBrowser.MotdText("M", new string('x', 5000));
         Assert.Equal(1023, text.Length);
         Assert.StartsWith("<f1>Message of the day from: M<f0>\n\nxxx", text);
     }

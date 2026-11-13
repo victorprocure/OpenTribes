@@ -11,7 +11,7 @@ using OpenTribes.Game;
 
 static string? Arg(string[] a, string name)
 {
-    int i = Array.IndexOf(a, name);
+    var i = Array.IndexOf(a, name);
     return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
 }
 
@@ -44,12 +44,12 @@ if (args.Length == 0 || args.Contains("--help"))
     return args.Length == 0 ? 2 : 0;
 }
 
-string? dumpPath = Arg(args, "--dump");
+var dumpPath = Arg(args, "--dump");
 using var dump = new PacketDump(dumpPath);
 
-string? decode = Arg(args, "--decode");
-string? demo = Arg(args, "--demo");
-string? connect = Arg(args, "--connect");
+var decode = Arg(args, "--decode");
+var demo = Arg(args, "--demo");
+var connect = Arg(args, "--connect");
 
 if (decode != null)
 {
@@ -110,11 +110,11 @@ if (demo != null)
 
 if (connect != null)
 {
-    string name = Arg(args, "--name") ?? "NetClient";
-    double seconds = double.Parse(Arg(args, "--seconds") ?? "30", System.Globalization.CultureInfo.InvariantCulture);
-    string? scriptPath = Arg(args, "--script");
+    var name = Arg(args, "--name") ?? "NetClient";
+    var seconds = double.Parse(Arg(args, "--seconds") ?? "30", System.Globalization.CultureInfo.InvariantCulture);
+    var scriptPath = Arg(args, "--script");
     List<ScriptStep>? script = scriptPath != null ? MoveScript.Parse(File.ReadAllText(scriptPath)) : null;
-    var session = new NetClientSession(name, dump, script, Arg(args, "--version") ?? "1.11") { Log = s => Console.Error.WriteLine(s) };
+    var session = new NetClientSession(name, dump, script, Arg(args, "--version") ?? "1.11") { Log = Console.Error.WriteLine };
     if (Arg(args, "--predict") is string predictRoot)
         session.PredictFactory = mission => new PredictionWorld(predictRoot, new[] { "-dedicated", mission }, s => Console.Error.WriteLine(s));
     SessionResult r = session.Run(connect, seconds);
@@ -144,9 +144,9 @@ if (connect != null)
             ClientPrediction pr = session.Prediction;
             w.WriteNumber("corrections", pr.Corrections.Count);
             w.WriteNumber("predictedSteps", pr.Steps);
-            foreach (string cls in pr.Corrections.Select(c => c.Class).Distinct().OrderBy(c => c, StringComparer.Ordinal))
+            foreach (var cls in pr.Corrections.Select(c => c.Class).Distinct().OrderBy(c => c, StringComparer.Ordinal))
             {
-                List<CorrectionRecord> cs = pr.Corrections.Where(c => c.Class == cls && c.Predicted != null).ToList();
+                List<CorrectionRecord> cs = [.. pr.Corrections.Where(c => c.Class == cls && c.Predicted != null)];
                 w.WriteStartObject("error" + cls);
                 w.WriteNumber("n", cs.Count);
                 foreach (var (k, sel) in new (string, Func<CorrectionRecord, double>)[]
@@ -155,7 +155,7 @@ if (connect != null)
                              ("energy", c => c.EnergyError), ("replayed", c => c.Replayed),
                          })
                 {
-                    double[] v = cs.Select(sel).OrderBy(x => x).ToArray();
+                    var v = cs.Select(sel).OrderBy(x => x).ToArray();
                     double Q(double q) => v.Length == 0 ? 0 : v[Math.Min(v.Length - 1, (int)Math.Ceiling(q * v.Length) - 1 < 0 ? 0 : (int)Math.Ceiling(q * v.Length) - 1)];
                     w.WriteStartObject(k);
                     w.WriteNumber("max", v.Length == 0 ? 0 : v[^1]);
@@ -170,7 +170,7 @@ if (connect != null)
         Counts(w, "eventCounts", r.EventCounts);
         Counts(w, "ghostCounts", r.GhostCounts);
         w.WriteStartArray("unknownReasons");
-        foreach (string s in r.UnknownReasons)
+        foreach (var s in r.UnknownReasons)
             w.WriteStringValue(s);
         w.WriteEndArray();
     });

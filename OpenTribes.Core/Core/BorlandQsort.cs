@@ -4,15 +4,12 @@ namespace OpenTribes.Core;
 /// <remarks>Median-of-three Hoare partition with the run of keys equal to the pivot kept next to the pivot. The sort is not stable. Port of src/core/borland_qsort.hpp, where the C++ pointers are indices into the span.</remarks>
 public static class Borland
 {
-    private static void Swap<T>(Span<T> a, int i, int j)
-    {
-        (a[i], a[j]) = (a[j], a[i]);
-    }
+    private static void Swap<T>(Span<T> a, int i, int j) => (a[i], a[j]) = (a[j], a[i]);
 
     /// <summary>Sorts <paramref name="n"/> items of <paramref name="a"/> starting at <paramref name="base"/>. The smaller partition recurses and the larger one loops.</summary>
     private static void BorlandQsortRange<T>(Span<T> a, int @base, int n, Comparison<T> cmp)
     {
-        for (;;)
+        for (; ; )
         {
             if (n <= 2)
             {
@@ -20,8 +17,8 @@ public static class Borland
                     Swap(a, @base, @base + 1);
                 return;
             }
-            int right = @base + (n - 1);
-            int left = @base + (n >> 1);
+            var right = @base + (n - 1);
+            var left = @base + (n >> 1);
             // Median of three into base.
             if (cmp(a[left], a[right]) > 0)
                 Swap(a, left, right);
@@ -34,12 +31,12 @@ public static class Borland
                 Swap(a, @base, left);
                 return;
             }
-            int pivotEnd = @base + 1;
+            var pivotEnd = @base + 1;
             left = pivotEnd;
             int r;
             do
             {
-                bool done = false;
+                var done = false;
                 while ((r = cmp(a[left], a[@base])) <= 0)
                 {
                     if (r == 0)
@@ -80,16 +77,16 @@ public static class Borland
             if (cmp(a[left], a[@base]) <= 0)
                 ++left;
             // Move the run of keys equal to the pivot into the middle.
-            int pivotTemp = @base;
-            int leftTemp = left - 1;
+            var pivotTemp = @base;
+            var leftTemp = left - 1;
             while (pivotTemp < pivotEnd && leftTemp >= pivotEnd)
             {
                 Swap(a, pivotTemp, leftTemp);
                 ++pivotTemp;
                 --leftTemp;
             }
-            int lNum = left - pivotEnd;
-            int rNum = @base + n - left;
+            var lNum = left - pivotEnd;
+            var rNum = @base + n - left;
             // The smaller side recurses, the larger one loops.
             if (rNum < lNum)
             {

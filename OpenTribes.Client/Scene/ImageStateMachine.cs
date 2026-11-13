@@ -1,6 +1,6 @@
-using OpenTribes.Client.Shapes;
-
 namespace OpenTribes.Client.Scene;
+
+using OpenTribes.Client.Shapes;
 
 /// <summary>The weapon data the state machine of an image needs.</summary>
 public sealed class ImageStateData
@@ -139,7 +139,7 @@ public sealed class ImageStateMachine
     /// <param name="count">The number of steps.</param>
     public void StepMoves(int count)
     {
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
             Update(Step);
     }
 
@@ -176,8 +176,8 @@ public sealed class ImageStateMachine
     public void Update(double dt)
     {
         Timer -= dt;
-        int wt = Data.WeaponType;
-        bool expired = !(Timer > 0);
+        var wt = Data.WeaponType;
+        var expired = !(Timer > 0);
         switch (State)
         {
             case Reset:
@@ -241,8 +241,7 @@ public sealed class ImageStateMachine
                 }
                 if (Timer > 0)
                 {
-                    if (Spin != null)
-                        Spin.TimeScale = 1 - Timer / Data.SpinUpTime;
+                    Spin?.TimeScale = 1 - (Timer / Data.SpinUpTime);
                 }
                 else
                     SetState(Ready);
@@ -252,8 +251,7 @@ public sealed class ImageStateMachine
                 {
                     if (Timer > 0)
                     {
-                        if (Spin != null)
-                            Spin.TimeScale = Timer / Data.SpinDownTime;
+                        Spin?.TimeScale = Timer / Data.SpinDownTime;
                     }
                     else
                         SetState(Idle);
@@ -276,18 +274,14 @@ public sealed class ImageStateMachine
         }
     }
 
-    private void SpinScale(double v)
-    {
-        if (Spin != null)
-            Spin.TimeScale = v;
-    }
+    private void SpinScale(double v) => Spin?.TimeScale = v;
 
     /// <summary>Enters a state: stops the looping sound, sets the timer and plays the sound of the state.</summary>
     /// <param name="next">The state.</param>
     public void SetState(int next)
     {
-        int old = State;
-        double oldTimer = Timer;
+        var old = State;
+        var oldTimer = Timer;
         State = next;
         StopLoopingSound?.Invoke();
         // A cyclic state sequence is rewound and held when its state ends; a one shot keeps its end pose.
@@ -332,11 +326,11 @@ public sealed class ImageStateMachine
                 break;
             case SpinUp:
                 PlaySound?.Invoke("sfxSpinUp");
-                Timer = old == SpinDown ? Data.SpinUpTime * (1 - oldTimer / Data.SpinDownTime) : Data.SpinUpTime;
+                Timer = old == SpinDown ? Data.SpinUpTime * (1 - (oldTimer / Data.SpinDownTime)) : Data.SpinUpTime;
                 break;
             case SpinDown:
                 PlaySound?.Invoke("sfxSpinDown");
-                Timer = old == SpinUp ? Data.SpinDownTime * (1 - oldTimer / Data.SpinUpTime) : Data.SpinDownTime;
+                Timer = old == SpinUp ? Data.SpinDownTime * (1 - (oldTimer / Data.SpinUpTime)) : Data.SpinDownTime;
                 break;
             case Activate:
                 Timer = Data.ActivateTime;

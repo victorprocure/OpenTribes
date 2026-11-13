@@ -1,31 +1,31 @@
 // Port of tests/test_client_commands.cpp: client-side commands on a dedicated server (docs/mods.md 5). Synthetic fixtures
 // only: a temporary game root with a temp directory. 114 asserts.
+namespace OpenTribes.Tests;
+
 using System.Text;
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 
-namespace OpenTribes.Tests;
-
 public class ClientCommandsTests
 {
     private static string Slurp(string path) => Encoding.Latin1.GetString(File.ReadAllBytes(path));
 
-    private static bool Ev(ref InputEvent ev, params string[] words) => ClientCommands.ParseInputEvent(new List<string>(words), ref ev);
+    private static bool Ev(ref InputEvent ev, params string[] words) => ClientCommands.ParseInputEvent([.. words], ref ev);
 
-    private static bool Target(ActionBinding b, params string[] words) => ClientCommands.ParseActionTarget(new List<string>(words), b);
+    private static bool Target(ActionBinding b, params string[] words) => ClientCommands.ParseActionTarget([.. words], b);
 
     [Fact]
     public void Main()
     {
-        string root = TestPaths.TmpDir("client_cmd_root");
+        var root = TestPaths.TmpDir("client_cmd_root");
         Directory.Delete(root, true);
         Directory.CreateDirectory(Path.Combine(root, "temp"));
 
         var strings = new StringTable();
         var inp = new Interpreter(strings);
-        string output = "";
+        var output = "";
         inp.SetOutput(l => output += (output.Length == 0 ? "" : "\n") + l);
         var res = new ResourceManager(root, strings);
         inp.SetResources(res);
@@ -40,76 +40,73 @@ public class ClientCommandsTests
 
         // ---- 2: table-driven commands (argument count selects usage, "not found" or result) ----
         // GUI plugin: the canvas lookup comes first, then the per-command usage.
-        Assert.True(Run("echo(cursorOn(MainWindow));") == "cursorOn: MainWindow is not a valid SimGui::Canvas\nFalse");
-        Assert.True(Run("cursorOn();") == "cursorOn: canvasName");
-        Assert.True(Run("GuiLoadContentCtrl(MainWindow, \"gui\\\\empty.gui\");") ==
-               "GuiLoadContentCtrl: MainWindow is not a valid SimGui::Canvas");
-        Assert.True(Run("GuiLoadContentCtrl();") == "GuiLoadContentCtrl: simCanvas filename");
-        Assert.True(Run("GuiSaveSelection();") == "GuiSaveSelection: must be in edit mode");
-        Assert.True(Run("setCursor(MainWindow, \"Cur_Arrow.bmp\");") == "setCursor: MainWindow is not a valid SimGui::Canvas");
+        Assert.Equal("cursorOn: MainWindow is not a valid SimGui::Canvas\nFalse", Run("echo(cursorOn(MainWindow));"));
+        Assert.Equal("cursorOn: canvasName", Run("cursorOn();"));
+        Assert.Equal("GuiLoadContentCtrl: MainWindow is not a valid SimGui::Canvas", Run("GuiLoadContentCtrl(MainWindow, \"gui\\\\empty.gui\");"));
+        Assert.Equal("GuiLoadContentCtrl: simCanvas filename", Run("GuiLoadContentCtrl();"));
+        Assert.Equal("GuiSaveSelection: must be in edit mode", Run("GuiSaveSelection();"));
+        Assert.Equal("setCursor: MainWindow is not a valid SimGui::Canvas", Run("setCursor(MainWindow, \"Cur_Arrow.bmp\");"));
         // Control::* with a control argument crash the original (D11): silent "False" here.
-        Assert.True(Run("echo(Control::setValue(a, b));") == "False");
-        Assert.True(Run("Control::setValue(a);") == "Control::setValue(control, value);");
-        Assert.True(Run("echo(\"<\", Control::getPosition(), \">\");") == "Control::getPosition(control);\n<>");
-        Assert.True(Run("Control::getValue();") == "Control::getValue(control);\nControl::getValue(control, value);");
+        Assert.Equal("False", Run("echo(Control::setValue(a, b));"));
+        Assert.Equal("Control::setValue(control, value);", Run("Control::setValue(a);"));
+        Assert.Equal("Control::getPosition(control);\n<>", Run("echo(\"<\", Control::getPosition(), \">\");"));
+        Assert.Equal("Control::getValue(control);\nControl::getValue(control, value);", Run("Control::getValue();"));
         // Display plugin.
-        Assert.True(Run("echo(renderCanvas(MainWindow));") == "renderCanvas: could not find specified canvas\nFalse");
-        Assert.True(Run("echo(renderCanvas());") == "renderCanvas: could not find specified canvas\nFalse");  // [live]
-        Assert.True(Run("isFullscreenMode();") == "swapSurfaces: simCanvasName");  // the original prints this name
-        Assert.True(Run("setFullscreenDevice(MainWindow, Glide);") == "Could not find simCanvas: MainWindow");
-        Assert.True(Run("echo(listDevices());") == "Number of devices: 0\nFalse");
-        Assert.True(Run("isGfxDriver(a);") == "Incorrect syntax for isGfxDriver(CanvasName, DriverName)");
-        Assert.True(Run("echo(screenShot(MainWindow), setScreenShotSeq(4));") == "FalseFalse");
-        Assert.True(Run("messageCanvasDevice(MainWindow, outline);") == "messageCanvasDevice: simCanvasName string");
+        Assert.Equal("renderCanvas: could not find specified canvas\nFalse", Run("echo(renderCanvas(MainWindow));"));
+        Assert.Equal("renderCanvas: could not find specified canvas\nFalse", Run("echo(renderCanvas());"));  // [live]
+        Assert.Equal("swapSurfaces: simCanvasName", Run("isFullscreenMode();"));  // the original prints this name
+        Assert.Equal("Could not find simCanvas: MainWindow", Run("setFullscreenDevice(MainWindow, Glide);"));
+        Assert.Equal("Number of devices: 0\nFalse", Run("echo(listDevices());"));
+        Assert.Equal("Incorrect syntax for isGfxDriver(CanvasName, DriverName)", Run("isGfxDriver(a);"));
+        Assert.Equal("FalseFalse", Run("echo(screenShot(MainWindow), setScreenShotSeq(4));"));
+        Assert.Equal("messageCanvasDevice: simCanvasName string", Run("messageCanvasDevice(MainWindow, outline);"));
         // Shell plugin.
-        Assert.True(Run("echo(Notepad());") == "Notepad(<filename>);\nTrue");
-        Assert.True(Run("echo(Notepad(readme));") == "Notepad: can only open .txt files\nFalse");
-        Assert.True(Run("HTMLOpen(page);") == "HTMLOpen: can only open properly prefixed HTML URLs.");
+        Assert.Equal("Notepad(<filename>);\nTrue", Run("echo(Notepad());"));
+        Assert.Equal("Notepad: can only open .txt files\nFalse", Run("echo(Notepad(readme));"));
+        Assert.Equal("HTMLOpen: can only open properly prefixed HTML URLs.", Run("HTMLOpen(page);"));
         // Sound and CD audio: no device objects.
-        Assert.True(Run("sfxPlay(3);") == "unable to find Sound object");
-        Assert.True(Run("sfxOpen();") == "Error: newSfx first.");
-        Assert.True(Run("sfxSetPosition(1);") == "sfxSetPosition id x y z");
-        Assert.True(Run("echo(sfxAddPair(1, 2, \"a.wav\"), sfxRemoveProfile(1));") == "FalseFalse");
-        Assert.True(Run("rbStop(CD, 1);") == "rbStop <obj Id>");
-        Assert.True(Run("rbSetVolume(CD, 0.5);") == "unable to find Redbook Obj CD");
-        Assert.True(Run("newRedbook(CD, MainWindow);") == "invalid canvas: MainWindow");
+        Assert.Equal("unable to find Sound object", Run("sfxPlay(3);"));
+        Assert.Equal("Error: newSfx first.", Run("sfxOpen();"));
+        Assert.Equal("sfxSetPosition id x y z", Run("sfxSetPosition(1);"));
+        Assert.Equal("FalseFalse", Run("echo(sfxAddPair(1, 2, \"a.wav\"), sfxRemoveProfile(1));"));
+        Assert.Equal("rbStop <obj Id>", Run("rbStop(CD, 1);"));
+        Assert.Equal("unable to find Redbook Obj CD", Run("rbSetVolume(CD, 0.5);"));
+        Assert.Equal("invalid canvas: MainWindow", Run("newRedbook(CD, MainWindow);"));
         // Input devices: no input manager, so right argument counts fail silently.
-        Assert.True(Run("echo(inputActivate(keyboard0), inputDeactivate(mouse0), listInputDevices());") == "FalseFalseFalse");
-        Assert.True(Run("inputActivate();") == "inputActivate {[all/joystick/mouse/keyboard/device][0-n]}");
-        Assert.True(Run("inputCapture(x);") == "inputCapture");
+        Assert.Equal("FalseFalseFalse", Run("echo(inputActivate(keyboard0), inputDeactivate(mouse0), listInputDevices());"));
+        Assert.Equal("inputActivate {[all/joystick/mouse/keyboard/device][0-n]}", Run("inputActivate();"));
+        Assert.Equal("inputCapture", Run("inputCapture(x);"));
         // Tool windows, sim tree, IRC, editors.
-        Assert.True(Run("hideToolWin(w);") == "hideToolWin: Window name not found");
-        Assert.True(Run("setToolWinPos();") == "hideToolWin: WindowName x y");
-        Assert.True(Run("confirmBox(a, b);") == "confirmBox: must set main main window first!");
-        Assert.True(Run("browseBox();") == "browseBoxtitle question conVar::Result filterName filter [filterName filter...]");
-        Assert.True(Run("simTreeCreate(t, p);") == "simTreeCreate: can't find parent");
-        Assert.True(Run("echo(ircNick(me), ircEcho(all));") == "truetrue");
-        Assert.True(Run("echo(ircNick());") == "ircNick( nickname );\nFalse");
-        Assert.True(Run("echo(ircListChannels());") == "IRC Channels:\n  Status\ntrue");
-        Assert.True(Run("LS::Rules();") == "LS::Rules: must call LSCreate first");
-        Assert.True(Run("echo(ME::Save(x), Ted::save(x));") == "FalseFalse");  // crash in the original (D11)
-        Assert.True(Run("Ted::initTed();") == "TED::ERRORcould not initialize TED.");
+        Assert.Equal("hideToolWin: Window name not found", Run("hideToolWin(w);"));
+        Assert.Equal("hideToolWin: WindowName x y", Run("setToolWinPos();"));
+        Assert.Equal("confirmBox: must set main main window first!", Run("confirmBox(a, b);"));
+        Assert.Equal("browseBoxtitle question conVar::Result filterName filter [filterName filter...]", Run("browseBox();"));
+        Assert.Equal("simTreeCreate: can't find parent", Run("simTreeCreate(t, p);"));
+        Assert.Equal("truetrue", Run("echo(ircNick(me), ircEcho(all));"));
+        Assert.Equal("ircNick( nickname );\nFalse", Run("echo(ircNick());"));
+        Assert.Equal("IRC Channels:\n  Status\ntrue", Run("echo(ircListChannels());"));
+        Assert.Equal("LS::Rules: must call LSCreate first", Run("LS::Rules();"));
+        Assert.Equal("FalseFalse", Run("echo(ME::Save(x), Ted::save(x));"));  // crash in the original (D11)
+        Assert.Equal("TED::ERRORcould not initialize TED.", Run("Ted::initTed();"));
         // Client-only game commands.
-        Assert.True(Run("echo(addGameServer(a, b, c, d, e));") == "Unable to locate the GAME server list control\nFALSE");
-        Assert.True(Run("addGameServer();") == "addGameServer(address, name, version, ping, favorite <TRUE OR FALSE>);");
-        Assert.True(Run("echo(getManagerId(), \"|\", setHudTimer(5), \"|\", Client::ExitLobbyMode(), resetPlayDelegate());") ==
-               "2048|0|TRUETRUE");
-        Assert.True(Run("echo(GUI::isIn8BitMode());") == "Could not find manager\nfalse");
-        Assert.True(Run("echo(getMountedItem(0), \"|\", getItemCount());") ==
-               "wrong argcount to getItemCount(description)\n-1|0");
+        Assert.Equal("Unable to locate the GAME server list control\nFALSE", Run("echo(addGameServer(a, b, c, d, e));"));
+        Assert.Equal("addGameServer(address, name, version, ping, favorite <TRUE OR FALSE>);", Run("addGameServer();"));
+        Assert.Equal("2048|0|TRUETRUE", Run("echo(getManagerId(), \"|\", setHudTimer(5), \"|\", Client::ExitLobbyMode(), resetPlayDelegate());"));
+        Assert.Equal("Could not find manager\nfalse", Run("echo(GUI::isIn8BitMode());"));
+        Assert.Equal("wrong argcount to getItemCount(description)\n-1|0", Run("echo(getMountedItem(0), \"|\", getItemCount());"));
         // GUI::issue8BitWarning and GUI::issueInternetWarning hang the original (modal box): unverified.
-        Assert.True(Run("echo(RegisterStaticTextures());") == "usage: RegisterStaticTextures(<Canvas Name>)\nfalse");
-        Assert.True(Run("echo(flushExportText(), addExportText(a), addExportText());") == "TrueTrueFalse");
-        Assert.True(Run("echo(dbgSetParams(), cls());") == "TrueTrue");
-        Assert.True(Run("Console::enable();") == "Console::enable(<true/false>);");
-        Assert.True(Run("echo(Console::enable(true));") == "True");
+        Assert.Equal("usage: RegisterStaticTextures(<Canvas Name>)\nfalse", Run("echo(RegisterStaticTextures());"));
+        Assert.Equal("TrueTrueFalse", Run("echo(flushExportText(), addExportText(a), addExportText());"));
+        Assert.Equal("TrueTrue", Run("echo(dbgSetParams(), cls());"));
+        Assert.Equal("Console::enable(<true/false>);", Run("Console::enable();"));
+        Assert.Equal("True", Run("echo(Console::enable(true));"));
         // Every group is registered: nothing is an unknown command.
-        foreach (string name in new[] {"swapSurfaces", "GuiEditMode", "TextList::AddLine", "windowsKeyboardDisable", "rbPlay",
+        foreach (var name in new[] {"swapSurfaces", "GuiEditMode", "TextList::AddLine", "windowsKeyboardDisable", "rbPlay",
                                  "sfxSetListenerPosition", "newToolWindow", "simTreeRegScript", "ircSetChannel",
                                  "LS::parseCommands", "ME::RebuildCommandMap", "Ted::undo", "editActionMap", "bind",
                                  "saveActionMap", "popActionMap", "HTMLOpenAndGoWin", "ShapeView::setSkin", "useItem" })
             Assert.True(inp.HasFunction(name));
-        Assert.True(inp.UnknownCommands().Count == 0);
+        Assert.Equal(0, inp.UnknownCommands().Count);
 
         // ---- 3.1: event words ----
         var ev = new InputEvent();
@@ -120,8 +117,8 @@ public class ClientCommandsTests
         Assert.True(Ev(ref ev, "keyboard0", "make", "l_shift", "r_alt", "numpad5") && ev.Modifiers == 33 && ev.ObjInst == 76);
         Assert.True(Ev(ref ev, "keyboard0", "make", "7") && ev.ObjInst == 8);  // first table match, not numpad7
         Assert.True(Ev(ref ev, "keyboard0", "make", "shift") && ev.ObjType == 10 && ev.ObjInst == 0 && ev.Modifiers == 3);
-        Assert.True(!Ev(ref ev, "keyboard0", "make", "shift", "control"));  // two modifiers alone
-        Assert.True(!Ev(ref ev, "mouse0", "make", "alt"));                   // modifier key needs the keyboard
+        Assert.False(Ev(ref ev, "keyboard0", "make", "shift", "control"));  // two modifiers alone
+        Assert.False(Ev(ref ev, "mouse0", "make", "alt"));                   // modifier key needs the keyboard
         Assert.True(Ev(ref ev, "mouse0", "make", "button1") && ev.DeviceType == 2 && ev.ObjType == 2 && ev.ObjInst == 1);
         Assert.True(Ev(ref ev, "joystick1", "make", "button12") && ev.DeviceType == 4 && ev.DeviceInst == 1 && ev.ObjInst == 12);
         Assert.True(Ev(ref ev, "joystick0", "make", "upov0") && ev.ObjType == 6);
@@ -130,8 +127,8 @@ public class ClientCommandsTests
         Assert.True(Ev(ref ev, "keyboard0", "make", "numpad+", "extra") && ev.ObjInst == 78);  // later words are ignored
         Assert.True(!Ev(ref ev) && !Ev(ref ev, "keyboard0") && !Ev(ref ev, "keyboard0", "make"));
         Assert.True(!Ev(ref ev, "bogus0", "make", "a") && !Ev(ref ev, "keyboard0", "make", "nokey"));
-        Assert.True(!Ev(ref ev, "keyboard0", "move", "a"));  // "move" is not consumed, so it is read as the axis word
-        Assert.True(!Ev(ref ev, "keyboard0", "alt"));
+        Assert.False(Ev(ref ev, "keyboard0", "move", "a"));  // "move" is not consumed, so it is read as the axis word
+        Assert.False(Ev(ref ev, "keyboard0", "alt"));
 
         // ---- 3.2: action words ----
         var b = new ActionBinding();
@@ -145,10 +142,8 @@ public class ClientCommandsTests
         // ---- 3.3: commands and state ----
         Run("IDOTA_FIRE = 730001; IDOTA_YAW = 730002;");
         // No current map: the message carries the (empty) current name.
-        Assert.True(Run("echo(bindAction(keyboard0, make, a, TO, IDOTA_FIRE));") ==
-               "bindAction error: must call 'editActionMap' or 'newActionMap' first. ()\nFalse");
-        Assert.True(Run("bindCommand(keyboard0, make, a, TO, x);") ==
-               "bindAction error: must call 'editActionMap' or 'newActionMap' first. ()");
+        Assert.Equal("bindAction error: must call 'editActionMap' or 'newActionMap' first. ()\nFalse", Run("echo(bindAction(keyboard0, make, a, TO, IDOTA_FIRE));"));
+        Assert.Equal("bindAction error: must call 'editActionMap' or 'newActionMap' first. ()", Run("bindCommand(keyboard0, make, a, TO, x);"));
         Assert.True(Run("bindAction(a, b, c);") ==
                "bindAction keyboard[0-n] [make, break] {ctrl, alt, shift} {ascii, keyName}\n" +
                "bindAction joystick[0-n] [make, break] {ctrl, alt, shift} button[0-n]\n" +
@@ -156,13 +151,11 @@ public class ClientCommandsTests
                "bindAction mouse[0-n] [make, break] {ctrl, alt, shift} button[0-n]\n" +
                "bindAction mouse[0-n] move[x,y,z,r,u,v] ");
         // The map is a generated resource: found by iteration, not a file.
-        Assert.True(Run("echo(newActionMap(otam1), isFile(\"otam1.sae\"), \"|\", File::findFirst(\"otam1*\"));") ==
-               "FalseFalse|otam1.sae");
+        Assert.Equal("FalseFalse|otam1.sae", Run("echo(newActionMap(otam1), isFile(\"otam1.sae\"), \"|\", File::findFirst(\"otam1*\"));"));
         Assert.True(res.Find("OTAM1.SAE") != null && res.Find("SimGame.sae") != null);
         // g32 / resources.md 8.7: findNext after the end of a search (and before any findFirst) starts again.
-        Assert.True(Run("echo(File::findFirst(\"otam1*\"), \"|\", File::findNext(\"otam1*\"), \"|\", File::findNext(\"otam1*\"));") ==
-               "otam1.sae||otam1.sae");
-        Assert.True(!res.AddGenerated("otam1.sae"));  // already registered
+        Assert.Equal("otam1.sae||otam1.sae", Run("echo(File::findFirst(\"otam1*\"), \"|\", File::findNext(\"otam1*\"), \"|\", File::findNext(\"otam1*\"));"));
+        Assert.False(res.AddGenerated("otam1.sae"));  // already registered
         Run("bindCommand(keyboard0, make, a, TO, \"echo(1);\"); bindCommand(keyboard0, break, a, TO, \"echo(\\\"q\\\\\\\\\\\");\");");
         Run("bindCommand(keyboard0, make, a, TO, \"echo(3);\");");  // same event: replaced and moved to the end
         Run("bindCommand(keyboard0, make, shift, a, TO, \"s\"); bindCommand(keyboard, make, \"\\\\\", TO, \"bs\");");
@@ -180,9 +173,8 @@ public class ClientCommandsTests
         Assert.True(Run("bindAction(keyboard0, make, \"w\", IDOTA_FIRE, 1);") ==  // no TO: the event takes all words
                "bindAction event TO action - error: malformed 'TO section'.\n" +
                "-->bindAction bindAction keyboard0 make w 730001 1 ");
-        Assert.True(Run("bindCommand(bogus0, make, a, TO, \"x\");") ==
-               "bindCommand event TO command - error: malformed 'Device section'.");
-        Assert.True(Run("echo(saveActionMap(\"temp\\\\otam1\", otam1, nomap));") == "Unknown map 'nomap.sae'\nFalse");
+        Assert.Equal("bindCommand event TO command - error: malformed 'Device section'.", Run("bindCommand(bogus0, make, a, TO, \"x\");"));
+        Assert.Equal("Unknown map 'nomap.sae'\nFalse", Run("echo(saveActionMap(\"temp\\\\otam1\", otam1, nomap));"));
         Assert.True(Slurp(root + "/temp/otam1.cs") ==
                "NewActionMap(\"otam1.sae\");\n" +
                "bindCommand(keyboard0, break, \"a\", TO, \"echo(\\\"q\\\\\\\\\\\");\");\r\n" +
@@ -197,8 +189,8 @@ public class ClientCommandsTests
                "bindAction(joystick0, rxaxis1, TO, IDOTA_YAW, None);\r\n" +
                "bindAction(keyboard0, make, \"e\", TO, IDOTA_FIRE, 0.500000);\r\n" +
                "bindCommand(keyboard0, make, shift, TO, \"x\");\r\n");
-        Assert.True(Run("saveActionMap(x);") == "saveactionMap filename.cs mapname1 {mapname2 ...}");
-        Assert.True(Run("saveActionMap(\"notwriteable.cs\", otam1);") == "Error creating file 'notwriteable.cs'");  // D11
+        Assert.Equal("saveactionMap filename.cs mapname1 {mapname2 ...}", Run("saveActionMap(x);"));
+        Assert.Equal("Error creating file 'notwriteable.cs'", Run("saveActionMap(\"notwriteable.cs\", otam1);"));  // D11
         // editActionMap keeps bindings, newActionMap clears them; a wrong count unsets the current map.
         Run("newActionMap(otam2); bindCommand(keyboard0, make, b, TO, b1); editActionMap(otam1); editActionMap(otam2);");
         Run("bindCommand(keyboard0, make, c, TO, c1); saveActionMap(\"temp\\\\otam2.cs\", \"OTAM2.sae\");");
@@ -206,32 +198,30 @@ public class ClientCommandsTests
                "NewActionMap(\"OTAM2.sae\");\nbindCommand(keyboard0, make, \"b\", TO, \"b1\");\r\n" +
                "bindCommand(keyboard0, make, \"c\", TO, \"c1\");\r\n");
         Run("newActionMap(otam2); saveActionMap(\"temp\\\\otam2.cs\", otam2);");
-        Assert.True(Slurp(root + "/temp/otam2.cs") == "NewActionMap(\"otam2.sae\");\n");
-        Assert.True(Run("editActionMap(); bindCommand(keyboard0, make, c, TO, c1);") ==
-               "bindAction error: must call 'editActionMap' or 'newActionMap' first. ()");
+        Assert.Equal("NewActionMap(\"otam2.sae\");\n", Slurp(root + "/temp/otam2.cs"));
+        Assert.Equal("bindAction error: must call 'editActionMap' or 'newActionMap' first. ()", Run("editActionMap(); bindCommand(keyboard0, make, c, TO, c1);"));
         // bind writes to SimGame.sae, which exists from the start.
-        Assert.True(Run("echo(bind(keyboard0, make, \"f5\", TO, \"otbind\")); saveActionMap(\"temp\\\\sg.cs\", \"SimGame.sae\");") ==
-               "False");
-        Assert.True(Slurp(root + "/temp/sg.cs") ==
-               "NewActionMap(\"SimGame.sae\");\nbindCommand(keyboard0, make, \"f5\", TO, \"otbind\");\r\n");
-        Assert.True(Run("bind(keyboard0, make, zz, TO, x);") == "bind event TO command - error: malformed 'Device section'.");
-        Assert.True(Run("echo(pushActionMap(\"otam1.sae\"), popActionMap(\"otam1.sae\"), pushActionMap(), popActionMap(a, b));") ==
-               "TrueTrueFalseFalse");
+        Assert.Equal("False", Run("echo(bind(keyboard0, make, \"f5\", TO, \"otbind\")); saveActionMap(\"temp\\\\sg.cs\", \"SimGame.sae\");"));
+        Assert.Equal("NewActionMap(\"SimGame.sae\");\nbindCommand(keyboard0, make, \"f5\", TO, \"otbind\");\r\n", Slurp(root + "/temp/sg.cs"));
+        Assert.Equal("bind event TO command - error: malformed 'Device section'.", Run("bind(keyboard0, make, zz, TO, x);"));
+        Assert.Equal("TrueTrueFalseFalse", Run("echo(pushActionMap(\"otam1.sae\"), popActionMap(\"otam1.sae\"), pushActionMap(), popActionMap(a, b));"));
 
         // ---- 4: chat menus need the object model ----
         {
             var strings2 = new StringTable();
             var in2 = new Interpreter(strings2);
-            string out2 = "";
+            var out2 = "";
             in2.SetOutput(l => out2 += (out2.Length == 0 ? "" : "\n") + l);
             Builtins.RegisterBuiltins(in2, null, root);
             var ctx = new ClassContext();
             var sim = new SimConsole(in2, ctx, strings2);
             sim.RegisterCommands();
             in2.SetObjects(sim);
-            var game = new GameState();
-            game.Sim = sim;
-            game.Console = in2;
+            var game = new GameState
+            {
+                Sim = sim,
+                Console = in2
+            };
             ctx.Game = game;
             MissionClasses.Register();
             GameCommands.Register(in2, game);
@@ -241,19 +231,18 @@ public class ClientCommandsTests
                 in2.Evaluate(s);
                 return out2;
             }
-                Run2("newServer(); focusServer(); newObject(OTCM, ChatMenu, \"Head\"); newObject(OTSet, SimSet);");
-                Assert.True(Run2("echo(addCMCommand(OTCM, \"aAlpha\\\\bBeta\", cmd1, x));") == "False");
-                Assert.True(Run2("addCMCommand(OTCM, \"aAlpha\\\\bBeta\", cmd1);") == "Error adding menu to OTCM");  // key exists
-                Assert.True(Run2("addCMCommand(OTCM, \"aAlpha\\\\\", c);") == "Error adding menu to OTCM");           // empty item
-                Assert.True(Run2("addCMCommand(OTCM, \"\", c);") == "Error adding menu to OTCM");
-                Assert.True(Run2("addCMCommand(OTCM, \"aAlpha\", c);") == "Error adding menu to OTCM");
-                Assert.True(Run2("addCMCommand(OTCM, \"x\", c);") == "Error adding menu to OTCM");  // key without text
-                Assert.True(Run2("addCMCommand(OTCM, \"cGamma\", c); addCMCommand(OTCM, \"cGamma\\\\dDelta\", c);").Length == 0);
-                Assert.True(Run2("addCMCommand(OTCM, \"aAlpha\\\\gGo\", c);").Length == 0);
-                Assert.True(Run2("echo(setCMMode(OTCM, 1), setCMMode(OTCM, 7));") == "FalseFalse");
-                Assert.True(Run2("setCMMode(OTCM);") == "setCMMode(menuObject, mode);");
-                Assert.True(Run2("setCMMode(OTSet, 1); addCMCommand(OTSet, \"aA\", c);") ==
-                       "setCMMode - invalid menu object.\naddCMCommand - invalid menu object.");
+            Run2("newServer(); focusServer(); newObject(OTCM, ChatMenu, \"Head\"); newObject(OTSet, SimSet);");
+            Assert.Equal("False", Run2("echo(addCMCommand(OTCM, \"aAlpha\\\\bBeta\", cmd1, x));"));
+            Assert.Equal("Error adding menu to OTCM", Run2("addCMCommand(OTCM, \"aAlpha\\\\bBeta\", cmd1);"));  // key exists
+            Assert.Equal("Error adding menu to OTCM", Run2("addCMCommand(OTCM, \"aAlpha\\\\\", c);"));           // empty item
+            Assert.Equal("Error adding menu to OTCM", Run2("addCMCommand(OTCM, \"\", c);"));
+            Assert.Equal("Error adding menu to OTCM", Run2("addCMCommand(OTCM, \"aAlpha\", c);"));
+            Assert.Equal("Error adding menu to OTCM", Run2("addCMCommand(OTCM, \"x\", c);"));  // key without text
+            Assert.Equal(0, Run2("addCMCommand(OTCM, \"cGamma\", c); addCMCommand(OTCM, \"cGamma\\\\dDelta\", c);").Length);
+            Assert.Equal(0, Run2("addCMCommand(OTCM, \"aAlpha\\\\gGo\", c);").Length);
+            Assert.Equal("FalseFalse", Run2("echo(setCMMode(OTCM, 1), setCMMode(OTCM, 7));"));
+            Assert.Equal("setCMMode(menuObject, mode);", Run2("setCMMode(OTCM);"));
+            Assert.Equal("setCMMode - invalid menu object.\naddCMCommand - invalid menu object.", Run2("setCMMode(OTSet, 1); addCMCommand(OTSet, \"aA\", c);"));
 
             var tree = new ChatMenuTree();
             Assert.True(tree.Add("aAlpha\\bBeta", new[] { "c1", "c2" }) && tree.Root.Children.Count == 1);

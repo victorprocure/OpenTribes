@@ -1,8 +1,8 @@
+namespace OpenTribes.Gui;
+
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 using X87 = OpenTribes.World.X87;
-
-namespace OpenTribes.Gui;
 
 /// <summary>The HUD data source of the live client, read from the PSC block and the control object ghost that the C3a unpack delivers (docs/gui.md 4.1, client-net.md 4.5).</summary>
 public sealed class ClientHudSource : IHudSource
@@ -58,7 +58,7 @@ public sealed class ClientHudSource : IHudSource
         {
             // A piloted Vehicle or Flier gets no state updates of its own ghost, its damage level (+0x72c, vtable +0xf8 `00430c80`) is the
             // 6 bit field of the control state, scaled by 1/63 [code 00446830 Vehicle_readControlState, constant at 00446a9c].
-            if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("dmg6", out object? dmg6))
+            if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("dmg6", out var dmg6))
                 return Math.Clamp((float)(D(dmg6, 0) / 63.0), 0, 1);
             ClientGhost? g = Psc.ControlClass == "ObserverCamera" ? OrbitGhost : Ghost;
             if (g == null)
@@ -71,8 +71,8 @@ public sealed class ClientHudSource : IHudSource
 
     // The orbit object of an ObserverCamera control object (+0x288): the ghost of mode 3 of the control state.
     private ClientGhost? OrbitGhost =>
-        Psc.ControlState.TryGetValue("camMode", out object? m) && D(m, 0) == 3
-        && Psc.ControlState.TryGetValue("orbitGhost", out object? og) && D(og, -1) is double idx and >= 0
+        Psc.ControlState.TryGetValue("camMode", out var m) && D(m, 0) == 3
+        && Psc.ControlState.TryGetValue("orbitGhost", out var og) && D(og, -1) is double idx and >= 0
             ? mWorld.Ghosts.Get((int)idx)
             : null;
 
@@ -84,14 +84,14 @@ public sealed class ClientHudSource : IHudSource
         {
             // ObserverCamera vtable +0xfc `00434a04` forwards to its orbit object and answers 0.0 (a full bar) without one.
             if (Psc.ControlClass == "ObserverCamera")
-                return OrbitGhost is { } og && og.State.TryGetValue("energy", out object? oe) ? Math.Clamp(D(oe, 1), 0, 1) : 1;
+                return OrbitGhost is { } og && og.State.TryGetValue("energy", out var oe) ? Math.Clamp(D(oe, 1), 0, 1) : 1;
             // A piloted Vehicle or Flier: energy (+0x724) is the 16 bit field of the control state times maxEnergy [code 00446830], and
             // vtable +0xfc `0044b74c` divides it by maxEnergy again, so the fraction is the field over 65535.
-            if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("E16", out object? e16))
+            if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("E16", out var e16))
                 return Math.Clamp((float)(D(e16, 0) / 65535.0), 0, 1);
-            if (Psc.ControlState.TryGetValue("energy", out object? v))
+            if (Psc.ControlState.TryGetValue("energy", out var v))
                 return Fraction(D(v, 1));
-            return Ghost != null && Ghost.State.TryGetValue("energy", out object? e) ? Math.Clamp(D(e, 1), 0, 1) : 1;
+            return Ghost != null && Ghost.State.TryGetValue("energy", out var e) ? Math.Clamp(D(e, 1), 0, 1) : 1;
         }
     }
 
@@ -100,7 +100,7 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
-            if (Ghost != null && Ghost.State.TryGetValue("datablock", out object? idx) &&
+            if (Ghost != null && Ghost.State.TryGetValue("datablock", out var idx) &&
                 mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out ClientDataBlock? b))
                 foreach (DecodedField f in b.Fields)
                     if (f.Name == "maxEnergy" && D(f.Value, 0) > 0)
@@ -114,7 +114,7 @@ public sealed class ClientHudSource : IHudSource
     /// <returns>The fraction, 0 to 1.</returns>
     private double Fraction(double energy)
     {
-        double max = MaxEnergy;
+        var max = MaxEnergy;
         return Math.Clamp(max > 0 ? energy / max : energy, 0, 1);
     }
 
@@ -142,7 +142,7 @@ public sealed class ClientHudSource : IHudSource
     private double ObserverYaw()
     {
         var st = Psc.ControlState;
-        double rotZ = st.GetValueOrDefault("rot") is double[] { Length: >= 3 } r ? r[2] : 0;
+        var rotZ = st.GetValueOrDefault("rot") is double[] { Length: >= 3 } r ? r[2] : 0;
         if (st.GetValueOrDefault("orbit") is double[] { Length: >= 3 } o && o[2] < 0 && OrbitGhost is { Class: "Player" } g)
             return D(g.State.GetValueOrDefault("rotZ"), rotZ);
         return rotZ;
@@ -167,26 +167,26 @@ public sealed class ClientHudSource : IHudSource
             if (Ghost is not ClientGhost g)
                 return list;
             var slots = MountedImages(g);
-            for (int i = 0; i < Psc.ItemCounts.Length; ++i)
+            for (var i = 0; i < Psc.ItemCounts.Length; ++i)
             {
                 if (Psc.ItemCounts[i] <= 0 || !mWorld.DataBlocks.Blocks.TryGetValue((5, i), out ClientDataBlock? b))
                     continue;
-                string icon = b.Fields.FirstOrDefault(f => f.Name == "hudIcon" && f.Value is string).Value as string ?? "";
+                var icon = b.Fields.FirstOrDefault(f => f.Name == "hudIcon" && f.Value is string).Value as string ?? "";
                 if (icon.Length == 0 || !b.Fields.Any(f => f.Name == "showWeaponBar" && D(f.Value, 0) != 0))
                     continue;
-                int image = (int)b.Fields.Where(f => f.Name == "imageType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
-                bool hilite = b.Fields.Any(f => f.Name == "hiliteOnActive" && D(f.Value, 0) != 0);
-                bool active = false;
+                var image = (int)b.Fields.Where(f => f.Name == "imageType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
+                var hilite = b.Fields.Any(f => f.Name == "hiliteOnActive" && D(f.Value, 0) != 0);
+                var active = false;
                 foreach (var (img, state) in slots)
                     if (img == i)
                     {
                         active = !hilite || state == 1;
                         break;
                     }
-                int ammo = -1;
+                var ammo = -1;
                 if (image >= 0 && mWorld.DataBlocks.Blocks.TryGetValue((6, image), out ClientDataBlock? ib))
                 {
-                    int type = (int)ib.Fields.Where(f => f.Name == "ammoType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
+                    var type = (int)ib.Fields.Where(f => f.Name == "ammoType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
                     if (type >= 0 && type < Psc.ItemCounts.Length)
                         ammo = Psc.ItemCounts[type];
                 }
@@ -202,10 +202,10 @@ public sealed class ClientHudSource : IHudSource
         var l = new List<(int, int)>();
         if (g.State.GetValueOrDefault("images") is not System.Collections.IEnumerable e || g.State.GetValueOrDefault("images") is string)
             return l;
-        foreach (object? o in e)
-            if (o is string s && Num(s, "img=", out int img))
+        foreach (var o in e)
+            if (o is string s && Num(s, "img=", out var img))
             {
-                Num(s, "state=", out int st);
+                Num(s, "state=", out var st);
                 l.Add((img, st));
             }
         return l;
@@ -214,11 +214,11 @@ public sealed class ClientHudSource : IHudSource
     private static bool Num(string s, string key, out int v)
     {
         v = -1;
-        int p = s.IndexOf(key, StringComparison.Ordinal);
+        var p = s.IndexOf(key, StringComparison.Ordinal);
         if (p < 0)
             return false;
         p += key.Length;
-        int e = p;
+        var e = p;
         while (e < s.Length && (char.IsDigit(s[e]) || s[e] == '-'))
             ++e;
         return int.TryParse(s.AsSpan(p, e - p), System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out v);
@@ -231,15 +231,15 @@ public sealed class ClientHudSource : IHudSource
         get
         {
             var list = new List<InventoryEntry>();
-            if (!mWorld.DataBlocks.Counts.TryGetValue(5, out int n))
+            if (!mWorld.DataBlocks.Counts.TryGetValue(5, out var n))
                 return list;
-            for (int i = 0; i < n && i < Psc.ItemCounts.Length; ++i)
+            for (var i = 0; i < n && i < Psc.ItemCounts.Length; ++i)
             {
                 if (!mWorld.DataBlocks.Blocks.TryGetValue((5, i), out ClientDataBlock? b) ||
                     !b.Fields.Any(f => f.Name == "showInventory" && D(f.Value, 0) != 0))
                     continue;
                 string S(string name) => b.Fields.FirstOrDefault(f => f.Name == name && f.Value is string).Value as string ?? "";
-                int price = (int)b.Fields.Where(f => f.Name == "price").Select(f => D(f.Value, 0)).FirstOrDefault();
+                var price = (int)b.Fields.Where(f => f.Name == "price").Select(f => D(f.Value, 0)).FirstOrDefault();
                 list.Add(new InventoryEntry(i, S("heading"), S("description"), price, Psc.ItemCounts[i],
                     Bit(Psc.Shopping, i), Bit(Psc.Buying, i)));
             }
@@ -247,7 +247,7 @@ public sealed class ClientHudSource : IHudSource
         }
     }
 
-    private static bool Bit(uint[] mask, int i) => i / 32 < mask.Length && (mask[i / 32] >> (i % 32) & 1) != 0;
+    private static bool Bit(uint[] mask, int i) => i / 32 < mask.Length && ((mask[i / 32] >> (i % 32)) & 1) != 0;
 
     /// <inheritdoc/>
     /// <remarks>Built from the client player manager: teams by score and clients by score, both highest first.</remarks>
@@ -273,16 +273,28 @@ public sealed class ClientHudSource : IHudSource
     public static string Expand(string text, ClientPlayerRecord? player, string teamName)
     {
         var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < text.Length; ++i)
+        for (var i = 0; i < text.Length; ++i)
         {
             if (text[i] == '%' && i + 1 < text.Length)
             {
                 switch (text[i + 1])
                 {
-                    case 'n' when player != null: sb.Append(player.Name); ++i; continue;
-                    case 't': sb.Append(teamName); ++i; continue;
-                    case 'p' when player != null: sb.Append(player.PingMs); ++i; continue;
-                    case 'l' when player != null: sb.Append((int)(player.Loss * 100)); ++i; continue;
+                    case 'n' when player != null:
+                        sb.Append(player.Name);
+                        ++i;
+                        continue;
+                    case 't':
+                        sb.Append(teamName);
+                        ++i;
+                        continue;
+                    case 'p' when player != null:
+                        sb.Append(player.PingMs);
+                        ++i;
+                        continue;
+                    case 'l' when player != null:
+                        sb.Append((int)(player.Loss * 100));
+                        ++i;
+                        continue;
                 }
             }
             sb.Append(text[i]);
@@ -312,15 +324,16 @@ public sealed class ClientHudSource : IHudSource
             if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
                 return null;
             var slots = new List<CommandMapSlotMark>();
-            for (int i = 0; i < Psc.CommandSlots.Length; ++i)
+            for (var i = 0; i < Psc.CommandSlots.Length; ++i)
             {
                 ClientCommandSlot s = Psc.CommandSlots[i];
                 if (!s.Present || !mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out ClientDataBlock? b))
                     continue;
-                string Str(string name) { foreach (DecodedField fld in b.Fields) if (fld.Name == name) return fld.Value as string ?? ""; return ""; }
-                int id = i < 128 ? 0x800 + i : -1;
+                string Str(string name)
+                { foreach (DecodedField fld in b.Fields) if (fld.Name == name) return fld.Value as string ?? ""; return ""; }
+                var id = i < 128 ? 0x800 + i : -1;
                 ClientPlayerRecord? rec = s.Group == 3 && id >= 0 ? pm.Get(id) : null;
-                string? target = i >= 128 && pm.TargetNames.TryGetValue(i - 128, out string? tn) ? tn : null;
+                var target = i >= 128 && pm.TargetNames.TryGetValue(i - 128, out var tn) ? tn : null;
                 slots.Add(new CommandMapSlotMark(i, s.X, s.Y, s.Team, s.Group, id, Str("mapIcon"), Str("description"), target, (int)Fld(b, "mapFilter", -1),
                     (int)Fld(b, "range", 0), Fld(b, "supression", 0) != 0, s.Active, rec?.Name ?? "", rec is { CmdIssuer: not -1, Commander: >= 0 and < 64 } ? rec.Commander : -1, rec?.CmdTarget ?? -1,
                     rec?.CommandStatus ?? 0, rec?.CmdWaypointX ?? 0, rec?.CmdWaypointY ?? 0));
@@ -328,9 +341,9 @@ public sealed class ClientHudSource : IHudSource
             // (The port keeps the command icon, +0x40, in the field the select-commander event also writes: a record counts as commanded once an order event named an issuer.)
             // The where-am-I mark turns with the control object's yaw: 256 - yaw * 256 / 2 pi [code 004cfc54].
             // (a Player's block carries the z rotation as `rotZ`, an observer camera's the three angles as `rot`)
-            double yaw = Psc.ControlState.TryGetValue("rotZ", out object? zv) ? D(zv, 0)
-                : Psc.ControlState.TryGetValue("rot", out object? rv) && rv is double[] { Length: >= 3 } rot ? rot[2] : 0;
-            int heading = (int)(256.0 - yaw * 256.0 * (1.0 / (2 * Math.PI)));
+            var yaw = Psc.ControlState.TryGetValue("rotZ", out var zv) ? D(zv, 0)
+                : Psc.ControlState.TryGetValue("rot", out var rv) && rv is double[] { Length: >= 3 } rot ? rot[2] : 0;
+            var heading = (int)(256.0 - (yaw * 256.0 * (1.0 / (2 * Math.PI))));
             return new CommandMapMarks(mWorld.PlayerId, me.Team, heading, slots);
         }
     }
@@ -349,7 +362,7 @@ public sealed class ClientHudSource : IHudSource
     /// <param name="team">The team of the top level.</param>
     /// <returns>The records.</returns>
     private List<ClientPlayerRecord> CommandChildren(ClientPlayerRecord? parent, int team) =>
-        mWorld.Players.Clients.Values.Where(r => parent == null ? CommandParent(r) == null && r.Team == team : CommandParent(r) == parent).ToList();
+        [.. mWorld.Players.Clients.Values.Where(r => parent == null ? CommandParent(r) == null && r.Team == team : CommandParent(r) == parent)];
 
     /// <inheritdoc/>
     /// <remarks>
@@ -366,11 +379,11 @@ public sealed class ClientHudSource : IHudSource
                 return rows;
             void Add(List<ClientPlayerRecord> siblings, int depth, List<(int Depth, bool HasNext)> above)
             {
-                for (int i = 0; i < siblings.Count; ++i)
+                for (var i = 0; i < siblings.Count; ++i)
                 {
                     ClientPlayerRecord r = siblings[i];
                     List<ClientPlayerRecord> kids = CommandChildren(r, me.Team);
-                    bool next = i + 1 < siblings.Count;
+                    var next = i + 1 < siblings.Count;
                     rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, r.Expanded, next, CommandDamage(r.Id), r.CommandStatus + 1, above.ToArray(), r.Selected));
                     if (!r.Expanded)
                         continue;
@@ -379,7 +392,7 @@ public sealed class ClientHudSource : IHudSource
                     Add(kids, depth + 1, nested);
                 }
             }
-            Add(CommandChildren(null, me.Team), 0, new List<(int Depth, bool HasNext)>());
+            Add(CommandChildren(null, me.Team), 0, []);
             return rows;
         }
     }
@@ -390,7 +403,7 @@ public sealed class ClientHudSource : IHudSource
     private int CommandDamage(int clientId)
     {
         ClientCommandSlot[] slots = Psc.CommandSlots;
-        for (int i = 0; i < 128; ++i)
+        for (var i = 0; i < 128; ++i)
             if (slots[i].Group == 3 && 0x800 + i == clientId)
                 return slots[i].Status;
         return 0;
@@ -405,12 +418,12 @@ public sealed class ClientHudSource : IHudSource
         var rows = new List<CommandListRow>();
         if (CommandLocal is not CommandLocalClient me)
             return rows;
-        for (int i = 0; i < Psc.CommandSlots.Length; ++i)
+        for (var i = 0; i < Psc.CommandSlots.Length; ++i)
         {
             ClientCommandSlot s = Psc.CommandSlots[i];
             if (!s.Present || s.Team != me.Team || !shows(s.Group))
                 continue;
-            string? name = i >= 128 && mWorld.Players.TargetNames.TryGetValue(i - 128, out string? label) && label.Length > 0 ? label : null;
+            var name = i >= 128 && mWorld.Players.TargetNames.TryGetValue(i - 128, out var label) && label.Length > 0 ? label : null;
             if (name == null)
             {
                 if (!mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out ClientDataBlock? b))
@@ -449,7 +462,7 @@ public sealed class ClientHudSource : IHudSource
     public string? CommandClientName(int clientId) => mWorld.Players.Get(clientId) is { Ai: false } r ? r.Name : null;
 
     /// <inheritdoc/>
-    public string? CommandTargetName(int slot) => slot >= 128 && mWorld.Players.TargetNames.TryGetValue(slot - 128, out string? n) ? n : null;
+    public string? CommandTargetName(int slot) => slot >= 128 && mWorld.Players.TargetNames.TryGetValue(slot - 128, out var n) ? n : null;
 
     /// <inheritdoc/>
     public void CommandSetSelected(int clientId, bool on)
@@ -481,9 +494,9 @@ public sealed class ClientHudSource : IHudSource
         ClientPlayerManager pm = mWorld.Players;
         if (pm.Get(clientId) is not { } r || pm.Get(mWorld.PlayerId) is not { } me)
             return null;
-        int first = CommandChildren(r, me.Team) is { Count: > 0 } kids ? kids[0].Id : -1;
+        var first = CommandChildren(r, me.Team) is { Count: > 0 } kids ? kids[0].Id : -1;
         List<ClientPlayerRecord> siblings = CommandChildren(CommandParent(r), r.Team);
-        int at = siblings.IndexOf(r);
+        var at = siblings.IndexOf(r);
         return (first, at >= 0 && at + 1 < siblings.Count ? siblings[at + 1].Id : -1, r.Selected);
     }
     /// <inheritdoc/>
@@ -543,7 +556,7 @@ public sealed class ClientHudSource : IHudSource
 
     private string? BlockString(ClientGhost g, string field)
     {
-        if (ObjectGroup(g.Class) is var grp && grp >= 0 && g.State.TryGetValue("datablock", out object? idx)
+        if (ObjectGroup(g.Class) is var grp && grp >= 0 && g.State.TryGetValue("datablock", out var idx)
             && mWorld.DataBlocks.Blocks.TryGetValue((grp, (int)D(idx, -1)), out ClientDataBlock? b))
             foreach (DecodedField f in b.Fields)
                 if (f.Name == field)
@@ -553,7 +566,7 @@ public sealed class ClientHudSource : IHudSource
 
     /// <summary>Returns the ghost index of the object a Player ghost is mounted on (the "ghost/point" stream field), -1 when it has none.</summary>
     private static int MountGhost(ClientGhost g) =>
-        g.State.GetValueOrDefault("mount") is string m && m.IndexOf('/') is int i and > 0 && int.TryParse(m.AsSpan(0, i), out int ghost) ? ghost : -1;
+        g.State.GetValueOrDefault("mount") is string m && m.IndexOf('/') is int i and > 0 && int.TryParse(m.AsSpan(0, i), out var ghost) ? ghost : -1;
 
     /// <inheritdoc/>
     /// <remarks>Follows Crosshair_findTarget (004aca84): the other players the local player's client may see (the visible mask of the PSC, +0x490), with their marks and the one under the view centre.</remarks>
@@ -572,26 +585,32 @@ public sealed class ClientHudSource : IHudSource
             // Crosshair_findTarget skips the control object and every Player whose mount object (+0x1028) is the control object: while
             // piloting, the pilot's own Player and the passengers of the vehicle get no mark and no label [code 004aca84].
             if (g.Class != "Player" || g.Index == Psc.ControlGhost || MountGhost(g) == Psc.ControlGhost
-                || !g.State.TryGetValue("pos", out object? pv) || pv is not double[] { Length: >= 3 } pos)
+                || !g.State.TryGetValue("pos", out var pv) || pv is not double[] { Length: >= 3 } pos)
                 continue;
-            int owner = (int)D(g.State.GetValueOrDefault("ownerClient"), 0);
+            var owner = (int)D(g.State.GetValueOrDefault("ownerClient"), 0);
             if (owner < 0x800 || pm.Get(owner) is not ClientPlayerRecord rec)
                 continue;
-            bool visible = ((owner - 0x800) >> 5) is int w && w < Psc.Visible.Length && (Psc.Visible[w] >> (owner & 31) & 1) != 0;
+            var visible = ((owner - 0x800) >> 5) is int w && w < Psc.Visible.Length && ((Psc.Visible[w] >> (owner & 31)) & 1) != 0;
             var head = HeadMount?.Invoke(g.Index) ?? (pos[0], pos[1], pos[2] + 1.4);
             double bw = 1, bd = 1, bh = 2;
-            if (g.State.TryGetValue("datablock", out object? idx) && mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out ClientDataBlock? b))
+            if (g.State.TryGetValue("datablock", out var idx) && mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out ClientDataBlock? b))
                 foreach (DecodedField f in b.Fields)
                     switch (f.Name)
                     {
-                        case "boxWidth": bw = D(f.Value, bw); break;
-                        case "boxDepth": bd = D(f.Value, bd); break;
-                        case "boxNormalHeight": bh = D(f.Value, bh); break;
+                        case "boxWidth":
+                            bw = D(f.Value, bw);
+                            break;
+                        case "boxDepth":
+                            bd = D(f.Value, bd);
+                            break;
+                        case "boxNormalHeight":
+                            bh = D(f.Value, bh);
+                            break;
                     }
-            bool dead = g.State.ContainsKey("dead");
-            double damage = dead ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
-            var top = (head.Item1, head.Item2, head.Item3 + 0.65);
-            bool clear = LineClear?.Invoke(eye, (pos[0], pos[1], pos[2] + bh * 0.5)) ?? true;
+            var dead = g.State.ContainsKey("dead");
+            var damage = dead ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
+            var top = (head.X, head.Y, head.Z + 0.65);
+            var clear = LineClear?.Invoke(eye, (pos[0], pos[1], pos[2] + (bh * 0.5))) ?? true;
             list.Add(new HudTargetCandidate(rec.Name, top, (pos[0], pos[1], pos[2]), Math.Min(bw, bd), bh, rec.Team, damage, dead, visible, clear));
         }
         // Objects of the sensor set: the name is the target name of its slot, else the datablock description; the icon is the green
@@ -604,24 +623,24 @@ public sealed class ClientHudSource : IHudSource
                 continue;
             if (ObjectGroup(g.Class) < 0 || ObjectBox?.Invoke(g.Index) is not var (bx0, by0, bz0, bx1, by1, bz1, px, py, pz) || !g.State.ContainsKey("team"))
                 continue;
-            bool sensor = g.Class is "Sensor" or "Turret";
+            var sensor = g.Class is "Sensor" or "Turret";
             if (!sensor && !g.State.ContainsKey("target"))
                 continue;
-            string name = g.State.TryGetValue("target", out object? ti) && pm.TargetNames.TryGetValue((int)D(ti, -1), out string? tn) ? tn : "";
+            var name = g.State.TryGetValue("target", out var ti) && pm.TargetNames.TryGetValue((int)D(ti, -1), out var tn) ? tn : "";
             if (name.Length == 0)
                 name = BlockString(g, "description") ?? "";
-            string? icon = BlockString(g, "mapIcon") is { Length: > 0 } mi ? mi + "_green.bmp" : null;
-            int team = (int)D(g.State["team"], -1);
+            var icon = BlockString(g, "mapIcon") is { Length: > 0 } mi ? mi + "_green.bmp" : null;
+            var team = (int)D(g.State["team"], -1);
             if (team == 15)
                 team = -1;
-            double dmg = g.State.ContainsKey("damageState") && D(g.State["damageState"], 1) != 1 ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
+            var dmg = g.State.TryGetValue("damageState", out var value) && D(value, 1) != 1 ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
             // [code 004aca84] the label sits on the box centre in x and y and its top in z; the pick box is the smaller of the x and y
             // extents wide and the z extent high; the distance is measured to the transform origin.
             double cx = (bx0 + bx1) * 0.5, cy = (by0 + by1) * 0.5, cz = (bz0 + bz1) * 0.5;
             var top = (cx, cy, bz1);
             // The stock test passes when the first hit of the line from the eye to the box centre is the object itself: stop the ray where it enters the box.
-            double ex = cx - eye.Item1, ey = cy - eye.Item2, ez = cz - eye.Item3, k = EntryFraction(eye, ex, ey, ez, (bx0, by0, bz0), (bx1, by1, bz1));
-            bool clear = LineClear?.Invoke(eye, (eye.Item1 + ex * k, eye.Item2 + ey * k, eye.Item3 + ez * k)) ?? true;
+            double ex = cx - eye.X, ey = cy - eye.Y, ez = cz - eye.Z, k = EntryFraction(eye, ex, ey, ez, (bx0, by0, bz0), (bx1, by1, bz1));
+            var clear = LineClear?.Invoke(eye, (eye.X + (ex * k), eye.Y + (ey * k), eye.Z + (ez * k))) ?? true;
             list.Add(new HudTargetCandidate(name, top, (px, py, pz), Math.Min(bx1 - bx0, by1 - by0), bz1 - bz0, team, dmg, false, true, clear, true, icon));
         }
         return HudTargetPicker.Find(cam, list, me.Team, pm.TeamCount);
@@ -646,7 +665,7 @@ public sealed class ClientHudSource : IHudSource
     private ClientDataBlock? WeaponProjectile(ClientGhost g, out int group)
     {
         group = -1;
-        double item = D(g.State.GetValueOrDefault("item0"), -1);
+        var item = D(g.State.GetValueOrDefault("item0"), -1);
         if (item < 0
             || !mWorld.DataBlocks.Blocks.TryGetValue((5, (int)item), out ClientDataBlock? ib)
             || !mWorld.DataBlocks.Blocks.TryGetValue((6, (int)Fld(ib, "imageType", -1)), out ClientDataBlock? img))
@@ -661,10 +680,10 @@ public sealed class ClientHudSource : IHudSource
     private ClientDataBlock? ProjectileOf(ClientDataBlock img, out int group)
     {
         group = -1;
-        string raw = img.Fields.FirstOrDefault(f => f.Name == "projectileType").Value as string ?? "";
+        var raw = img.Fields.FirstOrDefault(f => f.Name == "projectileType").Value as string ?? "";
         if (raw.Length < 16)
             return null;
-        byte[] bytes = Convert.FromHexString(raw);
+        var bytes = Convert.FromHexString(raw);
         int grp = BitConverter.ToInt32(bytes, 0), idx = BitConverter.ToInt32(bytes, 4);
         if (grp == -1)
             return null;
@@ -677,7 +696,7 @@ public sealed class ClientHudSource : IHudSource
     {
         foreach (ClientGhost t in mWorld.Ghosts.All())
             if (t.State.GetValueOrDefault("contGravity") is double[] { Length: >= 3 } v)
-                return X87.F32(-X87.Len(new[] { (float)v[0], (float)v[1], (float)v[2] }));
+                return X87.F32(-X87.Len([(float)v[0], (float)v[1], (float)v[2]]));
         return 0f;
     }
 
@@ -689,7 +708,7 @@ public sealed class ClientHudSource : IHudSource
     private ClientDataBlock? TurretProjectile(ClientGhost g, out int group)
     {
         group = -1;
-        if (!g.State.TryGetValue("datablock", out object? di) || !mWorld.DataBlocks.Blocks.TryGetValue((19, (int)D(di, -1)), out ClientDataBlock? tb))
+        if (!g.State.TryGetValue("datablock", out var di) || !mWorld.DataBlocks.Blocks.TryGetValue((19, (int)D(di, -1)), out ClientDataBlock? tb))
             return null;
         return ProjectileOf(tb, out group);
     }
@@ -699,7 +718,7 @@ public sealed class ClientHudSource : IHudSource
     public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height)
     {
         var result = new List<HudTargetMarker>();
-        string cls = Psc.ControlClass;
+        var cls = Psc.ControlClass;
         if (Ghost is not ClientGhost me || cls is not ("Player" or "Vehicle" or "Flier" or "Turret") || ViewCamera?.Invoke(width, height) is not Camera3D cam
             || mWorld.PlayerId == 0 || mWorld.Players.Get(mWorld.PlayerId) is not ClientPlayerRecord rec)
             return result;
@@ -711,15 +730,15 @@ public sealed class ClientHudSource : IHudSource
         {
             block = WeaponProjectile(me, out group);
             ownTeam = rec.Team;
-            eye = new[] { (float)cam.X, (float)cam.Y, (float)cam.Z };
-            bool hasItem = D(me.State.GetValueOrDefault("item0"), -1) >= 0;
+            eye = [(float)cam.X, (float)cam.Y, (float)cam.Z];
+            var hasItem = D(me.State.GetValueOrDefault("item0"), -1) >= 0;
             var body = me.State.GetValueOrDefault("pos") is double[] { Length: >= 3 } bp ? (bp[0], bp[1], bp[2]) : (cam.X, cam.Y, cam.Z);
             muzzle = hasItem ? MuzzleMount?.Invoke(me.Index) ?? body : body;
         }
         else
         {
             // +0x20c of the control object: the team of its own ghost. Without the drawn object the eye and muzzle are not known.
-            if (!me.State.TryGetValue("team", out object? tv) || ControlAim?.Invoke(me.Index) is not HudControlAim aim)
+            if (!me.State.TryGetValue("team", out var tv) || ControlAim?.Invoke(me.Index) is not HudControlAim aim)
                 return result;
             ownTeam = (int)D(tv, -1);
             group = -1;
@@ -727,14 +746,14 @@ public sealed class ClientHudSource : IHudSource
             eye = aim.Eye;
             muzzle = aim.MuzzleLabelPoint();
         }
-        float speed = group == Projectile.kRocketGroup ? (float)Fld(block, "field@0x6c", 0) : group is Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup
+        var speed = group == Projectile.kRocketGroup ? (float)Fld(block, "field@0x6c", 0) : group is Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup
             ? (float)Fld(block, "field@0x68", 0) : 1.0e7f;
-        float totalTime = (float)Fld(block, "totalTime", 10000);
-        float g = Gravity();
+        var totalTime = (float)Fld(block, "totalTime", 10000);
+        var g = Gravity();
         foreach (ClientGhost t in mWorld.Ghosts.All())
         {
             double[]? pos = null;
-            int team = int.MinValue;
+            var team = int.MinValue;
             if (t.Class == "TargetLaser")
             {
                 if (D(t.State.GetValueOrDefault("hit"), 0) == 0 || t.State.GetValueOrDefault("end") is not double[] { Length: >= 3 } end)
@@ -743,23 +762,23 @@ public sealed class ClientHudSource : IHudSource
                 team = (int)D(t.State.GetValueOrDefault("team"), -1);
             }
             else if (D(t.State.GetValueOrDefault("isTarget"), 0) != 0 && D(t.State.GetValueOrDefault("damageState"), 1) == 1
-                && ObjectBox?.Invoke(t.Index) is var (bx0, by0, bz0, bx1, by1, bz1, _, _, _) && t.State.TryGetValue("team", out object? tv))
+                && ObjectBox?.Invoke(t.Index) is var (bx0, by0, bz0, bx1, by1, bz1, _, _, _) && t.State.TryGetValue("team", out var tv))
             {
                 // StaticBase vtable +0x118 [code 0045047c]: the centre of the world box (+0x70, +0x7c) and the team (+0x20c).
-                pos = new[] { (bx0 + bx1) * 0.5, (by0 + by1) * 0.5, (bz0 + bz1) * 0.5 };
+                pos = [(bx0 + bx1) * 0.5, (by0 + by1) * 0.5, (bz0 + bz1) * 0.5];
                 team = (int)D(tv, -1);
             }
             if (pos == null || team != ownTeam)
                 continue;
-            float[] target = { (float)pos[0], (float)pos[1], (float)pos[2] };
+            float[] target = [(float)pos[0], (float)pos[1], (float)pos[2]];
             var dirLow = new float[3];
             var dirHigh = new float[3];
             bool okLow = false, okHigh = false, haveLow, haveHigh = false;
             if (block == null)
             {
-                float len = X87.F32(X87.Len(new[] { target[0] - eye[0], target[1] - eye[1], target[2] - eye[2] }));
-                float k = X87.F32(1.0f / len);
-                for (int i = 0; i < 3; ++i)
+                var len = X87.F32(X87.Len([target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]]));
+                var k = X87.F32(1.0f / len);
+                for (var i = 0; i < 3; ++i)
                     dirLow[i] = X87.F32(k * (target[i] - eye[i]));
                 haveLow = true;
             }
@@ -773,7 +792,7 @@ public sealed class ClientHudSource : IHudSource
             HudMarkPoint? Point(float[] dir, bool ok)
             {
                 double px = (float)(eye[0] + (float)(dir[0] * 2.0f)), py = (float)(eye[1] + (float)(dir[1] * 2.0f)), pz = (float)(eye[2] + (float)(dir[2] * 2.0f));
-                return cam.Project(px, py, pz, out double sx, out double sy, out _) ? new HudMarkPoint(HudMarkers.Pixel(sx), HudMarkers.Pixel(sy), ok) : null;
+                return cam.Project(px, py, pz, out var sx, out var sy, out _) ? new HudMarkPoint(HudMarkers.Pixel(sx), HudMarkers.Pixel(sy), ok) : null;
             }
             HudMarkPoint? low = Point(dirLow, okLow), high = haveHigh ? Point(dirHigh, okHigh) : null;
             result.Add(new HudTargetMarker(low, high, HudMarkers.Label(HudMarkers.Distance(muzzle, (target[0], target[1], target[2])))));

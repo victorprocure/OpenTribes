@@ -39,23 +39,23 @@ public sealed class VolArchive : IDisposable
     private const uint kAlign4Flag = 0x80000000;
 
     private FileStream? mFile;
-    private readonly List<VolEntry> mEntries = new();
-    private readonly List<int> mNameIndex = new(); // indices into mEntries, sorted by name
+    private readonly List<VolEntry> mEntries = [];
+    private readonly List<int> mNameIndex = []; // indices into mEntries, sorted by name
     private string mError = "";
 
     // src/core/vol.cpp readU32.
     private static uint ReadU32(ReadOnlySpan<byte> p) =>
-        p[0] | (uint)p[1] << 8 | (uint)p[2] << 16 | (uint)p[3] << 24;
+        p[0] | ((uint)p[1] << 8) | ((uint)p[2] << 16) | ((uint)p[3] << 24);
 
     // src/core/vol.cpp paddedSize: block payloads are padded to 4 bytes when the size's high bit is set, else to 2.
     private static uint PaddedSize(uint rawSize)
     {
-        uint size = rawSize & kSizeMask;
+        var size = rawSize & kSizeMask;
         return (rawSize & kAlign4Flag) != 0 ? (size + 3) & ~3u : (size + 1) & ~1u;
     }
 
     // src/core/vol.cpp upperAscii (on the signed char of the C++ build).
-    private static sbyte UpperAscii(sbyte c) => (c > '`' && c < '{') ? (sbyte)(c - 0x20) : c;
+    private static sbyte UpperAscii(sbyte c) => (c is > (sbyte)'`' and < (sbyte)'{') ? (sbyte)(c - 0x20) : c;
 
     private static sbyte CharAt(string s, int i) => i < s.Length ? unchecked((sbyte)(byte)s[i]) : (sbyte)0;
 
@@ -65,10 +65,10 @@ public sealed class VolArchive : IDisposable
     /// <returns>A negative, zero or positive value like a <c>strcmp</c> result.</returns>
     public static int VolNameCompare(string a, string b)
     {
-        for (int i = 0; ; ++i)
+        for (var i = 0; ; ++i)
         {
-            sbyte ca = UpperAscii(CharAt(a, i));
-            sbyte cb = UpperAscii(CharAt(b, i));
+            var ca = UpperAscii(CharAt(a, i));
+            var cb = UpperAscii(CharAt(b, i));
             if (ca != cb || cb == 0)
                 return ca - cb;
         }
@@ -105,10 +105,10 @@ public sealed class VolArchive : IDisposable
     // Reads up to dst.Length bytes, stopping at the end of the file (fread). Returns the count read.
     private static int ReadFull(FileStream f, Span<byte> dst)
     {
-        int total = 0;
+        var total = 0;
         while (total < dst.Length)
         {
-            int n = f.Read(dst[total..]);
+            var n = f.Read(dst[total..]);
             if (n <= 0)
                 break;
             total += n;
@@ -131,7 +131,7 @@ public sealed class VolArchive : IDisposable
             return Fail("cannot open " + path);
         }
 
-        long fileSize = mFile.Length;
+        var fileSize = mFile.Length;
         if (fileSize < 8)
             return Fail("file too small");
 
@@ -144,7 +144,7 @@ public sealed class VolArchive : IDisposable
         ulong dirPos = ReadU32(header[4..]);
         if (dirPos + 8 > (ulong)fileSize)
             return Fail("directory offset out of range");
-        byte[] data = new byte[(ulong)fileSize - dirPos];
+        var data = new byte[(ulong)fileSize - dirPos];
         mFile.Position = (long)dirPos;
         if (ReadFull(mFile, data) != data.Length)
             return Fail("short read");
@@ -161,17 +161,17 @@ public sealed class VolArchive : IDisposable
             return payload + size <= (ulong)data.Length;
         }
 
-        if (!ReadBlock(0, kTagVols, out ulong strPos, out uint strSize))
+        if (!ReadBlock(0, kTagVols, out var strPos, out var strSize))
             return Fail("bad vols block");
-        ulong voliPos = strPos + PaddedSize(ReadU32(data.AsSpan(4)));
-        if (!ReadBlock(voliPos, kTagVoli, out ulong idxPos, out uint idxSize))
+        var voliPos = strPos + PaddedSize(ReadU32(data.AsSpan(4)));
+        if (!ReadBlock(voliPos, kTagVoli, out var idxPos, out var idxSize))
             return Fail("bad voli block");
 
-        uint count = idxSize / kEntrySize;
+        var count = idxSize / kEntrySize;
         mEntries.Capacity = (int)count;
         for (uint i = 0; i < count; ++i)
         {
-            ReadOnlySpan<byte> rec = data.AsSpan((int)(idxPos + (ulong)i * kEntrySize), (int)kEntrySize);
+            ReadOnlySpan<byte> rec = data.AsSpan((int)(idxPos + ((ulong)i * kEntrySize)), (int)kEntrySize);
             var e = new VolEntry
             {
                 Id = ReadU32(rec),
@@ -179,20 +179,20 @@ public sealed class VolArchive : IDisposable
                 Size = ReadU32(rec[12..]),
                 Compression = rec[16],
             };
-            uint nameOffset = ReadU32(rec[4..]);
+            var nameOffset = ReadU32(rec[4..]);
             if (nameOffset != 0xffffffff && strSize != 0)
             {
                 if (nameOffset >= strSize)
                     return Fail("name offset out of range");
                 ReadOnlySpan<byte> s = data.AsSpan((int)(strPos + nameOffset), (int)(strSize - nameOffset));
-                int len = s.IndexOf((byte)0);
+                var len = s.IndexOf((byte)0);
                 e.Name = ByteString.FromBytes(len < 0 ? s : s[..len]);
             }
             mEntries.Add(e);
         }
 
         var named = new List<int>();
-        for (int i = 0; i < (int)count; ++i)
+        for (var i = 0; i < (int)count; ++i)
             if (mEntries[i].Name.Length != 0)
                 named.Add(i);
         // std::stable_sort: OrderBy is stable.
@@ -212,7 +212,7 @@ public sealed class VolArchive : IDisposable
         int lo = 0, hi = mNameIndex.Count;
         while (lo < hi)
         {
-            int mid = lo + (hi - lo) / 2;
+            var mid = lo + ((hi - lo) / 2);
             if (VolNameCompare(mEntries[mNameIndex[mid]].Name, name) < 0)
                 lo = mid + 1;
             else
@@ -235,7 +235,7 @@ public sealed class VolArchive : IDisposable
         {
             if (ip >= input.Length)
                 return false;
-            byte header = input[ip++];
+            var header = input[ip++];
             int count = header & 0x7f, take = Math.Min(count, output.Length - op);
             if ((header & 0x80) != 0)
             {
@@ -245,7 +245,7 @@ public sealed class VolArchive : IDisposable
             }
             else
             {
-                int have = Math.Min(take, input.Length - ip);
+                var have = Math.Min(take, input.Length - ip);
                 input.Slice(ip, have).CopyTo(output[op..]);
                 if (have < take)
                     return false;
@@ -263,15 +263,15 @@ public sealed class VolArchive : IDisposable
     /// <remarks>For LZH the compressed bytes sit at the start of the block and reads past the end of the file yield zeros.</remarks>
     public bool Read(VolEntry entry, out byte[] output)
     {
-        output = Array.Empty<byte>();
+        output = [];
         if (mFile == null)
         {
             mError = "archive not open";
             return false;
         }
         var compression = (VolCompression)entry.Compression;
-        if (compression != VolCompression.None && compression != VolCompression.Lzh &&
-            compression != VolCompression.Rle)
+        if (compression is not VolCompression.None and not VolCompression.Lzh and
+            not VolCompression.Rle)
         {
             mError = "unsupported compression type " + entry.Compression;
             return false;
@@ -285,7 +285,7 @@ public sealed class VolArchive : IDisposable
         }
         // The VBLK size is the uncompressed length. For LZH the compressed bytes sit at the
         // start of the block, and reads past the end of the file yield zeros.
-        uint size = ReadU32(header[4..]) & kSizeMask;
+        var size = ReadU32(header[4..]) & kSizeMask;
         if (compression == VolCompression.None)
         {
             output = new byte[size];
@@ -301,11 +301,11 @@ public sealed class VolArchive : IDisposable
             // The input is the memory stream over the block: `size` bytes, the file's end cuts it
             // shorter. Any run expands 2 bytes into at most 127, which bounds the output before it is
             // allocated.
-            long here = mFile.Position;
-            long end = mFile.Length;
-            byte[] packed = new byte[Math.Min((ulong)size, end > here ? (ulong)(end - here) : 0)];
-            int got = ReadFull(mFile, packed);
-            if ((ulong)size > (ulong)got * 64)
+            var here = mFile.Position;
+            var end = mFile.Length;
+            var packed = new byte[Math.Min(size, end > here ? (ulong)(end - here) : 0)];
+            var got = ReadFull(mFile, packed);
+            if (size > (ulong)got * 64)
             {
                 mError = "RLE data too short for " + entry.Name;
                 return false;
@@ -318,8 +318,8 @@ public sealed class VolArchive : IDisposable
             }
             return true;
         }
-        byte[] lzPacked = new byte[size];
-        int lzGot = ReadFull(mFile, lzPacked);
+        var lzPacked = new byte[size];
+        var lzGot = ReadFull(mFile, lzPacked);
         output = new byte[size];
         Lzh.LzhDecode(lzPacked.AsSpan(0, lzGot), output);
         return true;

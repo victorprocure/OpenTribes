@@ -1,11 +1,11 @@
 // Port of tests/test_container.cpp: container placement, database order and scope order
 // (docs/game-stream-ghosts.md 6.2). The C++ main enters the script FPU mode first; every test here starts in it.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
-
-namespace OpenTribes.Tests;
 
 public class ContainerTests
 {
@@ -31,8 +31,8 @@ public class ContainerTests
 
     private static string Labels(List<object?> v)
     {
-        string s = "";
-        foreach (object? o in v)
+        var s = "";
+        foreach (var o in v)
             s += ((Obj)o!).Label;
         return s;
     }
@@ -50,21 +50,21 @@ public class ContainerTests
         c.Add(Entry(high, 20, 20, 40, 22, 22, 60)); // sticks out above the terrain box
         c.Add(Entry(b, 30, 30, 10, 32, 32, 12));
         Assert.True(c.ParentOf(a) == t && c.ParentOf(b) == t);
-        Assert.True(c.ParentOf(high) == null);
-        Assert.True(Labels(c.Contents(null)) == "Th");
-        Assert.True(Labels(c.Contents(t)) == "ab");
+        Assert.Null(c.ParentOf(high));
+        Assert.Equal("Th", Labels(c.Contents(null)));
+        Assert.Equal("ab", Labels(c.Contents(t)));
         // A removed object leaves an empty slot; the next add takes the lowest one.
         c.Remove(a);
         c.Add(Entry(d, 50, 50, 10, 52, 52, 12));
-        Assert.True(Labels(c.Contents(t)) == "db");
+        Assert.Equal("db", Labels(c.Contents(t)));
         // Moving out of the terrain box climbs to container 7 (appended there).
-        float[] up = { 50, 50, 45, 52, 52, 55 };
+        float[] up = [50, 50, 45, 52, 52, 55];
         c.SetBox(d, up);
-        Assert.True(c.ParentOf(d) == null);
-        Assert.True(Labels(c.Contents(null)) == "Thd");
-        Assert.True(Labels(c.Contents(t)) == "b");
+        Assert.Null(c.ParentOf(d));
+        Assert.Equal("Thd", Labels(c.Contents(null)));
+        Assert.Equal("b", Labels(c.Contents(t)));
         // ...and moving back descends into the terrain again.
-        float[] down = { 50, 50, 10, 52, 52, 12 };
+        float[] down = [50, 50, 10, 52, 52, 12];
         c.SetBox(d, down);
         Assert.True(c.ParentOf(d) == t);
         float vis = 0;
@@ -88,8 +88,8 @@ public class ContainerTests
         e.ContainerMask = 0xffffffffu;
         c.Add(e);
         Assert.True(c.ParentOf(box) == t);
-        Assert.True(Labels(c.Contents(box)) == "qp");
-        Assert.True(Labels(c.Contents(t)) == "rB"); // B was appended, then p and q left slots 0, 1
+        Assert.Equal("qp", Labels(c.Contents(box)));
+        Assert.Equal("rB", Labels(c.Contents(t))); // B was appended, then p and q left slots 0, 1
     }
 
     [Fact]
@@ -101,11 +101,11 @@ public class ContainerTests
         c.Add(TerrainEntry(t));
         c.Add(Entry(a, 10, 10, 10, 12, 12, 12));
         c.Add(Entry(high, 10, 10, 45, 12, 12, 60));
-        float[] q = { 0, 0, 0, 100, 100, 100 };
+        float[] q = [0, 0, 0, 100, 100, 100];
         // Container 7 order (terrain removed by the type mask), then the terrain's contents.
-        Assert.True(Labels(c.FindObjects(q, ObjectType.kStaticType, null)) == "ha");
-        Assert.True(Labels(c.FindObjects(q, ObjectType.kStaticType | ObjectType.kTerrainType, null)) == "Tha");
-        Assert.True(Labels(c.FindObjects(q, ObjectType.kStaticType, a)) == "h");
+        Assert.Equal("ha", Labels(c.FindObjects(q, ObjectType.kStaticType, null)));
+        Assert.Equal("Tha", Labels(c.FindObjects(q, ObjectType.kStaticType | ObjectType.kTerrainType, null)));
+        Assert.Equal("h", Labels(c.FindObjects(q, ObjectType.kStaticType, a)));
     }
 
     // SimTerrain database box query (0x004fc3fc, docs/interiors.md 6.2): result order is the order of the x-max ends; an
@@ -122,26 +122,26 @@ public class ContainerTests
         c.Add(Entry(b, 10, 10, 10, 20, 12, 12));
         c.Add(Entry(d, 30, 10, 10, 40, 12, 12));
         c.Add(Entry(e, 35, 10, 10, 40, 12, 12)); // same x-max as d, added later
-        Assert.True(Labels(c.Contents(t)) == "abde"); // slot order is unchanged
-        float[] all = { 1, 1, 1, 99, 99, 49 };
-        Assert.True(Labels(c.FindObjects(all, ObjectType.kStaticType, null)) == "beda");
+        Assert.Equal("abde", Labels(c.Contents(t))); // slot order is unchanged
+        float[] all = [1, 1, 1, 99, 99, 49];
+        Assert.Equal("beda", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
         // x: an object starting exactly at q.max is left out, one ending exactly at q.min is in.
-        float[] qx = { 20, 1, 1, 30, 99, 49 };
-        Assert.True(Labels(c.FindObjects(qx, ObjectType.kStaticType, null)) == "b");
+        float[] qx = [20, 1, 1, 30, 99, 49];
+        Assert.Equal("b", Labels(c.FindObjects(qx, ObjectType.kStaticType, null)));
         // z: q.max equal to the object's min rejects, q.min equal to its max does not.
-        float[] below = { 1, 1, 1, 99, 99, 10 }, above = { 1, 1, 12, 99, 99, 49 };
-        Assert.True(Labels(c.FindObjects(below, ObjectType.kStaticType, null)).Length == 0);
-        Assert.True(Labels(c.FindObjects(above, ObjectType.kStaticType, null)) == "beda");
+        float[] below = [1, 1, 1, 99, 99, 10], above = [1, 1, 12, 99, 99, 49];
+        Assert.Equal(0, Labels(c.FindObjects(below, ObjectType.kStaticType, null)).Length);
+        Assert.Equal("beda", Labels(c.FindObjects(above, ObjectType.kStaticType, null)));
         // b moves past a: its max end now sorts last.
-        float[] moved = { 80, 10, 10, 90, 12, 12 };
+        float[] moved = [80, 10, 10, 90, 12, 12];
         c.SetBox(b, moved);
-        Assert.True(Labels(c.FindObjects(all, ObjectType.kStaticType, null)) == "edab");
+        Assert.Equal("edab", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
         // Moving back down to the x-max of d and e: the end is placed in front of the equal ones.
-        float[] back = { 10, 10, 10, 40, 12, 12 };
+        float[] back = [10, 10, 10, 40, 12, 12];
         c.SetBox(b, back);
-        Assert.True(Labels(c.FindObjects(all, ObjectType.kStaticType, null)) == "beda");
+        Assert.Equal("beda", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
         c.Remove(e);
-        Assert.True(Labels(c.FindObjects(all, ObjectType.kStaticType, null)) == "bda");
+        Assert.Equal("bda", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
     }
 
     // castRay tests the candidates in findObjects order and shortens the segment at every hit (docs/interiors.md 6.3).
@@ -155,7 +155,7 @@ public class ContainerTests
         Obj t = new("T"), a = new("a"), b = new("b");
         c.Add(TerrainEntry(t));
         var seen = new List<string>();
-        Container.CastFn Caster(string label, float at) => (Vec3 s, Vec3 e, ref Vec3 hit, ref Vec3 n) =>
+        Container.CastFn Caster(string label, float at) => (s, e, ref hit, ref n) =>
         {
             seen.Add(label + (e.X == 90 ? ":full" : ":short"));
             hit = new Vec3(at, s.Y, s.Z);
@@ -185,22 +185,24 @@ public class ContainerTests
         c.Add(Entry(high, 10, 10, 45, 12, 12, 60));
         c.Add(Entry(far, 98, 98, 10, 99, 99, 12));
         c.Add(Entry(b, 20, 20, 10, 22, 22, 12));
-        string marked = "";
-        var q = new Container.ScopeQuery();
-        q.Point = new Vec3(11, 11, 20);
-        q.VisibleDistance = 50;
-        q.Markable = o => ((Obj)o!).Label != "T";
-        q.Mark = o => marked += ((Obj)o!).Label;
+        var marked = "";
+        var q = new Container.ScopeQuery
+        {
+            Point = new Vec3(11, 11, 20),
+            VisibleDistance = 50,
+            Markable = o => ((Obj)o!).Label != "T",
+            Mark = o => marked += ((Obj)o!).Label
+        };
         // Camera inside the terrain box: the terrain database first (slot order, distance test drops f), then container 7
         // in vector order (h, no distance test).
         c.Scope(q);
-        Assert.True(marked == "abh");
+        Assert.Equal("abh", marked);
         // Camera above the terrain box: container 7 in order, the terrain at its position.
         marked = "";
         q.Point = new Vec3(11, 11, 70);
         q.VisibleDistance = 1000;
         c.Scope(q);
-        Assert.True(marked == "afbh");
+        Assert.Equal("afbh", marked);
     }
 
     // Minimal ITRGeometry: box +-10, one node on the plane x = 0 with an empty leaf (44) in front and a solid leaf (43)
@@ -211,7 +213,7 @@ public class ContainerTests
         var b = new List<byte>();
         void U32(uint v)
         {
-            for (int i = 0; i < 4; ++i)
+            for (var i = 0; i < 4; ++i)
                 b.Add((byte)(v >> (8 * i)));
         }
         void U16(ushort v)
@@ -220,7 +222,7 @@ public class ContainerTests
             b.Add((byte)(v >> 8));
         }
         void F32(float f) => U32(BitConverter.SingleToUInt32Bits(f));
-        b.AddRange(new byte[] { (byte)'P', (byte)'E', (byte)'R', (byte)'S' });
+        b.AddRange("PERS"u8.ToArray());
         U32(0);
         U16(11);
         b.AddRange("ITRGeometry"u8.ToArray());
@@ -228,38 +230,38 @@ public class ContainerTests
         U32(7);
         U32(1);
         F32(1);
-        foreach (float f in new[] { -10f, -10f, -10f, 10f, 10f, 10f })
+        foreach (var f in new[] { -10f, -10f, -10f, 10f, 10f, 10f })
             F32(f);
         const uint nEmpty = 44; // 0..42 outside, 43 -> leaf 44
         // Five zero bytes, then bit 4 of byte 5: leaf 44. A non-zero first byte replaces the first zero byte.
         var pvs = new List<byte> { 0, 5, 0x08 };
         if (outsideByte != 0)
-            pvs = new List<byte> { outsideByte, 0, 4, 0x08 };
-        uint outsideSize = (uint)pvs.Count;
+            pvs = [outsideByte, 0, 4, 0x08];
+        var outsideSize = (uint)pvs.Count;
         if (insideByte != 0)
             pvs.AddRange(new byte[] { insideByte, 0, 4, 0x08 });
-        foreach (uint n in new uint[] { 0, 1, 1, nEmpty, (uint)pvs.Count, 0, 0, 0, 1 })
+        foreach (var n in new uint[] { 0, 1, 1, nEmpty, (uint)pvs.Count, 0, 0, 0, 1 })
             U32(n);
         U16(0);                      // node: plane 0
         U16(unchecked((ushort)(short)-45)); // front: leaf 44
         U16(unchecked((ushort)(short)-44)); // back: leaf 43 (solid)
         U16(0);
-        for (int i = 0; i < 12; ++i)
+        for (var i = 0; i < 12; ++i)
             b.Add(0); // solid leaf
         for (uint i = 0; i < nEmpty; ++i)
         {
             U16(i < 43 ? (ushort)(outsideSize << 1) : insideByte != 0 ? (ushort)(4 << 1) : (ushort)0);
             U16(0);
             U32(i < 43 ? 0 : outsideSize);
-            for (int k = 0; k < 36; ++k)
+            for (var k = 0; k < 36; ++k)
                 b.Add(0);
         }
         b.AddRange(pvs);
-        foreach (float f in new[] { 1f, 0f, 0f, 0f })
+        foreach (var f in new[] { 1f, 0f, 0f, 0f })
             F32(f);
         U32(0);
         U32(0);
-        return InteriorGeometry.Parse(b.ToArray());
+        return InteriorGeometry.Parse([.. b]);
     }
 
     [Fact]
@@ -267,10 +269,10 @@ public class ContainerTests
     {
         Start();
         InteriorGeometry? geo = TestGeometry();
-        Assert.True(geo != null);
+        Assert.NotNull(geo);
         Assert.True(geo!.LeafAt(new Vec3(5, 0, 0)) == 44 && geo.LeafAt(new Vec3(-5, 0, 0)) == 43 && geo.LeafAt(new Vec3(20, 20, 0)) == 10);
         Assert.True(geo.VisibleLeaves(10).SequenceEqual(new[] { 44 }));
-        Assert.True(!geo.SeesOutside(10));
+        Assert.False(geo.SeesOutside(10));
         var c = new Container();
         Obj t = new("T"), box = new("B"), front = new("f"), behind = new("b"), s = new("s");
         c.Add(TerrainEntry(t));
@@ -284,43 +286,45 @@ public class ContainerTests
         c.Add(Entry(behind, 12, 20, 10, 14, 22, 12)); // local x -7: solid leaf, list 0
         c.Add(Entry(s, 60, 60, 10, 62, 62, 12));
         Assert.True(c.ParentOf(front) == box && c.ParentOf(behind) == box);
-        string marked = "";
-        var q = new Container.ScopeQuery();
-        q.Point = new Vec3(80, 80, 20); // outside leaf 10 (x and y above the box)
-        q.VisibleDistance = 1000;
-        // Rule M: the terrain and the interior are scope-always (0x40), never marked here.
-        q.Markable = o =>
+        var marked = "";
+        var q = new Container.ScopeQuery
         {
-            string l = ((Obj)o!).Label;
-            return l != "T" && l != "B";
+            Point = new Vec3(80, 80, 20), // outside leaf 10 (x and y above the box)
+            VisibleDistance = 1000,
+            // Rule M: the terrain and the interior are scope-always (0x40), never marked here.
+            Markable = o =>
+                {
+                    var l = ((Obj)o!).Label;
+                    return l is not "T" and not "B";
+                },
+            Mark = o => marked += ((Obj)o!).Label
         };
-        q.Mark = o => marked += ((Obj)o!).Label;
         // InteriorShape +0x420 starts at 0: the first query (tag 0) skips every interior.
         c.Scope(q);
-        Assert.True(marked == "s");
+        Assert.Equal("s", marked);
         // Then the visible leaf's list, then list 0 (solid leaves).
         marked = "";
         c.Scope(q);
-        Assert.True(marked == "fbs");
+        Assert.Equal("fbs", marked);
         // 00483b74: a list runs newest first, and an update re-files an entry only when its leaf changed.
         var g = new Obj("g");
         c.Add(Entry(g, 25, 20, 10, 27, 22, 12));
-        float[] movedSameLeaf = { 25, 21, 10, 27, 23, 12 };
+        float[] movedSameLeaf = [25, 21, 10, 27, 23, 12];
         c.SetBox(front, movedSameLeaf);
         marked = "";
         c.Scope(q);
-        Assert.True(marked == "gfbs");
-        float[] movedLeaf = { 12, 20, 10, 14, 22, 12 }; // solid leaf: list 0
+        Assert.Equal("gfbs", marked);
+        float[] movedLeaf = [12, 20, 10, 14, 22, 12]; // solid leaf: list 0
         c.SetBox(g, movedLeaf);
         marked = "";
         c.Scope(q);
-        Assert.True(marked == "fgbs");
+        Assert.Equal("fgbs", marked);
         // A solid-leaf entry stores leaf -1 (004837fc), so every update re-files it at the head of list 0.
-        float[] stillSolid = { 12, 20, 10, 14, 22, 12 };
+        float[] stillSolid = [12, 20, 10, 14, 22, 12];
         c.SetBox(behind, stillSolid);
         marked = "";
         c.Scope(q);
-        Assert.True(marked == "fbgs");
+        Assert.Equal("fbgs", marked);
     }
 
     // The render walk (004fa9c8 -> 004804bc) reaches the terrain only when the container interior holding the camera point accepts
@@ -330,10 +334,10 @@ public class ContainerTests
     public void RenderReaches()
     {
         Start();
-        foreach ((byte insideByte, bool reaches) in new[] { ((byte)0, false), ((byte)0x80, true) })
+        foreach ((var insideByte, var reaches) in new[] { ((byte)0, false), ((byte)0x80, true) })
         {
             InteriorGeometry? geo = TestGeometry(0, insideByte);
-            Assert.True(geo != null);
+            Assert.NotNull(geo);
             var c = new Container();
             c.Add(TerrainEntry(new Obj("T")));
             Container.Entry e = Entry(new Obj("B"), 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
@@ -354,7 +358,7 @@ public class ContainerTests
     public void PaddedInteriorBox()
     {
         Start();
-        float[] box = { 20, 20, 20, 30, 30, 30 };
+        float[] box = [20, 20, 20, 30, 30, 30];
         Container.PadInteriorBox(box);
         Assert.True(box[0] == 17 && box[2] == 17 && box[3] == 33 && box[5] == 33);
         var c = new Container();
@@ -373,35 +377,35 @@ public class ContainerTests
     public void LinkFace()
     {
         Start();
-        float[] a = { 0, 0, 0, 10, 10, 10 };
+        float[] a = [0, 0, 0, 10, 10, 10];
         uint Face(float x0, float y0, float z0, float x1, float y1, float z1)
         {
-            float[] b = { x0, y0, z0, x1, y1, z1 };
+            float[] b = [x0, y0, z0, x1, y1, z1];
             return Container.InteriorLinkFace(a, b);
         }
         // Each face of a and its bit: x min 0x80, x max 0x10, y min 0x40, y max 0x08, z min 0x20, z max 0x04.
-        Assert.True(Face(-10, 0, 0, 0, 10, 10) == 0x80);
-        Assert.True(Face(10, 0, 0, 20, 10, 10) == 0x10);
-        Assert.True(Face(0, -10, 0, 10, 0, 10) == 0x40);
-        Assert.True(Face(0, 10, 0, 10, 20, 10) == 0x08);
-        Assert.True(Face(0, 0, -10, 10, 10, 0) == 0x20);
-        Assert.True(Face(0, 0, 10, 10, 10, 20) == 0x04);
+        Assert.Equal(0x80u, Face(-10, 0, 0, 0, 10, 10));
+        Assert.Equal(0x10u, Face(10, 0, 0, 20, 10, 10));
+        Assert.Equal(0x40u, Face(0, -10, 0, 10, 0, 10));
+        Assert.Equal(0x08u, Face(0, 10, 0, 10, 20, 10));
+        Assert.Equal(0x20u, Face(0, 0, -10, 10, 10, 0));
+        Assert.Equal(0x04u, Face(0, 0, 10, 10, 10, 20));
         // The faces must lie within 0.001.
-        Assert.True(Face(10.0005f, 0, 0, 20, 10, 10) == 0x10);
-        Assert.True(Face(10.01f, 0, 0, 20, 10, 10) == 0);
+        Assert.Equal(0x10u, Face(10.0005f, 0, 0, 20, 10, 10));
+        Assert.Equal(0u, Face(10.01f, 0, 0, 20, 10, 10));
         // Overlap on the other axes: equal ends within 0.001, more than 1.0 from one side, or strictly inside.
-        Assert.True(Face(10, 0.0005f, 0, 20, 9.9995f, 10) == 0x10);
-        Assert.True(Face(10, 8.9f, 0, 20, 20, 10) == 0x10); // reaches 1.1 into a from above
-        Assert.True(Face(10, 9, 0, 20, 20, 10) == 0);       // exactly 1.0 is not enough
-        Assert.True(Face(10, -20, 0, 20, 1.1f, 10) == 0x10); // 1.1 from below
-        Assert.True(Face(10, -20, 0, 20, 1, 10) == 0);
-        Assert.True(Face(10, 2, 2, 20, 8, 8) == 0x10);      // strictly inside a
-        Assert.True(Face(10, -5, -5, 20, 15, 15) == 0x10);  // a strictly inside b
-        Assert.True(Face(10, 20, 0, 30, 30, 10) == 0);      // apart in y
+        Assert.Equal(0x10u, Face(10, 0.0005f, 0, 20, 9.9995f, 10));
+        Assert.Equal(0x10u, Face(10, 8.9f, 0, 20, 20, 10)); // reaches 1.1 into a from above
+        Assert.Equal(0u, Face(10, 9, 0, 20, 20, 10));       // exactly 1.0 is not enough
+        Assert.Equal(0x10u, Face(10, -20, 0, 20, 1.1f, 10)); // 1.1 from below
+        Assert.Equal(0u, Face(10, -20, 0, 20, 1, 10));
+        Assert.Equal(0x10u, Face(10, 2, 2, 20, 8, 8));      // strictly inside a
+        Assert.Equal(0x10u, Face(10, -5, -5, 20, 15, 15));  // a strictly inside b
+        Assert.Equal(0u, Face(10, 20, 0, 30, 30, 10));      // apart in y
         // The first face in test order wins: x min before x max for a degenerate box.
-        float[] flat = { 0, 0, 0, 0, 10, 10 };
-        float[] bb = { 0, 0, 0, 0, 10, 10 };
-        Assert.True(Container.InteriorLinkFace(flat, bb) == 0x80);
+        float[] flat = [0, 0, 0, 0, 10, 10];
+        float[] bb = [0, 0, 0, 0, 10, 10];
+        Assert.Equal(0x80u, Container.InteriorLinkFace(flat, bb));
     }
 
     // Faces near a camera point outside the instance box (004807d8): within 3.0 on the outer side.
@@ -409,13 +413,13 @@ public class ContainerTests
     public void NearFaces()
     {
         Start();
-        float[] box = { -10, -10, -10, 10, 10, 10 };
-        Assert.True(Container.InteriorNearFaces(new Vec3(-12, 0, 0), box) == 0x80);
-        Assert.True(Container.InteriorNearFaces(new Vec3(-13, 0, 0), box) == 0);
+        float[] box = [-10, -10, -10, 10, 10, 10];
+        Assert.Equal(0x80u, Container.InteriorNearFaces(new Vec3(-12, 0, 0), box));
+        Assert.Equal(0u, Container.InteriorNearFaces(new Vec3(-13, 0, 0), box));
         Assert.True(Container.InteriorNearFaces(new Vec3(11, 12.5f, 0), box) == (0x10 | 0x08));
         Assert.True(Container.InteriorNearFaces(new Vec3(0, -11, 10.5f), box) == (0x40 | 0x04));
-        Assert.True(Container.InteriorNearFaces(new Vec3(0, 0, -12.9f), box) == 0x20);
-        Assert.True(Container.InteriorNearFaces(new Vec3(0, 0, 0), box) == 0);
+        Assert.Equal(0x20u, Container.InteriorNearFaces(new Vec3(0, 0, -12.9f), box));
+        Assert.Equal(0u, Container.InteriorNearFaces(new Vec3(0, 0, 0), box));
     }
 
     // Scope through link records (00480648, 004807d8; docs/game-stream-ghosts.md 6.2): interiors A at x 20..40 and B at
@@ -433,7 +437,7 @@ public class ContainerTests
             C.Add(TerrainEntry(T));
             void Interior(Obj obj, InteriorGeometry g, float cx, bool turn)
             {
-                float[] box = { Fpu.SubF(cx, 10), 40, 15, Fpu.AddF(cx, 10), 60, 35 };
+                float[] box = [Fpu.SubF(cx, 10), 40, 15, Fpu.AddF(cx, 10), 60, 35];
                 Container.PadInteriorBox(box);
                 Container.Entry e = Entry(obj, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.kInteriorType);
                 e.DatabaseKind = Container.Database.Interior;
@@ -456,8 +460,8 @@ public class ContainerTests
             Q.VisibleDistance = 1000;
             Q.Markable = x =>
             {
-                string l = ((Obj)x!).Label;
-                return l == "a" || l == "b" || l == "o";
+                var l = ((Obj)x!).Label;
+                return l is "a" or "b" or "o";
             };
             Q.Mark = x => Marked += ((Obj)x!).Label;
             C.Scope(Q); // tag 0 skips every interior
@@ -482,7 +486,7 @@ public class ContainerTests
         g.LinkedInterior = true;
         var f = new LinkFixture(g, g);
         var via = new List<object>();
-        f.Q.OnViaLink = o => via.Add(o);
+        f.Q.OnViaLink = via.Add;
         f.Scope(new Vec3(35, 50, 25));
         Assert.Equal(new object[] { f.Ib }, via);
         via.Clear();
@@ -501,21 +505,21 @@ public class ContainerTests
             InteriorGeometry g = TestGeometry(0, 0x10)!;
             g.LinkedInterior = true;
             var f = new LinkFixture(g, g);
-            Assert.True(f.Scope(new Vec3(35, 50, 25)) == "ab");
+            Assert.Equal("ab", f.Scope(new Vec3(35, 50, 25)));
             // Camera outside both: a linked interior off the start path and not reached through a link is skipped.
-            Assert.True(f.Scope(new Vec3(80, 80, 20)) == "o");
+            Assert.Equal("o", f.Scope(new Vec3(80, 80, 20)));
             // Camera in leaf 44 of B: its face bit 0x10 matches no record of B (its link is 0x80), A is not scoped.
-            Assert.True(f.Scope(new Vec3(55, 50, 25)) == "b");
+            Assert.Equal("b", f.Scope(new Vec3(55, 50, 25)));
             // A link is removed with its interior.
             f.C.Remove(f.Ib);
-            Assert.True(f.Scope(new Vec3(35, 50, 25)) == "a");
+            Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
         }
         // Leaf 44 without face bits: no link is walked.
         {
             InteriorGeometry g = TestGeometry(0, 0x08)!;
             g.LinkedInterior = true;
             var f = new LinkFixture(g, g);
-            Assert.True(f.Scope(new Vec3(35, 50, 25)) == "a");
+            Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
         }
         // Camera in A's padded box but outside its instance box (local x 10.5, outside leaf 2 with face bit 0x40): the
         // near face 0x10 selects the link. B is turned so that the camera is in its leaf 44.
@@ -523,20 +527,20 @@ public class ContainerTests
             InteriorGeometry g = TestGeometry(0x40, 0x08)!;
             g.LinkedInterior = true;
             var f = new LinkFixture(g, g, true);
-            Assert.True(f.Scope(new Vec3(40.5f, 50, 25)) == "ab");
+            Assert.Equal("ab", f.Scope(new Vec3(40.5f, 50, 25)));
             // From inside A's instance box the near faces do not apply, and leaf 44's 0x08 matches no record.
-            Assert.True(f.Scope(new Vec3(35, 50, 25)) == "a");
+            Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
         }
         // Not linked: the walk runs too, the result is "camera leaf sees outside" or-ed with the links inside the box, so
         // the query goes on to o; B was visited through the link and is not scoped again.
         {
             InteriorGeometry g = TestGeometry(0, 0x10)!;
             var f = new LinkFixture(g, g);
-            Assert.True(f.Scope(new Vec3(35, 50, 25)) == "abo");
-            Assert.True(f.Scope(new Vec3(80, 80, 20)) == "abo");
+            Assert.Equal("abo", f.Scope(new Vec3(35, 50, 25)));
+            Assert.Equal("abo", f.Scope(new Vec3(80, 80, 20)));
         }
         // The .dis link mask of either side can refuse the link (A 0x10 or B 0x80 removed).
-        foreach (uint maskA in new uint[] { 0xec, 0xfc })
+        foreach (var maskA in new uint[] { 0xec, 0xfc })
         {
             InteriorGeometry ga = TestGeometry(0, 0x10)!;
             InteriorGeometry gb = TestGeometry(0, 0x10)!;
@@ -544,7 +548,7 @@ public class ContainerTests
             ga.LinkableFaces = maskA;
             gb.LinkableFaces = maskA == 0xfc ? 0x7cu : 0xfcu;
             var f = new LinkFixture(ga, gb);
-            Assert.True(f.Scope(new Vec3(35, 50, 25)) == "a");
+            Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
         }
     }
 
@@ -559,30 +563,32 @@ public class ContainerTests
         var f = new LinkFixture(g, g);
         void MoveB(float cx, float cy)
         {
-            float[] box = { Fpu.SubF(cx, 10), Fpu.SubF(cy, 10), 15, Fpu.AddF(cx, 10), Fpu.AddF(cy, 10), 35 };
+            float[] box = [Fpu.SubF(cx, 10), Fpu.SubF(cy, 10), 15, Fpu.AddF(cx, 10), Fpu.AddF(cy, 10), 35];
             Container.PadInteriorBox(box);
-            var m = new Mat();
-            m.P = new Vec3(cx, cy, 25);
+            var m = new Mat
+            {
+                P = new Vec3(cx, cy, 25)
+            };
             f.C.SetTransform(f.Ib, m, box);
         }
-        Assert.True(f.Scope(new Vec3(35, 50, 25)) == "ab");
+        Assert.Equal("ab", f.Scope(new Vec3(35, 50, 25)));
         // Still inside the terrain box: updated in place, B keeps its container and its contents.
         MoveB(52, 50);
         Assert.True(f.C.ParentOf(f.Ib) == f.T && f.C.ParentOf(f.B) == f.Ib);
-        Assert.True(f.C.Contents(f.Ib).Count == 1);
+        Assert.Equal(1, f.C.Contents(f.Ib).Count);
         // Links are rebuilt: the gap of 2 unlinks the pair, touching again relinks it.
-        Assert.True(f.Scope(new Vec3(35, 50, 25)) == "a");
+        Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
         MoveB(50, 50);
-        Assert.True(f.Scope(new Vec3(35, 50, 25)) == "ab");
+        Assert.Equal("ab", f.Scope(new Vec3(35, 50, 25)));
         // Leaving the terrain box re-adds it at container 7 (004f9c04): its contents stay in it, the links go, and an
         // object of container 7 inside the new box is pulled into it.
         var far = new Obj("f");
         f.C.Add(Entry(far, 105, 49, 24, 107, 51, 26));
-        Assert.True(f.C.ParentOf(far) == null);
+        Assert.Null(f.C.ParentOf(far));
         MoveB(95, 50);
         Assert.True(f.C.ParentOf(f.Ib) == null && f.C.ParentOf(f.B) == f.Ib);
         Assert.True(f.C.ParentOf(far) == f.Ib);
-        Assert.True(f.Scope(new Vec3(35, 50, 25)) == "a");
+        Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
         Assert.True(f.C.ParentOf(f.B) == f.Ib);
     }
 
@@ -599,31 +605,31 @@ public class ContainerTests
         c.Add(Entry(a, 30, 10, 10, 40, 12, 12));
         c.Add(Entry(b, 10, 10, 10, 20, 12, 12));
         c.Add(Entry(d, 25, 10, 10, 30, 12, 12));
-        float[] all = { 0, 0, 0, 100, 100, 50 };
-        Assert.True(Labels(c.Contents(t)) == "abd");
-        Assert.True(Labels(c.FindObjects(all, 0xffffffffu, t)) == "bda");
+        float[] all = [0, 0, 0, 100, 100, 50];
+        Assert.Equal("abd", Labels(c.Contents(t)));
+        Assert.Equal("bda", Labels(c.FindObjects(all, 0xffffffffu, t)));
         // The tests are half open: min < query max and max >= query min.
-        float[] q1 = { 20, 0, 0, 30, 100, 50 }; // b ends at 20 (in), d inside, a starts at 30 (out)
-        Assert.True(Labels(c.FindObjects(q1, 0xffffffffu, t)) == "bd");
-        float[] q2 = { 0, 12, 0, 100, 20, 50 }; // y max of every box equals the query min: in
-        Assert.True(Labels(c.FindObjects(q2, 0xffffffffu, t)) == "bda");
-        float[] q3 = { 0, 0, 12.5f, 100, 100, 50 }; // above every box
-        Assert.True(c.FindObjects(q3, 0xffffffffu, t).Count == 0);
+        float[] q1 = [20, 0, 0, 30, 100, 50]; // b ends at 20 (in), d inside, a starts at 30 (out)
+        Assert.Equal("bd", Labels(c.FindObjects(q1, 0xffffffffu, t)));
+        float[] q2 = [0, 12, 0, 100, 20, 50]; // y max of every box equals the query min: in
+        Assert.Equal("bda", Labels(c.FindObjects(q2, 0xffffffffu, t)));
+        float[] q3 = [0, 0, 12.5f, 100, 100, 50]; // above every box
+        Assert.Equal(0, c.FindObjects(q3, 0xffffffffu, t).Count);
         // Equal max ends: the later add goes in front, then every update moves its object to the front.
         c.Add(Entry(e, 35, 10, 10, 40, 12, 12));
-        Assert.True(Labels(c.FindObjects(all, 0xffffffffu, t)) == "bdea");
-        float[] same = { 30, 10, 10, 40, 12, 12 };
+        Assert.Equal("bdea", Labels(c.FindObjects(all, 0xffffffffu, t)));
+        float[] same = [30, 10, 10, 40, 12, 12];
         c.SetBox(a, same);
-        Assert.True(Labels(c.FindObjects(all, 0xffffffffu, t)) == "bdae");
-        float[] lower = { 35, 10, 9.5f, 40, 12, 12 }; // z only
+        Assert.Equal("bdae", Labels(c.FindObjects(all, 0xffffffffu, t)));
+        float[] lower = [35, 10, 9.5f, 40, 12, 12]; // z only
         c.SetBox(e, lower);
-        Assert.True(Labels(c.FindObjects(all, 0xffffffffu, t)) == "bdea");
+        Assert.Equal("bdea", Labels(c.FindObjects(all, 0xffffffffu, t)));
         // A moved box takes its new place; a removed object leaves the list.
-        float[] far = { 1, 10, 10, 5, 12, 12 };
+        float[] far = [1, 10, 10, 5, 12, 12];
         c.SetBox(a, far);
-        Assert.True(Labels(c.FindObjects(all, 0xffffffffu, t)) == "abde");
+        Assert.Equal("abde", Labels(c.FindObjects(all, 0xffffffffu, t)));
         c.Remove(d);
-        Assert.True(Labels(c.FindObjects(all, 0xffffffffu, t)) == "abe");
+        Assert.Equal("abe", Labels(c.FindObjects(all, 0xffffffffu, t)));
     }
 
     // Ray order inside an InteriorShape database: the entries are tested in add order, as for a box query
@@ -643,12 +649,12 @@ public class ContainerTests
         e.Geometry = geo;
         e.Transform.P = new Vec3(20, 20, 15);
         c.Add(e);
-        string seen = "";
+        var seen = "";
         void AddCast(Obj o, float x0, float x1)
         {
             Container.Entry en = Entry(o, x0, 20, 10, x1, 22, 12);
-            string label = o.Label;
-            en.Cast = (Vec3 s, Vec3 _, ref Vec3 hit, ref Vec3 n) =>
+            var label = o.Label;
+            en.Cast = (s, _, ref hit, ref n) =>
             {
                 seen += label;
                 hit = new Vec3(28.9f, s.Y, s.Z);

@@ -1,7 +1,6 @@
-using System.Globalization;
-using System.Linq;
-
 namespace OpenTribes.Client.App;
+
+using System.Globalization;
 
 /// <summary>The command line of the <c>tribes</c> client process.</summary>
 /// <remarks>docs/client-app.md 1.2. Own options start with <c>--</c> and are removed before <c>$cargv</c> is built (D46). Every other token (-mod, +connect, +exec, -host, ...) goes to console.cs unchanged.</remarks>
@@ -16,7 +15,7 @@ public sealed class ClientOptions
     /// <summary>A timed script that drives the session (<c>--input FILE</c>, see <see cref="ClientScript"/>).</summary>
     public string? InputScript;
     /// <summary>The seconds of app time at which to write a screenshot (<c>--screenshot-at T,T,...</c>). The PNGs go to <see cref="ShotDir"/>.</summary>
-    public List<double> ScreenshotAt = new();
+    public List<double> ScreenshotAt = [];
     /// <summary>The directory of the screenshots (<c>--shots DIR</c>).</summary>
     public string ShotDir = ".";
     /// <summary>The window width (<c>--size WxH</c>).</summary>
@@ -50,17 +49,17 @@ public sealed class ClientOptions
     /// <summary>True to print the unknown commands at exit, for tests (<c>--list-unknown</c>).</summary>
     public bool ReportUnknown;
     /// <summary>The tokens for <c>$cargv1</c> and up.</summary>
-    public readonly List<string> GameArgs = new();
+    public readonly List<string> GameArgs = [];
 
     private static readonly string[] ValueOptions =
-        { "--root", "--log", "--input", "--screenshot-at", "--shots", "--size", "--video-driver", "--seconds", "--camera" };
+        ["--root", "--log", "--input", "--screenshot-at", "--shots", "--size", "--video-driver", "--seconds", "--camera"];
 
     // The options that select one of the single purpose tools instead of the client.
     private static readonly string[] ToolOptions =
-    {
+    [
         "--show", "--gui", "--gui-census", "--gui-list", "--gui-tree", "--shape", "--shape-census", "--shape-info", "--mission",
         "--demo", "--sound-census", "--audio-live", "--audio-out", "--cat",
-    };
+    ];
 
     /// <summary>Tells whether the arguments select one of the single purpose tools instead of the client.</summary>
     /// <param name="args">The command line arguments.</param>
@@ -75,17 +74,17 @@ public sealed class ClientOptions
     {
         error = "";
         var o = new ClientOptions();
-        for (int i = 0; i < args.Length; ++i)
+        for (var i = 0; i < args.Length; ++i)
         {
-            string a = args[i];
+            var a = args[i];
             if (!a.StartsWith("--", StringComparison.Ordinal))
             {
                 o.GameArgs.Add(a);
                 continue;
             }
-            string name = a;
+            var name = a;
             string? inline = null;
-            int eq = a.IndexOf('=');
+            var eq = a.IndexOf('=');
             if (eq > 0)
             {
                 name = a[..eq];
@@ -101,7 +100,7 @@ public sealed class ClientOptions
             }
             if (ValueOptions.Contains(name))
             {
-                string? v = Value();
+                var v = Value();
                 if (v == null)
                 {
                     error = name + " needs a value";
@@ -109,12 +108,20 @@ public sealed class ClientOptions
                 }
                 switch (name)
                 {
-                    case "--root": o.Root = v; break;
-                    case "--log": o.LogFile = v; break;
-                    case "--input": o.InputScript = v; break;
-                    case "--shots": o.ShotDir = v; break;
+                    case "--root":
+                        o.Root = v;
+                        break;
+                    case "--log":
+                        o.LogFile = v;
+                        break;
+                    case "--input":
+                        o.InputScript = v;
+                        break;
+                    case "--shots":
+                        o.ShotDir = v;
+                        break;
                     case "--camera":
-                        double[] cam = v.Split(',').Select(t => double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double d) ? d : double.NaN).ToArray();
+                        var cam = v.Split(',').Select(t => double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : double.NaN).ToArray();
                         if (cam.Length != 5 || cam.Any(double.IsNaN))
                         {
                             error = "--camera expects X,Y,Z,YAW,PITCH";
@@ -122,11 +129,13 @@ public sealed class ClientOptions
                         }
                         o.FixedCamera = cam;
                         break;
-                    case "--video-driver": o.VideoDriver = v; break;
+                    case "--video-driver":
+                        o.VideoDriver = v;
+                        break;
                     case "--screenshot-at":
-                        foreach (string part in v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        foreach (var part in v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                         {
-                            if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out double t) || t < 0)
+                            if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out var t) || t < 0)
                             {
                                 error = "--screenshot-at expects seconds, comma separated";
                                 return null;
@@ -143,7 +152,7 @@ public sealed class ClientOptions
                         }
                         break;
                     case "--size":
-                        string[] wh = v.Split('x');
+                        var wh = v.Split('x');
                         if (wh.Length != 2 || !int.TryParse(wh[0], out o.Width) || !int.TryParse(wh[1], out o.Height) || o.Width < 1 || o.Height < 1)
                         {
                             error = "--size expects WxH";
@@ -155,18 +164,41 @@ public sealed class ClientOptions
             }
             switch (name)
             {
-                case "--echo": o.Echo = true; break;
-                case "--no-audio": o.NoAudio = true; break;
-                case "--no-vsync": o.NoVsync = true; break;
-                case "--windowed": o.Windowed = true; break;
-                case "--fullscreen-windowed": o.FullscreenWindowed = true; break;
-                case "--headless": o.Headless = true; if (o.VirtualStep == 0) o.VirtualStep = 16; o.NoAudio = true; break;
-                case "--allow-remote": o.AllowRemote = true; break;
-                case "--allow-browser": o.AllowBrowser = true; break;
-                case "--no-predict": o.NoPredict = true; break;
-                case "--list-unknown": o.ReportUnknown = true; break;
+                case "--echo":
+                    o.Echo = true;
+                    break;
+                case "--no-audio":
+                    o.NoAudio = true;
+                    break;
+                case "--no-vsync":
+                    o.NoVsync = true;
+                    break;
+                case "--windowed":
+                    o.Windowed = true;
+                    break;
+                case "--fullscreen-windowed":
+                    o.FullscreenWindowed = true;
+                    break;
+                case "--headless":
+                    o.Headless = true;
+                    if (o.VirtualStep == 0)
+                        o.VirtualStep = 16;
+                    o.NoAudio = true;
+                    break;
+                case "--allow-remote":
+                    o.AllowRemote = true;
+                    break;
+                case "--allow-browser":
+                    o.AllowBrowser = true;
+                    break;
+                case "--no-predict":
+                    o.NoPredict = true;
+                    break;
+                case "--list-unknown":
+                    o.ReportUnknown = true;
+                    break;
                 case "--virtual-time":
-                    o.VirtualStep = inline != null && uint.TryParse(inline, out uint step) && step > 0 ? step : 16;
+                    o.VirtualStep = inline != null && uint.TryParse(inline, out var step) && step > 0 ? step : 16;
                     break;
                 default:
                     error = "unknown option " + name;

@@ -31,7 +31,7 @@ public sealed class ImageVoiceSlots
     {
         if (slot is < 0 or >= Count || !mLoops[slot])
             return 0;
-        int h = mHandle[slot];
+        var h = mHandle[slot];
         mHandle[slot] = 0;
         mLoops[slot] = false;
         return h;
@@ -45,7 +45,7 @@ public sealed class ImageVoiceSlots
     {
         if (slot is < 0 or >= Count)
             return 0;
-        int h = mHandle[slot];
+        var h = mHandle[slot];
         mHandle[slot] = 0;
         mLoops[slot] = false;
         return h;

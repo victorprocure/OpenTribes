@@ -1,7 +1,7 @@
+namespace OpenTribes.Client.App;
+
 using OpenTribes.Gui;
 using OpenTribes.Script;
-
-namespace OpenTribes.Client.App;
 
 /// <summary>The play delegate: it owns <c>actionMap.sae</c>, <c>playMap.sae</c> and <c>pdaMap.sae</c>, pushes and pops them when the canvas content control changes (PlayDelegate_setContentControl 004dcc4c), receives their actions and handles the ones that are not move input (chat, score page, escape), and switches the GUI with the PSC GUI mode (PlayDelegate_setGuiMode 004dc84c).</summary>
 /// <remarks>docs/client-scripts.md 3.8 and 3.10.</remarks>
@@ -51,7 +51,6 @@ public sealed class PlayDelegate : IActionConsumer
     public readonly MoveBuilder Moves = new();
     private ActionMap? mAction, mPlay, mPda;
     private uint mLastContentId;
-    private bool mPlayActive;
     private bool mScoresOn;
     private readonly ChatSizeMemory mChatSizes = new();
     /// <inheritdoc/>
@@ -74,7 +73,7 @@ public sealed class PlayDelegate : IActionConsumer
     {
         if (id == mLastContentId)
             return;
-        uint old = mLastContentId;
+        var old = mLastContentId;
         mLastContentId = id;
         if (mApp.GuiRt.FindControl(ChatDisplayId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiChatDisplay kept)
             mChatSizes.Apply(id, kept);
@@ -86,14 +85,14 @@ public sealed class PlayDelegate : IActionConsumer
         {
             Push("playMap.sae");
             Push("actionMap.sae");
-            mPlayActive = true;
+            MapsActive = true;
         }
         else if (!newPc && oldPc)
         {
             Pop("pdaMap.sae");
             Pop("playMap.sae");
             Pop("actionMap.sae");
-            mPlayActive = false;
+            MapsActive = false;
         }
         // The mouse belongs to the game while the play view is up (client-app.md 3.8: play is `cursorOff`) and to the GUI
         // on every other screen; the command map shows the cursor.
@@ -136,7 +135,7 @@ public sealed class PlayDelegate : IActionConsumer
     }
 
     /// <summary>True while the maps are pushed.</summary>
-    public bool MapsActive => mPlayActive;
+    public bool MapsActive { get; private set; }
 
     /// <inheritdoc/>
     /// <remarks>It handles the actions that are not move input (3.10).</remarks>
@@ -165,12 +164,12 @@ public sealed class PlayDelegate : IActionConsumer
         switch (action)
         {
             case Chat:
-                {
-                    mApp.Interp.SetVariable("$pref::msgChannel", ((int)value).ToString(System.Globalization.CultureInfo.InvariantCulture));
-                    if (mApp.GuiRt.FindControl(ChatEntryId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiChat chat)
-                        chat.Open();
-                    return true;
-                }
+            {
+                mApp.Interp.SetVariable("$pref::msgChannel", ((int)value).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                if (mApp.GuiRt.FindControl(ChatEntryId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiChat chat)
+                    chat.Open();
+                return true;
+            }
             case ChatDispSize:
                 // 0040cf74 case 0x35c29: the chat display (140113) cycles 3, 5 and 20 lines [code 004a7030].
                 if (mApp.GuiRt.FindControl(ChatDisplayId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiChatDisplay disp)
@@ -185,7 +184,7 @@ public sealed class PlayDelegate : IActionConsumer
                 if ((int)value == 1)
                 {
                     mScoresOn = !mScoresOn;
-                    mApp.Game?.PostRemoteEval(new[] { mScoresOn ? "scoresOn" : "scoresOff" });
+                    mApp.Game?.PostRemoteEval([mScoresOn ? "scoresOn" : "scoresOff"]);
                 }
                 else if ((int)value == 2 && mApp.GuiRt.FindControl(HudListId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiControl list)
                 {
@@ -196,39 +195,39 @@ public sealed class PlayDelegate : IActionConsumer
             // The commander map (docs/gui.md 3.3 "The command map") [code 004dd280 cases 0x35c2f .. 0x35c3c]: the zoom steps, and the zoom and centre modes
             // with the lit state (+0x275) of their buttons.
             case ZoomIn or ZoomOut or ZoomModeOn or ZoomModeOff or CenterModeOn or CenterModeOff:
+            {
+                if (mApp.GuiRt.FindControl(CommanderMapId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is not GuiCommandMap map)
+                    return false;
+                switch (action)
                 {
-                    if (mApp.GuiRt.FindControl(CommanderMapId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is not GuiCommandMap map)
-                        return false;
-                    switch (action)
-                    {
-                        case ZoomIn:
-                            map.ZoomInAtCursor();
-                            break;
-                        case ZoomOut:
-                            map.ZoomOutAtCursor();
-                            break;
-                        case ZoomModeOn or ZoomModeOff:
-                            map.ZoomMode = action == ZoomModeOn;
-                            LightButton(ZoomButtonId, map.ZoomMode);
-                            break;
-                        default:
-                            map.CenterMode = action == CenterModeOn;
-                            LightButton(CenterButtonId, map.CenterMode);
-                            break;
-                    }
+                    case ZoomIn:
+                        map.ZoomInAtCursor();
+                        break;
+                    case ZoomOut:
+                        map.ZoomOutAtCursor();
+                        break;
+                    case ZoomModeOn or ZoomModeOff:
+                        map.ZoomMode = action == ZoomModeOn;
+                        LightButton(ZoomButtonId, map.ZoomMode);
+                        break;
+                    default:
+                        map.CenterMode = action == CenterModeOn;
+                        LightButton(CenterButtonId, map.CenterMode);
+                        break;
+                }
+                return true;
+            }
+            case EscapePressed:
+            {
+                if (mApp.GuiRt.FindControl(HudListId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiControl { Visible: true } hl)
+                {
+                    hl.SetVisible(false);
+                    mApp.Canvas.CursorOn = false;
                     return true;
                 }
-            case EscapePressed:
-                {
-                    if (mApp.GuiRt.FindControl(HudListId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is GuiControl { Visible: true } hl)
-                    {
-                        hl.SetVisible(false);
-                        mApp.Canvas.CursorOn = false;
-                        return true;
-                    }
-                    mApp.Interp.CallFunction("EnterLobbyMode", Array.Empty<string>());
-                    return false;
-                }
+                mApp.Interp.CallFunction("EnterLobbyMode", Array.Empty<string>());
+                return false;
+            }
             default:
                 return false;
         }
@@ -246,8 +245,8 @@ public sealed class PlayDelegate : IActionConsumer
     public const int TurretsTab = 140116;
     /// <summary>The control id of the objects tab.</summary>
     public const int ObjectsTab = 140117;
-        /// <summary>The control id of the team list.</summary>
-        public const int TeamListId = 140202;
+    /// <summary>The control id of the team list.</summary>
+    public const int TeamListId = 140202;
 
     private GuiCommandMap? Map() => mApp.GuiRt.FindControl(CommanderMapId.ToString(System.Globalization.CultureInfo.InvariantCulture)) as GuiCommandMap;
 
@@ -262,38 +261,35 @@ public sealed class PlayDelegate : IActionConsumer
         switch (tag)
         {
             case (int)ZoomButtonId when sender is GuiUniversalButton zoom:
-                if (map != null)
-                    map.ZoomMode = zoom.On;
+                map?.ZoomMode = zoom.On;
                 return true;
             case (int)CenterButtonId when sender is GuiUniversalButton center:
-                if (map != null)
-                    map.CenterMode = center.On;
+                map?.CenterMode = center.On;
                 return true;
             case ReportButton:
-                {
-                    if (mApp.GuiRt.FindControl(TeamListId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is not GuiCommandTeam team || mApp.Host.Hud?.CommandLocal == null)
-                        return false;
-                    int id = team.FirstReportable();
-                    if (id < 0)
-                        return false;
-                    mApp.Interp.CallFunction("remoteEval", new[] { "2048", "SelectCommander", id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
-                    return true;
-                }
+            {
+                if (mApp.GuiRt.FindControl(TeamListId.ToString(System.Globalization.CultureInfo.InvariantCulture)) is not GuiCommandTeam team || mApp.Host.Hud?.CommandLocal == null)
+                    return false;
+                var id = team.FirstReportable();
+                if (id < 0)
+                    return false;
+                mApp.Interp.CallFunction("remoteEval", new[] { "2048", "SelectCommander", id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                return true;
+            }
             case UnreportButton:
                 if (mApp.Host.Hud?.CommandLocal == null)
                     return false;
                 mApp.Interp.CallFunction("remoteEval", new[] { "2048", "SelectCommander", "-1" });
                 return true;
             case TakeControlButton:
-                {
-                    int target = map?.SelectedTurretTarget() ?? -1;
-                    if (target >= 0)
-                        mApp.Interp.CallFunction("remoteEval", new[] { "2048", "CmdrMountObject", target.ToString(System.Globalization.CultureInfo.InvariantCulture) });
-                    return true;
-                }
+            {
+                var target = map?.SelectedTurretTarget() ?? -1;
+                if (target >= 0)
+                    mApp.Interp.CallFunction("remoteEval", new[] { "2048", "CmdrMountObject", target.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                return true;
+            }
             case PlayersTab or TurretsTab or ObjectsTab:
-                if (map != null)
-                    map.Group = tag == PlayersTab ? 3 : tag == TurretsTab ? 0x13 : 4;
+                map?.Group = tag == PlayersTab ? 3 : tag == TurretsTab ? 0x13 : 4;
                 return true;
         }
         return false;
@@ -308,12 +304,24 @@ public sealed class PlayDelegate : IActionConsumer
         i.Evaluate("setCMMode(PlayChatMenu, 0); setCMMode(CommandChatMenu, 0);");
         switch (mode)
         {
-            case 0: i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\loading.gui\");"); break;
-            case 1: i.Evaluate("loadPlayGui();"); break;
-            case 2: i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\command.gui\");"); break;
-            case 3: i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CmdObjectives.gui\");"); break;
-            case 4: i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CmdInventory.gui\");"); break;
-            case 5: i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CmdObjectives.gui\");"); break;
+            case 0:
+                i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\loading.gui\");");
+                break;
+            case 1:
+                i.Evaluate("loadPlayGui();");
+                break;
+            case 2:
+                i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\command.gui\");");
+                break;
+            case 3:
+                i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CmdObjectives.gui\");");
+                break;
+            case 4:
+                i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CmdInventory.gui\");");
+                break;
+            case 5:
+                i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CmdObjectives.gui\");");
+                break;
         }
         if (mode != 0 && i.HasFunction("loadPlayGui") && mode != 1)
         {
@@ -332,7 +340,7 @@ public sealed class PlayDelegate : IActionConsumer
     /// <param name="on">True to show.</param>
     public void SetScoreVisible(bool on)
     {
-        bool shown = mScoreDialog != null && mApp.Canvas.Stack.Contains(mScoreDialog);
+        var shown = mScoreDialog != null && mApp.Canvas.Stack.Contains(mScoreDialog);
         if (on == shown)
             return;
         if (!on)
@@ -342,7 +350,7 @@ public sealed class PlayDelegate : IActionConsumer
             mScoreDialog = null;
             return;
         }
-        bool low = mApp.Canvas.Width < 512 || mApp.Canvas.Height < 384;
+        var low = mApp.Canvas.Width < 512 || mApp.Canvas.Height < 384;
         mApp.Interp.Evaluate(low ? "GuiPushDialog(MainWindow, \"gui\\\\lr_score.gui\");" : "GuiPushDialog(MainWindow, \"gui\\\\score.gui\");");
         mScoreDialog = mApp.Canvas.Stack.Count > 1 ? mApp.Canvas.Stack[^1] : null;
     }

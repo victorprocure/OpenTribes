@@ -1,7 +1,7 @@
 // Column lists (docs/gui.md 3.3; code 004bcc58 load, 004bcdac save, 004bcad4 drag, 004d55e0 master add, 004d54d0 select): synthetic data only (R5).
-using OpenTribes.Gui;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Gui;
 
 public class GuiColumnListTests
 {
@@ -93,7 +93,7 @@ public class GuiColumnListTests
         fx.Interp.Evaluate("FGMasterList::addEntry(Masters, \"A\", \"x\", 0); FGMasterList::addEntry(Masters, \"B\", \"y\", 1);");
         fx.Frame();
         var m = (GuiMasterList)list;
-        Assert.Equal(23 + 2 * m.RowHeight, m.H);
+        Assert.Equal(23 + (2 * m.RowHeight), m.H);
         Assert.Equal(270, m.W);
         Assert.Equal(23, m.HeaderH);
         Assert.Equal(1, content.X);   // the content keeps the offset of its file
@@ -214,7 +214,7 @@ public class ServerListRowTests
     public void RemovingARowKeepsTheSelectionOnTheSameServer()
     {
         GuiServerList l = MakeList();
-        for (int i = 1; i <= 3; ++i)
+        for (var i = 1; i <= 3; ++i)
             l.AddServer(new GuiServerList.Server(i, "S" + i, "IP:1.2.3.4:" + i, "1.11", 5, false));
         l.Select(2);
         l.RemoveServer(l.Servers[0]);
@@ -231,8 +231,8 @@ public class IrcHistoryTests
     [Fact]
     public void UnsetOrOutOfRangeHistoryBecomesTheClientSize() // 005fc340
     {
-        var interp = new OpenTribes.Script.Interpreter();
-        var h = new OpenTribes.Client.App.IrcHistory();
+        var interp = new Script.Interpreter();
+        var h = new Client.App.IrcHistory();
         h.Keep(interp);
         Assert.Equal("50", interp.PeekVariable("$IRC::MsgHistory"));
         interp.SetVariable("$IRC::MsgHistory", "200");

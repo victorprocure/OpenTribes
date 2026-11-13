@@ -1,9 +1,8 @@
 // docs/gui.md 4.2 Crosshair: the target marks and the label of Crosshair_findTarget [code 004aca84].
+namespace OpenTribes.Tests;
+
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using Xunit;
-
-namespace OpenTribes.Tests;
 
 public class HudTargetTests
 {
@@ -41,10 +40,7 @@ public class HudTargetTests
     }
 
     [Fact]
-    public void PlayerBehindTheViewerGetsNoMark()
-    {
-        Assert.Empty(HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, -6, 0.3) }, 0, 2).Marks);
-    }
+    public void PlayerBehindTheViewerGetsNoMark() => Assert.Empty(HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, -6, 0.3) }, 0, 2).Marks);
 
     [Fact]
     public void NearestPlayerUnderTheCentreGivesTheLabel()
@@ -89,10 +85,7 @@ public class HudTargetTests
     [InlineData(1.0, 25, 0)]
     [InlineData(-1.0, 25, 0)]
     [InlineData(0.0, 18, 18)]
-    public void BarLengthIsTheHealthShareOfTheInnerWidth(double damage, int inner, int expected)
-    {
-        Assert.Equal(expected, HudTargetPicker.BarLength(damage, inner));
-    }
+    public void BarLengthIsTheHealthShareOfTheInnerWidth(double damage, int inner, int expected) => Assert.Equal(expected, HudTargetPicker.BarLength(damage, inner));
 
     private static HudTargetCandidate O(string name, double y, int team, bool clear = true) =>
         new(name, (0, y, 3), (0, y, 0), 3, 6, team, 0.25, false, true, clear, true, "M_turret_green.bmp");
@@ -109,10 +102,7 @@ public class HudTargetTests
     }
 
     [Fact]
-    public void ObjectOfAnotherTeamIsNotLabelled()
-    {
-        Assert.Null(HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 0) }, 1, 2).Name);
-    }
+    public void ObjectOfAnotherTeamIsNotLabelled() => Assert.Null(HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 0) }, 1, 2).Name);
 
     [Fact]
     public void BlockedObjectGivesWayToThePickedPlayer()

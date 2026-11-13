@@ -1,5 +1,7 @@
 // Unit tests of the shape and effect render (ROADMAP M9 C5). Each test names the section of docs/shapes-render.md (SR) it
 // follows (R9). Synthetic files only (R5): SyntheticShape builds the `.dts`.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
@@ -9,8 +11,6 @@ using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Gl;
 using Xunit.Abstractions;
-
-namespace OpenTribes.Tests;
 
 public class ShapeRenderTests
 {
@@ -33,16 +33,16 @@ public class ShapeRenderTests
     {
         var wreck = new RenderShape
         {
-            Names = new[] { "root", "debris0" },
-            Nodes = new[] { new RsNode { Name = 0, Parent = -1 }, new RsNode { Name = 1, Parent = -1 } },
-            Details = new[] { new RsDetail { RootNode = 0, Size = 25 }, new RsDetail { RootNode = 1, Size = 0 } },
+            Names = ["root", "debris0"],
+            Nodes = [new RsNode { Name = 0, Parent = -1 }, new RsNode { Name = 1, Parent = -1 }],
+            Details = [new RsDetail { RootNode = 0, Size = 25 }, new RsDetail { RootNode = 1, Size = 0 }],
         };
         Assert.True(ShapeVisual.HasDebrisDetail(wreck));
         var plain = new RenderShape
         {
-            Names = new[] { "root", "debris0" },
-            Nodes = new[] { new RsNode { Name = 0, Parent = -1 } },
-            Details = new[] { new RsDetail { RootNode = 0, Size = 25 } },
+            Names = ["root", "debris0"],
+            Nodes = [new RsNode { Name = 0, Parent = -1 }],
+            Details = [new RsDetail { RootNode = 0, Size = 25 }],
         };
         Assert.False(ShapeVisual.HasDebrisDetail(plain));
     }
@@ -85,7 +85,7 @@ public class ShapeRenderTests
     [Fact]
     public void DetailChoiceTakesTheFirstDetailAtMostTheSize() // SR 2.3 steps 2 and 3
     {
-        float[] armor = { 36, 10, 2 };
+        float[] armor = [36, 10, 2];
         Assert.Equal(0, RenderShape.ChooseDetail(armor, 40));
         Assert.Equal(0, RenderShape.ChooseDetail(armor, 36));
         Assert.Equal(1, RenderShape.ChooseDetail(armor, 20));
@@ -99,7 +99,7 @@ public class ShapeRenderTests
     [Fact]
     public void ADetailOfSizeZeroAndASingleDetailFollowTheSpec() // SR 2.3 steps 2 and 3, the stock tail details of size 0
     {
-        float[] flyer = { 128, 32, 25, 5, 2, 0 };
+        float[] flyer = [128, 32, 25, 5, 2, 0];
         Assert.Equal(-1, RenderShape.ChooseDetail(flyer, 0.5));  // the stored size 0 matches: -1, the shape vanishes
         Assert.Equal(4, RenderShape.ChooseDetail(flyer, 3));
         Assert.Equal(0, RenderShape.ChooseDetail(new float[] { 0 }, 0.1));   // fewer than 2 details: 0
@@ -112,18 +112,18 @@ public class ShapeRenderTests
         RenderShape s = Shape();                                 // details 20 and 5, radius 2
         var r = new ShapeRenderer(new ShapeAssets(null, new WorldAssets(new ResourceManager(Path.GetTempPath()), PaletteTables.Grayscale())));
         var cam = new Camera3D(0, 0, 0, 0, 0, 90, 640, 480, 0.5, 1000);
-        Xf at(double d) => Xf.Translate(0, d, 0);
-        Assert.Equal(0, r.DetailFor(s, cam, at(20), 1));         // 320 * 2 / 20 = 32 pixels
-        Assert.Equal(1, r.DetailFor(s, cam, at(100), 1));        // 6.4 pixels
-        Assert.Equal(-1, r.DetailFor(s, cam, at(1000), 1));      // 0.64 pixels
-        Assert.Equal(1, r.DetailFor(s, cam, at(20), 0.2));       // the shape detail preference: coarser sooner
+        static Xf at(double d) => Xf.Translate(0, d, 0);
+        Assert.Equal(0, ShapeRenderer.DetailFor(s, cam, at(20), 1));         // 320 * 2 / 20 = 32 pixels
+        Assert.Equal(1, ShapeRenderer.DetailFor(s, cam, at(100), 1));        // 6.4 pixels
+        Assert.Equal(-1, ShapeRenderer.DetailFor(s, cam, at(1000), 1));      // 0.64 pixels
+        Assert.Equal(1, ShapeRenderer.DetailFor(s, cam, at(20), 0.2));       // the shape detail preference: coarser sooner
     }
 
     [Fact]
     public void RootTransformIsTheNodeZeroDefaultAndStaysOutOfTheNodeTable() // SR 3.6 image root transform
     {
         RenderShape sh = Shape();
-        int di = sh.Nodes[0].DefaultTransform;
+        var di = sh.Nodes[0].DefaultTransform;
         sh.Transforms[di] = new RsTransform { Qw = 1, Tx = -0.002, Ty = 0.184, Tz = -0.164 };  // the disc launcher's node 0
         Xf r = sh.RootTransform();
         Assert.Equal((-0.002, 0.184, -0.164), r.Apply(0, 0, 0));
@@ -215,7 +215,7 @@ public class ShapeRenderTests
     public void ImageListKeysWriteTheMaterialRemap() // SR 1.5
     {
         var inst = new RenderInstance(Shape());
-        Assert.Equal(new[] { 0, 1 }, inst.Remap);                // identity before any thread
+        Assert.Equal([0, 1], inst.Remap);                // identity before any thread
         RenderThread t = inst.AddThread("frames")!;
         t.TimeScale = 0;
         t.Position = 0.25;
@@ -266,7 +266,7 @@ public class ShapeRenderTests
     public void ListsDrawFirstThenOpaqueThenTranslucentFarToNear() // SR 2.7
     {
         var l = new RenderLists();
-        RenderImage Img(string label, int cat, double key)
+        static RenderImage Img(string label, int cat, double key)
         {
             var i = new RenderImage { Label = label, Category = cat, SortKey = key };
             i.Batches.Add(new DrawBatch());
@@ -307,11 +307,11 @@ public class ShapeRenderTests
     [Fact]
     public void DamageSkinLevelsFollowThePreference() // SR 2.9 inputs (b)
     {
-        Assert.Equal(new[] { 0, 0, 1, 2, 3 }, new[] { 0.1, 0.25, 0.3, 0.6, 0.8 }.Select(d => Skins.DamageLevel(d, 2)).ToArray());
+        Assert.Equal([0, 0, 1, 2, 3], new[] { 0.1, 0.25, 0.3, 0.6, 0.8 }.Select(d => Skins.DamageLevel(d, 2)).ToArray());
         Assert.Equal(2, Skins.DamageLevel(0.5, 1));
         Assert.Equal(0, Skins.DamageLevel(0.4, 1));
         Assert.Equal(0, Skins.DamageLevel(0.99, 0));
-        Assert.Equal(new[] { 0, 1, 2 }, new[] { 0.3, 0.31, 0.71 }.Select(Skins.DamageLevelShort).ToArray());
+        Assert.Equal([0, 1, 2], new[] { 0.3, 0.31, 0.71 }.Select(Skins.DamageLevelShort).ToArray());
     }
 
     [Fact]
@@ -319,7 +319,7 @@ public class ShapeRenderTests
     {
         var (x1, y1) = Skins.DecalPosition(1, 128, 32, 128, 16);
         Assert.Equal((int)(0x01cc0a03u % 96u), x1);
-        Assert.Equal((int)(unchecked((uint)(-0x34328f9b)) % 112u), y1);
+        Assert.Equal((int)(unchecked((uint)-0x34328f9b) % 112u), y1);
         var (x2, _) = Skins.DecalPosition(2, 128, 32, 128, 16);
         Assert.Equal((int)(unchecked(0x01cc0a03u * 2) % 96u), x2);
         Assert.Equal((0, 0), Skins.DecalPosition(1, 32, 32, 16, 16));      // no room: origin
@@ -329,17 +329,17 @@ public class ShapeRenderTests
     public void DamageDecalsCoverTheRequestedAreaOnACopy() // SR 2.9 damage decals
     {
         var skin = new PbmpBitmap { Width = 64, Height = 64, Pixels = new byte[64 * 64], Attributes = BitmapAttributes.OwnsMemory };
-        for (int i = 0; i < skin.Pixels.Length; ++i)
+        for (var i = 0; i < skin.Pixels.Length; ++i)
             skin.Pixels[i] = 5;
         var decal = new PbmpBitmap { Width = 16, Height = 16, Pixels = new byte[256], Attributes = BitmapAttributes.OwnsMemory };
-        for (int i = 0; i < 256; ++i)
+        for (var i = 0; i < 256; ++i)
             decal.Pixels[i] = (byte)(i % 3 == 0 ? 0 : 9);        // index 0 stays clear
         PbmpBitmap same = Skins.ApplyDamage(skin, 0, new[] { decal });
         Assert.Same(skin, same);                                 // level 0: nothing
         PbmpBitmap worn = Skins.ApplyDamage(skin, 2, new[] { decal });
         Assert.NotSame(skin, worn);
         Assert.All(skin.Pixels, p => Assert.Equal(5, p));         // the original is untouched
-        int marked = worn.Pixels.Count(p => p == 9);
+        var marked = worn.Pixels.Count(p => p == 9);
         Assert.InRange(marked, 1, 64 * 64);
         PbmpBitmap worse = Skins.ApplyDamage(skin, 3, new[] { decal });
         Assert.True(worse.Pixels.Count(p => p == 9) >= marked);
@@ -350,7 +350,7 @@ public class ShapeRenderTests
     // ---- SR 4.3 explosion ----
 
     private static LightCurve Curve() => new(1.5, 0.4, 0.25, 0.85,
-        new[] { new[] { 0.4f, 0.4f, 1f }, new[] { 1f, 1f, 1f }, new[] { 1f, 0.95f, 1f } }, new[] { 0.5, 1.0, 1.0 }, 8);
+        [new[] { 0.4f, 0.4f, 1f }, [1f, 1f, 1f], [1f, 0.95f, 1f]], [0.5, 1.0, 1.0], 8);
 
     [Fact]
     public void ExplosionLifeAndLightPhases() // SR 4.3 Life and Light curve
@@ -359,9 +359,9 @@ public class ShapeRenderTests
         Assert.Equal(600, c.LifeMs);                              // trunc(1.5 * 0.4 * 1000)
         Assert.Equal(150, c.TA);
         Assert.Equal(510, c.TB);
-        var start = c.At(0)!.Value;                               // colors[0], radius factor rad[0]
-        Assert.Equal(0.4f, start.r, 5);
-        Assert.Equal(0.5, start.radius, 9);
+        var (r, g, b, radius) = c.At(0)!.Value;                               // colors[0], radius factor rad[0]
+        Assert.Equal(0.4f, r, 5);
+        Assert.Equal(0.5, radius, 9);
         var atA = c.At(150)!.Value;                               // colors[1] at tA
         Assert.Equal(1f, atA.r, 5);
         Assert.Equal(1.0, atA.radius, 9);
@@ -377,11 +377,18 @@ public class ShapeRenderTests
         RenderShape s = Shape();
         var db = new ClientDataBlock { Group = 20, Class = "ExplosionData" };
         void F(string n, object v) => db.Fields.Add(new DecodedField(n, v));
-        F("timeScale", 1.0); F("faceCamera", 1L); F("randomSpin", 0L); F("hasLight", 1L); F("lightRange", 4.0); F("timeZero", 0.0);
+        F("timeScale", 1.0);
+        F("faceCamera", 1L);
+        F("randomSpin", 0L);
+        F("hasLight", 1L);
+        F("lightRange", 4.0);
+        F("timeZero", 0.0);
         F("timeOne", 0.5);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            F($"colors[{i}].r", 1.0); F($"colors[{i}].g", 0.5); F($"colors[{i}].b", 0.25);
+            F($"colors[{i}].r", 1.0);
+            F($"colors[{i}].g", 0.5);
+            F($"colors[{i}].b", 0.25);
             F($"radFactors[{i}]", 1.0);
         }
         // the first sequence of the synthetic shape lasts 2 s
@@ -392,7 +399,7 @@ public class ShapeRenderTests
         Assert.NotNull(l);
         Assert.Equal(3, l!.Value.Z);
         Assert.Equal(4.0, l.Value.Range, 9);
-        for (int i = 0; i < 62; ++i)
+        for (var i = 0; i < 62; ++i)
             e.Tick(0.032);                                        // 1984 ms
         Assert.True(e.Alive);
         e.Tick(0.032);
@@ -413,11 +420,11 @@ public class ShapeRenderTests
             FloorAtTen, (e, x, y, z) => explosions.Add((e, z)));
         Assert.True(d.PieceCount > 0);
         Assert.True(d.Alive);
-        double minZ = double.MaxValue;
-        for (int i = 0; i < 400 && d.Alive; ++i)
+        var minZ = double.MaxValue;
+        for (var i = 0; i < 400 && d.Alive; ++i)
         {
             d.Tick(0.032);
-            foreach ((int _, double z) in explosions)
+            foreach ((var _, var z) in explosions)
                 minZ = Math.Min(minZ, z);
         }
         Assert.False(d.Alive);                                   // every piece exploded: lifetime 3 to 6 s at most (the run is 12.8 s)
@@ -431,7 +438,7 @@ public class ShapeRenderTests
     {
         if (dz >= 0)
             return (false, 0, 0, 0, 0);
-        double t = (10 - sz) / dz;
+        var t = (10 - sz) / dz;
         return t >= 0 && t <= len ? (true, t, 0, 0, 1) : (false, 0, 0, 0, 0);
     }
 
@@ -444,8 +451,8 @@ public class ShapeRenderTests
         // gravity first: vz = -10 - 20 / 30 = -10.667; friction removes 0.5 * 10.667 = 5.33 of the sideways 4; the normal speed returns times 0.25
         Assert.True(b.Collided);
         Assert.Equal(0, b.Vx, 6);
-        Assert.Equal(0.25 * (10 + 20 * DebrisBody.TimeSlice), b.Vz, 6);
-        Assert.Equal(10.3 + (4 + 0) * 0 + -(10 + 20 * DebrisBody.TimeSlice / 2) * DebrisBody.TimeSlice, b.Z, 9);   // the integrated position, not the contact point
+        Assert.Equal(0.25 * (10 + (20 * DebrisBody.TimeSlice)), b.Vz, 6);
+        Assert.Equal(10.3 + ((4 + 0) * 0) + (-(10 + (20 * DebrisBody.TimeSlice / 2)) * DebrisBody.TimeSlice), b.Z, 9);   // the integrated position, not the contact point
     }
 
     [Fact]
@@ -458,12 +465,12 @@ public class ShapeRenderTests
         b.Integrate(p, null, FloorAtTen, new Random(1), 0, 0, 0);
         Assert.False(b.Collided);
         // a ray that reports a hit with a normal along the motion: velocity . normal = 8.33 > 1
-        b.Integrate(p, null, (double sx, double sy, double sz, double dx, double dy, double dz, double len) => (true, 0.1, 0, 0, 1), new Random(1), 0, 0, 0);
+        b.Integrate(p, null, (sx, sy, sz, dx, dy, dz, len) => (true, 0.1, 0, 0, 1), new Random(1), 0, 0, 0);
         Assert.InRange(b.Damage, -10, 5 - 6);
         Assert.True(b.WantsExplosion(p, new Random(1)));
         // the stock DebrisData have collisionDetail 0: no damage
         var c = new DebrisBody { Z = 10.3, Vz = 9, Radius = 0.25, Life = 100, Damage = 5 };
-        c.Integrate(p with { CollisionDetail = 0 }, null, (double sx, double sy, double sz, double dx, double dy, double dz, double len) => (true, 0.1, 0, 0, 1), new Random(1), 0, 0, 0);
+        c.Integrate(p with { CollisionDetail = 0 }, null, (sx, sy, sz, dx, dy, dz, len) => (true, 0.1, 0, 0, 1), new Random(1), 0, 0, 0);
         Assert.Equal(5, c.Damage);
     }
 
@@ -499,11 +506,11 @@ public class ShapeRenderTests
     {
         var b = new DebrisBody { X = 0, Y = 0, Z = 10.25, Radius = 0.25, Life = 100, Age = 2 };
         var rng = new Random(2);
-        for (int i = 0; i < 400 && !b.Frozen; ++i)
+        for (var i = 0; i < 400 && !b.Frozen; ++i)
             b.Integrate(DebrisParams.Default, null, FloorAtTen, rng, 0, 0, 0);
         Assert.True(b.Frozen);
         Assert.Equal(0, b.Vz);
-        double z = b.Z;
+        var z = b.Z;
         b.Integrate(DebrisParams.Default, null, FloorAtTen, rng, 0, 0, 0);
         Assert.Equal(z, b.Z);
         Assert.True(b.Collided);
@@ -517,7 +524,7 @@ public class ShapeRenderTests
         Assert.True(d.PieceCount > 0);
         foreach (DebrisBody b in d.Bodies)
         {
-            double dv = Math.Sqrt((b.Vx - 3) * (b.Vx - 3) + (b.Vy + 2) * (b.Vy + 2) + (b.Vz - 1) * (b.Vz - 1));
+            var dv = Math.Sqrt(((b.Vx - 3) * (b.Vx - 3)) + ((b.Vy + 2) * (b.Vy + 2)) + ((b.Vz - 1) * (b.Vz - 1)));
             Assert.True(Math.Abs(dv - 8) < 1e-9 || dv < 1e-9, $"burst of 2000 / 250 or none (a piece at the shape centre), got {dv}");
             Assert.InRange(b.Wx, -2.5, 2.5);
             Assert.InRange(b.Wy, -2.5, 2.5);
@@ -536,7 +543,7 @@ public class ShapeRenderTests
             new DebrisRow(4, 1, 5, 1, "e.dts", DebrisParams.Default),
         };
         var (found, total) = DebrisCloud.Find(rows, 1, 100);
-        Assert.Equal(new[] { 0, 2 }, found.Select(r => r.Index).ToArray());     // row 3 is over the budget and ends the walk; row 4 is never reached
+        Assert.Equal([0, 2], found.Select(r => r.Index).ToArray());     // row 3 is over the budget and ends the walk; row 4 is never reached
         Assert.Equal(6, total, 9);
         Assert.Empty(DebrisCloud.Find(rows, 4, 100).Rows);                      // no row has bit 4
         // the stock DebrisData have type 0 and mask 1: no row, no piece
@@ -548,11 +555,11 @@ public class ShapeRenderTests
     {
         var heavy = new DebrisRow(0, 1, 30, 1, "", DebrisParams.Default);
         var light = new DebrisRow(1, 1, 10, 1, "", DebrisParams.Default);
-        Assert.Equal(2, DebrisCloud.Pick(new List<DebrisRow> { heavy }, 1, 70, new Random(4)).Count);   // 70 -> 40 -> 10 (< 30)
+        Assert.Equal(2, DebrisCloud.Pick([heavy], 1, 70, new Random(4)).Count);   // 70 -> 40 -> 10 (< 30)
         // with both rows the light one is dropped as soon as the budget is under 10, the heavy one under 30: at most 4 + 1 pieces for 45
-        Assert.InRange(DebrisCloud.Pick(new List<DebrisRow> { heavy, light }, 2, 45, new Random(4)).Count, 2, 5);
-        Assert.Equal(3, DebrisCloud.Pick(new List<DebrisRow> { light }, 1, 35, new Random(4)).Count);   // 35 -> 25 -> 15 -> 5 (< 10)
-        Assert.Empty(DebrisCloud.Pick(new List<DebrisRow>(), 0, 100, new Random(4)));
+        Assert.InRange(DebrisCloud.Pick([heavy, light], 2, 45, new Random(4)).Count, 2, 5);
+        Assert.Equal(3, DebrisCloud.Pick([light], 1, 35, new Random(4)).Count);   // 35 -> 25 -> 15 -> 5 (< 10)
+        Assert.Empty(DebrisCloud.Pick([], 0, 100, new Random(4)));
     }
 
     [Fact]
@@ -563,11 +570,13 @@ public class ShapeRenderTests
         Assert.Equal(1, basis.Z[2], 9);
         var b = new DebrisBody();
         DebrisCloud.Launch(b, 1, 2, 3, 0, 0, -1, 0, 0, 0, 0, basis, 90, 0.2, 100, new Random(7));   // a cone of angle 0: straight along z
-        Assert.Equal(1, b.X, 9); Assert.Equal(2, b.Y, 9); Assert.Equal(3.2, b.Z, 9);
+        Assert.Equal(1, b.X, 9);
+        Assert.Equal(2, b.Y, 9);
+        Assert.Equal(3.2, b.Z, 9);
         Assert.Equal(-1 + 0.9, b.Vz, 9);
         Assert.InRange(b.Wx, -0.675 * 2, 0.675 * 2);
-        var none = DebrisCloud.Basis(0, 0, 0, 0.1);
-        Assert.Equal(Math.PI, none.Angle);                          // no direction: every direction
+        var (X, Y, Z, Angle) = DebrisCloud.Basis(0, 0, 0, 0.1);
+        Assert.Equal(Math.PI, Angle);                          // no direction: every direction
     }
 
     [Fact]
@@ -596,7 +605,7 @@ public class ShapeRenderTests
     {
         RenderShape s = Shape();                                  // no Sequence01: the first sequence plays (2 s, cyclic)
         var pool = new SmokePool(3);
-        for (int i = 0; i < 5; ++i)
+        for (var i = 0; i < 5; ++i)
             pool.Spawn(s, i, 0, 0);
         Assert.Equal(3, pool.Live);                               // the two oldest were evicted
         Assert.Equal(3, pool.RemoveInside(3, 0, 0, 1.5));         // the puffs left are at x = 2, 3 and 4: all inside
@@ -619,7 +628,7 @@ public class ShapeRenderTests
     [InlineData(0.05, 0.5, 100)]
     [InlineData(0.01, 1.0, 30)]
     public void GrenadePuffIntervalFollowsProjSpecialTimeAndSpeed(double special, double r, int ms) // SR 4.5 FUN_0045ffd0
-        => Assert.Equal(ms, OpenTribes.Client.Scene.ProjectileVisual.SmokeInterval(special, r));
+        => Assert.Equal(ms, ProjectileVisual.SmokeInterval(special, r));
 
     [Fact]
     public void SmokePuffsAreRemovedByRadius() // SR 4.5 FUN_0045b6d4
@@ -636,7 +645,7 @@ public class ShapeRenderTests
     public void DecalRingOverwritesTheOldestAndHasTheDocumentedBitmaps() // SR 4.6
     {
         var ring = new DecalRing(3);
-        for (int i = 0; i < 5; ++i)
+        for (var i = 0; i < 5; ++i)
             ring.Add(DecalRing.Quad(0, i, 0, 0, 0, 0, 1, 0, 1, 0));
         Assert.Equal(3, ring.Count);
         Assert.Equal(3, ring.Capacity);
@@ -652,7 +661,7 @@ public class ShapeRenderTests
     {
         DecalRing.Entry e = DecalRing.Quad(2, 10, 20, 30, 0, 0, 1, 0, 1, 0);
         Assert.Equal(30.05, e.Cz, 9);                             // lifted by 0.05 along the normal
-        double w = Math.Abs(e.Corners[3] - e.Corners[0]);         // right extent: 2 * half = 0.4
+        var w = Math.Abs(e.Corners[3] - e.Corners[0]);         // right extent: 2 * half = 0.4
         Assert.Equal(0.4, w, 9);
         Assert.Equal(0.4, Math.Abs(e.Corners[1] - e.Corners[7]), 9);
     }
@@ -662,13 +671,13 @@ public class ShapeRenderTests
     [Fact]
     public void BoltsHaveTwoToTheNPlusOnePointsBetweenTheEndPoints() // SR 4.7 Lightning
     {
-        double[][] p = Beams.BoltPoints(new[] { 0.0, 0, 0 }, new[] { 0.0, 40, 0 }, 4, 0.15, new Random(3));
+        var p = Beams.BoltPoints([0.0, 0, 0], [0.0, 40, 0], 4, 0.15, new Random(3));
         Assert.Equal(17, p.Length);
-        Assert.Equal(new[] { 0.0, 0, 0 }, p[0]);
-        Assert.Equal(new[] { 0.0, 40, 0 }, p[16]);
+        Assert.Equal([0.0, 0, 0], p[0]);
+        Assert.Equal([0.0, 40, 0], p[16]);
         Assert.Contains(p, q => Math.Abs(q[0]) > 1e-6 || Math.Abs(q[2]) > 1e-6);   // jittered sideways
-        Assert.Equal(9, Beams.BoltPoints(new[] { 0.0, 0, 0 }, new[] { 1.0, 0, 0 }, 3, 0, new Random(1)).Length);
-        double[][] mid = Beams.Lerp(p, Beams.BoltPoints(new[] { 0.0, 0, 0 }, new[] { 0.0, 40, 0 }, 4, 0.15, new Random(4)), 0.5);
+        Assert.Equal(9, Beams.BoltPoints([0.0, 0, 0], [1.0, 0, 0], 3, 0, new Random(1)).Length);
+        var mid = Beams.Lerp(p, Beams.BoltPoints([0.0, 0, 0], [0.0, 40, 0], 4, 0.15, new Random(4)), 0.5);
         Assert.Equal(17, mid.Length);
     }
 
@@ -687,13 +696,13 @@ public class ShapeRenderTests
     [Fact]
     public void RainStreakIsAKiteOfStockSize() // 00442338: 0.15 across at 2 units, end at 2.25 units along the fall direction
     {
-        var q = WeatherEffect.Streak((10, 20, 30), 0, 0, (0, 1, 0));
-        Assert.Equal((10, 20, 30), q.tip);
-        Assert.Equal((10 + 0.075, 20, 28), q.left);   // forward x down is -x
-        Assert.Equal((10 - 0.075, 20, 28), q.right);
-        Assert.Equal((10, 20, 30 - 2.25), q.end);
+        var (tip, left, end, right) = WeatherEffect.Streak((10, 20, 30), 0, 0, (0, 1, 0));
+        Assert.Equal((10, 20, 30), tip);
+        Assert.Equal((10 + 0.075, 20, 28), left);   // forward x down is -x
+        Assert.Equal((10 - 0.075, 20, 28), right);
+        Assert.Equal((10, 20, 30 - 2.25), end);
         var w = WeatherEffect.Streak((0, 0, 0), 3, 4, (0, 1, 0));
-        double len = Math.Sqrt(9 + 16 + 1);
+        var len = Math.Sqrt(9 + 16 + 1);
         Assert.Equal(2.25 * 3 / len, w.end.x, 9);
         Assert.Equal(-2.25 / len, w.end.z, 9);
     }
@@ -742,8 +751,8 @@ public class ShapeRenderTests
         rec.AddRange(BitConverter.GetBytes(2052u));
         rec.AddRange(BitConverter.GetBytes(2048u));
         rec.AddRange(BitConverter.GetBytes(0xffffffffu));
-        var p = new DemoPlayback(rec.ToArray());
-        int frames = 0;
+        var p = new DemoPlayback([.. rec]);
+        var frames = 0;
         p.OnFrame = _ => ++frames;
         p.StepTo(1000);
         Assert.Equal(32, frames);                                 // 32 * 32 ms = 1024 ms >= 1000
@@ -771,9 +780,9 @@ public class ShapeRenderTests
     {
         GlWindow? win = null;
         var failures = new List<string>();
-        foreach (string? driver in new string?[] { "offscreen", null })
+        foreach (var driver in new string?[] { "offscreen", null })
         {
-            win = GlWindow.TryCreate("test", 64, 48, hidden: true, driver, out string err);
+            win = GlWindow.TryCreate("test", 64, 48, hidden: true, driver, out var err);
             if (win != null)
                 break;
             failures.Add($"{driver ?? "default"}: {err}");
@@ -810,12 +819,12 @@ public class ShapeRenderTests
             Assert.Equal(1, ctx.Lists.Draw(dev));
             dev.EndScene3D();
             dev.EndFrame();
-            byte[] px = dev.ReadPixels();
-            int o = (24 * 64 + 32) * 4;
+            var px = dev.ReadPixels();
+            var o = ((24 * 64) + 32) * 4;
             mOut.WriteLine($"centre pixel {px[o]},{px[o + 1]},{px[o + 2]}");
-            Assert.InRange((int)px[o], 197, 203);                          // the material colour (200, 50, 50) fully lit
-            Assert.InRange((int)px[o + 1], 47, 53);
-            Assert.InRange((int)px[o + 2], 47, 53);
+            Assert.InRange(px[o], 197, 203);                          // the material colour (200, 50, 50) fully lit
+            Assert.InRange(px[o + 1], 47, 53);
+            Assert.InRange(px[o + 2], 47, 53);
             Assert.Equal(0, px[0]);                               // a corner stays clear
             // the same quad seen from behind: every face is culled
             var back = new Camera3D(0, 5, 0, 180, 0, 60, dev.Width, dev.Height, 0.5, 100);

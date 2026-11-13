@@ -1,12 +1,12 @@
 // The Objects and Controllables lists of the command screen and the observer panel (docs/gui.md 3.3 "The command screen panels"):
 // CommandItemCtrl [004a94d4, 004a98b8, 004a9a08, 004a973c, 004a97b0, 004a9714], CommandTurretCtrl [004aa21c, 004aa6b8, 004aa814, 004aa644, 004aa4b4, 004aa48c],
 // the slot helpers [004d27d0, 004d28a8, 004d2798, 004d2a44, 004d29fc], CMDObserve [004b4818, 004b48bc] and the console functions [0043a670, 0043a6e8]. Synthetic data only.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
 using Rig = OpenTribes.Tests.CommandOrdersTests.Rig;
-
-namespace OpenTribes.Tests;
 
 public class CommandListsTests
 {
@@ -38,7 +38,7 @@ public class CommandListsTests
     private static void Down(GuiControl list, int row, int clicks = 1, int dx = 60)
     {
         var (gx, gy) = list.GlobalOrigin();
-        list.MsDown(new GuiEvent { X = gx + dx, Y = gy + row * ((GuiList)list).RowHeight + 2, ClickCount = clicks });
+        list.MsDown(new GuiEvent { X = gx + dx, Y = gy + (row * ((GuiList)list).RowHeight) + 2, ClickCount = clicks });
     }
 
     // ---- rows ----
@@ -88,10 +88,10 @@ public class CommandListsTests
         r.Map.Group = 4;
         items.PreRender();
         Down(items, 1);
-        Assert.Equal(new[] { 133 }, r.Picked());
+        Assert.Equal([133], r.Picked());
         Assert.False(r.World.Players.Clients[2050].Selected);
         Down(items, 0);
-        Assert.Equal(new[] { 131 }, r.Picked());
+        Assert.Equal([131], r.Picked());
         Assert.Equal(131 - 128, r.Map.SelectedStaticTarget());
         Assert.Equal(0, items.Selected);
     }
@@ -106,7 +106,7 @@ public class CommandListsTests
         r.Map.Group = 0x13;
         turrets.PreRender();
         Down(turrets, 1);
-        Assert.Equal(new[] { 132 }, r.Picked());
+        Assert.Equal([132], r.Picked());
         Assert.Equal(132 - 128, r.Map.SelectedTurretTarget());
     }
 
@@ -135,7 +135,7 @@ public class CommandListsTests
         r.Remote.Clear();
         Down(turrets, 1, clicks: 2);
         Assert.Empty(r.Remote);
-        Assert.Equal(new[] { 132 }, r.Picked());
+        Assert.Equal([132], r.Picked());
     }
 
     [Fact]

@@ -1,8 +1,8 @@
 // Unit tests of the client image state machine (docs/player-sim.md 7.5, docs/audio.md 3.2). Machine without a shape: states,
 // timers and sound names only.
-using OpenTribes.Client.Scene;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Scene;
 
 public class ImageStateMachineTests
 {
@@ -54,7 +54,7 @@ public class ImageStateMachineTests
         Run(m, 1.0);
         Assert.Equal(ImageStateMachine.Ready, m.State);
         sounds.Clear();
-        int fired = 0;
+        var fired = 0;
         m.Fired = () => ++fired;
         m.Unpack(false, true, 0, true, false);
         Assert.Equal(ImageStateMachine.Ready, m.State);
@@ -106,8 +106,8 @@ public class ImageStateMachineTests
     [Fact]
     public void ALoopingSoundStopsWhenTheStateChanges() // audio.md 3.2
     {
-        ImageStateMachine m = Disc(new List<string>());
-        int stops = 0;
+        ImageStateMachine m = Disc([]);
+        var stops = 0;
         m.StopLoopingSound = () => ++stops;
         m.Mount();
         m.SetState(ImageStateMachine.Ready);
@@ -117,7 +117,7 @@ public class ImageStateMachineTests
     [Fact]
     public void ASteppedMachineRunsOnePredictionStepPerUpdateAndIgnoresTime()
     {
-        ImageStateMachine m = Disc(new List<string>());
+        ImageStateMachine m = Disc([]);
         m.Unpack(false, true, 0, false, false);
         m.StepMoves(40);
         Assert.Equal(ImageStateMachine.Ready, m.State);

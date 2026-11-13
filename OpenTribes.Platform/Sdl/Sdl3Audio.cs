@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
-
 namespace OpenTribes.Platform.Sdl;
+
+using System.Runtime.InteropServices;
 
 /// <summary>The SDL3 audio subset (docs/audio.md 4.2): one playback stream in float32 with a pull callback.</summary>
 /// <remarks>Values were checked against the SDL 3.4 headers (SDL_audio.h, SDL_init.h).</remarks>

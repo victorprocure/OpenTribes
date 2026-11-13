@@ -1,16 +1,16 @@
 // Port of src/game/item_image.cpp: Player item images (docs/player-sim.md 7.2, 7.4, 7.5): mounting, the image state
 // machine with its timers, ammo and energy use, trigger handling, the script callbacks. Server side only: sounds and
 // animations belong to ghosts.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public sealed partial class Player
 {
     private static readonly string[] kStateNames =
-    {
+    [
         "Reset", "Fire", "NoAmmo", "Idle", "Ready", "Reload", "SpinUp", "SpinDown", "Activate", "Deactivate",
-    };
+    ];
 
     // src/game/item_image.cpp fieldOf.
     private static DataBlockManager.Field? FieldOf(DataBlockManager.Block b, string name)
@@ -42,7 +42,7 @@ public sealed partial class Player
     /// <summary>Returns the name of an image state.</summary>
     /// <param name="state">The state index, 0 to 9.</param>
     /// <returns>The state name, or "Reset" for an index out of range.</returns>
-    public static string ImageStateName(int state) => state >= 0 && state < 10 ? kStateNames[state] : "Reset";
+    public static string ImageStateName(int state) => state is >= 0 and < 10 ? kStateNames[state] : "Reset";
 
     // ---- script callbacks (7.5, Player_findImageCallback 0x0041a00c) ----
 
@@ -58,10 +58,10 @@ public sealed partial class Player
         if (s.Info.Name != null)
             names.Add(s.Info.Name + "::" + ev);
         DataBlockManager.Block? item = mGame.Sim.DataBlocks().At(5, s.Item);
-        if (item != null && mGame.Sim.DataBlocks().GetField(item, "className", "", out string cls) && cls.Length != 0)
+        if (item != null && mGame.Sim.DataBlocks().GetField(item, "className", "", out var cls) && cls.Length != 0)
             names.Add(cls + "::" + ev);
         names.Add("ItemImage::" + ev);
-        foreach (string fn in names)
+        foreach (var fn in names)
             if (mGame.Console.HasFunction(fn))
             {
                 mGame.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot) });
@@ -107,8 +107,8 @@ public sealed partial class Player
     {
         if (slot < 0 || slot >= kImageSlots || Images[slot].Item == -1)
             return false;
-        int type = Images[slot].Item;
-        if (type >= 0 && type < kItemTypes)
+        var type = Images[slot].Item;
+        if (type is >= 0 and < kItemTypes)
             SlotOf[type] = -1;
         SetMaskBits(0x20000u | (0x100000u << slot));
         SetImage(slot, -1, -1);
@@ -145,7 +145,7 @@ public sealed partial class Player
         DataBlockManager.Field? f = it?.Find("imageType");
         DataBlockManager.Block? img = f != null && f.Elems.Count != 0 && f.Elems[0].Set ? mGame.Sim!.DataBlocks().At(6, f.Elems[0].I) : null;
         // The image shape resource: a missing shape keeps the item and clears the image type.
-        bool shape = false;
+        var shape = false;
         if (img != null)
             if (FieldOf(img, "shapeFile") is DataBlockManager.Field sf && !string.IsNullOrEmpty(sf.Elems[0].Str))
                 shape = mGame.ResourceExists(sf.Elems[0].Str + ".dts");
@@ -171,10 +171,10 @@ public sealed partial class Player
         i.AccuFire = BlockInt(img, "accuFire", 0) != 0;
         i.MountPoint = BlockInt(img, "mountPoint", 2);
         if (FieldOf(img, "mountOffset") is DataBlockManager.Field mo)
-            for (int k = 0; k < 3 && mo.Elems.Count != 0; ++k)
+            for (var k = 0; k < 3 && mo.Elems.Count != 0; ++k)
                 i.MountOffset[k] = mo.Elems[0].F[k];
         if (FieldOf(img, "mountRotation") is DataBlockManager.Field mr)
-            for (int k = 0; k < 3 && mr.Elems.Count != 0; ++k)
+            for (var k = 0; k < 3 && mr.Elems.Count != 0; ++k)
                 i.MountRotation[k] = mr.Elems[0].F[k];
         if (FieldOf(img, "shapeFile") is DataBlockManager.Field sf2 && sf2.Elems.Count != 0)
             i.ShapeFile = sf2.Elems[0].Str;
@@ -198,7 +198,7 @@ public sealed partial class Player
         ImageSlot s = Images[slot];
         if (s.Image != -1 && s.Info.WeaponType == 2 && s.State == kFire)
             StopSustained(slot);
-        int item = Images[slot].Item;
+        var item = Images[slot].Item;
         Images[slot].Reset();
         if (item != -1)
             RecomputeMass();
@@ -211,7 +211,7 @@ public sealed partial class Player
     /// <param name="down">True when the trigger is down.</param>
     public void TriggerImage(int slot, bool down)
     {
-        if (slot < 0 || slot >= kImageSlots)
+        if (slot is < 0 or >= kImageSlots)
             return;
         ImageSlot s = Images[slot];
         if (s.Image == -1 || s.Triggered == down)
@@ -244,20 +244,20 @@ public sealed partial class Player
         using var chop = X87.Chop();
         if (slot < 0 || slot >= kImageSlots || Images[slot].Image == -1)
             return;
-        int self = Id();
+        var self = Id();
         SimManager? mgr = Manager();
         ImageSlot s = Images[slot];
         s.Timer = X87.F32(Sub(s.Timer, dt));
         // The ammo flag (server).
-        bool ammo = s.Info.AmmoType == -1 ? Energy > s.Info.MinEnergy : ItemCountOf(s.Info.AmmoType) > 0;
+        var ammo = s.Info.AmmoType == -1 ? Energy > s.Info.MinEnergy : ItemCountOf(s.Info.AmmoType) > 0;
         if (ammo != s.Ammo)
         {
             SetMaskBits(0x20000u | (0x100000u << slot));
             s.Ammo = ammo;
         }
-        int wt = s.Info.WeaponType;
+        var wt = s.Info.WeaponType;
         bool T = s.Triggered, A = s.Ammo;
-        bool expired = !(s.Timer > 0.0f);
+        var expired = !(s.Timer > 0.0f);
         switch (s.State)
         {
             case kReset:
@@ -274,7 +274,7 @@ public sealed partial class Player
                         return;
                     if (s.Info.AmmoType == -1)
                     {
-                        double e = Sub(Energy, Mul(s.Info.MaxEnergy, dt));
+                        var e = Sub(Energy, Mul(s.Info.MaxEnergy, dt));
                         Energy = X87.F32(e);
                         if (e < 0.0)
                             Energy = 0.0f;
@@ -362,8 +362,8 @@ public sealed partial class Player
         ImageSlot s = Images[slot];
         if (s.Image == -1)
             return;
-        int old = s.State;
-        float oldTimer = s.Timer;
+        var old = s.State;
+        var oldTimer = s.Timer;
         s.State = state;
         if (old == kFire && s.Info.WeaponType == 2)
             StopSustained(slot);
@@ -375,7 +375,7 @@ public sealed partial class Player
             SetImage(slot, s.NextItem, s.NextTeam);
             return;
         }
-        int wt = s.Info.WeaponType;
+        var wt = s.Info.WeaponType;
         switch (state)
         {
             case kFire:
@@ -390,7 +390,7 @@ public sealed partial class Player
             case kNoAmmo:
                 if (s.Info.AmmoType != -1 && mGame.Console != null)
                 {
-                    string fn = mGame.VirtualFunction(this, "onNoAmmo");
+                    var fn = mGame.VirtualFunction(this, "onNoAmmo");
                     DataBlockManager.Block? item = mGame.Sim?.DataBlocks().At(5, s.Item);
                     if (fn.Length != 0 && item != null)
                         mGame.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot), item.Name });

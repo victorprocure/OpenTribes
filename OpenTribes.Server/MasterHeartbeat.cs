@@ -1,9 +1,9 @@
+namespace OpenTribes.Server;
+
 using System.Net;
 using System.Net.Sockets;
 using OpenTribes.Net;
 using OpenTribes.Script;
-
-namespace OpenTribes.Server;
 
 /// <summary>The master server heartbeat and the DNet master commands.</summary>
 /// <remarks>Port of src/server/master.cpp. Follows SimNet_sendMasterHeartbeat (0054f478) and the DNet master commands (00422ad8, 00422a74), ROADMAP 8.3. Rule R6: nothing leaves the machine unless the operator opts in with <c>--allow-masters</c>. Loopback masters always work, which the tests use.</remarks>
@@ -17,14 +17,14 @@ public sealed class MasterHeartbeat
     /// <param name="action">The action.</param>
     public delegate void Schedule(float delay, Action action);
 
-    private static readonly byte[] kHeartbeat = { 0x10, 0x05, 0xff, 0, 0, 0, 0, 0 };
+    private static readonly byte[] kHeartbeat = [0x10, 0x05, 0xff, 0, 0, 0, 0, 0];
 
     private readonly Interpreter mIn;
     private readonly NetServer mNet;
     private readonly bool mAllowRemote;
     private Schedule? mSchedule;
-    private readonly List<string> mNames = new();    // resolveMasters arguments
-    private readonly List<string> mResolved = new(); // "IP:a.b.c.d:port" or ""
+    private readonly List<string> mNames = [];    // resolveMasters arguments
+    private readonly List<string> mResolved = []; // "IP:a.b.c.d:port" or ""
     private bool mResolveDone;
 
     /// <summary>Creates the heartbeat.</summary>
@@ -46,16 +46,16 @@ public sealed class MasterHeartbeat
     public static bool ParseMasterAddress(string text, out Address result, bool resolveNames)
     {
         result = default;
-        string s = text;
+        var s = text;
         if (s.Length >= 3 && (s[0] | 0x20) == 'i' && (s[1] | 0x20) == 'p' && s[2] == ':') // strncasecmp(s, "IP:", 3)
             s = s[3..];
-        int colon = s.LastIndexOf(':');
+        var colon = s.LastIndexOf(':');
         if (colon < 0 || colon == 0 || colon + 1 >= s.Length)
             return false;
-        string host = s[..colon];
-        if (!Strtol(s, colon + 1, out long port) || port <= 0 || port > 65535)
+        var host = s[..colon];
+        if (!Strtol(s, colon + 1, out var port) || port <= 0 || port > 65535)
             return false;
-        if (!InetPton4(host, out uint ip))
+        if (!InetPton4(host, out var ip))
         {
             if (!resolveNames)
                 return false;
@@ -71,8 +71,8 @@ public sealed class MasterHeartbeat
             }
             if (found.Length == 0)
                 return false;
-            byte[] b = found[0].GetAddressBytes();
-            ip = (uint)b[0] << 24 | (uint)b[1] << 16 | (uint)b[2] << 8 | b[3];
+            var b = found[0].GetAddressBytes();
+            ip = ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
         }
         result = new Address(ip, unchecked((ushort)port));
         return true;
@@ -83,18 +83,18 @@ public sealed class MasterHeartbeat
     private static bool Strtol(string s, int start, out long value)
     {
         value = 0;
-        int i = start;
+        var i = start;
         while (i < s.Length && (s[i] == ' ' || (s[i] >= '\t' && s[i] <= '\r')))
             ++i;
-        bool neg = false;
+        var neg = false;
         if (i < s.Length && (s[i] == '+' || s[i] == '-'))
             neg = s[i++] == '-';
-        int digits = i;
+        var digits = i;
         ulong mag = 0;
-        bool overflow = false;
+        var overflow = false;
         for (; i < s.Length && s[i] >= '0' && s[i] <= '9'; ++i)
         {
-            ulong next = unchecked(mag * 10 + (ulong)(s[i] - '0'));
+            var next = unchecked((mag * 10) + (ulong)(s[i] - '0'));
             if (mag > (ulong.MaxValue - 9) / 10 || next > (neg ? (ulong)long.MaxValue + 1 : long.MaxValue))
                 overflow = true;
             mag = next;
@@ -111,12 +111,12 @@ public sealed class MasterHeartbeat
         ip = 0;
         var tmp = new uint[4];
         int tp = 0, octets = 0;
-        bool sawDigit = false;
-        foreach (char ch in src)
+        var sawDigit = false;
+        foreach (var ch in src)
         {
-            if (ch >= '0' && ch <= '9')
+            if (ch is >= '0' and <= '9')
             {
-                uint next = tmp[tp] * 10 + (uint)(ch - '0');
+                var next = (tmp[tp] * 10) + (uint)(ch - '0');
                 if (sawDigit && tmp[tp] == 0)
                     return false;
                 if (next > 255)
@@ -141,7 +141,7 @@ public sealed class MasterHeartbeat
         }
         if (octets < 4)
             return false;
-        ip = tmp[0] << 24 | tmp[1] << 16 | tmp[2] << 8 | tmp[3];
+        ip = (tmp[0] << 24) | (tmp[1] << 16) | (tmp[2] << 8) | tmp[3];
         return true;
     }
 
@@ -161,10 +161,10 @@ public sealed class MasterHeartbeat
                 return null; // the original returns a null result
             while (mNames.Count < 10 && mNames.Count + 1 < a.Length && a[mNames.Count + 1].Length != 0)
             {
-                string name = a[mNames.Count + 1];
+                var name = a[mNames.Count + 1];
                 mNames.Add(name.Length > 255 ? name[..255] : name);
             }
-            foreach (string name in mNames)
+            foreach (var name in mNames)
                 mResolved.Add(ParseMasterAddress(name, out Address addr, mAllowRemote) ? addr.ToString() : "");
             mResolveDone = true;
             return Numbers.FormatInt(mNames.Count);
@@ -174,7 +174,7 @@ public sealed class MasterHeartbeat
         {
             if (!mResolveDone || a.Length != 2)
                 return "";
-            int idx = Numbers.BorlandAtoi(a[1]);
+            var idx = Numbers.BorlandAtoi(a[1]);
             if (idx >= 0 && idx < mResolved.Count)
                 return mResolved[idx];
             return "";
@@ -189,9 +189,9 @@ public sealed class MasterHeartbeat
     /// <remarks>Follows the tail of SimNet_activate (0054e86c). The delegate must be a server (first argument starts with t, T or 1), a transport must have started, one of the pairs must be named exactly <c>IP</c> (case-sensitive compare with 0063ead5), and <c>$SinglePlayer</c> must not be true. A dedicated server and a game hosted by a client go through this same code.</remarks>
     public bool OnNetworkStart(IReadOnlyList<string> args, bool transportStarted, Schedule schedule)
     {
-        bool isServer = args.Count > 0 && args[0].Length > 0 && args[0][0] is 't' or 'T' or '1';
-        bool ip = false;
-        for (int i = 1; i + 1 < args.Count; i += 2)
+        var isServer = args.Count > 0 && args[0].Length > 0 && args[0][0] is 't' or 'T' or '1';
+        var ip = false;
+        for (var i = 1; i + 1 < args.Count; i += 2)
             ip |= string.Equals(args[i], "IP", StringComparison.Ordinal);
         if (!isServer || !transportStarted || !ip || Numbers.ParseBool(mIn.PeekVariable("$SinglePlayer")))
             return false;
@@ -218,9 +218,9 @@ public sealed class MasterHeartbeat
         if (!Numbers.ParseBool(mIn.GetVariable("$Server::HostPublicGame")))
             return;
         mIn.Evaluate("checkMasterTranslation();");
-        for (int i = 1; i <= 64; ++i) // the original has no bound; the list ends at the first unset entry
+        for (var i = 1; i <= 64; ++i) // the original has no bound; the list ends at the first unset entry
         {
-            string master = mIn.GetVariable("$inet::Master" + Numbers.FormatInt(i));
+            var master = mIn.GetVariable("$inet::Master" + Numbers.FormatInt(i));
             if (master.Length == 0)
                 break;
             // R6: only loopback masters without the operator's opt-in. Names resolve with it.

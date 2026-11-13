@@ -1,9 +1,9 @@
+namespace OpenTribes.ScriptRun;
+
 using System.Text;
 using OpenTribes.Core;
 using OpenTribes.Script;
 using OpenTribes.Sim;
-
-namespace OpenTribes.ScriptRun;
 
 /// <summary>Evaluates console lines from stdin for the script regression tests. The output of each line is followed by a line that holds only <c>\x01</c>.</summary>
 /// <remarks>Port of tools/scriptrun.cpp.</remarks>
@@ -29,7 +29,7 @@ public static class Program
     public static int Main(string[] argv)
     {
         var interp = new Interpreter();
-        string root = argv.Length > 0 ? argv[0] : ".";
+        var root = argv.Length > 0 ? argv[0] : ".";
         var res = new ResourceManager(root);
         if (argv.Length > 1)
             res.SetSearchPath(ByteString.FromHost(argv[1]));
@@ -40,11 +40,11 @@ public static class Program
         var sim = new SimConsole(interp, ctx);
         sim.RegisterCommands();
         interp.SetObjects(sim);
-        var game = new OpenTribes.Game.GameState { Sim = sim, Console = interp };
+        var game = new Game.GameState { Sim = sim, Console = interp };
         ctx.Game = game;
-        OpenTribes.Game.MissionClasses.Register();
+        Game.MissionClasses.Register();
         game.Resources = res;
-        OpenTribes.Game.GameCommands.Register(interp, game);
+        Game.GameCommands.Register(interp, game);
         if (Environment.GetEnvironmentVariable("OT_LASTHOPE") != null) // LastHope 1.30 script mode (tools/scriptdiff.py against a 1.30 reference)
             Builtins.ApplyLastHopeMode(interp);
         interp.Evaluate("newServer(); focusServer(); newObject(ConsoleScheduler, SimConsoleScheduler);");
@@ -63,8 +63,8 @@ public static class Program
             captured.Clear();
             interp.Evaluate(l);
             // printf("%s\n\x01\n"): the captured text up to its first NUL.
-            string text = captured.ToString();
-            int nul = text.IndexOf('\0');
+            var text = captured.ToString();
+            var nul = text.IndexOf('\0');
             if (nul >= 0)
                 text = text[..nul];
             stdout.Write(ByteString.ToBytes(text + "\n\x01\n"));

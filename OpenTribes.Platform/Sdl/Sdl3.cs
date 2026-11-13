@@ -1,7 +1,7 @@
+namespace OpenTribes.Platform.Sdl;
+
 using System.Reflection;
 using System.Runtime.InteropServices;
-
-namespace OpenTribes.Platform.Sdl;
 
 /// <summary>Our own minimal SDL3 bindings (D30): the subset the client needs for init, a window with an OpenGL context, event polling, timing and the GL proc address.</summary>
 /// <remarks>Values were checked against the SDL 3.4.18 headers.</remarks>
@@ -33,22 +33,19 @@ public static partial class Sdl3
     /// <summary>The SDL keycode of the escape key.</summary>
     public const uint KeyEscape = 27;
 
-    static Sdl3()
-    {
-        NativeLibrary.SetDllImportResolver(typeof(Sdl3).Assembly, Resolve);
-    }
+    static Sdl3() => NativeLibrary.SetDllImportResolver(typeof(Sdl3).Assembly, Resolve);
 
     private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? path)
     {
         if (name != Lib)
             return IntPtr.Zero;
-        string[] candidates = PlatformPaths.SdlLibraryNames(PlatformPaths.CurrentOs);
+        var candidates = PlatformPaths.SdlLibraryNames(PlatformPaths.CurrentOs);
         // The copy next to the executable wins over a system copy.
-        foreach (string c in candidates)
-            if (NativeLibrary.TryLoad(Path.Combine(AppContext.BaseDirectory, c), out IntPtr hb))
+        foreach (var c in candidates)
+            if (NativeLibrary.TryLoad(Path.Combine(AppContext.BaseDirectory, c), out var hb))
                 return hb;
-        foreach (string c in candidates)
-            if (NativeLibrary.TryLoad(c, assembly, path, out IntPtr h))
+        foreach (var c in candidates)
+            if (NativeLibrary.TryLoad(c, assembly, path, out var h))
                 return h;
         return IntPtr.Zero;
     }
@@ -184,7 +181,7 @@ public static partial class Sdl3
     public static unsafe bool PollEvent(out SdlEvent ev)
     {
         SdlEvent e;
-        bool got = PollEvent(&e);
+        var got = PollEvent(&e);
         ev = e;
         return got;
     }
@@ -265,13 +262,13 @@ public static partial class Sdl3
     /// <returns>The mode that was set, or null when the display has no such mode or the driver refuses the change. The window is then left windowed.</returns>
     public static unsafe (int W, int H)? EnterExclusiveFullscreen(IntPtr window, int w, int h)
     {
-        byte* mode = stackalloc byte[128];
+        var mode = stackalloc byte[128];
         if (!GetClosestFullscreenDisplayMode(GetDisplayForWindow(window), w, h, 0f, false, mode))
             return null;
         if (!SetWindowFullscreenMode(window, mode) || !SetWindowFullscreen(window, true))
             return null;
         SyncWindow(window);
-        int* m = (int*)mode;
+        var m = (int*)mode;
         return (m[2], m[3]);
     }
 
@@ -291,7 +288,7 @@ public static partial class Sdl3
     /// <returns>True on success.</returns>
     public static bool LeaveFullscreen(IntPtr window)
     {
-        bool ok = SetWindowFullscreen(window, false);
+        var ok = SetWindowFullscreen(window, false);
         SyncWindow(window);
         return ok;
     }
@@ -334,12 +331,12 @@ public static partial class Sdl3
     public static unsafe List<(int W, int H)> FullscreenModes(IntPtr window)
     {
         var modes = new List<(int, int)>();
-        IntPtr* list = GetFullscreenDisplayModes(GetDisplayForWindow(window), out int count);
+        var list = GetFullscreenDisplayModes(GetDisplayForWindow(window), out var count);
         if (list == null)
             return modes;
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
-            int* m = (int*)list[i];
+            var m = (int*)list[i];
             if (m[2] > 0 && m[3] > 0 && !modes.Contains((m[2], m[3])))
                 modes.Add((m[2], m[3]));
         }

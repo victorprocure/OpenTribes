@@ -1,14 +1,14 @@
 // Port of tests/test_gamebase_ghosts.cpp: ghost layouts and server state of the GameBase family
 // (docs/game-stream-ghosts.md 4, 6.4): StaticShape, Sensor, Turret, Item, Mine, Moveable, Marker, Trigger. Objects are
 // created by mission script with synthetic shapes; every update is packed and read back field by field. 157 asserts.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Sim;
 using OpenTribes.World;
 using static OpenTribes.Tests.Fixtures;
-
-namespace OpenTribes.Tests;
 
 public class GamebaseGhostsTests
 {
@@ -20,17 +20,17 @@ public class GamebaseGhostsTests
 
     private BitStream Pack(SimObject? obj, uint mask, uint tag, int client = 2049)
     {
-        Assert.True(obj != null);
+        Assert.NotNull(obj);
         GhostClass? cls = GhostManager.GhostClassOf(obj!);
         Assert.True(cls != null && cls.Tag == tag); // 2.3 tags
         mBuf = new byte[4096];
         var w = new BitStream(mBuf, mBuf.Length);
         var ctx = new GhostContext(gm, client, mask == 0xffffffffu);
-        Assert.True(cls!.Pack!(obj!, ctx, w, mask) == 0);
-        Assert.True(!w.Error());
+        Assert.Equal(0u, cls!.Pack!(obj!, ctx, w, mask));
+        Assert.False(w.Error());
         packedBits = w.BitPosition();
         // Client round trip (docs/client-net.md 3): the unpack of the same class consumes exactly the packed bits.
-        bool isNew = mask == 0xffffffffu;
+        var isNew = mask == 0xffffffffu;
         mClients.TryGetValue(obj!, out ClientGhost? prev);
         Client = mClients[obj!] = ClientRoundTrip.Unpack(tag, mBuf, packedBits, isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
         return new BitStream(mBuf, (int)((w.BitPosition() + 7) / 8));
@@ -54,13 +54,13 @@ public class GamebaseGhostsTests
         var names = new List<string>();
         int NameOf(string n)
         {
-            int i = names.IndexOf(n);
+            var i = names.IndexOf(n);
             if (i >= 0)
                 return i;
             names.Add(n);
             return names.Count - 1;
         }
-        List<byte> nodeBytes = new(), seqBytes = new(), subBytes = new(), keyBytes = new(), quatBytes = new();
+        List<byte> nodeBytes = [], seqBytes = [], subBytes = [], keyBytes = [], quatBytes = [];
         int subs = 0, keys = 0;
         foreach (NodeSpec n in nodes)
         {
@@ -87,31 +87,31 @@ public class GamebaseGhostsTests
             PutU32(seqBytes, (uint)NameOf(s.Name));
             PutU32(seqBytes, s.Cyclic ? 1u : 0u);
             PutF32(seqBytes, s.Duration);
-            for (int i = 0; i < 5; ++i)
+            for (var i = 0; i < 5; ++i)
                 PutU32(seqBytes, 0);
         }
         foreach (Q q in quats)
         {
-            foreach (float c in new[] { q.X, q.Y, q.Z, q.W })
+            foreach (var c in new[] { q.X, q.Y, q.Z, q.W })
                 PutU16(quatBytes, (ushort)(short)Math.Round(c * 32767.0f, MidpointRounding.AwayFromZero));
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 PutF32(quatBytes, 0);
         }
         var body = new List<byte>();
-        uint[] counts = { (uint)nodes.Length, (uint)seqs.Length, (uint)subs, (uint)keys, (uint)quats.Length, (uint)names.Count, 0, 0, 0, 0, 0 };
-        foreach (uint c in counts)
+        uint[] counts = [(uint)nodes.Length, (uint)seqs.Length, (uint)subs, (uint)keys, (uint)quats.Length, (uint)names.Count, 0, 0, 0, 0, 0];
+        foreach (var c in counts)
             PutU32(body, c);
         PutF32(body, 1.0f); // radius
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PutF32(body, 0); // center
-        foreach (float v in new[] { -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f })
+        foreach (var v in new[] { -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f })
             PutF32(body, v); // box
         foreach (List<byte> part in new[] { nodeBytes, seqBytes, subBytes, keyBytes, quatBytes })
             body.AddRange(part);
-        foreach (string n in names)
+        foreach (var n in names)
         {
             var rec = new byte[24];
-            byte[] nb = ByteString.ToBytes(n);
+            var nb = ByteString.ToBytes(n);
             Array.Copy(nb, rec, nb.Length);
             body.AddRange(rec);
         }
@@ -129,22 +129,22 @@ public class GamebaseGhostsTests
     [Fact]
     public void Main()
     {
-        string root = Path.Combine(TestPaths.TmpDir(""), "gamebase_root");
+        var root = Path.Combine(TestPaths.TmpDir(""), "gamebase_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
         // Station shape: power is cyclic. Turret shape: the node chain of a stock turret, whose elevate sequence tilts
         // "dummy turret" from -40 to +60 degrees between z rotations.
         const float h = 0.707083f;
-        Q[] quats = { new(0, 0, 0, 1), new(0, 0, -h, h), new(0, 0, h, h), new(-0.241829f, -0.241829f, 0.664449f, 0.664449f),
-                      new(0.353526f, 0.353526f, 0.612354f, 0.612354f) };
-        PutFile(Path.Combine(root, "base/station.dts"), ShapeFile(new SeqSpec[] { new("ambient", true, 1.0f), new("Power", true, 2.0f) },
-                                                               new NodeSpec[] { new("bounds", -1, 0) }, quats));
+        Q[] quats = [ new(0, 0, 0, 1), new(0, 0, -h, h), new(0, 0, h, h), new(-0.241829f, -0.241829f, 0.664449f, 0.664449f),
+                      new(0.353526f, 0.353526f, 0.612354f, 0.612354f) ];
+        PutFile(Path.Combine(root, "base/station.dts"), ShapeFile([new("ambient", true, 1.0f), new("Power", true, 2.0f)],
+                                                               [new("bounds", -1, 0)], quats));
         PutFile(Path.Combine(root, "base/gun.dts"),
-                ShapeFile(new SeqSpec[] { new("turn", false, 0.1f), new("elevate", false, 0.3f), new("fire", false, 1.0f), new("power", false, 0.06f) },
-                          new NodeSpec[] { new("bounds", -1, 0), new("guns", 0, 1), new("move", 1, 1), new("dummy turret", 2, 2, 1, 3, 4),
-                                           new("dummy muzzle", 3, 2) },
+                ShapeFile([new("turn", false, 0.1f), new("elevate", false, 0.3f), new("fire", false, 1.0f), new("power", false, 0.06f)],
+                          [ new("bounds", -1, 0), new("guns", 0, 1), new("move", 1, 1), new("dummy turret", 2, 2, 1, 3, 4),
+                                           new("dummy muzzle", 3, 2) ],
                           quats));
-        PutFile(Path.Combine(root, "base/plain.dts"), ShapeFile(Array.Empty<SeqSpec>(), new NodeSpec[] { new("bounds", -1, 0) }, quats));
+        PutFile(Path.Combine(root, "base/plain.dts"), ShapeFile([], [new("bounds", -1, 0)], quats));
 
         // 4.2 shape data: sequence lookup is by name, ASCII case-insensitive (0x005b9798).
         {
@@ -157,10 +157,10 @@ public class GamebaseGhostsTests
             float lo = 0, hi = 0;
             Assert.True(gun.NodePitchRange("elevate", "dummy muzzle", ref lo, ref hi));
             Assert.True(Math.Abs(lo + 0.698f) < 0.001f && Math.Abs(hi - 1.047f) < 0.001f); // -40 and +60 degrees
-            Assert.True(!gun.NodePitchRange("elevate", "no node", ref lo, ref hi));
+            Assert.False(gun.NodePitchRange("elevate", "no node", ref lo, ref hi));
             ShapeAnim? st = Shape.GetShapeAnim(res, "station");
             Assert.True(st != null && st.FindSequence("power") == 1 && st.Sequences[1].Cyclic);
-            Assert.True(Shape.GetShapeAnim(res, "missing") == null);
+            Assert.Null(Shape.GetShapeAnim(res, "missing"));
         }
 
         var w = new Fixtures.World(root);
@@ -221,7 +221,7 @@ public class GamebaseGhostsTests
             Assert.True(o is GameBase);
             return (GameBase)o!;
         }
-        var c = new Fixtures.Cases();
+        var c = new Cases();
 
         // 4.11 power at load. Every StaticBase reports onEnabled after onAdd (0x0044fe8c). The
         // generator's onActivate powers its group and the sub-groups: S1 is registered and gets
@@ -255,20 +255,20 @@ public class GamebaseGhostsTests
             // client-net.md 3.2, 3.3 StaticShape: transform, damage, datablock 1.
             Assert.True(ClientRoundTrip.VecIs(Client!.State["pos"], 1, 2, 3) && ClientRoundTrip.VecIs(Client.State["rot"], 0, 0, 1.5));
             Assert.True((long)Client.State["team"]! == 0 && (long)Client.State["damageState"]! == 1 && (long)Client.State["datablock"]! == 1);
-            Assert.True(((List<object?>)Client.State["threads"]!).Count == 1);
+            Assert.Equal(1, ((List<object?>)Client.State["threads"]!).Count);
             ReadGameBase(r, 0);
-            Assert.True(!r.ReadFlag());  // 0x80 flash: never in a full update
+            Assert.False(r.ReadFlag());  // 0x80 flash: never in a full update
             Assert.True(r.ReadFlag());   // 0x400 forced: a thread is set
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 1 && r.ReadInt(2) == 0 && r.ReadFlag() && !r.ReadFlag());
             Assert.True(!r.ReadFlag() && !r.ReadFlag());  // threads 1 and 2
-            Assert.True(!r.ReadFlag());                   // fade
+            Assert.False(r.ReadFlag());                   // fade
             Assert.True(r.ReadFlag());
             Vec(r, 1, 2, 3);
             Vec(r, 0, -0.0f, 1.5f);  // rotation as given, not re-derived from the matrix
             Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(6) == 0);  // enabled, damage 0
             Assert.True(r.ReadFlag() && !r.ReadFlag());                      // isTarget
             Assert.True(r.ReadFlag() && r.ReadInt(3) == 1);                  // datablock 1 (width: below)
-            Assert.True(!r.ReadFlag());                                      // no sensor target
+            Assert.False(r.ReadFlag());                                      // no sensor target
             Assert.True(r.BitPosition() == packedBits);
         }
         // 2.3: the datablock index uses bitLength(count + 1) bits: 3 StaticShapeData give 3 bits.
@@ -287,7 +287,7 @@ public class GamebaseGhostsTests
             c.Check(w, "echo(GameBase::pauseSequence(\"MissionGroup/team0/S1\", 0), GameBase::pauseSequence(\"MissionGroup/team0/S1\", 0)," +
                        " GameBase::pauseSequence(\"MissionGroup/team0/S1\", 1));",
                     "TrueFalseFalse");
-            Assert.True(masks[s1.Id()] == 0xc00);  // 0x400 | 0x800 << 0
+            Assert.Equal(0xc00u, masks[s1.Id()]);  // 0x400 | 0x800 << 0
             BitStream r = Pack(s1, 0xc00, 0x221);
             Assert.True(!r.ReadFlag() && !r.ReadFlag());  // GameBase, flash
             Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(4) == 1 && r.ReadInt(2) == 2 && r.ReadFlag() && !r.ReadFlag());
@@ -316,7 +316,7 @@ public class GamebaseGhostsTests
             Assert.True(ClientRoundTrip.Near(ClientRoundTrip.D(Client!.State["flashAmount"]), 5, 1e-9) && (long)Client.State["fade"]! == 2); // 3.2
             Assert.True(!r.ReadFlag() && r.ReadFlag());
             Assert.True(r.ReadInt(7) == 127 && r.ReadInt(7) == 0 && r.ReadFlag() && r.ReadInt(8) == 255);
-            Assert.True(!r.ReadFlag());                 // threads
+            Assert.False(r.ReadFlag());                 // threads
             Assert.True(r.ReadFlag() && r.ReadFlag());  // fade state 2
             s1.FadeState = 0;
             s1.FlashAmount = 0;
@@ -332,15 +332,15 @@ public class GamebaseGhostsTests
                     "EnabledTrue1.25Disabled");
             Assert.True(g.DamageState == GameBase.kDisabled && !g.Active && (masks[g.Id()] & 0x100) != 0);
             BitStream r = Pack(g, 0x100, 0x221);
-            for (int i = 0; i < 5; ++i)
-                Assert.True(!r.ReadFlag());
+            for (var i = 0; i < 5; ++i)
+                Assert.False(r.ReadFlag());
             Assert.True(r.ReadFlag() && !r.ReadFlag() && r.ReadFlag());  // not enabled, disabled
-            Assert.True(r.ReadInt(6) == 39);                             // 1.25 / 2 * 63, truncated
+            Assert.Equal(39u, r.ReadInt(6));                             // 1.25 / 2 * 63, truncated
             w.Run("GameBase::setDamageLevel(\"MissionGroup/team0/G\", 1.5);");
             Assert.True(g.DamageState == GameBase.kDestroyed && g.Damage == 2.0f);  // destroyed: damage = maxDamage
             BitStream d = Pack(g, 0x100, 0x221);
-            for (int i = 0; i < 5; ++i)
-                Assert.True(!d.ReadFlag());
+            for (var i = 0; i < 5; ++i)
+                Assert.False(d.ReadFlag());
             Assert.True(d.ReadFlag() && !d.ReadFlag() && !d.ReadFlag() && d.ReadInt(6) == 63);
             c.Check(w, "echo($log);", " Dg Xg");
             // The generator stays a generator until a script says otherwise (stock scripts do).
@@ -357,12 +357,12 @@ public class GamebaseGhostsTests
             SimObject? set725 = w.Sim.Server()!.FindById(725);
             if (set725?.AsSet() is SimSet s725)
             {
-                bool member = s725.Members().Any(m => m == s1);
+                var member = s725.Members().Any(m => m == s1);
                 Assert.True(member);
             }
             BitStream r = Pack(s1, 0x02, 0x221);
-            for (int i = 0; i < 6; ++i)
-                Assert.True(!r.ReadFlag());
+            for (var i = 0; i < 6; ++i)
+                Assert.False(r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadFlag());  // isTarget 1
         }
         // 6.4 setTeam (mask 0x04) and the transform setters. Both console commands arrive as event
@@ -371,10 +371,10 @@ public class GamebaseGhostsTests
         {
             masks.Clear();
             w.Run("GameBase::setTeam(\"MissionGroup/team0/S1\", 3); GameBase::setPosition(\"MissionGroup/team0/S1\", \"5 6 7\");");
-            Assert.True(masks[s1.Id()] == 0x1c);
+            Assert.Equal(0x1cu, masks[s1.Id()]);
             masks.Clear();
             w.Run("GameBase::setRotation(\"MissionGroup/team0/S1\", \"0 0 2\");");
-            Assert.True(masks[s1.Id()] == 0x18);
+            Assert.Equal(0x18u, masks[s1.Id()]);
             BitStream r = Pack(s1, 0x1c, 0x221);
             ReadGameBase(r, 3);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());
@@ -382,11 +382,11 @@ public class GamebaseGhostsTests
             Vec(r, 5, 6, 7);
             // The angles of the matrix round trip (0x0044c978): 2 comes back one unit lower.
             Transform tr0 = s1.Transform;
-            float[] two = { 0, 0, 2 };
-            float[] back = new float[3];
+            float[] two = [0, 0, 2];
+            var back = new float[3];
             MissionTransform.EulerToMatrix(two, ref tr0);
             MissionTransform.MatrixToEuler(tr0, back);
-            Assert.True(back[2] < 2.0f && back[2] > 1.999999f);
+            Assert.True(back[2] is < 2.0f and > 1.999999f);
             Vec(r, 0, 0, back[2]);
         }
         // 4.3 Sensor: datablock under mask 0x01, no target field.
@@ -411,7 +411,7 @@ public class GamebaseGhostsTests
             Assert.True(t.TurretBarrelState == 1 && t.Active);
             BitStream r = Pack(t, 0xffffffffu, 0x202);
             Assert.True(ClientRoundTrip.VecIs(Client!.State["pos"], 7, 8, 9) && Client.State.ContainsKey("rotation") && Client.State.ContainsKey("mode")); // 3.3 Turret
-            Assert.True(!r.ReadFlag());  // not owner-only
+            Assert.False(r.ReadFlag());  // not owner-only
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag() && r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 3 && r.ReadInt(2) == 0 && r.ReadFlag() && !r.ReadFlag());  // power playing
@@ -426,13 +426,13 @@ public class GamebaseGhostsTests
             Assert.True(r.ReadFlag() && r.ReadInt(8) == 102);  // 0x4000 elevation between the limits
             Assert.True(r.ReadFlag() && r.ReadInt(2) == 0);    // 0x8000 fire state
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 0);    // 0x10000 mode
-            Assert.True(!r.ReadFlag());                        // barrel state 2
+            Assert.False(r.ReadFlag());                        // barrel state 2
             Assert.True(r.BitPosition() == packedBits);
             // A shape without sequences keeps the constructor values: rotation pi, limits +-pi/4.
             BitStream s = Pack(Gb("team0/T2"), 0x6000, 0x202);
-            for (int i = 0; i < 8; ++i)
-                Assert.True(!s.ReadFlag());  // owner-only, GameBase, flash, threads, fade, 0x18, 0x100, 0x02
-            Assert.True(!s.ReadFlag());      // Sensor datablock
+            for (var i = 0; i < 8; ++i)
+                Assert.False(s.ReadFlag());  // owner-only, GameBase, flash, threads, fade, 0x18, 0x100, 0x02
+            Assert.False(s.ReadFlag());      // Sensor datablock
             Assert.True(s.ReadFlag() && s.ReadInt(8) == 127 && s.ReadFlag() && s.ReadInt(8) == 127);
             // The controlling client gets one flag unless the update has mask 0x01 or 0x04.
             t.ControlClient = 2049;
@@ -453,10 +453,10 @@ public class GamebaseGhostsTests
             Assert.True((long)Client!.State["datablock"]! == 0 && !Client.State.ContainsKey("pos")); // 3.3 Moveable: no transform
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());
-            Assert.True(!r.ReadFlag());  // no transform: the client derives it from the path
+            Assert.False(r.ReadFlag());  // no transform: the client derives it from the path
             Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(6) == 0);
             Assert.True(r.ReadFlag() && !r.ReadFlag());
-            Assert.True(r.ReadInt(2) == 0);  // datablock on a new ghost, no flag
+            Assert.Equal(0u, r.ReadInt(2));  // datablock on a new ghost, no flag
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());  // path 0xff: 0x2000, 0x08, 0x4000 dropped
             Assert.True(r.BitPosition() == packedBits);
         }
@@ -464,7 +464,7 @@ public class GamebaseGhostsTests
         w.Sim.AdvanceRealTime(1000);
         {
             Assert.True(t.Threads[0].Flags == (GameBase.kThreadForward | GameBase.kThreadAtEnd));
-            Assert.True((masks[t.Id()] & 0xc00) == 0);
+            Assert.Equal(0u, (masks[t.Id()] & 0xc00));
             c.Check(w, "echo($ended, \"|\", $newPath);", "0|2");  // the count is known inside onNewPath (2.3)
             BitStream r = Pack(t, 0xc00, 0x202);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag() && r.ReadFlag());
@@ -478,14 +478,14 @@ public class GamebaseGhostsTests
         {
             Assert.True(el.PathId == 0 && el.WaypointCount == 2 && el.MoveState == GameBase.kMoveStopped);
             // 0x08 setWaypoint, 0x18 transform of waypoint 0, 0x4008 state, 0x2000 path
-            Assert.True(masks[el.Id()] == 0x6018);
+            Assert.Equal(0x6018u, masks[el.Id()]);
             Assert.True(el.Transform.P[0] == 1 && el.Transform.P[1] == 1 && el.Transform.P[2] == 1);
             BitStream r = Pack(el, 0xffffffffu, 0x220);
             ReadGameBase(r, 0);
-            for (int i = 0; i < 4; ++i)
-                Assert.True(!r.ReadFlag());
+            for (var i = 0; i < 4; ++i)
+                Assert.False(r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(6) == 0 && r.ReadFlag() && !r.ReadFlag());
-            Assert.True(r.ReadInt(2) == 0);
+            Assert.Equal(0u, r.ReadInt(2));
             Assert.True(r.ReadFlag() && r.ReadInt(8) == 0);                       // 0x2000 path id
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 0 && F32(r) == 0.0f);     // 0x08 waypoint, time
             Assert.True(r.ReadFlag() && !r.ReadFlag() && r.ReadInt(4) == 15 && r.ReadInt(2) == 3);  // 0x4000
@@ -497,13 +497,13 @@ public class GamebaseGhostsTests
                     "FalseTrueMoveForward20Undefined");
             Assert.True(masks[el.Id()] == 0x4008 && el.MoveTarget == 1);
             BitStream u = Pack(el, 0x4008, 0x220);
-            for (int i = 0; i < 7; ++i)
-                Assert.True(!u.ReadFlag());  // GameBase, flash, threads, fade, 0x18, 0x100, 0x02
-            Assert.True(!u.ReadFlag());      // 0x2000
+            for (var i = 0; i < 7; ++i)
+                Assert.False(u.ReadFlag());  // GameBase, flash, threads, fade, 0x18, 0x100, 0x02
+            Assert.False(u.ReadFlag());      // 0x2000
             Assert.True(u.ReadFlag() && u.ReadInt(4) == 0 && F32(u) == 0.0f);
             Assert.True(u.ReadFlag() && !u.ReadFlag() && u.ReadInt(4) == 1 && u.ReadInt(2) == 1);
             // A Moveable with no SimPath in its group keeps path 0xff.
-            Assert.True(Gb("team0/Door").PathId == 0xff);
+            Assert.Equal(0xff, Gb("team0/Door").PathId);
         }
         // 4.4 Item: no transform through ShapeBase; rotation z as unit(8) of z / 2 pi (wraps for
         // negative angles); position; a placed item counts as at rest (no rest physics yet).
@@ -514,7 +514,7 @@ public class GamebaseGhostsTests
                         (long)Client.State["atRest"]! >= 0); // 3.3 Item: rotation z as a fraction of 2 pi
             ReadGameBase(r, 0);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());
-            Assert.True(!r.ReadFlag());
+            Assert.False(r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(6) == 0 && r.ReadFlag() && !r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadInt(2) == 0);  // datablock
             Assert.True(!r.ReadFlag() && !r.ReadFlag());     // sensor target, thrower ghost
@@ -528,8 +528,8 @@ public class GamebaseGhostsTests
             Vec(r, 0, 0, 0);
             Assert.True(r.BitPosition() == packedBits);
             BitStream s = Pack(Gb("team0/Spin"), 0x02, 0x22a);
-            for (int i = 0; i < 6; ++i)
-                Assert.True(!s.ReadFlag());
+            for (var i = 0; i < 6; ++i)
+                Assert.False(s.ReadFlag());
             Assert.True(s.ReadFlag() && !s.ReadFlag());  // ShapeBase 0x02
             Assert.True(s.ReadFlag() && s.ReadInt(2) == 0 && !s.ReadFlag() && !s.ReadFlag());
             Assert.True(s.ReadFlag() && s.ReadFlag());            // rotates, collideable
@@ -543,8 +543,8 @@ public class GamebaseGhostsTests
             c.Check(w, "echo(GameBase::isAtRest(\"MissionGroup/team0/F\"));", "False");
             flag.Velocity[2] = -3.0f;
             BitStream v = Pack(flag, 0x28, 0x22a);
-            for (int i = 0; i < 9; ++i)
-                Assert.True(!v.ReadFlag());  // through Item 0x02 and 0x10
+            for (var i = 0; i < 9; ++i)
+                Assert.False(v.ReadFlag());  // through Item 0x02 and 0x10
             Assert.True(v.ReadFlag());
             Vec(v, 1, 1, 1);
             Assert.True(!v.ReadFlag() && v.ReadFlag());
@@ -558,13 +558,13 @@ public class GamebaseGhostsTests
             Assert.True(mine.ItemCollideable && mine.DeleteOnDestroy);
             mine.AtRest = true;
             BitStream r = Pack(mine, 0x10, 0x21e);
-            for (int i = 0; i < 10; ++i)
-                Assert.True(!r.ReadFlag());  // ..., Item 0x02, 0x10 dropped, 0x08
+            for (var i = 0; i < 10; ++i)
+                Assert.False(r.ReadFlag());  // ..., Item 0x02, 0x10 dropped, 0x08
             Assert.True(r.ReadFlag() && r.BitPosition() == packedBits);
             mine.AtRest = false;
             BitStream m = Pack(mine, 0x10, 0x21e);
-            for (int i = 0; i < 8; ++i)
-                Assert.True(!m.ReadFlag());
+            for (var i = 0; i < 8; ++i)
+                Assert.False(m.ReadFlag());
             Assert.True(m.ReadFlag() && m.ReadInt(8) == 40);  // 1 / 2 pi * 255
         }
         // 4.9 Marker: team -1 (Marker::onNewDataBlock), datablock, the persist position and
@@ -584,8 +584,8 @@ public class GamebaseGhostsTests
             BitStream tr = Pack(Obj("team0/Tr"), 0xffffffffu, 0x21f);
             Assert.True(((string)Client!.State["transform"]!).Length == 104 && ((double[])Client.State["box"]!)[3] == 1); // 3.3 Trigger
             Assert.True(tr.ReadFlag());
-            uint flags = tr.ReadInt(32);
-            Assert.True(flags == 2);  // translation only
+            var flags = tr.ReadInt(32);
+            Assert.Equal(2u, flags);  // translation only
             Vec(tr, 1, 0, 0);
             Vec(tr, 0, 1, 0);
             Vec(tr, 0, 0, 1);
@@ -597,6 +597,6 @@ public class GamebaseGhostsTests
             BitStream none = Pack(Obj("team0/Tr"), 0x04, 0x21f);
             Assert.True(!none.ReadFlag() && !none.ReadFlag() && packedBits == 2);
         }
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
 }

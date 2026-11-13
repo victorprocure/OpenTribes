@@ -1,11 +1,10 @@
 // Tests of the second C8 GUI fixes: the loading progress text, the join mode of +connect, the inventory lists, the score list
 // and the server menu of the Tab key. Synthetic data only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Game;
 using OpenTribes.Gui;
-using OpenTribes.Script;
-
-namespace OpenTribes.Tests;
 
 public sealed class GuiC8Ui2Tests : IDisposable
 {
@@ -21,7 +20,9 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void Dispose()
     {
         mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        try
+        { Directory.Delete(mRoot, true); }
+        catch (IOException) { }
     }
 
     private ClientApp Boot(string consoleCs)
@@ -30,10 +31,10 @@ public sealed class GuiC8Ui2Tests : IDisposable
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
-        ClientOptions opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        ClientOptions opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
+        Assert.True(mApp.Start(out var error), error);
         return mApp;
     }
 
@@ -43,7 +44,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void FormattedTextWithNoHeightGrowsToItsText() // Loading.gui: ProgressText is stored 273 x 0 and a script fills it
     {
         var fx = new GuiFixture();
-        fx.Host.SetFont("sf_white_10.pft", new OpenTribes.Platform.Gfx.PftFont { Flags = OpenTribes.Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
+        fx.Host.SetFont("sf_white_10.pft", new Platform.Gfx.PftFont { Flags = Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
         GuiControl text = GuiFixture.Make("FearGuiFormattedText", 1, 0, 273, 0);
         GuiControl root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
         root.AddChild(text);
@@ -109,13 +110,16 @@ public sealed class GuiC8Ui2Tests : IDisposable
     {
         var world = new ClientWorld();
         world.DataBlocks.Counts[5] = 3;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             world.DataBlocks.Blocks[(5, i)] = new ClientDataBlock
             {
-                Group = 5, Index = i, Class = "item", Fields = new List<DecodedField>
-                {
+                Group = 5,
+                Index = i,
+                Class = "item",
+                Fields =
+                [
                     new("description", "Item" + i), new("heading", "bWeapons"), new("price", (long)(10 * (i + 1))), new("showInventory", i == 2 ? 0L : 1L),
-                },
+                ],
             };
         world.Psc.ItemCounts[1] = 4;
         world.Psc.Shopping[0] = 1u << 1;
@@ -134,7 +138,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
         var src = new ClientHudSource(world);
         Assert.False(src.SensorHudShown);
         world.Psc.ControlGhost = 5;
-        foreach ((string cls, bool shown) in new[] { ("Player", true), ("Vehicle", true), ("Flier", true), ("Turret", false), ("ObserverCamera", false) })
+        foreach ((var cls, var shown) in new[] { ("Player", true), ("Vehicle", true), ("Flier", true), ("Turret", false), ("ObserverCamera", false) })
         {
             world.Psc.ControlClass = cls;
             Assert.Equal(shown, src.SensorHudShown);
@@ -185,7 +189,10 @@ public sealed class GuiC8Ui2Tests : IDisposable
         world.Ghosts.Insert(body);
         world.Psc.ControlState = new Dictionary<string, object?>
         {
-            ["rot"] = new[] { 0.2, 0.0, 1.25 }, ["camMode"] = 3L, ["orbitGhost"] = 7L, ["orbit"] = new[] { 0.0, 10.0, -1.0 },
+            ["rot"] = new[] { 0.2, 0.0, 1.25 },
+            ["camMode"] = 3L,
+            ["orbitGhost"] = 7L,
+            ["orbit"] = new[] { 0.0, 10.0, -1.0 },
         };
         Assert.Equal(2.5, src.Yaw);
         world.Psc.ControlState["orbit"] = new[] { 0.0, 10.0, 5.0 };
@@ -234,7 +241,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
     {
         var fx = new GuiFixture();
         fx.Interp.Evaluate("function InventoryList::onSelect(%i) { $sel = %i; }");
-        fx.Host.SetFont("sf_white_10.pft", new OpenTribes.Platform.Gfx.PftFont { Flags = OpenTribes.Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
+        fx.Host.SetFont("sf_white_10.pft", new Platform.Gfx.PftFont { Flags = Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
         var src = new StaticHudSource();
         src.Inventory.Add(Item(7, "bWeapons", "Blaster", count: 1));
         fx.Host.Hud = src;
@@ -257,8 +264,8 @@ public sealed class GuiC8Ui2Tests : IDisposable
     [Fact]
     public void ScoreHeadingDefinesTheColumnPositions() // Score text: "Player Name\t\x78Team\t\xC8Score"
     {
-        string heading = "Player Name\t\x78Team\t\xC8Score";
-        Assert.Equal(new[] { 0, 0x78, 0xC8 }, GuiScoreList.Columns(heading));
+        var heading = "Player Name\t\x78Team\t\xC8Score";
+        Assert.Equal([0, 0x78, 0xC8], GuiScoreList.Columns(heading));
         Assert.Equal("Player Name\tTeam\tScore", GuiScoreList.HeadingText(heading));
     }
 
@@ -274,7 +281,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.True(lines[3].Heading);
         Assert.False(lines[4].Local);
         Assert.False(lines[5].Local);
-        Assert.Equal(new[] { 0, 0x6F }, lines[5].Columns);
+        Assert.Equal([0, 0x6F], lines[5].Columns);
         Assert.True(GuiScoreList.Build(board, 2050)[5].Local);
     }
 
@@ -343,10 +350,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
     [InlineData("FearGui::FGIRCScrollChannel")]
     [InlineData("FearGui::FGMenuCtrl")]
     [InlineData("FearGui::FGHInventory")]
-    public void StubFocusClassesRefuseFocus(string cls)
-    {
-        Assert.False(GuiFixture.Make(cls, 0, 0, 100, 100).CanTake());
-    }
+    public void StubFocusClassesRefuseFocus(string cls) => Assert.False(GuiFixture.Make(cls, 0, 0, 100, 100).CanTake());
 
     [Fact]
     public void OtherListsTakeFocus() => Assert.True(GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 100, 100).CanTake());

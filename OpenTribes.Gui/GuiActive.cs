@@ -1,7 +1,6 @@
-using System.Text;
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The base active control (SimGui::ActiveCtrl): pressed, over, active and the message tag.</summary>
 /// <remarks>Follows 0053c444 to 0053c86c (docs/gui.md 3.3 "Base SimGui::ActiveCtrl and states").</remarks>
@@ -20,7 +19,7 @@ public class GuiActive : GuiControl
     /// <inheritdoc/>
     public override bool Active
     {
-        get => !F.TryGetValue("active", out object? v) || Convert.ToByte(v) != 0;
+        get => !F.TryGetValue("active", out var v) || Convert.ToByte(v) != 0;
         set { F["active"] = (byte)(value ? 1 : 0); Canvas?.Invalidate(); }
     }
 
@@ -157,7 +156,7 @@ public class GuiActive : GuiControl
     {
         if (Name != null && Host != null)
         {
-            string fn = Name + "::onAction";
+            var fn = Name + "::onAction";
             if (Host.HasFunction(fn))
                 Host.Call(fn);
         }
@@ -185,7 +184,7 @@ public class GuiSimpleText : GuiActive
     /// <returns>The text to show.</returns>
     protected string ResolvedText()
     {
-        uint tag = U("textTag");
+        var tag = U("textTag");
         if (tag != 0 && Host?.TagText(tag) is string t)
             return t;
         return Text;
@@ -231,11 +230,11 @@ public class GuiSimpleText : GuiActive
     protected virtual void DrawText(GuiPaint p, int gx, int gy)
     {
         PftFont? f = Font;
-        string s = ResolvedText();
+        var s = ResolvedText();
         if (f == null || s.Length == 0)
             return;
-        int w = GuiPaint.TextWidth(f, s);
-        int x = U("alignment") switch { 1 => W - w, 2 => (W - w) / 2, _ => 0 };
+        var w = GuiPaint.TextWidth(f, s);
+        var x = U("alignment") switch { 1 => W - w, 2 => (W - w) / 2, _ => 0 };
         p.Text(f, gx + x, gy + (int)U("textVOffset"), s);
     }
 }
@@ -264,7 +263,7 @@ public sealed class GuiFGSimpleText : GuiSimpleText
     {
         if (Canvas == null)
             return;
-        bool small = Canvas.Width < 512 || Canvas.Height < 384;
+        var small = Canvas.Width < 512 || Canvas.Height < 384;
         PftFont? big = Host?.FontByName("sf_orange255_10.pft"), sm = Host?.FontByName("sf_white_6.pft");
         if (small && !mLowRes)
         {
@@ -281,11 +280,11 @@ public sealed class GuiFGSimpleText : GuiSimpleText
     /// <inheritdoc/>
     protected override void DrawText(GuiPaint p, int gx, int gy)
     {
-        string s = ResolvedText();
+        var s = ResolvedText();
         if (s.Length == 0 || Host == null)
             return;
-        string main = Dimmed ? "sf_grey100_10b.pft" : Active ? "sf_white_10.pft" : "sf_orange255_10.pft";
-        string shadow = "sf_black_10.pft";
+        var main = Dimmed ? "sf_grey100_10b.pft" : Active ? "sf_white_10.pft" : "sf_orange255_10.pft";
+        var shadow = "sf_black_10.pft";
         if (mLowRes)
         {
             main = Dimmed ? "sf_grey_6.pft" : Active ? "sf_white_6.pft" : "sf_yellow_6.pft";
@@ -369,7 +368,7 @@ public class GuiTextEdit : GuiSimpleText
     {
         if (!ReferenceEquals(Canvas?.FirstResponder, this))
             return;
-        long now = Host?.TickMs ?? 0;
+        var now = Host?.TickMs ?? 0;
         ++mBlinkFrames;
         if (now - mBlinkBase > 500 && mBlinkFrames > 3)
         {
@@ -384,11 +383,11 @@ public class GuiTextEdit : GuiSimpleText
     {
         PftFont? f = Font;
         var (lx, _) = GlobalToLocal(gx, 0);
-        int x = lx - mTextLeft;
+        var x = lx - mTextLeft;
         if (x <= 0 || f == null)
             return 0;
-        int sum = 0;
-        for (int i = 0; i < Text.Length; ++i)
+        var sum = 0;
+        for (var i = 0; i < Text.Length; ++i)
         {
             sum += f.CharWidth(Text[i]) + 1;
             if (sum > x)
@@ -471,7 +470,7 @@ public class GuiTextEdit : GuiSimpleText
     {
         if (!Active)
             return false;
-        int len = Text.Length;
+        var len = Text.Length;
         if (e.Ctrl && !e.Shift && !Dragging)
         {
             switch (e.Scan)
@@ -487,7 +486,7 @@ public class GuiTextEdit : GuiSimpleText
                 case 0x2d:
                     if (SelEnd > SelStart && Host != null)
                     {
-                        Host.Clipboard = Text.Substring(SelStart, Math.Min(SelEnd, Text.Length) - SelStart);
+                        Host.Clipboard = Text[SelStart..Math.Min(SelEnd, Text.Length)];
                         if (e.Scan == 0x2d)
                         {
                             SaveUndo();
@@ -500,8 +499,8 @@ public class GuiTextEdit : GuiSimpleText
                     {
                         SaveUndo();
                         DeleteSelection();
-                        string clip = Host.Clipboard;
-                        int room = MaxLength - Text.Length;
+                        var clip = Host.Clipboard;
+                        var room = MaxLength - Text.Length;
                         if (room > 0 && clip.Length > 0)
                         {
                             clip = clip.Length > room ? clip[..room] : clip;
@@ -516,30 +515,30 @@ public class GuiTextEdit : GuiSimpleText
             return base.KeyDown(e);
         if (e.Scan == 0x1c)
             return true;
-        bool shift = e.Shift;
+        var shift = e.Shift;
         switch (e.Scan)
         {
             case 0xcd:
             case 0xcb:
             case 0xc7:
             case 0xcf:
+            {
+                var target = e.Scan switch { 0xcd => Math.Min(Cursor + 1, len), 0xcb => Math.Max(Cursor - 1, 0), 0xc7 => 0, _ => len };
+                if (shift)
                 {
-                    int target = e.Scan switch { 0xcd => Math.Min(Cursor + 1, len), 0xcb => Math.Max(Cursor - 1, 0), 0xc7 => 0, _ => len };
-                    if (shift)
-                    {
-                        if (SelEnd <= SelStart)
-                            Anchor = Cursor;
-                        Cursor = target;
-                        SelStart = Math.Min(Anchor, Cursor);
-                        SelEnd = Math.Max(Anchor, Cursor);
-                    }
-                    else
-                    {
-                        Cursor = target;
-                        SelStart = SelEnd = 0;
-                    }
-                    return true;
+                    if (SelEnd <= SelStart)
+                        Anchor = Cursor;
+                    Cursor = target;
+                    SelStart = Math.Min(Anchor, Cursor);
+                    SelEnd = Math.Max(Anchor, Cursor);
                 }
+                else
+                {
+                    Cursor = target;
+                    SelStart = SelEnd = 0;
+                }
+                return true;
+            }
             case 0xd2:
                 Overwrite = !Overwrite;
                 return true;
@@ -561,8 +560,8 @@ public class GuiTextEdit : GuiSimpleText
                 }
                 return true;
         }
-        char ch = e.Ascii;
-        if (ch >= 0x20 && ch < 0x7f || ch >= 0xa0)
+        var ch = e.Ascii;
+        if (ch is >= (char)0x20 and < (char)0x7f or >= (char)0xa0)
         {
             if (NumbersOnly && !(ch >= '0' && ch <= '9' || ch == '-' && Cursor == 0 && !Text.StartsWith('-')))
                 return true;
@@ -622,22 +621,22 @@ public class GuiTextEdit : GuiSimpleText
         PftFont? f = !Active && dis != null ? dis : Font;
         if (f == null)
             return;
-        bool focus = ReferenceEquals(Canvas?.FirstResponder, this);
+        var focus = ReferenceEquals(Canvas?.FirstResponder, this);
         if (hi == null || !focus || SelStart > Text.Length || SelEnd > Text.Length)
             SelStart = SelEnd = 0;
-        int y = top + ((bottom - top - GuiPaint.FontHeight(f)) >> 1) + (int)U("textVOffset");
+        var y = top + ((bottom - top - GuiPaint.FontHeight(f)) >> 1) + (int)U("textVOffset");
         int x0 = left + 3, x = x0;
-        int end = 0;
+        var end = 0;
         if (SelEnd > 0)
         {
             if (SelStart > 0)
             {
-                string pre = Text[..SelStart];
+                var pre = Text[..SelStart];
                 p.Text(f, x, y, pre);
                 x += GuiPaint.TextWidth(f, pre) + 1;
             }
-            string sel = Text[SelStart..SelEnd];
-            int w = GuiPaint.TextWidth(hi, sel);
+            var sel = Text[SelStart..SelEnd];
+            var w = GuiPaint.TextWidth(hi, sel);
             if (SelectionColor != 0)
                 p.Fill(x, top, w + 1, bottom - top + 1, SelectionColor);
             p.Text(hi, x, y, sel);
@@ -647,7 +646,7 @@ public class GuiTextEdit : GuiSimpleText
         p.Text(f, x, y, Text[end..]);
         if (focus && mCursorShown)
         {
-            int cx = x0 + GuiPaint.TextWidth(f, Text[..Math.Min(Cursor, Text.Length)]);
+            var cx = x0 + GuiPaint.TextWidth(f, Text[..Math.Min(Cursor, Text.Length)]);
             p.Line(cx, top, cx, bottom, CursorColor);
         }
     }
@@ -683,8 +682,8 @@ public sealed class GuiTestEdit : GuiTextEdit
             GuiControl? root = Canvas.Stack.Count > 0 ? Canvas.Top : null;
             if (root != null && root.FindById(141000) != null)
             {
-                string[] names = e.Scan == 0x1c ? new[] { "DialogReturnButton", "DialogCloseButton" } : new[] { "DialogEscapeButton", "DialogCloseButton" };
-                foreach (string n in names)
+                var names = e.Scan == 0x1c ? new[] { "DialogReturnButton", "DialogCloseButton" } : ["DialogEscapeButton", "DialogCloseButton"];
+                foreach (var n in names)
                     if (root.FindByName(n) is GuiActive b)
                     {
                         b.DoAction();
@@ -711,7 +710,7 @@ public sealed class GuiTestEdit : GuiTextEdit
     /// <remarks>Follows draw 004cd974: an underline of two rules (the table at 00629f68: 0xf0, 0xef, 0xee, 0xed, the second four when dimmed): the upper from x + 3 to x + W - 4 at y + H - 2 in the first colour, the lower from x + 4 to x + W - 5 at y + H - 1 in the second, and the third colour on both ends of the upper rule. It then sets the text rectangle to (x + 6, y, x + W - 1, y + H - 3) and runs the text draw (004cdb1c), so the text starts 9 pixels in.</remarks>
     protected override void DrawField(GuiPaint p, int gx, int gy)
     {
-        int b = Dimmed ? 4 : 0;
+        var b = Dimmed ? 4 : 0;
         p.Line(gx + 3, gy + H - 2, gx + W - 4, gy + H - 2, 0xf0 - b);
         p.Line(gx + 4, gy + H - 1, gx + W - 5, gy + H - 1, 0xef - b);
         p.Fill(gx + 3, gy + H - 2, 1, 1, 0xee - b);

@@ -5,7 +5,7 @@ namespace OpenTribes.Script;
 internal static class ClientCommandTable
 {
     public static readonly ClientCommands.Rule[] Rules =
-    {
+    [
         new("dbgSetParams", 0, 255, "", "True", false),
         new("Console::enable", 0, 0, "Console::enable(<true/false>);", "False", false),
         new("Console::enable", 1, 1, "", "True", false),
@@ -655,5 +655,5 @@ internal static class ClientCommandTable
         new("edit2Box", 0, 5, "edit2Box: Title Question QforVal1 QforVal2 VarToEdit1 VarToEdit2", "False", false),
         new("edit2Box", 6, 6, "edit2Box: must set main main window first!", "False", false),
         new("edit2Box", 7, 255, "edit2Box: Title Question QforVal1 QforVal2 VarToEdit1 VarToEdit2", "False", false),
-    };
+    ];
 }

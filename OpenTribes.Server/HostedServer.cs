@@ -1,15 +1,15 @@
+namespace OpenTribes.Server;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 
-namespace OpenTribes.Server;
-
 /// <summary>Registers the script classes a server world needs.</summary>
 public static class ServerClasses
 {
     private static bool sRegistered;
-    private static readonly object sLock = new();
+    private static readonly Lock sLock = new();
 
     /// <summary>Registers the mission and ghost classes once.</summary>
     public static void EnsureRegistered()
@@ -26,7 +26,7 @@ public static class ServerClasses
 }
 
 /// <summary>A server world inside a client process (client-app.md 1.7).</summary>
-/// <remarks>The stock exe keeps a client world and a server world in one process, with one console, one resource manager and one scaled clock (FearWorld_create 004eb470, FearGame_consoleCallback cases 0x79-0x7e, FearApp_onIdle 004ebc34). Here the console variables, the script functions and the resources are shared, and the console commands of each world answer while that world has the focus (<c>Interpreter.World</c>). The stock loopback transport (LOOPTransport 0058d744, 0058d7d4) is an in-process memory copy of the datagrams. A game with only LOOPBACK uses the same here (<see cref="OpenTribes.Net.UdpSocket.OpenMemory"/>), with no socket.</remarks>
+/// <remarks>The stock exe keeps a client world and a server world in one process, with one console, one resource manager and one scaled clock (FearWorld_create 004eb470, FearGame_consoleCallback cases 0x79-0x7e, FearApp_onIdle 004ebc34). Here the console variables, the script functions and the resources are shared, and the console commands of each world answer while that world has the focus (<c>Interpreter.World</c>). The stock loopback transport (LOOPTransport 0058d744, 0058d7d4) is an in-process memory copy of the datagrams. A game with only LOOPBACK uses the same here (<see cref="Net.UdpSocket.OpenMemory"/>), with no socket.</remarks>
 public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
 {
     private readonly Interpreter mIn;
@@ -34,10 +34,6 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     private readonly string mRoot;
     private readonly SimConsole mClientSim;
     private readonly bool mAllowMasters;
-    private Interpreter.World? mWorld;
-    private SimConsole? mSim;
-    private GameState? mGame;
-    private NetServer? mNet;
     private bool mServing;
 
     /// <summary>Creates the host. No world exists until <see cref="NewServer"/>.</summary>
@@ -56,15 +52,15 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     }
 
     /// <summary>Tells whether a server world exists.</summary>
-    public bool Exists => mSim != null;
+    public bool Exists => Sim != null;
     /// <summary>The console of the server world, or null.</summary>
-    public SimConsole? Sim => mSim;
+    public SimConsole? Sim { get; private set; }
     /// <summary>The game state of the server world, or null.</summary>
-    public GameState? Game => mGame;
+    public GameState? Game { get; private set; }
     /// <summary>The network of the server world, or null.</summary>
-    public NetServer? Net => mNet;
+    public NetServer? Net { get; private set; }
     /// <summary>The interpreter world of the server world, or null.</summary>
-    public Interpreter.World? World => mWorld;
+    public Interpreter.World? World { get; private set; }
 
     /// <summary>Creates the server world, replacing any existing one.</summary>
     /// <returns>Always true.</returns>
@@ -83,11 +79,11 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         game.Console = mIn;
         game.Resources = mRes;
         ctx.Game = game;
-        mWorld = world;
-        mSim = sim;
-        mGame = game;
-        mNet = net;
-        net.SetLeveledLog((level, line) => mIn.Print(level, line));
+        World = world;
+        Sim = sim;
+        Game = game;
+        Net = net;
+        net.SetLeveledLog(mIn.Print);
         net.SetGameInfo(GameInfoProvider.Create(mIn, game));
         game.AllocateRecordId = () => (int)net.AllocatePlayerId();
         game.ReleaseRecordId = id => net.ReleasePlayerId((uint)id);
@@ -135,16 +131,16 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     /// <remarks>Follows SimNet_activate (0054e86c). The word is Ok once any transport has activated, so an IP bind that fails while nothing else has started prints ERROR (format 0063ead8, words 0063eb18 and 0063eb1b). The IP transport is UDPTransport_activate (0058bfac): bind of the exact port, and a failure closes the socket. The LOOPBACK transport always activates (0058d7c4). Transport names match exactly (DNetSession_activateTransport 0058ba60). A hosted game with an IP transport that is not <c>$SinglePlayer</c> announces itself like a dedicated server to the masters (R6: loopback ones unless remote masters are allowed).</remarks>
     private bool ActivateTransports(IReadOnlyList<string> args, NetServer net, SimConsole sim, MasterHeartbeat master)
     {
-        bool isServer = args.Count > 0 && args[0].Length > 0 && args[0][0] is 't' or 'T' or '1';
-        bool anyOk = false;
-        bool ipActivated = false;
-        bool loopback = false;
+        var isServer = args.Count > 0 && args[0].Length > 0 && args[0][0] is 't' or 'T' or '1';
+        var anyOk = false;
+        var ipActivated = false;
+        var loopback = false;
         ushort loopbackPort = 0;
-        for (int i = 1; i + 1 < args.Count; i += 2)
+        for (var i = 1; i + 1 < args.Count; i += 2)
         {
-            string name = args[i];
-            int port = NetServer.CAtoi(args[i + 1]);
-            bool ok = false;
+            var name = args[i];
+            var port = NetServer.CAtoi(args[i + 1]);
+            var ok = false;
             if (name == "IP")
             {
                 ok = net.IsOpen() && !net.LoopbackOnly || net.Open(unchecked((ushort)port), false);
@@ -177,9 +173,9 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     /// <returns>False when the slot is empty (case 0x7a).</returns>
     public bool FocusServer()
     {
-        if (mWorld == null || mSim?.Server() == null)
+        if (World == null || Sim?.Server() == null)
             return false;
-        mIn.Focus(mWorld);
+        mIn.Focus(World);
         return true;
     }
 
@@ -189,15 +185,15 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     /// <summary>Ends the world and its connections (cases 0x7d and 0x7e).</summary>
     public void DeleteServer()
     {
-        if (mWorld == null)
+        if (World == null)
             return;
-        mIn.DropWorld(mWorld);
-        mNet?.Close();
-        mSim?.DestroyWorld();
-        mWorld = null;
-        mSim = null;
-        mGame = null;
-        mNet = null;
+        mIn.DropWorld(World);
+        Net?.Close();
+        Sim?.DestroyWorld();
+        World = null;
+        Sim = null;
+        Game = null;
+        Net = null;
         mServing = false;
     }
 
@@ -206,17 +202,17 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     /// <remarks>Follows FearWorld_advance (004eba40), client-app.md 2.2 F3. FearWorld_clientAdvance (004eb7ac) sets the client focus again at its start.</remarks>
     public void Frame(uint nowMs)
     {
-        if (mWorld == null || mSim == null || mNet == null || mSim.Server() == null)
+        if (World == null || Sim == null || Net == null || Sim.Server() == null)
             return;
-        mIn.Focus(mWorld);
+        mIn.Focus(World);
         try
         {
-            mSim.UpdateClock();
+            Sim.UpdateClock();
             if (mServing)
-                mNet.ReceivePackets(nowMs);
-            mSim.AdvanceServer();
+                Net.ReceivePackets(nowMs);
+            Sim.AdvanceServer();
             if (mServing)
-                mNet.SendPackets(nowMs);
+                Net.SendPackets(nowMs);
         }
         finally
         {

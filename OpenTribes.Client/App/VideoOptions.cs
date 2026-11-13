@@ -1,8 +1,7 @@
-using System.Globalization;
+namespace OpenTribes.Client.App;
+
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gl;
-
-namespace OpenTribes.Client.App;
 
 /// <summary>The Video options lists: the driver combos get one entry per display device, the resolution combo one per mode of the chosen full screen driver. Each combo then selects the saved preference or, without one, the device in use.</summary>
 /// <remarks>Follows 004d9228 (devices) and 004d946c (modes). The devices are our own platform's: the software renderer and OpenGL (named with its renderer string). Glide is not reproduced (D31). The stock client lists the devices Windows reports, so the OpenGL entry shows another renderer text there.</remarks>
@@ -36,17 +35,17 @@ public static class VideoOptions
     /// <summary>Lists the devices of the platform.</summary>
     /// <param name="renderer">The renderer string of OpenGL, or null.</param>
     /// <returns>The devices.</returns>
-    public static List<Device> Devices(string? renderer) => new()
-    {
+    public static List<Device> Devices(string? renderer) =>
+    [
         new Device("Software", null, 0, true, true),
         new Device("OpenGL", renderer, 1, true, true),
-    };
+    ];
 
     /// <summary>Lists the mode names as "WxH" (004d946c). The id of an entry is the mode index.</summary>
     /// <param name="modes">The modes.</param>
     /// <returns>The names.</returns>
     public static List<string> ModeNames(IEnumerable<(int W, int H)> modes) =>
-        modes.Select(m => $"{m.W}x{m.H}").ToList();
+        [.. modes.Select(m => $"{m.W}x{m.H}")];
 
     /// <summary>Fills the combos of the Video page.</summary>
     /// <param name="root">The root of the options screen.</param>
@@ -75,9 +74,9 @@ public static class VideoOptions
         res.Entries.Clear();
         res.SetSelectedIndex(-1);
         List<string> names = ModeNames(modes);
-        for (int i = 0; i < names.Count; ++i)
+        for (var i = 0; i < names.Count; ++i)
             res.Entries.Add((names[i], i));
-        int r = host.GetVar("$pref::VideoFullScreenRes") is { Length: > 0 } pref ? res.Entries.FindIndex(e => string.Equals(e.Text, pref, StringComparison.OrdinalIgnoreCase)) : -1;
+        var r = host.GetVar("$pref::VideoFullScreenRes") is { Length: > 0 } pref ? res.Entries.FindIndex(e => string.Equals(e.Text, pref, StringComparison.OrdinalIgnoreCase)) : -1;
         res.SetSelectedIndex(r < 0 ? 0 : r);
     }
 
@@ -99,7 +98,7 @@ public static class VideoOptions
         box.On = FullscreenPlan.UseDesktopMode(false, host.GetVar(pref));
         box.F["on"] = box.On ? 1u : 0u;
         var label = new FullscreenWindowedLabel { ClassName = "FearGui::FGSimpleText", X = x + 20, Y = y - 2, W = 150, H = 17, Text = "Fullscreen Windowed", Box = box };
-        foreach (string k in new[] { "fontTag", "disabledFontTag", "highlightFontTag" })
+        foreach (var k in new[] { "fontTag", "disabledFontTag", "highlightFontTag" })
             label.F[k] = 0u;
         parent.AddChild(box);
         parent.AddChild(label);
@@ -117,7 +116,7 @@ public static class VideoOptions
     // The entry of a saved driver name, else of the device in use, else the first.
     private static int Pick(GuiCombo combo, string pref, string current)
     {
-        int i = pref.Length > 0 ? combo.FindEntryByName(pref) : -1;
+        var i = pref.Length > 0 ? combo.FindEntryByName(pref) : -1;
         if (i < 0)
             i = combo.FindEntryByName(current);
         return i < 0 ? 0 : i;
@@ -141,8 +140,8 @@ public sealed class FullscreenWindowedLabel : GuiSimpleText
         if (Host == null || Canvas == null)
             return;
         bool small = Canvas.Width < 512 || Canvas.Height < 384, on = Box?.Active ?? true;
-        string main = small ? (on ? "sf_yellow_6.pft" : "sf_grey_6.pft") : on ? "sf_orange255_10.pft" : "sf_grey100_10b.pft";
-        string shadow = small ? "sf_black_6.pft" : "sf_black_10.pft";
+        var main = small ? (on ? "sf_yellow_6.pft" : "sf_grey_6.pft") : on ? "sf_orange255_10.pft" : "sf_grey100_10b.pft";
+        var shadow = small ? "sf_black_6.pft" : "sf_black_10.pft";
         int gx = ox + X, gy = oy + Y;
         p.Text(Host.FontByName(shadow), gx, gy + 1, Text);
         p.Text(Host.FontByName(main), gx + 1, gy, Text);

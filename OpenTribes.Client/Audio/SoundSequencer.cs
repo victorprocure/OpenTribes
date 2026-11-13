@@ -13,7 +13,7 @@ public sealed class SoundSequencer
     public SoundSequencer(SoundManager sound)
     {
         mSound = sound;
-        for (int i = 0; i < 32; ++i)
+        for (var i = 0; i < 32; ++i)
             mQueue[i] = new Queue<(int, SoundXf?)>();
     }
 
@@ -23,7 +23,7 @@ public sealed class SoundSequencer
     /// <param name="xf">The 3D position, or null for a 2D sound.</param>
     public void Add(int channel, int sound, SoundXf? xf)
     {
-        if (channel < 0 || channel > 31)
+        if (channel is < 0 or > 31)
             mSound.PlayPair(sound, xf);
         else
             mQueue[channel].Enqueue((sound, xf));
@@ -32,7 +32,7 @@ public sealed class SoundSequencer
     /// <summary>Forgets finished voices and starts the next queued sound on each idle channel.</summary>
     public void Tick()
     {
-        for (int c = 0; c < 32; ++c)
+        for (var c = 0; c < 32; ++c)
         {
             if (mHandle[c] != 0 && mSound.IsDone(mHandle[c]))
                 mHandle[c] = 0;

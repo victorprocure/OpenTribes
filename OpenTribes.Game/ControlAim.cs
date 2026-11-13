@@ -1,6 +1,3 @@
-using OpenTribes.Sim;
-using OpenTribes.World;
-
 namespace OpenTribes.Game;
 
 /// <summary>The eye and muzzle transforms of a vehicle, flier or turret control object, in world space.</summary>
@@ -60,9 +57,9 @@ public static class ControlAim
         if (node is not { } n)
             return obj;
         var local = new Transform();
-        MissionTransform.EulerToMatrix(new[] { elevation, 0.0f, rotation }, ref local);
+        MissionTransform.EulerToMatrix([elevation, 0.0f, rotation], ref local);
         local.Flags |= 2u;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             local.P[i] = n.P[i];
         return TimesObject(local, obj);
     }

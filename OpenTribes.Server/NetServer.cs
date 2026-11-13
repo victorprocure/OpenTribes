@@ -1,8 +1,8 @@
+namespace OpenTribes.Server;
+
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Net;
-
-namespace OpenTribes.Server;
 
 /// <summary>The static settings of the server, used for query replies when no game is running.</summary>
 /// <remarks>Port of src/server/net_server.hpp ServerConfig.</remarks>
@@ -72,7 +72,7 @@ public sealed class GameInfo
         }
     }
     /// <summary>The team rows, teams 0 to n-1.</summary>
-    public List<TeamRow> Teams = new();
+    public List<TeamRow> Teams = [];
 
     /// <summary>The client record details of one player by player id (docs/player-manager.md 2.1). Players without an entry report the values of a fresh record.</summary>
     /// <remarks>Port of src/server/net_server.hpp GameInfo::PlayerRow.</remarks>
@@ -93,7 +93,7 @@ public sealed class GameInfo
         public float Loss;
     }
     /// <summary>The player rows.</summary>
-    public List<PlayerRow> Players = new();
+    public List<PlayerRow> Players = [];
 }
 
 /// <summary>A connected player. Port of src/server/net_server.hpp Player.</summary>
@@ -128,14 +128,14 @@ public sealed class NetHooks
 
 /// <summary>The server networking: the socket, connectionless queries and the connect handshake.</summary>
 /// <remarks>Port of src/server/net_server.cpp. The original has the query handler at 0042a4cc, the connect handler at 0042ad6c and the DNet info at 0054f608.</remarks>
-public sealed class NetServer : ConnectionEvents
+public sealed class NetServer : ConnectionEvents, IDisposable
 {
     private const uint kFirstPlayerId = 2049;   // first player record id observed on the original
     private const uint kServerManagerId = 2048; // server SimManager id sent in the accept
     private const int kMaxNameLength = 16;
     private const string kGameType = "Tribes";
 
-    private ServerConfig mConfig;
+    private readonly ServerConfig mConfig;
     private readonly string mVersion;
     private readonly int mMinMinorVersion;
     private readonly string mUpgradeMessage;
@@ -148,10 +148,10 @@ public sealed class NetServer : ConnectionEvents
     private Action<string> mLog;
     private Action<int, string>? mLeveledLog;
     private readonly BanList mBans = new();
-    private readonly SortedDictionary<Address, Connection> mConnections = new();
-    private readonly List<Player> mPlayers = new();
+    private readonly SortedDictionary<Address, Connection> mConnections = [];
+    private readonly List<Player> mPlayers = [];
     // Player record ids are reused last-freed-first; unused ids follow in order.
-    private readonly List<uint> mFreePlayerIds = new();
+    private readonly List<uint> mFreePlayerIds = [];
     private uint mNextFreshPlayerId;
     private uint mNextConnectionId;
     private uint mNow;
@@ -161,21 +161,21 @@ public sealed class NetServer : ConnectionEvents
     // glibc atoi: strtol (white space, sign, decimal digits, saturating at the long range), cast to int.
     internal static int CAtoi(string s)
     {
-        int i = 0;
+        var i = 0;
         while (i < s.Length && (s[i] == ' ' || (s[i] >= '\t' && s[i] <= '\r')))
             ++i;
-        bool negative = false;
+        var negative = false;
         if (i < s.Length && (s[i] == '+' || s[i] == '-'))
             negative = s[i++] == '-';
         long v = 0;
-        bool overflow = false;
+        var overflow = false;
         while (i < s.Length && s[i] >= '0' && s[i] <= '9')
         {
-            int d = s[i++] - '0';
+            var d = s[i++] - '0';
             if (v > (long.MaxValue - d) / 10)
                 overflow = true;
             else
-                v = v * 10 + d;
+                v = (v * 10) + d;
         }
         if (overflow)
             v = negative ? long.MinValue : long.MaxValue;
@@ -187,9 +187,9 @@ public sealed class NetServer : ConnectionEvents
     // Appends a length-prefixed string clipped to maxLen (0x00588d3c).
     private static void PutString(List<byte> output, string s, int maxLen)
     {
-        int n = Math.Min(s.Length, maxLen);
+        var n = Math.Min(s.Length, maxLen);
         output.Add((byte)n);
-        for (int i = 0; i < n; ++i)
+        for (var i = 0; i < n; ++i)
             output.Add((byte)s[i]);
     }
 
@@ -220,7 +220,7 @@ public sealed class NetServer : ConnectionEvents
         mPacketVersion = (ushort)CAtoi(mVersion);
         // Session connection ids are seeded from the tick count (0x0058b890).
         mNextConnectionId = unchecked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        mLog = line => StdIo.Out(line);
+        mLog = StdIo.Out;
     }
 
     /// <summary>Opens the socket on the configured port.</summary>
@@ -297,8 +297,8 @@ public sealed class NetServer : ConnectionEvents
     // src/server/net_server.cpp NetServer::maxPlayers.
     private int MaxPlayers()
     {
-        string max = CurrentInfo().MaxPlayers;
-        int n = max.Length == 0 ? 32 : CAtoi(max);
+        var max = CurrentInfo().MaxPlayers;
+        var n = max.Length == 0 ? 32 : CAtoi(max);
         return Math.Min(n, 128);
     }
 
@@ -372,7 +372,7 @@ public sealed class NetServer : ConnectionEvents
         }
         if (!mConnections.TryGetValue(from, out Connection? slot))
         {
-            slot = new Connection(from, mNextConnectionId++, this, (to, d) => Send(to, d), nowMs);
+            slot = new Connection(from, mNextConnectionId++, this, Send, nowMs);
             mConnections[from] = slot;
         }
         slot.Receive(data, nowMs);
@@ -428,7 +428,7 @@ public sealed class NetServer : ConnectionEvents
     private List<GameInfo.PlayerRow> PlayerRows(GameInfo g)
     {
         var rows = new List<GameInfo.PlayerRow>();
-        for (int k = mPlayers.Count - 1; k >= 0; --k)
+        for (var k = mPlayers.Count - 1; k >= 0; --k)
         {
             var row = new GameInfo.PlayerRow { Id = mPlayers[k].Id };
             foreach (GameInfo.PlayerRow r in g.Players)
@@ -446,7 +446,7 @@ public sealed class NetServer : ConnectionEvents
         // reply here (D11; the original's behavior past the end is not verified).
         const int kLimit = 0x578;
         var output = new List<byte>();
-        bool full = false;
+        var full = false;
         void Byte(byte b)
         {
             full = full || output.Count + 1 > kLimit;
@@ -482,14 +482,14 @@ public sealed class NetServer : ConnectionEvents
             Byte(unchecked((byte)g.TeamCount));
             StrField(g.TeamHeading, 64);
             StrField(g.ClientHeading, 64);
-            for (int t = 0; t < g.TeamCount && t < g.Teams.Count; ++t)
+            for (var t = 0; t < g.TeamCount && t < g.Teams.Count; ++t)
             {
                 StrField(g.Teams[t].Name, 32);
                 StrField(g.Teams[t].Score, 32);
             }
             // Per player: ping/4, loss*100, team, name, raw score text (no % expansion here).
             List<GameInfo.PlayerRow> rows = PlayerRows(g);
-            for (int i = 0; i < rows.Count; ++i)
+            for (var i = 0; i < rows.Count; ++i)
             {
                 Byte(unchecked((byte)(rows[i].Ping >> 2)));
                 Byte(unchecked((byte)(int)(rows[i].Loss * 100.0f)));
@@ -506,12 +506,12 @@ public sealed class NetServer : ConnectionEvents
     {
         // Key bytes missing from a short request read as zero.
         var output = new byte[40];
-        byte[] head = { 0x10, 0x04, 0xff, 0xf0, data.Length > 4 ? data[4] : (byte)0, data.Length > 5 ? data[5] : (byte)0,
-                        0x20, (byte)mPlayers.Count, (byte)mPacketVersion, (byte)(mPacketVersion >> 8) };
+        byte[] head = [ 0x10, 0x04, 0xff, 0xf0, data.Length > 4 ? data[4] : (byte)0, data.Length > 5 ? data[5] : (byte)0,
+                        0x20, (byte)mPlayers.Count, (byte)mPacketVersion, (byte)(mPacketVersion >> 8) ];
         head.CopyTo(output, 0);
         // strncpy of 29 characters, then the last byte is 0.
-        string host = CurrentInfo().Hostname;
-        for (int i = 0; i < 29 && i < host.Length && host[i] != '\0'; ++i)
+        var host = CurrentInfo().Hostname;
+        for (var i = 0; i < 29 && i < host.Length && host[i] != '\0'; ++i)
             output[10 + i] = (byte)host[i];
         output[39] = 0;
         Send(from, output);
@@ -526,58 +526,58 @@ public sealed class NetServer : ConnectionEvents
         const int kPayload = 0x5d4;
         const int kRowMax = 1023; // the original's row buffer is 1024 bytes, unchecked (D11)
         var payload = new byte[kPayload];
-        byte[] header = { 0x10, 0x08, 0xff, 0x00, data.Length > 4 ? data[4] : (byte)0, data.Length > 5 ? data[5] : (byte)0, 0, 0 };
+        byte[] header = [0x10, 0x08, 0xff, 0x00, data.Length > 4 ? data[4] : (byte)0, data.Length > 5 ? data[5] : (byte)0, 0, 0];
         var bs = new BitStream(payload, kPayload);
         GameInfo g = CurrentInfo();
         List<GameInfo.PlayerRow> players = PlayerRows(g);
         var names = new List<string>();
-        for (int k = mPlayers.Count - 1; k >= 0; --k)
+        for (var k = mPlayers.Count - 1; k >= 0; --k)
             names.Add(mPlayers[k].Name);
 
-        byte[] pv = { (byte)mPacketVersion, (byte)(mPacketVersion >> 8) };
+        byte[] pv = [(byte)mPacketVersion, (byte)(mPacketVersion >> 8)];
         bs.WriteBytes(pv);
         bs.WriteString(kGameType);
         bs.WriteString(mVersion);
         bs.WriteString(g.Hostname.Length == 0 ? "N/A" : g.Hostname);
-        byte b = (byte)mPlayers.Count;
-        bs.WriteBytes(new[] { b });
+        var b = (byte)mPlayers.Count;
+        bs.WriteBytes([b]);
         // Decimal parse in a byte with no digit check.
         b = 0;
-        foreach (char c in g.MaxPlayers)
-            b = unchecked((byte)(b * 10 + (byte)c - 0x30));
-        bs.WriteBytes(new[] { b });
+        foreach (var c in g.MaxPlayers)
+            b = unchecked((byte)((b * 10) + (byte)c - 0x30));
+        bs.WriteBytes([b]);
         bs.WriteString(g.MissionName.Length == 0 ? "N/A" : g.MissionName);
-        bs.WriteBytes(new[] { g.Dedicated ? (byte)1 : (byte)0 });
-        bs.WriteBytes(new[] { g.Password.Length == 0 ? (byte)0 : (byte)1 });
-        int cpu = g.CpuText.Length == 0 ? -1 : g.CpuSpeed;
-        bs.WriteBytes(new[] { (byte)cpu, (byte)(cpu >> 8), (byte)(cpu >> 16), (byte)(cpu >> 24) });
+        bs.WriteBytes([g.Dedicated ? (byte)1 : (byte)0]);
+        bs.WriteBytes([g.Password.Length == 0 ? (byte)0 : (byte)1]);
+        var cpu = g.CpuText.Length == 0 ? -1 : g.CpuSpeed;
+        bs.WriteBytes([(byte)cpu, (byte)(cpu >> 8), (byte)(cpu >> 16), (byte)(cpu >> 24)]);
         bs.WriteString(g.ModList);
         bs.WriteString(g.MissionType);
         bs.WriteString(g.Info);
-        int remaining = kPayload - bs.BytePosition();
+        var remaining = kPayload - bs.BytePosition();
 
-        bool hasTeams = g.TeamHeading.Length != 0;
-        int playerCount = players.Count;
-        int rowCount = hasTeams ? g.TeamCount + playerCount + 2 : playerCount + 1;
+        var hasTeams = g.TeamHeading.Length != 0;
+        var playerCount = players.Count;
+        var rowCount = hasTeams ? g.TeamCount + playerCount + 2 : playerCount + 1;
         // Teams and players sorted by descending sort value with the C runtime qsort.
         var teams = new List<GameInfo.TeamRow>();
         if (hasTeams)
-            for (int t = 0; t < g.TeamCount && t < g.Teams.Count; ++t)
+            for (var t = 0; t < g.TeamCount && t < g.Teams.Count; ++t)
                 teams.Add(g.Teams[t]);
-        GameInfo.TeamRow[] teamArray = teams.ToArray();
+        GameInfo.TeamRow[] teamArray = [.. teams];
         if (teamArray.Length != 0)
-            Borland.BorlandQsort<GameInfo.TeamRow>(teamArray, (x, c) => unchecked((int)((uint)c.Sort - (uint)x.Sort)));
+            Borland.BorlandQsort(teamArray, (x, c) => unchecked((int)((uint)c.Sort - (uint)x.Sort)));
         var order = new int[players.Count];
-        for (int i = 0; i < order.Length; ++i)
+        for (var i = 0; i < order.Length; ++i)
             order[i] = i;
         if (order.Length != 0)
-            Borland.BorlandQsort<int>(order, (x, c) => unchecked((int)((uint)players[c].Sort - (uint)players[x].Sort)));
-        int teamRows = teamArray.Length;
+            Borland.BorlandQsort(order, (x, c) => unchecked((int)((uint)players[c].Sort - (uint)players[x].Sort)));
+        var teamRows = teamArray.Length;
         string TeamName(int t) => t >= 0 && t < g.Teams.Count ? g.Teams[t].Name : "";
 
         bs.WriteString(g.TeamHeading);
         bs.WriteString(g.ClientHeading);
-        for (int i = 0; i < rowCount; ++i)
+        for (var i = 0; i < rowCount; ++i)
         {
             var row = new System.Text.StringBuilder();
             if (i == 0 && hasTeams)
@@ -588,7 +588,7 @@ public sealed class NetServer : ConnectionEvents
             {
                 GameInfo.TeamRow t = teamArray[i - 1];
                 row.Append("00");
-                for (int k = 0; k < t.Score.Length && row.Length < kRowMax; ++k)
+                for (var k = 0; k < t.Score.Length && row.Length < kRowMax; ++k)
                     if (t.Score[k] == '%' && k + 1 < t.Score.Length && t.Score[k + 1] == 't')
                     {
                         row.Append(t.Name);
@@ -601,15 +601,15 @@ public sealed class NetServer : ConnectionEvents
             }
             else if (!(hasTeams && i == teamRows + 1) && !(!hasTeams && i == 0))
             {
-                int idx = i - teamRows - (hasTeams ? 2 : 1);
+                var idx = i - teamRows - (hasTeams ? 2 : 1);
                 if (idx < 0 || idx >= playerCount)
                     break; // only when the team count and the team list disagree
                 GameInfo.PlayerRow p = players[order[idx]];
-                string text = p.Score;
+                var text = p.Score;
                 row.Append("10");
-                for (int k = 0; k < text.Length && row.Length < kRowMax; ++k)
+                for (var k = 0; k < text.Length && row.Length < kRowMax; ++k)
                 {
-                    char next = text[k] == '%' && k + 1 < text.Length ? text[k + 1] : '\0';
+                    var next = text[k] == '%' && k + 1 < text.Length ? text[k + 1] : '\0';
                     if (next == 'n')
                         row.Append(names[order[idx]]);
                     else if (next == 't')
@@ -632,8 +632,8 @@ public sealed class NetServer : ConnectionEvents
             }
             if (row.Length > kRowMax)
                 row.Length = kRowMax;
-            string rowText = row.ToString();
-            int len = rowText.Length;
+            var rowText = row.ToString();
+            var len = rowText.Length;
             if (remaining < len)
                 break;
             if (rowText[1] == '1')
@@ -657,7 +657,7 @@ public sealed class NetServer : ConnectionEvents
     {
         var output = new List<string> { "Server: " + Str(mPlayers.Count) + " clients" };
         List<GameInfo.PlayerRow> rows = PlayerRows(CurrentInfo());
-        for (int i = 0; i < rows.Count; ++i)
+        for (var i = 0; i < rows.Count; ++i)
         {
             Player p = mPlayers[mPlayers.Count - 1 - i];
             output.Add(p.Id.ToString(CultureInfo.InvariantCulture) + " (" + (p.Connection != null ? p.Connection.Peer().ToString() : "") +
@@ -718,7 +718,7 @@ public sealed class NetServer : ConnectionEvents
     {
         if (mFreePlayerIds.Count == 0)
             return mNextFreshPlayerId++;
-        uint id = mFreePlayerIds[^1];
+        var id = mFreePlayerIds[^1];
         mFreePlayerIds.RemoveAt(mFreePlayerIds.Count - 1);
         return id;
     }
@@ -733,16 +733,16 @@ public sealed class NetServer : ConnectionEvents
         if (name.Length > kMaxNameLength)
             name = name[..kMaxNameLength];
         var chars = name.ToCharArray();
-        for (int i = 0; i < chars.Length; ++i)
+        for (var i = 0; i < chars.Length; ++i)
         {
-            char c = chars[i];
-            if (c < 0x20 || c > 0x7f || c == '\\' || c == '"' || c == '~')
+            var c = chars[i];
+            if (c is < (char)0x20 or > (char)0x7f or '\\' or '"' or '~')
                 chars[i] = '*';
         }
         name = new string(chars);
         bool Taken(string n) => mPlayers.Any(p => p.Name == n);
-        string candidate = name;
-        for (int i = 1; Taken(candidate); ++i)
+        var candidate = name;
+        for (var i = 1; Taken(candidate); ++i)
             candidate = name + "." + Str(i);
         return candidate;
     }
@@ -752,10 +752,10 @@ public sealed class NetServer : ConnectionEvents
         a = CStr(a);
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < a.Length; ++i)
+        for (var i = 0; i < a.Length; ++i)
         {
-            char x = a[i] >= 'A' && a[i] <= 'Z' ? (char)(a[i] + 0x20) : a[i];
-            char y = b[i] >= 'A' && b[i] <= 'Z' ? (char)(b[i] + 0x20) : b[i];
+            var x = a[i] is >= 'A' and <= 'Z' ? (char)(a[i] + 0x20) : a[i];
+            var y = b[i] is >= 'A' and <= 'Z' ? (char)(b[i] + 0x20) : b[i];
             if (x != y)
                 return false;
         }
@@ -764,7 +764,7 @@ public sealed class NetServer : ConnectionEvents
 
     private static string CStr(string s)
     {
-        int nul = s.IndexOf('\0');
+        var nul = s.IndexOf('\0');
         return nul < 0 ? s : s[..nul];
     }
 
@@ -781,11 +781,11 @@ public sealed class NetServer : ConnectionEvents
             c.Drop();
             return;
         }
-        byte[] buf = payload.ToArray();
+        var buf = payload.ToArray();
         var input = new BitStream(buf, buf.Length);
         var pv = new byte[2];
         input.ReadBytes(pv);
-        ushort packetVersion = (ushort)(pv[0] | pv[1] << 8);
+        var packetVersion = (ushort)(pv[0] | (pv[1] << 8));
 
         if (packetVersion != mPacketVersion)
         {
@@ -798,21 +798,21 @@ public sealed class NetServer : ConnectionEvents
             return;
         }
 
-        string clientVersion = input.ReadString();
-        int dot = mVersion.IndexOf('.');
-        int majorLen = dot < 0 || dot == 0 ? 0 : dot - 1; // 0 for "1.11"
-        string clientMajor = clientVersion[..Math.Min(majorLen, clientVersion.Length)];
-        string ourMajor = mVersion[..Math.Min(majorLen, mVersion.Length)];
+        var clientVersion = input.ReadString();
+        var dot = mVersion.IndexOf('.');
+        var majorLen = dot is < 0 or 0 ? 0 : dot - 1; // 0 for "1.11"
+        var clientMajor = clientVersion[..Math.Min(majorLen, clientVersion.Length)];
+        var ourMajor = mVersion[..Math.Min(majorLen, mVersion.Length)];
         if (clientMajor != ourMajor)
         {
             c.Close(Connection.Reject, "Wrong game version.", mNow);
             return;
         }
-        int minor = 0;
-        int clientDot = clientVersion.IndexOf('.');
+        var minor = 0;
+        var clientDot = clientVersion.IndexOf('.');
         if (clientDot >= 0)
         {
-            string digits = clientVersion[(clientDot + 1)..];
+            var digits = clientVersion[(clientDot + 1)..];
             minor = CAtoi(CStr(digits.Length > 2 ? digits[..2] : digits));
         }
         if (minor < mMinMinorVersion)
@@ -821,8 +821,8 @@ public sealed class NetServer : ConnectionEvents
             return;
         }
 
-        string password = input.ReadString();
-        string serverPassword = CurrentInfo().Password;
+        var password = input.ReadString();
+        var serverPassword = CurrentInfo().Password;
         if (serverPassword.Length != 0 && password != serverPassword)
         {
             c.Close(Connection.Reject, "Wrong password.", mNow);
@@ -834,12 +834,12 @@ public sealed class NetServer : ConnectionEvents
             return;
         }
 
-        string name = UniqueName(input.ReadString());
-        string gender = input.ReadString();
-        string voice = input.ReadString();
-        bool male = StrCaseEq(gender, "male");
+        var name = UniqueName(input.ReadString());
+        var gender = input.ReadString();
+        var voice = input.ReadString();
+        var male = StrCaseEq(gender, "male");
 
-        uint id = AllocatePlayerId();
+        var id = AllocatePlayerId();
         var accept = new byte[8];
         var output = new BitStream(accept, accept.Length);
         output.WriteInt(id, 32);
@@ -876,12 +876,12 @@ public sealed class NetServer : ConnectionEvents
 
     /// <summary>Passes a data packet to the game layer.</summary>
     /// <param name="c">The connection.</param>
-    /// <param name="data">The payload.</param>
-    public override void OnData(Connection c, ReadOnlySpan<byte> data)
+    /// <param name="payload">The payload.</param>
+    public override void OnData(Connection c, ReadOnlySpan<byte> payload)
     {
         Player? p = PlayerFor(c);
         if (p != null)
-            mHooks.OnData?.Invoke(p, data.ToArray());
+            mHooks.OnData?.Invoke(p, payload.ToArray());
     }
 
     /// <summary>Passes a delivery notification to the game layer.</summary>
@@ -909,4 +909,7 @@ public sealed class NetServer : ConnectionEvents
                 mFreePlayerIds.Add(q.Id);
         mPlayers.RemoveAll(q => q.Connection == c);
     }
+
+    /// <inheritdoc/>
+    public void Dispose() => mSocket.Dispose();
 }

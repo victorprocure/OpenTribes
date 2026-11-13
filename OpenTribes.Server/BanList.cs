@@ -1,6 +1,6 @@
-using System.Globalization;
-
 namespace OpenTribes.Server;
+
+using System.Globalization;
 
 /// <summary>The list of banned addresses with optional expiry (docs/server-ops.md 4).</summary>
 /// <remarks>Port of src/server/ban_list.cpp. The original is a global at 0065dbc8 with add 00401ab4, remove 00401bdc, check 00401c60, match 00401d0c and export 00401d64.</remarks>
@@ -18,15 +18,15 @@ public sealed class BanList
     public const int kMaxAddress = 127;
 
     private readonly Func<int> mClock;
-    private readonly List<Entry> mEntries = new();
+    private readonly List<Entry> mEntries = [];
 
-    private static char LowerAscii(char c) => (c >= 'A' && c <= 'Z') ? (char)(c + 0x20) : c;
+    private static char LowerAscii(char c) => (c is >= 'A' and <= 'Z') ? (char)(c + 0x20) : c;
 
     private static bool EqualNoCase(string a, string b)
     {
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < a.Length; ++i)
+        for (var i = 0; i < a.Length; ++i)
             if (LowerAscii(a[i]) != LowerAscii(b[i]))
                 return false;
         return true;
@@ -34,19 +34,14 @@ public sealed class BanList
 
     /// <summary>Creates an empty list.</summary>
     /// <param name="clock">Returns seconds since the epoch. Defaults to the system clock, as the original calls <c>time()</c>.</param>
-    public BanList(Func<int>? clock = null)
-    {
-        mClock = clock ?? (() => unchecked((int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-    }
+    public BanList(Func<int>? clock = null) => mClock = clock ?? (() => unchecked((int)DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
 
     /// <summary>Bans an address for a duration.</summary>
     /// <param name="address">The address pattern.</param>
     /// <param name="seconds">The duration in seconds. -1 is permanent and 0 expires at once (00401bac).</param>
-    public void Add(string address, int seconds)
-    {
+    public void Add(string address, int seconds) =>
         // 0x00401bac: -1 means permanent; anything else is relative to now (0 expires at once).
         AddAbsolute(address, seconds == -1 ? 0 : unchecked((int)((uint)seconds + (uint)mClock())));
-    }
 
     /// <summary>Bans an address until a time. Ignored when the expiry is non-zero and already past.</summary>
     /// <param name="address">The address pattern. An <c>IP:a.b.c.d:port</c> address is stored with the port replaced by <c>*</c>.</param>
@@ -65,10 +60,10 @@ public sealed class BanList
                 return;
             }
         // The original copies into a 128-byte stack buffer without a length check (D11).
-        string name = address.Length > kMaxAddress ? address[..kMaxAddress] : address;
+        var name = address.Length > kMaxAddress ? address[..kMaxAddress] : address;
         if (name.Length >= 3 && EqualNoCase(name[..3], "ip:"))
         {
-            int colon = name.IndexOf(':', 3);
+            var colon = name.IndexOf(':', 3);
             if (colon >= 0)
             {
                 name = name[..(colon + 1)];
@@ -83,7 +78,7 @@ public sealed class BanList
     /// <param name="address">The stored address.</param>
     public void Remove(string address)
     {
-        for (int i = 0; i < mEntries.Count; ++i)
+        for (var i = 0; i < mEntries.Count; ++i)
             if (EqualNoCase(mEntries[i].Address, address))
             {
                 mEntries.RemoveAt(i);
@@ -97,10 +92,10 @@ public sealed class BanList
     /// <returns>True when the address matches.</returns>
     public static bool Matches(string pattern, string address)
     {
-        for (int i = 0; ; ++i)
+        for (var i = 0; ; ++i)
         {
-            char p = i < pattern.Length ? pattern[i] : '\0';
-            char a = i < address.Length ? address[i] : '\0';
+            var p = i < pattern.Length ? pattern[i] : '\0';
+            var a = i < address.Length ? address[i] : '\0';
             if (p == '*' || (p == '\0' && a == ':'))
                 return true;
             if (LowerAscii(p) != LowerAscii(a))
@@ -115,8 +110,8 @@ public sealed class BanList
     /// <returns>True when banned.</returns>
     public bool IsBanned(string address)
     {
-        int now = mClock();
-        for (int i = 0; i < mEntries.Count;)
+        var now = mClock();
+        for (var i = 0; i < mEntries.Count;)
         {
             if (mEntries[i].Expiry != 0 && mEntries[i].Expiry < now)
             {

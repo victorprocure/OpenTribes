@@ -1,16 +1,16 @@
 // The tribes-netclient pieces: the capture decoder (the format tools/stream_decode.py reads), the move script and the
 // dump (ROADMAP M9 C3a, docs/client-net.md 5.6).
+namespace OpenTribes.Tests;
+
 using OpenTribes.ClientNet;
 using OpenTribes.Net;
-
-namespace OpenTribes.Tests;
 
 public class ClientNetToolTests
 {
     // A VC packet header (net-protocol.md 3.2) of type 0 followed by the payload.
     private static byte[] Vc(int seq, byte[] payload)
     {
-        byte[] buf = new byte[payload.Length + 16];
+        var buf = new byte[payload.Length + 16];
         var bs = new BitStream(buf, buf.Length);
         bs.WriteFlag(true);
         bs.WriteInt(0, 1);
@@ -18,7 +18,7 @@ public class ClientNetToolTests
         bs.WriteInt(0, 5);
         bs.WriteInt(0, 3);
         bs.WriteInt(0, 5);
-        int at = bs.BytePosition();
+        var at = bs.BytePosition();
         payload.CopyTo(buf, at);
         return buf.AsSpan(0, at + payload.Length).ToArray();
     }
@@ -28,9 +28,9 @@ public class ClientNetToolTests
     {
         // Server packet: no rate, no events, PSC mode 1 without control, no ghosts. The second line repeats sequence 5 (a
         // retransmission the VC layer does not deliver) and the third is an annotation without a hex field.
-        byte[] payload = { 0x20, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        byte[] payload = [0x20, 0x00, 0x00, 0x00, 0x00, 0x00];
         // bit 2: PSC flag; bits 3..5: mode 1 (LSB first starting at bit 3); then flag, 32 bits lastMove, flag.
-        byte[] buf = new byte[16];
+        var buf = new byte[16];
         var w = new BitStream(buf, buf.Length);
         w.WriteFlag(false);
         w.WriteFlag(false);
@@ -42,21 +42,22 @@ public class ClientNetToolTests
         w.WriteFlag(false);
         w.WriteFlag(false);
         payload = buf.AsSpan(0, w.BytePosition()).ToArray();
-        string hex = Convert.ToHexString(Vc(5, payload)).ToLowerInvariant();
-        string path = Path.Combine(TestPaths.TmpDir(""), "clientnet_capture.jsonl");
-        File.WriteAllLines(path, new[]
-        {
+        var hex = Convert.ToHexString(Vc(5, payload)).ToLowerInvariant();
+        var path = Path.Combine(TestPaths.TmpDir(""), "clientnet_capture.jsonl");
+        File.WriteAllLines(path,
+        [
             "{\"t\": 0.1, \"dir\": \"s2c\", \"client\": \"c1\", \"hex\": \"" + hex + "\"}",
             "{\"t\": 0.2, \"dir\": \"s2c\", \"client\": \"c1\", \"hex\": \"" + hex + "\"}",
-            "{\"t\": 0.3, \"dir\": \"s2c\", \"client\": \"c1\", \"note\": \"drop\", \"seq\": 6}",
+            /*lang=json,strict*/
+                                 "{\"t\": 0.3, \"dir\": \"s2c\", \"client\": \"c1\", \"note\": \"drop\", \"seq\": 6}",
             "{\"t\": 0.4, \"dir\": \"s2c\", \"client\": \"c1\", \"hex\": \"" + Convert.ToHexString(Vc(6, payload)).ToLowerInvariant() + "\"}",
-        });
-        string dumpPath = Path.Combine(TestPaths.TmpDir(""), "clientnet_capture.out.jsonl");
+        ]);
+        var dumpPath = Path.Combine(TestPaths.TmpDir(""), "clientnet_capture.out.jsonl");
         CaptureTotals t;
         using (var dump = new PacketDump(dumpPath))
             t = CaptureDecoder.Decode(path, dump, null, null);
         Assert.True(t.Packets == 2 && t.Duplicates == 1 && t.Unknown == 0 && t.Overruns == 0);
-        string[] lines = File.ReadAllLines(dumpPath);
+        var lines = File.ReadAllLines(dumpPath);
         Assert.True(lines.Length == 2 && lines[0].Contains("\"psc\"", StringComparison.Ordinal) && lines[0].Contains("\"seq\":5", StringComparison.Ordinal));
         var h = CaptureDecoder.ParseVc(Vc(300, payload));
         Assert.True(h != null && h.Seq == 300 && h.Type == 0 && h.Payload.SequenceEqual(payload));

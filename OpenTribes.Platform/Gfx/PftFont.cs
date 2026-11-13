@@ -1,5 +1,3 @@
-using System.Buffers.Binary;
-
 namespace OpenTribes.Platform.Gfx;
 
 /// <summary>The char info of a glyph, 8 bytes (docs/renderer.md 2.6). The glyph rectangle on its sheet is (X, Y) to (X + Width - 1, Y + Height - 1), inclusive.</summary>
@@ -54,9 +52,9 @@ public sealed class PftFont
     /// <summary>The offset of the first character in the lookup table.</summary>
     public ushort LookupOffset;
     /// <summary>The lookup table from character to glyph index.</summary>
-    public short[] Lookup = Array.Empty<short>();
+    public short[] Lookup = [];
     /// <summary>The glyphs.</summary>
-    public GlyphEntry[] Glyphs = Array.Empty<GlyphEntry>();
+    public GlyphEntry[] Glyphs = [];
     /// <summary>The glyph sheets.</summary>
     public PbmaArray Sheets = new();
     /// <summary>The attached palette, or null. No stock font has one.</summary>
@@ -90,28 +88,31 @@ public sealed class PftFont
         if (c.Tag() != "PFON")
             throw new GfxFormatException("not a PFON font");
         c.U32();
-        var f = new PftFont { Version = c.U32() };
-        f.Flags = c.U32();
-        f.Justification = c.U32();
-        f.GlyphCount = c.U32();
-        f.CellHeight = (int)c.U32();
-        f.GlyphCellWidth = (int)c.U32();
-        f.InkColor = c.U32();
-        f.BgColor = c.U32();
-        f.Baseline = (int)c.U32();
-        f.ScaleX = (int)c.U32();
-        f.ScaleY = (int)c.U32();
-        f.Spacing = (int)c.U32();
+        var f = new PftFont
+        {
+            Version = c.U32(),
+            Flags = c.U32(),
+            Justification = c.U32(),
+            GlyphCount = c.U32(),
+            CellHeight = (int)c.U32(),
+            GlyphCellWidth = (int)c.U32(),
+            InkColor = c.U32(),
+            BgColor = c.U32(),
+            Baseline = (int)c.U32(),
+            ScaleX = (int)c.U32(),
+            ScaleY = (int)c.U32(),
+            Spacing = (int)c.U32()
+        };
         if (f.GlyphCount > 65536)
             throw new GfxFormatException("bad glyph count");
         // lookupSize is read first, lookupOffset second.
-        ushort lookupSize = c.U16();
+        var lookupSize = c.U16();
         f.LookupOffset = c.U16();
         f.Lookup = new short[lookupSize];
-        for (int i = 0; i < lookupSize; ++i)
+        for (var i = 0; i < lookupSize; ++i)
             f.Lookup[i] = (short)c.U16();
         f.Glyphs = new GlyphEntry[f.GlyphCount];
-        for (int i = 0; i < f.GlyphCount; ++i)
+        for (var i = 0; i < f.GlyphCount; ++i)
         {
             var b = c.Bytes(8);
             f.Glyphs[i] = new GlyphEntry(b[0], b[1], b[2], b[3], b[4], (sbyte)b[5]);
@@ -132,7 +133,7 @@ public sealed class PftFont
         glyph = default;
         if ((Flags & FlagLowerCaps) != 0 && ch >= 'a' && ch <= 'z')
             ch -= 32;
-        int i = ch - LookupOffset;
+        var i = ch - LookupOffset;
         if (i < 0 || i >= Lookup.Length)
             return false;
         int g = Lookup[i];
@@ -168,7 +169,7 @@ public sealed class PftFont
     public int MeasureTextWidth(string text)
     {
         long sum = 0;
-        foreach (char ch in text)
+        foreach (var ch in text)
             sum += CharWidth(ch) + Spacing;
         return (int)(((sum - Spacing) * ScaleX) >> 16);
     }
@@ -178,8 +179,8 @@ public sealed class PftFont
     /// <returns>(max charHeight) * scaleY &gt;&gt; 16.</returns>
     public int MeasureTextHeight(string text)
     {
-        int max = 0;
-        foreach (char ch in text)
+        var max = 0;
+        foreach (var ch in text)
             max = Math.Max(max, CharHeight(ch));
         return (int)(((long)max * ScaleY) >> 16);
     }

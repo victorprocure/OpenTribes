@@ -1,7 +1,6 @@
-using OpenTribes.Script;
-using Xunit;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Script;
 
 // FearGui::CFGButton key text (docs/gui.md 3.3, find 0049df98, format 0049cfa0).
 public class BindingTextTests
@@ -11,7 +10,9 @@ public class BindingTextTests
     private static ActionBinding Key(char c, int action, byte kind = 1, byte mods = 0, float value = 0) => new()
     {
         Event = new InputEvent { DeviceType = 3, ObjType = 10, ObjInst = Code(c), Action = kind, Modifiers = mods },
-        Action = action, Flags = ActionBinding.None, ValueF = value,
+        Action = action,
+        Flags = ActionBinding.None,
+        ValueF = value,
     };
 
     [Fact]

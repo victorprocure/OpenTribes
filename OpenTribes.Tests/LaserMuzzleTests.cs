@@ -1,8 +1,7 @@
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
-using Xunit;
-
-namespace OpenTribes.Tests;
 
 public class LaserMuzzleTests
 {

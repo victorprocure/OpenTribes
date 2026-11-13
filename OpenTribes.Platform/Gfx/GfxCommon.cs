@@ -1,6 +1,6 @@
-using System.Buffers.Binary;
-
 namespace OpenTribes.Platform.Gfx;
+
+using System.Buffers.Binary;
 
 /// <summary>The bitmap attribute bits (docs/renderer.md 2.2.1).</summary>
 [Flags]
@@ -48,7 +48,7 @@ public static class BitmapAttributeExtensions
     /// <returns>The blend mode.</returns>
     public static BlendMode Blend(this BitmapAttributes a)
     {
-        uint v = (uint)a & 0x37;
+        var v = (uint)a & 0x37;
         if ((v & (uint)BitmapAttributes.Subtractive) != 0)
             return BlendMode.Subtractive;
         if ((v & (uint)BitmapAttributes.Additive) != 0)
@@ -116,7 +116,7 @@ internal ref struct Cursor
 
     public readonly int Remaining => Data.Length - Pos;
 
-    public void Need(long n)
+    public readonly void Need(long n)
     {
         if (n < 0 || n > Remaining)
             throw new GfxFormatException("truncated data");
@@ -125,7 +125,7 @@ internal ref struct Cursor
     public uint U32()
     {
         Need(4);
-        uint v = BinaryPrimitives.ReadUInt32LittleEndian(Data[Pos..]);
+        var v = BinaryPrimitives.ReadUInt32LittleEndian(Data[Pos..]);
         Pos += 4;
         return v;
     }
@@ -133,7 +133,7 @@ internal ref struct Cursor
     public ushort U16()
     {
         Need(2);
-        ushort v = BinaryPrimitives.ReadUInt16LittleEndian(Data[Pos..]);
+        var v = BinaryPrimitives.ReadUInt16LittleEndian(Data[Pos..]);
         Pos += 2;
         return v;
     }

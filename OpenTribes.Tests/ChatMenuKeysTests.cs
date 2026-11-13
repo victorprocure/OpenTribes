@@ -1,8 +1,8 @@
 // The chat menu key logic (docs/gui.md FGChatMenu notes, decompile 00402068 event handler, 004021cc key match, 00401fe0 setCMMode).
 // Synthetic tree only.
-using OpenTribes.Game;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Game;
 
 public class ChatMenuKeysTests
 {

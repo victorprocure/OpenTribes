@@ -1,15 +1,15 @@
 // Port of tests/test_connection.cpp: VC protocol unit tests (docs/net-protocol.md section 3, DECISIONS D11).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Net;
-
-namespace OpenTribes.Tests;
 
 public class ConnectionTests
 {
     private sealed class Recorder : ConnectionEvents
     {
-        public readonly List<string> Requests = new(), Accepted = new(), Rejected = new(), Data = new();
-        public readonly List<(uint cookie, bool delivered)> Notifies = new();
+        public readonly List<string> Requests = [], Accepted = [], Rejected = [], Data = [];
+        public readonly List<(uint cookie, bool delivered)> Notifies = [];
         public int Established, Closed, Overflows;
         public bool ClosedTimedOut;
         public string CloseReason = "";
@@ -32,8 +32,8 @@ public class ConnectionTests
 
     private sealed class Sink
     {
-        public readonly List<byte[]> Sent = new();
-        public SendFn Fn() => (Address _, ReadOnlySpan<byte> d) => Sent.Add(d.ToArray());
+        public readonly List<byte[]> Sent = [];
+        public SendFn Fn() => (_, d) => Sent.Add(d.ToArray());
         public VcPacket Last() => VcPacket.Parse(Sent[^1]);
     }
 
@@ -44,32 +44,29 @@ public class ConnectionTests
 
     private static void Deliver(Connection c, VcPacket p, uint now)
     {
-        byte[] d = VcPacket.Build(p);
+        var d = VcPacket.Build(p);
         c.Receive(d, now);
     }
 
-    private static VcPacket Pkt(uint seq, uint type, List<(uint, uint)>? ranges = null, string payload = "", uint ackAck = 0)
+    private static VcPacket Pkt(uint seq, uint type, List<(uint, uint)>? ranges = null, string payload = "", uint ackAck = 0) => new VcPacket
     {
-        return new VcPacket
-        {
-            IdBit = kClientId & 1,
-            Seq = seq & 0x1ff,
-            AckAck = ackAck,
-            Ranges = ranges ?? new List<(uint, uint)>(),
-            Type = type,
-            Id = kClientId,
-            Payload = VcPacket.Bytes(payload),
-        };
-    }
+        IdBit = kClientId & 1,
+        Seq = seq & 0x1ff,
+        AckAck = ackAck,
+        Ranges = ranges ?? [],
+        Type = type,
+        Id = kClientId,
+        Payload = VcPacket.Bytes(payload),
+    };
 
-    private static List<(uint, uint)> R(params (uint, uint)[] r) => r.ToList();
+    private static List<(uint, uint)> R(params (uint, uint)[] r) => [.. r];
 
     // Server-side connection taken through 3.5 with raw packets: request seq 1, accept seq 1, ack.
     private static void Establish(Connection c, Recorder ev, Sink sink, uint now)
     {
         Deliver(c, Pkt(1, Connection.ConnectRequest, null, "req"), now);
         Assert.True(c.State() == ConnectionState.Requested && ev.Requests.Count == 1);
-        byte[] accept = { 1, 2, 3, 4, 5, 6, 7, 8 };
+        byte[] accept = [1, 2, 3, 4, 5, 6, 7, 8];
         Assert.True(c.Send(Connection.Accept, accept, now));
         Assert.Equal(ConnectionState.AcceptSent, c.State());
         Deliver(c, Pkt(1, Connection.FlagAckReply, R((1, 1))), now);
@@ -80,16 +77,16 @@ public class ConnectionTests
     [Fact]
     public void TestConnection()
     {
-        int cases = 0;
+        var cases = 0;
 
         // 3.2: header field order and sizes; data carries no id, payload follows the 3-byte header.
         {
             var ev = new Recorder();
             var sink = new Sink();
             var c = new Connection(kPeer, kClientId, ev, sink.Fn(), 0);
-            byte[] payload = { (byte)'a', (byte)'b', (byte)'c' };
+            byte[] payload = [(byte)'a', (byte)'b', (byte)'c'];
             Assert.True(c.Send(Connection.Data, payload, 0));
-            byte[] want = { 0x07, 0x00, 0x00, (byte)'a', (byte)'b', (byte)'c' };
+            byte[] want = [0x07, 0x00, 0x00, (byte)'a', (byte)'b', (byte)'c'];
             Assert.True(sink.Sent.Count == 1 && sink.Sent[0].SequenceEqual(want));
             ++cases;
         }
@@ -99,7 +96,7 @@ public class ConnectionTests
             var ev = new Recorder();
             var sink = new Sink();
             var c = new Connection(kPeer, kClientId, ev, sink.Fn(), 0);
-            byte[] payload = { 9, 9 };
+            byte[] payload = [9, 9];
             c.Send(Connection.ConnectRequest, payload, 0);
             VcPacket p = sink.Last();
             Assert.True(p.Type == 3 && p.HasId && p.Id == kClientId && p.Seq == 1 && p.IdBit == 1);
@@ -113,8 +110,8 @@ public class ConnectionTests
             var cev = new Recorder();
             var sev = new Recorder();
             var wire = new Queue<(bool toServer, byte[] bytes)>();
-            var client = new Connection(kPeer, kClientId, cev, (Address _, ReadOnlySpan<byte> d) => wire.Enqueue((true, d.ToArray())), 0);
-            var server = new Connection(kPeer, 77, sev, (Address _, ReadOnlySpan<byte> d) => wire.Enqueue((false, d.ToArray())), 0);
+            var client = new Connection(kPeer, kClientId, cev, (_, d) => wire.Enqueue((true, d.ToArray())), 0);
+            var server = new Connection(kPeer, 77, sev, (_, d) => wire.Enqueue((false, d.ToArray())), 0);
             var seen = new List<VcPacket>();
             void Pump(uint now)
             {
@@ -130,7 +127,7 @@ public class ConnectionTests
             Assert.True(sev.Requests.Count == 1 && sev.Requests[0] == "hello");
             Assert.True(server.State() == ConnectionState.Requested && server.Id() == kClientId);
 
-            byte[] accept = { 1, 0, 0, 0, 2, 0, 0, 0 };
+            byte[] accept = [1, 0, 0, 0, 2, 0, 0, 0];
             server.Send(Connection.Accept, accept, 20);
             Assert.Equal(ConnectionState.AcceptSent, server.State());
             seen.Clear();
@@ -161,17 +158,17 @@ public class ConnectionTests
             var sink = new Sink();
             var c = new Connection(kPeer, 0, ev, sink.Fn(), 1000);
             Establish(c, ev, sink, 1000);
-            float loss0 = c.PacketLoss();
-            uint rtt0 = c.RttMs();
-            c.Send(Connection.Data, ReadOnlySpan<byte>.Empty, 1000, 21); // seq 2
-            c.Send(Connection.Data, ReadOnlySpan<byte>.Empty, 1000, 22); // seq 3
+            var loss0 = c.PacketLoss();
+            var rtt0 = c.RttMs();
+            c.Send(Connection.Data, [], 1000, 21); // seq 2
+            c.Send(Connection.Data, [], 1000, 22); // seq 3
             Deliver(c, Pkt(2, Connection.Data, R((1, 3))), 1320);
             Assert.Equal(2, ev.Notifies.Count);
             Assert.True(ev.Notifies[0] == (21u, false) && ev.Notifies[1] == (22u, true));
-            float lost = 0.01f * (loss0 * 99.0f + 1.0f);
-            float want = 0.01f * lost * 99.0f;
+            var lost = 0.01f * ((loss0 * 99.0f) + 1.0f);
+            var want = 0.01f * lost * 99.0f;
             Assert.True(MathF.Abs(c.PacketLoss() - want) < 1e-6f);
-            Assert.Equal((320 + rtt0 * 31) >> 5, c.RttMs());
+            Assert.Equal((320 + (rtt0 * 31)) >> 5, c.RttMs());
             ++cases;
         }
 
@@ -180,9 +177,9 @@ public class ConnectionTests
             var ev = new Recorder();
             var sink = new Sink();
             var c = new Connection(kPeer, 0, ev, sink.Fn(), 0);
-            for (int i = 0; i < 31; ++i)
-                Assert.True(c.Send(Connection.Data, ReadOnlySpan<byte>.Empty, 0));
-            Assert.False(c.Send(Connection.Data, ReadOnlySpan<byte>.Empty, 0));
+            for (var i = 0; i < 31; ++i)
+                Assert.True(c.Send(Connection.Data, [], 0));
+            Assert.False(c.Send(Connection.Data, [], 0));
             Assert.Equal(31, sink.Sent.Count);
             ++cases;
         }
@@ -195,7 +192,7 @@ public class ConnectionTests
             var c = new Connection(kPeer, 0, ev, sink.Fn(), 0);
             Establish(c, ev, sink, 0);
             uint seq = 1;
-            for (int i = 0; i < 520; ++i)
+            for (var i = 0; i < 520; ++i)
             {
                 ++seq;
                 Deliver(c, Pkt(seq, Connection.Data, null, "d", (seq - 1) & 31), 0);
@@ -254,7 +251,7 @@ public class ConnectionTests
                 Deliver(c, Pkt(s, Connection.Data), 0);
             Deliver(c, Pkt(12, Connection.KeepAlive), 0); // answered with an ack; 12 not marked
             sink.Sent.Clear();
-            c.Send(Connection.Data, ReadOnlySpan<byte>.Empty, 0);
+            c.Send(Connection.Data, [], 0);
             VcPacket p = sink.Last();
             Assert.Equal(2, p.Ranges.Count);
             Assert.True(p.Ranges[0] == (7u, 1u) && p.Ranges[1] == (4u, 8u));
@@ -297,8 +294,8 @@ public class ConnectionTests
             var sink = new Sink();
             var c = new Connection(kPeer, 0, ev, sink.Fn(), 0);
             Establish(c, ev, sink, 0);
-            c.Send(Connection.Data, ReadOnlySpan<byte>.Empty, 0, 33);
-            c.Send(Connection.Data, ReadOnlySpan<byte>.Empty, 0, 34);
+            c.Send(Connection.Data, [], 0, 33);
+            c.Send(Connection.Data, [], 0, 34);
             VcPacket p = Pkt(1, Connection.ConnectRequest, null, "again");
             p.Id = kClientId + 2; // same low bit
             Deliver(c, p, 0);
@@ -323,13 +320,13 @@ public class ConnectionTests
             var ev = new Recorder();
             var sink = new Sink();
             var c = new Connection(kPeer, kClientId, ev, sink.Fn(), 0);
-            c.Send(Connection.ConnectRequest, ReadOnlySpan<byte>.Empty, 0);
+            c.Send(Connection.ConnectRequest, [], 0);
             VcPacket bad = Pkt(1, Connection.Reject, R((1, 1)), "no\0");
             bad.Id = kClientId + 2;
             Deliver(c, bad, 0);
             Assert.True(ev.Rejected.Count == 0 && !c.Dead());
             var c2 = new Connection(kPeer, kClientId, ev, sink.Fn(), 0);
-            c2.Send(Connection.ConnectRequest, ReadOnlySpan<byte>.Empty, 0);
+            c2.Send(Connection.ConnectRequest, [], 0);
             Deliver(c2, Pkt(1, Connection.Reject, R((1, 1)), "Wrong password.\0"), 0);
             Assert.True(ev.Rejected.Count == 1 && ev.Rejected[0] == "Wrong password.\0");
             Assert.True(c2.Dead());
@@ -378,13 +375,13 @@ public class ConnectionTests
             Deliver(c, Pkt(1, Connection.FlagAckReply), t0 + 6000);
             c.Tick(t0 + 9000);
             Assert.Single(sink.Sent);
-            uint @base = t0 + 6000;
+            var @base = t0 + 6000;
             for (uint n = 1; n <= 15; ++n)
             {
-                c.Tick(@base + 3000 * n + 1);
+                c.Tick(@base + (3000 * n) + 1);
                 Assert.True(sink.Sent.Count == 1 + n && ev.Closed == 0);
             }
-            c.Tick(@base + 3000 * 16 + 1);
+            c.Tick(@base + (3000 * 16) + 1);
             Assert.True(sink.Sent.Count == 17 && ev.Closed == 1 && ev.ClosedTimedOut && c.Dead());
             ++cases;
         }
@@ -401,7 +398,7 @@ public class ConnectionTests
             VcPacket p = sink.Last();
             Assert.True(p.Type == 0x0b && p.Seq == 1 && p.HasId && p.Id == kClientId && p.Payload.SequenceEqual(VcPacket.Bytes("req")));
             for (uint n = 2; n <= 16; ++n)
-                c.Tick(3000 * n + 1);
+                c.Tick((3000 * n) + 1);
             Assert.True(ev.Closed == 1 && ev.ClosedTimedOut && ev.Notifies.Count == 0);
             ++cases;
         }

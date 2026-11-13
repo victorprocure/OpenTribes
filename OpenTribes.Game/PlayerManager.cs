@@ -1,8 +1,8 @@
 // Port of src/game/player_manager.hpp and src/game/player_manager.cpp: the PlayerManager (object 713): client records,
 // team scores and objectives, and the game events they post (docs/player-manager.md).
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The record of one client (docs/player-manager.md 2.1). Fields marked "kept" survive the reuse of the slot.</summary>
 public sealed class ClientRecord
@@ -123,7 +123,7 @@ public sealed class PlayerManager
     private readonly GameState mGame;
     private readonly ClassContext mCameraContext = new(); // observer cameras register as GameBase objects
     private readonly ClientRecord[] mRecords = new ClientRecord[128];
-    private readonly List<ClientRecord> mFree = new(); // LIFO, back is next
+    private readonly List<ClientRecord> mFree = []; // LIFO, back is next
     private ClientRecord? mHumans;
     private ClientRecord? mPlayers; // humans and AI, newest first
     private int mHumanCount, mPlayerCount, mJoinCounter;
@@ -142,9 +142,9 @@ public sealed class PlayerManager
     {
         mGame = game;
         mCameraContext.Game = game;
-        for (int i = 0; i < 128; ++i)
+        for (var i = 0; i < 128; ++i)
             mRecords[i] = new ClientRecord { Id = 2048 + i };
-        for (int i = 127; i >= 1; --i)
+        for (var i = 127; i >= 1; --i)
             mFree.Add(mRecords[i]);
     }
 
@@ -239,10 +239,10 @@ public sealed class PlayerManager
     // src/game/player_manager.cpp validSkin.
     private static bool ValidSkin(string s)
     {
-        if (s.Length == 0 || s.Length > 19)
+        if (s.Length is 0 or > 19)
             return false;
-        foreach (char c in s)
-            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+        foreach (var c in s)
+            if (c is not (>= '0' and <= '9' or >= 'a' and <= 'z' or >= 'A' and <= 'Z'))
                 return false;
         return true;
     }
@@ -301,7 +301,7 @@ public sealed class PlayerManager
     /// <returns>The record, or null when none is free.</returns>
     public ClientRecord? AddClient(int id, string name, string voice, bool male, bool ai = false)
     {
-        int it = mFree.FindIndex(r => r.Id == id);
+        var it = mFree.FindIndex(r => r.Id == id);
         if (it < 0)
             return null; // no free record: rejected (13.3)
         mGame.Console?.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Player \"" + name + "\" added - id = " + Numbers.FormatInt(id)) + "\"");
@@ -338,7 +338,7 @@ public sealed class PlayerManager
                 var services = new ObserverCamera.CameraServices
                 {
                     Evaluate = line => mGame.Console?.Evaluate(line),
-                    MissionArea = area => MissionArea(area),
+                    MissionArea = MissionArea,
                     Container = mGame.World,
                 };
                 // The connection's members (0x0042b1b8, docs/game-stream.md 1.1): the EventManager registers through
@@ -351,7 +351,7 @@ public sealed class PlayerManager
                 group?.AddObject(r.EventManager);
                 r.PlayerPsc = new PlayerPscObject();
                 r.GhostManager = new GhostManagerObject();
-                foreach ((SimObject obj, string objName) in new[] { (r.PlayerPsc, "PlayerPSC"), (r.GhostManager, "GhostManager") })
+                foreach ((SimObject obj, var objName) in new[] { (r.PlayerPsc, "PlayerPSC"), (r.GhostManager, "GhostManager") })
                 {
                     m.RegisterObject(obj);
                     SimGroup into = group ?? m;
@@ -368,7 +368,7 @@ public sealed class PlayerManager
         {
             r.NextHuman = mHumans;
             mHumans = r;
-            for (int t = -1; t < mGame.TeamCount && t + 1 < mGame.Teams.Count; ++t)
+            for (var t = -1; t < mGame.TeamCount && t + 1 < mGame.Teams.Count; ++t)
                 Post(r.Id, GameEvents.MakeTeamAdd(t, mGame.Teams[t + 1].Name, mGame.Teams[t + 1].Skin));
         }
         var aiOlder = new List<int>();
@@ -380,18 +380,18 @@ public sealed class PlayerManager
         ++mPlayerCount;
         if (ai)
         {
-            foreach (int h in older)
+            foreach (var h in older)
                 Post(h, PlayerAdd(r)); // docs/player-manager.md 4.1 step 5: an AI record goes to every human
         }
         else
         {
-            foreach (int h in older)
+            foreach (var h in older)
             {
                 Post(h, PlayerAdd(r));
                 Post(r.Id, PlayerAdd(Find(h)!));
             }
             Post(r.Id, PlayerAdd(r));
-            foreach (int a in aiOlder)
+            foreach (var a in aiOlder)
                 Post(r.Id, PlayerAdd(Find(a)!));
         }
         return r;
@@ -404,7 +404,7 @@ public sealed class PlayerManager
         ClientRecord? r = Find(id);
         if (r == null)
             return;
-        bool ai = r.IsAI;
+        var ai = r.IsAI;
         if (mGame.Console != null && !ai)
         {
             mGame.Console.CallFunction("Server::onClientDisconnect", new[] { Numbers.FormatInt(id) });
@@ -507,7 +507,7 @@ public sealed class PlayerManager
         ClientRecord? r = FindHuman(id);
         if (r == null || !r.DataFinished)
             return;
-        int old = r.GuiMirror;
+        var old = r.GuiMirror;
         if (mode == 2)
         {
             for (ClientRecord? t = mHumans; t != null; t = t.NextHuman)
@@ -520,7 +520,7 @@ public sealed class PlayerManager
             if (r.Team < -1 || r.Team >= mGame.TeamCount || r.Team + 1 >= mGame.Teams.Count)
                 return;
             TeamRecord team = mGame.Teams[r.Team + 1];
-            for (int k = 0; k < 32; ++k)
+            for (var k = 0; k < 32; ++k)
                 if (team.ObjectiveStamp[k] > r.ObjectiveMark)
                     Post(id, MakeObjective(k, team.Objectives[k]));
             r.ObjectiveMark = mObjectiveCounter;
@@ -558,7 +558,7 @@ public sealed class PlayerManager
     public void SetScore(int id, string text, int sort)
     {
         ClientRecord? r = FindHuman(id);
-        string t = Cut(text, 255);
+        var t = Cut(text, 255);
         if (r == null || (r.ScoreSort == sort && r.ScoreText == t))
             return;
         r.ScoreText = t;
@@ -575,7 +575,7 @@ public sealed class PlayerManager
         if (team < -1 || team > mGame.TeamCount || team + 1 >= mGame.Teams.Count)
             return;
         TeamRecord t = mGame.Teams[team + 1];
-        string s = Cut(text, 255);
+        var s = Cut(text, 255);
         if (t.SortValue == sort && t.Score == s)
             return;
         t.Score = s;
@@ -589,7 +589,7 @@ public sealed class PlayerManager
         for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
             if (h.ScoreStamp > c.ScoreMark)
                 Post(c.Id, GameEvents.MakeDeltaScore(false, h.Id, h.ScoreSort, h.ScoreText));
-        for (int t = 0; t < mGame.TeamCount && t + 1 < mGame.Teams.Count; ++t)
+        for (var t = 0; t < mGame.TeamCount && t + 1 < mGame.Teams.Count; ++t)
         {
             TeamRecord team = mGame.Teams[t + 1];
             if (team.ScoreStamp > c.ScoreMark)
@@ -616,7 +616,7 @@ public sealed class PlayerManager
     /// <param name="text">The heading text.</param>
     public void SetHeading(bool team, string text)
     {
-        string t = Cut(text, 255);
+        var t = Cut(text, 255);
         if (team)
             mGame.TeamScoreHeading = t;
         else
@@ -634,7 +634,7 @@ public sealed class PlayerManager
         if (team < -1 || team >= mGame.TeamCount || line < 0 || line > 31 || team + 1 >= mGame.Teams.Count)
             return;
         TeamRecord t = mGame.Teams[team + 1];
-        string s = Cut(text, 511);
+        var s = Cut(text, 511);
         if (t.Objectives[line] == s)
             return;
         t.ObjectiveStamp[line] = ++mObjectiveCounter;
@@ -655,7 +655,7 @@ public sealed class PlayerManager
             return;
         TeamRecord t = mGame.Teams[team + 1];
         ++mObjectiveCounter; // once per call; every cleared line gets this stamp (0x0040c60c)
-        for (int k = 0; k < 32; ++k)
+        for (var k = 0; k < 32; ++k)
         {
             if (t.Objectives[k].Length == 0)
                 continue;
@@ -776,7 +776,7 @@ public sealed class PlayerManager
         {
             if (a.Length != 2)
                 return "0";
-            int i = Numbers.BorlandAtoi(a[1]);
+            var i = Numbers.BorlandAtoi(a[1]);
             if (i < 0 || i >= mHumanCount)
                 return "0";
             ClientRecord c = mHumans!;
@@ -821,7 +821,7 @@ public sealed class PlayerManager
             ClientRecord? c = Find(IdArg(a, 1));
             return c != null ? Numbers.FormatInt(c.Team) : "-1";
         });
-        foreach (string name in new[] { "Client::getSkinBase", "Client::getVoiceBase", "Client::getGender" })
+        foreach (var name in new[] { "Client::getSkinBase", "Client::getVoiceBase", "Client::getGender" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -858,7 +858,7 @@ public sealed class PlayerManager
             ClientRecord? c = FindHuman(IdArg(a, 1));
             if (c == null || !c.DataFinished)
                 return "False";
-            int mode = Numbers.BorlandAtoi(a[2]);
+            var mode = Numbers.BorlandAtoi(a[2]);
             if (mode >= 0 && mode <= 6 && mode != c.GuiMode)
             {
                 c.GuiMode = mode;
@@ -896,7 +896,7 @@ public sealed class PlayerManager
             SetTeamScore(Numbers.BorlandAtoi(a[1]), a[2], Numbers.BorlandAtoi(a[3]));
             return "True";
         });
-        foreach (string name in new[] { "setTeamScoreHeading", "setClientScoreHeading" })
+        foreach (var name in new[] { "setTeamScoreHeading", "setClientScoreHeading" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -941,7 +941,7 @@ public sealed class PlayerManager
                 inr.Print(1, "wrong argcount to setInitialTeam(playerId, teamId);");
                 return "False";
             }
-            int team = Numbers.BorlandAtoi(a[2]);
+            var team = Numbers.BorlandAtoi(a[2]);
             ClientRecord? c = Find(IdArg(a, 1));
             if (c == null || team < 0 || team >= mGame.TeamCount)
                 return "False";
@@ -950,7 +950,7 @@ public sealed class PlayerManager
         });
         interp.AddCommand("Client::sendMessage", (_, a) =>
         {
-            if (a.Length != 4 && a.Length != 5)
+            if (a.Length is not 4 and not 5)
                 return "false";
             SendMessage(IdArg(a, 1), Numbers.BorlandAtoi(a[2]), a[3], a.Length == 5 ? Numbers.BorlandAtoi(a[4]) : 0);
             return "True";
@@ -979,7 +979,7 @@ public sealed class PlayerManager
             ObserverCamera? cam = c?.Camera;
             if (cam == null)
                 return "false";
-            float[] pos = { 0, 0, 0 }, rot = { 0, 0, 0 };
+            float[] pos = [0, 0, 0], rot = [0, 0, 0];
             CScan.Floats(a[2], pos);
             CScan.Floats(a[3], rot);
             cam.SetFlyMode(Numbers.ParseBool(a[4]), Numbers.ParseBool(a[5]), rot, pos);
@@ -988,7 +988,7 @@ public sealed class PlayerManager
         // Observer::setOrbitObject(client, object, dist, min, max [, rot]) 0043a2fc and Observer::setOrbitPoint(client,
         // pos, dist, min, max [, rot]) 0043a404. More than 7 arguments are accepted; the rotation is read only with
         // exactly 7.
-        foreach (string name in new[] { "Observer::setOrbitObject", "Observer::setOrbitPoint" })
+        foreach (var name in new[] { "Observer::setOrbitObject", "Observer::setOrbitPoint" })
             interp.AddCommand(name, (_, a) =>
             {
                 if (a.Length < 6)
@@ -996,16 +996,16 @@ public sealed class PlayerManager
                 ClientRecord? c = FindHuman(IdArg(a, 1));
                 if (c == null)
                     return "false";
-                bool point = GameUtil.EqualsNoCase(a[0], "Observer::setOrbitPoint");
+                var point = GameUtil.EqualsNoCase(a[0], "Observer::setOrbitPoint");
                 GameBase? target = point ? null : FindServerObject(a[2]);
                 if (c.Camera == null || (!point && target == null))
                     return "false";
-                float[] pos = { 0, 0, 0 }, rot = { 0, 0, 0 };
+                float[] pos = [0, 0, 0], rot = [0, 0, 0];
                 if (point)
                     CScan.Floats(a[2], pos);
-                float cur = Store(Numbers.BorlandAtof(a[3]));
-                float min = Store(Numbers.BorlandAtof(a[4]));
-                float max = Store(Numbers.BorlandAtof(a[5]));
+                var cur = Store(Numbers.BorlandAtof(a[3]));
+                var min = Store(Numbers.BorlandAtof(a[4]));
+                var max = Store(Numbers.BorlandAtof(a[5]));
                 if (a.Length == 7)
                     CScan.Floats(a[6], rot);
                 c.Camera.SetOrbit(target, pos, cur, min, max, rot);
@@ -1034,7 +1034,7 @@ public sealed class PlayerManager
             return "true";
         });
         // GameBase::getOwnerClient / Player::getClient 0041d548, GameBase::getControlClient 0041d5b4.
-        foreach (string name in new[] { "GameBase::getOwnerClient", "Player::getClient", "GameBase::getControlClient" })
+        foreach (var name in new[] { "GameBase::getOwnerClient", "Player::getClient", "GameBase::getControlClient" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -1045,11 +1045,11 @@ public sealed class PlayerManager
                 GameBase? o = FindServerObject(a[1]);
                 if (o == null)
                     return "-1";
-                bool control = GameUtil.EqualsNoCase(a[0], "GameBase::getControlClient");
-                int client = control ? o.ControlClient : o.OwnerClient;
+                var control = GameUtil.EqualsNoCase(a[0], "GameBase::getControlClient");
+                var client = control ? o.ControlClient : o.OwnerClient;
                 return client != 0 ? Numbers.FormatInt(client) : "-1";
             });
-        foreach (string name in new[] { "Client::getOwnedObject", "Client::getControlObject" })
+        foreach (var name in new[] { "Client::getOwnedObject", "Client::getControlObject" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -1057,12 +1057,12 @@ public sealed class PlayerManager
                     inr.Print(1, "invalid call to " + a[0] + "(client)");
                     return "-1";
                 }
-                bool owned = GameUtil.EqualsNoCase(a[0], "Client::getOwnedObject");
+                var owned = GameUtil.EqualsNoCase(a[0], "Client::getOwnedObject");
                 ClientRecord? c = owned ? Find(IdArg(a, 1)) : FindHuman(IdArg(a, 1));
-                int o = c != null ? (owned ? c.OwnedObject : c.ControlObject) : 0;
+                var o = c != null ? (owned ? c.OwnedObject : c.ControlObject) : 0;
                 return o != 0 ? Numbers.FormatInt(o) : "-1";
             });
-        foreach (string name in new[] { "Client::setOwnedObject", "Client::setControlObject" })
+        foreach (var name in new[] { "Client::setOwnedObject", "Client::setControlObject" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 3)
@@ -1070,7 +1070,7 @@ public sealed class PlayerManager
                     inr.Print(1, "invalid call to " + a[0] + "(client, object)");
                     return "false";
                 }
-                bool owned = GameUtil.EqualsNoCase(a[0], "Client::setOwnedObject");
+                var owned = GameUtil.EqualsNoCase(a[0], "Client::setOwnedObject");
                 ClientRecord? c = owned ? Find(IdArg(a, 1)) : FindHuman(IdArg(a, 1));
                 if (c == null)
                     return "false";
@@ -1079,7 +1079,7 @@ public sealed class PlayerManager
                 GameBase? o = FindServerObject(a[2]);
                 if (o == null)
                 {
-                    int cur = owned ? c.OwnedObject : c.ControlObject;
+                    var cur = owned ? c.OwnedObject : c.ControlObject;
                     o = cur != 0 ? mGame.Sim?.Server()?.FindById(cur) as GameBase : null;
                     if (o != null)
                     {
@@ -1114,8 +1114,8 @@ public sealed class PlayerManager
             return null;
         if (m.Find(arg) is GameBase gb)
             return gb;
-        int id = Numbers.BorlandAtoi(arg);
-        ClientRecord? c = id >= 0x801 && id <= 0x880 ? Find(id) : null;
+        var id = Numbers.BorlandAtoi(arg);
+        ClientRecord? c = id is >= 0x801 and <= 0x880 ? Find(id) : null;
         return c != null && c.OwnedObject != 0 ? m.FindById(c.OwnedObject) as GameBase : null;
     }
 
@@ -1145,8 +1145,7 @@ public sealed class PlayerManager
         ClientRecord? r = Find(client);
         if (r != null && r.OwnedObject != 0 && r.OwnedObject != obj.Id() && m?.FindById(r.OwnedObject) is GameBase prev)
             SetOwnerClient(prev, 0);
-        if (r != null)
-            r.OwnedObject = obj.Id();
+        r?.OwnedObject = obj.Id();
         obj.OwnerClient = client;
         SetMaskBitsHook?.Invoke(obj, 4);
     }
@@ -1165,8 +1164,7 @@ public sealed class PlayerManager
         ClientRecord? r = FindHuman(client);
         if (r != null && r.ControlObject != 0 && r.ControlObject != obj.Id() && m?.FindById(r.ControlObject) is GameBase prev)
             SetControlClient(prev, 0);
-        if (r != null)
-            r.ControlObject = obj.Id();
+        r?.ControlObject = obj.Id();
         obj.ControlClient = client;
         SetMaskBitsHook?.Invoke(obj, 4);
     }
@@ -1189,7 +1187,7 @@ public sealed class PlayerManager
             if (r.Camera != null && r.Camera != obj)
                 r.Camera.ObjectDeleted(obj);
         }
-        for (int i = 0; i < mGame.Targets.Count; ++i)
+        for (var i = 0; i < mGame.Targets.Count; ++i)
             if (mGame.Targets[i] == obj)
                 mGame.Targets[i] = null;
     }
@@ -1201,9 +1199,9 @@ public sealed class PlayerManager
     /// <param name="team">The team id.</param>
     /// <returns>True when bit t of the visibility word (+0x200) is set (detected by the sensor network of team t), or bit t + 8 (always visible to team t, Marker_setTeam).</returns>
     /// <remarks>Follows 0x004495b4.</remarks>
-    public bool VisibleToTeam(GameBase obj, int team)
+    public static bool VisibleToTeam(GameBase obj, int team)
     {
-        uint t = (uint)team & 0xff;
+        var t = (uint)team & 0xff;
         return (obj.SensorWord & ((1u << (int)((t + 8) & 31)) | (1u << (int)(t & 31)))) != 0;
     }
 
@@ -1221,7 +1219,7 @@ public sealed class PlayerManager
             if (m.FindById(r.OwnedObject) is GameBase gb && VisibleToTeam(gb, team))
                 output[(r.Id - 2048) >> 5] |= 1u << ((r.Id - 2048) & 31);
         }
-        for (int i = 0; i < mGame.Targets.Count && i < 128; ++i)
+        for (var i = 0; i < mGame.Targets.Count && i < 128; ++i)
             if (mGame.Targets[i] is GameBase t && VisibleToTeam(t, team))
                 output[4 + (i >> 5)] |= 1u << (i & 31);
     }
@@ -1244,7 +1242,7 @@ public sealed class PlayerManager
     }
 
     // src/game/player_manager.cpp ftol of the waypoint code.
-    private static uint WaypointFtol(double v) => v > -2147483649.0 && v < 2147483648.0 ? unchecked((uint)(int)v) : 0x80000000u;
+    private static uint WaypointFtol(double v) => v is > (-2147483649.0) and < 2147483648.0 ? unchecked((uint)(int)v) : 0x80000000u;
 
     /// <summary>Updates the waypoint of a targeted command: the target's position in 1/1023 of the mission area while the target is visible to the client's team.</summary>
     /// <param name="r">The client record.</param>
@@ -1266,17 +1264,17 @@ public sealed class PlayerManager
         }
         else
         {
-            int i = r.CommandTarget - 128;
+            var i = r.CommandTarget - 128;
             obj = i < mGame.Targets.Count && i < 128 ? mGame.Targets[i] : null;
         }
         if (obj == null || !VisibleToTeam(obj, r.Team))
             return false;
-        float[] area = new float[4];
+        var area = new float[4];
         MissionArea(area);
-        uint[] xy = new uint[2];
-        for (int i = 0; i < 2; ++i)
+        var xy = new uint[2];
+        for (var i = 0; i < 2; ++i)
         {
-            double v = Div(Mul(Sub(obj.Transform.P[i], area[i]), 1023.0f), area[2 + i]);
+            var v = Div(Mul(Sub(obj.Transform.P[i], area[i]), 1023.0f), area[2 + i]);
             xy[i] = WaypointFtol(v);
         }
         if (((xy[0] | xy[1]) & 0xfffffc00u) != 0 || ((uint)r.WaypointX == xy[0] && (uint)r.WaypointY == xy[1]))
@@ -1307,18 +1305,18 @@ public sealed class PlayerManager
         }
         else
         {
-            int i = (int)slot - 128;
+            var i = (int)slot - 128;
             obj = i < mGame.Targets.Count ? mGame.Targets[i] : null;
             if (obj == null || !VisibleToTeam(obj, viewer.Team))
                 return false;
         }
-        float[] area = new float[4];
+        var area = new float[4];
         MissionArea(area);
-        uint[] xy = new uint[2];
-        for (int i = 0; i < 2; ++i)
+        var xy = new uint[2];
+        for (var i = 0; i < 2; ++i)
         {
             // ((pos - origin) + extent * 0.5) * 1023 / extent, truncated (0040507c).
-            double v = Add(Sub(obj.Transform.P[i], area[i]), Mul(area[2 + i], 0.5f));
+            var v = Add(Sub(obj.Transform.P[i], area[i]), Mul(area[2 + i], 0.5f));
             v = Div(Mul(v, 1023.0f), area[2 + i]);
             xy[i] = WaypointFtol(v);
         }
@@ -1345,17 +1343,17 @@ public sealed class PlayerManager
         else if (obj.IsShapeBase())
         {
             // ShapeBase 0044b518 (Player): damage level, f32 ratio against double 0.7 and 0.3.
-            float ratio = DivF(obj.Damage, obj.MaxDamage);
+            var ratio = DivF(obj.Damage, obj.MaxDamage);
             output.Status = ratio > 0.7 ? 2u : ratio > 0.3 ? 1u : 0u;
             output.Active = true;
         }
-        int group = obj.DataBlockGroup();
+        var group = obj.DataBlockGroup();
         output.DbGroup = (uint)group;
         output.DbIndex = output.DbIndexBits = 0;
         if (group >= 0 && group <= 30 && mGame.Sim != null)
         {
             DataBlockManager db = mGame.Sim.DataBlocks();
-            uint n = (uint)db.GroupSize(group) + 1;
+            var n = (uint)db.GroupSize(group) + 1;
             while (n != 0)
             {
                 ++output.DbIndexBits;

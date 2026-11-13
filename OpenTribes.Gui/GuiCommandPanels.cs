@@ -1,7 +1,7 @@
+namespace OpenTribes.Gui;
+
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Gui;
 
 /// <summary>One row of the command team list: a player of the local player's team in the command tree.</summary>
 /// <param name="Id">The client id.</param>
@@ -39,9 +39,9 @@ public sealed class GuiCommandPanel : GuiControl
         int gx = ox + X, gy = oy + Y;
         const int corner = 9;
         int x0 = gx, y0 = gy, x1 = gx + W - 1, y1 = gy + H - 1;
-        for (int y = y0; y <= y1; ++y)
+        for (var y = y0; y <= y1; ++y)
         {
-            int left = y <= y1 - corner ? x0 : x0 + (y - (y1 - corner));
+            var left = y <= y1 - corner ? x0 : x0 + (y - (y1 - corner));
             p.Fill(left, y, x1 - left + 1, 1, 0xf7);
         }
         p.Line(x0, y0, x1, y0, 0xf8);
@@ -74,11 +74,11 @@ public sealed class GuiChatMenu : GuiControl
         p.Text(orange, x, y, menu.Path.Length == 0 ? "Root Menu:" : menu.Path);
         y += GuiPaint.FontHeight(orange);
         int mx = (int)(Canvas?.CursorX ?? -1) - gx, my = (int)(Canvas?.CursorY ?? -1) - gy;
-        foreach (string line in menu.Lines)
+        foreach (var line in menu.Lines)
         {
             // The line is white while the mouse is inside the control's width and the line's rows [code 004a7934].
-            int top = y - gy;
-            bool hover = mx >= 0 && mx < W && my >= top && my < top + GuiPaint.FontHeight(orange);
+            var top = y - gy;
+            var hover = mx >= 0 && mx < W && my >= top && my < top + GuiPaint.FontHeight(orange);
             p.Text(hover ? white : orange, x, y, line);
             y += GuiPaint.FontHeight(orange);
         }
@@ -92,11 +92,10 @@ public sealed class GuiChatMenu : GuiControl
 /// </remarks>
 public sealed class GuiCommandTeam : GuiList
 {
-    private IReadOnlyList<CommandTeamRow> mRows = Array.Empty<CommandTeamRow>();
     private int mLastRow = -1;
     private const int CellWidth = 640;
     /// <summary>Gets the rows, rebuilt before each render.</summary>
-    public IReadOnlyList<CommandTeamRow> Rows => mRows;
+    public IReadOnlyList<CommandTeamRow> Rows { get; private set; } = Array.Empty<CommandTeamRow>();
     private const uint TagWaypointArrow = 160558;
 
     private GuiCommandMap? Map
@@ -120,7 +119,7 @@ public sealed class GuiCommandTeam : GuiList
     {
         if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
             return -1;
-        foreach (CommandTeamRow r in mRows)
+        foreach (CommandTeamRow r in Rows)
             if ((Host.Hud.CommandLinks(r.Id)?.Selected ?? false) && r.Id != me.Id && !Host.Hud.CommandInChain(r.Id, me.Id))
                 return r.Id;
         return -1;
@@ -132,7 +131,7 @@ public sealed class GuiCommandTeam : GuiList
         if (id < 0)
             return;
         map.SelectClient(id, on);
-        for (int p = id; p >= 0; p = Host?.Hud?.CommandLinks(p)?.NextSibling ?? -1)
+        for (var p = id; p >= 0; p = Host?.Hud?.CommandLinks(p)?.NextSibling ?? -1)
             SelectSubtree(map, Host?.Hud?.CommandLinks(p)?.FirstChild ?? -1, on);
     }
 
@@ -144,26 +143,26 @@ public sealed class GuiCommandTeam : GuiList
         if (!Active || map == null)
             return base.MsDown(e);
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
-        bool dbl = e.ClickCount > 1;
+        var dbl = e.ClickCount > 1;
         int col = lx < 0 ? -1 : lx / CellWidth, row = ly < 0 ? -1 : ly / RowHeight;
-        if (col < 0 || col >= 1 || row < 0 || row >= mRows.Count)
+        if (col < 0 || col >= 1 || row < 0 || row >= Rows.Count)
             return true;
-        CommandTeamRow rec = mRows[row];
+        CommandTeamRow rec = Rows[row];
         PbmaArray? pieces = Host?.ArrayByName(Low ? "LRCmdListCtrl.pba" : "CmdListCtrl.pba");
-        int step = (pieces != null && pieces.Bitmaps.Count > 11 ? pieces.Bitmaps[11].Width : 0) + 2;
-        int glyph = (Host?.BitmapByName("CMD_DamageHigh.bmp")?.Width ?? 0) + (Host?.BitmapByName("CMD_OrderAck.bmp")?.Width ?? 0) + step * rec.Depth + 4;
+        var step = (pieces != null && pieces.Bitmaps.Count > 11 ? pieces.Bitmaps[11].Width : 0) + 2;
+        var glyph = (Host?.BitmapByName("CMD_DamageHigh.bmp")?.Width ?? 0) + (Host?.BitmapByName("CMD_OrderAck.bmp")?.Width ?? 0) + (step * rec.Depth) + 4;
         if (lx >= glyph && lx <= glyph + step && rec.HasChildren)
         {
             Host?.Hud?.CommandToggleExpanded(rec.Id);
             return true;
         }
-        if ((rec.Depth + 1) * step + 2 > lx)
+        if (((rec.Depth + 1) * step) + 2 > lx)
             return true;
         if (map.OrderMode == 1)
         {
             Host?.SetVar("$CommandTargetName", rec.Name);
             Host?.SetVar("$CommandTarget", "friendly player");
-            int slot = map.SlotOfClient(rec.Id);
+            var slot = map.SlotOfClient(rec.Id);
             if (slot >= 0)
             {
                 map.IssueTargetOrder(slot);
@@ -197,8 +196,8 @@ public sealed class GuiCommandTeam : GuiList
             if (Selected < 0)
                 Selected = row;
             map.SelectClient(-1, false);
-            for (int i = Math.Min(Selected, row); i <= Math.Max(Selected, row) && i < mRows.Count; ++i)
-                map.SelectClient(mRows[i].Id, true);
+            for (var i = Math.Min(Selected, row); i <= Math.Max(Selected, row) && i < Rows.Count; ++i)
+                map.SelectClient(Rows[i].Id, true);
         }
         mLastRow = row;
         return true;
@@ -212,9 +211,9 @@ public sealed class GuiCommandTeam : GuiList
     /// <inheritdoc/>
     public override void PreRender()
     {
-        mRows = Host?.Hud?.CommandTeam ?? Array.Empty<CommandTeamRow>();
+        Rows = Host?.Hud?.CommandTeam ?? Array.Empty<CommandTeamRow>();
         Entries.Clear();
-        foreach (CommandTeamRow r in mRows)
+        foreach (CommandTeamRow r in Rows)
             Entries.Add((r.Name, r.Id));
         base.PreRender();
     }
@@ -231,24 +230,24 @@ public sealed class GuiCommandTeam : GuiList
         PbmpBitmap? ackPic = ack;
         PftFont? font = Host.FontByName(Low ? "if_w_6.pft" : "if_w_10b.pft");
         int step = pieces.Bitmaps[11].Width, rowH = RowHeight;
-        for (int i = 0; i < mRows.Count; ++i)
+        for (var i = 0; i < Rows.Count; ++i)
         {
-            CommandTeamRow r = mRows[i];
-            int py = gy + i * rowH;
+            CommandTeamRow r = Rows[i];
+            var py = gy + (i * rowH);
             // A selected node first gets a 0xfc fill from the picture area to the cell's right edge [code 004a8638].
             if (r.Selected)
                 p.Fill(gx + (high?.Width ?? 0) + (ackPic?.Width ?? 0) + 3, py, CellWidth - ((high?.Width ?? 0) + (ackPic?.Width ?? 0) + 3), rowH, 0xfc);
             PbmpBitmap? dmg = r.Damage == 2 ? high : r.Damage == 1 ? med : low;
             if (dmg == null)
                 continue;
-            int x = gx + 2;
+            var x = gx + 2;
             p.Bitmap(dmg, x, py + 1);
             x += dmg.Width + 1;
             PbmpBitmap? order = r.Order == 2 ? pending : r.Order == 3 ? ack : null;
             if (order != null)
                 p.Bitmap(order, x, py + 1);
             x += (pending?.Width ?? 0) + 2;
-            int piece = !r.HasChildren ? -1 : r.Expanded ? 3 : 7;
+            var piece = !r.HasChildren ? -1 : r.Expanded ? 3 : 7;
             if (i == 0)
             {
                 if (r.HasNext)
@@ -257,11 +256,11 @@ public sealed class GuiCommandTeam : GuiList
             else
                 piece += r.HasNext ? 3 : 2;
             if (piece >= 0)
-                p.Bitmap(pieces.Bitmaps[piece], r.Depth * step + x, py);
+                p.Bitmap(pieces.Bitmaps[piece], (r.Depth * step) + x, py);
             foreach (var (depth, hasNext) in r.Ancestors)
                 if (hasNext)
-                    p.Bitmap(pieces.Bitmaps[11], depth * step + x, py);
-            p.Text(font, (r.Depth + 1) * step + x, py - 2, r.Name);
+                    p.Bitmap(pieces.Bitmaps[11], (depth * step) + x, py);
+            p.Text(font, ((r.Depth + 1) * step) + x, py - 2, r.Name);
         }
     }
 }
@@ -283,33 +282,29 @@ public sealed class GuiCmdObserve : GuiControl
     private int mExtX, mExtY, mExtW, mExtH;
     // The rectangle the view has now (+0x600 to +0x60c): it opens from a thin line at the middle (004b48bc, 004b4ad8).
     private int mCurX, mCurY, mCurW, mCurH;
-    private bool mActive;       // +0x5f8: a player was chosen
-    private bool mOpen;         // +0x5f9: the view has its full rectangle
-    private bool mNoiseDone;    // +0x5fa
     private bool mBarsDone;     // +0x5fc
-    private int mNoiseMod = 4;  // +0x5e4: 1 in this many pixels (the middle value) is drawn white while the picture settles
     private double mNoiseInterval; // +0x5ec seconds
     private int mDamageBar, mEnergyBar; // +0x5f4, +0x5f0: the drawn bar heights
     private long mNoiseTimerMs;
     private long? mBarTimerMs;      // the constructor starts it; the first step is long overdue
     // R250 seeded 0x8377 (004b4718).
-    private readonly OpenTribes.Script.RandomR250 mRandom = new(0x8377);
+    private readonly Script.RandomR250 mRandom = new(0x8377);
 
     // 004b4c9c: the noise grows by this each interval until it reaches the limit. 004b48bc: values 4, 0x50, 6.
     private const int NoiseStart = 4, NoiseLimit = 0x50, NoiseDecay = 6;
 
     /// <summary>Gets a value that is true when a player was chosen.</summary>
-    public bool IsActive => mActive;
+    public bool IsActive { get; private set; }
     /// <summary>Gets a value that is true when the view has its full rectangle.</summary>
-    public bool IsOpen => mOpen;
+    public bool IsOpen { get; private set; }
     /// <summary>Gets a value that is true when the noise has settled.</summary>
-    public bool NoiseDone => mNoiseDone;
+    public bool NoiseDone { get; private set; }
     /// <summary>Gets the rectangle the view has now.</summary>
     public (int X, int Y, int W, int H) ViewRect => (mCurX, mCurY, mCurW, mCurH);
     /// <summary>Gets the heights of the damage and energy bars as drawn.</summary>
     public (int Damage, int Energy) BarHeights => (mDamageBar, mEnergyBar);
     /// <summary>Gets the noise value: 1 in this many pixels (the middle value) is drawn white while the picture settles.</summary>
-    public int NoiseValue => mNoiseMod;
+    public int NoiseValue { get; private set; } = 4;
 
     private void RemoteObserve(int id) =>
         Host?.Call("remoteEval", "2048", "SCOM", id.ToString(CultureInfo.InvariantCulture));
@@ -334,11 +329,11 @@ public sealed class GuiCmdObserve : GuiControl
         if (id == Observed || !Visible)
             return false;
         RemoteObserve(id);
-        mNoiseMod = NoiseStart;
-        mNoiseDone = false;
+        NoiseValue = NoiseStart;
+        NoiseDone = false;
         mDamageBar = mEnergyBar = 0;
         mBarsDone = false;
-        mActive = true;
+        IsActive = true;
         Observed = id;
         return true;
     }
@@ -356,22 +351,22 @@ public sealed class GuiCmdObserve : GuiControl
             SetVisible(false);
             return;
         }
-        int id = Host?.Hud?.CommandFirstSelectedClient() ?? -1;
+        var id = Host?.Hud?.CommandFirstSelectedClient() ?? -1;
         if (id == -1)
             return;
         if (mView != null)
         {
             RemoteObserve(id);
-            mActive = true;
+            IsActive = true;
             Observed = id;
             mCurX = (mExtW >> 1) + mExtX;
             mCurY = (mExtH >> 1) + mExtY;
             mCurW = 0;
             mCurH = 2;
-            mNoiseMod = NoiseStart;
+            NoiseValue = NoiseStart;
             mNoiseInterval = NextNoiseInterval();
             mDamageBar = mEnergyBar = 0;
-            mOpen = mNoiseDone = mBarsDone = false;
+            IsOpen = NoiseDone = mBarsDone = false;
             if (mView is GuiPlayView tv)
                 tv.CameraAttached = true;
             mView.Resize(mCurX, mCurY, mCurW, mCurH);
@@ -380,7 +375,7 @@ public sealed class GuiCmdObserve : GuiControl
     }
 
     /// <summary>Returns the seconds until the next noise step: random * 2^-32 * 0.01 + 0.025 (floats) (004b4c9c, 004b48bc).</summary>
-    private double NextNoiseInterval() => (float)((double)mRandom.Next() * 2.3283064365386963e-10 * 0.009999999776482582 + 0.02500000037252903);
+    private double NextNoiseInterval() => (float)((mRandom.Next() * 2.3283064365386963e-10 * 0.009999999776482582) + 0.02500000037252903);
 
     private long Now => Host?.TickMs ?? 0;
 
@@ -400,7 +395,7 @@ public sealed class GuiCmdObserve : GuiControl
         }
         else
         {
-            mOpen = true;
+            IsOpen = true;
             mNoiseTimerMs = Now;
         }
         mView?.Resize(mCurX, mCurY, mCurW, mCurH);
@@ -425,24 +420,24 @@ public sealed class GuiCmdObserve : GuiControl
     /// <summary>Thins the noise by a step every interval once open, and stops it at the limit (004b4c9c).</summary>
     private void NoiseStep()
     {
-        if (!mActive || !mOpen || Now - mNoiseTimerMs <= mNoiseInterval * 1000.0)
+        if (!IsActive || !IsOpen || Now - mNoiseTimerMs <= mNoiseInterval * 1000.0)
             return;
         mNoiseTimerMs = Now;
         mNoiseInterval = NextNoiseInterval();
-        mNoiseMod += NoiseDecay;
-        if (NoiseLimit <= mNoiseMod)
-            mNoiseDone = true;
+        NoiseValue += NoiseDecay;
+        if (NoiseLimit <= NoiseValue)
+            NoiseDone = true;
     }
 
     /// <summary>Returns the bar targets: the view height times (1 - damage level of the control object, slot 0xf8) and times the energy fraction (1 - slot 0xfc). A bar with a value above 0 is at least 1 pixel (004b4de4).</summary>
     /// <returns>The damage and energy bar heights.</returns>
     public (int Damage, int Energy) BarTargets()
     {
-        float health = 1f - (float)(Host?.Hud?.DamageLevel ?? 0);
-        float energy = 1f - (1f - (float)(Host?.Hud?.EnergyLevel ?? 1));
+        var health = 1f - (float)(Host?.Hud?.DamageLevel ?? 0);
+        var energy = 1f - (1f - (float)(Host?.Hud?.EnergyLevel ?? 1));
         int Bar(float v)
         {
-            int n = (int)((double)mExtH * v);
+            var n = (int)((double)mExtH * v);
             return v > 0f ? Math.Max(n, 1) : n;
         }
         return (Bar(health), Bar(energy));
@@ -456,19 +451,19 @@ public sealed class GuiCmdObserve : GuiControl
         p.Fill(gx, gy, W, H, 0xf4);
         if (mView == null)
             return;
-        if (!mOpen)
+        if (!IsOpen)
             GrowStep();
-        if (mActive)
+        if (IsActive)
         {
-            if (mOpen)
+            if (IsOpen)
             {
-                (int hd, int he) = BarTargets();
+                (var hd, var he) = BarTargets();
                 if (!mBarsDone)
                     BarStep(hd, he);
                 else
                     (mDamageBar, mEnergyBar) = (hd, he);
-                int right = gx + mExtX + mExtW;
-                int bottom = gy + mExtY + mExtH;
+                var right = gx + mExtX + mExtW;
+                var bottom = gy + mExtY + mExtH;
                 if (mDamageBar != 0)
                     p.Fill(right + 4, bottom - mDamageBar, 2, mDamageBar, hd >= 0x39 ? 0xfc : hd >= 0x1c ? 0xf2 : 0xf3);
                 if (mEnergyBar != 0)
@@ -476,7 +471,7 @@ public sealed class GuiCmdObserve : GuiControl
             }
             RenderChildren(p, gx, gy);
         }
-        if (!mNoiseDone)
+        if (!NoiseDone)
         {
             NoiseStep();
             DrawNoise(p, gx, gy);
@@ -486,11 +481,11 @@ public sealed class GuiCmdObserve : GuiControl
     /// <summary>Draws white noise over the view rectangle: a pixel is white (palette 0xff) when a random number scaled to the noise value is its middle (004b4bdc).</summary>
     private void DrawNoise(GuiPaint p, int gx, int gy)
     {
-        for (int c = 0; c < mCurW; ++c)
-            for (int r = 0; r < mCurH; ++r)
+        for (var c = 0; c < mCurW; ++c)
+            for (var r = 0; r < mCurH; ++r)
             {
-                uint v = (uint)(((ulong)mRandom.Next() * (uint)mNoiseMod) / 0xffffffffUL);
-                if (v == (uint)(mNoiseMod >> 1))
+                var v = (uint)((ulong)mRandom.Next() * (uint)NoiseValue / 0xffffffffUL);
+                if (v == (uint)(NoiseValue >> 1))
                     p.Fill(gx + mCurX + c, gy + mCurY + r, 1, 1, 0xff);
             }
     }

@@ -1,25 +1,25 @@
 // Port of src/game/player_ghost.cpp: Player ghost packUpdate (0x00417148, docs/game-stream-ghosts.md 4.7) with the image
 // slots (0x00419414, docs/player-sim.md 7.2).
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public static partial class PlayerGhost
 {
     // src/game/player_ghost.cpp ftolBits.
     internal static uint FtolBits(double x, uint bits)
     {
-        long i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
+        var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
         return (uint)i & ((1u << (int)bits) - 1);
     }
 
     // src/game/player_ghost.cpp writeUnit: BitStream::writeFloat (0x00582fb0).
     internal static void WriteUnit(BitStream bs, float v, uint bits) =>
-        bs.WriteInt(FtolBits(Mul((double)(int)((1u << (int)bits) - 1), v), bits), bits);
+        bs.WriteInt(FtolBits(Mul((int)((1u << (int)bits) - 1), v), bits), bits);
 
     // src/game/player_ghost.cpp writeSignedUnit: writeSignedFloat (0x00583018).
     internal static void WriteSignedUnit(BitStream bs, float v, uint bits) =>
-        bs.WriteInt(FtolBits(Mul(Mul(Add(v, 1.0f), 0.5f), (double)(int)((1u << (int)bits) - 1)), bits), bits);
+        bs.WriteInt(FtolBits(Mul(Mul(Add(v, 1.0f), 0.5f), (int)((1u << (int)bits) - 1)), bits), bits);
 
     // src/game/player_ghost.cpp writeNormal: BitStream_writeNormalVector: x and y as signed units, then the sign of z.
     internal static void WriteNormal(BitStream bs, ReadOnlySpan<float> n, uint bits)
@@ -56,7 +56,7 @@ public static partial class PlayerGhost
             WriteSignedUnit(bs, gb.FlashNormal[0], 7);
             WriteSignedUnit(bs, gb.FlashNormal[1], 7);
             bs.WriteFlag(gb.FlashNormal[2] < 0.0f);
-            float a = gb.FlashAmount;
+            var a = gb.FlashAmount;
             if (a > 5.0f)
                 a = 5.0f;
             if (a < -5.0f)
@@ -64,7 +64,7 @@ public static partial class PlayerGhost
             WriteUnit(bs, X87.F32(Mul(0.1, Add(a, 5.0f))), 8);
         }
         if (bs.WriteFlag((mask & 0x400) != 0))
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 GameBase.Thread t = gb.Threads[i];
                 if (bs.WriteFlag(t.Sequence != -1 && (mask & (0x800u << i)) != 0))
@@ -86,8 +86,8 @@ public static partial class PlayerGhost
         using var chop = X87.Chop();
         var p = (Player)obj;
         // The control client's connection gets no state block: it has the control state.
-        bool controller = p.ControlClient == ctx.ClientId;
-        bool isNew = mask == 0xffffffffu;
+        var controller = p.ControlClient == ctx.ClientId;
+        var isNew = mask == 0xffffffffu;
         PackShapeBase1(p, bs, mask);
         if (bs.WriteFlag((mask & 0x04) != 0))
         {
@@ -105,7 +105,7 @@ public static partial class PlayerGhost
         if ((mask & 0x8000) != 0)
         {
             GameBase? mo = p.MountObject();
-            int gi = mo != null ? ctx.Manager.GhostIndex(mo) : -1;
+            var gi = mo != null ? ctx.Manager.GhostIndex(mo) : -1;
             if (mo != null && gi < 0)
             {
                 bs.WriteFlag(false);
@@ -136,12 +136,12 @@ public static partial class PlayerGhost
         {
             WriteSignedUnit(bs, X87.F32(Div(p.Pitch, 1.5359)), 5);
             bs.WriteF32s(p.Transform.P);
-            float speed = X87.F32(X87.Len(p.Velocity));
+            var speed = X87.F32(X87.Len(p.Velocity));
             if (bs.WriteFlag(speed > 0.02))
             {
-                float inv = X87.F32(Div(1.0, speed));
-                float[] dir = { X87.F32(Mul(inv, p.Velocity[0])), X87.F32(Mul(inv, p.Velocity[1])), X87.F32(Mul(inv, p.Velocity[2])) };
-                float scaled = X87.F32(Mul(speed, 512.0f));
+                var inv = X87.F32(Div(1.0, speed));
+                float[] dir = [X87.F32(Mul(inv, p.Velocity[0])), X87.F32(Mul(inv, p.Velocity[1])), X87.F32(Mul(inv, p.Velocity[2]))];
+                var scaled = X87.F32(Mul(speed, 512.0f));
                 if (scaled > 131071.0f)
                     scaled = 131071.0f;
                 bs.WriteInt(FtolBits(scaled, 17), 17);
@@ -167,7 +167,7 @@ public static partial class PlayerGhost
         bs.WriteFlag(p.Crouching);
         // Player_packImages (0x00419414).
         if (bs.WriteFlag((mask & 0x20000) != 0))
-            for (int i = 0; i < Player.kImageSlots; ++i)
+            for (var i = 0; i < Player.kImageSlots; ++i)
             {
                 Player.ImageSlot s = p.Images[i];
                 if (!bs.WriteFlag((mask & (0x100000u << i)) != 0))

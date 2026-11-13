@@ -1,6 +1,6 @@
-using OpenTribes.Game;
-
 namespace OpenTribes.Client.Scene;
+
+using OpenTribes.Game;
 
 /// <summary>What the client moves of the control player each frame: position, velocity, ground contact and facing.</summary>
 /// <param name="X">The x position.</param>
@@ -25,9 +25,9 @@ public readonly record struct ControlSample(double X, double Y, double Z, double
     {
         if (ghost != psc.ControlGhost || psc.ControlClass != "Player" || psc.ControlState.GetValueOrDefault("pos") is not double[] { Length: >= 3 } p)
             return null;
-        double[] v = psc.ControlState.GetValueOrDefault("vel") is double[] { Length: >= 3 } vv ? vv : new double[3];
+        var v = psc.ControlState.GetValueOrDefault("vel") is double[] { Length: >= 3 } vv ? vv : new double[3];
         bool Flag(string k) => psc.ControlState.GetValueOrDefault(k) is long l && l != 0;
-        double yaw = psc.ControlState.GetValueOrDefault("rotZ") is double y ? y : 0;
+        var yaw = psc.ControlState.GetValueOrDefault("rotZ") is double y ? y : 0;
         return new ControlSample(p[0], p[1], p[2], v[0], v[1], v[2], Flag("flag1f4"), Flag("flagfe4"), Flag("crouchfee"), yaw);
     }
 }

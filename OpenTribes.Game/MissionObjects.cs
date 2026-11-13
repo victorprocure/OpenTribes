@@ -4,13 +4,9 @@
 // the Euler conversions are OpenTribes.Sim (MissionTransform.cs). GameBase is one partial class over the files of its
 // C++ methods: MissionObjects.cs, StaticSim.cs, ItemSim.cs, TurretSim.cs and Damage.cs. Arithmetic follows the mode of
 // Fpu; x87::f32 is X87.F32 (toward zero) and x87::Chop is Fpu.ChopScope.
-using OpenTribes.Core;
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The definition of a persist field.</summary>
 /// <param name="Name">The field name.</param>
@@ -22,19 +18,19 @@ public readonly record struct PersistDef(string Name, int Type, int Count);
 public sealed class PersistFields
 {
     private readonly List<PersistDef> mDefs;
-    private readonly Dictionary<string, List<string>> mValues = new(); // lower-case field name
-    private readonly Dictionary<string, float[]> mPoints = new();
+    private readonly Dictionary<string, List<string>> mValues = []; // lower-case field name
+    private readonly Dictionary<string, float[]> mPoints = [];
 
     /// <summary>Creates the storage for a list of field definitions.</summary>
     /// <param name="defs">The field definitions.</param>
-    public PersistFields(IEnumerable<PersistDef> defs) => mDefs = new List<PersistDef>(defs);
+    public PersistFields(IEnumerable<PersistDef> defs) => mDefs = [.. defs];
 
     // src/game/mission_objects.cpp lower.
     internal static string Lower(string s)
     {
         var c = s.ToCharArray();
-        for (int i = 0; i < c.Length; ++i)
-            if (c[i] >= 'A' && c[i] <= 'Z')
+        for (var i = 0; i < c.Length; ++i)
+            if (c[i] is >= 'A' and <= 'Z')
                 c[i] = (char)(c[i] + 32);
         return new string(c);
     }
@@ -49,7 +45,7 @@ public sealed class PersistFields
         if (values.Count == 1)
             CScan.Floats(values[0], p);
         else if (values.Count == 3)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 p[i] = AtofRZ(values[i]);
     }
 
@@ -68,7 +64,7 @@ public sealed class PersistFields
 
     private float[] PointSlot(string key)
     {
-        if (!mPoints.TryGetValue(key, out float[]? p))
+        if (!mPoints.TryGetValue(key, out var p))
             mPoints[key] = p = new float[3];
         return p;
     }
@@ -83,14 +79,14 @@ public sealed class PersistFields
         {
             if (!SimClassesNoCase(d.Name, field))
                 continue;
-            string key = Lower(d.Name);
+            var key = Lower(d.Name);
             if (d.Type == 5)
                 ParsePoint(values, PointSlot(key));
             else if (d.Type == 0)
                 // String table entry: case variants share the first spelling interned.
-                mValues[key] = new List<string> { values.Count == 0 ? "" : StringTable.Global().Intern(values[0]) };
+                mValues[key] = [values.Count == 0 ? "" : StringTable.Global().Intern(values[0])];
             else if (d.Type != 22) // type 22 (lightParams) setter does nothing
-                mValues[key] = new List<string>(values);
+                mValues[key] = [.. values];
             return true;
         }
         return false;
@@ -109,11 +105,11 @@ public sealed class PersistFields
         {
             if (!SimClassesNoCase(d.Name, field) || d.Count < 2 || index < 0 || index >= d.Count)
                 continue;
-            string key = ElementKey(Lower(d.Name), index);
+            var key = ElementKey(Lower(d.Name), index);
             if (d.Type == 5)
                 ParsePoint(values, PointSlot(key));
             else
-                mValues[key] = new List<string>(values);
+                mValues[key] = [.. values];
             return true;
         }
         return false;
@@ -122,7 +118,7 @@ public sealed class PersistFields
     /// <summary>Replaces a point3F field. Engine code uses it, not the persist setter.</summary>
     /// <param name="field">The field name.</param>
     /// <param name="v">The point.</param>
-    public void SetPoint(string field, ReadOnlySpan<float> v) => mPoints[Lower(field)] = new[] { v[0], v[1], v[2] };
+    public void SetPoint(string field, ReadOnlySpan<float> v) => mPoints[Lower(field)] = [v[0], v[1], v[2]];
 
     /// <summary>Returns the values of a field.</summary>
     /// <param name="field">The field name.</param>
@@ -138,9 +134,9 @@ public sealed class PersistFields
     /// <returns>False when the field has no point.</returns>
     public bool Point(string field, Span<float> output, int index = -1)
     {
-        if (!mPoints.TryGetValue(ElementKey(Lower(field), index), out float[]? p))
+        if (!mPoints.TryGetValue(ElementKey(Lower(field), index), out var p))
             return false;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             output[i] = p[i];
         return true;
     }
@@ -216,12 +212,12 @@ public static class GameUtil
             return a == b;
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < a.Length; ++i)
+        for (var i = 0; i < a.Length; ++i)
         {
             char x = a[i], y = b[i];
-            if (x >= 'A' && x <= 'Z')
+            if (x is >= 'A' and <= 'Z')
                 x = (char)(x + 32);
-            if (y >= 'A' && y <= 'Z')
+            if (y is >= 'A' and <= 'Z')
                 y = (char)(y + 32);
             if (x != y)
                 return false;
@@ -235,13 +231,13 @@ public static class GameUtil
     /// <returns>Less than 0, 0 or greater than 0.</returns>
     public static int CompareNoCase(string a, string b)
     {
-        int n = Math.Min(a.Length, b.Length);
-        for (int i = 0; i < n; ++i)
+        var n = Math.Min(a.Length, b.Length);
+        for (var i = 0; i < n; ++i)
         {
             int x = a[i], y = b[i];
-            if (x >= 'A' && x <= 'Z')
+            if (x is >= 'A' and <= 'Z')
                 x += 32;
-            if (y >= 'A' && y <= 'Z')
+            if (y is >= 'A' and <= 'Z')
                 y += 32;
             if (x != y)
                 return x - y;
@@ -273,7 +269,7 @@ public static class GameUtil
     /// <returns>The converted value.</returns>
     public static uint Ftol(double v)
     {
-        if (!(v > -2147483649.0 && v < 2147483648.0))
+        if (v is not (> (-2147483649.0) and < 2147483648.0))
             return 0x80000000u;
         return unchecked((uint)(int)v);
     }
@@ -541,7 +537,7 @@ public partial class GameBase : SimObject
     public int PowerCount;
 
     /// <summary>The animation threads (ShapeBase net state, docs/game-stream-ghosts.md 4.2).</summary>
-    public readonly Thread[] Threads = { new(), new(), new() };
+    public readonly Thread[] Threads = [new(), new(), new()];
     /// <summary>The damage flash direction (+0x738).</summary>
     public readonly float[] FlashNormal = new float[3];
     /// <summary>The damage flash amount (+0x744).</summary>
@@ -588,7 +584,7 @@ public partial class GameBase : SimObject
     public ShapeAnim? Anim;
 
     /// <summary>The collision callback records (+0x214, docs/static-sim.md 1.8).</summary>
-    public readonly List<CollisionRecord> CollisionRecords = new();
+    public readonly List<CollisionRecord> CollisionRecords = [];
     /// <summary>The latest expiry of the collision records.</summary>
     public float CollisionLatest;
 
@@ -619,7 +615,7 @@ public partial class GameBase : SimObject
     /// <summary>True when a contact surface was hit this step (+0x1f4).</summary>
     public bool ItemContact;
     /// <summary>The notify list of the running move (info +0x3c).</summary>
-    public List<SimObject> ItemNotify = new();
+    public List<SimObject> ItemNotify = [];
     /// <summary>The sub step length (+0x250): 0.45 times the shape radius.</summary>
     public float ItemSubStep = 0.3f;
     /// <summary>The centre of the shape bounding sphere (shape +0x08).</summary>
@@ -643,7 +639,7 @@ public partial class GameBase : SimObject
     /// <summary>The movement flags (+0x164): 0x181 plus 0x1d. A displacement clears 0x05.</summary>
     public int ItemFlags = 0x19d;
     /// <summary>The ids of the SimMovement objects in contact (+0x154). The Moveable carry list (docs/collision.md E3.3).</summary>
-    public readonly List<int> Carried = new();
+    public readonly List<int> Carried = [];
     /// <summary>True when the shape has a <c>visibility</c> sequence (+0x7e0).</summary>
     public bool VisibilityThread;
     /// <summary>The magnitude of the container gravity (+0x14c).</summary>
@@ -758,15 +754,15 @@ public partial class GameBase : SimObject
     /// <summary>True when the Trigger is active (+0x250). Trigger state is in docs/static-sim.md 6.</summary>
     public bool TriggerActive = true;
     /// <summary>The boundingBox in object space (+0x1d4).</summary>
-    public readonly float[] TriggerBox = { -1, -1, -1, 1, 1, 1 };
+    public readonly float[] TriggerBox = [-1, -1, -1, 1, 1, 1];
     /// <summary>True when the Trigger is a sphere (+0x251, isSphere).</summary>
     public bool TriggerSphere = true;
     /// <summary>The occupants (+0x240).</summary>
-    public readonly List<Occupant> Occupants = new();
+    public readonly List<Occupant> Occupants = [];
     /// <summary>The contact interval (datablock +0x34).</summary>
     public float TriggerInterval = 0.25f;
 
-    private ShapeKind mShapeClass = ShapeKind.NoShape;
+    private readonly ShapeKind mShapeClass = ShapeKind.NoShape;
     private readonly string mClass;
     private readonly Kind mKind;
     private readonly int mDbGroup;
@@ -796,12 +792,12 @@ public partial class GameBase : SimObject
         {
             MapName = "";
             (string, ShapeKind)[] kShapes =
-            {
+            [
                 ("StaticShape", ShapeKind.StaticShape), ("Sensor", ShapeKind.Sensor), ("Turret", ShapeKind.Turret),
                 ("Item", ShapeKind.Item), ("Mine", ShapeKind.Mine), ("Moveable", ShapeKind.Moveable),
                 ("Flier", ShapeKind.Vehicle), ("Vehicle", ShapeKind.Vehicle),
-            };
-            foreach ((string c, ShapeKind s) in kShapes)
+            ];
+            foreach ((var c, ShapeKind s) in kShapes)
                 if (GameUtil.EqualsNoCase(c, cls))
                     mShapeClass = s;
         }
@@ -875,7 +871,7 @@ public partial class GameBase : SimObject
     {
         if (!mFields.Set(field, values))
             return false;
-        string v = values.Count == 0 ? "" : values[0];
+        var v = values.Count == 0 ? "" : values[0];
         if (GameUtil.EqualsNoCase(field, "dataBlock"))
             DataBlockName = v.Length == 0 ? null : StringTable.Global().Intern(v);
         else if (GameUtil.EqualsNoCase(field, "name"))
@@ -892,7 +888,7 @@ public partial class GameBase : SimObject
         mFields.Point("position", pos);
         mFields.Point("rotation", rot);
         MissionTransform.EulerToMatrix(rot, ref Transform);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Transform.P[i] = pos[i];
         if (pos[0] != 0 || pos[1] != 0 || pos[2] != 0)
             Transform.Flags |= 2;
@@ -909,7 +905,7 @@ public partial class GameBase : SimObject
                 SetTeam(-1);
                 return;
             }
-            int t = 0;
+            var t = 0;
             if (g.TeamOf(ref t))
             {
                 SetTeam(t);
@@ -925,7 +921,7 @@ public partial class GameBase : SimObject
     /// <remarks>Follows 0x00448368.</remarks>
     public void SetTeam(int t)
     {
-        int old = Team;
+        var old = Team;
         Team = t;
         if (mKind == Kind.Marker) // Marker_setTeam 0x00449558: always visible to its own team (all for -1)
             SensorWord = (SensorWord & ~0xff00u) | (t == -1 ? 0xff00u : (1u << (int)(((uint)t + 8u) & 31)));
@@ -1047,13 +1043,13 @@ public partial class GameBase : SimObject
         if (!t.Created)
             return;
         double u = StaticRandom.Thread().Next();
-        double scale = Mul(u, 2.3283064365386963e-10);
+        var scale = Mul(u, 2.3283064365386963e-10);
         scale = Mul(scale, 2.0);
         scale = Mul(scale, (double)0.1f);
         scale = Add(scale, 1.0);
         scale = Sub(scale, (double)0.1f);
-        float s = X87.F32(scale); // control word: round toward zero
-        int state = t.Flags & kThreadState;
+        var s = X87.F32(scale); // control word: round toward zero
+        var state = t.Flags & kThreadState;
         if (state == kPlay)
         {
             if ((t.Flags & kThreadAtEnd) == 0)
@@ -1155,7 +1151,7 @@ public partial class GameBase : SimObject
         Thread t = Threads[slot];
         if (t.Sequence == -1)
             return false;
-        if (((t.Flags & kThreadForward) != 0) != forward)
+        if ((t.Flags & kThreadForward) != 0 != forward)
         {
             SetMaskBits((0x800u << slot) | 0x400u);
             t.Flags = (byte)((t.Flags & ~(kThreadForward | kThreadAtEnd)) | (forward ? kThreadForward : 0));
@@ -1170,7 +1166,7 @@ public partial class GameBase : SimObject
     // after the damage state. Moveable (0x00444098) stops unless enabled; Turret (0x004570f4) adds mask 0x10000.
     private void StateCallback()
     {
-        string[] kNames = { "onNone", "onEnabled", "onDisabled", "onDestroyed" };
+        string[] kNames = ["onNone", "onEnabled", "onDisabled", "onDestroyed"];
         if (mShapeClass == ShapeKind.Moveable && DamageState != kEnabled)
             SetMoveState(kMoveStopped);
         if (mCtx.Game != null && DamageState >= 0 && DamageState <= 3)
@@ -1221,7 +1217,7 @@ public partial class GameBase : SimObject
     {
         if (mKind == Kind.Trigger)
             return TriggerActive;
-        return IsStaticBase() ? Active : true;
+        return !IsStaticBase() || Active;
     }
 
     /// <summary>Sets whether the object is a target.</summary>
@@ -1254,7 +1250,7 @@ public partial class GameBase : SimObject
         if (state == DamageState)
             return;
         DamageState = state;
-        if (state == kDisabled || state == kDestroyed)
+        if (state is kDisabled or kDestroyed)
             Active = false;
         if (state == kDestroyed)
         {
@@ -1309,7 +1305,7 @@ public partial class GameBase : SimObject
     public void SetPosition(ReadOnlySpan<float> p)
     {
         MissionTransform.EulerToMatrix(Rotation, ref Transform);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Transform.P[i] = p[i];
         Transform.Flags |= 2;
         SetMaskBits(0x08);
@@ -1330,7 +1326,7 @@ public partial class GameBase : SimObject
         mFields.SetPoint("rotation", e);
         // Mat3_fromEulerWrap of the read-back angles, then SimObject_setTransform (InteriorShape_setTransform).
         MissionTransform.EulerToMatrix(e, ref Transform);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Transform.P[i] = p[i];
         Transform.Flags |= 2;
         SetMaskBits(0x01);
@@ -1350,7 +1346,7 @@ public partial class GameBase : SimObject
     /// <remarks>Follows vtable +0x1a0. Sets mask 0x10.</remarks>
     public void SetRotation(ReadOnlySpan<float> e)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             Rotation[i] = e[i];
         SetMaskBits(0x10);
     }
@@ -1363,7 +1359,7 @@ public partial class GameBase : SimObject
     {
         Span<float> e = stackalloc float[3];
         MissionTransform.MatrixToEuler(m, e);
-        Span<float> q = stackalloc float[3] { p[0], p[1], p[2] };
+        Span<float> q = [p[0], p[1], p[2]];
         SetRotation(e);
         SetPosition(q);
     }
@@ -1380,16 +1376,16 @@ public partial class GameBase : SimObject
         var output = new System.Text.StringBuilder();
         if (text != null)
         {
-            string t = CString.CStr(text);
-            int p = 0;
+            var t = CString.CStr(text);
+            var p = 0;
             while (p < t.Length && output.Length < 255)
             {
                 if (t[p] == '<' && p + 1 < t.Length && t[p + 1] == 'v')
                 {
-                    int gt = t.IndexOf('>', p);
+                    var gt = t.IndexOf('>', p);
                     if (gt >= 0)
                     {
-                        string value = mCtx.Game != null ? mCtx.Game.Variable(t[(p + 2)..gt]) : "";
+                        var value = mCtx.Game != null ? mCtx.Game.Variable(t[(p + 2)..gt]) : "";
                         if (value.Length + output.Length > 0xfe)
                             break;
                         output.Append(value);
@@ -1400,7 +1396,7 @@ public partial class GameBase : SimObject
                 output.Append(t[p++]);
             }
         }
-        string s = output.ToString();
+        var s = output.ToString();
         StoreMapName(s);
         if (TargetIndex >= 0 && mCtx.Game != null)
             mCtx.Game.RenameTarget(TargetIndex, s);
@@ -1411,7 +1407,7 @@ public partial class GameBase : SimObject
     public Mat WorldMat()
     {
         var m = new Mat();
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             m.M[i] = Transform.M[i];
         m.P = new Vec3(Transform.P[0], Transform.P[1], Transform.P[2]);
         return m;
@@ -1421,16 +1417,16 @@ public partial class GameBase : SimObject
     // (docs/interiors.md 5.2).
     private static void TransformBox(ReadOnlySpan<float> local, in Mat m, Span<float> output)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             output[i] = 1e30f;
             output[i + 3] = -1e30f;
         }
-        for (int c = 0; c < 8; ++c)
+        for (var c = 0; c < 8; ++c)
         {
             var p = new Vec3(local[(c & 1) != 0 ? 3 : 0], local[(c & 2) != 0 ? 4 : 1], local[(c & 4) != 0 ? 5 : 2]);
             Vec3 w = m.ToWorld(p);
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 output[i] = Math.Min(output[i], w[i]);
                 output[i + 3] = Math.Max(output[i + 3], w[i]);
@@ -1457,9 +1453,9 @@ public partial class GameBase : SimObject
             IReadOnlyList<string>? f = mFields.Get("filename");
             if (f != null && f.Count != 0)
             {
-                InteriorGeo = OpenTribes.World.Interior.LoadInterior(res, f[0]);
-                OpenTribes.World.Interior.LoadInteriorNetInfo(res, f[0], InteriorNet);
-                OpenTribes.World.Interior.LoadInteriorResources(res, f[0], ResourceLocks);
+                InteriorGeo = Interior.LoadInterior(res, f[0]);
+                Interior.LoadInteriorNetInfo(res, f[0], InteriorNet);
+                Interior.LoadInteriorResources(res, f[0], ResourceLocks);
             }
             // isContainer (0x0047ec6c): -1 becomes 1 when a collision box extent is at least 6.0, else 0; it stays -1
             // without a shape.
@@ -1479,11 +1475,11 @@ public partial class GameBase : SimObject
                 e.Box = Float6.Of(box);
                 // isContainer (docs/interiors.md 5.1 step 5): -1 means "any extent >= 6".
                 IReadOnlyList<string>? ic = mFields.Get("isContainer");
-                int isContainer = ic != null && ic.Count != 0 ? Numbers.BorlandAtoi(ic[0]) : -1;
+                var isContainer = ic != null && ic.Count != 0 ? Numbers.BorlandAtoi(ic[0]) : -1;
                 if (isContainer == -1)
                 {
                     isContainer = 0;
-                    for (int i = 0; i < 3; ++i)
+                    for (var i = 0; i < 3; ++i)
                         if (Sub(InteriorGeo.Box[i + 3], InteriorGeo.Box[i]) >= 6.0)
                             isContainer = 1;
                 }
@@ -1497,7 +1493,7 @@ public partial class GameBase : SimObject
                 InteriorGeometry geo = InteriorGeo;
                 // Material list of the shape (.dis +0x4c) for the hit surface (collision.md 5.2 part 4.1).
                 List<Material>? mats = null;
-                string ml = OpenTribes.World.Interior.InteriorMaterialList(res, f![0]);
+                var ml = Interior.InteriorMaterialList(res, f![0]);
                 if (ml.Length != 0)
                     mats = MaterialList.Get(res, ml);
                 var slot = new System.Runtime.CompilerServices.StrongBox<Material?>(null);
@@ -1505,25 +1501,27 @@ public partial class GameBase : SimObject
                 // Line into geometry space with the inverse image transform, the hit back with the transform itself
                 // (0x00503408, m_mul_point, m_mul_vector). InteriorShape_getCollisionImages (0x0047f814) copies the
                 // current object transform into the image on every query, so the cast reads it at call time (G38).
-                e.Cast = (Vec3 s, Vec3 en, ref Vec3 hit, ref Vec3 n) =>
+                e.Cast = (s, en, ref hit, ref n) =>
                 {
                     using var chop = X87.Chop();
-                    var toWorld = new TMat3();
-                    toWorld.Flags = Transform.Flags;
-                    toWorld.M = Transform.M;
-                    toWorld.P = Transform.P;
+                    var toWorld = new TMat3
+                    {
+                        Flags = Transform.Flags,
+                        M = Transform.M,
+                        P = Transform.P
+                    };
                     Shape.TmatInverse(toWorld, out TMat3 toLocal);
-                    Span<float> ws = stackalloc float[3] { s.X, s.Y, s.Z }, we = stackalloc float[3] { en.X, en.Y, en.Z };
+                    Span<float> ws = [s.X, s.Y, s.Z], we = [en.X, en.Y, en.Z];
                     Span<float> ls = stackalloc float[3], le = stackalloc float[3];
                     X87.MulPoint(ws, toLocal.M, toLocal.P, ls);
                     X87.MulPoint(we, toLocal.M, toLocal.P, le);
                     var h = new InteriorGeometry.Hit();
                     if (!geo.CastLine(new Vec3(ls[0], ls[1], ls[2]), new Vec3(le[0], le[1], le[2]), ref h))
                         return false;
-                    byte mb = geo.SurfaceMaterial(geo.SurfaceAt(h.Leaf, h.PlaneIndex, h.Point));
+                    var mb = geo.SurfaceMaterial(geo.SurfaceAt(h.Leaf, h.PlaneIndex, h.Point));
                     slot.Value = mats != null && mb != 0xff && mb < mats.Count ? mats[mb] : null;
-                    Span<float> lp = stackalloc float[3] { h.Point.X, h.Point.Y, h.Point.Z };
-                    Span<float> ln = stackalloc float[3] { h.Normal.X, h.Normal.Y, h.Normal.Z };
+                    Span<float> lp = [h.Point.X, h.Point.Y, h.Point.Z];
+                    Span<float> ln = [h.Normal.X, h.Normal.Y, h.Normal.Z];
                     Span<float> wp = stackalloc float[3], wn = stackalloc float[3];
                     X87.MulPoint(lp, toWorld.M, toWorld.P, wp);
                     X87.MulVector(ln, toWorld.M, wn);
@@ -1587,7 +1585,7 @@ public partial class GameBase : SimObject
             BindTurretShape();
             ScriptOnAdd();
         }
-        if (mShapeClass == ShapeKind.Sensor || mShapeClass == ShapeKind.Turret)
+        if (mShapeClass is ShapeKind.Sensor or ShapeKind.Turret)
             mCtx.Game?.SensorInsert(this); // 0x00438fbc: the list of the team, or the suppressors
         mCtx.Game?.ScriptCallback(this, "onInit", Array.Empty<string>());
         return true;
@@ -1599,11 +1597,11 @@ public partial class GameBase : SimObject
     {
         if (mKind != Kind.ShapeBase)
             return true;
-        int n = args.Count;
+        var n = args.Count;
         string? usage = null;
         if (mShapeClass == ShapeKind.Item)
         {
-            if (n < 3 || n > 5)
+            if (n is < 3 or > 5)
                 usage = "Item: <dataFile> <count> <bool pop> [bool rotate] [bool collide]";
         }
         else if (mShapeClass == ShapeKind.Mine)
@@ -1611,7 +1609,7 @@ public partial class GameBase : SimObject
             if (n != 1)
                 usage = "Mine: <dataFile>";
         }
-        else if (n != 1 && n != 2)
+        else if (n is not 1 and not 2)
         {
             usage = "StaticBase: <dataFile> [deleteOnDestroy]";
         }
@@ -1778,28 +1776,28 @@ public sealed class SimLightObject : PersistObject
         }
         float Num(int i) => X87.F32(Numbers.BorlandAtof(args[i]));
         void SetVec(string field, ReadOnlySpan<float> v) => MutableFields().SetPoint(field, v);
-        int argc = args.Count;
+        var argc = args.Count;
         PersistFields f = MutableFields();
         void SetInt(string field, string v) => f.Set(field, new[] { v });
         if (args[0].StartsWith("Directional", StringComparison.Ordinal))
         {
-            if (argc == 7 || argc == 10)
+            if (argc is 7 or 10)
             {
                 SetInt("type", args[0] == "DirectionalWrap" ? "6" : "1");
-                float[] color = { Num(1), Num(2), Num(3) };
-                float[] dir = { Num(4), Num(5), Num(6) };
+                float[] color = [Num(1), Num(2), Num(3)];
+                float[] dir = [Num(4), Num(5), Num(6)];
                 using (ChopScope())
                 {
-                    float inv = X87.F32(Div(1.0, X87.Lenf(dir)));
-                    for (int i = 0; i < 3; ++i)
+                    var inv = X87.F32(Div(1.0, X87.Lenf(dir)));
+                    for (var i = 0; i < 3; ++i)
                         dir[i] = X87.F32(Mul(inv, dir[i]));
-                    float inv2 = X87.F32(Div(1.0, X87.F32(X87.Len(dir))));
-                    for (int i = 0; i < 3; ++i)
+                    var inv2 = X87.F32(Div(1.0, X87.F32(X87.Len(dir))));
+                    for (var i = 0; i < 3; ++i)
                         dir[i] = X87.F32(Mul(inv2, dir[i]));
                 }
-                float[] ambient = { 0, 0, 0 };
+                float[] ambient = [0, 0, 0];
                 if (argc == 10)
-                    for (int i = 0; i < 3; ++i)
+                    for (var i = 0; i < 3; ++i)
                         ambient[i] = Num(7 + i);
                 SetVec("aim", dir);
                 SetVec("color", color);
@@ -1810,14 +1808,14 @@ public sealed class SimLightObject : PersistObject
         }
         else if (args[0] == "Point")
         {
-            if (argc == 8 || argc == 11)
+            if (argc is 8 or 11)
             {
                 SetInt("type", "2");
-                float range = Num(1);
-                float[] color = { Num(2), Num(3), Num(4) }, pos = { Num(5), Num(6), Num(7) };
-                float[] ambient = { 0, 0, 0 };
+                var range = Num(1);
+                float[] color = [Num(2), Num(3), Num(4)], pos = [Num(5), Num(6), Num(7)];
+                float[] ambient = [0, 0, 0];
                 if (argc == 11)
-                    for (int i = 0; i < 3; ++i)
+                    for (var i = 0; i < 3; ++i)
                         ambient[i] = Num(8 + i);
                 SetVec("position", pos);
                 SetVec("color", color);
@@ -1835,7 +1833,7 @@ public sealed class SimLightObject : PersistObject
     /// <param name="value">The event value.</param>
     public override void OnActivateEvent(float value)
     {
-        float[] color = { value, value, value };
+        float[] color = [value, value, value];
         MutableFields().SetPoint("color", color);
         Context().Game?.SetMaskBits(this, 0x04);
     }
@@ -1873,7 +1871,7 @@ public sealed class TerrainObject : PersistObject
             mTed = values.Count == 0 ? "" : values[0];
         if (GameUtil.EqualsNoCase(field, "position") && values.Count != 0)
         {
-            Span<float> p = stackalloc float[3] { mPos.X, mPos.Y, mPos.Z };
+            Span<float> p = [mPos.X, mPos.Y, mPos.Z];
             CScan.Floats(values[0], p);
             mPos = new Vec3(p[0], p[1], p[2]);
         }
@@ -1919,8 +1917,8 @@ public sealed class TerrainObject : PersistObject
             e.Drag = Fields().Real("contDrag", 0.0f);
             // SimTerrain_updateBox (0x005193cc): the local z range is -H..H with H = contHeight, or hmax when contHeight
             // is 0; hmin is not used (docs/static-sim.md TD8, `staticdiff` ch_item_hmax).
-            float h = Fields().Real("contHeight", 10000.0f);
-            float top = h != 0.0f ? h : mTerrain.Hmax();
+            var h = Fields().Real("contHeight", 10000.0f);
+            var top = h != 0.0f ? h : mTerrain.Hmax();
             box[2] = Store(Add(-top, mPos.Z));
             box[5] = Store(Add(top, mPos.Z));
             e.Box = Float6.Of(box);
@@ -1928,9 +1926,9 @@ public sealed class TerrainObject : PersistObject
             var slot = new System.Runtime.CompilerServices.StrongBox<Material?>(null);
             e.HitMaterial = slot;
             GameServices services = ctx.Game;
-            e.Cast = (Vec3 s, Vec3 en, ref Vec3 hit, ref Vec3 n) =>
+            e.Cast = (s, en, ref hit, ref n) =>
             {
-                int material = -1;
+                var material = -1;
                 if (!t.CastLine(s, en, ref hit, ref n, ref material))
                     return false;
                 slot.Value = services.TerrainMaterial(material);
@@ -1974,9 +1972,9 @@ public sealed class TeamGroup : SimGroup
     public override string ClassName() => "TeamGroup";
 
     /// <inheritdoc/>
-    public override bool TeamOf(ref int t)
+    public override bool TeamOf(ref int team)
     {
-        t = Team;
+        team = Team;
         return true;
     }
 
@@ -2000,9 +1998,9 @@ internal sealed class DebrisCloudObject : SimObject
 /// <summary>The mission class registry setup.</summary>
 public static class MissionClasses
 {
-    private static readonly PersistDef[] kGameBase = { new("dataBlock", 0, 1), new("name", 1, 1) };
+    private static readonly PersistDef[] kGameBase = [new("dataBlock", 0, 1), new("name", 1, 1)];
 
-    private static PersistDef[] Plus(PersistDef[] a, params PersistDef[] b) => a.Concat(b).ToArray();
+    private static PersistDef[] Plus(PersistDef[] a, params PersistDef[] b) => [.. a, .. b];
 
     /// <summary>Registers every mission class with the sim class registry.</summary>
     public static void Register()
@@ -2014,9 +2012,9 @@ public static class MissionClasses
         PersistDef[] marker = Plus(kGameBase, new("position", 5, 1), new("rotation", 5, 1));
         PersistDef[] trigger = Plus(marker, new("boundingBox", 8, 1), new("isSphere", 4, 1));
         PersistDef[] interior =
-        {
+        [
             new("filename", 0, 1), new("isContainer", 2, 1), new("position", 5, 1), new("rotation", 5, 1), new("lightParams", 22, 1),
-        };
+        ];
         void Gb(string cls, GameBase.Kind kind, int dbGroup, PersistDef[] f, int set = 0, int leave = 0) =>
             SimClasses.RegisterClass(cls, c => new GameBase(cls, kind, dbGroup, f, c, set, leave));
         Gb("StaticShape", GameBase.Kind.ShapeBase, 4, staticBase, 719);
@@ -2038,31 +2036,31 @@ public static class MissionClasses
 
         void Obj(string cls, PersistDef[] f, int fixedId = 0, string? required = null) =>
             SimClasses.RegisterClass(cls, c => new PersistObject(cls, f, c, fixedId, required));
-        Obj("Sky", new PersistDef[]
-        {
+        Obj("Sky",
+        [
             new("dmlName", 0, 1), new("skyColor", 5, 1), new("hazeColor", 5, 1), new("featurePosition", 3, 1), new("size", 3, 1),
             new("textures", 2, 16),
-        }, 729);
-        Obj("StarField", new PersistDef[] { new("inFrontOfSky", 4, 1), new("colors", 5, 3) });
-        Obj("Planet", new PersistDef[]
-        {
+        ], 729);
+        Obj("StarField", [new("inFrontOfSky", 4, 1), new("colors", 5, 3)]);
+        Obj("Planet",
+        [
             new("fileName", 0, 1), new("azimuth", 3, 1), new("incidence", 3, 1), new("castShadows", 4, 1), new("useLensFlare", 4, 1),
             new("intensity", 5, 1), new("ambient", 5, 1), new("size", 3, 1), new("distance", 3, 1),
-        });
-        Obj("MissionCenterPos", new PersistDef[] { new("x", 3, 1), new("y", 3, 1), new("w", 3, 1), new("h", 3, 1) }, 716);
-        Obj("SimPalette", new PersistDef[] { new("fileName", 0, 1) }, 0, "fileName");
+        ]);
+        Obj("MissionCenterPos", [new("x", 3, 1), new("y", 3, 1), new("w", 3, 1), new("h", 3, 1)], 716);
+        Obj("SimPalette", [new("fileName", 0, 1)], 0, "fileName");
         PersistDef[] terrainFields =
-        {
+        [
             new("tedFileName", 0, 1), new("visibleDistance", 3, 1), new("hazeDistance", 3, 1), new("hazeVerticalMin", 3, 1),
             new("hazeVerticalMax", 3, 1), new("perspectiveDistance", 3, 1), new("screenSize", 3, 1), new("contGravity", 5, 1),
             new("contDrag", 3, 1), new("contHeight", 3, 1), new("position", 5, 1), new("rotation", 5, 1),
-        };
+        ];
         SimClasses.RegisterClass("SimTerrain", c => new TerrainObject(c, terrainFields));
         SimClasses.RegisterClass("SimLight", c => new SimLightObject(new PersistDef[]
         {
             new("type", 2, 1), new("range", 3, 1), new("color", 5, 1), new("ambient", 5, 1), new("position", 5, 1),
             new("aim", 5, 1), new("isStatic", 4, 1),
         }, c));
-        Obj("Snowfall", new PersistDef[] { new("intensity", 3, 1), new("wind", 5, 1), new("suspendRendering", 4, 1), new("rain", 4, 1) }, 714);
+        Obj("Snowfall", [new("intensity", 3, 1), new("wind", 5, 1), new("suspendRendering", 4, 1), new("rain", 4, 1)], 714);
     }
 }

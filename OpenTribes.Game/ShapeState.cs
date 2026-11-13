@@ -2,11 +2,9 @@
 // (docs/collision.md 6 T1.3): the node entries and object states a line test, a muzzle or an eye transform reads, kept
 // in step with the object's animation threads, the Player threads (animation and look, docs/player-sim.md 5.5)
 // included.
-using OpenTribes.Core;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The shape instances of the server's ShapeBase objects, kept in step with their animation threads.</summary>
 /// <remarks>Holds the node entries and object states that a line test, a muzzle or an eye transform reads, including the Player threads (docs/collision.md 6 T1.3, docs/player-sim.md 5.5).</remarks>
@@ -18,11 +16,11 @@ public static class ShapeState
         public int Id;
         public ShapeModel? Model;
         public ShapeInstance Inst = new();
-        public List<ShapeThread> Applied = new();
+        public List<ShapeThread> Applied = [];
         public byte ViewMode;
     }
 
-    private static readonly Dictionary<GameBase, Slot> sSlots = new();
+    private static readonly Dictionary<GameBase, Slot> sSlots = [];
     private static readonly Dictionary<string, ShapeInstance?> sStatic = new(StringComparer.Ordinal);
 
     // src/game/shape_state.cpp shapeNameOf.
@@ -31,7 +29,7 @@ public static class ShapeState
         if (game.Sim == null || obj.DataBlockName == null)
             return "";
         DataBlockManager.Block? b = game.Sim.DataBlocks().Find(obj.DataBlockName);
-        string shape = "";
+        var shape = "";
         if (b != null)
             game.Sim.DataBlocks().GetField(b, "shapeFile", "", out shape);
         return shape;
@@ -42,7 +40,7 @@ public static class ShapeState
     {
         if (a.Count != b.Count)
             return false;
-        for (int i = 0; i < a.Count; ++i)
+        for (var i = 0; i < a.Count; ++i)
             if (a[i].Sequence != b[i].Sequence || a[i].Priority != b[i].Priority ||
                 BitConverter.SingleToUInt32Bits(a[i].Position) != BitConverter.SingleToUInt32Bits(b[i].Position))
                 return false;
@@ -53,12 +51,12 @@ public static class ShapeState
     // wrap by floor when cyclic, clamp to 0..1 otherwise.
     private static float NormalisePosition(ShapeModel model, int sequence, float position)
     {
-        bool cyclic = sequence >= 0 && sequence < model.Sequences.Length && model.Sequences[sequence].Cyclic;
-        if (position < 0.0f || position > 1.0f)
+        var cyclic = sequence >= 0 && sequence < model.Sequences.Length && model.Sequences[sequence].Cyclic;
+        if (position is < 0.0f or > 1.0f)
         {
             if (!cyclic)
                 return position < 0.0f ? 0.0f : 1.0f;
-            double fl = Math.Floor((double)position);
+            var fl = Math.Floor((double)position);
             return X87.F32(Sub(position, fl));
         }
         return position;
@@ -78,7 +76,7 @@ public static class ShapeState
             // Animation thread (+0xd54), then the look thread (+0xd58), as the last Player_updateAnimation left them
             // (docs/player-sim.md 5.5).
             Player.ShapePose pose = pl.Pose;
-            int animSeq = pose.AnimIndex >= 0 && pose.AnimIndex < 51 ? pl.PData.AnimSequence[pose.AnimIndex] : 0;
+            var animSeq = pose.AnimIndex is >= 0 and < 51 ? pl.PData.AnimSequence[pose.AnimIndex] : 0;
             output.Add(new ShapeThread(animSeq, NormalisePosition(model, animSeq, pose.AnimPosition), SequencePriority(model, animSeq)));
             int lookSeq;
             if (pose.LookSet)
@@ -111,7 +109,7 @@ public static class ShapeState
             // keeps (docs/static-sim.md 14.6). The power / fire thread has priority -1 on `power` and 0 on `fire`.
             int Seq(string name)
             {
-                int s = model.FindSequence(name);
+                var s = model.FindSequence(name);
                 return s < 0 ? 0 : s; // a missing sequence gives handle 0
             }
             if (obj.TurretTurnPos >= 0)
@@ -136,7 +134,7 @@ public static class ShapeState
     {
         if (game.Resources == null)
             return null;
-        string name = ShapeNameOf(game, obj);
+        var name = ShapeNameOf(game, obj);
         ShapeModel? model = name.Length == 0 ? null : Shape.GetShapeModel(game.Resources, name);
         if (model == null)
             return null;
@@ -165,12 +163,12 @@ public static class ShapeState
             sSlots[obj] = slot;
         }
         var threads = new List<ShapeThread>();
-        CollectThreads(obj, model, threads, out byte viewMode);
+        CollectThreads(obj, model, threads, out var viewMode);
         if (!SameThreads(threads, slot.Applied) || viewMode != slot.ViewMode)
         {
             slot.Applied = threads;
             slot.ViewMode = viewMode;
-            slot.Inst.Threads = new List<ShapeThread>(threads);
+            slot.Inst.Threads = [.. threads];
             slot.Inst.ViewMode = viewMode;
             slot.Inst.Animate();
         }
@@ -216,22 +214,24 @@ public static class ShapeState
         DataBlockManager.Block? b = game.Sim.DataBlocks().Find(obj.DataBlockName);
         if (b == null)
             return false;
-        bool disabled = game.Sim.DataBlocks().GetField(b, "disableCollision", "", out string v) && Script.Numbers.ParseBool(v);
+        var disabled = game.Sim.DataBlocks().GetField(b, "disableCollision", "", out var v) && Numbers.ParseBool(v);
         if ((disabled || obj.DamageState == GameBase.kDestroyed) && !obj.VisibilityThread)
             return false;
         // Item_applyCollideable (0x00451574): rays skip a non-collideable Item, and an Item image is always in bounds
         // mode.
-        bool item = GameUtil.EqualsNoCase(obj.ClassName(), "Item") || GameUtil.EqualsNoCase(obj.ClassName(), "Mine");
+        var item = GameUtil.EqualsNoCase(obj.ClassName(), "Item") || GameUtil.EqualsNoCase(obj.ClassName(), "Mine");
         if (item && !obj.ItemCollideable)
             return false;
         ShapeInstance? inst = ShapeInstanceOf(game, obj);
         if (inst == null)
             return false;
-        var tm = new TMat3();
-        tm.Flags = obj.Transform.Flags;
-        tm.M = obj.Transform.M;
-        tm.P = obj.Transform.P;
-        Span<float> S = stackalloc float[3] { s.X, s.Y, s.Z }, E = stackalloc float[3] { e.X, e.Y, e.Z };
+        var tm = new TMat3
+        {
+            Flags = obj.Transform.Flags,
+            M = obj.Transform.M,
+            P = obj.Transform.P
+        };
+        Span<float> S = [s.X, s.Y, s.Z], E = [e.X, e.Y, e.Z];
         Span<float> p = stackalloc float[3], n = stackalloc float[3];
         if (!Shape.ShapeLine(inst, tm, S, E, !item, p, n))
             return false;

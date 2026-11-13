@@ -13,9 +13,9 @@ public sealed class ChatMenuNode
     /// <summary>True for a leaf, which runs commands.</summary>
     public bool Leaf;
     /// <summary>The command words of a leaf, at most 10.</summary>
-    public List<string> Commands = new();
+    public List<string> Commands = [];
     /// <summary>The child items.</summary>
-    public readonly List<ChatMenuNode> Children = new();
+    public readonly List<ChatMenuNode> Children = [];
     /// <summary>The parent node, or null at the root.</summary>
     public ChatMenuNode? Parent;
 }
@@ -29,7 +29,6 @@ public sealed class ChatMenuTree
     /// <summary>Creates an empty tree.</summary>
     public ChatMenuTree() => mLevel = Root;
 
-    private int mMode; // setCMMode, 0-2
     private ChatMenuNode mLevel; // the node whose children are on display (Root at the top)
     private int mReleaseKey;      // scan code of the key press this menu consumed: its release is consumed too [code 00402068, field +0x6c]
 
@@ -37,17 +36,17 @@ public sealed class ChatMenuTree
     /// <remarks>Follows setCMMode (00401fe0).</remarks>
     public int Mode
     {
-        get => mMode;
+        get;
         set
         {
-            mMode = value;
+            field = value;
             mLevel = Root;
         }
     }
 
     /// <summary>Gets whether the chat display draws the menu: the mode is not 0 and the top level has items.</summary>
     /// <remarks>Follows 004a633c (mode and level both non-zero).</remarks>
-    public bool Showing => mMode != 0 && mLevel.Children.Count > 0;
+    public bool Showing => Mode != 0 && mLevel.Children.Count > 0;
 
     /// <summary>The node whose children are listed now, or null when nothing is shown.</summary>
     public ChatMenuNode? Level => Showing ? mLevel : null;
@@ -90,13 +89,13 @@ public sealed class ChatMenuTree
             }
             return false;
         }
-        if (mMode == 0 || action != 1)
+        if (Mode == 0 || action != 1)
             return false;
         if (scan == 1) // Escape [code 00402068]
         {
             mReleaseKey = 1;
-            bool wasOrdering = cancelOrder?.Invoke() ?? false;
-            if (mMode == 2)
+            var wasOrdering = cancelOrder?.Invoke() ?? false;
+            if (Mode == 2)
             {
                 Mode = 0;
                 return true;
@@ -109,7 +108,7 @@ public sealed class ChatMenuTree
         if (mods != 0 || ch == '\0')
             return false;
         // [code 004021cc]: the item with that key runs its command and opens its sub level; no match leaves the key to the game.
-        bool hit = false;
+        var hit = false;
         ChatMenuNode? found = mLevel.Children.FirstOrDefault(c => c.Key == ch);
         if (found != null)
         {
@@ -121,7 +120,7 @@ public sealed class ChatMenuTree
             if (found.Leaf)
             {
                 mLevel = Root;
-                if (mMode == 2)
+                if (Mode == 2)
                     Mode = 0;
             }
             else
@@ -139,17 +138,17 @@ public sealed class ChatMenuTree
     public bool Add(string menuString, IReadOnlyList<string> commands)
     {
         ChatMenuNode level = Root;
-        int p = 0;
-        for (;;)
+        var p = 0;
+        for (; ; )
         {
             if (p >= menuString.Length)
                 return false;
-            char key = menuString[p++];
-            int end = menuString.IndexOf('\\', p);
-            string text = end < 0 ? menuString[p..] : menuString[p..end];
+            var key = menuString[p++];
+            var end = menuString.IndexOf('\\', p);
+            var text = end < 0 ? menuString[p..] : menuString[p..end];
             if (text.Length == 0)
                 return false;
-            bool last = end < 0;
+            var last = end < 0;
             p = last ? menuString.Length : end + 1;
             ChatMenuNode? found = null;
             foreach (ChatMenuNode c in level.Children)
@@ -167,7 +166,7 @@ public sealed class ChatMenuTree
             }
             var node = new ChatMenuNode { Key = key, Text = text.Length > 31 ? text[..31] : text, Leaf = last, Parent = level };
             if (last)
-                node.Commands = commands.Take(Math.Min(commands.Count, 10)).ToList();
+                node.Commands = [.. commands.Take(Math.Min(commands.Count, 10))];
             level.Children.Add(node);
             if (last)
                 return true;
@@ -236,7 +235,7 @@ public sealed class ChatMenuRegistry
     {
         foreach (var (obj, slot) in mTrees.ToArray())
         {
-            if (slot.Id != obj.Id() || !mNames.TryGetValue(obj, out string? name) ||
+            if (slot.Id != obj.Id() || !mNames.TryGetValue(obj, out var name) ||
                 game.Sim?.Server()?.Find(name) is not SimObject now || !ReferenceEquals(now, obj))
                 continue;
             if ((slot.Tree.Mode != 0 || action == 2) &&
@@ -323,8 +322,8 @@ public static class ClientGameCommands
                 inr.Print(1, "setCMMode - invalid menu object.");
                 return null;
             }
-            int mode = Numbers.BorlandAtoi(a[2]);
-            if (mode >= 0 && mode < 3)
+            var mode = Numbers.BorlandAtoi(a[2]);
+            if (mode is >= 0 and < 3)
                 menus.SetMode(obj, a[1], mode);
             return null;
         });

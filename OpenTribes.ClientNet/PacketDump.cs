@@ -1,8 +1,8 @@
+namespace OpenTribes.ClientNet;
+
 using System.Text;
 using System.Text.Json;
 using OpenTribes.Game;
-
-namespace OpenTribes.ClientNet;
 
 /// <summary>A JSON lines dump of decoded packets: one object per packet with the events, the PSC block and the ghost updates, each with its field list (name, value) in wire order.</summary>
 public sealed class PacketDump : IDisposable
@@ -28,26 +28,42 @@ public sealed class PacketDump : IDisposable
     {
         switch (v)
         {
-            case null: w.WriteNullValue(); break;
-            case long l: w.WriteNumberValue(l); break;
-            case int i: w.WriteNumberValue(i); break;
-            case uint u: w.WriteNumberValue(u); break;
-            case bool b: w.WriteBooleanValue(b); break;
+            case null:
+                w.WriteNullValue();
+                break;
+            case long l:
+                w.WriteNumberValue(l);
+                break;
+            case int i:
+                w.WriteNumberValue(i);
+                break;
+            case uint u:
+                w.WriteNumberValue(u);
+                break;
+            case bool b:
+                w.WriteBooleanValue(b);
+                break;
             case double d:
                 if (double.IsFinite(d))
                     w.WriteNumberValue(d);
                 else
                     w.WriteStringValue(d.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 break;
-            case float f: Value(w, (double)f); break;
-            case string s: w.WriteStringValue(s); break;
+            case float f:
+                Value(w, (double)f);
+                break;
+            case string s:
+                w.WriteStringValue(s);
+                break;
             case System.Collections.IEnumerable e:
                 w.WriteStartArray();
-                foreach (object? x in e)
+                foreach (var x in e)
                     Value(w, x);
                 w.WriteEndArray();
                 break;
-            default: w.WriteStringValue(Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture)); break;
+            default:
+                w.WriteStringValue(Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture));
+                break;
         }
     }
 
@@ -96,7 +112,7 @@ public sealed class PacketDump : IDisposable
                     if ((k == "pos" && !s.HasPosition) || (k == "vel" && !s.HasVelocity))
                         continue;
                     w.WriteStartArray(k);
-                    foreach (float f in v)
+                    foreach (var f in v)
                         Value(w, (double)f);
                     w.WriteEndArray();
                 }

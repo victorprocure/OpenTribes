@@ -68,9 +68,9 @@ public sealed class ClientTeam
 public sealed class ClientPlayerManager
 {
     /// <summary>The client records by id.</summary>
-    public readonly SortedDictionary<int, ClientPlayerRecord> Clients = new();
+    public readonly SortedDictionary<int, ClientPlayerRecord> Clients = [];
     /// <summary>The team records by index.</summary>
-    public readonly SortedDictionary<int, ClientTeam> Teams = new();
+    public readonly SortedDictionary<int, ClientTeam> Teams = [];
     /// <summary>The number of human players.</summary>
     public int HumanCount;
     /// <summary>The number of players.</summary>
@@ -82,15 +82,15 @@ public sealed class ClientPlayerManager
     /// <summary>The team score heading.</summary>
     public string TeamHeading = "";
     /// <summary>The chat lines.</summary>
-    public readonly List<string> Chat = new();
+    public readonly List<string> Chat = [];
     /// <summary>The chat display type of each chat line: 0 system, 1 and 4 red, 3 green, else yellow.</summary>
     /// <remarks>Follows PlayerManager_message (0040dbfc, argument 2) and the FearGuiChatDisplay font table (004a5124).</remarks>
-    public readonly List<int> ChatTypes = new();
+    public readonly List<int> ChatTypes = [];
     /// <summary>Answers whether the play GUI and its chat display exist.</summary>
     /// <remarks>PlayerManager_message (0040dbfc) looks up <c>playGui</c> and its chat display when the message is made, while the packet is read. A line made before the PSC mode change that loads play.gui (loadPlayGui) is never handed to the chat ring (004a525c) and goes to the console only. <see cref="ChatDisplayed"/> holds the answer for each chat line.</remarks>
     public Func<bool> ChatDisplayExists = () => true;
     /// <summary>The answer of <see cref="ChatDisplayExists"/> for each chat line.</summary>
-    public readonly List<bool> ChatDisplayed = new();
+    public readonly List<bool> ChatDisplayed = [];
     /// <summary>Reads <c>$pref::playVoices</c> as the engine does (0040940c): an empty value counts as true. Set by the client app.</summary>
     public Func<bool> PlayVoices = () => true;
     /// <summary>Called with the client id and the raw text with the <c>~w</c> tag when a command text carries a voice, so the audio plays the wave.</summary>
@@ -98,7 +98,7 @@ public sealed class ClientPlayerManager
     /// <summary>The text of the last command event (PlayerManager +0x24ed4), reused when a later one has none.</summary>
     public string LastCommandText = "";
     /// <summary>The objective texts.</summary>
-    public readonly List<string> Objectives = new();
+    public readonly List<string> Objectives = [];
     /// <summary>The target of the compass waypoint (global 006a83e4), -1 for none.</summary>
     public int WaypointTarget = -1;
     /// <summary>The x of the compass waypoint (global 006a83e8).</summary>
@@ -114,11 +114,11 @@ public sealed class ClientPlayerManager
     /// <summary>The objective lines by index. TeamObjectiveEvent sets one (docs/gui.md 3.3.1), and the page of CmdObjectives.gui shows them.</summary>
     public readonly string?[] ObjectiveLines = new string?[32];
     /// <summary>The target names by index.</summary>
-    public readonly Dictionary<int, string> TargetNames = new();
+    public readonly Dictionary<int, string> TargetNames = [];
     /// <summary>Called for script callbacks evaluated in the global namespace (docs/client-net.md 2.4).</summary>
     public Action<string>? OnScript;
     /// <summary>The script callbacks evaluated so far.</summary>
-    public readonly List<string> Callbacks = new();
+    public readonly List<string> Callbacks = [];
 
     /// <summary>Evaluates a script callback in the global namespace.</summary>
     /// <param name="text">The script text.</param>
@@ -158,7 +158,7 @@ public sealed class ClientPlayerManager
     {
         if (!PlayVoices())
             return text;
-        int i = text.IndexOf("~w", StringComparison.Ordinal);
+        var i = text.IndexOf("~w", StringComparison.Ordinal);
         return i < 0 ? text : text[..i];
     }
 
@@ -193,7 +193,7 @@ public sealed class ClientWorld
     public uint NetTimeMs;
 
     /// <summary>The <c>remote&lt;Name&gt;(2048, args...)</c> calls the server sent (docs/client-net.md 2.5), with the name without the "remote" prefix.</summary>
-    public readonly List<(string Name, string[] Args)> RemoteCalls = new();
+    public readonly List<(string Name, string[] Args)> RemoteCalls = [];
     /// <summary>Called for every remote call.</summary>
     public Action<string, string[]>? OnRemoteCall;
 
@@ -212,11 +212,11 @@ public sealed class ClientWorld
     /// <summary>The total of errors.</summary>
     public long Errors;
     /// <summary>The number of events by name.</summary>
-    public readonly Dictionary<string, long> EventCounts = new();
+    public readonly Dictionary<string, long> EventCounts = [];
     /// <summary>The number of ghost updates by class.</summary>
-    public readonly Dictionary<string, long> GhostCounts = new();
+    public readonly Dictionary<string, long> GhostCounts = [];
     /// <summary>The reasons for unknown bits.</summary>
-    public readonly List<string> UnknownReasons = new();
+    public readonly List<string> UnknownReasons = [];
 
     /// <summary>Creates an empty client world.</summary>
     public ClientWorld()
@@ -224,10 +224,10 @@ public sealed class ClientWorld
         Ghosts = new ClientGhostManager(this);
         Players.WaypointToWorld = (x, y) =>
         {
-            double[]? r = Ghosts.All().FirstOrDefault(g => g.Class == "MissionCenterPos")?.State.GetValueOrDefault("rect") as double[];
+            var r = Ghosts.All().FirstOrDefault(g => g.Class == "MissionCenterPos")?.State.GetValueOrDefault("rect") as double[];
             if (r is not { Length: 4 })
                 return (x, y);
-            return ((float)((float)x * (float)r[2] * 0.0009765625f + (float)r[0]), (float)((float)y * (float)r[3] * 0.0009765625f + (float)r[1]));
+            return ((float)((x * (float)r[2] * 0.0009765625f) + (float)r[0]), (float)((y * (float)r[3] * 0.0009765625f) + (float)r[1]));
         };
         Psc.OnWaypoint = Players.SetWaypointXY;
     }

@@ -1,6 +1,6 @@
-using OpenTribes.Core;
-
 namespace OpenTribes.Sim;
+
+using OpenTribes.Core;
 
 /// <summary>The simulation manager: the root group of one world with the id pool and dictionary, path lookup, registration, events and time (docs/sim.md 1, 2, 3.2, 8.1, 8.2).</summary>
 /// <remarks>Port of src/sim/sim_manager.cpp.</remarks>
@@ -25,8 +25,8 @@ public sealed class SimManager : SimGroup
     private int mManagerId;
     private uint mSequenceCounter;
     private int mNextId = 8192;
-    private readonly List<int> mFreeIds = new();
-    private readonly Dictionary<int, List<SimObject>> mIds = new(); // newest at the back
+    private readonly List<int> mFreeIds = [];
+    private readonly Dictionary<int, List<SimObject>> mIds = []; // newest at the back
     private readonly LinkedList<Event> mEvents = new(); // sorted by time, FIFO for equal times (EV5)
     private float mQueueTime;  // +0x80
     private float mTargetTime; // +0x6c
@@ -70,17 +70,17 @@ public sealed class SimManager : SimGroup
     public StringTable Strings() => mStrings;
 
     // src/sim/sim_manager.cpp isDigit.
-    private static bool IsDigit(char c) => c >= '0' && c <= '9';
+    private static bool IsDigit(char c) => c is >= '0' and <= '9';
 
     // src/sim/sim_manager.cpp atoiWrap.
     private static int AtoiWrap(string s)
     {
         uint v = 0;
-        foreach (char c in s)
+        foreach (var c in s)
         {
             if (!IsDigit(c))
                 break;
-            v = unchecked(v * 10 + (uint)(c - '0'));
+            v = unchecked((v * 10) + (uint)(c - '0'));
         }
         return unchecked((int)v);
     }
@@ -97,7 +97,7 @@ public sealed class SimManager : SimGroup
     {
         if (mFreeIds.Count != 0)
         {
-            int id = mFreeIds[^1];
+            var id = mFreeIds[^1];
             mFreeIds.RemoveAt(mFreeIds.Count - 1);
             return id;
         }
@@ -119,7 +119,7 @@ public sealed class SimManager : SimGroup
     private void DictInsert(SimObject obj)
     {
         if (!mIds.TryGetValue(obj.mId, out List<SimObject>? v))
-            mIds[obj.mId] = v = new List<SimObject>();
+            mIds[obj.mId] = v = [];
         v.Add(obj);
     }
 
@@ -214,7 +214,7 @@ public sealed class SimManager : SimGroup
         if (obj.mManager == null && !RegisterObject(obj))
             return false;
         if (obj.mGroup == null)
-            base.AddObject(obj);
+            AddObject(obj);
         return true;
     }
 
@@ -235,8 +235,8 @@ public sealed class SimManager : SimGroup
         int pos;
         if (IsDigit(s[0]))
         {
-            int slash = s.IndexOfAny(new[] { '/', '\\' });
-            int id = AtoiWrap(slash < 0 ? s : s[..slash]);
+            var slash = s.IndexOfAny(['/', '\\']);
+            var id = AtoiWrap(slash < 0 ? s : s[..slash]);
             current = id == 0 ? this : FindById(id);
             if (slash < 0 || current == null)
                 return current;
@@ -251,11 +251,11 @@ public sealed class SimManager : SimGroup
                 ++pos;
             current = this;
         }
-        for (;;)
+        for (; ; )
         {
-            int end = pos <= s.Length ? s.IndexOfAny(new[] { '/', '\\' }, Math.Min(pos, s.Length)) : -1;
-            string part = pos >= s.Length ? "" : s.Substring(pos, (end < 0 ? s.Length : end) - pos);
-            string? name = part.Length == 0 ? null : mStrings.Lookup(part);
+            var end = pos <= s.Length ? s.IndexOfAny(['/', '\\'], Math.Min(pos, s.Length)) : -1;
+            var part = pos >= s.Length ? "" : s[pos..(end < 0 ? s.Length : end)];
+            var name = part.Length == 0 ? null : mStrings.Lookup(part);
             if (name == null)
                 return null;
             SimSet? container = current.AsSet();
@@ -330,8 +330,8 @@ public sealed class SimManager : SimGroup
         if (t == mTargetTime)
             return 0;
         mTargetTime = t;
-        int count = 0;
-        for (;;)
+        var count = 0;
+        for (; ; )
         {
             // 004fe120: nothing due sets the queue time to the target; a popped event raises it to its own time.
             if (mEvents.Count == 0 || mTargetTime < mEvents.First!.Value.Time)
@@ -358,7 +358,7 @@ public sealed class SimManager : SimGroup
     {
         if (mEvents.Count != 0)
         {
-            float bas = mEvents.First!.Value.Time;
+            var bas = mEvents.First!.Value.Time;
             for (LinkedListNode<Event>? it = mEvents.First.Next; it != null; it = it.Next)
                 it.Value.Time = Fpu.SubF(it.Value.Time, bas);
             mEvents.First.Value.Time = 0;

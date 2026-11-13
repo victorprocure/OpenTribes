@@ -1,7 +1,7 @@
+namespace OpenTribes.Server;
+
 using System.Globalization;
 using OpenTribes.Core;
-
-namespace OpenTribes.Server;
 
 /// <summary>The console log file (docs/server-ops.md 6).</summary>
 /// <remarks>Port of src/server/console_log.cpp. The original write is at 005f43f8 and the <c>$Console::logMode</c> setter at 005f4544.</remarks>
@@ -83,7 +83,7 @@ public sealed class ConsoleLog : IDisposable
             if (mHeaderDue)
             {
                 DateTime tm = mLocalTime();
-                string header = mLastHope
+                var header = mLastHope
                     ? string.Format(CultureInfo.InvariantCulture, "--- {0}/{1}/{2} -- {3}:{4}:{5} ---\n\r",
                                     tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second)
                     : string.Format(CultureInfo.InvariantCulture, "-------------------------- {0}/{1}/{2} -- {3:D2}:{4:D2}:{5:D2} -----\r\n",

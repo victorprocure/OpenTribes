@@ -1,7 +1,7 @@
 // The chat display size action and the font of a message type (ROADMAP M9, FearGuiChatDisplay).
-using OpenTribes.Gui;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Gui;
 
 public sealed class ClientChatDisplayTests
 {
@@ -40,7 +40,7 @@ public sealed class ClientChatDisplayTests
         GuiChatDisplay d = Display(3);
         d.SetLines(-1);
         Assert.Equal(5, d.Lines);
-        Assert.Equal(5 * 13 + GuiChatDisplay.HeightPad, d.H);
+        Assert.Equal((5 * 13) + GuiChatDisplay.HeightPad, d.H);
     }
 
     // The stock content lookup keeps the display object, so the size set with `u` comes back after another screen.

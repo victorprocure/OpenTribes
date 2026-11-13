@@ -1,7 +1,6 @@
-using OpenTribes.Gui;
-using Xunit;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Gui;
 
 // PlayerManager_message 0040dbfc: the chat display is child 140113 of the object named `playGui`, not any control with that id.
 public class PlayChatLookupTests
@@ -55,8 +54,8 @@ public class ChatLookupAtArrivalTests
     [Fact]
     public void LookupRunsWhenTheMessageIsMade()
     {
-        var pm = new OpenTribes.Game.ClientPlayerManager();
-        bool play = false;
+        var pm = new Game.ClientPlayerManager();
+        var play = false;
         pm.ChatDisplayExists = () => play;
         pm.Message("Rec joined team Blood Eagle.");
         play = true;
@@ -74,7 +73,7 @@ public class CgaReplyTests
     [Fact]
     public void QueuedRemoteEvalIsPendingUntilWritten()
     {
-        var conn = new OpenTribes.Game.ClientGameConnection(new OpenTribes.Game.ClientWorld());
+        var conn = new Game.ClientGameConnection(new Game.ClientWorld());
         Assert.False(conn.OutgoingPending);
         conn.PostRemoteEval("CGADone");
         Assert.True(conn.OutgoingPending);

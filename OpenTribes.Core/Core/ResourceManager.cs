@@ -16,7 +16,7 @@ public sealed class ResourceManager
     public const uint Lzh = 0x10;
 
     /// <summary>A mounted volume archive.</summary>
-    public sealed class Volume
+    public sealed class Volume : IDisposable
     {
         /// <summary>The directory part of the volume's lookup name, or null.</summary>
         public string? Path;
@@ -28,6 +28,9 @@ public sealed class ResourceManager
         public int RefCount = 1;
         /// <summary>The open archive.</summary>
         public readonly VolArchive Archive = new();
+
+        /// <inheritdoc/>
+        public void Dispose() => Archive.Dispose();
     }
 
     /// <summary>One resource: a loose file, a volume entry or a generated resource.</summary>
@@ -57,9 +60,9 @@ public sealed class ResourceManager
 
     private readonly string mRoot;
     private readonly StringTable mStrings;
-    private readonly List<Entry> mList = new(); // creation order; iteration walks it from the back
-    private readonly Dictionary<(string?, string), List<Entry>> mChains = new();
-    private readonly List<Volume> mVolumes = new();
+    private readonly List<Entry> mList = []; // creation order; iteration walks it from the back
+    private readonly Dictionary<(string?, string), List<Entry>> mChains = [];
+    private readonly List<Volume> mVolumes = [];
 
     /// <summary>Creates a manager over a root directory.</summary>
     /// <param name="rootDir">The root, a host path.</param>
@@ -71,16 +74,16 @@ public sealed class ResourceManager
     }
 
     // src/core/resource_manager.cpp upperAscii.
-    private static char UpperAscii(char c) => (c >= 'a' && c <= 'z') ? (char)(c - 0x20) : c;
+    private static char UpperAscii(char c) => (c is >= 'a' and <= 'z') ? (char)(c - 0x20) : c;
 
     // src/core/resource_manager.cpp ntfsLess: Windows (NTFS) enumeration order, emulated with ASCII case folding.
     private static bool NtfsLess(string a, string b)
     {
-        int n = Math.Min(a.Length, b.Length);
-        for (int i = 0; i < n; ++i)
+        var n = Math.Min(a.Length, b.Length);
+        for (var i = 0; i < n; ++i)
         {
-            char ca = UpperAscii(a[i]);
-            char cb = UpperAscii(b[i]);
+            var ca = UpperAscii(a[i]);
+            var cb = UpperAscii(b[i]);
             if (ca != cb)
                 return ca < cb;
         }
@@ -95,7 +98,7 @@ public sealed class ResourceManager
     {
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < a.Length; ++i)
+        for (var i = 0; i < a.Length; ++i)
             if (UpperAscii(a[i]) != UpperAscii(b[i]))
                 return false;
         return true;
@@ -109,25 +112,25 @@ public sealed class ResourceManager
     private static bool ResolveCase(string root, string rel, out string output)
     {
         output = root;
-        int start = 0;
+        var start = 0;
         while (start <= rel.Length)
         {
-            int end = rel.IndexOf('/', start);
-            string part = end < 0 ? rel[start..] : rel[start..end];
+            var end = rel.IndexOf('/', start);
+            var part = end < 0 ? rel[start..] : rel[start..end];
             start = end < 0 ? rel.Length + 1 : end + 1;
             if (part.Length == 0)
                 continue;
-            string candidate = output + "/" + part;
+            var candidate = output + "/" + part;
             if (!Exists(candidate))
             {
                 if (!Directory.Exists(output))
                     return false;
-                bool found = false;
+                var found = false;
                 try
                 {
-                    foreach (string full in Directory.EnumerateFileSystemEntries(output))
+                    foreach (var full in Directory.EnumerateFileSystemEntries(output))
                     {
-                        string entName = System.IO.Path.GetFileName(full);
+                        var entName = Path.GetFileName(full);
                         if (EqualsAsciiNoCase(entName, part))
                         {
                             candidate = output + "/" + entName;
@@ -159,9 +162,9 @@ public sealed class ResourceManager
     // strchr from index `from`: the index of c, the terminator index for '\0', or -1.
     private static int StrChr(string s, int from, char c)
     {
-        for (int i = from; ; ++i)
+        for (var i = from; ; ++i)
         {
-            char ch = At(s, i);
+            var ch = At(s, i);
             if (ch == c)
                 return i;
             if (ch == '\0')
@@ -171,14 +174,14 @@ public sealed class ResourceManager
 
     private static bool WildcardMatchAt(string pat, int p, string str, int s)
     {
-        bool ok = true;
+        var ok = true;
         while (ok && At(pat, p) != '\0' && At(str, s) != '\0')
         {
             if (At(pat, p) == '*')
             {
                 // Each later occurrence of the next pattern character, case-sensitive.
-                char next = At(pat, p + 1);
-                for (int q = StrChr(str, s, next); q >= 0; q = At(str, q) != '\0' ? StrChr(str, q + 1, next) : -1)
+                var next = At(pat, p + 1);
+                for (var q = StrChr(str, s, next); q >= 0; q = At(str, q) != '\0' ? StrChr(str, q + 1, next) : -1)
                     if (WildcardMatchAt(pat, p + 1, str, q))
                         return true;
                 return false;
@@ -201,7 +204,7 @@ public sealed class ResourceManager
     // src/core/resource_manager.cpp ResourceManager::hostPath.
     private string HostPath(string backslashPath)
     {
-        if (ResolveCase(mRoot, ToHost(backslashPath), out string resolved))
+        if (ResolveCase(mRoot, ToHost(backslashPath), out var resolved))
             return resolved;
         return mRoot + "/" + ToHost(backslashPath);
     }
@@ -210,7 +213,7 @@ public sealed class ResourceManager
     private (string? path, string? name) Split(string name, bool create)
     {
         string? Get(string s) => create ? mStrings.Intern(s) : mStrings.Lookup(s);
-        int slash = name.LastIndexOf('\\');
+        var slash = name.LastIndexOf('\\');
         if (slash < 0)
             return (null, Get(name));
         return (Get(name[..slash]), Get(name[(slash + 1)..]));
@@ -220,7 +223,7 @@ public sealed class ResourceManager
     {
         if (!mChains.TryGetValue((path, name), out List<Entry>? chain))
         {
-            chain = new List<Entry>();
+            chain = [];
             mChains.Add((path, name), chain);
         }
         return chain;
@@ -244,7 +247,7 @@ public sealed class ResourceManager
     {
         List<Entry> chain = Chain(e.Path, e.Name);
         chain.Remove(e);
-        int it = 0;
+        var it = 0;
         while (it < chain.Count && (chain[it].Flags & mask) != 0)
             ++it;
         chain.Insert(it, e);
@@ -269,18 +272,18 @@ public sealed class ResourceManager
     // src/core/resource_manager.cpp ResourceManager::scanDirectory.
     private void ScanDirectory(string dir, string rel)
     {
-        string backslashDir = rel.Length == 0 ? dir : dir + "\\" + rel;
-        if (!ResolveCase(mRoot, ToHost(backslashDir), out string host))
+        var backslashDir = rel.Length == 0 ? dir : dir + "\\" + rel;
+        if (!ResolveCase(mRoot, ToHost(backslashDir), out var host))
             return;
         if (!Directory.Exists(host))
             return;
         var items = new List<(string name, bool isDir, long size)>(); // name, is directory
         try
         {
-            foreach (string full in Directory.EnumerateFileSystemEntries(host))
+            foreach (var full in Directory.EnumerateFileSystemEntries(host))
             {
-                string hostName = System.IO.Path.GetFileName(full);
-                string p = host + "/" + hostName;
+                var hostName = Path.GetFileName(full);
+                var p = host + "/" + hostName;
                 if (Directory.Exists(p))
                     items.Add((ByteString.FromHost(hostName), true, 0));
                 else if (File.Exists(p))
@@ -301,7 +304,7 @@ public sealed class ResourceManager
                     ScanDirectory(dir, rel.Length == 0 ? n : rel + "\\" + n);
                 continue;
             }
-            string name = mStrings.Intern(n);
+            var name = mStrings.Intern(n);
             Entry e = CreateResource(rel.Length == 0 ? null : mStrings.Intern(rel), name, name,
                                      mStrings.Intern(backslashDir));
             InsertBehind(e, LooseFile);
@@ -322,11 +325,11 @@ public sealed class ResourceManager
                 MoveToBack(e);
             }
 
-        int start = 0;
+        var start = 0;
         while (start <= searchPath.Length)
         {
-            int end = searchPath.IndexOf(';', start);
-            string dir = end < 0 ? searchPath[start..] : searchPath[start..end];
+            var end = searchPath.IndexOf(';', start);
+            var dir = end < 0 ? searchPath[start..] : searchPath[start..end];
             start = end < 0 ? searchPath.Length + 1 : end + 1;
             if (dir.Length == 0 || dir[0] == '\\' || dir.Contains('.') || dir.Contains(':'))
                 continue; // allowUnsafePaths is 0 after startup
@@ -349,7 +352,7 @@ public sealed class ResourceManager
             return false;
         if (e == null)
         {
-            string none = mStrings.Intern(""); // no backing file
+            var none = mStrings.Intern(""); // no backing file
             e = CreateResource(path, name!, none, none);
             e.Flags = Stale;
         }
@@ -410,14 +413,14 @@ public sealed class ResourceManager
             return false;
 
         var vol = new Volume { Path = path, Name = name!, Dir = file.FilePath };
-        string hostFile = HostPath(file.FilePath + "\\" + file.FileName);
+        var hostFile = HostPath(file.FilePath + "\\" + file.FileName);
         if (!vol.Archive.Open(hostFile))
             return false;
 
-        string volFile = file.FileName;
-        string volDir = file.FilePath;
+        var volFile = file.FileName;
+        var volDir = file.FilePath;
         IReadOnlyList<VolEntry> entries = vol.Archive.Entries();
-        for (int i = 0; i < entries.Count; ++i)
+        for (var i = 0; i < entries.Count; ++i)
         {
             VolEntry ve = entries[i];
             if (ve.Name.Length == 0)
@@ -439,7 +442,7 @@ public sealed class ResourceManager
     public void RemoveVolume(string volName)
     {
         var (path, name) = Split(volName, false);
-        int it = mVolumes.FindIndex(v => v.Path == path && v.Name == name);
+        var it = mVolumes.FindIndex(v => v.Path == path && v.Name == name);
         if (it < 0 || --mVolumes[it].RefCount > 0)
             return;
         Volume vol = mVolumes[it];
@@ -478,12 +481,12 @@ public sealed class ResourceManager
     /// <returns>True on success.</returns>
     public bool Read(Entry e, out byte[] output)
     {
-        output = Array.Empty<byte>();
+        output = [];
         if ((e.Flags & InVolume) != 0)
             return e.Volume != null && e.Volume.Archive.Read(e.Volume.Archive.Entries()[e.VolumeIndex], out output);
         if ((e.Flags & LooseFile) == 0)
             return false;
-        string host = HostPath(e.FilePath + "\\" + e.FileName);
+        var host = HostPath(e.FilePath + "\\" + e.FileName);
         try
         {
             output = File.ReadAllBytes(host);
@@ -501,7 +504,7 @@ public sealed class ResourceManager
     /// <returns>True when the entry exists and was read.</returns>
     public bool Read(string name, out byte[] output)
     {
-        output = Array.Empty<byte>();
+        output = [];
         Entry? e = Find(name);
         return e != null && Read(e, out output);
     }
@@ -519,10 +522,10 @@ public sealed class ResourceManager
     public Entry? FindNext(string pattern, Entry? after, out string name)
     {
         name = "";
-        int i = mList.Count;
+        var i = mList.Count;
         if (after != null)
         {
-            int it = mList.IndexOf(after);
+            var it = mList.IndexOf(after);
             if (it < 0)
                 return null;
             i = it;
@@ -540,7 +543,7 @@ public sealed class ResourceManager
 /// <summary>The resources an object loaded, unlocked when the object goes. These are the resource handles the original objects hold.</summary>
 public sealed class ResourceLocks
 {
-    private readonly List<ResourceManager.Entry> mEntries = new();
+    private readonly List<ResourceManager.Entry> mEntries = [];
 
     /// <summary>Loads a resource with <see cref="ResourceManager.Load"/> and keeps the lock.</summary>
     /// <param name="res">The resource manager.</param>

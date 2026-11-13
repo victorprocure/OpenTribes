@@ -1,9 +1,9 @@
+namespace OpenTribes.Server;
+
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using OpenTribes.Core;
-
-namespace OpenTribes.Server;
 
 /// <summary>The protocol state of one telnet client, without sockets, so it can be unit tested.</summary>
 /// <remarks>Port of src/server/telnet_console.cpp TelnetSession.</remarks>
@@ -52,7 +52,7 @@ public sealed class TelnetSession
 
     private static string CStr(string s)
     {
-        int nul = s.IndexOf('\0');
+        var nul = s.IndexOf('\0');
         return nul < 0 ? s : s[..nul];
     }
 
@@ -66,16 +66,16 @@ public sealed class TelnetSession
         // Echo collected for this chunk. It is sent before a line is evaluated and at the end
         // of the chunk; after a wrong password it stays queued behind the retry text.
         var echo = new System.Text.StringBuilder();
-        for (int i = 0; i < data.Length; ++i)
+        for (var i = 0; i < data.Length; ++i)
         {
-            char c = (char)data[i];
+            var c = (char)data[i];
             if (c == '\r')
                 continue;
             if (c == '\n')
             {
                 echo.Append("\r\n");
                 // The line is a C string: it ends at the first NUL.
-                string line = CStr(mLine);
+                var line = CStr(mLine);
                 mLine = "";
                 if (mAuthenticated)
                 {
@@ -87,7 +87,7 @@ public sealed class TelnetSession
                 else
                 {
                     ++mTries;
-                    string password = host.Password();
+                    var password = host.Password();
                     if (line == CStr(password))
                     {
                         SendText(host, echo.ToString());
@@ -155,7 +155,7 @@ public sealed class TelnetConsole : IDisposable
     private readonly Host mHost;
     private Socket? mListenFd;
     private int mPort = -1;
-    private readonly List<Client> mClients = new();
+    private readonly List<Client> mClients = [];
 
     /// <summary>Creates the console. No listener opens until <see cref="Poll"/> sees a port.</summary>
     /// <param name="host">The host services.</param>
@@ -204,13 +204,10 @@ public sealed class TelnetConsole : IDisposable
     // src/server/telnet_console.cpp TelnetConsole::listenOn.
     private void ListenOn(int port)
     {
-        if (mListenFd != null)
-        {
-            mListenFd.Dispose();
-            mListenFd = null;
-        }
+        mListenFd?.Dispose();
+        mListenFd = null;
         mPort = port;
-        if (port == -1 || port == 0)
+        if (port is (-1) or 0)
             return;
         Socket s;
         try
@@ -239,7 +236,7 @@ public sealed class TelnetConsole : IDisposable
     /// <summary>Reopens the listener when the port changed, accepts one client and serves all clients.</summary>
     public void Poll()
     {
-        int port = mHost.Port();
+        var port = mHost.Port();
         if (port != mPort)
             ListenOn(port);
 
@@ -257,12 +254,12 @@ public sealed class TelnetConsole : IDisposable
             }
             if (fd != null)
             {
-                byte[] ip = fd.RemoteEndPoint is IPEndPoint ep ? ep.Address.MapToIPv4().GetAddressBytes() : new byte[4];
+                var ip = fd.RemoteEndPoint is IPEndPoint ep ? ep.Address.MapToIPv4().GetAddressBytes() : new byte[4];
                 mHost.Print("Telnet connection from " + ip[0].ToString(CultureInfo.InvariantCulture) + "." +
                             ip[1].ToString(CultureInfo.InvariantCulture) + "." + ip[2].ToString(CultureInfo.InvariantCulture) + "." +
                             ip[3].ToString(CultureInfo.InvariantCulture));
                 fd.Blocking = false;
-                byte[] banner = ByteString.ToBytes(TelnetSession.Banner() + "\0"); // with the NUL
+                var banner = ByteString.ToBytes(TelnetSession.Banner() + "\0"); // with the NUL
                 SendAll(fd, banner);
                 mClients.Add(new Client { Fd = fd });
             }
@@ -271,10 +268,10 @@ public sealed class TelnetConsole : IDisposable
         // A line evaluated here may print (consoleLine) or change the port; clients are only
         // added in this function, so indices stay valid.
         var buf = new byte[256];
-        for (int i = 0; i < mClients.Count;)
+        for (var i = 0; i < mClients.Count;)
         {
-            bool close = false;
-            int n = 0;
+            var close = false;
+            var n = 0;
             SocketError err = SocketError.Success;
             try
             {
@@ -284,7 +281,7 @@ public sealed class TelnetConsole : IDisposable
             {
                 err = SocketError.SocketError;
             }
-            if (err == SocketError.WouldBlock || err == SocketError.Interrupted)
+            if (err is SocketError.WouldBlock or SocketError.Interrupted)
             {
                 close = false;
             }
@@ -327,8 +324,8 @@ public sealed class TelnetConsole : IDisposable
         foreach (Client c in mClients)
             if (c.Session.Authenticated())
             {
-                int nul = line.IndexOf('\0');
-                string text = nul < 0 ? line : line[..nul];
+                var nul = line.IndexOf('\0');
+                var text = nul < 0 ? line : line[..nul];
                 SendAll(c.Fd, ByteString.ToBytes(text + "\0"));
                 SendAll(c.Fd, "\r\n"u8);
             }

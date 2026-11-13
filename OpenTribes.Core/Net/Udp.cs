@@ -1,14 +1,14 @@
+namespace OpenTribes.Net;
+
 using System.Net;
 using System.Net.Sockets;
-
-namespace OpenTribes.Net;
 
 /// <summary>The in-process datagram network of the LOOPBACK transport. A memory socket owns a port on 127.0.0.1 and delivers to the other memory sockets of the process only.</summary>
 /// <remarks>Follows the LOOPBACK transport (LOOPTransport 0058d744). Its connect (0058d7d4) pairs two virtual connections that hand each other packets by memory copy, with no socket.</remarks>
 internal static class MemoryNet
 {
-    private static readonly object sLock = new();
-    private static readonly Dictionary<ushort, Queue<(Address From, byte[] Data)>> sQueues = new();
+    private static readonly Lock sLock = new();
+    private static readonly Dictionary<ushort, Queue<(Address From, byte[] Data)>> sQueues = [];
     private static ushort sNext = 40000;
 
     public static bool Has(ushort port)
@@ -24,9 +24,9 @@ internal static class MemoryNet
         {
             if (port == 0)
             {
-                for (int i = 0; i < 0x10000 && port == 0; ++i)
+                for (var i = 0; i < 0x10000 && port == 0; ++i)
                 {
-                    ushort c = sNext == 0xffff ? (ushort)40000 : ++sNext;
+                    var c = sNext == 0xffff ? (ushort)40000 : ++sNext;
                     if (!sQueues.ContainsKey(c))
                         port = c;
                 }
@@ -74,7 +74,7 @@ internal static class MemoryNet
             }
         }
         from = default;
-        data = Array.Empty<byte>();
+        data = [];
         return false;
     }
 }
@@ -124,12 +124,12 @@ public sealed class UdpSocket : IDisposable
         target.Ip == LoopbackIp && MemoryNet.Has(target.Port) ? OpenMemory(0) : Open(0);
 
     private static IPAddress ToIp(uint ip) =>
-        new(new[] { (byte)(ip >> 24), (byte)(ip >> 16), (byte)(ip >> 8), (byte)ip });
+        new([(byte)(ip >> 24), (byte)(ip >> 16), (byte)(ip >> 8), (byte)ip]);
 
     private static uint FromIp(IPAddress a)
     {
-        byte[] b = a.MapToIPv4().GetAddressBytes();
-        return (uint)b[0] << 24 | (uint)b[1] << 16 | (uint)b[2] << 8 | b[3];
+        var b = a.MapToIPv4().GetAddressBytes();
+        return ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
     }
 
     /// <summary>Opens a non-blocking UDP socket with broadcast enabled.</summary>
@@ -200,9 +200,9 @@ public sealed class UdpSocket : IDisposable
         from = default;
         if (mMemory)
         {
-            if (!MemoryNet.TryTake(mPort, out from, out byte[] packet))
+            if (!MemoryNet.TryTake(mPort, out from, out var packet))
                 return 0;
-            int len = Math.Min(packet.Length, buffer.Length);
+            var len = Math.Min(packet.Length, buffer.Length);
             packet.AsSpan(0, len).CopyTo(buffer);
             return len;
         }
@@ -235,7 +235,7 @@ public sealed class UdpSocket : IDisposable
     {
         if (mMemory)
         {
-            for (int waited = 0; waited <= ms; ++waited)
+            for (var waited = 0; waited <= ms; ++waited)
             {
                 if (MemoryNet.HasPending(mPort))
                     return true;

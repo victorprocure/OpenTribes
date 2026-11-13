@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace OpenTribes.Gui;
 
 /// <summary>A check box or radio button (SimGui::TestCheck, TestRadial, MECheck, MERadio): toggles on action and sets the console variable to 0 or 1.</summary>
@@ -20,7 +18,7 @@ public sealed class GuiCheck : GuiSimpleText
     /// <inheritdoc/>
     protected override void Action()
     {
-        Checked = ClassName.EndsWith("Radio", StringComparison.Ordinal) || ClassName.EndsWith("Radial", StringComparison.Ordinal) ? true : !Checked;
+        Checked = ClassName.EndsWith("Radio", StringComparison.Ordinal) || ClassName.EndsWith("Radial", StringComparison.Ordinal) || !Checked;
         WriteVariable(Checked ? "1" : "0");
         base.Action();
     }
@@ -30,12 +28,12 @@ public sealed class GuiCheck : GuiSimpleText
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        int s = Math.Min(10, H);
-        p.Outline(gx, gy + (H - s) / 2, s, s, 0xfa);
+        var s = Math.Min(10, H);
+        p.Outline(gx, gy + ((H - s) / 2), s, s, 0xfa);
         if (Checked)
-            p.Fill(gx + 3, gy + (H - s) / 2 + 3, s - 5, s - 5, 0xfc);
+            p.Fill(gx + 3, gy + ((H - s) / 2) + 3, s - 5, s - 5, 0xfc);
         var (tx, ty) = (gx + s + 3, gy);
-        string t = ResolvedText();
+        var t = ResolvedText();
         p.Text(Font, tx, ty, t);
         RenderChildren(p, gx, gy);
     }
@@ -65,7 +63,7 @@ public interface IModelViewRenderer
     /// <param name="y">The top edge of the rectangle.</param>
     /// <param name="w">The rectangle width.</param>
     /// <param name="h">The rectangle height.</param>
-    void Draw(GuiShapeView view, GuiPaint p, int x, int y, int w, int h);
+    public void Draw(GuiShapeView view, GuiPaint p, int x, int y, int w, int h);
 }
 
 /// <summary>The model viewer of the player setup screen (FearGui::ShapeView, SkinView).</summary>
@@ -187,76 +185,131 @@ public static class GuiFactory
     {
         switch (row.Name)
         {
-            case "FearGui::FGControl": return new GuiFGControl();
-            case "FearGui::FGCommandView": return new GuiCommandView();
-            case "FearGui::FGCommandPanel": return new GuiCommandPanel();
-            case "FearGui::FGChatMenu": return new GuiChatMenu();
-            case "FearGui::CommandTeamCtrl": return new GuiCommandTeam();
-            case "FearGui::CommandItemCtrl": return new GuiCommandItems();
-            case "FearGui::CommandTurretCtrl": return new GuiCommandTurrets();
-            case "FearGui::CMDObserve": return new GuiCmdObserve();
+            case "FearGui::FGControl":
+                return new GuiFGControl();
+            case "FearGui::FGCommandView":
+                return new GuiCommandView();
+            case "FearGui::FGCommandPanel":
+                return new GuiCommandPanel();
+            case "FearGui::FGChatMenu":
+                return new GuiChatMenu();
+            case "FearGui::CommandTeamCtrl":
+                return new GuiCommandTeam();
+            case "FearGui::CommandItemCtrl":
+                return new GuiCommandItems();
+            case "FearGui::CommandTurretCtrl":
+                return new GuiCommandTurrets();
+            case "FearGui::CMDObserve":
+                return new GuiCmdObserve();
             case "FearGui::FearGuiBox":
             case "FearGui::FearGuiDialog":
-            case "FearGui::FearGuiAbortDlg": return new GuiBox();
-            case "FearGui::FearGuiMenu": return new GuiMenuPanel();
-            case "FearGui::FGDlgBox": return new GuiDlgBox();
+            case "FearGui::FearGuiAbortDlg":
+                return new GuiBox();
+            case "FearGui::FearGuiMenu":
+                return new GuiMenuPanel();
+            case "FearGui::FGDlgBox":
+                return new GuiDlgBox();
             case "FearGui::FGShellBorder":
-            case "FearGui::MMShellBorder": return new GuiShellBorder();
+            case "FearGui::MMShellBorder":
+                return new GuiShellBorder();
             case "SimGui::BitmapCtrl":
-            case "FearGui::FGBitmapCtrl": return new GuiBitmap();
-            case "FearGui::FGUniversalButton": return new GuiUniversalButton();
-            case "FearGui::CFGButton": return new GuiCFGButton();
+            case "FearGui::FGBitmapCtrl":
+                return new GuiBitmap();
+            case "FearGui::FGUniversalButton":
+                return new GuiUniversalButton();
+            case "FearGui::CFGButton":
+                return new GuiCFGButton();
             case "FearGui::ShapeView":
-            case "FearGui::SkinView": return new GuiShapeView();
-            case "FearGui::FearGuiSwitch": return new GuiSwitch();
-            case "FearGui::FearGuiRadio": return new GuiRadio();
+            case "FearGui::SkinView":
+                return new GuiShapeView();
+            case "FearGui::FearGuiSwitch":
+                return new GuiSwitch();
+            case "FearGui::FearGuiRadio":
+                return new GuiRadio();
             case "FearGui::FGMenuItem":
-            case "FearGui::FGTab": return new GuiMenuItem();
+            case "FearGui::FGTab":
+                return new GuiMenuItem();
             case "SimGui::Slider":
-            case "FearGui::FGSlider": return new GuiSlider();
-            case "SimGui::ProgressCtrl": return new GuiProgress();
-            case "FearGui::ScoreListCtrl": return new GuiScoreList();
-            case "FearGui::MasterServerList": return new GuiMasterList();
-            case "FearGui::FilterCtrl": return new GuiFilterCtrl();
-            case "FearGui::ColumnListCtrl": return new GuiOptionColumns();
-            case "FearGui::ServerListCtrl": return new GuiServerList();
-            case "FearGui::ServerInfoCtrl": return new GuiServerInfo();
-            case "FearGui::MenuDisplayCtrl": return new GuiMenuDisplay();
-            case "FearGuiInventory": return new GuiInventoryList();
-            case "FearGuiPurchase": return new GuiInventoryList { Purchase = true };
-            case "SimGui::TimerCtrl": return new GuiTimer();
-            case "FearGui::SmackerCtrl": return new GuiSmacker();
-            case "SimGui::AnimateBMA": return new GuiAnimate();
+            case "FearGui::FGSlider":
+                return new GuiSlider();
+            case "SimGui::ProgressCtrl":
+                return new GuiProgress();
+            case "FearGui::ScoreListCtrl":
+                return new GuiScoreList();
+            case "FearGui::MasterServerList":
+                return new GuiMasterList();
+            case "FearGui::FilterCtrl":
+                return new GuiFilterCtrl();
+            case "FearGui::ColumnListCtrl":
+                return new GuiOptionColumns();
+            case "FearGui::ServerListCtrl":
+                return new GuiServerList();
+            case "FearGui::ServerInfoCtrl":
+                return new GuiServerInfo();
+            case "FearGui::MenuDisplayCtrl":
+                return new GuiMenuDisplay();
+            case "FearGuiInventory":
+                return new GuiInventoryList();
+            case "FearGuiPurchase":
+                return new GuiInventoryList { Purchase = true };
+            case "SimGui::TimerCtrl":
+                return new GuiTimer();
+            case "FearGui::SmackerCtrl":
+                return new GuiSmacker();
+            case "SimGui::AnimateBMA":
+                return new GuiAnimate();
             case "SimGui::PaletteCtrl":
-            case "FearGui::FGPaletteCtrl": return new GuiPalette();
-            case "SimGui::TextWrap": return new GuiTextWrap();
+            case "FearGui::FGPaletteCtrl":
+                return new GuiPalette();
+            case "SimGui::TextWrap":
+                return new GuiTextWrap();
             case "SimGui::TextFormat":
             case "FearGui::FGTextFormat":
-            case "FearGuiFormattedText": return new GuiTextWrap { Formatted = true };
-            case "FearGui::FGHCommandObjectivePage": return new GuiObjectivePage();
-            case "SimGui::ScrollContentCtrl": return new GuiScrollContent();
-            case "SimGui::TSControl": return new GuiPlayView();
-            case "FearGui::TSCommander": return new GuiCommandMap();
-            case "FearGui::HealthHud": return new GuiHealthHud();
-            case "FearGui::JetPackHud": return new GuiJetPackHud();
-            case "FearGui::ClockHud": return new GuiClockHud();
-            case "FearGui::CompassHud": return new GuiCompassHud();
-            case "FearGui::CurrentWeaponHud": return new GuiWeaponHud();
-            case "FearGui::FGHSensorPing": return new GuiSensorHud();
-            case "FearGui::Crosshair": return new GuiCrosshair();
-            case "FearGui::FearGuiChatDisplay": return new GuiChatDisplay();
-            case "FearGui::HudCtrl": return new GuiHud();
-            case "CenterPrint": return new GuiCenterPrint();
-            case "FearGui::FearGuiChat": return new GuiChat();
-            case "FearGui::FGSimpleText": return new GuiFGSimpleText();
-            case "FearGui::TestEdit": return new GuiTestEdit();
+            case "FearGuiFormattedText":
+                return new GuiTextWrap { Formatted = true };
+            case "FearGui::FGHCommandObjectivePage":
+                return new GuiObjectivePage();
+            case "SimGui::ScrollContentCtrl":
+                return new GuiScrollContent();
+            case "SimGui::TSControl":
+                return new GuiPlayView();
+            case "FearGui::TSCommander":
+                return new GuiCommandMap();
+            case "FearGui::HealthHud":
+                return new GuiHealthHud();
+            case "FearGui::JetPackHud":
+                return new GuiJetPackHud();
+            case "FearGui::ClockHud":
+                return new GuiClockHud();
+            case "FearGui::CompassHud":
+                return new GuiCompassHud();
+            case "FearGui::CurrentWeaponHud":
+                return new GuiWeaponHud();
+            case "FearGui::FGHSensorPing":
+                return new GuiSensorHud();
+            case "FearGui::Crosshair":
+                return new GuiCrosshair();
+            case "FearGui::FearGuiChatDisplay":
+                return new GuiChatDisplay();
+            case "FearGui::HudCtrl":
+                return new GuiHud();
+            case "CenterPrint":
+                return new GuiCenterPrint();
+            case "FearGui::FearGuiChat":
+                return new GuiChat();
+            case "FearGui::FGSimpleText":
+                return new GuiFGSimpleText();
+            case "FearGui::TestEdit":
+                return new GuiTestEdit();
             case "SimGui::TestCheck":
             case "SimGui::TestRadial":
             case "MECheck":
-            case "MERadio": return new GuiCheck();
+            case "MERadio":
+                return new GuiCheck();
             case "SimGui::TestButton":
             case "MEButton":
-            case "MEPopupButton": return new GuiTextButton();
+            case "MEPopupButton":
+                return new GuiTextButton();
         }
         if (DerivesFrom(row, "SimGui::ArrayCtrl") || row.Name == "SimGui::ArrayCtrl")
             return new GuiList();

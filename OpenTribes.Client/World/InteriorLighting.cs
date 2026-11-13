@@ -1,7 +1,7 @@
+namespace OpenTribes.Client.World;
+
 using System.Buffers.Binary;
 using OpenTribes.Core;
-
-namespace OpenTribes.Client.World;
 
 /// <summary>The <c>.dil</c> lighting file (ITRLighting, ITRMissionLighting), its light maps and the light state selection (world-render.md 3.6 and 3.7).</summary>
 public sealed class InteriorLighting
@@ -54,11 +54,11 @@ public sealed class InteriorLighting
         /// <summary>The light name.</summary>
         public string Name;
         /// <summary>True when the light starts by itself.</summary>
-        public bool AutoStart => (Flags & 1) != 0;
+        public readonly bool AutoStart => (Flags & 1) != 0;
         /// <summary>True when the light loops.</summary>
-        public bool Loop => (Flags & 2) != 0;
+        public readonly bool Loop => (Flags & 2) != 0;
         /// <summary>True for a random light, which picks its states privately.</summary>
-        public bool Random => (Flags & 4) != 0;
+        public readonly bool Random => (Flags & 4) != 0;
     }
 
     /// <summary>A surface light map.</summary>
@@ -89,19 +89,19 @@ public sealed class InteriorLighting
     /// <summary>The size of the map list.</summary>
     public uint MapListSize;
     /// <summary>The states.</summary>
-    public State[] States = Array.Empty<State>();
+    public State[] States = [];
     /// <summary>The state data records.</summary>
-    public StateData[] StateDatas = Array.Empty<StateData>();
+    public StateData[] StateDatas = [];
     /// <summary>The lights.</summary>
-    public Light[] Lights = Array.Empty<Light>();
+    public Light[] Lights = [];
     /// <summary>The surfaces.</summary>
-    public Surface[] Surfaces = Array.Empty<Surface>();
+    public Surface[] Surfaces = [];
     /// <summary>The packed map data.</summary>
-    public byte[] MapData = Array.Empty<byte>();
+    public byte[] MapData = [];
     /// <summary>The Huffman table nodes: the child for bit 1 and the child for bit 0.</summary>
     public int[,] Nodes = new int[0, 2];
     /// <summary>The Huffman table leaves, the low 16 bits.</summary>
-    public uint[] Leaves = Array.Empty<uint>();
+    public uint[] Leaves = [];
     /// <summary>True when the file has a Huffman table.</summary>
     public bool HasHuffman;
     /// <summary>The offset of the tail of the file.</summary>
@@ -109,9 +109,9 @@ public sealed class InteriorLighting
     /// <summary>The length of the file.</summary>
     public int FileLength;
     /// <summary>The ITRMissionLighting index: the sorted source map indices.</summary>
-    public uint[] MissionSource = Array.Empty<uint>();
+    public uint[] MissionSource = [];
     /// <summary>The destination offsets in <see cref="MapData"/> of the source maps.</summary>
-    public uint[] MissionDest = Array.Empty<uint>();
+    public uint[] MissionDest = [];
 
     /// <summary>Parses a <c>.dil</c> file.</summary>
     /// <param name="d">The file bytes.</param>
@@ -124,16 +124,21 @@ public sealed class InteriorLighting
                 return null;
             var lt = new InteriorLighting();
             long pos = 8;
-            ushort nameLen = BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan((int)pos, 2));
-            string cls = System.Text.Encoding.Latin1.GetString(d, (int)pos + 2, nameLen);
+            var nameLen = BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan((int)pos, 2));
+            var cls = System.Text.Encoding.Latin1.GetString(d, (int)pos + 2, nameLen);
             lt.IsMission = cls.Equals("ITRMissionLighting", StringComparison.OrdinalIgnoreCase);
             pos += 2 + ((nameLen + 1) & ~1);
             pos += 4; // version
-            uint U32() { uint v = BinaryPrimitives.ReadUInt32LittleEndian(d.AsSpan((int)pos, 4)); pos += 4; return v; }
-            int I32() { int v = BinaryPrimitives.ReadInt32LittleEndian(d.AsSpan((int)pos, 4)); pos += 4; return v; }
-            short I16() { short v = BinaryPrimitives.ReadInt16LittleEndian(d.AsSpan((int)pos, 2)); pos += 2; return v; }
-            ushort U16() { ushort v = BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan((int)pos, 2)); pos += 2; return v; }
-            float F32() { float v = BinaryPrimitives.ReadSingleLittleEndian(d.AsSpan((int)pos, 4)); pos += 4; return v; }
+            uint U32()
+            { var v = BinaryPrimitives.ReadUInt32LittleEndian(d.AsSpan((int)pos, 4)); pos += 4; return v; }
+            int I32()
+            { var v = BinaryPrimitives.ReadInt32LittleEndian(d.AsSpan((int)pos, 4)); pos += 4; return v; }
+            short I16()
+            { var v = BinaryPrimitives.ReadInt16LittleEndian(d.AsSpan((int)pos, 2)); pos += 2; return v; }
+            ushort U16()
+            { var v = BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan((int)pos, 2)); pos += 2; return v; }
+            float F32()
+            { var v = BinaryPrimitives.ReadSingleLittleEndian(d.AsSpan((int)pos, 4)); pos += 4; return v; }
             lt.BuildId = U32();
             lt.LightScaleShift = U32();
             lt.MapListSize = U32();
@@ -141,31 +146,36 @@ public sealed class InteriorLighting
             if (nStates > 1 << 20 || nData > 1 << 22 || nLights > 1 << 20 || nSurfaces > 1 << 22 || nMap > d.Length)
                 return null;
             lt.States = new State[nStates];
-            for (int i = 0; i < nStates; ++i)
+            for (var i = 0; i < nStates; ++i)
             {
                 lt.States[i] = new State { R = U16(), G = U16(), B = U16(), Mono = U16(), EndTime = F32(), DataCount = I16(), DataIndex = I16() };
             }
             lt.StateDatas = new StateData[nData];
-            for (int i = 0; i < nData; ++i)
+            for (var i = 0; i < nData; ++i)
                 lt.StateDatas[i] = new StateData { Surface = I16(), Slot = I16(), MapIndex = I32() };
             lt.Lights = new Light[nLights];
-            for (int i = 0; i < nLights; ++i)
+            for (var i = 0; i < nLights; ++i)
                 lt.Lights[i] = new Light { Id = I32(), NameOffset = I32(), StateCount = I32(), FirstState = I32(), Duration = F32(), Flags = U32(), Name = "" };
             lt.Surfaces = new Surface[nSurfaces];
-            for (int i = 0; i < nSurfaces; ++i)
+            for (var i = 0; i < nSurfaces; ++i)
             {
-                lt.Surfaces[i] = new Surface { Word = U32(), LightCount = I16(), FirstSlot = I16() };
-                lt.Surfaces[i].SizeX = d[pos++];
-                lt.Surfaces[i].SizeY = d[pos++];
-                lt.Surfaces[i].OffsetX = d[pos++];
-                lt.Surfaces[i].OffsetY = d[pos++];
+                lt.Surfaces[i] = new Surface
+                {
+                    Word = U32(),
+                    LightCount = I16(),
+                    FirstSlot = I16(),
+                    SizeX = d[pos++],
+                    SizeY = d[pos++],
+                    OffsetX = d[pos++],
+                    OffsetY = d[pos++]
+                };
             }
             lt.MapData = d.AsSpan((int)pos, (int)nMap).ToArray();
             pos += nMap;
-            uint nameSize = U32();
-            long names = pos;
+            var nameSize = U32();
+            var names = pos;
             pos += nameSize;
-            for (int i = 0; i < lt.Lights.Length; ++i)
+            for (var i = 0; i < lt.Lights.Length; ++i)
                 if (lt.Lights[i].NameOffset >= 0 && lt.Lights[i].NameOffset < nameSize)
                 {
                     int e = (int)names + lt.Lights[i].NameOffset, n = 0;
@@ -173,18 +183,18 @@ public sealed class InteriorLighting
                         ++n;
                     lt.Lights[i].Name = System.Text.Encoding.Latin1.GetString(d, e, n);
                 }
-            byte flag = d[pos++];
+            var flag = d[pos++];
             if (flag == 1)
             {
                 uint nodeCount = U32(), leafCount = U32();
                 lt.Nodes = new int[nodeCount, 2];
-                for (int i = 0; i < nodeCount; ++i)
+                for (var i = 0; i < nodeCount; ++i)
                 {
                     lt.Nodes[i, 0] = I32(); // child for bit 1
                     lt.Nodes[i, 1] = I32(); // child for bit 0
                 }
                 lt.Leaves = new uint[leafCount];
-                for (int i = 0; i < leafCount; ++i)
+                for (var i = 0; i < leafCount; ++i)
                     lt.Leaves[i] = U32();
                 lt.HasHuffman = true;
             }
@@ -192,17 +202,17 @@ public sealed class InteriorLighting
             lt.FileLength = d.Length;
             if (lt.IsMission && pos + 8 <= d.Length)
             {
-                uint n = U32();
-                if (n > 0 && n < 1 << 22)
+                var n = U32();
+                if (n is > 0 and < (1 << 22))
                 {
                     var o = new byte[n * 8];
                     Lzh.LzhDecodeCounted(d.AsSpan((int)pos), o);
                     lt.MissionSource = new uint[n];
                     lt.MissionDest = new uint[n];
-                    for (int i = 0; i < n; ++i)
+                    for (var i = 0; i < n; ++i)
                     {
                         lt.MissionSource[i] = BinaryPrimitives.ReadUInt32LittleEndian(o.AsSpan(i * 8, 4));
-                        lt.MissionDest[i] = BinaryPrimitives.ReadUInt32LittleEndian(o.AsSpan(i * 8 + 4, 4));
+                        lt.MissionDest[i] = BinaryPrimitives.ReadUInt32LittleEndian(o.AsSpan((i * 8) + 4, 4));
                     }
                 }
             }
@@ -221,20 +231,20 @@ public sealed class InteriorLighting
     public ushort[] DecodeHuffman(int offset, int pixels)
     {
         var r = new ushort[pixels];
-        int bit = 0;
-        for (int p = 0; p < pixels; ++p)
+        var bit = 0;
+        for (var p = 0; p < pixels; ++p)
         {
-            int node = 0;
+            var node = 0;
             while (node >= 0)
             {
-                int bi = offset + (bit >> 3);
+                var bi = offset + (bit >> 3);
                 if (bi >= MapData.Length || node >= Nodes.GetLength(0))
                     return r;
-                int b = (MapData[bi] >> (bit & 7)) & 1;
+                var b = (MapData[bi] >> (bit & 7)) & 1;
                 ++bit;
                 node = Nodes[node, b == 1 ? 0 : 1];
             }
-            int leaf = -(node + 1);
+            var leaf = -(node + 1);
             r[p] = leaf < Leaves.Length ? (ushort)(Leaves[leaf] & 0xffff) : (ushort)0;
         }
         return r;
@@ -247,7 +257,7 @@ public sealed class InteriorLighting
     public ushort[]? SurfaceMap(int surface, InteriorLighting? mission)
     {
         Surface s = Surfaces[surface];
-        int px = (s.SizeX) * (s.SizeY);
+        var px = s.SizeX * s.SizeY;
         if (px <= 0)
             return null;
         if ((s.Word & 0x80000000u) != 0)
@@ -256,11 +266,11 @@ public sealed class InteriorLighting
             Array.Fill(r, (ushort)(s.Word & 0xffff));
             return r;
         }
-        uint index = s.Word & 0xbfffffff;
-        bool compressed = (s.Word & 0x40000000u) != 0;
+        var index = s.Word & 0xbfffffff;
+        var compressed = (s.Word & 0x40000000u) != 0;
         InteriorLighting src = this;
         long offset = index;
-        if (mission != null && mission.TryMissionOffset(index, out uint dest))
+        if (mission != null && mission.TryMissionOffset(index, out var dest))
         {
             src = mission;
             offset = dest;
@@ -268,9 +278,9 @@ public sealed class InteriorLighting
         if (compressed)
             return src.DecodeHuffman((int)offset, px);
         var raw = new ushort[px];
-        for (int i = 0; i < px; ++i)
+        for (var i = 0; i < px; ++i)
         {
-            long o = offset + i * 2;
+            var o = offset + (i * 2);
             if (o + 2 > src.MapData.Length)
                 break;
             raw[i] = BinaryPrimitives.ReadUInt16LittleEndian(src.MapData.AsSpan((int)o, 2));
@@ -284,7 +294,7 @@ public sealed class InteriorLighting
     /// <returns>True when the map has a replacement.</returns>
     public bool TryMissionOffset(uint sourceIndex, out uint dest)
     {
-        int i = Array.BinarySearch(MissionSource, sourceIndex);
+        var i = Array.BinarySearch(MissionSource, sourceIndex);
         dest = i >= 0 ? MissionDest[i] : 0;
         return i >= 0;
     }
@@ -298,8 +308,8 @@ public sealed class InteriorLighting
     {
         // interiors.md 5.4: the state is the count of following records (after the first) whose end time is below the
         // time, at most stateCount - 1.
-        int state = 0;
-        for (int j = 1; j < stateCount && j < stateRecords.Length; ++j)
+        var state = 0;
+        for (var j = 1; j < stateCount && j < stateRecords.Length; ++j)
             if (stateRecords[j].EndTime < time)
                 ++state;
         return Math.Min(state, Math.Max(stateCount - 1, 0));
@@ -326,8 +336,8 @@ public sealed class InteriorLighting
             n = records[0];
             tb = duration;
         }
-        float f = tb - ta != 0f ? (time - ta) / (tb - ta) : 1f;
-        static int Ch(float from, float to, float f) => (int)((from + (to - from) * f) * 0.00390625f + 0.5f) & 0xff;
+        var f = tb - ta != 0f ? (time - ta) / (tb - ta) : 1f;
+        static int Ch(float from, float to, float f) => (int)(((from + ((to - from) * f)) * 0.00390625f) + 0.5f) & 0xff;
         return (Ch(a.Mono, n.Mono, f), Ch(a.R, n.R, f), Ch(a.G, n.G, f), Ch(a.B, n.B, f));
     }
 

@@ -1,9 +1,9 @@
+namespace OpenTribes.Client.Scene;
+
 using System.Globalization;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Client.Scene;
 
 /// <summary>Read access to the client datablocks: group and index to named fields (client-net.md 2.6).</summary>
 public sealed class Db
@@ -23,7 +23,7 @@ public sealed class Db
     /// <param name="group">The datablock group.</param>
     /// <returns>The index and block of each entry.</returns>
     public IEnumerable<(int Index, ClientDataBlock Block)> Group(int group) =>
-        mBlocks.Blocks.Where(kv => kv.Key.Item1 == group).OrderBy(kv => kv.Key.Item2).Select(kv => (kv.Key.Item2, kv.Value));
+        mBlocks.Blocks.Where(kv => kv.Key.Group == group).OrderBy(kv => kv.Key.Index).Select(kv => (kv.Key.Index, kv.Value));
 
     /// <summary>Gets the value of a field.</summary>
     /// <param name="b">The block, or null.</param>
@@ -67,7 +67,7 @@ public sealed class Db
         int i => i,
         float f => f,
         uint u => u,
-        string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double r) => r,
+        string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var r) => r,
         _ => def,
     };
 
@@ -93,7 +93,7 @@ public readonly record struct ThreadSlot(int Slot, int Sequence, int State, bool
         var l = new List<ThreadSlot>();
         if (threads is not System.Collections.IEnumerable e)
             return l;
-        foreach (object? o in e)
+        foreach (var o in e)
             if (o is string s && TryParse(s, out ThreadSlot t))
                 l.Add(t);
         return l;
@@ -106,17 +106,17 @@ public readonly record struct ThreadSlot(int Slot, int Sequence, int State, bool
     public static bool TryParse(string s, out ThreadSlot t)
     {
         t = default;
-        int colon = s.IndexOf(':');
+        var colon = s.IndexOf(':');
         if (colon < 0)
             return false;
-        int slot = int.Parse(s[..colon], CultureInfo.InvariantCulture);
+        var slot = int.Parse(s[..colon], CultureInfo.InvariantCulture);
         int Field(string key)
         {
-            int p = s.IndexOf(key + "=", StringComparison.Ordinal);
+            var p = s.IndexOf(key + "=", StringComparison.Ordinal);
             if (p < 0)
                 return 0;
             p += key.Length + 1;
-            int e = p;
+            var e = p;
             while (e < s.Length && (char.IsDigit(s[e]) || s[e] == '-'))
                 ++e;
             return int.Parse(s.AsSpan(p, e - p), CultureInfo.InvariantCulture);
@@ -144,7 +144,7 @@ public readonly record struct ImageSlot(int Slot, int Image, int State, int Phas
         var l = new List<ImageSlot>();
         if (images is not System.Collections.IEnumerable e)
             return l;
-        foreach (object? o in e)
+        foreach (var o in e)
         {
             if (o is not string s)
                 continue;
@@ -153,14 +153,14 @@ public readonly record struct ImageSlot(int Slot, int Image, int State, int Phas
                 continue;
             int Num(int p)
             {
-                int e2 = p;
+                var e2 = p;
                 while (e2 < s.Length && (char.IsDigit(s[e2]) || s[e2] == '-'))
                     ++e2;
                 return int.Parse(s.AsSpan(p, e2 - p), CultureInfo.InvariantCulture);
             }
             // After the two flags comes the fire count int(3) (client-net.md 3.4); absent in the text, -1.
-            string[] parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            int phase = parts.Length >= 4 && int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out int ph) ? ph : -1;
+            var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var phase = parts.Length >= 4 && int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ph) ? ph : -1;
             bool trig = parts.Length >= 3 && parts[2].Length >= 2 && parts[2][0] == '1', ammo = parts.Length >= 3 && parts[2].Length >= 2 && parts[2][1] == '1';
             l.Add(new ImageSlot(int.Parse(s[..colon], CultureInfo.InvariantCulture), Num(ip + 4), Num(sp + 6), phase, trig, ammo, s.EndsWith("f=1", StringComparison.Ordinal)));
         }
@@ -200,7 +200,11 @@ public sealed class FrameContext
     /// <returns>The parameters.</returns>
     public ShapeDraw Draw(Xf toWorld, string label = "") => new()
     {
-        ToWorld = toWorld, Light = Light, HazeStart = HazeStart, Visible = Visible, Label = label,
+        ToWorld = toWorld,
+        Light = Light,
+        HazeStart = HazeStart,
+        Visible = Visible,
+        Label = label,
     };
 }
 
@@ -208,15 +212,15 @@ public sealed class FrameContext
 public interface IEffect
 {
     /// <summary>True while the effect lives.</summary>
-    bool Alive { get; }
+    public bool Alive { get; }
     /// <summary>Advances the effect.</summary>
     /// <param name="dt">The time step in seconds.</param>
-    void Tick(double dt);
+    public void Tick(double dt);
     /// <summary>Adds the images of the effect to the frame.</summary>
     /// <param name="ctx">The frame context.</param>
-    void Build(FrameContext ctx);
+    public void Build(FrameContext ctx);
     /// <summary>The point light the effect gives the shapes near it (4.9), or null.</summary>
-    PointLight? Light { get; }
+    public PointLight? Light { get; }
 }
 
 /// <summary>Transform helpers for the images of the scene.</summary>
@@ -235,16 +239,20 @@ public static class Mathx
     /// <returns>The transform.</returns>
     public static Xf Basis(double px, double py, double pz, double fx, double fy, double fz, double ux = 0, double uy = 0, double uz = 1)
     {
-        double rx = fy * uz - fz * uy, ry = fz * ux - fx * uz, rz = fx * uy - fy * ux;
-        double rl = Math.Sqrt(rx * rx + ry * ry + rz * rz);
+        double rx = (fy * uz) - (fz * uy), ry = (fz * ux) - (fx * uz), rz = (fx * uy) - (fy * ux);
+        var rl = Math.Sqrt((rx * rx) + (ry * ry) + (rz * rz));
         if (rl < 1e-6)
         {
             (ux, uy, uz) = (1, 0, 0);
-            rx = fy * uz - fz * uy; ry = fz * ux - fx * uz; rz = fx * uy - fy * ux;
-            rl = Math.Sqrt(rx * rx + ry * ry + rz * rz);
+            rx = (fy * uz) - (fz * uy);
+            ry = (fz * ux) - (fx * uz);
+            rz = (fx * uy) - (fy * ux);
+            rl = Math.Sqrt((rx * rx) + (ry * ry) + (rz * rz));
         }
-        rx /= rl; ry /= rl; rz /= rl;
-        double zx = ry * fz - rz * fy, zy = rz * fx - rx * fz, zz = rx * fy - ry * fx;
+        rx /= rl;
+        ry /= rl;
+        rz /= rl;
+        double zx = (ry * fz) - (rz * fy), zy = (rz * fx) - (rx * fz), zz = (rx * fy) - (ry * fx);
         return new Xf { M0 = rx, M1 = ry, M2 = rz, M3 = fx, M4 = fy, M5 = fz, M6 = zx, M7 = zy, M8 = zz, Px = px, Py = py, Pz = pz };
     }
 
@@ -260,10 +268,12 @@ public static class Mathx
     {
         if (Math.Abs(fz) < 0.95)
             return Basis(px, py, pz, fx, fy, fz);
-        double zx = 0 * fz - 0 * fy, zy = 0 * fx - 1 * fz, zz = 1 * fy - 0 * fx;     // (1, 0, 0) x f
-        double zl = Math.Sqrt(zx * zx + zy * zy + zz * zz);
-        zx /= zl; zy /= zl; zz /= zl;
-        double rx = fy * zz - fz * zy, ry = fz * zx - fx * zz, rz = fx * zy - fy * zx; // f x z
+        double zx = (0 * fz) - (0 * fy), zy = (0 * fx) - (1 * fz), zz = (1 * fy) - (0 * fx);     // (1, 0, 0) x f
+        var zl = Math.Sqrt((zx * zx) + (zy * zy) + (zz * zz));
+        zx /= zl;
+        zy /= zl;
+        zz /= zl;
+        double rx = (fy * zz) - (fz * zy), ry = (fz * zx) - (fx * zz), rz = (fx * zy) - (fy * zx); // f x z
         return new Xf { M0 = rx, M1 = ry, M2 = rz, M3 = fx, M4 = fy, M5 = fz, M6 = zx, M7 = zy, M8 = zz, Px = px, Py = py, Pz = pz };
     }
 

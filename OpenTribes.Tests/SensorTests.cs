@@ -1,13 +1,11 @@
 // Port of tests/test_sensor.cpp: sensor jamming by Players, the jamming list, detection by eye and the target slot table
 // (ROADMAP G8, docs/static-sim.md 3.3, 3.5, 3.8, 14.7). Synthetic terrain and datablocks. 48 asserts, one to one.
+namespace OpenTribes.Tests;
+
 using System.Globalization;
-using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
-using OpenTribes.Sim;
 using static OpenTribes.Tests.Fixtures;
-
-namespace OpenTribes.Tests;
 
 public class SensorTests
 {
@@ -16,7 +14,7 @@ public class SensorTests
 
     private void Tick(int n = 1)
     {
-        for (int i = 0; i < n; ++i)
+        for (var i = 0; i < n; ++i)
         {
             gw.Sim.AdvanceRealTime(mStarted ? 32u : 33u);
             mStarted = true;
@@ -30,18 +28,20 @@ public class SensorTests
     [Fact]
     public void Main()
     {
-        string root = Path.Combine(TestPaths.TmpDir(""), "sensor_root");
+        var root = Path.Combine(TestPaths.TmpDir(""), "sensor_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
-        var t = new TerrainSpec();
-        t.Scale = 5;
-        t.Height = 2;
-        t.Heights = Enumerable.Repeat(50.0f, 25).ToList();
-        t.Squares = new List<byte>(new byte[32]);
+        var t = new TerrainSpec
+        {
+            Scale = 5,
+            Height = 2,
+            Heights = [.. Enumerable.Repeat(50.0f, 25)],
+            Squares = [.. new byte[32]]
+        };
         PutFile(Path.Combine(root, "base/m.dtf"), DtfFile(t, 50.0f, 50.0f));
         PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, 50.0f, 50.0f));
         PutFile(Path.Combine(root, "base/t.dml"), "dml");
-        float[] box = { -1, -1, 0, 1, 1, 2 };
+        float[] box = [-1, -1, 0, 1, 1, 2];
         PutFile(Path.Combine(root, "base/plain.dts"), DtsCollisionFile(box));
 
         var w = new Fixtures.World(root);
@@ -62,14 +62,14 @@ public class SensorTests
               "instant SimGroup \"MissionGroup\" { };" +
               "instant SimGroup \"MissionCleanup\";");
         var sensors = w.Sim.Server()!.FindById(720) as SensorManager;
-        Assert.True(sensors != null);
+        Assert.NotNull(sensors);
         w.Game.Players.AddClient(2049, "Alpha", "male1", true);
         w.Game.Players.AddClient(2050, "Bravo", "male1", true);
         Player Spawn(string pos, int client, int team)
         {
-            string id = w.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
+            var id = w.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
             Player? p = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
-            Assert.True(p != null);
+            Assert.NotNull(p);
             if (client != 0)
             {
                 w.Run("Client::setOwnedObject(" + client.ToString(CultureInfo.InvariantCulture) + ", " + id + ");");
@@ -85,9 +85,9 @@ public class SensorTests
 
         // ---- 3.8 the jamming list: set / unlink / link by Player::setSensorSupression (0x0040fc88) ----
         string SetR(Player p, string r) => w.Run("echo(Player::setSensorSupression(" + IdOf(p) + ", " + r + "));");
-        Assert.True(sensors!.JamFirst() == 0);
+        Assert.Equal(0, sensors!.JamFirst());
         Assert.True(SetR(a, "20") == "True" && sensors.JamFirst() == a.Id() && a.JamPrev == -1 && a.JamNext == 0);
-        Assert.True(a.SensorSuppression == 20.0f);
+        Assert.Equal(20.0f, a.SensorSuppression);
         SetR(b, "30"); // after the head: b, a
         Assert.True(sensors.JamFirst() == b.Id() && b.JamNext == a.Id() && a.JamPrev == b.Id());
         SetR(c, "5"); // c, b, a
@@ -102,29 +102,28 @@ public class SensorTests
         SetR(b, "0");
         Assert.True(sensors.JamFirst() == a.Id() && a.JamPrev == b.JamPrev);
         SetR(a, "0");
-        Assert.True(sensors.JamFirst() == 0);
+        Assert.Equal(0, sensors.JamFirst());
         SetR(b, "0");
         Assert.True(sensors.JamFirst() == a.Id()); // the stale next of b
-        Assert.True(a.SensorSuppression == 0.0f);
-        Assert.True(w.Run("echo(Player::setSensorSupression(" + IdOf(a) + "));") ==
-                    "wrong argcount to setSensorSupression(player,value)\nFalse");
-        Assert.True(w.Run("echo(Player::setSensorSupression(nosuch, 5));") == "False");
+        Assert.Equal(0.0f, a.SensorSuppression);
+        Assert.Equal("wrong argcount to setSensorSupression(player,value)\nFalse", w.Run("echo(Player::setSensorSupression(" + IdOf(a) + "));"));
+        Assert.Equal("False", w.Run("echo(Player::setSensorSupression(nosuch, 5));"));
         SetR(a, "0");
-        Assert.True(sensors.JamFirst() == 0);
+        Assert.Equal(0, sensors.JamFirst());
 
         // ---- the dead keep the radius; death and removal unlink (Player_kill 0x004112ac, Player_onRemove) ----
         SetR(a, "25");
         SetR(b, "15"); // b, a
         w.Run("Player::kill(" + IdOf(b) + ");");
-        Assert.True(b.SensorSuppression == 15.0f); // not cleared by the death
+        Assert.Equal(15.0f, b.SensorSuppression); // not cleared by the death
         Assert.True(sensors.JamFirst() == a.Id() && a.JamPrev == b.JamPrev);
         SetR(c, "9"); // c, a
-        int cid = c.Id();
+        var cid = c.Id();
         w.Run("deleteObject(" + cid.ToString(CultureInfo.InvariantCulture) + ");");
         Assert.True(sensors.JamFirst() == a.Id());
-        Assert.True(w.Sim.Server()!.FindById(cid) == null);
+        Assert.Null(w.Sim.Server()!.FindById(cid));
         SetR(a, "0");
-        Assert.True(sensors.JamFirst() == 0);
+        Assert.Equal(0, sensors.JamFirst());
 
         // ---- 3.5 step 4 and 3.6: a sensor of team 0 sees a team 1 target; a jamming Player hides it ----
         w.Run("$s = newObject(\"\", Sensor, Radar); $t = newObject(\"\", StaticShape, Tgt);");
@@ -164,40 +163,40 @@ public class SensorTests
         w.Run("GameBase::setPosition(" + IdOf(a) + ", \"10 10 52\"); GameBase::setRotation(" + IdOf(a) + ", \"0 0 0\");");
         w.Run("GameBase::setPosition(" + IdOf(b) + ", \"10 40 52\");");
         Tick(10);
-        Assert.True(w.Game.Players.VisibleToTeam(b, 0) && (b.SensorWord >> 24) == 0);
+        Assert.True(PlayerManager.VisibleToTeam(b, 0) && (b.SensorWord >> 24) == 0);
         w.Run("GameBase::setPosition(" + IdOf(b) + ", \"10 -20 52\");");
         Tick(10);
-        Assert.True(!w.Game.Players.VisibleToTeam(b, 0));
+        Assert.False(PlayerManager.VisibleToTeam(b, 0));
         w.Run("GameBase::setPosition(" + IdOf(b) + ", \"10 100 52\");");
         Tick(10);
-        Assert.True(!w.Game.Players.VisibleToTeam(b, 0));
+        Assert.False(PlayerManager.VisibleToTeam(b, 0));
         w.Run("Player::setDetectParameters(" + IdOf(a) + ", 0.01, 1);");
         Tick(10);
-        Assert.True(w.Game.Players.VisibleToTeam(b, 0));
+        Assert.True(PlayerManager.VisibleToTeam(b, 0));
 
         // ---- 3.4 the sweep schedule (SensorManager_sweep 0x00439cc4, SimTimerSet 0x0050782c) ----
         Tick(2);
         Assert.True(sensors.TargetCursor() == tg.TargetIndex);
         w.Run("$u1 = newObject(\"\", StaticShape, Tgt); $u2 = newObject(\"\", StaticShape, Tgt);");
         {
-            int[] slots = { GbOf(w.Run("echo($u1);"))!.TargetIndex, tg.TargetIndex, GbOf(w.Run("echo($u2);"))!.TargetIndex };
+            int[] slots = [GbOf(w.Run("echo($u1);"))!.TargetIndex, tg.TargetIndex, GbOf(w.Run("echo($u2);"))!.TargetIndex];
             int Rank(int slot)
             {
-                int r = 0;
-                foreach (int x in slots)
+                var r = 0;
+                foreach (var x in slots)
                     r += x < slot ? 1 : 0;
                 return r;
             }
             Assert.True(slots[0] != slots[1] && slots[1] != slots[2] && slots[0] != slots[2]);
             int at = Rank(tg.TargetIndex), steps = 0, doubles = 0;
-            for (int i = 0; i < 15; ++i)
+            for (var i = 0; i < 15; ++i)
             {
                 Tick();
-                int now = Rank(sensors.TargetCursor());
-                int d = (now - at + 3) % 3;
+                var now = Rank(sensors.TargetCursor());
+                var d = (now - at + 3) % 3;
                 if (d == 0)
                     d = 3;
-                Assert.True(d == 1 || d == 2);
+                Assert.True(d is 1 or 2);
                 doubles += d == 2 ? 1 : 0;
                 steps += d;
                 at = now;
@@ -208,25 +207,25 @@ public class SensorTests
         tg.SetTeam(5);
         tg.SensorWord = (tg.SensorWord & ~0xffu) | 0x40u;
         Tick(3);
-        Assert.True((tg.SensorWord & 0xff) == 0x40);
+        Assert.Equal(0x40u, (tg.SensorWord & 0xff));
         tg.SensorWord &= ~0xffu;
         tg.SetTeam(1);
         Tick(3);
-        Assert.True((tg.SensorWord & 0xff) == 0x2);
+        Assert.Equal(0x2u, (tg.SensorWord & 0xff));
 
         // ---- 3.3 target slots: lowest free slot, freed slots reused, a full table gives -1 ----
-        int first = tg.TargetIndex;
+        var first = tg.TargetIndex;
         Assert.True(first >= 0);
         w.Run("function mk(%i) { $o[%i] = newObject(\"\", StaticShape, Tgt); }");
         w.Run("for (%i = 0; %i < 130; %i++) mk(%i);");
-        int full = 0;
-        for (int i = 0; i < 128; ++i)
+        var full = 0;
+        for (var i = 0; i < 128; ++i)
             full += w.Game.Targets[i] != null ? 1 : 0;
-        Assert.True(full == 128);
-        Assert.True(w.Run("echo(getObjectByTargetIndex(127));") != "-1");
+        Assert.Equal(128, full);
+        Assert.NotEqual("-1", w.Run("echo(getObjectByTargetIndex(127));"));
         w.Run("deleteObject($o[3]); deleteObject($o[20]); deleteObject($o[7]);");
-        int freedLow = -1;
-        for (int i = 0; i < 128; ++i)
+        var freedLow = -1;
+        for (var i = 0; i < 128; ++i)
             if (w.Game.Targets[i] == null)
             {
                 freedLow = i;

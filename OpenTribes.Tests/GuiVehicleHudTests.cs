@@ -1,11 +1,10 @@
 // docs/gui.md 4.2: the HUD while riding or piloting a vehicle. Health and energy bars read the control object's vtable +0xf8 / +0xfc
 // (a piloted Vehicle or Flier takes both from its control state, Vehicle_readControlState 00446830).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using Xunit;
-
-namespace OpenTribes.Tests;
 
 public class GuiVehicleHudTests
 {
@@ -18,7 +17,7 @@ public class GuiVehicleHudTests
         world.Players.Clients[0x800] = new ClientPlayerRecord { Id = 0x800, Name = "Me", Team = 0 };
         world.Players.Clients[0x801] = new ClientPlayerRecord { Id = 0x801, Name = "Pilot", Team = 1 };
         world.Players.Clients[0x802] = new ClientPlayerRecord { Id = 0x802, Name = "Rider", Team = 1 };
-        for (int i = 0; i < world.Psc.Visible.Length; ++i)
+        for (var i = 0; i < world.Psc.Visible.Length; ++i)
             world.Psc.Visible[i] = uint.MaxValue;
         world.Ghosts.Insert(new ClientGhost { Index = kVehicle, Class = "Flier" });
         world.Ghosts.Insert(Body(kPilot, 0x800, 6, "5/1"));

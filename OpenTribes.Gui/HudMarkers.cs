@@ -1,6 +1,6 @@
-using System.Globalization;
-
 namespace OpenTribes.Gui;
+
+using System.Globalization;
 
 /// <summary>One marker triangle.</summary>
 /// <param name="X">The tip pixel x.</param>
@@ -28,7 +28,7 @@ public sealed record HudControlAim(float[] Eye, float[]? MuzzleP, float[] Object
     public (double, double, double) MuzzleLabelPoint()
     {
         var o = new float[3];
-        OpenTribes.World.X87.MulPoint(MuzzleP ?? new float[3], ObjectM, ObjectP, o);
+        World.X87.MulPoint(MuzzleP ?? new float[3], ObjectM, ObjectP, o);
         return (o[0], o[1], o[2]);
     }
 }
@@ -48,8 +48,8 @@ public static class HudMarkers
     /// <remarks>Follows the stock format at 00623f8a (004ae847). The exe's sprintf cuts the value after the first decimal, it does not round (distance 6.87576 prints "6.8 m").</remarks>
     public static string Label(double distance)
     {
-        string t = distance.ToString("F8", CultureInfo.InvariantCulture);
-        int dot = t.IndexOf('.');
+        var t = distance.ToString("F8", CultureInfo.InvariantCulture);
+        var dot = t.IndexOf('.');
         return t[..(dot + 2)].PadLeft(2) + " m";
     }
 
@@ -66,8 +66,8 @@ public static class HudMarkers
     /// <remarks>The base is two half widths above the tip. The half width is 4, or 3 at low resolution (004ae27b..004ae2e6).</remarks>
     public static (int X, int Y)[] Triangle(int x, int y, bool lowRes)
     {
-        int d = lowRes ? 3 : 4;
-        return new[] { (x, y), (x - d, y - 2 * d), (x + d, y - 2 * d) };
+        var d = lowRes ? 3 : 4;
+        return [(x, y), (x - d, y - (2 * d)), (x + d, y - (2 * d))];
     }
 
     /// <summary>Returns the top left of the distance label.</summary>
@@ -85,6 +85,6 @@ public static class HudMarkers
     public static double Distance((double X, double Y, double Z) from, (double X, double Y, double Z) to)
     {
         double dx = (float)(from.X - to.X), dy = (float)(from.Y - to.Y), dz = (float)(from.Z - to.Z);
-        return (float)Math.Sqrt((float)(dx * dx + dy * dy + dz * dz));
+        return (float)Math.Sqrt((float)((dx * dx) + (dy * dy) + (dz * dz)));
     }
 }

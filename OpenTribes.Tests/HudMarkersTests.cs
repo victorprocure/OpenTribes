@@ -1,9 +1,8 @@
 // docs/gui.md 4.2 Crosshair: the aim triangles and distance labels of FUN_004ada90 [code 004ada90].
+namespace OpenTribes.Tests;
+
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using Xunit;
-
-namespace OpenTribes.Tests;
 
 public class HudMarkersTests
 {
@@ -19,8 +18,8 @@ public class HudMarkersTests
     [Fact]
     public void TriangleTipIsAtTheTargetAndPointsDown()
     {
-        Assert.Equal(new[] { (100, 50), (96, 42), (104, 42) }, HudMarkers.Triangle(100, 50, false));
-        Assert.Equal(new[] { (100, 50), (97, 44), (103, 44) }, HudMarkers.Triangle(100, 50, true));
+        Assert.Equal([(100, 50), (96, 42), (104, 42)], HudMarkers.Triangle(100, 50, false));
+        Assert.Equal([(100, 50), (97, 44), (103, 44)], HudMarkers.Triangle(100, 50, true));
     }
 
     [Fact]
@@ -38,10 +37,7 @@ public class HudMarkersTests
     }
 
     [Fact]
-    public void DistanceIsTheEuclideanLength()
-    {
-        Assert.Equal(5.0, HudMarkers.Distance((0, 0, 0), (3, 0, 4)), 5);
-    }
+    public void DistanceIsTheEuclideanLength() => Assert.Equal(5.0, HudMarkers.Distance((0, 0, 0), (3, 0, 4)), 5);
 
     private static GuiCrosshairZoomTests.ClipDev Render(params HudTargetMarker[] marks)
     {
@@ -64,7 +60,7 @@ public class HudMarkersTests
         var d = Render(new HudTargetMarker(new HudMarkPoint(200, 150, true), null, "6.8 m"));
         Assert.Contains(d.Rects, r => r.Color == 0xfb && r.Rect.Top == 142 + 0 && r.Rect.Left <= 200 && r.Rect.Right >= 196);
         Assert.Contains(d.Rects, r => r.Color == 0xfb && r.Rect.Top == 150 && r.Rect.Left == 200 && r.Rect.Right == 200);   // the tip row
-        Assert.Contains(d.TextAt, t => t.Text == "6.8 m" && t.Y == 154 && t.X == 200 - 5 * 6 / 2);
+        Assert.Contains(d.TextAt, t => t.Text == "6.8 m" && t.Y == 154 && t.X == 200 - (5 * 6 / 2));
     }
 
     [Fact]

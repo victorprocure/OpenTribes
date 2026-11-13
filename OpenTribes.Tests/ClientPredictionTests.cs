@@ -1,14 +1,13 @@
 // Client prediction and server correction of the control object (docs/client-net.md 4.2 step 4, 4.4; ROADMAP M9 C3b).
 // Two worlds with the same synthetic flat terrain: the server world steps the server object, the client world holds the
 // client copy. The server state travels through the real wire path (writeControlState, ClientPsc.ReadServerBlock).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Script;
-using OpenTribes.World;
 using static OpenTribes.Tests.Fixtures;
-
-namespace OpenTribes.Tests;
 
 public class ClientPredictionTests
 {
@@ -22,16 +21,21 @@ public class ClientPredictionTests
 
         public Side(string name)
         {
-            string root = Path.Combine(TestPaths.TmpDir(""), name);
+            var root = Path.Combine(TestPaths.TmpDir(""), name);
             if (Directory.Exists(root))
                 Directory.Delete(root, true);
-            var t = new TerrainSpec { Scale = 5, Width = 4, Height = 4 }; // 4 x 4 repeats of the 128 m block, flat
-            t.Heights = Enumerable.Repeat(kFlat, 25).ToList();
-            t.Squares = new List<byte>(new byte[32]);
+            var t = new TerrainSpec
+            {
+                Scale = 5,
+                Width = 4,
+                Height = 4,
+                Heights = [.. Enumerable.Repeat(kFlat, 25)],
+                Squares = [.. new byte[32]]
+            }; // 4 x 4 repeats of the 128 m block, flat
             PutFile(Path.Combine(root, "base/m.dtf"), DtfFile(t, kFlat, kFlat));
             PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, kFlat, kFlat));
             PutFile(Path.Combine(root, "base/t.dml"), "dml");
-            float[] gen = { -1, -1.5f, 0, 1, 1.5f, 2 };
+            float[] gen = [-1, -1.5f, 0, 1, 1.5f, 2];
             PutFile(Path.Combine(root, "base/gen.dts"), DtsCollisionFile(gen));
             W = new Fixtures.World(root);
             Numbers.EnterScriptFpuMode();
@@ -54,13 +58,13 @@ public class ClientPredictionTests
 
         public Player Spawn(string pos)
         {
-            string id = W.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
+            var id = W.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
             return Player.From(W.Object(id))!;
         }
 
         public Flier Make(string pos)
         {
-            string id = W.Run("echo(newObject(\"\", flier, Scout, true));");
+            var id = W.Run("echo(newObject(\"\", flier, Scout, true));");
             var f = (Flier)W.Object(id)!;
             W.Run("GameBase::setPosition(" + id + ", \"" + pos + "\");");
             return f;
@@ -70,7 +74,7 @@ public class ClientPredictionTests
     // A server PSC block (game-stream.md 6.3, mode 1) with the control state of `obj`, read by the client branch.
     private static void Correct(ClientWorld cw, GameBase obj, int lastMove)
     {
-        byte[] buf = new byte[256];
+        var buf = new byte[256];
         var bs = new BitStream(buf, buf.Length);
         bs.WriteInt(1, 3);                       // GUI mode 1
         bs.WriteFlag(false);
@@ -105,7 +109,7 @@ public class ClientPredictionTests
 
     private static void AssertSame(GameBase a, GameBase b)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             Assert.Equal(U(a.Transform.P[i]), U(b.Transform.P[i]));
             Assert.Equal(U(a.Velocity[i]), U(b.Velocity[i]));
@@ -151,10 +155,15 @@ public class ClientPredictionTests
         var sv = (Flier)run.Server;
         var c = new Vehicle.ClientControl
         {
-            SpeedF16 = (uint)(long)run.Cw.Psc.ControlState["F16"]!, SpeedT16 = (uint)(long)run.Cw.Psc.ControlState["T16"]!,
-            Energy16 = (uint)(long)run.Cw.Psc.ControlState["E16"]!, HasFlier = true, L = sv.SpeedL, S = sv.SpeedS, Landed = sv.Landed,
+            SpeedF16 = (uint)(long)run.Cw.Psc.ControlState["F16"]!,
+            SpeedT16 = (uint)(long)run.Cw.Psc.ControlState["T16"]!,
+            Energy16 = (uint)(long)run.Cw.Psc.ControlState["E16"]!,
+            HasFlier = true,
+            L = sv.SpeedL,
+            S = sv.SpeedS,
+            Landed = sv.Landed,
         };
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             c.Rot[i] = sv.Rotation[i];
             c.TargetRot[i] = sv.TargetRot[i];
@@ -167,7 +176,7 @@ public class ClientPredictionTests
     {
         public readonly ClientWorld Cw = new();
         public readonly ClientPrediction Pred = new();
-        public readonly List<Move> Moves = new();
+        public readonly List<Move> Moves = [];
         public GameBase Server = null!, Client = null!;
         public uint Tick = kT0;  // the client frame time is 32 * Tick
     }
@@ -192,7 +201,7 @@ public class ClientPredictionTests
         run.Cw.Ghosts.Insert(new ClientGhost { Index = kGhost, Class = flier ? "Flier" : "Player" });
         GameBase copy = run.Client;
         run.Pred.CreateObject = (g, p) => copy;
-        for (int k = 0; k < 120; ++k)
+        for (var k = 0; k < 120; ++k)
             run.Moves.Add(MoveOf(k, moving, flier));
         return run;
     }
@@ -209,19 +218,19 @@ public class ClientPredictionTests
     // same moves leave the server object, bit for bit. The server has applied the moves before lastMove.
     private static void ReplayEqualsServer(string name, bool flier, bool moving)
     {
-        foreach (int pending in new[] { 1, 4, 11 })
+        foreach (var pending in new[] { 1, 4, 11 })
         {
             Run run = Setup(name + pending, flier, moving);
             const int lastMove = 15;
-            for (int k = 0; k < lastMove + pending; ++k)
+            for (var k = 0; k < lastMove + pending; ++k)
                 run.Cw.Psc.AddMove(run.Moves[k]);
-            for (int k = 0; k < lastMove; ++k)
+            for (var k = 0; k < lastMove; ++k)
                 ServerStep(run.Server, run.Moves[k]);
             // Flier: the control state carries the speeds and the energy as unit(16), so the reference is a server object
             // reset to the decoded state (vehicle-sim.md 6.2), stepped by the server code.
             Correct(run.Cw, run.Server, lastMove);
             Assert.Equal(pending, run.Cw.Psc.Moves.Count);
-            uint now = 32 * run.Tick;
+            var now = 32 * run.Tick;
             CorrectionRecord? rec = run.Pred.OnServerBlock(run.Cw, now);
             Assert.True(rec != null && rec.Predicted == null && rec.Pending == pending);
             if (flier)
@@ -230,7 +239,7 @@ public class ClientPredictionTests
                 AssertSame(run.Server, run.Client); // the reset state is the server state
             Assert.Equal(pending, run.Pred.Advance(run.Cw.Psc, now));
             Assert.Equal(pending, rec.Replayed);
-            for (int k = lastMove; k < lastMove + pending; ++k)
+            for (var k = lastMove; k < lastMove + pending; ++k)
                 ServerStep(run.Server, run.Moves[k]);
             AssertSame(run.Server, run.Client);
         }
@@ -248,13 +257,13 @@ public class ClientPredictionTests
         if (flier)
             Requantize(run);
         run.Pred.Advance(run.Cw.Psc, 32 * run.Tick);
-        int applied = 0;
-        for (int round = 0; round < 6; ++round)
+        var applied = 0;
+        for (var round = 0; round < 6; ++round)
         {
-            for (int f = 0; f < 3 + round; ++f)
+            for (var f = 0; f < 3 + round; ++f)
                 Frame(run);
             // The server applies all but the newest two moves (one packet of latency).
-            int lastMove = (int)run.Cw.Psc.MovesCreated - 2;
+            var lastMove = (int)run.Cw.Psc.MovesCreated - 2;
             for (; applied < lastMove; ++applied)
                 ServerStep(run.Server, run.Moves[applied]);
             PredictedState before = PredictedState.Of(run.Client, 0);
@@ -269,7 +278,7 @@ public class ClientPredictionTests
             PredictedState after = PredictedState.Of(run.Client, 0);
             if (flier)
                 continue; // the reset re-quantises the speeds and the energy: the replay starts from other values
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 Assert.Equal(U(before.Position[i]), U(after.Position[i]));
                 Assert.Equal(U(before.Velocity[i]), U(after.Velocity[i]));
@@ -320,10 +329,10 @@ public class ClientPredictionTests
         Move s = ClientPrediction.ServerMove(q);
         Assert.Equal(U(Fpu.F32Chop(7.0 / 15.0)), U(s.Forward));
         Assert.True(Fpu.TowardZero); // the mode of the caller is kept
-        for (int k = 0; k <= 15; ++k)
+        for (var k = 0; k <= 15; ++k)
         {
             Move a = ClientPrediction.Quantize(new Move { Forward = k / 15.0f, Right = k / 15.0f });
-            byte[] buf = new byte[16];
+            var buf = new byte[16];
             var bs = new BitStream(buf, buf.Length);
             Moves.PackMove(bs, a, true, null);
             Assert.Equal((uint)k, new BitStream(buf, buf.Length).ReadInt(4));
@@ -336,13 +345,13 @@ public class ClientPredictionTests
     public void MoveForTick()
     {
         var psc = new ClientPsc();
-        for (int k = 0; k < 4; ++k)
+        for (var k = 0; k < 4; ++k)
             psc.AddMove(new Move { Forward = k / 15.0f });
-        uint now = 32 * 100 + 5;            // inside tick 100
-        Assert.True(ClientPrediction.MoveForTick(psc, 32 * 100, now, out Move m, out int idx) && idx == 3);
+        uint now = (32 * 100) + 5;            // inside tick 100
+        Assert.True(ClientPrediction.MoveForTick(psc, 32 * 100, now, out Move m, out var idx) && idx == 3);
         Assert.True(ClientPrediction.MoveForTick(psc, 32 * 97, now, out m, out idx) && idx == 0 && m.Forward == 0.0f);
         Assert.False(ClientPrediction.MoveForTick(psc, 32 * 96, now, out _, out _));
-        for (int k = 4; k < 30; ++k)
+        for (var k = 4; k < 30; ++k)
             psc.AddMove(new Move());
         Assert.Equal(30, psc.Moves.Count);
         Assert.False(ClientPrediction.MoveForTick(psc, 32 * 100, now, out _, out _));
@@ -372,7 +381,7 @@ public class ClientPredictionTests
         var side = new Side("cp_rider");
         Player p = side.Spawn("100 100 50");
         Flier f = side.Make("100 100 70");
-        f.SetPosition(new[] { 100f, 100f, 70f });
+        f.SetPosition([100f, 100f, 70f]);
         var cw = new ClientWorld();
         var pred = new ClientPrediction { CreateObject = (g, c) => p };
         cw.Ghosts.Insert(new ClientGhost { Index = kGhost, Class = "Player" });
@@ -391,7 +400,7 @@ public class ClientPredictionTests
         pred.PlaceControlRider();
         Assert.Equal(100f, p.Transform.P[0], 3);
         Assert.Equal(70f, p.Transform.P[2], 3);
-        f.SetPosition(new[] { 130f, 100f, 70f });
+        f.SetPosition([130f, 100f, 70f]);
         pred.PlaceControlRider();
         Assert.Equal(130f, p.Transform.P[0], 3);                      // follows the mount as it is now
         cw.Ghosts.Get(kGhost)!.State["mount"] = "none";

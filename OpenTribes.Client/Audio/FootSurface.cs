@@ -1,7 +1,6 @@
-using OpenTribes.Core;
-using OpenTribes.World;
-
 namespace OpenTribes.Client.Audio;
+
+using OpenTribes.World;
 
 /// <summary>The footstep surface type under a foot.</summary>
 /// <remarks>docs/audio.md 3.2. The stock player takes it from its floor contact (Player_pickSurfaceType 00416df8: the contact with the largest upDot that has a material entry, entry +0x38), for terrain and interiors alike. The client approximates the contact with a short vertical line test of the prediction container, which reports the material entry of the surface it hit.</remarks>

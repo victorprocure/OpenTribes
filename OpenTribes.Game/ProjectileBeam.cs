@@ -1,8 +1,8 @@
 // Port of src/game/projectile_beam.cpp: LaserProjectile, TargetLaser, Lightning, RepairEffect (docs/projectile-sim.md
 // 2.7 - 2.10) and their ghost packers (5.2). The pj helpers of the file are in Projectile.cs (Pj).
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The LaserProjectile, TargetLaser, Lightning and RepairEffect projectiles and their ghost packers.</summary>
 /// <remarks>See docs/projectile-sim.md 2.7 to 2.10 and 5.2. The pj helpers are in Projectile.cs.</remarks>
@@ -19,7 +19,7 @@ public static class ProjectileBeam
         SimObject? t = m?.FindById(8);
         if (t is TerrainObject terr && t.ClassName() == "SimTerrain")
         {
-            float vis = terr.VisibleDistance();
+            var vis = terr.VisibleDistance();
             if (vis < 4000.0f)
                 return vis;
         }
@@ -46,7 +46,7 @@ public static class ProjectileBeam
 // src/game/projectile_beam.cpp class Laser.
 internal class Laser : Projectile
 {
-    protected readonly float[] mStart = new float[3], mEnd = new float[3], mDir = { 0, 1, 0 }; // +0x4ec, +0x4f8, +0x504
+    protected readonly float[] mStart = new float[3], mEnd = new float[3], mDir = [0, 1, 0]; // +0x4ec, +0x4f8, +0x504
     protected float mEnergy, mFraction;  // +0x510, +0x514
     protected bool mHit;                 // +0x518
     protected uint mCreated;             // +0x608
@@ -118,19 +118,19 @@ internal class Laser : Projectile
     protected void Resolve()
     {
         using var chop = X87.Chop();
-        float range = ProjectileBeam.BeamRange(mGame);
-        for (int i = 0; i < 3; ++i)
+        var range = ProjectileBeam.BeamRange(mGame);
+        for (var i = 0; i < 3; ++i)
             mEnd[i] = X87.F32(Add(mStart[i], X87.F32(Mul(mDir[i], range))));
         var h = new RayHit();
         if (CastWorld(mGame, mStart, mEnd, 0x24e000a6u, Shooter(), ref h))
         {
             h.Point[..].CopyTo(mEnd);
             mHit = true;
-            float value = X87.F32(Mul(mEnergy, mConversion));
+            var value = X87.F32(Mul(mEnergy, mConversion));
             if (h.Object != null && (h.Type & 0x24c00080u) != 0 && value != 0.0f)
             {
-                float[] vec = new float[3], zero = { 0, 0, 0 };
-                for (int i = 0; i < 3; ++i)
+                float[] vec = new float[3], zero = [0, 0, 0];
+                for (var i = 0; i < 3; ++i)
                     vec[i] = X87.F32(Sub(mEnd[i], mStart[i]));
                 h.Object.ApplyDamage(6, value, mEnd, vec, zero, OwnerClientId());
             }
@@ -185,15 +185,15 @@ internal sealed class TargetLaser : Laser
         mDir[0] = t.M[3];
         mDir[1] = t.M[4];
         mDir[2] = t.M[5];
-        float[] cand = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var cand = new float[3];
+        for (var i = 0; i < 3; ++i)
             cand[i] = X87.F32(Add(mStart[i], X87.F32(Mul(mDir[i], 4000.0f))));
         var h = new RayHit();
-        bool hit = CastWorld(mGame, mStart, cand, 0x24e000a6u, Shooter(), ref h);
+        var hit = CastWorld(mGame, mStart, cand, 0x24e000a6u, Shooter(), ref h);
         if (hit)
             h.Point[..].CopyTo(cand);
-        float[] d = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var d = new float[3];
+        for (var i = 0; i < 3; ++i)
             d[i] = X87.F32(Sub(mEnd[i], cand[i]));
         if (X87.Len(d) > 0.25f || hit != mHit)
         {
@@ -292,7 +292,7 @@ internal class Lightning : Projectile
     {
         Array.Clear(Velocity);
         mGame.JoinSet(this, 14);
-        uint now = mGame.Sim!.TickMs();
+        var now = mGame.Sim!.TickMs();
         mLastSend = now;
         mLastSearch = unchecked(now - 100);
         Search(now);
@@ -328,11 +328,11 @@ internal class Lightning : Projectile
             return;
         mLastSearch = now;
         using var chop = X87.Chop();
-        float[] fwd = { Transform.M[3], Transform.M[4], Transform.M[5] };
-        float[] p = { Transform.P[0], Transform.P[1], Transform.P[2] };
-        float l = mBoltLength;
+        float[] fwd = [Transform.M[3], Transform.M[4], Transform.M[5]];
+        float[] p = [Transform.P[0], Transform.P[1], Transform.P[2]];
+        var l = mBoltLength;
         float[] reach = new float[3], e = new float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             reach[i] = X87.F32(Mul(fwd[i], l));
             e[i] = X87.F32(Add(p[i], reach[i]));
@@ -344,7 +344,7 @@ internal class Lightning : Projectile
             float[] mn = new float[3], mx = new float[3], centre = new float[3];
             if (Pj.WorldBox(mGame, h.Object, mn, mx))
             {
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     centre[i] = X87.F32(Mul(Add(mx[i], mn[i]), 0.5f));
                 var h2 = new RayHit();
                 if (CastWorld(mGame, p, centre, 0x6u, ex, ref h2) && h2.Object != h.Object)
@@ -358,42 +358,42 @@ internal class Lightning : Projectile
                 SetMaskBits(0x08);
                 h.Point[..].CopyTo(mPoint);
                 if (mPoint[0] == p[0] && mPoint[1] == p[1] && mPoint[2] == p[2])
-                    for (int i = 0; i < 3; ++i)
+                    for (var i = 0; i < 3; ++i)
                         mPoint[i] = X87.F32(Add(mPoint[i], X87.F32(Mul(fwd[i], 0.1f))));
                 mTarget = h.Object.Id();
             }
             return;
         }
         // Cone search, only when the ray hit nothing.
-        double ang = Mul(Mul(mConeAngle, 3.14159265358979323846), kDegToRad);
+        var ang = Mul(Mul(mConeAngle, 3.14159265358979323846), kDegToRad);
         float cosA = X87.F32(Math.Cos(ang)), sinA = X87.F32(Math.Sin(ang));
         float[] lo = new float[3], hi = new float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            float off = X87.F32(Mul(reach[i], sinA));
+            var off = X87.F32(Mul(reach[i], sinA));
             float a = X87.F32(Add(e[i], off)), b = X87.F32(Sub(e[i], off));
             lo[i] = MinF(p[i], MinF(a, b));
             hi[i] = MaxF(p[i], MaxF(a, b));
         }
-        float[] box = { lo[0], lo[1], lo[2], hi[0], hi[1], hi[2] };
+        float[] box = [lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]];
         GameBase? best = null;
-        float bestQ = 2.0f;
-        float[] bestPoint = { 0, 0, 0 };
-        foreach (object? o in mGame.World.FindObjects(box, 0x24c002a0u, ex))
+        var bestQ = 2.0f;
+        float[] bestPoint = [0, 0, 0];
+        foreach (var o in mGame.World.FindObjects(box, 0x24c002a0u, ex))
         {
             float[] mn = new float[3], mx = new float[3];
             if (o is not GameBase gb || !Pj.WorldBox(mGame, gb, mn, mx))
                 continue;
             float[] c = new float[3], d = new float[3];
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 c[i] = X87.F32(Mul(Add(mx[i], mn[i]), 0.5f));
                 d[i] = X87.F32(Sub(c[i], p[i]));
             }
-            float proj = X87.F32(X87.Dot(d, fwd));
+            var proj = X87.F32(X87.Dot(d, fwd));
             if (proj > l)
                 continue;
-            float q = X87.F32(Div(proj, X87.Len(d)));
+            var q = X87.F32(Div(proj, X87.Len(d)));
             if (q < cosA || q >= bestQ)
                 continue;
             var los = new RayHit();
@@ -442,22 +442,22 @@ internal class Lightning : Projectile
     protected void TickDamage(uint now)
     {
         using var chop = X87.Chop();
-        int ms = unchecked((int)(now - mLast));
+        var ms = unchecked((int)(now - mLast));
         mLast = now;
         GameBase? t = Target();
         if (ms == 0 || t == null)
             return;
         float[] d = new float[3], vec = new float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             d[i] = X87.F32(Sub(mPoint[i], Transform.P[i]));
-        float k = X87.F32(Div(1.0, X87.F32(X87.Len(d))));
-        for (int i = 0; i < 3; ++i)
+        var k = X87.F32(Div(1.0, X87.F32(X87.Len(d))));
+        for (var i = 0; i < 3; ++i)
             vec[i] = X87.F32(Mul(d[i], k));
-        string fn = Pj.FindMethod(mGame, this, "damageTarget");
+        var fn = Pj.FindMethod(mGame, this, "damageTarget");
         if (fn.Length == 0)
             return;
-        double secs = Mul(ms, 0.001f);
-        float[] zero = { 0, 0, 0 };
+        var secs = Mul(ms, 0.001f);
+        float[] zero = [0, 0, 0];
         Pj.CallMethod(mGame, fn, new[]
         {
             Numbers.FormatInt(t.Id()), Pj.FmtG(secs), Pj.FmtG(mDamagePerSec), Pj.FmtG(mDrainPerSec), ProjectileBeam.VecText(mPoint),
@@ -468,13 +468,13 @@ internal class Lightning : Projectile
     protected void PackTarget(BitStream bs, GhostContext ctx)
     {
         GameBase? t = Target();
-        int ghost = t != null ? ctx.Manager.GhostIndex(t) : -1;
+        var ghost = t != null ? ctx.Manager.GhostIndex(t) : -1;
         if (bs.WriteFlag(ghost != -1))
         {
             bs.WriteInt((uint)ghost, 10);
             using var chop = X87.Chop();
-            float[] off = new float[3];
-            for (int i = 0; i < 3; ++i)
+            var off = new float[3];
+            for (var i = 0; i < 3; ++i)
                 off[i] = X87.F32(Sub(mPoint[i], t!.Transform.P[i]));
             Pj.WriteVec(bs, off);
         }
@@ -513,7 +513,7 @@ internal sealed class RepairEffect : Lightning
         mShut = true;
         if (mAcquired)
         {
-            string fn = Pj.FindMethod(mGame, this, "onRelease");
+            var fn = Pj.FindMethod(mGame, this, "onRelease");
             if (fn.Length != 0)
                 Pj.CallMethod(mGame, fn, new[] { kHandle, Numbers.FormatInt(mShooterObject) });
         }
@@ -521,7 +521,7 @@ internal sealed class RepairEffect : Lightning
 
     private void CheckDone()
     {
-        string fn = Pj.FindMethod(mGame, this, "checkDone");
+        var fn = Pj.FindMethod(mGame, this, "checkDone");
         if (fn.Length != 0)
             Pj.CallMethod(mGame, fn, new[] { kHandle, Numbers.FormatInt(mShooterObject) });
     }
@@ -545,12 +545,12 @@ internal sealed class RepairEffect : Lightning
         {
             h.Point[..].CopyTo(mPoint);
             if (mPoint[0] == Transform.P[0] && mPoint[1] == Transform.P[1] && mPoint[2] == Transform.P[2])
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     mPoint[i] = X87.F32(Add(mPoint[i], X87.F32(Mul(Transform.M[3 + i], 0.1f))));
             if (h.Object != null && (h.Type & 0x6u) == 0) // terrain and interiors count as no object
                 obj = h.Object;
         }
-        int prev = mTarget;
+        var prev = mTarget;
         mTarget = obj != null ? obj.Id() : 0;
         if (mAcquired)
         {
@@ -561,7 +561,7 @@ internal sealed class RepairEffect : Lightning
         }
         else
         {
-            string fn = Pj.FindMethod(mGame, this, "onAcquire");
+            var fn = Pj.FindMethod(mGame, this, "onAcquire");
             if (fn.Length != 0)
                 Pj.CallMethod(mGame, fn, new[]
                 {

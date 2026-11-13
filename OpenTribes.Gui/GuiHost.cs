@@ -1,8 +1,8 @@
+namespace OpenTribes.Gui;
+
 using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Script;
-
-namespace OpenTribes.Gui;
 
 /// <summary>The audio the GUI needs: it only asks for a named wave to play.</summary>
 /// <remarks>A stub until the client audio (C7) replaces it.</remarks>
@@ -10,14 +10,14 @@ public interface IGuiAudio
 {
     /// <summary>Plays a named wave.</summary>
     /// <param name="name">The wave file name.</param>
-    void Play(string name);
+    public void Play(string name);
 }
 
 /// <summary>An audio stub that records the names it was asked to play.</summary>
 public sealed class RecordingAudio : IGuiAudio
 {
     /// <summary>The names played, in order.</summary>
-    public readonly List<string> Played = new();
+    public readonly List<string> Played = [];
     /// <inheritdoc/>
     public void Play(string name) => Played.Add(name);
 }
@@ -37,15 +37,15 @@ public sealed class GuiHost
     /// <summary>The clock in milliseconds.</summary>
     public Func<long> Now = () => Environment.TickCount64;
     /// <summary>Receives log lines.</summary>
-    public Action<string> Log = s => Console.WriteLine(s);
+    public Action<string> Log = Console.WriteLine;
     /// <summary>The clipboard text.</summary>
     public string Clipboard = "";
     /// <summary>The HUD data source (docs/gui.md 4.1), null for no client player state.</summary>
     public IHudSource? Hud;
     /// <summary>The action maps the controls screen rows look their keys up in.</summary>
-    public OpenTribes.Script.ClientState? Actions;
+    public ClientState? Actions;
     /// <summary>The item indices marked as favorites (CmdInventory::setFavorites). The inventory lists draw a star beside them.</summary>
-    public readonly HashSet<int> Favorites = new();
+    public readonly HashSet<int> Favorites = [];
     /// <summary>Called when a PaletteCtrl wakes, with the palette file name.</summary>
     public Action<string>? OnPalette;
     /// <summary>Called with a movie palette (768 RGB bytes) to merge into the active palette at palStart for palColors entries.</summary>
@@ -53,7 +53,7 @@ public sealed class GuiHost
     /// <summary>Called at the end of a movie: the active palette comes back.</summary>
     public Action? OnMovieEnd;
     /// <summary>Called at the start of the movie sound. Returns the call that stops it.</summary>
-    public Func<OpenTribes.Platform.Audio.WavData, Action?>? StartMovieAudio;
+    public Func<Platform.Audio.WavData, Action?>? StartMovieAudio;
     /// <summary>Returns whether a chat menu object of that name exists (`CommandChatMenu`, TSCommander 004d2a98).</summary>
     public Func<string, bool>? ChatMenuExists;
     /// <summary>Calls setCMMode on the chat menu object of that name (TSCommander 004d2a98).</summary>
@@ -78,7 +78,7 @@ public sealed class GuiHost
     public long TickMs => Now();
 
     /// <summary>The chat lines (text, font tag) the HUD classes draw.</summary>
-    public readonly List<(string Text, uint FontTag)> Chat = new();
+    public readonly List<(string Text, uint FontTag)> Chat = [];
     /// <summary>Adds a chat line.</summary>
     /// <param name="text">The line text.</param>
     /// <param name="fontTag">The font tag.</param>
@@ -152,7 +152,7 @@ public sealed class GuiHost
     /// <returns>The first word.</returns>
     public static string FirstWord(string text)
     {
-        int i = text.IndexOf(' ');
+        var i = text.IndexOf(' ');
         return i < 0 ? text : text[..i];
     }
 
@@ -161,7 +161,7 @@ public sealed class GuiHost
     /// <returns>The first item.</returns>
     public static string FirstItem(string text)
     {
-        int c = text.IndexOf(',');
+        var c = text.IndexOf(',');
         return (c < 0 ? text : text[..c]).Trim();
     }
 
@@ -241,9 +241,9 @@ public sealed class GuiHost
     /// <returns>True when the file was found.</returns>
     public bool ReadGuiFile(string name, out byte[] data)
     {
-        data = Array.Empty<byte>();
-        string host = name.Replace('\\', '/');
-        foreach (string p in new[] { host, Path.Combine(Root, host) })
+        data = [];
+        var host = name.Replace('\\', '/');
+        foreach (var p in new[] { host, Path.Combine(Root, host) })
         {
             try
             {
@@ -278,107 +278,107 @@ public readonly record struct HudZoom(double Cur, double ZoomFov, double Target,
 public interface IHudSource
 {
     /// <summary>Gets a value that is true when there is a client player state.</summary>
-    bool HasPlayerState { get; }
+    public bool HasPlayerState { get; }
     /// <summary>Gets a value that is true when the client's own player or a vehicle it rides is the control object: the sensor ping and the crosshair draw only then, not in the observer camera (004ea720, 004ab500).</summary>
-    bool InPlayerView => HasPlayerState;
+    public bool InPlayerView => HasPlayerState;
     /// <summary>Gets a value that is true when the sensor ping shows: the control object is the client's own player or has object flag 0x20000000 (Vehicle, Flier). A controlled Turret shows none, not even the frame (004ea720, test at 004ea7d3).</summary>
-    bool SensorHudShown => HasPlayerState;
+    public bool SensorHudShown => HasPlayerState;
     /// <summary>Gets a value that is true when the control object is the client's own player (PSC +0xa4 equals the controlled player 006a83cc), not a vehicle it rides: the weapon list draws only then (004e8fe8).</summary>
     /// <remarks>The ping and the crosshair also take an object flagged 0x20000000 (Vehicle, Flier) (004ea720).</remarks>
-    bool ControlIsPlayer => HasPlayerState;
+    public bool ControlIsPlayer => HasPlayerState;
     /// <summary>Gets a value that is true when the view is first person (PSC +0xa0 on, view distance +0x9c at 0): the crosshair draws only then (004ab500).</summary>
-    bool FirstPersonView => true;
+    public bool FirstPersonView => true;
     /// <summary>Gets the zoom state the crosshair reads, null without one.</summary>
     /// <remarks>Follows the getter at 00404578: current FOV 0060f0a0, zoom FOV 0060f0a4, PSC +0x40c, +0x414 and +0x418, time 006a83a0, last zoom step stamp 0060f0b4.</remarks>
-    HudZoom? Zoom => null;
+    public HudZoom? Zoom => null;
     /// <summary>Gets the control object's damage level, 0.0 healthy to 1.0 dead (vtable +0xf8).</summary>
-    double DamageLevel { get; }
+    public double DamageLevel { get; }
     /// <summary>Gets the energy level, 0.0 to 1.0 (vtable +0xfc).</summary>
-    double EnergyLevel { get; }
+    public double EnergyLevel { get; }
     /// <summary>Gets the yaw of the control object in radians (compass).</summary>
-    double Yaw { get; }
+    public double Yaw { get; }
     /// <summary>Gets the waypoint of the local client (006a83e4 set) with its world position and the control object's, null without one.</summary>
-    HudWaypoint? Waypoint => null;
+    public HudWaypoint? Waypoint => null;
     /// <summary>Gets the HUD timer (setHudTimer) in seconds.</summary>
-    double ClockSeconds { get; }
+    public double ClockSeconds { get; }
     /// <summary>Gets the weapon rows of the weapon HUD in datablock order (docs/gui.md 4.2).</summary>
-    IReadOnlyList<WeaponRow> Weapons { get; }
+    public IReadOnlyList<WeaponRow> Weapons { get; }
     /// <summary>Returns the marks and the label of the crosshair target (docs/gui.md 4.2 Crosshair).</summary>
     /// <param name="width">The view width.</param>
     /// <param name="height">The view height.</param>
     /// <returns>The target, null without a view.</returns>
-    HudTargetResult? CrosshairTarget(int width, int height) => null;
+    public HudTargetResult? CrosshairTarget(int width, int height) => null;
     /// <summary>Returns the aim triangles with their distance labels over the placed targets (docs/gui.md 4.2, 004ada90).</summary>
     /// <param name="width">The view width.</param>
     /// <param name="height">The view height.</param>
     /// <returns>The markers.</returns>
-    IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => Array.Empty<HudTargetMarker>();
+    public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => Array.Empty<HudTargetMarker>();
     /// <summary>Gets a value that is true while the sensor pings.</summary>
-    bool SensorPing { get; }
+    public bool SensorPing { get; }
     /// <summary>Gets a value that is true while the sensor has a lock.</summary>
-    bool SensorLocked { get; }
+    public bool SensorLocked { get; }
     /// <summary>Gets the item datablocks with showInventory set, with the counts and the station masks of the client player state (the lists of CmdInventory.gui). Empty without a client.</summary>
-    IReadOnlyList<InventoryEntry> InventoryItems => Array.Empty<InventoryEntry>();
+    public IReadOnlyList<InventoryEntry> InventoryItems => Array.Empty<InventoryEntry>();
     /// <summary>Gets the scoreboard of the client player manager (docs/client-net.md 2.3 DeltaScoreEvent), null without one.</summary>
-    ScoreBoard? Scores => null;
+    public ScoreBoard? Scores => null;
     /// <summary>Gets the menu a script put on display, null without one.</summary>
-    ServerMenuView? ServerMenu => null;
+    public ServerMenuView? ServerMenu => null;
     /// <summary>Gets the player chat menu (`v`) as the chat display draws it, null when it is closed.</summary>
-    PlayMenuView? PlayMenu => null;
+    public PlayMenuView? PlayMenu => null;
     /// <summary>Returns the state of the chat menu object of that name for a FGChatMenu control (docs/gui.md 3.3 "The command screen panels").</summary>
     /// <param name="name">The menu object name.</param>
     /// <returns>The state, null when there is no such chat menu.</returns>
-    ChatMenuState? NamedMenu(string name) => null;
+    public ChatMenuState? NamedMenu(string name) => null;
     /// <summary>Gets the rows of the command team list of the local player's team (CommandTeamCtrl, docs/gui.md 3.3 "The command screen panels").</summary>
-    IReadOnlyList<CommandTeamRow> CommandTeam => Array.Empty<CommandTeamRow>();
+    public IReadOnlyList<CommandTeamRow> CommandTeam => Array.Empty<CommandTeamRow>();
     /// <summary>Gets the rows of the Objects list (CommandItemCtrl) of the command screen.</summary>
-    IReadOnlyList<CommandListRow> CommandObjects => Array.Empty<CommandListRow>();
+    public IReadOnlyList<CommandListRow> CommandObjects => Array.Empty<CommandListRow>();
     /// <summary>Gets the rows of the Controllables list (CommandTurretCtrl) of the command screen.</summary>
-    IReadOnlyList<CommandListRow> CommandControllables => Array.Empty<CommandListRow>();
+    public IReadOnlyList<CommandListRow> CommandControllables => Array.Empty<CommandListRow>();
     /// <summary>Returns the client id of the first selected record of the local player's records (the CMDObserve toggle takes it).</summary>
     /// <returns>The client id, -1 for none.</returns>
-    int CommandFirstSelectedClient() => -1;
+    public int CommandFirstSelectedClient() => -1;
     /// <summary>Gets the base picture of the commander map, null until the world is rendered (docs/gui.md 3.3 "The command map").</summary>
-    CommandMapPicture? CommandMap => null;
+    public CommandMapPicture? CommandMap => null;
     /// <summary>Gets the slots and the local client for the marks over the map, null without a client.</summary>
-    CommandMapMarks? CommandMapMarks => null;
+    public CommandMapMarks? CommandMapMarks => null;
     /// <summary>Gets the mission objective lines (TeamObjectiveEvent), 32 slots. A slot nobody set is null.</summary>
-    IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
+    public IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
 
     // ---- what the command map and the team list read and write (TSCommander 004d1bf0 .. 004d3018, CommandTeamCtrl 004a8b00) ----
     /// <summary>Gets the local human client of the command map (PlayerManager_findHumanClient of the manager id), null without one.</summary>
-    CommandLocalClient? CommandLocal => null;
+    public CommandLocalClient? CommandLocal => null;
     /// <summary>Gets the 256 slots of the command map block as the map control reads them (+0x340 to +0x364), null without a client.</summary>
-    OpenTribes.Game.ClientCommandSlot[]? CommandSlotTable => null;
+    public Game.ClientCommandSlot[]? CommandSlotTable => null;
     /// <summary>Returns the mapFilter field (+0x18) of the datablock of a group and index (DataBlockManager_getByIndex).</summary>
     /// <param name="group">The datablock group.</param>
     /// <param name="index">The datablock index.</param>
     /// <returns>The filter, null when the datablock does not exist.</returns>
-    int? CommandBlockFilter(int group, int index) => null;
+    public int? CommandBlockFilter(int group, int index) => null;
     /// <summary>Returns the name of the human client with an id (PlayerManager_findHumanClient).</summary>
     /// <param name="clientId">The client id.</param>
     /// <returns>The name, null when there is none.</returns>
-    string? CommandClientName(int clientId) => null;
+    public string? CommandClientName(int clientId) => null;
     /// <summary>Returns the label a target slot (128 and up) was given (TargetNameEvent).</summary>
     /// <param name="slot">The slot.</param>
     /// <returns>The label, null without one.</returns>
-    string? CommandTargetName(int slot) => null;
+    public string? CommandTargetName(int slot) => null;
     /// <summary>Sets the selected byte (+0x68) of the client record with an id (PlayerManager_findClient).</summary>
     /// <param name="clientId">The client id.</param>
     /// <param name="on">The new state.</param>
-    void CommandSetSelected(int clientId, bool on) { }
+    public void CommandSetSelected(int clientId, bool on) { }
     /// <summary>Flips the expanded byte (+0x69) of a record, as a click on the tree glyph does.</summary>
     /// <param name="clientId">The client id.</param>
-    void CommandToggleExpanded(int clientId) { }
+    public void CommandToggleExpanded(int clientId) { }
     /// <summary>Returns whether a client stands above another in the command chain (PlayerManager_isInCommandChain, 0040cad4).</summary>
     /// <param name="clientId">The client below.</param>
     /// <param name="commander">The client above.</param>
     /// <returns>True when <paramref name="commander"/> stands above <paramref name="clientId"/>.</returns>
-    bool CommandInChain(int clientId, int commander) => false;
+    public bool CommandInChain(int clientId, int commander) => false;
     /// <summary>Returns the command tree links of a record (+0x74 first subordinate, +0x78 next sibling) as client ids, -1 for none, and its selected flag.</summary>
     /// <param name="clientId">The client id.</param>
     /// <returns>The links, null for an unknown id.</returns>
-    (int FirstChild, int NextSibling, bool Selected)? CommandLinks(int clientId) => null;
+    public (int FirstChild, int NextSibling, bool Selected)? CommandLinks(int clientId) => null;
 }
 
 /// <summary>The id and team of the local human client record.</summary>
@@ -448,7 +448,7 @@ public sealed class StaticHudSource : IHudSource
     /// <inheritdoc/>
     public double ClockSeconds { get; set; }
     /// <summary>The weapon rows.</summary>
-    public List<WeaponRow> WeaponList { get; } = new();
+    public List<WeaponRow> WeaponList { get; } = [];
     /// <inheritdoc/>
     public IReadOnlyList<WeaponRow> Weapons => WeaponList;
     /// <inheritdoc/>
@@ -458,11 +458,11 @@ public sealed class StaticHudSource : IHudSource
     /// <inheritdoc/>
     public HudZoom? Zoom { get; set; }
     /// <summary>The target markers.</summary>
-    public List<HudTargetMarker> Markers { get; } = new();
+    public List<HudTargetMarker> Markers { get; } = [];
     /// <inheritdoc/>
     public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => Markers;
     /// <summary>The inventory entries.</summary>
-    public List<InventoryEntry> Inventory { get; } = new();
+    public List<InventoryEntry> Inventory { get; } = [];
     /// <inheritdoc/>
     public IReadOnlyList<InventoryEntry> InventoryItems => Inventory;
     /// <summary>The scoreboard value.</summary>

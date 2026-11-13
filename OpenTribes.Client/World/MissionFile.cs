@@ -1,7 +1,7 @@
+namespace OpenTribes.Client.World;
+
 using System.Globalization;
 using System.Text;
-
-namespace OpenTribes.Client.World;
 
 /// <summary>A mission object of a <c>.mis</c> text file: <c>instant Class "name" { field = "value"; ... children }</c>.</summary>
 /// <remarks>docs/mission.md. The client renders from a local copy of the mission without a server, so this reads only the structure. The objects themselves are the render-side data of world-render.md 6.1.</remarks>
@@ -14,20 +14,20 @@ public sealed class MissionObject
     /// <summary>The fields by name, ignoring case.</summary>
     public readonly Dictionary<string, string> Fields = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The child objects in file order.</summary>
-    public readonly List<MissionObject> Children = new();
+    public readonly List<MissionObject> Children = [];
 
     /// <summary>Reads a field as text.</summary>
     /// <param name="key">The field name.</param>
     /// <param name="def">The value when the field is missing.</param>
     /// <returns>The field text or the default.</returns>
-    public string Get(string key, string def = "") => Fields.TryGetValue(key, out string? v) ? v : def;
+    public string Get(string key, string def = "") => Fields.TryGetValue(key, out var v) ? v : def;
 
     /// <summary>Reads a field as a number.</summary>
     /// <param name="key">The field name.</param>
     /// <param name="def">The value when the field is missing or not a number.</param>
     /// <returns>The number or the default.</returns>
     public double GetDouble(string key, double def) =>
-        Fields.TryGetValue(key, out string? v) && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
+        Fields.TryGetValue(key, out var v) && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d)
             ? d
             : def;
 
@@ -38,11 +38,11 @@ public sealed class MissionObject
     public double[] GetVector(string key, int count = 3)
     {
         var r = new double[count];
-        if (!Fields.TryGetValue(key, out string? v))
+        if (!Fields.TryGetValue(key, out var v))
             return r;
-        string[] parts = v.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        for (int i = 0; i < count && i < parts.Length; ++i)
-            if (double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+        var parts = v.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < count && i < parts.Length; ++i)
+            if (double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
                 r[i] = d;
         return r;
     }
@@ -53,7 +53,7 @@ public sealed class MissionObject
     /// <returns>The flag or the default.</returns>
     public bool GetBool(string key, bool def)
     {
-        if (!Fields.TryGetValue(key, out string? v))
+        if (!Fields.TryGetValue(key, out var v))
             return def;
         return v.Equals("true", StringComparison.OrdinalIgnoreCase) || v == "1";
     }
@@ -80,7 +80,7 @@ public static class MissionFile
     public static List<MissionObject> Parse(string text)
     {
         var tokens = Tokenize(text);
-        int pos = 0;
+        var pos = 0;
         var roots = new List<MissionObject>();
         while (pos < tokens.Count)
         {
@@ -99,7 +99,7 @@ public static class MissionFile
         if (pos + 3 >= t.Count || (t[pos] != "instant" && t[pos] != "new"))
             return null;
         var o = new MissionObject { Class = t[pos + 1] };
-        int p = pos + 2;
+        var p = pos + 2;
         if (t[p].StartsWith('"'))
             o.Name = Unquote(t[p++]);
         if (p >= t.Count || t[p] != "{")
@@ -107,7 +107,7 @@ public static class MissionFile
         ++p;
         while (p < t.Count && t[p] != "}")
         {
-            if (t[p] == "instant" || t[p] == "new")
+            if (t[p] is "instant" or "new")
             {
                 MissionObject? c = ReadObject(t, ref p);
                 if (c == null)
@@ -139,10 +139,10 @@ public static class MissionFile
     private static List<string> Tokenize(string s)
     {
         var r = new List<string>();
-        int i = 0;
+        var i = 0;
         while (i < s.Length)
         {
-            char c = s[i];
+            var c = s[i];
             if (char.IsWhiteSpace(c))
             {
                 ++i;
@@ -173,7 +173,7 @@ public static class MissionFile
             }
             else
             {
-                int j = i;
+                var j = i;
                 while (j < s.Length && !char.IsWhiteSpace(s[j]) && s[j] is not ('{' or '}' or ';' or '=' or '"'))
                     ++j;
                 r.Add(s[i..j]);

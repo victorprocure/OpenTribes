@@ -1,10 +1,8 @@
 // Port of src/game/ghost_manager.hpp and src/game/ghost_manager.cpp: the GhostManager (docs/game-stream-ghosts.md 1-2):
 // per-connection ghost table, scoping, the always phase, update selection and notify.
-using OpenTribes.Core;
-using OpenTribes.Sim;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>What a class's pack routine may ask about the connection.</summary>
 public sealed class GhostContext
@@ -61,9 +59,9 @@ public sealed class CameraRecord
     /// <summary>The camera object (+0x00).</summary>
     public SimObject? Object;
     /// <summary>The camera position (+0x04).</summary>
-    public readonly float[] Pos = { 0, 0, 0 };
+    public readonly float[] Pos = [0, 0, 0];
     /// <summary>The forward direction (+0x10).</summary>
-    public readonly float[] Dir = { 0, 1, 0 };
+    public readonly float[] Dir = [0, 1, 0];
     /// <summary>The field of view (+0x1c, 0x3f490fdb).</summary>
     public float Fov = 0.785398185f;
     /// <summary>The sine of half the field of view (+0x20).</summary>
@@ -126,7 +124,7 @@ public sealed class GhostManager
     private Entry? mHead;
     private readonly Dictionary<SimObject, Entry> mByObject = new(ReferenceEqualityComparer.Instance);
     private readonly Stack<Record> mFreeRecords = new();
-    private readonly Dictionary<uint, Record> mPackets = new();
+    private readonly Dictionary<uint, Record> mPackets = [];
     private uint mNextToken = 1;
 
     /// <summary>The camera record the priority functions read.</summary>
@@ -172,7 +170,7 @@ public sealed class GhostManager
     // src/game/ghost_manager.cpp comparePriority: 0055231c: descending priority.
     private static int ComparePriority(float a, float b)
     {
-        float d = SubF(b, a);
+        var d = SubF(b, a);
         if (d >= 0.0f)
             return d <= 0.0f ? 0 : 1;
         return -1;
@@ -227,11 +225,10 @@ public sealed class GhostManager
         e.Skip = 0;
         e.Prev = null;
         e.Next = mHead;
-        if (mHead != null)
-            mHead.Prev = e;
+        mHead?.Prev = e;
         mHead = e;
         mByObject[obj] = e;
-        uint bits = IndexBits(e.Index);
+        var bits = IndexBits(e.Index);
         if (bits > mIdBits)
             mIdBits = bits;
         OnNewGhost?.Invoke(e.Index, obj);
@@ -245,8 +242,7 @@ public sealed class GhostManager
             e.Prev.Next = e.Next;
         else
             mHead = e.Next;
-        if (e.Next != null)
-            e.Next.Prev = e.Prev;
+        e.Next?.Prev = e.Prev;
         e.Next = mFree;
         mFree = e;
         if (e.Object != null)
@@ -347,7 +343,7 @@ public sealed class GhostManager
         Camera = new CameraRecord();
         bs.WriteFlag(mMode == ModeKind.Always);
 
-        if (mMode == ModeKind.Normal || mMode == ModeKind.Idle)
+        if (mMode is ModeKind.Normal or ModeKind.Idle)
         {
             if (mMode == ModeKind.Normal)
             {
@@ -392,7 +388,7 @@ public sealed class GhostManager
                 else if (e.Mask != 0 && mMode == ModeKind.Normal)
                 {
                     // 1.0 without a scope object; else the class priority (vtable +0x5c).
-                    float p = 1.0f;
+                    var p = 1.0f;
                     if (mScopeObject != null)
                     {
                         GhostClass? cls = GhostClassOf(e.Object!);
@@ -406,8 +402,8 @@ public sealed class GhostManager
             }
             e = next;
         }
-        Item[] sorted = updates.ToArray();
-        Borland.BorlandQsort<Item>(sorted, (a, b) => ComparePriority(a.Priority, b.Priority));
+        Item[] sorted = [.. updates];
+        Borland.BorlandQsort(sorted, (a, b) => ComparePriority(a.Priority, b.Priority));
 
         bs.WriteInt(mIdBits - 3, 3);
         Record? packet = null;
@@ -429,7 +425,7 @@ public sealed class GhostManager
             {
                 bs.WriteFlag(false);
                 GhostClass? cls = GhostClassOf(e.Object!);
-                bool isNew = (e.Flags & kCreate) != 0;
+                var isNew = (e.Flags & kCreate) != 0;
                 if (isNew)
                 {
                     if (mMode == ModeKind.Always)
@@ -438,9 +434,9 @@ public sealed class GhostManager
                     r.State = kCreating;
                     bs.WriteInt(cls != null ? cls.Tag : 0, 10);
                 }
-                uint mask = e.Mask;
+                var mask = e.Mask;
                 var ctx = new GhostContext(this, mClientId, isNew);
-                uint retained = cls?.Pack != null ? cls.Pack(e.Object!, ctx, bs, mask) : 0;
+                var retained = cls?.Pack != null ? cls.Pack(e.Object!, ctx, bs, mask) : 0;
                 e.Mask = retained;
                 r.Mask = mask & ~retained;
             }
@@ -461,7 +457,7 @@ public sealed class GhostManager
 
         if (mMode == ModeKind.Always)
         {
-            bool done = true;
+            var done = true;
             for (Entry? e = mHead; e != null; e = e.Next)
                 if ((e.Flags & (kCreate | kCreating)) != 0)
                 {

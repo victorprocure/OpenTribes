@@ -1,8 +1,9 @@
 // Port of tests/test_vehicle.cpp: vehicles (ROADMAP 7.5, docs/vehicle-sim.md): creation and datablock binding (1),
 // mounting (2), move credit and the null-move tick (3.1), the flight step against vectors of the exact model (3.3 -
 // 3.6), collision damage (4), the weapon (5), the wire (6) and the Vehicle:: commands (7.1). 110 asserts, one to one.
+namespace OpenTribes.Tests;
+
 using System.Globalization;
-using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Script;
@@ -10,8 +11,6 @@ using OpenTribes.Sim;
 using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
 using static OpenTribes.Tests.Fixtures;
-
-namespace OpenTribes.Tests;
 
 public class VehicleTests
 {
@@ -44,16 +43,18 @@ public class VehicleTests
             Root = Path.Combine(TestPaths.TmpDir(""), name);
             if (Directory.Exists(Root))
                 Directory.Delete(Root, true);
-            var t = new TerrainSpec(); // 256 m x 256 m, flat
-            t.Scale = 5;
-            t.Width = 16; // 16 x 16 repeats of the one 128 m block: 2048 m, the flights stay inside
-            t.Height = 16;
-            t.Heights = Enumerable.Repeat(kFlat, 25).ToList();
-            t.Squares = new List<byte>(new byte[32]);
+            var t = new TerrainSpec
+            {
+                Scale = 5,
+                Width = 16, // 16 x 16 repeats of the one 128 m block: 2048 m, the flights stay inside
+                Height = 16,
+                Heights = [.. Enumerable.Repeat(kFlat, 25)],
+                Squares = [.. new byte[32]]
+            }; // 256 m x 256 m, flat
             PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, kFlat, kFlat));
             PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, kFlat, kFlat));
             PutFile(Path.Combine(Root, "base/t.dml"), "dml");
-            float[] gen = { -1, -1.5f, 0, 1, 1.5f, 2 };
+            float[] gen = [-1, -1.5f, 0, 1, 1.5f, 2];
             PutFile(Path.Combine(Root, "base/gen.dts"), DtsCollisionFile(gen));
             W = new Fixtures.World(Root);
             Numbers.EnterScriptFpuMode();
@@ -73,7 +74,7 @@ public class VehicleTests
 
         public Flier Make(string data, string pos)
         {
-            string id = W.Run("echo(newObject(\"\", flier, " + data + ", true));");
+            var id = W.Run("echo(newObject(\"\", flier, " + data + ", true));");
             var f = W.Object(id) as Flier;
             Assert.True(f != null && f.ShapeClass() == GameBase.ShapeKind.Vehicle);
             W.Run("GameBase::setPosition(" + id + ", \"" + pos + "\");");
@@ -82,23 +83,25 @@ public class VehicleTests
 
         public Player Spawn(string pos)
         {
-            string id = W.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
+            var id = W.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
             Player? p = Player.From(W.Object(id));
-            Assert.True(p != null);
+            Assert.NotNull(p);
             return p!;
         }
     }
 
     private static Move MakeMove(string[] v)
     {
-        var m = new Move();
-        m.Forward = v[0] != "0" ? 1.0f : 0.0f;
-        m.Backward = v[1] != "0" ? 1.0f : 0.0f;
-        m.Left = v[2] != "0" ? 1.0f : 0.0f;
-        m.Right = v[3] != "0" ? 1.0f : 0.0f;
-        m.Jet = v[4] != "0";
-        m.Turn = TestPaths.IncF32(v[5]);
-        m.Pitch = TestPaths.IncF32(v[6]);
+        var m = new Move
+        {
+            Forward = v[0] != "0" ? 1.0f : 0.0f,
+            Backward = v[1] != "0" ? 1.0f : 0.0f,
+            Left = v[2] != "0" ? 1.0f : 0.0f,
+            Right = v[3] != "0" ? 1.0f : 0.0f,
+            Jet = v[4] != "0",
+            Turn = TestPaths.IncF32(v[5]),
+            Pitch = TestPaths.IncF32(v[6])
+        };
         return m;
     }
 
@@ -112,24 +115,24 @@ public class VehicleTests
     // The flight step against the exact model: every field of every step is bit-identical.
     private static void RunVectors(Fixture f, string data)
     {
-        int diverged = 0;
-        string firstDiff = "";
+        var diverged = 0;
+        var firstDiff = "";
         const string inc = "tests/flier_vectors.inc";
-        string[] start = TestPaths.IncTokens(inc, "k" + data + "Start")[0];
+        var start = TestPaths.IncTokens(inc, "k" + data + "Start")[0];
         List<string[]> moves = TestPaths.IncTokens(inc, "k" + data + "Moves"), states = TestPaths.IncTokens(inc, "k" + data + "States");
         Assert.True(moves.Count == states.Count); // static_assert(N == M)
-        string pos = Numbers.FormatFloat(TestPaths.IncF32(start[0])) + " " + Numbers.FormatFloat(TestPaths.IncF32(start[1])) + " " +
+        var pos = Numbers.FormatFloat(TestPaths.IncF32(start[0])) + " " + Numbers.FormatFloat(TestPaths.IncF32(start[1])) + " " +
                      Numbers.FormatFloat(TestPaths.IncF32(start[2]));
         Flier fl = f.Make(data, pos);
         fl.Piloted = true;
-        for (int i = 0; i < moves.Count; ++i)
+        for (var i = 0; i < moves.Count; ++i)
         {
             Move m = MakeMove(moves[i]);
             fl.Update(ref m, 0.032f);
-            uint[] s = states[i].Take(13).Select(TestPaths.IncU32).ToArray();
-            int landed = int.Parse(states[i][13], CultureInfo.InvariantCulture);
-            bool ok = true;
-            for (int k = 0; k < 3; ++k)
+            var s = states[i].Take(13).Select(TestPaths.IncU32).ToArray();
+            var landed = int.Parse(states[i][13], CultureInfo.InvariantCulture);
+            var ok = true;
+            for (var k = 0; k < 3; ++k)
                 ok = ok && Bits(fl.Transform.P[k]) == s[k] && Bits(fl.Rotation[k]) == s[3 + k] && Bits(fl.TargetRot[k]) == s[6 + k];
             ok = ok && Bits(fl.SpeedL) == s[9] && Bits(fl.SpeedS) == s[10] && Bits(fl.SpeedF) == s[11] && Bits(fl.SpeedT) == s[12] &&
                  (fl.Landed ? 1 : 0) == landed;
@@ -174,14 +177,14 @@ public class VehicleTests
         var c = new Cases();
         w.Run("function Vehicle::onAdd(%this) { $added = %this; GameBase::setRechargeRate(%this, 10); }");
         Flier v = f.Make("Scout", "-40 0 60");
-        string id = Itoa(v.Id());
+        var id = Itoa(v.Id());
         c.Check(w, "echo($added == " + id + ");", "1");
         c.Check(w, "echo(getObjectType(" + id + "), \" \", GameBase::getDataName(" + id + "), \" \", GameBase::isActive(" +
                    id + "), \" \", GameBase::getDamageState(" + id + "), \" \", GameBase::getEnergy(" + id + "));",
                 "Flier Scout False Enabled 100");
         Assert.True(v.ControlClient == 0 && v.OwnerClient == 0 && !v.Piloted && !v.Landed && v.SpeedF == 0 && v.SpeedT == 0 &&
                     v.SpeedL == 0 && v.SpeedS == 0 && v.Credit == 0 && v.FireCount == 0);
-        Assert.True(v.ItemFlags == 0x199);
+        Assert.Equal(0x199, v.ItemFlags);
         bool in718 = false, in719 = false;
         foreach (SimObject m in w.Sim.Server()!.FindById(718)!.AsSet()!.Members())
             in718 = in718 || m == v;
@@ -192,11 +195,11 @@ public class VehicleTests
         Assert.True(d.MaxSpeed == 50 && d.MinSpeed == -2 && d.MaxVertical == 10 && d.MaxAlt == 25 && d.Lift == 0.75f);
         Assert.True(Bits(d.Accel) == Bits(X87.F32(0.399999)) && d.DriverPose == 22 && d.VisibleDriver);
         Assert.True(v.MaxDamage == X87.F32(0.599999) && v.MaxEnergy == 100);
-        Assert.True(v.Ceiling == 100.0f); // (hmax - hmin / 2) + (hmax + maxAlt) on the flat 50 m terrain
+        Assert.Equal(100.0f, v.Ceiling); // (hmax - hmin / 2) + (hmax + maxAlt) on the flat 50 m terrain
         Assert.True(v.ShapeRadius == 0.75f && v.ItemSubStep == X87.F32(3.0 * 0.45));
-        Assert.True(v.TypeMask == 0x24c00080u);
+        Assert.Equal(0x24c00080u, v.TypeMask);
         c.Check(w, "echo(GameBase::getMapName(" + id + "));", "");
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
 
     // ---- credit, latency, the null-move tick (3.1) ----
@@ -205,30 +208,34 @@ public class VehicleTests
     {
         var f = new Fixture("vehicle_credit");
         Flier v = f.Make("Scout", "128 128 70");
-        var jet = new Move();
-        jet.Jet = true;
+        var jet = new Move
+        {
+            Jet = true
+        };
         v.Piloted = true;
-        v.ApplyMoves(new[] { jet }, 1);
+        v.ApplyMoves([jet], 1);
         Assert.True(v.Credit == 1 && v.SpeedL == -0.75f && v.LastMove.Jet && v.TicksWithoutMove == 0);
-        v.ApplyMoves(new[] { jet }, 1);
+        v.ApplyMoves([jet], 1);
         Assert.True(v.Credit == 2 && v.SpeedL == -0.25f); // -0.75 + 1.25 (jet) - 0.75 (lift decay)
         var many = new Move[8];
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
         {
-            many[i] = new Move();
-            many[i].Jet = true;
+            many[i] = new Move
+            {
+                Jet = true
+            };
         }
         v.ApplyMoves(many, 8);
-        Assert.True(v.Credit == 6);
+        Assert.Equal(6, v.Credit);
         v.ControlClient = 2049;
-        float z = v.Transform.P[2];
-        for (int i = 0; i < 32; ++i)
+        var z = v.Transform.P[2];
+        for (var i = 0; i < 32; ++i)
             v.ServerTick((uint)i * 32);
         Assert.True(v.Credit == -26 && v.Transform.P[2] == z && v.TicksWithoutMove == 32);
         v.ServerTick(1024);
         Assert.True(v.Credit == -26 && v.Transform.P[2] != z && v.TicksWithoutMove == 0);
         v.ControlClient = 0;
-        float z2 = v.Transform.P[2];
+        var z2 = v.Transform.P[2];
         v.ServerTick(1056);
         Assert.True(v.Transform.P[2] != z2 && !v.Piloted && v.SoundState == 0);
         v.ControlClient = 2049;
@@ -237,7 +244,7 @@ public class VehicleTests
         Assert.True(v.Piloted && v.SoundState == 1);
         v.SpeedL = 1.0f;
         v.ServerTick(1120);
-        Assert.True(v.SoundState == 2);
+        Assert.Equal(2, v.SoundState);
     }
 
     // ---- mounting (2) ----
@@ -262,8 +269,10 @@ public class VehicleTests
         Assert.True(p.Transform.P[0] == 110.0f && p.Velocity[0] == 3.0f && !p.ContactFlag);
         w.Run("function Vehicle::passengerJump(%v, %p, %up) { $pj = %v @ \"|\" @ %p @ \"|\" @ %up; }");
         p.MountPoint = 2;
-        var jump = new Move();
-        jump.Jump = true;
+        var jump = new Move
+        {
+            Jump = true
+        };
         p.UpdateMove(jump);
         c.Check(w, "echo($pj);", vid + "|" + pid + "|0 0 1");
         c.Check(w, "echo(Player::setMountObject(" + pid + ", -1, 0), Player::getMountObject(" + pid + "));", "True-1");
@@ -272,8 +281,8 @@ public class VehicleTests
         c.Check(w, "echo(Player::setMountObject(" + pid + ", " + vid + ", 1));", "True");
         w.Run("deleteObject(" + vid + ");");
         p.UpdateMove(new Move());
-        Assert.True(p.MountId == 0);
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, p.MountId);
+        Assert.Equal(0, c.Failures);
     }
 
     // ---- the Vehicle:: commands (7.1) ----
@@ -303,7 +312,7 @@ public class VehicleTests
                 "False 2 True 3 TrueTrue 2");
         c.Check(w, "echo(Vehicle::getMountPoint(" + vid + ", 7));", "100 100 80");
         c.Check(w, "echo(Vehicle::getMountPoint(" + vid + ", -1));", "100 100 80");
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
 
     // ---- collision damage and destruction (4) ----
@@ -318,7 +327,7 @@ public class VehicleTests
               " GameBase::setDamageLevel(%this, GameBase::getDamageLevel(%this) + %value); }" +
               "function Vehicle::onDestroyed(%this, %mom) { $destroyed = %this; }");
         Flier v = f.Make("Scout", "128 128 120");
-        string vid = Itoa(v.Id());
+        var vid = Itoa(v.Id());
         v.Piloted = true;
         v.ControlClient = 2049;
         v.SpeedF = 50;
@@ -339,21 +348,27 @@ public class VehicleTests
         g.SpeedT = 50;
         g.Rotation[0] = -0.4f;
         w.Run("$dmg = \"\";");
-        var m = new Move();
-        m.Forward = 1.0f;
-        for (int i = 0; i < 6 && w.Run("echo($dmg);").Length == 0; ++i)
+        var m = new Move
+        {
+            Forward = 1.0f
+        };
+        for (var i = 0; i < 6 && w.Run("echo($dmg);").Length == 0; ++i)
             g.Update(ref m, 0.032f);
-        Assert.True(g.SpeedF == 0.0f || g.SpeedF < 50.0f);
-        Assert.True(c.Failures == 0);
+        Assert.True(g.SpeedF is 0.0f or < 50.0f);
+        Assert.Equal(0, c.Failures);
     }
 
     private static CollisionHit FloorHit()
     {
-        var h = new CollisionHit();
-        h.Type = ObjectType.kInteriorType;
-        var sf = new CollisionSurface();
-        sf.Normal = Float3.Of(0, 0, 1);
-        sf.Distance = 0.1f;
+        var h = new CollisionHit
+        {
+            Type = ObjectType.kInteriorType
+        };
+        var sf = new CollisionSurface
+        {
+            Normal = Float3.Of(0, 0, 1),
+            Distance = 0.1f
+        };
         h.Surfaces.Add(sf);
         return h;
     }
@@ -369,21 +384,21 @@ public class VehicleTests
         {
             Flier low = f.Make("Scout", "100 100 53");
             Flier high = f.Make("Scout", "100 100 58");
-            for (int i = 0; i < 80; ++i)
+            for (var i = 0; i < 80; ++i)
             {
                 low.Update(ref none, 0.032f);
                 high.Update(ref none, 0.032f);
             }
             Assert.True(low.Landed && low.Transform.P[2] > 51.9f && low.Transform.P[2] < 52.01f);
             Assert.True(high.Landed && high.Transform.P[2] > 55.9f && high.Transform.P[2] < 56.01f);
-            Assert.True(w.Run("echo($hd);").Length == 0);
+            Assert.Equal(0, w.Run("echo($hd);").Length);
             high.Transform.P[2] = 55.5f;
             high.UpdateGround();
             Container.Entry? e = w.Game.World.Find(high);
             Assert.True(e != null && high.Transform.P[2] > 55.9f && e.Box[2] == high.Transform.P[2]);
             w.Run("deleteObject(" + Itoa(low.Id()) + "); deleteObject(" + Itoa(high.Id()) + ");");
         }
-        for (int dead = 0; dead < 2; ++dead)
+        for (var dead = 0; dead < 2; ++dead)
         {
             Flier v = f.Make("Scout", "300 300 120");
             Player p = f.Spawn("300 302 120");
@@ -392,12 +407,12 @@ public class VehicleTests
             v.Velocity[1] = 5.0f;
             var candidates = new List<CollisionImage>();
             var hits = new List<CollisionHit>();
-            float[] query = { 290, 290, 110, 310, 310, 130 };
+            float[] query = [290, 290, 110, 310, 310, 130];
             w.Game.CollisionCandidates(v, 0x34c00086u, query, candidates);
-            int before = candidates.Count;
+            var before = candidates.Count;
             Assert.True(before >= 1);
-            float[] at = { v.Transform.P[0], v.Transform.P[1], v.Transform.P[2] };
-            bool free = v.TestAt(at, candidates, hits);
+            float[] at = [v.Transform.P[0], v.Transform.P[1], v.Transform.P[2]];
+            var free = v.TestAt(at, candidates, hits);
             if (dead != 0)
             {
                 Assert.True(free && hits.Count == 0 && candidates.Count == before - 1);
@@ -410,7 +425,7 @@ public class VehicleTests
             }
             w.Run("deleteObject(" + Itoa(v.Id()) + "); deleteObject(" + Itoa(p.Id()) + ");");
         }
-        for (int pass = 0; pass < 2; ++pass)
+        for (var pass = 0; pass < 2; ++pass)
         {
             Flier v = f.Make("Scout", "400 400 120");
             v.Velocity[0] = 3.0f;
@@ -422,7 +437,7 @@ public class VehicleTests
             if (pass == 0)
                 Assert.True(v.Velocity[0] < 3.0f);
             else
-                Assert.True(v.Velocity[0] == 3.0f);
+                Assert.Equal(3.0f, v.Velocity[0]);
             w.Run("deleteObject(" + Itoa(v.Id()) + ");");
         }
         {
@@ -435,9 +450,9 @@ public class VehicleTests
             v.Velocity[1] = 5.0f;
             v.Velocity[2] = 0.64f;
             v.MoveStep(0.032f);
-            string seen = w.Run("echo($hr);");
+            var seen = w.Run("echo($hr);");
             Assert.True(seen != "none" && seen.StartsWith("0 ", StringComparison.Ordinal));
-            Assert.True(v.Transform.M[1] != 0.0f);
+            Assert.NotEqual(0.0f, v.Transform.M[1]);
             w.Run("function Vehicle::onDamage(%this, %type, %value, %pos, %vec, %mom, %obj) { $hd = $hd @ %this @ \":\" @ %value @ \" \"; }");
         }
         {
@@ -450,10 +465,10 @@ public class VehicleTests
             v.Transform.P[2] = 120;
             p.SetMountObject(v, 1);
             p.UpdateMove(none);
-            float pitched = p.Transform.M[5];
-            Assert.True(pitched != 0.0f);
-            float[] delta = { 0, 0.5f, 0 };
-            float[] vp = { v.Transform.P[0], v.Transform.P[1], v.Transform.P[2] };
+            var pitched = p.Transform.M[5];
+            Assert.NotEqual(0.0f, pitched);
+            float[] delta = [0, 0.5f, 0];
+            float[] vp = [v.Transform.P[0], v.Transform.P[1], v.Transform.P[2]];
             p.PushBy(delta, vp);
             Assert.True(p.Transform.M[5] == pitched && p.Transform.P[1] > 500.4f);
         }
@@ -466,15 +481,15 @@ public class VehicleTests
             parked.Velocity[0] = 0;
             parked.Velocity[1] = 0;
             parked.Velocity[2] = -0.64f;
-            float[] at = { parked.Transform.P[0], parked.Transform.P[1], parked.Transform.P[2] };
-            float[] before = { 700, 699.99f, 120 };
-            float py = p.Transform.P[1];
+            float[] at = [parked.Transform.P[0], parked.Transform.P[1], parked.Transform.P[2]];
+            float[] before = [700, 699.99f, 120];
+            var py = p.Transform.P[1];
             Assert.True(w.Game.MoveableDisplace(v, before));
             Assert.True(p.Transform.P[1] > py);
             Assert.True((parked.ItemFlags & 5) == 0 && (v.ItemFlags & 5) == 1 && (away.ItemFlags & 5) == 1);
             Assert.True(parked.Transform.P[0] == at[0] && parked.Transform.P[1] == at[1] && parked.Transform.P[2] == at[2]);
             Assert.True(parked.Velocity[0] == 0.0f && parked.Velocity[1] == 0.0f && parked.Velocity[2] == -0.64f);
-            Assert.True(w.Game.mDisplaceHidden.Count == 0);
+            Assert.Equal(0, w.Game.mDisplaceHidden.Count);
             foreach (Flier hull in new[] { parked, away })
             {
                 hull.Velocity[0] = 3.0f;
@@ -485,8 +500,8 @@ public class VehicleTests
                 Assert.True(hull == parked ? hull.Velocity[0] == 3.0f : hull.Velocity[0] < 3.0f);
             }
             Player q = f.Spawn("700 701.5 121.2");
-            float qz = q.Transform.P[2];
-            float[] again = { 700, 699.98f, 120 };
+            var qz = q.Transform.P[2];
+            float[] again = [700, 699.98f, 120];
             Assert.True(w.Game.MoveableDisplace(v, again));
             Assert.True(q.Transform.P[2] == qz && w.Game.mDisplaceHidden.Count == 0);
         }
@@ -497,7 +512,7 @@ public class VehicleTests
                   "MoveableData Lift { shapeFile = \"gen\"; speed = 10; };");
             GameBase Gb(string make, string pos)
             {
-                string id = w.Run("echo(" + make + ");");
+                var id = w.Run("echo(" + make + ");");
                 SimObject? o = w.Object(id);
                 Assert.True(o is GameBase);
                 w.Run("GameBase::setPosition(" + id + ", \"" + pos + "\");");
@@ -508,12 +523,12 @@ public class VehicleTests
             v.Velocity[0] = 0;
             v.Velocity[1] = 5.0f;
             v.Velocity[2] = 0;
-            float y = 899.99f;
+            var y = 899.99f;
             void Shove()
             {
-                float[] before = { 900, y, 120 };
+                float[] before = [900, y, 120];
                 y = SubF(y, 0.01f);
-                float py = p.Transform.P[1];
+                var py = p.Transform.P[1];
                 Assert.True(w.Game.MoveableDisplace(v, before));
                 Assert.True(p.Transform.P[1] > py && w.Game.mDisplaceHidden.Count == 0);
                 p.Transform.P[1] = py; // the same overlap for the next object
@@ -522,8 +537,8 @@ public class VehicleTests
             GameBase item = Gb("newObject(\"\", Item, Ball, 1, false)", "900 903.2 120");
             GameBase far = Gb("newObject(\"\", Item, Ball, 1, false)", "900 960 120");
             item.AtRest = far.AtRest = true;
-            Assert.True((item.ItemFlags & 5) == 5);
-            float at = item.Transform.P[1]; // 903.2 as setPosition reads it
+            Assert.Equal(5, (item.ItemFlags & 5));
+            var at = item.Transform.P[1]; // 903.2 as setPosition reads it
             Shove();
             Assert.True((item.ItemFlags & 5) == 0 && !item.AtRest && (far.ItemFlags & 5) == 5 && far.AtRest);
             Assert.True(item.Transform.P[1] == at && item.Velocity[1] == 0.0f);
@@ -536,7 +551,7 @@ public class VehicleTests
                   " minDamageSpeed = 25; damageScale = 0.0078125; };");
             w.Run("deleteObject(" + Itoa(p.Id()) + ");");
             Player? sp = Player.From(w.Object(w.Run("echo(spawnPlayer(sarmor, \"900 901.5 120\", \"0 0 0\"));")));
-            Assert.True(sp != null);
+            Assert.NotNull(sp);
             p = sp!;
             GameBase mine = Gb("newObject(\"\", Mine, Mn)", "900 903.2 120");
             Assert.True(mine.ShapeTriggerRadius == 2.5f && (mine.ItemFlags & 5) == 5);
@@ -548,7 +563,7 @@ public class VehicleTests
                 Flier hull = f.Make("Scout", "900 906.5 120");
                 var cands = new List<CollisionImage>();
                 var hits = new List<CollisionHit>();
-                float[] hp = { hull.Transform.P[0], hull.Transform.P[1], hull.Transform.P[2] };
+                float[] hp = [hull.Transform.P[0], hull.Transform.P[1], hull.Transform.P[2]];
                 hull.HullCandidates(hp, cands, Flier.kHullMask);
                 int spheres = 0, shapes = 0;
                 foreach (CollisionImage im in cands)
@@ -560,17 +575,17 @@ public class VehicleTests
                             ++shapes;
                     }
                 Assert.True(spheres == 1 && shapes == 1);
-                int n = cands.Count;
+                var n = cands.Count;
                 hull.TestAt(hp, cands, hits);
                 Assert.True(cands.Count == n - 1);
                 foreach (CollisionImage im in cands)
-                    Assert.True(!(im.Object == mine && im.ImageKind == CollisionImage.Kind.TriggerSphere));
+                    Assert.False((im.Object == mine && im.ImageKind == CollisionImage.Kind.TriggerSphere));
                 w.Run("deleteObject(" + Itoa(hull.Id()) + ");"); // the sender is gone: the event is dropped
                 w.Sim.AdvanceRealTime(33);
-                Assert.True(w.Run("echo($mc);") == "0");
+                Assert.Equal("0", w.Run("echo($mc);"));
                 hull = f.Make("Scout", "900 906.5 120");
                 cands.Clear();
-                hp = new[] { hull.Transform.P[0], hull.Transform.P[1], hull.Transform.P[2] };
+                hp = [hull.Transform.P[0], hull.Transform.P[1], hull.Transform.P[2]];
                 hull.HullCandidates(hp, cands, Flier.kHullMask);
                 hull.TestAt(hp, cands, hits);
                 w.Sim.AdvanceRealTime(32);
@@ -582,7 +597,7 @@ public class VehicleTests
             Assert.True((crate.ItemFlags & 5) == 5 && w.Run("echo(GameBase::getRotation(" + Itoa(crate.Id()) + "));") == "0 0 0");
             Shove();
             Assert.True((crate.ItemFlags & 5) == 0 && crate.Transform.P[1] == at && crate.Velocity[1] == 0.0f);
-            Assert.True(w.Run("echo(GameBase::getRotation(" + Itoa(crate.Id()) + "));") == "0 -0 -0");
+            Assert.Equal("0 -0 -0", w.Run("echo(GameBase::getRotation(" + Itoa(crate.Id()) + "));"));
             w.Run("deleteObject(" + Itoa(crate.Id()) + ");");
             GameBase lift = Gb("newObject(\"\", Moveable, Lift, true)", "900 903.2 120");
             far.Attach(lift);
@@ -599,15 +614,15 @@ public class VehicleTests
                   " $hd = $hd @ %value @ \" \"; $rot = GameBase::getRotation(%this);" +
                   " if($ray) getLOSInfo(\"1000 1000 60\", \"1000 1000 51\", -1); }");
             Flier a = f.Make("Scout", "1000 1000 53");
-            for (int i = 0; i < 80; ++i)
+            for (var i = 0; i < 80; ++i)
                 a.Update(ref none, 0.032f);
             Assert.True(a.Landed && w.Run("echo($hd);").Length == 0);
-            float low = a.Transform.P[2];
-            string pos = "1000 1001.7 " + CFormat.G(low, 9);
+            var low = a.Transform.P[2];
+            var pos = "1000 1001.7 " + CFormat.G(low, 9);
             Flier b = f.Make("Scout", pos);
             Container.Entry e = w.Game.World.Find(a)!;
-            uint q0 = e.ImageQueries;
-            string id = Itoa(a.Id());
+            var q0 = e.ImageQueries;
+            var id = Itoa(a.Id());
             a.Update(ref none, 0.032f);
             Assert.True(w.Run("echo($hd);").Length != 0 && w.Run("echo($rot);") == "0 0 0");
             Assert.True(a.Transform.P[2] == low && w.Run("echo(GameBase::getRotation(" + id + "));") == "0 -0 -0");
@@ -616,7 +631,7 @@ public class VehicleTests
             a.Update(ref none, 0.032f);
             Assert.True(w.Game.World.Find(a)!.ImageQueries > q0);
             Assert.True(a.Transform.P[2] > low + 0.01f && a.Transform.P[2] < low + 0.0105f);
-            Assert.True(w.Run("echo(GameBase::getRotation(" + id + "));") == "0 0 0");
+            Assert.Equal("0 0 0", w.Run("echo(GameBase::getRotation(" + id + "));"));
             w.Run("$ray = 0;");
             a.Update(ref none, 0.032f);
             Assert.True(a.Transform.P[2] == low);
@@ -625,12 +640,12 @@ public class VehicleTests
         }
         {
             Player p = f.Spawn("800 800 50.5");
-            for (int i = 0; i < 40; ++i)
+            for (var i = 0; i < 40; ++i)
                 p.UpdateMove(none);
             Assert.True(p.RestFlag && p.ContactFlag);
-            float y = p.Transform.P[1];
-            float[] delta = { 0, 0.0128f, -0.0088f };
-            float[] mover = { 0, 0.4f, -0.595f };
+            var y = p.Transform.P[1];
+            float[] delta = [0, 0.0128f, -0.0088f];
+            float[] mover = [0, 0.4f, -0.595f];
             Assert.True(p.PushBy(delta, mover));
             Assert.True(!p.RestFlag && p.Transform.P[1] > y + 0.012f);
             p.Velocity[0] = p.Velocity[1] = p.Velocity[2] = 0; // the displace restores the velocity (commit)
@@ -659,7 +674,7 @@ public class VehicleTests
         }
         void Tick(Flier v, int n)
         {
-            for (int i = 0; i < n; ++i)
+            for (var i = 0; i < n; ++i)
             {
                 v.Update(ref none, 0.032f);
                 w.Sim.AdvanceRealTime(32);
@@ -673,7 +688,7 @@ public class VehicleTests
         Flier u = f.Make("Scout", "130 100 60.2");
         Tick(v, 1);
         Tick(u, 1);
-        Assert.True(Log() == "EaEs");
+        Assert.Equal("EaEs", Log());
         Assert.True(inBox.Occupants.Count == 1 && inSphere.Occupants.Count == 1 && aside.Occupants.Count == 0);
         w.Run("deleteObject(" + Itoa(v.Id()) + "); deleteObject(" + Itoa(u.Id()) + "); $zl = \"\";");
         GameBase far = Trigger("f", "202.1 100 60", "-1 -1 -1 1 1 1", "False");
@@ -684,7 +699,7 @@ public class VehicleTests
         Tick(vn, 1);
         Assert.True(Log() == "En" && far.Occupants.Count == 0 && near.Occupants.Count == 1);
         Tick(vn, 10);
-        Assert.True(Log() == "EnCn");
+        Assert.Equal("EnCn", Log());
         w.Run("GameBase::setPosition(" + Itoa(vn.Id()) + ", \"300 140 60.2\");");
         Tick(vn, 10);
         Assert.True(Log() == "EnCnLn" && near.Occupants.Count == 0);
@@ -702,29 +717,29 @@ public class VehicleTests
         v.SpeedT = 50;
         v.SpeedL = 2.5f;
         v.SpeedS = -1.5f;
-        byte[] buf = new byte[256];
+        var buf = new byte[256];
         var bs = new BitStream(buf, buf.Length);
         var ctx = new ControlContext();
         v.WriteControlState(bs, ctx);
-        Assert.True(bs.BitPosition() == 2 + 288 + 16 * 3 + 6 + 2 + 2 + 64 + 1);
+        Assert.True(bs.BitPosition() == 2 + 288 + (16 * 3) + 6 + 2 + 2 + 64 + 1);
         var rd = new BitStream(buf, buf.Length);
-        Assert.True(rd.ReadInt(2) == 0);
-        for (int i = 0; i < 6; ++i)
+        Assert.Equal(0u, rd.ReadInt(2));
+        for (var i = 0; i < 6; ++i)
             rd.ReadF32();
         float p0 = rd.ReadF32(), p1 = rd.ReadF32(), p2 = rd.ReadF32();
         _ = p1;
         Assert.True(p0 == 128 && p2 == 70);
         Assert.True(rd.ReadInt(16) == (uint)(long)(65535.0 * (25.0 + 2) / 52)); // unit(16) of (F - min) / (max - min)
-        Assert.True(rd.ReadInt(16) == 65535);
-        Assert.True(rd.ReadInt(16) == 65535); // energy 100 / 100
+        Assert.Equal(65535u, rd.ReadInt(16));
+        Assert.Equal(65535u, rd.ReadInt(16)); // energy 100 / 100
         Assert.True(rd.ReadInt(6) == 0 && rd.ReadInt(2) == 0 && rd.ReadInt(2) == 0);
         float l = rd.ReadF32(), s = rd.ReadF32();
-        Assert.True(l == 2.5f && s == -1.5f && rd.ReadFlag() == false);
+        Assert.True(l == 2.5f && s == -1.5f && !rd.ReadFlag());
 
-        byte[] b2 = new byte[256];
+        var b2 = new byte[256];
         var owner = new BitStream(b2, b2.Length);
         Assert.True(v.PackUpdate(owner, 2049, 0x2000, false) == 0 && owner.BitPosition() == 1);
-        byte[] b3 = new byte[256];
+        var b3 = new byte[256];
         var full = new BitStream(b3, b3.Length);
         v.PackUpdate(full, 2050, 0xffffffffu, true);
         Assert.True(full.BitPosition() > 100 && (b3[0] & 1) == 0);
@@ -733,11 +748,11 @@ public class VehicleTests
         ClientGhost cv = ClientRoundTrip.Unpack(0x223, b3, full.BitPosition(), true, cw);
         Assert.True(cv.Class == "Flier" && ClientRoundTrip.Has(cv, "datablock") && ClientRoundTrip.Has(cv, "team") && !ClientRoundTrip.Has(cv, "ownerOnly"));
         ClientGhost co = ClientRoundTrip.Unpack(0x223, b2, owner.BitPosition(), false, cw, cv);
-        Assert.True((long)co.State["ownerOnly"]! == 1);
-        byte[] b4 = new byte[256];
+        Assert.Equal(1, (long)co.State["ownerOnly"]!);
+        var b4 = new byte[256];
         var upd = new BitStream(b4, b4.Length);
         v.PackUpdate(upd, 2050, 0x2000, false);
-        byte[] b5 = new byte[256];
+        var b5 = new byte[256];
         var upd2 = new BitStream(b5, b5.Length);
         v.Piloted = false;
         v.PackUpdate(upd2, 2050, 0x2000, false);

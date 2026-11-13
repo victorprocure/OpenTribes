@@ -1,16 +1,14 @@
 // Client side of the game stream (ROADMAP M9 C3a, docs/client-net.md): the client unpack routines against the server
 // pack code of the port. Every ghost class is packed by the server pack routine and read back by the client unpack
 // routine, which must end exactly on the packed bit and hold the server state (client-net.md 3).
-using OpenTribes.Core;
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Script;
 using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Tests.Fixtures;
 using static OpenTribes.Tests.ClientRoundTrip;
-
-namespace OpenTribes.Tests;
+using static OpenTribes.Tests.Fixtures;
 
 public class ClientNetProjectileTests
 {
@@ -20,10 +18,10 @@ public class ClientNetProjectileTests
     {
         GhostClass? cls = GhostManager.GhostClassOf(obj);
         Assert.True(cls != null && cls.Tag == tag);
-        byte[] buf = new byte[512];
+        var buf = new byte[512];
         var w = new BitStream(buf, buf.Length);
         cls!.Pack!(obj, new GhostContext(gm, 2049, mask == 0xffffffffu), w, mask);
-        Assert.True(!w.Error());
+        Assert.False(w.Error());
         ClientGhost g = Unpack(tag, buf, w.BitPosition(), mask == 0xffffffffu, WorldFor(tag, obj, 4), prev);
         return (g, w.BitPosition());
     }
@@ -32,12 +30,16 @@ public class ClientNetProjectileTests
     public void ProjectileFamilyRoundTrip()
     {
         // client-net.md 3.6, projectile-sim.md 5.2
-        string root = Path.Combine(TestPaths.TmpDir(""), "clientnet_proj");
+        var root = Path.Combine(TestPaths.TmpDir(""), "clientnet_proj");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
-        var t = new TerrainSpec { Scale = 5, Height = 2 };
-        t.Heights = Enumerable.Repeat(0.0f, 25).ToList();
-        t.Squares = new List<byte>(new byte[32]);
+        var t = new TerrainSpec
+        {
+            Scale = 5,
+            Height = 2,
+            Heights = [.. Enumerable.Repeat(0.0f, 25)],
+            Squares = [.. new byte[32]]
+        };
         PutFile(Path.Combine(root, "base/m.dtf"), DtfFile(t, 0.0f, 0.0f));
         PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, 0.0f, 0.0f));
         PutFile(Path.Combine(root, "base/t.dml"), "dml");
@@ -45,12 +47,12 @@ public class ClientNetProjectileTests
         Numbers.EnterScriptFpuMode();
         ProjectileGhost.Register();
         w.Run("$Server::teamName0 = \"A\"; resetPlayerManager();");
-        string decl = w.Run("GrenadeData DG { totalTime = 3; }; RocketData DR { totalTime = 3; }; SeekingMissileData DS { totalTime = 3; };" +
+        var decl = w.Run("GrenadeData DG { totalTime = 3; }; RocketData DR { totalTime = 3; }; SeekingMissileData DS { totalTime = 3; };" +
               "");
         Assert.True(decl.Length == 0, decl);
         SimObject Spawn(string db)
         {
-            string id = w.Run("echo(Projectile::spawnProjectile(" + db + ", \"1 0 0 0 1 0 0 0 1 16 16 80\", -1, \"0 0 0\"));");
+            var id = w.Run("echo(Projectile::spawnProjectile(" + db + ", \"1 0 0 0 1 0 0 0 1 16 16 80\", -1, \"0 0 0\"));");
             SimObject? o = w.Object(id);
             Assert.True(o != null, db + " spawn: " + id);
             return o!;
@@ -91,12 +93,12 @@ public class ClientNetProjectileTests
             b.WriteFlag(initial);
         }
         // TargetLaser initial: datablock, shooter ghost flag, start, end, owner client - 2048 (10), team (3), hit.
-        byte[] buf = new byte[256];
+        var buf = new byte[256];
         var tlw = new BitStream(buf, buf.Length);
         Head(tlw, true);
         tlw.WriteInt(1, 2);                 // 1 datablock of TargetLaserData + 1 = 2 bits
         tlw.WriteFlag(false);
-        tlw.WriteF32s(new float[] { 1, 2, 3, 4, 5, 6 });
+        tlw.WriteF32s([1, 2, 3, 4, 5, 6]);
         tlw.WriteInt(5, 10);
         tlw.WriteInt(1, 3);
         tlw.WriteFlag(true);
@@ -109,7 +111,7 @@ public class ClientNetProjectileTests
         buf = new byte[256];
         var tuw = new BitStream(buf, buf.Length);
         Head(tuw, false);
-        tuw.WriteF32s(new float[] { 7, 8, 9, 1, 1, 1 });
+        tuw.WriteF32s([7, 8, 9, 1, 1, 1]);
         tuw.WriteFlag(false);
         ClientGhost t2 = Unpack(0x25c, buf, tuw.BitPosition(), false, wt, t1);
         Assert.True(VecIs(t2.State["start"], 7, 8, 9) && (long)t2.State["hit"]! == 0);
@@ -121,7 +123,7 @@ public class ClientNetProjectileTests
         lw.WriteFlag(false);
         lw.WriteFlag(true);
         lw.WriteInt(77, 10);
-        lw.WriteF32s(new float[] { 0.5f, 0.25f, 0 });
+        lw.WriteF32s([0.5f, 0.25f, 0]);
         var wl = new ClientWorld();
         wl.DataBlocks.Counts[28] = 1;
         wl.DataBlocks.Counts[29] = 1;
@@ -134,8 +136,8 @@ public class ClientNetProjectileTests
         rw.WriteFlag(true);
         rw.WriteFlag(true);
         rw.WriteInt(9, 10);
-        rw.WriteF32s(new float[] { 1, 0, 0 });
+        rw.WriteF32s([1, 0, 0]);
         ClientGhost e1 = Unpack(0x25f, buf, rw.BitPosition(), false, wl, new ClientGhost { Tag = 0x25f, Class = "RepairEffect" });
-        Assert.True((long)e1.State["targetGhost"]! == 9);
+        Assert.Equal(9, (long)e1.State["targetGhost"]!);
     }
 }

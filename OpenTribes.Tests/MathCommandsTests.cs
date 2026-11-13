@@ -3,17 +3,16 @@
 // server (tests/ref/util.txt and util_game.txt are the live comparisons). kDouble lists the rows whose output differs in
 // the double form of the port (DECISIONS D25: the truncating build's rounding in 64 bits, docs/portable-float.md 1 and
 // 5: NaN operand order, x87 fsincos of huge angles, 80-bit denormals) with the output the port prints.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Script;
-using OpenTribes.Sim;
 using static OpenTribes.Tests.Fixtures;
-
-namespace OpenTribes.Tests;
 
 public class MathCommandsTests
 {
     private static readonly (string script, string want)[] kRows =
-    {
+    [
         ("echo(Vector::add(\"1 2 3\",\"4 5 6\"));", "5 7 9"),
         ("echo(Vector::add(\"0.1 0.1 0.1\",\"0.0999999 0.0999999 0.0999999\"));", "0.199999 0.199999 0.199999"),
         ("echo(Vector::add(\"+INF -INF +NAN\",\"1 1 1\"));", "+INF -INF +NAN"),
@@ -228,7 +227,7 @@ public class MathCommandsTests
         ("echo(getClientByName());", "0"),
         ("echo(getObjectByTargetIndex());", "-1"),
         ("echo(Server::ResortList(\"x\"));", "Server::ResortList: Unknown command.\nFalse"),
-    };
+    ];
 
     // Outputs of the double form where the reference output needs the x87 unit.
     private static readonly Dictionary<string, string> kDouble = new()
@@ -250,7 +249,7 @@ public class MathCommandsTests
     private readonly record struct Sphere(string From, string To, string Dir, int Shape, string Want);
 
     private static readonly Sphere[] kSphere =
-    {
+    [
         new("-160 -214 213", "-166.971 -214.219 213.574", "1 0 0", 0, "0.959464 -0.100462 0.263315"),
         new("-150.5 -200.25 220", "-166.971 -214.219 213.574", "-1 -1 0.5", 0, "-0.70122 -0.567816 -0.43113"),
         new("1 2 3", "4 5 6", "0 0 1", 0, "0.536671 0.536671 0.651127"),
@@ -263,14 +262,14 @@ public class MathCommandsTests
         new("-196.409 -208.433 196.082", "-196.409 -208.433 196.082", "0 1 0", 1, "0 1 0"),
         new("-180 -230 190", "-196.409 -208.433 196.082", "0.5 0.7 0.1", 1, "-0.165608 0.961833 0.217832"),
         new("-196.409 -208.433 196.082", "-196.409 -208.433 196.082", "0.001 0 0", 1, "0 0 0"),
-    };
+    ];
 
-    private static readonly float[] kRadius = { 2.679856777191162f, 1.2074273824691772f };
+    private static readonly float[] kRadius = [2.679856777191162f, 1.2074273824691772f];
 
     // tests/test_math_commands.cpp parse3.
     private static float[] Parse3(string text)
     {
-        float[] v = new float[3];
+        var v = new float[3];
         if (MathCommands.ScanFloats3(text, v) != 3)
             throw new InvalidOperationException("parse3 " + text);
         return v;
@@ -279,7 +278,7 @@ public class MathCommandsTests
     // Console output without trailing blank lines (an empty result prints an empty line).
     private static string Run(Fixtures.World w, string s)
     {
-        string output = w.Run(s);
+        var output = w.Run(s);
         while (output.Length != 0 && output[^1] == '\n')
             output = output[..^1];
         return output;
@@ -288,7 +287,7 @@ public class MathCommandsTests
     [Fact]
     public void TestMathCommands()
     {
-        string root = TestPaths.TmpDir("math_commands");
+        var root = TestPaths.TmpDir("math_commands");
         Directory.Delete(root, true);
         Directory.CreateDirectory(Path.Combine(root, "base"));
         var w = new Fixtures.World(root);
@@ -297,8 +296,8 @@ public class MathCommandsTests
         var failures = new List<string>();
         foreach (var (script, reference) in kRows)
         {
-            string want = kDouble.TryGetValue(script, out string? d) ? d : reference;
-            string got = Run(w, script);
+            var want = kDouble.TryGetValue(script, out var d) ? d : reference;
+            var got = Run(w, script);
             if (got != want)
                 failures.Add("FAIL " + script + "\n  want: " + want + "\n  got:  " + got);
         }
@@ -308,15 +307,15 @@ public class MathCommandsTests
         // The first values of a freshly started reference server.
         {
             var fresh = new Fixtures.World(root);
-            string[] want = { "0.86173", "0.294385", "0.464783", "0.300487" };
-            foreach (string want1 in want)
+            string[] want = ["0.86173", "0.294385", "0.464783", "0.300487"];
+            foreach (var want1 in want)
                 Assert.Equal(want1, Run(fresh, "echo(getRandom());"));
             var rng = new RandomR250();
             Assert.True(rng.Next() == 0xdc9a6435u && rng.Next() == 0x4b5cdef3u && rng.Next() == 0x76fc08c5u);
             // Index 249 wraps to 0 after 250 values.
             var wrap = new RandomR250();
             var v = new uint[254];
-            for (int i = 0; i < v.Length; ++i)
+            for (var i = 0; i < v.Length; ++i)
                 v[i] = wrap.Next();
             Assert.True(v[248] == 0x3de60101u && v[249] == 0xc27fa774u && v[250] == 0x47760a6eu && v[253] == 0x69b7548au);
             var other = new RandomR250(1);
@@ -328,9 +327,9 @@ public class MathCommandsTests
         // Component parsing (sscanf "%f %f %f"): 1e, 1e+ are numbers; hex, inf and nan are not;
         // values from 2^128 up are infinite, the rest convert toward zero.
         {
-            float[] v = { 7, 8, 9 };
+            float[] v = [7, 8, 9];
             Assert.True(MathCommands.ScanFloats3("1e 1e+ 1e+5", v) == 3 && v[0] == 1 && v[1] == 1 && v[2] == 100000);
-            float[] u = { 7, 8, 9 };
+            float[] u = [7, 8, 9];
             Assert.True(MathCommands.ScanFloats3("0x10", u) == 1 && u[0] == 0 && u[1] == 8 && u[2] == 9);
             Assert.True(MathCommands.ScanFloats3("inf", u) == 0 && MathCommands.ScanFloats3("", u) == 0);
             Assert.True(MathCommands.ScanFloats3(".", u) == 0 && MathCommands.ScanFloats3("1,2", u) == 1);
@@ -344,11 +343,11 @@ public class MathCommandsTests
 
         // sprintf: DECISIONS D11 cases (the original hangs or reads stale pointers).
         {
-            string[] a = { "fmt", "X", "Y" };
+            string[] a = ["fmt", "X", "Y"];
             Assert.Equal("100%", MathCommands.FormatSprintf("100%", a));
             Assert.Equal("a%xb%0c%", MathCommands.FormatSprintf("a%xb%0c%", a));
             Assert.Equal("[X][Y][][]", MathCommands.FormatSprintf("[%1][%2][%3][%9]", a));
-            string[] big = { "", new string('z', 2000) };
+            string[] big = ["", new string('z', 2000)];
             Assert.Equal(1063, MathCommands.FormatSprintf("%1%1", big).Length);
             Assert.Equal(1063, MathCommands.FormatSprintf(new string('q', 1100), big).Length);
             Assert.Equal("a %", Run(w, "echo(sprintf(\"%1 %\", \"a\"));"));
@@ -357,8 +356,7 @@ public class MathCommandsTests
         // pow (Borland 0x00606d90): the error paths of the original never return on the dedicated
         // server (a message box); they report the value its handler would return.
         {
-            bool err;
-            Assert.True(MathCommands.BorlandPow(2, 10, out err) == 1024 && !err);
+            Assert.True(MathCommands.BorlandPow(2, 10, out var err) == 1024 && !err);
             Assert.True(MathCommands.BorlandPow(0, 2, out err) == 0 && !err);
             Assert.True(MathCommands.BorlandPow(1e-310, 2, out err) == 0 && !err);
             Assert.True(MathCommands.BorlandPow(5, 0, out err) == 1 && !err);
@@ -372,11 +370,11 @@ public class MathCommandsTests
             Assert.True(double.IsInfinity(MathCommands.BorlandPow(2, double.PositiveInfinity, out err)) && err);
             Assert.True(MathCommands.BorlandPow(-3, 3, out err) == -27 && !err);
             // A fractional power leaves the FPU rounding to nearest until the next statement.
-            OpenTribes.Core.Fpu.EnterChop();
+            Core.Fpu.EnterChop();
             MathCommands.BorlandPow(0.01, 0.5, out err);
-            Assert.False(OpenTribes.Core.Fpu.TowardZero);
+            Assert.False(Core.Fpu.TowardZero);
             w.Run("echo(1);");
-            Assert.True(OpenTribes.Core.Fpu.TowardZero);
+            Assert.True(Core.Fpu.TowardZero);
         }
 
         // getRotation divides a zero horizontal part by zero in the original (math error, D11): -0.
@@ -386,7 +384,7 @@ public class MathCommandsTests
         foreach (Sphere sp in kSphere)
         {
             float[] from = Parse3(sp.From), to = Parse3(sp.To), dir = Parse3(sp.Dir), o = new float[3];
-            string got = "0 0 0";
+            var got = "0 0 0";
             if (UtilCommands.FindPointOnSphere(from, to, dir, kRadius[sp.Shape], o))
                 got = MathCommands.FormatF32(o[0]) + " " + MathCommands.FormatF32(o[1]) + " " + MathCommands.FormatF32(o[2]);
             if (got != sp.Want)
@@ -405,20 +403,20 @@ public class MathCommandsTests
                 d.Add(0);
             d.RemoveRange(10 + 8, d.Count - (10 + 8));
             PutU32(d, 8);
-            for (int i = 0; i < 11; ++i)
+            for (var i = 0; i < 11; ++i)
                 PutU32(d, 0);
             PutF32(d, 2.679856777191162f);
-            byte[] bytes = d.ToArray();
-            Assert.True(UtilCommands.ReadShapeRadius(bytes, out float r) && r == 2.679856777191162f);
-            Assert.True(!UtilCommands.ReadShapeRadius(bytes.AsSpan(0, bytes.Length - 1).ToArray(), out r));
+            var bytes = d.ToArray();
+            Assert.True(UtilCommands.ReadShapeRadius(bytes, out var r) && r == 2.679856777191162f);
+            Assert.False(UtilCommands.ReadShapeRadius(bytes.AsSpan(0, bytes.Length - 1).ToArray(), out r));
             bytes[0] = (byte)'X';
-            Assert.True(!UtilCommands.ReadShapeRadius(bytes, out r));
+            Assert.False(UtilCommands.ReadShapeRadius(bytes, out r));
         }
 
         // Game-state commands on a world without a mission.
         {
             // getIntegerTime: the false form is the client counter (0 here); the true form the 32 ms tick.
-            Assert.True(Run(w, "echo(getIntegerTime(false));") == "0.0");
+            Assert.Equal("0.0", Run(w, "echo(getIntegerTime(false));"));
             w.Sim.AdvanceRealTime(3200);
             Assert.True(Run(w, "echo(getIntegerTime(true), \" \", getIntegerTime(\"T\"), \" \", getIntegerTime(\"0\"));") ==
                         (w.Sim.TickMs() >> 5) + ".0 " + (w.Sim.TickMs() >> 5) + ".0 0.0");
@@ -426,11 +424,10 @@ public class MathCommandsTests
             // getClientByName: case-insensitive match over the human clients, 0 when absent.
             w.Game.Players.AddClient(2049, "Alice", "male1", true);
             w.Game.Players.AddClient(2050, "bob", "male1", true);
-            Assert.True(Run(w, "echo(getClientByName(\"ALICE\"), \" \", getClientByName(\"Bob\"), \" \", getClientByName(\"ali\"));") ==
-                        "2049 2050 0");
+            Assert.Equal("2049 2050 0", Run(w, "echo(getClientByName(\"ALICE\"), \" \", getClientByName(\"Bob\"), \" \", getClientByName(\"ali\"));"));
 
             // getNumItems counts the ItemData blocks; getObjectByTargetIndex gives -1 outside 0..127.
-            Assert.True(Run(w, "echo(getNumItems());") == "0");
+            Assert.Equal("0", Run(w, "echo(getNumItems());"));
             w.Run("instant StaticShape \"ts0\" { position = \"0 0 0\"; }; instant StaticShape \"ts1\" { position = \"1 0 0\"; };");
             var t0 = (GameBase)w.Object("ts0")!;
             var t1 = (GameBase)w.Object("ts1")!;
@@ -439,8 +436,7 @@ public class MathCommandsTests
             string id0 = t0.Id().ToString(), id1 = t1.Id().ToString();
             Assert.True(Run(w, "echo(getObjectByTargetIndex(0), \" \", getObjectByTargetIndex(1), \" \", getObjectByTargetIndex(2), \" \", getObjectByTargetIndex(3));") ==
                         id0 + " -1 " + id1 + " -1");
-            Assert.True(Run(w, "echo(getObjectByTargetIndex(-1), getObjectByTargetIndex(128), getObjectByTargetIndex(100000));") ==
-                        "-1-1-1");
+            Assert.Equal("-1-1-1", Run(w, "echo(getObjectByTargetIndex(-1), getObjectByTargetIndex(128), getObjectByTargetIndex(100000));"));
             Assert.True(Run(w, "echo(getObjectByTargetIndex(\"2x\"));") == id1);
         }
     }

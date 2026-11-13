@@ -1,7 +1,7 @@
+namespace OpenTribes.Client.Effects;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
-
-namespace OpenTribes.Client.Effects;
 
 /// <summary>The smoke puff pool: a ring of camera facing one shot shapes (<c>$pref::maxNumSmokePuffs</c>, default 100). A puff plays <c>Sequence01</c> once and dies when it ends.</summary>
 /// <remarks>docs/shapes-render.md 4.5.</remarks>
@@ -26,7 +26,7 @@ public sealed class SmokePool
     public SmokePool(int capacity = 100)
     {
         mRing = new Puff[Math.Max(capacity, 1)];
-        for (int i = 0; i < mRing.Length; ++i)
+        for (var i = 0; i < mRing.Length; ++i)
             mRing[i] = new Puff();
     }
 
@@ -47,7 +47,7 @@ public sealed class SmokePool
     {
         Puff p = mRing[mNext];
         mNext = (mNext + 1) % mRing.Length;
-        int seq = shape.FindSequence("Sequence01");
+        var seq = shape.FindSequence("Sequence01");
         if (seq < 0)
             seq = shape.Sequences.Length > 0 ? 0 : -1;
         p.Inst = new RenderInstance(shape);
@@ -64,13 +64,13 @@ public sealed class SmokePool
     /// <returns>The number of puffs removed.</returns>
     public int RemoveInside(double x, double y, double z, double radius)
     {
-        int n = 0;
+        var n = 0;
         foreach (Puff p in mRing)
         {
             if (!p.Active)
                 continue;
             double dx = p.X - x, dy = p.Y - y, dz = p.Z - z;
-            if (dx * dx + dy * dy + dz * dz <= radius * radius)
+            if ((dx * dx) + (dy * dy) + (dz * dz) <= radius * radius)
             {
                 p.Active = false;
                 ++n;
@@ -93,7 +93,7 @@ public sealed class SmokePool
                 p.Active = false;
                 continue;
             }
-            (p.X, p.Y, p.Z) = (p.X + p.Vx * dt, p.Y + p.Vy * dt, p.Z + p.Vz * dt);
+            (p.X, p.Y, p.Z) = (p.X + (p.Vx * dt), p.Y + (p.Vy * dt), p.Z + (p.Vz * dt));
             p.Inst.Advance(dt);
             if (p.Thread.AtEnd(p.Inst.Shape))
                 p.Active = false;
@@ -109,7 +109,7 @@ public sealed class SmokePool
             if (!p.Active)
                 continue;
             double fx = ctx.Camera.X - p.X, fy = ctx.Camera.Y - p.Y, fz = ctx.Camera.Z - p.Z;
-            double l = Math.Sqrt(fx * fx + fy * fy + fz * fz);
+            var l = Math.Sqrt((fx * fx) + (fy * fy) + (fz * fz));
             if (l < 1e-6)
                 continue;
             // +Y is the view ray, camera to puff (the same basis as the explosion images), rolled about it by the puff's random angle.

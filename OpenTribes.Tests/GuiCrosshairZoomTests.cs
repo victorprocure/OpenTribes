@@ -1,19 +1,17 @@
 // Render-level tests of the zoom branch of the crosshair (Crosshair 004ab500): the sniper cross and the zoom box text must reach the
 // device, which drops what lies outside the clip like the real one. Synthetic data only (R5).
-using OpenTribes.Core;
+namespace OpenTribes.Tests;
+
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using OpenTribes.Platform.Gl;
-
-namespace OpenTribes.Tests;
 
 public class GuiCrosshairZoomTests
 {
     internal sealed class ClipDev : IGfxDevice
     {
-        public readonly List<(GfxRect Rect, int Color)> Rects = new();
-        public readonly List<(int X0, int Y0, int X1, int Y1)> Lines = new();
-        public readonly List<string> Texts = new();
+        public readonly List<(GfxRect Rect, int Color)> Rects = [];
+        public readonly List<(int X0, int Y0, int X1, int Y1)> Lines = [];
+        public readonly List<string> Texts = [];
         private GfxRect mClip = new(0, 0, 639, 479);
         public int Width => 640;
         public int Height => 480;
@@ -37,7 +35,7 @@ public class GuiCrosshairZoomTests
             Math.Max(x0, x1) >= mClip.Left && Math.Min(x0, x1) <= mClip.Right && Math.Max(y0, y1) >= mClip.Top && Math.Min(y0, y1) <= mClip.Bottom;
         public void DrawRectOutline(GfxRect rect, int colorIndex) { }
         public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f) => Rects.Add((rect, colorIndex));
-        public readonly List<(int X, int Y, string Text)> TextAt = new();
+        public readonly List<(int X, int Y, string Text)> TextAt = [];
         public int DrawText(PftFont font, int x, int y, string text)
         {
             TextAt.Add((x, y, text));
@@ -49,7 +47,7 @@ public class GuiCrosshairZoomTests
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
