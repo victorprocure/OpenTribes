@@ -1,5 +1,3 @@
-// Port of tools/scriptrun.cpp: reads console lines from stdin, evaluates each like a console line, and prints that
-// line's output followed by a line containing only "\x01".
 using System.Text;
 using OpenTribes.Core;
 using OpenTribes.Script;
@@ -7,6 +5,8 @@ using OpenTribes.Sim;
 
 namespace OpenTribes.ScriptRun;
 
+/// <summary>Evaluates console lines from stdin for the script regression tests. The output of each line is followed by a line that holds only <c>\x01</c>.</summary>
+/// <remarks>Port of tools/scriptrun.cpp.</remarks>
 public static class Program
 {
     // std::getline on stdin: bytes up to '\n' (not kept); null at the end of the input.
@@ -23,7 +23,9 @@ public static class Program
         return line.Length == 0 ? null : line.ToString();
     }
 
-    // tools/scriptrun.cpp main: scriptrun [root searchPath]: with a game root, file and resource commands work on it.
+    /// <summary>Runs the loop until the input ends.</summary>
+    /// <param name="argv">Optionally a game root and a search path. With a game root, file and resource commands work on it.</param>
+    /// <returns>The process exit code.</returns>
     public static int Main(string[] argv)
     {
         var interp = new Interpreter();
