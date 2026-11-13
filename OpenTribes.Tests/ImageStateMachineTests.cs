@@ -6,6 +6,9 @@ using OpenTribes.Client.Scene;
 
 public class ImageStateMachineTests
 {
+    private static readonly string[] Values1 = ["sfxReload", "sfxSpinUp", "sfxReady"];
+    private static readonly string[] Values2 = ["sfxFire", "sfxReload", "sfxSpinUp", "sfxReady"];
+    private static readonly string[] Values3 = ["sfxSpinUp", "sfxReady", "sfxFire", "sfxSpinDown"];
     private static ImageStateMachine Disc(List<string> sounds, bool ammo = true) =>
         new(new ImageStateData { WeaponType = 3, AmmoType = 5, ActivateTime = 0.5, FireTime = 1.25, ReloadTime = 0.25, SpinUpTime = 0.25, SpinDownTime = 0.25 }, null)
         { PlaySound = sounds.Add, Ammo = ammo };
@@ -29,7 +32,7 @@ public class ImageStateMachineTests
         Assert.Equal(ImageStateMachine.SpinUp, m.State);
         Run(m, 0.3);
         Assert.Equal(ImageStateMachine.Ready, m.State);
-        Assert.Equal(new[] { "sfxReload", "sfxSpinUp", "sfxReady" }, sounds);
+        Assert.Equal(Values1, sounds);
     }
 
     [Fact]
@@ -66,7 +69,7 @@ public class ImageStateMachineTests
         Assert.Equal(ImageStateMachine.Reload, m.State);
         Run(m, 0.6);
         Assert.Equal(ImageStateMachine.Ready, m.State);
-        Assert.Equal(new[] { "sfxFire", "sfxReload", "sfxSpinUp", "sfxReady" }, sounds);
+        Assert.Equal(Values2, sounds);
     }
 
     [Fact]
@@ -100,7 +103,7 @@ public class ImageStateMachineTests
         m.Unpack(false, true, 1, true, false);
         Run(m, 0.3);
         Assert.Equal(ImageStateMachine.SpinDown, m.State);
-        Assert.Equal(new[] { "sfxSpinUp", "sfxReady", "sfxFire", "sfxSpinDown" }, sounds);
+        Assert.Equal(Values3, sounds);
     }
 
     [Fact]

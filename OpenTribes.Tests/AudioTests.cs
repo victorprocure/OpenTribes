@@ -9,6 +9,7 @@ using OpenTribes.Script;
 
 public class AudioTests
 {
+    private static readonly string[] Values1 = ["sfxPlay handle = 0", "sfxPlay handle = 1"];
     // ---- synthetic files ----
 
     private static byte[] Chunk(string id, byte[] body)
@@ -623,7 +624,7 @@ public class AudioTests
         lines.Clear();
         interp.Evaluate("sfxPlay(450002);");
         interp.Evaluate("sfxPlay(450003);");
-        Assert.Equal(new[] { "sfxPlay handle = 0", "sfxPlay handle = 1" }, lines);
+        Assert.Equal(Values1, lines);
         lines.Clear();
         interp.Evaluate("sfxSetMaxBuffers(4); sfxGetMaxBuffers();");
         Assert.Contains("Sfx::Manager::maxBuffers = 4", lines);

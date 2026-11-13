@@ -6,6 +6,7 @@ using OpenTribes.Platform.Gfx;
 
 public sealed class GuiTextFormatTests
 {
+    private static readonly string[] Values1 = ["aaaa bbbb", "cccc"];
     // Fixed width fonts: font n is (6 + n) pixels per character and 10 + n high, spacing 0.
     private static PftFont?[] Fonts()
     {
@@ -49,7 +50,7 @@ public sealed class GuiTextFormatTests
     public void WordsWrapAtTheLastSpaceThatFits()
     {
         var l = Layout("aaaa bbbb cccc", 60);      // 10 characters of 6 px fit
-        Assert.Equal(new[] { "aaaa bbbb", "cccc" }, l.Pieces.Select(p => p.Text).ToArray());
+        Assert.Equal(Values1, l.Pieces.Select(p => p.Text).ToArray());
         Assert.Equal([0, 10], [.. l.Pieces.Select(p => p.Y)]);
         Assert.Equal((10 * 2) + 2, l.Height);
     }

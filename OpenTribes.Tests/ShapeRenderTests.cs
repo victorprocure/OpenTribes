@@ -14,6 +14,9 @@ using Xunit.Abstractions;
 
 public class ShapeRenderTests
 {
+    private static readonly string[] Values1 = ["first", "opaque1", "opaque2", "far", "near", "fg"];
+    private static readonly double[] Values2 = [0.1, 0.25, 0.3, 0.6, 0.8];
+    private static readonly double[] Values3 = [0.3, 0.31, 0.71];
     private readonly ITestOutputHelper _out;
 
     public ShapeRenderTests(ITestOutputHelper output) => _out = output;
@@ -279,7 +282,7 @@ public class ShapeRenderTests
         l.Add(Img("first", 3, 0));
         l.Add(Img("opaque2", 0, 0));
         l.Add(Img("empty", 1, 0.2).Also(i => i.Batches.Clear()));
-        Assert.Equal(new[] { "first", "opaque1", "opaque2", "far", "near", "fg" }, l.Ordered().Select(i => i.Label).ToArray());
+        Assert.Equal(Values1, l.Ordered().Select(i => i.Label).ToArray());
     }
 
     // ---- SR 2.9 skins ----
@@ -307,11 +310,11 @@ public class ShapeRenderTests
     [Fact]
     public void DamageSkinLevelsFollowThePreference() // SR 2.9 inputs (b)
     {
-        Assert.Equal([0, 0, 1, 2, 3], [.. new[] { 0.1, 0.25, 0.3, 0.6, 0.8 }.Select(d => Skins.DamageLevel(d, 2))]);
+        Assert.Equal([0, 0, 1, 2, 3], [.. Values2.Select(d => Skins.DamageLevel(d, 2))]);
         Assert.Equal(2, Skins.DamageLevel(0.5, 1));
         Assert.Equal(0, Skins.DamageLevel(0.4, 1));
         Assert.Equal(0, Skins.DamageLevel(0.99, 0));
-        Assert.Equal([0, 1, 2], [.. new[] { 0.3, 0.31, 0.71 }.Select(Skins.DamageLevelShort)]);
+        Assert.Equal([0, 1, 2], [.. Values3.Select(Skins.DamageLevelShort)]);
     }
 
     [Fact]

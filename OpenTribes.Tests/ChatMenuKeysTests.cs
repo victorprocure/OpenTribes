@@ -6,6 +6,8 @@ using OpenTribes.Game;
 
 public class ChatMenuKeysTests
 {
+    private static readonly string[] Values1 = ["say 1 Attack!"];
+    private static readonly string[] Values2 = ["say 1 Wait"];
     private static ChatMenuTree Build()
     {
         var t = new ChatMenuTree();
@@ -57,7 +59,7 @@ public class ChatMenuKeysTests
         var ran = new List<string>();
         Press(t, 0x2f, 'v', ran);
         Assert.True(Press(t, 0x1e, 'a', ran));
-        Assert.Equal(new[] { "say 1 Attack!" }, ran);
+        Assert.Equal(Values1, ran);
         Assert.False(t.Showing);
         Assert.Equal(0, t.Mode);
     }
@@ -70,7 +72,7 @@ public class ChatMenuKeysTests
         var ran = new List<string>();
         Press(t, 0x2f, 'v', ran);
         Press(t, 0x11, 'w', ran);
-        Assert.Equal(new[] { "say 1 Wait" }, ran);
+        Assert.Equal(Values2, ran);
         Assert.True(t.Showing);
         Assert.Equal("", t.Path());
     }

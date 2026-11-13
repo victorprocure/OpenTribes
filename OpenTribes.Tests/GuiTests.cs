@@ -138,6 +138,7 @@ internal sealed class GuiFixture
 
 public class GuiTests
 {
+    private static readonly string[] Values1 = ["fill 0,0,639,479 c0"];
     private readonly ITestOutputHelper _out;
     public GuiTests(ITestOutputHelper output) => _out = output;
 
@@ -1081,7 +1082,7 @@ public class GuiTests
         fx.Canvas.ViewHasCamera = false;
         var dev = new RecDev();
         fx.Canvas.Render(dev);
-        Assert.Equal(new[] { "fill 0,0,639,479 c0" }, dev.Calls.Where(c => c.StartsWith("fill", StringComparison.Ordinal)).ToArray());
+        Assert.Equal(Values1, dev.Calls.Where(c => c.StartsWith("fill", StringComparison.Ordinal)).ToArray());
         Assert.DoesNotContain("clip 37,10,78,17", dev.Calls);
         fx.Canvas.ViewHasCamera = true;
         var dev2 = new RecDev();

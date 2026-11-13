@@ -7,6 +7,8 @@ using static OpenTribes.Tests.GfxFixtures;
 
 public class GfxFormatTests
 {
+    private static readonly string[] Values1 = ["R 0,0,2,3 @10,24", "R 4,1,8,6 @21,21"];
+    private static readonly string[] Values2 = ["S 0,0,2,3 @0,7 6x8", "S 4,1,8,6 @8,1 10x12"];
     // ---- 2.2 PBMP ----
 
     [Fact]
@@ -436,7 +438,7 @@ public class GfxFormatTests
         // 'A': y = 20 + baseline 6 + glyph baseline 0 - (rect.bottom - rect.top = 3) + 1 = 24; pen 10
         // 'C' is missing: nothing drawn, pen advances by the blank cell width 6 + spacing 1
         // 'B': y = 20 + 6 - 1 - 5 + 1 = 21; pen = 10 + (3 + 1) + (6 + 1) = 21
-        Assert.Equal(new[] { "R 0,0,2,3 @10,24", "R 4,1,8,6 @21,21" }, d.Calls);
+        Assert.Equal(Values1, d.Calls);
         Assert.Equal(27, bottom); // lowest glyph row: 24 + 4 - 1 for 'A', 21 + 6 - 1 = 26 for 'B'
     }
 
@@ -447,7 +449,7 @@ public class GfxFormatTests
         var d = new Recorder();
         GfxText.DrawAt(d, f!, 0, 0, "AB");
         // 'A': yOff = 6 + 0 - 3 = 3 -> 3 * 2 + 1 = 7, size 6 x 8; advance (3 + 1) * 2 = 8
-        Assert.Equal(new[] { "S 0,0,2,3 @0,7 6x8", "S 4,1,8,6 @8,1 10x12" }, d.Calls);
+        Assert.Equal(Values2, d.Calls);
     }
 
     [Fact]

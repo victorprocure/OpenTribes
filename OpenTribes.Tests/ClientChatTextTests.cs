@@ -5,6 +5,7 @@ using OpenTribes.Game;
 
 public sealed class ClientChatTextTests
 {
+    private static readonly int[] Values1 = [0, 3];
     [Fact]
     public void VoiceTagIsStrippedFromShownText()
     {
@@ -21,7 +22,7 @@ public sealed class ClientChatTextTests
         var pm = new ClientPlayerManager();
         pm.Message("a");
         pm.Message("b", 3);
-        Assert.Equal(new[] { 0, 3 }, pm.ChatTypes);
+        Assert.Equal(Values1, pm.ChatTypes);
         pm.Clear();
         Assert.Empty(pm.ChatTypes);
     }

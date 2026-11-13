@@ -9,6 +9,9 @@ using OpenTribes.Gui;
 
 public sealed class ClientAppTests : IDisposable
 {
+    private static readonly string[] Values1 = ["unable to find Redbook Obj CD", "unable to find Redbook Obj CD"];
+    private static readonly double[] Values2 = [1.5, 3.0];
+    private static readonly string[] Values3 = ["-mod", "m", "+connect", "127.0.0.1:1", "+exec", "a.cs"];
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-c8-" + Guid.NewGuid().ToString("N"));
     private readonly List<string> _lines = [];
     private ClientApp? _app;
@@ -191,7 +194,7 @@ public sealed class ClientAppTests : IDisposable
         _lines.Clear();
         Eval("rbSetVolume(CD, 0.5);");
         Eval("rbPlay(CD, 2);");
-        Assert.Equal(new[] { "unable to find Redbook Obj CD", "unable to find Redbook Obj CD" }, _lines);
+        Assert.Equal(Values1, _lines);
     }
 
     // ---- 2.4 net and R6 ----
@@ -574,8 +577,8 @@ public sealed class ClientAppTests : IDisposable
         Assert.Equal("", e);
         Assert.Equal("/x", o.Root);
         Assert.True(o.NoAudio);
-        Assert.Equal(new[] { 1.5, 3.0 }, o.ScreenshotAt);
-        Assert.Equal(new[] { "-mod", "m", "+connect", "127.0.0.1:1", "+exec", "a.cs" }, o.GameArgs);
+        Assert.Equal(Values2, o.ScreenshotAt);
+        Assert.Equal(Values3, o.GameArgs);
     }
 
     [Fact]

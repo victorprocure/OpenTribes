@@ -10,6 +10,9 @@ using static OpenTribes.Tests.Fixtures;
 
 public class ClientNetStreamTests
 {
+    private static readonly string[] Values1 = ["Rec connected to the game.", "Rec: Escort Rec.", "Rec: Escort Rec."];
+    private static readonly int[] Values2 = [0, 4, 3];
+    private static readonly int[] Values3 = [1];
     // Writes one event the way GameConnection.WriteEvents does (game-stream.md 2.1): guaranteed, ordered, explicit or
     // implicit sequence.
     private static void WriteEv(BitBuffer bs, OutEvent e, int seq, bool implicitSeq)
@@ -166,8 +169,8 @@ public class ClientNetStreamTests
         var cmd = CommandMap.MakeCommandEvent(2049, 2049, 0, false, 5, -1, 10, 20, true, true, "Escort Rec.~wescfr");
         var ack = CommandMap.MakeCommandEvent(2049, -1, 1, true, -1, -1, 0, 0, true, false, null);
         conn.Receive(EventPacket((add, 0, false), (cmd, 1, false), (ack, 2, false)));
-        Assert.Equal(new[] { "Rec connected to the game.", "Rec: Escort Rec.", "Rec: Escort Rec." }, world.Players.Chat);
-        Assert.Equal(new[] { 0, 4, 3 }, world.Players.ChatTypes);
+        Assert.Equal(Values1, world.Players.Chat);
+        Assert.Equal(Values2, world.Players.ChatTypes);
         Assert.Equal(new[] { (2049, "Escort Rec.~wescfr"), (2049, "Escort Rec.~wescfr") }, voices);
     }
 
@@ -306,7 +309,7 @@ public class ClientNetStreamTests
         var modes = new List<int>();
         psc.OnGuiMode = modes.Add;   // the mode change is reported while the block is read, not at the end of the frame
         var s2c = psc.ReadServerBlock(wr);
-        Assert.Equal(new[] { 1 }, modes);
+        Assert.Equal(Values3, modes);
         Assert.True(psc.FirstMove == 3 && psc.Moves.Count == 2 && psc.LastMove == 3 && psc.GuiMode == 1 && psc.GuiModeChanges == 1);
         Assert.True(s2c.Text.StartsWith("psc mode=1", StringComparison.Ordinal) && s2c.Text.Contains("control=none", StringComparison.Ordinal));
         // At most 30 moves wait for acknowledgement (4.2 step 7).

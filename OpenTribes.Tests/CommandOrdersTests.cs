@@ -9,6 +9,8 @@ using OpenTribes.Platform.Gfx;
 
 public class CommandOrdersTests
 {
+    private static readonly string[] Values1 = ["2048|IssueTargCommand|1|Attack|4|2050"];
+    private static readonly string[] Values2 = ["setIssueCommand", "1", "*Attack"];
     internal sealed class RectDev : IGfxDevice
     {
         public List<string> Calls { get; } = [];
@@ -326,7 +328,7 @@ public class CommandOrdersTests
         r.Map.SetIssueCommand(1, "Attack");
         var (x, y) = r.At(4);
         r.Down(x + 2, y + 1);
-        Assert.Equal(new[] { "2048|IssueTargCommand|1|Attack|4|2050" }, r.Remote);
+        Assert.Equal(Values1, r.Remote);
         Assert.Equal("enemy player", r.Fx.Interp.PeekVariable("$CommandTarget"));
         Assert.Equal("Foe", r.Fx.Interp.PeekVariable("$CommandTargetName"));
     }
@@ -411,7 +413,7 @@ public class CommandOrdersTests
         // without the order cursor the item still runs
         var ran = new List<string>();
         Assert.True(tree.OnKey(0x1e, 1, 'a', 0, ran.AddRange));
-        Assert.Equal(new[] { "setIssueCommand", "1", "*Attack" }, ran);
+        Assert.Equal(Values2, ran);
     }
 
     [Fact]

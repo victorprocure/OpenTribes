@@ -7,6 +7,10 @@ using OpenTribes.Client.Shapes;
 
 public class PartDebrisTests
 {
+    private static readonly float[] Values1 = [0.01f, 0.01f, 0.01f];
+    private static readonly float[] Values2 = [0.01f, 0.01f, 0.01f];
+    private static readonly float[] Values3 = [0.02f, 0.01f, 0.05f];
+    private static readonly float[] Values4 = [1f, 2f, 3f];
     // A mesh with the packed vertices of its frames: 4 bytes each (x, y, z, normal), frame k reads the two vertices from FirstVert.
     private static RsMesh Mesh(params (byte[] v0, byte[] v1, float[] scale, float[] origin)[] frames)
     {
@@ -30,7 +34,7 @@ public class PartDebrisTests
     public void RadiusIsHalfTheBitTrickLengthOfTheFrameBoxSize() // 0047603c, 005ed031, 005c3b18
     {
         // box (-1, -0.5, -0.25)..(1, 0.5, 0.25): size (2, 1, 0.5), squared length 5.25. m_Point3F_lenf gives 2.3125 (bits >> 1 + 0x1fc00000), not 2.2913
-        var m = Mesh((new byte[] { 0, 0, 0 }, new byte[] { 200, 100, 50 }, new[] { 0.01f, 0.01f, 0.01f }, new[] { -1f, -0.5f, -0.25f }));
+        var m = Mesh((new byte[] { 0, 0, 0 }, new byte[] { 200, 100, 50 }, Values1, new[] { -1f, -0.5f, -0.25f }));
         var b = PartDebris.Measure(m, 0);
         Assert.Equal(1.15625f, b.Radius);
         Assert.NotEqual((float)(Math.Sqrt(5.25) * 0.5), b.Radius);
@@ -41,8 +45,8 @@ public class PartDebrisTests
     [Fact]
     public void BoxIsReadAtTheObjectsCurrentFrameAndTheCentreIsTheMiddleOfIt() // 005ad14c, 005c3b18
     {
-        var m = Mesh((new byte[] { 0, 0, 0 }, new byte[] { 200, 100, 50 }, new[] { 0.01f, 0.01f, 0.01f }, new[] { -1f, -0.5f, -0.25f }),
-                     (new byte[] { 10, 20, 30 }, "n܂"u8.ToArray(), new[] { 0.02f, 0.01f, 0.05f }, new[] { 1f, 2f, 3f }));
+        var m = Mesh((new byte[] { 0, 0, 0 }, new byte[] { 200, 100, 50 }, Values2, new[] { -1f, -0.5f, -0.25f }),
+                     (new byte[] { 10, 20, 30 }, "n܂"u8.ToArray(), Values3, Values4));
         var b = PartDebris.Measure(m, 1);
         Assert.Equal((1.2f, 2.2f, 4.5f), (b.MinX, b.MinY, b.MinZ));
         Assert.Equal((3.2f, 4.2f, 9.5f), (b.MaxX, b.MaxY, b.MaxZ), new BoxComparer());

@@ -7,6 +7,8 @@ using OpenTribes.Platform.Gfx;
 
 public class GuiCommandPanelTests
 {
+    private static readonly string[] Values1 = ["text w6 10,10 'Menu inactive'"];
+    private static readonly string[] Values2 = ["text w6 10,10 'Root Menu:'", "text w6 10,20 'a: Attack'", "text w6 10,30 'd: Defend'"];
     private sealed class CallDev : IGfxDevice
     {
         public List<string> Calls { get; } = [];
@@ -79,12 +81,12 @@ public class GuiCommandPanelTests
         fx.Content(Root(GuiFixture.Make("FearGui::FGChatMenu", 7, 9, 100, 60, ("menuName", "CommandChatMenu"))));
         var dev = new CallDev();
         fx.Canvas.Render(dev);
-        Assert.Equal(new[] { "text w6 10,10 'Menu inactive'" }, dev.Calls);
+        Assert.Equal(Values1, dev.Calls);
 
         state = new ChatMenuState(true, "", ["a: Attack", "d: Defend"]);
         dev = new CallDev();
         fx.Canvas.Render(dev);
-        Assert.Equal(new[] { "text w6 10,10 'Root Menu:'", "text w6 10,20 'a: Attack'", "text w6 10,30 'd: Defend'" }, dev.Calls);
+        Assert.Equal(Values2, dev.Calls);
 
         state = new ChatMenuState(true, "Orders", ["a: Attack"]);
         dev = new CallDev();

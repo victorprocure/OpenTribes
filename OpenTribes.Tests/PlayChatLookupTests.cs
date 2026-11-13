@@ -48,6 +48,7 @@ public class PlayChatLookupTests
 // even if the play GUI is there when the frame pumps the chat (stock trace: PlayerTeamChangeEvent 67 ms before the PSC mode change).
 public class ChatLookupAtArrivalTests
 {
+    private static readonly bool[] Values1 = [false, true];
     [Fact]
     public void LookupRunsWhenTheMessageIsMade()
     {
@@ -57,7 +58,7 @@ public class ChatLookupAtArrivalTests
         pm.Message("Rec joined team Blood Eagle.");
         play = true;
         pm.Message("Rec: hello", 3);
-        Assert.Equal(new[] { false, true }, pm.ChatDisplayed);
+        Assert.Equal(Values1, pm.ChatDisplayed);
         pm.Clear();
         Assert.Empty(pm.ChatDisplayed);
     }

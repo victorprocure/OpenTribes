@@ -5,6 +5,11 @@ using OpenTribes.Net;
 
 public class ServerQueryTests
 {
+    private static readonly string[] Values1 = ["00Red"];
+    private static readonly string[] Values2 = ["IP:127.0.0.1:28001", "IP:127.0.0.1:28017"];
+    private static readonly int[] Values3 = [4];
+    private static readonly string[] Values4 = ["IP:127.0.0.1:28001"];
+    private static readonly string[] Values5 = ["IP:127.0.0.1:28001"];
     private sealed class FakeNet : IQueryTransport
     {
         public List<(Address To, byte[] Data)> Sent { get; } = [];
@@ -112,7 +117,7 @@ public class ServerQueryTests
         Assert.Equal("info text", r.Info);
         Assert.Equal("Team", r.TeamHeading);
         Assert.Equal("Player", r.ClientHeading);
-        Assert.Equal(new[] { "00Red" }, r.Rows);
+        Assert.Equal(Values1, r.Rows);
     }
 
     [Theory]
@@ -142,7 +147,7 @@ public class ServerQueryTests
         Assert.Equal("hi", motd);
         // The request entry is gone, part 2 is awaited and the listed server (127.0.0.1:28017) is pinged.
         Assert.Equal(2, q.PendingPings);
-        Assert.Equal(new[] { "IP:127.0.0.1:28001", "IP:127.0.0.1:28017" }, q.PendingPingAddresses.OrderBy(x => x).ToArray());
+        Assert.Equal(Values2, q.PendingPingAddresses.OrderBy(x => x).ToArray());
         Assert.Equal(2, net.Sent.Count);
     }
 
@@ -155,7 +160,7 @@ public class ServerQueryTests
         q.Queue("IP:127.0.0.1:28001");
         adv(40);
         q.OnDatagram(new Address(0x7f000001, 28001), PingReply(0, 0, 1, "Srv"), 1004);
-        Assert.Equal(new[] { 4 }, pings);
+        Assert.Equal(Values3, pings);
     }
 
     [Fact]
@@ -240,7 +245,7 @@ public class ServerQueryTests
         adv(901);
         q.Tick();
         Assert.Equal(3, net.Sent.Count);
-        Assert.Equal(new[] { "IP:127.0.0.1:28001" }, failed);
+        Assert.Equal(Values4, failed);
         Assert.Equal(0, q.PendingPings);
     }
 
@@ -276,7 +281,7 @@ public class ServerQueryTests
         net.Inbox.Enqueue((Server, InfoReply(0, 2)));
         q.Tick();
         Assert.Null(got);
-        Assert.Equal(new[] { "IP:127.0.0.1:28001" }, failed);
+        Assert.Equal(Values5, failed);
     }
 
     [Fact]
