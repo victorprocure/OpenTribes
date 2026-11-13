@@ -1088,6 +1088,31 @@ public class GuiTests
         Assert.Equal(0, clock.X);
     }
 
+    // 004afc9c (HudCtrl slot 0x88, run by Control::resize 0053a350 for every child with the new parent extent): x = ftol(fx * (parentW - W)),
+    // y = ftol(fy * (parentH - H)). Fractions are the play.gui floats; the sensor frame bitmap is drawn 1 pixel inside its control, which
+    // is what the stock captures at these sizes show (sensor frame left edge 638, 824, 1037, 1303, 1569).
+    [Theory]
+    [InlineData(800, 600, 658, 20, 637)]
+    [InlineData(1024, 768, 859, 25, 823)]
+    [InlineData(1280, 720, 1089, 24, 1036)]
+    [InlineData(1600, 1200, 1376, 40, 1302)]
+    [InlineData(1920, 1080, 1663, 36, 1568)]
+    public void ClockAndSensorHudsLayOutFromTheirFractionsAtEverySize(int w, int h, int clockX, int clockY, int sensorX)
+    {
+        var fx = new GuiFixture();
+        var root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
+        var clock = (GuiHud)GuiFixture.Make("FearGui::ClockHud", 0, 0, 66, 19, ("hudX", BitConverter.SingleToUInt32Bits(0.8972125f)), ("hudY", BitConverter.SingleToUInt32Bits(0.034707155f)));
+        var sensor = (GuiHud)GuiFixture.Make("FearGui::FGHSensorPing", 0, 0, 32, 23, ("hudX", BitConverter.SingleToUInt32Bits(0.8305921f)), ("hudY", 0u));
+        root.AddChild(clock);
+        root.AddChild(sensor);
+        fx.Content(root);
+        fx.Canvas.Width = w;
+        fx.Canvas.Height = h;
+        fx.Canvas.Frame();
+        Assert.Equal((clockX, clockY), (clock.X, clock.Y));
+        Assert.Equal((sensorX, 0), (sensor.X, sensor.Y));
+    }
+
     [Theory]
     [InlineData(0.0, "00:00:00.0")]
     [InlineData(54.34, "00:00:54.3")]
