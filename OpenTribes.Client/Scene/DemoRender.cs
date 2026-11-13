@@ -156,8 +156,14 @@ public static class DemoRender
     // shape with the Euler angles (elevation, 0, rotation), times the object transform, moved back by 1.3 * `distance`. Without the node
     // the object transform. First person is distance 0.
     public static CameraPose? TurretCamera(SceneModel m, int ghost, float rotation, float elevation, float distance, OpenTribes.World.Container? world, object? exclude)
+        => m.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? TurretCamera(sv, ghost, rotation, elevation, distance, world, exclude) : null;
+
+    // Turret_getCameraTransform 004564fc does nothing while the turret has no shape instance (+0x328 is 0): the output transform is not
+    // written. The ghost can exist before its datablock and shape are loaded, and the object transform alone (the body of the turret) is
+    // not a camera, so there is no pose until the instance exists.
+    public static CameraPose? TurretCamera(ShapeVisual sv, int ghost, float rotation, float elevation, float distance, OpenTribes.World.Container? world, object? exclude)
     {
-        if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || !sv.TryCameraInputs(out var obj, out var eye))
+        if (!sv.TryCameraInputs(out var obj, out var eye) || !sv.HasShapeInstance)
             return null;
         OpenTribes.Sim.Transform t = OpenTribes.Game.TurretCamera.Compute(obj, eye, rotation, elevation, distance, world, exclude);
         return PoseOf(t, distance == 0f || eye == null, ghost);
