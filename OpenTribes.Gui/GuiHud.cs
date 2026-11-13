@@ -1,20 +1,23 @@
-// docs/gui.md 4: HudCtrl and the HUD classes, the chat display, the chat line and CenterPrint.
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
-// FearGui::HudCtrl [code 004afa40, 004afc9c, 004afb8c]: position stored as two fractions of the free parent area.
+/// <summary>The base HUD control (FearGui::HudCtrl, 004afa40, 004afc9c, 004afb8c): the position is stored as two fractions of the free parent area (docs/gui.md 4).</summary>
 public class GuiHud : GuiControl
 {
+    /// <summary>Gets the horizontal position as a fraction of the free parent width.</summary>
     public float FracX => BitConverter.UInt32BitsToSingle(U("hudX"));
+    /// <summary>Gets the vertical position as a fraction of the free parent height.</summary>
     public float FracY => BitConverter.UInt32BitsToSingle(U("hudY"));
+    /// <summary>Gets the HUD data source of the host, or null.</summary>
     protected IHudSource? Source => Host?.Hud;
 
-    // The stock client shows a HUD at the position stored in the file: the fractions only apply when a parent that
-    // already has a size is resized (shot diff: weapon (0,213), clock (505,34) at 640 x 480).
+    /// <inheritdoc/>
+    /// <remarks>The stock client shows a HUD at the position stored in the file: the fractions only apply when a parent that already has a size is resized.</remarks>
     public override void Wake() { if (this is GuiCrosshair) Layout(); }
 
+    /// <inheritdoc/>
     public override void ParentResized(int oldW, int oldH, int newW, int newH)
     {
         if (oldW > 0 && oldH > 0)
@@ -26,6 +29,9 @@ public class GuiHud : GuiControl
 
     private bool mFractions;
 
+    /// <summary>Places the HUD from its fractions, or centres the crosshair.</summary>
+    /// <param name="pw">The parent width, -1 for the current one.</param>
+    /// <param name="ph">The parent height, -1 for the current one.</param>
     protected void Layout(int pw = -1, int ph = -1)
     {
         if (Parent == null)
@@ -43,18 +49,17 @@ public class GuiHud : GuiControl
         Y = (int)(FracY * (ph - FractionH));
     }
 
-    // The height the fractions see: the extent at the time of the parent resize [code 004afc9c]. The weapon HUD has none before its rows exist.
+    /// <summary>Gets the height the fractions see: the extent at the time of the parent resize (004afc9c). The weapon HUD has none before its rows exist.</summary>
     protected virtual int FractionH => H;
 
-    // The size switch of a HUD [code 004b0b64, 004e6ab4]: after a resize of the parent the stock draw keeps the position the fractions
-    // gave (they are not applied again) and only pulls it back inside the parent.
+    /// <summary>Applies the size switch of a HUD (004b0b64, 004e6ab4): after a resize of the parent the stock draw keeps the position the fractions gave (they are not applied again) and only pulls it back inside the parent.</summary>
     protected void KeepInside()
     {
         if (mFractions)
             Clamp();
     }
 
-    // After a drag: keep the control at least 8 pixels inside the parent and recompute the fractions [code 004afb8c].
+    /// <summary>Keeps the control at least 8 pixels inside the parent and recomputes the fractions, as after a drag (004afb8c).</summary>
     public void Clamp()
     {
         if (Parent == null)
@@ -66,19 +71,25 @@ public class GuiHud : GuiControl
         F["hudY"] = BitConverter.SingleToUInt32Bits(ey > 0 ? (float)Y / ey : 0f);
     }
 
+    /// <summary>Gets a value that is true when the canvas is below 512 x 384.</summary>
     protected bool LowRes => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
 
-    // The hit test of a HUD is not a stock behaviour that matters in play: HUDs do not take the mouse.
+    /// <inheritdoc/>
+    /// <remarks>The hit test of a HUD is not a stock behaviour that matters in play: HUDs do not take the mouse.</remarks>
     protected override bool PickInside(int lx, int ly) => false;
 }
 
-// FearGui::HealthHud and JetPackHud [code 004e6ab4, constants 004e70a4..004e70b0]: the bar HUD.
+/// <summary>The bar HUD (FearGui::HealthHud and JetPackHud, 004e6ab4, constants 004e70a4 to 004e70b0).</summary>
 public class GuiBarHud : GuiHud
 {
+    /// <summary>The file name of the frame bitmap.</summary>
     public static readonly string FrameName = "hud_health.bmp";
     private long mBlinkClock;
 
-    // The traced geometry: bar length in pixels, the colour, the icon choice.
+    /// <summary>Returns the bar length in pixels.</summary>
+    /// <param name="value">The value, 0 to 1.</param>
+    /// <param name="lowRes">True at low resolution.</param>
+    /// <returns>The length, at least 1 for a value above 0.</returns>
     public static int BarLength(double value, bool lowRes)
     {
         int full = lowRes ? 51 : 85;
@@ -88,22 +99,33 @@ public class GuiBarHud : GuiHud
         return l;
     }
 
+    /// <summary>Returns the bar color.</summary>
+    /// <param name="l">The bar length in pixels.</param>
+    /// <param name="lowRes">True at low resolution.</param>
+    /// <returns>The palette index: green, yellow or red by the third of the bar.</returns>
     public static int BarColor(int l, bool lowRes)
     {
         int third = lowRes ? 17 : 28;
         return l >= 2 * third + (lowRes ? 0 : 1) ? 0xfc : l >= third ? 0xf2 : 0xf3;
     }
 
+    /// <summary>Gets the value the bar shows, 0 to 1.</summary>
     protected virtual double Value => Source == null ? 0 : 1.0 - Source.DamageLevel;
+    /// <summary>Gets the names of the bitmaps: frame, icons and end caps.</summary>
     protected virtual string[] Names => new[] { "hudtrans", "HH_Icon_Green", "HH_Icon_Red", "HH_End_Green", "HH_End_Yellow", "HH_End_Red" };
 
+    /// <summary>Returns a bitmap of <see cref="Names"/>.</summary>
+    /// <param name="i">The index.</param>
+    /// <param name="lr">True for the low resolution version.</param>
+    /// <returns>The bitmap, or null.</returns>
     protected PbmpBitmap? Bmp(int i, bool lr)
     {
         string[] n = Names;
         return n[i].Length == 0 ? null : Host?.BitmapByName((lr ? "lr_" : "") + n[i] + ".bmp") ?? Host?.BitmapByName(n[i] + ".bmp");
     }
 
-    // Resolution switch: extent from the frame bitmap.
+    /// <inheritdoc/>
+    /// <remarks>The resolution switch takes the extent from the frame bitmap.</remarks>
     public override void PreRender()
     {
         PbmpBitmap? frame = Bmp(0, LowRes);
@@ -117,6 +139,7 @@ public class GuiBarHud : GuiHud
         }
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.HasPlayerState || Canvas == null || W > Canvas.Width || H > Canvas.Height)
@@ -157,20 +180,25 @@ public class GuiBarHud : GuiHud
     }
 }
 
+/// <summary>The health bar HUD (FearGui::HealthHud).</summary>
 public sealed class GuiHealthHud : GuiBarHud { }
 
-// FearGui::JetPackHud [code 004b0b64, loader 004b11d0]: the energy bar. Same frame as the health bar, but a fixed icon
-// (HJ_Icon_Green), one end cap (HJ_End_Green) and the fixed palette colour 0xe7. Draw order: the frame at (x + 1, y + 1), the icon
-// at (x + 5, y + 8), then, when the energy is above zero, the bar from (x + 37, y + 11), 84 pixels wide when full (low resolution
-// x + 23, y + 7, 52 wide): the cap, the fill between and the mirrored cap, clipped to the energy length. The length per unit
-// of energy is not read from the code; it is taken as the full width [I].
+/// <summary>The energy bar (FearGui::JetPackHud, 004b0b64, loader 004b11d0).</summary>
+/// <remarks>The same frame as the health bar, but a fixed icon (HJ_Icon_Green), one end cap (HJ_End_Green) and the fixed palette color 0xe7. Draw order: the frame at (x + 1, y + 1), the icon at (x + 5, y + 8), then, when the energy is above zero, the bar from (x + 37, y + 11), 84 pixels wide when full (low resolution x + 23, y + 7, 52 wide): the cap, the fill between and the mirrored cap, clipped to the energy length. The length per unit of energy is not read from the code: it is taken as the full width.</remarks>
 public sealed class GuiJetPackHud : GuiBarHud
 {
+    /// <summary>The palette index of the bar.</summary>
     public const int BarColorIndex = 0xe7;
 
+    /// <inheritdoc/>
     protected override double Value => Source == null ? 0 : Source.EnergyLevel;
+    /// <inheritdoc/>
     protected override string[] Names => new[] { "hudtrans", "HJ_Icon_Green", "HJ_End_Green" };
 
+    /// <summary>Returns the energy bar length in pixels.</summary>
+    /// <param name="value">The energy, 0 to 1.</param>
+    /// <param name="lowRes">True at low resolution.</param>
+    /// <returns>The length, at least 1 for a value above 0.</returns>
     public static int EnergyBarLength(double value, bool lowRes)
     {
         int full = lowRes ? 52 : 84;
@@ -180,6 +208,7 @@ public sealed class GuiJetPackHud : GuiBarHud
         return l;
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.HasPlayerState || Canvas == null || W > Canvas.Width || H > Canvas.Height)
@@ -207,9 +236,12 @@ public sealed class GuiJetPackHud : GuiBarHud
     }
 }
 
-// FearGui::ClockHud [code 004e7744]: |timer| as %02d:%02d:%02d.%1d in a shaded box with a bracket on each side (stub length 2).
+/// <summary>The clock (FearGui::ClockHud, 004e7744): |timer| as %02d:%02d:%02d.%1d in a shaded box with a bracket on each side (stub length 2).</summary>
 public sealed class GuiClockHud : GuiHud
 {
+    /// <summary>Formats the timer.</summary>
+    /// <param name="seconds">The timer value.</param>
+    /// <returns>The absolute value as hours:minutes:seconds.tenths.</returns>
     public static string Format(double seconds)
     {
         double t = Math.Abs(seconds);
@@ -218,6 +250,7 @@ public sealed class GuiClockHud : GuiHud
         return string.Create(CultureInfo.InvariantCulture, $"{whole / 3600:00}:{whole / 60 % 60:00}:{whole % 60:00}.{tenths}");
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.HasPlayerState)
@@ -232,10 +265,8 @@ public sealed class GuiClockHud : GuiHud
     }
 }
 
-// FearGui::CompassHud [code 004e7e5c]: Compass.bmp, then the letters N, E, S and W and four ticks as polylines rotated by the
-// control object's yaw (palette 0xfc, drawn around the bitmap centre), a fixed red needle at the top (0xf3) and the distance
-// readout in the middle: "000", or with a waypoint the distance and a filled arrow (palette 0xfc) toward it. Each row of the tables is a polyline; the points are in 1/1 pixels of the 64 pixel bitmap (low
-// resolution: the 36 pixel bitmap with its own table).
+/// <summary>The compass (FearGui::CompassHud, 004e7e5c).</summary>
+/// <remarks>It draws Compass.bmp, then the letters N, E, S and W and four ticks as polylines rotated by the control object's yaw (palette 0xfc, drawn around the bitmap centre), a fixed red needle at the top (0xf3) and the distance readout in the middle: "000", or with a waypoint the distance and a filled arrow (palette 0xfc) toward it. Each row of the tables is a polyline. The points are in 1/1 pixels of the 64 pixel bitmap (low resolution: the 36 pixel bitmap with its own table).</remarks>
 public sealed class GuiCompassHud : GuiHud
 {
     private static readonly float[][] Glyphs =
@@ -264,6 +295,7 @@ public sealed class GuiCompassHud : GuiHud
         new float[] { -7.5f, -7.5f, -9.5f, -9.5f },
     };
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.HasPlayerState)
@@ -302,8 +334,10 @@ public sealed class GuiCompassHud : GuiHud
         p.Text(f, tx, ty, text);
     }
 
-    // The readout text [code 004e7e5c, format "%d" at 0062ec1a, "000" at 0062ec1d]: "000" without a waypoint or when both
-    // truncated coordinate differences are within 2 metres, else the truncated 2D distance, at most 999.
+    /// <summary>Returns the readout text.</summary>
+    /// <param name="wp">The waypoint, or null.</param>
+    /// <returns>"000" without a waypoint or when both truncated coordinate differences are within 2 metres, else the truncated 2D distance, at most 999.</returns>
+    /// <remarks>Follows 004e7e5c: the format "%d" at 0062ec1a and "000" at 0062ec1d.</remarks>
     public static string Readout(HudWaypoint? wp)
     {
         if (wp is not HudWaypoint w)
@@ -314,9 +348,14 @@ public sealed class GuiCompassHud : GuiHud
         return Math.Min(999, dist).ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    // The arrow corners around the centre (cx, cy) [code 004e7e5c]: the bearing atan2(wy - py, wx - px) (+-pi/2 when the
-    // truncated x difference is 0) minus the yaw, turned by pi/2 - angle; corners (0, -24), (6, -16), (-6, -16) rotated by that
-    // angle (low resolution: 0, -14.4 / 3.6, -9.6 / -3.6, -9.6).
+    /// <summary>Returns the arrow corners around the compass centre.</summary>
+    /// <param name="yaw">The control object's yaw.</param>
+    /// <param name="w">The waypoint.</param>
+    /// <param name="lowRes">True at low resolution.</param>
+    /// <param name="cx">The centre x.</param>
+    /// <param name="cy">The centre y.</param>
+    /// <returns>The three corners.</returns>
+    /// <remarks>Follows 004e7e5c: the bearing atan2(wy - py, wx - px) (+-pi/2 when the truncated x difference is 0) minus the yaw, turned by pi/2 - angle. The corners (0, -24), (6, -16), (-6, -16) are rotated by that angle (low resolution: 0, -14.4 / 3.6, -9.6 / -3.6, -9.6).</remarks>
     public static (float X, float Y)[] Arrow(double yaw, HudWaypoint w, bool lowRes, float cx, float cy)
     {
         double bearing;
@@ -336,18 +375,16 @@ public sealed class GuiCompassHud : GuiHud
     }
 }
 
-// FearGui::CurrentWeaponHud [code 004e8fe8]: a framed column with one icon per weapon the player carries and, right of it, the
-// ammo count in a small dark box (the infinity icon when the weapon has no ammo item). The control resizes to the row count:
-// width = the weapon icon width + 38, height = (icon height + 4) x rows + 10 (low resolution + 27, + 2).
+/// <summary>The weapon list (FearGui::CurrentWeaponHud, 004e8fe8): a framed column with one icon per weapon the player carries and, right of it, the ammo count in a small dark box (the infinity icon when the weapon has no ammo item).</summary>
+/// <remarks>The control resizes to the row count: width = the weapon icon width + 38, height = (icon height + 4) x rows + 10 (low resolution + 27, + 2).</remarks>
 public sealed class GuiWeaponHud : GuiHud
 {
     private static readonly int[] Poly = { 2, 8, 8, 2, 24, 2, 30, 8 };
     private static readonly int[] PolyLow = { 1, 6, 6, 1, 16, 1, 18, 4 };
     private int mRows = -1;
 
-    // Wake [code 004e8b8c, 004e8fb9 to 004e8fd4]: after loading the icons it sets the extent to 1 x 1, the low resolution flag (+0x1f8)
-    // to 0 and the last row count (+0x204) to -1, then calls the clamp. A parent resize before the first draw therefore places the
-    // window with a height of 1 (the file's extent 62 x 76 is replaced), and the later row changes do not apply the fractions again.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004e8b8c and 004e8fb9 to 004e8fd4: after loading the icons it sets the extent to 1 x 1, the low resolution flag (+0x1f8) to 0 and the last row count (+0x204) to -1, then calls the clamp. A parent resize before the first draw therefore places the window with a height of 1 (the file's extent 62 x 76 is replaced), and the later row changes do not apply the fractions again.</remarks>
     public override void Wake()
     {
         base.Wake();
@@ -356,6 +393,7 @@ public sealed class GuiWeaponHud : GuiHud
         mRows = -1;
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.ControlIsPlayer || Host == null)
@@ -424,14 +462,13 @@ public sealed class GuiWeaponHud : GuiHud
     }
 }
 
-// FearGui::FGHSensorPing [code 004ea720]: the frame bitmap `ping` is always drawn for the control player; the flags byte of the
-// control object adds an overlay centred in the control: 2 the suppressed icon, 1 a cycle of the three ping icons. The cycle
-// index is ftol((now - t0) * 10) % 6 (exe 0x4ea8b8..0x4ea8d2, constant 10.0 at 0x4ea9b8): 0 Lo, 1 Med, else Hi, 100 ms each.
-// t0 (+0x1f0) is latched on the first pinged frame and reset to -1 by any other state.
+/// <summary>The sensor ping (FearGui::FGHSensorPing, 004ea720): the frame bitmap `ping` is always drawn for the control player.</summary>
+/// <remarks>The flags byte of the control object adds an overlay centred in the control: 2 the suppressed icon, 1 a cycle of the three ping icons. The cycle index is ftol((now - t0) * 10) % 6 (0x4ea8b8 to 0x4ea8d2, constant 10.0 at 0x4ea9b8): 0 Lo, 1 Med, else Hi, 100 ms each. t0 (+0x1f0) is latched on the first pinged frame and reset to -1 by any other state.</remarks>
 public sealed class GuiSensorHud : GuiHud
 {
     private double mPingStart = -1;
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Source == null || !Source.SensorHudShown || Host == null)
@@ -462,21 +499,24 @@ public sealed class GuiSensorHud : GuiHud
     }
 }
 
-// FearGui::Crosshair [code 004ab500]: a cross at the centre of the view.
+/// <summary>The crosshair (FearGui::Crosshair, 004ab500): a cross at the centre of the view.</summary>
 public sealed class GuiCrosshair : GuiHud
 {
+    /// <inheritdoc/>
     public override void Wake()
     {
         W = H = 13;
         Layout();
     }
 
+    /// <inheritdoc/>
     public override void ParentResized(int oldW, int oldH, int newW, int newH)
     {
         X = (newW - W) / 2;
         Y = (newH - H) / 2;
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         // 004ab500 draws nothing (reticle, zoom text, marks, label) unless PSC +0xa0 is on and +0x9c is 0 (third person off).
@@ -496,9 +536,8 @@ public sealed class GuiCrosshair : GuiHud
         p.SetClip(clip);
     }
 
-    // The aim triangles of the placed targets and their distances [code 004ada90, called at the end of 004ab500 unless 00623ed0 is set]:
-    // a filled triangle pointing down onto the aim point (palette 0xfb when the weapon reaches it, 0xf1 when not), the label centred
-    // under the tip in the target label font. The coordinates are canvas pixels.
+    /// <summary>Draws the aim triangles of the placed targets and their distances.</summary>
+    /// <remarks>Follows 004ada90, called at the end of 004ab500 unless 00623ed0 is set: a filled triangle pointing down onto the aim point (palette 0xfb when the weapon reaches it, 0xf1 when not), the label centred under the tip in the target label font. The coordinates are canvas pixels.</remarks>
     private void DrawMarkers(GuiPaint p, int cx, int cy)
     {
         if (Host == null || Source == null)
@@ -521,8 +560,8 @@ public sealed class GuiCrosshair : GuiHud
             }
     }
 
-    // The reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view [code 004ab500]; without the
-    // picture the four arms of the stock capture at 640 x 480 (3 pixels, 2 from the centre).
+    /// <summary>Draws the reticle picture (`H_Reticle.bmp`, `LR_H_Reticle.bmp` below 512 x 384) centred on the view (004ab500).</summary>
+    /// <remarks>Without the picture it draws four arms (3 pixels, 2 from the centre).</remarks>
     private void DrawReticle(GuiPaint p, int cx, int cy)
     {
         PbmpBitmap? reticle = Host?.BitmapByName(LowRes ? "LR_H_Reticle.bmp" : "H_Reticle.bmp");
@@ -537,12 +576,11 @@ public sealed class GuiCrosshair : GuiHud
         }
     }
 
-    // The sniper state of the control (+0x1f8): on while the view is zoomed to 30 degrees or less (and while the zoom-in animation
-    // heads there), it grows or shrinks with the animation.
+    /// <summary>The sniper state of the control (+0x1f8): on while the view is zoomed to 30 degrees or less (and while the zoom-in animation heads there). The cross grows or shrinks with the animation.</summary>
     private bool mSniper;
 
-    // The zoom branch of 004ab500 [code 004ab66d..004ac48f]. Returns true when the reticle picture follows, false when the sniper
-    // cross was drawn instead.
+    /// <summary>Draws the zoom branch of 004ab500 (004ab66d to 004ac48f).</summary>
+    /// <returns>True when the reticle picture follows, false when the sniper cross was drawn instead.</returns>
     private bool DrawZoom(GuiPaint p, HudZoom z, int cx, int cy)
     {
         int pw = Parent?.W ?? W, ph = Parent?.H ?? H;
@@ -597,7 +635,11 @@ public sealed class GuiCrosshair : GuiHud
         return false;
     }
 
-    // The corners of the zoom box in a view of pw x ph: half size = view size x tan(zoom FOV / 2) x 0.5 around the view centre [code 004ab8c3].
+    /// <summary>Returns the corners of the zoom box in a view.</summary>
+    /// <param name="zoomFov">The zoom field of view.</param>
+    /// <param name="pw">The view width.</param>
+    /// <param name="ph">The view height.</param>
+    /// <returns>The corners: half size = view size x tan(zoom FOV / 2) x 0.5 around the view centre (004ab8c3).</returns>
     public static (int X0, int Y0, int X1, int Y1) ZoomBox(double zoomFov, int pw, int ph)
     {
         double t = Math.Tan((double)(float)zoomFov * Math.PI / 360.0);
@@ -606,8 +648,7 @@ public sealed class GuiCrosshair : GuiHud
         return ((int)(cx - hw), (int)(cy - hh), (int)(cx + hw), (int)(cy + hh));
     }
 
-    // Corner marks around the area the next zoom level would show (half size = view size x tan(zoom FOV / 2) x 0.5) and "ZOOM: %dx"
-    // below it, x being the view width over the box width [code 004ab8c3..004abe2c].
+    /// <summary>Draws the corner marks around the area the next zoom level would show and "ZOOM: %dx" below it, x being the view width over the box width (004ab8c3 to 004abe2c).</summary>
     private void DrawZoomBox(GuiPaint p, HudZoom z, int cx, int cy, int halfW, int halfH, int pw, int ph, bool lr)
     {
         (int x0, int y0, int x1, int y1) = ZoomBox(z.ZoomFov, pw, ph);
@@ -629,10 +670,8 @@ public sealed class GuiCrosshair : GuiHud
         p.Text(f, cx - (GuiPaint.TextWidth(f, text) >> 1), cy + (lr ? 18 : 30), text);
     }
 
-    // The target marks and the label [code 004ab500, 004aca84]: friend or foe picture centred above the head of every player in
-    // sight, and for the picked one its name at (16, 16) from the view centre (10 at low resolution) in sf_white_7 (sf_white_5),
-    // with the health box of 27 x 6 (20 x 4) below it: a frame in palette 0xfb and a bar of (1 - damage) x 25 (18) pixels in 0xfc,
-    // 0xf3 below 8 (5) pixels.
+    /// <summary>Draws the target marks and the label (004ab500, 004aca84).</summary>
+    /// <remarks>A friend or foe picture is centred above the head of every player in sight. For the picked one its name is drawn at (16, 16) from the view centre (10 at low resolution) in sf_white_7 (sf_white_5), with the health box of 27 x 6 (20 x 4) below it: a frame in palette 0xfb and a bar of (1 - damage) x 25 (18) pixels in 0xfc, 0xf3 below 8 (5) pixels.</remarks>
     private void DrawTarget(GuiPaint p, int cx, int cy)
     {
         if (Host == null || Source?.CrosshairTarget(Canvas!.Width, Canvas.Height) is not HudTargetResult t)
@@ -670,13 +709,24 @@ public sealed class GuiCrosshair : GuiHud
     }
 }
 
-// A bracket of the message window frames [code 004a5f98, 004a38f0]: a vertical rule at x in palette 0xf8, a second one beside it
-// in 0xfc and a short horizontal stub at each end; `dir` is +4 for the left bracket and -4 for the right one.
+/// <summary>The brackets of the message window frames (004a5f98, 004a38f0).</summary>
 public static class HudFrame
 {
-    public const int ShadeColor = 0, FaceColor = 0xfc, EdgeColor = 0xf8;
+    /// <summary>The palette index of the translucent shade.</summary>
+    public const int ShadeColor = 0;
+    /// <summary>The palette index of the bracket face.</summary>
+    public const int FaceColor = 0xfc;
+    /// <summary>The palette index of the bracket edge.</summary>
+    public const int EdgeColor = 0xf8;
+    /// <summary>The opacity of the shade.</summary>
     public const float ShadeAlpha = 0.5f;
 
+    /// <summary>Draws a bracket: a vertical rule at x in palette 0xf8, a second one beside it in 0xfc and a short horizontal stub at each end.</summary>
+    /// <param name="p">The painter.</param>
+    /// <param name="x">The rule x.</param>
+    /// <param name="top">The top y.</param>
+    /// <param name="dir">The stub length with sign: +4 for the left bracket and -4 for the right one.</param>
+    /// <param name="bottom">The bottom y.</param>
     public static void Bracket(GuiPaint p, int x, int top, int dir, int bottom)
     {
         int step = dir < 0 ? -1 : 1;
@@ -686,7 +736,11 @@ public static class HudFrame
         p.Line(x + step, bottom, x + step + dir, bottom, FaceColor);
     }
 
-    // Fills a convex polygon with one scan line per row (the translucent frames of the weapon HUD).
+    /// <summary>Fills a convex polygon with one scan line per row (the translucent frames of the weapon HUD).</summary>
+    /// <param name="p">The painter.</param>
+    /// <param name="pts">The corners.</param>
+    /// <param name="color">The palette index.</param>
+    /// <param name="alpha">The opacity.</param>
     public static void FillPolygon(GuiPaint p, IReadOnlyList<(int X, int Y)> pts, int color, float alpha)
     {
         int minY = pts.Min(q => q.Y), maxY = pts.Max(q => q.Y);
@@ -717,7 +771,12 @@ public static class HudFrame
         }
     }
 
-    // The translucent shade and both brackets over the rectangle (x, y, w, h).
+    /// <summary>Draws the translucent shade and both brackets over a rectangle.</summary>
+    /// <param name="p">The painter.</param>
+    /// <param name="x">The left edge.</param>
+    /// <param name="y">The top edge.</param>
+    /// <param name="w">The width.</param>
+    /// <param name="h">The height.</param>
     public static void Panel(GuiPaint p, int x, int y, int w, int h)
     {
         p.Fill(x, y, w, h, ShadeColor, ShadeAlpha);
@@ -726,16 +785,21 @@ public static class HudFrame
     }
 }
 
-// The chat display line count per content control id: the stock GuiLoadContentCtrl [code 00535c7c] looks the content up by name before
-// it loads the file, so a size set with IDACTION_CHAT_DISP_SIZE survives the trip through the command and inventory screens. The
-// port loads the file each time, so the count is kept here and applied when the content comes back.
+/// <summary>The chat display line count per content control id.</summary>
+/// <remarks>The stock GuiLoadContentCtrl (00535c7c) looks the content up by name before it loads the file, so a size set with IDACTION_CHAT_DISP_SIZE survives the trip through the command and inventory screens. The port loads the file each time, so the count is kept here and applied when the content comes back.</remarks>
 public sealed class ChatSizeMemory
 {
     private readonly Dictionary<uint, int> mLines = new();
 
+    /// <summary>Stores the line count of a display.</summary>
+    /// <param name="contentId">The content control id.</param>
+    /// <param name="disp">The display.</param>
     public void Remember(uint contentId, GuiChatDisplay disp) => mLines[contentId] = disp.Lines;
 
-    // True when a size was stored for the content and the display took it.
+    /// <summary>Applies the stored line count to a display.</summary>
+    /// <param name="contentId">The content control id.</param>
+    /// <param name="disp">The display.</param>
+    /// <returns>True when a size was stored for the content and the display took it.</returns>
     public bool Apply(uint contentId, GuiChatDisplay disp)
     {
         if (!mLines.TryGetValue(contentId, out int n))
@@ -745,22 +809,24 @@ public sealed class ChatSizeMemory
     }
 }
 
-// FearGui::FearGuiChatDisplay [code 004a633c]: the message window. With lines > 0 it draws a translucent shade over its extent
-// and the two frame brackets (the `chatE` flag of the file is 0 in the stock play.gui), then the last N chat lines of the host's
-// ring, wrapped to the extent minus the 4 and 2 pixel inset the draw routine applies.
+/// <summary>The message window (FearGui::FearGuiChatDisplay, 004a633c).</summary>
+/// <remarks>With lines > 0 it draws a translucent shade over its extent and the two frame brackets (the `chatE` flag of the file is 0 in the stock play.gui), then the last N chat lines of the host's ring, wrapped to the extent minus the 4 and 2 pixel inset the draw routine applies.</remarks>
 public sealed class GuiChatDisplay : GuiHud
 {
-    // Text starts 4 + 6 pixels from the left (the 6 is half of the stock indent value 12, `00623478`) and the lines stack upward from
-    // 6 pixels above the bottom, one font height apart. The draw routine [code 004a633c] starts the lines at the bottom of the control
-    // less 4 pixels (0 in the low resolution mode, +0x1f8) and the text at the left of the control + 6; stock frames show the text 4 pixels
-    // further right and 2 higher (play screen and inventory screen), a difference that is not in this routine, so these three
-    // constants stay as the offsets that reproduce the stock position until the origin of the window is traced.
-    public const int InsetX = 4, IndentX = 6, BottomInset = 6;
-    // Height = lines * line height + 6 (DAT_00623474), see SetLines.
+    /// <summary>The inset of the text from the left edge.</summary>
+    public const int InsetX = 4;
+    /// <summary>The indent of the text: half of the stock indent value 12 (00623478).</summary>
+    public const int IndentX = 6;
+    /// <summary>The distance of the last line above the bottom edge.</summary>
+    public const int BottomInset = 6;
+    /// <summary>The height added to the lines (DAT_00623474), see <see cref="SetLines"/>.</summary>
     public const int HeightPad = 6;
 
-    // The font of a message type [code 004a5124, loaded by 004a5b54]: 0 white, 1 and 4 red, 3 green, any other yellow; the
-    // low resolution set (canvas below 512 x 384) has the 6 point versions.
+    /// <summary>Returns the font of a message type.</summary>
+    /// <param name="type">The message type.</param>
+    /// <param name="low">True for the low resolution set (canvas below 512 x 384), which has the 6 point versions.</param>
+    /// <returns>The font file name: 0 white, 1 and 4 red, 3 green, any other yellow.</returns>
+    /// <remarks>Follows 004a5124, loaded by 004a5b54.</remarks>
     public static string FontName(uint type, bool low) => type switch
     {
         0 => low ? "sf_white_6.pft" : "if_w_10b.pft",
@@ -769,15 +835,19 @@ public sealed class GuiChatDisplay : GuiHud
         _ => low ? "sf_yellow_6.pft" : "sf_yellow_10b.pft",
     };
 
-    // Next line count of the size action with a negative value [code 004a7030]: 3, 5, 20, 3; a value from 0 sets it.
+    /// <summary>Returns the next line count of the size action (004a7030).</summary>
+    /// <param name="current">The current line count.</param>
+    /// <param name="value">The action value: a negative one cycles 3, 5, 20, 3, a value from 0 sets it.</param>
+    /// <returns>The line count.</returns>
     public static int NextLines(int current, int value) => value >= 0 ? value : current switch { 3 => 5, 5 => 20, _ => 3 };
 
+    /// <summary>Gets the number of message lines.</summary>
     public int Lines => (int)U("lines", 3);
 
     private bool mLowMode;
 
-    // The loader [code 004a5b54] sets the lower-case-as-capitals flag (0x400) of the four low resolution message fonts, so the 6 point
-    // chat lines show capitals only (stock capture at 400 x 300).
+    /// <inheritdoc/>
+    /// <remarks>The loader (004a5b54) sets the lower-case-as-capitals flag (0x400) of the four low resolution message fonts, so the 6 point chat lines show capitals only.</remarks>
     public override void Wake()
     {
         base.Wake();
@@ -788,10 +858,8 @@ public sealed class GuiChatDisplay : GuiHud
                 f.Flags |= PftFont.FlagLowerCaps;
     }
 
-    // Parent resized [code 004a56e8]: the message window does not use the fractions of the other HUDs. A surface below 512 x 384 is the
-    // low resolution mode (width 240 and a height of lines x line height + 6 on entering it, back to width 370 on leaving it); the
-    // width is never below that mode's width and stays under the surface width, the height under the surface height and a whole
-    // number of lines, and the position is pulled back inside the surface.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004a56e8: the message window does not use the fractions of the other HUDs. A surface below 512 x 384 is the low resolution mode (width 240 and a height of lines x line height + 6 on entering it, back to width 370 on leaving it). The width is never below that mode's width and stays under the surface width, the height under the surface height and a whole number of lines, and the position is pulled back inside the surface.</remarks>
     public override void ParentResized(int oldW, int oldH, int newW, int newH)
     {
         if (newW <= 0 || newH <= 0)
@@ -815,7 +883,8 @@ public sealed class GuiChatDisplay : GuiHud
         Y = Math.Min(Y, newH - H);
     }
 
-    // IDACTION_CHAT_DISP_SIZE: sets the line count and resizes the control to lines * line height + 6 (the top stays).
+    /// <summary>Sets the line count (IDACTION_CHAT_DISP_SIZE) and resizes the control to lines * line height + 6, the top stays.</summary>
+    /// <param name="value">The action value, see <see cref="NextLines"/>.</param>
     public void SetLines(int value)
     {
         int n = NextLines((int)U("lines", 3), value);
@@ -824,9 +893,8 @@ public sealed class GuiChatDisplay : GuiHud
         H = n * (f == null ? 13 : GuiPaint.FontHeight(f)) + HeightPad;
     }
 
-    // The player chat menu under the message window [code 004a633c, after the frame]: drawn when `chatE` is 0 and the menu is on, with
-    // the heading and the items in if_g_10b one font height apart, starting right below the control (its top plus its height). When the list would
-    // reach the bottom of the screen it sits above the control instead, 8 pixels clear of it.
+    /// <summary>Draws the player chat menu under the message window (004a633c, after the frame).</summary>
+    /// <remarks>It is drawn when `chatE` is 0 and the menu is on, with the heading and the items in if_g_10b one font height apart, starting right below the control (its top plus its height). When the list would reach the bottom of the screen it sits above the control instead, 8 pixels clear of it.</remarks>
     private void RenderMenu(GuiPaint p, int x, int y)
     {
         if (Host?.Hud?.PlayMenu is not PlayMenuView menu || U("chatE") != 0)
@@ -853,6 +921,7 @@ public sealed class GuiChatDisplay : GuiHud
         p.SetClip(saved);
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Host == null)
@@ -919,13 +988,11 @@ public sealed class GuiChatDisplay : GuiHud
     }
 }
 
-// CenterPrint [code 00488f80 prepare, 00489108 draw]: the message of Client::centerPrint in a shaded box with a bracket on each
-// side (stub length 4). The box is the parent's width less 70 (low resolution 30) wide at x 35 (15), as high as the wrapped text plus
-// 8, and sits by the message type: 0 vertically centred, 1 35 (15) above the bottom, 2 35 (15) below the top. The text is wrapped to
-// the box less 4 and drawn 2 pixels inside with the fonts f0, f1 and f2 of the control (sf_orange214_10, sf_orange255_10,
-// sf_white_9b; low resolution sf_orange_6, sf_yellow_6, sf_white_6) by the TextFormat layout (docs/gui.md 3.3.1).
+/// <summary>The center print message (CenterPrint, 00488f80 prepare, 00489108 draw): the message of Client::centerPrint in a shaded box with a bracket on each side (stub length 4).</summary>
+/// <remarks>The box is the parent's width less 70 (low resolution 30) wide at x 35 (15), as high as the wrapped text plus 8, and sits by the message type: 0 vertically centred, 1 35 (15) above the bottom, 2 35 (15) below the top. The text is wrapped to the box less 4 and drawn 2 pixels inside with the fonts f0, f1 and f2 of the control (sf_orange214_10, sf_orange255_10, sf_white_9b, low resolution sf_orange_6, sf_yellow_6, sf_white_6) by the TextFormat layout (docs/gui.md 3.3.1).</remarks>
 public sealed class GuiCenterPrint : GuiControl
 {
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Host == null || Parent == null || Host.CenterText.Length == 0 || Host.CenterType is < 0 or > 2)
@@ -956,24 +1023,33 @@ public sealed class GuiCenterPrint : GuiControl
     }
 }
 
-// FearGui::FearGuiChat: the chat line, hidden until opened; Enter sends the text through its command, Escape cancels.
+/// <summary>The chat line (FearGui::FearGuiChat), hidden until opened: Enter sends the text through its command, Escape cancels.</summary>
 public sealed class GuiChat : GuiTextEdit
 {
+    /// <inheritdoc/>
     public override bool WantsTab => Visible;
 
-    // The stock chat line has font tag 0 and the highlight tag 150007 (play.gui); a tag that resolves to nothing falls back to the
-    // highlight font, then to the HUD font, so the typed text is always drawn (docs/gui.md 3.3 TextEdit draw: the class text draw).
+    /// <inheritdoc/>
+    /// <remarks>The stock chat line has font tag 0 and the highlight tag 150007 (play.gui). A tag that resolves to nothing falls back to the highlight font, then to the HUD font, so the typed text is always drawn (docs/gui.md 3.3 TextEdit draw: the class text draw).</remarks>
     protected override PftFont? Font =>
         Host?.FontByTag(U("fontTag")) ?? Host?.FontByTag(U("highlightFontTag")) ?? Host?.FontByName("sf_white_10.pft");
 
-    // FearGui::FearGuiChat draw [code 004a3ebc, layout 004a3e68]: the line sits at the bottom centre of its parent, 40 pixels above the
-    // bottom edge less one text line per wrapped line. A translucent shade with the two frame brackets covers the control, the
-    // prompt is "SAY: " (channel 0) or "SAY TEAM: " (any other) in the channel's font, the typed text follows it and wraps below it,
-    // and the cursor is a vertical bar in palette 0xfc that blinks.
-    public const int Margin = 40, PadX = 12, PadY = 4, Lines = 2, ExtraHeight = 10;
+    /// <summary>The distance of the line above the bottom edge of its parent.</summary>
+    public const int Margin = 40;
+    /// <summary>The horizontal padding.</summary>
+    public const int PadX = 12;
+    /// <summary>The vertical padding.</summary>
+    public const int PadY = 4;
+    /// <summary>The number of text lines the height is counted in.</summary>
+    public const int Lines = 2;
+    /// <summary>The height added to the lines (DAT_00623204).</summary>
+    public const int ExtraHeight = 10;
 
     private bool LowRes => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
 
+    /// <summary>Returns the prompt of a channel.</summary>
+    /// <param name="channel">The channel.</param>
+    /// <returns>"SAY: " for channel 0, "SAY TEAM: " for any other.</returns>
     public static string Prompt(int channel) => channel < 1 ? "SAY: " : "SAY TEAM: ";
 
     private int Channel => Math.Clamp((int)Math.Truncate(Host == null ? 0 : ParseInt(Host.GetVar("$pref::msgChannel"))), 0, 31);
@@ -987,8 +1063,12 @@ public sealed class GuiChat : GuiTextEdit
         return Host?.FontByName(name) ?? Host?.FontByName("sf_white_10.pft");
     }
 
-    // The wrapped lines of the prompt plus text: the first line starts after the prompt, later ones at the left pad. Each entry is
-    // (first character index, length).
+    /// <summary>Wraps the prompt plus text into lines.</summary>
+    /// <param name="f">The font.</param>
+    /// <param name="prompt">The prompt.</param>
+    /// <param name="text">The typed text.</param>
+    /// <param name="width">The control width.</param>
+    /// <returns>The first character index and length of each line. The first line starts after the prompt, later ones at the left pad.</returns>
     public static List<(int Start, int Length)> WrapLines(PftFont f, string prompt, string text, int width)
     {
         var lines = new List<(int, int)>();
@@ -1009,6 +1089,8 @@ public sealed class GuiChat : GuiTextEdit
         return lines;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>Follows FearGui::FearGuiChat draw (004a3ebc, layout 004a3e68): the line sits at the bottom centre of its parent, 40 pixels above the bottom edge less one text line per wrapped line. A translucent shade with the two frame brackets covers the control, the prompt is "SAY: " (channel 0) or "SAY TEAM: " (any other) in the channel's font, the typed text follows it and wraps below it, and the cursor is a vertical bar in palette 0xfc that blinks.</remarks>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Host == null || Parent == null || Canvas == null)
@@ -1056,6 +1138,7 @@ public sealed class GuiChat : GuiTextEdit
         }
     }
 
+    /// <summary>Shows the line and gives it the keyboard.</summary>
     public void Open()
     {
         SetVisible(true);
@@ -1072,6 +1155,7 @@ public sealed class GuiChat : GuiTextEdit
         Canvas?.RebuildTabList();
     }
 
+    /// <inheritdoc/>
     public override bool KeyDown(GuiEvent e)
     {
         if (e.Scan == 0x01)
@@ -1098,22 +1182,23 @@ public sealed class GuiChat : GuiTextEdit
         return base.KeyDown(e);
     }
 
+    /// <inheritdoc/>
     public override bool KeyUp(GuiEvent e) => true;
 }
 
-// SimGui::TSControl: the 3D view. The world is drawn by the world renderer before the GUI; this control draws its
-// children (the HUD) over it. docs/gui.md 3.3 "The 3D play view".
+/// <summary>The 3D view (SimGui::TSControl, docs/gui.md 3.3 "The 3D play view").</summary>
+/// <remarks>The world is drawn by the world renderer before the GUI. This control draws its children (the HUD) over it.</remarks>
 public sealed class GuiPlayView : GuiControl
 {
+    /// <summary>Gets a value that is true when the control produces 3D events.</summary>
     public bool Produce3dEvents => U("produce3dEvents") != 0;
 
-    // The camera object of the control (+0x1ec, set by 005473ec). The play view of play.gui is drawn by the host before the GUI and
-    // never sets it here; the observer panel's view (GuiCmdObserve) sets it to the client's control object, which makes the control
-    // draw the world itself, inside its rectangle.
+    /// <summary>True when the control has a camera object (+0x1ec, set by 005473ec).</summary>
+    /// <remarks>The play view of play.gui is drawn by the host before the GUI and never sets it here. The observer panel's view (<see cref="GuiCmdObserve"/>) sets it to the client's control object, which makes the control draw the world itself, inside its rectangle.</remarks>
     public bool CameraAttached;
 
-    // TSControl draw 00546dc4: when the camera set-up (00545f7c, the control object's camera query, vtable +0x24) fails, the control
-    // fills its rectangle with colour 0 (surface vtable +0x10, alpha 1.0) and returns without drawing its children (the HUD).
+    /// <inheritdoc/>
+    /// <remarks>Follows the TSControl draw 00546dc4: when the camera set-up (00545f7c, the control object's camera query, vtable +0x24) fails, the control fills its rectangle with color 0 (surface vtable +0x10, alpha 1.0) and returns without drawing its children (the HUD). The view fills the control rectangle: the frustum comes from that rectangle, the field of view across its width.</remarks>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (CameraAttached && Canvas?.ViewRenderer is { } draw)
