@@ -1,69 +1,102 @@
-// Port of src/world/container.hpp and src/world/container.cpp: container hierarchy (docs/interiors.md 6,
-// docs/game-stream-ghosts.md 6.2). Container 7 (SimDefaultOpenContainer) holds a SimDefaultContainerDatabase: a vector
-// in add order. Objects that are containers themselves (SimTerrain, InteriorShape with isContainer) have their own
-// database and hold every object whose world box fits inside theirs. The C++ sim::SimObject pointers are `object`
-// (reference identity), see Collision.cs.
 using System.Runtime.CompilerServices;
 using OpenTribes.Core;
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.World;
 
-// src/world/container.hpp enum ObjectType: object type bits (object +0x48).
+/// <summary>The object type bits (object +0x48), tested against container masks.</summary>
 public static class ObjectType
 {
+    /// <summary>The terrain type bit.</summary>
     public const uint kTerrainType = 0x2;
+    /// <summary>The interior type bit.</summary>
     public const uint kInteriorType = 0x4;
+    /// <summary>The player type bit.</summary>
     public const uint kPlayerType = 0x80;
+    /// <summary>The marker type bit.</summary>
     public const uint kMarkerType = 0x100000;
+    /// <summary>The item type bit.</summary>
     public const uint kItemType = 0x200000;
+    /// <summary>The moveable type bit.</summary>
     public const uint kMoveableType = 0x400000;
+    /// <summary>The static type bit.</summary>
     public const uint kStaticType = 0x800000;
+    /// <summary>The mine type bit.</summary>
     public const uint kMineType = 0x4000000;
+    /// <summary>The trigger type bits.</summary>
     public const uint kTriggerType = 0x10000010;
+    /// <summary>The vehicle type bit.</summary>
     public const uint kVehicleType = 0x20000000;
 }
 
-// src/world/container.hpp class Container.
+/// <summary>The container hierarchy (docs/interiors.md 6, docs/game-stream-ghosts.md 6.2): finds objects by box, casts rays and walks the scope.</summary>
+/// <remarks>Container 7 (SimDefaultOpenContainer) holds a SimDefaultContainerDatabase, a vector in add order. Objects that are containers themselves (SimTerrain, InteriorShape with isContainer) have their own database and hold every object whose world box fits inside theirs. Sim objects are <c>object</c> (reference identity), see <see cref="Collision"/>. Port of src/world/container.cpp.</remarks>
 public sealed class Container
 {
-    // src/world/container.hpp Container::CastFn.
+    /// <summary>Casts a line against one object, as the object's own line test.</summary>
+    /// <param name="s">The segment start.</param>
+    /// <param name="e">The segment end.</param>
+    /// <param name="hit">Receives the hit point.</param>
+    /// <param name="normal">Receives the surface normal.</param>
+    /// <returns>True on a hit.</returns>
     public delegate bool CastFn(Vec3 s, Vec3 e, ref Vec3 hit, ref Vec3 normal);
 
-    // Own database (+0x88) of a container object.
-    public enum Database { None, Terrain, Interior }
+    /// <summary>The kind of the container's own database (+0x88).</summary>
+    public enum Database
+    {
+        /// <summary>No own database.</summary>
+        None,
+        /// <summary>A SimTerrain database.</summary>
+        Terrain,
+        /// <summary>An interior (PVS) database.</summary>
+        Interior,
+    }
 
-    // src/world/container.hpp Container::Entry.
+    /// <summary>One registered object with its type, world box and line test.</summary>
     public sealed class Entry
     {
-        public object? Object;     // sim::SimObject*
+        /// <summary>The sim object.</summary>
+        public object? Object;
+        /// <summary>The object type bits.</summary>
         public uint Type;
-        public Float6 Box;         // world AABB (+0x70..+0x84)
-        public bool ClipSegment;   // unused: every line test gets the unclipped segment (collision.md 9 F4)
+        /// <summary>The world box (+0x70 to +0x84).</summary>
+        public Float6 Box;
+        /// <summary>Unused: every line test gets the unclipped segment (docs/collision.md 9 F4).</summary>
+        public bool ClipSegment;
+        /// <summary>The line test of the object, or null.</summary>
         public CastFn? Cast;
-        // Material entry of the surface the last successful `cast` hit (record +0x20), null when it has none. Set by the
-        // cast function of terrain and interior entries (std::shared_ptr<const Material*>).
+        /// <summary>The material of the surface the last successful <see cref="Cast"/> hit (record +0x20), null when it has none. Set by the cast function of terrain and interior entries.</summary>
         public StrongBox<Material?>? HitMaterial;
+        /// <summary>The kind of the object's own database.</summary>
         public Database DatabaseKind = Database.None;
-        public uint ContainerMask;  // +0x90: object types the database accepts
-        public float VisibleDistance; // SimTerrain +0x2e0 (container vtable +0xac)
-        // Interior database: collision geometry (instance +0xa0) and object transform.
+        /// <summary>The object types the database accepts (+0x90).</summary>
+        public uint ContainerMask;
+        /// <summary>The visible distance of a SimTerrain (+0x2e0, container vtable +0xac).</summary>
+        public float VisibleDistance;
+        /// <summary>The collision geometry of an interior database (instance +0xa0).</summary>
         public InteriorGeometry? Geometry;
+        /// <summary>The object transform of an interior database.</summary>
         public Mat Transform = new();
-        // SimTerrain: surface data for collision and the container properties it gives the moving objects inside it
-        // (docs/player-sim.md FC2: contGravity, contDrag).
+        /// <summary>The surface data of a SimTerrain, for collision.</summary>
         public Terrain? TerrainData;
+        /// <summary>The gravity the container gives the moving objects inside it (docs/player-sim.md FC2, contGravity).</summary>
         public Float3 Gravity;
+        /// <summary>The drag the container gives the moving objects inside it (docs/player-sim.md FC2, contDrag).</summary>
         public float Drag;
-        // Number of collision image queries (0x407) other code has made on the object: a ray whose segment crosses the
-        // box (castRay step 3) and the candidate list of another mover (SimMovement_stepMove 0x00505a3c,
-        // docs/vehicle-sim.md 15).
+        /// <summary>The number of collision image queries (0x407) other code has made on the object: a ray whose segment crosses the box (castRay step 3) and the candidate list of another mover (SimMovement_stepMove 00505a3c, docs/vehicle-sim.md 15).</summary>
         public uint ImageQueries;
 
+        /// <summary>Creates an empty entry.</summary>
         public Entry()
         {
         }
 
+        /// <summary>Creates an entry.</summary>
+        /// <param name="obj">The sim object.</param>
+        /// <param name="type">The object type bits.</param>
+        /// <param name="box">The world box.</param>
+        /// <param name="clipSegment">Unused, see <see cref="ClipSegment"/>.</param>
+        /// <param name="cast">The line test, or null.</param>
         public Entry(object? obj, uint type, Float6 box, bool clipSegment, CastFn? cast)
         {
             Object = obj;
@@ -73,21 +106,23 @@ public sealed class Container
             Cast = cast;
         }
 
-        // The C++ struct copy.
+        /// <summary>Copies the entry the way a C++ struct copy does.</summary>
+        /// <returns>A shallow copy.</returns>
         public Entry Clone() => (Entry)MemberwiseClone();
     }
 
-    // src/world/container.hpp Container::ScopeQuery: scope traversal (docs/game-stream-ghosts.md 6.2). markable is rule
-    // M (net flag 0x100 set, 0x40 clear); mark is markInScope. point and visibleDistance are camera record +0x04 and
-    // +0x28.
+    /// <summary>The input and callbacks of a scope traversal (docs/game-stream-ghosts.md 6.2).</summary>
     public sealed class ScopeQuery
     {
+        /// <summary>The camera point (camera record +0x04).</summary>
         public Vec3 Point;
+        /// <summary>The visible distance (camera record +0x28).</summary>
         public float VisibleDistance;
+        /// <summary>Tests whether an object may be marked: net flag 0x100 set and 0x40 clear (rule M).</summary>
         public Func<object?, bool> Markable = _ => false;
+        /// <summary>Marks an object in scope (markInScope).</summary>
         public Action<object?> Mark = _ => { };
-        // Called with the object of an interior that the walk reaches through a link record (InteriorShape +0x418 = 2), at the point
-        // where the stock walk builds its render image (0047f794 copies bit 2 to the image link flag, 004804bc).
+        /// <summary>Called with the interior object that the walk reaches through a link record (InteriorShape +0x418 = 2), where the stock walk builds its render image (0047f794 copies bit 2 to the image link flag, 004804bc).</summary>
         public Action<object>? OnViaLink;
     }
 
@@ -241,8 +276,9 @@ public sealed class Container
         return true;
     }
 
-    // src/world/container.cpp padInteriorBox: world box of an InteriorShape (0047e5a0): the transformed geometry box with
-    // min - 3.0 and max + 3.0 on every axis (f32 0061db9c). Objects fit an interior database only inside this padded box.
+    /// <summary>Pads an interior's world box by 3.0 on every axis (f32 0061db9c), as InteriorShape does (0047e5a0).</summary>
+    /// <param name="box">The transformed geometry box, min xyz then max xyz, padded in place.</param>
+    /// <remarks>Objects fit an interior database only inside this padded box.</remarks>
     public static void PadInteriorBox(Span<float> box)
     {
         for (int i = 0; i < 3; ++i)
@@ -252,9 +288,10 @@ public sealed class Container
         }
     }
 
-    // src/world/container.cpp interiorLinkFace: face test of two interior boxes in one interior's space (00482028,
-    // docs/interiors.md 3): the first face of `a` that lies within 0.001 of the opposite face of `b` while the boxes
-    // overlap on the two other axes; 0 when none does.
+    /// <summary>Finds the link face between two interior boxes in one interior's space (00482028, docs/interiors.md 3).</summary>
+    /// <param name="a">The first box.</param>
+    /// <param name="b">The second box.</param>
+    /// <returns>The face bit of the first face of <paramref name="a"/> that lies within 0.001 of the opposite face of <paramref name="b"/> while the boxes overlap on the two other axes, or 0 when none does.</returns>
     public static uint InteriorLinkFace(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         // Faces in test order: own face index into a, opposite face index into b, the two other axes, bit.
@@ -274,8 +311,10 @@ public sealed class Container
         return 0;
     }
 
-    // src/world/container.cpp interiorNearFaces: faces of the instance box a point outside it lies within 3.0 of, on the
-    // outer side (004807d8, same bits).
+    /// <summary>Finds the faces of an instance box that a point outside it lies within 3.0 of, on the outer side (004807d8, same bits as <see cref="InteriorLinkFace"/>).</summary>
+    /// <param name="p">The point.</param>
+    /// <param name="box">The instance box.</param>
+    /// <returns>The face bits.</returns>
     public static uint InteriorNearFaces(Vec3 p, ReadOnlySpan<float> box)
     {
         ReadOnlySpan<uint> kBelow = stackalloc uint[3] { 0x80, 0x40, 0x20 };
@@ -375,7 +414,7 @@ public sealed class Container
         SweepMove(l, SweepPos(l, n, true), before ? hi : hi + 1, n.E.Box[3]);
     }
 
-    // src/world/container.cpp Container::Container: container 7 (004fb754), box +-1e30, every type, default database.
+    /// <summary>Creates container 7 (004fb754): box +-1e30, every type, default database.</summary>
     public Container()
     {
         mRoot = new Node();
@@ -392,7 +431,9 @@ public sealed class Container
         return mByObject.TryGetValue(obj, out Node? n) ? n : null;
     }
 
-    // src/world/container.cpp Container::find.
+    /// <summary>Finds the entry of an object.</summary>
+    /// <param name="obj">The sim object.</param>
+    /// <returns>The entry, or null when the object is not registered.</returns>
     public Entry? Find(object? obj) => NodeOf(obj)?.E;
 
     // src/world/container.cpp Container::setInverse: inverse transform (005054a4), transposed rotation, translation -p
@@ -410,10 +451,11 @@ public sealed class Container
         node.Inverse = inv;
     }
 
-    // src/world/container.cpp Container::setTransform: a moved InteriorShape (SimObject_setTransform ->
-    // InteriorShape_worldBox 0047e5a0 -> SimContainer_setBox). An interior with an instance and a database that is in a
-    // container unlinks first (00481214), takes the new transform, and links again (0048125c) after the box is computed;
-    // the box update below refiles it (004f9dc4). Other objects: same as setBox.
+    /// <summary>Moves an object to a new transform and box.</summary>
+    /// <param name="obj">The sim object.</param>
+    /// <param name="m">The new transform.</param>
+    /// <param name="box">The new world box.</param>
+    /// <remarks>Follows SimObject_setTransform and InteriorShape_worldBox (0047e5a0). An interior with an instance and a database that is in a container unlinks first (00481214), takes the new transform and links again (0048125c) after the box is computed. The box update refiles it (004f9dc4). Other objects behave as <see cref="SetBox"/>.</remarks>
     public void SetTransform(object? obj, Mat m, ReadOnlySpan<float> box)
     {
         Node? n = NodeOf(obj);
@@ -429,9 +471,9 @@ public sealed class Container
         LinkNeighbours(n);
     }
 
-    // src/world/container.cpp Container::add: SimContainer::addObject on container 7 (004f9c04): the object descends into
-    // the first open sub-container holding its box; a new container pulls in the objects of the database it lands in
-    // that it contains.
+    /// <summary>Adds an object (SimContainer::addObject on container 7, 004f9c04).</summary>
+    /// <param name="e">The entry.</param>
+    /// <remarks>The object descends into the first open sub-container that holds its box. A new container pulls in the objects of the database it lands in that it contains.</remarks>
     public void Add(Entry e)
     {
         var node = new Node();
@@ -523,7 +565,9 @@ public sealed class Container
         n.Links.Clear();
     }
 
-    // src/world/container.cpp Container::remove.
+    /// <summary>Removes an object.</summary>
+    /// <param name="obj">The sim object.</param>
+    /// <remarks>The objects it held go to its former container (database destructors 004fbf78 and 00483bc0, called by 004f99e0 with the container +0x68).</remarks>
     public void Remove(object? obj)
     {
         Node? n = NodeOf(obj);
@@ -713,7 +757,9 @@ public sealed class Container
                     AddTo(n, m);
     }
 
-    // src/world/container.cpp Container::setBox: new world box (0x004f9a38 -> SimContainer::updateObject 004f9dc4).
+    /// <summary>Sets the world box of an object and refiles it (0x004f9a38 to SimContainer::updateObject 004f9dc4).</summary>
+    /// <param name="obj">The sim object.</param>
+    /// <param name="box">The new world box.</param>
     public void SetBox(object? obj, ReadOnlySpan<float> box)
     {
         Node? n = NodeOf(obj);
@@ -752,16 +798,18 @@ public sealed class Container
         AddTo(p ?? mRoot, n);
     }
 
-    // src/world/container.cpp Container::parentOf: the container object directly holding obj; null for container 7 or no
-    // entry.
+    /// <summary>Gets the container object that directly holds an object.</summary>
+    /// <param name="obj">The sim object.</param>
+    /// <returns>The container object, or null for container 7 or when the object has no entry.</returns>
     public object? ParentOf(object? obj)
     {
         Node? n = NodeOf(obj);
         return n != null && n.Parent != null ? n.Parent.E.Object : null;
     }
 
-    // src/world/container.cpp Container::contents: objects held directly by obj's database (container 7 for null) in
-    // database order: vector order, or terrain slot order with empty slots skipped.
+    /// <summary>Lists the objects held directly by an object's database.</summary>
+    /// <param name="obj">The container object, null for container 7.</param>
+    /// <returns>The objects in database order: vector order, or terrain slot order with empty slots skipped.</returns>
     public List<object?> Contents(object? obj)
     {
         Node? c = obj != null ? NodeOf(obj) : mRoot;
@@ -773,8 +821,9 @@ public sealed class Container
         return output;
     }
 
-    // src/world/container.cpp Container::terrainOf: terrain container holding obj (directly or through nested
-    // containers), or null.
+    /// <summary>Finds the terrain container that holds an object, directly or through nested containers.</summary>
+    /// <param name="obj">The sim object.</param>
+    /// <returns>The terrain's entry, or null.</returns>
     public Entry? TerrainOf(object? obj)
     {
         Node? n = NodeOf(obj);
@@ -784,8 +833,11 @@ public sealed class Container
         return null;
     }
 
-    // src/world/container.cpp Container::visibleDistance: visible distance reported by obj's container (vtable +0xac):
-    // SimTerrain's value, else the parent's, 1e6 at container 7 (004f9988). false when obj has no entry.
+    /// <summary>Gets the visible distance reported by an object's container (vtable +0xac).</summary>
+    /// <param name="obj">The sim object.</param>
+    /// <param name="output">Receives the distance.</param>
+    /// <returns>False when the object has no entry.</returns>
+    /// <remarks>The value is the SimTerrain's, else the parent's, and 1e6 at container 7 (004f9988).</remarks>
     public bool VisibleDistance(object? obj, ref float output)
     {
         Node? n = NodeOf(obj);
@@ -853,8 +905,11 @@ public sealed class Container
         }
     }
 
-    // src/world/container.cpp Container::findObjects: findObjects (docs/interiors.md 6.2) from container 7: database
-    // order, results of sub-containers appended.
+    /// <summary>Finds the objects whose box overlaps a box (docs/interiors.md 6.2), starting at container 7.</summary>
+    /// <param name="box">The query box, min xyz then max xyz.</param>
+    /// <param name="mask">The object type bits to match.</param>
+    /// <param name="exclude">An object to skip, or null.</param>
+    /// <returns>The objects in database order, with the results of sub-containers appended.</returns>
     public List<object?> FindObjects(ReadOnlySpan<float> box, uint mask, object? exclude)
     {
         var q = new Query { Exclude = exclude, Mask = mask, Box = Float6.Of(box) };
@@ -866,16 +921,32 @@ public sealed class Container
         return output;
     }
 
-    // src/world/container.cpp Container::castRay: castRay (6.3). Returns the nearest hit; the most recently added wins
-    // exact ties.
+    /// <summary>Casts a ray against the registered objects (docs/interiors.md 6.3).</summary>
+    /// <param name="s">The ray start.</param>
+    /// <param name="eIn">The ray end.</param>
+    /// <param name="mask">The object type bits to test.</param>
+    /// <param name="exclude">An object to skip, or null.</param>
+    /// <param name="obj">Receives the object hit.</param>
+    /// <param name="hit">Receives the hit point.</param>
+    /// <param name="normal">Receives the surface normal.</param>
+    /// <returns>True on a hit. The nearest hit wins and the most recently added object wins exact ties.</returns>
     public bool CastRay(Vec3 s, Vec3 eIn, uint mask, object? exclude, ref object? obj, ref Vec3 hit, ref Vec3 normal)
     {
         Vec3 before = default;
         return CastRay(s, eIn, mask, exclude, ref obj, ref hit, ref normal, ref before, false);
     }
 
-    // `before`, when given, receives the end of the segment as the winning candidate saw it (the hit of the nearest
-    // candidate tested ahead of it, or `e`).
+    /// <summary>Casts a ray and also reports where the segment ended for the winning candidate.</summary>
+    /// <param name="s">The ray start.</param>
+    /// <param name="eIn">The ray end.</param>
+    /// <param name="mask">The object type bits to test.</param>
+    /// <param name="exclude">An object to skip, or null.</param>
+    /// <param name="obj">Receives the object hit.</param>
+    /// <param name="hit">Receives the hit point.</param>
+    /// <param name="normal">Receives the surface normal.</param>
+    /// <param name="before">Receives the end of the segment as the winning candidate saw it: the hit of the nearest candidate tested ahead of it, or the ray end.</param>
+    /// <param name="wantBefore">Whether <paramref name="before"/> is wanted.</param>
+    /// <returns>True on a hit.</returns>
     public bool CastRay(Vec3 s, Vec3 eIn, uint mask, object? exclude, ref object? obj, ref Vec3 hit, ref Vec3 normal,
                         ref Vec3 before, bool wantBefore = true)
     {
@@ -931,7 +1002,8 @@ public sealed class Container
         return obj != null;
     }
 
-    // src/world/container.cpp Container::scope: container 7 scope (SimContainer::scope 004faae0) with a new query tag.
+    /// <summary>Walks the scope of container 7 with a new query tag (SimContainer::scope, 004faae0).</summary>
+    /// <param name="q">The scope query.</param>
     public void Scope(ScopeQuery q)
     {
         var stack = new List<bool> { true }; // the initial entry is the start container
@@ -939,11 +1011,11 @@ public sealed class Container
         ++mTag;
     }
 
-    // The render walk of container 7 (vtable +0x98, `004fa9c8` for the root and the terrain, `004804bc` for an interior) reaches the
-    // terrain image only when the container the camera point lies in accepts the scope: `004fa9c8` calls the scope of the open
-    // container of the point (database +0x18) first and returns 0, before the terrain query and before the rest of the database, when
-    // it returns 0. Same walk and result as `Scope` for a camera point; no object is marked. False: the terrain is not drawn
-    // (Tribes.exe 1.11, a camera in a container interior whose leaf sees no outside).
+    /// <summary>Tests whether the render walk reaches the terrain image for a camera point.</summary>
+    /// <param name="point">The camera point.</param>
+    /// <param name="onViaLink">Called for interiors reached through a link record, or null.</param>
+    /// <returns>False when the terrain is not drawn, for example a camera in a container interior whose leaf sees no outside.</returns>
+    /// <remarks>The render walk of container 7 (vtable +0x98, 004fa9c8 for the root and the terrain, 004804bc for an interior) reaches the terrain only when the container the camera point lies in accepts the scope. 004fa9c8 calls the scope of the open container of the point (database +0x18) first and returns 0 when it returns 0, before the terrain query. Same walk and result as <see cref="Scope"/>, but no object is marked (Tribes.exe 1.11).</remarks>
     public bool RenderReaches(Vec3 point, Action<object>? onViaLink = null)
     {
         if (mTag == 0)

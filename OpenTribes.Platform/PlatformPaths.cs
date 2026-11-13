@@ -1,14 +1,26 @@
 namespace OpenTribes.Platform;
 
-public enum OsKind { Windows, Linux, MacOS }
+/// <summary>The operating system family.</summary>
+public enum OsKind
+{
+    /// <summary>Windows.</summary>
+    Windows,
+    /// <summary>Linux.</summary>
+    Linux,
+    /// <summary>macOS.</summary>
+    MacOS,
+}
 
-// Platform choices of ROADMAP M9 C9: library file names, per-user directories, SDL driver defaults (docs/client-app.md 5.2, D54).
+/// <summary>The platform choices of ROADMAP M9 C9: library file names, per-user directories and SDL driver defaults (docs/client-app.md 5.2, D54).</summary>
 public static class PlatformPaths
 {
+    /// <summary>Gets the operating system the process runs on.</summary>
     public static OsKind CurrentOs =>
         OperatingSystem.IsWindows() ? OsKind.Windows : OperatingSystem.IsMacOS() ? OsKind.MacOS : OsKind.Linux;
 
-    // File names tried for the SDL3 native library, in order. The one the platform's official package uses comes first.
+    /// <summary>Lists the file names tried for the SDL3 native library, in order.</summary>
+    /// <param name="os">The operating system.</param>
+    /// <returns>The names. The one the platform's official package uses comes first.</returns>
     public static string[] SdlLibraryNames(OsKind os) => os switch
     {
         OsKind.Windows => new[] { "SDL3.dll", "SDL3" },
@@ -16,8 +28,11 @@ public static class PlatformPaths
         _ => new[] { "libSDL3.so.0", "libSDL3.so", "SDL3" },
     };
 
-    // D54: the per-user directory the client uses as its game directory overlay when the install is read-only.
-    // `env` returns an environment variable or null.
+    /// <summary>Gets the per-user directory the client uses as its game directory overlay when the install is read-only (D54).</summary>
+    /// <param name="os">The operating system.</param>
+    /// <param name="env">Returns an environment variable, or null.</param>
+    /// <param name="home">The home directory.</param>
+    /// <returns>The directory.</returns>
     public static string UserDataDir(OsKind os, Func<string, string?> env, string home)
     {
         switch (os)
@@ -38,7 +53,10 @@ public static class PlatformPaths
         }
     }
 
-    // SDL video driver when the user gave none: a Linux session without X11 or Wayland falls back to the offscreen driver.
+    /// <summary>Gets the SDL video driver to use when the user gave none.</summary>
+    /// <param name="os">The operating system.</param>
+    /// <param name="env">Returns an environment variable, or null.</param>
+    /// <returns>The driver. A Linux session without X11 or Wayland falls back to the offscreen driver. Null otherwise.</returns>
     public static string? DefaultVideoDriver(OsKind os, Func<string, string?> env)
     {
         if (!string.IsNullOrEmpty(env("SDL_VIDEO_DRIVER")))
@@ -48,8 +66,11 @@ public static class PlatformPaths
         return null;
     }
 
-    // SDL audio driver when the user gave none: a Linux session without a display or a sound server socket gets the dummy driver
-    // only when the video driver is the offscreen one (a headless run).
+    /// <summary>Gets the SDL audio driver to use when the user gave none.</summary>
+    /// <param name="os">The operating system.</param>
+    /// <param name="env">Returns an environment variable, or null.</param>
+    /// <param name="videoDriver">The video driver in use.</param>
+    /// <returns>The driver. A Linux session without a display or a sound server socket gets the dummy driver, and only when the video driver is the offscreen one (a headless run). Null otherwise.</returns>
     public static string? DefaultAudioDriver(OsKind os, Func<string, string?> env, string? videoDriver)
     {
         if (!string.IsNullOrEmpty(env("SDL_AUDIO_DRIVER")))
@@ -57,13 +78,21 @@ public static class PlatformPaths
         return videoDriver == "offscreen" || videoDriver == "dummy" ? "dummy" : null;
     }
 
-    // macOS: the window is made in points at a pixel density of 1 (the game is 640x480 and the GL viewport equals the window size);
-    // OT_HIGH_DPI=1 asks for SDL_WINDOW_HIGH_PIXEL_DENSITY (0x2000).
+    /// <summary>Gets the window flag for pixel density.</summary>
+    /// <param name="os">The operating system.</param>
+    /// <param name="env">Returns an environment variable, or null.</param>
+    /// <returns>On macOS with <c>OT_HIGH_DPI=1</c>, SDL_WINDOW_HIGH_PIXEL_DENSITY (0x2000), else 0. Otherwise the window is made in points at a pixel density of 1, since the game is 640x480 and the GL viewport equals the window size.</returns>
     public static ulong HighDpiWindowFlag(OsKind os, Func<string, string?> env) =>
         os == OsKind.MacOS && env("OT_HIGH_DPI") == "1" ? 0x2000UL : 0;
 
+    /// <summary>Reads an environment variable.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <returns>The value, or null.</returns>
     public static string? Env(string name) => Environment.GetEnvironmentVariable(name);
 
+    /// <summary>Tests whether a directory can be written to.</summary>
+    /// <param name="dir">The directory.</param>
+    /// <returns>True when a probe file can be created and deleted.</returns>
     public static bool IsDirWritable(string dir)
     {
         try
@@ -83,9 +112,11 @@ public static class PlatformPaths
         name.Equals("config", StringComparison.OrdinalIgnoreCase) || name.Equals("temp", StringComparison.OrdinalIgnoreCase) ||
         name.Equals("recordings", StringComparison.OrdinalIgnoreCase);
 
-    // D54: when `root` is not writeable, returns a per-user overlay directory: config, temp and recordings are real
-    // directories (config starts as a copy of the install's), every other top-level entry of the install is a link to it.
-    // Returns `root` when it is writeable, and null with `error` set when the overlay cannot be made.
+    /// <summary>Makes a writeable root when the install is read-only (D54).</summary>
+    /// <param name="root">The install root.</param>
+    /// <param name="overlay">The per-user overlay directory.</param>
+    /// <param name="error">Receives the failure reason.</param>
+    /// <returns><paramref name="root"/> when it is writeable. Otherwise the overlay, where config, temp and recordings are real directories (config starts as a copy of the install's) and every other top-level entry of the install is a link to it. Null with <paramref name="error"/> set when the overlay cannot be made.</returns>
     public static string? EnsureWritableRoot(string root, string overlay, out string error)
     {
         error = "";

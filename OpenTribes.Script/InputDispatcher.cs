@@ -1,18 +1,20 @@
-// docs/client-scripts.md 3.5 to 3.8: the path of one device event to an action or a script call. The input manager
-// tracks the modifier byte and the key character (3.6 step 1), offers the event to the GUI (step 3), tracks held keys
-// (step 4) and walks the pushed map stack (step 5, 3.6a, 3.7). Pure logic: the platform layer makes the events.
 namespace OpenTribes.Script;
 
-// The object that receives action events of a pushed map (the play delegate, 3.8). `kind` is 2 for make and break
-// events, 4 for mouse movement, 10 for pov events, else 1 (3.6 step 5).
+/// <summary>The object that receives action events of a pushed map, the play delegate (docs/client-scripts.md 3.8).</summary>
 public interface IActionConsumer
 {
-    // True when the consumer handled the action.
+    /// <summary>Handles an action.</summary>
+    /// <param name="action">The action id.</param>
+    /// <param name="kind">The event kind: 2 for make and break events, 4 for mouse movement, 10 for POV events, else 1 (3.6 step 5).</param>
+    /// <param name="value">The shaped value.</param>
+    /// <returns>True when the consumer handled the action.</returns>
     bool OnAction(int action, int kind, float value);
-    // True when the consumer is flagged as removing (flags & 3): every action counts as handled.
+    /// <summary>Gets whether the consumer is flagged as removing (flags &amp; 3): every action then counts as handled.</summary>
     bool Removing { get; }
 }
 
+/// <summary>The path of one device event to an action or a script call (docs/client-scripts.md 3.5 to 3.8).</summary>
+/// <remarks>The input manager tracks the modifier byte and the key character (3.6 step 1), offers the event to the GUI (step 3), tracks held keys (step 4) and walks the pushed map stack (step 5, 3.6a, 3.7). Pure logic: the platform layer makes the events.</remarks>
 public sealed class InputDispatcher
 {
     private sealed class Held
@@ -20,31 +22,43 @@ public sealed class InputDispatcher
         public InputEvent Event;
     }
 
+    /// <summary>The client state that holds the action maps.</summary>
     public readonly ClientState State;
     private readonly List<(ActionMap Map, IActionConsumer Consumer)> mStack = new();
     private readonly List<Held> mHeld = new();
 
-    // The manager's modifier byte (3.6 step 1).
+    /// <summary>Gets the manager's modifier byte (3.6 step 1).</summary>
     public byte Modifiers { get; private set; }
-    // Console text of a command binding.
+    /// <summary>Evaluates the console text of a command binding.</summary>
     public Func<string, string> Eval = _ => "";
-    // The GUI side: offered every event before the maps. Returns true when the canvas consumed it. Arguments: the
-    // event with modifiers and key character filled in, and the value.
+    /// <summary>The GUI side, offered every event before the maps. It is given the event with modifiers and key character filled in, and the value, and returns true when the canvas consumed the event.</summary>
     public Func<InputEvent, float, char, bool>? OfferToGui;
 
+    /// <summary>Creates a dispatcher.</summary>
+    /// <param name="state">The client state.</param>
     public InputDispatcher(ClientState state) => State = state;
 
+    /// <summary>Gets the number of pushed maps.</summary>
     public int StackDepth => mStack.Count;
+    /// <summary>Gets the number of held keys.</summary>
     public int HeldCount => mHeld.Count;
+    /// <summary>Tests whether a map is pushed.</summary>
+    /// <param name="mapName">The map name.</param>
+    /// <returns>True when the map is on the stack.</returns>
     public bool IsPushed(string mapName) => mStack.Any(p => ClientCommands.EqualNoCase(p.Map.Name, ClientCommands.ActionMapName(mapName)));
 
-    // 0x2a 0x36 shift, 0x1d 0x9d control, 0x38 0xb8 alt: scan code to modifier bit (3.6 step 1, 3.5).
+    /// <summary>Maps a modifier scan code to its modifier bit (3.6 step 1, 3.5).</summary>
+    /// <param name="scan">The scan code: 0x2a and 0x36 shift, 0x1d and 0x9d control, 0x38 and 0xb8 alt.</param>
+    /// <returns>The modifier bit, 0 for other keys.</returns>
     public static byte ModifierBit(int scan) => scan switch
     {
         0x2a => 1, 0x36 => 2, 0x1d => 4, 0x9d => 8, 0x38 => 16, 0xb8 => 32, _ => 0,
     };
 
-    // 3.4 InputKey_characterFor: the shifted entry when either shift bit is set, else the unshifted entry.
+    /// <summary>Gets the character of a key (3.4 InputKey_characterFor).</summary>
+    /// <param name="scan">The scan code.</param>
+    /// <param name="modifiers">The modifier bits.</param>
+    /// <returns>The shifted entry when either shift bit is set, else the unshifted entry.</returns>
     public static char CharacterFor(int scan, byte modifiers)
     {
         foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
@@ -55,8 +69,11 @@ public sealed class InputDispatcher
 
     // ---- 3.6a binding match ----
 
-    // Group compare through the 4 by 4 table (0063352c): rows are the binding's value of a group, columns the event's.
-    // 0 matches only 0; 1 (left) matches 1 and 3; 2 (right) matches 2 and 3; 3 (either) matches 1, 2 and 3.
+    /// <summary>Compares a modifier group through the 4 by 4 table (0063352c).</summary>
+    /// <param name="binding">The binding's value of the group.</param>
+    /// <param name="ev">The event's value of the group.</param>
+    /// <returns>True when they match.</returns>
+    /// <remarks>Rows are the binding's value and columns the event's. 0 matches only 0, 1 (left) matches 1 and 3, 2 (right) matches 2 and 3, and 3 (either) matches 1, 2 and 3.</remarks>
     public static bool GroupMatches(int binding, int ev) => binding switch
     {
         0 => ev == 0,
@@ -65,12 +82,19 @@ public sealed class InputDispatcher
         _ => ev is 1 or 2 or 3,
     };
 
+    /// <summary>Compares the modifier groups of a binding and an event through <see cref="GroupMatches"/>.</summary>
+    /// <param name="binding">The binding's modifier byte.</param>
+    /// <param name="ev">The event's modifier byte.</param>
+    /// <returns>True when every group matches.</returns>
     public static bool ModifiersMatch(byte binding, byte ev) =>
         GroupMatches(binding & 3, ev & 3) && GroupMatches((binding >> 2) & 3, (ev >> 2) & 3) &&
         GroupMatches((binding >> 4) & 3, (ev >> 4) & 3);
 
-    // 3.6a: device type, device instance, object type and object instance equal; action equal for make and break; the
-    // modifier groups through the table. A binding that is a modifier alone matches the press of any key of that modifier.
+    /// <summary>Tests whether a binding matches an event (docs/client-scripts.md 3.6a).</summary>
+    /// <param name="b">The binding's event.</param>
+    /// <param name="ev">The device event.</param>
+    /// <returns>True when device type, device instance, object type and object instance are equal, the action is equal for make and break, and the modifier groups match.</returns>
+    /// <remarks>A binding that is a modifier alone matches the press of any key of that modifier.</remarks>
     public static bool Matches(in InputEvent b, in InputEvent ev)
     {
         if (b.DeviceType != ev.DeviceType || b.DeviceInst != ev.DeviceInst)
@@ -96,8 +120,11 @@ public sealed class InputDispatcher
 
     // ---- 3.7 value shaping ----
 
-    // ActionEvent_pickValue and ActionEvent_shapeValue: floats, in the order of the table. `mouse` is the device test of 00509384
-    // (event device type 2): Center and Flip treat every mouse event (axis and buttons) as the "not the plain position" case.
+    /// <summary>Shapes an input value (ActionEvent_pickValue and ActionEvent_shapeValue, docs/client-scripts.md 3.7).</summary>
+    /// <param name="b">The binding.</param>
+    /// <param name="input">The raw value.</param>
+    /// <param name="mouse">Whether the event is a mouse event (device type 2, test at 00509384). Center and Flip treat every mouse event, axis and buttons, as the "not the plain position" case.</param>
+    /// <returns>The shaped value. The flags apply in the order of the table.</returns>
     public static float ShapeValue(ActionBinding b, float input, bool mouse)
     {
         if ((b.Flags & ActionBinding.Value) != 0)
@@ -143,6 +170,10 @@ public sealed class InputDispatcher
 
     // ---- 3.8 push and pop ----
 
+    /// <summary>Pushes an action map (docs/client-scripts.md 3.8).</summary>
+    /// <param name="map">The map.</param>
+    /// <param name="consumer">The consumer of its actions.</param>
+    /// <remarks>Held keys that the new map binds get a break first, so a movement key held from the old map stops.</remarks>
     public void Push(ActionMap map, IActionConsumer consumer)
     {
         Pop(map, consumer, silent: true);
@@ -153,6 +184,11 @@ public sealed class InputDispatcher
         mStack.Insert(0, (map, consumer));
     }
 
+    /// <summary>Pops an action map (docs/client-scripts.md 3.8).</summary>
+    /// <param name="map">The map.</param>
+    /// <param name="consumer">The consumer of its actions.</param>
+    /// <param name="silent">Whether to skip releasing held keys.</param>
+    /// <remarks>Held keys the popped map was handling and no remaining map binds are released through the popped map.</remarks>
     public void Pop(ActionMap map, IActionConsumer consumer, bool silent = false)
     {
         var removed = mStack.Where(p => p.Map == map && p.Consumer == consumer).ToList();
@@ -174,6 +210,7 @@ public sealed class InputDispatcher
         }
     }
 
+    /// <summary>Clears the map stack.</summary>
     public void Clear()
     {
         mStack.Clear();
@@ -197,7 +234,10 @@ public sealed class InputDispatcher
 
     // ---- 3.6 processing ----
 
-    // One device event. `scan`/`obj` are in ev (ObjInst for keys is the scan code). Returns true when something handled it.
+    /// <summary>Processes one device event (docs/client-scripts.md 3.6).</summary>
+    /// <param name="ev">The event. For keys ObjInst is the scan code.</param>
+    /// <param name="value">The raw value.</param>
+    /// <returns>True when something handled the event.</returns>
     public bool Process(InputEvent ev, float value)
     {
         bool isKey = ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10;
@@ -253,10 +293,8 @@ public sealed class InputDispatcher
         return null;
     }
 
-    // 3.6 step 5 (ActionMap_dispatch 00509738).
-    // The world's global map (SimGame.sae, `bind` writes to it): searched after every pushed map, in both passes of step 5 and 6.
-    // The stock client lets control-o (console.cs `messageCanvasDevice`) end the search; without it the retry without modifiers
-    // would hand the key to the plain `o` binding (objectives screen). Only command bindings run from this map.
+    /// <summary>The world's global map (SimGame.sae), where <c>bind</c> writes.</summary>
+    /// <remarks>Searched after every pushed map, in both passes of steps 5 and 6 (ActionMap_dispatch, 00509738). The stock client lets control-o (console.cs <c>messageCanvasDevice</c>) end the search. Without it the retry without modifiers would hand the key to the plain <c>o</c> binding (objectives screen). Only command bindings run from this map.</remarks>
     public ActionMap? GlobalMap { get; set; }
 
     private bool DispatchStack(in InputEvent ev, float value)
@@ -285,10 +323,12 @@ public sealed class InputDispatcher
     }
 }
 
-// Q1 (docs/client-scripts.md 7): SDL3 scancodes to the PC scan codes of the key table (client-app.md 3.4).
+/// <summary>Maps SDL3 scancodes to the PC scan codes of the key table (docs/client-app.md 3.4, docs/client-scripts.md 7 Q1).</summary>
 public static class ScanCodeMap
 {
-    // SDL_Scancode numbers (SDL3 SDL_scancode.h) to DirectInput key codes; 0 when the key has no code.
+    /// <summary>Converts an SDL scancode to a DirectInput key code (SDL3 SDL_scancode.h numbering).</summary>
+    /// <param name="sdl">The SDL scancode.</param>
+    /// <returns>The key code, 0 when the key has no code.</returns>
     public static int FromSdl(int sdl)
     {
         if (sdl >= 4 && sdl <= 29)          // A..Z

@@ -2,32 +2,45 @@ using System.Buffers.Binary;
 
 namespace OpenTribes.Platform.Gfx;
 
-// docs/renderer.md 2.2: `.bmp` PBMP bitmap (also `.pbm`, read by the same reader), with the
 // Windows BMP fallback of 2.2.4. Pixels are top-down rows of palette indices (8-bit), or
 // B, G, R triples for the 24-bit Windows variant.
+/// <summary>A <c>.bmp</c> PBMP bitmap, also <c>.pbm</c>, read by the same reader, with the Windows BMP fallback (docs/renderer.md 2.2, 2.2.4).</summary>
+/// <remarks>Pixels are top-down rows of 8-bit palette indices, or B, G, R triples for the 24-bit Windows variant.</remarks>
 public sealed class PbmpBitmap
 {
+    /// <summary>The width in pixels.</summary>
     public int Width;
+    /// <summary>The height in pixels.</summary>
     public int Height;
+    /// <summary>The bits per pixel.</summary>
     public int Depth = 8;
+    /// <summary>The attribute bits.</summary>
     public BitmapAttributes Attributes;
-    // Number of chunks after the head chunk (low 24 bits of the first head dword).
+    /// <summary>The number of chunks after the head chunk (low 24 bits of the first head dword).</summary>
     public uint ChunkCount;
-    // Level 0, Stride * Height bytes. The guard rows of the original are not kept.
+    /// <summary>Level 0, Stride * Height bytes. The guard rows of the original are not kept.</summary>
     public byte[] Pixels = Array.Empty<byte>();
-    // DETL: number of levels, 1 when the chunk is absent.
+    /// <summary>The number of levels from DETL, 1 when the chunk is absent.</summary>
     public int MipCount = 1;
-    // Levels 1 .. MipCount-1 that fit in the data chunk; (w >> k) * (h >> k) bytes each, rows unpadded (2.2.2).
+    /// <summary>The levels 1 to MipCount - 1 that fit in the data chunk, (w &gt;&gt; k) * (h &gt;&gt; k) bytes each with unpadded rows (docs/renderer.md 2.2.2).</summary>
     public List<byte[]> MipLevels = new();
-    // PiDX: 0xffffffff selects the first subpalette (2.2.3).
+    /// <summary>The PiDX palette id. 0xffffffff selects the first subpalette (docs/renderer.md 2.2.3).</summary>
     public uint PaletteId = SubPalette.NoId;
-    // Embedded RIFF palette; read only when the caller asked for it (2.2.1).
+    /// <summary>The embedded RIFF palette. It is read only when the caller asked for it (docs/renderer.md 2.2.1).</summary>
     public PaletteBank? Palette;
 
-    public int Stride => ((Width * Depth / 8) + 3) & ~3; // 2.2.2
+    /// <summary>Gets the row stride in bytes, padded to 4 (docs/renderer.md 2.2.2).</summary>
+    public int Stride => ((Width * Depth / 8) + 3) & ~3;
 
+    /// <summary>Gets the blend mode of the attributes.</summary>
     public BlendMode Blend => Attributes.Blend();
 
+    /// <summary>Parses a bitmap file.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="includePalette">Whether to read the embedded palette.</param>
+    /// <param name="bitmap">Receives the bitmap.</param>
+    /// <param name="error">Receives the failure reason.</param>
+    /// <returns>True on success.</returns>
     public static bool TryParse(ReadOnlySpan<byte> data, bool includePalette, out PbmpBitmap? bitmap, out string error)
     {
         bitmap = null;

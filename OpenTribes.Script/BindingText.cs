@@ -1,7 +1,7 @@
 namespace OpenTribes.Script;
 
-// The key text of a controls screen row (FearGui::CFGButton, find 0049df98 over 0049d110, format 0049cfa0 and 0049cf1c).
-// The result starts with up to three modifier codes (1 shift, 2 control, 3 alt) followed by the key or button name.
+/// <summary>Builds the key text of a controls screen row (FearGui::CFGButton, find 0049df98 over 0049d110, format 0049cfa0 and 0049cf1c).</summary>
+/// <remarks>The result starts with up to three modifier codes (1 shift, 2 control, 3 alt) followed by the key or button name.</remarks>
 public static class BindingText
 {
     // Object names by object type (table 00621fa8); "%s%d" appends the instance.
@@ -22,7 +22,9 @@ public static class BindingText
         return s;
     }
 
-    // 0049cfa0.
+    /// <summary>Formats the text of one input event (0049cfa0).</summary>
+    /// <param name="ev">The input event.</param>
+    /// <returns>The modifier codes followed by the key or button name.</returns>
     public static string Format(InputEvent ev)
     {
         string s = "";
@@ -84,7 +86,17 @@ public static class BindingText
         return -1;
     }
 
-    // 0049df98: the text for the row's make and break description, empty when the map has no such binding.
+    /// <summary>Finds the text for a row's make and break description (0049df98).</summary>
+    /// <param name="map">The action map, or null.</param>
+    /// <param name="makeCommand">The make command.</param>
+    /// <param name="makeAction">The make action.</param>
+    /// <param name="makeValue">The make value.</param>
+    /// <param name="breakCommand">The break command.</param>
+    /// <param name="breakAction">The break action.</param>
+    /// <param name="breakValue">The break value.</param>
+    /// <param name="flags">The binding flags.</param>
+    /// <returns>The key text, empty when the map has no such binding.</returns>
+    /// <remarks>Searches with 0049d110: the next binding at or after the start with the command (when it has one) or the action, flags and value (within 1 percent) that is not of the opposite make or break kind.</remarks>
     public static string For(ActionMap? map, string makeCommand, int makeAction, float makeValue,
                              string breakCommand, int breakAction, float breakValue, uint flags)
     {

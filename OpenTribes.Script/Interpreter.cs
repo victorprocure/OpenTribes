@@ -1,41 +1,61 @@
-// Port of src/script/interpreter.hpp and src/script/interpreter.cpp: console script interpreter
-// (docs/script.md section 3). Tree-walking, every value is a string. Names are interned in the
-// global string table; the C++ pointer keys are the canonical strings here.
 using OpenTribes.Core;
 
 namespace OpenTribes.Script;
 
-// src/script/interpreter.hpp struct ObjectInterface: simulation-side object access (original
-// interface at console+0x10, docs/script.md 3.10).
+/// <summary>The simulation-side object access of the interpreter (original interface at console+0x10, docs/script.md 3.10).</summary>
 public interface IObjectInterface
 {
+    /// <summary>Starts a datablock.</summary>
+    /// <param name="className">The class name.</param>
+    /// <param name="name">The datablock name.</param>
     void BeginDataBlock(string className, string name);
+    /// <summary>Ends the current datablock.</summary>
     void EndDataBlock();
+    /// <summary>Starts an object.</summary>
+    /// <param name="className">The class name.</param>
+    /// <param name="name">The object name.</param>
     void BeginObject(string className, string name);
+    /// <summary>Ends the current object.</summary>
     void EndObject();
-    // Slot assignment inside a datablock or object body.
+    /// <summary>Assigns a slot inside a datablock or object body.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="values">The values.</param>
+    /// <param name="index">The subscript, empty when none.</param>
     void SetSlot(string field, IReadOnlyList<string> values, string index);
-    // Field access on a named or numbered object. Returns false when the object is missing.
+    /// <summary>Reads a field of a named or numbered object.</summary>
+    /// <param name="obj">The object name or id.</param>
+    /// <param name="field">The field name.</param>
+    /// <param name="index">The subscript, empty when none.</param>
+    /// <param name="output">Receives the value.</param>
+    /// <returns>False when the object is missing.</returns>
     bool GetField(string obj, string field, string index, out string output);
+    /// <summary>Writes a field of a named or numbered object.</summary>
+    /// <param name="obj">The object name or id.</param>
+    /// <param name="field">The field name.</param>
+    /// <param name="values">The values.</param>
+    /// <param name="index">The subscript, empty when none.</param>
     void SetField(string obj, string field, IReadOnlyList<string> values, string index);
 }
 
+/// <summary>The console script interpreter (docs/script.md section 3): tree-walking, with every value a string.</summary>
+/// <remarks>Port of src/script/interpreter.cpp. Names are interned in the global string table and the C++ pointer keys are the canonical strings here.</remarks>
 public sealed class Interpreter
 {
-    // src/script/interpreter.hpp Interpreter::Command: argv[0] is the command name. The C++ returns false for a
-    // NULL result (becomes "False") and the result through a reference; here null is the NULL result.
+    /// <summary>A native command. The C++ returns false for a NULL result, which becomes "False", and the result through a reference. Here null is the NULL result.</summary>
+    /// <param name="interp">The interpreter.</param>
+    /// <param name="argv">The arguments. The first is the command name.</param>
+    /// <returns>The result string, or null for the NULL result.</returns>
     public delegate string? Command(Interpreter interp, string[] argv);
 
     private enum Completion { Normal = 0, ContinueLoop = 1, BreakLoop = 2, ReturnFn = 3 }
     private enum StaticType { TString = 0, TFloat = 1, TInt = 2 }
 
-    // One sim world of a process that runs two (a hosted game: the client world and the server world). The console
-    // variables and the script functions are shared, like the one console of the stock exe; the commands and the object
-    // interface follow the focus (the stock focus pointer DAT_006a8494, set per world by FearWorld_advance 004eba40 and
-    // FearWorld_clientAdvance 004eb7ac and by focusServer / focusClient, cases 0x7a / 0x79 of FearGame_consoleCallback).
+    /// <summary>One sim world of a process that runs two, for example a hosted game with a client world and a server world.</summary>
+    /// <remarks>The console variables and the script functions are shared, like the one console of the stock exe. The commands and the object interface follow the focus (the stock focus pointer DAT_006a8494, set per world by FearWorld_advance 004eba40 and FearWorld_clientAdvance 004eb7ac and by focusServer and focusClient, cases 0x7a and 0x79 of FearGame_consoleCallback).</remarks>
     public sealed class World
     {
         internal readonly Dictionary<string, Function> Commands = new(StringComparer.Ordinal);
+        /// <summary>The object interface of this world.</summary>
         public IObjectInterface? Objects;
     }
 
@@ -92,7 +112,8 @@ public sealed class Interpreter
         return sb.ToString();
     }
 
-    // src/script/interpreter.cpp Interpreter::Interpreter.
+    /// <summary>Creates an interpreter with the engine-bound console variables and the console core commands (005f3a7c).</summary>
+    /// <param name="strings">The string table, or null for a new one.</param>
     public Interpreter(StringTable? strings = null)
     {
         mStrings = strings ?? StringTable.Global();
@@ -148,7 +169,9 @@ public sealed class Interpreter
         });
     }
 
-    // src/script/interpreter.cpp Interpreter::addCommand.
+    /// <summary>Registers a command, replacing an earlier one of the same name.</summary>
+    /// <param name="name">The command name.</param>
+    /// <param name="cmd">The command.</param>
     public void AddCommand(string name, Command cmd)
     {
         string key = mStrings.Intern(name);
@@ -162,12 +185,20 @@ public sealed class Interpreter
         mFunctions[key] = new Function { Builtin = cmd };
     }
 
-    // src/script/interpreter.hpp replacedCommands: native commands registered more than once.
+    /// <summary>Gets the native commands that were registered more than once.</summary>
+    /// <returns>The names.</returns>
     public IReadOnlyList<string> ReplacedCommands() => mReplacedCommands;
-    // src/script/interpreter.hpp setLastHope / lastHope (docs/lasthope-1.30.md L5).
+    /// <summary>Switches the LastHope 1.30 behaviour on or off (docs/lasthope-1.30.md L5).</summary>
+    /// <param name="on">Whether LastHope mode is on.</param>
     public void SetLastHope(bool on) => mLastHope = on;
+    /// <summary>Gets whether LastHope 1.30 behaviour is on.</summary>
+    /// <returns>True when on.</returns>
     public bool LastHope() => mLastHope;
+    /// <summary>Sets the console output sink.</summary>
+    /// <param name="output">The sink, or null.</param>
     public void SetOutput(Action<string>? output) => mOutput = output;
+    /// <summary>Sets the object interface of the focused world.</summary>
+    /// <param name="objects">The interface, or null.</param>
     public void SetObjects(IObjectInterface? objects)
     {
         mSharedObjects = objects;
@@ -175,7 +206,8 @@ public sealed class Interpreter
             mObjects = objects;
     }
 
-    // A new world: the commands registered inside Register(world, ...) answer only while it has the focus.
+    /// <summary>Creates a world. Commands registered inside <see cref="Register"/> answer only while it has the focus.</summary>
+    /// <returns>The new world.</returns>
     public World NewWorld()
     {
         var w = new World();
@@ -183,6 +215,8 @@ public sealed class Interpreter
         return w;
     }
 
+    /// <summary>Drops a world, moving the focus to the shared world if it had it.</summary>
+    /// <param name="w">The world.</param>
     public void DropWorld(World w)
     {
         if (mFocus == w)
@@ -190,6 +224,9 @@ public sealed class Interpreter
         mWorlds.Remove(w);
     }
 
+    /// <summary>Runs registrations so that the commands they add belong to a world.</summary>
+    /// <param name="w">The world.</param>
+    /// <param name="registrations">The registrations to run.</param>
     public void Register(World w, Action registrations)
     {
         World? previous = mRegisterTarget;
@@ -204,28 +241,39 @@ public sealed class Interpreter
         }
     }
 
-    // Removes commands from a world so the shared command answers in every focus (the world commands newServer,
-    // focusServer, ...).
+    /// <summary>Removes commands from a world so that the shared command answers in every focus, for example the world commands newServer and focusServer.</summary>
+    /// <param name="w">The world.</param>
+    /// <param name="names">The command names.</param>
     public void Unregister(World w, params string[] names)
     {
         foreach (string n in names)
             w.Commands.Remove(mStrings.Intern(n));
     }
 
+    /// <summary>Gets the world that has the focus.</summary>
+    /// <returns>The world, or null for the shared (client) world.</returns>
     public World? FocusedWorld() => mFocus;
 
-    // The stock focus switch: null is the shared (client) world.
+    /// <summary>Moves the focus to a world, as the stock focus switch does.</summary>
+    /// <param name="w">The world, or null for the shared (client) world.</param>
     public void Focus(World? w)
     {
         mFocus = w;
         mObjects = w?.Objects ?? mSharedObjects;
     }
+    /// <summary>Sets the resource manager.</summary>
+    /// <param name="res">The resource manager, or null.</param>
     public void SetResources(ResourceManager? res) => mResources = res;
+    /// <summary>Gets the current print level.</summary>
+    /// <returns>The level.</returns>
     public int PrintLevel() => mPrintLevel;
-    // src/script/interpreter.hpp unknownCommands: calls to names with no function or command, by interned name.
+    /// <summary>Gets the calls to names that have no function or command.</summary>
+    /// <returns>The call counts by interned name.</returns>
     public IReadOnlyDictionary<string, int> UnknownCommands() => mUnknown;
 
-    // src/script/interpreter.cpp Interpreter::print: console output at a print level (printf = 1, dbprintf(n) = n).
+    /// <summary>Prints console output at a print level (printf is 1, dbprintf(n) is n).</summary>
+    /// <param name="level">The print level.</param>
+    /// <param name="line">The text.</param>
     public void Print(int level, string line)
     {
         if (level <= mPrintLevel && mPrintLevel != 0 && mOutput != null)
@@ -237,9 +285,15 @@ public sealed class Interpreter
     // src/script/interpreter.cpp Interpreter::scopeFor.
     private Dictionary<string, string> ScopeFor(string name) => name.Length != 0 && name[0] == '%' ? mFrames[^1].Locals : mGlobals;
 
-    // src/script/interpreter.cpp Interpreter::getVariable.
+    /// <summary>Reads a variable.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <returns>The value.</returns>
     public string GetVariable(string name) => GetVariable(name, out _);
 
+    /// <summary>Reads a variable and reports whether it exists.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <param name="found">Receives whether the variable exists.</param>
+    /// <returns>The value.</returns>
     public string GetVariable(string name, out bool found)
     {
         string key = mStrings.Intern(name);
@@ -253,20 +307,26 @@ public sealed class Interpreter
         return v!;
     }
 
-    // src/script/interpreter.cpp Interpreter::peekVariable: engine-side read of a global, "" when unset.
+    /// <summary>Reads a global from the engine side.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <returns>The value, empty when unset.</returns>
     public string PeekVariable(string name)
     {
         return mGlobals.TryGetValue(mStrings.Intern(name), out string? v) ? v : "";
     }
 
-    // src/script/interpreter.cpp Interpreter::hasVariable.
+    /// <summary>Tests whether a variable exists.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <returns>True when it exists.</returns>
     public bool HasVariable(string name)
     {
         string? key = mStrings.Lookup(name);
         return key != null && mGlobals.ContainsKey(key);
     }
 
-    // src/script/interpreter.cpp Interpreter::setVariable.
+    /// <summary>Writes a variable.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <param name="value">The value.</param>
     public void SetVariable(string name, string value)
     {
         string key = mStrings.Intern(name);
@@ -288,7 +348,9 @@ public sealed class Interpreter
             onSet(value);
     }
 
-    // src/script/interpreter.cpp Interpreter::bindVariable: onSet runs after every assignment (original variable callbacks).
+    /// <summary>Binds a callback to a variable. It runs after every assignment, like the original's variable callbacks.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <param name="onSet">The callback, given the new value.</param>
     public void BindVariable(string name, Action<string> onSet) => mBindings[mStrings.Intern(name)] = onSet;
 
     // src/script/interpreter.cpp Interpreter::indexString.
@@ -304,10 +366,12 @@ public sealed class Interpreter
         return sb.ToString();
     }
 
-    // src/script/interpreter.cpp Interpreter::globals: dictionary access for export/delete built-ins.
+    /// <summary>Gets the globals for the export and delete built-ins.</summary>
+    /// <returns>The name and value pairs.</returns>
     public List<KeyValuePair<string, string>> Globals() => mGlobals.ToList();
 
-    // src/script/interpreter.cpp Interpreter::functionNames: including global-frame % variables (docs/script.md 3.6.9).
+    /// <summary>Lists the function names, including global-frame % variables (docs/script.md 3.6.9).</summary>
+    /// <returns>The names.</returns>
     public List<string> FunctionNames()
     {
         var output = new List<string>(mFunctions.Keys);
@@ -315,7 +379,8 @@ public sealed class Interpreter
         return output;
     }
 
-    // src/script/interpreter.cpp Interpreter::eraseGlobal.
+    /// <summary>Removes a global variable.</summary>
+    /// <param name="name">The variable name.</param>
     public void EraseGlobal(string name)
     {
         string? key = mStrings.Lookup(name);
@@ -323,7 +388,8 @@ public sealed class Interpreter
             mGlobals.Remove(key);
     }
 
-    // src/script/interpreter.cpp Interpreter::eraseFunction.
+    /// <summary>Removes a function.</summary>
+    /// <param name="name">The function name.</param>
     public void EraseFunction(string name)
     {
         string? key = mStrings.Lookup(name);
@@ -336,8 +402,10 @@ public sealed class Interpreter
 
     // ---- running text ----
 
-    // src/script/interpreter.cpp Interpreter::evaluate: parses and runs text; returns the string value of the
-    // last expression statement run.
+    /// <summary>Parses and runs script text.</summary>
+    /// <param name="text">The script text.</param>
+    /// <param name="fileName">The file name for error messages, empty for console input.</param>
+    /// <returns>The string value of the last expression statement run.</returns>
     public string Evaluate(string text, string fileName = "")
     {
         int nul = text.IndexOf('\0');
@@ -356,7 +424,9 @@ public sealed class Interpreter
         return result;
     }
 
-    // src/script/interpreter.cpp Interpreter::execFile.
+    /// <summary>Runs a script file through the resource manager.</summary>
+    /// <param name="fileName">The file name.</param>
+    /// <returns>False when the file cannot be read.</returns>
     public bool ExecFile(string fileName)
     {
         string name = fileName;
@@ -827,7 +897,9 @@ public sealed class Interpreter
         return Numbers.FormatInt(EvalInt(n));
     }
 
-    // src/script/interpreter.cpp Interpreter::tagName: name of the tag defined with this id, or "" (0x005ee788).
+    /// <summary>Gets the name of the tag defined with an id (005ee788).</summary>
+    /// <param name="id">The tag id.</param>
+    /// <returns>The name, or empty.</returns>
     public string TagName(int id)
     {
         foreach (var kv in mTagIds)
@@ -836,27 +908,36 @@ public sealed class Interpreter
         return "";
     }
 
-    // The id a tag name was defined with, or 0.
+    /// <summary>Gets the id a tag name was defined with.</summary>
+    /// <param name="name">The tag name.</param>
+    /// <returns>The id, or 0.</returns>
     public int TagId(string name) => mTagIds.TryGetValue(name, out int id) ? id : 0;
 
-    // The text of a tag id (the GUI tag dictionary of docs/gui.md 1.5), or null when no tag has that id.
+    /// <summary>Gets the text of a tag id from the GUI tag dictionary (docs/gui.md 1.5).</summary>
+    /// <param name="id">The tag id.</param>
+    /// <returns>The text, or null when no tag has that id.</returns>
     public string? TagText(int id) => mTagText.TryGetValue(id, out string? t) ? t : null;
 
-    // The text as the dictionary file spells it. A tag used as a script value takes the first spelling the string table saw (a
-    // command name such as `version` fixes the case of the tag "Version"); the screens draw the file's spelling (the Columns list
-    // shows "Version" in the stock client).
+    /// <summary>Gets the text of a tag id as the dictionary file spells it.</summary>
+    /// <param name="id">The tag id.</param>
+    /// <returns>The text, or null when no tag has that id.</returns>
+    /// <remarks>A tag used as a script value takes the first spelling the string table saw: a command name such as <c>version</c> fixes the case of the tag "Version". The screens draw the file's spelling.</remarks>
     public string? TagTextRaw(int id) => mTagRaw.TryGetValue(id, out string? t) ? t : null;
 
     // ---- calls ----
 
-    // src/script/interpreter.cpp Interpreter::hasFunction.
+    /// <summary>Tests whether a script function exists.</summary>
+    /// <param name="name">The function name.</param>
+    /// <returns>True when it exists.</returns>
     public bool HasFunction(string name)
     {
         string? key = mStrings.Lookup(name);
         return key != null && (mFocus != null && mFocus.Commands.ContainsKey(key) || mFunctions.ContainsKey(key));
     }
 
-    // src/script/interpreter.cpp Interpreter::functionParamCount: -1 for a built-in or an unknown name.
+    /// <summary>Gets the parameter count of a script function.</summary>
+    /// <param name="name">The function name.</param>
+    /// <returns>The count, -1 for a built-in or an unknown name.</returns>
     public int FunctionParamCount(string name)
     {
         string? key = mStrings.Lookup(name);
@@ -867,7 +948,10 @@ public sealed class Interpreter
         return !mFunctions.TryGetValue(key, out Function? f) || f.Decl == null ? -1 : f.Decl.Params.Count;
     }
 
-    // src/script/interpreter.cpp Interpreter::callFunction.
+    /// <summary>Calls a function or command by name.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="args">The arguments.</param>
+    /// <returns>The result string.</returns>
     public string CallFunction(string name, IReadOnlyList<string> args) => Call(name, new List<string>(args));
 
     // src/script/interpreter.cpp Interpreter::call.
@@ -900,16 +984,22 @@ public sealed class Interpreter
     }
 }
 
-// Port convention (no C++ file): the C string functions the C++ applies to std::string::c_str(), which stop
-// at the first NUL and compare bytes unsigned.
+/// <summary>The C string functions the C++ applies to <c>std::string::c_str()</c>: they stop at the first NUL and compare bytes unsigned.</summary>
 public static class CString
 {
     private static char At(string s, int i) => i < s.Length ? s[i] : '\0';
 
-    // strcmp
+    /// <summary>Compares two strings like strcmp.</summary>
+    /// <param name="a">The first string.</param>
+    /// <param name="b">The second string.</param>
+    /// <returns>A negative value, 0 or a positive value.</returns>
     public static int Strcmp(string a, string b) => Strncmp(a, b, int.MaxValue);
 
-    // strncmp
+    /// <summary>Compares at most n characters of two strings like strncmp.</summary>
+    /// <param name="a">The first string.</param>
+    /// <param name="b">The second string.</param>
+    /// <param name="n">The most characters to compare.</param>
+    /// <returns>A negative value, 0 or a positive value.</returns>
     public static int Strncmp(string a, string b, int n)
     {
         for (int i = 0; i < n; ++i)
@@ -923,7 +1013,9 @@ public static class CString
         return 0;
     }
 
-    // The text of s.c_str(): s up to its first NUL.
+    /// <summary>Gets the text of <c>s.c_str()</c>.</summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The string up to its first NUL.</returns>
     public static string CStr(string s)
     {
         int nul = s.IndexOf('\0');

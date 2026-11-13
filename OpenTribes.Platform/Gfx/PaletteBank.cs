@@ -1,24 +1,31 @@
 namespace OpenTribes.Platform.Gfx;
 
-// docs/renderer.md 2.4: one subpalette of a PL98 set (or the single palette of a RIFF .pal).
+/// <summary>One subpalette of a PL98 set, or the single palette of a RIFF .pal (docs/renderer.md 2.4).</summary>
 public sealed class SubPalette
 {
+    /// <summary>The id that selects the first subpalette.</summary>
     public const uint NoId = 0xFFFFFFFF;
 
-    // 256 entries of 4 bytes: red, green, blue, flags (the flags byte is the alpha of kind 2 palettes).
+    /// <summary>The 256 entries of 4 bytes: red, green, blue and flags. The flags byte is the alpha of kind 2 palettes.</summary>
     public byte[] Colors = new byte[1024];
+    /// <summary>The palette id.</summary>
     public uint Id = NoId;
-    // 0 no remap, 1 shade+haze, 2 translucent, 3 color quant, 4 alpha quant, 5 additive quant,
-    // 6 additive, 7 subtractive quant, 8 subtractive.
+    /// <summary>The kind: 0 no remap, 1 shade and haze, 2 translucent, 3 color quant, 4 alpha quant, 5 additive quant, 6 additive, 7 subtractive quant, 8 subtractive.</summary>
     public uint Kind;
-    // Kind 1: (hazeSteps + 1) * shadeSteps * 256 bytes, index (haze * shadeSteps + shade) * 256 + color.
+    /// <summary>The shade and haze table of kind 1: (hazeSteps + 1) * shadeSteps * 256 bytes, indexed (haze * shadeSteps + shade) * 256 + color.</summary>
     public byte[]? ShadeHazeTable;
-    // Kinds 2, 6, 8: 256 x 256 bytes.
+    /// <summary>The blend table of kinds 2, 6 and 8: 256 x 256 bytes.</summary>
     public byte[]? BlendTable;
-    // Kinds 1, 2, 6, 8: 256 identity-map bytes and the red, green, blue, alpha float maps.
+    /// <summary>The 256 identity-map bytes of kinds 1, 2, 6 and 8.</summary>
     public byte[]? IdentityMap;
+    /// <summary>The red, green, blue and alpha float maps of kinds 1, 2, 6 and 8.</summary>
     public float[]? IndexToRed, IndexToGreen, IndexToBlue, IndexToAlpha;
 
+    /// <summary>Reads the colour of an entry.</summary>
+    /// <param name="index">The palette index.</param>
+    /// <param name="r">Receives the red.</param>
+    /// <param name="g">Receives the green.</param>
+    /// <param name="b">Receives the blue.</param>
     public void Rgb(int index, out byte r, out byte g, out byte b)
     {
         r = Colors[index * 4];
@@ -26,23 +33,36 @@ public sealed class SubPalette
         b = Colors[index * 4 + 2];
     }
 
+    /// <summary>Gets the flags byte of an entry.</summary>
+    /// <param name="index">The palette index.</param>
+    /// <returns>The flags byte.</returns>
     public byte Flags(int index) => Colors[index * 4 + 3];
 }
 
-// docs/renderer.md 2.4 (`.ppl`) and 2.5 (`.pal`).
+/// <summary>A palette bank: a PL98 <c>.ppl</c> set (docs/renderer.md 2.4) or a <c>.pal</c> (2.5).</summary>
 public sealed class PaletteBank
 {
+    /// <summary>The number of shade bits.</summary>
     public uint ShadeBits;
+    /// <summary>The number of haze steps.</summary>
     public uint HazeSteps;
+    /// <summary>The haze colour.</summary>
     public uint HazeColor;
+    /// <summary>The bit set of allowed colours, 256 bits, most significant bit first.</summary>
     public uint[] AllowedColors = new uint[8];
+    /// <summary>The subpalettes.</summary>
     public List<SubPalette> SubPalettes = new();
+    /// <summary>The colour weights, or null.</summary>
     public float[]? ColorWeights;
+    /// <summary>The first and last used palette index.</summary>
     public uint UsedStart, UsedEnd;
 
+    /// <summary>Gets the number of shade steps.</summary>
     public uint ShadeSteps => 1u << (int)ShadeBits;
 
-    // 2.4 "Palette selection by id": 0xffffffff or no match returns palette 0.
+    /// <summary>Finds a subpalette by id (docs/renderer.md 2.4 "Palette selection by id").</summary>
+    /// <param name="id">The id.</param>
+    /// <returns>The subpalette. 0xffffffff or no match returns palette 0.</returns>
     public SubPalette FindSubPalette(uint id)
     {
         if (id != SubPalette.NoId)
@@ -52,10 +72,17 @@ public sealed class PaletteBank
         return SubPalettes[0];
     }
 
+    /// <summary>Tests whether a palette index is an allowed colour.</summary>
+    /// <param name="index">The palette index.</param>
+    /// <returns>True when allowed.</returns>
     public bool IsAllowed(int index) => (AllowedColors[index >> 5] & (0x80000000u >> (index & 31))) != 0;
 
-    // 2.4 getNearestColor: the allowed index with the smallest squared RGB distance; 0 when index 0 is
-    // closer than the best allowed one (on a tie index 0 does not win).
+    /// <summary>Finds the allowed palette index nearest to a colour (getNearestColor, docs/renderer.md 2.4).</summary>
+    /// <param name="r">The red.</param>
+    /// <param name="g">The green.</param>
+    /// <param name="b">The blue.</param>
+    /// <param name="sub">The subpalette, or null for the first.</param>
+    /// <returns>The allowed index with the smallest squared RGB distance. It is 0 when index 0 is closer than the best allowed one; on a tie index 0 does not win.</returns>
     public int NearestColor(int r, int g, int b, SubPalette? sub = null)
     {
         sub ??= SubPalettes[0];
@@ -83,7 +110,10 @@ public sealed class PaletteBank
         return best;
     }
 
-    // A single-palette bank from 256 RGBA entries (RIFF .pal, Windows BMP palette).
+    /// <summary>Creates a single-palette bank from RGBA entries, for a RIFF .pal or a Windows BMP palette.</summary>
+    /// <param name="rgba">The RGBA entries.</param>
+    /// <param name="count">The number of entries.</param>
+    /// <returns>The bank.</returns>
     public static PaletteBank FromColors(ReadOnlySpan<byte> rgba, int count)
     {
         var sp = new SubPalette { Kind = 0, Id = SubPalette.NoId };
@@ -109,7 +139,11 @@ public sealed class PaletteBank
         return bank;
     }
 
-    // 2.5: Windows RIFF PAL form. The stream may start at `RIFF` or at `PAL `.
+    /// <summary>Parses a Windows RIFF PAL form (docs/renderer.md 2.5). The stream may start at <c>RIFF</c> or at <c>PAL </c>.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="bank">Receives the bank.</param>
+    /// <param name="error">Receives the failure reason.</param>
+    /// <returns>True on success.</returns>
     public static bool TryParsePal(ReadOnlySpan<byte> data, out PaletteBank? bank, out string error)
     {
         bank = null;
@@ -156,8 +190,11 @@ public sealed class PaletteBank
         }
     }
 
-    // 2.4: PL98 palette set. The trailer is read when present; a stream that ends after the
-    // color-weight flag is accepted, as only the weights follow.
+    /// <summary>Parses a PL98 palette set (docs/renderer.md 2.4).</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="bank">Receives the bank.</param>
+    /// <param name="error">Receives the failure reason.</param>
+    /// <returns>True on success. The trailer is read when present. A stream that ends after the color-weight flag is accepted, as only the weights follow.</returns>
     public static bool TryParsePpl(ReadOnlySpan<byte> data, out PaletteBank? bank, out string error)
     {
         bank = null;

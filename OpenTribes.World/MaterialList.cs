@@ -1,44 +1,54 @@
-// Port of src/world/material_list.hpp and src/world/material_list.cpp: TS::MaterialList (.dml) surface properties
-// (docs/collision.md E6, 4.2): the type, the elasticity and the friction of each material, and the process-wide table
-// that setMaterialProperty writes (0x006c1ff0).
 using System.Buffers.Binary;
 using OpenTribes.Core;
 
 namespace OpenTribes.World;
 
-// src/world/material_list.hpp struct Material.
+/// <summary>The surface properties of one material in a .dml material list.</summary>
+/// <remarks>Port of src/world/material_list.cpp (docs/collision.md E6, 4.2).</remarks>
 public sealed class Material
 {
-    public int Type;               // surface type 0..14
-    public float Elasticity = 1.0f; // entry +0x3c
-    public float Friction = 1.0f;   // entry +0x40
-    public bool UseDefaults = true; // entry +0x44
+    /// <summary>The surface type, 0 to 14.</summary>
+    public int Type;
+    /// <summary>The elasticity (entry +0x3c).</summary>
+    public float Elasticity = 1.0f;
+    /// <summary>The friction (entry +0x40).</summary>
+    public float Friction = 1.0f;
+    /// <summary>Whether the surface type's table values apply instead of this material's own (entry +0x44).</summary>
+    public bool UseDefaults = true;
 }
 
-// src/world/material_list.hpp struct MaterialTable.
+/// <summary>The process-wide table of friction and elasticity per surface type, written by setMaterialProperty (006c1ff0).</summary>
 public sealed class MaterialTable
 {
+    /// <summary>The friction and the elasticity of each of the 15 surface types, as two arrays.</summary>
     public readonly float[] Friction = new float[15], Elasticity = new float[15];
 
+    /// <summary>Creates a table with every entry 1.0.</summary>
     public MaterialTable() => Reset();
 
+    /// <summary>Sets every entry to 1.0.</summary>
     public void Reset()
     {
         for (int i = 0; i < 15; ++i)
             Friction[i] = Elasticity[i] = 1.0f;
     }
 
-    // Accessors 0x005afae8 and 0x005afac8: the table entry of the type unless the material carries its own values.
+    /// <summary>Gets the friction of a material: the table entry of its type unless it carries its own value (005afae8).</summary>
+    /// <param name="m">The material.</param>
+    /// <returns>The friction.</returns>
     public float FrictionOf(Material m) => m.UseDefaults ? Friction[ClampType(m.Type)] : m.Friction;
+    /// <summary>Gets the elasticity of a material: the table entry of its type unless it carries its own value (005afac8).</summary>
+    /// <param name="m">The material.</param>
+    /// <returns>The elasticity.</returns>
     public float ElasticityOf(Material m) => m.UseDefaults ? Elasticity[ClampType(m.Type)] : m.Elasticity;
 
     private static int ClampType(int t) => t < 0 || t > 14 ? 0 : t;
 }
 
-// The free functions of src/world/material_list.cpp.
+/// <summary>Reads .dml material lists and loads them through the resource manager.</summary>
 public static class MaterialList
 {
-    // src/world/material_list.cpp kMaterialTypeNames: the 15 surface types of 0x00614b10 in order.
+    /// <summary>The 15 surface type names in order (00614b10).</summary>
     public static readonly string[] kMaterialTypeNames =
     {
         "Default", "Concrete", "Carpet", "Metal", "Glass", "Plastic", "Wood", "Marble", "Snow", "Ice",
@@ -55,8 +65,10 @@ public static class MaterialList
         return true;
     }
 
-    // src/world/material_list.cpp parseMaterialList: a PERS TS::MaterialList block (versions 1 to 4). False on
-    // malformed data.
+    /// <summary>Parses a PERS TS::MaterialList block, versions 1 to 4.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <param name="output">Receives the materials.</param>
+    /// <returns>False on malformed data.</returns>
     public static bool ParseMaterialList(byte[] d, List<Material> output)
     {
         // PERS tag, size, u16 name length, name padded to even, u32 version (docs/interiors.md 2).
@@ -111,9 +123,11 @@ public static class MaterialList
         return true;
     }
 
-    // src/world/material_list.cpp materialListTextures: bitmap names of the texture materials (flags & 0xf == 3, map
-    // name at +0x10 of the file record) of every detail, in order: what TSMaterialList_load (0x005af87c per entry)
-    // loads.
+    /// <summary>Lists the bitmap names of the texture materials of every detail, in order.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <param name="output">Receives the bitmap names.</param>
+    /// <returns>False on malformed data.</returns>
+    /// <remarks>A texture material has flags &amp; 0xf equal to 3 and its map name at +0x10 of the file record. TSMaterialList_load (005af87c) loads these per entry.</remarks>
     public static bool MaterialListTextures(byte[] d, List<string> output)
     {
         if (d.Length < 12 || d[0] != 'P' || d[1] != 'E' || d[2] != 'R' || d[3] != 'S')
@@ -152,11 +166,13 @@ public static class MaterialList
     }
     private static readonly Dictionary<string, Cached> sCache = new(StringComparer.Ordinal);
 
-    // Port convention (no C++ function): empties the by-name cache, the start state of a C++ test process.
+    /// <summary>Empties the by-name cache, the start state of a C++ test process.</summary>
     public static void ResetCache() => sCache.Clear();
 
-    // src/world/material_list.cpp materialList: loads "<name>" through the resource manager; null when missing or
-    // malformed. Cached by name for the process.
+    /// <summary>Loads a material list through the resource manager.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="name">The file name.</param>
+    /// <returns>The materials, or null when missing or malformed. Cached by name for the process.</returns>
     public static List<Material>? Get(ResourceManager res, string name)
     {
         if (!sCache.TryGetValue(name, out Cached? c))

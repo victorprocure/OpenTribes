@@ -1,30 +1,35 @@
-// Port of src/world/collision.hpp and src/world/collision.cpp: collision for moving objects (docs/collision.md): the
-// narrow-phase tests a Player image runs (terrain plane, interior box clip, shape and player spheres), the candidate
-// list and the SimMovement stepped move. Portable truncating form (docs/portable-float.md 1): x87::Chop is
-// Fpu.ChopScope, x87::f32 stores toward zero whatever the mode (Fpu.F32Chop), every other double operation follows the
-// mode of Fpu. The C++ sim::SimObject pointers are `object` here: OpenTribes.World does not reference OpenTribes.Sim
-// (the Sim layer names world types), and the code below only compares and passes them on.
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.World;
 
-// src/world/collision.hpp namespace x87: x87 helpers shared by the movement code.
+/// <summary>x87 helpers shared by the movement code.</summary>
 public static class X87
 {
-    // src/world/collision.cpp x87::Chop: sets round-toward-zero for a scope (what crt_ftol leaves in the original).
+    /// <summary>Sets round-toward-zero for a scope, what crt_ftol leaves in the original.</summary>
+    /// <returns>The scope. Dispose it to restore the previous mode.</returns>
     public static Chop Chop() => ChopScope();
 
-    // src/world/collision.cpp x87::f32: f32 store toward zero, independent of the current rounding mode.
+    /// <summary>Stores a double as float toward zero, whatever the current rounding mode.</summary>
+    /// <param name="x">The value.</param>
+    /// <returns>The float.</returns>
     public static float F32(double x) => F32Chop(x);
 
-    // src/world/collision.cpp x87::dot: returned unrounded (0x005ece49).
+    /// <summary>Computes a dot product without rounding the result (005ece49).</summary>
+    /// <param name="a">The first vector.</param>
+    /// <param name="b">The second vector.</param>
+    /// <returns>The dot product as a double.</returns>
     public static double Dot(ReadOnlySpan<float> a, ReadOnlySpan<float> b) =>
         Add(Add(Mul(a[0], b[0]), Mul(a[1], b[1])), Mul(a[2], b[2]));
 
-    // src/world/collision.cpp x87::len: returned unrounded (0x005ed014).
+    /// <summary>Computes a vector length without rounding the result (005ed014).</summary>
+    /// <param name="a">The vector.</param>
+    /// <returns>The length as a double.</returns>
     public static double Len(ReadOnlySpan<float> a) => Sqrt(Dot(a, a));
 
-    // src/world/collision.cpp x87::lenf: m_Point3F_lenf (0x005ed031), bits(f32(len^2)) >> 1 + 0x1fc00000.
+    /// <summary>Computes a vector length with the approximate square root of m_Point3F_lenf (005ed031).</summary>
+    /// <param name="a">The vector.</param>
+    /// <returns>The length.</returns>
+    /// <remarks>The result is seeded from bits(f32(len^2)) >> 1 + 0x1fc00000.</remarks>
     public static float Lenf(ReadOnlySpan<float> a)
     {
         float s = F32(Add(Add(Mul(a[0], a[0]), Mul(a[1], a[1])), Mul(a[2], a[2])));
@@ -33,7 +38,10 @@ public static class X87
         return BitConverter.UInt32BitsToSingle(bits);
     }
 
-    // src/world/collision.cpp x87::mulVector: m_mul_vector (0x005ed124) with a row-vector 3x3.
+    /// <summary>Multiplies a vector by a row-vector 3x3 matrix, m_mul_vector (005ed124).</summary>
+    /// <param name="v">The vector.</param>
+    /// <param name="m">The 3x3 matrix.</param>
+    /// <param name="output">Receives the product.</param>
     public static void MulVector(ReadOnlySpan<float> v, ReadOnlySpan<float> m, Span<float> output)
     {
         float r0 = F32(Add(Add(Mul(v[0], m[0]), Mul(v[1], m[3])), Mul(v[2], m[6])));
@@ -44,7 +52,11 @@ public static class X87
         output[2] = r2;
     }
 
-    // src/world/collision.cpp x87::mulPoint: m_mul_point (0x005ed17e) with a row-vector 3x3.
+    /// <summary>Multiplies a point by a row-vector 3x3 matrix and adds a translation, m_mul_point (005ed17e).</summary>
+    /// <param name="v">The point.</param>
+    /// <param name="m">The 3x3 matrix.</param>
+    /// <param name="t">The translation.</param>
+    /// <param name="output">Receives the transformed point.</param>
     public static void MulPoint(ReadOnlySpan<float> v, ReadOnlySpan<float> m, ReadOnlySpan<float> t, Span<float> output)
     {
         float r0 = F32(Add(Add(Add(Mul(v[0], m[0]), Mul(v[1], m[3])), Mul(v[2], m[6])), t[0]));
@@ -56,16 +68,23 @@ public static class X87
     }
 }
 
-// src/world/collision.hpp struct CollisionSurface: surface record (docs/collision.md 1.3), the fields the Player reads.
+/// <summary>A surface record the player reads after a collision (docs/collision.md 1.3).</summary>
 public struct CollisionSurface
 {
+    /// <summary>The contact position.</summary>
     public Float3 Position;
-    public Float3 Normal;      // in the space of CollisionHit::rot
-    public float Distance;     // +0x1c: a negative value makes the Player ignore the contact
-    public bool HasMaterial;   // +0x20 != 0
-    public float Friction;     // material entry +0x40
-    public int Material;       // interior surface: index in the .dml of the .dis, -1 none
+    /// <summary>The surface normal, in the space of <see cref="CollisionHit.Rot"/>.</summary>
+    public Float3 Normal;
+    /// <summary>The contact distance (+0x1c). A negative value makes the player ignore the contact.</summary>
+    public float Distance;
+    /// <summary>Whether the surface has a material entry (+0x20 is nonzero).</summary>
+    public bool HasMaterial;
+    /// <summary>The friction of the material entry (+0x40).</summary>
+    public float Friction;
+    /// <summary>The material index in the .dml of the .dis for an interior surface, -1 for none.</summary>
+    public int Material;
 
+    /// <summary>Creates a surface with no material.</summary>
     public CollisionSurface()
     {
         Position = default;
@@ -77,92 +96,143 @@ public struct CollisionSurface
     }
 }
 
-// src/world/collision.hpp struct CollisionHit: hit record (1.2).
+/// <summary>The result of testing one candidate: the surfaces hit and the space they are in (docs/collision.md 1.2).</summary>
 public sealed class CollisionHit
 {
-    public object? Object;                    // sim::SimObject*
-    public uint Type;                         // object type bits (+0x48)
-    public Float9 Rot = Float9.Identity();    // R+0x10 3x3: surface space -> world
-    public float StepHeight = -1.0f;          // R+0x80
+    /// <summary>The sim object that was hit.</summary>
+    public object? Object;
+    /// <summary>The object type bits (+0x48).</summary>
+    public uint Type;
+    /// <summary>The 3x3 that maps surface space to world space (R+0x10).</summary>
+    public Float9 Rot = Float9.Identity();
+    /// <summary>The step height (R+0x80), -1 when unset.</summary>
+    public float StepHeight = -1.0f;
+    /// <summary>The surfaces hit.</summary>
     public List<CollisionSurface> Surfaces = new();
 }
 
-// src/world/collision.hpp struct CollisionImage: image of a candidate object (2.1 step 3).
+/// <summary>The collision image of a candidate object (docs/collision.md 2.1 step 3).</summary>
 public sealed class CollisionImage
 {
-    // Sphere is a Player image (5.3). TriggerSphere is the sphere image of a StaticBase with a triggerRadius (type 0,
-    // StaticBase_getCollisionImages 0x0044fff0): the mover's shape is tested against it.
-    public enum Kind { Terrain, Interior, Shape, Sphere, Trigger, TriggerSphere }
+    /// <summary>The kind of a collision image.</summary>
+    /// <remarks><c>Sphere</c> is a player image (5.3). <c>TriggerSphere</c> is the sphere image of a StaticBase with a trigger radius (type 0, StaticBase_getCollisionImages 0044fff0): the mover's shape is tested against it.</remarks>
+    public enum Kind
+    {
+        /// <summary>A terrain.</summary>
+        Terrain,
+        /// <summary>An interior.</summary>
+        Interior,
+        /// <summary>A shape.</summary>
+        Shape,
+        /// <summary>A player sphere.</summary>
+        Sphere,
+        /// <summary>A trigger box.</summary>
+        Trigger,
+        /// <summary>A trigger sphere.</summary>
+        TriggerSphere,
+    }
+    /// <summary>The kind of this image.</summary>
     public Kind ImageKind = Kind.Terrain;
-    public object? Object;                    // sim::SimObject*
+    /// <summary>The sim object that owns the image.</summary>
+    public object? Object;
+    /// <summary>The object type bits.</summary>
     public uint Type;
-    public bool NonBlocking;                  // image byte +0xd: posts an event, never blocks
+    /// <summary>Whether the image only posts an event and never blocks (image byte +0xd).</summary>
+    public bool NonBlocking;
+    /// <summary>The terrain, for a terrain image.</summary>
     public Terrain? TerrainData;
+    /// <summary>The interior geometry, for an interior image.</summary>
     public InteriorGeometry? Geometry;
-    public Float9 Rot = Float9.Identity();    // image transform (object transform)
+    /// <summary>The image transform, the object transform.</summary>
+    public Float9 Rot = Float9.Identity();
+    /// <summary>The image position.</summary>
     public Float3 Pos;
-    public Float6 Box;                        // Shape, Trigger: object-space box
-    // Shape: the box meshes of the shape's collision detail (world/shape.hpp), when it has one.
+    /// <summary>The object-space box of a shape or trigger image.</summary>
+    public Float6 Box;
+    /// <summary>The box meshes of the shape's collision detail, when it has one.</summary>
     public List<Float6>? Boxes;
-    public Float3 Centre;                     // Sphere, TriggerSphere: centre in image space
+    /// <summary>The sphere centre in image space, for a sphere or trigger sphere image.</summary>
+    public Float3 Centre;
+    /// <summary>The sphere radius.</summary>
     public float Radius;
-    // Shape: the ShapeCollisionImage (docs/collision.md T1.2). `Instance` is the object's shape instance with its thread
-    // state, `Detail` the detail the sphere test runs on (image +0x74) and `MeshMode` the image mode (+0x44: faces, or
-    // the bounds mode of Items). Without an instance the box stand-ins above are used (synthetic images of unit tests).
+    /// <summary>The shape instance with its thread state, for a shape image (docs/collision.md T1.2). Without one the box stand-ins are used, as in synthetic unit-test images.</summary>
     public ShapeInstance? Instance;
+    /// <summary>The detail the sphere test runs on (image +0x74).</summary>
     public int Detail;
+    /// <summary>The image mode (+0x44): true for faces, false for the bounds mode of items.</summary>
     public bool MeshMode = true;
 }
 
-// src/world/collision.hpp struct MoverImage: the mover's image (Player image, docs/player-sim.md 3.1): only the
-// translation of the transform is used by the terrain, interior and shape cases.
+/// <summary>The mover's image, a player image (docs/player-sim.md 3.1).</summary>
+/// <remarks>The terrain, interior and shape cases use only the translation of the transform.</remarks>
 public sealed class MoverImage
 {
+    /// <summary>The mover position.</summary>
     public Float3 Pos;
+    /// <summary>The mover rotation.</summary>
     public Float9 Rot = Float9.Identity();
-    public Float3 BoxMin, BoxMax;  // box A
-    public float Radius;           // sphere centre (0, 0, radius)
-    // ShapeBase mover (an Item, docs/collision.md T3): the shape image rotates, the box is the shape box and the
-    // bounding sphere centre is `CentreLocal` through the rotation. The terrain case is not covered (the Item code keeps
-    // its own 0x00437b50).
+    /// <summary>The corners of box A.</summary>
+    public Float3 BoxMin, BoxMax;
+    /// <summary>The sphere radius. The sphere centre is (0, 0, radius).</summary>
+    public float Radius;
+    /// <summary>Whether the mover is a ShapeBase such as an item (docs/collision.md T3). The shape image rotates and the terrain case is not covered, since item code keeps its own (00437b50).</summary>
     public bool ShapeMover;
+    /// <summary>The bounding sphere centre in shape space, rotated into the world through the image rotation.</summary>
     public Float3 CentreLocal;
-    // The shape image of a ShapeBase mover: a Player candidate tests its own sphere against it (the image with the
-    // higher type runs the test, 0x005036a4).
+    /// <summary>The shape image of a ShapeBase mover. A player candidate tests its own sphere against it, since the image with the higher type runs the test (005036a4).</summary>
     public ShapeInstance? Instance;
+    /// <summary>The detail the shape image is tested on.</summary>
     public int Detail;
+    /// <summary>The image mode of the shape image, true for faces.</summary>
     public bool MeshMode = true;
 }
 
-// src/world/collision.hpp struct MoveInfo: stepped move (section 3, 0x00505a3c).
+/// <summary>The state of a stepped move (docs/collision.md section 3, 00505a3c).</summary>
 public sealed class MoveInfo
 {
+    /// <summary>The current iteration.</summary>
     public int Iteration;
-    public float Used;               // +0x04
-    public float EndTime;            // +0x0c
-    public float[]? Current;         // object position p
-    public float[]? Attempted;       // image position q of the blocked substep
-    public float[]? Target;          // target position, rewritten by the callback
+    /// <summary>The time used so far (+0x04).</summary>
+    public float Used;
+    /// <summary>The end time (+0x0c).</summary>
+    public float EndTime;
+    /// <summary>The object position.</summary>
+    public float[]? Current;
+    /// <summary>The image position of the blocked substep.</summary>
+    public float[]? Attempted;
+    /// <summary>The target position. The collision callback rewrites it.</summary>
+    public float[]? Target;
+    /// <summary>The candidate images.</summary>
     public List<CollisionImage>? Candidates;
+    /// <summary>The hits of the blocked substep.</summary>
     public List<CollisionHit>? Hits;
-    public List<object>? Notify;     // sim::SimObject*
+    /// <summary>The sim objects to notify.</summary>
+    public List<object>? Notify;
 }
 
-// src/world/collision.hpp struct SteppedMove.
+/// <summary>A stepped move of a mover through a list of candidate images.</summary>
 public sealed class SteppedMove
 {
-    public float Dt = 0.032f;        // time slice +0x168
-    public int MaxIterations = 3;    // +0x1f0
+    /// <summary>The time slice in seconds (+0x168).</summary>
+    public float Dt = 0.032f;
+    /// <summary>The most blocked iterations a move runs (+0x1f0).</summary>
+    public int MaxIterations = 3;
+    /// <summary>The mover's image.</summary>
     public MoverImage Image = new();
+    /// <summary>The candidate images.</summary>
     public List<CollisionImage> Candidates = new();
-    // Collision callback (vtable +0xb8): true restarts toward the rewritten target.
+    /// <summary>The collision callback (vtable +0xb8). Returning true restarts the move toward the rewritten target.</summary>
     public Func<MoveInfo, bool>? OnCollision;
-    // A non-blocking image was hit (event 0x41f to its owner, 0x005070fc).
+    /// <summary>Called when a non-blocking image was hit (event 0x41f to its owner, 005070fc).</summary>
     public Action<object?>? OnTouch;
-    public List<object> Notify = new(); // notify list of the last move (info +0x3c)
+    /// <summary>The notify list of the last move (info +0x3c).</summary>
+    public List<object> Notify = new();
 
-    // src/world/collision.cpp SteppedMove::testAt: tests the image at q against every candidate (0x00506bfc).
-    // Non-blocking candidates that collide are reported and leave the list. True when nothing blocks.
+    /// <summary>Tests the mover image at a position against every candidate (00506bfc).</summary>
+    /// <param name="q">The image position to test.</param>
+    /// <param name="hits">Receives the blocking hits.</param>
+    /// <returns>True when nothing blocks.</returns>
+    /// <remarks>Non-blocking candidates that collide are reported and leave the list.</remarks>
     public bool TestAt(ReadOnlySpan<float> q, List<CollisionHit> hits)
     {
         hits.Clear();
@@ -191,8 +261,12 @@ public sealed class SteppedMove
         return hits.Count == 0;
     }
 
-    // src/world/collision.cpp SteppedMove::run: moves p toward target. False after maxIterations blocked iterations
-    // (the caller zeroes the velocity).
+    /// <summary>Moves a position toward a target.</summary>
+    /// <param name="p">The position, updated in place.</param>
+    /// <param name="target">The target position.</param>
+    /// <param name="step0">The first substep length.</param>
+    /// <param name="step1">The second substep length.</param>
+    /// <returns>False after <see cref="MaxIterations"/> blocked iterations. The caller then zeroes the velocity.</returns>
     public bool Run(float[] p, float[] target, float step0, float step1)
     {
         Notify.Clear();
@@ -260,20 +334,20 @@ public sealed class SteppedMove
     }
 }
 
-// The free functions of src/world/collision.cpp.
+/// <summary>The collision tests a moving object runs: terrain plane, interior box clip, shape and player spheres, and the candidate gate.</summary>
+/// <remarks>Port of src/world/collision.cpp (docs/collision.md). Uses the truncating form of docs/portable-float.md 1: x87::Chop is <c>Fpu.ChopScope</c>, x87::f32 stores toward zero whatever the mode, and every other double operation follows the mode of <c>Fpu</c>. Sim objects are <c>object</c> here because this project does not reference the Sim layer.</remarks>
 public static class Collision
 {
     private const float kClipEps = 1e-5f; // 0x0063f9a0 (0x3727c5ac)
 
-    // src/world/collision.cpp transpose.
     private static void Transpose(ReadOnlySpan<float> m, Span<float> output)
     {
         Span<float> t = stackalloc float[9] { m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8] };
         t.CopyTo(output);
     }
 
-    // src/world/collision.cpp relativeTransform: T = A * inverse(image transform) with A = identity rotation at `pos`
-    // (5.2 B1-B5). With `moverRot` the rotation of A is that matrix: T.R = A.R * R' (0x005ed2b2).
+    // T = A * inverse(image transform) with A = identity rotation at `pos` (5.2 B1-B5). With `moverRot` the rotation of A is
+    // that matrix: T.R = A.R * R' (005ed2b2).
     private static void RelativeTransform(ReadOnlySpan<float> rot, ReadOnlySpan<float> imagePos, ReadOnlySpan<float> pos,
                                           Span<float> outRot, Span<float> outT, ReadOnlySpan<float> moverRot = default)
     {
@@ -339,7 +413,6 @@ public static class Collision
         }
     }
 
-    // src/world/collision.cpp struct BoxClip.
     private sealed class BoxClip
     {
         public readonly InteriorGeometry Geo;
@@ -532,8 +605,7 @@ public static class Collision
         }
     }
 
-    // src/world/collision.cpp sphereFace: sphere against one face (section 6 T4.1 steps 1-8). Appends at most one
-    // surface.
+    // Sphere against one face (section 6 T4.1 steps 1-8). Appends at most one surface.
     private static void SphereFace(ReadOnlySpan<float> pm, float r, ReadOnlySpan<float> a, ReadOnlySpan<float> b,
                                    ReadOnlySpan<float> c, List<CollisionSurface> output)
     {
@@ -545,8 +617,12 @@ public static class Collision
         output.Add(s);
     }
 
-    // src/world/collision.cpp collideTerrain: 5.1 Player vs terrain (0x00436020). One surface, distance = signed plane
-    // distance.
+    /// <summary>Tests a player against terrain (docs/collision.md 5.1, 00436020).</summary>
+    /// <param name="terrain">The terrain.</param>
+    /// <param name="pos">The player position in world space.</param>
+    /// <param name="radius">The player sphere radius.</param>
+    /// <param name="hit">Receives the hit. One surface with the signed plane distance.</param>
+    /// <returns>True on a collision.</returns>
     public static bool CollideTerrain(Terrain terrain, ReadOnlySpan<float> pos, float radius, CollisionHit hit)
     {
         // 5.1 steps 2-3 with an unrotated terrain: M.t = P + (-terrainPos), c = (0, 0, r) * M.
@@ -580,9 +656,16 @@ public static class Collision
         return true;
     }
 
-    // src/world/collision.cpp collideInteriorBox: 5.2 Player vs interior (0x004367d0 -> ITRCollision_collideBox
-    // 0x00560b54). True with zero surfaces when the box is inside solid without a listed surface plane. `moverRot` is
-    // the mover image's rotation (an empty span is the identity of the Player case).
+    /// <summary>Tests a player box against an interior (docs/collision.md 5.2, 004367d0 to ITRCollision_collideBox 00560b54).</summary>
+    /// <param name="geo">The interior geometry.</param>
+    /// <param name="rot">The interior rotation.</param>
+    /// <param name="interiorPos">The interior position.</param>
+    /// <param name="pos">The mover position.</param>
+    /// <param name="boxMin">The box minimum.</param>
+    /// <param name="boxMax">The box maximum.</param>
+    /// <param name="hit">Receives the hit surfaces.</param>
+    /// <param name="moverRot">The mover image's rotation. An empty span is the identity of the player case.</param>
+    /// <returns>True on a collision. True with zero surfaces when the box is inside solid without a listed surface plane.</returns>
     public static bool CollideInteriorBox(InteriorGeometry geo, ReadOnlySpan<float> rot, ReadOnlySpan<float> interiorPos,
                                           ReadOnlySpan<float> pos, ReadOnlySpan<float> boxMin, ReadOnlySpan<float> boxMax,
                                           CollisionHit hit, ReadOnlySpan<float> moverRot = default)
@@ -663,8 +746,14 @@ public static class Collision
         return bc.Touched;
     }
 
-    // src/world/collision.cpp collideSpheres: 5.3 Player vs player (0x00437414): spheres at c1 and c2 (world), normal =
-    // (c1 - c2) / lenf.
+    /// <summary>Tests a player sphere against another player sphere (docs/collision.md 5.3, 00437414).</summary>
+    /// <param name="c1">The first sphere centre in world space.</param>
+    /// <param name="r1">The first sphere radius.</param>
+    /// <param name="c2">The second sphere centre in world space.</param>
+    /// <param name="r2">The second sphere radius.</param>
+    /// <param name="rot">The own image rotation.</param>
+    /// <param name="hit">Receives the hit. The normal is (c1 - c2) / lenf.</param>
+    /// <returns>True on a collision.</returns>
     public static bool CollideSpheres(ReadOnlySpan<float> c1, float r1, ReadOnlySpan<float> c2, float r2, ReadOnlySpan<float> rot,
                                       CollisionHit hit)
     {
@@ -695,7 +784,12 @@ public static class Collision
         return true;
     }
 
-    // src/world/collision.cpp sphereTouchesBox: sphere against a box, overlap only (Trigger images).
+    /// <summary>Tests a sphere against a box for overlap only, used for trigger images.</summary>
+    /// <param name="box">The box, min xyz then max xyz.</param>
+    /// <param name="boxPos">The box position.</param>
+    /// <param name="centre">The sphere centre.</param>
+    /// <param name="radius">The sphere radius.</param>
+    /// <returns>True when they overlap.</returns>
     public static bool SphereTouchesBox(ReadOnlySpan<float> box, ReadOnlySpan<float> boxPos, ReadOnlySpan<float> centre, float radius)
     {
         float d2 = 0;
@@ -710,8 +804,15 @@ public static class Collision
         return d2 < X87.F32(Mul(radius, radius));
     }
 
-    // src/world/collision.cpp collideSphereBox: 5.4 Player vs shape, approximated: the sphere against the faces of the
-    // object-space box with the mesh rules of section 6 T4.1 (two triangles per box face).
+    /// <summary>Tests a player sphere against the object-space box of a shape (docs/collision.md 5.4, approximated).</summary>
+    /// <param name="box">The object-space box.</param>
+    /// <param name="rot">The shape rotation.</param>
+    /// <param name="shapePos">The shape position.</param>
+    /// <param name="centre">The sphere centre.</param>
+    /// <param name="radius">The sphere radius.</param>
+    /// <param name="hit">Receives the hit surfaces.</param>
+    /// <returns>True on a collision.</returns>
+    /// <remarks>Uses the mesh rules of section 6 T4.1 with two triangles per box face.</remarks>
     public static bool CollideSphereBox(ReadOnlySpan<float> box, ReadOnlySpan<float> rot, ReadOnlySpan<float> shapePos,
                                         ReadOnlySpan<float> centre, float radius, CollisionHit hit)
     {
@@ -761,10 +862,19 @@ public static class Collision
         return hit.Surfaces.Count != 0;
     }
 
-    // src/world/collision.cpp collideSphereShape: sphere against a shape image (PlayerCollisionImage_collideShape
-    // 0x00436ed0, ShapeCollisionImage_collideShape 0x0043873c): `centre` is the sphere centre in the space of the
-    // sphere's own image, whose transform is (sphereRot, spherePos). The records are in the shape's root space and
-    // hit.rot is the 3x3 of X * shape transform (R+0x10).
+    /// <summary>Tests a sphere against a shape image (PlayerCollisionImage_collideShape 00436ed0, ShapeCollisionImage_collideShape 0043873c).</summary>
+    /// <param name="inst">The shape instance.</param>
+    /// <param name="detail">The detail to test.</param>
+    /// <param name="meshMode">True for face records, false for bounds records.</param>
+    /// <param name="shapeRot">The shape rotation.</param>
+    /// <param name="shapePos">The shape position.</param>
+    /// <param name="sphereRot">The rotation of the sphere's own image.</param>
+    /// <param name="spherePos">The position of the sphere's own image.</param>
+    /// <param name="centre">The sphere centre in the space of the sphere's own image.</param>
+    /// <param name="radius">The sphere radius.</param>
+    /// <param name="hit">Receives the hit surfaces.</param>
+    /// <returns>True on a collision.</returns>
+    /// <remarks>The records are in the shape's root space. <c>hit.Rot</c> is the 3x3 of X * shape transform (R+0x10).</remarks>
     public static bool CollideSphereShape(ShapeInstance inst, int detail, bool meshMode, ReadOnlySpan<float> shapeRot,
                                           ReadOnlySpan<float> shapePos, ReadOnlySpan<float> sphereRot, ReadOnlySpan<float> spherePos,
                                           ReadOnlySpan<float> centre, float radius, CollisionHit hit)
@@ -796,8 +906,15 @@ public static class Collision
         return true;
     }
 
-    // src/world/collision.cpp collideBoxShape: box image against a shape (0x00435f60 -> 0x005c2264, T6): `box` is min,
-    // max in the space of the box image transform.
+    /// <summary>Tests a box image against a shape (00435f60 to 005c2264, docs/collision.md T6).</summary>
+    /// <param name="inst">The shape instance.</param>
+    /// <param name="detail">The detail to test.</param>
+    /// <param name="shapeRot">The shape rotation.</param>
+    /// <param name="shapePos">The shape position.</param>
+    /// <param name="boxRot">The rotation of the box image.</param>
+    /// <param name="boxPos">The position of the box image.</param>
+    /// <param name="box">The box, min then max, in the space of the box image transform.</param>
+    /// <returns>True on a collision.</returns>
     public static bool CollideBoxShape(ShapeInstance inst, int detail, ReadOnlySpan<float> shapeRot, ReadOnlySpan<float> shapePos,
                                        ReadOnlySpan<float> boxRot, ReadOnlySpan<float> boxPos, ReadOnlySpan<float> box)
     {
@@ -821,7 +938,11 @@ public static class Collision
         return inst.CollideBox(detail, half, rel);
     }
 
-    // src/world/collision.cpp testImage: image test of one candidate (0x005036a4 with the Player image as the mover).
+    /// <summary>Tests one candidate image against the mover (005036a4 with the player image as the mover).</summary>
+    /// <param name="mover">The mover image.</param>
+    /// <param name="image">The candidate image.</param>
+    /// <param name="hit">Receives the hit surfaces.</param>
+    /// <returns>True on a collision.</returns>
     public static bool TestImage(MoverImage mover, CollisionImage image, CollisionHit hit)
     {
         hit.Object = image.Object;
@@ -890,7 +1011,13 @@ public static class Collision
         return false;
     }
 
-    // src/world/collision.cpp sweptBox: candidate gate (2.1 steps 1-2): the world box at the target extended by v * dt.
+    /// <summary>Computes the candidate gate box: the world box at the target extended by v * dt (docs/collision.md 2.1 steps 1-2).</summary>
+    /// <param name="boxMin">The box minimum.</param>
+    /// <param name="boxMax">The box maximum.</param>
+    /// <param name="target">The target position.</param>
+    /// <param name="v">The velocity.</param>
+    /// <param name="dt">The time slice.</param>
+    /// <param name="output">Receives the box, six floats.</param>
     public static void SweptBox(ReadOnlySpan<float> boxMin, ReadOnlySpan<float> boxMax, ReadOnlySpan<float> target,
                                 ReadOnlySpan<float> v, float dt, Span<float> output)
     {
@@ -905,8 +1032,12 @@ public static class Collision
         }
     }
 
-    // src/world/collision.cpp interiorWorldBox: InteriorShape world box, geometry box through m_Box3F_transform
-    // (0x005edbb4: rotated centre, |M| applied to the half extents), padded by 3.0 (2.2).
+    /// <summary>Computes the world box of an interior shape (docs/collision.md 2.2).</summary>
+    /// <param name="local">The geometry box.</param>
+    /// <param name="rot">The interior rotation.</param>
+    /// <param name="pos">The interior position.</param>
+    /// <param name="output">Receives the box, six floats.</param>
+    /// <remarks>The geometry box goes through m_Box3F_transform (005edbb4): rotated centre, |M| applied to the half extents. The result is padded by 3.0.</remarks>
     public static void InteriorWorldBox(ReadOnlySpan<float> local, ReadOnlySpan<float> rot, ReadOnlySpan<float> pos, Span<float> output)
     {
         Span<float> c = stackalloc float[3], e = stackalloc float[3], wc = stackalloc float[3];
@@ -932,7 +1063,10 @@ public static class Collision
         }
     }
 
-    // src/world/collision.cpp boxesOverlap.
+    /// <summary>Tests whether two boxes overlap.</summary>
+    /// <param name="a">The first box, min xyz then max xyz.</param>
+    /// <param name="b">The second box, min xyz then max xyz.</param>
+    /// <returns>True when they overlap.</returns>
     public static bool BoxesOverlap(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         for (int i = 0; i < 3; ++i)

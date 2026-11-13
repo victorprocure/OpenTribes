@@ -2,7 +2,7 @@ using OpenTribes.Platform.Sdl;
 
 namespace OpenTribes.Platform.Gl;
 
-// One SDL window with an OpenGL 3.3 core context made current on the creating thread, plus the loaded GL functions.
+/// <summary>One SDL window with an OpenGL 3.3 core context, made current on the creating thread, and the loaded GL functions.</summary>
 public sealed unsafe class GlWindow : IDisposable
 {
     private static readonly object sLock = new();
@@ -11,9 +11,13 @@ public sealed unsafe class GlWindow : IDisposable
     private IntPtr mWindow;
     private IntPtr mContext;
 
+    /// <summary>Gets the GL function table.</summary>
     public GlApi Gl { get; }
+    /// <summary>Gets the SDL video driver name.</summary>
     public string VideoDriver { get; }
+    /// <summary>Gets the GL version string.</summary>
     public string GlVersion { get; }
+    /// <summary>Gets the GL renderer string.</summary>
     public string Renderer { get; }
 
     private GlWindow(IntPtr window, IntPtr context, GlApi gl, string driver)
@@ -26,8 +30,14 @@ public sealed unsafe class GlWindow : IDisposable
         Renderer = gl.GetString(GlApi.Renderer);
     }
 
-    // Returns null with `error` set when no window or no 3.3 core context can be made (no display, no GL driver).
-    // `videoDriver` (for example "offscreen") is passed as the SDL_VIDEO_DRIVER hint before SDL is initialised.
+    /// <summary>Creates a window with a GL 3.3 core context.</summary>
+    /// <param name="title">The window title.</param>
+    /// <param name="width">The width.</param>
+    /// <param name="height">The height.</param>
+    /// <param name="hidden">Whether the window is hidden.</param>
+    /// <param name="videoDriver">The SDL video driver, for example "offscreen". It is passed as the <c>SDL_VIDEO_DRIVER</c> hint before SDL is initialised. Null for the default.</param>
+    /// <param name="error">Receives the failure reason.</param>
+    /// <returns>The window, or null when no window or no 3.3 core context can be made, for example with no display or GL driver.</returns>
     public static GlWindow? TryCreate(string title, int width, int height, bool hidden, string? videoDriver,
                                       out string error)
     {
@@ -115,14 +125,23 @@ public sealed unsafe class GlWindow : IDisposable
         }
     }
 
+    /// <summary>Gets the SDL window handle.</summary>
     public IntPtr Handle => mWindow;
 
+    /// <summary>Shows the window.</summary>
     public void Show() => Sdl3.ShowWindow(mWindow);
 
+    /// <summary>Turns relative mouse mode on or off.</summary>
+    /// <param name="on">Whether relative mode is on.</param>
     public void SetRelativeMouse(bool on) => Sdl3.SetWindowRelativeMouseMode(mWindow, on);
 
+    /// <summary>Sets the window title.</summary>
+    /// <param name="title">The title.</param>
     public void SetTitle(string title) => Sdl3.SetWindowTitle(mWindow, title);
 
+    /// <summary>Sets the window size.</summary>
+    /// <param name="w">The width.</param>
+    /// <param name="h">The height.</param>
     public void SetSize(int w, int h) => Sdl3.SetWindowSize(mWindow, w, h);
 
     // Full screen state. mExclusive is the display mode that was set; mScaled is the requested size rendered scaled into
@@ -130,8 +149,12 @@ public sealed unsafe class GlWindow : IDisposable
     private (int W, int H)? mExclusive, mScaled;
     private (int W, int H) mWindowedSize;
 
-    // Stock goes full screen at the chosen resolution (see FullscreenPlan): try the display mode closest to w x h, else
-    // the desktop mode with the canvas kept at w x h and scaled (letterboxed) into the window.
+    /// <summary>Switches full screen on or off.</summary>
+    /// <param name="on">Whether the window is full screen.</param>
+    /// <param name="w">The wanted width.</param>
+    /// <param name="h">The wanted height.</param>
+    /// <param name="desktopMode">Whether to use borderless desktop mode.</param>
+    /// <remarks>Stock goes full screen at the chosen resolution (see <see cref="FullscreenPlan"/>). This tries the display mode closest to w x h, else the desktop mode with the canvas kept at w x h and scaled (letterboxed) into the window.</remarks>
     public void SetFullscreen(bool on, int w, int h, bool desktopMode = false)
     {
         if (on)
@@ -161,29 +184,37 @@ public sealed unsafe class GlWindow : IDisposable
         }
     }
 
-    // The full screen resolution the canvas uses, or null windowed.
+    /// <summary>Gets the full screen resolution the canvas uses, or null windowed.</summary>
     public (int W, int H)? FullscreenCanvas => IsFullscreen() ? mExclusive ?? mScaled : null;
 
-    // True when the canvas is scaled into a larger window (no display mode could be set).
+    /// <summary>Gets whether the canvas is scaled into a larger window because no display mode could be set.</summary>
     public bool Scaled => mScaled != null && IsFullscreen();
 
-    // The full screen modes of the display the window is on (SDL), ascending.
+    /// <summary>Lists the full screen modes of the display the window is on, ascending.</summary>
+    /// <returns>The (width, height) pairs.</returns>
     public List<(int W, int H)> FullscreenModes() => Sdl3.FullscreenModes(mWindow);
 
+    /// <summary>Tests whether the window is full screen.</summary>
+    /// <returns>True when full screen.</returns>
     public bool IsFullscreen() => (Sdl3.GetWindowFlags(mWindow) & Sdl3.WindowFullscreen) != 0;
 
+    /// <summary>Sets the swap interval.</summary>
+    /// <param name="interval">The interval, 0 for immediate and 1 for vsync.</param>
     public void SetSwapInterval(int interval) => Sdl3.GlSetSwapInterval(interval);
 
+    /// <summary>Swaps the window's buffers.</summary>
     public void Swap() => Sdl3.GlSwapWindow(mWindow);
 
-    // The window's real pixel size.
+    /// <summary>Gets the window's real pixel size.</summary>
+    /// <returns>The width and height.</returns>
     public (int w, int h) WindowPixels()
     {
         Sdl3.GetWindowSizeInPixels(mWindow, out int w, out int h);
         return (w, h);
     }
 
-    // The canvas size: the full screen resolution in full screen, else the window's pixel size (FullscreenPlan.CanvasSize).
+    /// <summary>Gets the canvas size: the full screen resolution in full screen, else the window's pixel size (<see cref="FullscreenPlan.CanvasSize"/>).</summary>
+    /// <returns>The width and height.</returns>
     public (int w, int h) PixelSize()
     {
         (int w, int h) = WindowPixels();
@@ -192,6 +223,7 @@ public sealed unsafe class GlWindow : IDisposable
         return (cw, ch);
     }
 
+    /// <summary>Destroys the context and the window.</summary>
     public void Dispose()
     {
         if (mWindow == IntPtr.Zero)

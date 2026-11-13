@@ -1,39 +1,113 @@
-// Port of src/script/lexer.hpp and src/script/lexer.cpp: console script lexer.
-// Rules and priorities: docs/script.md section 1 (original CMDlex 0x005f7808).
 using OpenTribes.Core;
 
 namespace OpenTribes.Script;
 
-// src/script/lexer.hpp enum class Tok.
+/// <summary>The kind of a lexer token.</summary>
+/// <remarks>Port of src/script/lexer.cpp.</remarks>
 public enum Tok : byte
 {
-    End,      // NUL, end of text, or an invalid \x escape (the original returns -1)
-    Illegal,  // rules 71, 72
+    /// <summary>NUL, end of text, or an invalid \x escape (the original returns -1).</summary>
+    End,
+    /// <summary>An illegal character (rules 71 and 72).</summary>
+    Illegal,
+    /// <summary>A string literal.</summary>
     String,
+    /// <summary>An integer literal.</summary>
     Int,
+    /// <summary>A float literal.</summary>
     Float,
+    /// <summary>A variable name.</summary>
     Var,
+    /// <summary>A tag name.</summary>
     Tag,
+    /// <summary>An identifier.</summary>
     Ident,
-    // keywords
-    Break, Nil, Class, Return, Else, Global, While, If, For, Continue, Function, Instant,
-    // multi-character operators
-    Eq, Ne, Ge, Le, AndAnd, OrOr, ColonColon, MinusMinus, PlusPlus, DollarPlus, Shl, Shr,
-    PlusAssign, MinusAssign, MulAssign, DivAssign, ModAssign, AndAssign, XorAssign, OrAssign, ShlAssign, ShrAssign,
-    // single characters: @ [ ] ( ) + - * / < > | . ! : ; { } , & % ^ ~ =
+    /// <summary>The break keyword.</summary>
+    Break,
+    /// <summary>The nil keyword.</summary>
+    Nil,
+    /// <summary>The class keyword.</summary>
+    Class,
+    /// <summary>The return keyword.</summary>
+    Return,
+    /// <summary>The else keyword.</summary>
+    Else,
+    /// <summary>The global keyword.</summary>
+    Global,
+    /// <summary>The while keyword.</summary>
+    While,
+    /// <summary>The if keyword.</summary>
+    If,
+    /// <summary>The for keyword.</summary>
+    For,
+    /// <summary>The continue keyword.</summary>
+    Continue,
+    /// <summary>The function keyword.</summary>
+    Function,
+    /// <summary>The instant keyword.</summary>
+    Instant,
+    /// <summary>The == operator.</summary>
+    Eq,
+    /// <summary>The != operator.</summary>
+    Ne,
+    /// <summary>The &gt;= operator.</summary>
+    Ge,
+    /// <summary>The &lt;= operator.</summary>
+    Le,
+    /// <summary>The &amp;&amp; operator.</summary>
+    AndAnd,
+    /// <summary>The || operator.</summary>
+    OrOr,
+    /// <summary>The :: operator.</summary>
+    ColonColon,
+    /// <summary>The -- operator.</summary>
+    MinusMinus,
+    /// <summary>The ++ operator.</summary>
+    PlusPlus,
+    /// <summary>The $+ operator.</summary>
+    DollarPlus,
+    /// <summary>The &lt;&lt; operator.</summary>
+    Shl,
+    /// <summary>The &gt;&gt; operator.</summary>
+    Shr,
+    /// <summary>The += operator.</summary>
+    PlusAssign,
+    /// <summary>The -= operator.</summary>
+    MinusAssign,
+    /// <summary>The *= operator.</summary>
+    MulAssign,
+    /// <summary>The /= operator.</summary>
+    DivAssign,
+    /// <summary>The %= operator.</summary>
+    ModAssign,
+    /// <summary>The &amp;= operator.</summary>
+    AndAssign,
+    /// <summary>The ^= operator.</summary>
+    XorAssign,
+    /// <summary>The |= operator.</summary>
+    OrAssign,
+    /// <summary>The &lt;&lt;= operator.</summary>
+    ShlAssign,
+    /// <summary>The &gt;&gt;= operator.</summary>
+    ShrAssign,
+    /// <summary>A single character: one of @ [ ] ( ) + - * / &lt; &gt; | . ! : ; { } , &amp; % ^ ~ =.</summary>
     Char,
 }
 
-// src/script/lexer.hpp struct Token.
+/// <summary>A lexer token.</summary>
 public sealed class Token
 {
+    /// <summary>The token kind.</summary>
     public Tok Kind = Tok.End;
-    public char Ch;         // for Tok.Char
-    public string Text = ""; // identifier/variable/tag name, string value, number text
+    /// <summary>The character of a <c>Tok.Char</c> token.</summary>
+    public char Ch;
+    /// <summary>The identifier, variable or tag name, the string value, or the number text.</summary>
+    public string Text = "";
+    /// <summary>The source line.</summary>
     public int Line = 1;
 }
 
-// src/script/lexer.hpp class Lexer.
+/// <summary>The console script lexer. Rules and priorities are in docs/script.md section 1 (original CMDlex, 005f7808).</summary>
 public sealed class Lexer
 {
     private readonly string mSrc;
@@ -61,8 +135,12 @@ public sealed class Lexer
     };
     private const string kSingles = "@[]()+-*/<>|.!:;{},&%^~=";
 
+    /// <summary>Creates a lexer.</summary>
+    /// <param name="source">The script text.</param>
     public Lexer(string source) => mSrc = source;
 
+    /// <summary>Gets the current source line.</summary>
+    /// <returns>The line number.</returns>
     public int Line() => mLine;
 
     private static bool IsAlpha(char c) => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
@@ -86,7 +164,8 @@ public sealed class Lexer
         return t;
     }
 
-    // src/script/lexer.cpp Lexer::next.
+    /// <summary>Reads the next token.</summary>
+    /// <returns>The token. A token of kind <see cref="Tok.End"/> marks the end.</returns>
     public Token Next()
     {
         for (;;)

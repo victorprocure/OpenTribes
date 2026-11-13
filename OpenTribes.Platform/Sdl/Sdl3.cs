@@ -3,28 +3,34 @@ using System.Runtime.InteropServices;
 
 namespace OpenTribes.Platform.Sdl;
 
-// Our own minimal SDL3 bindings (D30): the subset the client needs for init, a window with an OpenGL
-// context, event polling, timing and the GL proc address. Values checked against SDL 3.4.18 headers.
+/// <summary>Our own minimal SDL3 bindings (D30): the subset the client needs for init, a window with an OpenGL context, event polling, timing and the GL proc address.</summary>
+/// <remarks>Values were checked against the SDL 3.4.18 headers.</remarks>
 public static partial class Sdl3
 {
     private const string Lib = "SDL3";
 
+    /// <summary>The SDL_INIT_VIDEO flag.</summary>
     public const uint InitVideo = 0x20;
+    /// <summary>The SDL_WINDOW_OPENGL flag.</summary>
     public const ulong WindowOpenGL = 0x2;
+    /// <summary>The SDL_WINDOW_HIDDEN flag.</summary>
     public const ulong WindowHidden = 0x8;
+    /// <summary>The SDL_WINDOW_RESIZABLE flag.</summary>
     public const ulong WindowResizable = 0x20;
 
-    // SDL_GLAttr
+    /// <summary>The SDL_GLAttr values for the colour, depth and double buffer settings.</summary>
     public const int GlRedSize = 0, GlGreenSize = 1, GlBlueSize = 2, GlAlphaSize = 3, GlDoubleBuffer = 5, GlDepthSize = 6,
         GlContextMajorVersion = 17, GlContextMinorVersion = 18, GlContextFlags = 19, GlContextProfileMask = 20;
+    /// <summary>The SDL_GL_CONTEXT_PROFILE_CORE value.</summary>
     public const int GlProfileCore = 1;
 
-    // SDL_EventType
+    /// <summary>The SDL_EventType values for quit, window, keyboard, mouse and joystick events.</summary>
     public const uint EventQuit = 0x100, EventWindowPixelSizeChanged = 0x207, EventWindowResized = 0x206,
         EventWindowCloseRequested = 0x210, EventKeyDown = 0x300, EventKeyUp = 0x301,
         EventWindowMinimized = 0x209, EventWindowRestored = 0x20B, EventWindowFocusGained = 0x20E, EventWindowFocusLost = 0x20F,
         EventMouseMotion = 0x400, EventMouseButtonDown = 0x401, EventMouseButtonUp = 0x402, EventMouseWheel = 0x403;
 
+    /// <summary>The SDL keycode of the escape key.</summary>
     public const uint KeyEscape = 27;
 
     static Sdl3()
@@ -47,12 +53,14 @@ public static partial class Sdl3
         return IntPtr.Zero;
     }
 
-    // Forces the static constructor (the resolver) before the first P/Invoke from other classes.
+    /// <summary>Forces the static constructor, which installs the library resolver, before the first P/Invoke from other classes.</summary>
     public static void EnsureLoaded() { }
 
     [LibraryImport(Lib, EntryPoint = "SDL_GetError")]
     private static partial IntPtr GetErrorPtr();
 
+    /// <summary>Gets the last SDL error message.</summary>
+    /// <returns>The message, empty when none.</returns>
     public static string GetError() => Marshal.PtrToStringUTF8(GetErrorPtr()) ?? "";
 
     // SDL_SetHintWithPriority; priority 2 is SDL_HINT_OVERRIDE, which wins over an environment variable.
@@ -60,64 +68,119 @@ public static partial class Sdl3
     [return: MarshalAs(UnmanagedType.U1)]
     private static partial bool SetHintWithPriority(string name, string value, int priority);
 
+    /// <summary>Sets a hint with SDL_HINT_OVERRIDE priority, which wins over an environment variable (SDL_SetHintWithPriority).</summary>
+    /// <param name="name">The hint name.</param>
+    /// <param name="value">The hint value.</param>
+    /// <returns>True on success.</returns>
     public static bool SetHintOverride(string name, string value) => SetHintWithPriority(name, value, 2);
 
+    /// <summary>Initialises SDL subsystems (SDL_Init).</summary>
+    /// <param name="flags">The subsystem flags.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_Init")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool Init(uint flags);
 
+    /// <summary>Shuts SDL down (SDL_Quit).</summary>
     [LibraryImport(Lib, EntryPoint = "SDL_Quit")]
     public static partial void Quit();
 
     [LibraryImport(Lib, EntryPoint = "SDL_GetCurrentVideoDriver")]
     private static partial IntPtr GetCurrentVideoDriverPtr();
 
+    /// <summary>Gets the name of the current video driver.</summary>
+    /// <returns>The name, empty when none.</returns>
     public static string CurrentVideoDriver() => Marshal.PtrToStringUTF8(GetCurrentVideoDriverPtr()) ?? "";
 
+    /// <summary>Creates a window (SDL_CreateWindow).</summary>
+    /// <param name="title">The title.</param>
+    /// <param name="w">The width in screen units.</param>
+    /// <param name="h">The height in screen units.</param>
+    /// <param name="flags">The window flags.</param>
+    /// <returns>The window, or zero on failure.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_CreateWindow", StringMarshalling = StringMarshalling.Utf8)]
     public static partial IntPtr CreateWindow(string title, int w, int h, ulong flags);
 
+    /// <summary>Destroys a window (SDL_DestroyWindow).</summary>
+    /// <param name="window">The window.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_DestroyWindow")]
     public static partial void DestroyWindow(IntPtr window);
 
+    /// <summary>Shows a window (SDL_ShowWindow).</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_ShowWindow")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool ShowWindow(IntPtr window);
 
+    /// <summary>Gets the window size in pixels (SDL_GetWindowSizeInPixels).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="w">Receives the width.</param>
+    /// <param name="h">Receives the height.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetWindowSizeInPixels")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool GetWindowSizeInPixels(IntPtr window, out int w, out int h);
 
+    /// <summary>Sets an OpenGL attribute (SDL_GL_SetAttribute).</summary>
+    /// <param name="attr">The attribute.</param>
+    /// <param name="value">The value.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_SetAttribute")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool GlSetAttribute(int attr, int value);
 
+    /// <summary>Creates an OpenGL context for a window (SDL_GL_CreateContext).</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>The context, or zero on failure.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_CreateContext")]
     public static partial IntPtr GlCreateContext(IntPtr window);
 
+    /// <summary>Destroys an OpenGL context (SDL_GL_DestroyContext).</summary>
+    /// <param name="context">The context.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_DestroyContext")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool GlDestroyContext(IntPtr context);
 
+    /// <summary>Makes an OpenGL context current (SDL_GL_MakeCurrent).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="context">The context.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_MakeCurrent")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool GlMakeCurrent(IntPtr window, IntPtr context);
 
+    /// <summary>Swaps the window's buffers (SDL_GL_SwapWindow).</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_SwapWindow")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool GlSwapWindow(IntPtr window);
 
+    /// <summary>Sets the swap interval (SDL_GL_SetSwapInterval).</summary>
+    /// <param name="interval">The interval, 0 for immediate and 1 for vsync.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_SetSwapInterval")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool GlSetSwapInterval(int interval);
 
+    /// <summary>Gets the address of an OpenGL function (SDL_GL_GetProcAddress).</summary>
+    /// <param name="name">The function name.</param>
+    /// <returns>The address, or zero.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_GetProcAddress", StringMarshalling = StringMarshalling.Utf8)]
     public static partial IntPtr GlGetProcAddress(string name);
 
+    /// <summary>Polls for a pending event (SDL_PollEvent).</summary>
+    /// <param name="ev">Receives the event.</param>
+    /// <returns>True when an event was returned.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_PollEvent")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static unsafe partial bool PollEvent(SdlEvent* ev);
 
+    /// <summary>Polls for a pending event.</summary>
+    /// <param name="ev">Receives the event.</param>
+    /// <returns>True when an event was returned.</returns>
     public static unsafe bool PollEvent(out SdlEvent ev)
     {
         SdlEvent e;
@@ -126,27 +189,50 @@ public static partial class Sdl3
         return got;
     }
 
+    /// <summary>Gets the time since SDL started in nanoseconds (SDL_GetTicksNS).</summary>
+    /// <returns>The time.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetTicksNS")]
     public static partial ulong GetTicksNS();
 
+    /// <summary>Gets the high resolution counter (SDL_GetPerformanceCounter).</summary>
+    /// <returns>The counter.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetPerformanceCounter")]
     public static partial ulong GetPerformanceCounter();
 
+    /// <summary>Gets the frequency of the high resolution counter (SDL_GetPerformanceFrequency).</summary>
+    /// <returns>The frequency in counts per second.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetPerformanceFrequency")]
     public static partial ulong GetPerformanceFrequency();
 
+    /// <summary>Turns relative mouse mode on or off (SDL_SetWindowRelativeMouseMode).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="enabled">Whether relative mode is on.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_SetWindowRelativeMouseMode")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SetWindowRelativeMouseMode(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool enabled);
 
+    /// <summary>Sets the window title (SDL_SetWindowTitle).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="title">The title.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_SetWindowTitle", StringMarshalling = StringMarshalling.Utf8)]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SetWindowTitle(IntPtr window, string title);
 
+    /// <summary>Sets the window size (SDL_SetWindowSize).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="w">The width.</param>
+    /// <param name="h">The height.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_SetWindowSize")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SetWindowSize(IntPtr window, int w, int h);
 
+    /// <summary>Sets the window full screen state (SDL_SetWindowFullscreen).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="fullscreen">Whether the window is full screen.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_SetWindowFullscreen")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SetWindowFullscreen(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool fullscreen);
@@ -163,13 +249,20 @@ public static partial class Sdl3
     [return: MarshalAs(UnmanagedType.U1)]
     private static partial bool SyncWindow(IntPtr window);
 
+    /// <summary>Gets the window size in screen units (SDL_GetWindowSize).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="w">Receives the width.</param>
+    /// <param name="h">Receives the height.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetWindowSize")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool GetWindowSize(IntPtr window, out int w, out int h);
 
-    // Exclusive full screen at the display mode closest to w x h (SDL_GetClosestFullscreenDisplayMode, then
-    // SDL_SetWindowFullscreenMode and SDL_SetWindowFullscreen). Returns the mode that was set, or null when the display
-    // has no such mode or the driver refuses the change (the window is then left windowed).
+    /// <summary>Enters exclusive full screen at the display mode closest to a size (SDL_GetClosestFullscreenDisplayMode, then SDL_SetWindowFullscreenMode and SDL_SetWindowFullscreen).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="w">The wanted width.</param>
+    /// <param name="h">The wanted height.</param>
+    /// <returns>The mode that was set, or null when the display has no such mode or the driver refuses the change. The window is then left windowed.</returns>
     public static unsafe (int W, int H)? EnterExclusiveFullscreen(IntPtr window, int w, int h)
     {
         byte* mode = stackalloc byte[128];
@@ -182,7 +275,9 @@ public static partial class Sdl3
         return (m[2], m[3]);
     }
 
-    // Borderless full screen at the desktop mode (no display mode change).
+    /// <summary>Enters borderless full screen at the desktop mode, without a display mode change.</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>True on success.</returns>
     public static unsafe bool EnterDesktopFullscreen(IntPtr window)
     {
         if (!SetWindowFullscreenMode(window, null) || !SetWindowFullscreen(window, true))
@@ -191,6 +286,9 @@ public static partial class Sdl3
         return true;
     }
 
+    /// <summary>Leaves full screen.</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>True on success.</returns>
     public static bool LeaveFullscreen(IntPtr window)
     {
         bool ok = SetWindowFullscreen(window, false);
@@ -198,15 +296,25 @@ public static partial class Sdl3
         return ok;
     }
 
+    /// <summary>Sets whether the window can be resized (SDL_SetWindowResizable).</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="resizable">Whether it can be resized.</param>
+    /// <returns>True on success.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_SetWindowResizable")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SetWindowResizable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool resizable);
 
+    /// <summary>Gets the window flags (SDL_GetWindowFlags).</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>The flags.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetWindowFlags")]
     public static partial ulong GetWindowFlags(IntPtr window);
 
+    /// <summary>The SDL_WINDOW_FULLSCREEN flag.</summary>
     public const ulong WindowFullscreen = 0x1;
 
+    /// <summary>Waits for a number of milliseconds (SDL_Delay).</summary>
+    /// <param name="ms">The time to wait.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_Delay")]
     public static partial void Delay(uint ms);
 
@@ -219,8 +327,10 @@ public static partial class Sdl3
     [LibraryImport(Lib, EntryPoint = "SDL_free")]
     private static partial void Free(IntPtr mem);
 
-    // The full screen modes of the display the window is on, as (width, height) pairs without repeats (one per refresh rate and
-    // pixel format in SDL), ascending. Empty when SDL lists none. SDL_DisplayMode: displayID, format, w, h at offsets 0, 4, 8, 12.
+    /// <summary>Lists the full screen modes of the display the window is on.</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>The (width, height) pairs without repeats, ascending. SDL lists one per refresh rate and pixel format. Empty when SDL lists none.</returns>
+    /// <remarks>SDL_DisplayMode holds displayID, format, w and h at offsets 0, 4, 8 and 12.</remarks>
     public static unsafe List<(int W, int H)> FullscreenModes(IntPtr window)
     {
         var modes = new List<(int, int)>();
@@ -239,27 +349,46 @@ public static partial class Sdl3
     }
 }
 
-// SDL_Event is a 128-byte union; only the fields the client reads are exposed.
+/// <summary>The SDL_Event union, 128 bytes. Only the fields the client reads are exposed.</summary>
 [StructLayout(LayoutKind.Explicit, Size = 128)]
 public struct SdlEvent
 {
+    /// <summary>The event type.</summary>
     [FieldOffset(0)] public uint Type;
-    [FieldOffset(16)] public uint WindowId;      // window and keyboard events
-    [FieldOffset(20)] public int Data1;          // window events: new width
-    [FieldOffset(24)] public int Data2;          // window events: new height
-    [FieldOffset(24)] public uint Scancode;      // keyboard events
-    [FieldOffset(28)] public uint Key;           // keyboard events: SDL_Keycode
-    [FieldOffset(36)] public byte Down;          // keyboard events
-    [FieldOffset(37)] public byte Repeat;        // keyboard events
-    [FieldOffset(32)] public ushort Mod;         // keyboard events: SDL_Keymod
-    [FieldOffset(36)] public float XRel;         // mouse motion
-    [FieldOffset(40)] public float YRel;         // mouse motion
-    [FieldOffset(24)] public byte Button;        // mouse button events: 1 left, 2 middle, 3 right
-    [FieldOffset(25)] public byte ButtonDown;    // mouse button events
-    [FieldOffset(28)] public float WheelY;       // mouse wheel
-    [FieldOffset(16)] public uint JoyWhich;      // joystick events: instance id
-    [FieldOffset(20)] public byte JoyIndex;      // joystick events: axis, hat or button index
-    [FieldOffset(21)] public byte JoyHat;        // joystick hat events: SDL_HAT_* bits
-    [FieldOffset(21)] public byte JoyDown;       // joystick button events
-    [FieldOffset(24)] public short JoyAxisValue; // joystick axis events: -32768 to 32767
+    /// <summary>The window id, for window and keyboard events.</summary>
+    [FieldOffset(16)] public uint WindowId;
+    /// <summary>The new width, for window events.</summary>
+    [FieldOffset(20)] public int Data1;
+    /// <summary>The new height, for window events.</summary>
+    [FieldOffset(24)] public int Data2;
+    /// <summary>The scancode, for keyboard events.</summary>
+    [FieldOffset(24)] public uint Scancode;
+    /// <summary>The SDL_Keycode, for keyboard events.</summary>
+    [FieldOffset(28)] public uint Key;
+    /// <summary>Whether the key is down, for keyboard events.</summary>
+    [FieldOffset(36)] public byte Down;
+    /// <summary>Whether the key is a repeat, for keyboard events.</summary>
+    [FieldOffset(37)] public byte Repeat;
+    /// <summary>The SDL_Keymod, for keyboard events.</summary>
+    [FieldOffset(32)] public ushort Mod;
+    /// <summary>The x movement, for mouse motion.</summary>
+    [FieldOffset(36)] public float XRel;
+    /// <summary>The y movement, for mouse motion.</summary>
+    [FieldOffset(40)] public float YRel;
+    /// <summary>The button, for mouse button events: 1 left, 2 middle, 3 right.</summary>
+    [FieldOffset(24)] public byte Button;
+    /// <summary>Whether the button is down, for mouse button events.</summary>
+    [FieldOffset(25)] public byte ButtonDown;
+    /// <summary>The vertical wheel movement, for mouse wheel events.</summary>
+    [FieldOffset(28)] public float WheelY;
+    /// <summary>The instance id, for joystick events.</summary>
+    [FieldOffset(16)] public uint JoyWhich;
+    /// <summary>The axis, hat or button index, for joystick events.</summary>
+    [FieldOffset(20)] public byte JoyIndex;
+    /// <summary>The SDL_HAT_* bits, for joystick hat events.</summary>
+    [FieldOffset(21)] public byte JoyHat;
+    /// <summary>Whether the button is down, for joystick button events.</summary>
+    [FieldOffset(21)] public byte JoyDown;
+    /// <summary>The axis value, -32768 to 32767, for joystick axis events.</summary>
+    [FieldOffset(24)] public short JoyAxisValue;
 }

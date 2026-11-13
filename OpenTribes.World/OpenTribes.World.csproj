@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>OpenTribes.World</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />

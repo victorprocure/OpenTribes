@@ -1,12 +1,16 @@
 namespace OpenTribes.Platform.Gfx;
 
-// docs/renderer.md 4 "Text": drawTextAt and drawTextInRect on top of the blit calls of any device.
+/// <summary>Draws text on top of the blit calls of any device (docs/renderer.md 4 "Text").</summary>
 public static class GfxText
 {
-    // drawTextAt: pen starts at x; per character: glyph rect on its sheet, top-left
-    // y = point.y + baseline + glyphBaseline - (rect.bottom - rect.top) + 1, blitRegion, advance by the
-    // glyph width (proportional) or the cell width (fixed) plus spacing. Missing characters draw nothing and
-    // advance by the blank cell width. Returns the bottom y of the lowest glyph drawn (y when none).
+    /// <summary>Draws text at a point (drawTextAt).</summary>
+    /// <param name="dev">The device.</param>
+    /// <param name="font">The font.</param>
+    /// <param name="x">The pen start x.</param>
+    /// <param name="y">The point y.</param>
+    /// <param name="text">The text.</param>
+    /// <returns>The bottom y of the lowest glyph drawn, y when none.</returns>
+    /// <remarks>Per character the glyph rectangle on its sheet is blitted with its top left at y = point.y + baseline + glyphBaseline - (rect.bottom - rect.top) + 1. The pen advances by the glyph width (proportional) or the cell width (fixed) plus spacing. Missing characters draw nothing and advance by the blank cell width.</remarks>
     public static int DrawAt(IGfxDevice dev, PftFont font, int x, int y, string text) =>
         Draw(dev, font, x, y, text, font.ScaleX, font.ScaleY);
 
@@ -41,8 +45,13 @@ public static class GfxText
         return bottom;
     }
 
-    // drawTextInRect: justification bits 1 left, 2 right, 4 center; 8 vertical center, 0x20 bottom, 0x10 top;
-    // 0x40 fits the text to the rectangle by scaling (restored afterwards). No word wrap.
+    /// <summary>Draws justified text in a rectangle (drawTextInRect).</summary>
+    /// <param name="dev">The device.</param>
+    /// <param name="font">The font.</param>
+    /// <param name="rect">The rectangle.</param>
+    /// <param name="text">The text.</param>
+    /// <returns>The bottom y of the lowest glyph drawn.</returns>
+    /// <remarks>The justification bits are 1 left, 2 right, 4 center, 8 vertical center, 0x20 bottom and 0x10 top. 0x40 fits the text to the rectangle by scaling, restored afterwards. There is no word wrap.</remarks>
     public static int DrawInRect(IGfxDevice dev, PftFont font, GfxRect rect, string text)
     {
         uint j = font.Justification;

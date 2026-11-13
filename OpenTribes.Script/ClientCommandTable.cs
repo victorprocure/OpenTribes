@@ -1,8 +1,7 @@
-// Port of src/script/client_command_table.inc: behavior of a client command for a range of argument counts
-// (name not counted), as probed on the reference dedicated server with names that match no object.
-// `Crash`: the original dereferences a null pointer here; rejected instead (DECISIONS D11).
 namespace OpenTribes.Script;
 
+/// <summary>The behaviour of each client command for a range of argument counts (name not counted), as probed on the reference dedicated server with names that match no object (port of src/script/client_command_table.inc).</summary>
+/// <remarks>A rule with <c>Crash</c> set marks a call where the original dereferences a null pointer. The port rejects it instead (DECISIONS D11).</remarks>
 internal static class ClientCommandTable
 {
     public static readonly ClientCommands.Rule[] Rules =

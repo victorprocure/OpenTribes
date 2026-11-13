@@ -1,20 +1,28 @@
-// Port of src/world/terrain.hpp and src/world/terrain.cpp: terrain (docs/terrain.md): .dtf GridFile, .dtb GridBlocks,
-// height and line queries with the original's float behaviour. Double operations follow the current rounding mode of
-// Fpu, float stores are Fpu.Store (stores truncate toward zero in the script mode).
 using System.Buffers.Binary;
 using OpenTribes.Core;
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.World;
 
-// src/world/terrain.hpp struct GridBlock.
+/// <summary>One terrain block: a grid of heights plus a flags and material byte pair per square.</summary>
 public sealed class GridBlock
 {
-    public int Size;                                // squares per side (size_x == size_y in all data)
-    public float[] Heights = Array.Empty<float>();  // (size+1)^2, row major
-    public byte[] Squares = Array.Empty<byte>();    // size^2 x {flags, material}
+    /// <summary>The number of squares per side. Blocks are square in all data.</summary>
+    public int Size;
+    /// <summary>The corner heights, (Size + 1)^2 values in row-major order.</summary>
+    public float[] Heights = Array.Empty<float>();
+    /// <summary>The per-square data, Size^2 pairs of flags byte and material byte.</summary>
+    public byte[] Squares = Array.Empty<byte>();
 
+    /// <summary>Reads a corner height.</summary>
+    /// <param name="x">The corner column, 0 to <see cref="Size"/>.</param>
+    /// <param name="y">The corner row, 0 to <see cref="Size"/>.</param>
+    /// <returns>The height at the corner.</returns>
     public float H(int x, int y) => Heights[(long)y * (Size + 1) + x];
+    /// <summary>Tests whether a square is empty (no surface).</summary>
+    /// <param name="x">The square column.</param>
+    /// <param name="y">The square row.</param>
+    /// <returns>True when the square's empty bits (flags bits 3 to 5) are set.</returns>
     public bool Empty(int x, int y) => ((Squares[((long)y * Size + x) * 2] >> 3) & 7) != 0;
 
     private static bool Get(byte[] d, ref long pos, out int v)
@@ -37,7 +45,6 @@ public sealed class GridBlock
         return true;
     }
 
-    // src/world/terrain.cpp lzhSection.
     private static byte[] LzhSection(byte[] d, ref long pos, long outSize, ref bool ok)
     {
         if (!ok || !Get(d, ref pos, out _) || pos > d.Length)
@@ -50,9 +57,17 @@ public sealed class GridBlock
         return output;
     }
 
-    // src/world/terrain.cpp GridBlock::parse.
+    /// <summary>Parses a block file.</summary>
+    /// <param name="d">The decoded file bytes.</param>
+    /// <param name="output">Receives the block.</param>
+    /// <returns>True on success.</returns>
     public static bool Parse(byte[] d, GridBlock output) => Parse(d, output, out _);
 
+    /// <summary>Parses a block file and reports where it ends.</summary>
+    /// <param name="d">The decoded file bytes.</param>
+    /// <param name="output">Receives the block.</param>
+    /// <param name="endOffset">Receives the offset just past the parsed data.</param>
+    /// <returns>True on success.</returns>
     public static bool Parse(byte[] d, GridBlock output, out long endOffset)
     {
         endOffset = 0;
@@ -96,7 +111,8 @@ public sealed class GridBlock
     }
 }
 
-// src/world/terrain.hpp class Terrain.
+/// <summary>A terrain: the .dtf height map, its blocks and its material list, with height, surface and line queries.</summary>
+/// <remarks>Follows docs/terrain.md. Double operations use the current <see cref="Fpu"/> rounding mode and float stores truncate in the script mode, as in the original. Port of src/world/terrain.cpp.</remarks>
 public sealed class Terrain
 {
     private int mDetail, mScale, mWidth, mHeight;
@@ -105,22 +121,31 @@ public sealed class Terrain
     private readonly Dictionary<int, GridBlock> mBlocks = new();
     private readonly List<string> mBlockFiles = new(); // block list order
     private string mMaterialList = "";
-    // The .dtf, the blocks and the .dml, held while the terrain lives (the C++ destructor releases
-    // them; the port calls ReleaseLocks when the owner is deleted).
+    // Held while the terrain lives: the .dtf, the blocks and the .dml. Call ReleaseLocks when the owner is deleted.
     private readonly ResourceLocks mLocks = new();
     private Vec3 mPos;
 
+    /// <summary>Sets the world position of the terrain origin.</summary>
+    /// <param name="p">The new position.</param>
     public void SetPosition(Vec3 p) => mPos = p;
+    /// <summary>Gets the world position of the terrain origin.</summary>
+    /// <returns>The position.</returns>
     public Vec3 Position() => mPos;
+    /// <summary>Gets the name of the material list (.dml) file.</summary>
+    /// <returns>The file name.</returns>
     public string MaterialListName() => mMaterialList;
+    /// <summary>Gets the lowest height in the terrain.</summary>
+    /// <returns>The height.</returns>
     public float Hmin() => mHmin;
+    /// <summary>Gets the highest height in the terrain.</summary>
+    /// <returns>The height.</returns>
     public float Hmax() => mHmax;
 
-    // src/world/terrain.cpp ftol: truncation (crt_ftol); out of range gives 0x80000000 as cvttsd2si does.
+    // Truncation as crt_ftol does. A value out of range gives 0x80000000 as cvttsd2si does.
     private static int Ftol(double v) => v > -2147483649.0 && v < 2147483648.0 ? (int)v : int.MinValue;
 
-    // src/world/terrain.cpp interp: 4.2 height on square (sx, sy) at square-relative (u, v); every intermediate in the
-    // current mode, the result stored as float.
+    /// <summary>Interpolates the 4.2 height on square (sx, sy) at square-relative (u, v).</summary>
+    /// <remarks>Every intermediate runs in the current rounding mode and the result is stored as float.</remarks>
     private static float Interp(GridBlock b, int sx, int sy, float s, float u, float v)
     {
         double h00 = b.H(sx, sy), h10 = b.H(sx + 1, sy), h01 = b.H(sx, sy + 1), h11 = b.H(sx + 1, sy + 1);
@@ -142,7 +167,6 @@ public sealed class Terrain
         return Store(r);
     }
 
-    // src/world/terrain.cpp rawNormal.
     private static void RawNormal(GridBlock b, int sx, int sy, float s, float u, float v, Span<float> n)
     {
         float h00 = b.H(sx, sy), h10 = b.H(sx + 1, sy), h01 = b.H(sx, sy + 1), h11 = b.H(sx + 1, sy + 1);
@@ -175,7 +199,6 @@ public sealed class Terrain
         n[2] = s;
     }
 
-    // src/world/terrain.cpp normalize.
     private static Vec3 Normalize(ReadOnlySpan<float> n)
     {
         float len = Store(Sqrt(Add(Add(Mul(n[0], n[0]), Mul(n[1], n[1])), Mul(n[2], n[2]))));
@@ -207,7 +230,11 @@ public sealed class Terrain
         pos += 4;
     }
 
-    // src/world/terrain.cpp Terrain::load: loads <dtf> and its blocks through the resource manager.
+    /// <summary>Loads a terrain and its blocks through the resource manager.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="dtfName">The .dtf file name.</param>
+    /// <returns>The terrain, or null when a file is missing or malformed.</returns>
+    /// <remarks>Locks the .dtf (SimTerrain_load 0051792c), the block list (GridBlockList 00567270) and the material list with its extension replaced by .dml (00517e04), see docs/resources.md 8.7.</remarks>
     public static Terrain? Load(ResourceManager res, string dtfName)
     {
         if (!res.Read(dtfName, out byte[] d) || d.Length < 12 || d[0] != 'G' || d[1] != 'F' || d[2] != 'I' || d[3] != 'L')
@@ -268,7 +295,7 @@ public sealed class Terrain
         return t;
     }
 
-    // src/world/terrain.hpp Terrain::~Terrain: the held resources are unlocked.
+    /// <summary>Unlocks the resources the terrain holds.</summary>
     public void ReleaseLocks() => mLocks.Release();
 
     private static readonly uint[] sCrcTable = MakeCrcTable();
@@ -286,7 +313,7 @@ public sealed class Terrain
         return table;
     }
 
-    // src/world/terrain.cpp crc32: CRC-32, reflected polynomial 0xedb88320, no final inversion (0x00588324).
+    // CRC-32, reflected polynomial 0xedb88320, no final inversion (0x00588324).
     private static uint Crc32(byte[] data, uint crc)
     {
         foreach (byte b in data)
@@ -294,9 +321,14 @@ public sealed class Terrain
         return crc;
     }
 
-    // src/world/terrain.cpp Terrain::surfaceInfo: GridFile_getSurfaceInfo (0x0056c138, docs/collision.md 5.1 step 4) at
-    // the terrain-space point: height, unit normal and the square's material byte. False off the map and on empty
-    // squares.
+    /// <summary>Reads the surface at a terrain-space point.</summary>
+    /// <param name="lx">The x relative to the terrain origin.</param>
+    /// <param name="ly">The y relative to the terrain origin.</param>
+    /// <param name="h">Receives the height.</param>
+    /// <param name="n">Receives the unit normal, three floats.</param>
+    /// <param name="material">Receives the square's material byte.</param>
+    /// <returns>False off the map and on empty squares.</returns>
+    /// <remarks>Follows GridFile_getSurfaceInfo (0056c138, docs/collision.md 5.1 step 4).</remarks>
     public bool SurfaceInfo(float lx, float ly, ref float h, Span<float> n, ref byte material)
     {
         int shift = mDetail + mScale - 1;
@@ -324,7 +356,12 @@ public sealed class Terrain
         return true;
     }
 
-    // src/world/terrain.cpp Terrain::crc: verification CRC (0x00517048, docs/terrain.md 3).
+    /// <summary>Computes the verification CRC over the .dtf, the block files and the material list.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="dtfName">The .dtf file name.</param>
+    /// <param name="output">Receives the CRC.</param>
+    /// <returns>False when a file cannot be read.</returns>
+    /// <remarks>Follows the stock terrain CRC (00517048, docs/terrain.md 3).</remarks>
     public bool Crc(ResourceManager res, string dtfName, ref uint output)
     {
         uint c = 0xffffffffu;
@@ -343,7 +380,9 @@ public sealed class Terrain
         return true;
     }
 
-    // src/world/terrain.cpp Terrain::worldBox: 0x005193cc, for container queries.
+    /// <summary>Writes the world-space bounding box of the terrain.</summary>
+    /// <param name="box">Receives min xyz then max xyz, six floats.</param>
+    /// <remarks>Follows 005193cc. Used for container queries.</remarks>
     public void WorldBox(Span<float> box)
     {
         int shift = mDetail + mScale - 1;
@@ -355,7 +394,12 @@ public sealed class Terrain
         box[5] = AddF(mHmax, mPos.Z);
     }
 
-    // src/world/terrain.cpp Terrain::height: height at world (x, y) (0x005183e8); false where there is no terrain.
+    /// <summary>Reads the terrain height at a world point.</summary>
+    /// <param name="x">The world x.</param>
+    /// <param name="y">The world y.</param>
+    /// <param name="output">Receives the height.</param>
+    /// <returns>False where there is no terrain.</returns>
+    /// <remarks>Follows 005183e8.</remarks>
     public bool Height(float x, float y, ref float output)
     {
         Vec3 n = default;
@@ -363,6 +407,12 @@ public sealed class Terrain
         return Surface(x, y, ref output, ref n, ref material);
     }
 
+    /// <summary>Reads the terrain height and normal at a world point.</summary>
+    /// <param name="x">The world x.</param>
+    /// <param name="y">The world y.</param>
+    /// <param name="output">Receives the height.</param>
+    /// <param name="normal">Receives the unit normal.</param>
+    /// <returns>False where there is no terrain.</returns>
     public bool Height(float x, float y, ref float output, ref Vec3 normal)
     {
         Vec3 n = default;
@@ -373,11 +423,23 @@ public sealed class Terrain
         return true;
     }
 
-    // src/world/terrain.cpp Terrain::surface.
+    /// <summary>Reads height, normal and material at a world point.</summary>
+    /// <param name="x">The world x.</param>
+    /// <param name="y">The world y.</param>
+    /// <param name="output">Receives the height.</param>
+    /// <param name="normal">Receives the unit normal.</param>
+    /// <param name="material">Receives the material index.</param>
+    /// <returns>False where there is no terrain.</returns>
     public bool Surface(float x, float y, ref float output, ref Vec3 normal, ref int material) =>
         SurfaceLocal(Store(Sub(x, mPos.X)), Store(Sub(y, mPos.Y)), ref output, ref normal, ref material);
 
-    // src/world/terrain.cpp Terrain::surfaceLocal.
+    /// <summary>Reads height, normal and material at a point relative to the terrain origin.</summary>
+    /// <param name="lx">The x relative to the terrain origin.</param>
+    /// <param name="ly">The y relative to the terrain origin.</param>
+    /// <param name="output">Receives the height.</param>
+    /// <param name="normal">Receives the unit normal.</param>
+    /// <param name="material">Receives the material index.</param>
+    /// <returns>False where there is no terrain.</returns>
     public bool SurfaceLocal(float lx, float ly, ref float output, ref Vec3 normal, ref int material)
     {
         int shift = mDetail + mScale - 1;
@@ -400,8 +462,8 @@ public sealed class Terrain
         return true;
     }
 
-    // src/world/terrain.cpp family: line family of the block and square walks (0x00567bc7, 0x005683de;
-    // docs/collision.md 9 section 3 step 2): parameter of the first crossing and the step between crossings.
+    // Line family of the block and square walks (00567bc7, 005683de; docs/collision.md 9 section 3 step 2): the parameter of
+    // the first crossing and the step between crossings.
     private static void Family(float vs, float ve, out float t, out float dt)
     {
         if (ve == vs)
@@ -421,7 +483,7 @@ public sealed class Terrain
         }
     }
 
-    // src/world/terrain.cpp ftolSafe: crt_ftol of a value that may not fit: the original stores 0x80000000.
+    // crt_ftol of a value that may not fit: the original stores 0x80000000.
     private static int FtolSafe(double v)
     {
         if (!(v > -2147483648.0 && v < 2147483648.0))
@@ -429,14 +491,13 @@ public sealed class Terrain
         return (int)v;
     }
 
-    // src/world/terrain.cpp struct TriPlane.
     private struct TriPlane
     {
         public Float3 N;
         public float D;
     }
 
-    // src/world/terrain.cpp planeOf: unit normal and distance of a triangle plane (0x0056cca0.., section 4.4 step 10).
+    // Unit normal and distance of a triangle plane (0056cca0.., section 4.4 step 10).
     private static TriPlane PlaneOf(ReadOnlySpan<float> raw, ReadOnlySpan<float> v)
     {
         var pl = new TriPlane();
@@ -448,7 +509,7 @@ public sealed class Terrain
         return pl;
     }
 
-    // src/world/terrain.cpp segPlane: Plane_intersectSegment (0x005edc24): out is written only on success.
+    // Plane_intersectSegment (005edc24): out is written only on success.
     private static bool SegPlane(in TriPlane pl, ReadOnlySpan<float> a, ReadOnlySpan<float> b, Span<float> output)
     {
         Span<float> dv = stackalloc float[3];
@@ -468,9 +529,8 @@ public sealed class Terrain
         return true;
     }
 
-    // src/world/terrain.cpp Terrain::blockLine: square walk inside one block (0x005680ec, line mode; docs/collision.md 9
-    // section 4). a, b: block-relative piece. A side change at a line crossing is a hit at once (F1); only the end of
-    // the walk tests the triangle bounds.
+    // Square walk inside one block (005680ec, line mode; docs/collision.md 9 section 4). a and b are the block-relative piece.
+    // A side change at a line crossing is a hit at once (F1). Only the end of the walk tests the triangle bounds.
     private bool BlockLine(GridBlock blk, ReadOnlySpan<float> a, ReadOnlySpan<float> b, Span<float> hit, Span<float> normal,
                            ref int material)
     {
@@ -749,15 +809,27 @@ public sealed class Terrain
         return true;
     }
 
-    // src/world/terrain.cpp Terrain::castLine: line test (0x005679f0), first hit along start -> end, world space.
+    /// <summary>Finds the first terrain hit along a segment.</summary>
+    /// <param name="start">The segment start in world space.</param>
+    /// <param name="end">The segment end in world space.</param>
+    /// <param name="hit">Receives the hit point.</param>
+    /// <param name="normal">Receives the surface normal at the hit.</param>
+    /// <returns>True on a hit.</returns>
+    /// <remarks>Follows the line test at 005679f0.</remarks>
     public bool CastLine(Vec3 start, Vec3 end, ref Vec3 hit, ref Vec3 normal)
     {
         int material = 0;
         return CastLine(start, end, ref hit, ref normal, ref material);
     }
 
-    // src/world/terrain.cpp Terrain::castLine with the material: GridCollision_collideLine (0x005679f0) and the block
-    // walk (0x00567ae8), docs/collision.md 9 section 3. The segment is the caller's, not clipped to the terrain box (F4).
+    /// <summary>Finds the first terrain hit along a segment and reports the material.</summary>
+    /// <param name="start">The segment start in world space.</param>
+    /// <param name="end">The segment end in world space.</param>
+    /// <param name="hitOut">Receives the hit point.</param>
+    /// <param name="normalOut">Receives the surface normal at the hit.</param>
+    /// <param name="material">Receives the material of the hit square.</param>
+    /// <returns>True on a hit.</returns>
+    /// <remarks>Follows GridCollision_collideLine (005679f0) and the block walk (00567ae8), docs/collision.md 9 section 3. The segment is the caller's and is not clipped to the terrain box (F4).</remarks>
     public bool CastLine(Vec3 start, Vec3 end, ref Vec3 hitOut, ref Vec3 normalOut, ref int material)
     {
         using var chop = ChopScope();

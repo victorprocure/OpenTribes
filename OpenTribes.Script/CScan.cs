@@ -1,16 +1,19 @@
-// The C library's sscanf conversions the game layer uses (std::sscanf of src/game: "%f %f %f", "%f %f %f %f %f %f",
-// "%d"): white space, then a decimal, hexadecimal, infinity or NaN number, stored to float in the current mode (strtof;
-// here the double parse in the mode of Fpu, then the store, which together truncate like the single rounding).
 using OpenTribes.Core;
 
 namespace OpenTribes.Script;
 
+/// <summary>The C library sscanf conversions the game layer uses: "%f %f %f", "%f %f %f %f %f %f" and "%d" (std::sscanf of src/game).</summary>
+/// <remarks>White space is skipped, then a decimal, hexadecimal, infinity or NaN number is read and stored to float in the current mode. The double parse runs in the mode of <c>Fpu</c> and the store follows, which together truncate like the single rounding of strtof.</remarks>
 public static class CScan
 {
     private static bool IsSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
     private static bool Hex(char c) => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 
-    // One %f at `pos` (white space skipped first). False when no number starts there; pos is then unchanged.
+    /// <summary>Reads one %f at a position, skipping white space first.</summary>
+    /// <param name="s">The text.</param>
+    /// <param name="pos">The position, advanced past the number. Unchanged when no number starts there.</param>
+    /// <param name="f">Receives the number.</param>
+    /// <returns>False when no number starts at the position.</returns>
     public static bool Float(string s, ref int pos, out float f)
     {
         f = 0;
@@ -110,8 +113,10 @@ public static class CScan
         return true;
     }
 
-    // sscanf(s, "%f %f ... %f", ...) with output.Length conversions. Unread elements keep their value. Returns the number
-    // stored, or -1 (EOF) when the input ends before the first conversion.
+    /// <summary>Reads several %f conversions like sscanf with one conversion per output element.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="output">Receives the numbers. Elements that are not read keep their value.</param>
+    /// <returns>The number stored, or -1 (EOF) when the input ends before the first conversion.</returns>
     public static int Floats(string text, Span<float> output)
     {
         string s = CString.CStr(text);
@@ -130,7 +135,10 @@ public static class CScan
         return n;
     }
 
-    // sscanf(s, "%d", &v): white space, sign, decimal digits (strtol, the value cut to 32 bits). -1 at the end of the input.
+    /// <summary>Reads one %d: white space, a sign and decimal digits (strtol, the value cut to 32 bits).</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="value">Receives the number.</param>
+    /// <returns>The number stored, -1 at the end of the input.</returns>
     public static int Int(string text, ref int value)
     {
         string s = CString.CStr(text);
