@@ -105,4 +105,51 @@ public class TurretGhostPoseTests
         p.Tick(0.1);
         Assert.Equal(2, p.Mode);
     }
+
+    [Fact]
+    public void ActivationSoundStartsOnceAtThreadPositionZero()
+    {
+        TurretGhostPose p = New();
+        p.OnMode(2);
+        p.Tick(0.05);
+        Assert.Equal(1, p.PowerSound);
+        p.Tick(0.05);
+        Assert.Equal(0, p.PowerSound);
+    }
+
+    [Fact]
+    public void NoPowerSoundWithoutThread()
+    {
+        TurretGhostPose p = new(false, 2.0, false, 1.0, false, 1.0);
+        p.OnMode(2);
+        p.Tick(0.05);
+        Assert.Equal(0, p.PowerSound);
+    }
+
+    [Fact]
+    public void DeactivationSoundStartsAtThreadPositionOneWhenRotationIsHome()
+    {
+        TurretGhostPose p = New();
+        p.OnMode(3);
+        p.OnMode(1); // on -> deactivating jumps to the end of the sequence
+        Assert.Equal(1.0, p.Position);
+        p.Tick(0.05);
+        Assert.Equal(-1, p.PowerSound);
+        p.Tick(0.05);
+        Assert.Equal(0, p.PowerSound);
+    }
+
+    [Fact]
+    public void DeactivationSoundWaitsForTheRotationToTurnHome()
+    {
+        TurretGhostPose p = New();
+        p.OnMode(3);
+        p.Rotation = 1.0;
+        p.OnMode(1);
+        p.Tick(0.05);
+        Assert.Equal(0, p.PowerSound);
+        for (int i = 0; i < 40 && p.PowerSound == 0; ++i)
+            p.Tick(0.05);
+        Assert.Equal(-1, p.PowerSound);
+    }
 }

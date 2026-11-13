@@ -554,6 +554,8 @@ public class ShapeVisual : Visual
         if (TurretPose != null)
         {
             TurretPose.Tick(dt);
+            if (TurretPose.PowerSound != 0)
+                M.Audio?.TurretPower(this, TurretPose.PowerSound > 0);
             SyncTurret();
         }
         if (Group == 10)

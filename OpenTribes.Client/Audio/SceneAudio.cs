@@ -267,6 +267,23 @@ public sealed class SceneAudio
         g.Image.Clear();
     }
 
+    // Turret_activate 0x00455b34 / Turret_deactivate 0x00455cc4 (ghost branches): the power sound starts from the ghost's own tick, at the
+    // thread position the pose model reports, and first stops the whir handle (+0x910). Datablock fields activationSound (+0x13c) and
+    // deactivateSound (+0x140).
+    public void TurretPower(ShapeVisual sv, bool on)
+    {
+        ClientDataBlock? b = Db.Block(19, DatablockIndex(sv));
+        if (b == null)
+            return;
+        GhostSounds g = Gs(sv.Index);
+        long sound = Idx(b, on ? "activationSound" : "deactivateSound");
+        if (sound < 0)
+            return;
+        Sound.Stop(g.Whir);
+        g.Whir = 0;
+        Play("TurretPower", sound, sv.Position);
+    }
+
     private int DatablockIndex(Visual v) => (int)Db.ToDouble(v.Ghost.State.GetValueOrDefault("datablock"), -1);
 
     public void OnGhost(Visual v, DecodedGhost u, bool isNew)
@@ -417,20 +434,6 @@ public sealed class SceneAudio
                         if (!sustained && g.LastFire >= 0 && fs != g.LastFire)
                             Play("TurretFire", Idx(b, "fireSound"), pos);
                         g.LastFire = fs;
-                    }
-                    // Power state (+0x8cc, wire "mode"): 2 powering up, 3 up, 1 powering down, 0 down. The activation sound plays when the
-                    // power up starts, the deactivation sound when the power down starts.
-                    if (has("mode"))
-                    {
-                        int md = (int)Num("mode");
-                        if (g.LastMode >= 0 && md != g.LastMode)
-                        {
-                            if (md == 2 && g.LastMode is 0 or 1)
-                                Play("TurretPower", Idx(b, "activationSound"), pos);
-                            else if (md == 1 && g.LastMode is 2 or 3)
-                                Play("TurretPower", Idx(b, "deactivateSound"), pos);
-                        }
-                        g.LastMode = md;
                     }
                     if (sustained && has("barrelFiring"))
                     {
