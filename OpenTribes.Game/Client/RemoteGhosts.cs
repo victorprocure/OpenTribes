@@ -4,20 +4,28 @@ using OpenTribes.Core;
 
 namespace OpenTribes.Game;
 
+/// <summary>The remote ghosts of the client that are simulated and smoothed: one copy per Player or Vehicle ghost that is not the control object.</summary>
+/// <remarks>The copies are made in the prediction world, fed by the ghost updates and advanced once per frame (RemoteSmoothing.cs).</remarks>
 public sealed class RemoteGhosts
 {
+    /// <summary>The field name of the echoed move.</summary>
     public const string MoveKey = "moveEcho";
 
-    // Makes the copy of a ghost at `position` (null: none, the ghost is drawn from its stream state).
+    /// <summary>Makes the copy of a ghost at a position. Returns null when there is none, and the ghost is then drawn from its stream state.</summary>
     public Func<ClientGhost, float[], GameBase?>? CreateObject;
+    /// <summary>Deletes a copy.</summary>
     public Action<GameBase>? DeleteObject;
-    // $net::interpolateTime and $net::predictForwardTime.
+    /// <summary>Reads <c>$net::interpolateTime</c>.</summary>
     public Func<int> Interpolate = () => SmoothWindow.DefaultInterpolate;
+    /// <summary>Reads <c>$net::predictForwardTime</c>.</summary>
     public Func<int> Predict = () => SmoothWindow.DefaultPredict;
 
+    /// <summary>The remote Players by ghost index.</summary>
     public readonly Dictionary<int, RemotePlayer> Players = new();
+    /// <summary>The remote Vehicles and Fliers by ghost index.</summary>
     public readonly Dictionary<int, RemoteVehicle> Vehicles = new();
 
+    /// <summary>Deletes every copy.</summary>
     public void Reset()
     {
         foreach (RemotePlayer p in Players.Values)
@@ -40,8 +48,11 @@ public sealed class RemoteGhosts
     private static bool Flag(ClientGhost g, string k) => g.State.TryGetValue(k, out object? v) && v is long l && l != 0;
     private static float Num(ClientGhost g, string k) => g.State.TryGetValue(k, out object? v) && v is double d ? (float)d : 0.0f;
 
-    // The ghost updates of one packet, received at net time `now`. `controlGhost` is the control object (-1 none): it
-    // follows the prediction.
+    /// <summary>Applies the ghost updates of one packet.</summary>
+    /// <param name="block">The decoded ghost block.</param>
+    /// <param name="world">The client world.</param>
+    /// <param name="now">The net time in ms.</param>
+    /// <param name="controlGhost">The ghost index of the control object, -1 for none. It follows the prediction.</param>
     public void OnBlock(DecodedGhostBlock block, ClientWorld world, uint now, int controlGhost)
     {
         mControlGhost = controlGhost;
@@ -86,12 +97,13 @@ public sealed class RemoteGhosts
         return false;
     }
 
-    // The mount object of ghost `index`: the copy of a remote Vehicle or Flier, or the control object (the predicted copy) when the
-    // Player rides the vehicle of this client. Null when there is none (yet).
+    /// <summary>Returns the mount object of a ghost: the copy of a remote Vehicle or Flier, or the control object (the predicted copy) when the Player rides the vehicle of this client. Null when there is none yet.</summary>
     public Func<GameBase?>? ControlObject;
     private int mControlGhost = -1;
 
-    // The mount object of a rider that is not the control Player: the copy of a remote Vehicle or Flier ghost.
+    /// <summary>Returns the mount object of a rider that is not the control Player: the copy of a remote Vehicle or Flier ghost.</summary>
+    /// <param name="ghostIndex">The ghost index of the mount.</param>
+    /// <returns>The copy, or null.</returns>
     public GameBase? RemoteMount(int ghostIndex) => Vehicles.TryGetValue(ghostIndex, out RemoteVehicle? rv) ? rv.V : null;
 
     private GameBase? ResolveMount(int index)
@@ -101,8 +113,12 @@ public sealed class RemoteGhosts
         return index == mControlGhost ? ControlObject?.Invoke() : null;
     }
 
-    // The mount fields of the Player unpack (0x00417e..: ghost int(10), point int(5); point 1 sets the rotation to 0): the pointer
-    // +0x1028 is the client object of that ghost.
+    /// <summary>Parses the mount fields of the Player unpack.</summary>
+    /// <param name="g">The Player ghost.</param>
+    /// <param name="ghost">Receives the ghost index of the mount.</param>
+    /// <param name="point">Receives the mount point.</param>
+    /// <returns>True when the ghost has a mount.</returns>
+    /// <remarks>The fields are a ghost int(10) and a point int(5), and point 1 sets the rotation to 0 (0x00417e..). The pointer +0x1028 is the client object of that ghost.</remarks>
     public static bool ParseMount(ClientGhost g, out int ghost, out int point)
     {
         ghost = -1;
@@ -214,9 +230,9 @@ public sealed class RemoteGhosts
             rv.Register(now);
     }
 
-    // Player_clientUpdate and Vehicle_clientUpdate, once per frame at net time `now`.
-    // The client frame (step 9 of docs/client-net.md 2.1) calls vtable +0x154 for the members of set 718 (vehicles) and then of set
-    // 719 (Players), skipping an object whose +0x218 equals now; so a rider follows the vehicle of the same frame.
+    /// <summary>Advances the remote copies once per frame.</summary>
+    /// <param name="now">The net time in ms.</param>
+    /// <remarks>Follows Player_clientUpdate and Vehicle_clientUpdate. The client frame (docs/client-net.md 2.1 step 9) calls vtable +0x154 for the members of set 718 (vehicles) and then of set 719 (Players), skipping an object whose +0x218 equals now. A rider thus follows the vehicle of the same frame.</remarks>
     public void Advance(uint now)
     {
         foreach (RemoteVehicle v in Vehicles.Values)

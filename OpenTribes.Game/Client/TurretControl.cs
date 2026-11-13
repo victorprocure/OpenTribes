@@ -8,35 +8,59 @@ using OpenTribes.Net;
 
 namespace OpenTribes.Game;
 
-// The datablock and shape values the aim step reads: TurretData speed (+0x114), speedModifier (+0x118), isSustained (+0x150) and the
-// elevation limits (+0x8bc max, +0x8c0 min) that Turret_onNewDataBlock 00452970 takes from the shape. The rotation limits stay
-// 0 and 0 (no limit), as on the server (BindTurretShape).
+/// <summary>The datablock and shape values the aim step reads.</summary>
+/// <param name="Speed">The TurretData speed (+0x114).</param>
+/// <param name="SpeedModifier">The speed modifier (+0x118).</param>
+/// <param name="Sustained">True for a sustained turret (isSustained, +0x150).</param>
+/// <param name="MinElevation">The minimum elevation (+0x8c0).</param>
+/// <param name="MaxElevation">The maximum elevation (+0x8bc).</param>
+/// <remarks>Turret_onNewDataBlock (00452970) takes the elevation limits from the shape. The rotation limits stay 0 and 0 (no limit), as on the server (BindTurretShape).</remarks>
 public readonly record struct TurretAimParams(float Speed, float SpeedModifier, bool Sustained, float MinElevation, float MaxElevation);
 
+/// <summary>The client side of a Turret that is the control object of the player, such as a turret taken over from a command station.</summary>
+/// <remarks>The stock client keeps no copy for it. The PSC block (Turret_readControlState 0045711c) writes the rotation (+0x8b4), the elevation (+0x8b8), the fire count, the state (+0x8cc) and the energy straight into the ghost. Turret_clientUpdate (00456428, vtable +0x154) replays the buffered moves through Turret_updateAim (00456874) for the control turret. A turret nobody controls gets updateAim with no move and the elapsed time (the ghost branch).</remarks>
 public sealed class TurretControl
 {
     private const float TwoPi = 6.2831855f;
     private const float Pi = 3.1415927f;
 
+    /// <summary>True while a turret is the control object.</summary>
     public bool Active;
+    /// <summary>The ghost index of the turret, -1 for none.</summary>
     public int Ghost = -1;
-    public float Rotation, Elevation, Energy;
-    public int Mode, FireCount;
+    /// <summary>The rotation.</summary>
+    public float Rotation;
+    /// <summary>The elevation.</summary>
+    public float Elevation;
+    /// <summary>The energy.</summary>
+    public float Energy;
+    /// <summary>The turret mode.</summary>
+    public int Mode;
+    /// <summary>The fire count.</summary>
+    public int FireCount;
+    /// <summary>True while the turret fires a beam.</summary>
     public bool Beam;
-    public uint SimTime;                 // +0x218, the time of the first buffered move
+    /// <summary>The time of the first buffered move (+0x218).</summary>
+    public uint SimTime;
+    /// <summary>The number of steps run.</summary>
     public long Steps;
+    /// <summary>The datablock and shape values of the control ghost.</summary>
     public TurretAimParams Params;
-    // The datablock and shape values of the control ghost, null while they are not known (the aim then stays at the server state).
+    /// <summary>Resolves the datablock and shape values of a control ghost. Returns null while they are not known, and the aim then stays at the server state.</summary>
     public Func<ClientGhost, TurretAimParams?>? Resolve;
 
+    /// <summary>Releases the control turret.</summary>
     public void Release()
     {
         Active = false;
         Ghost = -1;
     }
 
-    // Turret_readControlState 0045711c after ClientPsc.ReadServerBlock, and the +0x218 of the PSC reader: the aim is the server's and
-    // the moves still in the buffer run again (step 3 of client-net.md 4.4).
+    /// <summary>Applies a server block: the aim is the server's and the moves still in the buffer run again.</summary>
+    /// <param name="psc">The client PSC.</param>
+    /// <param name="g">The control ghost.</param>
+    /// <param name="receiveTime">The receive time in ms.</param>
+    /// <remarks>Follows Turret_readControlState (0045711c) after <c>ClientPsc.ReadServerBlock</c>, and the +0x218 of the PSC reader (docs/client-net.md 4.4 step 3).</remarks>
     public void OnServerBlock(ClientPsc psc, ClientGhost g, uint receiveTime)
     {
         Ghost = g.Index;
@@ -53,8 +77,11 @@ public sealed class TurretControl
         Active = true;
     }
 
-    // Turret_clientUpdate 00456428 for the control turret: ticks from +0x218 to `now`; every tick that has a buffered move (00404c04)
-    // runs updateAim with the elapsed milliseconds of the tick part.
+    /// <summary>Replays the buffered moves of the control turret for a frame.</summary>
+    /// <param name="psc">The client PSC.</param>
+    /// <param name="now">The current time in ms.</param>
+    /// <returns>The ticks run.</returns>
+    /// <remarks>Follows Turret_clientUpdate (00456428): ticks from +0x218 to <paramref name="now"/>. Every tick that has a buffered move (00404c04) runs updateAim with the elapsed milliseconds of the tick part.</remarks>
     public int Advance(ClientPsc psc, uint now)
     {
         if (!Active)
@@ -74,9 +101,10 @@ public sealed class TurretControl
         return steps;
     }
 
-    // The move part of Turret_updateAim 00456874 on a ghost (no fire, no jump script: both are guarded by the ghost bit +0x4c & 2). Only in
-    // state 3 (+0x8cc), the move is dropped in any other state. Not sustained: limit = speed * speedModifier, scale = dt * 16; sustained:
-    // limit = speed * dt, scale = dt * 32. The move turn (+0x18) drives the rotation, the pitch (+0x1c) the elevation.
+    /// <summary>Runs the move part of Turret_updateAim on a ghost.</summary>
+    /// <param name="move">The move.</param>
+    /// <param name="dt">The elapsed time in seconds.</param>
+    /// <remarks>Follows Turret_updateAim (00456874). There is no fire and no jump script, as both are guarded by the ghost bit <c>+0x4c &amp; 2</c>. Only state 3 (+0x8cc) takes the move, and any other state drops it. Not sustained: <c>limit = speed * speedModifier</c>, <c>scale = dt * 16</c>. Sustained: <c>limit = speed * dt</c>, <c>scale = dt * 32</c>. The move turn (+0x18) drives the rotation and the pitch (+0x1c) the elevation.</remarks>
     public void Aim(in Move move, float dt)
     {
         if (Mode != 3)

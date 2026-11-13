@@ -2,26 +2,60 @@
 // path as the network, the PSC member records (moves, actions) and the end record.
 namespace OpenTribes.Game;
 
-public enum DemoRecordKind { Packet, Move, Action, Other }
+/// <summary>The kind of a demo record.</summary>
+public enum DemoRecordKind
+{
+    /// <summary>A network packet record.</summary>
+    Packet,
+    /// <summary>A PSC move record.</summary>
+    Move,
+    /// <summary>A PSC action record.</summary>
+    Action,
+    /// <summary>Any other record.</summary>
+    Other,
+}
 
+/// <summary>One record of a demo file.</summary>
 public sealed class DemoRecord
 {
-    public uint Time;                  // ms since base
+    /// <summary>The time in ms since the base.</summary>
+    public uint Time;
+    /// <summary>The record kind.</summary>
     public DemoRecordKind Kind;
+    /// <summary>The raw kind byte.</summary>
     public byte KindByte;
+    /// <summary>The packet bytes of a packet record.</summary>
     public byte[] Packet = Array.Empty<byte>();
+    /// <summary>The move of a move record.</summary>
     public Move Move = new();
+    /// <summary>The value of an action record.</summary>
     public float ActionValue;
+    /// <summary>The action id of an action record.</summary>
     public uint ActionId;
 }
 
+/// <summary>A <c>.rec</c> demo file reader (docs/client-net.md 5.2, 5.4).</summary>
+/// <remarks>The records are the header, the 0xff packet records fed to the same receive path as the network, the PSC member records (moves, actions) and the end record.</remarks>
 public sealed class DemoFile
 {
-    public uint ClientId, ServerId;
+    /// <summary>The client id of the header.</summary>
+    public uint ClientId;
+    /// <summary>The server id of the header.</summary>
+    public uint ServerId;
+    /// <summary>The records in file order.</summary>
     public readonly List<DemoRecord> Records = new();
-    public bool Complete;              // ended with the 0xffffffff end record
-    public int Packets, Moves, Actions;
+    /// <summary>True when the file ended with the 0xffffffff end record.</summary>
+    public bool Complete;
+    /// <summary>The number of packet records.</summary>
+    public int Packets;
+    /// <summary>The number of move records.</summary>
+    public int Moves;
+    /// <summary>The number of action records.</summary>
+    public int Actions;
 
+    /// <summary>Parses a demo file.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <returns>The parsed file.</returns>
     public static DemoFile Parse(byte[] data)
     {
         var d = new DemoFile();
@@ -96,8 +130,10 @@ public sealed class DemoFile
         return d;
     }
 
-    // Playback (5.4): the header ids go to the world as the accept path would, the packet records run through the same
-    // receive path as the network, moves append to the PSC buffer (no cap, 5.4), actions are returned to the caller.
+    /// <summary>Plays the records back (docs/client-net.md 5.4).</summary>
+    /// <param name="conn">The client connection.</param>
+    /// <param name="each">Called for every record with the decoded packet of a packet record.</param>
+    /// <remarks>The header ids go to the world as the accept path would. The packet records run through the same receive path as the network. Moves append to the PSC buffer without a cap. Actions are returned to the caller.</remarks>
     public void Play(ClientGameConnection conn, Action<DemoRecord, DecodedPacket?>? each = null)
     {
         ClientWorld w = conn.World;
