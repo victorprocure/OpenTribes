@@ -1,6 +1,3 @@
-// docs/client-scripts.md 2.2 to 2.15: the console commands of the client with their real effect, registered over the stub
-// table of OpenTribes.Script (ClientCommandTable). Hardware and Windows services follow D36: the OpenGL device is the only
-// device (D31), the CD layer is absent, the browser and the editor tools are not opened unless the user opts in.
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -12,6 +9,8 @@ using OpenTribes.Script;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The console commands of the client with their real effect, registered over the stub table of OpenTribes.Script (<c>ClientCommandTable</c>).</summary>
+/// <remarks>docs/client-scripts.md 2.2 to 2.15. Hardware and Windows services follow D36: the OpenGL device is the only device (D31), the CD layer is absent, the browser and the editor tools are not opened unless the user opts in.</remarks>
 public sealed class ClientCommandHandlers
 {
     private readonly ClientApp mApp;
@@ -21,21 +20,27 @@ public sealed class ClientCommandHandlers
     private bool mInputOpen = true;
     private readonly HashSet<string> mInactive = new(StringComparer.OrdinalIgnoreCase);
     private string mFsDevice = "Software", mWinDevice = "Software";
+    /// <summary>The device used full screen.</summary>
     public string FullscreenDevice => mFsDevice;
+    /// <summary>The device used windowed.</summary>
     public string WindowedDevice => mWinDevice;
     private int mResIndex;
 
-    // The modes the one device lists (docs/client-app.md 4.3): the fixed 4:3 ladder, plus the desktop.
+    /// <summary>The modes the one device lists (docs/client-app.md 4.3): the fixed 4:3 ladder, plus the desktop.</summary>
     public static readonly (int W, int H)[] Modes = { (640, 480), (800, 600), (1024, 768), (1280, 1024), (1600, 1200) };
+    /// <summary>The device names.</summary>
     public static readonly string[] DeviceNames = { "OpenGL", "Software", "Glide" };
 
+    /// <summary>Creates the handlers.</summary>
+    /// <param name="app">The client.</param>
     public ClientCommandHandlers(ClientApp app) => mApp = app;
 
-    // Keyboard and mouse are active until deactivated (the stock start-up activates both). A joystick starts inactive: the
-    // device record's active flag is cleared when it is built (0050e9e8) and only inputActivate sets it (0050e220, case 8 of
-    // the command table at 00520cea); the stock start-up never activates one.
     private readonly HashSet<string> mJoyActive = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Tells whether an input device is active.</summary>
+    /// <param name="name">The device name.</param>
+    /// <returns>True when the device is active.</returns>
+    /// <remarks>Keyboard and mouse are active until deactivated (the stock start-up activates both). A joystick starts inactive: the active flag of the device record is cleared when it is built (0050e9e8) and only inputActivate sets it (0050e220, case 8 of the command table at 00520cea). The stock start-up never activates one.</remarks>
     public bool DeviceActive(string name) =>
         name.StartsWith("joystick", StringComparison.OrdinalIgnoreCase) ? mJoyActive.Contains(name) : !mInactive.Contains(name);
 
@@ -63,8 +68,12 @@ public sealed class ClientCommandHandlers
 
     private static string B(bool v) => v ? "True" : "False";
 
+    /// <summary>Tells whether a script value is true.</summary>
+    /// <param name="s">The value.</param>
+    /// <returns>True for <c>true</c> in any case.</returns>
     public static bool IsTrue(string s) => string.Equals(s, "true", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Registers every command on the interpreter.</summary>
     public void Register()
     {
         RegisterShell();
