@@ -33,6 +33,7 @@ public sealed class ClientHudSource : IHudSource
     public bool HasPlayerState => Psc.ControlGhost >= 0;
 
     public bool InPlayerView => HasPlayerState && Psc.ControlClass != "ObserverCamera";
+    public bool SensorHudShown => HasPlayerState && Psc.ControlClass is "Player" or "Vehicle" or "Flier";
     public bool ControlIsPlayer => HasPlayerState && Psc.ControlClass == "Player";
     // Set by the host: PSC +0xa0 on and +0x9c == 0 (MoveBuilder.FirstPersonNow).
     public Func<bool>? FirstPersonSource;
@@ -525,6 +526,10 @@ public sealed class ClientHudSource : IHudSource
         // bitmap of the datablock's mapIcon [code GameBaseData_preload: "%s_green.bmp"].
         foreach (ClientGhost g in mWorld.Ghosts.All())
         {
+            // The loop of Crosshair_findTarget [code 004aca84, test at 004accdc..004accee] skips the control object before it sorts the object
+            // into the Player or the sensor branch: a controlled Turret gets no label.
+            if (g.Index == Psc.ControlGhost)
+                continue;
             if (ObjectGroup(g.Class) < 0 || ObjectBox?.Invoke(g.Index) is not var (bx0, by0, bz0, bx1, by1, bz1, px, py, pz) || !g.State.ContainsKey("team"))
                 continue;
             bool sensor = g.Class is "Sensor" or "Turret";

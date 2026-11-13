@@ -126,6 +126,21 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.False(list[0].Shopping);
     }
 
+    // FGHSensorPing 004ea720: drawn for the own player and for an object flagged 0x20000000 (Vehicle, Flier), nothing for a controlled Turret.
+    [Fact]
+    public void SensorHudShowsForPlayerAndVehiclesButNotForATurret()
+    {
+        var world = new ClientWorld();
+        var src = new ClientHudSource(world);
+        Assert.False(src.SensorHudShown);
+        world.Psc.ControlGhost = 5;
+        foreach ((string cls, bool shown) in new[] { ("Player", true), ("Vehicle", true), ("Flier", true), ("Turret", false), ("ObserverCamera", false) })
+        {
+            world.Psc.ControlClass = cls;
+            Assert.Equal(shown, src.SensorHudShown);
+        }
+    }
+
     [Fact]
     public void PlayerViewIsOffInTheObserverCamera()
     {
