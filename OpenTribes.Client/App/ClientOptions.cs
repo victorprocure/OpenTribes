@@ -26,6 +26,8 @@ public sealed class ClientOptions
     public bool Headless;
     // `--windowed`: setFullscreenMode(true) is ignored (the stock prefs ask for full screen).
     public bool Windowed;
+    // `--fullscreen-windowed`: full screen is the borderless desktop mode (canvas at the desktop size), not a display mode change.
+    public bool FullscreenWindowed;
     // `--seconds S`: leave after S seconds of app time (tests).
     public double Seconds;
     // R6: the client talks to 127.0.0.0/8 only unless the user opts in on the command line.
@@ -142,6 +144,7 @@ public sealed class ClientOptions
                 case "--no-audio": o.NoAudio = true; break;
                 case "--no-vsync": o.NoVsync = true; break;
                 case "--windowed": o.Windowed = true; break;
+                case "--fullscreen-windowed": o.FullscreenWindowed = true; break;
                 case "--headless": o.Headless = true; if (o.VirtualStep == 0) o.VirtualStep = 16; o.NoAudio = true; break;
                 case "--allow-remote": o.AllowRemote = true; break;
                 case "--allow-browser": o.AllowBrowser = true; break;

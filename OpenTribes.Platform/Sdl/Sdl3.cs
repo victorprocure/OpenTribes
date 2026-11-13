@@ -151,6 +151,53 @@ public static partial class Sdl3
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SetWindowFullscreen(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool fullscreen);
 
+    [LibraryImport(Lib, EntryPoint = "SDL_GetClosestFullscreenDisplayMode")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static unsafe partial bool GetClosestFullscreenDisplayMode(uint displayId, int w, int h, float refreshRate, [MarshalAs(UnmanagedType.U1)] bool highDensity, byte* closest);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_SetWindowFullscreenMode")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static unsafe partial bool SetWindowFullscreenMode(IntPtr window, byte* mode);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_SyncWindow")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool SyncWindow(IntPtr window);
+
+    [LibraryImport(Lib, EntryPoint = "SDL_GetWindowSize")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool GetWindowSize(IntPtr window, out int w, out int h);
+
+    // Exclusive full screen at the display mode closest to w x h (SDL_GetClosestFullscreenDisplayMode, then
+    // SDL_SetWindowFullscreenMode and SDL_SetWindowFullscreen). Returns the mode that was set, or null when the display
+    // has no such mode or the driver refuses the change (the window is then left windowed).
+    public static unsafe (int W, int H)? EnterExclusiveFullscreen(IntPtr window, int w, int h)
+    {
+        byte* mode = stackalloc byte[128];
+        if (!GetClosestFullscreenDisplayMode(GetDisplayForWindow(window), w, h, 0f, false, mode))
+            return null;
+        if (!SetWindowFullscreenMode(window, mode) || !SetWindowFullscreen(window, true))
+            return null;
+        SyncWindow(window);
+        int* m = (int*)mode;
+        return (m[2], m[3]);
+    }
+
+    // Borderless full screen at the desktop mode (no display mode change).
+    public static unsafe bool EnterDesktopFullscreen(IntPtr window)
+    {
+        if (!SetWindowFullscreenMode(window, null) || !SetWindowFullscreen(window, true))
+            return false;
+        SyncWindow(window);
+        return true;
+    }
+
+    public static bool LeaveFullscreen(IntPtr window)
+    {
+        bool ok = SetWindowFullscreen(window, false);
+        SyncWindow(window);
+        return ok;
+    }
+
     [LibraryImport(Lib, EntryPoint = "SDL_SetWindowResizable")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SetWindowResizable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool resizable);

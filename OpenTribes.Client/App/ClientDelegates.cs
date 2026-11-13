@@ -123,6 +123,7 @@ public sealed class ClientDelegates
         if (modes.Count == 0)
             modes.AddRange(ClientCommandHandlers.Modes);
         VideoOptions.Fill(root, mApp.Host, mApp.Win?.Renderer, modes, mApp.Handlers.WindowedDevice, mApp.Handlers.FullscreenDevice);
+        VideoOptions.AddFullscreenWindowed(root, mApp.Host, ClientApp.FullscreenWindowedPref);
     }
 
     private GuiControl? mSeeded;
@@ -140,7 +141,12 @@ public sealed class ClientDelegates
     }
 
     // Every frame: the replies and timers of the server query.
-    public void Tick() => Browser.Tick();
+    public void Tick()
+    {
+        Browser.Tick();
+        if (mApp.Canvas.Content is { } content)
+            VideoOptions.SyncFullscreenWindowed(content);
+    }
 
     private GuiControl? Find(int id) => mApp.GuiRt.FindControl(id.ToString(CultureInfo.InvariantCulture));
 

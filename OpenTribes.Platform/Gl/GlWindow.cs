@@ -125,7 +125,47 @@ public sealed unsafe class GlWindow : IDisposable
 
     public void SetSize(int w, int h) => Sdl3.SetWindowSize(mWindow, w, h);
 
-    public void SetFullscreen(bool on) => Sdl3.SetWindowFullscreen(mWindow, on);
+    // Full screen state. mExclusive is the display mode that was set; mScaled is the requested size rendered scaled into
+    // the window when no mode could be set. Neither is set windowed.
+    private (int W, int H)? mExclusive, mScaled;
+    private (int W, int H) mWindowedSize;
+
+    // Stock goes full screen at the chosen resolution (see FullscreenPlan): try the display mode closest to w x h, else
+    // the desktop mode with the canvas kept at w x h and scaled (letterboxed) into the window.
+    public void SetFullscreen(bool on, int w, int h, bool desktopMode = false)
+    {
+        if (on)
+        {
+            if (!IsFullscreen())
+            {
+                Sdl3.GetWindowSize(mWindow, out int ww, out int wh);
+                mWindowedSize = (ww, wh);
+            }
+            mExclusive = mScaled = null;
+            if (!desktopMode)
+                mExclusive = Sdl3.EnterExclusiveFullscreen(mWindow, w, h);
+            if (mExclusive == null)
+            {
+                Sdl3.EnterDesktopFullscreen(mWindow);
+                if (!desktopMode)
+                    mScaled = (w, h);
+            }
+        }
+        else
+        {
+            bool was = IsFullscreen();
+            mExclusive = mScaled = null;
+            Sdl3.LeaveFullscreen(mWindow);
+            if (was && mWindowedSize.W > 0)
+                Sdl3.SetWindowSize(mWindow, mWindowedSize.W, mWindowedSize.H);
+        }
+    }
+
+    // The full screen resolution the canvas uses, or null windowed.
+    public (int W, int H)? FullscreenCanvas => IsFullscreen() ? mExclusive ?? mScaled : null;
+
+    // True when the canvas is scaled into a larger window (no display mode could be set).
+    public bool Scaled => mScaled != null && IsFullscreen();
 
     // The full screen modes of the display the window is on (SDL), ascending.
     public List<(int W, int H)> FullscreenModes() => Sdl3.FullscreenModes(mWindow);
@@ -136,10 +176,20 @@ public sealed unsafe class GlWindow : IDisposable
 
     public void Swap() => Sdl3.GlSwapWindow(mWindow);
 
-    public (int w, int h) PixelSize()
+    // The window's real pixel size.
+    public (int w, int h) WindowPixels()
     {
         Sdl3.GetWindowSizeInPixels(mWindow, out int w, out int h);
         return (w, h);
+    }
+
+    // The canvas size: the full screen resolution in full screen, else the window's pixel size (FullscreenPlan.CanvasSize).
+    public (int w, int h) PixelSize()
+    {
+        (int w, int h) = WindowPixels();
+        (int W, int H)? fs = IsFullscreen() ? mExclusive ?? mScaled : null;
+        (int cw, int ch) = FullscreenPlan.CanvasSize(fs != null, fs, fs ?? (w, h), (w, h));
+        return (cw, ch);
     }
 
     public void Dispose()

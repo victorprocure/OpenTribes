@@ -181,7 +181,17 @@ void main() {
         gl.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
         gl.BindFramebuffer_(GlApi.DrawFramebuffer, 0);
         gl.Disable_(GlApi.ScissorTest);
-        gl.BlitFramebuffer_(0, 0, mWidth, mHeight, 0, 0, mWidth, mHeight, GlApi.ColorBufferBit, GlApi.Nearest);
+        if (mWin.Scaled)
+        {
+            // No display mode was set: the canvas keeps the full screen resolution and is scaled into the window, aspect kept.
+            (int ww, int wh) = mWin.WindowPixels();
+            (int x, int y, int w, int h) = FullscreenPlan.Letterbox((mWidth, mHeight), (ww, wh));
+            gl.ClearColor_(0f, 0f, 0f, 1f);
+            gl.Clear_(GlApi.ColorBufferBit);
+            gl.BlitFramebuffer_(0, 0, mWidth, mHeight, x, y, x + w, y + h, GlApi.ColorBufferBit, GlApi.Nearest);
+        }
+        else
+            gl.BlitFramebuffer_(0, 0, mWidth, mHeight, 0, 0, mWidth, mHeight, GlApi.ColorBufferBit, GlApi.Nearest);
         mWin.Swap();
         Prepare2D();
     }
