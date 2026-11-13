@@ -157,7 +157,10 @@ public sealed class GuiSmacker : GuiActive
             if (mPictureDirty)
             {
                 mPictureDirty = false;
-                p.Dev.FlushTexture(mPicture);
+                // The draw below goes through the keyed copy of the picture, and the device caches its texture under that copy,
+                // so the copy is the bitmap to flush; flushing mPicture itself leaves the first frame on screen (black).
+                // The stock control redraws its surface every frame [code 004d693c, 004d670c].
+                p.Dev.FlushTexture(GuiPaint.KeyedBitmap(mPicture));
             }
             int h = mMovie.YDoubled ? mMovie.Height * 2 : mMovie.Height;
             if (U("stretch") != 0)
