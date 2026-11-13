@@ -218,6 +218,36 @@ public sealed class ClientInputTests
         Assert.Equal((220004, 4, -5f), sink.Got[0]);
     }
 
+    [Theory]
+    [InlineData(0x2a)]  // shift
+    [InlineData(0x1d)]  // control
+    [InlineData(0x38)]  // alt
+    public void MouseAxisIgnoresHeldModifiers(int modifierScan)
+    {
+        // 00508854: modifiers are compared for keyboard bindings only, so the unmodified axis binding still gets the event.
+        var (i, s) = Setup();
+        i.Evaluate("newActionMap(\"t.sae\"); bindAction(mouse0, xaxis0, TO, 220004, Scale, 0.5);");
+        var sink = new Sink();
+        var d = new InputDispatcher(s);
+        d.Push(s.FindMap("t.sae")!, sink);
+        d.Process(Key(modifierScan, true), 1);
+        Assert.True(d.Process(new InputEvent { DeviceType = 2, ObjType = 11, ObjInst = 0, Action = 3 }, 3f));
+        Assert.Equal((220004, 4, 1.5f), sink.Got[0]);
+    }
+
+    [Fact]
+    public void MouseBindingWithModifierStillMatchesWithoutIt()
+    {
+        // 00508854 ignores the binding's modifier groups for a mouse device, in either direction.
+        var (i, s) = Setup();
+        i.Evaluate("newActionMap(\"t.sae\"); bindAction(mouse0, shift, xaxis0, TO, 220004, 1.0);");
+        var sink = new Sink();
+        var d = new InputDispatcher(s);
+        d.Push(s.FindMap("t.sae")!, sink);
+        Assert.True(d.Process(new InputEvent { DeviceType = 2, ObjType = 11, ObjInst = 0, Action = 3 }, 1f));
+        Assert.Single(sink.Got);
+    }
+
     [Fact]
     public void ShapeValueOrder()
     {
