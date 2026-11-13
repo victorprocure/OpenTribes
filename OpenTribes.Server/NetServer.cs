@@ -184,7 +184,7 @@ public sealed class NetServer : ConnectionEvents
     {
         LoopbackOnly = loopbackOnly;
         mConfig.Port = port;
-        return mSocket.Open(port, loopbackOnly);
+        return loopbackOnly ? mSocket.OpenMemory(port) : mSocket.Open(port, false);
     }
 
     public void Close() => mSocket.Close();

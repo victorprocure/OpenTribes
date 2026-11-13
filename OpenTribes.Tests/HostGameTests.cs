@@ -139,6 +139,45 @@ public sealed class HostGameTests : IDisposable
         Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0);");
         Assert.True(mApp!.Hosted.Net!.IsOpen());
         Assert.True(mApp.Hosted.Net.LoopbackOnly);
+        // Stock passes the packets in memory: a real UDP socket reaches nothing of this game.
+        using var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
+        probe.Client.ReceiveTimeout = 50;
+        probe.Send(new byte[] { 0x10, 0x05 }, 2, new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, mApp.Hosted.Net.Port()));
+        Assert.Equal(0, probe.Available);
+    }
+
+    [Fact]
+    public void AnIpBindThatFailsPrintsTheSessionErrorAndFailsTheDelegate() // SimNet_activate 0x0054e86c, UDPTransport_activate 0058bfac
+    {
+        using var taken = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0));
+        int port = ((System.Net.IPEndPoint)taken.Client.LocalEndPoint!).Port;
+        Boot("$Console::PrintLevel = 2;\n");
+        Eval("newServer(); focusServer();");
+        // The result of the failed newObject is false and no other port is tried.
+        Assert.NotEqual("True", Eval("newObject(serverDelegate, FearCSDelegate, true, \"IP\", " + port + ");"));
+        Assert.Contains("SimNET: Session (server): transport IP on port " + port + ": ERROR", mApp!.LogTail);
+        Assert.False(mApp.Hosted.Net!.IsOpen());
+    }
+
+    [Fact]
+    public void AStartedTransportPrintsOkPerPair() // the word is Ok once any transport of the list has activated (bl, 0x0054e8d0)
+    {
+        Boot("$Console::PrintLevel = 2;\n");
+        Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0, \"IP\", 0);");
+        Assert.Contains("SimNET: Session (server): transport LOOPBACK on port 0: Ok", mApp!.LogTail);
+        Assert.Contains("SimNET: Session (server): transport IP on port 0: Ok", mApp.LogTail);
+    }
+
+    [Fact]
+    public void AFailedIpBindStillServesWhenLoopbackStarted() // any started transport keeps the delegate; loopback is the only one left
+    {
+        using var taken = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0));
+        int port = ((System.Net.IPEndPoint)taken.Client.LocalEndPoint!).Port;
+        Boot("$Console::PrintLevel = 2;\n");
+        Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0, \"IP\", " + port + ");");
+        Assert.True(mApp!.Hosted.Net!.IsOpen());
+        Assert.True(mApp.Hosted.Net.LoopbackOnly);
+        Assert.Contains("SimNET: Session (server): transport IP on port " + port + ": Ok", mApp.LogTail);
     }
 
     // A tiny master: a loopback socket that stands in for the t1master style exchange (heartbeat, challenge, ping reply).
