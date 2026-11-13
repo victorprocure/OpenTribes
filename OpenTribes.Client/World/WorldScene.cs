@@ -5,41 +5,74 @@ using OpenTribes.World;
 
 namespace OpenTribes.Client.World;
 
-// world-render.md 1.1: the frame order of the 3D view, for a mission loaded locally (no server): background (sky, stars,
-// planet), then the world (terrain, interiors).
+/// <summary>The frame order of the 3D view for a mission loaded locally (no server): background (sky, stars, planet), then the world (terrain, interiors).</summary>
+/// <remarks>world-render.md 1.1.</remarks>
 public sealed class WorldScene : IDisposable
 {
-    // Open (world-render.md Q1): field of view and far plane are not transcribed from the camera slots.
-    // The near plane is the camera query answer of the PSC (0.01 or 0.2, see ViewNear) and the device takes it as the scale of the
-    // stored depth: z = near / d (setDepthRange 005daa14 gets camera +0x178 from FUN_004fb0e4).
+    /// <summary>The near plane of a view that is not first person.</summary>
+    /// <remarks>Open (world-render.md Q1): the field of view and the far plane are not transcribed from the camera slots. The near plane is the camera query answer of the PSC (0.01 or 0.2, see <see cref="ViewNear"/>), and the device takes it as the scale of the stored depth: z = near / d (setDepthRange 005daa14 gets camera +0x178 from FUN_004fb0e4).</remarks>
     public const double NearPlane = 0.01;
+    /// <summary>The near plane of a first person view.</summary>
     public const double FirstPersonNearPlane = 0.2;
-    public const double DefaultFov = 90;      // $pref::PlayerFov default, taken as the horizontal angle
-    public const double BackgroundFar = 40000; // covers planet distances up to 11000
+    /// <summary>The default field of view, the <c>$pref::PlayerFov</c> default, taken as the horizontal angle.</summary>
+    public const double DefaultFov = 90;
+    /// <summary>The far plane of the background, which covers planet distances up to 11000.</summary>
+    public const double BackgroundFar = 40000;
 
+    /// <summary>The mission name.</summary>
     public string MissionName = "";
+    /// <summary>The terrain parameters.</summary>
     public TerrainParams Terrain;
+    /// <summary>The haze colour.</summary>
     public (float r, float g, float b) HazeColor;
+    /// <summary>The terrain renderer, or null.</summary>
     public TerrainRenderer? TerrainDraw;
+    /// <summary>The interior renderer, or null.</summary>
     public InteriorRenderer? Interiors;
+    /// <summary>The sky renderer, or null.</summary>
     public SkyRenderer? Sky;
+    /// <summary>The stars.</summary>
     public List<StarField.Star> Stars = new();
+    /// <summary>True to draw the stars after the sky, false before it.</summary>
     public bool StarsInFront = true;
+    /// <summary>The colours of the star brightness classes.</summary>
     public (float, float, float)[] StarColors = { (1, 1, 1), (.5f, .5f, .5f), (.25f, .25f, .25f) };
+    /// <summary>The planets.</summary>
     public readonly List<PlanetRenderer> Planets = new();
-    public int InteriorCount, InteriorFailed, TerrainBlockSize;
-    public double TerrainOriginX, TerrainOriginY;
+    /// <summary>The number of interiors loaded.</summary>
+    public int InteriorCount;
+    /// <summary>The number of interiors that failed to load.</summary>
+    public int InteriorFailed;
+    /// <summary>The squares per side of the terrain block.</summary>
+    public int TerrainBlockSize;
+    /// <summary>The x of the terrain origin.</summary>
+    public double TerrainOriginX;
+    /// <summary>The y of the terrain origin.</summary>
+    public double TerrainOriginY;
+    /// <summary>The clear colour of the frame.</summary>
     public (float r, float g, float b) ClearColor = (0, 0, 0);
-    // The first Planet's light for shapes (world-render.md 4.3, 5): azimuth and incidence in degrees, intensity and ambient colours.
-    public double SunAzimuth, SunIncidence = 60;
-    public double[] SunIntensity = { 0.55, 0.55, 0.55 }, SunAmbient = { 0.45, 0.45, 0.45 };
+    /// <summary>The azimuth in degrees of the light of the first Planet for shapes (world-render.md 4.3, 5).</summary>
+    public double SunAzimuth;
+    /// <summary>The incidence in degrees of the light of the first Planet.</summary>
+    public double SunIncidence = 60;
+    /// <summary>The sun colour intensity.</summary>
+    public double[] SunIntensity = { 0.55, 0.55, 0.55 };
+    /// <summary>The ambient colour.</summary>
+    public double[] SunAmbient = { 0.45, 0.45, 0.45 };
+    /// <summary>The world assets.</summary>
     public WorldAssets Assets = null!;
+    /// <summary>The terrain for ground queries of the effects (footprints, bullet holes).</summary>
     public OpenTribes.World.Terrain? TerrainModel;   // for ground queries of the effects (footprints, bullet holes)
     private readonly IGfxDevice mDev;
 
     private WorldScene(IGfxDevice dev) => mDev = dev;
 
-    // Mounts the volumes of the mission's `Volumes` group in file order (later volumes win) and builds every renderer.
+    /// <summary>Loads a mission: mounts the volumes of its <c>Volumes</c> group in file order (later volumes win) and builds every renderer.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="missionName">The mission name.</param>
+    /// <param name="error">The error text, or empty on success.</param>
+    /// <returns>The scene.</returns>
     public static WorldScene Load(IGfxDevice dev, string root, string missionName, out string error)
     {
         error = "";
@@ -70,8 +103,14 @@ public sealed class WorldScene : IDisposable
         return LoadFrom(dev, res, missionName, all, out error);
     }
 
-    // The renderers of a world from its objects and an already mounted resource manager. A demo builds the objects from the
-    // environment ghosts of the stream (SimVolume, SimPalette, SimTerrain, Sky, StarField, Planet, InteriorShape).
+    /// <summary>Builds the renderers of a world from its objects and an already mounted resource manager. A demo builds the objects from the environment ghosts of the stream (SimVolume, SimPalette, SimTerrain, Sky, StarField, Planet, InteriorShape).</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="res">The mounted resources.</param>
+    /// <param name="missionName">The mission name.</param>
+    /// <param name="all">The mission objects.</param>
+    /// <param name="error">The error text, or empty on success.</param>
+    /// <param name="gamma">The display gamma.</param>
+    /// <returns>The scene.</returns>
     public static WorldScene LoadFrom(IGfxDevice dev, ResourceManager res, string missionName, List<MissionObject> all, out string error, float gamma = 1f)
     {
         error = "";
@@ -220,28 +259,38 @@ public sealed class WorldScene : IDisposable
         TerrainDraw = new TerrainRenderer(dev, Assets, data, mats, pos[0], pos[1], pos[2], Terrain);
     }
 
-    // The near plane of the camera query the PSC answers [PlayerPSC camera query 004077a8, message 0x400: bytes 004078a0 to 00407901]:
-    // 0.2 (0x3e4ccccd) when first person is on (+0xa0) with the view distance (+0x9c) at 0 and the control object is not an
-    // ObserverCamera (the dynamic cast at 004078ec to the 0x2a4 byte class fails), else 0.01 (0x3c23d70a). A Player, a Vehicle and a
-    // Flier in first person all answer 0.2 (stock trace of the blink-pad and play-vehicle scenarios).
+    /// <summary>Gives the near plane the PSC camera query answers.</summary>
+    /// <param name="firstPerson">True when first person is on.</param>
+    /// <param name="controlIsObserver">True when the control object is an ObserverCamera.</param>
+    /// <returns>The near plane.</returns>
+    /// <remarks>Follows the PlayerPSC camera query (004077a8, message 0x400: bytes 004078a0 to 00407901): 0.2 (0x3e4ccccd) when first person is on (+0xa0) with the view distance (+0x9c) at 0 and the control object is not an ObserverCamera (the dynamic cast at 004078ec to the 0x2a4 byte class fails), else 0.01 (0x3c23d70a). A Player, a Vehicle and a Flier in first person all answer 0.2.</remarks>
     public static double ViewNear(bool firstPerson, bool controlIsObserver) =>
         firstPerson && !controlIsObserver ? FirstPersonNearPlane : NearPlane;
 
-    // Near plane of the next Render calls (camera +0x178): set by the caller from the view state.
+    /// <summary>The near plane of the next <see cref="Render"/> calls (camera +0x178). The caller sets it from the view state.</summary>
     public double Near = NearPlane;
 
-    // The camera of a render: near and far follow the terrain's visible distance for the world, a long far for the
-    // background (open: world-render.md Q1).
+    /// <summary>Builds the camera of a render: near and far follow the visible distance of the terrain for the world, a long far for the background (open: world-render.md Q1).</summary>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
+    /// <param name="yaw">The yaw.</param>
+    /// <param name="pitch">The pitch.</param>
+    /// <param name="fov">The field of view.</param>
+    /// <param name="w">The view width in pixels.</param>
+    /// <param name="h">The view height in pixels.</param>
+    /// <param name="background">True for the background camera.</param>
+    /// <param name="roll">The roll.</param>
+    /// <returns>The camera.</returns>
     public Camera3D MakeCamera(double x, double y, double z, double yaw, double pitch, double fov, int w, int h, bool background, double roll = 0) =>
         new(x, y, z, yaw, pitch, fov, w, h, Near, background ? BackgroundFar : Math.Max(Terrain.Visible, 10), roll);
 
-    // The point lights of the frame (explosions, projectiles, items): they add to the light map of terrain and interior surfaces
-    // within range (world-render.md 2.9, 3.7). Set by the caller before Render; the nearest ones to the camera are used.
+    /// <summary>The point lights of the frame (explosions, projectiles, items). They add to the light map of terrain and interior surfaces within range (world-render.md 2.9, 3.7). The caller sets them before <see cref="Render"/>, and the nearest ones to the camera are used.</summary>
     public IReadOnlyList<PointLight>? DynamicLights;
 
-    // Called after the terrain with the world camera, before the interiors (the caller builds its images there), and
-    // `DrawContents(i)` before the interior of instance i draws (the objects in its database come first, 3.8).
+    /// <summary>Called after the terrain with the world camera and before the interiors, so the caller builds its images there.</summary>
     public Action<Camera3D>? Prepare;
+    /// <summary>Called with the instance index before the interior of that instance draws, so the objects in its database come first (3.8).</summary>
     public Action<int>? DrawContents;
 
     private List<PointLight> NearLights(double cx, double cy, double cz)
@@ -272,6 +321,18 @@ public sealed class WorldScene : IDisposable
         mDev.SetDynamicLights(arr);
     }
 
+    /// <summary>Renders one frame: background, terrain, interiors and the overlays.</summary>
+    /// <param name="x">The camera x.</param>
+    /// <param name="y">The camera y.</param>
+    /// <param name="z">The camera z.</param>
+    /// <param name="yaw">The camera yaw.</param>
+    /// <param name="pitch">The camera pitch.</param>
+    /// <param name="fov">The field of view.</param>
+    /// <param name="overlay">Called with the world camera after the interiors, or null.</param>
+    /// <param name="overlay2D">Called after the 3D scene for the 2D draw, or null.</param>
+    /// <param name="roll">The camera roll.</param>
+    /// <param name="view">The rectangle of a TSControl that draws the world inside the GUI draw, or null for the whole frame.</param>
+    /// <remarks>With a <paramref name="view"/> the frame was started and cleared already: the scene goes into that rectangle only (camera size and depth clear), with no 2D overlay and no present (00546dc4).</remarks>
     public void Render(double x, double y, double z, double yaw, double pitch, double fov, Action<Camera3D>? overlay = null, Action? overlay2D = null, double roll = 0, GfxRect? view = null)
     {
         // `view`: a TSControl that draws the world inside its own rectangle in the middle of the GUI draw [code 00546dc4]: the frame was
@@ -328,6 +389,7 @@ public sealed class WorldScene : IDisposable
             mDev.EndFrame();
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         TerrainDraw?.Dispose();
