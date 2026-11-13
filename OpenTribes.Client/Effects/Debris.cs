@@ -1,6 +1,3 @@
-// Debris (docs/shapes-render.md 4.4): the pieces of a dying shape fly with local physics. A piece is one object of the shape (PartDebris 00475e98, made by
-// ShapeBase_explode 0044cdec through a PartDebrisCloud 00476434 for armors and structures). Launch: the cloud's spawn 00476858. Flight and end: Debris_tick
-// 004721f8, Debris_collide 00472ad0, Debris_bounce 00473500, Debris_explode 00472954. What is random on the stock client stays random here.
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
@@ -8,15 +5,31 @@ using OpenTribes.World;
 
 namespace OpenTribes.Client.Effects;
 
-// The DebrisData fields the pieces use (docs/shapes-render.md 4.4): `explodeOnBounce` is the chance of an explosion at a fresh bounce, `explodeOnRest` an explosion
-// when the piece stands still, `spawnedExplosionID` the ExplosionData index (-1 none) of every explosion. `Type` (0x34), `SpawnMask` (0x80), `SpawnStrength` (0x84)
-// and `SpawnRadius` (0x88) are what Debris_explode hands to the secondary DebrisCloud and what the cloud matches the rows with.
+/// <summary>The DebrisData fields the pieces use (docs/shapes-render.md 4.4).</summary>
+/// <param name="MinTimeout">The shortest life in seconds.</param>
+/// <param name="MaxTimeout">The longest life in seconds.</param>
+/// <param name="ExplodeOnBounce">The chance of an explosion at a fresh bounce.</param>
+/// <param name="ExplodeOnRest">True for an explosion when the piece stands still.</param>
+/// <param name="Explosion">The ExplosionData index of every explosion, -1 for none (<c>spawnedExplosionID</c>).</param>
+/// <param name="Elasticity">The bounce elasticity.</param>
+/// <param name="Friction">The friction.</param>
+/// <param name="Mass">The mass.</param>
+/// <param name="SpawnMask">The mask Debris_explode hands to the secondary DebrisCloud, which matches the rows with it (0x80).</param>
+/// <param name="SpawnStrength">The strength the secondary cloud gets (0x84).</param>
+/// <param name="SpawnRadius">The radius the secondary cloud gets (0x88).</param>
+/// <param name="CollisionDetail">The collision detail.</param>
+/// <param name="Damage">The self damage the piece starts with.</param>
+/// <param name="DamageThreshold">The damage threshold.</param>
 public readonly record struct DebrisParams(double MinTimeout = 3, double MaxTimeout = 6, double ExplodeOnBounce = 0.3, bool ExplodeOnRest = true, int Explosion = -1,
                                            double Elasticity = 0.25, double Friction = 0.5, double Mass = 100, int SpawnMask = 1, double SpawnStrength = 50,
                                            double SpawnRadius = 0.2, int CollisionDetail = 0, double Damage = 100, double DamageThreshold = 1)
 {
+    /// <summary>The defaults of a piece without a DebrisData block.</summary>
     public static DebrisParams Default => new(3, 6, 0.3, true, -1, 0.25, 0.5, 100, 1, 50, 0.2, 0, 100, 1);
 
+    /// <summary>Reads the parameters from a DebrisData block.</summary>
+    /// <param name="b">The block, or null for the defaults.</param>
+    /// <returns>The parameters.</returns>
     public static DebrisParams From(ClientDataBlock? b) =>
         b == null ? Default : new DebrisParams(Scene.Db.Num(b, "minTimeout", 3), Scene.Db.Num(b, "maxTimeout", 6), Scene.Db.Num(b, "explodeOnBounce", 0.3),
             Scene.Db.Flag(b, "explodeOnRest"), (int)Scene.Db.Num(b, "spawnedExplosionID", -1), Scene.Db.Num(b, "elasticity", 0.25), Scene.Db.Num(b, "friction", 0.5),
@@ -25,32 +38,88 @@ public readonly record struct DebrisParams(double MinTimeout = 3, double MaxTime
             Scene.Db.Num(b, "damageThreshold", 1));
 }
 
-// A ray against the static world: the first interior surface along (sx, sy, sz) + t * (dx, dy, dz), 0 <= t <= len, and its unit normal facing the ray origin.
+/// <summary>A ray against the static world: the first interior surface along (sx, sy, sz) + t * (dx, dy, dz), 0 &lt;= t &lt;= len.</summary>
+/// <param name="sx">The start x.</param>
+/// <param name="sy">The start y.</param>
+/// <param name="sz">The start z.</param>
+/// <param name="dx">The direction x.</param>
+/// <param name="dy">The direction y.</param>
+/// <param name="dz">The direction z.</param>
+/// <param name="len">The ray length.</param>
+/// <returns>Whether a surface was hit, the distance t and its unit normal facing the ray origin.</returns>
 public delegate (bool Hit, double T, double Nx, double Ny, double Nz) DebrisRay(double sx, double sy, double sz, double dx, double dy, double dz, double len);
 
-// What Debris_explode (00472954) hands to DebrisCloud_ctorParams (00474268) when the piece's mask is set: the piece position and velocity, the piece mass times 0.9
-// as the cloud budget, the strength and radius of the DebrisData and the piece budget that is left (+0x344) for the pieces it makes.
+/// <summary>What Debris_explode (00472954) hands to DebrisCloud_ctorParams (00474268) when the mask of the piece is set.</summary>
+/// <param name="Mask">The cloud mask.</param>
+/// <param name="X">The piece position x.</param>
+/// <param name="Y">The piece position y.</param>
+/// <param name="Z">The piece position z.</param>
+/// <param name="Vx">The piece velocity x.</param>
+/// <param name="Vy">The piece velocity y.</param>
+/// <param name="Vz">The piece velocity z.</param>
+/// <param name="Budget">The cloud budget: the piece mass times 0.9.</param>
+/// <param name="Strength">The strength of the DebrisData.</param>
+/// <param name="Radius">The radius of the DebrisData.</param>
+/// <param name="Remaining">The piece budget that is left (+0x344) for the pieces the cloud makes.</param>
 public readonly record struct DebrisCloudSpec(int Mask, double X, double Y, double Z, double Vx, double Vy, double Vz, double Budget, double Strength, double Radius, double Remaining);
 
-// One flying piece and the Debris_tick state of it.
+/// <summary>One flying piece and the Debris_tick state of it.</summary>
 public sealed class DebrisBody
 {
+    /// <summary>The SimMovement time slice 0x3d088889 (SimMovement_ctor), which Debris never changes.</summary>
     public const double TimeSlice = 0.033333335;   // the SimMovement time slice 0x3d088889 (SimMovement_ctor), which Debris never changes
+    /// <summary>The gravity.</summary>
     public const double Gravity = -20;
 
-    public double X, Y, Z;               // position of the piece origin (the centre of its box)
-    public double Vx, Vy, Vz, Wx, Wy, Wz;
-    public double Ax, Ay, Az;            // accumulated spin angles
-    public double Age, Life;             // seconds lived, lifetime (minTimeout + (maxTimeout - minTimeout) * random)
-    public double Radius = 0.25;         // collision sphere radius (Debris +0x318): PartDebris loadShape 0047603c, see PartDebris.Measure
+    /// <summary>The position of the piece origin (the centre of its box).</summary>
+    public double X;
+    /// <summary>The y position.</summary>
+    public double Y;
+    /// <summary>The z position.</summary>
+    public double Z;
+    /// <summary>The linear velocity x.</summary>
+    public double Vx;
+    /// <summary>The linear velocity y.</summary>
+    public double Vy;
+    /// <summary>The linear velocity z.</summary>
+    public double Vz;
+    /// <summary>The spin about x.</summary>
+    public double Wx;
+    /// <summary>The spin about y.</summary>
+    public double Wy;
+    /// <summary>The spin about z.</summary>
+    public double Wz;
+    /// <summary>The accumulated spin angle about x.</summary>
+    public double Ax;
+    /// <summary>The accumulated spin angle about y.</summary>
+    public double Ay;
+    /// <summary>The accumulated spin angle about z.</summary>
+    public double Az;
+    /// <summary>The seconds lived.</summary>
+    public double Age;
+    /// <summary>The lifetime: minTimeout + (maxTimeout - minTimeout) * random.</summary>
+    public double Life;
+    /// <summary>The collision sphere radius (Debris +0x318), from PartDebris loadShape (0047603c), see <see cref="PartDebris.Measure"/>.</summary>
+    public double Radius = 0.25;
+    /// <summary>The mass.</summary>
     public double Mass = 100;
-    public double Damage = double.PositiveInfinity;   // +0x348: the self damage left (DebrisData `damage`); below zero the piece explodes
-    public bool Collided, PrevCollided, Frozen, Done;
+    /// <summary>The self damage left (+0x348, DebrisData <c>damage</c>). Below zero the piece explodes.</summary>
+    public double Damage = double.PositiveInfinity;
+    /// <summary>True when the piece collided in the last tick.</summary>
+    public bool Collided;
+    /// <summary>True when the piece collided in the tick before.</summary>
+    public bool PrevCollided;
+    /// <summary>True when the piece lies still.</summary>
+    public bool Frozen;
+    /// <summary>True when the piece ended.</summary>
+    public bool Done;
     private double mSvx, mSvy, mSvz, mSwx, mSwy, mSwz;   // the smoothed velocities +0x358..+0x36c (0.9 old + 0.1 new, z velocity x 0.25)
 
-    // Debris_tick 004721f8, the top: explosion decisions from the collision flags of the last two ticks. An explosion follows a bounce (a contact now and none in the
-    // tick before) with the chance explodeOnBounce, two ticks of contact in a row, and a piece whose horizontal velocity components are both at most 1e-5 when
-    // explodeOnRest is set.
+    /// <summary>Decides whether the piece explodes now.</summary>
+    /// <param name="p">The debris parameters.</param>
+    /// <param name="rng">The random source.</param>
+    /// <returns>True for an explosion.</returns>
+    /// <remarks>Follows the top of Debris_tick (004721f8): the explosion decisions from the collision flags of the last two ticks. An explosion follows a bounce (a contact now and none in the tick before) with the chance explodeOnBounce, two ticks of contact in a row, and a piece whose horizontal velocity components are both at most 1e-5 when explodeOnRest is set.</remarks>
     public bool WantsExplosion(DebrisParams p, Random rng)
     {
         bool explode = false;
@@ -65,8 +134,16 @@ public sealed class DebrisBody
         return explode;
     }
 
-    // Debris_tick, the body: integrate one time slice (SimMovement_integrate 00505460: gravity, the position moves by the mean of the old and the new velocity),
-    // collide against the interiors (`ray`, from the sphere centre `off` from the origin) and the terrain, bounce, smooth, freeze at rest. True when the lifetime is over.
+    /// <summary>Integrates one time slice.</summary>
+    /// <param name="p">The debris parameters.</param>
+    /// <param name="terrain">The terrain, or null.</param>
+    /// <param name="ray">The ray against the interiors, or null.</param>
+    /// <param name="rng">The random source.</param>
+    /// <param name="offX">The x offset of the sphere centre from the origin.</param>
+    /// <param name="offY">The y offset of the sphere centre from the origin.</param>
+    /// <param name="offZ">The z offset of the sphere centre from the origin.</param>
+    /// <returns>True when the lifetime is over.</returns>
+    /// <remarks>Follows the body of Debris_tick: SimMovement_integrate (00505460: gravity, the position moves by the mean of the old and the new velocity), collide against the interiors (<paramref name="ray"/>, from the sphere centre) and the terrain, bounce, smooth, freeze at rest.</remarks>
     public bool Integrate(DebrisParams p, Terrain? terrain, DebrisRay? ray, Random rng, double offX, double offY, double offZ)
     {
         Age += TimeSlice;
@@ -150,8 +227,11 @@ public sealed class DebrisBody
         return true;
     }
 
-    // Debris_explode 00472954: the secondary cloud of the piece (mask spawnedDebrisMask, budget 0.9 x mass, strength and radius of the DebrisData), made while
-    // the piece budget (+0x344: the constructor argument minus the seconds lived) is above zero.
+    /// <summary>Makes the secondary cloud of the piece.</summary>
+    /// <param name="p">The debris parameters.</param>
+    /// <param name="pieceBudget">The piece budget, the constructor argument.</param>
+    /// <returns>The cloud, or null when the budget is used up.</returns>
+    /// <remarks>Follows Debris_explode (00472954): the mask is spawnedDebrisMask, the budget 0.9 x mass, strength and radius come from the DebrisData. The cloud is made while the piece budget (+0x344: the constructor argument minus the seconds lived) is above zero.</remarks>
     public DebrisCloudSpec? SecondaryCloud(DebrisParams p, double pieceBudget)
     {
         if (p.SpawnMask == 0 || pieceBudget <= 0)
@@ -160,13 +240,14 @@ public sealed class DebrisBody
     }
 }
 
-// The pieces of a dying shape: the PartDebrisCloud of ShapeBase_explode (0044cdec).
+/// <summary>The pieces of a dying shape: the PartDebrisCloud of ShapeBase_explode (0044cdec).</summary>
 public sealed class DebrisEffect : IEffect
 {
-    // ShapeBase_explode passes the burst strength 2000 (0x44fa0000) and the piece mass 250 (PartDebris 00475e98 stores 0x437a0000); the cloud applies the
-    // impulse of that strength along (piece centre - shape centre) 00476858, so the velocity of a piece changes by strength / mass.
-    public const double BurstStrength = 2000, PieceMass = 250;
-    // The piece budget ShapeBase_explode passes (0x461c4000); Debris_explode counts the seconds lived off it.
+    /// <summary>The burst strength ShapeBase_explode passes (0x44fa0000). The cloud applies the impulse of that strength along (piece centre - shape centre) (00476858), so the velocity of a piece changes by strength / mass.</summary>
+    public const double BurstStrength = 2000;
+    /// <summary>The piece mass (PartDebris 00475e98 stores 0x437a0000).</summary>
+    public const double PieceMass = 250;
+    /// <summary>The piece budget ShapeBase_explode passes (0x461c4000). Debris_explode counts the seconds lived off it.</summary>
     public const double PieceBudget = 10000;
 
     private sealed class Piece
@@ -187,14 +268,28 @@ public sealed class DebrisEffect : IEffect
     private readonly Action<DebrisCloudSpec>? mCloud;
     private double mAcc;
 
+    /// <inheritdoc/>
     public bool Alive => mPieces.Exists(p => !p.Body.Done);
+    /// <inheritdoc/>
     public PointLight? Light => null;
+    /// <summary>The number of pieces.</summary>
     public int PieceCount => mPieces.Count;
+    /// <summary>The bodies of the pieces.</summary>
     public IEnumerable<DebrisBody> Bodies => mPieces.Select(p => p.Body);
 
-    // 4.4 Dying shapes: the detail whose root node is named `debris0` if the shape has one, else detail 0; one piece per visible object. `baseXf` is the pose of the
-    // dying shape, `v*` its velocity. `ray(...)` is the static world (interiors; the terrain is read from `terrain`); `explode(index, x, y, z)` spawns the piece's
-    // ExplosionData where the piece ends (Debris_explode 00472954 deletes the piece); `cloud` gets the secondary DebrisCloud of a piece that ends.
+    /// <summary>Creates the effect with one piece per visible object of the dying shape.</summary>
+    /// <param name="inst">The shape instance of the dying shape.</param>
+    /// <param name="baseXf">The pose of the dying shape.</param>
+    /// <param name="vx">The velocity x of the shape.</param>
+    /// <param name="vy">The velocity y of the shape.</param>
+    /// <param name="vz">The velocity z of the shape.</param>
+    /// <param name="terrain">The terrain.</param>
+    /// <param name="rng">The random source.</param>
+    /// <param name="param">The debris parameters, or null for the defaults.</param>
+    /// <param name="ray">The ray against the static world (interiors; the terrain is read from <paramref name="terrain"/>), or null.</param>
+    /// <param name="explode">Spawns the ExplosionData of the piece where it ends (Debris_explode 00472954 deletes the piece).</param>
+    /// <param name="cloud">Gets the secondary DebrisCloud of a piece that ends.</param>
+    /// <remarks>docs/shapes-render.md 4.4 "Dying shapes": the detail whose root node is named <c>debris0</c> if the shape has one, else detail 0.</remarks>
     public DebrisEffect(RenderInstance inst, Xf baseXf, double vx, double vy, double vz, Terrain? terrain, Random rng,
                         DebrisParams? param = null, DebrisRay? ray = null, Action<int, double, double, double>? explode = null, Action<DebrisCloudSpec>? cloud = null)
     {
@@ -252,8 +347,10 @@ public sealed class DebrisEffect : IEffect
         }
     }
 
+    /// <summary>The detail of the shape that the pieces come from.</summary>
     public int Detail { get; }
 
+    /// <inheritdoc/>
     public void Tick(double dt)
     {
         mAcc += dt;
@@ -286,6 +383,7 @@ public sealed class DebrisEffect : IEffect
         }
     }
 
+    /// <inheritdoc/>
     public void Build(FrameContext ctx)
     {
         if (!Alive)
