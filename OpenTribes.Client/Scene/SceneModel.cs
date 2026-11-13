@@ -33,17 +33,17 @@ public sealed class SceneModel
     /// <summary>True when the mission has weather.</summary>
     public bool HasWeather;
     /// <summary>The <c>$pref::weatherPrecipitation</c> switch, default 1 (shapes-render.md 4.8).</summary>
-    public bool WeatherPrecipitation = true;   // $pref::weatherPrecipitation, default 1 (shapes-render.md 4.8)
+    public bool WeatherPrecipitation = true;
     /// <summary>The random source of the effects.</summary>
     public Random Rng = new(0x8377);
     /// <summary>The scene time in seconds.</summary>
     public double Time;
     /// <summary>The sound starts, or null without audio.</summary>
-    public Audio.SceneAudio? Audio;           // C7: sound starts, null without audio
+    public Audio.SceneAudio? Audio;
     /// <summary>The <c>$pref::animateWithTransitions</c> switch, default off (3.3).</summary>
-    public bool AnimateWithTransitions;       // $pref::animateWithTransitions, default off (3.3)
+    public bool AnimateWithTransitions;
     /// <summary>The <c>$pref::playerShapeDetail</c> value.</summary>
-    public double PlayerShapeDetail = 1;      // $pref::playerShapeDetail
+    public double PlayerShapeDetail = 1;
     /// <summary>The scene light.</summary>
     public LightSet BaseLight = LightSet.Default();
     /// <summary>The shape light probe. Null means shapes keep the scene light as it is. The host that has the interiors and the terrain renderer sets it.</summary>

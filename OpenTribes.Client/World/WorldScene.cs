@@ -62,7 +62,7 @@ public sealed class WorldScene : IDisposable
     /// <summary>The world assets.</summary>
     public WorldAssets Assets = null!;
     /// <summary>The terrain for ground queries of the effects (footprints, bullet holes).</summary>
-    public OpenTribes.World.Terrain? TerrainModel;   // for ground queries of the effects (footprints, bullet holes)
+    public OpenTribes.World.Terrain? TerrainModel;
     private readonly IGfxDevice mDev;
 
     private WorldScene(IGfxDevice dev) => mDev = dev;

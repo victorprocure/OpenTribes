@@ -43,7 +43,7 @@ public sealed class RenderInstance
     /// <summary>The image list remap of the materials (1.5).</summary>
     public readonly int[] Remap;
     /// <summary>The transform of each node to shape space.</summary>
-    public readonly Xf[] NodeWorld;                // node -> shape space
+    public readonly Xf[] NodeWorld;
     /// <summary>The state of each object.</summary>
     public readonly RsObjectState[] Objects;
     /// <summary>The local rotation of each node as x, y, z, w, as animated.</summary>

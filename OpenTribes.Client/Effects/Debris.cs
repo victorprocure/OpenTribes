@@ -67,7 +67,7 @@ public readonly record struct DebrisCloudSpec(int Mask, double X, double Y, doub
 public sealed class DebrisBody
 {
     /// <summary>The SimMovement time slice 0x3d088889 (SimMovement_ctor), which Debris never changes.</summary>
-    public const double TimeSlice = 0.033333335;   // the SimMovement time slice 0x3d088889 (SimMovement_ctor), which Debris never changes
+    public const double TimeSlice = 0.033333335;
     /// <summary>The gravity.</summary>
     public const double Gravity = -20;
 

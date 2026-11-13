@@ -55,7 +55,7 @@ public sealed class ClientOptions
     private static readonly string[] ValueOptions =
         { "--root", "--log", "--input", "--screenshot-at", "--shots", "--size", "--video-driver", "--seconds", "--camera" };
 
-    // The options that select one of the single-purpose tools of C2 to C7 instead of the client.
+    // The options that select one of the single purpose tools instead of the client.
     private static readonly string[] ToolOptions =
     {
         "--show", "--gui", "--gui-census", "--gui-list", "--gui-tree", "--shape", "--shape-census", "--shape-info", "--mission",

@@ -199,7 +199,7 @@ public static class Program
         return 0;
     }
 
-    // The real client process (ROADMAP M9 C8): console.cs, the stock scripts, the frame loop.
+    // The real client process: console.cs, the stock scripts, the frame loop.
     private static int RunClient(string[] args)
     {
         App.ClientOptions? opt = App.ClientOptions.Parse(args, out string error);
