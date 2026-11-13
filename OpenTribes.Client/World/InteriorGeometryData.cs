@@ -2,34 +2,69 @@ using System.Buffers.Binary;
 
 namespace OpenTribes.Client.World;
 
-// world-render.md 3.4: the `.dig` arrays the renderer reads (docs/interiors.md 4.1 for the layout): surfaces with their
-// texture fields, vertex records, positions, texture coordinates and planes.
+/// <summary>The <c>.dig</c> arrays the renderer reads: surfaces with their texture fields, vertex records, positions, texture coordinates and planes.</summary>
+/// <remarks>world-render.md 3.4. The layout is in docs/interiors.md 4.1.</remarks>
 public sealed class InteriorGeometryData
 {
+    /// <summary>A surface of the interior.</summary>
     public struct Surface
     {
-        public byte Flags;      // bit 0 type, bits 1-4 texture scale shift, 5 applyAmbient, 6 visibleToOutside, 7 planeFront
-        public byte Material;   // 255 = none
-        public byte TexSizeX, TexSizeY, TexOffsetX, TexOffsetY; // size stored as value + 1 in the file
+        /// <summary>The flags: bit 0 type, bits 1 to 4 texture scale shift, 5 applyAmbient, 6 visibleToOutside, 7 planeFront.</summary>
+        public byte Flags;
+        /// <summary>The material index, 255 for none.</summary>
+        public byte Material;
+        /// <summary>The texture width. The file stores the value + 1.</summary>
+        public byte TexSizeX;
+        /// <summary>The texture height. The file stores the value + 1.</summary>
+        public byte TexSizeY;
+        /// <summary>The texture offset x.</summary>
+        public byte TexOffsetX;
+        /// <summary>The texture offset y.</summary>
+        public byte TexOffsetY;
+        /// <summary>The plane index.</summary>
         public ushort Plane;
+        /// <summary>The index of the first vertex record.</summary>
         public uint FirstVertex;
+        /// <summary>The index of the first point bit.</summary>
         public uint FirstPointBit;
-        public byte VertexCount, PointBitCount;
+        /// <summary>The number of vertices.</summary>
+        public byte VertexCount;
+        /// <summary>The number of point bits.</summary>
+        public byte PointBitCount;
+        /// <summary>The texture scale shift.</summary>
         public int ScaleShift => (Flags >> 1) & 0xf;
+        /// <summary>True when the surface faces the front of its plane.</summary>
         public bool PlaneFront => (Flags & 0x80) != 0;
+        /// <summary>True when the surface is visible from outside.</summary>
         public bool VisibleToOutside => (Flags & 0x40) != 0;
     }
 
+    /// <summary>The build id of the file.</summary>
     public uint BuildId;
+    /// <summary>The texture scale.</summary>
     public float TextureScale;
+    /// <summary>The box as minimum x, y, z then maximum x, y, z.</summary>
     public float[] Box = new float[6];
-    public uint HighestMipLevel, GeometryFlags;
+    /// <summary>The highest mip level.</summary>
+    public uint HighestMipLevel;
+    /// <summary>The geometry flags.</summary>
+    public uint GeometryFlags;
+    /// <summary>The surfaces.</summary>
     public Surface[] Surfaces = Array.Empty<Surface>();
-    public ushort[] VertexPoint3 = Array.Empty<ushort>(), VertexPoint2 = Array.Empty<ushort>();
-    public float[] Point3 = Array.Empty<float>(); // x y z per point
-    public float[] Point2 = Array.Empty<float>(); // u v per point
-    public float[] Planes = Array.Empty<float>(); // nx ny nz d
+    /// <summary>The index of the 3D point of each vertex record.</summary>
+    public ushort[] VertexPoint3 = Array.Empty<ushort>();
+    /// <summary>The index of the texture coordinate of each vertex record.</summary>
+    public ushort[] VertexPoint2 = Array.Empty<ushort>();
+    /// <summary>The 3D points: x, y, z per point.</summary>
+    public float[] Point3 = Array.Empty<float>();
+    /// <summary>The texture coordinates: u, v per point.</summary>
+    public float[] Point2 = Array.Empty<float>();
+    /// <summary>The planes: nx, ny, nz, d.</summary>
+    public float[] Planes = Array.Empty<float>();
 
+    /// <summary>Reads the arrays of a <c>.dig</c> file.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <returns>The data, or null when the file is not valid.</returns>
     public static InteriorGeometryData? Parse(byte[] d)
     {
         try
