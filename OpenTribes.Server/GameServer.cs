@@ -204,11 +204,11 @@ public sealed class GameServer
                     moveable = moveable || GameUtil.EqualsNoCase(o.ClassName(), "Moveable");
             if (moveable && pts.Count != 0)
             {
-                var (Delta, Rot, Pos) = pts[pts.Count > 1 ? 1 : 0];
+                var (delta2, rot3, pos3) = pts[pts.Count > 1 ? 1 : 0];
                 for (var k = 0; k < 3; ++k)
                 {
-                    pts[0].Delta[k] = SubF(Rot[k], pts[0].Rot[k]);
-                    pts[0].Delta[3 + k] = SubF(Pos[k], pts[0].Pos[k]);
+                    pts[0].Delta[k] = SubF(rot3[k], pts[0].Rot[k]);
+                    pts[0].Delta[3 + k] = SubF(pos3[k], pts[0].Pos[k]);
                 }
             }
             var looping = false;
@@ -222,9 +222,9 @@ public sealed class GameServer
             w.PutFlag(true);
             w.PutFlag(looping);
             w.PutInt((uint)pts.Count, 32);
-            foreach (var (Delta, Rot, Pos) in pts)
-                foreach (var f in new[] { Delta[0], Delta[1], Delta[2], Delta[3], Delta[4], Delta[5], Rot[0], Rot[1],
-                                            Rot[2], Pos[0], Pos[1], Pos[2] })
+            foreach (var (delta, rot2, pos2) in pts)
+                foreach (var f in new[] { delta[0], delta[1], delta[2], delta[3], delta[4], delta[5], rot2[0], rot2[1],
+                                            rot2[2], pos2[0], pos2[1], pos2[2] })
                     w.PutInt(BitConverter.SingleToUInt32Bits(f), 32);
             output.Add(w.Finish(0x425, false, false));
         }
@@ -326,7 +326,7 @@ public sealed class GameServer
             if (_clients.TryGetValue(id, out var cc))
                 foreach (var e in PathEvents())
                     cc.Stream!.Post(e);
-            _in.CallFunction("onServerGhostAlwaysDone", new[] { Numbers.FormatInt(id) });
+            _in.CallFunction("onServerGhostAlwaysDone", [Numbers.FormatInt(id)]);
         };
         _order.Insert(0, id);
 
@@ -338,7 +338,7 @@ public sealed class GameServer
 
         // Join: teams, players, then the script greeting, then datablocks (player-manager.md 4.1).
         _game.Players.AddClient(id, p.Name, p.Voice, p.Male); // NetServer caps ids below 2176
-        _in.CallFunction("Server::onClientConnect", new[] { Numbers.FormatInt(id) });
+        _in.CallFunction("Server::onClientConnect", [Numbers.FormatInt(id)]);
         QueueDataBlocks(c.Stream);
     }
 

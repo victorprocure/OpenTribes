@@ -282,7 +282,7 @@ public static class Program
             if (evalFile.Length != 0)
             {
                 // Test hook: evaluate console lines after start-up; each line's output ends with "\x01".
-                using CFile? input = CFile.Open(evalFile);
+                using var input = CFile.Open(evalFile);
                 StdIo.Write("\x01\n"); // end of start-up output
                 string? line;
                 while (input != null && (line = input.Fgets(8192)) != null)

@@ -5,8 +5,8 @@ using OpenTribes.Core;
 /// <summary>The stdio streams of the C++ server. Byte strings go out as their bytes. Stdout is line buffered (<c>setvbuf _IOLBF</c> in src/server/main.cpp).</summary>
 public static class StdIo
 {
-    private static readonly Stream sOut = Console.OpenStandardOutput();
-    private static readonly Stream sErr = Console.OpenStandardError();
+    private static readonly Stream OutWriter = Console.OpenStandardOutput();
+    private static readonly Stream ErrWriter = Console.OpenStandardError();
     private static readonly Lock Lock = new();
 
     private static string CStr(string s)
@@ -25,9 +25,9 @@ public static class StdIo
     {
         lock (Lock)
         {
-            sOut.Write(ByteString.ToBytes(text));
+            OutWriter.Write(ByteString.ToBytes(text));
             if (text.Contains('\n'))
-                sOut.Flush();
+                OutWriter.Flush();
         }
     }
 
@@ -35,14 +35,14 @@ public static class StdIo
     public static void Flush()
     {
         lock (Lock)
-            sOut.Flush();
+            OutWriter.Flush();
     }
 
     /// <summary>Writes unbuffered text to stderr.</summary>
     /// <param name="text">The text.</param>
     public static void Err(string text)
     {
-        sErr.Write(ByteString.ToBytes(text));
-        sErr.Flush();
+        ErrWriter.Write(ByteString.ToBytes(text));
+        ErrWriter.Flush();
     }
 }

@@ -27,7 +27,7 @@ public sealed class TelnetSession
         public Action<byte[]> Send { get; set; } = _ => { };
     }
 
-    private const string kBanner = "SimEngine Telnet Provider\r\n\r\nEnter Password:";
+    private const string BannerText = "SimEngine Telnet Provider\r\n\r\nEnter Password:";
     private const string Retry = "Nope... try agian.\r\nEnter Password:";
     private const string TooMany = "Too many tries... cya.";
 
@@ -37,7 +37,7 @@ public sealed class TelnetSession
 
     /// <summary>Gets the banner sent with its NUL when a client is accepted.</summary>
     /// <returns>The banner text.</returns>
-    public static string Banner() => kBanner;
+    public static string Banner() => BannerText;
 
     /// <summary>Tells whether the client gave the right password.</summary>
     /// <returns>True once authenticated.</returns>

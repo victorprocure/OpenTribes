@@ -41,11 +41,17 @@ public sealed class GameInfo
 {
     /// <summary>The server variables the reply reports, as script text.</summary>
     public string Hostname { get; set; } = "";
+    /// <inheritdoc cref="Hostname"/>
     public string Password { get; set; } = "";
+    /// <inheritdoc cref="Hostname"/>
     public string MaxPlayers { get; set; } = "";
+    /// <inheritdoc cref="Hostname"/>
     public string Info { get; set; } = "";
+    /// <inheritdoc cref="Hostname"/>
     public string ModList { get; set; } = "";
+    /// <inheritdoc cref="Hostname"/>
     public string MissionType { get; set; } = "";
+    /// <inheritdoc cref="Hostname"/>
     public string MissionName { get; set; } = "";
     /// <summary>True for a dedicated server.</summary>
     public bool Dedicated { get; set; } = true;
@@ -57,6 +63,7 @@ public sealed class GameInfo
     public int TeamCount { get; set; } = -1;
     /// <summary>The headings of the team and client columns in the info reply.</summary>
     public string TeamHeading { get; set; } = "";
+    /// <inheritdoc cref="TeamHeading"/>
     public string ClientHeading { get; set; } = "";
 
     /// <summary>One team row of the info reply. Port of src/server/net_server.hpp GameInfo::TeamRow.</summary>
@@ -64,6 +71,7 @@ public sealed class GameInfo
     {
         /// <summary>The team name and the score text as set by <c>Team::setScore</c>.</summary>
         public string Name { get; set; }
+        /// <inheritdoc cref="Name"/>
         public string Score { get; set; }
         /// <summary>The sort value. Rows sort by descending value.</summary>
         /// <summary>The sort value.</summary>
