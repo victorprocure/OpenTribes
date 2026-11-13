@@ -4,6 +4,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The <c>AI::*</c> and <c>BaseRep::*</c> console commands.</summary>
+/// <remarks>Plugin 0x0043f684 and 0x0043f8fc (docs/ai-sim.md 6). A C++ handler sets its result through a reference and returns true. Here it returns the result.</remarks>
 public static class AICommands
 {
     private static readonly string[] kSpawnUsage =
@@ -140,7 +142,9 @@ public static class AICommands
     // src/game/ai_commands.cpp truncName.
     private static string TruncName(string s) => s.Length > 31 ? s[..31] : s;
 
-    // src/game/ai_commands.cpp registerAICommands.
+    /// <summary>Registers the AI and BaseRep commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="g">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState g)
     {
         // Wildcard commands (ids 7+): argc < 2 runs the handler once without an AI.

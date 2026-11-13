@@ -5,10 +5,17 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The SeekingMissile steering helpers (pj::seekerRotate, seekerLead, seekerSteer).</summary>
+/// <remarks>See docs/projectile-sim.md 2.6 and 5.2. The x87 fsincos of the original is Math.Sin and Math.Cos.</remarks>
 public static class Seeker
 {
-    // src/game/projectile_seeker.cpp pj::seekerRotate: SeekingMissile steering rotation (0x0046680f): the heading `vn`
-    // turned by `ang` toward the unit aim `an`, scaled to the muzzle velocity (docs/projectile-sim.md 2.6).
+    /// <summary>Turns the heading toward the aim by an angle, scaled to the muzzle velocity.</summary>
+    /// <param name="vn">The unit heading.</param>
+    /// <param name="an">The unit aim.</param>
+    /// <param name="ang">The turn angle.</param>
+    /// <param name="muzzle">The muzzle velocity.</param>
+    /// <param name="output">Receives the new velocity.</param>
+    /// <remarks>Follows the SeekingMissile steering rotation (0x0046680f, docs/projectile-sim.md 2.6).</remarks>
     public static void SeekerRotate(ReadOnlySpan<float> vn, ReadOnlySpan<float> an, float ang, float muzzle, Span<float> output)
     {
         // axis = an x vn (m_cross 005ece6f: products and difference in extended precision, one f32 store), normalised; the
@@ -52,9 +59,14 @@ public static class Seeker
             output[i] = X87.F32(Mul(muzzle, r[i]));
     }
 
-    // src/game/projectile_seeker.cpp pj::seekerLead: SeekingMissile aim without obstacles (0x004671b8, 0x00467252):
-    // d = tp - p, t = f32(f32(|d|) / muzzleVelocity), lead = d + f32(targetVelocity x t); a null velocity is a missile
-    // without target.
+    /// <summary>Computes the missile aim without obstacles.</summary>
+    /// <param name="p">The missile position.</param>
+    /// <param name="tp">The target position.</param>
+    /// <param name="targetVelocity">The target velocity, or null for a missile without target.</param>
+    /// <param name="muzzle">The muzzle velocity.</param>
+    /// <param name="d">Receives the vector from the missile to the target.</param>
+    /// <param name="lead">Receives the lead point.</param>
+    /// <remarks>Follows 0x004671b8 and 0x00467252: <c>d = tp - p</c>, <c>t = f32(f32(|d|) / muzzleVelocity)</c>, <c>lead = d + f32(targetVelocity x t)</c>.</remarks>
     public static void SeekerLead(ReadOnlySpan<float> p, ReadOnlySpan<float> tp, float[]? targetVelocity, float muzzle, Span<float> d,
                                   Span<float> lead)
     {
@@ -68,9 +80,16 @@ public static class Seeker
     // The 80-bit constant 0.001 at 0x004669a4, rounded to 53 bits.
     private const double kMilli = 0.001;
 
-    // src/game/projectile_seeker.cpp pj::seekerSteer: SeekingMissile_steer (0x00466664) on values: 0 velocity kept (aim
-    // behind, or not tracking), 1 snapped to the aim direction, 2 rotated toward it by the turn rate. `output` is the
-    // new velocity.
+    /// <summary>Steers the missile velocity toward the aim.</summary>
+    /// <param name="v">The current velocity.</param>
+    /// <param name="aim">The aim direction.</param>
+    /// <param name="ms">The step length in milliseconds.</param>
+    /// <param name="turnRate">The turn rate.</param>
+    /// <param name="muzzle">The muzzle velocity.</param>
+    /// <param name="tracking">True while the missile tracks a target.</param>
+    /// <param name="output">Receives the new velocity.</param>
+    /// <returns>0 when the velocity is kept (aim behind, or not tracking), 1 when it snaps to the aim direction, 2 when it is rotated toward it by the turn rate.</returns>
+    /// <remarks>Follows SeekingMissile_steer (0x00466664).</remarks>
     public static int SeekerSteer(ReadOnlySpan<float> v, ReadOnlySpan<float> aim, int ms, float turnRate, float muzzle, bool tracking,
                                   Span<float> output)
     {

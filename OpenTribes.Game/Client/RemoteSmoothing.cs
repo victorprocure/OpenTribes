@@ -11,15 +11,21 @@ using OpenTribes.Sim;
 
 namespace OpenTribes.Game;
 
-// The window arithmetic of 1.11.
+/// <summary>The smoothing window arithmetic of 1.11.</summary>
 public static class SmoothWindow
 {
+    /// <summary>The tick length in ms.</summary>
     public const uint Tick = 32;
-    public const int DefaultInterpolate = 64, DefaultPredict = 0;
-    // The step loops are unsigned: a negative predict time would loop 2^27 times. The copy stops at this many ticks.
+    /// <summary>The default interpolation time in ms (<c>$net::interpolateTime</c>).</summary>
+    public const int DefaultInterpolate = 64;
+    /// <summary>The default predict forward time in ms (<c>$net::predictForwardTime</c>).</summary>
+    public const int DefaultPredict = 0;
+    /// <summary>The most ticks a copy steps. The step loops are unsigned, so a negative predict time would loop 2^27 times.</summary>
     public const int MaxTicks = 4096;
 
-    // Tick count of the loops at 0x004140f7 and 0x0044600d: edi = predict + 32, esi = 0, while (esi < edi) { step; esi += 32 }.
+    /// <summary>Returns the tick count of the step loops.</summary>
+    /// <param name="predict">The predict forward time in ms.</param>
+    /// <returns>The tick count, as the loops at 0x004140f7 and 0x0044600d run: <c>edi = predict + 32, esi = 0, while (esi &lt; edi) { step; esi += 32 }</c>.</returns>
     public static int Ticks(int predict)
     {
         uint limit = unchecked((uint)predict + 32u);
@@ -27,34 +33,60 @@ public static class SmoothWindow
         return (int)Math.Min(n, (ulong)MaxTicks);
     }
 
-    // Player 0x00414133: a zero interpolation time or the snap flag of the update (flag10000) takes the snap path.
+    /// <summary>Tells whether a Player update takes the snap path.</summary>
+    /// <param name="interpolate">The interpolation time in ms.</param>
+    /// <param name="snapFlag">The snap flag of the update (flag10000).</param>
+    /// <returns>True for a zero interpolation time or the snap flag.</returns>
+    /// <remarks>Follows Player 0x00414133.</remarks>
     public static bool PlayerSnap(int interpolate, bool snapFlag) => interpolate == 0 || snapFlag;
 
-    // Vehicle 0x0044604f: only a zero interpolation time snaps.
+    /// <summary>Tells whether a Vehicle update takes the snap path.</summary>
+    /// <param name="interpolate">The interpolation time in ms.</param>
+    /// <returns>True for a zero interpolation time.</returns>
+    /// <remarks>Follows Vehicle 0x0044604f.</remarks>
     public static bool VehicleSnap(int interpolate) => interpolate == 0;
 
-    // 0x0041414b and 0x00446071: (now + interpolate + 31) & ~31.
+    /// <summary>Returns the end of the smoothing window: <c>(now + interpolate + 31) &amp; ~31</c>.</summary>
+    /// <param name="now">The current time in ms.</param>
+    /// <param name="interpolate">The interpolation time in ms.</param>
+    /// <returns>The end time.</returns>
+    /// <remarks>Follows 0x0041414b and 0x00446071.</remarks>
     public static uint End(uint now, int interpolate) => unchecked(now + (uint)interpolate + 31u) & ~31u;
 
-    // The snap path: now & ~31.
+    /// <summary>Returns the time of the snap path, <c>now &amp; ~31</c>.</summary>
+    /// <param name="now">The current time in ms.</param>
+    /// <returns>The time rounded down to a tick.</returns>
     public static uint Floor(uint now) => now & ~31u;
 }
 
-// A remote Player ghost: the simulated copy and its smoothing state.
+/// <summary>A remote Player ghost: the simulated copy and its smoothing state.</summary>
 public sealed class RemotePlayer
 {
     private const double Pi = 3.141592653589793, TwoPi = 6.283185307179586;
 
+    /// <summary>The simulated Player copy.</summary>
     public readonly Player P;
-    public uint SimTime;                                   // +0x218
-    public uint End;                                       // +0x1020
-    public uint LastTime;                                  // +0x21c: the time of the last frame
-    public readonly float[] PosRate = new float[3];        // +0x788: per ms in a window, per tick after a step
-    public float YawRate, PitchRate;                       // +0x794, +0x798
+    /// <summary>The time the copy is simulated up to (+0x218).</summary>
+    public uint SimTime;
+    /// <summary>The end of the smoothing window (+0x1020).</summary>
+    public uint End;
+    /// <summary>The time of the last frame (+0x21c).</summary>
+    public uint LastTime;
+    /// <summary>The position rate (+0x788): per ms in a window, per tick after a step.</summary>
+    public readonly float[] PosRate = new float[3];
+    /// <summary>The yaw rate (+0x794).</summary>
+    public float YawRate;
+    /// <summary>The pitch rate (+0x798).</summary>
+    public float PitchRate;
+    /// <summary>The number of steps run.</summary>
     public long Steps;
-    public int MountGhost = -1;                            // the ghost index of the mount object (+0x1028), -1 none
-    public int MountPoint;                                 // +0x102c
+    /// <summary>The ghost index of the mount object (+0x1028), -1 for none.</summary>
+    public int MountGhost = -1;
+    /// <summary>The mount point (+0x102c).</summary>
+    public int MountPoint;
 
+    /// <summary>Creates the smoothing state of a Player copy.</summary>
+    /// <param name="p">The Player copy.</param>
     public RemotePlayer(Player p)
     {
         P = p;
@@ -62,9 +94,9 @@ public sealed class RemotePlayer
         P.LocallyControlled = false;
     }
 
-    // GameBase_onAdd 0x00448108 (registration, after the first unpack of a new ghost): +0x218 and +0x21c = the client time
-    // (`mov edx,[0x6a8494]; mov eax,[edx+4]`, 0x6a8494 = &0x6a839c, +4 = 0x6a83a0), not rounded down to a tick. It replaces the
-    // `now & ~31` of the unregistered paths in 0x0041405c and 0x00445f68.
+    /// <summary>Registers the copy after the first unpack of a new ghost.</summary>
+    /// <param name="now">The client time in ms.</param>
+    /// <remarks>Follows GameBase_onAdd (0x00448108): +0x218 and +0x21c become the client time (<c>mov edx,[0x6a8494]; mov eax,[edx+4]</c>, 0x6a8494 = &amp;0x6a839c, +4 = 0x6a83a0), not rounded down to a tick. It replaces the <c>now &amp; ~31</c> of the unregistered paths in 0x0041405c and 0x00445f68.</remarks>
     public void Register(uint now)
     {
         SimTime = now;
@@ -78,7 +110,13 @@ public sealed class RemotePlayer
         PitchRate = 0;
     }
 
-    // A ghost that is not registered yet (Player_unpackUpdate, object +0x44 clear): the state is set directly.
+    /// <summary>Sets the state directly for a ghost that is not registered yet (Player_unpackUpdate, object +0x44 clear).</summary>
+    /// <param name="now">The current time in ms.</param>
+    /// <param name="pos">The position.</param>
+    /// <param name="vel">The velocity.</param>
+    /// <param name="yaw">The yaw.</param>
+    /// <param name="pitch">The pitch.</param>
+    /// <param name="contact">True on contact.</param>
     public void Place(uint now, ReadOnlySpan<float> pos, ReadOnlySpan<float> vel, float yaw, float pitch, bool contact)
     {
         SimTime = SmoothWindow.Floor(now);
@@ -94,7 +132,19 @@ public sealed class RemotePlayer
         ZeroRates();
     }
 
-    // Player_applyControlState 0x0041405c.
+    /// <summary>Applies the control state of an update: steps the copy forward and sets the smoothing window.</summary>
+    /// <param name="now">The current time in ms.</param>
+    /// <param name="move">The echoed move.</param>
+    /// <param name="pos">The position.</param>
+    /// <param name="vel">The velocity.</param>
+    /// <param name="contact">True on contact.</param>
+    /// <param name="pitch">The pitch.</param>
+    /// <param name="yaw">The yaw.</param>
+    /// <param name="ticksWithoutMove">The ticks without a move.</param>
+    /// <param name="snapFlag">The snap flag of the update.</param>
+    /// <param name="interpolate">The interpolation time in ms.</param>
+    /// <param name="predict">The predict forward time in ms.</param>
+    /// <remarks>Follows Player_applyControlState (0x0041405c).</remarks>
     public void Update(uint now, in Move move, ReadOnlySpan<float> pos, ReadOnlySpan<float> vel, bool contact, float pitch, float yaw,
                        int ticksWithoutMove, bool snapFlag, int interpolate, int predict)
     {
@@ -181,7 +231,9 @@ public sealed class RemotePlayer
         PitchRate = P.Pitch - pitchBefore;
     }
 
-    // Player_clientUpdate 0x00414c38 for a Player that is not controlled and not dead.
+    /// <summary>Advances a Player that is not controlled and not dead by one frame.</summary>
+    /// <param name="now">The current time in ms.</param>
+    /// <remarks>Follows Player_clientUpdate (0x00414c38).</remarks>
     public void Advance(uint now)
     {
         if (SimTime == now)
@@ -217,25 +269,35 @@ public sealed class RemotePlayer
     }
 }
 
-// A remote Vehicle or Flier ghost: the simulated copy and its smoothing state.
+/// <summary>A remote Vehicle or Flier ghost: the simulated copy and its smoothing state.</summary>
 public sealed class RemoteVehicle
 {
     private const double Pi = 3.141592653589793, TwoPi = 6.283185307179586;
 
+    /// <summary>The simulated Vehicle copy.</summary>
     public readonly Vehicle V;
-    public uint SimTime;                                   // +0x218
-    public uint End;                                       // +0x8e0
-    public readonly float[] PosRate = new float[3];        // +0x914, per ms
-    public readonly float[] RotRate = new float[3];        // +0x908, per ms
+    /// <summary>The time the copy is simulated up to (+0x218).</summary>
+    public uint SimTime;
+    /// <summary>The end of the smoothing window (+0x8e0).</summary>
+    public uint End;
+    /// <summary>The position rate per ms (+0x914).</summary>
+    public readonly float[] PosRate = new float[3];
+    /// <summary>The rotation rate per ms (+0x908).</summary>
+    public readonly float[] RotRate = new float[3];
+    /// <summary>The number of steps run.</summary>
     public long Steps;
 
+    /// <summary>Creates the smoothing state of a Vehicle copy.</summary>
+    /// <param name="v">The Vehicle copy.</param>
     public RemoteVehicle(Vehicle v)
     {
         V = v;
         V.ClientSide = true;
     }
 
-    // GameBase_onAdd 0x00448108: +0x218 = the client time (see RemotePlayer.Register).
+    /// <summary>Registers the copy: +0x218 becomes the client time (see <see cref="RemotePlayer.Register"/>).</summary>
+    /// <param name="now">The client time in ms.</param>
+    /// <remarks>Follows GameBase_onAdd (0x00448108).</remarks>
     public void Register(uint now) => SimTime = now;
 
     private void ZeroRates()
@@ -244,7 +306,9 @@ public sealed class RemoteVehicle
         Array.Clear(RotRate);
     }
 
-    // The update without the move block: the state is set directly and the rates are cleared; the window is not touched.
+    /// <summary>Applies an update without the move block: the state is set directly and the rates are cleared. The window is not touched.</summary>
+    /// <param name="rot">The rotation.</param>
+    /// <param name="pos">The position.</param>
     public void Place(ReadOnlySpan<float> rot, ReadOnlySpan<float> pos)
     {
         ZeroRates();
@@ -252,7 +316,17 @@ public sealed class RemoteVehicle
         V.SetPosition(pos);
     }
 
-    // Vehicle_clientSetState 0x00445f68. `speedF` goes to +0x940 and `speedL` to +0x898 for the forward steps only.
+    /// <summary>Applies the state of an update.</summary>
+    /// <param name="now">The current time in ms.</param>
+    /// <param name="move">The echoed move.</param>
+    /// <param name="pos">The position.</param>
+    /// <param name="rot">The rotation.</param>
+    /// <param name="ticksWithoutMove">The ticks without a move.</param>
+    /// <param name="speedL">The lift speed, stored at +0x898 for the forward steps only.</param>
+    /// <param name="speedF">The forward speed, stored at +0x940 for the forward steps only.</param>
+    /// <param name="interpolate">The interpolation time in ms.</param>
+    /// <param name="predict">The predict forward time in ms.</param>
+    /// <remarks>Follows Vehicle_clientSetState (0x00445f68).</remarks>
     public void SetState(uint now, in Move move, ReadOnlySpan<float> pos, ReadOnlySpan<float> rot, int ticksWithoutMove,
                          float speedL, float speedF, int interpolate, int predict)
     {
@@ -304,7 +378,9 @@ public sealed class RemoteVehicle
         V.SpeedL = oldL;
     }
 
-    // Vehicle_clientUpdate 0x0044549c for a Vehicle that is not the control object.
+    /// <summary>Advances a Vehicle that is not the control object by one frame.</summary>
+    /// <param name="now">The current time in ms.</param>
+    /// <remarks>Follows Vehicle_clientUpdate (0x0044549c).</remarks>
     public void Advance(uint now)
     {
         if (SimTime == now)

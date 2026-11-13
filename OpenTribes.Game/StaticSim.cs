@@ -8,32 +8,39 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/mission_objects.hpp class SimPathObject: SimPath (docs/static-sim.md 2.2): a group of waypoint markers.
-// onAdd registers the children and then records one point per child that has a transform; the path id is the
-// registration order (SimPathManager, object 42).
+/// <summary>A SimPath: a group of waypoint markers, with the path id given by the registration order (SimPathManager, object 42).</summary>
+/// <remarks>Port of class SimPathObject in src/game/mission_objects.hpp (docs/static-sim.md 2.2). OnAdd registers the children and then records one point per child that has a transform.</remarks>
 public sealed class SimPathObject : SimGroup
 {
-    // src/game/mission_objects.hpp SimPathObject::Point.
+    /// <summary>One point of the path.</summary>
     public sealed class Point
     {
-        public readonly float[] Pos = new float[3], Rot = new float[3]; // rotation as Euler angles
+        /// <summary>The point position.</summary>
+        public readonly float[] Pos = new float[3];
+        /// <summary>The point rotation as Euler angles.</summary>
+        public readonly float[] Rot = new float[3];
     }
 
     private readonly PersistFields mFields = new(new PersistDef[] { new("isLooping", 4, 1), new("isCompressed", 4, 1) });
     private readonly List<Point> mPoints = new();
 
+    /// <inheritdoc/>
     public override string ClassName() => "SimPath";
+    /// <summary>Tells whether the path loops (<c>isLooping</c>).</summary>
+    /// <returns>True for a looping path.</returns>
     public bool Looping() => mFields.Boolean("isLooping", false);
+    /// <summary>Returns the points of the path.</summary>
+    /// <returns>The points in order.</returns>
     public IReadOnlyList<Point> Points() => mPoints;
 
-    // src/game/static_sim.cpp SimPathObject::setPersistField.
+    /// <inheritdoc/>
     public override bool SetPersistField(string field, IReadOnlyList<string> values) => mFields.Set(field, values);
 
-    // src/game/static_sim.cpp SimPathObject::persistValue.
+    /// <inheritdoc/>
     public override IReadOnlyList<string>? PersistValue(string field) => mFields.Get(field);
 
-    // src/game/static_sim.cpp SimPathObject::onAdd: 0x0052beec: the children register first (SimSet::onAdd), then one
-    // record per child that answers query 0x401 (a transform): translation and the Euler angles of the matrix.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0052beec: the children register first (SimSet::onAdd), then one record per child that answers query 0x401 (a transform): translation and the Euler angles of the matrix.</remarks>
     public override bool OnAdd()
     {
         if (!base.OnAdd())
@@ -54,9 +61,13 @@ public sealed class SimPathObject : SimGroup
         return true;
     }
 
-    // src/game/static_sim.cpp SimPathObject::point: SimPathManager getPoint (0x0052b2d4): the number of points (0 when
-    // empty). `rec` is point `i` (a looping path takes i modulo the count) with the position and rotation deltas to the
-    // next point, the last one to point 0.
+    /// <summary>Reads a point of the path with the deltas to the next point.</summary>
+    /// <param name="i">The point index. A looping path takes it modulo the count.</param>
+    /// <param name="rec">Receives point <paramref name="i"/>.</param>
+    /// <param name="dpos">Receives the position delta to the next point, the last one to point 0.</param>
+    /// <param name="drot">Receives the rotation delta to the next point, the last one to point 0.</param>
+    /// <returns>The number of points, 0 when empty.</returns>
+    /// <remarks>Follows the SimPathManager getPoint (0x0052b2d4).</remarks>
     public int GetPoint(int i, out Point rec, Span<float> dpos, Span<float> drot)
     {
         rec = new Point();
@@ -84,7 +95,7 @@ public partial class GameBase
     // src/game/static_sim.cpp len3: len(a) = sqrt((x*x + y*y) + z*z), unrounded (0x005ed014).
     internal static double Len3(ReadOnlySpan<float> v) => Sqrt(Add(Add(Mul(v[0], v[0]), Mul(v[1], v[1])), Mul(v[2], v[2])));
 
-    // src/game/static_sim.cpp GameBase::serverTick: tick dispatch.
+    /// <inheritdoc/>
     public override void ServerTick(uint tickMs)
     {
         switch (mShapeClass)
@@ -106,8 +117,9 @@ public partial class GameBase
         }
     }
 
-    // src/game/static_sim.cpp GameBase::staticTick: StaticBase::serverTick (0x0044fd78): collision records, threads,
-    // recharge, repair, damage state; every step takes dt 0.03 (0x3cf5c28f) although a tick is 0.032 s.
+    /// <summary>Runs one tick of a StaticBase object: collision records, threads, recharge, repair and damage state.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows StaticBase::serverTick (0x0044fd78). Every step takes dt 0.03 (0x3cf5c28f) although a tick is 0.032 s.</remarks>
     public void StaticTick(float dt)
     {
         if (!IsStaticBase() || !ShapeBound)
@@ -160,7 +172,8 @@ public partial class GameBase
 
     // ---- collision callback records (docs/static-sim.md 1.8, docs/collision.md E1.4) ----
 
-    // src/game/static_sim.cpp GameBase::expireCollisions: 0x00448248: the list goes when every expiry has passed.
+    /// <summary>Drops the collision records once every expiry has passed.</summary>
+    /// <remarks>Follows 0x00448248.</remarks>
     public void ExpireCollisions()
     {
         if (CollisionRecords.Count == 0 || Manager() == null)
@@ -169,8 +182,10 @@ public partial class GameBase
             CollisionRecords.Clear();
     }
 
-    // src/game/static_sim.cpp GameBase::onCollision: vtable +0x140, 0x00448840. The record of `other` is found from
-    // index 0; a record that expired earlier in the list is taken over with expiry 0; else one is appended.
+    /// <summary>Records a collision with another object.</summary>
+    /// <param name="other">The other object.</param>
+    /// <param name="services">The game services, or null.</param>
+    /// <remarks>Follows vtable +0x140 (0x00448840). The record of <paramref name="other"/> is found from index 0. A record that expired earlier in the list is taken over with expiry 0, else one is appended.</remarks>
     public void OnCollision(GameBase other, GameServices? services = null)
     {
         GameServices? game = services ?? mCtx.Game;
@@ -208,8 +223,9 @@ public partial class GameBase
         game.ScriptCallback(this, "onCollision", new[] { Numbers.FormatInt(other.Id()) });
     }
 
-    // src/game/static_sim.cpp GameBase::onCollisionNotify: vtable +0xe8. Server only; the accepted types are the
-    // per-class masks of docs/collision.md E1.4. The type bits come from the container classes.
+    /// <summary>Notifies the object of a collision. Server only.</summary>
+    /// <param name="other">The other object.</param>
+    /// <remarks>Follows vtable +0xe8. The accepted types are the per-class masks of docs/collision.md E1.4. The type bits come from the container classes.</remarks>
     public void OnCollisionNotify(GameBase other)
     {
         uint type;
@@ -264,7 +280,9 @@ public partial class GameBase
 
     // ---- energy, repair, shield, fade ----
 
-    // src/game/static_sim.cpp GameBase::setEnergy: 0x0044bd78: clamped to [0, maxEnergy].
+    /// <summary>Sets the energy, clamped to [0, maxEnergy].</summary>
+    /// <param name="v">The new energy.</param>
+    /// <remarks>Follows 0x0044bd78.</remarks>
     public void SetEnergy(float v)
     {
         Energy = v;
@@ -274,7 +292,9 @@ public partial class GameBase
             Energy = 0;
     }
 
-    // src/game/static_sim.cpp GameBase::rechargeStep: 0x0044b5b0.
+    /// <summary>Recharges the energy for one step.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows 0x0044b5b0.</remarks>
     public void RechargeStep(float dt)
     {
         using var chop = ChopScope();
@@ -285,14 +305,18 @@ public partial class GameBase
             Energy = 0;
     }
 
-    // src/game/static_sim.cpp GameBase::repairDamage: 0x0044bc40: only an object with damage, and a positive amount.
+    /// <summary>Repairs damage. Only an object with damage takes a positive amount.</summary>
+    /// <param name="amount">The repair amount.</param>
+    /// <remarks>Follows 0x0044bc40.</remarks>
     public void RepairDamage(float amount)
     {
         if (Damage != 0 && amount > 0)
             RepairPending = Store(Add(RepairPending, amount));
     }
 
-    // src/game/static_sim.cpp GameBase::repairStep: 0x0044b610. Pending repair is applied at repairRate per second.
+    /// <summary>Applies the pending repair at repairRate per second.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows 0x0044b610.</remarks>
     public void RepairStep(float dt)
     {
         using var chop = ChopScope();
@@ -327,8 +351,10 @@ public partial class GameBase
         }
     }
 
-    // src/game/static_sim.cpp GameBase::activateShield: 0x0044bb58: the stored direction is -vec normalised (no
-    // zero-length guard), the second value the z offset; mask 0x80.
+    /// <summary>Activates the shield effect.</summary>
+    /// <param name="vec">The hit vector. The stored direction is <c>-vec</c> normalised, without a zero-length guard.</param>
+    /// <param name="zOffset">The second stored value, the z offset.</param>
+    /// <remarks>Follows 0x0044bb58. Sets mask 0x80.</remarks>
     public void ActivateShield(ReadOnlySpan<float> vec, float zOffset)
     {
         using var chop = ChopScope();
@@ -339,7 +365,9 @@ public partial class GameBase
         SetMaskBits(0x80);
     }
 
-    // src/game/static_sim.cpp GameBase::startFade: 0x0044eed4 / 0x0044ef7c on a server object.
+    /// <summary>Starts a fade on a server object.</summary>
+    /// <param name="state">The fade state.</param>
+    /// <remarks>Follows 0x0044eed4 and 0x0044ef7c.</remarks>
     public void StartFade(int state)
     {
         FadeState = state;
@@ -347,20 +375,21 @@ public partial class GameBase
         SetMaskBits(0x200);
     }
 
-    // src/game/static_sim.cpp GameBase::simTimeMs: the tick time in milliseconds (the global at 0x006a8494 + 4).
+    /// <summary>Returns the tick time in milliseconds (the global at 0x006a8494 + 4).</summary>
+    /// <returns>The time in milliseconds, 0 without a manager.</returns>
     public uint SimTimeMs() =>
         Manager() != null ? (uint)(long)Math.Round(Mul(Manager()!.Time(), 1000.0), MidpointRounding.AwayFromZero) : 0u;
 
-    // src/game/static_sim.cpp GameBase::updateFade: 0x0044cff8, end of the pack: 0x9c4 ms after the start a fade in is
-    // over.
+    /// <summary>Ends a fade in once 0x9c4 ms have passed since the start.</summary>
+    /// <remarks>Follows 0x0044cff8, end of the pack.</remarks>
     public void UpdateFade()
     {
         if (FadeState == 2 && FadeStart + 2500u <= SimTimeMs())
             FadeState = 0;
     }
 
-    // src/game/static_sim.cpp GameBase::postDelayedDelete: 0x0044f9a0: a server object with deleteOnDestroy posts event
-    // 0x401 to itself at manager time + 0.5; the handler (0x0044ffb4) deletes it. Leaving Destroyed does not cancel it.
+    /// <summary>Posts the delayed delete of a destroyed object.</summary>
+    /// <remarks>Follows 0x0044f9a0: a server object with deleteOnDestroy posts event 0x401 to itself at manager time + 0.5. The handler (0x0044ffb4) deletes it. Leaving Destroyed does not cancel it.</remarks>
     public void PostDelayedDelete()
     {
         if (!DeleteOnDestroy || Manager() == null)
@@ -521,9 +550,11 @@ public partial class GameBase
         }
     }
 
-    // src/game/static_sim.cpp GameBase::setPath: 0x00443974: store the id, read the point count, script onNewPath, load
-    // the segment of the current waypoint and snap to it without the collision test; stopped unless a state was
-    // requested earlier; mask 0x2000.
+    /// <summary>Sets the path of a Moveable.</summary>
+    /// <param name="id">The path id.</param>
+    /// <param name="points">The number of points of the path.</param>
+    /// <returns>True when the path was set.</returns>
+    /// <remarks>Follows 0x00443974: stores the id, reads the point count, calls the script onNewPath, loads the segment of the current waypoint and snaps to it without the collision test. The Moveable is stopped unless a state was requested earlier. Sets mask 0x2000.</remarks>
     public bool SetPath(int id, int points)
     {
         _ = points;
@@ -663,7 +694,9 @@ public partial class GameBase
         }
     }
 
-    // src/game/static_sim.cpp GameBase::setMoveState: 0x00443a40, server part. With no path only the state is stored.
+    /// <summary>Sets the move state of a Moveable. With no path only the state is stored.</summary>
+    /// <param name="state">The move state.</param>
+    /// <remarks>Follows 0x00443a40, server part.</remarks>
     public void SetMoveState(int state)
     {
         if (PathId == 0xff)
@@ -696,8 +729,9 @@ public partial class GameBase
         }
     }
 
-    // src/game/static_sim.cpp GameBase::setWaypoint: 0x004447ac: no range check, no transform; the next segment load
-    // repairs the index.
+    /// <summary>Sets the current waypoint without a range check or a transform. The next segment load repairs the index.</summary>
+    /// <param name="index">The waypoint index.</param>
+    /// <remarks>Follows 0x004447ac.</remarks>
     public void SetWaypoint(int index)
     {
         Waypoint = index;
@@ -705,7 +739,10 @@ public partial class GameBase
         SetMaskBits(0x08);
     }
 
-    // src/game/static_sim.cpp GameBase::moveToWaypoint: 0x004447dc.
+    /// <summary>Moves a Moveable to a waypoint.</summary>
+    /// <param name="index">The waypoint index.</param>
+    /// <returns>True when the move started.</returns>
+    /// <remarks>Follows 0x004447dc.</remarks>
     public bool MoveToWaypoint(int index)
     {
         if (index < 0 || index > WaypointCount - 1)
@@ -720,8 +757,9 @@ public partial class GameBase
         return true;
     }
 
-    // src/game/static_sim.cpp GameBase::moveForward: 0x0044484c (moveForward, moveBackward, stop): ignored unless active
-    // and Enabled.
+    /// <summary>Runs the moveForward, moveBackward and stop commands.</summary>
+    /// <param name="state">The requested move state.</param>
+    /// <remarks>Follows 0x0044484c. Ignored unless the object is active and Enabled.</remarks>
     public void MoveForward(int state)
     {
         if (!Active || DamageState != kEnabled)
@@ -730,7 +768,8 @@ public partial class GameBase
         SetMoveState(state);
     }
 
-    // src/game/static_sim.cpp GameBase::moveablePosition: Moveable::getPosition: wp + t / T.
+    /// <summary>Returns the position along the path, <c>wp + t / T</c> (Moveable::getPosition).</summary>
+    /// <returns>The position.</returns>
     public float MoveablePosition()
     {
         using var chop = ChopScope();

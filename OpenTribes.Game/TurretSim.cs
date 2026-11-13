@@ -12,7 +12,8 @@ public partial class GameBase
 {
     // ---- Turret ----
 
-    // src/game/turret_sim.cpp GameBase::turretTick: 0x00456288 (docs/static-sim.md 4.3).
+    /// <summary>Runs one turret tick.</summary>
+    /// <remarks>Follows GameBase::turretTick (0x00456288, docs/static-sim.md 4.3).</remarks>
     public void TurretTick()
     {
         StaticTick(0.03f);
@@ -73,7 +74,8 @@ public partial class GameBase
 
     // ---- Trigger ----
 
-    // src/game/turret_sim.cpp GameBase::typeBits: object type (+0x48).
+    /// <summary>Returns the object type bits (+0x48).</summary>
+    /// <returns>The type bits.</returns>
     public uint TypeBits()
     {
         switch (mShapeClass)
@@ -100,8 +102,9 @@ public partial class GameBase
         };
     }
 
-    // src/game/turret_sim.cpp GameBase::triggerCollide: event 0x41f (0x004874b4): ignored when inactive or when the
-    // source's type has no bit of the occupant mask 0x24400180.
+    /// <summary>Handles a trigger collide event from an object.</summary>
+    /// <param name="source">The colliding object.</param>
+    /// <remarks>Follows event 0x41f (0x004874b4). Ignored when the trigger is inactive or when the type of <paramref name="source"/> has no bit of the occupant mask 0x24400180.</remarks>
     public void TriggerCollide(GameBase source)
     {
         if (!TriggerActive || Manager() == null || (source.TypeBits() & 0x24400180u) == 0)
@@ -158,8 +161,10 @@ public partial class GameBase
         }
     }
 
-    // src/game/turret_sim.cpp GameBase::triggerSetActive: 0x004872a4: on a change, turning off first sends onLeave for
-    // every occupant from the last to the first and leaves set 12; then onActivate / onDeactivate. Always True.
+    /// <summary>Switches a trigger on or off.</summary>
+    /// <param name="on">The new active state.</param>
+    /// <returns>Always true.</returns>
+    /// <remarks>Follows 0x004872a4. On a change, turning off first sends onLeave for every occupant from the last to the first and leaves set 12. Then onActivate or onDeactivate runs.</remarks>
     public bool TriggerSetActive(bool on)
     {
         if (on == TriggerActive)
@@ -182,7 +187,7 @@ public partial class GameBase
         return true;
     }
 
-    // src/game/turret_sim.cpp GameBase::onTimerEvent.
+    /// <inheritdoc/>
     public override void OnTimerEvent(float time, int timerId, float interval)
     {
         if (mKind == Kind.Trigger)

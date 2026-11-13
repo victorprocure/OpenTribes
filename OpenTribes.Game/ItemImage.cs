@@ -39,12 +39,16 @@ public sealed partial class Player
         return f != null && f.Elems[0].Set ? f.Elems[0].I : def;
     }
 
-    // src/game/item_image.cpp Player::imageStateName.
+    /// <summary>Returns the name of an image state.</summary>
+    /// <param name="state">The state index, 0 to 9.</param>
+    /// <returns>The state name, or "Reset" for an index out of range.</returns>
     public static string ImageStateName(int state) => state >= 0 && state < 10 ? kStateNames[state] : "Reset";
 
     // ---- script callbacks (7.5, Player_findImageCallback 0x0041a00c) ----
 
-    // src/game/item_image.cpp Player::imageCallback.
+    /// <summary>Calls the script callback of an image event.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="ev">The event name.</param>
     public void ImageCallback(int slot, string ev)
     {
         ImageSlot s = Images[slot];
@@ -67,7 +71,11 @@ public sealed partial class Player
 
     // ---- mounting (7.2) ----
 
-    // src/game/item_image.cpp Player::mountItem.
+    /// <summary>Mounts an item image in a slot.</summary>
+    /// <param name="type">The item type.</param>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="team">The team of the player.</param>
+    /// <returns>True when the image was mounted.</returns>
     public bool MountItem(int type, int slot, int team)
     {
         if (slot < 0 || slot >= kImageSlots || type < 0 || type >= kItemTypes)
@@ -92,7 +100,9 @@ public sealed partial class Player
         return true;
     }
 
-    // src/game/item_image.cpp Player::unmountItem.
+    /// <summary>Unmounts the image of a slot.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <returns>True when an image was mounted.</returns>
     public bool UnmountItem(int slot)
     {
         if (slot < 0 || slot >= kImageSlots || Images[slot].Item == -1)
@@ -106,7 +116,11 @@ public sealed partial class Player
         return true;
     }
 
-    // src/game/item_image.cpp Player::setImage: 0x0041a168.
+    /// <summary>Sets the image of a slot and starts its state machine.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="item">The item type.</param>
+    /// <param name="team">The team of the player.</param>
+    /// <remarks>Follows Player::setImage (0x0041a168).</remarks>
     public void SetImage(int slot, int item, int team)
     {
         ImageSlot s = Images[slot];
@@ -176,7 +190,9 @@ public sealed partial class Player
         }
     }
 
-    // src/game/item_image.cpp Player::resetImage: 0x0041a64c.
+    /// <summary>Resets the image of a slot to its first state.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <remarks>Follows Player::resetImage (0x0041a64c).</remarks>
     public void ResetImage(int slot)
     {
         ImageSlot s = Images[slot];
@@ -190,7 +206,9 @@ public sealed partial class Player
 
     // ---- trigger (7.4) ----
 
-    // src/game/item_image.cpp Player::triggerImage.
+    /// <summary>Sets the trigger state of the image in a slot.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="down">True when the trigger is down.</param>
     public void TriggerImage(int slot, bool down)
     {
         if (slot < 0 || slot >= kImageSlots)
@@ -217,7 +235,10 @@ public sealed partial class Player
 
     // ---- state machine (7.5) ----
 
-    // src/game/item_image.cpp Player::updateImageState: 0x0041af68.
+    /// <summary>Advances the image state machine of a slot.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows Player::updateImageState (0x0041af68).</remarks>
     public void UpdateImageState(int slot, float dt)
     {
         using var chop = X87.Chop();
@@ -331,7 +352,10 @@ public sealed partial class Player
         }
     }
 
-    // src/game/item_image.cpp Player::setImageState: 0x0041aa40.
+    /// <summary>Enters an image state.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="state">The new state index.</param>
+    /// <remarks>Follows Player::setImageState (0x0041aa40).</remarks>
     public void SetImageState(int slot, int state)
     {
         using var chop = X87.Chop();
@@ -406,7 +430,9 @@ public sealed partial class Player
 
     // ---- fire (7.5 Player_fireImage, sustained fire) ----
 
-    // src/game/item_image.cpp Player::fireImage: 0x0041b8cc.
+    /// <summary>Fires the image of a slot.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <remarks>Follows Player::fireImage (0x0041b8cc).</remarks>
     public void FireImage(int slot)
     {
         ImageSlot s = Images[slot];
@@ -418,7 +444,9 @@ public sealed partial class Player
         ProjectileFire.ProjectileFromImage(this, slot, false);
     }
 
-    // src/game/item_image.cpp Player::startSustained: 0x0041b520.
+    /// <summary>Starts the sustained effect of the image in a slot.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <remarks>Follows Player::startSustained (0x0041b520).</remarks>
     public void StartSustained(int slot)
     {
         ImageSlot s = Images[slot];
@@ -430,7 +458,9 @@ public sealed partial class Player
         ProjectileFire.ProjectileFromImage(this, slot, true);
     }
 
-    // src/game/item_image.cpp Player::updateSustained: 0x0041b728.
+    /// <summary>Updates the sustained effect of the image in a slot.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <remarks>Follows Player::updateSustained (0x0041b728).</remarks>
     public void UpdateSustained(int slot)
     {
         ImageSlot s = Images[slot];
@@ -443,7 +473,9 @@ public sealed partial class Player
             ProjectileFire.ProjectileUpdateFromImage(this, slot);
     }
 
-    // src/game/item_image.cpp Player::stopSustained: 0x0041b828.
+    /// <summary>Stops the sustained effect of the image in a slot.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <remarks>Follows Player::stopSustained (0x0041b828).</remarks>
     public void StopSustained(int slot)
     {
         ImageSlot s = Images[slot];

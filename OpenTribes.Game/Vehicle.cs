@@ -7,89 +7,166 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/vehicle.hpp class Vehicle.
+/// <summary>The base class of vehicles: a ShapeBase with a pilot, passengers, a move and a muzzle.</summary>
+/// <remarks>Port of class Vehicle in src/game/vehicle.hpp. See docs/vehicle-sim.md.</remarks>
 public class Vehicle : GameBase
 {
-    protected const float kDt = 0.032f; // 0x3d03126f
+    /// <summary>The step length of one vehicle tick in seconds (0x3d03126f).</summary>
+    protected const float kDt = 0.032f;
 
-    // Constants of Flier_update (docs/vehicle-sim.md 3.2): tbytes and doubles of the original. The tbytes are the 64-bit
-    // mantissas rounded to 53 bits.
-    protected static readonly double kTick = (double)0xf9fffffffffffe89UL * Math.ScaleB(1.0, -59);       // 0x0042f764, just below 31.25
-    protected static readonly double kYawPerBank = (double)0x8888888888888889UL * Math.ScaleB(1.0, -67); // 0x0042f7ac, 1/30
-    protected static readonly double kThird = (double)0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -65);      // 0x0042e8e8 and 0x00430768, 1/3
-    protected static readonly double kTwoThirds = (double)0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -64);  // 0x00430780
-    protected const double kPi32 = 0.09817477042468103; // 0x0042f774
-    protected const double kFloor033 = 0.33;            // 0x0042f780
-    protected const double kLevelRate = 0.0125;         // 0x0042f7b8
-    protected const float kTiny = 1e-12f;               // 0x0042f7c0
+    /// <summary>The Flier_update tick constant, just below 31.25 (0x0042f764). The tbytes of Flier_update (docs/vehicle-sim.md 3.2) are the 64-bit mantissas rounded to 53 bits.</summary>
+    protected static readonly double kTick = (double)0xf9fffffffffffe89UL * Math.ScaleB(1.0, -59);
+    /// <summary>The yaw per bank constant, 1/30 (0x0042f7ac).</summary>
+    protected static readonly double kYawPerBank = (double)0x8888888888888889UL * Math.ScaleB(1.0, -67);
+    /// <summary>One third (0x0042e8e8 and 0x00430768).</summary>
+    protected static readonly double kThird = (double)0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -65);
+    /// <summary>Two thirds (0x00430780).</summary>
+    protected static readonly double kTwoThirds = (double)0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -64);
+    /// <summary>The constant 0.09817477 (0x0042f774).</summary>
+    protected const double kPi32 = 0.09817477042468103;
+    /// <summary>The floor value 0.33 (0x0042f780).</summary>
+    protected const double kFloor033 = 0.33;
+    /// <summary>The level rate 0.0125 (0x0042f7b8).</summary>
+    protected const double kLevelRate = 0.0125;
+    /// <summary>A tiny value, 1e-12 (0x0042f7c0).</summary>
+    protected const float kTiny = 1e-12f;
 
-    // src/game/vehicle.hpp Vehicle::Data: VehicleData and FlierData values the simulation reads (docs/vehicle-sim.md 1.4).
+    /// <summary>The VehicleData and FlierData values the simulation reads (docs/vehicle-sim.md 1.4).</summary>
     public sealed class VData
     {
-        public float Mass = 1, Drag = 1, Density = 1;          // +0x100..+0x108
-        public float MinSpeed, MaxSpeed;                       // +0x10c, +0x110
-        public float ReloadDelay;                              // +0x134
-        public float RamDamage;                                // +0x138
-        public int RamDamageType;                              // +0x13c
-        public bool VisibleDriver;                             // +0x170
-        public int DriverPose;                                 // +0x174
-        public int ProjGroup = -1, ProjIndex = -1;             // projectileType (+0x114), -1 none
-        public float MaxBank, MaxPitch, Lift, MaxAlt;          // FlierData +0x178..+0x184
-        public float MaxVertical, Accel, GroundDamageScale;    // +0x188..+0x190
+        /// <summary>The mass (+0x100).</summary>
+        public float Mass = 1;
+        /// <summary>The drag (+0x104).</summary>
+        public float Drag = 1;
+        /// <summary>The density (+0x108).</summary>
+        public float Density = 1;
+        /// <summary>The minimum speed (+0x10c).</summary>
+        public float MinSpeed;
+        /// <summary>The maximum speed (+0x110).</summary>
+        public float MaxSpeed;
+        /// <summary>The reload delay (+0x134).</summary>
+        public float ReloadDelay;
+        /// <summary>The damage of ramming (+0x138).</summary>
+        public float RamDamage;
+        /// <summary>The damage type of ramming (+0x13c).</summary>
+        public int RamDamageType;
+        /// <summary>True when the driver is visible (+0x170).</summary>
+        public bool VisibleDriver;
+        /// <summary>The driver pose (+0x174).</summary>
+        public int DriverPose;
+        /// <summary>The projectile datablock group (projectileType, +0x114), -1 for none.</summary>
+        public int ProjGroup = -1;
+        /// <summary>The projectile datablock index, -1 for none.</summary>
+        public int ProjIndex = -1;
+        /// <summary>The FlierData maximum bank (+0x178).</summary>
+        public float MaxBank;
+        /// <summary>The FlierData maximum pitch (+0x17c).</summary>
+        public float MaxPitch;
+        /// <summary>The FlierData lift (+0x180).</summary>
+        public float Lift;
+        /// <summary>The FlierData maximum altitude (+0x184).</summary>
+        public float MaxAlt;
+        /// <summary>The FlierData maximum vertical speed (+0x188).</summary>
+        public float MaxVertical;
+        /// <summary>The FlierData acceleration (+0x18c).</summary>
+        public float Accel;
+        /// <summary>The FlierData scale of damage from ground contact (+0x190).</summary>
+        public float GroundDamageScale;
     }
 
+    /// <summary>The datablock values.</summary>
     public VData Data = new();
-    public bool Piloted;          // +0x8a1
-    public int Credit;            // +0x8dc
-    public int TicksWithoutMove;  // +0x8d8
-    public Move LastMove = new(); // +0x8e4
-    public int SoundState;        // +0x8c4
-    public int FireCount;         // +0x948
-    public float NextFireTime;    // +0x94c
-    public float SpeedF;          // +0x940 forward speed
-    public float SpeedT;          // +0x8c8 desired speed
-    public readonly float[] TargetRot = new float[3]; // +0x8cc
-    public float SpeedL;          // +0x898 lift speed
-    public float SpeedS;          // +0x89c side speed
-    public bool Landed;           // +0x8a0
-    public int Passengers;        // +0x8ac
-    // Node indices into the shape (-1: none): dummy exit, dummy pilot (+ detail size), dummy muzzle, dummy eye.
-    public int NodeExit = -1, NodePilot = -1, NodeMuzzle = -1, NodeEye = -1;
-    public readonly List<int> MuzzleNodes = new(), PassengerNodes = new();
-    public uint TypeMask = 0x24c00080u; // +0x8b0: object types a collision rams
+    /// <summary>True while a pilot flies the vehicle (+0x8a1).</summary>
+    public bool Piloted;
+    /// <summary>The move credit (+0x8dc).</summary>
+    public int Credit;
+    /// <summary>The ticks without a move (+0x8d8).</summary>
+    public int TicksWithoutMove;
+    /// <summary>The last move (+0x8e4).</summary>
+    public Move LastMove = new();
+    /// <summary>The sound state (+0x8c4).</summary>
+    public int SoundState;
+    /// <summary>The number of shots fired (+0x948). It picks the muzzle node.</summary>
+    public int FireCount;
+    /// <summary>The time of the next allowed shot (+0x94c).</summary>
+    public float NextFireTime;
+    /// <summary>The forward speed (+0x940).</summary>
+    public float SpeedF;
+    /// <summary>The desired speed (+0x8c8).</summary>
+    public float SpeedT;
+    /// <summary>The target rotation (+0x8cc).</summary>
+    public readonly float[] TargetRot = new float[3];
+    /// <summary>The lift speed (+0x898).</summary>
+    public float SpeedL;
+    /// <summary>The side speed (+0x89c).</summary>
+    public float SpeedS;
+    /// <summary>True while landed (+0x8a0).</summary>
+    public bool Landed;
+    /// <summary>The number of passengers (+0x8ac).</summary>
+    public int Passengers;
+    /// <summary>The shape node index of <c>dummy exit</c>, -1 for none.</summary>
+    public int NodeExit = -1;
+    /// <summary>The shape node index of <c>dummy pilot</c> (plus the detail size), -1 for none.</summary>
+    public int NodePilot = -1;
+    /// <summary>The shape node index of <c>dummy muzzle</c>, -1 for none.</summary>
+    public int NodeMuzzle = -1;
+    /// <summary>The shape node index of <c>dummy eye</c>, -1 for none.</summary>
+    public int NodeEye = -1;
+    /// <summary>The shape node indices of the <c>dummy muzzle%d</c> nodes.</summary>
+    public readonly List<int> MuzzleNodes = new();
+    /// <summary>The shape node indices of the passenger mount nodes.</summary>
+    public readonly List<int> PassengerNodes = new();
+    /// <summary>The object types a collision rams (+0x8b0).</summary>
+    public uint TypeMask = 0x24c00080u;
 
-    // src/game/vehicle.cpp Vehicle::Vehicle.
+    /// <summary>Creates a vehicle.</summary>
+    /// <param name="ctx">The class context.</param>
+    /// <param name="cls">The class name.</param>
+    /// <param name="dataBlockGroup">The datablock group.</param>
+    /// <param name="fields">The persistent fields.</param>
     public Vehicle(ClassContext ctx, string cls, int dataBlockGroup, IEnumerable<PersistDef> fields)
         : base(cls, Kind.ShapeBase, dataBlockGroup, fields, ctx, 718)
     {
         ItemFlags = 0x199; // +0x164: 0x181 | 0x19 (friction, buoyancy, medium drag; no elasticity)
     }
 
-    // src/game/vehicle.cpp Vehicle::from.
+    /// <summary>Casts an object to a vehicle.</summary>
+    /// <param name="obj">The object, or null.</param>
+    /// <returns>The vehicle, or null when the object is not one.</returns>
     public static Vehicle? From(SimObject? obj) =>
         obj is GameBase gb && gb.ShapeClass() == ShapeKind.Vehicle ? gb as Vehicle : null;
 
-    // src/game/vehicle.cpp Vehicle::game.
+    /// <summary>Returns the game state.</summary>
+    /// <returns>The game state.</returns>
     public GameState Game() => (GameState)Services()!;
 
-    // src/game/vehicle.cpp Vehicle::block.
+    /// <summary>Returns the datablock of the vehicle.</summary>
+    /// <returns>The datablock, or null.</returns>
     protected DataBlockManager.Block? Block()
     {
         GameState g = Game();
         return g.Sim != null && DataBlockName != null ? g.Sim.DataBlocks().Find(DataBlockName) : null;
     }
 
-    // Server entry points of the scripts and the tests.
+    /// <summary>Returns the number of passengers.</summary>
+    /// <returns>The passenger node count. A server entry point of the scripts and the tests.</returns>
     public int PassengerCount() => PassengerNodes.Count;
 
-    // src/game/vehicle.cpp toTMat.
+    /// <summary>Converts a transform to a matrix.</summary>
+    /// <param name="t">The transform.</param>
+    /// <returns>The matrix.</returns>
     protected static TMat3 ToTMat(in Transform t) => ProjectileFire.ToTMat(t);
-    // src/game/vehicle.cpp toTransform.
+    /// <summary>Converts a matrix to a transform.</summary>
+    /// <param name="m">The matrix.</param>
+    /// <returns>The transform.</returns>
     protected static Transform ToTransform(in TMat3 m) => ProjectileFire.ToTransform(m);
-    // src/game/vehicle.cpp g: %g.
+    /// <summary>Formats a float as <c>%g</c>.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     protected static string G(float v) => Numbers.FormatFloat(v);
 
-    // src/game/vehicle.cpp normalise: in place with f32(1 / len) (m_Point3F_len, then the reciprocal scale).
+    /// <summary>Normalises a vector in place with <c>f32(1 / len)</c>: m_Point3F_len, then the reciprocal scale.</summary>
+    /// <param name="v">The vector.</param>
     protected static void Normalise(Span<float> v)
     {
         float k = X87.F32(Div(1.0, X87.F32(X87.Len(v))));
@@ -97,7 +174,10 @@ public class Vehicle : GameBase
             v[i] = X87.F32(Mul(k, v[i]));
     }
 
-    // src/game/vehicle.cpp cross.
+    /// <summary>Computes the cross product.</summary>
+    /// <param name="a">The first vector.</param>
+    /// <param name="b">The second vector.</param>
+    /// <param name="output">Receives <c>a x b</c>.</param>
     protected static void Cross(ReadOnlySpan<float> a, ReadOnlySpan<float> b, Span<float> output)
     {
         output[0] = X87.F32(Sub(Mul(a[1], b[2]), Mul(a[2], b[1])));
@@ -105,8 +185,8 @@ public class Vehicle : GameBase
         output[2] = X87.F32(Sub(Mul(a[0], b[1]), Mul(a[1], b[0])));
     }
 
-    // src/game/vehicle.cpp Vehicle::onNewDataBlock: Vehicle_onNewDataBlock 0x00445230 after the StaticBase part
-    // (GameState::resolveDataBlock).
+    /// <inheritdoc/>
+    /// <remarks>Follows Vehicle_onNewDataBlock (0x00445230) after the StaticBase part (GameState::resolveDataBlock).</remarks>
     public override void OnNewDataBlock()
     {
         DataBlockManager.Block? b = Block();
@@ -140,7 +220,7 @@ public class Vehicle : GameBase
         BindNodes();
     }
 
-    // src/game/vehicle.cpp Vehicle::bindNodes.
+    /// <summary>Finds the shape nodes of the vehicle.</summary>
     protected void BindNodes()
     {
         NodeExit = NodePilot = NodeMuzzle = NodeEye = -1;
@@ -171,8 +251,8 @@ public class Vehicle : GameBase
         }
     }
 
-    // src/game/vehicle.cpp Vehicle::getMountTransform: 0x00445c38. The original reads the passenger table without a range
-    // check (D11): a point without a node gets the object transform.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00445c38. The original reads the passenger table without a range check (D11): a point without a node gets the object transform.</remarks>
     public override void GetMountTransform(int point, out Transform output)
     {
         int node = -1;
@@ -193,8 +273,10 @@ public class Vehicle : GameBase
         output = ToTransform(res);
     }
 
-    // src/game/vehicle.cpp Vehicle::muzzleTransform: 0x00445cd8: the table entry fireCount % count, else the single muzzle
-    // node.
+    /// <summary>Computes the muzzle transform: the table entry <c>fireCount % count</c>, else the single muzzle node.</summary>
+    /// <param name="output">Receives the transform.</param>
+    /// <returns>True when a muzzle node exists.</returns>
+    /// <remarks>Follows 0x00445cd8.</remarks>
     public bool MuzzleTransform(out Transform output)
     {
         int node = NodeMuzzle;
@@ -212,7 +294,8 @@ public class Vehicle : GameBase
         return true;
     }
 
-    // src/game/vehicle.cpp Vehicle::thrustVelocity: SimMovement_setLinearVelocity.
+    /// <summary>Sets the linear velocity (SimMovement_setLinearVelocity).</summary>
+    /// <param name="v">The velocity.</param>
     protected void ThrustVelocity(ReadOnlySpan<float> v)
     {
         Velocity[0] = v[0];
@@ -221,15 +304,19 @@ public class Vehicle : GameBase
         AtRest = false;
     }
 
-    // src/game/vehicle.cpp Vehicle::update: vtable +0x1bc, Vehicle_update 0x00446400: energy recharge; the shape threads of
-    // a server vehicle do not move.
+    /// <summary>Runs the vehicle update: energy recharge. The shape threads of a server vehicle do not move.</summary>
+    /// <param name="move">The move.</param>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <returns>True when the update ran.</returns>
+    /// <remarks>Follows Vehicle_update (0x00446400, vtable +0x1bc).</remarks>
     public virtual bool Update(ref Move move, float dt)
     {
         RechargeStep(dt);
         return true;
     }
 
-    // src/game/vehicle.cpp Vehicle::serverTick: Vehicle_serverTick 0x0044575c.
+    /// <inheritdoc/>
+    /// <remarks>Follows Vehicle_serverTick (0x0044575c).</remarks>
     public override void ServerTick(uint tickMs)
     {
         using var chop = X87.Chop();
@@ -270,8 +357,8 @@ public class Vehicle : GameBase
         }
     }
 
-    // src/game/vehicle.cpp Vehicle::applyMoves: Vehicle_applyMoves 0x004463a4: the stored move is executed, then replaced
-    // (one-move latency).
+    /// <inheritdoc/>
+    /// <remarks>Follows Vehicle_applyMoves (0x004463a4): the stored move is executed, then replaced (one-move latency).</remarks>
     public override void ApplyMoves(Move[] moves, int count)
     {
         for (int i = 0; i < count && Credit < 6; ++i)
@@ -283,8 +370,8 @@ public class Vehicle : GameBase
         TicksWithoutMove = 0;
     }
 
-    // src/game/vehicle.cpp Vehicle::setDamageLevel: Vehicle_setDamageLevel 0x004458c4: the StaticBase part, then the stop
-    // at maxDamage.
+    /// <inheritdoc/>
+    /// <remarks>Follows Vehicle_setDamageLevel (0x004458c4): the StaticBase part, then the stop at maxDamage.</remarks>
     public override void SetDamageLevel(float level)
     {
         base.SetDamageLevel(level);
@@ -299,7 +386,8 @@ public class Vehicle : GameBase
         }
     }
 
-    // src/game/vehicle.cpp Vehicle::fire: Vehicle_fire 0x00446660.
+    /// <summary>Fires the vehicle weapon.</summary>
+    /// <remarks>Follows Vehicle_fire (0x00446660).</remarks>
     public void Fire()
     {
         GameState gs = Game();
@@ -333,7 +421,10 @@ public class Vehicle : GameBase
         SetMaskBits(0x8000);
     }
 
-    // src/game/vehicle.cpp Vehicle::blocker: Vehicle_onBlocker 0x0044642c (docs/collision.md E4.3).
+    /// <summary>Handles a blocking contact with another object.</summary>
+    /// <param name="other">The other object.</param>
+    /// <returns>True when the contact was handled.</returns>
+    /// <remarks>Follows Vehicle_onBlocker (0x0044642c, docs/collision.md E4.3).</remarks>
     public bool Blocker(GameBase other)
     {
         using var chop = X87.Chop();
@@ -372,8 +463,11 @@ public class Vehicle : GameBase
         return true;
     }
 
-    // src/game/vehicle.cpp Vehicle::pushBy: SimMovement_pushBy 0x005064f8 with this vehicle as the pushed object
-    // (docs/vehicle-sim.md 12 HF9).
+    /// <summary>Pushes the vehicle by a delta, with this vehicle as the pushed object.</summary>
+    /// <param name="delta">The displacement.</param>
+    /// <param name="mover">The velocity of the pushing object.</param>
+    /// <returns>True when the whole displacement was done.</returns>
+    /// <remarks>Follows SimMovement_pushBy (0x005064f8, docs/vehicle-sim.md 12 HF9).</remarks>
     public virtual bool PushBy(ReadOnlySpan<float> delta, ReadOnlySpan<float> mover) => ItemPushBy(delta, mover);
 
     // ---- vehicle_net.cpp ----
@@ -382,7 +476,13 @@ public class Vehicle : GameBase
     // BitStream::writeFloat.
     private static float SpeedUnit(VData d, float v) => X87.F32(Div(Sub(v, d.MinSpeed), Sub(d.MaxSpeed, d.MinSpeed)));
 
-    // src/game/vehicle_net.cpp Vehicle::packUpdate: Vehicle_packUpdate 0x00446bec (docs/vehicle-sim.md 6.1).
+    /// <summary>Writes a ghost update.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <param name="clientId">The client id.</param>
+    /// <param name="mask">The dirty mask.</param>
+    /// <param name="isNew">True on the first update.</param>
+    /// <returns>The mask bits that were not sent.</returns>
+    /// <remarks>Follows Vehicle_packUpdate (0x00446bec, docs/vehicle-sim.md 6.1).</remarks>
     public uint PackUpdate(BitStream bs, int clientId, uint mask, bool isNew)
     {
         using var chop = X87.Chop();
@@ -427,7 +527,8 @@ public class Vehicle : GameBase
         return 0;
     }
 
-    // src/game/vehicle_net.cpp Vehicle::writeControlState: Vehicle_writeControlState 0x00446aa8 (docs/vehicle-sim.md 6.2).
+    /// <inheritdoc/>
+    /// <remarks>Follows Vehicle_writeControlState (0x00446aa8, docs/vehicle-sim.md 6.2).</remarks>
     public override void WriteControlState(BitStream bs, ControlContext ctx)
     {
         using var chop = X87.Chop();
@@ -443,19 +544,34 @@ public class Vehicle : GameBase
         bs.WriteInt((uint)SoundState & 3u, 2);
     }
 
-    // The control state as the client reads it (docs/vehicle-sim.md 6.2, docs/client-net.md 4.4).
+    /// <summary>The control state as the client reads it (docs/vehicle-sim.md 6.2, docs/client-net.md 4.4).</summary>
     public sealed class ClientControl
     {
-        public readonly float[] Rot = new float[3], TargetRot = new float[3], Position = new float[3];
-        public uint SpeedF16, SpeedT16, Energy16;                 // unit(16) raw
+        /// <summary>The rotation.</summary>
+        public readonly float[] Rot = new float[3];
+        /// <summary>The target rotation.</summary>
+        public readonly float[] TargetRot = new float[3];
+        /// <summary>The position.</summary>
+        public readonly float[] Position = new float[3];
+        /// <summary>The raw 16-bit unit forward speed.</summary>
+        public uint SpeedF16;
+        /// <summary>The raw 16-bit unit desired speed.</summary>
+        public uint SpeedT16;
+        /// <summary>The raw 16-bit unit energy.</summary>
+        public uint Energy16;
+        /// <summary>True when the state carries the Flier part.</summary>
         public bool HasFlier;
-        public float L, S;
+        /// <summary>The Flier lift speed.</summary>
+        public float L;
+        /// <summary>The Flier side speed.</summary>
+        public float S;
+        /// <summary>The Flier landed flag.</summary>
         public bool Landed;
     }
 
-    // Vehicle_readControlState 0x00446830 and Flier_readControlState 0x0043079c on the client copy: rotation, target
-    // rotation, position and transform; the speeds and the energy from their unit(16) values; Flier L, S and landed, a
-    // landed Flier keeps the position it had before the read. Damage, fire and sound state are not predicted.
+    /// <summary>Applies a control state read from the stream to the client copy.</summary>
+    /// <param name="c">The control state.</param>
+    /// <remarks>Follows Vehicle_readControlState (0x00446830) and Flier_readControlState (0x0043079c): rotation, target rotation, position and transform, the speeds and the energy from their unit(16) values, and for a Flier L, S and landed. A landed Flier keeps the position it had before the read. Damage, fire and sound state are not predicted.</remarks>
     public void ApplyClientControlState(ClientControl c)
     {
         using var chop = X87.Chop();
@@ -479,8 +595,13 @@ public class Vehicle : GameBase
         }
     }
 
-    // src/game/vehicle_net.cpp findVehicleMethod: GameBase_findScriptMethod (0x0044864c): the first defined function of
-    // map name (when useMapName), data name, datablock className, C++ class, plain method name; "" when none.
+    /// <summary>Finds the script function of a method on a vehicle.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="obj">The object.</param>
+    /// <param name="method">The method name.</param>
+    /// <param name="useMapName">True to try the map name first.</param>
+    /// <returns>The first defined function, or an empty string.</returns>
+    /// <remarks>Follows GameBase_findScriptMethod (0x0044864c): map name (when <paramref name="useMapName"/>), data name, datablock className, C++ class, plain method name.</remarks>
     public static string FindVehicleMethod(GameState game, GameBase obj, string method, bool useMapName)
     {
         if (game.Console == null)
@@ -507,7 +628,7 @@ public class Vehicle : GameBase
     private static uint PackVehicleGhost(SimObject obj, GhostContext ctx, BitStream bs, uint mask) =>
         ((Vehicle)obj).PackUpdate(bs, ctx.ClientId, mask, mask == 0xffffffffu);
 
-    // src/game/vehicle_net.cpp registerVehicleGhostClasses.
+    /// <summary>Registers the vehicle ghost classes.</summary>
     public static void RegisterGhostClasses()
     {
         GhostManager.RegisterGhostClass("Flier", new GhostClass { Tag = 0x223, Pack = PackVehicleGhost });
@@ -516,7 +637,9 @@ public class Vehicle : GameBase
 
     private sealed record Cmd(string Name, int Argc, string Usage, string BadArgc, string NotVehicle);
 
-    // src/game/vehicle_net.cpp registerVehicleCommands: Vehicle:: commands (docs/vehicle-sim.md 7.1).
+    /// <summary>Registers the <c>Vehicle::</c> commands (docs/vehicle-sim.md 7.1).</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="g">The game state the commands act on.</param>
     public static void RegisterCommands(Interpreter interp, GameState g)
     {
         Cmd[] kCmds =
@@ -567,30 +690,48 @@ public class Vehicle : GameBase
             });
     }
 
-    // src/game/vehicle.cpp makeFlier / makeVehicle: constructors for the class registry.
+    /// <summary>Creates a Flier for the class registry.</summary>
+    /// <param name="ctx">The class context.</param>
+    /// <param name="fields">The persistent fields.</param>
+    /// <returns>The new object.</returns>
     public static SimObject MakeFlier(ClassContext ctx, IEnumerable<PersistDef> fields) => new Flier(ctx, fields);
+    /// <summary>Creates a Vehicle for the class registry.</summary>
+    /// <param name="ctx">The class context.</param>
+    /// <param name="fields">The persistent fields.</param>
+    /// <returns>The new object.</returns>
     public static SimObject MakeVehicle(ClassContext ctx, IEnumerable<PersistDef> fields) => new Vehicle(ctx, "Vehicle", 9, fields);
 }
 
-// src/game/vehicle.hpp class Flier.
+/// <summary>The flying vehicle.</summary>
+/// <remarks>Port of class Flier in src/game/vehicle.hpp.</remarks>
 public sealed class Flier : Vehicle
 {
-    public const uint kHullMask = 0x34c00086u; // +0x1ec, Flier_onNewDataBlock
+    /// <summary>The hull collision mask (+0x1ec, Flier_onNewDataBlock).</summary>
+    public const uint kHullMask = 0x34c00086u;
 
-    public float Ceiling;      // +0x958
-    public float Ground;       // +0x95c
-    public readonly float[] Thrust = new float[3]; // +0x884
-    public float Margin;       // +0x964
-    public bool Braking, ActiveFlag; // +0x960, +0x961
+    /// <summary>The ceiling (+0x958).</summary>
+    public float Ceiling;
+    /// <summary>The ground height (+0x95c).</summary>
+    public float Ground;
+    /// <summary>The thrust (+0x884).</summary>
+    public readonly float[] Thrust = new float[3];
+    /// <summary>The margin (+0x964).</summary>
+    public float Margin;
+    /// <summary>True while braking (+0x960).</summary>
+    public bool Braking;
+    /// <summary>The active flag (+0x961).</summary>
+    public bool ActiveFlag;
 
     private readonly List<SimObject> mNotify = new(); // objects hit by the current move (info +0x3c)
     private Float9 mImageRot = Float9.Identity();     // rotation of the move's image transform
 
-    // src/game/vehicle.cpp Flier::Flier.
+    /// <summary>Creates a Flier.</summary>
+    /// <param name="ctx">The class context.</param>
+    /// <param name="fields">The persistent fields.</param>
     public Flier(ClassContext ctx, IEnumerable<PersistDef> fields) : base(ctx, "Flier", 10, fields) { }
 
-    // src/game/vehicle.cpp Flier::onNewDataBlock: Flier_onNewDataBlock 0x0042e0c0: the Vehicle part, then the collision
-    // radius and the ceiling.
+    /// <inheritdoc/>
+    /// <remarks>Follows Flier_onNewDataBlock (0x0042e0c0): the Vehicle part, then the collision radius and the ceiling.</remarks>
     public override void OnNewDataBlock()
     {
         base.OnNewDataBlock();
@@ -611,7 +752,8 @@ public sealed class Flier : Vehicle
         Ceiling = X87.F32(Add(Sub(hmax, Mul(hmin, 0.5f)), Add(hmax, Data.MaxAlt)));
     }
 
-    // src/game/vehicle.cpp Flier::serverTick: Flier_serverTick 0x0042e4e0.
+    /// <inheritdoc/>
+    /// <remarks>Follows Flier_serverTick (0x0042e4e0).</remarks>
     public override void ServerTick(uint tickMs)
     {
         base.ServerTick(tickMs);
@@ -622,10 +764,11 @@ public sealed class Flier : Vehicle
         }
     }
 
-    // src/game/vehicle.cpp Flier::setDamageLevel.
+    /// <inheritdoc/>
     public override void SetDamageLevel(float level) => base.SetDamageLevel(level);
 
-    // src/game/vehicle.cpp Flier::updateGround: Flier_updateGround 0x0042e5c4 (docs/vehicle-sim.md 3.5).
+    /// <summary>Updates the height above the ground.</summary>
+    /// <remarks>Follows Flier_updateGround (0x0042e5c4, docs/vehicle-sim.md 3.5).</remarks>
     public void UpdateGround()
     {
         GameState gs = Game();
@@ -705,7 +848,9 @@ public sealed class Flier : Vehicle
         Ground = gnd;
     }
 
-    // src/game/vehicle.cpp Flier::updateThrust: Flier_updateThrust 0x0042e9b0 (docs/vehicle-sim.md 3.4).
+    /// <summary>Updates the thrust.</summary>
+    /// <param name="k">The thrust scale.</param>
+    /// <remarks>Follows Flier_updateThrust (0x0042e9b0, docs/vehicle-sim.md 3.4).</remarks>
     public void UpdateThrust(float k)
     {
         UpdateGround();
@@ -740,8 +885,9 @@ public sealed class Flier : Vehicle
             ThrustVelocity(Thrust);
     }
 
-    // src/game/vehicle.cpp Flier::moveStep: ShapeBase_moveStep 0x0044c644 for a Flier: forces, target, stepped move
-    // (docs/vehicle-sim.md 3.6).
+    /// <summary>Moves the Flier for one step: forces, target and stepped move.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows ShapeBase_moveStep (0x0044c644, docs/vehicle-sim.md 3.6).</remarks>
     public void MoveStep(float dt)
     {
         GameState gs = Game();
@@ -803,7 +949,8 @@ public sealed class Flier : Vehicle
         }
     }
 
-    // src/game/vehicle.cpp Flier::update: Flier_update 0x0042ebd4 (docs/vehicle-sim.md 3.3).
+    /// <inheritdoc/>
+    /// <remarks>Follows Flier_update (0x0042ebd4, docs/vehicle-sim.md 3.3).</remarks>
     public override bool Update(ref Move move, float dt)
     {
         if (!base.Update(ref move, dt))
@@ -1019,9 +1166,11 @@ public sealed class Flier : Vehicle
         }
     }
 
-    // src/game/vehicle.cpp Flier::hullCandidates: SimMovement_sweptBox 0x00506a84 -> NetObject_computeWorldBox 0x005069fc:
-    // StaticBase_ctor sets bit 0x40 of +0x164, so the object box is turned by the vehicle's matrix (m_Box3F_transform)
-    // before it is extended by v * dt. An Item has the bit clear and only translates its box.
+    /// <summary>Collects the candidate images for a hull move.</summary>
+    /// <param name="target">The target position.</param>
+    /// <param name="output">Receives the candidates.</param>
+    /// <param name="mask">The object type mask.</param>
+    /// <remarks>Follows SimMovement_sweptBox (0x00506a84) and NetObject_computeWorldBox (0x005069fc). StaticBase_ctor sets bit 0x40 of +0x164, so the object box is turned by the vehicle's matrix (m_Box3F_transform) before it is extended by <c>v * dt</c>. An Item has the bit clear and only translates its box.</remarks>
     public void HullCandidates(ReadOnlySpan<float> target, List<CollisionImage> output, uint mask)
     {
         var m = new Mat();
@@ -1034,10 +1183,12 @@ public sealed class Flier : Vehicle
         Game().CollisionCandidates(this, mask, query, output);
     }
 
-    // src/game/vehicle.cpp Flier::testAt: SimMovement_testImages 0x00506bfc (docs/collision.md 2.3). The image of a dead
-    // Player has its byte +0xd set (Player kill, docs/player-sim.md 6.5 step 9) and that byte is read at every test: a
-    // corpse that the hull reaches gets one event 0x41f, leaves the candidate list (the last candidate takes its place)
-    // and never blocks, also when it died during this move.
+    /// <summary>Tests the hull at a position against the candidate images.</summary>
+    /// <param name="q">The position.</param>
+    /// <param name="candidates">The candidate images.</param>
+    /// <param name="hits">Receives the hits.</param>
+    /// <returns>True when there is a hit.</returns>
+    /// <remarks>Follows SimMovement_testImages (0x00506bfc, docs/collision.md 2.3). The image of a dead Player has its byte +0xd set (Player kill, docs/player-sim.md 6.5 step 9) and that byte is read at every test. A corpse that the hull reaches gets one event 0x41f, leaves the candidate list (the last candidate takes its place) and never blocks, also when it died during this move.</remarks>
     public bool TestAt(ReadOnlySpan<float> q, List<CollisionImage> candidates, List<CollisionHit> hits)
     {
         bool free;
@@ -1091,9 +1242,8 @@ public sealed class Flier : Vehicle
         return hits.Count == 0;
     }
 
-    // src/game/vehicle.cpp Flier::pushBy: SimMovement_pushBy 0x005064f8: bits 0x05 of +0x164 are cleared and stay cleared
-    // (a pushed vehicle answers every later contact without friction), the collision mask is 6 for the stepped moves and
-    // the image transform is the object's own matrix.
+    /// <inheritdoc/>
+    /// <remarks>Follows SimMovement_pushBy (0x005064f8): bits 0x05 of +0x164 are cleared and stay cleared (a pushed vehicle answers every later contact without friction), the collision mask is 6 for the stepped moves and the image transform is the object's own matrix.</remarks>
     public override bool PushBy(ReadOnlySpan<float> delta, ReadOnlySpan<float> mover)
     {
         using var chop = X87.Chop();
@@ -1103,10 +1253,14 @@ public sealed class Flier : Vehicle
                                (target, step0, step1) => SteppedMove(target, step0, step1, 0.032f, 6));
     }
 
-    // src/game/vehicle.cpp Flier::steppedMove: SimMovement_stepMove 0x00505a3c with the Flier collision callback (vtable
-    // +0xb8), at most three passes. The image is the ShapeCollisionImage in mesh mode: its bounding sphere (radius *
-    // 0.25) against terrain and other shapes, its box against interiors, and its mesh against the sphere of a Player
-    // (docs/collision.md T3).
+    /// <summary>Moves the Flier toward a target in sub-steps, at most three passes.</summary>
+    /// <param name="target">The target position.</param>
+    /// <param name="step0">The first sub-step length.</param>
+    /// <param name="step1">The second sub-step length.</param>
+    /// <param name="slice">The time slice of the move.</param>
+    /// <param name="mask">The object type mask of the objects to collide with.</param>
+    /// <returns>True when the move was not blocked in every iteration.</returns>
+    /// <remarks>Follows SimMovement_stepMove (0x00505a3c) with the Flier collision callback (vtable +0xb8). The image is the ShapeCollisionImage in mesh mode: its bounding sphere (radius * 0.25) against terrain and other shapes, its box against interiors, and its mesh against the sphere of a Player (docs/collision.md T3).</remarks>
     public bool SteppedMove(float[] target, float step0, float step1, float slice, uint mask = kHullMask)
     {
         GameState gs = Game();
@@ -1247,8 +1401,11 @@ public sealed class Flier : Vehicle
         }, sender);
     }
 
-    // src/game/vehicle.cpp Flier::processCollision: Flier_processCollision 0x0042f7c4. Approximate parts: the image test
-    // (VQ1, VQ3).
+    /// <summary>Answers the contacts of a move step with the Flier collision response.</summary>
+    /// <param name="hits">The contacts.</param>
+    /// <param name="iteration">The iteration of the stepped move.</param>
+    /// <returns>True when some contact answered.</returns>
+    /// <remarks>Follows Flier_processCollision (0x0042f7c4). Approximate parts: the image test (VQ1, VQ3).</remarks>
     public bool ProcessCollision(List<CollisionHit> hits, int iteration)
     {
         using var chop = X87.Chop();
@@ -1408,7 +1565,8 @@ public sealed class Flier : Vehicle
         return handledAny;
     }
 
-    // src/game/vehicle_net.cpp Flier::writeControlState: 0x0043084c.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0043084c.</remarks>
     public override void WriteControlState(BitStream bs, ControlContext ctx)
     {
         base.WriteControlState(bs, ctx);

@@ -485,12 +485,16 @@ public static partial class GhostClasses
         return 0;
     }
 
-    // src/game/ghost_classes.cpp packShapeBasePart: ShapeBase part 2 of a ghost update (4.2), for the Vehicle layout.
+    /// <summary>Packs the ShapeBase part of a ghost update for the vehicle layout.</summary>
+    /// <param name="gb">The object.</param>
+    /// <param name="bs">The stream to write.</param>
+    /// <param name="mask">The dirty mask.</param>
+    /// <remarks>ShapeBase part 2 of a ghost update (docs/game-stream-ghosts.md 4.2).</remarks>
     public static void PackShapeBasePart(GameBase gb, BitStream bs, uint mask) => PackShapeBase(gb, bs, mask);
 
     private static GhostClass G(uint tag, GhostClass.PackFn pack) => new() { Tag = tag, Pack = pack };
 
-    // src/game/ghost_classes.cpp registerGhostClasses: registers the ghost classes with the GhostManager registry.
+    /// <summary>Registers the ghost classes with the ghost manager.</summary>
     public static void Register()
     {
         GhostManager.RegisterGhostClass("SimVolume", G(0x001, PackSimVolume));

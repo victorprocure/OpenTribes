@@ -5,13 +5,16 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The utility script commands that read game state: getIntegerTime, getClientByName, getNumItems, getObjectByTargetIndex, findPointOnSphere (docs/script.md 6.7).</summary>
 public static class UtilCommands
 {
     // src/game/util_commands.cpp sum3.
     private static double Sum3(double a, double b, double c) => Add(Add(a, b), c);
 
-    // src/game/util_commands.cpp readShapeRadius: radius stored in a shape file header (docs/interiors.md 8.2). False for
-    // malformed data.
+    /// <summary>Reads the radius stored in a shape file header (docs/interiors.md 8.2).</summary>
+    /// <param name="d">The shape file bytes.</param>
+    /// <param name="radius">Receives the radius.</param>
+    /// <returns>False for malformed data.</returns>
     public static bool ReadShapeRadius(byte[] d, out float radius)
     {
         radius = 0;
@@ -33,9 +36,14 @@ public static class UtilCommands
         return true;
     }
 
-    // src/game/util_commands.cpp findPointOnSphere: findPointOnSphere (0x0041ebf4) after argument parsing: the unit vector
-    // from the point where the ray from `from` along `dir` meets the sphere around `to` (shape radius minus 0.5) back to
-    // `to`. False: the direction or the result is shorter than 0.01 ("0 0 0").
+    /// <summary>Computes the findPointOnSphere result after argument parsing.</summary>
+    /// <param name="from">The ray origin.</param>
+    /// <param name="to">The sphere centre.</param>
+    /// <param name="dir">The ray direction.</param>
+    /// <param name="radius">The shape radius. The sphere radius is this minus 0.5.</param>
+    /// <param name="output">Receives the unit vector from the point where the ray meets the sphere back to <paramref name="to"/>.</param>
+    /// <returns>False when the direction or the result is shorter than 0.01, which the script sees as "0 0 0".</returns>
+    /// <remarks>Follows findPointOnSphere (0x0041ebf4).</remarks>
     public static bool FindPointOnSphere(ReadOnlySpan<float> from, ReadOnlySpan<float> to, ReadOnlySpan<float> dir, float radius, Span<float> output)
     {
         float r = Store(Sub(radius, 0.5f));
@@ -75,7 +83,9 @@ public static class UtilCommands
         return true;
     }
 
-    // src/game/util_commands.cpp registerUtilCommands.
+    /// <summary>Registers the utility commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         // getIntegerTime(bool): "<ticks>.<rest>" of the 32 ms server tick counter (0x006a841c) or, for false, the

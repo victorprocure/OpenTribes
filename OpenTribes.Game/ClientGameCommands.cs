@@ -2,30 +2,39 @@
 // the object model: chat menus (ChatMenu objects exist on a dedicated server). docs/mods.md 5.5.
 namespace OpenTribes.Game;
 
-// src/game/client_game_commands.hpp struct ChatMenuNode: menu tree of a ChatMenu object (0x00402230). A menu string is a
-// path of items separated by `\`; the first character of an item is its key, the rest its text.
+/// <summary>A node of the menu tree of a ChatMenu object (0x00402230).</summary>
+/// <remarks>A menu string is a path of items separated by <c>\</c>. The first character of an item is its key and the rest its text.</remarks>
 public sealed class ChatMenuNode
 {
+    /// <summary>The key of the item.</summary>
     public char Key;
+    /// <summary>The item text, at most 31 characters.</summary>
     public string Text = "";                     // at most 31 characters
+    /// <summary>True for a leaf, which runs commands.</summary>
     public bool Leaf;
-    public List<string> Commands = new();        // leaf: at most 10 words
+    /// <summary>The command words of a leaf, at most 10.</summary>
+    public List<string> Commands = new();
+    /// <summary>The child items.</summary>
     public readonly List<ChatMenuNode> Children = new();
+    /// <summary>The parent node, or null at the root.</summary>
     public ChatMenuNode? Parent;
 }
 
-// src/game/client_game_commands.hpp struct ChatMenuTree.
+/// <summary>The menu tree of one ChatMenu object.</summary>
 public sealed class ChatMenuTree
 {
+    /// <summary>The root node.</summary>
     public readonly ChatMenuNode Root = new();
 
+    /// <summary>Creates an empty tree.</summary>
     public ChatMenuTree() => mLevel = Root;
 
     private int mMode; // setCMMode, 0-2
     private ChatMenuNode mLevel; // the node whose children are on display (Root at the top)
     private int mReleaseKey;      // scan code of the key press this menu consumed: its release is consumed too [code 00402068, field +0x6c]
 
-    // setCMMode [code 00401fe0]: modes 0-2 are stored and the display goes back to the top level.
+    /// <summary>The menu mode, 0 to 2. Setting it stores the mode and returns the display to the top level.</summary>
+    /// <remarks>Follows setCMMode (00401fe0).</remarks>
     public int Mode
     {
         get => mMode;
@@ -36,14 +45,16 @@ public sealed class ChatMenuTree
         }
     }
 
-    // The top level has items and the menu is on: what the chat display draws [code 004a633c: mode and level both non-zero].
+    /// <summary>Gets whether the chat display draws the menu: the mode is not 0 and the top level has items.</summary>
+    /// <remarks>Follows 004a633c (mode and level both non-zero).</remarks>
     public bool Showing => mMode != 0 && mLevel.Children.Count > 0;
 
-    // The node whose children are listed now, null when nothing is shown.
+    /// <summary>The node whose children are listed now, or null when nothing is shown.</summary>
     public ChatMenuNode? Level => Showing ? mLevel : null;
 
-    // The path of headings above the shown level, root first, joined with ':' (empty at the top level, where the menu object's own
-    // title is shown) [code 004a633c title loop].
+    /// <summary>Returns the path of headings above the shown level.</summary>
+    /// <returns>The headings, root first, joined with ':'. Empty at the top level, where the menu object's own title is shown.</returns>
+    /// <remarks>Follows the title loop of 004a633c.</remarks>
     public string Path()
     {
         var names = new List<string>();
@@ -53,15 +64,21 @@ public sealed class ChatMenuTree
         return string.Join(':', names);
     }
 
-    // The item lines of the shown level, "key: text" [code 004a633c].
+    /// <summary>Returns the item lines of the shown level.</summary>
+    /// <returns>The lines, as "key: text".</returns>
+    /// <remarks>Follows 004a633c.</remarks>
     public IReadOnlyList<string> Lines() =>
         Level == null ? Array.Empty<string>() : Level.Children.Select(c => c.Key + ": " + c.Text).ToList();
 
-    // One keyboard event offered to the menu (InputEvent handler [code 00402068]). Returns true when the menu consumed it.
-    // `scan` is the key code (ObjInst), `action` 1 press and 2 release, `ch` the event's character, `mods` its modifier byte.
-    // `run` executes a leaf's command words (function or command name first).
-    // `cancelOrder` is the order cursor of the command map for the command menu [code 00402068]: Escape resets it and, when it was on, the key
-    // is taken even at the top level of the menu.
+    /// <summary>Offers one keyboard event to the menu.</summary>
+    /// <param name="scan">The key code (ObjInst).</param>
+    /// <param name="action">1 for press, 2 for release.</param>
+    /// <param name="ch">The character of the event.</param>
+    /// <param name="mods">The modifier byte of the event.</param>
+    /// <param name="run">Runs the command words of a leaf, the function or command name first.</param>
+    /// <param name="cancelOrder">The order cursor of the command map for the command menu. Escape resets it and, when it was on, the key is taken even at the top level of the menu.</param>
+    /// <returns>True when the menu consumed the event.</returns>
+    /// <remarks>Follows the InputEvent handler (00402068).</remarks>
     public bool OnKey(int scan, int action, char ch, byte mods, Action<IReadOnlyList<string>> run, Func<bool>? cancelOrder = null)
     {
         if (action == 2)
@@ -115,8 +132,10 @@ public sealed class ChatMenuTree
         return hit;
     }
 
-    // src/game/client_game_commands.cpp ChatMenuTree::add: false: empty string, empty item, or the last item's key already
-    // exists at its level.
+    /// <summary>Adds a menu item path to the tree.</summary>
+    /// <param name="menuString">The path of items, separated by <c>\</c>.</param>
+    /// <param name="commands">The command words of the leaf.</param>
+    /// <returns>False for an empty string, an empty item, or when the last item's key already exists at its level.</returns>
     public bool Add(string menuString, IReadOnlyList<string> commands)
     {
         ChatMenuNode level = Root;
@@ -157,7 +176,7 @@ public sealed class ChatMenuTree
     }
 }
 
-// The chat menus of one console: a tree per ChatMenu object and the menu a script switched on last.
+/// <summary>The chat menus of one console: a tree per ChatMenu object and the menu a script switched on last.</summary>
 public sealed class ChatMenuRegistry
 {
     private readonly Dictionary<SimObject, (int Id, ChatMenuTree Tree)> mTrees = new(ReferenceEqualityComparer.Instance);
@@ -165,7 +184,9 @@ public sealed class ChatMenuRegistry
     private string mActiveName = "";
     private readonly Dictionary<SimObject, string> mNames = new(ReferenceEqualityComparer.Instance);
 
-    // Keyed by object and id; an entry whose id no longer matches is stale.
+    /// <summary>Returns the tree of a ChatMenu object, creating it on first use.</summary>
+    /// <param name="obj">The ChatMenu object. An entry is keyed by object and id, and an entry whose id no longer matches is stale.</param>
+    /// <returns>The tree.</returns>
     public ChatMenuTree Of(SimObject obj)
     {
         if (!mTrees.TryGetValue(obj, out var slot) || slot.Id != obj.Id())
@@ -176,13 +197,17 @@ public sealed class ChatMenuRegistry
         return slot.Tree;
     }
 
-    // The command map watches the menu named CommandChatMenu: switching it off ends its order cursor [code 00401fe0 with the name test].
+    /// <summary>The name of the command map menu. Switching it off ends the order cursor (00401fe0, name test).</summary>
     public const string CommandMenuName = "CommandChatMenu";
+    /// <summary>Called when the command menu is switched off.</summary>
     public Action? CommandMenuOff;
-    // Escape in the command menu cancels the order cursor and tells whether it was on [code 00402068].
+    /// <summary>Cancels the order cursor on Escape in the command menu and tells whether it was on (00402068).</summary>
     public Func<bool>? CancelOrder;
 
-    // setCMMode: a menu switched to a mode above 0 is the one on display; switching it to 0 removes it.
+    /// <summary>Sets the mode of a menu. A menu set above 0 is the one on display. Setting it to 0 removes it.</summary>
+    /// <param name="obj">The ChatMenu object.</param>
+    /// <param name="name">The object name.</param>
+    /// <param name="mode">The new mode.</param>
     public void SetMode(SimObject obj, string name, int mode)
     {
         Of(obj).Mode = mode;
@@ -198,8 +223,15 @@ public sealed class ChatMenuRegistry
             mActive = null;
     }
 
-    // A keyboard event offered to every menu that is on (the menus are members of the input consumer set, `sim.md` GS4). The first
-    // menu that consumes it wins. `run` executes the command words of a leaf.
+    /// <summary>Offers a keyboard event to every menu that is on, in order. The first menu that consumes it wins.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="scan">The key code.</param>
+    /// <param name="action">1 for press, 2 for release.</param>
+    /// <param name="ch">The character of the event.</param>
+    /// <param name="mods">The modifier byte of the event.</param>
+    /// <param name="run">Runs the command words of a leaf.</param>
+    /// <returns>True when a menu consumed the event.</returns>
+    /// <remarks>The menus are members of the input consumer set (sim.md GS4).</remarks>
     public bool OnKey(GameState game, int scan, int action, char ch, byte mods, Action<IReadOnlyList<string>> run)
     {
         foreach (var (obj, slot) in mTrees.ToArray())
@@ -214,7 +246,10 @@ public sealed class ChatMenuRegistry
         return false;
     }
 
-    // The tree of the named menu while it is on and shows items, else null.
+    /// <summary>Returns the tree of a named menu while it is on and shows items.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="name">The menu name.</param>
+    /// <returns>The title and tree, or null.</returns>
     public (string Title, ChatMenuTree Tree)? Showing(GameState game, string name)
     {
         if (game.Sim?.Server()?.Find(name) is not SimObject obj || obj.ClassName() != "ChatMenu")
@@ -223,7 +258,9 @@ public sealed class ChatMenuRegistry
         return tree.Showing ? (obj is SimClasses.ChatMenu m ? m.Title : "", tree) : null;
     }
 
-    // The menu on display, null when none is on, or its object was deleted.
+    /// <summary>Returns the menu on display.</summary>
+    /// <param name="game">The game state.</param>
+    /// <returns>The title and tree, or null when none is on or its object was deleted.</returns>
     public (string Title, ChatMenuTree Tree)? Active(GameState game)
     {
         if (mActive == null || game.Sim?.Server()?.Find(mActiveName) is not SimObject now || !ReferenceEquals(now, mActive))
@@ -235,16 +272,20 @@ public sealed class ChatMenuRegistry
 
 public sealed partial class GameState
 {
+    /// <summary>The chat menus of the console.</summary>
     public readonly ChatMenuRegistry ChatMenus = new();
 }
 
+/// <summary>The client side game commands.</summary>
 public static class ClientGameCommands
 {
     // src/game/client_game_commands.cpp findMenu.
     private static SimObject? FindMenu(GameState game, string name) =>
         game.Sim?.Server()?.Find(name) is SimObject obj && obj.ClassName() == "ChatMenu" ? obj : null;
 
-    // src/game/client_game_commands.cpp registerClientGameCommands.
+    /// <summary>Registers the client game commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         ChatMenuRegistry menus = game.ChatMenus;

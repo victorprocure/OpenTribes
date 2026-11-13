@@ -5,14 +5,17 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/command_map.hpp struct SoundRoute: what the network layer adds: the ghost index of an object on a client's
-// connection and the client's scope object. Both optional (no network: no sound reaches anyone).
+/// <summary>Routes sounds to clients: what the network layer adds to the command map.</summary>
+/// <remarks>Both hooks are optional. Without a network no sound reaches anyone.</remarks>
 public static class SoundRoute
 {
-    public static Func<int, SimObject, int>? GhostIndex; // -1: not ghosted
-    public static Func<int, SimObject?>? ScopeObject;    // default: control object
+    /// <summary>Returns the ghost index of an object on a client's connection, or -1 when it is not ghosted.</summary>
+    public static Func<int, SimObject, int>? GhostIndex;
+    /// <summary>Returns the scope object of a client. The default is the control object.</summary>
+    public static Func<int, SimObject?>? ScopeObject;
 }
 
+/// <summary>The command map events and script commands.</summary>
 public static class CommandMap
 {
     // src/game/command_map.cpp putUnit: BitStream::writeFloat (0x00582fb0) into an event.
@@ -243,8 +246,20 @@ public static class CommandMap
         return true;
     }
 
-    // src/game/command_map.cpp makeCommandEvent: PlayerCommandEvent (0x455, 0x0040a5a8). ack events carry no command part.
-    // `text` null: no text; `newText` false: the text was already sent to this recipient (hasText 1, new 0).
+    /// <summary>Builds a PlayerCommandEvent.</summary>
+    /// <param name="commanded">The id of the commanded player.</param>
+    /// <param name="issuer">The id of the issuing player.</param>
+    /// <param name="status">The command status.</param>
+    /// <param name="ack">True for an acknowledge event, which carries no command part.</param>
+    /// <param name="icon">The command icon.</param>
+    /// <param name="target">The target id.</param>
+    /// <param name="x">The waypoint x.</param>
+    /// <param name="y">The waypoint y.</param>
+    /// <param name="hasText">True when the event carries text.</param>
+    /// <param name="newText">False when the text was already sent to this recipient (hasText 1, new 0).</param>
+    /// <param name="text">The command text, or null for none.</param>
+    /// <returns>The event.</returns>
+    /// <remarks>Follows PlayerCommandEvent (0x455, 0x0040a5a8).</remarks>
     public static OutEvent MakeCommandEvent(int commanded, int issuer, int status, bool ack, int icon, int target, int x, int y,
                                             bool hasText, bool newText, string? text)
     {
@@ -276,8 +291,11 @@ public static class CommandMap
         return w.Finish(0x455);
     }
 
-    // src/game/command_map.cpp makeSelectCommanderEvent: PlayerSelectCmdrEvent (0x456, 0x0040a29c): `commander` is written
-    // raw (0: absent).
+    /// <summary>Builds a PlayerSelectCmdrEvent.</summary>
+    /// <param name="client">The client id.</param>
+    /// <param name="commander">The commander id, written raw. 0 means absent.</param>
+    /// <returns>The event.</returns>
+    /// <remarks>Follows PlayerSelectCmdrEvent (0x456, 0x0040a29c).</remarks>
     public static OutEvent MakeSelectCommanderEvent(int client, int commander)
     {
         var w = new EventWriter();
@@ -288,7 +306,11 @@ public static class CommandMap
         return w.Finish(0x456);
     }
 
-    // src/game/command_map.cpp makeVoiceEvent: VoiceEvent (0x45f, 0x0040adf8): the wav name is cut to 7 characters.
+    /// <summary>Builds a VoiceEvent.</summary>
+    /// <param name="client">The client id.</param>
+    /// <param name="wav">The wav name, cut to 7 characters.</param>
+    /// <returns>The event.</returns>
+    /// <remarks>Follows VoiceEvent (0x45f, 0x0040adf8).</remarks>
     public static OutEvent MakeVoiceEvent(int client, string wav)
     {
         var w = new EventWriter();
@@ -297,7 +319,12 @@ public static class CommandMap
         return w.Finish(0x45f, true, false);
     }
 
-    // src/game/command_map.cpp makeSoundEvent: SoundEvent (0x460, 0x0040aec0), guaranteed unordered.
+    /// <summary>Builds a SoundEvent, guaranteed unordered.</summary>
+    /// <param name="ghostIndex">The ghost index of the source object.</param>
+    /// <param name="channel">The sound channel.</param>
+    /// <param name="sound">The sound id.</param>
+    /// <returns>The event.</returns>
+    /// <remarks>Follows SoundEvent (0x460, 0x0040aec0).</remarks>
     public static OutEvent MakeSoundEvent(int ghostIndex, int channel, int sound)
     {
         var w = new EventWriter();
@@ -307,7 +334,13 @@ public static class CommandMap
         return w.Finish(0x460, true, false);
     }
 
-    // src/game/command_map.cpp makeLocSoundEvent: LocSoundEvent (0x45c, 0x00485714).
+    /// <summary>Builds a LocSoundEvent.</summary>
+    /// <param name="sound">The sound id.</param>
+    /// <param name="delta">The offset of the sound from the listener.</param>
+    /// <param name="dist">The sound distance.</param>
+    /// <param name="maxDist">The maximum distance.</param>
+    /// <returns>The event.</returns>
+    /// <remarks>Follows LocSoundEvent (0x45c, 0x00485714).</remarks>
     public static OutEvent MakeLocSoundEvent(int sound, ReadOnlySpan<float> delta, float dist, float maxDist)
     {
         var w = new EventWriter();
@@ -328,7 +361,9 @@ public static class CommandMap
         return w.Finish(0x45c, false, false);
     }
 
-    // src/game/command_map.cpp registerCommandMapCommands.
+    /// <summary>Registers the command map commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         // The plugin commands 10-14 return NULL (False) on every path.

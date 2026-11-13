@@ -5,6 +5,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>Projectile creation from an item image fire and from Projectile::spawnProjectile.</summary>
+/// <remarks>Includes the Player muzzle, eye and pull-back transforms (docs/projectile-sim.md 1.1, 1.3, 1.5).</remarks>
 public static partial class ProjectileFire
 {
     // src/game/projectile_fire.cpp normalise.
@@ -77,10 +79,19 @@ public static partial class ProjectileFire
         return Projectile.CastWorld(game, from.P, end, mask, exclude, ref hit);
     }
 
-    // src/game/projectile_fire.cpp projectileEyeTransform.
-    public static Transform ProjectileEyeTransform(Player p) => p.EyeTransform(); // reads the shape instance cache
+    /// <summary>Returns the eye transform of a player for a projectile.</summary>
+    /// <param name="p">The player.</param>
+    /// <returns>The eye transform, read from the shape instance cache.</returns>
+    public static Transform ProjectileEyeTransform(Player p) => p.EyeTransform();
 
-    // src/game/projectile_fire.cpp projectileCastLOS.
+    /// <summary>Casts the line of sight of a projectile.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="from">The transform the ray starts from.</param>
+    /// <param name="mask">The object type mask.</param>
+    /// <param name="exclude">The object the ray ignores, or null.</param>
+    /// <param name="range">The ray length.</param>
+    /// <param name="hit">Receives the hit.</param>
+    /// <returns>True on a hit.</returns>
     public static bool ProjectileCastLOS(GameState game, in Transform from, uint mask, SimObject? exclude, float range, ref RayHit hit) =>
         CastLOS(game, from, mask, exclude, range, ref hit);
 
@@ -172,8 +183,11 @@ public static partial class ProjectileFire
         return pr;
     }
 
-    // src/game/projectile_fire.cpp projectileFromImage: image fire paths of the Player (docs/projectile-sim.md 1.1,
-    // player-sim.md 7.5): create and register the projectile of a slot (sustained: keep it in the slot).
+    /// <summary>Creates and registers the projectile of an image slot.</summary>
+    /// <param name="pl">The player.</param>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="sustained">True to keep the projectile in the slot.</param>
+    /// <remarks>Image fire path of the Player (docs/projectile-sim.md 1.1, docs/player-sim.md 7.5).</remarks>
     public static void ProjectileFromImage(Player pl, int slot, bool sustained)
     {
         SimManager? m = pl.Game().Sim?.Server();
@@ -188,7 +202,9 @@ public static partial class ProjectileFire
             pl.Images[slot].Projectile = pr.Id();
     }
 
-    // src/game/projectile_fire.cpp projectileUpdateFromImage: update the transform of a sustained projectile.
+    /// <summary>Updates the transform of a sustained projectile.</summary>
+    /// <param name="pl">The player.</param>
+    /// <param name="slot">The image slot.</param>
     public static void ProjectileUpdateFromImage(Player pl, int slot)
     {
         SimManager? m = pl.Game().Sim?.Server();
@@ -207,7 +223,9 @@ public static partial class ProjectileFire
         pr.UpdateTransform(t);
     }
 
-    // src/game/projectile_fire.cpp projectileShutOffFromImage: shut a sustained projectile off.
+    /// <summary>Shuts a sustained projectile off.</summary>
+    /// <param name="pl">The player.</param>
+    /// <param name="slot">The image slot.</param>
     public static void ProjectileShutOffFromImage(Player pl, int slot)
     {
         SimManager? m = pl.Game().Sim?.Server();
@@ -217,8 +235,10 @@ public static partial class ProjectileFire
 
     private static readonly int[] kProjectileGroups = { 14, 15, 16, 17, 24, 25, 28, 29 };
 
-    // src/game/projectile_fire.cpp registerProjectileCommands: Projectile::spawnProjectile (1.3, 0x004223a8) and the
-    // transforms behind GameBase::getLOSInfo and GameBase::getMuzzleTransform (docs/projectile-sim.md 1.5).
+    /// <summary>Registers the projectile commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
+    /// <remarks>Covers Projectile::spawnProjectile (0x004223a8, docs/projectile-sim.md 1.3) and the transforms behind GameBase::getLOSInfo and GameBase::getMuzzleTransform (docs/projectile-sim.md 1.5).</remarks>
     public static void RegisterCommands(Interpreter interp, GameState game)
     {
         BacklogHooks.EyeTransform = (obj, eye) =>
@@ -298,8 +318,11 @@ public sealed partial class Player
 {
     private static readonly string[] kMountNodeNames = { "dummy hand", "dummy unused", "dummy midback", "dummy lowback" };
 
-    // src/game/projectile_fire.cpp Player::imageMountTransform: Player_getImageMountTransform (0x00419ba0), object space.
-    // False when the armor has no node for the mount point.
+    /// <summary>Computes the transform of an image mount point in object space.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="output">Receives the transform.</param>
+    /// <returns>False when the armor has no node for the mount point.</returns>
+    /// <remarks>Follows Player_getImageMountTransform (0x00419ba0).</remarks>
     public bool ImageMountTransform(int slot, out TMat3 output)
     {
         output = new TMat3();
@@ -334,8 +357,11 @@ public sealed partial class Player
         return true;
     }
 
-    // src/game/projectile_fire.cpp Player::muzzleObjectTransform: Player_getMuzzleTransform (vtable +0x10c, 0x00419d88),
-    // object space; false without an item.
+    /// <summary>Computes the muzzle transform of an image in object space.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="output">Receives the transform.</param>
+    /// <returns>False without an item.</returns>
+    /// <remarks>Follows Player_getMuzzleTransform (vtable +0x10c, 0x00419d88).</remarks>
     public bool MuzzleObjectTransform(int slot, out TMat3 output)
     {
         output = new TMat3();
@@ -355,7 +381,8 @@ public sealed partial class Player
         return true;
     }
 
-    // src/game/projectile_fire.cpp Player::eyeTransform: Player_getEyeTransform (vtable +0x110, 0x0041248c), world space.
+    /// <inheritdoc/>
+    /// <remarks>Follows Player_getEyeTransform (vtable +0x110, 0x0041248c), in world space.</remarks>
     public override Transform EyeTransform()
     {
         using var chop = X87.Chop();
@@ -368,8 +395,11 @@ public sealed partial class Player
         return ProjectileFire.ToTransform(output);
     }
 
-    // src/game/projectile_fire.cpp Player::muzzleTransform: world muzzle of a shot without aim correction (0x0041b986):
-    // muzzle x object transform.
+    /// <summary>Computes the world muzzle transform of a shot without aim correction: muzzle times object transform.</summary>
+    /// <param name="slot">The image slot.</param>
+    /// <param name="output">Receives the transform.</param>
+    /// <returns>True when the muzzle exists.</returns>
+    /// <remarks>Follows 0x0041b986.</remarks>
     public bool MuzzleTransform(int slot, out Transform output)
     {
         output = new Transform();
@@ -381,8 +411,8 @@ public sealed partial class Player
         return true;
     }
 
-    // src/game/projectile_fire.cpp Player::updateWeaponPullback: Player_updateWeaponPullback (0x004198d4): +0xfd0 for the
-    // first mount point 0 image.
+    /// <summary>Updates the weapon pullback of the first mount point 0 image (+0xfd0).</summary>
+    /// <remarks>Follows Player_updateWeaponPullback (0x004198d4).</remarks>
     public void UpdateWeaponPullback()
     {
         Pullback = 0.0f;

@@ -5,6 +5,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The game script commands: Group, datablocks, line of sight, containers, teams and the GameBase family.</summary>
+/// <remarks>The Player and Vehicle commands are in <see cref="PlayerCommands"/> and <see cref="Vehicle"/>. The AI commands are in <see cref="AICommands"/>.</remarks>
 public static class GameCommands
 {
     // src/game/game_commands.cpp findObject.
@@ -29,7 +31,9 @@ public static class GameCommands
         }
     }
 
-    // src/game/game_commands.cpp registerGameCommands.
+    /// <summary>Registers the game commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         ClientGameCommands.Register(interp, game); // chat menus (docs/mods.md 5.5)

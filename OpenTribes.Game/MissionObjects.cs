@@ -12,17 +12,21 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/mission_objects.hpp struct PersistDef.
-public readonly record struct PersistDef(string Name, int Type, int Count); // type: docs/datablocks.md 3 type numbers
+/// <summary>The definition of a persist field.</summary>
+/// <param name="Name">The field name.</param>
+/// <param name="Type">The type number (docs/datablocks.md 3).</param>
+/// <param name="Count">The number of array elements.</param>
+public readonly record struct PersistDef(string Name, int Type, int Count);
 
-// src/game/mission_objects.hpp class PersistFields: shared persist-field storage: raw values plus parsed point3F fields.
-// Array fields keep one value per element.
+/// <summary>The shared persist field storage: raw values plus parsed point3F fields. Array fields keep one value per element.</summary>
 public sealed class PersistFields
 {
     private readonly List<PersistDef> mDefs;
     private readonly Dictionary<string, List<string>> mValues = new(); // lower-case field name
     private readonly Dictionary<string, float[]> mPoints = new();
 
+    /// <summary>Creates the storage for a list of field definitions.</summary>
+    /// <param name="defs">The field definitions.</param>
     public PersistFields(IEnumerable<PersistDef> defs) => mDefs = new List<PersistDef>(defs);
 
     // src/game/mission_objects.cpp lower.
@@ -69,7 +73,10 @@ public sealed class PersistFields
         return p;
     }
 
-    // src/game/mission_objects.cpp PersistFields::set.
+    /// <summary>Sets a field.</summary>
+    /// <param name="field">The field name, compared without case.</param>
+    /// <param name="values">The values.</param>
+    /// <returns>False when the field is not defined or the values are not accepted.</returns>
     public bool Set(string field, IReadOnlyList<string> values)
     {
         foreach (PersistDef d in mDefs)
@@ -91,7 +98,11 @@ public sealed class PersistFields
 
     internal static bool SimClassesNoCase(string a, string b) => GameUtil.EqualsNoCase(a, b);
 
-    // src/game/mission_objects.cpp PersistFields::setElement.
+    /// <summary>Sets one element of an array field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="index">The element index.</param>
+    /// <param name="values">The values.</param>
+    /// <returns>False when the field or index is not accepted.</returns>
     public bool SetElement(string field, int index, IReadOnlyList<string> values)
     {
         foreach (PersistDef d in mDefs)
@@ -108,14 +119,23 @@ public sealed class PersistFields
         return false;
     }
 
-    // src/game/mission_objects.cpp PersistFields::setPoint: replaces a point3F field (engine code, not the persist setter).
+    /// <summary>Replaces a point3F field. Engine code uses it, not the persist setter.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="v">The point.</param>
     public void SetPoint(string field, ReadOnlySpan<float> v) => mPoints[Lower(field)] = new[] { v[0], v[1], v[2] };
 
-    // src/game/mission_objects.cpp PersistFields::get.
+    /// <summary>Returns the values of a field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="index">The element index, or -1 for the whole field.</param>
+    /// <returns>The values, or null when the field has none.</returns>
     public IReadOnlyList<string>? Get(string field, int index = -1) =>
         mValues.TryGetValue(ElementKey(Lower(field), index), out List<string>? v) ? v : null;
 
-    // src/game/mission_objects.cpp PersistFields::point.
+    /// <summary>Reads a point3F field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="output">Receives the point.</param>
+    /// <param name="index">The element index, or -1.</param>
+    /// <returns>False when the field has no point.</returns>
     public bool Point(string field, Span<float> output, int index = -1)
     {
         if (!mPoints.TryGetValue(ElementKey(Lower(field), index), out float[]? p))
@@ -125,35 +145,54 @@ public sealed class PersistFields
         return true;
     }
 
-    // src/game/mission_objects.cpp PersistFields::str.
+    /// <summary>Reads a string field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The value.</returns>
     public string Str(string field, string def = "")
     {
         IReadOnlyList<string>? v = Get(field);
         return v != null && v.Count != 0 ? v[0] : def;
     }
 
-    // src/game/mission_objects.cpp PersistFields::real.
+    /// <summary>Reads a real field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The value.</returns>
     public float Real(string field, float def)
     {
         IReadOnlyList<string>? v = Get(field);
         return v != null && v.Count != 0 ? AtofRZ(v[0]) : def;
     }
 
-    // src/game/mission_objects.cpp PersistFields::integer.
+    /// <summary>Reads an integer field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <param name="index">The element index, or -1.</param>
+    /// <returns>The value.</returns>
     public int Integer(string field, int def, int index = -1)
     {
         IReadOnlyList<string>? v = Get(field, index);
         return v != null && v.Count != 0 ? Numbers.BorlandAtoi(v[0]) : def;
     }
 
-    // src/game/mission_objects.cpp PersistFields::boolean.
+    /// <summary>Reads a boolean field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The value.</returns>
     public bool Boolean(string field, bool def)
     {
         IReadOnlyList<string>? v = Get(field);
         return v != null && v.Count != 0 ? ParseBool(v[0]) : def;
     }
 
-    // src/game/mission_objects.cpp PersistFields::point with a default.
+    /// <summary>Reads a point3F field with a default.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="output">Receives the point.</param>
+    /// <param name="x">The default x.</param>
+    /// <param name="y">The default y.</param>
+    /// <param name="z">The default z.</param>
+    /// <param name="index">The element index, or -1.</param>
     public void Point(string field, Span<float> output, float x, float y, float z, int index = -1)
     {
         if (Point(field, output, index))
@@ -164,10 +203,13 @@ public sealed class PersistFields
     }
 }
 
-// Small helpers shared by the game files (C library string compare, number text).
+/// <summary>Small helpers shared by the game files: C library string compare and number text.</summary>
 public static class GameUtil
 {
-    // strcasecmp == 0 (ASCII).
+    /// <summary>Compares two strings for equality without case (<c>strcasecmp == 0</c>, ASCII).</summary>
+    /// <param name="a">The first string.</param>
+    /// <param name="b">The second string.</param>
+    /// <returns>True when equal.</returns>
     public static bool EqualsNoCase(string? a, string? b)
     {
         if (a == null || b == null)
@@ -187,7 +229,10 @@ public static class GameUtil
         return true;
     }
 
-    // strcasecmp < 0 order (ASCII).
+    /// <summary>Orders two strings without case (<c>strcasecmp</c>, ASCII).</summary>
+    /// <param name="a">The first string.</param>
+    /// <param name="b">The second string.</param>
+    /// <returns>Less than 0, 0 or greater than 0.</returns>
     public static int CompareNoCase(string a, string b)
     {
         int n = Math.Min(a.Length, b.Length);
@@ -204,20 +249,28 @@ public static class GameUtil
         return a.Length - b.Length;
     }
 
-    // "%g" of a float as the script prints it.
+    /// <summary>Formats a float as <c>%g</c>, as the script prints it.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string G(float v) => Numbers.FormatFloat(v);
 
-    // Three floats as "x y z".
+    /// <summary>Formats three floats as "x y z".</summary>
+    /// <param name="v">The vector.</param>
+    /// <returns>The text.</returns>
     public static string Fmt3(ReadOnlySpan<float> v) => G(v[0]) + " " + G(v[1]) + " " + G(v[2]);
 
-    // sscanf(s, "%f %f %f") into a zeroed vector (the scan3 helpers of the command files).
+    /// <summary>Parses "x y z" like <c>sscanf(s, "%f %f %f")</c> into a zeroed vector. The scan3 helpers of the command files use it.</summary>
+    /// <param name="s">The text.</param>
+    /// <param name="v">Receives the vector.</param>
     public static void Scan3(string s, Span<float> v)
     {
         v[0] = v[1] = v[2] = 0;
         CScan.Floats(s, v);
     }
 
-    // crt_ftol: truncation toward zero, 0x80000000 when out of range.
+    /// <summary>Converts a double as <c>crt_ftol</c> does: truncation toward zero, 0x80000000 when out of range.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The converted value.</returns>
     public static uint Ftol(double v)
     {
         if (!(v > -2147483649.0 && v < 2147483648.0))
@@ -225,251 +278,493 @@ public static class GameUtil
         return unchecked((uint)(int)v);
     }
 
+    /// <summary>Formats an integer.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string Itoa(int v) => Numbers.FormatInt(v);
 }
 
-// src/game/mission_objects.hpp class GameBase: the GameBase family.
+/// <summary>The base class of the mission objects: the GameBase family.</summary>
 public partial class GameBase : SimObject
 {
-    // src/game/mission_objects.hpp GameBase::Kind.
-    public enum Kind { ShapeBase, Marker, Trigger, Interior }
-
-    // src/game/mission_objects.hpp GameBase::ShapeClass: C++ class behind the ShapeBase kind (packUpdate layout, script
-    // state hooks).
-    public enum ShapeKind { NoShape, StaticShape, Sensor, Turret, Item, Mine, Moveable, Vehicle }
-
-    // DamageState
-    public const int kNone = 0, kEnabled = 1, kDisabled = 2, kDestroyed = 3;
-    // ThreadFlag
-    public const byte kThreadState = 3, kThreadAtEnd = 4, kThreadForward = 8;
-    // ThreadState
-    public const int kPlay = 0, kStop = 1, kPause = 2;
-    // MoveState
-    public const int kMoveNone = 0, kMoveForward = 1, kMoveBackward = 2, kMoveStopped = 3;
-
-    // src/game/mission_objects.hpp GameBase::Thread.
-    public sealed class Thread
+    /// <summary>The kind of a GameBase.</summary>
+    public enum Kind
     {
-        public int Sequence = -1;  // +0x750 + 0x10 * slot
-        public byte Flags;         // +0x754: bits 0-1 state, 4 at end, 8 forward
-        public bool Created;       // +0x748: the shape instance thread exists
-        public float Position;     // thread +0x1c, 0..1
-        public float Speed;        // thread +0x18
+        /// <summary>A ShapeBase object.</summary>
+        ShapeBase,
+        /// <summary>A Marker.</summary>
+        Marker,
+        /// <summary>A Trigger.</summary>
+        Trigger,
+        /// <summary>An interior.</summary>
+        Interior,
     }
 
-    // src/game/mission_objects.hpp GameBase::CollisionRecord.
+    /// <summary>The C++ class behind the ShapeBase kind. It decides the packUpdate layout and the script state hooks.</summary>
+    public enum ShapeKind
+    {
+        /// <summary>Not a shape class.</summary>
+        NoShape,
+        /// <summary>A StaticShape.</summary>
+        StaticShape,
+        /// <summary>A Sensor.</summary>
+        Sensor,
+        /// <summary>A Turret.</summary>
+        Turret,
+        /// <summary>An Item.</summary>
+        Item,
+        /// <summary>A Mine.</summary>
+        Mine,
+        /// <summary>A Moveable.</summary>
+        Moveable,
+        /// <summary>A Vehicle or Flier.</summary>
+        Vehicle,
+    }
+
+    /// <summary>The damage state: none.</summary>
+    public const int kNone = 0;
+    /// <summary>The damage state: enabled.</summary>
+    public const int kEnabled = 1;
+    /// <summary>The damage state: disabled.</summary>
+    public const int kDisabled = 2;
+    /// <summary>The damage state: destroyed.</summary>
+    public const int kDestroyed = 3;
+    /// <summary>The thread flag mask of the state bits.</summary>
+    public const byte kThreadState = 3;
+    /// <summary>The thread flag: at end.</summary>
+    public const byte kThreadAtEnd = 4;
+    /// <summary>The thread flag: forward.</summary>
+    public const byte kThreadForward = 8;
+    /// <summary>The thread state: play.</summary>
+    public const int kPlay = 0;
+    /// <summary>The thread state: stop.</summary>
+    public const int kStop = 1;
+    /// <summary>The thread state: pause.</summary>
+    public const int kPause = 2;
+    /// <summary>The move state: none.</summary>
+    public const int kMoveNone = 0;
+    /// <summary>The move state: forward.</summary>
+    public const int kMoveForward = 1;
+    /// <summary>The move state: backward.</summary>
+    public const int kMoveBackward = 2;
+    /// <summary>The move state: stopped.</summary>
+    public const int kMoveStopped = 3;
+
+    /// <summary>An animation thread slot of a ShapeBase.</summary>
+    public sealed class Thread
+    {
+        /// <summary>The sequence index, -1 for none (+0x750 + 0x10 * slot).</summary>
+        public int Sequence = -1;
+        /// <summary>The flags (+0x754): bits 0 and 1 state, 4 at end, 8 forward.</summary>
+        public byte Flags;
+        /// <summary>True when the shape instance thread exists (+0x748).</summary>
+        public bool Created;
+        /// <summary>The position, 0 to 1 (thread +0x1c).</summary>
+        public float Position;
+        /// <summary>The speed (thread +0x18).</summary>
+        public float Speed;
+    }
+
+    /// <summary>A collision callback record: per other object, the manager time before which no further onCollision runs.</summary>
     public struct CollisionRecord
     {
+        /// <summary>The id of the other object.</summary>
         public int Other;
+        /// <summary>The manager time at which the record expires.</summary>
         public float Expiry;
     }
 
-    // src/game/mission_objects.hpp GameBase::ItemBlock.
+    /// <summary>The Item datablock values.</summary>
     public sealed class ItemBlock
     {
-        public float Mass = 1, Drag = 1, Density = 1, Friction = 1, Elasticity = 0.2f;
+        /// <summary>The mass.</summary>
+        public float Mass = 1;
+        /// <summary>The drag.</summary>
+        public float Drag = 1;
+        /// <summary>The density.</summary>
+        public float Density = 1;
+        /// <summary>The friction.</summary>
+        public float Friction = 1;
+        /// <summary>The elasticity.</summary>
+        public float Elasticity = 0.2f;
     }
 
-    // src/game/mission_objects.hpp GameBase::MineBlock: MineData (0x004588f8 vtable block).
+    /// <summary>The MineData values (vtable block at 0x004588f8).</summary>
     public sealed class MineBlock
     {
+        /// <summary>The damage type.</summary>
         public int DamageType;
-        public float DamageValue = 1, ExplosionRadius = 1, Kick = 100;
+        /// <summary>The damage value.</summary>
+        public float DamageValue = 1;
+        /// <summary>The explosion radius.</summary>
+        public float ExplosionRadius = 1;
+        /// <summary>The kick.</summary>
+        public float Kick = 100;
     }
 
-    // src/game/mission_objects.hpp GameBase::EntryForces: gravity force (type 1) and container drag (+0x124) taken on
-    // terrain container entry (SimTerrain_enterContainer 0x005195b4, docs/player-sim.md FC2). Items and projectiles.
+    /// <summary>The gravity force (type 1) and container drag (+0x124) taken on terrain container entry, for Items and projectiles.</summary>
+    /// <remarks>Follows SimTerrain_enterContainer (0x005195b4, docs/player-sim.md FC2).</remarks>
     public sealed class EntryForcesRec
     {
-        public object? Terrain;       // terrain container entry at the last refile, null outside
+        /// <summary>The terrain container entry at the last refile, or null outside.</summary>
+        public object? Terrain;
+        /// <summary>The parent container entry.</summary>
         public object? Parent;
+        /// <summary>The gravity force.</summary>
         public readonly float[] Gravity = new float[3];
+        /// <summary>The container drag.</summary>
         public float Drag;
     }
 
-    // src/game/mission_objects.hpp GameBase::SensorBlock: SensorData fields (also read from a TurretData).
+    /// <summary>The SensorData fields, also read from a TurretData.</summary>
     public sealed class SensorBlock
     {
+        /// <summary>True when the sensor casts a line of sight.</summary>
         public bool CastLOS;
-        public int Range = 100, Doppler;
-        public bool Supression, Supressable = true, Pinger = true;
+        /// <summary>The detection range.</summary>
+        public int Range = 100;
+        /// <summary>The doppler value.</summary>
+        public int Doppler;
+        /// <summary>True when the sensor suppresses others.</summary>
+        public bool Supression;
+        /// <summary>True when the sensor can be suppressed.</summary>
+        public bool Supressable = true;
+        /// <summary>True when the sensor pings.</summary>
+        public bool Pinger = true;
     }
 
-    // src/game/mission_objects.hpp GameBase::TurretBlock.
+    /// <summary>The TurretData values.</summary>
     public sealed class TurretBlock
     {
-        public float GunRange = -1, Speed = 1, SpeedModifier, ReloadDelay, MinGunEnergy, MaxGunEnergy;
-        public float Fov = -1, Deflection, EnergyRate, TargetableFovRatio = 0.5f; // +0x14c
-        public bool Sustained, HasProjectile;
+        /// <summary>The gun range, -1 for unset.</summary>
+        public float GunRange = -1;
+        /// <summary>The speed.</summary>
+        public float Speed = 1;
+        /// <summary>The speed modifier.</summary>
+        public float SpeedModifier;
+        /// <summary>The reload delay.</summary>
+        public float ReloadDelay;
+        /// <summary>The minimum gun energy.</summary>
+        public float MinGunEnergy;
+        /// <summary>The maximum gun energy.</summary>
+        public float MaxGunEnergy;
+        /// <summary>The field of view, -1 for unset (+0x14c).</summary>
+        public float Fov = -1;
+        /// <summary>The deflection.</summary>
+        public float Deflection;
+        /// <summary>The energy rate.</summary>
+        public float EnergyRate;
+        /// <summary>The targetable field of view ratio.</summary>
+        public float TargetableFovRatio = 0.5f;
+        /// <summary>True for a sustained weapon.</summary>
+        public bool Sustained;
+        /// <summary>True when the turret has a projectile.</summary>
+        public bool HasProjectile;
+        /// <summary>The firing time in milliseconds.</summary>
         public int FiringTimeMS;
     }
 
-    // src/game/mission_objects.hpp GameBase::TurretMove: the fields of the last move the turret reads (+0x8d8).
+    /// <summary>The fields of the last move the turret reads (+0x8d8).</summary>
     public struct TurretMove
     {
-        public float Turn, Pitch;
-        public bool Jump, Fire;
+        /// <summary>The turn input.</summary>
+        public float Turn;
+        /// <summary>The pitch input.</summary>
+        public float Pitch;
+        /// <summary>The jump input.</summary>
+        public bool Jump;
+        /// <summary>The fire input.</summary>
+        public bool Fire;
     }
 
-    // src/game/mission_objects.hpp GameBase::MoveableBlock: MoveableData (datablock group 7) values read at bind.
+    /// <summary>The MoveableData values (datablock group 7) read at bind.</summary>
     public sealed class MoveableBlock
     {
-        public bool Displace = true, BlockForward = true, BlockBackward = true; // +0x100..+0x102
-        public float Speed = 1;                                                 // +0x114
+        /// <summary>True when the Moveable displaces objects (+0x100).</summary>
+        public bool Displace = true;
+        /// <summary>True when the Moveable blocks forward (+0x101).</summary>
+        public bool BlockForward = true;
+        /// <summary>True when the Moveable blocks backward (+0x102).</summary>
+        public bool BlockBackward = true;
+        /// <summary>The speed (+0x114).</summary>
+        public float Speed = 1;
     }
 
-    // src/game/mission_objects.hpp GameBase::Occupant.
+    /// <summary>An occupant of a Trigger.</summary>
     public struct Occupant
     {
+        /// <summary>The id of the occupant object.</summary>
         public int Object;
-        public float Expiry, NextContact;
+        /// <summary>The time at which the occupant expires.</summary>
+        public float Expiry;
+        /// <summary>The time of the next contact event.</summary>
+        public float NextContact;
     }
 
+    /// <summary>The team id, -1 for none.</summary>
     public int Team = -1;
-    public string? DataBlockName;      // interned
+    /// <summary>The datablock name, interned.</summary>
+    public string? DataBlockName;
+    /// <summary>The map name. A ShapeBase starts with "", and null prints False.</summary>
     public string? MapName;            // ShapeBase starts with ""; null prints False
-    public int TargetIndex = -1;       // sensor target, when the datablock is visibleToSensor
+    /// <summary>The sensor target index, when the datablock is visibleToSensor.</summary>
+    public int TargetIndex = -1;
+    /// <summary>The object transform.</summary>
     public Transform Transform = new();
-    public InteriorGeometry? InteriorGeo; // InteriorShape collision geometry
-    // InteriorShape ghost data (docs/game-stream-ghosts.md 3.4): isContainer (+0x244, -1 until a shape loads), state
-    // words and light records.
+    /// <summary>The collision geometry of an InteriorShape.</summary>
+    public InteriorGeometry? InteriorGeo;
+    /// <summary>The InteriorShape isContainer value (+0x244), -1 until a shape loads. Part of the InteriorShape ghost data (docs/game-stream-ghosts.md 3.4), with the state words and light records.</summary>
     public int IsContainer = -1;
+    /// <summary>The InteriorShape state words and light records.</summary>
     public InteriorNetInfo InteriorNet = new();
-    public readonly ResourceLocks ResourceLocks = new(); // the resources of the ITRInstance (Interior.LoadInteriorResources)
-    public bool CollisionDisabled;     // +0x41c
+    /// <summary>The resources of the ITRInstance (Interior.LoadInteriorResources).</summary>
+    public readonly ResourceLocks ResourceLocks = new();
+    /// <summary>True when collision is disabled (+0x41c).</summary>
+    public bool CollisionDisabled;
 
-    // Client links (docs/player-manager.md 12.5) and the control object interface (docs/game-stream.md 6.5).
-    public int ControlClient;          // +0x230
-    public int LastOwnerClient;        // +0x234: the last non-zero owner
-    public int OwnerClient;            // +0x238
-    public float Fov = 1.57079637f;    // +0x22c, stored by the PlayerPSC reader
-    // +0x4c bit 0x02: the object is a client ghost (docs/client-net.md 4.4). The client prediction sets it on its copy of
-    // the control object; the step skips the server-only parts (Player S7 crouch, scripts, Flier fire and jump). Never set
-    // on the server.
+    /// <summary>The id of the controlling client (+0x230). Client links are in docs/player-manager.md 12.5, the control object interface in docs/game-stream.md 6.5.</summary>
+    public int ControlClient;
+    /// <summary>The id of the last non-zero owner client (+0x234).</summary>
+    public int LastOwnerClient;
+    /// <summary>The id of the owner client (+0x238).</summary>
+    public int OwnerClient;
+    /// <summary>The field of view, stored by the PlayerPSC reader (+0x22c).</summary>
+    public float Fov = 1.57079637f;
+    /// <summary>True when the object is a client ghost (+0x4c bit 0x02). The client prediction sets it on its copy of the control object, and the step then skips the server-only parts (Player S7 crouch, scripts, Flier fire and jump). Never set on the server (docs/client-net.md 4.4).</summary>
     public bool ClientSide;
 
-    // ---- GameBase net state (docs/game-stream-ghosts.md 4.1) ----
-    public int DataBlockIndex = -1;    // +0x220: index in the datablock group
-    public bool PowerGenerator;        // +0x204
-    public int PowerCount;             // +0x208: generators in the groups above
+    /// <summary>The index in the datablock group (+0x220), -1 for none (docs/game-stream-ghosts.md 4.1).</summary>
+    public int DataBlockIndex = -1;
+    /// <summary>True when the object is a power generator (+0x204).</summary>
+    public bool PowerGenerator;
+    /// <summary>The number of generators in the groups above (+0x208).</summary>
+    public int PowerCount;
 
-    // ---- ShapeBase net state (4.2) ----
+    /// <summary>The animation threads (ShapeBase net state, docs/game-stream-ghosts.md 4.2).</summary>
     public readonly Thread[] Threads = { new(), new(), new() };
-    public readonly float[] FlashNormal = new float[3]; // +0x738 damage flash direction
-    public float FlashAmount;          // +0x744
-    public int FadeState;              // +0x280: 0 none, 1 fade out, 2 fade in (2.5 s)
-    public uint FadeStart;             // +0x284: tick time in ms at startFadeOut / startFadeIn
-    public readonly float[] Rotation = new float[3]; // +0x244 Euler angles as given (persist field)
-    public readonly float[] Velocity = new float[3]; // +0x194
-    public float Damage;               // +0x72c
-    public float MaxDamage = 1.0f;     // datablock +0x5c
-    public float DisabledLevel = 0.5f, DestroyedLevel = 0.75f; // datablock +0xec, +0xf0 (ratios)
-    public int DamageState = kEnabled; // +0x7d4 (StaticBase ctor 0x0044f430: 1)
-    public bool Active;                // +0x7d0, GameBase::setActive
-    public bool IsTarget;              // +0x7d1, GameBase::setIsTarget (set 725)
-    public float RechargeRate;         // +0x728
-    public float Energy, MaxEnergy;    // +0x724, datablock +0x58
-    public float RepairRate = 0.1f;    // datablock +0x60
-    public float RepairPending;        // +0x730
-    public float AutoRepairRate;       // +0x734
-    public bool DeleteOnDestroy;       // +0x7e4 (persist field, Mine and collideable Item force it)
-    public bool ShapeBound;            // datablock resolved (+0x7cc)
+    /// <summary>The damage flash direction (+0x738).</summary>
+    public readonly float[] FlashNormal = new float[3];
+    /// <summary>The damage flash amount (+0x744).</summary>
+    public float FlashAmount;
+    /// <summary>The fade state (+0x280): 0 none, 1 fade out, 2 fade in (2.5 s).</summary>
+    public int FadeState;
+    /// <summary>The tick time in ms at startFadeOut or startFadeIn (+0x284).</summary>
+    public uint FadeStart;
+    /// <summary>The Euler angles as given by the persist field (+0x244).</summary>
+    public readonly float[] Rotation = new float[3];
+    /// <summary>The velocity (+0x194).</summary>
+    public readonly float[] Velocity = new float[3];
+    /// <summary>The damage (+0x72c).</summary>
+    public float Damage;
+    /// <summary>The maximum damage (datablock +0x5c).</summary>
+    public float MaxDamage = 1.0f;
+    /// <summary>The ratio of maximum damage at which the object is disabled (datablock +0xec).</summary>
+    public float DisabledLevel = 0.5f;
+    /// <summary>The ratio of maximum damage at which the object is destroyed (datablock +0xf0).</summary>
+    public float DestroyedLevel = 0.75f;
+    /// <summary>The damage state (+0x7d4). The StaticBase constructor sets 1 (0x0044f430).</summary>
+    public int DamageState = kEnabled;
+    /// <summary>True when the object is active (+0x7d0, GameBase::setActive).</summary>
+    public bool Active;
+    /// <summary>True when the object is a target (+0x7d1, GameBase::setIsTarget, set 725).</summary>
+    public bool IsTarget;
+    /// <summary>The energy recharge rate (+0x728).</summary>
+    public float RechargeRate;
+    /// <summary>The energy (+0x724).</summary>
+    public float Energy;
+    /// <summary>The maximum energy (datablock +0x58).</summary>
+    public float MaxEnergy;
+    /// <summary>The repair rate (datablock +0x60).</summary>
+    public float RepairRate = 0.1f;
+    /// <summary>The pending repair (+0x730).</summary>
+    public float RepairPending;
+    /// <summary>The automatic repair rate (+0x734).</summary>
+    public float AutoRepairRate;
+    /// <summary>True when the object is deleted when destroyed (+0x7e4). A persist field. A Mine and a collideable Item force it.</summary>
+    public bool DeleteOnDestroy;
+    /// <summary>True once the datablock is resolved (+0x7cc).</summary>
+    public bool ShapeBound;
+    /// <summary>The shape animation.</summary>
     public ShapeAnim? Anim;
 
-    // Collision callback records (+0x214, docs/static-sim.md 1.8): per other object the manager time before which no
-    // further onCollision runs.
+    /// <summary>The collision callback records (+0x214, docs/static-sim.md 1.8).</summary>
     public readonly List<CollisionRecord> CollisionRecords = new();
+    /// <summary>The latest expiry of the collision records.</summary>
     public float CollisionLatest;
 
-    // ---- Item and Mine (docs/static-sim.md 5) ----
-    public bool ItemRotates;           // +0x888
-    public bool ItemCollideable;       // +0x889
-    public GameBase? ItemThrower;      // +0x878
-    public bool AtRest;                // +0x164 bit 0x80
-    public int ItemCount;              // +0x868
-    public bool ItemVisible = true;    // +0x864 bit 0 (hidden items leave their container)
-    public bool ItemPop;               // +0x864 bit 1, stored and read by nothing registered
-    public bool ItemPrevAtRest = true; // +0x86c
-    public float ItemThrowTime;        // +0x870
-    public float ItemNextUpdate;       // +0x874
-    public int ItemThrowerClient = -1, ItemThrowerJoin = -1; // +0x880, +0x884
-    public bool ItemContact;           // +0x1f4: a contact surface was hit this step
-    public List<SimObject> ItemNotify = new(); // notify list of the running move (info +0x3c)
-    public float ItemSubStep = 0.3f;   // +0x250: 0.45 * shape radius
-    public readonly float[] ShapeCenter = new float[3];   // shape bounding sphere centre (shape +0x08)
-    public float ShapeRadius;          // shape bounding sphere radius (shape +0x04)
-    public readonly float[] ShapeBox = new float[6];      // shape box (image +0x4c), object space
-    public readonly float[] ShapeQueryBox = new float[6]; // the same enlarged by triggerRadius (object box)
-    public float ShapeTriggerRadius;   // datablock triggerRadius: the sphere image +0x778 when not 0
+    /// <summary>True when the Item rotates (+0x888). Item and Mine state is in docs/static-sim.md 5.</summary>
+    public bool ItemRotates;
+    /// <summary>True when the Item is collideable (+0x889).</summary>
+    public bool ItemCollideable;
+    /// <summary>The object that threw the Item (+0x878).</summary>
+    public GameBase? ItemThrower;
+    /// <summary>True when the Item is at rest (+0x164 bit 0x80).</summary>
+    public bool AtRest;
+    /// <summary>The item count (+0x868).</summary>
+    public int ItemCount;
+    /// <summary>True when the Item is visible (+0x864 bit 0). Hidden items leave their container.</summary>
+    public bool ItemVisible = true;
+    /// <summary>The pop flag (+0x864 bit 1). Stored and read by nothing registered.</summary>
+    public bool ItemPop;
+    /// <summary>The previous at-rest state (+0x86c).</summary>
+    public bool ItemPrevAtRest = true;
+    /// <summary>The time of the throw (+0x870).</summary>
+    public float ItemThrowTime;
+    /// <summary>The time of the next update (+0x874).</summary>
+    public float ItemNextUpdate;
+    /// <summary>The client id of the thrower (+0x880).</summary>
+    public int ItemThrowerClient = -1;
+    /// <summary>The join counter of the thrower (+0x884).</summary>
+    public int ItemThrowerJoin = -1;
+    /// <summary>True when a contact surface was hit this step (+0x1f4).</summary>
+    public bool ItemContact;
+    /// <summary>The notify list of the running move (info +0x3c).</summary>
+    public List<SimObject> ItemNotify = new();
+    /// <summary>The sub step length (+0x250): 0.45 times the shape radius.</summary>
+    public float ItemSubStep = 0.3f;
+    /// <summary>The centre of the shape bounding sphere (shape +0x08).</summary>
+    public readonly float[] ShapeCenter = new float[3];
+    /// <summary>The radius of the shape bounding sphere (shape +0x04).</summary>
+    public float ShapeRadius;
+    /// <summary>The shape box in object space (image +0x4c).</summary>
+    public readonly float[] ShapeBox = new float[6];
+    /// <summary>The shape box enlarged by the trigger radius (the object box).</summary>
+    public readonly float[] ShapeQueryBox = new float[6];
+    /// <summary>The datablock triggerRadius. The sphere image +0x778 is used when it is not 0.</summary>
+    public float ShapeTriggerRadius;
+    /// <summary>The Item datablock values.</summary>
     public readonly ItemBlock ItemData = new();
+    /// <summary>The MineData values.</summary>
     public readonly MineBlock MineData = new();
-    public readonly float[] MineNormal = new float[3]; // +0x88c
-    public bool MineAligned;           // +0x898
-    public int ItemFlags = 0x19d;      // +0x164 movement flags (0x181 | 0x1d); a displacement clears 0x05
-    // ---- Moveable carry list (docs/collision.md E3.3) ----
-    public readonly List<int> Carried = new(); // +0x154: ids of the SimMovement objects in contact
-    public bool VisibilityThread;      // the shape has a `visibility` sequence (+0x7e0)
-    public float ItemGravity;          // +0x14c: magnitude of the container gravity
+    /// <summary>The mine surface normal (+0x88c).</summary>
+    public readonly float[] MineNormal = new float[3];
+    /// <summary>True when the mine is aligned to the surface (+0x898).</summary>
+    public bool MineAligned;
+    /// <summary>The movement flags (+0x164): 0x181 plus 0x1d. A displacement clears 0x05.</summary>
+    public int ItemFlags = 0x19d;
+    /// <summary>The ids of the SimMovement objects in contact (+0x154). The Moveable carry list (docs/collision.md E3.3).</summary>
+    public readonly List<int> Carried = new();
+    /// <summary>True when the shape has a <c>visibility</c> sequence (+0x7e0).</summary>
+    public bool VisibilityThread;
+    /// <summary>The magnitude of the container gravity (+0x14c).</summary>
+    public float ItemGravity;
+    /// <summary>The terrain entry forces.</summary>
     public readonly EntryForcesRec EntryForces = new();
 
-    // ---- Sensor (docs/static-sim.md 3) ----
+    /// <summary>The SensorData values (docs/static-sim.md 3).</summary>
     public readonly SensorBlock SensorData = new();
-    public uint SensorWord;            // +0x200: detected bits 0-7, always visible 8-15, state 24-31
-    public bool SensorListed;          // member of a SensorManager list
-    public int JamNext, JamPrev;       // jamming-player list links as object ids (Player +0x7d4, +0x7d8; 3.8)
-    // ---- Turret (4.5) ----
-    public float TurretRotation = 3.14159274f; // +0x8b4 (ctor pi; 0 once the shape has a turn thread)
-    public float TurretElevation;      // +0x8b8
+    /// <summary>The sensor word (+0x200): detected bits 0 to 7, always visible 8 to 15, state 24 to 31.</summary>
+    public uint SensorWord;
+    /// <summary>True when the object is a member of a SensorManager list.</summary>
+    public bool SensorListed;
+    /// <summary>The next object id of the jamming player list (Player +0x7d4, docs/static-sim.md 3.8).</summary>
+    public int JamNext;
+    /// <summary>The previous object id of the jamming player list (Player +0x7d8).</summary>
+    public int JamPrev;
+    /// <summary>The turret rotation (+0x8b4). The constructor sets pi, and it is 0 once the shape has a turn thread (docs/static-sim.md 4.5).</summary>
+    public float TurretRotation = 3.14159274f;
+    /// <summary>The turret elevation (+0x8b8).</summary>
+    public float TurretElevation;
+    /// <summary>The TurretData values.</summary>
     public readonly TurretBlock TurretData = new();
-    public float TurretSleep;          // +0x8ac: sim time until which an enemy keeps it awake
-    public float TurretNextFire;       // +0x8b0
-    public float TurretPowerPos;       // position (0..1) of the power / fire thread (+0x8a4)
-    public bool TurretHasPower;        // the shape has the sequences `fire` and `power`
-    public float TurretPowerDuration;  // duration of the `power` sequence
-    public float TurretFireDuration;   // duration of the `fire` sequence
-    public bool TurretPowerOnFire;     // the power / fire thread runs `fire` (priority 0), else `power` (-1)
-    public float TurretRotationMax, TurretRotationMin; // +0x8c4, +0x8c8 (equal: unlimited)
-    public float TurretMaxElevation = 0.785398185f, TurretMinElevation = -0.785398185f; // +0x8bc, +0x8c0
-    public int TurretFireState;        // +0x908
-    public int TurretMode;             // +0x8cc: 0 off, 1 deactivating, 2 activating, 3 on
-    public int TurretBarrelState;      // +0x918: 1 from onAdd on a server
-    public uint TurretTickMs;          // engine time in ms of the current tick (DAT_006a8494 + 4)
-    public float TurretProjectileSpeed = -1; // +0x8d4, resolved on first use (4.2 step 2); < 0 unresolved
-    public int TurretInRange;          // +0x8a8
-    public int TurretPreferred;        // +0x900 (object id; the original keeps a raw pointer)
-    public int TurretBeamTarget;       // +0x920
-    public int TurretBeamProjectile;   // +0x924
-    public uint TurretStamp;           // +0x91c (ms)
-    public int TurretCredit;           // +0x8f8
-    // Positions of the turn (+0x8a0) and elevate (+0x89c) threads (< 0: no thread).
-    public float TurretTurnPos = -1, TurretElevatePos = -1;
-    public TurretMove TurretLastMove;  // +0x8d8
+    /// <summary>The sim time until which an enemy keeps the turret awake (+0x8ac).</summary>
+    public float TurretSleep;
+    /// <summary>The time of the next shot (+0x8b0).</summary>
+    public float TurretNextFire;
+    /// <summary>The position, 0 to 1, of the power and fire thread (+0x8a4).</summary>
+    public float TurretPowerPos;
+    /// <summary>True when the shape has the sequences <c>fire</c> and <c>power</c>.</summary>
+    public bool TurretHasPower;
+    /// <summary>The duration of the <c>power</c> sequence.</summary>
+    public float TurretPowerDuration;
+    /// <summary>The duration of the <c>fire</c> sequence.</summary>
+    public float TurretFireDuration;
+    /// <summary>True when the power and fire thread runs <c>fire</c> (priority 0), else <c>power</c> (-1).</summary>
+    public bool TurretPowerOnFire;
+    /// <summary>The maximum rotation (+0x8c4). Equal maximum and minimum mean unlimited.</summary>
+    public float TurretRotationMax;
+    /// <summary>The minimum rotation (+0x8c8).</summary>
+    public float TurretRotationMin;
+    /// <summary>The maximum elevation (+0x8bc).</summary>
+    public float TurretMaxElevation = 0.785398185f;
+    /// <summary>The minimum elevation (+0x8c0).</summary>
+    public float TurretMinElevation = -0.785398185f;
+    /// <summary>The fire state (+0x908).</summary>
+    public int TurretFireState;
+    /// <summary>The mode (+0x8cc): 0 off, 1 deactivating, 2 activating, 3 on.</summary>
+    public int TurretMode;
+    /// <summary>The barrel state (+0x918): 1 from onAdd on a server.</summary>
+    public int TurretBarrelState;
+    /// <summary>The engine time in ms of the current tick (DAT_006a8494 + 4).</summary>
+    public uint TurretTickMs;
+    /// <summary>The projectile speed (+0x8d4), resolved on first use (docs/static-sim.md 4.2 step 2). Negative means unresolved.</summary>
+    public float TurretProjectileSpeed = -1;
+    /// <summary>The in-range counter (+0x8a8).</summary>
+    public int TurretInRange;
+    /// <summary>The id of the preferred target (+0x900). The original keeps a raw pointer.</summary>
+    public int TurretPreferred;
+    /// <summary>The id of the beam target (+0x920).</summary>
+    public int TurretBeamTarget;
+    /// <summary>The id of the beam projectile (+0x924).</summary>
+    public int TurretBeamProjectile;
+    /// <summary>The stamp in ms (+0x91c).</summary>
+    public uint TurretStamp;
+    /// <summary>The move credit (+0x8f8).</summary>
+    public int TurretCredit;
+    /// <summary>The position of the turn thread (+0x8a0), negative when there is no thread.</summary>
+    public float TurretTurnPos = -1;
+    /// <summary>The position of the elevate thread (+0x89c), negative when there is no thread.</summary>
+    public float TurretElevatePos = -1;
+    /// <summary>The last move (+0x8d8).</summary>
+    public TurretMove TurretLastMove;
 
-    // ---- Moveable (docs/static-sim.md 2) ----
-    public int MoveState = kMoveNone;  // +0x868
-    public bool MoveBlocked;           // +0x86c
-    public int MoveTarget = 15;        // +0x870 target waypoint
-    public int PathId = 0xff;          // +0x87c
-    public int Waypoint;               // +0x884
-    public float WaypointTime;         // +0x888
-    public int WaypointCount;          // +0x89c
+    /// <summary>The move state (+0x868). Moveable state is in docs/static-sim.md 2.</summary>
+    public int MoveState = kMoveNone;
+    /// <summary>True when the move is blocked (+0x86c).</summary>
+    public bool MoveBlocked;
+    /// <summary>The target waypoint (+0x870).</summary>
+    public int MoveTarget = 15;
+    /// <summary>The path id (+0x87c).</summary>
+    public int PathId = 0xff;
+    /// <summary>The current waypoint (+0x884).</summary>
+    public int Waypoint;
+    /// <summary>The time on the current segment (+0x888).</summary>
+    public float WaypointTime;
+    /// <summary>The number of waypoints (+0x89c).</summary>
+    public int WaypointCount;
+    /// <summary>The MoveableData values.</summary>
     public readonly MoveableBlock MoveData = new();
-    // Segment cache (+0x88c..+0x8cc).
+    /// <summary>The waypoint of the segment cache (+0x88c to +0x8cc).</summary>
     public int AppliedWaypoint = -1;
+    /// <summary>The time of the segment cache.</summary>
     public float AppliedTime;
+    /// <summary>The cached segment.</summary>
     public int CachedSegment = -1;
+    /// <summary>The segment time.</summary>
     public float SegmentTime = 1.0f;
-    public readonly float[] SegPos = new float[3], SegRot = new float[3], SegDPos = new float[3], SegDRot = new float[3];
-    // Test overrides of the world's answers (GameServices::moveableDisplace, moveableTest).
+    /// <summary>The segment start position.</summary>
+    public readonly float[] SegPos = new float[3];
+    /// <summary>The segment start rotation.</summary>
+    public readonly float[] SegRot = new float[3];
+    /// <summary>The position delta of the segment.</summary>
+    public readonly float[] SegDPos = new float[3];
+    /// <summary>The rotation delta of the segment.</summary>
+    public readonly float[] SegDRot = new float[3];
+    /// <summary>A test override of the answer of <c>GameServices.MoveableDisplace</c>.</summary>
     public Func<GameBase, bool>? MoveableDisplaceOverride;
+    /// <summary>A test override of the answer of <c>GameServices.MoveableTest</c>.</summary>
     public Func<GameBase, bool>? MoveableTestOverride;
 
-    // ---- Trigger (docs/static-sim.md 6) ----
-    public bool TriggerActive = true;  // +0x250
-    public readonly float[] TriggerBox = { -1, -1, -1, 1, 1, 1 }; // +0x1d4 boundingBox, object space
-    public bool TriggerSphere = true;  // +0x251 isSphere
-    public readonly List<Occupant> Occupants = new(); // +0x240
-    public float TriggerInterval = 0.25f; // contact interval (datablock +0x34)
+    /// <summary>True when the Trigger is active (+0x250). Trigger state is in docs/static-sim.md 6.</summary>
+    public bool TriggerActive = true;
+    /// <summary>The boundingBox in object space (+0x1d4).</summary>
+    public readonly float[] TriggerBox = { -1, -1, -1, 1, 1, 1 };
+    /// <summary>True when the Trigger is a sphere (+0x251, isSphere).</summary>
+    public bool TriggerSphere = true;
+    /// <summary>The occupants (+0x240).</summary>
+    public readonly List<Occupant> Occupants = new();
+    /// <summary>The contact interval (datablock +0x34).</summary>
+    public float TriggerInterval = 0.25f;
 
     private ShapeKind mShapeClass = ShapeKind.NoShape;
     private readonly string mClass;
@@ -479,7 +774,14 @@ public partial class GameBase : SimObject
     private readonly ClassContext mCtx;
     private readonly int mSetId, mLeaveSetId;
 
-    // src/game/mission_objects.cpp GameBase::GameBase.
+    /// <summary>Creates a GameBase.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <param name="kind">The kind of object.</param>
+    /// <param name="dataBlockGroup">The datablock group.</param>
+    /// <param name="fields">The persist fields.</param>
+    /// <param name="ctx">The class context.</param>
+    /// <param name="setId">The id of the set the object joins.</param>
+    /// <param name="leaveSetId">The id of the set the object leaves.</param>
     public GameBase(string cls, Kind kind, int dataBlockGroup, IEnumerable<PersistDef> fields, ClassContext ctx,
                     int setId = 0, int leaveSetId = 0)
     {
@@ -509,35 +811,66 @@ public partial class GameBase : SimObject
         }
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => mClass;
+    /// <summary>Returns the script class name.</summary>
+    /// <returns>The class name.</returns>
     public string ScriptClass() => mClass;
+    /// <summary>Returns the C++ class behind the ShapeBase kind.</summary>
+    /// <returns>The shape kind.</returns>
     public ShapeKind ShapeClass() => mShapeClass;
-    // StaticBase family: everything built on the 0x0044f430 constructor (Vehicle : StaticBase, 0x00444fe4).
+    /// <summary>Tells whether the object is built on the StaticBase constructor (0x0044f430), as a Vehicle is (0x00444fe4).</summary>
+    /// <returns>True for the StaticBase family.</returns>
     public bool IsStaticBase() => mShapeClass != ShapeKind.NoShape;
+    /// <summary>Tells whether the object is a ShapeBase.</summary>
+    /// <returns>True for the ShapeBase kind.</returns>
     public bool IsShapeBase() => mKind == Kind.ShapeBase;
+    /// <summary>Tells whether the object is an interior.</summary>
+    /// <returns>True for the Interior kind.</returns>
     public bool IsInterior() => mKind == Kind.Interior;
+    /// <summary>Returns the persist fields.</summary>
+    /// <returns>The fields.</returns>
     public PersistFields Fields() => mFields;
+    /// <summary>Returns the datablock group.</summary>
+    /// <returns>The group.</returns>
     public int DataBlockGroup() => mDbGroup;
+    /// <summary>Returns the number of datablocks in the group.</summary>
+    /// <returns>The count, 0 without a game.</returns>
     public int DataBlockCount() => mCtx.Game != null ? mCtx.Game.DataBlockCount(mDbGroup) : 0;
+    /// <summary>Returns the kind of the object.</summary>
+    /// <returns>The kind.</returns>
     public Kind GetKind() => mKind;
+    /// <summary>Returns the game services.</summary>
+    /// <returns>The services, or null.</returns>
     public GameServices? Services() => mCtx.Game;
+    /// <summary>Returns the class context.</summary>
+    /// <returns>The context.</returns>
     public ClassContext Context() => mCtx;
+    /// <summary>Reads a point3F persist field.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="output">Receives the point.</param>
+    /// <returns>False when the field has no point.</returns>
     public bool PersistPoint(string field, Span<float> output) => mFields.Point(field, output);
+    /// <inheritdoc/>
     public override IReadOnlyList<string>? PersistValue(string field) => mFields.Get(field);
 
-    // vtable +0x100: the damage flash of a control object.
+    /// <summary>Returns the damage flash of a control object (vtable +0x100).</summary>
+    /// <returns>The flash amount.</returns>
     public virtual float DamageFlash() => 0;
-    // vtable +0x104 (Player 0x004113e8): throw direction of an object that throws along its own aim; false: the
-    // GameBase rule.
+    /// <summary>Computes the throw direction of an object that throws along its own aim (vtable +0x104, Player 0x004113e8).</summary>
+    /// <param name="output">Receives the direction.</param>
+    /// <returns>False for the GameBase rule.</returns>
     public virtual bool ThrowDirection(Span<float> output) => false;
-    // vtable +0x130 chain: called after the datablock binds (Vehicle_onNewDataBlock 0x00445230).
+    /// <summary>Called after the datablock binds (vtable +0x130 chain, Vehicle_onNewDataBlock 0x00445230).</summary>
     public virtual void OnNewDataBlock() { }
-    // vtable +0x16c: the world transform of a mount point (Vehicle 0x00445c38); the object transform here.
+    /// <summary>Returns the world transform of a mount point (vtable +0x16c, Vehicle 0x00445c38). Here it is the object transform.</summary>
+    /// <param name="point">The mount point.</param>
+    /// <param name="output">Receives the transform.</param>
     public virtual void GetMountTransform(int point, out Transform output) => output = Transform;
     // vtable +0x110 (eye transform), +0x150 (moves) and +0x15c (control state): TurretFire.cs (turret_fire.cpp,
     // turret_control.cpp).
 
-    // src/game/mission_objects.cpp GameBase::setPersistField.
+    /// <inheritdoc/>
     public override bool SetPersistField(string field, IReadOnlyList<string> values)
     {
         if (!mFields.Set(field, values))
@@ -587,7 +920,9 @@ public partial class GameBase : SimObject
         }
     }
 
-    // src/game/mission_objects.cpp GameBase::setTeam: 0x00448368: mask 4, then the script.
+    /// <summary>Sets the team: sets mask 4, then calls the script.</summary>
+    /// <param name="t">The team id.</param>
+    /// <remarks>Follows 0x00448368.</remarks>
     public void SetTeam(int t)
     {
         int old = Team;
@@ -606,7 +941,8 @@ public partial class GameBase : SimObject
         }
     }
 
-    // src/game/mission_objects.cpp GameBase::setMaskBits.
+    /// <summary>Adds bits to the dirty mask of the object's ghosts.</summary>
+    /// <param name="bits">The mask bits.</param>
     public void SetMaskBits(uint bits) => mCtx.Game?.SetMaskBits(this, bits);
 
     // ---- power (docs/game-stream-ghosts.md 4.11) ----
@@ -662,7 +998,8 @@ public partial class GameBase : SimObject
         }
     }
 
-    // src/game/mission_objects.cpp GameBase::onGroupAdd: 0x004482d0: power count from the groups above.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x004482d0: the power count comes from the groups above.</remarks>
     public override void OnGroupAdd()
     {
         InitPower();
@@ -670,14 +1007,17 @@ public partial class GameBase : SimObject
             PropagatePower(this, Group(), true);
     }
 
-    // src/game/mission_objects.cpp GameBase::onGroupRemove: 0x0044830c.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0044830c.</remarks>
     public override void OnGroupRemove()
     {
         if (PowerGenerator && Manager() != null)
             PropagatePower(this, Group(), false);
     }
 
-    // src/game/mission_objects.cpp GameBase::generatePower: 0x004485f4.
+    /// <summary>Switches the power generated by this object.</summary>
+    /// <param name="on">True to generate power.</param>
+    /// <remarks>Follows 0x004485f4.</remarks>
     public void GeneratePower(bool on)
     {
         if (on == PowerGenerator || Manager() == null)
@@ -686,8 +1026,9 @@ public partial class GameBase : SimObject
         PropagatePower(this, Group(), on);
     }
 
-    // src/game/mission_objects.cpp GameBase::onPower: StaticBase 0x0044ff0c: script onPower(id, powered, generator)
-    // while enabled. The Turret override (0x004586ac) first stops a firing barrel, which is not modelled.
+    /// <summary>Handles a power change from a generator.</summary>
+    /// <param name="generator">The generator.</param>
+    /// <remarks>Follows StaticBase 0x0044ff0c: calls the script onPower(id, powered, generator) while enabled. The Turret override (0x004586ac) first stops a firing barrel, which is not modelled.</remarks>
     public void OnPower(GameBase generator)
     {
         if (!IsStaticBase() || !ShapeBound || DamageState != kEnabled || mCtx.Game == null)
@@ -733,7 +1074,12 @@ public partial class GameBase : SimObject
         }
     }
 
-    // src/game/mission_objects.cpp GameBase::playThread: 0x0044c20c.
+    /// <summary>Plays a sequence on a thread slot.</summary>
+    /// <param name="slot">The thread slot.</param>
+    /// <param name="sequence">The sequence index.</param>
+    /// <param name="reset">True to restart the sequence.</param>
+    /// <returns>True when the thread plays.</returns>
+    /// <remarks>Follows 0x0044c20c.</remarks>
     public bool PlayThread(int slot, int sequence, bool reset)
     {
         Thread t = Threads[slot];
@@ -754,7 +1100,10 @@ public partial class GameBase : SimObject
         return true;
     }
 
-    // src/game/mission_objects.cpp GameBase::stopThread: 0x0044c3d0.
+    /// <summary>Stops a thread.</summary>
+    /// <param name="slot">The thread slot.</param>
+    /// <returns>True when the thread existed.</returns>
+    /// <remarks>Follows 0x0044c3d0.</remarks>
     public bool StopThread(int slot)
     {
         Thread t = Threads[slot];
@@ -766,7 +1115,10 @@ public partial class GameBase : SimObject
         return true;
     }
 
-    // src/game/mission_objects.cpp GameBase::pauseThread: 0x0044c428.
+    /// <summary>Pauses a thread.</summary>
+    /// <param name="slot">The thread slot.</param>
+    /// <returns>True when the thread existed.</returns>
+    /// <remarks>Follows 0x0044c428.</remarks>
     public bool PauseThread(int slot)
     {
         Thread t = Threads[slot];
@@ -778,7 +1130,10 @@ public partial class GameBase : SimObject
         return true;
     }
 
-    // src/game/mission_objects.cpp GameBase::resumeThread: 0x0044c480.
+    /// <summary>Resumes a thread.</summary>
+    /// <param name="slot">The thread slot.</param>
+    /// <returns>True when the thread existed.</returns>
+    /// <remarks>Follows 0x0044c480.</remarks>
     public bool ResumeThread(int slot)
     {
         Thread t = Threads[slot];
@@ -790,7 +1145,11 @@ public partial class GameBase : SimObject
         return true;
     }
 
-    // src/game/mission_objects.cpp GameBase::setThreadDirection: 0x0044c4cc.
+    /// <summary>Sets the direction of a thread.</summary>
+    /// <param name="slot">The thread slot.</param>
+    /// <param name="forward">True to play forward.</param>
+    /// <returns>True when the thread existed.</returns>
+    /// <remarks>Follows 0x0044c4cc.</remarks>
     public bool SetThreadDirection(int slot, bool forward)
     {
         Thread t = Threads[slot];
@@ -834,8 +1193,10 @@ public partial class GameBase : SimObject
             StateCallback();
     }
 
-    // src/game/mission_objects.cpp GameBase::setActive: vtable +0x130 (0x0044fbc4). A GameBase that is not a StaticBase
-    // is always active and returns the argument (0x00448628, 0x0044862c). A Trigger has its own flag (section 6.4).
+    /// <summary>Sets the active state.</summary>
+    /// <param name="on">The requested state.</param>
+    /// <returns>The resulting state.</returns>
+    /// <remarks>Follows vtable +0x130 (0x0044fbc4). A GameBase that is not a StaticBase is always active and returns the argument (0x00448628, 0x0044862c). A Trigger has its own flag (docs/static-sim.md 6.4).</remarks>
     public bool SetActive(bool on)
     {
         if (mKind == Kind.Trigger)
@@ -853,7 +1214,9 @@ public partial class GameBase : SimObject
         return Active;
     }
 
-    // src/game/mission_objects.cpp GameBase::isActiveFlag: GameBase::isActive (vtable +0x12c).
+    /// <summary>Returns the active flag.</summary>
+    /// <returns>The flag.</returns>
+    /// <remarks>Follows GameBase::isActive (vtable +0x12c).</remarks>
     public bool IsActiveFlag()
     {
         if (mKind == Kind.Trigger)
@@ -861,7 +1224,9 @@ public partial class GameBase : SimObject
         return IsStaticBase() ? Active : true;
     }
 
-    // src/game/mission_objects.cpp GameBase::setIsTarget: 0x0045041c.
+    /// <summary>Sets whether the object is a target.</summary>
+    /// <param name="on">True to make it a target.</param>
+    /// <remarks>Follows 0x0045041c.</remarks>
     public void SetIsTarget(bool on)
     {
         if (Manager() != null && mCtx.Game != null && on != IsTarget)
@@ -875,7 +1240,10 @@ public partial class GameBase : SimObject
         IsTarget = on;
     }
 
-    // src/game/mission_objects.cpp GameBase::setDamageState: 0x0044f9a0. Before registration only the field is stored.
+    /// <summary>Sets the damage state. Before registration only the field is stored.</summary>
+    /// <param name="state">The damage state.</param>
+    /// <param name="callScript">True to call the script.</param>
+    /// <remarks>Follows 0x0044f9a0.</remarks>
     public void SetDamageState(int state, bool callScript)
     {
         if (Manager() == null)
@@ -898,8 +1266,8 @@ public partial class GameBase : SimObject
             StateCallback();
     }
 
-    // src/game/mission_objects.cpp GameBase::updateDamageState: 0x0044f918: thresholds are products of maxDamage and the
-    // datablock ratios, compared unrounded (fmul result against the stored damage).
+    /// <summary>Updates the damage state from the damage level.</summary>
+    /// <remarks>Follows 0x0044f918. The thresholds are products of maxDamage and the datablock ratios, compared unrounded (the fmul result against the stored damage).</remarks>
     public void UpdateDamageState()
     {
         if (!(Mul(MaxDamage, DestroyedLevel) > Damage))
@@ -918,8 +1286,9 @@ public partial class GameBase : SimObject
         }
     }
 
-    // src/game/mission_objects.cpp GameBase::setDamageLevel: StaticBase vtable +0x190 (0x0044fea4): clamped to
-    // [0, maxDamage]; a change sets mask 0x100; the state is evaluated either way.
+    /// <summary>Sets the damage level, clamped to [0, maxDamage].</summary>
+    /// <param name="level">The new level.</param>
+    /// <remarks>Follows StaticBase vtable +0x190 (0x0044fea4). A change sets mask 0x100. The state is evaluated either way.</remarks>
     public virtual void SetDamageLevel(float level)
     {
         if (level < 0)
@@ -934,8 +1303,9 @@ public partial class GameBase : SimObject
         UpdateDamageState();
     }
 
-    // src/game/mission_objects.cpp GameBase::setPosition: vtable +0x19c, 0x0044c81c: rebuild the transform from +0x244
-    // and the position; mask 8; not at rest.
+    /// <summary>Sets the position: rebuilds the transform from +0x244 and the position.</summary>
+    /// <param name="p">The position.</param>
+    /// <remarks>Follows vtable +0x19c (0x0044c81c). Sets mask 8 and clears at rest.</remarks>
     public void SetPosition(ReadOnlySpan<float> p)
     {
         MissionTransform.EulerToMatrix(Rotation, ref Transform);
@@ -946,8 +1316,9 @@ public partial class GameBase : SimObject
         AtRest = false;
     }
 
-    // src/game/mission_objects.cpp GameBase::setInteriorPosition: InteriorShape::setTransform
-    // (game-stream-ghosts.md 3.4): persist position, rotation read back from its matrix, mask 0x01.
+    /// <summary>Sets the position of an InteriorShape: the persist position, the rotation read back from its matrix.</summary>
+    /// <param name="p">The position.</param>
+    /// <remarks>Follows InteriorShape::setTransform (docs/game-stream-ghosts.md 3.4). Sets mask 0x01.</remarks>
     public void SetInteriorPosition(ReadOnlySpan<float> p)
     {
         Span<float> ang = stackalloc float[3], e = stackalloc float[3];
@@ -974,7 +1345,9 @@ public partial class GameBase : SimObject
         }
     }
 
-    // src/game/mission_objects.cpp GameBase::setRotation: vtable +0x1a0: mask 0x10.
+    /// <summary>Sets the rotation.</summary>
+    /// <param name="e">The Euler angles.</param>
+    /// <remarks>Follows vtable +0x1a0. Sets mask 0x10.</remarks>
     public void SetRotation(ReadOnlySpan<float> e)
     {
         for (int i = 0; i < 3; ++i)
@@ -982,9 +1355,10 @@ public partial class GameBase : SimObject
         SetMaskBits(0x10);
     }
 
-    // src/game/mission_objects.cpp GameBase::transformEvent: 0x0044c978: `GameBase::setPosition` sends the object's own
-    // matrix and `GameBase::setRotation` the matrix of the new angles, so the stored angles are those of a matrix round
-    // trip (sine and cosine truncated to f32, then atan2), not the input.
+    /// <summary>Sends the transform event of a position or rotation change.</summary>
+    /// <param name="m">The new matrix.</param>
+    /// <param name="p">The position.</param>
+    /// <remarks>Follows 0x0044c978. <c>GameBase::setPosition</c> sends the object's own matrix and <c>GameBase::setRotation</c> the matrix of the new angles, so the stored angles are those of a matrix round trip (sine and cosine truncated to f32, then atan2), not the input.</remarks>
     public void TransformEvent(in Transform m, ReadOnlySpan<float> p)
     {
         Span<float> e = stackalloc float[3];
@@ -994,11 +1368,13 @@ public partial class GameBase : SimObject
         SetPosition(q);
     }
 
-    // src/game/mission_objects.cpp GameBase::storeMapName: the raw `name` slot (no expansion), case-sensitive (GB7).
+    /// <summary>Stores the raw <c>name</c> slot without expansion, case-sensitive (GB7).</summary>
+    /// <param name="text">The name text.</param>
     public void StoreMapName(string text) => MapName = text;
 
-    // src/game/mission_objects.cpp GameBase::setMapName: GB7 (0x00448fd8): copy text, replacing <vNAME> with $NAME; a
-    // '<v' without '>' is copied literally; a value that would pass 254 characters ends the copy; at most 255.
+    /// <summary>Sets the map name.</summary>
+    /// <param name="text">The text, or null.</param>
+    /// <remarks>Follows GB7 (0x00448fd8): copies the text and replaces <c>&lt;vNAME&gt;</c> with <c>$NAME</c>. A <c>&lt;v</c> without <c>&gt;</c> is copied literally. A value that would pass 254 characters ends the copy, and at most 255 are kept.</remarks>
     public void SetMapName(string? text)
     {
         var output = new System.Text.StringBuilder();
@@ -1030,7 +1406,8 @@ public partial class GameBase : SimObject
             mCtx.Game.RenameTarget(TargetIndex, s);
     }
 
-    // src/game/mission_objects.cpp GameBase::worldMat.
+    /// <summary>Returns the world matrix of the object.</summary>
+    /// <returns>The matrix.</returns>
     public Mat WorldMat()
     {
         var m = new Mat();
@@ -1061,14 +1438,15 @@ public partial class GameBase : SimObject
         }
     }
 
-    // src/game/mission_objects.hpp GameBase::resourceLocks, released by the C++ destructor.
+    /// <inheritdoc/>
+    /// <remarks>Releases the resource locks, as the C++ destructor does.</remarks>
     public override void Destroy()
     {
         ResourceLocks.Release();
         base.Destroy();
     }
 
-    // src/game/mission_objects.cpp GameBase::onAdd.
+    /// <inheritdoc/>
     public override bool OnAdd()
     {
         if (mKind != Kind.Marker)
@@ -1215,10 +1593,8 @@ public partial class GameBase : SimObject
         return true;
     }
 
-    // src/game/mission_objects.cpp GameBase::processArguments: newObject(name, class, args...) runs after registration
-    // (docs/sim.md 6.4). StaticBase 0x0044f508: dataBlock [, deleteOnDestroy]; Item 0x004510e8: dataBlock, count, pop
-    // [, rotate [, collide]]; Mine 0x00458970: dataBlock. The datablock binds first (its onAdd scripts see count 0), then
-    // the other arguments are stored.
+    /// <inheritdoc/>
+    /// <remarks>The newObject(name, class, args...) arguments are processed after registration (docs/sim.md 6.4). StaticBase 0x0044f508 takes dataBlock [, deleteOnDestroy]. Item 0x004510e8 takes dataBlock, count, pop [, rotate [, collide]]. Mine 0x00458970 takes dataBlock. The datablock binds first, so its onAdd scripts see count 0, then the other arguments are stored.</remarks>
     public override bool ProcessArguments(IReadOnlyList<string> args)
     {
         if (mKind != Kind.ShapeBase)
@@ -1268,7 +1644,7 @@ public partial class GameBase : SimObject
         return true;
     }
 
-    // src/game/mission_objects.cpp GameBase::onRemove.
+    /// <inheritdoc/>
     public override void OnRemove()
     {
         DetachAll(); // 0x0050471e: the carry lists never keep a deleted object
@@ -1305,8 +1681,8 @@ internal sealed class PersistGroup : SimGroup
     public override IReadOnlyList<string>? PersistValue(string field) => mFields.Get(field);
 }
 
-// src/game/mission_objects.hpp class PersistObject: non-GameBase mission object with persist fields and optional load
-// checks (Sky, Planet, StarField, MissionCenterPos, SimPalette, SimLight, Snowfall).
+/// <summary>A non-GameBase mission object with persist fields and optional load checks.</summary>
+/// <remarks>Used for Sky, Planet, StarField, MissionCenterPos, SimPalette, SimLight and Snowfall. Port of class PersistObject in src/game/mission_objects.hpp.</remarks>
 public class PersistObject : SimObject
 {
     private readonly string mClass;
@@ -1316,6 +1692,12 @@ public class PersistObject : SimObject
     private readonly string? mRequired;
     private readonly ResourceLocks mLocks = new(); // the SimPalette's .ppl
 
+    /// <summary>Creates a persist object.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <param name="fields">The persist field definitions.</param>
+    /// <param name="ctx">The class context.</param>
+    /// <param name="fixedId">The fixed object id, or 0.</param>
+    /// <param name="requiredFile">The persist field that names a file the object needs, or null.</param>
     public PersistObject(string cls, IEnumerable<PersistDef> fields, ClassContext ctx, int fixedId = 0, string? requiredFile = null)
     {
         mClass = cls;
@@ -1325,19 +1707,31 @@ public class PersistObject : SimObject
         mRequired = requiredFile;
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => mClass;
+    /// <inheritdoc/>
     public override int FixedId() => mFixed;
+    /// <inheritdoc/>
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
+    /// <inheritdoc/>
     public override bool SetPersistField(string field, IReadOnlyList<string> values) => mFields.Set(field, values);
+    /// <inheritdoc/>
     public override bool SetPersistElement(string field, int index, IReadOnlyList<string> values) =>
         mFields.SetElement(field, index, values);
+    /// <inheritdoc/>
     public override IReadOnlyList<string>? PersistValue(string field) => mFields.Get(field);
+    /// <summary>Returns the persist fields.</summary>
+    /// <returns>The fields.</returns>
     public PersistFields Fields() => mFields;
+    /// <summary>Returns the class context.</summary>
+    /// <returns>The context.</returns>
     protected ClassContext Context() => mCtx;
+    /// <summary>Returns the persist fields for a subclass to change.</summary>
+    /// <returns>The fields.</returns>
     protected PersistFields MutableFields() => mFields;
 
-    // src/game/mission_objects.cpp PersistObject::onAdd: SimPalette (.ppl) and SimTerrain (.ted) fail onAdd when their
-    // file is missing.
+    /// <inheritdoc/>
+    /// <remarks>SimPalette (.ppl) and SimTerrain (.ted) fail onAdd when their file is missing.</remarks>
     public override bool OnAdd()
     {
         if (mRequired != null && mCtx.Game != null)
@@ -1353,7 +1747,8 @@ public class PersistObject : SimObject
         return true;
     }
 
-    // src/game/mission_objects.hpp PersistObject::mLocks, released by the C++ destructor.
+    /// <inheritdoc/>
+    /// <remarks>Releases the resource locks, as the C++ destructor does.</remarks>
     public override void Destroy()
     {
         mLocks.Release();
@@ -1361,16 +1756,17 @@ public class PersistObject : SimObject
     }
 }
 
-// src/game/mission_objects.hpp class SimLightObject: SimLight: event 0x420 of `activateGroup` sets the colour to
-// (v, v, v) and sends mask 0x04 (docs/game-stream-ghosts.md 3.3, 0x0052d290).
+/// <summary>A SimLight: event 0x420 of <c>activateGroup</c> sets the colour to (v, v, v) and sends mask 0x04.</summary>
+/// <remarks>See docs/game-stream-ghosts.md 3.3 and 0x0052d290. Port of class SimLightObject in src/game/mission_objects.hpp.</remarks>
 public sealed class SimLightObject : PersistObject
 {
+    /// <summary>Creates a SimLight.</summary>
+    /// <param name="fields">The persist field definitions.</param>
+    /// <param name="ctx">The class context.</param>
     public SimLightObject(IEnumerable<PersistDef> fields, ClassContext ctx) : base("SimLight", fields, ctx) { }
 
-    // src/game/mission_objects.cpp SimLightObject::processArguments: SimLight::processArguments (0x0052cac0):
-    // `Directional|DirectionalWrap intR intG intB dirX dirY dirZ [ambR ambG ambB]` or `Point range intR intG intB posX
-    // posY posZ [ambR ambG ambB]`. The direction is normalized twice, first with the approximate length
-    // (m_Point3F_lenf), then with the exact one. Every number goes through atof and an f32 store toward zero.
+    /// <inheritdoc/>
+    /// <remarks>Follows SimLight::processArguments (0x0052cac0): <c>Directional|DirectionalWrap intR intG intB dirX dirY dirZ [ambR ambG ambB]</c> or <c>Point range intR intG intB posX posY posZ [ambR ambG ambB]</c>. The direction is normalised twice, first with the approximate length (m_Point3F_lenf), then with the exact one. Every number goes through atof and an f32 store toward zero.</remarks>
     public override bool ProcessArguments(IReadOnlyList<string> args)
     {
         void Say(string text) => Context().Game?.PrintLine(text);
@@ -1435,7 +1831,8 @@ public sealed class SimLightObject : PersistObject
         return false;
     }
 
-    // src/game/mission_objects.cpp SimLightObject::onActivateEvent.
+    /// <summary>Handles the activate event: sets the colour to (value, value, value).</summary>
+    /// <param name="value">The event value.</param>
     public override void OnActivateEvent(float value)
     {
         float[] color = { value, value, value };
@@ -1444,8 +1841,8 @@ public sealed class SimLightObject : PersistObject
     }
 }
 
-// src/game/mission_objects.hpp class TerrainObject: SimTerrain (docs/terrain.md 2.1): loads the .dtf, joins container 7
-// and computes the verification CRC sent to clients.
+/// <summary>The SimTerrain: loads the .dtf, joins container 7 and computes the verification CRC sent to clients (docs/terrain.md 2.1).</summary>
+/// <remarks>Port of class TerrainObject in src/game/mission_objects.hpp.</remarks>
 public sealed class TerrainObject : PersistObject
 {
     private string mTed = "";
@@ -1454,13 +1851,22 @@ public sealed class TerrainObject : PersistObject
     private Terrain? mTerrain;
     private uint mCrc = 0xffffffffu;       // ctor value -1
 
+    /// <summary>Creates a SimTerrain.</summary>
+    /// <param name="ctx">The class context.</param>
+    /// <param name="fields">The persist field definitions.</param>
     public TerrainObject(ClassContext ctx, IEnumerable<PersistDef> fields) : base("SimTerrain", fields, ctx, 8, "tedFileName") { }
 
+    /// <summary>Returns the verification CRC sent to clients.</summary>
+    /// <returns>The CRC.</returns>
     public uint Crc() => mCrc;
+    /// <summary>Returns the loaded terrain.</summary>
+    /// <returns>The terrain, or null.</returns>
     public Terrain? GetTerrain() => mTerrain;
+    /// <summary>Returns the visible distance.</summary>
+    /// <returns>The distance.</returns>
     public float VisibleDistance() => mVisibleDistance;
 
-    // src/game/mission_objects.cpp TerrainObject::setPersistField.
+    /// <inheritdoc/>
     public override bool SetPersistField(string field, IReadOnlyList<string> values)
     {
         if (GameUtil.EqualsNoCase(field, "tedFileName"))
@@ -1476,14 +1882,15 @@ public sealed class TerrainObject : PersistObject
         return base.SetPersistField(field, values);
     }
 
-    // src/game/mission_objects.cpp TerrainObject::~TerrainObject: the terrain goes with its resource locks.
+    /// <inheritdoc/>
+    /// <remarks>The terrain goes with its resource locks.</remarks>
     public override void Destroy()
     {
         mTerrain?.ReleaseLocks();
         base.Destroy();
     }
 
-    // src/game/mission_objects.cpp TerrainObject::onAdd.
+    /// <inheritdoc/>
     public override bool OnAdd()
     {
         ClassContext ctx = Context();
@@ -1548,27 +1955,33 @@ public sealed class TerrainObject : PersistObject
         });
     }
 
-    // src/game/mission_objects.cpp TerrainObject::onRemove.
+    /// <inheritdoc/>
     public override void OnRemove() => Context().Game?.GetContainer()?.Remove(this);
 }
 
-// src/game/mission_objects.hpp class TeamGroup: a SimGroup that creates a team when it registers (TM6).
+/// <summary>A SimGroup that creates a team when it registers (TM6).</summary>
+/// <remarks>Port of class TeamGroup in src/game/mission_objects.hpp.</remarks>
 public sealed class TeamGroup : SimGroup
 {
     private readonly ClassContext mCtx;
+    /// <summary>The team id, -1 until the group registers.</summary>
     public int Team = -1;
 
+    /// <summary>Creates a team group.</summary>
+    /// <param name="ctx">The class context.</param>
     public TeamGroup(ClassContext ctx) => mCtx = ctx;
+    /// <inheritdoc/>
     public override string ClassName() => "TeamGroup";
 
+    /// <inheritdoc/>
     public override bool TeamOf(ref int t)
     {
         t = Team;
         return true;
     }
 
-    // src/game/mission_objects.cpp TeamGroup::onAdd: TM6: the team id is the current team count; the group becomes
-    // team<digit>.
+    /// <inheritdoc/>
+    /// <remarks>The team id is the current team count, and the group becomes <c>team&lt;digit&gt;</c> (TM6).</remarks>
     public override bool OnAdd()
     {
         Team = mCtx.Game != null ? mCtx.Game.AddTeamFromGroup() : 0;
@@ -1584,13 +1997,14 @@ internal sealed class DebrisCloudObject : SimObject
     public override string ClassName() => "DebrisCloud";
 }
 
+/// <summary>The mission class registry setup.</summary>
 public static class MissionClasses
 {
     private static readonly PersistDef[] kGameBase = { new("dataBlock", 0, 1), new("name", 1, 1) };
 
     private static PersistDef[] Plus(PersistDef[] a, params PersistDef[] b) => a.Concat(b).ToArray();
 
-    // src/game/mission_objects.cpp registerMissionClasses: registers every mission class with the sim class registry.
+    /// <summary>Registers every mission class with the sim class registry.</summary>
     public static void Register()
     {
         SensorManager.Register();

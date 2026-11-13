@@ -2,17 +2,21 @@
 // 0x67; docs/sim.md 8, docs/script.md 6.8).
 namespace OpenTribes.Game;
 
+/// <summary>The loadObject and storeObject script commands (docs/sim.md 8, docs/script.md 6.8).</summary>
 public static class ObjectFiles
 {
-    // src/game/object_files.hpp enum class PersistentFileKind.
+    /// <summary>The kinds of persistent file head.</summary>
     public enum PersistentFileKind
     {
+        /// <summary>Not a persistent stream, or an unknown class ("Error reading file").</summary>
         Invalid,      // not a persistent stream, or an unknown class: "Error reading file"
-        NotSimObject, // a known persistent class that is not a SimObject
+        /// <summary>A known persistent class that is not a SimObject.</summary>
+        NotSimObject,
     }
 
-    // src/game/object_files.cpp classifyPersistentFile: classifies the head of a persistent stream (PERS tag, size, class
-    // name).
+    /// <summary>Classifies the head of a persistent stream (PERS tag, size, class name).</summary>
+    /// <param name="d">The stream bytes.</param>
+    /// <returns>The kind of the stream.</returns>
     public static PersistentFileKind ClassifyPersistentFile(byte[] d)
     {
         // Block streams with their own tag: ITRShape (.dis), GridFile (.dtf), GridBlock (.dtb). They are persistent classes
@@ -34,7 +38,9 @@ public static class ObjectFiles
         return PersistentFileKind.Invalid;
     }
 
-    // src/game/object_files.cpp registerObjectFileCommands.
+    /// <summary>Registers the loadObject and storeObject commands (SimConsolePlugin ids 0x66 and 0x67).</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         // loadObject(name, file) 0x0050b815: the file (direct path, then the resource manager) must hold a persistent

@@ -6,15 +6,16 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/backlog_commands.hpp struct BacklogHooks: extension points for classes added later (Player): each is optional.
+/// <summary>Extension points for classes added later (Player). Each hook is optional.</summary>
 public static class BacklogHooks
 {
-    // ShapeBase vtable +0x1a4 of a class that overrides it (Player 0x00412f5c).
+    /// <summary>The eye transform of a class that overrides ShapeBase vtable +0x1a4 (Player 0x00412f5c).</summary>
     public static Func<GameBase, Transform, (bool, Transform)>? EyeTransform;
-    // ShapeBase vtable +0x10c: muzzle transform of mounted image 0 (false: none mounted).
+    /// <summary>The muzzle transform of mounted image 0 (ShapeBase vtable +0x10c). The first result item is false when none is mounted.</summary>
     public static Func<GameBase, Transform, (bool, Transform)>? MuzzleTransform;
 }
 
+/// <summary>The backlog script commands: waypoints, shopping masks, item types and the commands that depend on the Player.</summary>
 public static class BacklogCommands
 {
     // src/game/backlog_commands.cpp compose: Euler rotation times a transform: the rotation applies first (0x005ed2b2 with
@@ -33,8 +34,12 @@ public static class BacklogCommands
 
     private static bool IsSpaceChar(char c) => c == ' ' || (c >= '\t' && c <= '\r');
 
-    // src/game/backlog_commands.cpp waypointToWorld: WaypointToWorld (0x0041e9e8): waypoint coordinates (x, y in 0..1023)
-    // to world x, y for the mission area {x, y, w, h}. The original multiplies by 1/1024, not 1/1023.
+    /// <summary>Converts waypoint coordinates to world x and y for the mission area.</summary>
+    /// <param name="area">The mission area {x, y, w, h}.</param>
+    /// <param name="wx">The waypoint x, 0 to 1023.</param>
+    /// <param name="wy">The waypoint y, 0 to 1023.</param>
+    /// <param name="output">Receives world x and y.</param>
+    /// <remarks>Follows WaypointToWorld (0x0041e9e8). The original multiplies by 1/1024, not 1/1023.</remarks>
     public static void WaypointToWorld(ReadOnlySpan<float> area, float wx, float wy, Span<float> output)
     {
         const float k = 0.0009765625f;
@@ -46,8 +51,12 @@ public static class BacklogCommands
         output[1] = Store(Add(area[1], py));
     }
 
-    // src/game/backlog_commands.cpp parseItemType: item type argument of the shopping commands (0x004197a4). The datablock
-    // lookup returns the item index or -1.
+    /// <summary>Parses the item type argument of the shopping commands.</summary>
+    /// <param name="text">The argument text.</param>
+    /// <param name="itemCount">The number of item datablocks.</param>
+    /// <param name="lookupByName">Returns the item index of a datablock name, or -1.</param>
+    /// <returns>The item type.</returns>
+    /// <remarks>Follows 0x004197a4.</remarks>
     public static int ParseItemType(string text, int itemCount, Func<string, int> lookupByName)
     {
         int i = 0;
@@ -62,8 +71,11 @@ public static class BacklogCommands
         return lookupByName(s);
     }
 
-    // src/game/backlog_commands.cpp itemMaskTest: mask bit test of isItemShoppingOn / isItemBuyingOn (0x00407c78,
-    // 0x00407d5c): a type in 0..199 tests its bit, any other value tests whether any bit is set.
+    /// <summary>Tests the mask bit of a shopping type.</summary>
+    /// <param name="words">The mask words.</param>
+    /// <param name="type">The item type.</param>
+    /// <returns>The bit of a type in 0 to 199. For any other type, whether any bit is set.</returns>
+    /// <remarks>Follows isItemShoppingOn and isItemBuyingOn (0x00407c78, 0x00407d5c).</remarks>
     public static bool ItemMaskTest(uint[] words, int type)
     {
         if (type >= 0 && type < 200)
@@ -77,7 +89,9 @@ public static class BacklogCommands
     private static void SetBit(uint[] words, int type) => words[type >> 5] |= 1u << (type & 31);
     private static void ClearBit(uint[] words, int type) => words[type >> 5] &= ~(1u << (type & 31));
 
-    // src/game/backlog_commands.cpp registerBacklogCommands.
+    /// <summary>Registers the backlog commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         SimObject? FindPlain(string s) => game.Sim?.Server()?.Find(s);

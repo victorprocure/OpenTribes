@@ -9,7 +9,8 @@ public sealed partial class AIObject
 {
     // ---- pre- and post-tick (1.6, 4.2, 4.3) ----
 
-    // src/game/ai_manager.cpp AIObject::preTick: 0x0043bf08.
+    /// <summary>Runs the AI pre-tick of the object.</summary>
+    /// <remarks>Follows 0x0043bf08.</remarks>
     public void PreTick()
     {
         TargetId = -1;
@@ -32,7 +33,8 @@ public sealed partial class AIObject
             Team = r.Team;
     }
 
-    // src/game/ai_manager.cpp AIObject::postTick: 0x0043be50.
+    /// <summary>Runs the AI post-tick of the object.</summary>
+    /// <remarks>Follows 0x0043be50.</remarks>
     public void PostTick()
     {
         ++ErrorPhase;
@@ -60,7 +62,8 @@ public sealed partial class AIObject
     // src/game/ai_manager.cpp corpseCounter: 0x006640f4, never reset.
     private static uint sCorpseCounter;
 
-    // src/game/ai_manager.cpp AIObject::corpseCounterNext.
+    /// <summary>Returns the next corpse counter value and advances it.</summary>
+    /// <returns>The counter value.</returns>
     public static uint CorpseCounterNext() => sCorpseCounter++;
 
     // ---- engage (3.4, 3.7, 3.8) ----
@@ -218,24 +221,32 @@ public sealed partial class AIObject
     }
 }
 
-// src/game/ai_manager.hpp aiSolveAim.
+/// <summary>The AI aim helpers (aiSolveAim of src/game/ai_manager.hpp).</summary>
 public static class AIAim
 {
-    // src/game/ai_manager.cpp aiLaserAimPoint: the aim point of a laser-painted target (0x0043cec0..0x0043cf13,
-    // docs/ai-sim.md 12.5): `dir x 50` is stored as a Point3F first, then the eye is added, so each component is rounded twice.
+    /// <summary>Computes the aim point of a laser-painted target.</summary>
+    /// <param name="eye">The eye position.</param>
+    /// <param name="dir">The aim direction.</param>
+    /// <param name="aim">Receives the aim point.</param>
+    /// <remarks>Follows 0x0043cec0 to 0x0043cf13 (docs/ai-sim.md 12.5). <c>dir x 50</c> is stored as a Point3F first, then the eye is added, so each component is rounded twice.</remarks>
     public static void LaserAimPoint(ReadOnlySpan<float> eye, ReadOnlySpan<float> dir, Span<float> aim)
     {
         for (int k = 0; k < 3; ++k)
             aim[k] = X87.F32(Add(eye[k], X87.F32(Mul(dir[k], 50.0f))));
     }
 
-    // src/game/ai_manager.cpp aiSolveAim: the aim solver of the projectile datablock classes (vtable +0x10, docs/ai-sim.md
-    // 3.7, 12.4): from `s` to the point `t` for a projectile of `speed`, low arc (`high` false) or high arc, with the
-    // gravity `g` (negative). Writes the unit direction and `ok` (the projectile can reach the point). BulletData
-    // (0x0045b99c) and RocketData (0x00460b5c): the straight line, `ok` when speed x totalTime is above the distance;
-    // GrenadeData (0x0045ed40): the ballistic arc, the straight line with `ok` false when there is none; every other class
-    // (0x00459928): the straight line, `ok` true. The high arc is refused (false) by all but a Grenade with a solution.
-    // Returns false when there is no answer.
+    /// <summary>Solves the aim of a projectile datablock class from a point to a target point.</summary>
+    /// <param name="group">The datablock group of the projectile.</param>
+    /// <param name="speed">The projectile speed.</param>
+    /// <param name="totalTime">The projectile total time.</param>
+    /// <param name="s">The start point.</param>
+    /// <param name="t">The target point.</param>
+    /// <param name="high">True for the high arc, false for the low arc.</param>
+    /// <param name="g">The gravity, negative.</param>
+    /// <param name="ok">Receives whether the projectile can reach the point.</param>
+    /// <param name="dir">Receives the unit direction.</param>
+    /// <returns>False when there is no answer.</returns>
+    /// <remarks>Follows the aim solver at vtable +0x10 (docs/ai-sim.md 3.7, 12.4). BulletData (0x0045b99c) and RocketData (0x00460b5c) use the straight line, with <paramref name="ok"/> when <c>speed x totalTime</c> is above the distance. GrenadeData (0x0045ed40) uses the ballistic arc, or the straight line with <paramref name="ok"/> false when there is none. Every other class (0x00459928) uses the straight line with <paramref name="ok"/> true. All but a Grenade with a solution refuse the high arc.</remarks>
     public static bool AiSolveAim(int group, float speed, float totalTime, ReadOnlySpan<float> s, ReadOnlySpan<float> t,
                                   bool high, float g, ref bool ok, Span<float> dir)
     {
@@ -319,40 +330,53 @@ public static class AIAim
     }
 }
 
-// src/game/ai_manager.hpp class AIManager.
+/// <summary>The AI manager object (id 726). It owns the AI objects and runs their tick.</summary>
+/// <remarks>Port of class AIManager in src/game/ai_manager.hpp.</remarks>
 public sealed class AIManager : SimObject
 {
+    /// <summary>The game state.</summary>
     public readonly GameState Game;
-    public readonly List<AIObject> Ais = new(); // spawn order
-    public bool Recompute = true;   // 0x00617ddc
-    public int TickCount;           // +0x4c
-    public int Counter;             // +0x50
+    /// <summary>The AI objects in spawn order.</summary>
+    public readonly List<AIObject> Ais = new();
+    /// <summary>True when the AI must recompute (0x00617ddc).</summary>
+    public bool Recompute = true;
+    /// <summary>The tick count (+0x4c).</summary>
+    public int TickCount;
+    /// <summary>The counter (+0x50).</summary>
+    public int Counter;
 
-    // src/game/ai_manager.cpp AIManager::AIManager.
+    /// <summary>Creates the manager.</summary>
+    /// <param name="g">The game state.</param>
     public AIManager(GameState g) => Game = g;
 
+    /// <inheritdoc/>
     public override string ClassName() => "AI::Manager";
+    /// <inheritdoc/>
     public override int FixedId() => 726;
+    /// <inheritdoc/>
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
 
-    // src/game/ai_manager.cpp AIManager::~AIManager.
+    /// <inheritdoc/>
     public override void Destroy()
     {
         if (Game.Ai == this)
             Game.Ai = null;
     }
 
-    // src/game/ai_manager.cpp AIManager::onRemove.
+    /// <inheritdoc/>
     public override void OnRemove()
     {
         if (Game.Ai == this)
             Game.Ai = null;
     }
 
-    // src/game/ai_manager.cpp AIManager::remove.
+    /// <summary>Removes an AI object from the manager.</summary>
+    /// <param name="ai">The AI object.</param>
     public void Remove(AIObject ai) => Ais.RemoveAll(a => a == ai);
 
-    // src/game/ai_manager.cpp AIManager::findByName: exact, case-insensitive (0x0043e590).
+    /// <summary>Finds an AI object by name.</summary>
+    /// <param name="n">The name, compared exactly and without case (0x0043e590).</param>
+    /// <returns>The object, or null.</returns>
     public AIObject? FindByName(string n)
     {
         foreach (AIObject a in Ais)
@@ -361,7 +385,9 @@ public sealed class AIManager : SimObject
         return null;
     }
 
-    // src/game/ai_manager.cpp AIManager::findByRep.
+    /// <summary>Finds an AI object by its representative.</summary>
+    /// <param name="rep">The representative id.</param>
+    /// <returns>The object, or null.</returns>
     public AIObject? FindByRep(int rep)
     {
         foreach (AIObject a in Ais)
@@ -370,7 +396,8 @@ public sealed class AIManager : SimObject
         return null;
     }
 
-    // src/game/ai_manager.cpp AIManager::serverTick: 0x0043dd3c, between sets 718 and 719.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0043dd3c, which runs between sets 718 and 719.</remarks>
     public override void ServerTick(uint tickMs)
     {
         SimManager? m = Game.Sim?.Server();
@@ -429,8 +456,11 @@ public sealed class AIManager : SimObject
         ++TickCount;
     }
 
-    // src/game/ai_manager.cpp ensureAIManager: creates the manager when no AI command ran in this mission yet
-    // (0x0043f8fc). Null with the documented message when the server or MissionCleanup is missing.
+    /// <summary>Creates the manager when no AI command ran in this mission yet.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="commandName">The name of the calling command, used in the message.</param>
+    /// <returns>The manager, or null with the documented message when the server or MissionCleanup is missing.</returns>
+    /// <remarks>Follows 0x0043f8fc.</remarks>
     public static AIManager? EnsureAIManager(GameState game, string commandName)
     {
         if (game.Ai != null)

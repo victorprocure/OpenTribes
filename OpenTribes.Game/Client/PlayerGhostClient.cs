@@ -3,6 +3,8 @@
 // and ProjectileGhost.cs.
 namespace OpenTribes.Game;
 
+/// <summary>The Player ghost class: pack routine, registration and client unpack (docs/game-stream-ghosts.md 4.7, docs/client-net.md 3.4).</summary>
+/// <remarks>The client unpack follows 0041756c. The pack routines are in PlayerGhost.cs.</remarks>
 public static partial class PlayerGhost
 {
     internal static void RegisterClient() => ClientGhostManager.RegisterClass(0x218, "Player", Unpack);
@@ -90,6 +92,8 @@ public static partial class PlayerGhost
     }
 }
 
+/// <summary>The projectile ghost classes: pack routine, registration and client unpack (docs/game-stream-ghosts.md 4.10, docs/projectile-sim.md 5, docs/client-net.md 3.6).</summary>
+/// <remarks>The client unpack follows 0045ad90. The pack routines are in ProjectileGhost.cs.</remarks>
 public static partial class ProjectileGhost
 {
     internal static void RegisterClient()

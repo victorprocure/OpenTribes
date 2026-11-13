@@ -10,16 +10,22 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>Pushing and displacing objects out of the way of moving objects, plus the collision candidate lists.</summary>
 public static class Displace
 {
     // 1/3 as the 80-bit constant at 0x005067b4 (mantissa 0xAAAAAAAAAAAAAAAB), a double here.
     private const double kThird = 1.0 / 3.0;
 
-    // src/game/displace.cpp pushBy: SimMovement_pushBy (0x005064f8): moves an object by `delta` through up to three
-    // stepped moves. `mover` is the velocity of the Moveable (SimMovement_matchVelocity, 0x00505008, raises the object's
-    // velocity along it), `box` the object box (+0x1d4) that sets the sub-step lengths, `position` the live position of
-    // the object. `stepMove` runs the object's own stepped move toward a target with the two sub-step lengths and reports
-    // whether it was not blocked in every iteration. True when the whole displacement was done.
+    /// <summary>Moves an object by a delta through up to three stepped moves.</summary>
+    /// <param name="deltaIn">The displacement.</param>
+    /// <param name="mover">The velocity of the Moveable. It raises the object's velocity along it (SimMovement_matchVelocity, 0x00505008).</param>
+    /// <param name="box">The object box (+0x1d4), which sets the sub-step lengths.</param>
+    /// <param name="velocity">The object velocity.</param>
+    /// <param name="atRest">The at-rest flag of the object.</param>
+    /// <param name="position">Reads a component of the live position of the object.</param>
+    /// <param name="stepMove">Runs the object's own stepped move toward a target with the two sub-step lengths. Returns whether it was not blocked in every iteration.</param>
+    /// <returns>True when the whole displacement was done.</returns>
+    /// <remarks>Follows SimMovement_pushBy (0x005064f8).</remarks>
     public static bool PushBy(ReadOnlySpan<float> deltaIn, ReadOnlySpan<float> mover, float[] box, float[] velocity, ref bool atRest,
                               Func<int, float> position, Func<float[], float, float, bool> stepMove)
     {
@@ -192,8 +198,8 @@ public sealed partial class GameState
     // Recursion limit of a displace (D11).
     private const int kMaxDisplaceDepth = 32;
 
-    // src/game/displace.cpp GameState::shapeImage: the shape image of a ShapeBase object (docs/collision.md T1.2) at its
-    // current transform.
+    /// <inheritdoc/>
+    /// <remarks>Builds the shape image of a ShapeBase object at its current transform (docs/collision.md T1.2).</remarks>
     public override bool ShapeImage(SimObject o, CollisionImage image)
     {
         if (o is not GameBase gb)
@@ -219,7 +225,7 @@ public sealed partial class GameState
         return true;
     }
 
-    // src/game/displace.cpp GameState::moveableDisplace.
+    /// <inheritdoc/>
     public override bool MoveableDisplace(SimObject m, ReadOnlySpan<float> oldPos)
     {
         if (m is not GameBase mover)
@@ -231,9 +237,12 @@ public sealed partial class GameState
         return DisplaceBy(mover, delta, true);
     }
 
-    // src/game/displace.cpp GameState::displaceBy: SimMovement_displace 0x00505ed4 by `delta`. `top`: called by the
-    // mover's own update (a Moveable, or Flier_update with the collision mask 0x80); otherwise for an object that a
-    // displace has just pushed, with a zero delta and the object's own collision mask.
+    /// <summary>Displaces the objects that a mover pushes.</summary>
+    /// <param name="mover">The moving object.</param>
+    /// <param name="delta">The displacement.</param>
+    /// <param name="top">True when called from the mover's own update (a Moveable, or Flier_update with the collision mask 0x80). Otherwise it is for an object that a displace has just pushed, with a zero delta and the object's own collision mask.</param>
+    /// <returns>True when the displacement was done.</returns>
+    /// <remarks>Follows SimMovement_displace (0x00505ed4).</remarks>
     public bool DisplaceBy(GameBase mover, float[] delta, bool top)
     {
         Player? playerMover = Player.From(mover);
@@ -429,8 +438,8 @@ public sealed partial class GameState
         return true;
     }
 
-    // src/game/displace.cpp GameState::moveableTest: SimMovement_testTransform (0x00505790) for a door: its shape image
-    // at the new transform against the Players (and collideable Items) in its way.
+    /// <inheritdoc/>
+    /// <remarks>Follows SimMovement_testTransform (0x00505790) for a door: its shape image at the new transform against the Players (and collideable Items) in its way.</remarks>
     public override bool MoveableTest(SimObject m, ReadOnlySpan<float> rotation, ReadOnlySpan<float> position)
     {
         if (m is not GameBase mover)
@@ -463,9 +472,10 @@ public sealed partial class GameState
         return true;
     }
 
-    // src/game/move_candidates.cpp GameState::staticHasImage: StaticBase_getCollisionImages (0x0044fff0): a StaticBase
-    // object has no image when its datablock disables collision or it is destroyed, unless its shape has a visibility
-    // sequence.
+    /// <summary>Tells whether a StaticBase object has a collision image.</summary>
+    /// <param name="gb">The object.</param>
+    /// <returns>False when its datablock disables collision or it is destroyed, unless its shape has a visibility sequence.</returns>
+    /// <remarks>Follows StaticBase_getCollisionImages (0x0044fff0).</remarks>
     public bool StaticHasImage(GameBase gb)
     {
         string v = "";
@@ -474,8 +484,8 @@ public sealed partial class GameState
         return !((disabled || gb.DamageState == GameBase.kDestroyed) && !gb.VisibilityThread);
     }
 
-    // src/game/move_candidates.cpp GameState::collisionCandidates: candidate list of a stepped move (docs/collision.md
-    // 2.1): the images of the objects of `mask` whose world box meets `query`, in container order, `mover` excluded.
+    /// <inheritdoc/>
+    /// <remarks>The images of the objects of the mask whose world box meets the query, in container order, with the mover excluded (docs/collision.md 2.1).</remarks>
     public override void CollisionCandidates(SimObject mover, uint mask, ReadOnlySpan<float> query, List<CollisionImage> output)
     {
         // InteriorShape world boxes are padded by 3.0 (2.2): widen the container query and gate every object on its own
@@ -600,8 +610,8 @@ public sealed partial class GameState
         return ContainerType(gb);
     }
 
-    // src/game/player.cpp GameState::postCollisionEvent: event 0x41f (8 E1): queued at the manager's current time, so it
-    // runs at the start of the next tick; dropped when the sender is gone by then.
+    /// <inheritdoc/>
+    /// <remarks>Event 0x41f (8 E1) is queued at the manager's current time, so it runs at the start of the next tick. It is dropped when the sender is gone by then.</remarks>
     public override void PostCollisionEvent(SimObject? target, SimObject? sender)
     {
         SimManager? m = target?.Manager();
@@ -617,8 +627,10 @@ public sealed partial class GameState
         }, sender);
     }
 
-    // src/game/player.cpp dispatchCollisionEvent: event 0x41f at its target (docs/collision.md 8 E1.3-E1.4): the class
-    // handler, the 1 s throttle and the script onCollision(target, sender).
+    /// <summary>Dispatches event 0x41f at its target: the class handler, the 1 s throttle and the script onCollision(target, sender).</summary>
+    /// <param name="target">The object that receives the event.</param>
+    /// <param name="sender">The object that collided.</param>
+    /// <remarks>See docs/collision.md 8 E1.3 and E1.4.</remarks>
     public void DispatchCollisionEvent(GameBase target, GameBase sender)
     {
         // Handlers (vtable +0xe8) by class and the type mask of `other` (8 E1.4).

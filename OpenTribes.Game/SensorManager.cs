@@ -9,7 +9,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/sensor_manager.hpp class SensorManager.
+/// <summary>The sensor manager object (id 720): the sensor network lists, jamming and target tracking.</summary>
+/// <remarks>Port of class SensorManager in src/game/sensor_manager.hpp.</remarks>
 public sealed class SensorManager : SimObject
 {
     private readonly ClassContext mCtx;
@@ -19,8 +20,11 @@ public sealed class SensorManager : SimObject
     private readonly List<GameBase> mDummy = new(); // team -1: a list the sweep never reads
     private int mTargetCursor = -1, mClientCursor = -1;
 
-    public GameState? State; // set by the game layer
+    /// <summary>The game state. Set by the game layer.</summary>
+    public GameState? State;
 
+    /// <summary>Creates the manager.</summary>
+    /// <param name="ctx">The class context.</param>
     public SensorManager(ClassContext ctx)
     {
         mCtx = ctx;
@@ -28,13 +32,27 @@ public sealed class SensorManager : SimObject
             mTeams[i] = new List<GameBase>();
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => "SensorManager";
+    /// <inheritdoc/>
     public override int FixedId() => 720;
+    /// <inheritdoc/>
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
+    /// <summary>Returns the head of the jamming list (head.next, +0x7d4).</summary>
+    /// <returns>The object id, or -1 for the head itself.</returns>
     public int JamFirst() => mJamHead;
+    /// <summary>Returns the sensor list of a team.</summary>
+    /// <param name="team">The team id.</param>
+    /// <returns>The sensors.</returns>
     public IReadOnlyList<GameBase> TeamList(int team) => mTeams[team];
+    /// <summary>Returns the list of suppressor objects.</summary>
+    /// <returns>The suppressors.</returns>
     public IReadOnlyList<GameBase> Suppressors() => mSuppressors;
+    /// <summary>Returns the target slot the timer visits next.</summary>
+    /// <returns>The slot, or -1.</returns>
     public int TargetCursor() => mTargetCursor;
+    /// <summary>Returns the client slot the timer visits next.</summary>
+    /// <returns>The slot, or -1.</returns>
     public int ClientCursor() => mClientCursor;
 
     // src/game/sensor_manager.cpp lenf: s = f32((x*x + y*y) + z*z); the float with bits (bits(s) >> 1) + 0x1fc00000
@@ -89,8 +107,8 @@ public sealed class SensorManager : SimObject
         list.Insert(at, sensor);
     }
 
-    // src/game/sensor_manager.cpp SensorManager::insert: sensor list membership (3.2): Sensor and Turret objects once
-    // their datablock binds.
+    /// <summary>Adds an object to the sensor list of its team (docs/static-sim.md 3.2).</summary>
+    /// <param name="sensor">The Sensor or Turret object, once its datablock binds.</param>
     public void Insert(GameBase sensor)
     {
         Remove(sensor);
@@ -98,7 +116,8 @@ public sealed class SensorManager : SimObject
         sensor.SensorListed = true;
     }
 
-    // src/game/sensor_manager.cpp SensorManager::remove.
+    /// <summary>Removes an object from the sensor lists.</summary>
+    /// <param name="sensor">The object.</param>
     public void Remove(GameBase sensor)
     {
         mSuppressors.RemoveAll(s => s == sensor);
@@ -108,15 +127,19 @@ public sealed class SensorManager : SimObject
         sensor.SensorListed = false;
     }
 
-    // src/game/sensor_manager.cpp SensorManager::teamChanged: same list, new team.
+    /// <summary>Moves an object to the list of its new team.</summary>
+    /// <param name="sensor">The object.</param>
     public void TeamChanged(GameBase sensor)
     {
         if (sensor.SensorListed)
             Insert(sensor);
     }
 
-    // src/game/sensor_manager.cpp SensorManager::detects: 0x004391b0 (Sensor), Turret override 0x004560a4 adds the field
-    // of view.
+    /// <summary>Tells whether a sensor detects a target.</summary>
+    /// <param name="s">The sensor.</param>
+    /// <param name="t">The target.</param>
+    /// <returns>True when the target is detected.</returns>
+    /// <remarks>Follows 0x004391b0 (Sensor). The Turret override (0x004560a4) adds the field of view.</remarks>
     public bool Detects(GameBase s, GameBase t)
     {
         if (!s.IsActiveFlag())
@@ -175,9 +198,9 @@ public sealed class SensorManager : SimObject
         return State.Sim.Server()!.FindById(id) as GameBase;
     }
 
-    // src/game/sensor_manager.cpp SensorManager::jamUnlink: 0x0040fc58: the neighbours are rewired through the stored
-    // links, the player's own links stay as they were. -1 is the head; a link to an object that no longer exists is read
-    // as the end of the list and written to nowhere (D11).
+    /// <summary>Unlinks a player from the jamming list.</summary>
+    /// <param name="p">The player.</param>
+    /// <remarks>Follows 0x0040fc58. The neighbours are rewired through the stored links and the player's own links stay as they were. -1 is the head. A link to an object that no longer exists is read as the end of the list and written to nowhere (D11).</remarks>
     public void JamUnlink(GameBase p)
     {
         if (p.JamNext != 0)
@@ -196,7 +219,9 @@ public sealed class SensorManager : SimObject
         }
     }
 
-    // src/game/sensor_manager.cpp SensorManager::jamLink: 0x004398c8: after the head.
+    /// <summary>Links a player into the jamming list after the head.</summary>
+    /// <param name="p">The player.</param>
+    /// <remarks>Follows 0x004398c8.</remarks>
     public void JamLink(GameBase p)
     {
         p.JamNext = mJamHead;
@@ -211,7 +236,9 @@ public sealed class SensorManager : SimObject
         mJamHead = p.Id();
     }
 
-    // src/game/sensor_manager.cpp SensorManager::update: 0x00439d70 (3.5): refresh of one object.
+    /// <summary>Refreshes the sensor state of one object (docs/static-sim.md 3.5).</summary>
+    /// <param name="t">The object.</param>
+    /// <remarks>Follows 0x00439d70.</remarks>
     public void Update(GameBase t)
     {
         t.SensorWord &= 0x00ffffffu; // state 0
@@ -386,8 +413,8 @@ public sealed class SensorManager : SimObject
         }
     }
 
-    // src/game/sensor_manager.cpp SensorManager::onTimerEvent: 0x00439cc4 (3.4): the next occupied target slot, then
-    // max(1, players >> 4) client slots.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00439cc4 (docs/static-sim.md 3.4): the next occupied target slot, then <c>max(1, players >> 4)</c> client slots.</remarks>
     public override void OnTimerEvent(float time, int timerId, float interval)
     {
         if (State == null)
@@ -429,8 +456,7 @@ public sealed class SensorManager : SimObject
         }
     }
 
-    // src/game/sensor_manager.cpp registerSensorManager: the "SensorManager" class (the server creates object 720 from
-    // it).
+    /// <summary>Registers the SensorManager class. The server creates object 720 from it.</summary>
     public static void Register() =>
         SimClasses.RegisterClass("SensorManager", c => new SensorManager(c) { State = c.Game as GameState });
 }

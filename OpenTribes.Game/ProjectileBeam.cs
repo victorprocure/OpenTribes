@@ -4,6 +4,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The LaserProjectile, TargetLaser, Lightning and RepairEffect projectiles and their ghost packers.</summary>
+/// <remarks>See docs/projectile-sim.md 2.7 to 2.10 and 5.2. The pj helpers are in Projectile.cs.</remarks>
 public static class ProjectileBeam
 {
     // src/game/projectile_beam.cpp vecText: "%g %g %g" inside quotes.
@@ -24,7 +26,10 @@ public static class ProjectileBeam
         return 4000.0f;
     }
 
-    // src/game/projectile_beam.cpp createBeamProjectile.
+    /// <summary>Creates the beam projectile of a datablock group.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="group">The datablock group.</param>
+    /// <returns>The new projectile, or null for a group that is not a beam.</returns>
     public static Projectile? CreateBeamProjectile(GameState game, int group) => group switch
     {
         Projectile.kLaserGroup => new Laser(game),

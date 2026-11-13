@@ -5,20 +5,25 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/vehicle_camera.cpp: Vehicle_getCameraTransform 00445d88 (the Vehicle and Flier slot 0x170; docs/client-net.md 4.2).
+/// <summary>The third person camera of a vehicle or flier.</summary>
+/// <remarks>Follows Vehicle_getCameraTransform (00445d88, slot 0x170; docs/client-net.md 4.2).</remarks>
 public static class VehicleCamera
 {
-    // float 0x00445e94: the view distance factor (the camera argument is the PSC +0x9c timer, 0..4).
+    /// <summary>The view distance factor (float at 0x00445e94). The camera argument is the PSC +0x9c timer, 0 to 4.</summary>
     public const float DistanceFactor = 2.0f;
-    // long double 0x00445e9c: scale of the pitch word (Euler x) of the third person transform.
+    /// <summary>The scale of the pitch word (Euler x) of the third person transform (long double at 0x00445e9c).</summary>
     public const double PitchScale = 0.8;
-    // float 0x00445ea8: scale of the roll word (Euler y).
+    /// <summary>The scale of the roll word (Euler y) of the third person transform (float at 0x00445ea8).</summary>
     public const float RollScale = 0.5f;
 
-    // `obj` is the object transform (+0x94), `eye` the transform of the `dummy eye` node in object space (+0x328 -> +0x30 table, 0x34 bytes
-    // per node), null when the shape has no such node (index -1: the camera is the object transform and the view distance is ignored).
-    // With an eye node: eye x obj (m_mul_TMat3F 005ed2b2), then GameBase_placeBehind 00449604 by 2.0 * arg, then, when arg is not 0,
-    // the Euler angles of the result with x * 0.8 and y * 0.5 (the position is kept) and flag 2.
+    /// <summary>Computes the camera transform of a vehicle or flier.</summary>
+    /// <param name="obj">The object transform (+0x94).</param>
+    /// <param name="eye">The transform of the <c>dummy eye</c> node in object space, or null when the shape has none. Without it the camera is the object transform and the view distance is ignored.</param>
+    /// <param name="arg">The camera argument (view distance timer).</param>
+    /// <param name="container">The container used to keep the camera out of geometry.</param>
+    /// <param name="exclude">The object ignored by that test.</param>
+    /// <returns>The camera transform.</returns>
+    /// <remarks>With an eye node: eye times object transform (m_mul_TMat3F 005ed2b2), then GameBase_placeBehind (00449604) by <c>2.0 * arg</c>. When <c>arg</c> is not 0 the Euler angles of the result are rebuilt with x * 0.8 and y * 0.5, keeping the position, with flag 2.</remarks>
     public static Transform Compute(in Transform obj, in Transform? eye, float arg, Container? container, object? exclude)
     {
         if (eye is not { } n)
