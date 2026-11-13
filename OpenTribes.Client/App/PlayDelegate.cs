@@ -1,35 +1,75 @@
-// docs/client-scripts.md 3.8 and 3.10: the play delegate. It owns actionMap.sae, playMap.sae and pdaMap.sae, pushes and pops
-// them when the canvas content control changes (PlayDelegate_setContentControl 004dcc4c), receives their actions and
-// handles the ones that are not move input (chat, score page, escape), and switches the GUI with the PSC GUI mode
-// (PlayDelegate_setGuiMode 004dc84c).
 using OpenTribes.Gui;
 using OpenTribes.Script;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The play delegate: it owns <c>actionMap.sae</c>, <c>playMap.sae</c> and <c>pdaMap.sae</c>, pushes and pops them when the canvas content control changes (PlayDelegate_setContentControl 004dcc4c), receives their actions and handles the ones that are not move input (chat, score page, escape), and switches the GUI with the PSC GUI mode (PlayDelegate_setGuiMode 004dc84c).</summary>
+/// <remarks>docs/client-scripts.md 3.8 and 3.10.</remarks>
 public sealed class PlayDelegate : IActionConsumer
 {
-    public const uint PlayGuiId = 140114, CommandGuiId = 140200, ChatEntryId = 140112, ChatDisplayId = 140113, HudListId = 140220;
-    public const int Chat = 220200, ChatDispSize = 220201, ChatDispPage = 220202, MenuPage = 220203, EscapePressed = 220204,
-        ZoomIn = 220207, ZoomOut = 220208, ZoomModeOn = 220210, ZoomModeOff = 220211, CenterModeOn = 220219, CenterModeOff = 220220;
-    public const uint CommanderMapId = 140201, ZoomButtonId = 140211, CenterButtonId = 140216;
+    /// <summary>The control id of the play screen.</summary>
+    public const uint PlayGuiId = 140114;
+    /// <summary>The control id of the command screen.</summary>
+    public const uint CommandGuiId = 140200;
+    /// <summary>The control id of the chat entry.</summary>
+    public const uint ChatEntryId = 140112;
+    /// <summary>The control id of the chat display.</summary>
+    public const uint ChatDisplayId = 140113;
+    /// <summary>The control id of the HUD list.</summary>
+    public const uint HudListId = 140220;
+    /// <summary>The action id of the chat key.</summary>
+    public const int Chat = 220200;
+    /// <summary>The action id that sizes the chat display.</summary>
+    public const int ChatDispSize = 220201;
+    /// <summary>The action id that pages the chat display.</summary>
+    public const int ChatDispPage = 220202;
+    /// <summary>The action id that pages the menu.</summary>
+    public const int MenuPage = 220203;
+    /// <summary>The action id of the escape key.</summary>
+    public const int EscapePressed = 220204;
+    /// <summary>The action id of zoom in on the command map.</summary>
+    public const int ZoomIn = 220207;
+    /// <summary>The action id of zoom out on the command map.</summary>
+    public const int ZoomOut = 220208;
+    /// <summary>The action id that turns the zoom mode on.</summary>
+    public const int ZoomModeOn = 220210;
+    /// <summary>The action id that turns the zoom mode off.</summary>
+    public const int ZoomModeOff = 220211;
+    /// <summary>The action id that turns the center mode on.</summary>
+    public const int CenterModeOn = 220219;
+    /// <summary>The action id that turns the center mode off.</summary>
+    public const int CenterModeOff = 220220;
+    /// <summary>The control id of the command map.</summary>
+    public const uint CommanderMapId = 140201;
+    /// <summary>The control id of the zoom button.</summary>
+    public const uint ZoomButtonId = 140211;
+    /// <summary>The control id of the center button.</summary>
+    public const uint CenterButtonId = 140216;
 
     private readonly ClientApp mApp;
+    /// <summary>The move builder that turns the actions of the play maps into moves.</summary>
     public readonly MoveBuilder Moves = new();
     private ActionMap? mAction, mPlay, mPda;
     private uint mLastContentId;
     private bool mPlayActive;
     private bool mScoresOn;
     private readonly ChatSizeMemory mChatSizes = new();
+    /// <inheritdoc/>
     public bool Removing => false;
-    public int MapPushes, MapPops;
+    /// <summary>The number of action map pushes.</summary>
+    public int MapPushes;
+    /// <summary>The number of action map pops.</summary>
+    public int MapPops;
 
+    /// <summary>Creates the delegate.</summary>
+    /// <param name="app">The client.</param>
     public PlayDelegate(ClientApp app) => mApp = app;
 
     // The maps of the three stock names, found on use (config.cs replaces them with NewActionMap).
     private ActionMap? Map(string n) => mApp.Maps.FindMap(n);
 
-    // 3.8 PlayDelegate_setContentControl: called every frame with the canvas content control's id.
+    /// <summary>Pushes or pops the maps for the content control of the canvas (3.8 PlayDelegate_setContentControl). Called every frame.</summary>
+    /// <param name="id">The id of the content control.</param>
     public void UpdateContent(uint id)
     {
         if (id == mLastContentId)
@@ -73,6 +113,8 @@ public sealed class PlayDelegate : IActionConsumer
             Push("pdaMap.sae");
     }
 
+    /// <summary>Pushes an action map.</summary>
+    /// <param name="name">The map name.</param>
     public void Push(string name)
     {
         ActionMap? m = Map(name);
@@ -82,6 +124,8 @@ public sealed class PlayDelegate : IActionConsumer
         ++MapPushes;
     }
 
+    /// <summary>Pops an action map.</summary>
+    /// <param name="name">The map name.</param>
     public void Pop(string name)
     {
         ActionMap? m = Map(name);
@@ -91,9 +135,11 @@ public sealed class PlayDelegate : IActionConsumer
         ++MapPops;
     }
 
+    /// <summary>True while the maps are pushed.</summary>
     public bool MapsActive => mPlayActive;
 
-    // 3.10: the actions that are not move input.
+    /// <inheritdoc/>
+    /// <remarks>It handles the actions that are not move input (3.10).</remarks>
     public bool OnAction(int action, int kind, float value)
     {
         if (mApp.Game == null || mApp.Game.IsDemo && action != MoveBuilder.ObserverToggle)
@@ -188,15 +234,28 @@ public sealed class PlayDelegate : IActionConsumer
         }
     }
 
-    // The messages of the command screen's buttons [code 004dd280 cases 0x223b3 .. 0x223b8, 0x271f3, 0x22353 .. 0x22355]: the zoom (140211) and centre
-    // (140216) buttons hand their lit state to the map, the three tabs (140115 players, 140116 controllables, 140117 objects) tell it which kind it
-    // selects, the report button (140213) asks the server to make the first selected player of the list the commander, the unreport button (140214)
-    // clears it, and take control (160243) mounts the selected turret.
-    public const int ReportButton = 140213, UnreportButton = 140214, TakeControlButton = 160243, PlayersTab = 140115, TurretsTab = 140116, ObjectsTab = 140117,
-        TeamListId = 140202;
+    /// <summary>The control id of the report button: it asks the server to make the first selected player of the list the commander.</summary>
+    public const int ReportButton = 140213;
+    /// <summary>The control id of the unreport button: it clears the commander.</summary>
+    public const int UnreportButton = 140214;
+    /// <summary>The control id of take control: it mounts the selected turret.</summary>
+    public const int TakeControlButton = 160243;
+    /// <summary>The control id of the players tab.</summary>
+    public const int PlayersTab = 140115;
+    /// <summary>The control id of the controllables tab.</summary>
+    public const int TurretsTab = 140116;
+    /// <summary>The control id of the objects tab.</summary>
+    public const int ObjectsTab = 140117;
+        /// <summary>The control id of the team list.</summary>
+        public const int TeamListId = 140202;
 
     private GuiCommandMap? Map() => mApp.GuiRt.FindControl(CommanderMapId.ToString(System.Globalization.CultureInfo.InvariantCulture)) as GuiCommandMap;
 
+    /// <summary>Handles the messages of the buttons of the command screen (004dd280 cases 0x223b3 to 0x223b8, 0x271f3, 0x22353 to 0x22355).</summary>
+    /// <param name="sender">The control that sent the message, or null.</param>
+    /// <param name="tag">The message tag.</param>
+    /// <returns>True when the message was handled.</returns>
+    /// <remarks>The zoom (140211) and center (140216) buttons hand their lit state to the map. The three tabs (140115 players, 140116 controllables, 140117 objects) tell it which kind it selects.</remarks>
     public bool Message(GuiControl? sender, int tag)
     {
         GuiCommandMap? map = Map();
@@ -240,7 +299,8 @@ public sealed class PlayDelegate : IActionConsumer
         return false;
     }
 
-    // 4.4 / client-scripts 4.3: PlayDelegate_setGuiMode.
+    /// <summary>Switches the GUI to a PSC GUI mode (4.4, client-scripts 4.3, PlayDelegate_setGuiMode).</summary>
+    /// <param name="mode">The GUI mode.</param>
     public void SetGuiMode(int mode)
     {
         Interpreter i = mApp.Interp;
@@ -268,6 +328,8 @@ public sealed class PlayDelegate : IActionConsumer
     // mode switch pushes it again.
     private GuiControl? mScoreDialog;
 
+    /// <summary>Shows or hides the score page.</summary>
+    /// <param name="on">True to show.</param>
     public void SetScoreVisible(bool on)
     {
         bool shown = mScoreDialog != null && mApp.Canvas.Stack.Contains(mScoreDialog);
@@ -285,6 +347,7 @@ public sealed class PlayDelegate : IActionConsumer
         mScoreDialog = mApp.Canvas.Stack.Count > 1 ? mApp.Canvas.Stack[^1] : null;
     }
 
+    /// <summary>Resets the delegate to its start state.</summary>
     public void Reset()
     {
         Moves.Reset();

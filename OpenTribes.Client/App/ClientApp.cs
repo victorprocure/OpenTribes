@@ -1,6 +1,3 @@
-// The `tribes` client process (ROADMAP M9 C8): docs/client-app.md 1 (start-up), 2 (frame), 3 (input), 6 (shutdown) and
-// docs/client-scripts.md 6 (the stock start-up). console.cs runs on the client branch; everything after it is the stock
-// scripts talking to the engine through the commands of ClientCommandHandlers and the callbacks raised here.
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -19,45 +16,79 @@ using OpenTribes.Sim;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The <c>tribes</c> client process: start-up, frame loop, input and shutdown.</summary>
+/// <remarks>docs/client-app.md 1 (start-up), 2 (frame), 3 (input) and 6 (shutdown), and docs/client-scripts.md 6 (the stock start-up). console.cs runs on the client branch. Everything after it is the stock scripts talking to the engine through the commands of <see cref="ClientCommandHandlers"/> and the callbacks raised here.</remarks>
 public sealed class ClientApp : IDisposable
 {
+    /// <summary>The command line options.</summary>
     public readonly ClientOptions Opt;
+    /// <summary>The script interpreter.</summary>
     public Interpreter Interp = null!;
+    /// <summary>The mounted resources.</summary>
     public ResourceManager Res = null!;
+    /// <summary>The simulation console objects.</summary>
     public SimConsole SimWorld = null!;
+    /// <summary>The action maps.</summary>
     public ClientState Maps = null!;
+    /// <summary>The input dispatcher.</summary>
     public InputDispatcher Input = null!;
+    /// <summary>The GUI host.</summary>
     public GuiHost Host = null!;
+    /// <summary>The canvas.</summary>
     public GuiCanvas Canvas = null!;
+    /// <summary>The GUI runtime.</summary>
     public GuiRuntime GuiRt = null!;
+    /// <summary>The window, or null in headless runs.</summary>
     public GlWindow? Win;
+    /// <summary>The graphics device, or null in headless runs.</summary>
     public GlGfxDevice? Dev;
-    // The joysticks found when the input system opened (client-app.md 3.1); none in headless runs.
+    /// <summary>The joysticks found when the input system opened (client-app.md 3.1). None in headless runs.</summary>
     public JoystickSet? Joysticks;
+    /// <summary>The sound manager, or null without audio.</summary>
     public SoundManager? Sound;
+    /// <summary>The sfx console commands, or null without audio.</summary>
     public SfxCommands? Sfx;
+    /// <summary>The audio output, or null without audio.</summary>
     public AudioOutput? AudioDev;
+    /// <summary>The play delegate.</summary>
     public PlayDelegate Play = null!;
+    /// <summary>The console command handlers.</summary>
     public ClientCommandHandlers Handlers = null!;
+    /// <summary>The GUI delegates.</summary>
     public ClientDelegates Delegates = null!;
+    /// <summary>The joined game or the playing demo, or null.</summary>
     public LiveGame? Game;
-    // The server world of a hosted game (createServer, client-app.md 1.7), in this process next to the client world.
+    /// <summary>The server world of a hosted game (createServer, client-app.md 1.7), in this process next to the client world.</summary>
     public OpenTribes.Server.HostedServer Hosted = null!;
+    /// <summary>The consumer for actions nobody handles.</summary>
     public readonly IActionConsumer ConsoleConsumer = new NullConsumer();
 
+    /// <summary>The display gamma.</summary>
     public float Gamma = 1f;
+    /// <summary>The palette in use, or null before the first mission palette.</summary>
     public PaletteBank? CurrentPalette;
+    /// <summary>The renderer of the skin view of the Player Setup screen.</summary>
     public SkinViewRenderer? SkinViews;
+    /// <summary>True while the window is full screen.</summary>
     public bool IsFullscreen => Win?.IsFullscreen() ?? false;
+    /// <summary>The size of the full screen mode.</summary>
     public (int W, int H) FullscreenSize = (640, 480);
-    public bool LockSize, WindowsMouse, WindowsKeyboard;
+    /// <summary>True while the window size is locked (<c>lockWindowSize</c>).</summary>
+    public bool LockSize;
+    /// <summary>True when the canvas handles the mouse as a Windows mouse (<c>windowsMouseEnable</c>).</summary>
+    public bool WindowsMouse;
+    /// <summary>True when the canvas handles the keyboard as a Windows keyboard (<c>windowsKeyboardEnable</c>).</summary>
+    public bool WindowsKeyboard;
+    /// <summary>True to ignore requests for full screen.</summary>
     public bool ForceWindowed;
 
     private readonly Stopwatch mClock = Stopwatch.StartNew();
     private uint mVirtualMs;
     private bool mQuit;
+    /// <summary>The process exit code.</summary>
     public int ExitCode;
     private StreamWriter? mLogFile;
+    /// <summary>The last console lines.</summary>
     public readonly List<string> LogTail = new();
     private ClientScript? mScript;
     private readonly List<string> mPendingShots = new();
@@ -65,6 +96,7 @@ public sealed class ClientApp : IDisposable
     private bool mPaletteSet;
     private uint mLastFrameMs;
     private bool mGrab, mRelativeMouse;
+    /// <summary>The number of frames run.</summary>
     public long Frames;
 
     private sealed class NullConsumer : IActionConsumer
@@ -73,12 +105,17 @@ public sealed class ClientApp : IDisposable
         public bool OnAction(int action, int kind, float value) => false;
     }
 
+    /// <summary>Creates the client.</summary>
+    /// <param name="opt">The command line options.</param>
     public ClientApp(ClientOptions opt) => Opt = opt;
 
+    /// <summary>The app time in milliseconds: the virtual clock when <c>--virtual-time</c> is on, else the real clock.</summary>
     public uint NowMs => Opt.VirtualStep != 0 ? mVirtualMs : (uint)mClock.ElapsedMilliseconds;
 
     // ---- log ----
 
+    /// <summary>Writes a line to the console.</summary>
+    /// <param name="line">The line.</param>
     public void Log(string line)
     {
         Interp?.Print(1, line);
@@ -96,6 +133,9 @@ public sealed class ClientApp : IDisposable
 
     // ---- start-up (client-app.md 1.3 and 1.4) ----
 
+    /// <summary>Runs the start-up (client-app.md 1.3 and 1.4): opens the window, the device and the audio, and runs <c>console.cs</c>.</summary>
+    /// <param name="error">The error text on failure.</param>
+    /// <returns>True when the client started.</returns>
     public bool Start(out string error)
     {
         error = "";
@@ -245,8 +285,7 @@ public sealed class ClientApp : IDisposable
         Host.Audio = new GuiAudio(Sound);
     }
 
-    // The engine variables of client-scripts.md 5.1 that the engine reads back (the rest live as plain script variables).
-    // True once a terrain renderer was created and registered its variables (EngineVariables.TerrainCells).
+    /// <summary>True once a terrain renderer was created and registered its variables (<see cref="EngineVariables.TerrainCells"/>).</summary>
     public bool TerrainVarsBound;
 
     private void RegisterEngineVariables()
@@ -272,6 +311,8 @@ public sealed class ClientApp : IDisposable
 
     // ---- palette and video ----
 
+    /// <summary>Sets the palette of the device.</summary>
+    /// <param name="bank">The palette.</param>
     public void SetPalette(PaletteBank bank)
     {
         CurrentPalette = bank;
@@ -316,6 +357,8 @@ public sealed class ClientApp : IDisposable
         return voice == null ? null : () => mixer!.Stop(voice);
     }
 
+    /// <summary>Sets the display gamma and applies it to the palette in use.</summary>
+    /// <param name="g">The gamma.</param>
     public void SetGamma(float g)
     {
         Gamma = g;
@@ -323,6 +366,8 @@ public sealed class ClientApp : IDisposable
             Dev?.SetPalette(CurrentPalette, g);
     }
 
+    /// <summary>Switches between full screen and a window.</summary>
+    /// <param name="on">True for full screen.</param>
     public void SetFullscreen(bool on)
     {
         if (Win == null || ForceWindowed && on)
@@ -332,19 +377,23 @@ public sealed class ClientApp : IDisposable
         Win.SetFullscreen(on, FullscreenSize.W, FullscreenSize.H, mDesktopApplied);
     }
 
+    /// <summary>The preference that holds the "Fullscreen windowed" setting.</summary>
     public const string FullscreenWindowedPref = "$pref::OpenTribes::FullscreenWindowed";
     private bool mDesktopApplied;
 
-    // The borderless desktop full screen: the command line option, else the pref (the Video options checkbox).
+    /// <summary>True when full screen is the borderless desktop mode: the command line option, else the pref (the Video options check box).</summary>
     public bool DesktopModeWanted => FullscreenPlan.UseDesktopMode(Opt.FullscreenWindowed, Interp.PeekVariable(FullscreenWindowedPref));
 
-    // Switching the setting while in full screen applies at once.
+    /// <summary>Applies a change of the desktop mode setting at once while in full screen.</summary>
     public void ApplyFullscreenModeChange()
     {
         if (Win != null && IsFullscreen && DesktopModeWanted != mDesktopApplied)
             SetFullscreen(true);
     }
 
+    /// <summary>Resizes the window. In full screen it applies the full screen mode, and it does nothing while the size is locked.</summary>
+    /// <param name="w">The width in pixels.</param>
+    /// <param name="h">The height in pixels.</param>
     public void ResizeWindow(int w, int h)
     {
         if (IsFullscreen)
@@ -353,6 +402,8 @@ public sealed class ClientApp : IDisposable
             Win?.SetSize(w, h);
     }
 
+    /// <summary>Grabs or releases the mouse.</summary>
+    /// <param name="on">True to grab.</param>
     public void GrabMouse(bool on)
     {
         mGrab = on;
@@ -370,13 +421,20 @@ public sealed class ClientApp : IDisposable
         Win?.SetRelativeMouse(want);
     }
 
+    /// <summary>Queues a screenshot for the end of the frame.</summary>
+    /// <param name="path">The PNG path.</param>
     public void QueueScreenshot(string path) => mPendingShots.Add(path);
 
+    /// <summary>Asks the main loop to end.</summary>
     public void RequestQuit() => mQuit = true;
+    /// <summary>True after <see cref="RequestQuit"/>.</summary>
     public bool QuitRequested => mQuit;
 
     // ---- addresses and the net (R6) ----
 
+    /// <summary>Tells whether an address is a loopback address (R6).</summary>
+    /// <param name="address">The address, optionally with <c>IP:</c> and a port.</param>
+    /// <returns>True for <c>LOOPBACK</c>, <c>localhost</c> and 127.0.0.0/8.</returns>
     public bool IsLocalAddress(string address)
     {
         string a = address.Trim();
@@ -391,6 +449,9 @@ public sealed class ClientApp : IDisposable
         return System.Net.IPAddress.TryParse(host, out System.Net.IPAddress? ip) && System.Net.IPAddress.IsLoopback(ip);
     }
 
+    /// <summary>Joins a game.</summary>
+    /// <param name="address">The server address.</param>
+    /// <returns>True when the connection started.</returns>
     public bool Connect(string address)
     {
         Game?.Stop();
@@ -433,6 +494,7 @@ public sealed class ClientApp : IDisposable
         return ok;
     }
 
+    /// <summary>Leaves the current game or demo.</summary>
     public void Disconnect()
     {
         if (Game == null)
@@ -448,6 +510,9 @@ public sealed class ClientApp : IDisposable
         Host.Hud = null;
     }
 
+    /// <summary>Plays a recording.</summary>
+    /// <param name="file">The file name, with or without the <c>recordings\\</c> folder and the <c>.rec</c> extension.</param>
+    /// <returns>True when the demo started.</returns>
     public bool PlayDemo(string file)
     {
         Game?.Stop();
@@ -493,7 +558,8 @@ public sealed class ClientApp : IDisposable
     private static object? sHitObj;
     private static OpenTribes.World.Vec3 sHit, sNormal;
 
-    // Called when a game starts: the HUD source and the chat ring follow the new world.
+    /// <summary>Points the HUD source and the chat ring at the world of a new game.</summary>
+    /// <param name="g">The game.</param>
     public void InitSecondaryHooks(LiveGame g)
     {
         Host.Chat.Clear();
@@ -521,13 +587,14 @@ public sealed class ClientApp : IDisposable
         };
     }
 
-    // The command map control (DAT_006a83d8): found by its id while the command screen is loaded.
+    /// <summary>The command map control (DAT_006a83d8), found by its id while the command screen is loaded.</summary>
     public GuiCommandMap? CommandMap => GuiRt?.FindControl(PlayDelegate.CommanderMapId.ToString(CultureInfo.InvariantCulture)) as GuiCommandMap;
 
     // The console world of the client: the chat menus of the scripts live in it.
     private GameState mGameState = null!;
 
-    // The chat menu a script has on display (remoteNewMenu: setCMMode(CurServerMenu, 1)) with the items of its top level.
+    /// <summary>Gets the chat menu a script has on display (<c>remoteNewMenu</c>: <c>setCMMode(CurServerMenu, 1)</c>) with the items of its top level.</summary>
+    /// <returns>The menu, or null.</returns>
     public ServerMenuView? CurrentMenu()
     {
         if (mGameState.ChatMenus.Showing(mGameState, "CurServerMenu") is not var (title, tree))
@@ -535,7 +602,9 @@ public sealed class ClientApp : IDisposable
         return new ServerMenuView(title, tree.Root.Children.Select(c => (c.Key, c.Text)).ToList());
     }
 
-    // The chat menu object a FGChatMenu control names [code 004a7934]: null when no ChatMenu has that name, else its state.
+    /// <summary>Gets the chat menu object a FGChatMenu control names (004a7934).</summary>
+    /// <param name="name">The menu name.</param>
+    /// <returns>The state, or null when no ChatMenu has that name.</returns>
     public ChatMenuState? NamedMenu(string name)
     {
         if (mGameState.Sim?.Server()?.Find(name) is not SimObject obj || obj.ClassName() != "ChatMenu")
@@ -545,7 +614,8 @@ public sealed class ClientApp : IDisposable
             : new ChatMenuState(false, "", Array.Empty<string>());
     }
 
-    // The player chat menu (`v`) as the chat display draws it [code 004a633c].
+    /// <summary>Gets the player chat menu (<c>v</c>) as the chat display draws it (004a633c).</summary>
+    /// <returns>The menu, or null.</returns>
     public PlayMenuView? PlayMenu()
     {
         if (mGameState.ChatMenus.Showing(mGameState, "PlayChatMenu") is not var (title, tree))
@@ -560,7 +630,9 @@ public sealed class ClientApp : IDisposable
         ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10 &&
         mGameState.ChatMenus.OnKey(mGameState, ev.ObjInst, ev.Action, ch, ev.Modifiers, words => Interp.CallFunction(words[0], words.Skip(1).ToArray()));
 
-    // Chat lines of the client PlayerManager go to the HUD chat ring (client-net.md 2.4).
+    /// <summary>Moves the chat lines of the client PlayerManager to the HUD chat ring (client-net.md 2.4).</summary>
+    /// <param name="g">The game.</param>
+    /// <param name="seen">The number of lines already moved.</param>
     public void PumpChat(LiveGame g, ref int seen)
     {
         List<string> chat = g.World.Players.Chat;
@@ -590,6 +662,8 @@ public sealed class ClientApp : IDisposable
 
     // ---- frame loop (client-app.md 2.2) ----
 
+    /// <summary>Starts the client and runs the main loop until it quits.</summary>
+    /// <returns>The process exit code.</returns>
     public int Run()
     {
         if (!Start(out string error))
@@ -615,7 +689,7 @@ public sealed class ClientApp : IDisposable
         return ExitCode;
     }
 
-    // One frame on the virtual clock when `--virtual-time` or `--headless` is on (the clock moves by the step first).
+    /// <summary>Runs one frame on the virtual clock, used when <c>--virtual-time</c> or <c>--headless</c> is on. The clock moves by the step first.</summary>
     public void Step()
     {
         if (Opt.VirtualStep != 0)
@@ -623,6 +697,7 @@ public sealed class ClientApp : IDisposable
         Frame();
     }
 
+    /// <summary>Runs one frame.</summary>
     public void Frame()
     {
         ++Frames;
@@ -680,6 +755,7 @@ public sealed class ClientApp : IDisposable
 
     internal bool PlayViewActive => Canvas.Content?.Id is PlayDelegate.PlayGuiId;
 
+    /// <summary>Renders the 3D view and the GUI.</summary>
     public void RenderFrame()
     {
         if (Dev == null || Win == null)
@@ -816,6 +892,9 @@ public sealed class ClientApp : IDisposable
         return Canvas.HandleInput(raw);
     }
 
+    /// <summary>Sends a key event to the input dispatcher.</summary>
+    /// <param name="scan">The scan code.</param>
+    /// <param name="down">True for a press, false for a release.</param>
     public void InjectKey(int scan, bool down)
     {
         if (scan <= 0 || !Handlers.DeviceActive("keyboard0"))
@@ -823,6 +902,9 @@ public sealed class ClientApp : IDisposable
         Input.Process(new InputEvent { DeviceType = 3, DeviceInst = 0, ObjType = 10, ObjInst = (byte)scan, Action = (byte)(down ? 1 : 2) }, down ? 1f : 0f);
     }
 
+    /// <summary>Sends a mouse button event to the input dispatcher.</summary>
+    /// <param name="index">The button index.</param>
+    /// <param name="down">True for a press, false for a release.</param>
     public void InjectButton(int index, bool down)
     {
         if (!Handlers.DeviceActive("mouse0"))
@@ -830,6 +912,9 @@ public sealed class ClientApp : IDisposable
         Input.Process(new InputEvent { DeviceType = 2, DeviceInst = 0, ObjType = 2, ObjInst = (byte)index, Action = (byte)(down ? 1 : 2) }, down ? 1f : 0f);
     }
 
+    /// <summary>Sends a mouse axis event to the input dispatcher.</summary>
+    /// <param name="axis">The axis, 0 for x and 1 for y.</param>
+    /// <param name="counts">The relative movement in counts.</param>
     public void InjectAxis(int axis, float counts)
     {
         if (counts == 0 || !Handlers.DeviceActive("mouse0"))
@@ -837,8 +922,10 @@ public sealed class ClientApp : IDisposable
         Input.Process(new InputEvent { DeviceType = 2, DeviceInst = 0, ObjType = (byte)(11 + axis), ObjInst = 0, Action = 3 }, counts);
     }
 
-    // Joystick events (client-app.md 3.2, 3.3 and 3.6; JoystickEvents). An inactive device makes no events (0050f550 reads only
-    // active devices).
+    /// <summary>Sends a joystick button event (client-app.md 3.2, 3.3 and 3.6; JoystickEvents). An inactive device makes no events (0050f550 reads only active devices).</summary>
+    /// <param name="dev">The joystick index.</param>
+    /// <param name="index">The button index.</param>
+    /// <param name="down">True for a press, false for a release.</param>
     public void InjectJoyButton(int dev, int index, bool down)
     {
         if (!Handlers.DeviceActive("joystick" + dev))
@@ -846,6 +933,10 @@ public sealed class ClientApp : IDisposable
         Input.Process(JoystickEvents.Button(dev, index, down), down ? 1f : 0f);
     }
 
+    /// <summary>Sends a joystick axis event.</summary>
+    /// <param name="dev">The joystick index.</param>
+    /// <param name="sdlAxis">The SDL axis.</param>
+    /// <param name="raw">The raw axis value.</param>
     public void InjectJoyAxis(int dev, int sdlAxis, int raw)
     {
         if (!Handlers.DeviceActive("joystick" + dev))
@@ -855,7 +946,10 @@ public sealed class ClientApp : IDisposable
             JoystickEvents.AxisValue(raw));
     }
 
-    // A buffered device passes the new angle as the old one, so only the two move events are made.
+    /// <summary>Sends a joystick hat event. A buffered device passes the new angle as the old one, so only the two move events are made.</summary>
+    /// <param name="dev">The joystick index.</param>
+    /// <param name="hat">The hat index.</param>
+    /// <param name="sdlHat">The SDL hat position.</param>
     public void InjectJoyHat(int dev, int hat, int sdlHat)
     {
         if (!Handlers.DeviceActive("joystick" + dev))
@@ -937,6 +1031,7 @@ public sealed class ClientApp : IDisposable
 
     // ---- shutdown (client-app.md 6.2) ----
 
+    /// <summary>Shuts the client down (client-app.md 6.2).</summary>
     public void Shutdown()
     {
         try
@@ -958,6 +1053,7 @@ public sealed class ClientApp : IDisposable
         TakeShots();
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         Game?.Dispose();
