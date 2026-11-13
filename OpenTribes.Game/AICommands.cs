@@ -142,7 +142,9 @@ public static class AICommands
     // src/game/ai_commands.cpp truncName.
     private static string TruncName(string s) => s.Length > 31 ? s[..31] : s;
 
-    // src/game/ai_commands.cpp registerAICommands.
+    /// <summary>Registers the AI and BaseRep commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="g">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState g)
     {
         // Wildcard commands (ids 7+): argc < 2 runs the handler once without an AI.

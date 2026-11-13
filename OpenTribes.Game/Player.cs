@@ -7,6 +7,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The Player: the server side object a client controls on foot.</summary>
+/// <remarks>See docs/player-sim.md. This part holds creation, the datablock binding, move credit and the 32 ms step. The other parts are in the files named after the Player features.</remarks>
 public sealed partial class Player : GameBase
 {
     public const int kItemTypes = 200; // inventory entries (+0x1038)
