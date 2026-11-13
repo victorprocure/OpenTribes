@@ -41,13 +41,13 @@ public static class DatablockPack
 
         public Value? ValueOf(string name, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = mBlock.Find(name);
             return f != null && f.Elems[k].Set ? f.Elems[k] : null;
         }
 
         public int I(string name, int absent, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = mBlock.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -57,7 +57,7 @@ public static class DatablockPack
 
         public bool B(string name, bool absent)
         {
-            Field? f = mBlock.Find(name);
+            var f = mBlock.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[0].Set)
@@ -67,7 +67,7 @@ public static class DatablockPack
 
         public float F(string name, float absent, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = mBlock.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -78,7 +78,7 @@ public static class DatablockPack
         // Component c of a point3F, colorF or normal.
         public float V3(string name, int c, float absent)
         {
-            Field? f = mBlock.Find(name);
+            var f = mBlock.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[0].Set)
@@ -99,7 +99,7 @@ public static class DatablockPack
         // Single-group reference index: unset is -1, or 0 for explosionTag (RF4).
         public int Ref(string name, int absent, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = mBlock.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -110,7 +110,7 @@ public static class DatablockPack
         // String as stored; a null pointer is sent as "".
         public string S(string name, string? absent)
         {
-            Field? f = mBlock.Find(name);
+            var f = mBlock.Find(name);
             if (f == null)
                 return absent ?? "";
             if (f.Elems[0].Set)
@@ -193,7 +193,7 @@ public static class DatablockPack
         PutF32(w, r.F("maxEnergy", 0));
         for (var k = 0; k < 16; ++k)
         {
-            Value? v = r.ValueOf("sequenceSound", k);
+            var v = r.ValueOf("sequenceSound", k);
             var present = v?.Str != null;
             w.PutFlag(present);
             if (present)
@@ -218,7 +218,7 @@ public static class DatablockPack
     // unset.
     private static void PackProjectileRef(Reader r, EventWriter w, string name)
     {
-        Value? v = r.ValueOf(name);
+        var v = r.ValueOf(name);
         PutU32(w, (uint)(v != null ? v.I : -1));
         PutU32(w, (uint)(v != null ? v.I2 : -1));
     }
@@ -276,7 +276,7 @@ public static class DatablockPack
         uint[] angleDefaults = [90, 180];
         for (var k = 0; k < 2; ++k)
         {
-            Value? v = r.ValueOf(angles[k]);
+            var v = r.ValueOf(angles[k]);
             var raw = v != null ? BitConverter.SingleToUInt32Bits(v.F[0]) : angleDefaults[k];
             w.PutFlag(raw != angleDefaults[k]);
             if (raw != angleDefaults[k])
@@ -311,7 +311,7 @@ public static class DatablockPack
     {
         for (var k = 0; k < 10; ++k)
         {
-            Value? v = r.ValueOf("bmpName", k);
+            var v = r.ValueOf("bmpName", k);
             w.PutString(v?.Str ?? "");
         }
     }
@@ -324,7 +324,7 @@ public static class DatablockPack
         var zero = new Value(); // animData is uninitialized storage until set (D11)
         for (var k = 0; k < 51; ++k)
         {
-            Value v = r.ValueOf("animData", k) ?? zero;
+            var v = r.ValueOf("animData", k) ?? zero;
             w.PutString(v.Str ?? "");
             w.PutFlag(v.I != -1); // sound
             if (v.I != -1)
@@ -435,7 +435,7 @@ public static class DatablockPack
         // suspension (+0x140) is a TankData field: other vehicle classes send uninitialized storage, zero here (D11).
         for (var k = 0; k < 4; ++k)
         {
-            Value? v = r.ValueOf("suspension", k);
+            var v = r.ValueOf("suspension", k);
             for (var c = 0; c < 3; ++c)
                 PutF32(w, v != null ? v.F[c] : 0.0f);
         }
@@ -514,7 +514,7 @@ public static class DatablockPack
                 PutF32(w, r.F(n, 0));
             for (var k = 0; k < 3; ++k)
             {
-                Value? v = r.ValueOf("colors", k);
+                var v = r.ValueOf("colors", k);
                 for (var c = 0; c < 3; ++c)
                     PutF32(w, v != null ? v.F[c] : 0.0f);
             }

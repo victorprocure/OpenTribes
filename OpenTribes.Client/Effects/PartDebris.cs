@@ -32,7 +32,7 @@ public static class PartDebris
     {
         if (mesh.Frames.Length == 0 || mesh.Verts.Length < (mesh.Frames[Math.Clamp(frame, 0, mesh.Frames.Length - 1)].FirstVert + 2) * 4)
             return default;   // no box to read (the stock mesh always has one)
-        RsFrame f = mesh.Frames[Math.Clamp(frame, 0, mesh.Frames.Length - 1)];
+        var f = mesh.Frames[Math.Clamp(frame, 0, mesh.Frames.Length - 1)];
         int a = f.FirstVert * 4, b = a + 4;
         float x0 = Dec(mesh.Verts[a], f.Sx, f.Ox), y0 = Dec(mesh.Verts[a + 1], f.Sy, f.Oy), z0 = Dec(mesh.Verts[a + 2], f.Sz, f.Oz);
         float x1 = Dec(mesh.Verts[b], f.Sx, f.Ox), y1 = Dec(mesh.Verts[b + 1], f.Sy, f.Oy), z1 = Dec(mesh.Verts[b + 2], f.Sz, f.Oz);

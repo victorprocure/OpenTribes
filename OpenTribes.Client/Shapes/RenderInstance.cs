@@ -129,7 +129,7 @@ public sealed class RenderInstance
     {
         if (t.Sequence < 0 || t.Sequence >= Shape.Sequences.Length)
             return;
-        RsSequence q = Shape.Sequences[t.Sequence];
+        var q = Shape.Sequences[t.Sequence];
         var dur = q.Duration > 1e-6 ? q.Duration : 1e-6;
         var old = t.Position;
         var p = old + (dt * t.TimeScale / dur);
@@ -154,7 +154,7 @@ public sealed class RenderInstance
     {
         for (var i = 0; i < q.NumTriggers && q.FirstTrigger + i < Shape.Triggers.Length; ++i)
         {
-            RsTrigger tr = Shape.Triggers[q.FirstTrigger + i];
+            var tr = Shape.Triggers[q.FirstTrigger + i];
             double pos = Math.Abs(tr.Position);
             var forward = t.TimeScale >= 0;
             if (tr.Position >= 0 != forward && tr.Position != 0)
@@ -174,7 +174,7 @@ public sealed class RenderInstance
     /// <param name="triggers">Receives the triggers the threads passed, or null.</param>
     public void Advance(double dt, List<uint>? triggers = null)
     {
-        foreach (RenderThread t in Threads)
+        foreach (var t in Threads)
             Advance(t, dt, triggers);
         if (mBlendLeft > 0)
         {
@@ -328,9 +328,9 @@ public sealed class RenderInstance
     {
         // Ascending priority: the first thread whose sequence drives a node wins (a lower number is a higher priority, the
         // looks thread uses -1). Stable insertion sort into a list kept between calls (no allocation per frame).
-        List<RenderThread> l = mOrdered;
+        var l = mOrdered;
         l.Clear();
-        foreach (RenderThread t in Threads)
+        foreach (var t in Threads)
         {
             var i = l.Count;
             while (i > 0 && l[i - 1].Priority > t.Priority)
@@ -345,29 +345,29 @@ public sealed class RenderInstance
     public void Animate(int detail)
     {
         DetailAnimated = detail;
-        RenderShape sh = Shape;
-        List<RenderThread> order = Ordered();
+        var sh = Shape;
+        var order = Ordered();
         for (var i = 0; i < Remap.Length; ++i)
             Remap[i] = i;
-        foreach (RenderThread t in order)
+        foreach (var t in order)
             StepIfl(t);
         var nodes = sh.NodesOfDetail(detail).Sorted;
         var blend = mBlendLeft > 0 && mFromQ != null ? Math.Clamp(1 - (mBlendLeft / mBlendDuration), 0, 1) : 1;
         var q = new double[4];
         foreach (var node in nodes)
         {
-            ref RsNode nd = ref sh.Nodes[node];
-            Xf entry = Xf.Identity;
+            ref var nd = ref sh.Nodes[node];
+            var entry = Xf.Identity;
             if (node >= 1 && nd.Parent >= 0 && nd.Parent < node)
             {
                 var done = false;
                 NodeVisible[node] = true;
-                foreach (RenderThread t in order)
+                foreach (var t in order)
                 {
                     var sub = SubFor(nd.FirstSub, nd.NumSub, t.Sequence);
                     if (sub < 0 || !FindKeys(sh.SubSequences[sub], t.Position, out var lo, out var hi, out var frac))
                         continue;
-                    RsKey ka = sh.Keys[lo];
+                    var ka = sh.Keys[lo];
                     if (ka.Index >= sh.Transforms.Length || sh.Keys[hi].Index >= sh.Transforms.Length)
                         continue;
                     RsTransform ta = sh.Transforms[ka.Index], tb = sh.Transforms[sh.Keys[hi].Index];
@@ -389,7 +389,7 @@ public sealed class RenderInstance
                     var di = nd.DefaultTransform;
                     if (di < 0 || di >= sh.Transforms.Length)
                         continue;
-                    RsTransform d = sh.Transforms[di];
+                    var d = sh.Transforms[di];
                     LocalQ[node][0] = d.Qx;
                     LocalQ[node][1] = d.Qy;
                     LocalQ[node][2] = d.Qz;
@@ -437,19 +437,19 @@ public sealed class RenderInstance
         // fields its flags mark as valid.
         for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
-            ref RsObject ob = ref sh.Objects[oi];
-            ref RsObjectState st = ref Objects[oi];
+            ref var ob = ref sh.Objects[oi];
+            ref var st = ref Objects[oi];
             st.Frame = 0;
             st.TextureFrame = 0;
             st.Visible = (ob.Flags & 1) == 0;
             for (var i = order.Count; i-- > 0;)
             {
-                RenderThread t = order[i];
+                var t = order[i];
                 var sub = SubFor(ob.FirstSub, ob.NumSub, t.Sequence);
                 var key = sub >= 0 ? CurrentKey(sh.SubSequences[sub], t.Position) : -1;
                 if (key < 0)
                     continue;
-                RsKey k = sh.Keys[key];
+                var k = sh.Keys[key];
                 if ((k.Flags & 0x1000) != 0)
                     st.Frame = k.Index;
                 if ((k.Flags & 0x4000) != 0)
@@ -466,7 +466,7 @@ public sealed class RenderInstance
     {
         if (t.Sequence < 0 || t.Sequence >= Shape.Sequences.Length)
             return;
-        RsSequence q = Shape.Sequences[t.Sequence];
+        var q = Shape.Sequences[t.Sequence];
         for (var i = 0; i < q.NumIfl; ++i)
         {
             var si = q.FirstIfl + i;
@@ -486,8 +486,8 @@ public sealed class RenderInstance
     /// <returns>The transform.</returns>
     public Xf ObjectTransform(int objectIndex)
     {
-        RsObject ob = Shape.Objects[objectIndex];
-        Xf node = ob.Node >= 0 && ob.Node < NodeWorld.Length ? NodeWorld[ob.Node] : Xf.Identity;
+        var ob = Shape.Objects[objectIndex];
+        var node = ob.Node >= 0 && ob.Node < NodeWorld.Length ? NodeWorld[ob.Node] : Xf.Identity;
         return Xf.Translate(ob.Ox, ob.Oy, ob.Oz).Then(node);
     }
 }

@@ -188,7 +188,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
     public bool Connect(string hostPort)
     {
         ApplyPacketPrefs();
-        Address server = Resolve(hostPort);
+        var server = Resolve(hostPort);
         mServerAddress = server;
         if (!mSock.OpenToward(server))
             return false;
@@ -215,7 +215,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
             return;
         mFrameNow = now;
         int n;
-        while (!mClosed && (n = mSock.Receive(out Address from, mRx)) > 0)
+        while (!mClosed && (n = mSock.Receive(out var from, mRx)) > 0)
             if (from == mServerAddress)
                 mVc.Receive(mRx.AsSpan(0, n), Now);
         if (!mClosed)
@@ -235,7 +235,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
             }
             if (mVc.State() == ConnectionState.Connected && Game.Due(now))
             {
-                Connection vc = mVc;
+                var vc = mVc;
                 Game.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
             }
         }
@@ -333,7 +333,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
     /// <param name="payload">The packet payload.</param>
     public override void OnData(Connection c, ReadOnlySpan<byte> payload)
     {
-        DecodedPacket p = Game.Receive(payload.ToArray());
+        var p = Game.Receive(payload.ToArray());
         mDump.Write(p, mClock.Elapsed.TotalSeconds);
         if (p.Error != null)
         {
@@ -349,7 +349,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
             Prediction.OnTurretBlock(World, mFrameNow);
         if (PredictWorld != null && p.Psc != null && p.Psc.Direction == "s2c")
         {
-            CorrectionRecord? rec = Prediction.OnServerBlock(World, mFrameNow);
+            var rec = Prediction.OnServerBlock(World, mFrameNow);
             if (rec != null)
                 mPendingCorrection = rec;
         }
@@ -413,7 +413,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
         var colon = hostPort.LastIndexOf(':');
         var host = colon < 0 ? hostPort : hostPort[..colon];
         var port = colon < 0 ? (ushort)28001 : ushort.Parse(hostPort[(colon + 1)..], CultureInfo.InvariantCulture);
-        IPAddress ip = host == "localhost" ? IPAddress.Loopback : IPAddress.Parse(host);
+        var ip = host == "localhost" ? IPAddress.Loopback : IPAddress.Parse(host);
         var b = ip.GetAddressBytes();
         return new Address(((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3], port);
     }
@@ -479,7 +479,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
     public SessionResult Run(string hostPort, double seconds)
     {
         var res = new SessionResult();
-        Address server = Resolve(hostPort);
+        var server = Resolve(hostPort);
         if (!mSock.OpenToward(server))
             throw new IOException("cannot open a UDP socket");
         var rng = new Random();
@@ -506,7 +506,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
                 }
             }
             int n;
-            while ((n = mSock.Receive(out Address from, rx)) > 0)
+            while ((n = mSock.Receive(out var from, rx)) > 0)
             {
                 if (from == server)
                     mVc.Receive(rx.AsSpan(0, n), Now);
@@ -545,7 +545,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
                 }
                 if (mVc.State() == ConnectionState.Connected && Game.Due(now))
                 {
-                    Connection vc = mVc;
+                    var vc = mVc;
                     Game.WritePacket(now, (buf, len, cookie) => vc.Send(Connection.Data, buf.AsSpan(0, len), now, cookie));
                 }
                 if (t - acceptedAt >= seconds)

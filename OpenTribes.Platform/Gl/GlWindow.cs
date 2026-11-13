@@ -216,7 +216,7 @@ public sealed unsafe class GlWindow : IDisposable
     public (int w, int h) PixelSize()
     {
         (var w, var h) = WindowPixels();
-        (int W, int H)? fs = IsFullscreen() ? mExclusive ?? mScaled : null;
+        var fs = IsFullscreen() ? mExclusive ?? mScaled : null;
         (var cw, var ch) = FullscreenPlan.CanvasSize(fs != null, fs, fs ?? (w, h), (w, h));
         return (cw, ch);
     }

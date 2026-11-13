@@ -206,7 +206,7 @@ public class GuiList : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        PftFont? f = RowFont;
+        var f = RowFont;
         var rh = RowHeight;
         for (var i = 0; i < Entries.Count; ++i)
         {
@@ -232,7 +232,7 @@ public class GuiList : GuiActive
                 var sel = i == Selected;
                 if (sel)
                     p.Fill(gx, y, W, rh, 0xf9);
-                PftFont? tf = sel ? Host?.FontByTag(U("highlightFontTag")) ?? f : f;
+                var tf = sel ? Host?.FontByTag(U("highlightFontTag")) ?? f : f;
                 p.Text(tf, gx + 10, y + (int)U("textVOffset"), Entries[i].Text);
                 continue;
             }
@@ -261,7 +261,7 @@ public class GuiScroll : GuiControl
         get
         {
             var t = Host?.TagText(U("pbaTag"));
-            PbmaArray? a = t == null ? null : Host?.ArrayByName(t.Split(',')[0].Trim());
+            var a = t == null ? null : Host?.ArrayByName(t.Split(',')[0].Trim());
             return a != null && a.Bitmaps.Count >= 25 ? a : null;
         }
     }
@@ -306,15 +306,15 @@ public class GuiScroll : GuiControl
 
     /// <summary>Gets a value that is true when the vertical bar shows. Policy values: 0 always, 1 never, 2 when needed.</summary>
     /// <remarks>The stock files show the order: CmdInventory.gui (horizontal 1, vertical 0) sizes its list 19 pixels narrower than the frame for a vertical bar and has no use for a horizontal one. command.gui (1, 2) scrolls vertically only.</remarks>
-    private bool VBar => U("verticalPolicy") == 0 || U("verticalPolicy") == 2 && ContentH > ViewH;
+    private bool VBar => U("verticalPolicy") == 0 || (U("verticalPolicy") == 2 && ContentH > ViewH);
     /// <summary>Gets a value that is true when the horizontal bar shows. The policy values are those of <see cref="VBar"/>.</summary>
-    private bool HBar => U("horizontalPolicy") == 0 || U("horizontalPolicy") == 2 && ContentW > ViewW;
+    private bool HBar => U("horizontalPolicy") == 0 || (U("horizontalPolicy") == 2 && ContentW > ViewW);
 
     /// <inheritdoc/>
     /// <remarks>The content keeps the offset its file gives (the Columns options scroll has it at 1, 1 inside its border).</remarks>
     public override void PreRender()
     {
-        GuiControl? c = ContentChild;
+        var c = ContentChild;
         if (c == null)
             return;
         // The content keeps the offset its file gives (the Columns options scroll has it at 1, 1 inside its border).
@@ -533,7 +533,7 @@ public class GuiScroll : GuiControl
         else if (Border != 0)
             p.Outline(gx, gy + hy, W, H - hy, Disabled ? DisabledBorder : BorderColor);
         RenderChildren(p, gx, gy);
-        PbmaArray? pc = Pieces;
+        var pc = Pieces;
         if (pc == null)
         {
             DrawPlainBars(p, gx, gy);
@@ -734,7 +734,7 @@ public sealed class GuiCombo : GuiSimpleText
     public override void Wake()
     {
         base.Wake();
-        PbmpBitmap? df = Arrow("_DF");
+        var df = Arrow("_DF");
         if (df != null)
             H = df.Height + 4;
         // The filter combos always list "<None>" first (filter 0 or less: none) [code 004d8fe4]; the join screen's file text is a leftover.
@@ -756,7 +756,7 @@ public sealed class GuiCombo : GuiSimpleText
         if (ClassName == "FearGui::FGBuddyComboBox")
         {
             // 004b5288: the buddy combo draws only its arrow (no bars, label or entry).
-            PbmpBitmap? ba = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
+            var ba = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
             ba ??= Arrow("_DF");
             if (ba != null)
                 p.Bitmap(ba, gx + W - 7 - ba.Width, gy + 2);
@@ -777,19 +777,19 @@ public sealed class GuiCombo : GuiSimpleText
         var label = S("popupName");
         if (label.Length > 0)
         {
-            PftFont? lf = Tag(150121);
+            var lf = Tag(150121);
             p.Text(Tag(150173), left, gy + 1, label);
             p.Text(dimmed ? Tag(150131) : lf, left + 1, gy, label);
             left += GuiPaint.TextWidth(lf, label) + 6;
         }
-        PbmpBitmap? arrow = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
+        var arrow = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
         arrow ??= Arrow("_DF");
         if (arrow == null)
             return;
         p.Bitmap(arrow, gx + W - 7 - arrow.Width, gy + 2);
         var room = gx + W - arrow.Width - 14 - left;
-        PftFont? f = dimmed ? Tag(150134) : Tag(150114);
-        PftFont? sh = Tag(150172);
+        var f = dimmed ? Tag(150134) : Tag(150114);
+        var sh = Tag(150172);
         var t = Text;
         if (f == null)
             return;
@@ -849,7 +849,7 @@ public sealed class ComboPopup : GuiControl
     /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        PftFont? f = Host?.FontByName("sf_white_10.pft");
+        var f = Host?.FontByName("sf_white_10.pft");
         var h = mCombo.Entries.Count * RowH;
         p.Fill(mGx, mGy, mCombo.W, h, 0xf4);
         GuiBox.Bevel(p, mGx, mGy, mCombo.W, h, false);

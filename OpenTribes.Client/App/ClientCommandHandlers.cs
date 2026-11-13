@@ -511,7 +511,7 @@ public sealed class ClientCommandHandlers
         {
             if (a.Length != 2)
                 return "False";
-            ActionMap? m = mApp.Maps.FindMap(ClientCommands.ActionMapName(a[1]));
+            var m = mApp.Maps.FindMap(ClientCommands.ActionMapName(a[1]));
             if (m != null)
                 mApp.Input.Push(m, mApp.ConsoleConsumer);
             return "True";
@@ -520,7 +520,7 @@ public sealed class ClientCommandHandlers
         {
             if (a.Length != 2)
                 return "False";
-            ActionMap? m = mApp.Maps.FindMap(ClientCommands.ActionMapName(a[1]));
+            var m = mApp.Maps.FindMap(ClientCommands.ActionMapName(a[1]));
             if (m != null)
                 mApp.Input.Pop(m, mApp.ConsoleConsumer);
             return "True";
@@ -540,7 +540,7 @@ public sealed class ClientCommandHandlers
         if (!d.StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
             return ": SDL3 mouse, 3 buttons, 3 axes";
         var i = int.Parse(d.AsSpan(8), CultureInfo.InvariantCulture);
-        JoystickSet j = mApp.Joysticks!;
+        var j = mApp.Joysticks!;
         return ": " + j.NameOf(i) + ", " + j.ButtonsOf(i) + " buttons, " + j.AxesOf(i) + " axes, " + j.HatsOf(i) + " povs";
     }
 
@@ -550,7 +550,7 @@ public sealed class ClientCommandHandlers
         if (device.StartsWith("joystick", StringComparison.OrdinalIgnoreCase))
         {
             var i = int.Parse(device.AsSpan(8), CultureInfo.InvariantCulture);
-            JoystickSet j = mApp.Joysticks!;
+            var j = mApp.Joysticks!;
             for (var a = 0; a < j.AxesOf(i); ++a)
             {
                 (var type, var inst) = JoystickEvents.AxisObject(a);
@@ -564,7 +564,7 @@ public sealed class ClientCommandHandlers
         }
         if (device.StartsWith("keyboard", StringComparison.OrdinalIgnoreCase))
         {
-            foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
+            foreach (var k in ClientKeyTable.Keys)
                 line("Key\t" + (k.Name ?? k.Lower.ToString()));
         }
         else

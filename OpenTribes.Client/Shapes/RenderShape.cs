@@ -298,7 +298,7 @@ public sealed class RenderShape
     {
         if (Nodes.Length == 0 || Nodes[0].DefaultTransform < 0 || Nodes[0].DefaultTransform >= Transforms.Length)
             return Xf.Identity;
-        RsTransform t = Transforms[Nodes[0].DefaultTransform];
+        var t = Transforms[Nodes[0].DefaultTransform];
         Xf r = Xf.FromQuat(t.Qx, t.Qy, t.Qz, t.Qw);
         (r.Px, r.Py, r.Pz) = (t.Tx, t.Ty, t.Tz);
         return r;
@@ -322,7 +322,7 @@ public sealed class RenderShape
     /// <returns>The node set.</returns>
     public DetailNodeSet NodesOfDetail(int detail)
     {
-        if (mDetailNodes.TryGetValue(detail, out DetailNodeSet? set))
+        if (mDetailNodes.TryGetValue(detail, out var set))
             return set;
         var nodes = new List<int>();
         if (AlwaysNode >= 0 && AlwaysNode < Nodes.Length)

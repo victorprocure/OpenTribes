@@ -82,7 +82,7 @@ public sealed class ConsoleLog : IDisposable
         {
             if (mHeaderDue)
             {
-                DateTime tm = mLocalTime();
+                var tm = mLocalTime();
                 var header = mLastHope
                     ? string.Format(CultureInfo.InvariantCulture, "--- {0}/{1}/{2} -- {3}:{4}:{5} ---\n\r",
                                     tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second)

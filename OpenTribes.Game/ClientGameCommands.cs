@@ -57,7 +57,7 @@ public sealed class ChatMenuTree
     public string Path()
     {
         var names = new List<string>();
-        for (ChatMenuNode? n = Level; n != null && n != Root; n = n.Parent)
+        for (var n = Level; n != null && n != Root; n = n.Parent)
             names.Add(n.Text);
         names.Reverse();
         return string.Join(':', names);
@@ -109,7 +109,7 @@ public sealed class ChatMenuTree
             return false;
         // [code 004021cc]: the item with that key runs its command and opens its sub level; no match leaves the key to the game.
         var hit = false;
-        ChatMenuNode? found = mLevel.Children.FirstOrDefault(c => c.Key == ch);
+        var found = mLevel.Children.FirstOrDefault(c => c.Key == ch);
         if (found != null)
         {
             hit = true;
@@ -137,7 +137,7 @@ public sealed class ChatMenuTree
     /// <returns>False for an empty string, an empty item, or when the last item's key already exists at its level.</returns>
     public bool Add(string menuString, IReadOnlyList<string> commands)
     {
-        ChatMenuNode level = Root;
+        var level = Root;
         var p = 0;
         for (; ; )
         {
@@ -151,7 +151,7 @@ public sealed class ChatMenuTree
             var last = end < 0;
             p = last ? menuString.Length : end + 1;
             ChatMenuNode? found = null;
-            foreach (ChatMenuNode c in level.Children)
+            foreach (var c in level.Children)
                 if (c.Key == key)
                 {
                     found = c;
@@ -253,7 +253,7 @@ public sealed class ChatMenuRegistry
     {
         if (game.Sim?.Server()?.Find(name) is not SimObject obj || obj.ClassName() != "ChatMenu")
             return null;
-        ChatMenuTree tree = Of(obj);
+        var tree = Of(obj);
         return tree.Showing ? (obj is SimClasses.ChatMenu m ? m.Title : "", tree) : null;
     }
 
@@ -264,7 +264,7 @@ public sealed class ChatMenuRegistry
     {
         if (mActive == null || game.Sim?.Server()?.Find(mActiveName) is not SimObject now || !ReferenceEquals(now, mActive))
             return null;
-        ChatMenuTree tree = Of(mActive);
+        var tree = Of(mActive);
         return tree.Mode == 0 ? null : (mActive is SimClasses.ChatMenu m ? m.Title : "", tree);
     }
 }
@@ -287,7 +287,7 @@ public static class ClientGameCommands
     /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
-        ChatMenuRegistry menus = game.ChatMenus;
+        var menus = game.ChatMenus;
 
         // FearPlugin 0x00424798 case 0x14.
         interp.AddCommand("addCMCommand", (inr, a) =>
@@ -297,7 +297,7 @@ public static class ClientGameCommands
                 inr.Print(1, "addCMCommand(object, menuString, command, ...);");
                 return null;
             }
-            SimObject? obj = FindMenu(game, a[1]);
+            var obj = FindMenu(game, a[1]);
             if (obj == null)
             {
                 inr.Print(1, "addCMCommand - invalid menu object.");
@@ -316,7 +316,7 @@ public static class ClientGameCommands
                 inr.Print(1, "setCMMode(menuObject, mode);");
                 return null;
             }
-            SimObject? obj = FindMenu(game, a[1]);
+            var obj = FindMenu(game, a[1]);
             if (obj == null)
             {
                 inr.Print(1, "setCMMode - invalid menu object.");

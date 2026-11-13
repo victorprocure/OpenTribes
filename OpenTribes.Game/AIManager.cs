@@ -38,7 +38,7 @@ public sealed partial class AIObject
     public void PostTick()
     {
         ++ErrorPhase;
-        Player? p = Player();
+        var p = Player();
         if (p != null && p.Dead && (Flags & 1) == 0)
         {
             Flags |= 1;
@@ -74,7 +74,7 @@ public sealed partial class AIObject
     // src/game/ai_manager.cpp AIObject::engagePlayer: 0x0043c8bc.
     private void EngagePlayer(Player target)
     {
-        Player? self = Player();
+        var self = Player();
         if (self == null)
             return;
         float[] aim = new float[3], tp = new float[3];
@@ -101,10 +101,10 @@ public sealed partial class AIObject
         AimError(target, null, err);
         for (var i = 0; i < 3; ++i)
             aim[i] = X87.F32(Add(err[i], aim[i]));
-        YawError ye = SteerYaw(aim);
+        var ye = SteerYaw(aim);
         if (ye.Abs < 0.08f)
         {
-            YawError pe = SteerPitch(aim);
+            var pe = SteerPitch(aim);
             if (pe.Abs < 0.08f && !target.Dead)
                 Move.Fire = TriggerPull();
         }
@@ -145,10 +145,10 @@ public sealed partial class AIObject
     // src/game/ai_manager.cpp AIObject::engagePoint: 0x0043d068.
     private void EngagePoint(AIDirective d)
     {
-        YawError ye = SteerYaw(d.Point);
+        var ye = SteerYaw(d.Point);
         if (ye.Abs < 0.08f)
         {
-            YawError pe = SteerPitch(d.Point);
+            var pe = SteerPitch(d.Point);
             if (pe.Abs < 0.08f)
                 Move.Fire = TriggerPull();
         }
@@ -160,17 +160,17 @@ public sealed partial class AIObject
     // eye plus 50 m of the direction.
     private void EngageLaser(AIDirective d)
     {
-        SimManager? m = Game.Sim?.Server();
+        var m = Game.Sim?.Server();
         var moveAfter = AttackMode == 1 && Frame.HasMoveTarget;
         var aimed = false;
-        Player? owner = AIMath.PlayerOfRep(Game, d.Client);
-        Player? self = Player();
+        var owner = AIMath.PlayerOfRep(Game, d.Client);
+        var self = Player();
         if (m != null && self != null && WeaponSpeed())
         {
-            Player.ImageSlot slot = self.Images[0];
-            DataBlockManager.Block? block = slot.Info.ProjGroup == -1 ? null : Game.Sim!.DataBlocks().At(slot.Info.ProjGroup, slot.Info.ProjIndex);
-            SimObject? set = m.FindById(725);
-            SimSet? members = set?.AsSet();
+            var slot = self.Images[0];
+            var block = slot.Info.ProjGroup == -1 ? null : Game.Sim!.DataBlocks().At(slot.Info.ProjGroup, slot.Info.ProjIndex);
+            var set = m.FindById(725);
+            var members = set?.AsSet();
             if (block != null && owner != null && members != null)
             {
                 var group = slot.Info.ProjGroup;
@@ -184,13 +184,13 @@ public sealed partial class AIObject
                     if (!pr.BeamTargetPoint(point, out _))
                         continue;
                     var g = 0.0f;
-                    foreach (Player.Force f in self.Forces())
+                    foreach (var f in self.Forces())
                         if (f.Type == 1)
                         {
                             g = X87.F32(-X87.Len(f.V));
                             break;
                         }
-                    Transform eye = self.EyeTransform();
+                    var eye = self.EyeTransform();
                     bool ok1 = false, ok2 = false;
                     float[] low = new float[3], high = new float[3];
                     if (!AIAim.AiSolveAim(group, ProjectileSpeed, totalTime, eye.P, point, false, g, ref ok1, low))
@@ -205,10 +205,10 @@ public sealed partial class AIObject
                     var aim = new float[3];
                     AIAim.LaserAimPoint(eye.P, use, aim);
                     Flags |= 4;
-                    YawError ye = SteerYaw(aim);
+                    var ye = SteerYaw(aim);
                     if (ye.Abs < 0.001f)
                     {
-                        YawError pe = SteerPitch(aim);
+                        var pe = SteerPitch(aim);
                         if (pe.Abs < 0.001f && TriggerPull())
                             Move.Fire = true;
                     }
@@ -379,7 +379,7 @@ public sealed class AIManager : SimObject
     /// <returns>The object, or null.</returns>
     public AIObject? FindByName(string n)
     {
-        foreach (AIObject a in Ais)
+        foreach (var a in Ais)
             if (GameUtil.EqualsNoCase(a.AiName, n))
                 return a;
         return null;
@@ -390,7 +390,7 @@ public sealed class AIManager : SimObject
     /// <returns>The object, or null.</returns>
     public AIObject? FindByRep(int rep)
     {
-        foreach (AIObject a in Ais)
+        foreach (var a in Ais)
             if (a.RepId == rep)
                 return a;
         return null;
@@ -400,14 +400,14 @@ public sealed class AIManager : SimObject
     /// <remarks>Follows 0x0043dd3c, which runs between sets 718 and 719.</remarks>
     public override void ServerTick(uint tickMs)
     {
-        SimManager? m = Game.Sim?.Server();
+        var m = Game.Sim?.Server();
         if (m == null)
             return;
         using var chop = X87.Chop();
         List<(AIObject Ai, int Id)> Snapshot()
         {
             var v = new List<(AIObject, int)>();
-            foreach (AIObject a in Ais)
+            foreach (var a in Ais)
                 v.Add((a, a.Id()));
             return v;
         }
@@ -432,7 +432,7 @@ public sealed class AIManager : SimObject
         // 3. one AI refreshes its automatic targets
         if (Ais.Count != 0)
         {
-            AIObject a = Ais[(int)((uint)Counter % (uint)Ais.Count)];
+            var a = Ais[(int)((uint)Counter % (uint)Ais.Count)];
             Counter = (Counter + 1) & 0x7fff;
             if (a.Valid())
                 a.RefreshAutoTargets();
@@ -465,14 +465,14 @@ public sealed class AIManager : SimObject
     {
         if (game.Ai != null)
             return game.Ai;
-        SimManager? m = game.Sim?.Server();
+        var m = game.Sim?.Server();
         if (m == null)
         {
             game.Console!.Print(1, "No server manager yet, can't install AI manager thus, cannot execute command " + commandName + ".");
             return null;
         }
-        SimObject? cleanup = m.Find("MissionCleanup");
-        SimSet? set = cleanup?.AsSet();
+        var cleanup = m.Find("MissionCleanup");
+        var set = cleanup?.AsSet();
         if (set == null)
         {
             game.Console!.Print(1, "No cleanup group yet, can't install AI manager and, therefore, cannot execute command " + commandName);

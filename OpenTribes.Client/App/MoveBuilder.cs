@@ -356,7 +356,7 @@ public sealed class MoveBuilder
             PitchAcc += pitchKeys;
             TurnAcc += turnKeys;
             var fire = (FireCounter & 1) == 1 || ((SampledFire & 1) == 0 && SampledFire != FireCounter);
-            Move m = ClientPrediction.Quantize(Current(fire, TurnAcc, PitchAcc));
+            var m = ClientPrediction.Quantize(Current(fire, TurnAcc, PitchAcc));
             SampledFire = FireCounter;
             psc.AddMove(m);
             ++made;

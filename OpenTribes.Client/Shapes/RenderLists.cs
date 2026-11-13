@@ -78,13 +78,13 @@ public sealed class RenderLists
     /// <returns>The images.</returns>
     public IEnumerable<RenderImage> Ordered()
     {
-        foreach (RenderImage i in First.OrderBy(x => x.SortKey))
+        foreach (var i in First.OrderBy(x => x.SortKey))
             yield return i;
-        foreach (RenderImage i in Opaque)
+        foreach (var i in Opaque)
             yield return i;
-        foreach (RenderImage i in Translucent.OrderBy(x => x.SortKey))   // stable
+        foreach (var i in Translucent.OrderBy(x => x.SortKey))   // stable
             yield return i;
-        foreach (RenderImage i in Foreground)
+        foreach (var i in Foreground)
             yield return i;
     }
 
@@ -96,12 +96,12 @@ public sealed class RenderLists
     public int DrawContents(IGfxDevice dev, int container)
     {
         var n = 0;
-        foreach (RenderImage img in Opaque)
+        foreach (var img in Opaque)
         {
             if (img.Container != container || img.Drawn)
                 continue;
             img.Drawn = true;
-            foreach (DrawBatch b in img.Batches)
+            foreach (var b in img.Batches)
             {
                 dev.Draw3D(b.Vertices, b.State);
                 ++n;
@@ -116,11 +116,11 @@ public sealed class RenderLists
     public int Draw(IGfxDevice dev)
     {
         var n = 0;
-        foreach (RenderImage img in Ordered())
+        foreach (var img in Ordered())
         {
             if (img.Drawn)
                 continue;
-            foreach (DrawBatch b in img.Batches)
+            foreach (var b in img.Batches)
             {
                 dev.Draw3D(b.Vertices, b.State);
                 ++n;

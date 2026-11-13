@@ -411,7 +411,7 @@ public sealed partial class Player : GameBase
     // src/game/player.cpp fieldFloat.
     private static float FieldFloat(DataBlockManager.Block b, string name, float def)
     {
-        DataBlockManager.Field? f = b.Find(name);
+        var f = b.Find(name);
         if (f == null || f.Elems.Count == 0)
             return def;
         if (f.Elems[0].Set)
@@ -427,7 +427,7 @@ public sealed partial class Player : GameBase
     {
         if (mGame.Sim == null || DataBlockName == null)
             return null;
-        DataBlockManager.Block? b = mGame.Sim.DataBlocks().Find(DataBlockName);
+        var b = mGame.Sim.DataBlocks().Find(DataBlockName);
         return b != null && b.Group == 3 ? b : null;
     }
 
@@ -511,7 +511,7 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows 0x0040fcdc.</remarks>
     public bool BindDataBlock()
     {
-        DataBlockManager.Block? b = Block();
+        var b = Block();
         if (b == null)
             return false;
         var d = new Data();
@@ -586,7 +586,7 @@ public sealed partial class Player : GameBase
                     M = Transform.M,
                     P = Transform.P
                 };
-                Shape.TmatInverse(toWorld, out TMat3 toLocal);
+                Shape.TmatInverse(toWorld, out var toLocal);
                 Span<float> la = stackalloc float[3], lb = stackalloc float[3];
                 X87.MulPoint(a, toLocal.M, toLocal.P, la);
                 X87.MulPoint(bb, toLocal.M, toLocal.P, lb);
@@ -637,12 +637,12 @@ public sealed partial class Player : GameBase
         using var chop = X87.Chop();
         float sum = 0;
         if (mGame.Sim != null)
-            foreach (ImageSlot s in Images)
+            foreach (var s in Images)
             {
                 if (s.Item < 0)
                     continue;
-                DataBlockManager.Block? item = mGame.Sim.DataBlocks().At(5, s.Item);
-                DataBlockManager.Field? f = item?.Find("imageType");
+                var item = mGame.Sim.DataBlocks().At(5, s.Item);
+                var f = item?.Find("imageType");
                 if (f == null || f.Elems.Count == 0 || !f.Elems[0].Set)
                     continue;
                 if (mGame.Sim.DataBlocks().At(6, f.Elems[0].I) is DataBlockManager.Block image)
@@ -655,7 +655,7 @@ public sealed partial class Player : GameBase
         Mass = newMass;
         InvMass = X87.F32(Div(1.0, Mass));
         if (oldMass != 0)
-            foreach (Force fc in mForces)
+            foreach (var fc in mForces)
                 if (!fc.Acceleration)
                     for (var i = 0; i < 3; ++i)
                         fc.V[i] = X87.F32(Div(Mul(fc.V[i], oldMass), Mass));
@@ -760,13 +760,13 @@ public sealed partial class Player : GameBase
             return;
         Span<float> box = stackalloc float[6];
         WorldBox(box);
-        Container.Entry? own = mGame.World.Find(this);
+        var own = mGame.World.Find(this);
         if (own == null)
             return;
         mGame.World.SetBox(this, box);
         // FC2/FC3: entering a container inside the terrain adds its gravity, leaving removes it; a move between nested
         // containers does both, which re-appends the entry (FC5).
-        Container.Entry? terrain = mGame.World.TerrainOf(this);
+        var terrain = mGame.World.TerrainOf(this);
         var parent = mGame.World.ParentOf(this);
         if (parent == mParent && terrain == mTerrainContainer)
             return;
@@ -803,14 +803,14 @@ public sealed partial class Player : GameBase
     {
         if (Dead)
             return;
-        SimManager? m = Manager();
+        var m = Manager();
         var self = Id();
         for (var i = 0; i < count; ++i)
         {
             if (Credit > 5)
                 break;
             ++Credit;
-            Move mv = moves[i];
+            var mv = moves[i];
             if (mv.UseItem != -1 && mGame.Console != null)
                 mGame.Console.CallFunction("remoteUseItem", new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(mv.UseItem) });
             // The script may have deleted the player (the original would run on freed memory).
@@ -874,7 +874,7 @@ public sealed partial class Player : GameBase
         }
         else
         {
-            ClientRecord? r = mGame.Players.FindHuman(ControlClient);
+            var r = mGame.Players.FindHuman(ControlClient);
             PdaFlag = !(r != null && r.GuiMirror == 1);
         }
         // Mission area (6.6).
@@ -903,7 +903,7 @@ public sealed partial class Player : GameBase
         using var chop = X87.Chop();
         if (Block() is DataBlockManager.Block blk)
             ReadLiveData(blk, PData);
-        Data d = PData;
+        var d = PData;
         const float dt = kDt;
         var v = Velocity;
         UpdateContainer(); // a script setPosition since the last step (RA7, FC5)
@@ -913,7 +913,7 @@ public sealed partial class Player : GameBase
 
         // S1 item images (7.5): slots 0..7 in order, dt 0.032.
         {
-            SimManager? mgr = Manager();
+            var mgr = Manager();
             var self = Id();
             for (var slot = 0; slot < kImageSlots; ++slot)
             {
@@ -1083,7 +1083,7 @@ public sealed partial class Player : GameBase
         for (var i = 0; i < 3; ++i)
             desired[i] = X87.F32(Add(Add(Mul(side, r0[i]), Mul(fwd, r1[i])), Mul(0.0, r2[i])));
         float[] vOld = [v[0], v[1], v[2]];
-        foreach (Force fc in mForces)
+        foreach (var fc in mForces)
             for (var i = 0; i < 3; ++i)
                 v[i] = X87.F32(Add(Mul(fc.V[i], dt), v[i]));
         if (mContainerDrag != 0.0f)
@@ -1247,7 +1247,7 @@ public sealed partial class Player : GameBase
         mMove.Image.BoxMax = Float3.Of(BoxMax);
         mMove.Image.Radius = Radius;
         BuildCandidates(q);
-        Action<object?>? touch = mMove.OnTouch; // a test posts no collision events
+        var touch = mMove.OnTouch; // a test posts no collision events
         mMove.OnTouch = null;
         var hits = new List<CollisionHit>();
         var free = mMove.TestAt(q, hits);
@@ -1318,7 +1318,7 @@ public sealed partial class Player : GameBase
         mMove.Image.Instance = null;
         mMove.Image.Detail = 0;
         mMove.Image.MeshMode = true;
-        foreach (CollisionImage image in mMove.Candidates)
+        foreach (var image in mMove.Candidates)
             if (image.ImageKind is CollisionImage.Kind.TriggerSphere or CollisionImage.Kind.Trigger)
             {
                 mMove.Image.Instance = ShapeState.ShapeInstanceOf(mGame, this);
@@ -1329,8 +1329,8 @@ public sealed partial class Player : GameBase
     // src/game/player.cpp Player::processCollision: 0x00416598.
     private bool ProcessCollision(MoveInfo info)
     {
-        List<CollisionHit> hits = info.Hits!;
-        List<object> notify = info.Notify!;
+        var hits = info.Hits!;
+        var notify = info.Notify!;
         // Step 1: Items, Mines and corpses are notified and never block.
         for (var i = 0; i < hits.Count;)
         {
@@ -1346,7 +1346,7 @@ public sealed partial class Player : GameBase
         }
         // Step 2: up = -normalize(gravity).
         float[] up = [0, 0, 1];
-        foreach (Force f in mForces)
+        foreach (var f in mForces)
             if (f.Type == kGravityForce)
             {
                 var l = X87.F32(X87.Len(f.V));
@@ -1357,14 +1357,14 @@ public sealed partial class Player : GameBase
             }
         // Step 3: contacts.
         var contacts = new List<Contact>();
-        foreach (CollisionHit h in hits)
+        foreach (var h in hits)
         {
             if (!notify.Contains(h.Object!))
                 notify.Add(h.Object!);
-            foreach (CollisionSurface s in h.Surfaces)
+            foreach (var s in h.Surfaces)
             {
                 var c = new Contact();
-                Float3 sn = s.Normal;
+                var sn = s.Normal;
                 X87.MulVector(sn, h.Rot, c.N);
                 c.UpDot = X87.F32(X87.Dot(c.N, up));
                 c.StepHeight = h.StepHeight;
@@ -1379,7 +1379,7 @@ public sealed partial class Player : GameBase
             return true;
         // Step 6: response on every contact in order.
         var any = false;
-        foreach (Contact c in contacts)
+        foreach (var c in contacts)
             any = ContactResponse(c) || any;
         if (!any)
             return false;
@@ -1394,7 +1394,7 @@ public sealed partial class Player : GameBase
     {
         const double kWall = 0.707; // double at 0x00416de4
         var wall = false;
-        foreach (Contact c in contacts)
+        foreach (var c in contacts)
             if ((c.Type & kStepUpTypes) != 0 && c.UpDot <= kWall)
                 wall = true;
         if (!wall)
@@ -1403,7 +1403,7 @@ public sealed partial class Player : GameBase
         var maxH = 0.0f;
         for (var i = 0; i < contacts.Count; ++i)
         {
-            Contact c = contacts[i];
+            var c = contacts[i];
             if ((c.Type & kStepUpTypes) == 0 || !(c.UpDot >= kWall))
                 continue;
             var h = c.StepHeight;
@@ -1419,7 +1419,7 @@ public sealed partial class Player : GameBase
         float[] raised = [info.Attempted![0], info.Attempted[1], X87.F32(Add(Add(maxH, 0.001f), info.Attempted[2]))];
         // Test with a copy of the candidate list (0x00505790); trigger images hit here get their event too.
         var scratch = new List<CollisionHit>();
-        Contact response = contacts[best];
+        var response = contacts[best];
         var probe = new SteppedMove
         {
             Image = mMove.Image,
@@ -1512,7 +1512,7 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows 0x004105d0.</remarks>
     public void StartAnimation(int index)
     {
-        var inCrouch = CurrentAnim is 7 or 8 or >= 10 and <= 13;
+        var inCrouch = CurrentAnim is 7 or 8 or (>= 10 and <= 13);
         if ((index == 7 && inCrouch) || (index == 9 && !inCrouch))
             return;
         if (index is < 0 or > 50) // index 51 passes the original's test: off by one, refused here
@@ -1632,7 +1632,7 @@ public sealed partial class Player : GameBase
             X87.F32(Add(Add(Mul(rel[0], m[3]), Mul(rel[1], m[4])), Mul(rel[2], m[5]))),
             X87.F32(Add(Add(Mul(rel[0], m[6]), Mul(rel[1], m[7])), Mul(rel[2], m[8]))),
         ];
-        DataBlockManager.Block? b = Block();
+        var b = Block();
         float Pct(string name, float def) => b != null ? FieldFloat(b, name, def) : def;
         var height = Crouching ? PData.BoxCrouchHeight : PData.BoxNormalHeight;
         var torsoTop = X87.F32(Mul(height, Pct(Crouching ? "boxCrouchTorsoPercentage" : "boxNormalTorsoPercentage", 0.333299f)));
@@ -1747,7 +1747,7 @@ public sealed partial class Player : GameBase
         mGame.SensorJam(this, false); // Player_kill 0x004112ac unlinks; the radius stays
         DeathTime = Manager() != null ? Manager()!.Time() : 0;
         var self = Id();
-        SimManager? m = Manager();
+        var m = Manager();
         mGame.ScriptCallback(this, "onKilled", Array.Empty<string>());
         if (m == null || m.FindById(self) != this)
             return; // the script deleted the player
@@ -1793,7 +1793,7 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows Player_findItemCallback (0x004191a0): <c>&lt;item&gt;::event</c>, <c>&lt;className&gt;::event</c>, <c>item::event</c>.</remarks>
     public void ItemCallback(int type, string ev, string? extra = null)
     {
-        DataBlockManager.Block? item = mGame.Sim?.DataBlocks().At(5, type);
+        var item = mGame.Sim?.DataBlocks().At(5, type);
         if (item == null || mGame.Console == null)
             return;
         var names = new List<string> { item.Name + "::" + ev };

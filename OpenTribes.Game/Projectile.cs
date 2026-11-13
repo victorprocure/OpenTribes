@@ -46,7 +46,7 @@ public static class Pj
     /// <returns>The field, or null.</returns>
     public static DataBlockManager.Field? Field(DataBlockManager.Block b, string name)
     {
-        DataBlockManager.Field? f = b.Find(name);
+        var f = b.Find(name);
         return f != null && f.Elems.Count != 0 ? f : null;
     }
 
@@ -57,7 +57,7 @@ public static class Pj
     /// <returns>The value.</returns>
     public static float Real(DataBlockManager.Block b, string name, float def)
     {
-        DataBlockManager.Field? f = Field(b, name);
+        var f = Field(b, name);
         if (f == null)
             return def;
         if (f.Elems[0].Set)
@@ -74,7 +74,7 @@ public static class Pj
     /// <returns>The value.</returns>
     public static int Integer(DataBlockManager.Block b, string name, int def)
     {
-        DataBlockManager.Field? f = Field(b, name);
+        var f = Field(b, name);
         if (f == null)
             return def;
         if (f.Elems[0].Set)
@@ -91,7 +91,7 @@ public static class Pj
     /// <returns>The value.</returns>
     public static bool Boolean(DataBlockManager.Block b, string name, bool def)
     {
-        DataBlockManager.Field? f = Field(b, name);
+        var f = Field(b, name);
         if (f == null)
             return def;
         if (f.Elems[0].Set)
@@ -115,7 +115,7 @@ public static class Pj
     /// <returns>False when the object has no entry.</returns>
     public static bool WorldBox(GameState game, GameBase? obj, Span<float> mn, Span<float> mx)
     {
-        Container.Entry? e = obj != null ? game.World.Find(obj) : null;
+        var e = obj != null ? game.World.Find(obj) : null;
         if (e == null)
             return false;
         for (var i = 0; i < 3; ++i)
@@ -402,8 +402,8 @@ public abstract class Projectile : GameBase
     /// <returns>The shooter, or null.</returns>
     public GameBase? Shooter()
     {
-        SimManager? m = Manager();
-        SimObject? o = m != null && mShooterObject != 0 ? m.FindById(mShooterObject) : null;
+        var m = Manager();
+        var o = m != null && mShooterObject != 0 ? m.FindById(mShooterObject) : null;
         return o as GameBase;
     }
 
@@ -414,7 +414,7 @@ public abstract class Projectile : GameBase
     {
         if (mOwner == 0)
             return 0;
-        ClientRecord? r = mGame.Players.FindHuman(mOwner);
+        var r = mGame.Players.FindHuman(mOwner);
         return r != null && r.JoinOrder == mOwnerJoin ? mOwner : 0;
     }
 
@@ -554,8 +554,8 @@ public abstract class Projectile : GameBase
     {
         if (game.Sim == null || gb.DataBlockName == null)
             return null;
-        DataBlockManager.Block? b = game.Sim.DataBlocks().Find(gb.DataBlockName);
-        DataBlockManager.Field? f = b != null ? Pj.Field(b, "shapeFile") : null;
+        var b = game.Sim.DataBlocks().Find(gb.DataBlockName);
+        var f = b != null ? Pj.Field(b, "shapeFile") : null;
         return f != null && !string.IsNullOrEmpty(f.Elems[0].Str) ? f.Elems[0].Str : null;
     }
 
@@ -607,7 +607,7 @@ public abstract class Projectile : GameBase
             hit.Object = obj as GameBase;
             hit.Point = Float3.Of(hp.X, hp.Y, hp.Z);
             hit.Normal = Float3.Of(n.X, n.Y, n.Z);
-            Container.Entry? en = game.World.Find(obj);
+            var en = game.World.Find(obj);
             hit.Type = en != null ? en.Type : 0;
             hit.Terrain = (hit.Type & ObjectType.kTerrainType) != 0;
             hit.Material = en?.HitMaterial?.Value;
@@ -646,7 +646,7 @@ public abstract class Projectile : GameBase
             foreach (var o in game.World.FindObjects(box, mask & ~0x6u, exclude))
             {
                 var gb = o as GameBase;
-                Container.Entry? en = gb != null ? game.World.Find(o) : null;
+                var en = gb != null ? game.World.Find(o) : null;
                 // A Player entry carries a cast function too (line test against its own box).
                 if (gb == null || en == null || (en.Cast != null && Player.From(gb) == null))
                     continue;
@@ -684,11 +684,11 @@ public abstract class Projectile : GameBase
                             continue;
                         local.Add(Float6.Of(sb));
                     }
-                    Mat m = gb.WorldMat();
+                    var m = gb.WorldMat();
                     Vec3 ls = m.ToLocal(new Vec3(s[0], s[1], s[2])), le = m.ToLocal(new Vec3(cur[0], cur[1], cur[2]));
                     float[] sl = [ls.X, ls.Y, ls.Z], el = [le.X, le.Y, le.Z];
                     var bestT = 1.1f;
-                    foreach (Float6 b in local)
+                    foreach (var b in local)
                     {
                         float[] mn = [b[0], b[1], b[2]], mx = [b[3], b[4], b[5]];
                         if (Slab(sl, el, mn, mx, out var bt, out var axis, out var neg) && bt < bestT)
@@ -698,7 +698,7 @@ public abstract class Projectile : GameBase
                             float[] ln = [0, 0, 0];
                             if (axis >= 0)
                                 ln[axis] = neg ? -1.0f : 1.0f;
-                            Vec3 wn = m.ToWorldVector(new Vec3(ln[0], ln[1], ln[2]));
+                            var wn = m.ToWorldVector(new Vec3(ln[0], ln[1], ln[2]));
                             hn[0] = wn.X;
                             hn[1] = wn.Y;
                             hn[2] = wn.Z;
@@ -743,7 +743,7 @@ public abstract class Projectile : GameBase
         if (mBlock != null)
             foreach (var f in new[] { "bulletShapeName", "shapeName" })
             {
-                DataBlockManager.Field? fl = Pj.Field(mBlock, f);
+                var fl = Pj.Field(mBlock, f);
                 if (fl != null && !string.IsNullOrEmpty(fl.Elems[0].Str))
                 {
                     shape = fl.Elems[0].Str!;
@@ -808,7 +808,7 @@ public abstract class Projectile : GameBase
     /// <returns>The object, or null.</returns>
     protected SimObject? ExcludeObject()
     {
-        SimManager? m = Manager();
+        var m = Manager();
         if (m == null || mShooter == 0)
             return null;
         if (!mData.CollideWithOwner || mGrace > 0)
@@ -825,8 +825,8 @@ public abstract class Projectile : GameBase
             return false;
         DataBlockIndex = mBlock.Index;
         using var chop = X87.Chop();
-        DataBlockManager.Block b = mBlock;
-        PData d = mData;
+        var b = mBlock;
+        var d = mData;
         d.ExplosionTag = Pj.Integer(b, "explosionTag", 0);
         d.ExpRandCycle = Pj.Integer(b, "expRandCycle", 0);
         d.DamageClass = Pj.Integer(b, "damageClass", 0);
@@ -850,13 +850,13 @@ public abstract class Projectile : GameBase
         mGame.JoinSet(this, 719);
         var now = mGame.Sim != null ? mGame.Sim.TickMs() : 0;
         // Shooter and owner client (1.4 step 2).
-        SimManager? m = Manager();
-        SimObject? so = m != null && mInitShooter > 0 ? m.FindById(mInitShooter) : null;
+        var m = Manager();
+        var so = m != null && mInitShooter > 0 ? m.FindById(mInitShooter) : null;
         if (so is GameBase sg && sg.IsShapeBase())
         {
             mShooterObject = sg.Id();
             mOwner = sg.ControlClient != 0 ? sg.ControlClient : sg.LastOwnerClient;
-            ClientRecord? r = mOwner != 0 ? mGame.Players.FindHuman(mOwner) : null;
+            var r = mOwner != 0 ? mGame.Players.FindHuman(mOwner) : null;
             mOwnerJoin = r != null ? r.JoinOrder : -1;
         }
         mInitShooter = -1;
@@ -1080,10 +1080,10 @@ public abstract class Projectile : GameBase
     {
         if (game.Sim == null)
             return null;
-        DataBlockManager.Block? b = game.Sim.DataBlocks().At(group, index);
+        var b = game.Sim.DataBlocks().At(group, index);
         if (b == null)
             return null;
-        Projectile? p = group switch
+        var p = group switch
         {
             kBulletGroup => new Bullet(game),
             kGrenadeGroup => new Grenade(game),
@@ -1196,8 +1196,8 @@ internal sealed class Bullet : Projectile
         var end = new float[3];
         for (var i = 0; i < 3; ++i)
             end[i] = X87.F32(Add(Transform.P[i], X87.F32(Mul(mVel[i], mData.TotalTime))));
-        SimManager? m = Manager();
-        SimObject? ex = m != null && mShooter > 0 ? m.FindById(mShooter) : null;
+        var m = Manager();
+        var ex = m != null && mShooter > 0 ? m.FindById(mShooter) : null;
         var h = new RayHit();
         if (CastWorld(mGame, Transform.P, end, 0x6u, ex, ref h))
         {

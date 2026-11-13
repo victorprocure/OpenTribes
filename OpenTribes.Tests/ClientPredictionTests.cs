@@ -135,7 +135,7 @@ public class ClientPredictionTests
     // Vehicle its update with dt 0.032 (vehicle-sim.md 3.1).
     private static void ServerStep(GameBase o, Move sent)
     {
-        Move m = ClientPrediction.ServerMove(sent); // what GameConnection.ReadPsc unpacks
+        var m = ClientPrediction.ServerMove(sent); // what GameConnection.ReadPsc unpacks
         if (o is Player p)
         {
             p.UpdateMove(m);
@@ -143,7 +143,7 @@ public class ClientPredictionTests
         }
         else if (o is Flier f)
         {
-            Move mv = m;
+            var mv = m;
             f.Update(ref mv, 0.032f);
         }
     }
@@ -199,7 +199,7 @@ public class ClientPredictionTests
             run.Client = cli.Spawn("100 100 50");
         }
         run.Cw.Ghosts.Insert(new ClientGhost { Index = kGhost, Class = flier ? "Flier" : "Player" });
-        GameBase copy = run.Client;
+        var copy = run.Client;
         run.Pred.CreateObject = (g, p) => copy;
         for (var k = 0; k < 120; ++k)
             run.Moves.Add(MoveOf(k, moving, flier));
@@ -220,7 +220,7 @@ public class ClientPredictionTests
     {
         foreach (var pending in new[] { 1, 4, 11 })
         {
-            Run run = Setup(name + pending, flier, moving);
+            var run = Setup(name + pending, flier, moving);
             const int lastMove = 15;
             for (var k = 0; k < lastMove + pending; ++k)
                 run.Cw.Psc.AddMove(run.Moves[k]);
@@ -231,7 +231,7 @@ public class ClientPredictionTests
             Correct(run.Cw, run.Server, lastMove);
             Assert.Equal(pending, run.Cw.Psc.Moves.Count);
             var now = 32 * run.Tick;
-            CorrectionRecord? rec = run.Pred.OnServerBlock(run.Cw, now);
+            var rec = run.Pred.OnServerBlock(run.Cw, now);
             Assert.True(rec != null && rec.Predicted == null && rec.Pending == pending);
             if (flier)
                 Requantize(run);
@@ -249,7 +249,7 @@ public class ClientPredictionTests
     // measures 0 and the replay ends on the state the copy had before the reset.
     private static void MatchingCorrection(string name, bool flier, bool moving)
     {
-        Run run = Setup(name, flier, moving);
+        var run = Setup(name, flier, moving);
         // The first block: the server object at its start, no move applied yet.
         Frame(run);
         Correct(run.Cw, run.Server, 0);
@@ -268,7 +268,7 @@ public class ClientPredictionTests
                 ServerStep(run.Server, run.Moves[applied]);
             PredictedState before = PredictedState.Of(run.Client, 0);
             Correct(run.Cw, run.Server, lastMove);
-            CorrectionRecord rec = run.Pred.OnServerBlock(run.Cw, 32 * run.Tick)!;
+            var rec = run.Pred.OnServerBlock(run.Cw, 32 * run.Tick)!;
             Assert.True(rec.Predicted != null && rec.Predicted.Move == lastMove - 1);
             Assert.True(rec.PosError == 0 && rec.VelError == 0 && rec.RotError == 0 && rec.PitchError == 0 && rec.EnergyError == 0,
                         "round " + round + ": " + rec.PosError + " " + rec.VelError + " " + rec.RotError + " " + rec.PitchError + " " + rec.EnergyError);
@@ -320,18 +320,18 @@ public class ClientPredictionTests
     {
         Numbers.EnterScriptFpuMode();
         var m = new Move { Forward = 0.5f, Left = 1.0f, Turn = 3.0f, Pitch = float.NaN, Jet = true };
-        Move q = ClientPrediction.Quantize(m);
+        var q = ClientPrediction.Quantize(m);
         Assert.Equal(7.0f / 15.0f, q.Forward);
         Assert.Equal(1.0f, q.Left);
         Assert.Equal(1.0f, q.Turn);
         Assert.Equal(0.0f, q.Pitch);
         Assert.True(q.Jet && q.UseItem == -1);
-        Move s = ClientPrediction.ServerMove(q);
+        var s = ClientPrediction.ServerMove(q);
         Assert.Equal(U(Fpu.F32Chop(7.0 / 15.0)), U(s.Forward));
         Assert.True(Fpu.TowardZero); // the mode of the caller is kept
         for (var k = 0; k <= 15; ++k)
         {
-            Move a = ClientPrediction.Quantize(new Move { Forward = k / 15.0f, Right = k / 15.0f });
+            var a = ClientPrediction.Quantize(new Move { Forward = k / 15.0f, Right = k / 15.0f });
             var buf = new byte[16];
             var bs = new BitStream(buf, buf.Length);
             Moves.PackMove(bs, a, true, null);
@@ -348,7 +348,7 @@ public class ClientPredictionTests
         for (var k = 0; k < 4; ++k)
             psc.AddMove(new Move { Forward = k / 15.0f });
         uint now = (32 * 100) + 5;            // inside tick 100
-        Assert.True(ClientPrediction.MoveForTick(psc, 32 * 100, now, out Move m, out var idx) && idx == 3);
+        Assert.True(ClientPrediction.MoveForTick(psc, 32 * 100, now, out var m, out var idx) && idx == 3);
         Assert.True(ClientPrediction.MoveForTick(psc, 32 * 97, now, out m, out idx) && idx == 0 && m.Forward == 0.0f);
         Assert.False(ClientPrediction.MoveForTick(psc, 32 * 96, now, out _, out _));
         for (var k = 4; k < 30; ++k)
@@ -362,7 +362,7 @@ public class ClientPredictionTests
     public void GhostKeepsCrouch()
     {
         var side = new Side("cp_crouch");
-        Player p = side.Spawn("100 100 50");
+        var p = side.Spawn("100 100 50");
         p.ClientSide = true;
         p.LocallyControlled = true;
         var m = ClientPrediction.Quantize(new Move { Crouch = true });
@@ -379,8 +379,8 @@ public class ClientPredictionTests
     public void ControlPlayerRidesTheCopyOfItsMount()
     {
         var side = new Side("cp_rider");
-        Player p = side.Spawn("100 100 50");
-        Flier f = side.Make("100 100 70");
+        var p = side.Spawn("100 100 50");
+        var f = side.Make("100 100 70");
         f.SetPosition([100f, 100f, 70f]);
         var cw = new ClientWorld();
         var pred = new ClientPrediction { CreateObject = (g, c) => p };

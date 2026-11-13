@@ -335,16 +335,16 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         mNow = nowMs;
         var buf = new byte[0x5f4];
         int n;
-        while ((n = mSocket.Receive(out Address from, buf)) > 0)
+        while ((n = mSocket.Receive(out var from, buf)) > 0)
             Receive(from, buf.AsSpan(0, n), nowMs);
     }
 
     // src/server/net_server.cpp NetServer::tickConnections.
     private void TickConnections(uint nowMs)
     {
-        foreach (Address key in mConnections.Keys.ToList())
+        foreach (var key in mConnections.Keys.ToList())
         {
-            if (!mConnections.TryGetValue(key, out Connection? c))
+            if (!mConnections.TryGetValue(key, out var c))
                 continue;
             if (!c.Dead() && c.State() != ConnectionState.Idle)
                 c.Tick(nowMs);
@@ -370,7 +370,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
             HandleConnectionless(from, data);
             return;
         }
-        if (!mConnections.TryGetValue(from, out Connection? slot))
+        if (!mConnections.TryGetValue(from, out var slot))
         {
             slot = new Connection(from, mNextConnectionId++, this, Send, nowMs);
             mConnections[from] = slot;
@@ -431,7 +431,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         for (var k = mPlayers.Count - 1; k >= 0; --k)
         {
             var row = new GameInfo.PlayerRow { Id = mPlayers[k].Id };
-            foreach (GameInfo.PlayerRow r in g.Players)
+            foreach (var r in g.Players)
                 if (r.Id == mPlayers[k].Id)
                     row = r;
             rows.Add(row);
@@ -465,7 +465,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         Byte(0x62);
         StrField(kGameType, 255);
         StrField(mVersion, 255);
-        GameInfo g = CurrentInfo();
+        var g = CurrentInfo();
         StrField(g.Hostname, 32);
         Byte(g.Dedicated ? (byte)1 : (byte)0);
         Byte(g.Password.Length == 0 ? (byte)0 : (byte)1);
@@ -488,7 +488,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
                 StrField(g.Teams[t].Score, 32);
             }
             // Per player: ping/4, loss*100, team, name, raw score text (no % expansion here).
-            List<GameInfo.PlayerRow> rows = PlayerRows(g);
+            var rows = PlayerRows(g);
             for (var i = 0; i < rows.Count; ++i)
             {
                 Byte(unchecked((byte)(rows[i].Ping >> 2)));
@@ -528,8 +528,8 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         var payload = new byte[kPayload];
         byte[] header = [0x10, 0x08, 0xff, 0x00, data.Length > 4 ? data[4] : (byte)0, data.Length > 5 ? data[5] : (byte)0, 0, 0];
         var bs = new BitStream(payload, kPayload);
-        GameInfo g = CurrentInfo();
-        List<GameInfo.PlayerRow> players = PlayerRows(g);
+        var g = CurrentInfo();
+        var players = PlayerRows(g);
         var names = new List<string>();
         for (var k = mPlayers.Count - 1; k >= 0; --k)
             names.Add(mPlayers[k].Name);
@@ -586,7 +586,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
             }
             else if (i < teamRows + 1 && hasTeams)
             {
-                GameInfo.TeamRow t = teamArray[i - 1];
+                var t = teamArray[i - 1];
                 row.Append("00");
                 for (var k = 0; k < t.Score.Length && row.Length < kRowMax; ++k)
                     if (t.Score[k] == '%' && k + 1 < t.Score.Length && t.Score[k + 1] == 't')
@@ -604,7 +604,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
                 var idx = i - teamRows - (hasTeams ? 2 : 1);
                 if (idx < 0 || idx >= playerCount)
                     break; // only when the team count and the team list disagree
-                GameInfo.PlayerRow p = players[order[idx]];
+                var p = players[order[idx]];
                 var text = p.Score;
                 row.Append("10");
                 for (var k = 0; k < text.Length && row.Length < kRowMax; ++k)
@@ -656,10 +656,10 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     public List<string> PlayerList()
     {
         var output = new List<string> { "Server: " + Str(mPlayers.Count) + " clients" };
-        List<GameInfo.PlayerRow> rows = PlayerRows(CurrentInfo());
+        var rows = PlayerRows(CurrentInfo());
         for (var i = 0; i < rows.Count; ++i)
         {
-            Player p = mPlayers[mPlayers.Count - 1 - i];
+            var p = mPlayers[mPlayers.Count - 1 - i];
             output.Add(p.Id.ToString(CultureInfo.InvariantCulture) + " (" + (p.Connection != null ? p.Connection.Peer().ToString() : "") +
                        "): " + p.Name + " - " + rows[i].Score);
         }
@@ -671,7 +671,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <returns>The player, or null.</returns>
     public Player? PlayerById(uint id)
     {
-        foreach (Player p in mPlayers)
+        foreach (var p in mPlayers)
             if (p.Id == id)
                 return p;
         return null;
@@ -684,10 +684,10 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <remarks>Follows Net::kick (0042babc).</remarks>
     public bool Kick(uint playerId, string? reason)
     {
-        Player? p = PlayerById(playerId);
+        var p = PlayerById(playerId);
         if (p == null)
             return false;
-        Connection? c = p.Connection;
+        var c = p.Connection;
         mHooks.OnClosed?.Invoke(p);
         c?.Close(Connection.Disconnect, reason ?? "You were kicked from the game.", mNow);
         mFreePlayerIds.Add(playerId);
@@ -701,10 +701,10 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <remarks>Follows the SimNet error delegate (0042b7f8).</remarks>
     public bool DropInvalid(uint playerId)
     {
-        Player? p = PlayerById(playerId);
+        var p = PlayerById(playerId);
         if (p == null)
             return false;
-        Connection? c = p.Connection;
+        var c = p.Connection;
         mHooks.OnClosed?.Invoke(p);
         c?.Close(Connection.Disconnect, null, mNow);
         mFreePlayerIds.Add(playerId);
@@ -859,7 +859,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     // src/server/net_server.cpp NetServer::playerFor.
     private Player? PlayerFor(Connection c)
     {
-        foreach (Player p in mPlayers)
+        foreach (var p in mPlayers)
             if (p.Connection == c)
                 return p;
         return null;
@@ -869,7 +869,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <param name="c">The connection.</param>
     public override void OnEstablished(Connection c)
     {
-        Player? p = PlayerFor(c);
+        var p = PlayerFor(c);
         if (p != null)
             mHooks.OnAccepted?.Invoke(p, c);
     }
@@ -879,7 +879,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <param name="payload">The payload.</param>
     public override void OnData(Connection c, ReadOnlySpan<byte> payload)
     {
-        Player? p = PlayerFor(c);
+        var p = PlayerFor(c);
         if (p != null)
             mHooks.OnData?.Invoke(p, payload.ToArray());
     }
@@ -890,7 +890,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <param name="delivered">True when the peer acknowledged it.</param>
     public override void OnNotify(Connection c, uint cookie, bool delivered)
     {
-        Player? p = PlayerFor(c);
+        var p = PlayerFor(c);
         if (p != null)
             mHooks.OnNotify?.Invoke(p, cookie, delivered);
     }
@@ -901,10 +901,10 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <param name="timedOut">True on a timeout or replacement.</param>
     public override void OnClosed(Connection c, ReadOnlySpan<byte> reason, bool timedOut)
     {
-        Player? p = PlayerFor(c);
+        var p = PlayerFor(c);
         if (p != null)
             mHooks.OnClosed?.Invoke(p);
-        foreach (Player q in mPlayers)
+        foreach (var q in mPlayers)
             if (q.Connection == c)
                 mFreePlayerIds.Add(q.Id);
         mPlayers.RemoveAll(q => q.Connection == c);

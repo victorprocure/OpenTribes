@@ -110,7 +110,7 @@ public sealed class ExplosionEffect : IEffect
         var vis = shape.FindSequence("visibility");
         if (vis >= 0 && vis != main)
         {
-            RenderThread v = mInst.AddThread(vis, 0, 0);
+            var v = mInst.AddThread(vis, 0, 0);
             v.Position = (2.0 / 3) + (rng.NextDouble() / 3);
             v.TimeScale = 0;
         }
@@ -194,11 +194,11 @@ public sealed class ExplosionEffect : IEffect
         }
         else
             xf = AxisBasis();
-        ShapeDraw d = ctx.Draw(xf, mInst.Shape.Name);
+        var d = ctx.Draw(xf, mInst.Shape.Name);
         d.ForceTranslucent = true;
         d.CullClipped = true;
         d.Light = new LightSet { AmbR = 1, AmbG = 1, AmbB = 1, SunR = 0, SunG = 0, SunB = 0 };
-        RenderImage? img = ctx.Renderer.Build(mInst, ctx.Camera, d);
+        var img = ctx.Renderer.Build(mInst, ctx.Camera, d);
         if (img != null)
             ctx.Lists.Add(img);
     }

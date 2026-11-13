@@ -62,7 +62,7 @@ public static class VideoOptions
         fs.Entries.Clear();
         win.SetSelectedIndex(-1);
         fs.SetSelectedIndex(-1);
-        foreach (Device d in Devices(renderer))
+        foreach (var d in Devices(renderer))
         {
             if (d.Fullscreen)
                 fs.Entries.Add((d.Text, d.Id));
@@ -73,7 +73,7 @@ public static class VideoOptions
         win.SetSelectedIndex(Pick(win, host.GetVar("$pref::VideoWindowedDriver"), windowedDefault));
         res.Entries.Clear();
         res.SetSelectedIndex(-1);
-        List<string> names = ModeNames(modes);
+        var names = ModeNames(modes);
         for (var i = 0; i < names.Count; ++i)
             res.Entries.Add((names[i], i));
         var r = host.GetVar("$pref::VideoFullScreenRes") is { Length: > 0 } pref ? res.Entries.FindIndex(e => string.Equals(e.Text, pref, StringComparison.OrdinalIgnoreCase)) : -1;
@@ -90,7 +90,7 @@ public static class VideoOptions
         if (root.FindById(FullscreenWindowedCheck) != null || root.FindById(FullscreenRadio) is not GuiUniversalButton radio || radio.Parent is not GuiControl parent)
             return;
         // Left aligned with the Gamma label (the slider, 140403, is on its row) and one row below it.
-        GuiControl? gamma = parent.Children.FirstOrDefault(c => c is GuiFGSimpleText t && t.Text == "Gamma");
+        var gamma = parent.Children.FirstOrDefault(c => c is GuiFGSimpleText t && t.Text == "Gamma");
         int x = gamma?.X ?? radio.X, y = gamma != null ? gamma.Y + gamma.H + 10 : radio.Y + radio.H + 24;
         var box = new GuiUniversalButton { ClassName = "FearGui::FGUniversalButton", Id = FullscreenWindowedCheck, X = x, Y = y, W = radio.W, H = radio.H, ConsoleVar = pref };
         foreach (var (k, v) in new (string, object)[] { ("bodyVersion", (byte)3), ("bitmapRoot", "BTN_CheckBox"), ("isSwitch", 1u), ("mirrorVar", 1u), ("radioId", 0u), ("active", (byte)1), ("messageTag", 0u), ("lowResX", (uint)x), ("lowResY", (uint)y) })

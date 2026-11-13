@@ -98,16 +98,16 @@ public class ClientNetStreamTests
         // client-net.md 2.3: PlayerAddEvent, TeamAddEvent, DeltaScoreEvent, TargetNameEvent, SimConsoleEvent.
         var world = new ClientWorld();
         var conn = new ClientGameConnection(world);
-        OutEvent add = GameEvents.MakePlayerAdd(2050, false, "Bob", "base", "Male1", true, -1, 1);
-        OutEvent team = GameEvents.MakeTeamAdd(-1, "Storm", "base");
-        OutEvent score = GameEvents.MakeDeltaScore(false, 2050, 7, "Bob 7");
-        OutEvent tname = GameEvents.MakeTargetName(5, "Generator");
-        OutEvent eval = GameEvents.MakeRemoteEval(new[] { "SetInfoLine", "hello" });
+        var add = GameEvents.MakePlayerAdd(2050, false, "Bob", "base", "Male1", true, -1, 1);
+        var team = GameEvents.MakeTeamAdd(-1, "Storm", "base");
+        var score = GameEvents.MakeDeltaScore(false, 2050, 7, "Bob 7");
+        var tname = GameEvents.MakeTargetName(5, "Generator");
+        var eval = GameEvents.MakeRemoteEval(new[] { "SetInfoLine", "hello" });
         // Sequence 1 arrives before sequence 0 in the same packet: the handlers still run in order.
-        DecodedPacket p = conn.Receive(EventPacket((team, 1, false), (add, 0, false), (score, 2, false), (tname, 3, false), (eval, 4, false)));
+        var p = conn.Receive(EventPacket((team, 1, false), (add, 0, false), (score, 2, false), (tname, 3, false), (eval, 4, false)));
         Assert.True(p.UnknownBits == 0 && !p.Overrun && p.Events.Count == 5);
         Assert.True(p.Events[0].Name == "TeamAddEvent" && p.Events[1].Name == "PlayerAddEvent");
-        ClientPlayerManager pm = world.Players;
+        var pm = world.Players;
         Assert.True(pm.TeamCount == 0 && pm.Teams[-1].Name == "Storm");
         Assert.True(pm.Clients.ContainsKey(2050) && pm.Clients[2050].Name == "Bob" && pm.Clients[2050].Team == 1 && pm.HumanCount == 1 && pm.PlayerCount == 1);
         Assert.True(pm.Callbacks.SequenceEqual(new[] { "onClientJoin(2050);", "onTeamAdd(-1);" }) || pm.Callbacks.SequenceEqual(new[] { "onTeamAdd(-1);", "onClientJoin(2050);" }));
@@ -132,17 +132,17 @@ public class ClientNetStreamTests
         var world = new ClientWorld { PlayerId = 2049 };
         var conn = new ClientGameConnection(world);
         // The first team added takes the slot of the observer team -1, the next one slot 0 (client-net.md 2.3).
-        OutEvent team0 = GameEvents.MakeTeamAdd(-1, "Observer", "base");
-        OutEvent team1 = GameEvents.MakeTeamAdd(0, "Blood Eagle", "beagle");
-        OutEvent add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
+        var team0 = GameEvents.MakeTeamAdd(-1, "Observer", "base");
+        var team1 = GameEvents.MakeTeamAdd(0, "Blood Eagle", "beagle");
+        var add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
         var w = new EventWriter();
         w.PutInt(2049 - 2048, 7);
         w.PutInt(0 + 1, 4);
-        OutEvent change = w.Finish(0x452);
+        var change = w.Finish(0x452);
         var w2 = new EventWriter();
         w2.PutInt(2049 - 2048, 7);
         w2.PutInt(7 + 1, 4);
-        OutEvent unknown = w2.Finish(0x452);
+        var unknown = w2.Finish(0x452);
         conn.Receive(EventPacket((team0, 0, false), (team1, 1, false), (add, 2, false)));
         Assert.Equal("base", world.Players.Clients[2049].Skin);
         conn.Receive(EventPacket((change, 3, false)));
@@ -162,9 +162,9 @@ public class ClientNetStreamTests
         var conn = new ClientGameConnection(world);
         var voices = new List<(int, string)>();
         world.Players.ChatVoice = (c, t) => voices.Add((c, t));
-        OutEvent add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
-        OutEvent cmd = CommandMap.MakeCommandEvent(2049, 2049, 0, false, 5, -1, 10, 20, true, true, "Escort Rec.~wescfr");
-        OutEvent ack = CommandMap.MakeCommandEvent(2049, -1, 1, true, -1, -1, 0, 0, true, false, null);
+        var add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
+        var cmd = CommandMap.MakeCommandEvent(2049, 2049, 0, false, 5, -1, 10, 20, true, true, "Escort Rec.~wescfr");
+        var ack = CommandMap.MakeCommandEvent(2049, -1, 1, true, -1, -1, 0, 0, true, false, null);
         conn.Receive(EventPacket((add, 0, false), (cmd, 1, false), (ack, 2, false)));
         Assert.Equal(new[] { "Rec connected to the game.", "Rec: Escort Rec.", "Rec: Escort Rec." }, world.Players.Chat);
         Assert.Equal(new[] { 0, 4, 3 }, world.Players.ChatTypes);
@@ -179,11 +179,11 @@ public class ClientNetStreamTests
         var world = new ClientWorld { PlayerId = 2049 };
         var conn = new ClientGameConnection(world);
         world.Players.WaypointToWorld = (x, y) => ((x * 2.0 * 0.0009765625 * 1000) + 100, (y * 4.0 * 0.0009765625 * 1000) - 50);
-        OutEvent add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
-        OutEvent add2 = GameEvents.MakePlayerAdd(2050, false, "Other", "base", "Male1", true, -1, 0);
-        OutEvent other = CommandMap.MakeCommandEvent(2050, 2049, 0, false, 5, -1, 5, 5, false, false, null);
-        OutEvent cmd = CommandMap.MakeCommandEvent(2049, 2049, 0, false, 5, -1, 512, 256, false, false, null);
-        OutEvent ack = CommandMap.MakeCommandEvent(2049, -1, 0, true, -1, -1, 0, 0, false, false, null);
+        var add = GameEvents.MakePlayerAdd(2049, false, "Rec", "base", "Male1", true, -1, 0);
+        var add2 = GameEvents.MakePlayerAdd(2050, false, "Other", "base", "Male1", true, -1, 0);
+        var other = CommandMap.MakeCommandEvent(2050, 2049, 0, false, 5, -1, 5, 5, false, false, null);
+        var cmd = CommandMap.MakeCommandEvent(2049, 2049, 0, false, 5, -1, 512, 256, false, false, null);
+        var ack = CommandMap.MakeCommandEvent(2049, -1, 0, true, -1, -1, 0, 0, false, false, null);
         conn.Receive(EventPacket((add, 0, false), (add2, 1, false), (other, 2, false)));
         Assert.Equal(-1, world.Players.WaypointTarget);
         conn.Receive(EventPacket((cmd, 3, false)));
@@ -219,7 +219,7 @@ public class ClientNetStreamTests
             Assert.True(db.Declare(cls, "blk" + group), cls);
             var w = new EventWriter();
             Assert.True(DatablockPack.PackDataBlock(db, db.Find("blk" + group)!, w), cls);
-            OutEvent e = w.Finish(0x458);
+            var e = w.Finish(0x458);
             var r = new ClientReader(Payload(b =>
             {
                 b.WriteInt((uint)group, 6);       // the header the caller writes: group, count, index
@@ -237,12 +237,12 @@ public class ClientNetStreamTests
         var db2 = new DataBlockManager(new StringTable(), l => log += l);
         db2.Declare("SoundProfileData", "sp0");
         Assert.True(db2.Declare("SoundData", "shot"));
-        DataBlockManager.Block s = db2.Find("shot")!;
+        var s = db2.Find("shot")!;
         db2.SetField(s, "wavFileName", new[] { "shot.wav" }, "");
         db2.SetField(s, "priority", new[] { "0.5" }, "");
         var w1 = new EventWriter();
         Assert.True(DatablockPack.PackDataBlock(db2, s, w1));
-        OutEvent ev = w1.Finish(0x458);
+        var ev = w1.Finish(0x458);
         var cw = new ClientWorld();
         var rr = new ClientReader(Payload(b =>
         {
@@ -253,7 +253,7 @@ public class ClientNetStreamTests
         }), cw)
         { Out = [] };
         cw.DataBlocks.ReadEvent(rr, out _);
-        ClientDataBlock blk = cw.DataBlocks.Blocks.Values.Single();
+        var blk = cw.DataBlocks.Blocks.Values.Single();
         Assert.True(blk.Group == 1 && (string)blk.Fields[0].Value! == "shot.wav" && Math.Abs((double)blk.Fields[1].Value! - (31 / 63.0)) < 1e-9);
         // 2.6 step 3: the last block of group 30 (or an empty group 30) is dataFinished().
         var wf = new ClientWorld();
@@ -276,13 +276,13 @@ public class ClientNetStreamTests
     {
         // client-net.md 4.3: the client block carries the first move index and the unacknowledged moves.
         var world = new ClientWorld();
-        ClientPsc psc = world.Psc;
+        var psc = world.Psc;
         for (var i = 0; i < 5; ++i)
             psc.AddMove(new Move { Forward = i / 15.0f, Fire = i == 3, Turn = i == 2 ? 0.25f : 0 });
         var buf = new byte[256];
         var bs = new BitStream(buf, buf.Length);
         psc.WriteClient(bs);
-        DecodedPsc c2s = ClientPsc.ReadClientBlock(new ClientReader(buf, world));
+        var c2s = ClientPsc.ReadClientBlock(new ClientReader(buf, world));
         Assert.True((long)c2s.Fields[0].Value! == 169 && (long)c2s.Fields[1].Value! == 0 && (long)c2s.Fields[2].Value! == 5);
         // The server reads the same bytes (GameConnection.ReadPsc): the first move index and the moves match.
         var r = new BitStream(buf, buf.Length);
@@ -305,7 +305,7 @@ public class ClientNetStreamTests
         }), world);
         var modes = new List<int>();
         psc.OnGuiMode = modes.Add;   // the mode change is reported while the block is read, not at the end of the frame
-        DecodedPsc s2c = psc.ReadServerBlock(wr);
+        var s2c = psc.ReadServerBlock(wr);
         Assert.Equal(new[] { 1 }, modes);
         Assert.True(psc.FirstMove == 3 && psc.Moves.Count == 2 && psc.LastMove == 3 && psc.GuiMode == 1 && psc.GuiModeChanges == 1);
         Assert.True(s2c.Text.StartsWith("psc mode=1", StringComparison.Ordinal) && s2c.Text.Contains("control=none", StringComparison.Ordinal));
@@ -404,7 +404,7 @@ public class ClientNetStreamTests
         // Unknown bits are detected and counted, never skipped (client-net.md 2.2).
         var world = new ClientWorld();
         var conn = new ClientGameConnection(world);
-        DecodedPacket p = conn.Receive(Payload(bs =>
+        var p = conn.Receive(Payload(bs =>
         {
             bs.WriteFlag(false);
             bs.WriteFlag(false);
@@ -422,10 +422,10 @@ public class ClientNetStreamTests
             bs.WriteInt(0, 32);
         }));
         Assert.True(p.UnknownBits > 0 && world.UnknownBits == p.UnknownBits && p.UnknownReason!.Contains("0x3ff", StringComparison.Ordinal));
-        DecodedPacket p2 = conn.Receive([0x0c]);   // the events flag, an event flag, then the end of the packet
+        var p2 = conn.Receive([0x0c]);   // the events flag, an event flag, then the end of the packet
         Assert.True(p2.Overrun && world.Errors == 1);
         // Eight or more trailing bits that no member explains are unknown too.
-        DecodedPacket p3 = conn.Receive(Payload(bs =>
+        var p3 = conn.Receive(Payload(bs =>
         {
             bs.WriteFlag(false);
             bs.WriteFlag(false);

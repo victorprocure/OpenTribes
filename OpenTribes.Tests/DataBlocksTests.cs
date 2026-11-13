@@ -63,7 +63,7 @@ public class DataBlocksTests
         PutFile(Path.Combine(root, "base/t2.bmp"), "texture two");
         var w = new Fixtures.World(root);
         var c = new Cases();
-        DataBlockManager db = w.Sim.DataBlocks();
+        var db = w.Sim.DataBlocks();
 
         // 1.2: the 31 classes, their groups (-1 abstract) and parents' fields.
         (string, int)[] kGroups =
@@ -77,7 +77,7 @@ public class DataBlocksTests
         ];
         foreach ((var name, var group) in kGroups)
         {
-            ClassDef? cls = DataBlockManager.FindClass(name);
+            var cls = DataBlockManager.FindClass(name);
             Assert.True(cls != null && cls.Group == group);
         }
         Assert.True(DataBlockManager.FindClass("itemdata") == DataBlockManager.FindClass("ItemData")); // CR4 case-insensitive
@@ -160,7 +160,7 @@ public class DataBlocksTests
                    "Img.projectileType = G1; echo(Img.projectileType); Img.projectileType = {a, b};",
                 "Snd14\n\n\nCannot set multiple args to a Projectile data block name.");
         {
-            DataBlockManager.Value v = db.Find("Img")!.Find("projectileType")!.Elems[0];
+            var v = db.Find("Img")!.Find("projectileType")!.Elems[0];
             Assert.True(v.I == 15 && v.I2 == 1); // PR1 stores (group, index)
         }
 
@@ -193,8 +193,8 @@ public class DataBlocksTests
                    "echo(Arm.animData[0], \"|\", Arm.animData[1]);",
                 "Animdata set as { Name, soundTag, direction, viewFlags, priority }\nroot|run");
         {
-            Block arm = db.Find("Arm")!;
-            DataBlockManager.Field f = arm.Find("animData")!;
+            var arm = db.Find("Arm")!;
+            var f = arm.Find("animData")!;
             Assert.True(f.Elems[0].I == 1 /* Snd1 index */ && f.Elems[0].I3 == 0x5 && f.Elems[0].I4 == 5);
             Assert.True(f.Elems[1].I == -1 && f.Elems[1].I3 == 0xf);
         }
@@ -237,7 +237,7 @@ public class DataBlocksTests
 
         // 6.2 network identity: (group, index) in declaration order per group; 8 getItemData.
         {
-            Block? weird = db.Find("weird");
+            var weird = db.Find("weird");
             Assert.True(weird != null && weird.Group == 5 && db.At(5, weird.Index) == weird);
             Assert.True(db.At(5, 0) == db.Find("I1") && db.At(5, 1) == db.Find("Blaster") && db.At(5, 2) == weird);
             Assert.True(db.Find("Snd0")!.Index == 0 && db.Find("Snd14")!.Index == 14 && db.GroupSize(1) == 15);
@@ -261,7 +261,7 @@ public class DataBlocksTests
         // 7 preload: validation lines in group order, then index order; a ShapeBase name gets ".dts", projectile and
         // explosion names print as written.
         var w2 = new Fixtures.World(root);
-        DataBlockManager db2 = w2.Sim.DataBlocks();
+        var db2 = w2.Sim.DataBlocks();
         w2.Run("ItemData FlagItem { shapeFile = \"flag\"; validateShape = true; };" +
                "PlayerData LightArmor { shapeFile = \"larmor\"; validateShape = true; };" +
                "StaticShapeData PadA { shapeFile = \"pad\"; validateShape = false; };" +
@@ -282,7 +282,7 @@ public class DataBlocksTests
             byte[] larmor = [(byte)'a', (byte)'b', (byte)'c'];
             Assert.True(db2.Find("LightArmor")!.ValidationCrc == SpecCrc(larmor, 0xffffffffu));
             Assert.Equal(0xcadbbe3du, db2.Find("LightArmor")!.ValidationCrc);
-            List<byte> shape = ShapeWithMaterials();
+            var shape = ShapeWithMaterials();
             var t1 = ByteString.ToBytes("texture one");
             Assert.True(db2.Find("MatItem")!.ValidationCrc == SpecCrc(t1, SpecCrc(shape, 0xffffffffu)));
             Assert.Equal(0u, db2.Find("PadA")!.ValidationCrc); // not validated

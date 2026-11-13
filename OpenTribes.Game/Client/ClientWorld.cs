@@ -165,7 +165,7 @@ public sealed class ClientPlayerManager
     /// <summary>Returns a client record.</summary>
     /// <param name="id">The client id.</param>
     /// <returns>The record, or null.</returns>
-    public ClientPlayerRecord? Get(int id) => Clients.TryGetValue(id, out ClientPlayerRecord? r) ? r : null;
+    public ClientPlayerRecord? Get(int id) => Clients.TryGetValue(id, out var r) ? r : null;
 }
 
 /// <summary>The state of one client connection that the receive path updates.</summary>

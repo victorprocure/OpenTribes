@@ -187,7 +187,7 @@ public sealed class GuiHost
     {
         if (name.Length == 0)
             return null;
-        if (!mFonts.TryGetValue(name, out PftFont? f))
+        if (!mFonts.TryGetValue(name, out var f))
         {
             f = Res == null ? null : GfxAssets.LoadFont(Res, name);
             mFonts[name] = f;
@@ -207,7 +207,7 @@ public sealed class GuiHost
     {
         if (name.Length == 0)
             return null;
-        if (!mBitmaps.TryGetValue(name, out PbmpBitmap? b))
+        if (!mBitmaps.TryGetValue(name, out var b))
         {
             b = Res == null ? null : GfxAssets.LoadBitmap(Res, name);
             mBitmaps[name] = b;
@@ -227,7 +227,7 @@ public sealed class GuiHost
     {
         if (name.Length == 0)
             return null;
-        if (!mArrays.TryGetValue(name, out PbmaArray? a))
+        if (!mArrays.TryGetValue(name, out var a))
         {
             a = Res == null ? null : GfxAssets.LoadBitmapArray(Res, name);
             mArrays[name] = a;

@@ -140,7 +140,7 @@ public class SimSet : SimObject
     public override void Destroy()
     {
         if (mOwnsMembers)
-            foreach (SimObject m in mMembers)
+            foreach (var m in mMembers)
                 m.Destroy();
     }
 
@@ -203,7 +203,7 @@ public class SimSet : SimObject
     /// <returns>The member, or null.</returns>
     public SimObject? FindMemberByName(string interned)
     {
-        foreach (SimObject m in mMembers)
+        foreach (var m in mMembers)
             if (ReferenceEquals(m.mName, interned))
                 return m;
         return null;
@@ -215,12 +215,12 @@ public class SimSet : SimObject
         var members = new List<SimObject>(mMembers);
         if (mOwnsMembers)
         {
-            foreach (SimObject m in members)
+            foreach (var m in members)
                 if (m.Manager() != null)
                     Manager()!.UnregisterObject(m);
             return; // the destructor deletes them
         }
-        foreach (SimObject m in members)
+        foreach (var m in members)
             m.mInSets.RemoveAll(s => s == this);
         mMembers.Clear();
     }
@@ -233,13 +233,13 @@ public class SimSet : SimObject
         var failed = new List<SimObject>();
         for (var i = 0; i < mMembers.Count; ++i)
         {
-            SimObject m = mMembers[i];
+            var m = mMembers[i];
             if (m.Manager() != null || Manager()!.RegisterObject(m))
                 continue;
             Manager()!.Print?.Invoke("Failed to registerObject of type: " + m.ClassName() + " (" + (m.Name() ?? "<Unnamed>") + ")");
             failed.Add(m);
         }
-        foreach (SimObject m in failed)
+        foreach (var m in failed)
             Manager()!.DeleteObject(m);
         return true;
     }
@@ -254,7 +254,7 @@ public class SimGroup : SimSet
     /// <summary>Deletes all members.</summary>
     public override void Destroy()
     {
-        foreach (SimObject m in mMembers)
+        foreach (var m in mMembers)
             m.Destroy();
         mMembers.Clear();
     }
@@ -275,7 +275,7 @@ public class SimGroup : SimSet
     {
         var members = new List<SimObject>(mMembers);
         members.Sort((a, b) => b.Sequence().CompareTo(a.Sequence()));
-        foreach (SimObject m in members)
+        foreach (var m in members)
         {
             if (m.Manager() == null)
                 continue;

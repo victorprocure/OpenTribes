@@ -136,7 +136,7 @@ public sealed class ShapeAnim
             var guard = 0;
             for (var n = target; n >= 0 && n < Nodes.Count && guard < 256; n = Nodes[n].Parent, ++guard)
             {
-                Node nd = Nodes[n];
+                var nd = Nodes[n];
                 var t = (uint)nd.DefaultTransform;
                 for (var k = 0; k < nd.NumSub; ++k)
                 {
@@ -439,7 +439,7 @@ public sealed class ShapeModel
         for (var i = 0; i < output.Nodes.Length; ++i)
         {
             long o = at[0] + (i * sizes[0]), step = v8 ? 2 : 4; // older files hold i32 fields
-            ref Node nd = ref output.Nodes[i];
+            ref var nd = ref output.Nodes[i];
             nd.Name = Reader.I16At(dts, o);
             nd.Parent = Reader.I16At(dts, o + step);
             nd.NumSub = Reader.I16At(dts, o + (2 * step));
@@ -450,7 +450,7 @@ public sealed class ShapeModel
         for (var i = 0; i < output.Sequences.Length; ++i)
         {
             var o = at[1] + (i * sizes[1]);
-            ref Sequence s = ref output.Sequences[i];
+            ref var s = ref output.Sequences[i];
             s.Name = Reader.I32At(dts, o);
             s.Cyclic = Reader.I32At(dts, o + 4) != 0;
             s.Duration = Reader.F32At(dts, o + 8);
@@ -460,7 +460,7 @@ public sealed class ShapeModel
         for (var i = 0; i < output.SubSequences.Length; ++i)
         {
             long o = at[2] + (i * sizes[2]), step = v8 ? 2 : 4;
-            ref SubSequence s = ref output.SubSequences[i];
+            ref var s = ref output.SubSequences[i];
             s.Sequence = Reader.I16At(dts, o);
             s.NumKeys = Reader.I16At(dts, o + step);
             s.FirstKey = Reader.I16At(dts, o + (2 * step));
@@ -469,7 +469,7 @@ public sealed class ShapeModel
         for (var i = 0; i < output.Keys.Length; ++i)
         {
             var o = at[3] + (i * sizes[3]);
-            ref Key k = ref output.Keys[i];
+            ref var k = ref output.Keys[i];
             k.Position = Reader.F32At(dts, o);
             var key = Reader.U32At(dts, o + 4);
             k.Index = (ushort)key;
@@ -492,7 +492,7 @@ public sealed class ShapeModel
         for (var i = 0; i < output.Transforms.Length; ++i)
         {
             var o = at[4] + (i * sizes[4]);
-            ref Transform t = ref output.Transforms[i];
+            ref var t = ref output.Transforms[i];
             t = new Transform();
             if (ver >= 7)
             {
@@ -520,7 +520,7 @@ public sealed class ShapeModel
         for (var i = 0; i < output.Objects.Length; ++i)
         {
             var o = at[6] + (i * sizes[6]);
-            ref Object ob = ref output.Objects[i];
+            ref var ob = ref output.Objects[i];
             ob.Name = Reader.I16At(dts, o);
             ob.Flags = Reader.U16At(dts, o + 2);
             ob.Mesh = Reader.I32At(dts, o + 4);
@@ -541,7 +541,7 @@ public sealed class ShapeModel
         for (var i = 0; i < output.Transitions.Length; ++i)
         {
             var o = at[8] + (i * sizes[8]);
-            ref Transition t = ref output.Transitions[i];
+            ref var t = ref output.Transitions[i];
             t.Transform = new Transform();
             t.StartSequence = Reader.I32At(dts, o);
             t.EndSequence = Reader.I32At(dts, o + 4);
@@ -592,7 +592,7 @@ public sealed class ShapeModel
             mesh.Faces = new Face[nFaces];
             for (var fi = 0; fi < nFaces; ++fi)
             {
-                ref Face f = ref mesh.Faces[fi];
+                ref var f = ref mesh.Faces[fi];
                 for (var k = 0; k < 3; ++k)
                 {
                     f.V[k] = m.GetI32();
@@ -603,7 +603,7 @@ public sealed class ShapeModel
             mesh.Frames = new Frame[nFrames];
             for (var fi = 0; fi < nFrames; ++fi)
             {
-                ref Frame f = ref mesh.Frames[fi];
+                ref var f = ref mesh.Frames[fi];
                 f.FirstVert = m.GetI32();
                 for (var k = 0; k < 3; ++k)
                     f.Scale[k] = m.GetF32();
@@ -616,13 +616,13 @@ public sealed class ShapeModel
         if (ver < 8)
         {
             // 0x005b9998: the frame-0 box of the mesh of the first object on node 0 replaces centre +- radius.
-            foreach (Object ob in output.Objects)
+            foreach (var ob in output.Objects)
             {
                 if (ob.Node != 0)
                     continue;
                 if (ob.Mesh >= 0 && ob.Mesh < output.Meshes.Length)
                 {
-                    Mesh mesh = output.Meshes[ob.Mesh];
+                    var mesh = output.Meshes[ob.Mesh];
                     Span<float> lo = stackalloc float[3], hi = stackalloc float[3];
                     if (mesh.Frames.Length != 0 && mesh.Vertex(mesh.Frames[0], 0, lo) && mesh.Vertex(mesh.Frames[0], 1, hi))
                     {
@@ -826,7 +826,7 @@ public sealed class ShapeInstance
             int t = model.Nodes[0].DefaultTransform;
             if (t >= 0 && t < model.Transforms.Length)
             {
-                ref ShapeModel.Transform tr = ref model.Transforms[t];
+                ref var tr = ref model.Transforms[t];
                 Span<float> q = stackalloc float[4];
                 for (var k = 0; k < 4; ++k)
                     q[k] = F32Chop(Mul(Shape.kQuatScale, tr.Q[k]));
@@ -844,9 +844,9 @@ public sealed class ShapeInstance
         if (ShapeData == null)
             return;
         using var chop = ChopScope();
-        ShapeModel sh = ShapeData;
-        List<int>[] kids = Shape.ChildLists(sh);
-        List<int> threadsInOrder = Shape.ThreadOrder(this);
+        var sh = ShapeData;
+        var kids = Shape.ChildLists(sh);
+        var threadsInOrder = Shape.ThreadOrder(this);
         var order = new List<int>();
         // 0x005c1210: the "always" node first, then the root of the current detail (0 on a server).
         if (sh.AlwaysNode >= 0 && sh.AlwaysNode < sh.Nodes.Length)
@@ -859,13 +859,13 @@ public sealed class ShapeInstance
                 continue;
             Shape.AnimateObjects(this, threadsInOrder, node);
             var local = new TMat3();
-            TMat3 right = Entries[sh.Nodes[node].Parent];
+            var right = Entries[sh.Nodes[node].Parent];
             if (Shape.ThreadTransform(this, threadsInOrder, node, ref local))
             {
                 // View mode overrides apply on the thread path only.
                 if (OverrideNode[node] != 0 && (ViewMode == 1 || ViewMode == 2))
                 {
-                    TMat3 over = OverrideMatrix;
+                    var over = OverrideMatrix;
                     if (ViewMode == 1)
                     {
                         over.P = right.P;
@@ -887,7 +887,7 @@ public sealed class ShapeInstance
                     continue;
                 Shape.TransformMatrix(sh.Transforms[t], ref local);
             }
-            Shape.TmatMul(local, right, out TMat3 entry);
+            Shape.TmatMul(local, right, out var entry);
             Entries[node] = entry;
         }
     }
@@ -936,7 +936,7 @@ public sealed class ShapeInstance
         if (ShapeData == null)
             return false;
         using var chop = ChopScope();
-        ShapeModel sh = ShapeData;
+        var sh = ShapeData;
         Span<float> S = stackalloc float[3], E = stackalloc float[3];
         if (rel is TMat3 rm)
         {
@@ -958,12 +958,12 @@ public sealed class ShapeInstance
                 continue;
             for (var oi = 0; oi < sh.Objects.Length; ++oi)
             {
-                ref ShapeModel.Object ob = ref sh.Objects[oi];
+                ref var ob = ref sh.Objects[oi];
                 if (ob.Node != node || !Objects[oi].Visible)
                     continue;
                 if (ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                     continue;
-                ShapeModel.Mesh mesh = sh.Meshes[ob.Mesh];
+                var mesh = sh.Meshes[ob.Mesh];
                 var frame = Objects[oi].Frame;
                 if (frame < 0 || frame >= mesh.Frames.Length)
                     continue;
@@ -976,7 +976,7 @@ public sealed class ShapeInstance
                     T = Entries[node]
                 };
                 X87.MulPoint(ob.Offset, c.T.M, Entries[node].P, c.T.P);
-                Shape.TmatInverse(c.T, out TMat3 Ti);
+                Shape.TmatInverse(c.T, out var Ti);
                 X87.MulPoint(S, Ti.M, Ti.P, c.Sm);
                 X87.MulPoint(E, Ti.M, Ti.P, c.Em);
                 if (!mesh.Vertex(mesh.Frames[frame], 0, lo) || !mesh.Vertex(mesh.Frames[frame], 1, hi))
@@ -1017,7 +1017,7 @@ public sealed class ShapeInstance
         Span<float> bestN = stackalloc float[3];
         foreach (var ci in sorted)
         {
-            Candidate c = cands[ci];
+            var c = cands[ci];
             if (!(c.Tval < output.T))
                 break;
             // TSCelAnimMesh_lineFaces (0x005ab0fc, T7.2).
@@ -1027,10 +1027,10 @@ public sealed class ShapeInstance
             var best = output.T;
             var bestFace = -1;
             bestN.Clear();
-            ref ShapeModel.Frame fr = ref c.Mesh.Frames[c.Frame];
+            ref var fr = ref c.Mesh.Frames[c.Frame];
             for (var fi = 0; fi < c.Mesh.Faces.Length; ++fi)
             {
-                ref ShapeModel.Face face = ref c.Mesh.Faces[fi];
+                ref var face = ref c.Mesh.Faces[fi];
                 if (!c.Mesh.Vertex(fr, face.V[0], A) || !c.Mesh.Vertex(fr, face.V[1], B) || !c.Mesh.Vertex(fr, face.V[2], C))
                     continue;
                 for (var i = 0; i < 3; ++i)
@@ -1100,7 +1100,7 @@ public sealed class ShapeInstance
         if (ShapeData == null)
             return false;
         using var chop = ChopScope();
-        ShapeModel sh = ShapeData;
+        var sh = ShapeData;
         Span<float> lo = stackalloc float[3], hi = stackalloc float[3], a = stackalloc float[3];
         foreach (var node in DetailNodes(detail))
         {
@@ -1108,22 +1108,22 @@ public sealed class ShapeInstance
                 continue;
             for (var oi = 0; oi < sh.Objects.Length; ++oi)
             {
-                ref ShapeModel.Object ob = ref sh.Objects[oi];
+                ref var ob = ref sh.Objects[oi];
                 if (ob.Node != node || !Objects[oi].Visible)
                     continue;
                 if (ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                     continue;
-                ShapeModel.Mesh mesh = sh.Meshes[ob.Mesh];
+                var mesh = sh.Meshes[ob.Mesh];
                 var fi = Objects[oi].Frame;
                 if (fi < 0 || fi >= mesh.Frames.Length)
                     continue;
-                ref ShapeModel.Frame frame = ref mesh.Frames[fi];
+                ref var frame = ref mesh.Frames[fi];
                 // TSObjectInstance_boxTest (0x005bf4d8): T and its inverse as T2.7, the box centre frame into mesh
                 // space.
-                TMat3 T = Entries[node];
+                var T = Entries[node];
                 X87.MulPoint(ob.Offset, T.M, Entries[node].P, T.P);
-                Shape.TmatInverse(T, out TMat3 Ti);
-                Shape.TmatMul(rel, Ti, out TMat3 M);
+                Shape.TmatInverse(T, out var Ti);
+                Shape.TmatMul(rel, Ti, out var M);
                 if (!mesh.Vertex(frame, 0, lo) || !mesh.Vertex(frame, 1, hi))
                     continue;
                 // TSCelAnimMesh_boxTest (0x005acff8): the frame box as centre and half extents.
@@ -1153,7 +1153,7 @@ public sealed class ShapeInstance
         if (ShapeData == null)
             return output.Count != 0;
         using var chop = ChopScope();
-        ShapeModel sh = ShapeData;
+        var sh = ShapeData;
         Span<float> P = stackalloc float[3];
         if (rel is TMat3 rm)
             X87.MulPoint(p0, rm.M, rm.P, P);
@@ -1171,20 +1171,20 @@ public sealed class ShapeInstance
                 continue;
             for (var oi = 0; oi < sh.Objects.Length; ++oi)
             {
-                ref ShapeModel.Object ob = ref sh.Objects[oi];
+                ref var ob = ref sh.Objects[oi];
                 if (ob.Node != node || !Objects[oi].Visible)
                     continue;
                 if (ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                     continue;
-                ShapeModel.Mesh mesh = sh.Meshes[ob.Mesh];
+                var mesh = sh.Meshes[ob.Mesh];
                 var fi = Objects[oi].Frame;
                 if (fi < 0 || fi >= mesh.Frames.Length)
                     continue;
-                ref ShapeModel.Frame frame = ref mesh.Frames[fi];
+                ref var frame = ref mesh.Frames[fi];
                 // T2.7: the node entry with the object offset carried into its translation.
-                TMat3 T = Entries[node];
+                var T = Entries[node];
                 X87.MulPoint(ob.Offset, T.M, Entries[node].P, T.P);
-                Shape.TmatInverse(T, out TMat3 Ti);
+                Shape.TmatInverse(T, out var Ti);
                 X87.MulPoint(P, Ti.M, Ti.P, pm);
                 if (!mesh.Vertex(frame, 0, lo) || !mesh.Vertex(frame, 1, hi))
                     continue;
@@ -1205,7 +1205,7 @@ public sealed class ShapeInstance
                     // T4.1 (0x005bf3a0 -> 0x005ac684): every face, then the records into root space.
                     for (var f = 0; f < mesh.Faces.Length; ++f)
                     {
-                        ref ShapeModel.Face face = ref mesh.Faces[f];
+                        ref var face = ref mesh.Faces[f];
                         if (!mesh.Vertex(frame, face.V[0], A) || !mesh.Vertex(frame, face.V[1], B) ||
                             !mesh.Vertex(frame, face.V[2], C))
                             continue;
@@ -1413,7 +1413,7 @@ public static class Shape
     /// <returns>False when the shape is missing or malformed.</returns>
     public static bool ShapeSphere(ResourceManager res, string name, ref float radius, Span<float> center)
     {
-        if (!sSphereCache.TryGetValue(name, out CachedSphere? c))
+        if (!sSphereCache.TryGetValue(name, out var c))
         {
             c = new CachedSphere();
             if (res.Read(name + ".dts", out var data))
@@ -1442,7 +1442,7 @@ public static class Shape
     /// <returns>False when the shape is missing or malformed.</returns>
     public static bool ShapeBox(ResourceManager res, string name, Span<float> box)
     {
-        if (!sBoxCache.TryGetValue(name, out CachedBox? c))
+        if (!sBoxCache.TryGetValue(name, out var c))
         {
             c = new CachedBox();
             if (res.Read(name + ".dts", out var data))
@@ -1671,7 +1671,7 @@ public static class Shape
             var d = Store(Sub(local[i + 3], local[i]));
             e[i] = Store(Mul(d, 0.5f));
         }
-        Vec3 wc = m.ToWorldVector(c);
+        var wc = m.ToWorldVector(c);
         // Extent axis j: sum over i of |m[i*3 + j]| * e[i]; products and partial sums are stored as f64, the result as
         // f32.
         for (var j = 0; j < 3; ++j)
@@ -1830,7 +1830,7 @@ public static class Shape
     /// <returns>The boxes, null without a collision detail.</returns>
     public static List<Float6>? ShapeCollisionBoxes(ResourceManager res, string name)
     {
-        if (!sCollisionCache.TryGetValue(name, out List<Float6>? boxes))
+        if (!sCollisionCache.TryGetValue(name, out var boxes))
         {
             boxes = [];
             if (res.Read(name + ".dts", out var data))
@@ -1967,7 +1967,7 @@ public static class Shape
     /// <param name="output">Receives the inverse.</param>
     public static void TmatInverse(in TMat3 a, out TMat3 output)
     {
-        TMat3 o = a;
+        var o = a;
         if ((a.Flags & 4) == 0)
         {
             (o.M[1], o.M[3]) = (o.M[3], o.M[1]);
@@ -2130,7 +2130,7 @@ public static class Shape
             var n = stack[^1];
             stack.RemoveAt(stack.Count - 1);
             output.Add(n);
-            List<int> k = kids[n];
+            var k = kids[n];
             for (var i = k.Count - 1; i >= 0; --i)
                 stack.Add(k[i]);
         }
@@ -2466,18 +2466,18 @@ public static class Shape
     // controls the node.
     internal static bool ThreadTransform(ShapeInstance inst, List<int> order, int node, ref TMat3 local)
     {
-        ShapeModel sh = inst.ShapeData!;
-        ref ShapeModel.Node nd = ref sh.Nodes[node];
+        var sh = inst.ShapeData!;
+        ref var nd = ref sh.Nodes[node];
         foreach (var ti in order)
         {
-            ShapeThread th = inst.Threads[ti];
+            var th = inst.Threads[ti];
             if (SubSequenceFor(sh, nd.FirstSub, nd.NumSub, th.Sequence) < 0)
                 continue;
             var sub = NodeSubSequence(sh, nd, th.Sequence);
             if (sub < 0 || !FindKeys(sh, sh.SubSequences[sub], th.Position, out var lo, out var hi, out var frac))
                 return false; // the original reads through a null sub-sequence here (D11)
-            ref ShapeModel.Key ka = ref sh.Keys[lo];
-            ref ShapeModel.Key kb = ref sh.Keys[hi];
+            ref var ka = ref sh.Keys[lo];
+            ref var kb = ref sh.Keys[hi];
             if (ka.Index >= sh.Transforms.Length || kb.Index >= sh.Transforms.Length)
                 return false;
             inst.NodeActive[node] = (byte)((ka.Flags & 0x8000) != 0 ? 1 : 0);
@@ -2492,16 +2492,16 @@ public static class Shape
     // threads from the last to the first of the vector order, each key overriding what its flags mark as valid.
     private static void ObjectThreadState(ShapeInstance inst, List<int> order, int obj, ref ShapeInstance.ObjectState st)
     {
-        ShapeModel sh = inst.ShapeData!;
-        ref ShapeModel.Object ob = ref sh.Objects[obj];
+        var sh = inst.ShapeData!;
+        ref var ob = ref sh.Objects[obj];
         for (var i = order.Count; i-- > 0;)
         {
-            ShapeThread th = inst.Threads[order[i]];
+            var th = inst.Threads[order[i]];
             var sub = SubSequenceFor(sh, ob.FirstSub, ob.NumSub, th.Sequence);
             var key = sub >= 0 ? CurrentKey(sh, sh.SubSequences[sub], th.Position) : -1;
             if (key < 0)
                 continue;
-            ref ShapeModel.Key k = ref sh.Keys[key];
+            ref var k = ref sh.Keys[key];
             if ((k.Flags & 0x1000) != 0)
                 st.Frame = k.Index;
             if ((k.Flags & 0x4000) != 0)
@@ -2541,13 +2541,13 @@ public static class Shape
     // node.
     internal static void AnimateObjects(ShapeInstance inst, List<int> order, int node)
     {
-        ShapeModel sh = inst.ShapeData!;
+        var sh = inst.ShapeData!;
         for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
-            ref ShapeModel.Object ob = ref sh.Objects[oi];
+            ref var ob = ref sh.Objects[oi];
             if (ob.Node != node)
                 continue;
-            ref ShapeInstance.ObjectState st = ref inst.Objects[oi];
+            ref var st = ref inst.Objects[oi];
             st.Frame = 0;
             st.Visible = (ob.Flags & 1) == 0;
             ObjectThreadState(inst, order, oi, ref st);
@@ -2600,8 +2600,8 @@ public static class Shape
             Span<float> e = stackalloc float[3], w = stackalloc float[3], x = stackalloc float[3];
             for (var i = 0; i < 3 && !emit; ++i)
             {
-                ReadOnlySpan<float> v0 = i == 0 ? a : i == 1 ? b : c;
-                ReadOnlySpan<float> v1 = i == 0 ? b : i == 1 ? c : a;
+                var v0 = i == 0 ? a : i == 1 ? b : c;
+                var v1 = i == 0 ? b : i == 1 ? c : a;
                 for (var j = 0; j < 3; ++j)
                 {
                     e[j] = F32Chop(Sub(v1[j], v0[j]));
@@ -2714,7 +2714,7 @@ public static class Shape
                 return false;
         }
         // 7 to 15: the edge pairs, frame axis i against box axis r (extended sums, pass on >=).
-        foreach (Edge e in sEdges)
+        foreach (var e in sEdges)
         {
             var p = Mag(Sub(Mul(t[e.Ta], m[e.Ma]), Mul(t[e.Tb], m[e.Mb])));
             var reach = Add(Add(Add(Mul(a[e.A0], C[(3 * e.C0r) + e.C0c]), Mul(a[e.A1], C[(3 * e.C1r) + e.C1c])),
@@ -2758,9 +2758,9 @@ public static class Shape
         using var chop = ChopScope();
         // T2.3: list -> world = X x image transform, rel = line image (identity) x its inverse.
         var identity = new TMat3();
-        TmatMul(inst.Root, obj, out TMat3 toWorld);
-        TmatInverse(toWorld, out TMat3 inv);
-        TmatMul(identity, inv, out TMat3 rel);
+        TmatMul(inst.Root, obj, out var toWorld);
+        TmatInverse(toWorld, out var inv);
+        TmatMul(identity, inv, out var rel);
         var sf = new ShapeSurface();
         if (!inst.CastLine(s, e, faces, rel, ref sf))
             return false;

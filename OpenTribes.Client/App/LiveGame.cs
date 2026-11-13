@@ -118,7 +118,7 @@ public sealed class LiveGame : IDisposable
             SkinBase = Or(interp.PeekVariable("$PCFG::SkinBase"), "base"),
         };
         Hook(Net.World);
-        ClientWorld netWorld = Net.World;
+        var netWorld = Net.World;
         Net.Prediction.Turret.Resolve = ResolveTurretAim;
         Net.OnConnection = (msg, reason) =>
         {
@@ -312,13 +312,13 @@ public sealed class LiveGame : IDisposable
     {
         if (!mCommandMapDirty)
             return mCommandMap;
-        TerrainRenderer? terrain = Scene?.TerrainDraw;
+        var terrain = Scene?.TerrainDraw;
         if (terrain == null)
             return mCommandMap;
         double[] area = [1230, 1230, 1400, 1400];
         if (World.Ghosts.All().FirstOrDefault(g => g.Class == "MissionCenterPos")?.State.GetValueOrDefault("rect") is double[] { Length: 4 } r)
             area = r;
-        PaletteBank bank = Scene!.Assets.Palette;
+        var bank = Scene!.Assets.Palette;
         var picture = terrain.RenderCommandMap(area[0], area[1], area[2], area[3], (r8, g8, b8) => bank.NearestColor(r8, g8, b8));
         mCommandMap = new CommandMapPicture((float)area[0], (float)area[1], (float)area[2], (float)area[3], CommandMapBake.Tiles(picture));
         mCommandMapDirty = false;
@@ -341,8 +341,8 @@ public sealed class LiveGame : IDisposable
         mSceneTried = true;
         if (mApp.Dev == null)
             return;
-        List<MissionObject> env = DemoRender.EnvironmentObjects(World);
-        foreach (MissionObject o in env.Where(o => o.Class == "SimVolume"))
+        var env = DemoRender.EnvironmentObjects(World);
+        foreach (var o in env.Where(o => o.Class == "SimVolume"))
             mApp.Res.AddVolume(o.Get("fileName"));
         var name = IsDemo ? DemoName : Mission;
         Scene = WorldScene.LoadFrom(mApp.Dev, mApp.Res, name, env, out var error, mApp.Gamma);
@@ -379,7 +379,7 @@ public sealed class LiveGame : IDisposable
             if (Net?.PredictWorld is not { } pw)
                 return null;
             object? self = ghost == World.Psc.ControlGhost ? Net.Prediction.Object
-                           : Net.Remote.Players.TryGetValue(ghost, out RemotePlayer? rp) ? rp.P : null;
+                           : Net.Remote.Players.TryGetValue(ghost, out var rp) ? rp.P : null;
             object? obj = null;
             OpenTribes.World.Vec3 hit = default, normal = default;
             return pw.Game.World.CastRay(new OpenTribes.World.Vec3((float)a.Item1, (float)a.Item2, (float)a.Item3),
@@ -408,7 +408,7 @@ public sealed class LiveGame : IDisposable
         if (mApp.PlayViewActive)
             mApp.SetPalette(Scene.Assets.Palette);
         mApp.Log($"scene: {name}, {env.Count} environment objects, terrain visible {Scene.Terrain.Visible}");
-        foreach (DecodedPacket q in mQueued)
+        foreach (var q in mQueued)
             Model.OnPacket(q);
         mQueued.Clear();
     }
@@ -421,7 +421,7 @@ public sealed class LiveGame : IDisposable
             return null;
         if (mApp.Opt.FixedCamera is { } fc)
             return new DemoRender.CameraPose(fc[0], fc[1], fc[2], fc[3], fc[4], false, -1);
-        DemoRender.CameraPose? pose = DemoRender.ControlCamera(Model, World);
+        var pose = DemoRender.ControlCamera(Model, World);
         if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && pose is { FirstPerson: true } cp)
         {
             var d = Net.Prediction.DisplayPosition();
@@ -443,7 +443,7 @@ public sealed class LiveGame : IDisposable
         if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && mApp.Play.Moves.ViewDist >= 0.01f)
         {
             var predicted = Net.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active;
-            Player? body = predicted ? (Player)Net.Prediction.Object! : null;
+            var body = predicted ? (Player)Net.Prediction.Object! : null;
             var bp = World.Psc.ControlState.TryGetValue("pos", out var pv) ? Db.Vec(pv) : new double[3];
             var d = predicted ? Net.Prediction.DisplayPosition() : [(float)bp[0], (float)bp[1], (float)bp[2]];
             pose = DemoRender.ChaseCamera(Model, fp.ControlGhost, d[0], d[1], d[2], fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180,
@@ -453,14 +453,14 @@ public sealed class LiveGame : IDisposable
         // view distance (placeBehind with the vehicle ignored) and with pitch and roll scaled while the distance is not 0.
         if (Model != null && World.Psc.ControlClass is "Vehicle" or "Flier" && World.Psc.ControlGhost >= 0 && Net != null)
         {
-            Vehicle? self = Net.PredictWorld != null && Net.Remote.Vehicles.TryGetValue(World.Psc.ControlGhost, out RemoteVehicle? rv) ? rv.V : null;
+            var self = Net.PredictWorld != null && Net.Remote.Vehicles.TryGetValue(World.Psc.ControlGhost, out var rv) ? rv.V : null;
             var dist = mApp.Play.Moves.ViewDist;
             pose = DemoRender.VehicleCamera(Model, World.Psc.ControlGhost, dist, self != null ? Net.PredictWorld!.Game.World : null, self) ?? pose;
         }
         // Turret_getCameraTransform 004564fc: the aim is the ghost's, replayed with the buffered moves (Turret_clientUpdate 00456428).
         if (Model != null && World.Psc.ControlClass == "Turret" && World.Psc.ControlGhost >= 0 && Net is { Prediction.Turret.Active: true } tn)
         {
-            TurretControl tc = tn.Prediction.Turret;
+            var tc = tn.Prediction.Turret;
             pose = DemoRender.TurretCamera(Model, World.Psc.ControlGhost, tc.Rotation, tc.Elevation, mApp.Play.Moves.ViewDist,
                                            Net.PredictWorld?.Game.World, null) ?? pose;
         }
@@ -481,14 +481,14 @@ public sealed class LiveGame : IDisposable
     /// <remarks>FUN_004ada90 calls vtable +0x110 and +0x10c of the control object (004adacd, 004ae719). The vehicle fire counter (+0x948) is the one the ghost stream set: the owner only ghost of the pilot carries none, so it keeps the value of an earlier update or 0.</remarks>
     public HudControlAim? ControlAimInputs(int ghost)
     {
-        if (Model == null || !Model.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || World.Ghosts.Get(ghost) is not { } g)
+        if (Model == null || !Model.Visuals.TryGetValue(ghost, out var v) || v is not ShapeVisual sv || World.Ghosts.Get(ghost) is not { } g)
             return null;
         var cls = World.Psc.ControlClass;
         Sim.Transform obj, eye, muzzle;
         bool haveMuzzle;
         if (cls is "Vehicle" or "Flier")
         {
-            if (!sv.TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out Sim.Transform? eyeNode, out _))
+            if (!sv.TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out var eyeNode, out _))
                 return null;
             eye = ControlAim.VehicleEye(obj, eyeNode);
             var fire = g.State.TryGetValue("f948", out var fv) ? Convert.ToInt32(fv, CultureInfo.InvariantCulture) : 0;
@@ -498,7 +498,7 @@ public sealed class LiveGame : IDisposable
                 for (var i = 1; i < 256 && s.FindNode("dummy muzzle" + i.ToString(CultureInfo.InvariantCulture)) is int n and >= 0; ++i)
                     table.Add(n);
                 return ControlAim.VehicleMuzzleNode(s.FindNode("dummy muzzle"), table, fire);
-            }, out _, out Sim.Transform? muzzleNode, out _);
+            }, out _, out var muzzleNode, out _);
             haveMuzzle = ControlAim.VehicleMuzzle(obj, muzzleNode, out muzzle);
         }
         else if (cls == "Turret")
@@ -508,8 +508,8 @@ public sealed class LiveGame : IDisposable
                 (rot, elev) = (tn.Prediction.Turret.Rotation, tn.Prediction.Turret.Elevation);
             else
                 (rot, elev) = ((float)Db.ToDouble(g.State.GetValueOrDefault("aimRot"), 0), (float)Db.ToDouble(g.State.GetValueOrDefault("aimElev"), 0));
-            if (!sv.TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out Sim.Transform? eyeNode, out _)
-                || !sv.TryNodeInputs(s => s.FindNode("dummy muzzle"), out _, out Sim.Transform? muzzleNode, out var shape))
+            if (!sv.TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out var eyeNode, out _)
+                || !sv.TryNodeInputs(s => s.FindNode("dummy muzzle"), out _, out var muzzleNode, out var shape))
                 return null;
             eye = ControlAim.TurretNode(obj, eyeNode, rot, elev);
             // Turret_getMuzzleTransform 004565e0: false without a shape instance, else the node transform (the object transform without the node).
@@ -527,11 +527,11 @@ public sealed class LiveGame : IDisposable
     // The image state of the control player runs once per prediction step, replays included (ImageStateMachine.Stepped).
     private void FeedControlImages()
     {
-        ClientPsc psc = World.Psc;
+        var psc = World.Psc;
         var total = Net?.Prediction.Steps ?? 0;
         var steps = (int)Math.Max(0, total - mImageSteps);
         mImageSteps = total;
-        if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not PlayerVisual pv)
+        if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not PlayerVisual pv)
             return;
         var predicted = Net?.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active && psc.ControlClass == "Player";
         pv.SetImageSteps(predicted, steps);
@@ -543,14 +543,14 @@ public sealed class LiveGame : IDisposable
     /// <remarks>CompassHud (004e7e5c) reads vtable +0x178 = Euler z of the transform of the object (00413850): a piloted Vehicle or Flier as drawn, a Player on a mount (passenger) the Euler z of its mount transform.</remarks>
     public double? ControlHeading(int ghost)
     {
-        ClientPsc psc = World.Psc;
+        var psc = World.Psc;
         if (ghost != psc.ControlGhost || Model == null)
             return null;
         if (psc.ControlClass is "Vehicle" or "Flier")
-            return Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual { Driven: true } sv ? sv.HeadingRad : null;
+            return Model.Visuals.TryGetValue(ghost, out var v) && v is ShapeVisual { Driven: true } sv ? sv.HeadingRad : null;
         // Turret vtable +0x178 (00452d28): the aim rotation (+0x8b4) plus the rotation z of the object (+0x24c).
         if (psc.ControlClass == "Turret" && Net is { Prediction.Turret.Active: true } tn)
-            return Model.Visuals.TryGetValue(ghost, out Visual? tv) && tv is ShapeVisual tsv ? (float)(tn.Prediction.Turret.Rotation + tsv.HeadingRad) : null;
+            return Model.Visuals.TryGetValue(ghost, out var tv) && tv is ShapeVisual tsv ? (float)(tn.Prediction.Turret.Rotation + tsv.HeadingRad) : null;
         if (psc.ControlClass == "Player" && Net?.PredictWorld != null && Net.Prediction.Object is Player { MountId: not 0 } p && Net.Prediction.Active)
         {
             var e = new float[3];
@@ -563,8 +563,8 @@ public sealed class LiveGame : IDisposable
     // The control player's visual follows the prediction (else the control state), see ControlSample.
     private void FeedControlPlayer()
     {
-        ClientPsc psc = World.Psc;
-        if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not PlayerVisual pv)
+        var psc = World.Psc;
+        if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not PlayerVisual pv)
             return;
         ControlSample? s;
         if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && psc.ControlClass == "Player")
@@ -590,9 +590,9 @@ public sealed class LiveGame : IDisposable
     // the drawn shape follows the predicted copy (Flier_clientUpdate 0042e254), else the control state (rotation, position).
     private void FeedControlVehicle()
     {
-        ClientPsc psc = World.Psc;
+        var psc = World.Psc;
         if (psc.ControlClass is not ("Vehicle" or "Flier") || psc.ControlGhost < 0 || Model == null
-            || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not ShapeVisual sv)
+            || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not ShapeVisual sv)
             return;
         if (Net?.PredictWorld != null && Net.Prediction.Object is Vehicle o && Net.Prediction.Active)
         {
@@ -611,14 +611,14 @@ public sealed class LiveGame : IDisposable
     // the shape (Turret_onNewDataBlock 00452970). Null until the scene has the visual.
     private TurretAimParams? ResolveTurretAim(ClientGhost g)
     {
-        if (Model == null || !Model.Visuals.TryGetValue(g.Index, out Visual? v) || v is not ShapeVisual sv)
+        if (Model == null || !Model.Visuals.TryGetValue(g.Index, out var v) || v is not ShapeVisual sv)
             return null;
         if (!g.State.TryGetValue("datablock", out var di) || di is not long idx
-            || !World.DataBlocks.Blocks.TryGetValue((19, (int)idx), out ClientDataBlock? b))
+            || !World.DataBlocks.Blocks.TryGetValue((19, (int)idx), out var b))
             return null;
         double F(string name, double def)
         {
-            foreach (DecodedField f in b.Fields)
+            foreach (var f in b.Fields)
                 if (f.Name == name)
                     return Db.ToDouble(f.Value, def);
             return def;
@@ -630,11 +630,11 @@ public sealed class LiveGame : IDisposable
     // The control Turret draws the aim the client keeps (TurretControl): its ghost is owner-only and carries no rotation or elevation.
     private void FeedControlTurret()
     {
-        ClientPsc psc = World.Psc;
+        var psc = World.Psc;
         if (psc.ControlClass != "Turret" || psc.ControlGhost < 0 || Model == null || Net is not { Prediction.Turret.Active: true } n
-            || !Model.Visuals.TryGetValue(psc.ControlGhost, out Visual? v) || v is not ShapeVisual sv)
+            || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not ShapeVisual sv)
             return;
-        TurretControl tc = n.Prediction.Turret;
+        var tc = n.Prediction.Turret;
         sv.TryElevationLimits(out var min, out var max);
         sv.SetTurretAim(tc.Rotation, tc.Elevation, min, max);
     }
@@ -651,15 +651,15 @@ public sealed class LiveGame : IDisposable
     {
         if (Model == null)
             return;
-        RemoteGhosts? rg = Net?.PredictWorld != null ? Net.Remote : null;
-        foreach (Visual v in Model.Visuals.Values)
+        var rg = Net?.PredictWorld != null ? Net.Remote : null;
+        foreach (var v in Model.Visuals.Values)
         {
             if (v is PlayerVisual pv)
             {
-                if (rg != null && rg.Players.TryGetValue(v.Index, out RemotePlayer? rp))
+                if (rg != null && rg.Players.TryGetValue(v.Index, out var rp))
                 {
                     pv.Driven = true;
-                    Player p = rp.P;
+                    var p = rp.P;
                     var yaw = p.Rotation[2];
                     (pv.TiltX, pv.TiltY) = (p.Rotation[0], p.Rotation[1]);
                     if (p.MountId != 0)
@@ -678,10 +678,10 @@ public sealed class LiveGame : IDisposable
             }
             else if (v is ShapeVisual sv)
             {
-                if (rg != null && v.Index != World.Psc.ControlGhost && rg.Vehicles.TryGetValue(v.Index, out RemoteVehicle? rv))
+                if (rg != null && v.Index != World.Psc.ControlGhost && rg.Vehicles.TryGetValue(v.Index, out var rv))
                 {
                     sv.Driven = true;
-                    Vehicle o = rv.V;
+                    var o = rv.V;
                     sv.SetSmoothed(o.Rotation[0], o.Rotation[1], o.Rotation[2], o.Transform.P[0], o.Transform.P[1], o.Transform.P[2]);
                     FlierThreads(sv, o);
                 }
@@ -698,7 +698,7 @@ public sealed class LiveGame : IDisposable
     {
         if (mAudio == null)
             return;
-        DemoRender.CameraPose? c = Camera();
+        var c = Camera();
         if (c is { } pose)
             mAudio.SetListener(pose.X, pose.Y, pose.Z, pose.YawDeg * Math.PI / 180);
         mAudio.Frame(dt);
@@ -718,10 +718,10 @@ public sealed class LiveGame : IDisposable
     {
         if (Scene == null || Model == null)
             return false;
-        DemoRender.CameraPose? pose = Camera();
+        var pose = Camera();
         if (pose == null)
             return false;
-        DemoRender.CameraPose c = pose.Value;
+        var c = pose.Value;
         var ctx = new FrameContext { HazeStart = Scene.Terrain.HazeStart, Visible = Scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
         var precip = mApp.Interp.PeekVariable("$pref::weatherPrecipitation");
         Model.WeatherPrecipitation = precip.Length == 0 || Numbers.ParseBool(precip);

@@ -70,7 +70,7 @@ public sealed class DataBlockManager
         /// <returns>The field, or null.</returns>
         public Field? Find(string name)
         {
-            foreach (Field f in Fields)
+            foreach (var f in Fields)
                 if (SimClasses.EqualsNoCase(f.Def.Name, name))
                     return f;
             return null;
@@ -235,7 +235,7 @@ public sealed class DataBlockManager
             output.Insert(0, c);
             ClassDef? parent = null;
             if (c.Parent != null)
-                foreach (ClassDef k in DataBlockTables.kClasses)
+                foreach (var k in DataBlockTables.kClasses)
                     if (SimClasses.EqualsNoCase(k.Name, c.Parent))
                         parent = k;
             c = parent;
@@ -259,7 +259,7 @@ public sealed class DataBlockManager
     /// <returns>The class, or null.</returns>
     public static ClassDef? FindClass(string name)
     {
-        foreach (ClassDef c in DataBlockTables.kClasses)
+        foreach (var c in DataBlockTables.kClasses)
             if (SimClasses.EqualsNoCase(c.Name, name))
                 return c;
         return null;
@@ -273,7 +273,7 @@ public sealed class DataBlockManager
         if (name == null)
             return null;
         var key = mStrings.Lookup(name);
-        return key != null && mNames.TryGetValue(key, out Block? b) ? b : null;
+        return key != null && mNames.TryGetValue(key, out var b) ? b : null;
     }
 
     /// <summary>Gets a block by group and index.</summary>
@@ -296,8 +296,8 @@ public sealed class DataBlockManager
     /// <param name="f">The visitor.</param>
     public void ForEach(Action<Block> f)
     {
-        foreach (List<Block> g in mGroups)
-            foreach (Block b in g)
+        foreach (var g in mGroups)
+            foreach (var b in g)
                 f(b);
     }
 
@@ -312,7 +312,7 @@ public sealed class DataBlockManager
             mPrint("warning: data block " + mStrings.Intern(name) + " already declared");
             return false;
         }
-        ClassDef? cls = FindClass(className);
+        var cls = FindClass(className);
         if (cls == null || !cls.Creatable || cls.Group < 0)
         {
             // Abstract classes and those without a factory crash the original (D11).
@@ -320,8 +320,8 @@ public sealed class DataBlockManager
             return false;
         }
         var b = new Block { Cls = cls, Name = mStrings.Intern(name), Group = cls.Group, Index = mGroups[cls.Group].Count };
-        foreach (ClassDef c in Chain(cls))
-            foreach (FieldDef f in c.Fields)
+        foreach (var c in Chain(cls))
+            foreach (var f in c.Fields)
                 b.Fields.Add(new Field(f, f.Count));
         // ItemData and MineData constructors write a different description (5, notes).
         if (cls.Group is 5 or 23)
@@ -338,7 +338,7 @@ public sealed class DataBlockManager
     // src/game/datablocks.cpp DataBlockManager::lookupInGroup.
     private int LookupInGroup(int group, string name)
     {
-        List<Block> g = mGroups[group];
+        var g = mGroups[group];
         for (var i = 0; i < g.Count; ++i)
             if (SimClasses.EqualsNoCase(g[i].Name, name))
                 return i;
@@ -351,7 +351,7 @@ public sealed class DataBlockManager
     // src/game/datablocks.cpp DataBlockManager::read.
     private string Read(Field f, int i)
     {
-        Value v = f.Elems[i];
+        var v = f.Elems[i];
         var type = f.Def.Type;
         if (!v.Set)
         {
@@ -380,7 +380,7 @@ public sealed class DataBlockManager
     // src/game/datablocks.cpp DataBlockManager::write.
     private void Write(Field f, int i, IReadOnlyList<string> vals)
     {
-        Value v = f.Elems[i];
+        var v = f.Elems[i];
         var type = f.Def.Type;
         bool Single(string what)
         {
@@ -476,7 +476,7 @@ public sealed class DataBlockManager
             case 19:
             case 21:
             {
-                RefMessages m = RefMessagesOf(type)!;
+                var m = RefMessagesOf(type)!;
                 if (vals.Count != 1)
                 {
                     mPrint(m.Multi);
@@ -624,7 +624,7 @@ public sealed class DataBlockManager
     public bool GetField(Block b, string field, string index, out string output)
     {
         output = "";
-        Field? f = b.Find(field);
+        var f = b.Find(field);
         if (f == null)
         {
             mPrint("No such field: " + field + " in block type " + b.Name);
@@ -652,7 +652,7 @@ public sealed class DataBlockManager
     /// <param name="index">The array index, or empty or -1 for the whole field.</param>
     public void SetField(Block b, string field, IReadOnlyList<string> values, string index)
     {
-        Field? f = b.Find(field);
+        var f = b.Find(field);
         if (f == null)
             return; // FA5: unknown fields are ignored on write
         var count = f.Def.Count;
@@ -690,18 +690,18 @@ public sealed class DataBlockManager
         var ok = true;
         static string Text(Block b, string field)
         {
-            Field? f = b.Find(field);
+            var f = b.Find(field);
             return f != null && f.Elems[0].Set && f.Elems[0].Str != null ? f.Elems[0].Str! : "";
         }
         static bool Flag(Block b, string field)
         {
-            Field? f = b.Find(field);
+            var f = b.Find(field);
             return f != null && f.Elems[0].Set && f.Elems[0].I != 0;
         }
         const string kMissing = ".dts.  The server has new art data you are missing.  Check server info for possible download locations.";
         for (var g = 0; g <= 30; ++g)
         {
-            foreach (Block b in mGroups[g])
+            foreach (var b in mGroups[g])
             {
                 var cls = b.Cls.Name;
                 var shapeBase = b.Find("shapeFile") != null && b.Find("maxDamage") != null;

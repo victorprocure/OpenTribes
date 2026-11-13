@@ -66,7 +66,7 @@ public sealed class ClientEvents
                 sb.Append("\\r");
             else if (c == '\t')
                 sb.Append("\\t");
-            else if (c is < (char)0x20 or (char)0x7f or >= (char)0x80 and < (char)0xa0)
+            else if (c is < (char)0x20 or (char)0x7f or (>= (char)0x80 and < (char)0xa0))
                 sb.Append("\\x").Append(((int)c).ToString("x2", CultureInfo.InvariantCulture));
             else
                 sb.Append(c);
@@ -150,7 +150,7 @@ public sealed class ClientEvents
         if (((e.Seq - mExpectedSeq) & 0x7f) >= 64)
             return; // behind the window
         mPending[e.Seq] = e;
-        while (mPending.TryGetValue(mExpectedSeq, out DecodedEvent? next))
+        while (mPending.TryGetValue(mExpectedSeq, out var next))
         {
             mPending.Remove(mExpectedSeq);
             mExpectedSeq = (mExpectedSeq + 1) & 0x7f;
@@ -166,7 +166,7 @@ public sealed class ClientEvents
 
     private void Unpack(ClientReader r, DecodedEvent e)
     {
-        ClientPlayerManager pm = mWorld.Players;
+        var pm = mWorld.Players;
         switch (e.Tag)
         {
             case 0x401: // SimMessageEvent
@@ -313,7 +313,7 @@ public sealed class ClientEvents
                 e.Text = "client=" + id;
                 e.Apply = () =>
                 {
-                    ClientPlayerRecord? rec = pm.Get(id);
+                    var rec = pm.Get(id);
                     if (rec == null)
                         return;
                     if (!rec.Ai)
@@ -353,7 +353,7 @@ public sealed class ClientEvents
                     }
                     else if (who == -1)
                         pm.TeamHeading = text;
-                    else if (pm.Teams.TryGetValue(who, out ClientTeam? t))
+                    else if (pm.Teams.TryGetValue(who, out var t))
                     {
                         t.ScoreText = text;
                         t.SortValue = (int)score;
@@ -389,7 +389,7 @@ public sealed class ClientEvents
                     pm.TeamCount = -1;
                     pm.WaypointTarget = -1;      // 006a83e4
                     pm.Teams.Clear();
-                    foreach (ClientPlayerRecord rec in pm.Clients.Values)
+                    foreach (var rec in pm.Clients.Values)
                     {
                         rec.Commander = -1;
                         rec.CommandStatus = 0;
@@ -411,10 +411,10 @@ public sealed class ClientEvents
                     rec.Team = team;
                     // The record takes the skin of the new team [code 00406bc4 case 7: record +0xa0 = team +0xc], so a player whose
                     // client never got a PlayerSkinEvent (the server sets no skin on a team change) shows the team colours.
-                    if (team >= 0 && pm.Teams.TryGetValue(team, out ClientTeam? skinTeam))
+                    if (team >= 0 && pm.Teams.TryGetValue(team, out var skinTeam))
                         rec.Skin = skinTeam.Skin;
                     pm.Script("onClientChangeTeam(" + id + ", " + team + ");");
-                    if (team >= 0 && pm.Teams.TryGetValue(team, out ClientTeam? t))
+                    if (team >= 0 && pm.Teams.TryGetValue(team, out var t))
                         pm.Message(rec.Name + " joined team " + t.Name + ".");
                     else
                         pm.Message(rec.Name + " is no longer on a team.");
@@ -493,7 +493,7 @@ public sealed class ClientEvents
                         return;
                     if (!ack)
                     {
-                        ClientPlayerRecord? who = pm.Get(issuer);
+                        var who = pm.Get(issuer);
                         if (who == null)
                             return;
                         rec.CommandStatus = (int)status;

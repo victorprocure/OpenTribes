@@ -24,19 +24,19 @@ public class ControlAimTests
     [Fact]
     public void VehicleEyeIsTheNodeTimesTheObjectTransform()
     {
-        Transform o = Obj(10, 20, 30);
+        var o = Obj(10, 20, 30);
         o.M[0] = 0;
         o.M[1] = 1;
         o.M[3] = -1;
         o.M[4] = 0;      // yaw 90 degrees: object x is world y
-        Transform eye = ControlAim.VehicleEye(o, Node(0, 1, 2));
+        var eye = ControlAim.VehicleEye(o, Node(0, 1, 2));
         Assert.Equal([9f, 20f, 32f], new[] { eye.P[0], eye.P[1], eye.P[2] });
     }
 
     [Fact]
     public void VehicleEyeWithoutTheNodeIsTheObjectTransform()
     {
-        Transform eye = ControlAim.VehicleEye(Obj(1, 2, 3), null);
+        var eye = ControlAim.VehicleEye(Obj(1, 2, 3), null);
         Assert.Equal([1f, 2f, 3f], new[] { eye.P[0], eye.P[1], eye.P[2] });
     }
 
@@ -54,7 +54,7 @@ public class ControlAimTests
     [Fact]
     public void VehicleMuzzleWithoutANodeReportsFalseAndCopiesTheObject()
     {
-        Assert.False(ControlAim.VehicleMuzzle(Obj(4, 5, 6), null, out Transform m));
+        Assert.False(ControlAim.VehicleMuzzle(Obj(4, 5, 6), null, out var m));
         Assert.Equal(5f, m.P[1]);
         Assert.True(ControlAim.VehicleMuzzle(Obj(4, 5, 6), Node(1, 1, 1), out m));
         Assert.Equal([5f, 6f, 7f], new[] { m.P[0], m.P[1], m.P[2] });
@@ -63,10 +63,10 @@ public class ControlAimTests
     [Fact]
     public void TurretNodeIsTheTurretCameraAtDistanceZero()
     {
-        Transform o = Obj(100, 200, 300);
-        Transform n = Node(0.5f, 0.25f, 2f);
-        Transform a = ControlAim.TurretNode(o, n, 0.7f, 0.2f);
-        Transform b = TurretCamera.Compute(o, n, 0.7f, 0.2f, 0f, null, null);
+        var o = Obj(100, 200, 300);
+        var n = Node(0.5f, 0.25f, 2f);
+        var a = ControlAim.TurretNode(o, n, 0.7f, 0.2f);
+        var b = TurretCamera.Compute(o, n, 0.7f, 0.2f, 0f, null, null);
         for (var i = 0; i < 3; ++i)
             Assert.Equal(b.P[i], a.P[i]);
         for (var i = 0; i < 9; ++i)
@@ -117,7 +117,7 @@ public class ControlAimTests
     public void VehiclePilotGetsAStraightLineMarkerThatNeverReachesWithTheDistanceFromTheTwiceTransformedMuzzle(string cls)
     {
         var (_, src) = Scene(cls, 0, new float[3]);
-        HudTargetMarker m = Assert.Single(src.TargetMarkers(640, 480));
+        var m = Assert.Single(src.TargetMarkers(640, 480));
         Assert.NotNull(m.Low);
         Assert.False(m.Low!.Value.Reaches);
         Assert.Null(m.High);
@@ -166,7 +166,7 @@ public class ControlAimTests
     public void TurretWithoutAProjectileGetsTheStraightLineMarker()
     {
         var (_, src) = Scene("Turret", 0, new float[3]);
-        HudTargetMarker m = Assert.Single(src.TargetMarkers(640, 480));
+        var m = Assert.Single(src.TargetMarkers(640, 480));
         Assert.False(m.Low!.Value.Reaches);
         Assert.Null(m.High);
     }
@@ -185,7 +185,7 @@ public class ControlAimTests
         bullet.Fields.Add(new DecodedField("field@0x68", 1000.0));
         bullet.Fields.Add(new DecodedField("totalTime", 5.0));
         world.DataBlocks.Blocks[(Projectile.kBulletGroup, 0)] = bullet;
-        HudTargetMarker m = Assert.Single(src.TargetMarkers(640, 480));
+        var m = Assert.Single(src.TargetMarkers(640, 480));
         Assert.True(m.Low!.Value.Reaches);
     }
 }

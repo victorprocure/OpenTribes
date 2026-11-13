@@ -37,7 +37,7 @@ public sealed class ClientChatDisplayTests
     [Fact]
     public void SizeActionResizesTheControl()
     {
-        GuiChatDisplay d = Display(3);
+        var d = Display(3);
         d.SetLines(-1);
         Assert.Equal(5, d.Lines);
         Assert.Equal((5 * 13) + GuiChatDisplay.HeightPad, d.H);
@@ -48,11 +48,11 @@ public sealed class ClientChatDisplayTests
     public void SizeMemoryAppliesToAReloadedDisplay()
     {
         var memory = new ChatSizeMemory();
-        GuiChatDisplay first = Display(3);
+        var first = Display(3);
         first.SetLines(-1);
         first.SetLines(-1);
         memory.Remember(140114, first);
-        GuiChatDisplay reloaded = Display(3);
+        var reloaded = Display(3);
         Assert.False(memory.Apply(140200, reloaded));
         Assert.Equal(3, reloaded.Lines);
         Assert.True(memory.Apply(140114, reloaded));
@@ -63,7 +63,7 @@ public sealed class ClientChatDisplayTests
     [Fact]
     public void ParentResizeSwitchesTheWidthAndKeepsThePosition()
     {
-        GuiChatDisplay d = Display(3);
+        var d = Display(3);
         d.ParentResized(640, 480, 400, 300);
         Assert.Equal((132, 9, 240, 45), (d.X, d.Y, d.W, d.H));
         d.ParentResized(400, 300, 640, 480);
@@ -73,7 +73,7 @@ public sealed class ClientChatDisplayTests
     [Fact]
     public void ParentResizePullsTheWindowInsideASmallSurface()
     {
-        GuiChatDisplay d = Display(3);
+        var d = Display(3);
         d.ParentResized(640, 480, 200, 100);
         Assert.Equal((1, 9, 199, 45), (d.X, d.Y, d.W, d.H));
         d.ParentResized(200, 100, 200, 30);

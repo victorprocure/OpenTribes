@@ -199,7 +199,7 @@ public sealed class GuiSession
                 case "clickctl":
                 case "where":
                 {
-                    GuiControl? c = Runtime.FindControl(a[0]);
+                    var c = Runtime.FindControl(a[0]);
                     if (c == null)
                     { Log("input: no control " + a[0]); break; }
                     var (gx, gy) = c.GlobalOrigin();
@@ -274,11 +274,11 @@ public static class GuiRun
         s.Dev = dev;
         // The shell palette (tag 180001) is the one every shell screen runs with; the main menu selects it with a PaletteCtrl.
         var shell = s.Host.TagText(180001) is string t ? GuiHost.FirstItem(t) : "feargui.pal";
-        PaletteBank? pal = GfxAssets.LoadPalette(s.Res, shell) ?? GfxAssets.LoadPalette(s.Res, "feargui.pal");
+        var pal = GfxAssets.LoadPalette(s.Res, shell) ?? GfxAssets.LoadPalette(s.Res, "feargui.pal");
         dev.SetPalette(pal ?? PaletteTables.Grayscale());
         s.Host.OnPalette = name =>
         {
-            PaletteBank? p = GfxAssets.LoadPalette(s.Res, name);
+            var p = GfxAssets.LoadPalette(s.Res, name);
             if (p != null)
                 dev.SetPalette(p);
         };

@@ -67,7 +67,7 @@ public sealed class InputDispatcher
     /// <returns>The shifted entry when either shift bit is set, else the unshifted entry.</returns>
     public static char CharacterFor(int scan, byte modifiers)
     {
-        foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (k.Code == scan)
                 return (modifiers & 3) != 0 ? k.Upper : k.Lower;
         return '\0';
@@ -184,8 +184,8 @@ public sealed class InputDispatcher
     {
         Pop(map, consumer, silent: true);
         // Held keys that the new map binds get a break first, so a movement key held from the old map stops.
-        foreach (Held h in mHeld.ToArray())
-            if (map.Bindings.Any(b => b.Event.Action == 1 && Matches(b.Event, h.Event) || b.Event.Action == 2 && Matches(b.Event, BreakOf(h.Event))))
+        foreach (var h in mHeld.ToArray())
+            if (map.Bindings.Any(b => (b.Event.Action == 1 && Matches(b.Event, h.Event)) || (b.Event.Action == 2 && Matches(b.Event, BreakOf(h.Event)))))
                 DispatchStack(BreakOf(h.Event), 0f);
         mStack.Insert(0, (map, consumer));
     }
@@ -204,13 +204,13 @@ public sealed class InputDispatcher
         if (silent)
             return;
         // Held keys the popped map was handling and no remaining map binds are released through the popped map.
-        foreach (Held h in mHeld.ToArray())
+        foreach (var h in mHeld.ToArray())
         {
-            InputEvent br = BreakOf(h.Event);
-            ActionBinding? handled = FindBinding(map, br) ?? FindBinding(map, h.Event);
+            var br = BreakOf(h.Event);
+            var handled = FindBinding(map, br) ?? FindBinding(map, h.Event);
             if (handled == null || mStack.Any(p => FindBinding(p.Map, br) != null))
                 continue;
-            ActionBinding? bb = FindBinding(map, br);
+            var bb = FindBinding(map, br);
             if (bb != null && !bb.IsCommand)
                 consumer.OnAction(bb.Action, KindOf(br), ShapeValue(bb, 0f, br.DeviceType == 2));
         }
@@ -232,7 +232,7 @@ public sealed class InputDispatcher
 
     private static ActionBinding? FindBinding(ActionMap map, in InputEvent ev)
     {
-        foreach (ActionBinding b in map.Bindings)
+        foreach (var b in map.Bindings)
             if (Matches(b.Event, ev))
                 return b;
         return null;
@@ -272,7 +272,7 @@ public sealed class InputDispatcher
         }
         else if (ev.Action == 2)
         {
-            Held? h = FindHeld(ev);
+            var h = FindHeld(ev);
             if (h == null)
                 return false;
             ev.Modifiers = h.Event.Modifiers;
@@ -292,7 +292,7 @@ public sealed class InputDispatcher
 
     private Held? FindHeld(in InputEvent ev)
     {
-        foreach (Held h in mHeld)
+        foreach (var h in mHeld)
             if (h.Event.DeviceType == ev.DeviceType && h.Event.DeviceInst == ev.DeviceInst &&
                 h.Event.ObjType == ev.ObjType && h.Event.ObjInst == ev.ObjInst)
                 return h;
@@ -307,7 +307,7 @@ public sealed class InputDispatcher
     {
         foreach (var (map, consumer) in mStack.ToArray())
         {
-            ActionBinding? b = FindBinding(map, ev);
+            var b = FindBinding(map, ev);
             if (b == null)
                 continue;
             if (b.IsCommand)

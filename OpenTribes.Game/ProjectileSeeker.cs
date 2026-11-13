@@ -219,8 +219,8 @@ internal sealed class SeekingMissile : Projectile
 
     private GameBase? Target()
     {
-        SimManager? m = Manager();
-        SimObject? o = m != null && mTarget != 0 ? m.FindById(mTarget) : null;
+        var m = Manager();
+        var o = m != null && mTarget != 0 ? m.FindById(mTarget) : null;
         return o as GameBase;
     }
 
@@ -228,7 +228,7 @@ internal sealed class SeekingMissile : Projectile
     private void RefreshPercentage()
     {
         using var chop = X87.Chop();
-        GameBase? t = Target();
+        var t = Target();
         var fn = t != null ? Pj.FindMethod(mGame, this, "updateTargetPercentage") : "";
         if (fn.Length != 0)
             mPct = Store(Numbers.BorlandAtof(Pj.CallMethod(mGame, fn, new[] { Numbers.FormatInt(t!.Id()) }))); // "%s(%d);"
@@ -243,7 +243,7 @@ internal sealed class SeekingMissile : Projectile
     // 0x00467620.
     private void TargetPoint(Span<float> output)
     {
-        GameBase? t = Target();
+        var t = Target();
         Span<float> mn = stackalloc float[3], mx = stackalloc float[3];
         if (t != null && Pj.WorldBox(mGame, t, mn, mx))
         {
@@ -258,7 +258,7 @@ internal sealed class SeekingMissile : Projectile
     // 0x004671b8: the direction to fly to.
     private void Aim(Span<float> output)
     {
-        GameBase? t = Target();
+        var t = Target();
         float[] tp = new float[3], d = new float[3], lead = new float[3];
         TargetPoint(tp);
         Seeker.SeekerLead(Transform.P, tp, t?.Velocity, mData.MuzzleVelocity, d, lead);

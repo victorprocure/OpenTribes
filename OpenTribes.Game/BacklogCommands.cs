@@ -32,7 +32,7 @@ public static class BacklogCommands
         return r;
     }
 
-    private static bool IsSpaceChar(char c) => c is ' ' or >= '\t' and <= '\r';
+    private static bool IsSpaceChar(char c) => c is ' ' or (>= '\t' and <= '\r');
 
     /// <summary>Converts waypoint coordinates to world x and y for the mission area.</summary>
     /// <param name="area">The mission area {x, y, w, h}.</param>
@@ -150,7 +150,7 @@ public static class BacklogCommands
                     inr.Print(1, Usage);
                     return "False";
                 }
-                ClientRecord? rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
+                var rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
                 if (rec == null)
                     return "False";
                 var count = game.DataBlockCount(5);
@@ -215,7 +215,7 @@ public static class BacklogCommands
                     inr.Print(1, usage);
                     return "False";
                 }
-                ClientRecord? rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
+                var rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
                 if (rec == null)
                     return "False";
                 var type = ParseItemType(a[2], game.DataBlockCount(5), ItemLookup);
@@ -233,14 +233,14 @@ public static class BacklogCommands
                 inr.Print(1, "wrong argcount to " + a[0] + "(object,range,<rotation>)");
                 return "False";
             }
-            GameBase? gb = FindShapeBase(a[1]);
+            var gb = FindShapeBase(a[1]);
             if (gb == null)
                 return "False";
-            Transform eye = gb.Transform;
+            var eye = gb.Transform;
             var hooked = false;
             if (BacklogHooks.EyeTransform != null)
             {
-                (var ok, Transform t) = BacklogHooks.EyeTransform(gb, eye);
+                (var ok, var t) = BacklogHooks.EyeTransform(gb, eye);
                 if (ok)
                 {
                     eye = t;
@@ -282,10 +282,10 @@ public static class BacklogCommands
             const string kIdentity = "1 0 0 0 1 0 0 0 1 0 0 0";
             if (a.Length != 2)
                 return kIdentity;
-            GameBase? gb = FindShapeBase(a[1]);
+            var gb = FindShapeBase(a[1]);
             if (gb == null)
                 return kIdentity;
-            Transform t = gb.Transform;
+            var t = gb.Transform;
             if (BacklogHooks.MuzzleTransform != null)
                 t = BacklogHooks.MuzzleTransform(gb, t).Item2;
             var parts = new List<string>();
@@ -318,7 +318,7 @@ public static class BacklogCommands
                 }
                 if (FindPlain(a[1]) is not GameBase gb || !gb.IsInterior() || gb.InteriorGeo == null)
                     return "False";
-                InteriorLights lights = gb.InteriorNet.Lighting;
+                var lights = gb.InteriorNet.Lighting;
                 if (Op == 3)
                 {
                     var t = Store(Numbers.BorlandAtof(a[3]));

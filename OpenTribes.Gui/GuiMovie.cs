@@ -124,13 +124,13 @@ public sealed class GuiSmacker : GuiActive
             return;
         for (var t = 0; t < Movie.Audio.Length; ++t)
         {
-            SmackerAudioTrack a = Movie.Audio[t];
+            var a = Movie.Audio[t];
             if (!a.HasData)
                 continue;
             var pcm = Movie.ReadAudio(t);
             if (pcm == null || pcm.Length == 0)
                 return;
-            WavData wav = ToWave(pcm, a);
+            var wav = ToWave(pcm, a);
             mStopAudio = Host.StartMovieAudio(wav);
             return;
         }

@@ -141,7 +141,7 @@ public class Vehicle : GameBase
     /// <returns>The datablock, or null.</returns>
     protected DataBlockManager.Block? Block()
     {
-        GameState g = Game();
+        var g = Game();
         return g.Sim != null && DataBlockName != null ? g.Sim.DataBlocks().Find(DataBlockName) : null;
     }
 
@@ -186,7 +186,7 @@ public class Vehicle : GameBase
     /// <remarks>Follows Vehicle_onNewDataBlock (0x00445230) after the StaticBase part (GameState::resolveDataBlock).</remarks>
     public override void OnNewDataBlock()
     {
-        DataBlockManager.Block? b = Block();
+        var b = Block();
         if (b == null)
             return;
         var d = new VData
@@ -225,10 +225,10 @@ public class Vehicle : GameBase
         NodeExit = NodePilot = NodeMuzzle = NodeEye = -1;
         MuzzleNodes.Clear();
         PassengerNodes.Clear();
-        ShapeInstance? inst = ShapeState.ShapeInstanceOf(Game(), this);
+        var inst = ShapeState.ShapeInstanceOf(Game(), this);
         if (inst == null || inst.ShapeData == null)
             return;
-        ShapeModel m = inst.ShapeData;
+        var m = inst.ShapeData;
         NodeExit = m.FindNode("dummy exit");
         NodePilot = ProjectileFire.DetailNode(m, "dummy pilot");
         NodeMuzzle = m.FindNode("dummy muzzle");
@@ -261,14 +261,14 @@ public class Vehicle : GameBase
             node = NodePilot;
         else if (point >= 2 && point - 2 < PassengerNodes.Count)
             node = PassengerNodes[point - 2];
-        ShapeInstance? inst = node >= 0 ? ShapeState.ShapeInstanceOf(Game(), this) : null;
+        var inst = node >= 0 ? ShapeState.ShapeInstanceOf(Game(), this) : null;
         if (inst == null || node >= inst.Entries.Length)
         {
             output = Transform;
             return;
         }
         using var chop = X87.Chop();
-        Shape.TmatMul(inst.Entries[node], ToTMat(Transform), out TMat3 res);
+        Shape.TmatMul(inst.Entries[node], ToTMat(Transform), out var res);
         output = ToTransform(res);
     }
 
@@ -281,14 +281,14 @@ public class Vehicle : GameBase
         var node = NodeMuzzle;
         if (MuzzleNodes.Count != 0)
             node = MuzzleNodes[(int)((uint)FireCount % (uint)MuzzleNodes.Count)];
-        ShapeInstance? inst = node >= 0 ? ShapeState.ShapeInstanceOf(Game(), this) : null;
+        var inst = node >= 0 ? ShapeState.ShapeInstanceOf(Game(), this) : null;
         if (inst == null || node >= inst.Entries.Length)
         {
             output = Transform;
             return false;
         }
         using var chop = X87.Chop();
-        Shape.TmatMul(inst.Entries[node], ToTMat(Transform), out TMat3 res);
+        Shape.TmatMul(inst.Entries[node], ToTMat(Transform), out var res);
         output = ToTransform(res);
         return true;
     }
@@ -389,7 +389,7 @@ public class Vehicle : GameBase
     /// <remarks>Follows Vehicle_fire (0x00446660).</remarks>
     public void Fire()
     {
-        GameState gs = Game();
+        var gs = Game();
         if (Data.ProjGroup == -1 || Block() == null)
         {
             if (gs.Console != null)
@@ -400,11 +400,11 @@ public class Vehicle : GameBase
             }
             return;
         }
-        SimManager? m = Manager();
+        var m = Manager();
         if (m == null || !(NextFireTime <= m.Time()))
             return;
         using var chop = X87.Chop();
-        MuzzleTransform(out Transform xf);
+        MuzzleTransform(out var xf);
         for (var i = 0; i < 3; ++i)
         {
             var lead = X87.F32(Mul(Velocity[i], 0.096f));
@@ -427,7 +427,7 @@ public class Vehicle : GameBase
     public bool Blocker(GameBase other)
     {
         using var chop = X87.Chop();
-        GameState gs = Game();
+        var gs = Game();
         var type = gs.World.Find(other)?.Type ?? 0u;
         if (type == 0x40000000u)
         {
@@ -579,7 +579,7 @@ public class Vehicle : GameBase
         for (var i = 0; i < 3; ++i)
             TargetRot[i] = c.TargetRot[i];
         SetPosition(c.Position);
-        VData d = Data;
+        var d = Data;
         var span = X87.F32(Sub(d.MaxSpeed, d.MinSpeed));
         SpeedF = X87.F32(Add(Mul(span, X87.F32(Div(c.SpeedF16, 65535.0))), d.MinSpeed));
         SpeedT = X87.F32(Add(Mul(span, X87.F32(Div(c.SpeedT16, 65535.0))), d.MinSpeed));
@@ -650,7 +650,7 @@ public class Vehicle : GameBase
             new("Vehicle::decPassengers", 2, "wrong argcount to decPassengers (Vehicle)", "-1", "False"),
             new("Vehicle::getMountPoint", 3, "wrong argcount to getMountPoint (Vehicle, MountPoint)", "-1", "False"),
         ];
-        foreach (Cmd c in kCmds)
+        foreach (var c in kCmds)
             interp.AddCommand(c.Name, (inr, a) =>
             {
                 if (a.Length != c.Argc)
@@ -658,14 +658,14 @@ public class Vehicle : GameBase
                     inr.Print(1, c.Usage);
                     return c.BadArgc;
                 }
-                Vehicle? v = From(g.Players.FindServerObject(a[1]));
+                var v = From(g.Players.FindServerObject(a[1]));
                 if (v == null)
                     return c.NotVehicle;
                 var name = a[0];
                 if (GameUtil.EqualsNoCase(name, "Vehicle::canMount") || GameUtil.EqualsNoCase(name, "Vehicle::canRide"))
                 {
                     // The second argument only has to be a ShapeBase.
-                    GameBase? o = g.Players.FindServerObject(a[2]);
+                    var o = g.Players.FindServerObject(a[2]);
                     if (o == null || !o.IsShapeBase())
                         return "False";
                     if (GameUtil.EqualsNoCase(name, "Vehicle::canMount"))
@@ -684,7 +684,7 @@ public class Vehicle : GameBase
                     v.Passengers = v.Passengers > 1 ? v.Passengers - 1 : 0;
                     return "True";
                 }
-                v.GetMountTransform(Numbers.BorlandAtoi(a[2]), out Transform t);
+                v.GetMountTransform(Numbers.BorlandAtoi(a[2]), out var t);
                 return Numbers.FormatFloat(t.P[0]) + " " + Numbers.FormatFloat(t.P[1]) + " " + Numbers.FormatFloat(t.P[2]);
             });
     }
@@ -742,8 +742,8 @@ public sealed class Flier : Vehicle
     // terrain container.
     private void UpdateMaxAltitude()
     {
-        GameState gs = Game();
-        Container.Entry? te = gs.World.TerrainOf(this);
+        var gs = Game();
+        var te = gs.World.TerrainOf(this);
         if (te == null || te.TerrainData == null)
             return;
         using var chop = X87.Chop();
@@ -770,11 +770,11 @@ public sealed class Flier : Vehicle
     /// <remarks>Follows Flier_updateGround (0x0042e5c4, docs/vehicle-sim.md 3.5).</remarks>
     public void UpdateGround()
     {
-        GameState gs = Game();
+        var gs = Game();
         float px = Transform.P[0], py = Transform.P[1];
         var pz = Transform.P[2];
         var h = -1.0e30f;
-        Container.Entry? te = gs.World.TerrainOf(this);
+        var te = gs.World.TerrainOf(this);
         if (te != null && te.TerrainData != null)
         {
             float height = 0;
@@ -791,7 +791,7 @@ public sealed class Flier : Vehicle
             if (gs.World.CastRay(from, to, 0x20800004u, this, ref hitObj, ref hit, ref normal))
             {
                 var zeroSpeed = false;
-                Container.Entry? he = hitObj != null ? gs.World.Find(hitObj) : null;
+                var he = hitObj != null ? gs.World.Find(hitObj) : null;
                 if (he != null && he.Type == 0x20000000u)
                 {
                     var gb = hitObj as GameBase;
@@ -853,7 +853,7 @@ public sealed class Flier : Vehicle
     public void UpdateThrust(float k)
     {
         UpdateGround();
-        VData d = Data;
+        var d = Data;
         if (!Landed && SpeedF != 0.0f)
         {
             SpeedL = X87.F32(Sub(SpeedL, Mul(d.Lift, k)));
@@ -889,7 +889,7 @@ public sealed class Flier : Vehicle
     /// <remarks>Follows ShapeBase_moveStep (0x0044c644, docs/vehicle-sim.md 3.6).</remarks>
     public void MoveStep(float dt)
     {
-        GameState gs = Game();
+        var gs = Game();
         var slice = dt;
         float[] oldV = [Velocity[0], Velocity[1], Velocity[2]];
         float[] gravity = [0, 0, 0];
@@ -936,7 +936,7 @@ public sealed class Flier : Vehicle
         }
         var notified = new List<SimObject>(mNotify);
         mNotify.Clear();
-        foreach (SimObject other in notified)
+        foreach (var other in notified)
         {
             PostCollision(other, this);
             PostCollision(this, other);
@@ -955,7 +955,7 @@ public sealed class Flier : Vehicle
         if (!base.Update(ref move, dt))
             return false;
         using var chop = X87.Chop();
-        VData d = Data;
+        var d = Data;
         var k = X87.F32(Mul(kTick, dt));
         float oldT = SpeedT, oldF = SpeedF;
         var hv = Mul(d.MaxVertical, 0.5f);
@@ -977,7 +977,7 @@ public sealed class Flier : Vehicle
             float[] inv = [0, X87.F32(Sub(Mul(SpeedF, 0.5f), 40.0f)), 40.0f];
             var mom = new float[3];
             X87.MulVector(inv, m.M, mom);
-            GameState gs = Game();
+            var gs = Game();
             var fn = gs.VirtualFunction(this, "jump");
             if (fn.Length != 0 && gs.Console != null)
                 gs.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), G(mom[0]) + " " + G(mom[1]) + " " + G(mom[2]) });
@@ -1160,7 +1160,7 @@ public sealed class Flier : Vehicle
         }
         else
         {
-            Float3 n = s.Normal;
+            var n = s.Normal;
             X87.MulVector(n, hit.Rot, output);
         }
     }
@@ -1196,7 +1196,7 @@ public sealed class Flier : Vehicle
         var triggered = new List<SimObject>();
         {
             // The image transform of the running move in place of the object matrix, for one test.
-            Float9 saved = Transform.M;
+            var saved = Transform.M;
             Transform.M = mImageRot;
             try
             {
@@ -1209,7 +1209,7 @@ public sealed class Flier : Vehicle
         }
         // The trigger sphere of a Mine, a station or a door that the hull reaches: one event 0x41f to its object
         // (SimMovement_postTriggerEvent 0x005070fc), and the image is out of this move's candidate list.
-        foreach (SimObject o in triggered)
+        foreach (var o in triggered)
             PostCollision(o, this);
         if (free)
             return true;
@@ -1234,7 +1234,7 @@ public sealed class Flier : Vehicle
             // The candidate that took the place is tested next: its hit follows here.
             if (last != null && hits.Count != 0 && hits[^1].Object == last && i < hits.Count - 1)
             {
-                CollisionHit moved = hits[^1];
+                var moved = hits[^1];
                 hits.RemoveAt(hits.Count - 1);
                 hits.Insert(i, moved);
             }
@@ -1264,7 +1264,7 @@ public sealed class Flier : Vehicle
     /// <remarks>Follows SimMovement_stepMove (0x00505a3c) with the Flier collision callback (vtable +0xb8). The image is the ShapeCollisionImage in mesh mode: its bounding sphere (radius * 0.25) against terrain and other shapes, its box against interiors, and its mesh against the sphere of a Player (docs/collision.md T3).</remarks>
     public bool SteppedMove(float[] target, float step0, float step1, float slice, uint mask = kHullMask)
     {
-        GameState gs = Game();
+        var gs = Game();
         ItemContact = false;
         AtRest = false;
         var candidates = new List<CollisionImage>();
@@ -1283,8 +1283,8 @@ public sealed class Flier : Vehicle
         // rotation with the matrix flags 3. A collision image query on this vehicle from inside the callback copies the
         // object's transform over it: the sub-step that was being tried is lost, and a move that ends in that pass leaves
         // the object where it was, with the rotation and matrix flags it had.
-        Container.Entry? self = gs.World.Find(this);
-        Float9 targetRot = mImageRot;
+        var self = gs.World.Find(this);
+        var targetRot = mImageRot;
         var imageReset = false;
         uint resetFlags = 0;
         var blocked = true;
@@ -1361,7 +1361,7 @@ public sealed class Flier : Vehicle
         // Collision events to both sides for every notified object (0x00507180).
         var notified = new List<SimObject>(mNotify);
         mNotify.Clear();
-        foreach (SimObject other in notified)
+        foreach (var other in notified)
         {
             PostCollision(other, this);
             PostCollision(this, other);
@@ -1388,10 +1388,10 @@ public sealed class Flier : Vehicle
     // dropped when the sender is gone by then.
     private void PostCollision(SimObject? target, SimObject? sender)
     {
-        SimManager? m = Manager();
+        var m = Manager();
         if (m == null || target == null || sender == null)
             return;
-        GameState gs = Game();
+        var gs = Game();
         var senderId = sender.Id();
         m.PostEvent(target, m.Time(), () =>
         {
@@ -1410,7 +1410,7 @@ public sealed class Flier : Vehicle
     public bool ProcessCollision(List<CollisionHit> hits, int iteration)
     {
         using var chop = X87.Chop();
-        GameState gs = Game();
+        var gs = Game();
         var maxSpeed = Data.MaxSpeed;
         // C1: Players mounted here and Mines are not hit.
         for (var i = 0; i < hits.Count;)
@@ -1423,12 +1423,12 @@ public sealed class Flier : Vehicle
             else
                 ++i;
         }
-        foreach (CollisionHit h in hits)
+        foreach (var h in hits)
             if (h.Object is SimObject so && !mNotify.Contains(so))
                 mNotify.Add(so);
         float[] n = [0, 0, 0];
         var groundHit = false;
-        foreach (CollisionHit h in hits)
+        foreach (var h in hits)
         {
             if ((h.Type & TypeMask) != 0 && h.Object is GameBase other && other.IsShapeBase())
             {
@@ -1455,7 +1455,7 @@ public sealed class Flier : Vehicle
             {
                 // C3: contact normals of terrain and interior hits.
                 groundHit = true;
-                foreach (CollisionSurface su in h.Surfaces)
+                foreach (var su in h.Surfaces)
                 {
                     var wn = new float[3];
                     ContactNormal(h, su, wn);
@@ -1551,8 +1551,8 @@ public sealed class Flier : Vehicle
         // 0x20.
         var flags = iteration != 0 ? (ItemFlags & ~0x21) : ItemFlags;
         var handledAny = false;
-        foreach (CollisionHit h in hits)
-            foreach (CollisionSurface s2 in h.Surfaces)
+        foreach (var h in hits)
+            foreach (var s2 in h.Surfaces)
             {
                 if (!(s2.Distance >= 0))
                     continue;

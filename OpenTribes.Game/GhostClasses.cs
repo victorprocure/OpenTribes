@@ -43,7 +43,7 @@ public static partial class GhostClasses
     // 1230 1400 1400.
     private static uint PackMissionCenterPos(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
-        PersistFields f = FieldsOf(obj);
+        var f = FieldsOf(obj);
         WriteF32(bs, f.Real("x", 1230.0f));
         WriteF32(bs, f.Real("y", 1230.0f));
         WriteF32(bs, f.Real("w", 1400.0f));
@@ -55,7 +55,7 @@ public static partial class GhostClasses
     private static uint PackSimTerrain(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
         var t = (TerrainObject)obj;
-        PersistFields f = t.Fields();
+        var f = t.Fields();
         if (bs.WriteFlag((mask & 0x01) != 0))
             bs.WriteString(f.Str("tedFileName"));
         if (bs.WriteFlag((mask & 0x02) != 0))
@@ -91,7 +91,7 @@ public static partial class GhostClasses
     // color, ambient, position, aim) are sent as 0 (D12).
     private static uint PackSimLight(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
-        PersistFields f = FieldsOf(obj);
+        var f = FieldsOf(obj);
         if (bs.WriteFlag((mask & 0x40) != 0))
             bs.WriteFlag(f.Boolean("isStatic", false));
         if (bs.WriteFlag((mask & 0x01) != 0))
@@ -126,9 +126,9 @@ public static partial class GhostClasses
     private static uint PackInteriorShape(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
         var gb = (GameBase)obj;
-        PersistFields f = gb.Fields();
+        var f = gb.Fields();
         PackGameBase(gb, bs, mask);
-        InteriorNetInfo net = gb.InteriorNet;
+        var net = gb.InteriorNet;
         if (bs.WriteFlag((mask & kInitialMask) != 0))
         {
             // 0x0047ff04
@@ -140,7 +140,7 @@ public static partial class GhostClasses
             foreach (var w in net.StateWords)
                 bs.WriteInt(w, 32);
             bs.WriteInt((uint)net.Lights.Count, 32);
-            foreach (InteriorNetInfo.Light l in net.Lights)
+            foreach (var l in net.Lights)
             {
                 // {f32 intensity, u8 on, 3 padding bytes, u32 0, u32 0}. The original's padding is uninitialized heap
                 // memory; sent as 0 (D12).
@@ -158,7 +158,7 @@ public static partial class GhostClasses
             WritePoint(bs, f, "rotation", 0, 0, 0);
         }
         if (bs.WriteFlag((mask & 0x02) != 0))
-            foreach (InteriorNetInfo.Light l in net.Lights)
+            foreach (var l in net.Lights)
                 bs.WriteFlag(l.On);
         if (bs.WriteFlag((mask & 0x04) != 0))
             bs.WriteFlag(false); // +0x418 bit 0, set by event 0x429 (not modeled)
@@ -207,7 +207,7 @@ public static partial class GhostClasses
         {
             // A full update drops the flash and sends the threads only when one is set.
             mask &= ~0x480u;
-            foreach (GameBase.Thread t in gb.Threads)
+            foreach (var t in gb.Threads)
                 if (t.Sequence != -1)
                 {
                     mask |= 0x400;
@@ -229,7 +229,7 @@ public static partial class GhostClasses
         if (bs.WriteFlag((mask & 0x400) != 0))
             for (var i = 0; i < 3; ++i)
             {
-                GameBase.Thread t = gb.Threads[i];
+                var t = gb.Threads[i];
                 if (bs.WriteFlag(t.Sequence != -1 && (mask & (0x800u << i)) != 0))
                 {
                     bs.WriteInt((uint)t.Sequence, 4);
@@ -419,7 +419,7 @@ public static partial class GhostClasses
     // src/game/ghost_classes.cpp packSnowfall: 3.5 Snowfall 0x00442fac.
     private static uint PackSnowfall(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
-        PersistFields f = FieldsOf(obj);
+        var f = FieldsOf(obj);
         var rain = f.Boolean("rain", false);
         if (bs.WriteFlag((mask & 0x01) != 0))
             WriteF32(bs, f.Real("intensity", 0.0f));
@@ -439,7 +439,7 @@ public static partial class GhostClasses
     // src/game/ghost_classes.cpp packSky: Sky 0x00477780. skyColor and hazeColor are not set by the constructor (D12: 0).
     private static uint PackSky(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
-        PersistFields f = FieldsOf(obj);
+        var f = FieldsOf(obj);
         bs.WriteString(f.Str("dmlName"));
         WritePoint(bs, f, "skyColor", 0, 0, 0);
         WritePoint(bs, f, "hazeColor", 0, 0, 0);
@@ -453,7 +453,7 @@ public static partial class GhostClasses
     // src/game/ghost_classes.cpp packPlanet: Planet 0x0047cfcc. onAdd (0x0047c4c8) clamps incidence to [-89, 89].
     private static uint PackPlanet(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
-        PersistFields f = FieldsOf(obj);
+        var f = FieldsOf(obj);
         var incidence = f.Real("incidence", 30.0f);
         if (incidence > 89.0f)
             incidence = 89.0f;
@@ -475,7 +475,7 @@ public static partial class GhostClasses
     // colors[3], inFrontOfSky.
     private static uint PackStarField(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
     {
-        PersistFields f = FieldsOf(obj);
+        var f = FieldsOf(obj);
         bs.WriteFlag(true);
         bs.WriteFlag(false);
         WritePoint(bs, f, "colors", 1.0f, 1.0f, 1.0f, 0);

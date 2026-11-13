@@ -93,7 +93,7 @@ public static class Skins
         int n = 0, count = decals.Count, guard = 0;
         while (covered < target && guard++ < count * 8)
         {
-            PbmpBitmap d = decals[n % count];
+            var d = decals[n % count];
             ++n;
             if (d.Depth != 8 || d.Width >= skin.Width || d.Height >= skin.Height)
                 continue;

@@ -96,8 +96,8 @@ public static class CaptureDecoder
             if (line.Length == 0)
                 continue;
             using JsonDocument doc = JsonDocument.Parse(line);
-            JsonElement root = doc.RootElement;
-            if (!root.TryGetProperty("hex", out JsonElement hexEl))
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("hex", out var hexEl))
                 continue;
             var client = root.GetProperty("client").GetString() ?? "";
             if (onlyClient != null && client != onlyClient)
@@ -107,15 +107,15 @@ public static class CaptureDecoder
             var data = Convert.FromHexString(hexEl.GetString() ?? "");
             if (data.Length == 0 || (data[0] & 1) == 0)
                 continue;
-            VcHeader? h = ParseVc(data);
+            var h = ParseVc(data);
             if (h == null)
                 continue;
             var ty = h.Type;
             if ((ty & ~0x18) != 0 || h.Payload.Length == 0 || ((ty & 0x10) != 0 && (ty & 0x08) == 0))
                 continue;
-            if (!ctxs.TryGetValue(client, out ClientCtx? ctx))
+            if (!ctxs.TryGetValue(client, out var ctx))
                 ctxs[client] = ctx = new ClientCtx();
-            List<int> seen = dir == "c2s" ? ctx.SeenC2s : ctx.SeenS2c;
+            var seen = dir == "c2s" ? ctx.SeenC2s : ctx.SeenS2c;
             if (seen.Contains(h.Seq))
             {
                 ++tot.Duplicates;
@@ -125,7 +125,7 @@ public static class CaptureDecoder
             seen.Add(h.Seq);
             if (seen.Count > 32)
                 seen.RemoveAt(0);
-            DecodedPacket p = (dir == "c2s" ? ctx.C2s : ctx.S2c).Receive(h.Payload, dir);
+            var p = (dir == "c2s" ? ctx.C2s : ctx.S2c).Receive(h.Payload, dir);
             ++tot.Packets;
             tot.Bits += h.Payload.Length * 8L;
             tot.Known += p.BitsRead;
@@ -133,10 +133,10 @@ public static class CaptureDecoder
             tot.Pad += p.PaddingBits;
             if (p.Overrun)
                 ++tot.Overruns;
-            foreach (DecodedEvent e in p.Events)
+            foreach (var e in p.Events)
                 tot.Events[e.Name] = tot.Events.GetValueOrDefault(e.Name) + 1;
             if (p.Ghosts != null)
-                foreach (DecodedGhost g in p.Ghosts.Updates)
+                foreach (var g in p.Ghosts.Updates)
                     if (g.Op != "delete")
                         tot.Ghosts[g.Class] = tot.Ghosts.GetValueOrDefault(g.Class) + 1;
             dump.Write(p, t, client, h.Seq);

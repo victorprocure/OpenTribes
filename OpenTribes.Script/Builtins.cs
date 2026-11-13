@@ -176,7 +176,7 @@ public static class Builtins
         // L6: timeStamp() is the local wall clock, "YYYY/MM/DD HH:MM:SS.mmm" [live 1.30].
         interp.AddCommand("timeStamp", (i, a) =>
         {
-            DateTime t = DateTime.Now;
+            var t = DateTime.Now;
             return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:D4}/{1:D2}/{2:D2} {3:D2}:{4:D2}:{5:D2}.{6:D3}",
                                  t.Year, t.Month, t.Day, t.Hour, t.Minute, t.Second, t.Millisecond);
         });
@@ -225,7 +225,7 @@ public static class Builtins
     public static ClientState RegisterBuiltins(Interpreter interp, ResourceManager? res, string rootDir)
     {
         // Client-side commands exist on a dedicated server too (docs/mods.md 5).
-        ClientState clientState = ClientCommands.RegisterClientCommands(interp, res, rootDir);
+        var clientState = ClientCommands.RegisterClientCommands(interp, res, rootDir);
         MathCommands.RegisterMathCommands(interp, res);
         // ---- console core ----
         interp.AddCommand("export", (i, argv) =>

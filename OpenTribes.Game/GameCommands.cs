@@ -21,7 +21,7 @@ public static class GameCommands
     private static void Iterate(Interpreter interp, SimSet g, string[] a)
     {
         var members = new List<SimObject>(g.Members());
-        foreach (SimObject m in members)
+        foreach (var m in members)
         {
             var args = new List<string> { Numbers.FormatInt(m.Id()) };
             args.AddRange(a.Skip(3));
@@ -40,12 +40,12 @@ public static class GameCommands
         UtilCommands.Register(interp, game);
         interp.AddCommand("Group::objectCount", (_, a) =>
         {
-            SimObject? obj = a.Length == 2 ? FindObject(game, a[1]) : null;
+            var obj = a.Length == 2 ? FindObject(game, a[1]) : null;
             return obj?.AsSet() is SimSet s ? Numbers.FormatInt(s.Members().Count) : "0";
         });
         interp.AddCommand("Group::getObject", (_, a) =>
         {
-            SimObject? obj = a.Length == 3 ? FindObject(game, a[1]) : null;
+            var obj = a.Length == 3 ? FindObject(game, a[1]) : null;
             if (obj?.AsSet() is not SimSet set)
                 return "-1";
             var i = Numbers.BorlandAtoi(a[2]);
@@ -53,7 +53,7 @@ public static class GameCommands
         });
         interp.AddCommand("Group::iterateRecursive", (inr, a) =>
         {
-            SimObject? obj = a.Length >= 3 ? FindObject(game, a[1]) : null;
+            var obj = a.Length >= 3 ? FindObject(game, a[1]) : null;
             if (obj?.AsSet() is SimSet g)
                 Iterate(inr, g, a);
             return "0";
@@ -95,7 +95,7 @@ public static class GameCommands
                 inr.Print(1, "wrong argcount to GameBase::getDataName(object)");
                 return "";
             }
-            GameBase? gb = FindGameBase(game, a[1]);
+            var gb = FindGameBase(game, a[1]);
             if (gb != null && gb.DataBlockName == null)
                 return null; // NULL datablock name prints False (InteriorShape)
             return gb != null ? gb.DataBlockName : "";
@@ -107,7 +107,7 @@ public static class GameCommands
                 inr.Print(1, "wrong argcount to GameBase::virtual(object,functionname,...)");
                 return "";
             }
-            GameBase? gb = FindGameBase(game, a[1]);
+            var gb = FindGameBase(game, a[1]);
             if (gb == null)
                 return "";
             var fn = game.VirtualFunction(gb, a[2]);
@@ -165,7 +165,7 @@ public static class GameCommands
         {
             if (a.Length != 2)
                 inr.Print(1, "wrong argcount to getBoxCenter(object)");
-            SimObject? obj = a.Length == 2 ? FindObject(game, a[1]) : null;
+            var obj = a.Length == 2 ? FindObject(game, a[1]) : null;
             if (obj != null && game.World.Find(obj) is Container.Entry en)
             {
                 var c = new float[3];
@@ -196,7 +196,7 @@ public static class GameCommands
                 box[2] = c[2];
                 box[5] = AddF(c[2], half[2]);
             }
-            List<object?> found = game.World.FindObjects(box, (uint)Numbers.BorlandAtoi(a[2]), null);
+            var found = game.World.FindObjects(box, (uint)Numbers.BorlandAtoi(a[2]), null);
             foreach (var o in found)
                 if (o is SimObject so)
                     set.AddObject(so);
@@ -345,7 +345,7 @@ public static class GameCommands
             if (gb.IsShapeBase())
             {
                 // Event 0x405 with the matrix of the new angles and the current position.
-                Transform m = gb.Transform;
+                var m = gb.Transform;
                 MissionTransform.EulerToMatrix(e, ref m);
                 float[] p = [gb.Transform.P[0], gb.Transform.P[1], gb.Transform.P[2]];
                 gb.TransformEvent(m, p);
@@ -367,7 +367,7 @@ public static class GameCommands
                 inr.Print(1, "wrong argcount to " + a[0] + "(object)");
                 return "";
             }
-            GameBase? gb = FindGameBase(game, a[1]);
+            var gb = FindGameBase(game, a[1]);
             if (gb == null || !gb.IsShapeBase())
                 return "";
             return gb.MapName; // NULL prints False
@@ -393,7 +393,7 @@ public static class GameCommands
                 inr.Print(1, "wrong argcount to getObjectType(object);");
                 return "False";
             }
-            SimObject? obj = FindObject(game, a[1]);
+            var obj = FindObject(game, a[1]);
             if (obj == null)
             {
                 inr.Print(1, "getObjectType: could not find object");
@@ -403,7 +403,7 @@ public static class GameCommands
         });
         interp.AddCommand("Object::getName", (_, a) =>
         {
-            SimObject? obj = a.Length == 2 ? FindObject(game, a[1]) : null;
+            var obj = a.Length == 2 ? FindObject(game, a[1]) : null;
             if (obj == null)
                 return "";
             if (obj.Name() == null || obj == game.Sim!.Server())

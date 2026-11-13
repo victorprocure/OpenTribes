@@ -91,9 +91,9 @@ public static class EngineVariables
 
     private static void RegisterCells(Interpreter interp, Cell[] cells)
     {
-        foreach (Cell c in cells)
+        foreach (var c in cells)
         {
-            Cell cell = c;
+            var cell = c;
             var inside = false;
             interp.SetVariable(cell.Name, Normalize(cell.Type, cell.Default.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             interp.BindVariable(cell.Name, v =>

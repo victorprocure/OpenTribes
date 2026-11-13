@@ -14,7 +14,7 @@ public class ScriptParserTests
     {
         var l = new Lexer(src);
         var output = new List<Token>();
-        for (Token t = l.Next(); t.Kind != Tok.End; t = l.Next())
+        for (var t = l.Next(); t.Kind != Tok.End; t = l.Next())
             output.Add(t);
         return output;
     }
@@ -70,7 +70,7 @@ public class ScriptParserTests
             Assert.False(Ok(s), "should fail: " + s);
 
         // Statements completed before an error are kept; the error line is the token's line.
-        ParseResult r = ScriptParser.Parse("echo(\"A\");\necho(\"B\")\necho(\"C\");");
+        var r = ScriptParser.Parse("echo(\"A\");\necho(\"B\")\necho(\"C\");");
         Assert.True(r.Error && r.Statements.Count == 1 && r.ErrorLine == 3);
         Assert.Equal("x.cs Line: 3 - Syntax error.", ScriptParser.SyntaxErrorMessage(r, "x.cs"));
         Assert.Equal("Syntax error in input.", ScriptParser.SyntaxErrorMessage(r, ""));

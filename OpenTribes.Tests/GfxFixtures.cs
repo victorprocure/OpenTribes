@@ -216,7 +216,7 @@ internal static class GfxFixtures
 
     public static PbmpBitmap Bitmap(byte[] bytes, bool palette = false)
     {
-        Assert.True(PbmpBitmap.TryParse(bytes, palette, out PbmpBitmap? bmp, out var err), err);
+        Assert.True(PbmpBitmap.TryParse(bytes, palette, out var bmp, out var err), err);
         return bmp!;
     }
 }

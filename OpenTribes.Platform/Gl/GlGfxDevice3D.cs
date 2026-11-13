@@ -201,7 +201,7 @@ void main() {
         Api.BindFramebuffer_(GlApi.Framebuffer, mFbo);
         if (mViewport3D is GfxRect vr && !vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1)).IsEmpty)
         {
-            GfxRect r = vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1));
+            var r = vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1));
             // GL counts rows from the bottom
             Api.Viewport_(vr.Left, Height - 1 - vr.Bottom, vr.Width, vr.Height);
             Api.Enable_(GlApi.ScissorTest);
@@ -237,7 +237,7 @@ void main() {
         var n = Math.Min(lights.Length, IGfxDevice.MaxDynamicLights);
         for (var i = 0; i < n; ++i)
         {
-            DynamicLight l = lights[i];
+            var l = lights[i];
             (mDynPos[i * 4], mDynPos[(i * 4) + 1], mDynPos[(i * 4) + 2], mDynPos[(i * 4) + 3]) = (l.X, l.Y, l.Z, Math.Max(l.Range, 1e-3f));
             (mDynCol[i * 3], mDynCol[(i * 3) + 1], mDynCol[(i * 3) + 2]) = (l.R, l.G, l.B);
         }

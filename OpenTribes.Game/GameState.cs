@@ -122,8 +122,8 @@ public sealed partial class GameState : GameServices
     {
         if (obj is not GameBase gameObj || Sim == null || gameObj.DataBlockGroup() < 0)
             return false;
-        DataBlockManager db = Sim.DataBlocks();
-        DataBlockManager.Block? b = db.Find(gameObj.DataBlockName);
+        var db = Sim.DataBlocks();
+        var b = db.Find(gameObj.DataBlockName);
         if (b == null || b.Group != gameObj.DataBlockGroup())
             return false;
         // GB4: a block visible to sensors expands the map name (GB7).
@@ -159,7 +159,7 @@ public sealed partial class GameState : GameServices
             // shape instance the threads run on.
             float Value(string field, int comp, float def)
             {
-                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                var f = b.Find(StringTable.Global().Intern(field));
                 if (f == null || f.Elems.Count == 0)
                     return def;
                 if (f.Elems[0].Set)
@@ -180,7 +180,7 @@ public sealed partial class GameState : GameServices
             }
             bool Boolean(string field, bool def)
             {
-                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                var f = b.Find(StringTable.Global().Intern(field));
                 if (f == null || f.Elems.Count == 0)
                     return def;
                 if (f.Elems[0].Set)
@@ -189,7 +189,7 @@ public sealed partial class GameState : GameServices
             }
             int Integer(string field, int def)
             {
-                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                var f = b.Find(StringTable.Global().Intern(field));
                 if (f == null || f.Elems.Count == 0)
                     return def;
                 if (f.Elems[0].Set)
@@ -207,7 +207,7 @@ public sealed partial class GameState : GameServices
             }
             if (gameObj.ShapeClass() == GameBase.ShapeKind.Turret)
             {
-                GameBase.TurretBlock t = gameObj.TurretData;
+                var t = gameObj.TurretData;
                 t.GunRange = Value("gunRange", 0, -1.0f);
                 t.Speed = Value("speed", 0, 1.0f);
                 t.SpeedModifier = Value("speedModifier", 0, 0.0f);
@@ -303,7 +303,7 @@ public sealed partial class GameState : GameServices
         if (GameUtil.EqualsNoCase(obj.ClassName(), "SimPath"))
             output.Add(obj);
         if (obj.AsSet() is SimSet set)
-            foreach (SimObject m in set.Members())
+            foreach (var m in set.Members())
                 CollectPathObjects(m, output);
     }
 
@@ -329,13 +329,13 @@ public sealed partial class GameState : GameServices
     /// <remarks>SimPathManager ids follow SimPath registration order (docs/game-stream-ghosts.md 6.5).</remarks>
     public override int PathIndex(SimObject path)
     {
-        SimManager? m = Sim?.Server();
+        var m = Sim?.Server();
         if (m == null || path.Manager() == null)
             return -1;
         var paths = new List<SimObject>();
         CollectPathObjects(m, paths);
         var index = 0;
-        foreach (SimObject p in paths)
+        foreach (var p in paths)
             if (p.Sequence() < path.Sequence())
                 ++index;
         return index;
@@ -364,7 +364,7 @@ public sealed partial class GameState : GameServices
     /// <remarks>Follows 0x0040fc58.</remarks>
     public void SensorJam(GameBase p, bool link)
     {
-        SensorManager? sm = SensorManagerObject();
+        var sm = SensorManagerObject();
         if (sm == null)
             return;
         if (link)
@@ -441,7 +441,7 @@ public sealed partial class GameState : GameServices
     /// <inheritdoc/>
     public override SimObject? PathById(int id)
     {
-        SimManager? m = Sim?.Server();
+        var m = Sim?.Server();
         if (m == null || id < 0)
             return null;
         var paths = new List<SimObject>();
@@ -460,10 +460,10 @@ public sealed partial class GameState : GameServices
     /// <inheritdoc/>
     public override Material? TerrainMaterial(int index)
     {
-        Terrain? terr = GetTerrain();
+        var terr = GetTerrain();
         if (terr == null || Resources == null)
             return null;
-        List<Material>? list = MaterialList.Get(Resources, terr.MaterialListName());
+        var list = MaterialList.Get(Resources, terr.MaterialListName());
         return list != null && index >= 0 && index < list.Count ? list[index] : null;
     }
 
@@ -471,7 +471,7 @@ public sealed partial class GameState : GameServices
     /// <remarks>An object whose container chain reaches the SimTerrain is pulled by its contGravity (default 0 0 -9.8) and slowed by contDrag (default 0) (FC2, FC3).</remarks>
     public override bool TerrainForces(SimObject obj, Span<float> gravity, ref float drag)
     {
-        TerrainObject? t = FindTerrain();
+        var t = FindTerrain();
         if (t == null)
             return false;
         var c = World.ParentOf(obj);
@@ -498,9 +498,9 @@ public sealed partial class GameState : GameServices
     {
         if (obj is not GameBase gameObj)
             return false;
-        Container.Entry? terr = World.TerrainOf(gameObj);
+        var terr = World.TerrainOf(gameObj);
         var parent = World.ParentOf(gameObj);
-        GameBase.EntryForcesRec f = gameObj.EntryForces;
+        var f = gameObj.EntryForces;
         if (terr != f.Terrain || parent != f.Parent)
         {
             if (terr != null)
@@ -549,7 +549,7 @@ public sealed partial class GameState : GameServices
             return;
         float[] local = [-1, -1, -1, 1, 1, 1];
         Span<float> box = stackalloc float[6];
-        Mat m = obj.WorldMat();
+        var m = obj.WorldMat();
         if (obj.GetKind() == GameBase.Kind.Trigger)
         {
             if (obj.PersistValue("boundingBox") is IReadOnlyList<string> v && v.Count != 0)
@@ -595,7 +595,7 @@ public sealed partial class GameState : GameServices
         if (obj.GetKind() != GameBase.Kind.Trigger)
         {
             // ShapeCollisionImage against a line (docs/collision.md 6 T7).
-            GameBase gb = obj;
+            var gb = obj;
             ne.Cast = (s, en, ref hit, ref n) => ShapeState.ShapeObjectLine(this, gb, s, en, ref hit, ref n);
         }
         World.Add(ne);
@@ -671,7 +671,7 @@ public sealed partial class GameState : GameServices
         if (Sim?.Server()?.FindById(12)?.AsSet() is not SimSet set)
             return;
         var members = new List<SimObject>(set.Members());
-        foreach (SimObject m in members)
+        foreach (var m in members)
         {
             if (m is not GameBase t || t.GetKind() != GameBase.Kind.Trigger || t == obj)
                 continue;

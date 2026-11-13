@@ -100,7 +100,7 @@ internal static class Fixtures
             kinds.Add(0);
             nameList.Add(name);
         }
-        foreach (PackedEntry e in packed ?? Array.Empty<PackedEntry>())
+        foreach (var e in packed ?? Array.Empty<PackedEntry>())
         {
             offsets.Add((uint)b.Count);
             PutStr(b, "VBLK");
@@ -216,7 +216,7 @@ internal static class Fixtures
         uint[] counts = [0, (uint)nodes.Count, nSolid, nEmpty, 0, 0, 0, 0, (uint)planes.Count];
         foreach (var c in counts)
             PutU32(b, c);
-        foreach (Node n in nodes)
+        foreach (var n in nodes)
         {
             PutU16(b, n.Plane);
             PutU16(b, (ushort)n.Front);
@@ -284,7 +284,7 @@ internal static class Fixtures
         PutU32(b, (uint)lights.Count);
         PutU32(b, 0); // light states
         PutU32(b, (uint)map.Count);
-        foreach (LightRec l in lights)
+        foreach (var l in lights)
         {
             var rec = new byte[24];
             BinaryPrimitives.WriteSingleLittleEndian(rec.AsSpan(0x10), l.Intensity);
@@ -315,7 +315,7 @@ internal static class Fixtures
         PutU32(b, (uint)lights.Count);
         PutU32(b, 0); // light states
         PutU32(b, 0); // map bytes
-        foreach (StateDef s in states)
+        foreach (var s in states)
         {
             var rec = new byte[16];
             for (var k = 0; k < 4; ++k)
@@ -323,7 +323,7 @@ internal static class Fixtures
             BinaryPrimitives.WriteSingleLittleEndian(rec.AsSpan(8), s.Time);
             b.AddRange(rec);
         }
-        foreach (LightDef l in lights)
+        foreach (var l in lights)
         {
             var rec = new byte[24];
             BinaryPrimitives.WriteInt32LittleEndian(rec.AsSpan(0), l.Id);
@@ -378,7 +378,7 @@ internal static class Fixtures
         PutU32(body, 0); // v >= 5, v >= 6 words
         PutU32(body, 0);
         // A box mesh with faces: the sphere test runs on the faces (docs/collision.md T4.1).
-        List<byte> block = DtsBoxMesh(box);
+        var block = DtsBoxMesh(box);
         body.AddRange(block);
         PutU32(body, 0); // no materials
         return Pers("TS::Shape", 8, body);
@@ -521,7 +521,7 @@ internal static class Fixtures
         }
         PutU32(body, 0);
         PutU32(body, (uint)s.AlwaysNode);
-        foreach (List<byte> m in s.Meshes)
+        foreach (var m in s.Meshes)
             body.AddRange(m);
         PutU32(body, 0);
         return Pers("TS::Shape", 8, body);

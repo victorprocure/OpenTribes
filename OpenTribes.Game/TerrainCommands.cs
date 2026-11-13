@@ -66,7 +66,7 @@ public static class TerrainCommands
                 inr.Print(1, "setTerrainVisibility: objectName visibleDist hazeDist");
                 return "False";
             }
-            TerrainObject? t = FindTerrain(game, a[1]);
+            var t = FindTerrain(game, a[1]);
             if (t == null)
             {
                 inr.Print(1, "setTerrainVisibility: object not found or not a SimTerrain object");
@@ -86,7 +86,7 @@ public static class TerrainCommands
                 inr.Print(1, "setTerrainDetail: objectName perspectiveDist screenSquareSize");
                 return "False";
             }
-            TerrainObject? t = FindTerrain(game, a[1]);
+            var t = FindTerrain(game, a[1]);
             if (t == null)
             {
                 inr.Print(1, "setTerrainDetail: object not found or not a SimTerrain object");
@@ -107,7 +107,7 @@ public static class TerrainCommands
                 inr.Print(1, "setTerrainContainer NEEDS: objectName Gravity Drag Height");
                 return "False";
             }
-            TerrainObject? t = FindTerrain(game, a[1]);
+            var t = FindTerrain(game, a[1]);
             if (t == null)
             {
                 inr.Print(1, "setTerrainContainer: object not found or not a SimTerrain object");

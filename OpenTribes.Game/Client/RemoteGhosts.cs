@@ -26,9 +26,9 @@ public sealed class RemoteGhosts
     /// <summary>Deletes every copy.</summary>
     public void Reset()
     {
-        foreach (RemotePlayer p in Players.Values)
+        foreach (var p in Players.Values)
             DeleteObject?.Invoke(p.P);
-        foreach (RemoteVehicle v in Vehicles.Values)
+        foreach (var v in Vehicles.Values)
             DeleteObject?.Invoke(v.V);
         Players.Clear();
         Vehicles.Clear();
@@ -54,14 +54,14 @@ public sealed class RemoteGhosts
     public void OnBlock(DecodedGhostBlock block, ClientWorld world, uint now, int controlGhost)
     {
         mControlGhost = controlGhost;
-        foreach (DecodedGhost u in block.Updates)
+        foreach (var u in block.Updates)
         {
             if (u.Op == "delete")
             {
                 Remove(u.Index);
                 continue;
             }
-            ClientGhost? g = world.Ghosts.Get(u.Index);
+            var g = world.Ghosts.Get(u.Index);
             if (g == null || u.Index == controlGhost)
             {
                 Remove(u.Index);
@@ -76,9 +76,9 @@ public sealed class RemoteGhosts
 
     private void Remove(int index)
     {
-        if (Players.Remove(index, out RemotePlayer? p))
+        if (Players.Remove(index, out var p))
             DeleteObject?.Invoke(p.P);
-        if (Vehicles.Remove(index, out RemoteVehicle? v))
+        if (Vehicles.Remove(index, out var v))
         {
             // The riders lose their mount (the delete notification clears +0x1028): their copies go, the stream state is drawn.
             foreach (var rider in Players.Where(kv => kv.Value.MountGhost == index).Select(kv => kv.Key).ToList())
@@ -89,7 +89,7 @@ public sealed class RemoteGhosts
 
     private static bool Has(DecodedGhost u, string n)
     {
-        foreach (DecodedField f in u.Fields)
+        foreach (var f in u.Fields)
             if (f.Name == n)
                 return true;
         return false;
@@ -102,11 +102,11 @@ public sealed class RemoteGhosts
     /// <summary>Returns the mount object of a rider that is not the control Player: the copy of a remote Vehicle or Flier ghost.</summary>
     /// <param name="ghostIndex">The ghost index of the mount.</param>
     /// <returns>The copy, or null.</returns>
-    public GameBase? RemoteMount(int ghostIndex) => Vehicles.TryGetValue(ghostIndex, out RemoteVehicle? rv) ? rv.V : null;
+    public GameBase? RemoteMount(int ghostIndex) => Vehicles.TryGetValue(ghostIndex, out var rv) ? rv.V : null;
 
     private GameBase? ResolveMount(int index)
     {
-        if (Vehicles.TryGetValue(index, out RemoteVehicle? rv))
+        if (Vehicles.TryGetValue(index, out var rv))
             return rv.V;
         return index == mControlGhost ? ControlObject?.Invoke() : null;
     }
@@ -130,13 +130,13 @@ public sealed class RemoteGhosts
     // Binds +0x1028 and +0x102c of every Player copy that has a mount ghost.
     private void BindMounts()
     {
-        foreach (RemotePlayer rp in Players.Values)
+        foreach (var rp in Players.Values)
         {
             if (rp.MountGhost < 0)
                 rp.P.MountId = 0;
             else
             {
-                GameBase? mo = ResolveMount(rp.MountGhost);
+                var mo = ResolveMount(rp.MountGhost);
                 rp.P.MountId = mo != null ? mo.Id() : 0;
                 rp.P.MountPoint = rp.MountPoint;
             }
@@ -158,7 +158,7 @@ public sealed class RemoteGhosts
         var vel = Has(u, "vel") ? F3(g.State.GetValueOrDefault("vel")) : new float[3];
         float pitch = Num(g, "pitch"), yaw = Num(g, "rotZ");
         var contact = Flag(g, "flag1f4");
-        if (!Players.TryGetValue(u.Index, out RemotePlayer? rp))
+        if (!Players.TryGetValue(u.Index, out var rp))
         {
             if (CreateObject?.Invoke(g, pos) is not Player p)
                 return;
@@ -204,7 +204,7 @@ public sealed class RemoteGhosts
             return;
         float[] pos = F3(g.State.GetValueOrDefault("pos")), rot = F3(g.State.GetValueOrDefault("rot"));
         var created = false;
-        if (!Vehicles.TryGetValue(u.Index, out RemoteVehicle? rv))
+        if (!Vehicles.TryGetValue(u.Index, out var rv))
         {
             if (CreateObject?.Invoke(g, pos) is not Vehicle v)
                 return;
@@ -220,7 +220,7 @@ public sealed class RemoteGhosts
                 rv.Register(now);
             return;
         }
-        Vehicle.VData d = rv.V.Data;
+        var d = rv.V.Data;
         var speedF = ((d.MaxSpeed - d.MinSpeed) * Num(g, "unit10")) + d.MinSpeed;
         rv.SetState(now, move, pos, rot, (int)(g.State.GetValueOrDefault("f8d8") is long f ? f : 0), Num(g, "f898"), speedF,
                     Interpolate(), Predict());
@@ -233,9 +233,9 @@ public sealed class RemoteGhosts
     /// <remarks>Follows Player_clientUpdate and Vehicle_clientUpdate. The client frame (docs/client-net.md 2.1 step 9) calls vtable +0x154 for the members of set 718 (vehicles) and then of set 719 (Players), skipping an object whose +0x218 equals now. A rider thus follows the vehicle of the same frame.</remarks>
     public void Advance(uint now)
     {
-        foreach (RemoteVehicle v in Vehicles.Values)
+        foreach (var v in Vehicles.Values)
             v.Advance(now);
-        foreach (RemotePlayer p in Players.Values)
+        foreach (var p in Players.Values)
             p.Advance(now);
     }
 }

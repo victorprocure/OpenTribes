@@ -313,7 +313,7 @@ public sealed class DebrisEffect : IEffect
         mRay = ray;
         mExplode = explode;
         mCloud = cloud;
-        RenderShape sh = inst.Shape;
+        var sh = inst.Shape;
         var debrisNode = sh.FindNode("debris0");
         var detail = 0;
         if (debrisNode >= 0)
@@ -327,18 +327,18 @@ public sealed class DebrisEffect : IEffect
         var nodes = new HashSet<int>(sh.Subtree(sh.DetailRoot(detail)));
         for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
-            RsObject ob = sh.Objects[oi];
+            var ob = sh.Objects[oi];
             if (!nodes.Contains(ob.Node) || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length || sh.Meshes[ob.Mesh].Faces.Length == 0 || !inst.Objects[oi].Visible)
                 continue;
             // the part box of 005c3b18 / 005ad14c at the object's current frame: the part origin moves to its centre (the middle of the frame box)
-            RsMesh m = sh.Meshes[ob.Mesh];
-            PartBox box = PartDebris.Measure(m, inst.Objects[oi].Frame);
+            var m = sh.Meshes[ob.Mesh];
+            var box = PartDebris.Measure(m, inst.Objects[oi].Frame);
             var hasBox = m.Frames.Length > 0 && m.Verts.Length >= (m.Frames[Math.Clamp(inst.Objects[oi].Frame, 0, m.Frames.Length - 1)].FirstVert + 2) * 4;
             double lx = box.Cx, ly = box.Cy, lz = box.Cz;
             var (sx, sy, sz) = inst.ObjectTransform(oi).Apply(lx, ly, lz);
             var (wx, wy, wz) = baseXf.Apply(sx, sy, sz);
             var piece = new Piece { Object = oi, Cx = wx, Cy = wy, Cz = wz };
-            DebrisBody body = piece.Body;
+            var body = piece.Body;
             body.X = wx;
             body.Y = wy;
             body.Z = wz;
@@ -380,9 +380,9 @@ public sealed class DebrisEffect : IEffect
     // One Debris_tick (004721f8) of every piece.
     private void Step()
     {
-        foreach (Piece p in mPieces)
+        foreach (var p in mPieces)
         {
-            DebrisBody b = p.Body;
+            var b = p.Body;
             if (b.Done)
                 continue;
             var explode = b.WantsExplosion(mParams, mRng);
@@ -404,16 +404,16 @@ public sealed class DebrisEffect : IEffect
     {
         if (!Alive)
             return;
-        foreach (Piece p in mPieces)
+        foreach (var p in mPieces)
         {
-            DebrisBody b = p.Body;
+            var b = p.Body;
             if (b.Done)
                 continue;
-            Xf xf = mBase.Then(Xf.Translate(-p.Cx, -p.Cy, -p.Cz)).Then(Xf.Euler(b.Ax, b.Ay, b.Az)).Then(Xf.Translate(b.X, b.Y, b.Z));
-            ShapeDraw d = ctx.Draw(xf, mInst.Shape.Name + " debris");
+            var xf = mBase.Then(Xf.Translate(-p.Cx, -p.Cy, -p.Cz)).Then(Xf.Euler(b.Ax, b.Ay, b.Az)).Then(Xf.Translate(b.X, b.Y, b.Z));
+            var d = ctx.Draw(xf, mInst.Shape.Name + " debris");
             d.ForceDetail = Detail;
             d.ObjectFilter = [p.Object];
-            RenderImage? img = ctx.Renderer.Build(mInst, ctx.Camera, d);
+            var img = ctx.Renderer.Build(mInst, ctx.Camera, d);
             if (img != null)
                 ctx.Lists.Add(img);
         }

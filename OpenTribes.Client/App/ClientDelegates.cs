@@ -151,7 +151,7 @@ public sealed class ClientDelegates
 
     private void FillVideoOptions(GuiControl root)
     {
-        List<(int W, int H)> modes = mApp.Win?.FullscreenModes() ?? [];
+        var modes = mApp.Win?.FullscreenModes() ?? [];
         if (modes.Count == 0)
             modes.AddRange(ClientCommandHandlers.Modes);
         VideoOptions.Fill(root, mApp.Host, mApp.Win?.Renderer, modes, mApp.Handlers.WindowedDevice, mApp.Handlers.FullscreenDevice);
@@ -164,7 +164,7 @@ public sealed class ClientDelegates
     /// <remarks>client-scripts.md 6.3, 004c712d.</remarks>
     public void Poll()
     {
-        GuiControl? content = mApp.Canvas.Content;
+        var content = mApp.Canvas.Content;
         if (content == null || content.Id != 100103 || content.FindById(ServerList) == null || ReferenceEquals(content, mSeeded))
             return;
         mSeeded = content;

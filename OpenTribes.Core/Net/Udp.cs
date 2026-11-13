@@ -244,7 +244,7 @@ public sealed class UdpSocket : IDisposable
             }
             return false;
         }
-        Socket? fd = mFd;
+        var fd = mFd;
         try
         {
             return fd != null && fd.Poll(ms * 1000, SelectMode.SelectRead);

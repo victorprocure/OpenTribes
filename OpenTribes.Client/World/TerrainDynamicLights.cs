@@ -56,7 +56,7 @@ public sealed class TerrainLightSet
         uint mask = 0;
         for (var i = 0; i < mLights.Length; ++i)
         {
-            Entry l = mLights[i];
+            var l = mLights[i];
             var dz = l.Z < z0 ? z0 - l.Z : l.Z > z0 + zr ? l.Z - (z0 + zr) : 0;
             var dx = l.X < x0 ? x0 - l.X : l.X > x0 + side ? l.X - (x0 + side) : 0;
             var dy = l.Y < y0 ? y0 - l.Y : l.Y > y0 + side ? l.Y - (y0 + side) : 0;

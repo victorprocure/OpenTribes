@@ -295,10 +295,10 @@ public sealed class TerrainMesh
     public void Reset()
     {
         Atlas.Clear();
-        foreach (List<Vertex3D> l in ByMaterial.Values)
+        foreach (var l in ByMaterial.Values)
             l.Clear();
         DynAtlas.Clear();
-        foreach (List<Vertex3D> l in DynByMaterial.Values)
+        foreach (var l in DynByMaterial.Values)
             l.Clear();
         Tiles.Clear();
         Points.Clear();
@@ -341,7 +341,7 @@ public static class TerrainMesher
         int n = squares.Count, i = 0;
         while (i < n)
         {
-            TerrainSquare sq = squares[i];
+            var sq = squares[i];
             var s = 1 << sq.Level;
             var size = s * cs;
             double h08 = z(sq.X, sq.Y + s), h0c = z(sq.X + s, sq.Y + s), h10 = z(sq.X, sq.Y), h14 = z(sq.X + s, sq.Y);
@@ -390,7 +390,7 @@ public static class TerrainMesher
         var stale = 0; // the exe keeps the mip of the previous square when the distance is 0
         for (var i = 0; i < keys.Length; ++i)
         {
-            TerrainSquare sq = squares[i];
+            var sq = squares[i];
             var pos = (sq.Y << 16) | (sq.X & 0xffff);
             if (sq.Level == 0)
             {
@@ -428,7 +428,7 @@ public static class TerrainMesher
         }
         StockSort.Sort(keys, keys.Length, Compare);
         var result = new List<TerrainSquare>(keys.Length);
-        foreach (SortKey k in keys)
+        foreach (var k in keys)
             result.Add(squares[k.Index]);
         return result;
     }
@@ -448,9 +448,9 @@ public static class TerrainMesher
     public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null,
                                    Dictionary<long, float>? growMap = null, TerrainLightSet? lights = null)
     {
-        TerrainMesh mesh = reuse ?? new TerrainMesh();
+        var mesh = reuse ?? new TerrainMesh();
         mesh.Reset();
-        HashSet<long> points = mesh.Points;
+        var points = mesh.Points;
         static long Key(int x, int y) => ((long)x << 20) | (uint)y;
         foreach (var sq in squares)
         {
@@ -460,7 +460,7 @@ public static class TerrainMesher
             points.Add(Key(sq.X, sq.Y + s));
             points.Add(Key(sq.X + s, sq.Y + s));
         }
-        Dictionary<long, float> heightCache = mesh.Heights;
+        var heightCache = mesh.Heights;
         float Z(int gx, int gy)
         {
             var k = Key(gx, gy);
@@ -489,11 +489,11 @@ public static class TerrainMesher
                 ring.Add((ax, ay));
             }
         }
-        List<(int, int)> ring = mesh.Ring;
+        var ring = mesh.Ring;
         Vertex3D prev = default;
         var culled = new List<TerrainSquare>(squares);
         StockCull(t, culled, Z, cam.X - ox, cam.Y - oy, cam.Z - oz);
-        List<TerrainSquare> ordered = StockOrder(t, culled, cam);
+        var ordered = StockOrder(t, culled, cam);
         foreach (var sq in ordered)
         {
             int s = 1 << sq.Level, x = sq.X, y = sq.Y;
@@ -522,8 +522,8 @@ public static class TerrainMesher
             {
                 int flags = t.Flags(x, y);
                 var mat = t.Material(x, y);
-                Dictionary<int, List<Vertex3D>> target = tile < 0 ? mesh.ByMaterial : mesh.DynByMaterial;
-                if (!target.TryGetValue(mat, out List<Vertex3D>? list))
+                var target = tile < 0 ? mesh.ByMaterial : mesh.DynByMaterial;
+                if (!target.TryGetValue(mat, out var list))
                     target[mat] = list = [];
                 Vertex3D C(int cx, int cy)
                 {
@@ -557,7 +557,7 @@ public static class TerrainMesher
             Border(x + s, y + s, x, y + s, ring);
             Border(x, y + s, x, y, ring);
             Vertex3D At(int gx, int gy) => Lit(V(gx, gy, Z(gx, gy), gx / (float)TerrainData.Cells, gy / (float)TerrainData.Cells), gx, gy);
-            List<Vertex3D> atlas = tile < 0 ? mesh.Atlas : mesh.DynAtlas;
+            var atlas = tile < 0 ? mesh.Atlas : mesh.DynAtlas;
             // 2.8: one polygon of the border points; the fan starts at the corner the split diagonal runs from: the first
             // corner (top left) for the (0,0)-(1,1) diagonal, else the second (top right).
             var start = 0;
@@ -572,7 +572,7 @@ public static class TerrainMesher
             for (var i = 0; i < ring.Count; ++i)
             {
                 var (ax, ay) = ring[(start + i) % ring.Count];
-                Vertex3D v = At(ax, ay);
+                var v = At(ax, ay);
                 if (i == 0)
                 {
                     first = v;
@@ -588,10 +588,10 @@ public static class TerrainMesher
             }
         }
         DropFarTriangles(mesh.Atlas, cam, p.Visible);
-        foreach (List<Vertex3D> l in mesh.ByMaterial.Values)
+        foreach (var l in mesh.ByMaterial.Values)
             DropFarTriangles(l, cam, p.Visible);
         DropFarTriangles(mesh.DynAtlas, cam, p.Visible);
-        foreach (List<Vertex3D> l in mesh.DynByMaterial.Values)
+        foreach (var l in mesh.DynByMaterial.Values)
             DropFarTriangles(l, cam, p.Visible);
         return mesh;
     }

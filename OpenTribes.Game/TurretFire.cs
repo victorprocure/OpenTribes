@@ -180,8 +180,8 @@ public partial class GameBase
     // node.
     private static bool NodePosition(GameBase t, string node, Span<float> output)
     {
-        GameState g = StateOf(t);
-        ShapeInstance? inst = ShapeState.ShapeInstanceOf(g, t);
+        var g = StateOf(t);
+        var inst = ShapeState.ShapeInstanceOf(g, t);
         var n = inst != null ? inst.ShapeData!.FindNode(node) : -1;
         if (n < 0 || n >= inst!.Entries.Length)
             return false;
@@ -218,7 +218,7 @@ public partial class GameBase
             M = t.Transform.M,
             P = t.Transform.P
         };
-        Shape.TmatMul(l, o, out TMat3 w);
+        Shape.TmatMul(l, o, out var w);
         output = new Transform
         {
             Flags = w.Flags,
@@ -264,13 +264,13 @@ public partial class GameBase
     // src/game/turret_fire.cpp projectileType: projectile class and index of the TurretData (+0x120, +0x124).
     private static bool TurretProjectileType(GameBase t, out int group, out int index, out DataBlockManager.Block? block)
     {
-        GameState g = StateOf(t);
+        var g = StateOf(t);
         group = index = -1;
         block = null;
         if (g.Sim == null || t.DataBlockName == null)
             return false;
-        DataBlockManager.Block? b = g.Sim.DataBlocks().Find(t.DataBlockName);
-        DataBlockManager.Field? f = b != null ? Pj.Field(b, "projectileType") : null;
+        var b = g.Sim.DataBlocks().Find(t.DataBlockName);
+        var f = b != null ? Pj.Field(b, "projectileType") : null;
         if (f == null || f.Elems.Count == 0 || f.Elems[0].I < 0)
             return false;
         group = f.Elems[0].I;
@@ -285,7 +285,7 @@ public partial class GameBase
         if (t.TurretProjectileSpeed >= 0)
             return t.TurretProjectileSpeed;
         var speed = 50.0f;
-        if (TurretProjectileType(t, out var group, out _, out DataBlockManager.Block? b))
+        if (TurretProjectileType(t, out var group, out _, out var b))
         {
             speed = group switch
             {
@@ -346,8 +346,8 @@ public partial class GameBase
         var limits = false;
         if (Services() != null)
         {
-            GameState g = StateOf(this);
-            ShapeInstance? inst = ShapeState.ShapeInstanceOf(g, this);
+            var g = StateOf(this);
+            var inst = ShapeState.ShapeInstanceOf(g, this);
             var node = inst != null ? inst.ShapeData!.FindNode("dummy muzzle") : -1;
             if (node >= 0)
             {
@@ -540,8 +540,8 @@ public partial class GameBase
     {
         if (Services() == null)
             return false;
-        GameState g = StateOf(this);
-        Player? p = pl != null ? Player.From(pl) : null;
+        var g = StateOf(this);
+        var p = pl != null ? Player.From(pl) : null;
         if (p == null || p.Team == Team || !PlayerManager.VisibleToTeam(p, Team) || p.Dead)
             return false;
         if (g.Console != null)
@@ -592,8 +592,8 @@ public partial class GameBase
         // projectileType unset (-1): no target (the datablock getter cannot tell, docs/datablocks.md PR2).
         if (!TurretProjectileType(this, out _, out _, out _))
             return null;
-        GameState g = StateOf(this);
-        SimManager? m = g.Sim?.Server();
+        var g = StateOf(this);
+        var m = g.Sim?.Server();
         if (m == null)
             return null;
         var range = TurretData.GunRange == -1.0f ? Store(SensorData.Range) : TurretData.GunRange;
@@ -609,7 +609,7 @@ public partial class GameBase
         // The player list (+0x340f4, humans and AI, newest first), not the human list.
         foreach (var cid in g.Players.PlayerIds())
         {
-            ClientRecord? r = g.Players.Find(cid);
+            var r = g.Players.Find(cid);
             if (r == null || r.OwnedObject == 0)
                 continue;
             if (m.FindById(r.OwnedObject) is GameBase gb && Player.From(gb) != null && TurretTestTarget(gb, ref limit, range))
@@ -624,7 +624,7 @@ public partial class GameBase
     {
         var now = Manager() != null ? Manager()!.Time() : 0.0f;
         TurretInRange = 0;
-        GameBase? target = TurretFindTarget();
+        var target = TurretFindTarget();
         if (TurretInRange != 0)
             TurretSleep = X87.F32(Add(now, 3.0f));
         if (target != null)
@@ -704,7 +704,7 @@ public partial class GameBase
     {
         if (Services() == null)
             return;
-        GameState g = StateOf(this);
+        var g = StateOf(this);
         float[] centre = new float[3], tp = new float[3];
         TurretBoxCentre(g, this, centre);
         TurretTargetPoint(g, target, tp);
@@ -731,7 +731,7 @@ public partial class GameBase
     {
         if (ShapeClass() != ShapeKind.Turret)
             return Transform;
-        NodeTransform(this, "dummy eye", out Transform eye);
+        NodeTransform(this, "dummy eye", out var eye);
         return eye;
     }
 
@@ -757,10 +757,10 @@ public partial class GameBase
     // 0x24e000a6), the largest cosine to the eye direction above the cone limit.
     private static GameBase? SeekerConeTarget(GameState g, GameBase t)
     {
-        SimManager? m = g.Sim?.Server();
+        var m = g.Sim?.Server();
         if (m == null)
             return null;
-        Transform eye = t.EyeTransform();
+        var eye = t.EyeTransform();
         float[] fwd = [eye.M[3], eye.M[4], eye.M[5]];
         TurretNormalise(fwd);
         GameBase? best = null;
@@ -805,11 +805,11 @@ public partial class GameBase
     {
         if (Services() == null)
             return;
-        GameState g = StateOf(this);
-        SimManager? m = Manager();
+        var g = StateOf(this);
+        var m = Manager();
         if (m == null)
             return;
-        TurretProjectileType(this, out var group, out var index, out DataBlockManager.Block? block);
+        TurretProjectileType(this, out var group, out var index, out var block);
         var now = m.Time();
         if (block == null)
         {
@@ -826,14 +826,14 @@ public partial class GameBase
         var energyNow = Energy;
         if (!(TurretNextFire <= now) || energyNow < TurretData.MinGunEnergy)
             return;
-        TurretMuzzleTransform(out Transform xf);
+        TurretMuzzleTransform(out var xf);
         Projectile? pr = Projectile.Create(g, group, index);
         if (pr == null)
             return; // D11: the original dereferences the null result
         if (!byPlayer && TurretData.Deflection != 0.0f)
         {
             // Random aim error on the Euler angles x and z: a function-static R250 per path.
-            R250 rng = sustained ? sTurretSustainedPath : sTurretNormalPath;
+            var rng = sustained ? sTurretSustainedPath : sTurretNormalPath;
             var e = new float[3];
             MissionTransform.MatrixToEuler(xf, e);
             foreach (var axis in new[] { 0, 2 })
@@ -849,7 +849,7 @@ public partial class GameBase
         {
             // 0x0044bfb4: the eye ray (1200 m) picks the point the projectile is aimed at, unless it is less than 2 m from
             // the muzzle; the position stays the muzzle's.
-            NodeTransform(this, "dummy eye", out Transform eye);
+            NodeTransform(this, "dummy eye", out var eye);
             var hit = new RayHit();
             if (ProjectileFire.ProjectileCastLOS(g, eye, 0xffffffffu, this, 1200.0f, ref hit))
             {
@@ -887,7 +887,7 @@ public partial class GameBase
                 if (target != null)
                 {
                     // 0x00453539: a mounted Player is followed through its mount object (+0x1028).
-                    GameBase tg = target;
+                    var tg = target;
                     if (Player.From(target) is Player tp && tp.MountId != 0 && m.FindById(tp.MountId) is SimObject mo)
                         tg = mo as GameBase ?? target;
                     pr.SetTarget(tg);
@@ -933,7 +933,7 @@ public partial class GameBase
     {
         TurretStamp = TurretTickMs;
         TurretBarrelState = 0;
-        SimManager? m = Manager();
+        var m = Manager();
         if (m != null && TurretBeamProjectile != 0)
             Projectile.From(m.FindById(TurretBeamProjectile))?.ShutOff();
         TurretBeamProjectile = 0;
@@ -946,11 +946,11 @@ public partial class GameBase
     {
         if (Services() == null)
             return;
-        GameState g = StateOf(this);
-        SimManager? m = Manager();
+        var g = StateOf(this);
+        var m = Manager();
         if (ControlClient == 0 && DamageState == kEnabled && IsActiveFlag())
         {
-            SimObject? to = m != null && TurretBeamTarget != 0 ? m.FindById(TurretBeamTarget) : null;
+            var to = m != null && TurretBeamTarget != 0 ? m.FindById(TurretBeamTarget) : null;
             if (to is not GameBase target)
             {
                 TurretStopBeam();
@@ -981,7 +981,7 @@ public partial class GameBase
         }
         if (TurretBeamProjectile != 0 && Projectile.From(m?.FindById(TurretBeamProjectile)) is Projectile pr)
         {
-            NodeTransform(this, "dummy eye", out Transform xf); // vtable +0x110, the eye transform
+            NodeTransform(this, "dummy eye", out var xf); // vtable +0x110, the eye transform
             pr.UpdateTransform(xf);
         }
     }
@@ -1005,7 +1005,7 @@ public partial class GameBase
     /// <summary>Calls the script method <c>jump(turret)</c> when one is defined. The base scripts define none.</summary>
     public void TurretJump()
     {
-        GameState g = StateOf(this);
+        var g = StateOf(this);
         var fn = Pj.FindMethod(g, this, "jump");
         if (fn.Length != 0)
             Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()) });

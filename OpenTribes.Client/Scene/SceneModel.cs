@@ -90,7 +90,7 @@ public sealed class SceneModel
     /// <summary>Gets the skin name of a team.</summary>
     /// <param name="team">The team index.</param>
     /// <returns>The skin, or empty for an unknown team.</returns>
-    public string TeamSkin(int team) => World.Players.Teams.TryGetValue(team, out ClientTeam? t) ? t.Skin : "";
+    public string TeamSkin(int team) => World.Players.Teams.TryGetValue(team, out var t) ? t.Skin : "";
 
     /// <summary>Applies a decoded packet: events, then the ghost updates.</summary>
     /// <param name="pkt">The packet.</param>
@@ -100,22 +100,22 @@ public sealed class SceneModel
         if (!mDecalsLoaded && World.DataBlocks.Blocks.ContainsKey((2, 0)))
         {
             mDecalsLoaded = true;
-            ClientDataBlock? ds = Db.Block(2, 0);
+            var ds = Db.Block(2, 0);
             Assets.SetDamageDecals(Enumerable.Range(0, 10).Select(i => Db.Str(ds, $"bmpName[{i}]")).Where(s => s.Length > 0)
                 .Select(s => s.Contains('.') ? s : s + ".bmp"));
         }
         if (pkt.Ghosts == null)
             return;
-        foreach (DecodedGhost u in pkt.Ghosts.Updates)
+        foreach (var u in pkt.Ghosts.Updates)
         {
             if (u.Op == "delete")
             {
                 Audio?.OnDelete(u.Index);
-                if (Visuals.Remove(u.Index, out Visual? gone))
+                if (Visuals.Remove(u.Index, out var gone))
                     gone.OnDelete();
                 continue;
             }
-            ClientGhost? g = World.Ghosts.Get(u.Index);
+            var g = World.Ghosts.Get(u.Index);
             if (g == null)
                 continue;
             if (g.Class == "Snowfall")
@@ -129,9 +129,9 @@ public sealed class SceneModel
                 Weather.Rain = g.State.TryGetValue("flagf1", out var r) && Db.ToDouble(r) != 0;
                 continue;
             }
-            if (!Visuals.TryGetValue(u.Index, out Visual? v) || v.Ghost != g)
+            if (!Visuals.TryGetValue(u.Index, out var v) || v.Ghost != g)
             {
-                Visual? nv = Create(g.Class);
+                var nv = Create(g.Class);
                 if (nv == null)
                     continue;
                 nv.Init(this, g);
@@ -147,7 +147,7 @@ public sealed class SceneModel
     public void Tick(double dt)
     {
         Time += dt;
-        foreach (Visual v in Visuals.Values)
+        foreach (var v in Visuals.Values)
             v.Tick(dt);
         for (var i = Effects.Count - 1; i >= 0; --i)
         {
@@ -208,14 +208,14 @@ public sealed class SceneModel
     /// <param name="az">The surface axis z.</param>
     public void SpawnExplosion(int index, double x, double y, double z, double ax, double ay, double az)
     {
-        ClientDataBlock? db = Db.Block(20, index);
+        var db = Db.Block(20, index);
         if (db == null)
             return;
         Audio?.OnExplosion(db, x, y, z);
         var name = Db.Str(db, "shapeName");
         if (name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
             name = name[..^4];
-        RenderShape? sh = Assets.Shape(name);
+        var sh = Assets.Shape(name);
         if (sh == null)
             return;
         Effects.Add(new ExplosionEffect(sh, db, x, y, z, ax, ay, az, Rng));
@@ -297,10 +297,10 @@ public sealed class SceneModel
             SunG = BaseLight.SunG,
             SunB = BaseLight.SunB,
         };
-        foreach (IEffect e in Effects)
+        foreach (var e in Effects)
             if (e.Light is PointLight l)
                 set.Add(l);
-        foreach (Visual v in Visuals.Values)
+        foreach (var v in Visuals.Values)
         {
             switch (v)
             {
@@ -314,7 +314,7 @@ public sealed class SceneModel
                     plv.CollectLights(set);
                     break;
                 case ShapeVisual sv when sv.Class is "Item" or "Mine" && sv.Position is var (x, y, z):
-                    ClientDataBlock? db = Db.Block(sv.Class == "Item" ? 5 : 23, (long)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("datablock"), -1));
+                    var db = Db.Block(sv.Class == "Item" ? 5 : 23, (long)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("datablock"), -1));
                     var type = (int)Db.Num(db, "lightType");
                     // Item::updateLight (00451bb0): type 2 pulses as 0.15 + 0.85 * (0.5 + 0.5 sin(pi * (now - added) / lightTime)),
                     // the phase counted from the ghost's creation; the light sits at the item's position.
@@ -338,10 +338,10 @@ public sealed class SceneModel
         ctx.Time = Time;
         ctx.Light = CollectLights();
         ctx.Lists.Clear();
-        foreach (Visual v in Visuals.Values)
+        foreach (var v in Visuals.Values)
             (v as PlayerVisual)?.PrepareFrame(ctx);
         using (FramePerf.Scope("build-shapes"))
-            foreach (Visual v in Visuals.Values)
+            foreach (var v in Visuals.Values)
             {
                 ctx.Lists.CurrentContainer = ctx.ContainerOf != null && v.WorldBox is { } wb ? ctx.ContainerOf(wb) : -1;
                 if (ctx.Lists.CurrentContainer == Client.World.InteriorRenderer.Culled)
@@ -351,7 +351,7 @@ public sealed class SceneModel
         ctx.Lists.CurrentContainer = -1;
         using (FramePerf.Scope("build-effects"))
         {
-            foreach (IEffect e in Effects)
+            foreach (var e in Effects)
                 e.Build(ctx);
             Smoke.Build(ctx);
             Decals.Build(ctx);

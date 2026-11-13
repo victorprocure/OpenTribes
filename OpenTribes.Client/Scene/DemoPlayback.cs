@@ -44,12 +44,12 @@ public sealed class DemoPlayback
             ClockMs += 32;
             while (mNext < Demo.Records.Count && Demo.Records[mNext].Time <= ClockMs)
             {
-                DemoRecord rec = Demo.Records[mNext++];
+                var rec = Demo.Records[mNext++];
                 switch (rec.Kind)
                 {
                     case DemoRecordKind.Packet:
                         World.NetTimeMs = rec.Time;
-                        DecodedPacket pkt = Conn.Receive(rec.Packet);
+                        var pkt = Conn.Receive(rec.Packet);
                         ++PacketsApplied;
                         OnPacket?.Invoke(pkt);
                         break;

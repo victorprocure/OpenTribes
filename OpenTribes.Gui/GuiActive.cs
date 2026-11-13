@@ -229,7 +229,7 @@ public class GuiSimpleText : GuiActive
     /// <param name="gy">The control y in canvas pixels.</param>
     protected virtual void DrawText(GuiPaint p, int gx, int gy)
     {
-        PftFont? f = Font;
+        var f = Font;
         var s = ResolvedText();
         if (f == null || s.Length == 0)
             return;
@@ -253,7 +253,7 @@ public sealed class GuiFGSimpleText : GuiSimpleText
     protected override void ApplyValue(string v)
     {
         base.ApplyValue(v);
-        PftFont? big = Host?.FontByName("sf_orange255_10.pft");
+        var big = Host?.FontByName("sf_orange255_10.pft");
         if (big != null)
             W = GuiPaint.TextWidth(big, Text) + 2;
     }
@@ -381,7 +381,7 @@ public class GuiTextEdit : GuiSimpleText
 
     private int IndexAt(int gx)
     {
-        PftFont? f = Font;
+        var f = Font;
         var (lx, _) = GlobalToLocal(gx, 0);
         var x = lx - mTextLeft;
         if (x <= 0 || f == null)
@@ -561,9 +561,9 @@ public class GuiTextEdit : GuiSimpleText
                 return true;
         }
         var ch = e.Ascii;
-        if (ch is >= (char)0x20 and < (char)0x7f or >= (char)0xa0)
+        if (ch is (>= (char)0x20 and < (char)0x7f) or >= (char)0xa0)
         {
-            if (NumbersOnly && !(ch >= '0' && ch <= '9' || ch == '-' && Cursor == 0 && !Text.StartsWith('-')))
+            if (NumbersOnly && !((ch >= '0' && ch <= '9') || (ch == '-' && Cursor == 0 && !Text.StartsWith('-'))))
                 return true;
             SaveUndo();
             DeleteSelection();
@@ -618,7 +618,7 @@ public class GuiTextEdit : GuiSimpleText
         if (Host == null)
             return;
         PftFont? dis = Host.FontByTag(U("disabledFontTag")), hi = Host.FontByTag(U("highlightFontTag"));
-        PftFont? f = !Active && dis != null ? dis : Font;
+        var f = !Active && dis != null ? dis : Font;
         if (f == null)
             return;
         var focus = ReferenceEquals(Canvas?.FirstResponder, this);
@@ -679,7 +679,7 @@ public sealed class GuiTestEdit : GuiTextEdit
         if (e.Scan is 0x1c or 0x01 && Canvas != null)
         {
             // A dialog box (control 141000) under the canvas: Enter presses its OK button, Escape its cancel button.
-            GuiControl? root = Canvas.Stack.Count > 0 ? Canvas.Top : null;
+            var root = Canvas.Stack.Count > 0 ? Canvas.Top : null;
             if (root != null && root.FindById(141000) != null)
             {
                 var names = e.Scan == 0x1c ? new[] { "DialogReturnButton", "DialogCloseButton" } : ["DialogEscapeButton", "DialogCloseButton"];

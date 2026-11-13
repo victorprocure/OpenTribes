@@ -381,7 +381,7 @@ public class MathCommandsTests
         Assert.Equal("-0 0 -1.57079", Run(w, "echo(Vector::getRotation(\"1e-30 0 0\"));"));
 
         // findPointOnSphere with the reference's results for the Generator and flag shapes.
-        foreach (Sphere sp in kSphere)
+        foreach (var sp in kSphere)
         {
             float[] from = Parse3(sp.From), to = Parse3(sp.To), dir = Parse3(sp.Dir), o = new float[3];
             var got = "0 0 0";

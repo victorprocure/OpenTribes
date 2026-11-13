@@ -217,7 +217,7 @@ public sealed class RemotePlayer
     // The step of the loop in Player_clientUpdate for a remote Player: the echoed move, deltas written by the step.
     private void Step()
     {
-        Move m = P.LastMove;
+        var m = P.LastMove;
         float[] before = [P.Transform.P[0], P.Transform.P[1], P.Transform.P[2]];
         var pitchBefore = P.Pitch;
         P.UpdateMove(m);
@@ -340,7 +340,7 @@ public sealed class RemoteVehicle
         var ticks = SmoothWindow.Ticks(predict);
         for (var k = 0; k < ticks; ++k)
         {
-            Move m = V.LastMove;
+            var m = V.LastMove;
             V.Update(ref m, 0.032f);
             ++Steps;
         }
@@ -399,7 +399,7 @@ public sealed class RemoteVehicle
         {
             var next = Math.Min((SimTime + 32) & ~31u, now);
             var ms = ((next - 1) & 31) + 1 - (SimTime & 31);
-            Move m = V.LastMove;
+            var m = V.LastMove;
             V.Update(ref m, (float)(ms * 0.001));
             SimTime = next;
         }

@@ -9,17 +9,17 @@ public class PlayChatLookupTests
     public void ChatDisplayOfAnotherObjectIsNotThePlayGuiChild()
     {
         var f = new GuiFixture();
-        GuiControl command = GuiFixture.Make("SimGui::Control");
+        var command = GuiFixture.Make("SimGui::Control");
         command.Name = "commandGui";
-        GuiControl cmdChat = GuiFixture.Make("SimGui::Control");
+        var cmdChat = GuiFixture.Make("SimGui::Control");
         cmdChat.Id = 140113;
         command.Children.Add(cmdChat);
         f.Runtime.Named["commandGui"] = command;
         Assert.Null(f.Runtime.FindChildOf("playGui", 140113));
 
-        GuiControl play = GuiFixture.Make("SimGui::Control");
+        var play = GuiFixture.Make("SimGui::Control");
         play.Name = "playGui";
-        GuiControl chat = GuiFixture.Make("SimGui::Control");
+        var chat = GuiFixture.Make("SimGui::Control");
         chat.Id = 140113;
         play.Children.Add(chat);
         f.Content(play);
@@ -35,10 +35,10 @@ public class PlayChatLookupTests
     public void PlayGuiStaysFindableWhileAnotherContentIsUp()
     {
         var f = new GuiFixture();
-        GuiControl play = GuiFixture.Make("SimGui::Control");
+        var play = GuiFixture.Make("SimGui::Control");
         play.Name = "playGui";
         play.Flags = 1;
-        GuiControl chat = GuiFixture.Make("SimGui::Control");
+        var chat = GuiFixture.Make("SimGui::Control");
         chat.Id = 140113;
         play.Children.Add(chat);
         f.Content(play);

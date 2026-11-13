@@ -27,8 +27,8 @@ public class ResampleTests
     [InlineData(4500)]
     public void PassbandKeepsLevel(double hz)
     {
-        WavData src = Tone(11025, hz, 11025);
-        WavData dst = src.AtRate(48000, false);
+        var src = Tone(11025, hz, 11025);
+        var dst = src.AtRate(48000, false);
         Assert.Equal(48000, dst.Rate);
         Assert.InRange(RmsDb(dst.Samples, 4000, 44000) - RmsDb(src.Samples, 1000, 10000), -0.15, 0.15);
     }
@@ -37,10 +37,10 @@ public class ResampleTests
     public void ImageAboveSourceNyquistIsRemoved()
     {
         // 6.5 kHz is above the 5.5 kHz Nyquist of an 11025 Hz source: it aliases to 4.5 kHz in the source and must not leave a mirror.
-        WavData src = Tone(22050, 8000, 22050);       // 22050 Hz source, device 48000: 8 kHz is in band
-        WavData dst = src.AtRate(48000, false);
+        var src = Tone(22050, 8000, 22050);       // 22050 Hz source, device 48000: 8 kHz is in band
+        var dst = src.AtRate(48000, false);
         Assert.InRange(RmsDb(dst.Samples, 8000, 44000) - RmsDb(src.Samples, 4000, 18000), -0.5, 0.5);
-        WavData low = Tone(11025, 4500, 11025).AtRate(48000, false);
+        var low = Tone(11025, 4500, 11025).AtRate(48000, false);
         // a 4.5 kHz tone sampled at 11025 Hz has its mirror at 6525 Hz in a linear interpolation; measure by correlating with 6525 Hz
         double re = 0, im = 0;
         for (var i = 4000; i < 44000; ++i)
@@ -55,8 +55,8 @@ public class ResampleTests
     [Fact]
     public void LoopWrapsAndIsCached()
     {
-        WavData src = Tone(11025, 441, 11025);        // exactly 441 cycles in the data: the loop is seamless
-        WavData a = src.AtRate(44100, true);
+        var src = Tone(11025, 441, 11025);        // exactly 441 cycles in the data: the loop is seamless
+        var a = src.AtRate(44100, true);
         Assert.Same(a, src.AtRate(44100, true));
         Assert.Equal(44100, a.Frames);
         Assert.InRange(Math.Abs(a.Samples[0] - a.Samples[44099] - (a.Samples[1] - a.Samples[0])), 0, 0.01);

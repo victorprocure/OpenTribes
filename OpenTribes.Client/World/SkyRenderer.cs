@@ -61,11 +61,11 @@ public sealed class SkyRenderer : IDisposable
                 if (t < 0)
                     continue;
                 var m = t % materials.Count;
-                PbmpBitmap? bmp = materials[m] is string n ? assets.Bitmap(n) : null;
+                var bmp = materials[m] is string n ? assets.Bitmap(n) : null;
                 if (bmp == null)
                     continue;
                 first ??= bmp;
-                if (!cache.TryGetValue(m, out IGfxTexture? tex))
+                if (!cache.TryGetValue(m, out var tex))
                     cache[m] = tex = assets.CreateTexture(mDev, bmp, assets.PackedRgba(bmp, true), false, true, true);
                 mPanelTextures[i] = tex;
             }
@@ -126,7 +126,7 @@ public sealed class SkyRenderer : IDisposable
         mDev.Draw3D(tris.ToArray(), state);
         for (var i = 0; i < Panels; ++i)
         {
-            IGfxTexture? tex = mPanelTextures[i];
+            var tex = mPanelTextures[i];
             if (tex == null)
                 continue;
             var white = (1f, 1f, 1f);
@@ -139,7 +139,7 @@ public sealed class SkyRenderer : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (IGfxTexture? t in mPanelTextures.Distinct())
+        foreach (var t in mPanelTextures.Distinct())
             t?.Dispose();
     }
 }
@@ -209,7 +209,7 @@ public static class StarField
         var (x, y, z) = cam.Right;
         var u = cam.Up;
         var f = cam.Forward;
-        foreach (Star s in stars)
+        foreach (var s in stars)
         {
             var dot = (s.X * f.x) + (s.Y * f.y) + (s.Z * f.z);
             if (dot <= 0.2 * Math.Sqrt((s.X * s.X) + (s.Y * s.Y) + (s.Z * s.Z)))
@@ -264,7 +264,7 @@ public sealed class PlanetRenderer : IDisposable
         Incidence = Math.Clamp(incidence, -89, 89); // 4.3: clamped to [-89, 89]
         Size = size;
         Distance = distance;
-        PbmpBitmap? bmp = fileName.Length > 0 ? assets.Bitmap(fileName) : null;
+        var bmp = fileName.Length > 0 ? assets.Bitmap(fileName) : null;
         if (bmp != null)
             mTexture = assets.CreateTexture(dev, bmp, assets.PackedRgba(bmp, false), false, false, true);
     }

@@ -15,14 +15,14 @@ public sealed partial class Player
     // src/game/item_image.cpp fieldOf.
     private static DataBlockManager.Field? FieldOf(DataBlockManager.Block b, string name)
     {
-        DataBlockManager.Field? f = b.Find(name);
+        var f = b.Find(name);
         return f != null && f.Elems.Count != 0 ? f : null;
     }
 
     // src/game/item_image.cpp blockFloat.
     private static float BlockFloat(DataBlockManager.Block b, string name, float def)
     {
-        DataBlockManager.Field? f = FieldOf(b, name);
+        var f = FieldOf(b, name);
         if (f == null)
             return def;
         if (f.Elems[0].Set)
@@ -35,7 +35,7 @@ public sealed partial class Player
     // src/game/item_image.cpp blockInt.
     private static int BlockInt(DataBlockManager.Block b, string name, int def)
     {
-        DataBlockManager.Field? f = FieldOf(b, name);
+        var f = FieldOf(b, name);
         return f != null && f.Elems[0].Set ? f.Elems[0].I : def;
     }
 
@@ -51,13 +51,13 @@ public sealed partial class Player
     /// <param name="ev">The event name.</param>
     public void ImageCallback(int slot, string ev)
     {
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (mGame.Console == null || mGame.Sim == null)
             return;
         var names = new List<string>();
         if (s.Info.Name != null)
             names.Add(s.Info.Name + "::" + ev);
-        DataBlockManager.Block? item = mGame.Sim.DataBlocks().At(5, s.Item);
+        var item = mGame.Sim.DataBlocks().At(5, s.Item);
         if (item != null && mGame.Sim.DataBlocks().GetField(item, "className", "", out var cls) && cls.Length != 0)
             names.Add(cls + "::" + ev);
         names.Add("ItemImage::" + ev);
@@ -80,8 +80,8 @@ public sealed partial class Player
     {
         if (slot < 0 || slot >= kImageSlots || type < 0 || type >= kItemTypes)
             return false;
-        DataBlockManager.Block? item = mGame.Sim?.DataBlocks().At(5, type);
-        DataBlockManager.Field? f = item?.Find("imageType");
+        var item = mGame.Sim?.DataBlocks().At(5, type);
+        var f = item?.Find("imageType");
         if (f == null || f.Elems.Count == 0 || !f.Elems[0].Set || f.Elems[0].I < 0)
             return false; // imageType -1
         if (Images[slot].Item != -1)
@@ -123,7 +123,7 @@ public sealed partial class Player
     /// <remarks>Follows Player::setImage (0x0041a168).</remarks>
     public void SetImage(int slot, int item, int team)
     {
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (item == s.Item)
         {
             s.NextItem = -2;
@@ -138,12 +138,12 @@ public sealed partial class Player
         ResetImage(slot);
         if (item == -1)
             return;
-        ImageSlot n = Images[slot];
+        var n = Images[slot];
         n.Item = item;
         n.Team = team;
-        DataBlockManager.Block? it = mGame.Sim?.DataBlocks().At(5, item);
-        DataBlockManager.Field? f = it?.Find("imageType");
-        DataBlockManager.Block? img = f != null && f.Elems.Count != 0 && f.Elems[0].Set ? mGame.Sim!.DataBlocks().At(6, f.Elems[0].I) : null;
+        var it = mGame.Sim?.DataBlocks().At(5, item);
+        var f = it?.Find("imageType");
+        var img = f != null && f.Elems.Count != 0 && f.Elems[0].Set ? mGame.Sim!.DataBlocks().At(6, f.Elems[0].I) : null;
         // The image shape resource: a missing shape keeps the item and clears the image type.
         var shape = false;
         if (img != null)
@@ -156,7 +156,7 @@ public sealed partial class Player
             return;
         }
         n.Image = img.Index;
-        ImageInfo i = n.Info;
+        var i = n.Info;
         i.Reset();
         i.Name = img.Name;
         i.WeaponType = BlockInt(img, "weaponType", -1);
@@ -195,7 +195,7 @@ public sealed partial class Player
     /// <remarks>Follows Player::resetImage (0x0041a64c).</remarks>
     public void ResetImage(int slot)
     {
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (s.Image != -1 && s.Info.WeaponType == 2 && s.State == kFire)
             StopSustained(slot);
         var item = Images[slot].Item;
@@ -213,7 +213,7 @@ public sealed partial class Player
     {
         if (slot is < 0 or >= kImageSlots)
             return;
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (s.Image == -1 || s.Triggered == down)
             return;
         if (down)
@@ -245,8 +245,8 @@ public sealed partial class Player
         if (slot < 0 || slot >= kImageSlots || Images[slot].Image == -1)
             return;
         var self = Id();
-        SimManager? mgr = Manager();
-        ImageSlot s = Images[slot];
+        var mgr = Manager();
+        var s = Images[slot];
         s.Timer = X87.F32(Sub(s.Timer, dt));
         // The ammo flag (server).
         var ammo = s.Info.AmmoType == -1 ? Energy > s.Info.MinEnergy : ItemCountOf(s.Info.AmmoType) > 0;
@@ -359,7 +359,7 @@ public sealed partial class Player
     public void SetImageState(int slot, int state)
     {
         using var chop = X87.Chop();
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (s.Image == -1)
             return;
         var old = s.State;
@@ -391,7 +391,7 @@ public sealed partial class Player
                 if (s.Info.AmmoType != -1 && mGame.Console != null)
                 {
                     var fn = mGame.VirtualFunction(this, "onNoAmmo");
-                    DataBlockManager.Block? item = mGame.Sim?.DataBlocks().At(5, s.Item);
+                    var item = mGame.Sim?.DataBlocks().At(5, s.Item);
                     if (fn.Length != 0 && item != null)
                         mGame.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot), item.Name });
                 }
@@ -435,7 +435,7 @@ public sealed partial class Player
     /// <remarks>Follows Player::fireImage (0x0041b8cc).</remarks>
     public void FireImage(int slot)
     {
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (s.Info.ProjGroup < 0 || s.Info.ProjIndex < 0)
         {
             ImageCallback(slot, "onFire");
@@ -449,7 +449,7 @@ public sealed partial class Player
     /// <remarks>Follows Player::startSustained (0x0041b520).</remarks>
     public void StartSustained(int slot)
     {
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (s.Info.ProjGroup < 0 || s.Info.ProjIndex < 0)
         {
             ImageCallback(slot, "onActivate");
@@ -463,7 +463,7 @@ public sealed partial class Player
     /// <remarks>Follows Player::updateSustained (0x0041b728).</remarks>
     public void UpdateSustained(int slot)
     {
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (s.Info.ProjGroup < 0 || s.Info.ProjIndex < 0)
         {
             ImageCallback(slot, "onUpdateFire");
@@ -478,7 +478,7 @@ public sealed partial class Player
     /// <remarks>Follows Player::stopSustained (0x0041b828).</remarks>
     public void StopSustained(int slot)
     {
-        ImageSlot s = Images[slot];
+        var s = Images[slot];
         if (s.Info.ProjGroup < 0 || s.Info.ProjIndex < 0)
         {
             ImageCallback(slot, "onDeactivate");

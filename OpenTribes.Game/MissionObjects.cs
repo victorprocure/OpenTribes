@@ -75,7 +75,7 @@ public sealed class PersistFields
     /// <returns>False when the field is not defined or the values are not accepted.</returns>
     public bool Set(string field, IReadOnlyList<string> values)
     {
-        foreach (PersistDef d in mDefs)
+        foreach (var d in mDefs)
         {
             if (!SimClassesNoCase(d.Name, field))
                 continue;
@@ -101,7 +101,7 @@ public sealed class PersistFields
     /// <returns>False when the field or index is not accepted.</returns>
     public bool SetElement(string field, int index, IReadOnlyList<string> values)
     {
-        foreach (PersistDef d in mDefs)
+        foreach (var d in mDefs)
         {
             if (!SimClassesNoCase(d.Name, field) || d.Count < 2 || index < 0 || index >= d.Count)
                 continue;
@@ -125,7 +125,7 @@ public sealed class PersistFields
     /// <param name="index">The element index, or -1 for the whole field.</param>
     /// <returns>The values, or null when the field has none.</returns>
     public IReadOnlyList<string>? Get(string field, int index = -1) =>
-        mValues.TryGetValue(ElementKey(Lower(field), index), out List<string>? v) ? v : null;
+        mValues.TryGetValue(ElementKey(Lower(field), index), out var v) ? v : null;
 
     /// <summary>Reads a point3F field.</summary>
     /// <param name="field">The field name.</param>
@@ -147,7 +147,7 @@ public sealed class PersistFields
     /// <returns>The value.</returns>
     public string Str(string field, string def = "")
     {
-        IReadOnlyList<string>? v = Get(field);
+        var v = Get(field);
         return v != null && v.Count != 0 ? v[0] : def;
     }
 
@@ -157,7 +157,7 @@ public sealed class PersistFields
     /// <returns>The value.</returns>
     public float Real(string field, float def)
     {
-        IReadOnlyList<string>? v = Get(field);
+        var v = Get(field);
         return v != null && v.Count != 0 ? AtofRZ(v[0]) : def;
     }
 
@@ -168,7 +168,7 @@ public sealed class PersistFields
     /// <returns>The value.</returns>
     public int Integer(string field, int def, int index = -1)
     {
-        IReadOnlyList<string>? v = Get(field, index);
+        var v = Get(field, index);
         return v != null && v.Count != 0 ? Numbers.BorlandAtoi(v[0]) : def;
     }
 
@@ -178,7 +178,7 @@ public sealed class PersistFields
     /// <returns>The value.</returns>
     public bool Boolean(string field, bool def)
     {
-        IReadOnlyList<string>? v = Get(field);
+        var v = Get(field);
         return v != null && v.Count != 0 ? ParseBool(v[0]) : def;
     }
 
@@ -797,7 +797,7 @@ public partial class GameBase : SimObject
                 ("Item", ShapeKind.Item), ("Mine", ShapeKind.Mine), ("Moveable", ShapeKind.Moveable),
                 ("Flier", ShapeKind.Vehicle), ("Vehicle", ShapeKind.Vehicle),
             ];
-            foreach ((var c, ShapeKind s) in kShapes)
+            foreach ((var c, var s) in kShapes)
                 if (GameUtil.EqualsNoCase(c, cls))
                     mShapeClass = s;
         }
@@ -898,7 +898,7 @@ public partial class GameBase : SimObject
     // the team.
     private void InitTeam()
     {
-        for (SimGroup? g = Group(); g != null; g = g.Group())
+        for (var g = Group(); g != null; g = g.Group())
         {
             if (g.Name() != null && GameUtil.EqualsNoCase(g.Name(), "MissionGroup"))
             {
@@ -950,7 +950,7 @@ public partial class GameBase : SimObject
         if (group == null)
             return;
         var members = new List<SimObject>(group.Members()); // scripts may change the group
-        foreach (SimObject m in members)
+        foreach (var m in members)
         {
             if (m is GameBase gb)
             {
@@ -982,10 +982,10 @@ public partial class GameBase : SimObject
             PowerCount = 1;
             OnPower(this);
         }
-        for (SimGroup? g = Group(); g != null; g = g.Group())
+        for (var g = Group(); g != null; g = g.Group())
         {
             var members = new List<SimObject>(g.Members());
-            foreach (SimObject m in members)
+            foreach (var m in members)
                 if (m is GameBase gb && gb.PowerGenerator)
                 {
                     ++PowerCount;
@@ -1039,7 +1039,7 @@ public partial class GameBase : SimObject
     // ((u * 2^-32f) * 2 * 0.1f + 1) - 0.1f and stored as f32 toward zero.
     private void ThreadChanged(int slot)
     {
-        Thread t = Threads[slot];
+        var t = Threads[slot];
         if (!t.Created)
             return;
         double u = StaticRandom.Thread().Next();
@@ -1078,7 +1078,7 @@ public partial class GameBase : SimObject
     /// <remarks>Follows 0x0044c20c.</remarks>
     public bool PlayThread(int slot, int sequence, bool reset)
     {
-        Thread t = Threads[slot];
+        var t = Threads[slot];
         if (t.Created && sequence == t.Sequence && (t.Flags & kThreadState) == kPlay)
             return true;
         if (sequence >= 16)
@@ -1102,7 +1102,7 @@ public partial class GameBase : SimObject
     /// <remarks>Follows 0x0044c3d0.</remarks>
     public bool StopThread(int slot)
     {
-        Thread t = Threads[slot];
+        var t = Threads[slot];
         if (t.Sequence == -1 || (t.Flags & kThreadState) == kStop)
             return false;
         SetMaskBits((0x800u << slot) | 0x400u);
@@ -1117,7 +1117,7 @@ public partial class GameBase : SimObject
     /// <remarks>Follows 0x0044c428.</remarks>
     public bool PauseThread(int slot)
     {
-        Thread t = Threads[slot];
+        var t = Threads[slot];
         if (t.Sequence == -1 || (t.Flags & kThreadState) == kPause)
             return false;
         SetMaskBits((0x800u << slot) | 0x400u);
@@ -1132,7 +1132,7 @@ public partial class GameBase : SimObject
     /// <remarks>Follows 0x0044c480.</remarks>
     public bool ResumeThread(int slot)
     {
-        Thread t = Threads[slot];
+        var t = Threads[slot];
         if (t.Sequence == -1 || (t.Flags & kThreadState) == kPlay)
             return false;
         SetMaskBits((0x800u << slot) | 0x400u);
@@ -1148,7 +1148,7 @@ public partial class GameBase : SimObject
     /// <remarks>Follows 0x0044c4cc.</remarks>
     public bool SetThreadDirection(int slot, bool forward)
     {
-        Thread t = Threads[slot];
+        var t = Threads[slot];
         if (t.Sequence == -1)
             return false;
         if ((t.Flags & kThreadForward) != 0 != forward)
@@ -1334,7 +1334,7 @@ public partial class GameBase : SimObject
         {
             // World box through the new transform, padded (InteriorShape_worldBox 0047e5a0), then the container refile.
             Span<float> box = stackalloc float[6];
-            Mat wm = WorldMat();
+            var wm = WorldMat();
             TransformBox(InteriorGeo.Box, wm, box);
             Container.PadInteriorBox(box);
             c.SetTransform(this, wm, box);
@@ -1425,7 +1425,7 @@ public partial class GameBase : SimObject
         for (var c = 0; c < 8; ++c)
         {
             var p = new Vec3(local[(c & 1) != 0 ? 3 : 0], local[(c & 2) != 0 ? 4 : 1], local[(c & 4) != 0 ? 5 : 2]);
-            Vec3 w = m.ToWorld(p);
+            var w = m.ToWorld(p);
             for (var i = 0; i < 3; ++i)
             {
                 output[i] = Math.Min(output[i], w[i]);
@@ -1450,7 +1450,7 @@ public partial class GameBase : SimObject
         if (mKind == Kind.Interior && mCtx.Game?.GetResourceManager() is ResourceManager res)
         {
             // Load the state-0 LOD-0 geometry; a missing file is silent (docs/interiors.md L5).
-            IReadOnlyList<string>? f = mFields.Get("filename");
+            var f = mFields.Get("filename");
             if (f != null && f.Count != 0)
             {
                 InteriorGeo = Interior.LoadInterior(res, f[0]);
@@ -1462,19 +1462,19 @@ public partial class GameBase : SimObject
             IsContainer = mFields.Integer("isContainer", -1);
             if (InteriorGeo != null && IsContainer == -1)
             {
-                Float6 b = InteriorGeo.Box;
+                var b = InteriorGeo.Box;
                 IsContainer = (Sub(b[3], b[0]) >= 6.0 || Sub(b[4], b[1]) >= 6.0 || Sub(b[5], b[2]) >= 6.0) ? 1 : 0;
             }
             if (InteriorGeo != null && mCtx.Game.GetContainer() is Container cont)
             {
                 var e = new Container.Entry(this, ObjectType.kInteriorType, default, false, null);
-                Mat m = WorldMat();
+                var m = WorldMat();
                 Span<float> box = stackalloc float[6];
                 TransformBox(InteriorGeo.Box, m, box);
                 Container.PadInteriorBox(box);
                 e.Box = Float6.Of(box);
                 // isContainer (docs/interiors.md 5.1 step 5): -1 means "any extent >= 6".
-                IReadOnlyList<string>? ic = mFields.Get("isContainer");
+                var ic = mFields.Get("isContainer");
                 var isContainer = ic != null && ic.Count != 0 ? Numbers.BorlandAtoi(ic[0]) : -1;
                 if (isContainer == -1)
                 {
@@ -1490,7 +1490,7 @@ public partial class GameBase : SimObject
                     e.Geometry = InteriorGeo;
                     e.Transform = m;
                 }
-                InteriorGeometry geo = InteriorGeo;
+                var geo = InteriorGeo;
                 // Material list of the shape (.dis +0x4c) for the hit surface (collision.md 5.2 part 4.1).
                 List<Material>? mats = null;
                 var ml = Interior.InteriorMaterialList(res, f![0]);
@@ -1510,7 +1510,7 @@ public partial class GameBase : SimObject
                         M = Transform.M,
                         P = Transform.P
                     };
-                    Shape.TmatInverse(toWorld, out TMat3 toLocal);
+                    Shape.TmatInverse(toWorld, out var toLocal);
                     Span<float> ws = [s.X, s.Y, s.Z], we = [en.X, en.Y, en.Z];
                     Span<float> ls = stackalloc float[3], le = stackalloc float[3];
                     X87.MulPoint(ws, toLocal.M, toLocal.P, ls);
@@ -1734,7 +1734,7 @@ public class PersistObject : SimObject
     {
         if (mRequired != null && mCtx.Game != null)
         {
-            IReadOnlyList<string>? v = mFields.Get(mRequired);
+            var v = mFields.Get(mRequired);
             if (v == null || v.Count == 0 || !mCtx.Game.ResourceExists(v[0]))
                 return false;
             // SimPalette_onAdd (004fd9ec) loads the palette and holds it; after the object the instance stays until
@@ -1777,7 +1777,7 @@ public sealed class SimLightObject : PersistObject
         float Num(int i) => X87.F32(Numbers.BorlandAtof(args[i]));
         void SetVec(string field, ReadOnlySpan<float> v) => MutableFields().SetPoint(field, v);
         var argc = args.Count;
-        PersistFields f = MutableFields();
+        var f = MutableFields();
         void SetInt(string field, string v) => f.Set(field, new[] { v });
         if (args[0].StartsWith("Directional", StringComparison.Ordinal))
         {
@@ -1891,10 +1891,10 @@ public sealed class TerrainObject : PersistObject
     /// <inheritdoc/>
     public override bool OnAdd()
     {
-        ClassContext ctx = Context();
+        var ctx = Context();
         if (!base.OnAdd() || ctx.Game == null || ctx.Game.GetResourceManager() == null)
             return false;
-        ResourceManager res = ctx.Game.GetResourceManager()!;
+        var res = ctx.Game.GetResourceManager()!;
         mTerrain = Terrain.Load(res, mTed);
         if (mTerrain == null || !mTerrain.Crc(res, mTed, ref mCrc))
             return false; // the original exits: "Could not verify Terrain" (D11)
@@ -1922,10 +1922,10 @@ public sealed class TerrainObject : PersistObject
             box[2] = Store(Add(-top, mPos.Z));
             box[5] = Store(Add(top, mPos.Z));
             e.Box = Float6.Of(box);
-            Terrain t = mTerrain;
+            var t = mTerrain;
             var slot = new System.Runtime.CompilerServices.StrongBox<Material?>(null);
             e.HitMaterial = slot;
-            GameServices services = ctx.Game;
+            var services = ctx.Game;
             e.Cast = (s, en, ref hit, ref n) =>
             {
                 var material = -1;
@@ -1945,7 +1945,7 @@ public sealed class TerrainObject : PersistObject
     // (net mask 0x02).
     private void PostVisibilityEvent(float delay)
     {
-        SimManager m = Manager()!;
+        var m = Manager()!;
         m.PostEvent(this, AddF(m.Time(), delay), () =>
         {
             Context().Game?.SetMaskBits(this, 0x02);
@@ -2006,11 +2006,11 @@ public static class MissionClasses
     public static void Register()
     {
         SensorManager.Register();
-        PersistDef[] shape = Plus(kGameBase, new("position", 5, 1), new("rotation", 5, 1), new("destroyable", 4, 1));
-        PersistDef[] staticBase = Plus(shape, new PersistDef("deleteOnDestroy", 4, 1));
-        PersistDef[] item = Plus(staticBase, new("rotates", 4, 1), new("collideable", 4, 1), new("count", 2, 1));
-        PersistDef[] marker = Plus(kGameBase, new("position", 5, 1), new("rotation", 5, 1));
-        PersistDef[] trigger = Plus(marker, new("boundingBox", 8, 1), new("isSphere", 4, 1));
+        var shape = Plus(kGameBase, new("position", 5, 1), new("rotation", 5, 1), new("destroyable", 4, 1));
+        var staticBase = Plus(shape, new PersistDef("deleteOnDestroy", 4, 1));
+        var item = Plus(staticBase, new("rotates", 4, 1), new("collideable", 4, 1), new("count", 2, 1));
+        var marker = Plus(kGameBase, new("position", 5, 1), new("rotation", 5, 1));
+        var trigger = Plus(marker, new("boundingBox", 8, 1), new("isSphere", 4, 1));
         PersistDef[] interior =
         [
             new("filename", 0, 1), new("isContainer", 2, 1), new("position", 5, 1), new("rotation", 5, 1), new("lightParams", 22, 1),

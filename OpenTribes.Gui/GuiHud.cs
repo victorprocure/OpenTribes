@@ -135,7 +135,7 @@ public class GuiBarHud : GuiHud
     /// <remarks>The resolution switch takes the extent from the frame bitmap.</remarks>
     public override void PreRender()
     {
-        PbmpBitmap? frame = Bmp(0, LowRes);
+        var frame = Bmp(0, LowRes);
         if (frame == null)
             return;
         int w = LowRes ? (frame.Width * 6 / 10) + 2 : frame.Width + 3, h = LowRes ? (frame.Height * 6 / 10) + 2 : frame.Height + 3;
@@ -177,9 +177,9 @@ public class GuiBarHud : GuiHud
         {
             int ox2 = lr ? x + 23 : x + 37, oy2 = lr ? y + 7 : y + 10, full = lr ? 52 : 84;
             var color = BarColor(l, lr);
-            PbmpBitmap? cap = Bmp(color == 0xfc ? 3 : color == 0xf2 ? 4 : 5, lr);
+            var cap = Bmp(color == 0xfc ? 3 : color == 0xf2 ? 4 : 5, lr);
             var ch = cap?.Height ?? 8;
-            GfxRect saved = p.Clip;
+            var saved = p.Clip;
             p.SetClip(saved.Intersect(new GfxRect(ox2, oy2, ox2 + l - 1, oy2 + ch - 1)));
             var cw = cap?.Width ?? 0;
             p.Bitmap(cap, ox2, oy2);
@@ -227,7 +227,7 @@ public sealed class GuiJetPackHud : GuiBarHud
         int x = ox + X, y = oy + Y;
         var lr = LowRes;
         var value = Value;
-        PbmpBitmap? frame = Bmp(0, lr);
+        var frame = Bmp(0, lr);
         if (frame != null)
             p.Dev.Blit(frame, x + 1, lr ? y - 11 : y + 1, BlitFlip.Y);   // low resolution: 12 higher [code 004b0b64]
         if (lr)
@@ -238,9 +238,9 @@ public sealed class GuiJetPackHud : GuiBarHud
             return;
         int l = EnergyBarLength(value, lr), full = lr ? 52 : 84;
         int bx = lr ? x + 23 : x + 37, by = lr ? y + 7 : y + 11;
-        PbmpBitmap? cap = Bmp(2, lr);
+        var cap = Bmp(2, lr);
         int ch = cap?.Height ?? 8, cw = cap?.Width ?? 0;
-        GfxRect saved = p.Clip;
+        var saved = p.Clip;
         p.SetClip(saved.Intersect(new GfxRect(bx, by, bx + l - 1, by + ch - 1)));
         p.Bitmap(cap, bx, by);
         p.Fill(bx + cw, by, full - (2 * cw), ch, BarColorIndex);
@@ -274,7 +274,7 @@ public sealed class GuiClockHud : GuiHud
         // 004e7744: 004a5f98(x, y, 2, bottom - 1) and 004a5f98(right - 1, y, -2, bottom - 1).
         HudFrame.Bracket(p, x, y, 2, y + H - 1);
         HudFrame.Bracket(p, x + W - 1, y, -2, y + H - 1);
-        PftFont? f = Host?.FontByName(LowRes ? "sf_white_6.pft" : "if_w_10.pft");
+        var f = Host?.FontByName(LowRes ? "sf_white_6.pft" : "if_w_10.pft");
         p.Text(f, x + 4, y + (LowRes ? 1 : 0), Format(Source.ClockSeconds));
     }
 }
@@ -331,8 +331,8 @@ public sealed class GuiCompassHud : GuiHud
         }
         int top = lr ? 17 : 28, bottom = lr ? 8 : 13;
         p.Line((int)cx, (int)cy - top, (int)cx, (int)cy - bottom, 0xf3);
-        PftFont? f = Host?.FontByName(lr ? "sf_green_5.pft" : "if_g_8.pft");
-        HudWaypoint? wp = Source.Waypoint;
+        var f = Host?.FontByName(lr ? "sf_green_5.pft" : "if_g_8.pft");
+        var wp = Source.Waypoint;
         var text = Readout(wp);
         if (wp is HudWaypoint w && text != "000")
         {
@@ -413,7 +413,7 @@ public sealed class GuiWeaponHud : GuiHud
         if (Source == null || !Source.ControlIsPlayer || Host == null)
             return;
         var lr = LowRes;
-        PbmpBitmap? fallback = Host.BitmapByName(lr ? "lr_weapon_off.bmp" : "I_weapon_off.bmp");
+        var fallback = Host.BitmapByName(lr ? "lr_weapon_off.bmp" : "I_weapon_off.bmp");
         int iconH = fallback?.Height ?? 24, iconW = fallback?.Width ?? 24;
         var rows = Source.Weapons;
         if (rows.Count < 1)
@@ -452,18 +452,18 @@ public sealed class GuiWeaponHud : GuiHud
         p.Line(x, y + 7, x, bottom - 7, HudFrame.FaceColor);
         p.Line(x + 1, y + 7, x + 1, bottom - 7, HudFrame.FaceColor);
         PftFont? dim = Host.FontByName(lr ? "sf_dk_green_5.pft" : "if_dg_8.pft"), lit = Host.FontByName(lr ? "sf_green_5.pft" : "if_g_8.pft");
-        PbmpBitmap? box = Host.BitmapByName(lr ? "lr_ammo.bmp" : "ammoSh.bmp");
+        var box = Host.BitmapByName(lr ? "lr_ammo.bmp" : "ammoSh.bmp");
         var iy = y + (lr ? 6 : 7);
-        foreach (WeaponRow w in rows)
+        foreach (var w in rows)
         {
             var stem = (lr ? "lr_" : "I_") + w.Icon + (w.Active ? "_on" : "_off");
-            PbmpBitmap? icon = Host.BitmapByName(stem + ".bmp") ?? fallback;
+            var icon = Host.BitmapByName(stem + ".bmp") ?? fallback;
             p.BitmapKeyed(icon, x + 4, iy);
             var bx = x + 4 + (lr ? 3 : 4) + (icon?.Width ?? 0);
             p.Bitmap(box, bx, iy);
             bx += lr ? 3 : 2;
             var by = iy + (lr ? 0 : -1);
-            PftFont? f = w.Active ? lit : dim;
+            var f = w.Active ? lit : dim;
             if (w.Ammo < 0)
                 p.BitmapKeyed(Host.BitmapByName((lr ? "lr_" : "") + (w.Active ? "I_Infinity_on.bmp" : "I_Infinity_off.bmp")), bx + (lr ? 1 : 2), by + (lr ? 3 : 6));
             else
@@ -507,7 +507,7 @@ public sealed class GuiSensorHud : GuiHud
             mPingStart = -1;
         if (overlay == null)
             return;
-        PbmpBitmap? b = Host.BitmapByName((lr ? "LR_" : "") + overlay + ".bmp") ?? Host.BitmapByName(overlay + ".bmp");
+        var b = Host.BitmapByName((lr ? "LR_" : "") + overlay + ".bmp") ?? Host.BitmapByName(overlay + ".bmp");
         if (b != null)
             p.Bitmap(b, x + ((W - b.Width) / 2), y + ((H - b.Height) / 2));
     }
@@ -538,7 +538,7 @@ public sealed class GuiCrosshair : GuiHud
             return;
         int cx = ox + ((Parent?.W ?? W) / 2), cy = oy + ((Parent?.H ?? H) / 2);
         // the control is 13 pixels wide: its clip would cut the sniper cross, the zoom box, its text, the marks and the label
-        GfxRect clip = p.Clip;
+        var clip = p.Clip;
         p.SetClip(new GfxRect(0, 0, Canvas.Width - 1, Canvas.Height - 1));
         var reticleOnly = true;
         if (Source?.Zoom is HudZoom z)
@@ -556,14 +556,14 @@ public sealed class GuiCrosshair : GuiHud
     {
         if (Host == null || Source == null)
             return;
-        IReadOnlyList<HudTargetMarker> marks = Source.TargetMarkers(Canvas!.Width, Canvas.Height);
+        var marks = Source.TargetMarkers(Canvas!.Width, Canvas.Height);
         if (marks.Count == 0)
             return;
         var lr = LowRes;
         int ox = cx - ((Parent?.W ?? W) / 2), oy = cy - ((Parent?.H ?? H) / 2);
-        PftFont? f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
-        foreach (HudTargetMarker m in marks)
-            foreach (HudMarkPoint? mp in new[] { m.Low, m.High })
+        var f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
+        foreach (var m in marks)
+            foreach (var mp in new[] { m.Low, m.High })
             {
                 if (mp is not HudMarkPoint pt)
                     continue;
@@ -578,7 +578,7 @@ public sealed class GuiCrosshair : GuiHud
     /// <remarks>Without the picture it draws four arms (3 pixels, 2 from the centre).</remarks>
     private void DrawReticle(GuiPaint p, int cx, int cy)
     {
-        PbmpBitmap? reticle = Host?.BitmapByName(LowRes ? "LR_H_Reticle.bmp" : "H_Reticle.bmp");
+        var reticle = Host?.BitmapByName(LowRes ? "LR_H_Reticle.bmp" : "H_Reticle.bmp");
         if (reticle != null)
             p.BitmapKeyed(reticle, cx - (reticle.Width >> 1), cy - (reticle.Height >> 1));
         else
@@ -680,7 +680,7 @@ public sealed class GuiCrosshair : GuiHud
         if (Host == null || x1 == x0)
             return;
         var text = "ZOOM: " + (pw / (x1 - x0)).ToString(CultureInfo.InvariantCulture) + "x";
-        PftFont? f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
+        var f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
         p.Text(f, cx - (GuiPaint.TextWidth(f, text) >> 1), cy + (lr ? 18 : 30), text);
     }
 
@@ -692,9 +692,9 @@ public sealed class GuiCrosshair : GuiHud
             return;
         var lr = LowRes;
         int ox = cx - ((Parent?.W ?? W) / 2), oy = cy - ((Parent?.H ?? H) / 2);
-        foreach (HudTargetMark m in t.Marks)
+        foreach (var m in t.Marks)
         {
-            PbmpBitmap? b = Host.BitmapByName((lr ? "LR_" : "") + (m.Friend ? "H_Friend.bmp" : "H_Foe.bmp"));
+            var b = Host.BitmapByName((lr ? "LR_" : "") + (m.Friend ? "H_Friend.bmp" : "H_Foe.bmp"));
             if (b != null)
                 p.BitmapKeyed(b, ox + m.X - (b.Width >> 1), oy + m.Y - b.Height);
         }
@@ -703,7 +703,7 @@ public sealed class GuiCrosshair : GuiHud
         if (t.Icon != null && Host.BitmapByName(t.Icon) is PbmpBitmap icon)
             p.BitmapKeyed(icon, ox + t.IconX - (icon.Width >> 1), oy + t.IconY - icon.Height);
         int x0 = cx + (lr ? 10 : 16), y0 = cy + (lr ? 10 : 16);
-        PftFont? f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
+        var f = Host.FontByName(lr ? "sf_white_5.pft" : "sf_white_7.pft");
         if (t.Name.Length > 0)
         {
             p.Text(f, x0, y0, t.Name);
@@ -881,7 +881,7 @@ public sealed class GuiChatDisplay : GuiHud
         var low = newW < 0x200 || newH < 0x180;
         var changed = low != mLowMode;
         mLowMode = low;
-        PftFont? f = Host?.FontByName(FontName(0, low)) ?? Host?.FontByName("sf_white_10.pft");
+        var f = Host?.FontByName(FontName(0, low)) ?? Host?.FontByName("sf_white_10.pft");
         int lh = f == null ? 13 : GuiPaint.FontHeight(f), lines = (int)U("lines", 3), min = low ? 0xf0 : 0x172;
         if (changed)
         {
@@ -903,7 +903,7 @@ public sealed class GuiChatDisplay : GuiHud
     {
         var n = NextLines((int)U("lines", 3), value);
         F["lines"] = (uint)n;
-        PftFont? f = Host?.FontByName(FontName(0, Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384))) ?? Host?.FontByName("sf_white_10.pft");
+        var f = Host?.FontByName(FontName(0, Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384))) ?? Host?.FontByName("sf_white_10.pft");
         H = (n * (f == null ? 13 : GuiPaint.FontHeight(f))) + HeightPad;
     }
 
@@ -913,7 +913,7 @@ public sealed class GuiChatDisplay : GuiHud
     {
         if (Host?.Hud?.PlayMenu is not PlayMenuView menu || U("chatE") != 0)
             return;
-        PftFont? f = Host?.FontByName("if_g_10b.pft");
+        var f = Host?.FontByName("if_g_10b.pft");
         if (f == null)
             return;
         var h = GuiPaint.FontHeight(f);
@@ -923,7 +923,7 @@ public sealed class GuiChatDisplay : GuiHud
         if (screenH <= ty + total)
             ty = y - total - 8;
         // The original sets its clip to the whole surface first [code 004a633c]: the list lies outside the control's own rectangle.
-        GfxRect saved = p.Clip;
+        var saved = p.Clip;
         p.SetClip(new GfxRect(0, 0, p.Dev.Width - 1, p.Dev.Height - 1));
         p.Text(f, x, ty, menu.Heading);
         ty += h;
@@ -963,7 +963,7 @@ public sealed class GuiChatDisplay : GuiHud
         var low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
         foreach (var (text, tag) in Host.Chat)
         {
-            PftFont? f = Host.FontByName(FontName(tag, low)) ?? Host.FontByName("sf_white_10.pft");
+            var f = Host.FontByName(FontName(tag, low)) ?? Host.FontByName("sf_white_10.pft");
             if (f == null)
                 continue;
             // The chat display draws the message as plain text: the wrap routine [004a55c0] and the draw [004a633c] read no markup.
@@ -1114,7 +1114,7 @@ public sealed class GuiChat : GuiTextEdit
             return;
         var low = LowRes;
         var channel = Channel;
-        PftFont? f = PromptFont(low, channel);
+        var f = PromptFont(low, channel);
         if (f == null)
             return;
         var prompt = Prompt(channel);
@@ -1144,7 +1144,7 @@ public sealed class GuiChat : GuiTextEdit
             var seg = Text.Substring(start, len);
             p.Text(f, lx, ty, seg);
             var last = i == lines.Count - 1;
-            if (focus && blink && Cursor >= start && (Cursor < start + len || last && Cursor == start + len))
+            if (focus && blink && Cursor >= start && (Cursor < start + len || (last && Cursor == start + len)))
             {
                 var cx = lx + GuiPaint.TextWidth(f, seg[..(Cursor - start)]);
                 // 004a3ebc: the cursor starts 3 below the text line (normal resolution) and is one font height long

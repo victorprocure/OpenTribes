@@ -9,10 +9,10 @@ public class ServerListFlagsTests
 {
     private static GuiServerList MakeList()
     {
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
-        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        var list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
@@ -58,8 +58,8 @@ public class ServerListFlagsTests
     [Fact]
     public void SavedFileHasTheFlagsAndLoadsBack() // 004c4e2c
     {
-        GuiServerList l = MakeList();
-        GuiServerList.Server a = Row(1, fav: true);
+        var l = MakeList();
+        var a = Row(1, fav: true);
         a.ModList = "base";
         a.Mission = "Raindance";
         a.MissionType = "CTF";
@@ -76,7 +76,7 @@ public class ServerListFlagsTests
     [Fact]
     public void FlagsSetByAddressIgnoringCase() // 004c51f0, 004c52b4
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.SetFavorite("ip:10.0.0.1:28001", true);
         l.SetNeverPing("IP:10.0.0.1:28001", true);
@@ -89,14 +89,14 @@ public class ServerListFlagsTests
     [Fact]
     public void EndOfRefreshAllDropsUnansweredRowsButKeepsFlaggedOnes() // 004c7820
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.AddServer(Row(2, fav: true));
         l.AddServer(Row(3, never: true));
         l.AddServer(Row(4, state: GuiServerList.StateInfo));
         l.MarkAllUnknown();
         l.Servers[3].State = GuiServerList.StateInfo;
-        List<GuiServerList.Server> ask = l.EndSearch(false);
+        var ask = l.EndSearch(false);
         Assert.Equal(new[] { "S2", "S3", "S4" }, l.Servers.Select(s => s.Name));
         Assert.Equal(new[] { "S2" }, ask.Select(s => s.Name));
         Assert.Equal(GuiServerList.StateQuerying, l.Servers[0].State);
@@ -107,7 +107,7 @@ public class ServerListFlagsTests
     [Fact]
     public void EndOfASecondSearchAsksNobodyAndDropsNothing() // 004c7820 with +0x3b2 cleared by the first
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1, fav: true));
         l.MarkAllUnknown();
         l.EndSearch(false);
@@ -119,7 +119,7 @@ public class ServerListFlagsTests
     [Fact]
     public void EndKeepsEveryRowAfterAMasterErrorAndAsksThem() // 004c7820, 004d7864
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.AddServer(Row(2));
         l.MarkAllUnknown();
@@ -130,7 +130,7 @@ public class ServerListFlagsTests
     [Fact]
     public void NoRowIsDroppedBeforeAFirstRefreshAll() // 004c702e clears +0x3b1
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.ResetSearchFlags();
         l.Servers[0].State = GuiServerList.StateQuerying;
@@ -142,9 +142,9 @@ public class ServerListFlagsTests
     [Fact]
     public void ReplacingARowByAddressKeepsOneRow() // 004c5320
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
-        GuiServerList.Server n = Row(9, fav: true);
+        var n = Row(9, fav: true);
         n.Name = "New";
         n.Address = "ip:10.0.0.1:28001";
         l.ReplaceServer(l.Find(n.Address)!, n);
@@ -181,14 +181,14 @@ public sealed class ServerBrowserFlagsTests : IDisposable
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function onConnection(%m) { $conn = %m; }\nfunction Game::EndFrame() {}\n" +
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n");
-        ClientOptions opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
+        var opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
         Assert.True(mApp.Start(out var error), error);
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
-        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        var list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
         list.Id = ClientDelegates.ServerList;
         root.AddChild(scroll);
         scroll.AddChild(content);
@@ -199,14 +199,14 @@ public sealed class ServerBrowserFlagsTests : IDisposable
 
     private static GuiControl Box(int id)
     {
-        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10 + ((id - 140044) * 40), 20, 20, ("isSwitch", (byte)1), ("bodyVersion", 3u), ("messageTag", (uint)id));
+        var b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10 + ((id - 140044) * 40), 20, 20, ("isSwitch", (byte)1), ("bodyVersion", 3u), ("messageTag", (uint)id));
         b.Id = (uint)id;
         return b;
     }
 
     private GuiControl PushInfoDialog()
     {
-        GuiControl dlg = GuiFixture.Make("SimGui::Control", 100, 100, 300, 200);
+        var dlg = GuiFixture.Make("SimGui::Control", 100, 100, 300, 200);
         dlg.AddChild(Box(ServerBrowser.InfoFavoriteBoxId));
         dlg.AddChild(Box(ServerBrowser.InfoNeverPingBoxId));
         mApp!.Canvas.PushDialog(dlg);

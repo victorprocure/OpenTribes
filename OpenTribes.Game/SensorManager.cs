@@ -119,7 +119,7 @@ public sealed class SensorManager : SimObject
     {
         mSuppressors.RemoveAll(s => s == sensor);
         mDummy.RemoveAll(s => s == sensor);
-        foreach (List<GameBase> l in mTeams)
+        foreach (var l in mTeams)
             l.RemoveAll(s => s == sensor);
         sensor.SensorListed = false;
     }
@@ -261,7 +261,7 @@ public sealed class SensorManager : SimObject
                 t.SensorWord &= ~(1u << i);
         }
         var jammed = false;
-        foreach (GameBase s in mSuppressors)
+        foreach (var s in mSuppressors)
             if (Detects(s, t))
             {
                 t.SensorWord = (t.SensorWord & 0x00ffffffu) | (2u << 24);
@@ -275,7 +275,7 @@ public sealed class SensorManager : SimObject
             var id = mJamHead;
             for (var guard = 0; id != 0 && guard < 4096; ++guard)
             {
-                GameBase? jp = JamNode(id);
+                var jp = JamNode(id);
                 if (jp == null)
                     break;
                 float[] diff = [ Store(Sub(t.Transform.P[0], jp.Transform.P[0])), Store(Sub(t.Transform.P[1], jp.Transform.P[1])),
@@ -294,7 +294,7 @@ public sealed class SensorManager : SimObject
             if (i == t.Team)
                 continue;
             var detected = false;
-            foreach (GameBase s in mTeams[i])
+            foreach (var s in mTeams[i])
             {
                 if (jammed && s.SensorData.Supressable)
                     break;
@@ -324,7 +324,7 @@ public sealed class SensorManager : SimObject
     // start)) (SimTerrain_updateRenderParams 0x00517fe0).
     private double HazeAt(GameBase t, ReadOnlySpan<float> eye)
     {
-        Container.Entry? te = State!.World.TerrainOf(t);
+        var te = State!.World.TerrainOf(t);
         if (te == null || te.Object == null)
             return 0.0;
         var tobj = (PersistObject)te.Object;
@@ -354,7 +354,7 @@ public sealed class SensorManager : SimObject
         if (pl.Fov == 0.0f || State == null)
             return false;
         using var chop = ChopScope();
-        ClientRecord? rec = State.Players.FindHuman(pl.OwnerClient);
+        var rec = State.Players.FindHuman(pl.OwnerClient);
         if (rec == null || rec.ControlObject == 0 || State.Sim == null || State.Sim.Server() == null)
             return false;
         if (State.Sim.Server()!.FindById(rec.ControlObject) is not GameBase ctl)
@@ -362,7 +362,7 @@ public sealed class SensorManager : SimObject
         var half = Mul(pl.Fov, 0.5);
         var cosHalf = Store(Math.Cos(half));
         var tanHalf = Store(Math.Tan(half));
-        Transform eye = ctl.EyeTransform();
+        var eye = ctl.EyeTransform();
         Span<float> c = stackalloc float[3];
         BoxCentre(State, t, c);
         float[] d3 = [Store(Sub(c[0], eye.P[0])), Store(Sub(c[1], eye.P[1])), Store(Sub(c[2], eye.P[2]))];
@@ -397,12 +397,12 @@ public sealed class SensorManager : SimObject
     // whose team does not see T yet.
     private void EyeDetect(GameBase t)
     {
-        SimManager? m = State!.Sim?.Server();
+        var m = State!.Sim?.Server();
         if (m == null)
             return;
         foreach (var id in State.Players.PlayerIds())
         {
-            ClientRecord? r = State.Players.Find(id);
+            var r = State.Players.Find(id);
             if (r == null || PlayerManager.VisibleToTeam(t, r.Team) || r.OwnedObject == 0)
                 continue;
             if (Player.From(m.FindById(r.OwnedObject)) is Player pl && SeesByEye(pl, t))
@@ -416,9 +416,9 @@ public sealed class SensorManager : SimObject
     {
         if (State == null)
             return;
-        List<GameBase?> targets = State.Targets;
+        var targets = State.Targets;
         var any = false;
-        foreach (GameBase? g in targets)
+        foreach (var g in targets)
             if (g != null)
                 any = true;
         if (any)
@@ -442,7 +442,7 @@ public sealed class SensorManager : SimObject
                 for (var step = 0; step < 128; ++step)
                 {
                     mClientCursor = (mClientCursor + 1) & 127;
-                    ClientRecord? r = State.Players.Find(2048 + mClientCursor);
+                    var r = State.Players.Find(2048 + mClientCursor);
                     if (r == null || !r.Used)
                         continue;
                     if (r.OwnedObject != 0 && State.Sim?.Server()?.FindById(r.OwnedObject) is GameBase o)

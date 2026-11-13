@@ -165,7 +165,7 @@ public sealed class MasterHeartbeat
                 mNames.Add(name.Length > 255 ? name[..255] : name);
             }
             foreach (var name in mNames)
-                mResolved.Add(ParseMasterAddress(name, out Address addr, mAllowRemote) ? addr.ToString() : "");
+                mResolved.Add(ParseMasterAddress(name, out var addr, mAllowRemote) ? addr.ToString() : "");
             mResolveDone = true;
             return Numbers.FormatInt(mNames.Count);
         });
@@ -224,7 +224,7 @@ public sealed class MasterHeartbeat
             if (master.Length == 0)
                 break;
             // R6: only loopback masters without the operator's opt-in. Names resolve with it.
-            if (ParseMasterAddress(master, out Address addr, mAllowRemote) && (mAllowRemote || (addr.Ip >> 24) == 127))
+            if (ParseMasterAddress(master, out var addr, mAllowRemote) && (mAllowRemote || (addr.Ip >> 24) == 127))
                 mNet.SendConnectionless(addr, kHeartbeat);
             mIn.Print(2, "SimNET: Sending heartbeat to master " + master + ".");
         }

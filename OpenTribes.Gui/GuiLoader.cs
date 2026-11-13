@@ -41,7 +41,7 @@ public static partial class GuiClassTable
     public static GuiClassRow? ByName(string name)
     {
         sByName ??= Rows.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
-        if (sByName.TryGetValue(name, out GuiClassRow? row))
+        if (sByName.TryGetValue(name, out var row))
             return row;
         foreach (var ns in new[] { "SimGui::", "FearGui::" })
             if (sByName.TryGetValue(ns + name, out row))
@@ -271,13 +271,13 @@ public static class GuiLoader
             throw new GuiLoadException(2, "DICT back reference");
         else
         {
-            GuiClassRow? r = GuiClassTable.ByTag(tag) ?? throw new GuiLoadException(2, "unknown class tag " + tag);
+            var r = GuiClassTable.ByTag(tag) ?? throw new GuiLoadException(2, "unknown class tag " + tag);
             className = r.Name;
         }
-        GuiClassRow? row = GuiClassTable.ByName(className);
+        var row = GuiClassTable.ByName(className);
         if (row == null || !GuiClassTable.IsControl(row))
             throw new GuiLoadException(2, "class " + className + " is not a control class");
-        GuiControl c = GuiFactory.Create(row);
+        var c = GuiFactory.Create(row);
         var bytes = new GuiBytes(d, p, bodyEnd);
         var version = bytes.U32();
         ctx.BodyVersion = version;
@@ -437,7 +437,7 @@ public static class GuiLoader
         for (uint i = 0; i < count; ++i)
             kids.Add(ReadObject(file, ref pos, b.End, ctx));
         b.Pos = pos;
-        foreach (GuiControl k in kids)
+        foreach (var k in kids)
         {
             k.Name = b.Pstr();
             if (k.Name.Length == 0)

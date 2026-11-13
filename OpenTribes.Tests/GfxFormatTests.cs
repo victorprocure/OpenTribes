@@ -23,7 +23,7 @@ public class GfxFormatTests
             data.Add(0);
         var file = Pbmp(6, 4, [.. data], attrs: 1, pidx: 0x10c6, detl: 3);
 
-        PbmpBitmap b = Bitmap(file);
+        var b = Bitmap(file);
         Assert.Equal((6, 4, 8), (b.Width, b.Height, b.Depth));
         Assert.Equal(8, b.Stride);
         Assert.Equal(32, b.Pixels.Length);
@@ -45,7 +45,7 @@ public class GfxFormatTests
         Assert.Equal(21845, n);
         var data = Pad4(new byte[n]);
         Assert.Equal(21848, data.Length); // the chunk is padded to a multiple of 4
-        PbmpBitmap b = Bitmap(Pbmp(128, 128, data, attrs: 8, detl: 8));
+        var b = Bitmap(Pbmp(128, 128, data, attrs: 8, detl: 8));
         Assert.Equal(7, b.MipLevels.Count);
         Assert.Single(b.MipLevels[6]);
     }
@@ -53,7 +53,7 @@ public class GfxFormatTests
     [Fact]
     public void PbmpPidxAbsentSelectsFirstSubpalette() // 2.2.1 optional PiDX, 2.2.3
     {
-        PbmpBitmap b = Bitmap(Pbmp(2, 2, new byte[8]));
+        var b = Bitmap(Pbmp(2, 2, new byte[8]));
         Assert.Equal(0xFFFFFFFFu, b.PaletteId);
         Assert.Equal(1, b.MipCount); // DETL absent
         Assert.Empty(b.MipLevels);
@@ -64,7 +64,7 @@ public class GfxFormatTests
     {
         // count = 1 (the data chunk only): the PiDX chunk behind it is not read, whatever the PBMP size says.
         var file = Pbmp(2, 2, new byte[8], pidx: 7, count: 1, topSize: 3);
-        PbmpBitmap b = Bitmap(file);
+        var b = Bitmap(file);
         Assert.Equal(1u, b.ChunkCount);
         Assert.Equal(0xFFFFFFFFu, b.PaletteId);
         // The top 8 bits of the count dword are not part of the count (low 24 bits).
@@ -80,7 +80,7 @@ public class GfxFormatTests
         var extra = new List<(string, byte[])> { ("ZZZZ", new byte[] { 1, 2, 3 }) };
         var file = Pbmp(2, 2, new byte[8], pidx: 5, extra: extra);
         // chunk order: data, PiDX, ZZZZ(3 bytes), and the file ends right after the odd-sized payload
-        PbmpBitmap b = Bitmap(file);
+        var b = Bitmap(file);
         Assert.Equal(5u, b.PaletteId);
         // unknown chunk before the known one
         var l = new List<byte>();
@@ -122,7 +122,7 @@ public class GfxFormatTests
         var extra = new List<(string, byte[])> { ("RIFF", RiffPal(256, false).AsSpan(8).ToArray()) };
         var file = Pbmp(2, 2, new byte[8], extra: extra);
         Assert.Null(Bitmap(file, palette: false).Palette);
-        PbmpBitmap b = Bitmap(file, palette: true);
+        var b = Bitmap(file, palette: true);
         Assert.NotNull(b.Palette);
         Assert.Equal(new byte[] { 5, 10, 15 }, b.Palette!.SubPalettes[0].Colors.AsSpan(20, 3).ToArray());
     }
@@ -152,7 +152,7 @@ public class GfxFormatTests
         bgra[(4 * 5) + 1] = 20;  // G
         bgra[(4 * 5) + 2] = 10;  // R
         var file = WindowsBmp(3, 2, 8, rows, bottomUp: true, bgra: bgra, res1: 0xF5F7, res2: 0x1234);
-        PbmpBitmap b = Bitmap(file, palette: true);
+        var b = Bitmap(file, palette: true);
         Assert.Equal(4, b.Stride);
         Assert.Equal(rows, b.Pixels); // flipped back to top-down
         Assert.Equal(0x1234u, b.PaletteId);
@@ -173,7 +173,7 @@ public class GfxFormatTests
         rows[4] = 4;
         rows[5] = 5;
         rows[6] = 6;
-        PbmpBitmap b = Bitmap(WindowsBmp(1, 2, 24, rows.AsSpan(0, 8).ToArray(), bottomUp: false));
+        var b = Bitmap(WindowsBmp(1, 2, 24, rows.AsSpan(0, 8).ToArray(), bottomUp: false));
         Assert.Equal((1, 2, 24, 4), (b.Width, b.Height, b.Depth, b.Stride));
         Assert.Equal(rows.AsSpan(0, 8).ToArray(), b.Pixels);
         var bad = WindowsBmp(1, 2, 8, new byte[8], false);
@@ -188,7 +188,7 @@ public class GfxFormatTests
     public void PbmaArrayChunksCountAndSlotLookup() // 2.3
     {
         var bmps = new List<byte[]> { Pbmp(2, 2, new byte[8], pidx: 1), Pbmp(3, 1, new byte[4], pidx: 2) };
-        PbmaArray.TryParse(Pbma(bmps), false, out PbmaArray? a, out var err);
+        PbmaArray.TryParse(Pbma(bmps), false, out var a, out var err);
         Assert.True(a != null, err);
         Assert.Equal(2u, a!.ChunkCount); // count = chunks after head = bitmapCount
         Assert.Equal(2u, a.BitmapCount);
@@ -202,7 +202,7 @@ public class GfxFormatTests
     {
         var bmps = new List<byte[]> { Pbmp(1, 1, new byte[4], pidx: 10), Pbmp(1, 1, new byte[4], pidx: 20), Pbmp(1, 1, new byte[4], pidx: 30) };
         var file = Pbma(bmps, user: new byte[6], rmap: [5, 90, 1000]);
-        PbmaArray.TryParse(file, false, out PbmaArray? a, out var err);
+        PbmaArray.TryParse(file, false, out var a, out var err);
         Assert.True(a != null, err);
         Assert.Equal(5u, a!.ChunkCount);
         Assert.Equal(2, a.UserSize);
@@ -224,7 +224,7 @@ public class GfxFormatTests
         U32(b, 0);
         Chunk(b, "head", Dwords(2, 1));
         b.AddRange(body);
-        PbmaArray.TryParse(b.ToArray(), false, out PbmaArray? a, out var err);
+        PbmaArray.TryParse(b.ToArray(), false, out var a, out var err);
         Assert.True(a != null, err);
         Assert.Single(a!.Bitmaps);
     }
@@ -235,7 +235,7 @@ public class GfxFormatTests
     public void PplMultiPaletteSelectionById() // 2.4 palette selection by id
     {
         var file = Ppl([(0xFFFFFFFF, 1), (0xFFFFFFFE, 2), (0x7b7, 6), (0x470, 1)]);
-        Assert.True(PaletteBank.TryParsePpl(file, out PaletteBank? p, out var err), err);
+        Assert.True(PaletteBank.TryParsePpl(file, out var p, out var err), err);
         Assert.Equal(4, p!.SubPalettes.Count);
         Assert.Equal((1u, 2u, 254u), (p.ShadeBits, p.HazeSteps, p.HazeColor));
         Assert.Equal(2u, p.ShadeSteps);
@@ -252,7 +252,7 @@ public class GfxFormatTests
     {
         // kind 1: shadeSteps * 256 * (hazeSteps + 1) bytes; kind 2: 65536; kind 0: none and no 0x1100 block.
         var file = Ppl([(1, 1), (2, 2), (3, 0), (4, 8)], shadeBits: 2, hazeSteps: 3, weights: true);
-        Assert.True(PaletteBank.TryParsePpl(file, out PaletteBank? p, out var err), err);
+        Assert.True(PaletteBank.TryParsePpl(file, out var p, out var err), err);
         Assert.Equal(4 * 256 * 4, p!.SubPalettes[0].ShadeHazeTable!.Length);
         Assert.Equal(65536, p.SubPalettes[1].BlendTable!.Length);
         Assert.Null(p.SubPalettes[2].ShadeHazeTable);
@@ -304,18 +304,18 @@ public class GfxFormatTests
     public void RiffPalFromRiffOrPalAndExtraChunks() // 2.5
     {
         var file = RiffPal(256, true, flags: 7);
-        Assert.True(PaletteBank.TryParsePal(file, out PaletteBank? p, out var err), err);
-        SubPalette s = p!.SubPalettes[0];
+        Assert.True(PaletteBank.TryParsePal(file, out var p, out var err), err);
+        var s = p!.SubPalettes[0];
         Assert.Equal((0u, SubPalette.NoId), (s.Kind, s.Id));
         Assert.Equal(new byte[] { 9, 18, 27, 7 }, s.Colors.AsSpan(36, 4).ToArray());
         Assert.Equal(9 / 255f, s.IndexToRed![9]);
         Assert.Equal(0f, s.IndexToAlpha![0]); // alpha 0 for index 0, 1 for the rest
         Assert.Equal(1f, s.IndexToAlpha[1]);
         // the stream may start at "PAL " instead of "RIFF"
-        Assert.True(PaletteBank.TryParsePal(file.AsSpan(8), out PaletteBank? q, out err), err);
+        Assert.True(PaletteBank.TryParsePal(file.AsSpan(8), out var q, out err), err);
         Assert.Equal(s.Colors, q!.SubPalettes[0].Colors);
         // count = chunk size / 4 - 1
-        Assert.True(PaletteBank.TryParsePal(RiffPal(16, false), out PaletteBank? r, out err), err);
+        Assert.True(PaletteBank.TryParsePal(RiffPal(16, false), out var r, out err), err);
         Assert.Equal(45, r!.SubPalettes[0].Colors[(15 * 4) + 2]);
         Assert.Equal(0, r.SubPalettes[0].Colors[16 * 4]);
         Assert.False(PaletteBank.TryParsePal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], out _, out _));
@@ -340,14 +340,14 @@ public class GfxFormatTests
     [Fact]
     public void PftLookupAndGlyphRects() // 2.6 lookupGlyph, char info
     {
-        Assert.True(PftFont.TryParse(TestFont(), out PftFont? f, out var err), err);
+        Assert.True(PftFont.TryParse(TestFont(), out var f, out var err), err);
         Assert.Equal((2u, 7, 6, 6, 1), (f!.Version, f.CellHeight, f.GlyphCellWidth, f.Baseline, f.Spacing));
         Assert.Equal(65, f.LookupOffset);
         Assert.Equal(2, f.Glyphs.Length);
         Assert.Single(f.Sheets.Bitmaps);
-        Assert.True(f.TryGetGlyph('A', out GlyphEntry a));
+        Assert.True(f.TryGetGlyph('A', out var a));
         Assert.Equal(new GfxRect(0, 0, 2, 3), a.SheetRect);    // inclusive: (x, y) to (x + w - 1, y + h - 1)
-        Assert.True(f.TryGetGlyph('B', out GlyphEntry b));
+        Assert.True(f.TryGetGlyph('B', out var b));
         Assert.Equal(new GfxRect(4, 1, 8, 6), b.SheetRect);
         Assert.Equal(-1, b.Baseline);
         Assert.False(f.TryGetGlyph('C', out _));   // lookup[2] == -1
@@ -358,7 +358,7 @@ public class GfxFormatTests
     [Fact]
     public void PftMetricsProportionalFixedMissingAndEmpty() // 2.6 metrics
     {
-        PftFont.TryParse(TestFont(), out PftFont? f, out _);
+        PftFont.TryParse(TestFont(), out var f, out _);
         // proportional: sum(charWidth + spacing) - spacing; 'C' is missing: a blank cell of max(glyphCellW, 5) = 6
         Assert.Equal(3 + 1 + 5 + 1 - 1, f!.MeasureTextWidth("AB"));
         Assert.Equal(3 + 1 + 6 + 1 - 1, f.MeasureTextWidth("AC"));
@@ -366,19 +366,19 @@ public class GfxFormatTests
         Assert.Equal(6, f.MeasureTextHeight("AB"));              // max charHeight
         Assert.Equal(7, f.MeasureTextHeight("AC"));              // the missing cell is cellHeight high
         Assert.Equal(6, f.CharWidth('C'));
-        PftFont.TryParse(TestFont(flags: PftFont.FlagFixedWidth | PftFont.FlagTransparent), out PftFont? g, out _);
+        PftFont.TryParse(TestFont(flags: PftFont.FlagFixedWidth | PftFont.FlagTransparent), out var g, out _);
         Assert.Equal(((6 + 1) * 2) - 1, g!.MeasureTextWidth("AB")); // fixed: glyphCellW + spacing each
-        PftFont.TryParse(TestFont(scale: 2 << 16), out PftFont? h, out _);
+        PftFont.TryParse(TestFont(scale: 2 << 16), out var h, out _);
         Assert.Equal(2 * (3 + 1 + 5 + 1 - 1), h!.MeasureTextWidth("AB")); // * scaleX >> 16
     }
 
     [Fact]
     public void PftLowerCapsUppercasesBeforeLookup() // 2.6 flag bit10
     {
-        PftFont.TryParse(TestFont(flags: PftFont.FlagProportional | PftFont.FlagLowerCaps), out PftFont? f, out _);
-        Assert.True(f!.TryGetGlyph('b', out GlyphEntry g));
+        PftFont.TryParse(TestFont(flags: PftFont.FlagProportional | PftFont.FlagLowerCaps), out var f, out _);
+        Assert.True(f!.TryGetGlyph('b', out var g));
         Assert.Equal(5, g.Width);
-        PftFont.TryParse(TestFont(), out PftFont? plain, out _);
+        PftFont.TryParse(TestFont(), out var plain, out _);
         Assert.False(plain!.TryGetGlyph('b', out _));
     }
 
@@ -430,7 +430,7 @@ public class GfxFormatTests
     [Fact]
     public void TextAtPlacesGlyphsByTheBaselineFormula() // 4 drawTextAt
     {
-        PftFont.TryParse(TestFont(), out PftFont? f, out _);
+        PftFont.TryParse(TestFont(), out var f, out _);
         var d = new Recorder();
         var bottom = GfxText.DrawAt(d, f!, 10, 20, "ACB");
         // 'A': y = 20 + baseline 6 + glyph baseline 0 - (rect.bottom - rect.top = 3) + 1 = 24; pen 10
@@ -443,7 +443,7 @@ public class GfxFormatTests
     [Fact]
     public void TextAtScaledGoesThroughStretch() // 4: scale in 16.16 multiplies rect, y offset and advance
     {
-        PftFont.TryParse(TestFont(scale: 2 << 16), out PftFont? f, out _);
+        PftFont.TryParse(TestFont(scale: 2 << 16), out var f, out _);
         var d = new Recorder();
         GfxText.DrawAt(d, f!, 0, 0, "AB");
         // 'A': yOff = 6 + 0 - 3 = 3 -> 3 * 2 + 1 = 7, size 6 x 8; advance (3 + 1) * 2 = 8
@@ -454,7 +454,7 @@ public class GfxFormatTests
     public void TextInRectJustification() // 4 drawTextInRect
     {
         var rect = new GfxRect(10, 20, 49, 59); // 40 x 40
-        PftFont.TryParse(TestFont(justification: PftFont.JustRight), out PftFont? f, out _);
+        PftFont.TryParse(TestFont(justification: PftFont.JustRight), out var f, out _);
         var d = new Recorder();
         GfxText.DrawInRect(d, f!, rect, "A");
         Assert.Equal("R 0,0,2,3 @47,24", d.Calls[0]);   // pen = right - extent + 1 = 49 - 3 + 1; y = top 20
@@ -516,15 +516,15 @@ public class GfxFormatTests
             rgba[(i * 4) + 3] = (byte)(40 * i);
         }
         PaletteBank bank = PaletteBank.FromColors(rgba, 256);
-        SubPalette sp = bank.SubPalettes[0];
+        var sp = bank.SubPalettes[0];
         byte[] px = [0, 1, 2, 3];
-        PbmpBitmap opaque = Bitmap(Pbmp(4, 1, px, attrs: 0));
+        var opaque = Bitmap(Pbmp(4, 1, px, attrs: 0));
         var o = PaletteTables.ToRgba(opaque, sp, id);
         Assert.Equal(new byte[] { 1, 2, 3, 255, 11, 22, 33, 255 }, o.AsSpan(0, 8).ToArray()); // index 0 is opaque
-        PbmpBitmap keyed = Bitmap(Pbmp(4, 1, px, attrs: 1));
+        var keyed = Bitmap(Pbmp(4, 1, px, attrs: 1));
         var k = PaletteTables.ToRgba(keyed, sp, id);
         Assert.Equal(new byte[] { 1, 2, 3, 0, 11, 22, 33, 255 }, k.AsSpan(0, 8).ToArray());
-        PbmpBitmap trans = Bitmap(Pbmp(4, 1, px, attrs: 4));
+        var trans = Bitmap(Pbmp(4, 1, px, attrs: 4));
         sp.Kind = 2; // translucent subpalette: the flags byte is the alpha
         var t = PaletteTables.ToRgba(trans, sp, id);
         Assert.Equal(new byte[] { 11, 22, 33, 40 }, t.AsSpan(4, 4).ToArray());
@@ -551,7 +551,7 @@ public class GfxFormatTests
             ("gui\\logo.bmp", S(bmp)), ("gui\\feargui.pal", S(pal)), ("Shell.ppl", S(ppl)),
             ("console.pft", S(pft)), ("Opening.pba", S(pba)),
         });
-        ResourceManager res = GfxAssets.Mount(root, out var vols);
+        var res = GfxAssets.Mount(root, out var vols);
         Assert.Equal(1, vols);
         Assert.Equal(0x5bbu, GfxAssets.LoadBitmap(res, "gui\\logo.bmp")!.PaletteId);
         Assert.NotNull(GfxAssets.LoadBitmap(res, "LOGO.bmp"));            // a name without its directory also resolves

@@ -85,9 +85,9 @@ public sealed class GuiServerInfo : GuiList
             return;
         var cols = row[0] == '0' ? mTeamColumns : mPlayerColumns;
         var heading = row[1] != '0';
-        PftFont? font = heading ? HeadingFont : RowTextFont;
+        var font = heading ? HeadingFont : RowTextFont;
         int i = 2, col = 0;
-        GfxRect saved = p.Clip;
+        var saved = p.Clip;
         while (col + 1 < cols.Length)
         {
             var start = i;

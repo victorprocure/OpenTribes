@@ -51,7 +51,7 @@ public static class BindingText
             if (ev.ObjType == 10 && ev.ObjInst != 0)
             {
                 ClientCommands.KeyName? k = null;
-                foreach (ClientCommands.KeyName c in ClientKeyTable.Keys)
+                foreach (var c in ClientKeyTable.Keys)
                     if (c.Code == ev.ObjInst)
                     {
                         k = c;
@@ -84,7 +84,7 @@ public static class BindingText
     {
         for (var i = start; i < map.Bindings.Count; ++i)
         {
-            ActionBinding b = map.Bindings[i];
+            var b = map.Bindings[i];
             bool hit;
             if (command.Length == 0)
             {

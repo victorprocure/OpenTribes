@@ -92,7 +92,7 @@ public sealed class ClientScript
         {
             if (mQueued[i].At <= sec)
             {
-                Action a = mQueued[i].Do;
+                var a = mQueued[i].Do;
                 mQueued.RemoveAt(i);
                 a();
             }
@@ -132,14 +132,14 @@ public sealed class ClientScript
         if (name.Length == 1)
         {
             var c = name[0];
-            foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
+            foreach (var k in ClientKeyTable.Keys)
                 if (k.Lower == c && (k.Name == null || k.Name.Length > 1 || k.Lower == c))
                     return (k.Code, false);
-            foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
+            foreach (var k in ClientKeyTable.Keys)
                 if (k.Upper == c)
                     return (k.Code, true);
         }
-        foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (k.Name != null && string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase))
                 return (k.Code, false);
         return name.ToLowerInvariant() switch
@@ -173,7 +173,7 @@ public sealed class ClientScript
 
     private void MoveTo(int x, int y)
     {
-        GuiCanvas c = mApp.Canvas;
+        var c = mApp.Canvas;
         int dx = x - (int)c.CursorX, dy = y - (int)c.CursorY;
         mApp.InjectAxis(0, dx);
         mApp.InjectAxis(1, dy);
@@ -286,7 +286,7 @@ public sealed class ClientScript
             case "where":
             case "clickctl":
             {
-                GuiControl? c = mApp.GuiRt.FindControl(a[0]);
+                var c = mApp.GuiRt.FindControl(a[0]);
                 if (c == null)
                 {
                     Echo("input: no control " + a[0]);

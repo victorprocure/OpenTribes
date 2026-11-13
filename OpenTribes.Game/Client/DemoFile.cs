@@ -137,10 +137,10 @@ public sealed class DemoFile
     /// <remarks>The header ids go to the world as the accept path would. The packet records run through the same receive path as the network. Moves append to the PSC buffer without a cap. Actions are returned to the caller.</remarks>
     public void Play(ClientGameConnection conn, Action<DemoRecord, DecodedPacket?>? each = null)
     {
-        ClientWorld w = conn.World;
+        var w = conn.World;
         w.PlayerId = (int)ClientId;
         w.ServerId = (int)ServerId;
-        foreach (DemoRecord rec in Records)
+        foreach (var rec in Records)
         {
             DecodedPacket? pkt = null;
             switch (rec.Kind)

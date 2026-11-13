@@ -85,7 +85,7 @@ public sealed class ClientState
     /// <returns>The map, or null.</returns>
     public ActionMap? FindMap(string name)
     {
-        foreach (ActionMap m in Maps)
+        foreach (var m in Maps)
             if (ClientCommands.EqualNoCase(m.Name, name))
                 return m;
         return null;
@@ -161,7 +161,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp lookupPrefix (0x00520af4): the first entry that is a prefix of the word.
     private static byte LookupPrefix(NameValue[] table, string word)
     {
-        foreach (NameValue e in table)
+        foreach (var e in table)
             if (HasPrefixNoCase(word, 0, e.Name))
                 return e.Value;
         return 0;
@@ -170,7 +170,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp nameOf.
     private static string NameOf(NameValue[] table, byte value)
     {
-        foreach (NameValue e in table)
+        foreach (var e in table)
             if (e.Value == value)
                 return e.Name;
         return "";
@@ -188,7 +188,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp keyFromChar.
     private static byte KeyFromChar(char c)
     {
-        foreach (KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (c == k.Lower || c == k.Upper)
                 return k.Code;
         return 0;
@@ -197,7 +197,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp keyFromName.
     private static byte KeyFromName(string name)
     {
-        foreach (KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (k.Name != null && EqualNoCase(name, k.Name))
                 return k.Code;
         return 0;
@@ -206,7 +206,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp keyByCode.
     private static KeyName? KeyByCode(byte code)
     {
-        foreach (KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (k.Code == code)
                 return k;
         return null;
@@ -356,7 +356,7 @@ public static class ClientCommands
         for (; i < n; ++i)
         {
             NameValue? flag = null;
-            foreach (NameValue f in kFlags)
+            foreach (var f in kFlags)
                 if (EqualNoCase(w[i], f.Name))
                 {
                     flag = f;
@@ -407,7 +407,7 @@ public static class ClientCommands
             f = (float)(negative ? Numbers.NegNaN : Numbers.NaN);
             return true;
         }
-        static bool Hex(char c) => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
+        static bool Hex(char c) => c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
         if (i + 2 < s.Length && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X') &&
             (Hex(s[i + 2]) || (s[i + 2] == '.' && i + 3 < s.Length && Hex(s[i + 3]))))
         {
@@ -490,14 +490,14 @@ public static class ClientCommands
     /// <returns>The line.</returns>
     public static string FormatBinding(ActionBinding b, Func<int, string>? tagName)
     {
-        InputEvent ev = b.Event;
+        var ev = b.Event;
         var line = new StringBuilder(b.IsCommand ? "bindCommand(" : "bindAction(");
         line.Append(NameOf(kDevices, ev.DeviceType) + Numbers.FormatInt(ev.DeviceInst) + ", ");
         if (ev.Action is 1 or 2)
         {
             line.Append(NameOf(kEventActions, ev.Action) + ", ");
             var mod = ev.Modifiers;
-            foreach (NameValue m in kModifiers)
+            foreach (var m in kModifiers)
                 if ((mod & m.Value) == m.Value)
                 {
                     line.Append(m.Name + ", ");
@@ -507,7 +507,7 @@ public static class ClientCommands
             {
                 if (ev.ObjInst != 0)
                 {
-                    KeyName? k = KeyByCode(ev.ObjInst);
+                    var k = KeyByCode(ev.ObjInst);
                     if (k != null && k.Value.Name != null)
                         line.Append("\"" + k.Value.Name + "\", ");
                     else if (k != null && k.Value.Lower == '\\')
@@ -535,7 +535,7 @@ public static class ClientCommands
             line.Append(tagName != null ? tagName(b.Action) : "");
             if ((b.Flags & ActionBinding.Value) != 0)
                 line.Append(", " + FloatText(b.ValueF));
-            foreach (NameValue f in kFlags)
+            foreach (var f in kFlags)
                 if ((b.Flags & f.Value) != 0 && (b.Flags & ActionBinding.Value) == 0)
                 {
                     line.Append(", " + f.Name);
@@ -603,7 +603,7 @@ public static class ClientCommands
                 return "False";
             }
             st.CurrentMap = ActionMapName(argv[1]);
-            ActionMap? m = st.FindMap(st.CurrentMap);
+            var m = st.FindMap(st.CurrentMap);
             if (m != null)
             {
                 if (clear)
@@ -625,7 +625,7 @@ public static class ClientCommands
                 Usage(i, "bindAction");
                 return "False";
             }
-            ActionMap? map = st.FindMap(st.CurrentMap);
+            var map = st.FindMap(st.CurrentMap);
             if (map == null)
             {
                 i.Print(1, "bindAction error: must call 'editActionMap' or 'newActionMap' first. (" + st.CurrentMap + ")");
@@ -659,7 +659,7 @@ public static class ClientCommands
                 Usage(i, name);
                 return "False";
             }
-            ActionMap? map = st.FindMap(simGame ? "SimGame.sae" : st.CurrentMap);
+            var map = st.FindMap(simGame ? "SimGame.sae" : st.CurrentMap);
             if (map == null)
             {
                 if (simGame)
@@ -715,14 +715,14 @@ public static class ClientCommands
                 for (var k = 2; k < argv.Length; ++k)
                 {
                     var name = ActionMapName(argv[k]);
-                    ActionMap? map = st.FindMap(name);
+                    var map = st.FindMap(name);
                     if (map == null)
                     {
                         i.Print(1, "Unknown map '" + name + "'");
                         continue;
                     }
                     f.Write(ByteString.ToBytes("NewActionMap(\"" + name + "\");\n"));
-                    foreach (ActionBinding b in map.Bindings)
+                    foreach (var b in map.Bindings)
                         f.Write(ByteString.ToBytes(FormatBinding(b, id => i.TagName(id)) + "\r\n"));
                 }
             }
@@ -742,14 +742,14 @@ public static class ClientCommands
     {
         ActionMap? Find(Interpreter i, string name)
         {
-            ActionMap? m = st.FindMap(name);
+            var m = st.FindMap(name);
             if (m == null)
                 i.Print(1, "error: must call 'editActionMap' or 'newActionMap' first. (" + name + ")");
             return m;
         }
         static ActionBinding? Axis(ActionMap m, byte objType)
         {
-            foreach (ActionBinding b in m.Bindings)
+            foreach (var b in m.Bindings)
                 if (b.Event.DeviceType != 3 && b.Event.Action != 1 && b.Event.Action != 2 && !b.IsCommand &&
                     b.Event.ObjType == objType)
                     return b;
@@ -765,8 +765,8 @@ public static class ClientCommands
             if (argv[1].Length == 0)
                 return "1";
             var r = "-1";
-            ActionMap? m = Find(i, argv[1]);
-            ActionBinding? b = m != null ? Axis(m, 11) : null;
+            var m = Find(i, argv[1]);
+            var b = m != null ? Axis(m, 11) : null;
             if (b != null)
                 r = Numbers.FormatFloat(b.ScaleF);
             return r;
@@ -782,8 +782,8 @@ public static class ClientCommands
                 var r = "FALSE";
                 if (argv[1].Length == 0)
                     return r;
-                ActionMap? m = Find(i, argv[1]);
-                ActionBinding? b = m != null ? Axis(m, (byte)(y ? 12 : 11)) : null;
+                var m = Find(i, argv[1]);
+                var b = m != null ? Axis(m, (byte)(y ? 12 : 11)) : null;
                 if (b != null)
                     r = (b.Flags & ActionBinding.Flip) != 0 ? "FALSE" : "TRUE";
                 return r;
@@ -935,7 +935,7 @@ public static class ClientCommands
         CreateMap(st, res, "SimGame.sae");
 
         // Table-driven commands: output depends only on the argument count and texts.
-        Rule[] rules = ClientCommandTable.Rules;
+        var rules = ClientCommandTable.Rules;
         var count = rules.Length;
         for (var first = 0; first < count;)
         {

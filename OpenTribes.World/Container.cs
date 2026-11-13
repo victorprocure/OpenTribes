@@ -361,12 +361,12 @@ public sealed class Container
             return;
         if (p == t || p + 1 == t)
         {
-            SweepEnd x = l[p];
+            var x = l[p];
             x.Value = value;
             l[p] = x;
             return;
         }
-        SweepEnd e = l[p];
+        var e = l[p];
         var down = value <= e.Value;
         e.Value = value;
         if (down)
@@ -391,7 +391,7 @@ public sealed class Container
     // below theirs.
     private static void SweepInsert(Node c, Node n)
     {
-        List<SweepEnd> l = c.XEnds;
+        var l = c.XEnds;
         int lo = SweepLower(l, n.E.Box[0]), hi = SweepLower(l, n.E.Box[3]);
         l.Insert(hi, new SweepEnd { NodeRef = n, IsMax = true, Value = n.E.Box[3] });
         l.Insert(lo, new SweepEnd { NodeRef = n, IsMax = false, Value = n.E.Box[0] });
@@ -404,7 +404,7 @@ public sealed class Container
     // is (the object's own ends included); the min end moves first.
     private static void SweepUpdate(Node c, Node n)
     {
-        List<SweepEnd> l = c.XEnds;
+        var l = c.XEnds;
         int lo = SweepLower(l, n.E.Box[0]), hi = SweepLower(l, n.E.Box[3]);
         var pMin = SweepPos(l, n, false);
         if (pMin >= l.Count)
@@ -432,7 +432,7 @@ public sealed class Container
     {
         if (obj == null)
             return mNullObject;
-        return mByObject.TryGetValue(obj, out Node? n) ? n : null;
+        return mByObject.TryGetValue(obj, out var n) ? n : null;
     }
 
     /// <summary>Finds the entry of an object.</summary>
@@ -444,12 +444,12 @@ public sealed class Container
     // rotated by it.
     private static void SetInverse(Node node)
     {
-        Mat m = node.E.Transform;
+        var m = node.E.Transform;
         var inv = new Mat();
         ReadOnlySpan<int> t = [0, 3, 6, 1, 4, 7, 2, 5, 8];
         for (var i = 0; i < 9; ++i)
             inv.M[i] = m.M[t[i]];
-        Mat rot = inv;
+        var rot = inv;
         rot.P = new Vec3(0, 0, 0);
         inv.P = rot.ToWorldVector(new Vec3(-m.P.X, -m.P.Y, -m.P.Z));
         node.Inverse = inv;
@@ -462,7 +462,7 @@ public sealed class Container
     /// <remarks>Follows SimObject_setTransform and InteriorShape_worldBox (0047e5a0). An interior with an instance and a database that is in a container unlinks first (00481214), takes the new transform and links again (0048125c) after the box is computed. The box update refiles it (004f9dc4). Other objects behave as <see cref="SetBox"/>.</remarks>
     public void SetTransform(object? obj, Mat m, ReadOnlySpan<float> box)
     {
-        Node? n = NodeOf(obj);
+        var n = NodeOf(obj);
         if (n == null || !n.Interior || n.E.Geometry == null)
         {
             SetBox(obj, box);
@@ -497,7 +497,7 @@ public sealed class Container
             while (node.Buckets.Count < count)
                 node.Buckets.Add([]);
         }
-        Node n = node;
+        var n = node;
         n.Seq = ++mSeq;
         if (n.E.Object == null)
             mNullObject = n;
@@ -514,8 +514,8 @@ public sealed class Container
     // world transform of `of` and the inverse of `in`, then sorted per axis.
     private static void BoxIn(ReadOnlySpan<float> box, in Mat toWorld, in Mat toLocal, Span<float> output)
     {
-        Vec3 lo = toLocal.ToWorld(toWorld.ToWorld(new Vec3(box[0], box[1], box[2])));
-        Vec3 hi = toLocal.ToWorld(toWorld.ToWorld(new Vec3(box[3], box[4], box[5])));
+        var lo = toLocal.ToWorld(toWorld.ToWorld(new Vec3(box[0], box[1], box[2])));
+        var hi = toLocal.ToWorld(toWorld.ToWorld(new Vec3(box[3], box[4], box[5])));
         for (var i = 0; i < 3; ++i)
         {
             output[i] = hi[i] < lo[i] ? hi[i] : lo[i];         // std::min
@@ -538,9 +538,9 @@ public sealed class Container
         }
         var found = new List<Node>();
         FindIn(mRoot, q, found);
-        InteriorGeometry g = n.E.Geometry!;
+        var g = n.E.Geometry!;
         Span<float> b = stackalloc float[6];
-        foreach (Node m in found)
+        foreach (var m in found)
         {
             if (m == n || !m.Interior || m.E.Geometry == null || (m.E.Type & ObjectType.kInteriorType) == 0)
                 continue;
@@ -561,9 +561,9 @@ public sealed class Container
     // of this one (InteriorShape_removeLink 00481098: the first match, erased in place).
     private static void UnlinkAll(Node n)
     {
-        foreach (Node.Link l in n.Links)
+        foreach (var l in n.Links)
         {
-            List<Node.Link> v = l.NodeRef.Links;
+            var v = l.NodeRef.Links;
             var it = v.FindIndex(x => x.NodeRef == n);
             if (it >= 0)
                 v.RemoveAt(it);
@@ -576,19 +576,19 @@ public sealed class Container
     /// <remarks>The objects it held go to its former container (database destructors 004fbf78 and 00483bc0, called by 004f99e0 with the container +0x68).</remarks>
     public void Remove(object? obj)
     {
-        Node? n = NodeOf(obj);
+        var n = NodeOf(obj);
         if (n == null)
             return;
-        Node parent = n.Parent ?? mRoot;
+        var parent = n.Parent ?? mRoot;
         UnlinkAll(n);
         RemoveFrom(n);
         // The objects it held go to its former container (database destructors 004fbf78, 00483bc0, called by 004f99e0
         // with the container +0x68).
         var held = new List<Node>();
-        foreach (Node? m in n.Items)
+        foreach (var m in n.Items)
             if (m != null)
                 held.Add(m);
-        foreach (Node m in held)
+        foreach (var m in held)
         {
             m.Parent = null;
             AddTo(parent, m);
@@ -606,12 +606,12 @@ public sealed class Container
     {
         if (c.Terrain)
         {
-            foreach (Node s in c.Subs)
+            foreach (var s in c.Subs)
                 if (s != n && (s.E.ContainerMask & n.E.Type) != 0 && InsideTerrainDb(s.E.Box, n.E.Box))
                     return s;
             return null;
         }
-        foreach (Node? s in c.Items)
+        foreach (var s in c.Items)
             if (s != null && s != n && s.HasDb() && (s.E.ContainerMask & n.E.Type) != 0 && Inside(s.E.Box, n.E.Box))
                 return s;
         return null;
@@ -626,14 +626,14 @@ public sealed class Container
         {
             // 004fd1a8: x/y ends inside [min, max) of the container box, collected in the order of the objects' y-max
             // ends; then z (inclusive) failures are swap-removed.
-            foreach (Node? m in c.Items)
+            foreach (var m in c.Items)
                 if (m != null && m != n && m.E.Box[0] >= n.E.Box[0] && m.E.Box[3] < n.E.Box[3] &&
                     m.E.Box[1] >= n.E.Box[1] && m.E.Box[4] < n.E.Box[4])
                     output.Add(m);
             output = [.. output.OrderBy(x => x.E.Box[4])]; // std::stable_sort
             for (var i = 0; i < output.Count; ++i)
             {
-                Node m = output[i];
+                var m = output[i];
                 if (m.E.Box[2] < n.E.Box[2] || n.E.Box[5] < m.E.Box[5])
                 {
                     output[i] = output[^1];
@@ -643,7 +643,7 @@ public sealed class Container
             }
             return output;
         }
-        foreach (Node? m in c.Items)
+        foreach (var m in c.Items)
             if (m != null && m != n && (m.E.Type & n.E.ContainerMask) != 0 && Inside(n.E.Box, m.E.Box))
                 output.Add(m);
         return output;
@@ -718,7 +718,7 @@ public sealed class Container
     // src/world/container.cpp Container::removeFrom.
     private static void RemoveFrom(Node n)
     {
-        Node? c = n.Parent;
+        var c = n.Parent;
         if (c == null)
             return;
         if (c.Terrain)
@@ -750,7 +750,7 @@ public sealed class Container
     {
         if (n.Parent != null)
             RemoveFrom(n);
-        Node? s = FindOpen(c, n);
+        var s = FindOpen(c, n);
         if (s != null)
         {
             AddTo(s, n);
@@ -758,7 +758,7 @@ public sealed class Container
         }
         DbAdd(c, n);
         if (n.HasDb())
-            foreach (Node m in FindContained(c, n))
+            foreach (var m in FindContained(c, n))
                 if ((m.E.Type & n.E.ContainerMask) != 0)
                     AddTo(n, m);
     }
@@ -768,11 +768,11 @@ public sealed class Container
     /// <param name="box">The new world box.</param>
     public void SetBox(object? obj, ReadOnlySpan<float> box)
     {
-        Node? n = NodeOf(obj);
+        var n = NodeOf(obj);
         if (n == null)
             return;
         n.E.Box = Float6.Of(box);
-        Node? c = n.Parent;
+        var c = n.Parent;
         if (c == null)
             return;
         if (Inside(c.E.Box, n.E.Box))
@@ -798,7 +798,7 @@ public sealed class Container
             }
             return;
         }
-        Node? p = c.Parent;
+        var p = c.Parent;
         while (p != null && !Inside(p.E.Box, n.E.Box))
             p = p.Parent;
         AddTo(p ?? mRoot, n);
@@ -809,7 +809,7 @@ public sealed class Container
     /// <returns>The container object, or null for container 7 or when the object has no entry.</returns>
     public object? ParentOf(object? obj)
     {
-        Node? n = NodeOf(obj);
+        var n = NodeOf(obj);
         return n != null && n.Parent != null ? n.Parent.E.Object : null;
     }
 
@@ -818,10 +818,10 @@ public sealed class Container
     /// <returns>The objects in database order: vector order, or terrain slot order with empty slots skipped.</returns>
     public List<object?> Contents(object? obj)
     {
-        Node? c = obj != null ? NodeOf(obj) : mRoot;
+        var c = obj != null ? NodeOf(obj) : mRoot;
         var output = new List<object?>();
         if (c != null)
-            foreach (Node? m in c.Items)
+            foreach (var m in c.Items)
                 if (m != null)
                     output.Add(m.E.Object);
         return output;
@@ -832,8 +832,8 @@ public sealed class Container
     /// <returns>The terrain's entry, or null.</returns>
     public Entry? TerrainOf(object? obj)
     {
-        Node? n = NodeOf(obj);
-        for (Node? c = n?.Parent; c != null; c = c.Parent)
+        var n = NodeOf(obj);
+        for (var c = n?.Parent; c != null; c = c.Parent)
             if (c.Terrain)
                 return c.E;
         return null;
@@ -846,10 +846,10 @@ public sealed class Container
     /// <remarks>The value is the SimTerrain's, else the parent's, and 1e6 at container 7 (004f9988).</remarks>
     public bool VisibleDistance(object? obj, ref float output)
     {
-        Node? n = NodeOf(obj);
+        var n = NodeOf(obj);
         if (n == null || n.Parent == null)
             return false;
-        for (Node? c = n.Parent; c != null; c = c.Parent)
+        for (var c = n.Parent; c != null; c = c.Parent)
             if (c.Terrain)
             {
                 output = c.E.VisibleDistance;
@@ -871,12 +871,12 @@ public sealed class Container
             // SimTerrain database (0x004fcf7c -> 0x004fc3fc): the objects in the order of their x-max ends. The tests run
             // on end positions: min < q.max and q.min <= max in x and y; in z the object is rejected when q.max <= min or
             // max < q.min.
-            foreach (SweepEnd end in c.XEnds)
+            foreach (var end in c.XEnds)
             {
                 if (!end.IsMax)
                     continue;
-                Node m = end.NodeRef;
-                ref Float6 b = ref m.E.Box;
+                var m = end.NodeRef;
+                ref var b = ref m.E.Box;
                 if (!m.HasDb() && (ReferenceEquals(m.E.Object, q.Exclude) || (m.E.Type & q.Mask) == 0))
                     continue;
                 if (!(b[0] < q.Box[3]) || !(q.Box[0] <= b[3]) || !(b[1] < q.Box[4]) || !(q.Box[1] <= b[4]))
@@ -888,7 +888,7 @@ public sealed class Container
         }
         else
         {
-            foreach (Node? m in c.Items)
+            foreach (var m in c.Items)
                 if (m != null && (m.HasDb() ? Overlaps(m.E.Box, q.Box)
                                             : !ReferenceEquals(m.E.Object, q.Exclude) && (m.E.Type & q.Mask) != 0 && Overlaps(m.E.Box, q.Box)))
                     output.Add(m);
@@ -896,7 +896,7 @@ public sealed class Container
         var endIndex = output.Count;
         for (var i = first; i < endIndex; ++i)
         {
-            Node m = output[i];
+            var m = output[i];
             if (!m.HasDb())
                 continue;
             if (ReferenceEquals(m.E.Object, q.Exclude) || (q.Mask & m.E.Type) == 0)
@@ -922,7 +922,7 @@ public sealed class Container
         var nodes = new List<Node>();
         FindIn(mRoot, q, nodes);
         var output = new List<object?>();
-        foreach (Node n in nodes)
+        foreach (var n in nodes)
             output.Add(n.E.Object);
         return output;
     }
@@ -974,12 +974,12 @@ public sealed class Container
         candidates.AddRange(found.Where(a => a.Terrain)); // std::stable_partition
         candidates.AddRange(found.Where(a => !a.Terrain));
         var best = 1e30f;
-        Vec3 e = eIn;
+        var e = eIn;
         obj = null;
         Span<float> w = stackalloc float[3];
-        foreach (Node cn in candidates)
+        foreach (var cn in candidates)
         {
-            Entry c = cn.E;
+            var c = cn.E;
             Vec3 ca = s, cb = e;
             if (!Clip(ref ca, ref cb, c.Box))
                 continue;
@@ -1055,7 +1055,7 @@ public sealed class Container
         c.Tag = mTag;
         if (stack[^1])
         {
-            Node? s = StartContainer(c, q);
+            var s = StartContainer(c, q);
             if (s != null && s.Tag != mTag && !ScopeNode(s, q, stack))
                 return false;
         }
@@ -1065,7 +1065,7 @@ public sealed class Container
         Span<float> v = stackalloc float[3];
         for (var i = 0; i < c.Items.Count; ++i)
         {
-            Node? n = c.Items[i];
+            var n = c.Items[i];
             if (n == null)
                 continue;
             if (c.Terrain)
@@ -1086,7 +1086,7 @@ public sealed class Container
     // src/world/container.cpp Container::scopeInterior: InteriorShape scope (00480648).
     private bool ScopeInterior(Node c, ScopeQuery q, List<bool> stack)
     {
-        InteriorGeometry? g = c.E.Geometry;
+        var g = c.E.Geometry;
         if (g == null)
             return false;
         // A linked interior is scoped only on the start container path or through a link record.
@@ -1100,7 +1100,7 @@ public sealed class Container
             return true;
         if (stack[^1])
         {
-            Node? s = StartContainer(c, q);
+            var s = StartContainer(c, q);
             if (s != null && s.Tag != mTag && !ScopeNode(s, q, stack))
                 return false;
         }
@@ -1118,7 +1118,7 @@ public sealed class Container
             if (b >= c.Buckets.Count)
                 return;
             var list = new List<Node>(c.Buckets[b]); // scoping may re-file entries
-            foreach (Node n in list)
+            foreach (var n in list)
                 ScopeEntry(n, q, stack);
         }
         if (!g.IsSolid(leaf))
@@ -1143,9 +1143,9 @@ public sealed class Container
     // neighbours' results when the camera is inside the instance box.
     private bool ScopeLinks(Node c, ScopeQuery q, List<bool> stack, bool start)
     {
-        InteriorGeometry g = c.E.Geometry!;
+        var g = c.E.Geometry!;
         stack.Add(false);
-        Vec3 p = c.Inverse.ToWorld(q.Point);
+        var p = c.Inverse.ToWorld(q.Point);
         uint faces = g.OutsideFaces(g.LeafAt(p));
         var inBox = InsideHalfOpen(p, g.Box);
         var linked = false;
@@ -1156,7 +1156,7 @@ public sealed class Container
                 mask |= InteriorNearFaces(p, g.Box);
             for (var i = 0; i < c.Links.Count; ++i)
             {
-                Node m = c.Links[i].NodeRef;
+                var m = c.Links[i].NodeRef;
                 if ((c.Links[i].Bits & mask) == 0 || m.VisitTag == mTag)
                     continue;
                 var saved = m.ViaLink;

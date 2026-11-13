@@ -65,13 +65,13 @@ public sealed class GuiScoreList : GuiList
         {
             var tc = Columns(board.TeamHeading);
             lines.Add(new Line(HeadingText(board.TeamHeading), tc, true, false));
-            foreach (ScoreRow t in board.Teams)
+            foreach (var t in board.Teams)
                 lines.Add(new Line(t.Text, tc, false, false));
         }
         var cc = Columns(board.ClientHeading);
         if (board.ClientHeading.Length > 0)
             lines.Add(new Line(HeadingText(board.ClientHeading), cc, true, false));
-        foreach (ScoreRow c in board.Clients)
+        foreach (var c in board.Clients)
             lines.Add(new Line(c.Text, cc, false, selected >= 0 && c.Id == selected));
         return lines;
     }
@@ -109,8 +109,8 @@ public sealed class GuiScoreList : GuiList
                 break;
             if (y + lh < p.Clip.Top)
                 continue;
-            Line line = Lines[i];
-            PftFont? f = line.Heading ? HeadingFont : RowFont;
+            var line = Lines[i];
+            var f = line.Heading ? HeadingFont : RowFont;
             if (line.Local)
                 p.Fill(gx, y, Math.Min(W, HighlightWidth), lh, LocalRowColor);
             var cells = line.Text.Split('\t');
@@ -122,7 +122,7 @@ public sealed class GuiScoreList : GuiList
                 if (low)
                     col = col * 70 / 100;
                 // The draw clips each cell at the next column less 2 pixels [code 004c2198].
-                GfxRect saved = p.Clip;
+                var saved = p.Clip;
                 if (k + 1 < line.Columns.Length)
                 {
                     var next = line.Columns[k + 1];
@@ -147,8 +147,8 @@ public sealed class GuiMenuDisplay : GuiControl
         if (Host?.Hud?.ServerMenu is not ServerMenuView menu)
             return;
         var low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
-        PftFont? row = Host.FontByName(low ? "sf_yellow_6.pft" : "sf_yellow_10b.pft");
-        PftFont? head = row;
+        var row = Host.FontByName(low ? "sf_yellow_6.pft" : "sf_yellow_10b.pft");
+        var head = row;
         var y = gy;
         if (menu.Title.Length > 0)
         {

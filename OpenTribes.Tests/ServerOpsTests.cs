@@ -132,7 +132,7 @@ public class ServerOpsTests
             var d = h.Query(Addr(1), request);
             byte[] header = [0x10, 8, 0xff, 0, 0x34, 0x12, 0, 0];
             Assert.True(d.Length > 8 && d.AsSpan(0, 8).SequenceEqual(header));
-            GameInfoReply r = DecodeGameInfo(d);
+            var r = DecodeGameInfo(d);
             Assert.True(r.PacketVersion == 1 && r.Game == "Tribes" && r.Version == "1.11" && r.Hostname == "Host");
             Assert.True(r.Players == 0 && r.MaxPlayers == 12 && r.Mission == "N/A" && r.Dedicated == 1 && r.Password == 0);
             Assert.True(r.Cpu == 0 && r.ModList == "base" && r.TeamHeading.Length == 0 && r.ClientHeading.Length == 0);
@@ -171,7 +171,7 @@ public class ServerOpsTests
                 Dedicated = false,
                 MissionName = "",
             });
-            GameInfoReply r = DecodeGameInfo(h.Query(Addr(1), request));
+            var r = DecodeGameInfo(h.Query(Addr(1), request));
             Assert.True(r.Hostname == "N/A" && r.Mission == "N/A" && r.Password == 1 && r.Dedicated == 0);
             Assert.True(r.Cpu == 0xffffffffu && r.MaxPlayers == unchecked((byte)300));
             ++cases;
@@ -203,7 +203,7 @@ public class ServerOpsTests
                 g.Players = [pa, pb, pc];
                 return g;
             });
-            GameInfoReply r = DecodeGameInfo(h.Query(Addr(1), request));
+            var r = DecodeGameInfo(h.Query(Addr(1), request));
             Assert.True(r.Players == 3 && r.TeamHeading == "TH" && r.ClientHeading == "CH");
             var want = new List<string> { "00", "01TH", "00Blue=5", "00Red=1 (Red)", "00", "11CH",
                                           "10Bravo-Blue", "10Alpha/Red/42/25/%x%", "10[]Carol" };
@@ -225,7 +225,7 @@ public class ServerOpsTests
         {
             var h = new Harness();
             h.Server.SetGameInfo(() => new GameInfo { TeamCount = -1, TeamHeading = "TH", ClientHeading = "CH" });
-            GameInfoReply r = DecodeGameInfo(h.Query(Addr(1), request));
+            var r = DecodeGameInfo(h.Query(Addr(1), request));
             Assert.Equal(["00", "01TH"], r.Rows);
             ++cases;
         }
@@ -465,7 +465,7 @@ public class ServerOpsTests
             b.Add(new string('a', 5000), -1);
             b.Add("IP:" + new string('1', 200) + ":5", -1);
             b.Add("IP:" + new string('1', 123) + ":5", -1);
-            foreach (BanList.Entry e in b.Entries())
+            foreach (var e in b.Entries())
                 Assert.True(e.Address.Length <= BanList.kMaxAddress);
             Assert.Equal(':', b.Entries()[2].Address[^1]); // no room left for the '*'
             ++cases;

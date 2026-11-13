@@ -56,7 +56,7 @@ public static class MissionRender
             if (line.Length == 0 || line.StartsWith('#') || line.StartsWith("//"))
                 continue;
             var sp = line.IndexOfAny([' ', '\t']);
-            if (sp < 0 || !TryParseCamera(line[(sp + 1)..].Trim(), line[..sp], defaultFov, out CameraSpec c))
+            if (sp < 0 || !TryParseCamera(line[(sp + 1)..].Trim(), line[..sp], defaultFov, out var c))
             {
                 error = $"camera file line {n}: expected NAME X,Y,Z,YAW,PITCH[,FOV]";
                 return [];
@@ -83,7 +83,7 @@ public static class MissionRender
         var cams = new List<CameraSpec>();
         if (camera != null)
         {
-            if (!TryParseCamera(camera, "camera", fov, out CameraSpec c))
+            if (!TryParseCamera(camera, "camera", fov, out var c))
             {
                 Console.Error.WriteLine("tribes: --camera expects X,Y,Z,YAW,PITCH");
                 return 2;
@@ -92,7 +92,7 @@ public static class MissionRender
         }
         if (camerasFile != null)
         {
-            List<CameraSpec> fromFile = ParseCameraFile(File.ReadAllText(camerasFile), fov, out var cerr);
+            var fromFile = ParseCameraFile(File.ReadAllText(camerasFile), fov, out var cerr);
             // A file shared by several missions names its cameras `<Mission>_<label>`: only those of this mission render.
             if (fromFile.Any(c => c.Name.StartsWith(mission + "_", StringComparison.OrdinalIgnoreCase)))
                 fromFile = [.. fromFile.Where(c => c.Name.StartsWith(mission + "_", StringComparison.OrdinalIgnoreCase))];
@@ -124,7 +124,7 @@ public static class MissionRender
         var dir = camerasFile != null;
         if (dir)
             Directory.CreateDirectory(output);
-        foreach (CameraSpec c in cams)
+        foreach (var c in cams)
         {
             scene.Render(c.X, c.Y, c.Z, c.Yaw, c.Pitch, c.Fov);
             var px = dev.ReadPixels();

@@ -152,8 +152,8 @@ public sealed class ClientPrediction
     /// <remarks>Follows Turret_readControlState (0045711c) and Turret_clientUpdate (00456428).</remarks>
     public void OnTurretBlock(ClientWorld world, uint receiveTime)
     {
-        ClientPsc psc = world.Psc;
-        ClientGhost? g = psc.HasControl && psc.ControlClass == "Turret" && psc.ControlGhost >= 0 ? world.Ghosts.Get(psc.ControlGhost) : null;
+        var psc = world.Psc;
+        var g = psc.HasControl && psc.ControlClass == "Turret" && psc.ControlGhost >= 0 ? world.Ghosts.Get(psc.ControlGhost) : null;
         if (g is { Class: "Turret" })
             Turret.OnServerBlock(psc, g, receiveTime);
         else
@@ -240,10 +240,10 @@ public sealed class ClientPrediction
     /// <remarks>The move buffer is trimmed by the reader. Here the copy follows the control ghost, takes the server state and sets +0x218.</remarks>
     public CorrectionRecord? OnServerBlock(ClientWorld world, uint receiveTime)
     {
-        ClientPsc psc = world.Psc;
+        var psc = world.Psc;
         if (!psc.HasControl)
             return null;
-        ClientGhost? g = psc.ControlGhost >= 0 ? world.Ghosts.Get(psc.ControlGhost) : null;
+        var g = psc.ControlGhost >= 0 ? world.Ghosts.Get(psc.ControlGhost) : null;
         var predictable = g != null && (g.Class == "Player" || g.Class == "Flier") && !(g.State.TryGetValue("dead", out var dv) && dv is long dl && dl != 0);
         if (g == null || !predictable)
         {
@@ -401,9 +401,9 @@ public sealed class ClientPrediction
             if ((SimTime & 31) == 0)
             {
                 float[] before = [p.Transform.P[0], p.Transform.P[1], p.Transform.P[2]];
-                if (MoveForTick(psc, SimTime, now, out Move bm, out var idx))
+                if (MoveForTick(psc, SimTime, now, out var bm, out var idx))
                 {
-                    Move m = ServerMove(bm);
+                    var m = ServerMove(bm);
                     p.LastMove = m;           // +0xff0
                     p.UpdateMove(m);          // Player_updateMove(move, 0)
                     p.UpdateAnimation(0.032f);
@@ -437,13 +437,13 @@ public sealed class ClientPrediction
         while ((int)(SimTime - now) < 0)
         {
             var next = Math.Min((SimTime + 32) & ~31u, now);
-            if (MoveForTick(psc, SimTime, now, out Move bm, out var idx))
+            if (MoveForTick(psc, SimTime, now, out var bm, out var idx))
             {
-                Move m = ServerMove(bm);
+                var m = ServerMove(bm);
                 // Vehicle_clientUpdate: dt = covered part of the tick, in seconds (the frame may end inside a tick).
                 var ms = ((next - 1) & 31) + 1 - (SimTime & 31);
                 var dt = (float)(ms * 0.001);
-                Move mv = m;
+                var mv = m;
                 f.LastMove = m;
                 f.Update(ref mv, dt);
                 if (((next) & 31) == 0)
@@ -465,7 +465,7 @@ public sealed class ClientPrediction
     {
         if (Object is not Player p || Ghost < 0)
             return;
-        ClientGhost? g = world.Ghosts.Get(Ghost);
+        var g = world.Ghosts.Get(Ghost);
         if (g != null && RemoteGhosts.ParseMount(g, out var mg, out var point) && remote.RemoteMount(mg) is { } mo)
         {
             if (p.MountId != mo.Id())

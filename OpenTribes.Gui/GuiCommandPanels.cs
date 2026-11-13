@@ -63,8 +63,8 @@ public sealed class GuiChatMenu : GuiControl
         int gx = ox + X, gy = oy + Y;
         if (Host?.Hud?.NamedMenu(S("menuName")) is not ChatMenuState menu)
             return;
-        PftFont? orange = Host.FontByName("sf_Orange255_10.pft");
-        PftFont? white = Host.FontByName("sf_white_10.pft");
+        var orange = Host.FontByName("sf_Orange255_10.pft");
+        var white = Host.FontByName("sf_white_10.pft");
         int x = gx + 3, y = gy + 1;
         if (!menu.Active)
         {
@@ -119,7 +119,7 @@ public sealed class GuiCommandTeam : GuiList
     {
         if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
             return -1;
-        foreach (CommandTeamRow r in Rows)
+        foreach (var r in Rows)
             if ((Host.Hud.CommandLinks(r.Id)?.Selected ?? false) && r.Id != me.Id && !Host.Hud.CommandInChain(r.Id, me.Id))
                 return r.Id;
         return -1;
@@ -139,7 +139,7 @@ public sealed class GuiCommandTeam : GuiList
     /// <remarks>Follows 004a8b00. On the tree glyph of a node with children it flips the node open or closed. On the name: with the order cursor on, it gives the order to that player. Else a plain click makes it the only selected player, ctrl flips it, shift selects the rows from the last plain click, and a double click does the same for the node and the records under it (004a850c). Any list selection first drops the turret and static selection.</remarks>
     public override bool MsDown(GuiEvent e)
     {
-        GuiCommandMap? map = Map;
+        var map = Map;
         if (!Active || map == null)
             return base.MsDown(e);
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
@@ -147,8 +147,8 @@ public sealed class GuiCommandTeam : GuiList
         int col = lx < 0 ? -1 : lx / CellWidth, row = ly < 0 ? -1 : ly / RowHeight;
         if (col < 0 || col >= 1 || row < 0 || row >= Rows.Count)
             return true;
-        CommandTeamRow rec = Rows[row];
-        PbmaArray? pieces = Host?.ArrayByName(Low ? "LRCmdListCtrl.pba" : "CmdListCtrl.pba");
+        var rec = Rows[row];
+        var pieces = Host?.ArrayByName(Low ? "LRCmdListCtrl.pba" : "CmdListCtrl.pba");
         var step = (pieces != null && pieces.Bitmaps.Count > 11 ? pieces.Bitmaps[11].Width : 0) + 2;
         var glyph = (Host?.BitmapByName("CMD_DamageHigh.bmp")?.Width ?? 0) + (Host?.BitmapByName("CMD_OrderAck.bmp")?.Width ?? 0) + (step * rec.Depth) + 4;
         if (lx >= glyph && lx <= glyph + step && rec.HasChildren)
@@ -213,7 +213,7 @@ public sealed class GuiCommandTeam : GuiList
     {
         Rows = Host?.Hud?.CommandTeam ?? Array.Empty<CommandTeamRow>();
         Entries.Clear();
-        foreach (CommandTeamRow r in Rows)
+        foreach (var r in Rows)
             Entries.Add((r.Name, r.Id));
         base.PreRender();
     }
@@ -222,28 +222,28 @@ public sealed class GuiCommandTeam : GuiList
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        PbmaArray? pieces = Host?.ArrayByName(Low ? "LRCmdListCtrl.pba" : "CmdListCtrl.pba");
+        var pieces = Host?.ArrayByName(Low ? "LRCmdListCtrl.pba" : "CmdListCtrl.pba");
         if (Host == null || pieces == null || pieces.Bitmaps.Count < 12)
             return;
         PbmpBitmap? low = Host.BitmapByName("CMD_DamageLow.bmp"), med = Host.BitmapByName("CMD_DamageMed.bmp"), high = Host.BitmapByName("CMD_DamageHigh.bmp");
         PbmpBitmap? pending = Host.BitmapByName("CMD_OrderPending.bmp"), ack = Host.BitmapByName("CMD_OrderAck.bmp");
-        PbmpBitmap? ackPic = ack;
-        PftFont? font = Host.FontByName(Low ? "if_w_6.pft" : "if_w_10b.pft");
+        var ackPic = ack;
+        var font = Host.FontByName(Low ? "if_w_6.pft" : "if_w_10b.pft");
         int step = pieces.Bitmaps[11].Width, rowH = RowHeight;
         for (var i = 0; i < Rows.Count; ++i)
         {
-            CommandTeamRow r = Rows[i];
+            var r = Rows[i];
             var py = gy + (i * rowH);
             // A selected node first gets a 0xfc fill from the picture area to the cell's right edge [code 004a8638].
             if (r.Selected)
                 p.Fill(gx + (high?.Width ?? 0) + (ackPic?.Width ?? 0) + 3, py, CellWidth - ((high?.Width ?? 0) + (ackPic?.Width ?? 0) + 3), rowH, 0xfc);
-            PbmpBitmap? dmg = r.Damage == 2 ? high : r.Damage == 1 ? med : low;
+            var dmg = r.Damage == 2 ? high : r.Damage == 1 ? med : low;
             if (dmg == null)
                 continue;
             var x = gx + 2;
             p.Bitmap(dmg, x, py + 1);
             x += dmg.Width + 1;
-            PbmpBitmap? order = r.Order == 2 ? pending : r.Order == 3 ? ack : null;
+            var order = r.Order == 2 ? pending : r.Order == 3 ? ack : null;
             if (order != null)
                 p.Bitmap(order, x, py + 1);
             x += (pending?.Width ?? 0) + 2;

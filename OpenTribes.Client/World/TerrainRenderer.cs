@@ -53,11 +53,11 @@ public sealed class TerrainRenderer : IDisposable
 
     private IGfxTexture? MaterialTexture(int index)
     {
-        if (mMaterialTextures.TryGetValue(index, out IGfxTexture? t))
+        if (mMaterialTextures.TryGetValue(index, out var t))
             return t;
         t = null;
         var name = index >= 0 && index < mMaterials.Count ? mMaterials[index] : null;
-        PbmpBitmap? bmp = name != null ? mAssets.Bitmap(name) : null;
+        var bmp = name != null ? mAssets.Bitmap(name) : null;
         if (bmp != null && bmp.Width > 0 && bmp.Height > 0)
             t = mAssets.CreateTexture(mDev, bmp, mAssets.PackedRgba(bmp, true), false, true, true);
         mMaterialTextures[index] = t;
@@ -150,7 +150,7 @@ public sealed class TerrainRenderer : IDisposable
                 if (!rgbaCache.TryGetValue(m, out var r))
                 {
                     var name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
-                    PbmpBitmap? b = name != null ? mAssets.Bitmap(name) : null;
+                    var b = name != null ? mAssets.Bitmap(name) : null;
                     rgbaCache[m] = r = b != null ? mAssets.PackedRgba(b, true) : null;
                 }
                 return r;
@@ -158,7 +158,7 @@ public sealed class TerrainRenderer : IDisposable
             (int, int) Size(int m)
             {
                 var name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
-                PbmpBitmap? b = name != null ? mAssets.Bitmap(name) : null;
+                var b = name != null ? mAssets.Bitmap(name) : null;
                 return b == null ? (0, 0) : (b.Width, b.Height);
             }
             var dim = TerrainData.Cells * AtlasCell;
@@ -189,7 +189,7 @@ public sealed class TerrainRenderer : IDisposable
             if (!rgbaCache.TryGetValue(m, out var r))
             {
                 var name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
-                PbmpBitmap? b = name != null ? mAssets.Bitmap(name) : null;
+                var b = name != null ? mAssets.Bitmap(name) : null;
                 rgbaCache[m] = r = b != null ? (mAssets.PackedRgba(b, true), b.Width, b.Height) : (null, 0, 0);
             }
             return r;
@@ -215,12 +215,12 @@ public sealed class TerrainRenderer : IDisposable
         LastTriangles = mesh.TriangleCount;
         // The stock sort of the emitted squares (compare function 0057642c): level 0 first, by material, then the coarser
         // squares (the atlas here). With 16 bit depth the later draw wins a tie.
-        IGfxTexture? tiles = mesh.Tiles.Count > 0 ? CreateTileAtlas(mesh) : null;
+        var tiles = mesh.Tiles.Count > 0 ? CreateTileAtlas(mesh) : null;
         foreach (var mat in mesh.ByMaterial.Keys.Union(mesh.DynByMaterial.Keys).OrderBy(k => k))
         {
-            if (mesh.ByMaterial.TryGetValue(mat, out List<Vertex3D>? list) && list.Count > 0)
+            if (mesh.ByMaterial.TryGetValue(mat, out var list) && list.Count > 0)
                 mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(mat), mLight));
-            if (tiles != null && mesh.DynByMaterial.TryGetValue(mat, out List<Vertex3D>? lit) && lit.Count > 0)
+            if (tiles != null && mesh.DynByMaterial.TryGetValue(mat, out var lit) && lit.Count > 0)
                 mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(lit), new DrawState3D(MaterialTexture(mat), tiles));
         }
         if (mesh.Atlas.Count > 0)
@@ -251,14 +251,14 @@ public sealed class TerrainRenderer : IDisposable
         {
             for (var i = 0; i < l.Count; ++i)
             {
-                Vertex3D v = l[i];
+                var v = l[i];
                 v.Lu /= w;
                 v.Lv /= h;
                 l[i] = v;
             }
         }
         Normalise(mesh.DynAtlas);
-        foreach (List<Vertex3D> l in mesh.DynByMaterial.Values)
+        foreach (var l in mesh.DynByMaterial.Values)
             Normalise(l);
         return mDev.CreateTexture3D(rgba, w, h, new TextureOptions(false, false, true));
     }
@@ -276,7 +276,7 @@ public sealed class TerrainRenderer : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (IGfxTexture? t in mMaterialTextures.Values)
+        foreach (var t in mMaterialTextures.Values)
             t?.Dispose();
         mAtlas?.Dispose();
         mLight?.Dispose();

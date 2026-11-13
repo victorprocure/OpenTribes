@@ -188,7 +188,7 @@ public class TimingTests
         fx.Run("schedule(\"echo(ev);\", 0);");
         fx.Out = "";
         fx.Ticks.Clear();
-        Ticker a2 = fx.MakeTicker("a2", 718);
+        var a2 = fx.MakeTicker("a2", 718);
         a2.OnTick = () => fx.Ticks.Add("out=" + fx.Out);
         Assert.Equal(3, fx.Frame(3.17));
         Assert.True(fx.Ticks.Count == 15 && fx.Ticks[0] == "a@3104" && fx.Ticks[1] == "a2@3104" && fx.Ticks[2] == "out=ev" &&
@@ -201,9 +201,9 @@ public class TimingTests
     {
         Start();
         var fx = new Fx();
-        Ticker t1 = fx.MakeTicker("t1", 718);
-        Ticker t2 = fx.MakeTicker("t2", 718);
-        Ticker t3 = fx.MakeTicker("t3", 718);
+        var t1 = fx.MakeTicker("t1", 718);
+        var t2 = fx.MakeTicker("t2", 718);
+        var t3 = fx.MakeTicker("t3", 718);
         fx.MakeTicker("t4", 718);
         // A member added during the pass is ticked in the same pass.
         var added = false;
@@ -219,7 +219,7 @@ public class TimingTests
         Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@32", "t2@32", "t3@32", "t4@32", "new@32" }));
         // Removing the current member moves the last one into its slot: that one is skipped in this pass (GS4), the
         // order changes for the next ones.
-        SimSet set = fx.M().FindById(718)!.AsSet()!;
+        var set = fx.M().FindById(718)!.AsSet()!;
         fx.Ticks.Clear();
         t2.OnTick = () => set.RemoveObject(t2);
         fx.Frame(0.065);

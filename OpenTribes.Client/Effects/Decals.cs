@@ -100,8 +100,8 @@ public sealed class DecalRing
         var img = new RenderImage { Category = 1, SortKey = 0.0, Label = "decals" };
         for (var i = 0; i < Count; ++i)
         {
-            Entry e = mRing[i];
-            TexEntry? te = ctx.Assets.Texture(Table[e.Bitmap].File);
+            var e = mRing[i];
+            var te = ctx.Assets.Texture(Table[e.Bitmap].File);
             if (te?.Texture == null)
                 continue;
             double dx = e.Cx - ctx.Camera.X, dy = e.Cy - ctx.Camera.Y, dz = e.Cz - ctx.Camera.Z;

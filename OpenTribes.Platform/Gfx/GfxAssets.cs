@@ -18,7 +18,7 @@ public static class GfxAssets
         res.SetSearchPath(searchPath);
         volumes = 0;
         var names = new List<string>();
-        for (ResourceManager.Entry? e = res.FindNext("*.vol", null, out var name); e != null;
+        for (var e = res.FindNext("*.vol", null, out var name); e != null;
              e = res.FindNext("*.vol", e, out name))
             names.Add(name);
         // FindNext walks the list from the back; add in the order found.
@@ -39,7 +39,7 @@ public static class GfxAssets
             return true;
         if (name.Contains('\\'))
             return false;
-        ResourceManager.Entry? e = res.FindNext("*\\" + name, null, out _);
+        var e = res.FindNext("*\\" + name, null, out _);
         data = [];
         return e != null && res.Read(e, out data);
     }
@@ -50,7 +50,7 @@ public static class GfxAssets
     /// <param name="includePalette">Whether to keep the palette.</param>
     /// <returns>The bitmap, or null.</returns>
     public static PbmpBitmap? LoadBitmap(ResourceManager res, string name, bool includePalette = false) =>
-        Read(res, name, out var data) && PbmpBitmap.TryParse(data, includePalette, out PbmpBitmap? b, out _) ? b : null;
+        Read(res, name, out var data) && PbmpBitmap.TryParse(data, includePalette, out var b, out _) ? b : null;
 
     /// <summary>Loads a bitmap array.</summary>
     /// <param name="res">The resource manager.</param>
@@ -58,7 +58,7 @@ public static class GfxAssets
     /// <param name="includePalette">Whether to keep the palette.</param>
     /// <returns>The array, or null.</returns>
     public static PbmaArray? LoadBitmapArray(ResourceManager res, string name, bool includePalette = false) =>
-        Read(res, name, out var data) && PbmaArray.TryParse(data, includePalette, out PbmaArray? a, out _) ? a : null;
+        Read(res, name, out var data) && PbmaArray.TryParse(data, includePalette, out var a, out _) ? a : null;
 
     /// <summary>Loads a palette.</summary>
     /// <param name="res">The resource manager.</param>
@@ -79,5 +79,5 @@ public static class GfxAssets
     /// <param name="name">The resource name.</param>
     /// <returns>The font, or null.</returns>
     public static PftFont? LoadFont(ResourceManager res, string name) =>
-        Read(res, name, out var data) && PftFont.TryParse(data, out PftFont? f, out _) ? f : null;
+        Read(res, name, out var data) && PftFont.TryParse(data, out var f, out _) ? f : null;
 }

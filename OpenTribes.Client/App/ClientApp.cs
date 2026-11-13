@@ -198,7 +198,7 @@ public sealed class ClientApp : IDisposable
         game.ChatMenus.CommandMenuOff = () => CommandMap?.SetOrderMode(0);
         game.ChatMenus.CancelOrder = () =>
         {
-            GuiCommandMap? map = CommandMap;
+            var map = CommandMap;
             var ordering = map is { OrderMode: 1 };
             map?.SetOrderMode(0);
             return ordering;
@@ -214,7 +214,7 @@ public sealed class ClientApp : IDisposable
         };
         Host.OnPalette = name =>
         {
-            PaletteBank? p = GfxAssets.LoadPalette(Res, name);
+            var p = GfxAssets.LoadPalette(Res, name);
             if (p != null)
                 SetPalette(p);
         };
@@ -327,8 +327,8 @@ public sealed class ClientApp : IDisposable
     // active palette itself (CurrentPalette) stays, so the end of the movie brings it back.
     private void MoviePalette(byte[] rgb, int start, int count)
     {
-        PaletteBank cur = CurrentPalette ?? PaletteTables.Grayscale();
-        SubPalette sub = cur.SubPalettes[0];
+        var cur = CurrentPalette ?? PaletteTables.Grayscale();
+        var sub = cur.SubPalettes[0];
         var colors = (byte[])sub.Colors.Clone();
         for (var i = 0; i < count && start + i < 256; ++i)
             Array.Copy(rgb, i * 3, colors, (start + i) * 4, 3);
@@ -354,8 +354,8 @@ public sealed class ClientApp : IDisposable
             return null;
         if (Sound.Mixer == null)
             Sfx?.OpenDevice?.Invoke();
-        SoundMixer? mixer = Sound.Mixer;
-        MixVoice? voice = mixer?.Start(wav, false, 1f, 1f);
+        var mixer = Sound.Mixer;
+        var voice = mixer?.Start(wav, false, 1f, 1f);
         Interp.Print(1, voice == null ? "movie sound: no mixer voice" : $"movie sound: {wav.Frames} frames at {wav.Rate} Hz, {wav.Channels} channels, started");
         return voice == null ? null : () => mixer!.Stop(voice);
     }
@@ -373,7 +373,7 @@ public sealed class ClientApp : IDisposable
     /// <param name="on">True for full screen.</param>
     public void SetFullscreen(bool on)
     {
-        if (Win == null || ForceWindowed && on)
+        if (Win == null || (ForceWindowed && on))
             return;
         // Stock switches to $pref::VideoFullScreenRes (setFSResolution, switchMode 005806d8): the canvas becomes that size.
         mDesktopApplied = DesktopModeWanted;
@@ -416,7 +416,7 @@ public sealed class ClientApp : IDisposable
     private void UpdateRelativeMouse()
     {
         // client-app.md 3.8 (D48): relative mouse mode whenever the window has focus and mouse0 is active.
-        var want = mGrab || Canvas != null && Canvas.WindowActive && !WindowsMouse;
+        var want = mGrab || (Canvas != null && Canvas.WindowActive && !WindowsMouse);
         want = want && Canvas?.WindowActive == true && Handlers.DeviceActive("mouse0");
         if (want == mRelativeMouse)
             return;
@@ -449,7 +449,7 @@ public sealed class ClientApp : IDisposable
         var host = colon >= 0 ? a[..colon] : a;
         if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
             return true;
-        return System.Net.IPAddress.TryParse(host, out System.Net.IPAddress? ip) && System.Net.IPAddress.IsLoopback(ip);
+        return System.Net.IPAddress.TryParse(host, out var ip) && System.Net.IPAddress.IsLoopback(ip);
     }
 
     /// <summary>Joins a game.</summary>
@@ -578,11 +578,11 @@ public sealed class ClientApp : IDisposable
             ViewCamera = (w, h) => g.Camera() is { } c
                 ? new Camera3D(c.X, c.Y, c.Z, c.YawDeg, c.PitchDeg, Play.Moves.CurrentFov, w, h, g.ViewNear(), 1000)
                 : null,
-            HeadMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.MidBack() : null,
-            MuzzleMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv ? pv.Muzzle() : null,
+            HeadMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out var v) && v is PlayerVisual pv ? pv.MidBack() : null,
+            MuzzleMount = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out var v) && v is PlayerVisual pv ? pv.Muzzle() : null,
             ControlAim = g.ControlAimInputs,
             ObjectYaw = g.ControlHeading,
-            ObjectBox = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? sv.HudBox() : null,
+            ObjectBox = ghost => g.Model != null && g.Model.Visuals.TryGetValue(ghost, out var v) && v is ShapeVisual sv ? sv.HudBox() : null,
             // the line from the eye to the target meets terrain or interior [code 004aca84, mask 0x20e00006]
             LineClear = (a, b) => g.Net?.PredictWorld is not { } pw ||
                 !pw.Game.World.CastRay(new OpenTribes.World.Vec3((float)a.X, (float)a.Y, (float)a.Z), new OpenTribes.World.Vec3((float)b.X, (float)b.Y, (float)b.Z), 0x20e00006u, null,
@@ -638,10 +638,10 @@ public sealed class ClientApp : IDisposable
     /// <param name="seen">The number of lines already moved.</param>
     public void PumpChat(LiveGame g, ref int seen)
     {
-        List<string> chat = g.World.Players.Chat;
+        var chat = g.World.Players.Chat;
         if (seen > chat.Count)
             seen = 0;
-        List<int> types = g.World.Players.ChatTypes;
+        var types = g.World.Players.ChatTypes;
         for (; seen < chat.Count; ++seen)
         {
             var type = seen < types.Count ? types[seen] : 0;
@@ -658,7 +658,7 @@ public sealed class ClientApp : IDisposable
         if (Host.Chat.Count > 200)
             Host.Chat.RemoveRange(0, Host.Chat.Count - 200);
         // The command line shows while the local record holds a command (+0x40 >= 0), green once its status is 2 (004a633c).
-        ClientPlayerRecord? me = g.World.Players.Get(g.World.PlayerId);
+        var me = g.World.Players.Get(g.World.PlayerId);
         Host.CommandActive = me != null && me.Commander >= 0;
         Host.CommandAccepted = me != null && me.CommandStatus == 2;
     }
@@ -773,7 +773,7 @@ public sealed class ClientApp : IDisposable
         if (!mPaletteSet)
         {
             var shell = Host.TagText(180001) is string t ? GuiHost.FirstItem(t) : "feargui.pal";
-            PaletteBank? pal = GfxAssets.LoadPalette(Res, shell) ?? GfxAssets.LoadPalette(Res, "feargui.pal");
+            var pal = GfxAssets.LoadPalette(Res, shell) ?? GfxAssets.LoadPalette(Res, "feargui.pal");
             if (pal != null)
                 SetPalette(pal);
         }
@@ -966,7 +966,7 @@ public sealed class ClientApp : IDisposable
     {
         if (Win == null)
             return;
-        while (Sdl3.PollEvent(out SdlEvent ev))
+        while (Sdl3.PollEvent(out var ev))
         {
             switch (ev.Type)
             {

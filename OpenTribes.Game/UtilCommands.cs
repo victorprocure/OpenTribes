@@ -142,7 +142,7 @@ public static class UtilCommands
                 return "0 0 0";
             if (game.Sim?.Server()?.Find(a[4]) is not GameBase gb || !gb.IsShapeBase() || gb.DataBlockName == null || game.Resources == null)
                 return "0 0 0";
-            DataBlockManager.Block? block = game.Sim.DataBlocks().Find(gb.DataBlockName);
+            var block = game.Sim.DataBlocks().Find(gb.DataBlockName);
             if (block == null || !game.Sim.DataBlocks().GetField(block, "shapeFile", "", out var shape) || shape.Length == 0)
                 return "0 0 0";
             if (!game.Resources.Read(shape + ".dts", out var data) || !ReadShapeRadius(data, out var radius))

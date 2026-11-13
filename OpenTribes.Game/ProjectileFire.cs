@@ -104,8 +104,8 @@ public static partial class ProjectileFire
     // src/game/projectile_fire.cpp aimedMuzzle: ShapeBase_getAimedMuzzleTransform (0x0044c148).
     private static Transform AimedMuzzle(GameState game, Player pl, int slot)
     {
-        pl.MuzzleTransform(slot, out Transform m);
-        Transform e = pl.EyeTransform();
+        pl.MuzzleTransform(slot, out var m);
+        var e = pl.EyeTransform();
         var hit = new RayHit();
         if (CastLOS(game, e, 0xffffffffu, pl, 1200.0f, ref hit))
         {
@@ -143,8 +143,8 @@ public static partial class ProjectileFire
     // src/game/projectile_fire.cpp createFor.
     private static Projectile? CreateFor(Player pl, int slot, bool sustained)
     {
-        GameState game = pl.Game();
-        Player.ImageSlot s = pl.Images[slot];
+        var game = pl.Game();
+        var s = pl.Images[slot];
         Transform t;
         if (s.Info.AccuFire && !pl.Dead)
             t = AimedMuzzle(game, pl, slot);
@@ -196,10 +196,10 @@ public static partial class ProjectileFire
     /// <remarks>Image fire path of the Player (docs/projectile-sim.md 1.1, docs/player-sim.md 7.5).</remarks>
     public static void ProjectileFromImage(Player pl, int slot, bool sustained)
     {
-        SimManager? m = pl.Game().Sim?.Server();
+        var m = pl.Game().Sim?.Server();
         if (m == null)
             return;
-        Projectile? pr = CreateFor(pl, slot, sustained);
+        var pr = CreateFor(pl, slot, sustained);
         if (pr == null)
             return;
         if (!pr.RegisterWith(m))
@@ -213,9 +213,9 @@ public static partial class ProjectileFire
     /// <param name="slot">The image slot.</param>
     public static void ProjectileUpdateFromImage(Player pl, int slot)
     {
-        SimManager? m = pl.Game().Sim?.Server();
-        Player.ImageSlot s = pl.Images[slot];
-        Projectile? pr = m != null ? Projectile.From(m.FindById(s.Projectile)) : null;
+        var m = pl.Game().Sim?.Server();
+        var s = pl.Images[slot];
+        var pr = m != null ? Projectile.From(m.FindById(s.Projectile)) : null;
         if (pr == null)
         {
             s.Projectile = 0;
@@ -234,8 +234,8 @@ public static partial class ProjectileFire
     /// <param name="slot">The image slot.</param>
     public static void ProjectileShutOffFromImage(Player pl, int slot)
     {
-        SimManager? m = pl.Game().Sim?.Server();
-        Projectile? pr = m != null ? Projectile.From(m.FindById(pl.Images[slot].Projectile)) : null;
+        var m = pl.Game().Sim?.Server();
+        var pr = m != null ? Projectile.From(m.FindById(pl.Images[slot].Projectile)) : null;
         pr?.ShutOff();
     }
 
@@ -258,7 +258,7 @@ public static partial class ProjectileFire
             if (Player.From(obj) is Player pl)
             {
                 // vtable +0x10c with slot 0, else the eye transform (0x00422f52).
-                if (!pl.MuzzleTransform(0, out Transform mt))
+                if (!pl.MuzzleTransform(0, out var mt))
                     mt = pl.EyeTransform();
                 return (true, mt);
             }
@@ -266,18 +266,18 @@ public static partial class ProjectileFire
             {
                 // Turret_getMuzzleTransform (0x004565e0).
                 using var chop = X87.Chop();
-                obj.TurretMuzzleTransform(out Transform mt);
+                obj.TurretMuzzleTransform(out var mt);
                 return (true, mt);
             }
             return (true, t); // base classes: the object transform (0x0044827c)
         };
         interp.AddCommand("Projectile::spawnProjectile", (inr, a) =>
         {
-            SimManager? m = game.Sim?.Server();
+            var m = game.Sim?.Server();
             if (m == null || (a.Length != 5 && a.Length != 6))
                 return "-1";
             // The type is searched by name in the projectile groups in table order.
-            DataBlockManager.Block? b = game.Sim!.DataBlocks().Find(a[1]);
+            var b = game.Sim!.DataBlocks().Find(a[1]);
             var isProjectile = false;
             if (b != null)
                 foreach (var grp in kProjectileGroups)
@@ -309,7 +309,7 @@ public static partial class ProjectileFire
             pr.Init(t, vel, shooter);
             if (a.Length == 6 && pr.WantsTarget())
             {
-                SimObject? o = m.Find(a[5]);
+                var o = m.Find(a[5]);
                 if (o is GameBase gb && gb.IsShapeBase())
                     pr.SetTarget(gb);
             }
@@ -335,7 +335,7 @@ public sealed partial class Player
         if (slot < 0 || slot >= kImageSlots || Images[slot].Image == -1)
             return false;
         using var chop = X87.Chop();
-        ImageInfo img = Images[slot].Info;
+        var img = Images[slot].Info;
         var m = new TMat3
         {
             P = Float3.Of(img.MountOffset)
@@ -346,16 +346,16 @@ public sealed partial class Player
         m.Flags |= 2u;
         // Node table +0x7c4: names with the detail size appended (0x0040fcdc). A mount point outside the table has no node
         // (the original reads past it, D11).
-        ShapeInstance? inst = ShapeState.ShapeInstanceOf(mGame, this);
+        var inst = ShapeState.ShapeInstanceOf(mGame, this);
         var node = inst != null && img.MountPoint >= 0 && img.MountPoint < 4
                        ? ProjectileFire.DetailNode(inst.ShapeData!, kMountNodeNames[img.MountPoint])
                        : -1;
         if (node < 0)
             return false;
-        TMat3 e = inst!.Entries[node];
+        var e = inst!.Entries[node];
         if (!Dead && (img.MountPoint == 0 || img.MountPoint == 1) && (inst.ViewMode != 0 || AiControlled))
         {
-            TMat3 p = ProjectileFire.PitchAt(Pitch, e.P);
+            var p = ProjectileFire.PitchAt(Pitch, e.P);
             Shape.TmatMul(m, p, out output);
         }
         else
@@ -376,15 +376,15 @@ public sealed partial class Player
         if (slot < 0 || slot >= kImageSlots || Images[slot].Item == -1)
             return false;
         using var chop = X87.Chop();
-        ImageInfo img = Images[slot].Info;
-        ShapeInstance? image = Images[slot].Image != -1 && img.ShapeFile != null ? ShapeState.StaticShapeInstance(mGame, img.ShapeFile) : null;
+        var img = Images[slot].Info;
+        var image = Images[slot].Image != -1 && img.ShapeFile != null ? ShapeState.StaticShapeInstance(mGame, img.ShapeFile) : null;
         var n = image != null ? image.ShapeData!.FindNode("dummyalways muzzle") : -1;
         if (n < 0)
         {
             ImageMountTransform(slot, out output);
             return true;
         }
-        ImageMountTransform(slot, out TMat3 t);
+        ImageMountTransform(slot, out var t);
         Shape.TmatMul(image!.Entries[n], t, out output);
         return true;
     }
@@ -394,12 +394,12 @@ public sealed partial class Player
     public override Transform EyeTransform()
     {
         using var chop = X87.Chop();
-        ShapeInstance? inst = ShapeState.ShapeInstanceOf(mGame, this);
+        var inst = ShapeState.ShapeInstanceOf(mGame, this);
         var n = inst != null ? ProjectileFire.DetailNode(inst.ShapeData!, "dummy eye") : -1;
         var l = new TMat3();
         if (n >= 0)
             l = ProjectileFire.PitchAt(Pitch, inst!.Entries[n].P);
-        Shape.TmatMul(l, ProjectileFire.ToTMat(Transform), out TMat3 output);
+        Shape.TmatMul(l, ProjectileFire.ToTMat(Transform), out var output);
         return ProjectileFire.ToTransform(output);
     }
 
@@ -411,10 +411,10 @@ public sealed partial class Player
     public bool MuzzleTransform(int slot, out Transform output)
     {
         output = new Transform();
-        if (!MuzzleObjectTransform(slot, out TMat3 mz))
+        if (!MuzzleObjectTransform(slot, out var mz))
             return false;
         using var chop = X87.Chop();
-        Shape.TmatMul(mz, ProjectileFire.ToTMat(Transform), out TMat3 w);
+        Shape.TmatMul(mz, ProjectileFire.ToTMat(Transform), out var w);
         output = ProjectileFire.ToTransform(w);
         return true;
     }
@@ -431,7 +431,7 @@ public sealed partial class Player
         if (slot < 0)
             return;
         using var chop = X87.Chop();
-        if (!ImageMountTransform(slot, out TMat3 mt) || !MuzzleObjectTransform(slot, out TMat3 mz))
+        if (!ImageMountTransform(slot, out var mt) || !MuzzleObjectTransform(slot, out var mz))
             return;
         float[] start = new float[3], end = new float[3], d2 = new float[3], neg = new float[3];
         X87.MulPoint(mt.P, Transform.M, Transform.P, start);

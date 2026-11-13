@@ -66,7 +66,7 @@ public sealed class PaletteBank
     public SubPalette FindSubPalette(uint id)
     {
         if (id != SubPalette.NoId)
-            foreach (SubPalette p in SubPalettes)
+            foreach (var p in SubPalettes)
                 if (p.Id == id)
                     return p;
         return SubPalettes[0];
@@ -235,14 +235,14 @@ public sealed class PaletteBank
         // Map blob. Layout used here (checked on the stock files): first every palette's table in order, then
         // every palette's 0x1100 block (identity bytes + four float maps) for kinds 1, 2, 6, 8.
         var shadeTable = (long)bank.ShadeSteps * 256 * (bank.HazeSteps + 1);
-        foreach (SubPalette sp in bank.SubPalettes)
+        foreach (var sp in bank.SubPalettes)
         {
             if (sp.Kind == 1)
                 sp.ShadeHazeTable = c.Bytes(shadeTable).ToArray();
             else if (sp.Kind is 2 or 6 or 8)
                 sp.BlendTable = c.Bytes(65536).ToArray();
         }
-        foreach (SubPalette sp in bank.SubPalettes)
+        foreach (var sp in bank.SubPalettes)
         {
             if (sp.Kind is not (1 or 2 or 6 or 8))
                 continue;
@@ -260,7 +260,7 @@ public sealed class PaletteBank
             bank.UsedEnd = c.U32();
         }
         // The kind-0 palettes of a bank carry no maps: derive the float maps used for flat colors.
-        foreach (SubPalette sp in bank.SubPalettes)
+        foreach (var sp in bank.SubPalettes)
             if (sp.IndexToRed == null)
                 FillFloatMaps(sp);
         return bank;

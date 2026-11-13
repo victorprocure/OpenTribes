@@ -54,7 +54,7 @@ public class ControlObjectTests
 
         // Same motion as the previous move: one bit instead of the 19 motion bits. Fire, useItem, pitch and turn are not
         // part of the comparison.
-        Move n = m;
+        var n = m;
         n.Fire = false;
         n.UseItem = -1;
         n.Pitch = 0;
@@ -63,7 +63,7 @@ public class ControlObjectTests
         Moves.PackMove(w2, n, true, m);
         Assert.True(w2.BitPosition() == 1 + 1 + 1 + 1 + 1 + 32);
         var r2 = new BitStream(buf, buf.Length);
-        Move o = m;
+        var o = m;
         Moves.UnpackMove(r2, ref o, true, havePrev: true);
         Assert.True(o.Forward == 1.0f && o.Left == m.Left && o.Jet && o.Crouch && !o.Jump);
         Assert.True(!o.Fire && o.UseItem == -1 && o.Pitch == 0 && o.Turn == -0.5f);
@@ -172,7 +172,7 @@ public class ControlObjectTests
         // Mode 1 (fly flag off): looks around but does not move. Mode 0: nothing changes.
         cam.SetFlyMode(false, true, rot, pos);
         Assert.True(cam.Mode == ObserverCamera.kLook);
-        Move both = fwd;
+        var both = fwd;
         both.Turn = 0.5f;
         cam.Step(both);
         Assert.True(cam.Position[1] == 200.0f && cam.CamRotation[2] == 0.5f);
@@ -188,7 +188,7 @@ public class ControlObjectTests
     {
         var ctx = new ClassContext();
         var calls = new Calls();
-        ObserverCamera.CameraServices s = calls.Services();
+        var s = calls.Services();
         float[] area = [0, 0, 100, 100];
         s.MissionArea = o =>
         {
@@ -201,7 +201,7 @@ public class ControlObjectTests
 
         // Fire edges against the previous move call triggerDown / triggerUp with the client id; a held trigger calls
         // nothing. Jump calls Observer::jump for every move that has it.
-        Move[] m = MoveArray(5);
+        var m = MoveArray(5);
         m[1].Fire = m[2].Fire = true;
         m[3].Jump = m[4].Jump = true;
         cam.ApplyMoves(m, 5);
@@ -566,7 +566,7 @@ public class ControlObjectTests
         var c = new GameConnection(2049, f.Transport(), hooks);
 
         // Without a control object moves are counted and dropped (6.2).
-        Move[] three = MoveArray(3);
+        var three = MoveArray(3);
         three[1].Forward = 1;
         three[2].Turn = 0.5f;
         var p = MovePacket(0, three);
@@ -583,7 +583,7 @@ public class ControlObjectTests
         Assert.True(MathF.Abs(probe.Fov - (169.0f / 255.0f * 135.0f * 3.14159265f / 180.0f)) < 1e-6f);
 
         // A resend that overlaps: the moves the server has are skipped, the rest applied.
-        Move[] five = MoveArray(5);
+        var five = MoveArray(5);
         five[3].Jet = true;
         five[4].Jump = true;
         p = MovePacket(4, five);
@@ -619,7 +619,7 @@ public class ControlObjectTests
         Assert.Equal(3, probe.Calls.Count);
 
         // At most 30 new moves of one packet are taken (D13); the client resends the rest.
-        Move[] many = MoveArray(45);
+        var many = MoveArray(45);
         p = MovePacket(9, many);
         c.Receive(p);
         Assert.True(c.MoveCount == 39 && probe.Calls[^1] == 30);
@@ -759,7 +759,7 @@ public class ControlObjectTests
         // No control object: the block ends after the flag (6.3).
         c.GuiMode = 1;
         c.Flag6a = true;
-        ServerPsc p = Send();
+        var p = Send();
         Assert.True(p.Mode == 1 && p.Flag6a && p.LastMove == 0xffffffff && !p.Control);
         Assert.Null(c.Ghosts().ScopeObject());
 
@@ -947,8 +947,8 @@ public class ControlObjectTests
 
     private static void Ownership()
     {
-        Fixtures.World w = FreshWorld("control_object");
-        PlayerManager pm = w.Game.Players;
+        var w = FreshWorld("control_object");
+        var pm = w.Game.Players;
         var maskBits = new List<(int, uint)>();
         pm.SetMaskBitsHook = (o, bits) => maskBits.Add((o.Id(), bits));
         w.Sim.Server()!.OnUnregister = pm.ObjectRemoved;
@@ -961,8 +961,8 @@ public class ControlObjectTests
         Assert.True(a != null && b != null);
         string A = a!.Id().ToString(), B = b!.Id().ToString();
 
-        ClientRecord? c1 = pm.AddClient(2049, "One", "male1", true);
-        ClientRecord? c2 = pm.AddClient(2050, "Two", "male1", true);
+        var c1 = pm.AddClient(2049, "One", "male1", true);
+        var c2 = pm.AddClient(2050, "Two", "male1", true);
         Assert.True(c1 != null && c2 != null && c1.Camera != null && c2.Camera != null && c1.Camera.ClientId == 2049);
         ObserverCamera cam1o = c1!.Camera!, cam2o = c2!.Camera!;
         var cam1 = cam1o.Id().ToString();
@@ -1039,7 +1039,7 @@ public class ControlObjectTests
         Assert.Equal("false", w.Run("echo(Observer::setOrbitObject(2049, nothing, 5, 5, 5));"));
         Assert.Equal("false", w.Run("echo(Observer::setOrbitObject(2049, 2050, 5, 5, 5));")); // client without an object
         Assert.Equal("True", w.Run("echo(Observer::setOrbitObject(2049, a, 5, 2, 9, \"0.1 0 0.2\"));"));
-        ObserverCamera cam = cam1o;
+        var cam = cam1o;
         Assert.True(cam.Mode == ObserverCamera.kOrbitObject && cam.OrbitObject == a);
         Assert.True(cam.Distance == 5 && cam.MinDistance == 2 && cam.MaxDistance == 9);
         Assert.True(MathF.Abs(cam.CamRotation[0] - 0.1f) < 1e-6f && MathF.Abs(cam.CamRotation[2] - 0.2f) < 1e-6f);
@@ -1074,8 +1074,8 @@ public class ControlObjectTests
 
     private static void Visibility()
     {
-        Fixtures.World w = FreshWorld("control_object_vis");
-        PlayerManager pm = w.Game.Players;
+        var w = FreshWorld("control_object_vis");
+        var pm = w.Game.Players;
         w.Sim.Server()!.OnUnregister = pm.ObjectRemoved;
         w.Run("resetPlayerManager();");
         w.Game.AddTeam(0);
@@ -1091,7 +1091,7 @@ public class ControlObjectTests
         mk.SetTeam(-1);
         // The sweep (static-sim.md 3.4) sets the own-team bit of the objects it refreshes.
         var sensors = (SensorManager)w.Sim.Server()!.FindById(720)!;
-        foreach (GameBase g in new[] { t0, t1, n, mk })
+        foreach (var g in new[] { t0, t1, n, mk })
             sensors.Update(g);
         // An object is visible to its own team (00439d70); a Marker of team -1 to every team (00486154); nothing to
         // team -1, whose test reads bits 7 and 31 (004495b4).
@@ -1106,7 +1106,7 @@ public class ControlObjectTests
         // Mask: words 0-3 clients by owned object, words 4-7 sensor targets by index.
         w.Game.Targets.Clear();
         w.Game.Targets.AddRange(new GameBase?[] { t0, t1, null, mk });
-        ClientRecord c = pm.AddClient(2051, "P", "male1", true)!;
+        var c = pm.AddClient(2051, "P", "male1", true)!;
         pm.SetOwnerClient(t1, 2051);
         var mask = new uint[8];
         pm.VisibleMask(0, mask);
@@ -1163,7 +1163,7 @@ public class ControlObjectTests
         // PlayerTeamChangeEvent (0x452) goes to every human; an unchanged team sends nothing (G14 leftover).
         {
             var evs = new List<(int, uint)>();
-            Action<int, OutEvent> oldSend = pm.Send;
+            var oldSend = pm.Send;
             pm.Send = (id, e) => evs.Add((id, e.Tag));
             t1.SetTeam(0);
             Assert.True(c.Team == 0 && evs.SequenceEqual(new[] { (2051, 0x452u) }));
@@ -1207,10 +1207,10 @@ public class ControlObjectTests
         // A Player takes no sensor target slot, whatever its datablock says: SensorManager_addTarget (00439c70) refuses
         // datablock group 3, so it shows only in its client slot.
         w.Run("PlayerData varmor { shapeFile = \"none\"; visibleToSensor = true; };");
-        SimObject? po = w.Object(w.Run("echo(spawnPlayer(varmor, \"0 0 0\", \"0 0 0\"));"));
+        var po = w.Object(w.Run("echo(spawnPlayer(varmor, \"0 0 0\", \"0 0 0\"));"));
         Assert.True(po is GameBase pgb && pgb.TargetIndex == -1);
         Assert.Equal(4, w.Game.Targets.Count);
-        foreach (GameBase? g in w.Game.Targets)
+        foreach (var g in w.Game.Targets)
             Assert.True(g != po);
         w.Sim.Server()!.DeleteObject(po!); // no MissionCleanup group here to own it
         // Removed targets leave their slot empty.
@@ -1231,9 +1231,9 @@ public class ControlObjectTests
 
     private static void ConnectionObjects()
     {
-        Fixtures.World w = FreshWorld("connection_objects");
-        PlayerManager pm = w.Game.Players;
-        SimManager m = w.Sim.Server()!;
+        var w = FreshWorld("connection_objects");
+        var pm = w.Game.Players;
+        var m = w.Sim.Server()!;
         w.Run("resetPlayerManager();");
         w.Game.AddTeam(0);
         Assert.Equal("FalseFalse", w.Run("echo(isObject(37), isObject(715));"));
@@ -1242,7 +1242,7 @@ public class ControlObjectTests
         {
             var conn = new TestConnection(id);
             m.AddToRoot(conn);
-            ClientRecord? r = pm.AddClient(id, name, "male1", true);
+            var r = pm.AddClient(id, name, "male1", true);
             Assert.True(r != null && r.Camera != null && r.EventManager != null && r.PlayerPsc != null && r.GhostManager != null);
             return (conn, r!);
         }

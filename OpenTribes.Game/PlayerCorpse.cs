@@ -10,13 +10,13 @@ public sealed partial class Player
     /// <remarks>Follows FUN_0041447c (same bytes in 1.11 and 1.30). The ground is the higher of the terrain height (SimTerrain_getSurfaceInfo 0x005183e8) and a ray from z + 0.125 to z - 1.0 through container 7 with mask 4 (vtable +0x90). The normal is the unit normal of the hit (m_Point3F_len 0x005ed014, a true square root) or the terrain normal.</remarks>
     public void ClientCorpseStep(float dt)
     {
-        GameState gs = Game();
+        var gs = Game();
         var ticks = 31.25 * dt;                        // the 80-bit constant at 0x004149d0 is 31.25 to 1e-17
         var c = (float)ticks;
         float px = Transform.P[0], py = Transform.P[1], pz = Transform.P[2];
         var th = -1.0e30f;                              // 0xf149f2ca
         var tn = new Vec3(0, 0, 0);
-        Container.Entry? te = gs.World.TerrainOf(this);
+        var te = gs.World.TerrainOf(this);
         if (te != null && te.TerrainData != null)
         {
             float height = 0;

@@ -22,13 +22,13 @@ public static class AudioTools
     /// <returns>The process exit code.</returns>
     public static int Cat(string root, string name)
     {
-        ResourceManager res = GfxAssets.Mount(root, out _, SearchPath);
+        var res = GfxAssets.Mount(root, out _, SearchPath);
         if (!GfxAssets.Read(res, name, out var d))
         {
             Console.Error.WriteLine("not found: " + name);
             return 1;
         }
-        using Stream o = Console.OpenStandardOutput();
+        using var o = Console.OpenStandardOutput();
         o.Write(d);
         return 0;
     }
@@ -62,7 +62,7 @@ public static class AudioTools
     private static List<string> AllWaves(ResourceManager res)
     {
         var names = new List<string>();
-        for (ResourceManager.Entry? e = res.FindNext("*.wav", null, out var name); e != null; e = res.FindNext("*.wav", e, out name))
+        for (var e = res.FindNext("*.wav", null, out var name); e != null; e = res.FindNext("*.wav", e, out name))
             names.Add(name);
         return names;
     }
@@ -80,7 +80,7 @@ public static class AudioTools
     /// <returns>The process exit code.</returns>
     public static int Census(string root)
     {
-        ResourceManager res = GfxAssets.Mount(root, out var volumes, SearchPath);
+        var res = GfxAssets.Mount(root, out var volumes, SearchPath);
         using AudioSession s = AudioSession.Create(root, live: false, res);
         var scripts = s.RunSoundScripts();
         Console.WriteLine($"volumes {volumes}; sound scripts ok {scripts}; profiles {s.Sound.Profiles.Count}, pairs {s.Sound.Pairs.Count}");
@@ -88,13 +88,13 @@ public static class AudioTools
             Console.WriteLine("  log: " + l);
 
         // Every wave of the volumes decodes and plays through the mixer.
-        List<string> waves = AllWaves(res);
+        var waves = AllWaves(res);
         int decoded = 0, failed = 0, played = 0;
         var formats = new Dictionary<string, int>();
         var spare = new float[2 * 1024];
         foreach (var w in waves.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            WavData? d = GfxAssets.Read(res, w, out var bytes) ? WavData.TryParse(bytes) : null;
+            var d = GfxAssets.Read(res, w, out var bytes) ? WavData.TryParse(bytes) : null;
             if (d == null)
             {
                 ++failed;
@@ -154,7 +154,7 @@ public static class AudioTools
                 continue;
             }
             ++sounds;
-            if (!s.Sound.TryDatablock(i, out var wave, out SoundProfile p, out _))
+            if (!s.Sound.TryDatablock(i, out var wave, out var p, out _))
             {
                 ++noProfile;
                 continue;
@@ -226,9 +226,9 @@ public static class AudioTools
         var data = File.ReadAllBytes(demoPath);
         var pre = new DemoPlayback(data);
         pre.StepUntilEnvironment();
-        List<MissionObject> env = DemoRender.EnvironmentObjects(pre.World);
-        ResourceManager res = GfxAssets.Mount(root, out _, SearchPath);
-        foreach (MissionObject o in env.Where(o => o.Class == "SimVolume"))
+        var env = DemoRender.EnvironmentObjects(pre.World);
+        var res = GfxAssets.Mount(root, out _, SearchPath);
+        foreach (var o in env.Where(o => o.Class == "SimVolume"))
             res.AddVolume(o.Get("fileName"));
         using AudioSession s = AudioSession.Create(root, live: false, res);
         if (!s.RunSoundScripts())
@@ -236,13 +236,13 @@ public static class AudioTools
             Console.Error.WriteLine("tribes: the sound scripts failed");
             return 1;
         }
-        MissionObject? pal = env.FirstOrDefault(o => o.Class == "SimPalette");
-        PaletteBank bank = (pal != null ? GfxAssets.LoadPalette(res, pal.Get("fileName")) : null) ?? PaletteTables.Grayscale();
+        var pal = env.FirstOrDefault(o => o.Class == "SimPalette");
+        var bank = (pal != null ? GfxAssets.LoadPalette(res, pal.Get("fileName")) : null) ?? PaletteTables.Grayscale();
         var assets = new ShapeAssets(null, new WorldAssets(res, bank));
         var renderer = new ShapeRenderer(assets);
         Terrain? terrain = null;
         List<Material>? materials = null;
-        MissionObject? terr = env.FirstOrDefault(o => o.Class == "SimTerrain");
+        var terr = env.FirstOrDefault(o => o.Class == "SimTerrain");
         if (terr != null && Terrain.Load(res, terr.Get("tedFileName")) is Terrain t)
         {
             var tp = terr.GetVector("position");
@@ -278,7 +278,7 @@ public static class AudioTools
         {
             clock += 32;
             play.StepTo(clock);
-            DemoRender.CameraPose? pose = DemoRender.ControlCamera(model, play.World);
+            var pose = DemoRender.ControlCamera(model, play.World);
             if (pose is DemoRender.CameraPose c)
                 audio.SetListener(c.X, c.Y, c.Z, c.YawDeg * Math.PI / 180);
             s.Sound.Tick((long)clock);

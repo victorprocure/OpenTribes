@@ -49,7 +49,7 @@ public class GuiShellBorderTests
     {
         var fx = new GuiFixture(w, h);
         fx.Host.SetArray("ShellBorderCtrl.pba", Frame());
-        GuiControl root = GuiFixture.Make("FearGui::MMShellBorder", 0, 0, w, h);
+        var root = GuiFixture.Make("FearGui::MMShellBorder", 0, 0, w, h);
         fx.Content(root);
         var dev = new BlitDev();
         fx.Canvas.Render(dev);
@@ -59,7 +59,7 @@ public class GuiShellBorderTests
     [Fact]
     public void FrameDrawsFifteenPiecesWhenTheExtentIsAtLeast512By384()
     {
-        List<string> c = Draw(640, 480);
+        var c = Draw(640, 480);
         // title bar: 9 at x 224, stretch of 8 takes 640 - (224 + 19) - 20 - 44 - 23 = 310, 10 at 224 + 19 + 310, 13 after 44 pixels
         Assert.Contains("blit 19x29 224,0", c);
         Assert.Contains("stretch 18x28 243,0 310x28", c);
@@ -83,7 +83,7 @@ public class GuiShellBorderTests
     [Fact]
     public void NoFrameBelow512By384()
     {
-        List<string> c = Draw(400, 300);
+        var c = Draw(400, 300);
         Assert.DoesNotContain(c, s => s.StartsWith("blit ") || s.StartsWith("stretch "));
     }
 
@@ -97,9 +97,9 @@ public class GuiShellBorderTests
         fx.Host.SetFont("sf_orange255_10.pft", Font(6));
         fx.Host.SetFont("sf_white_10.pft", Font(7));
         fx.Host.SetFont("sf_black_10.pft", Font(8));
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl parent = GuiFixture.Make("FearGui::FGMenuItem", 10, 20, 129, 38, ("text", "Top"), ("expanded", (byte)1));
-        GuiControl child = GuiFixture.Make("FearGui::FGMenuItem", 0, 19, 129, 19, ("text", "Sub"), ("tabSet", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var parent = GuiFixture.Make("FearGui::FGMenuItem", 10, 20, 129, 38, ("text", "Top"), ("expanded", (byte)1));
+        var child = GuiFixture.Make("FearGui::FGMenuItem", 0, 19, 129, 19, ("text", "Sub"), ("tabSet", (byte)1));
         parent.AddChild(child);
         root.AddChild(parent);
         fx.Content(root);
@@ -116,7 +116,7 @@ public class GuiShellBorderTests
     public void TestEditDrawsTwoUnderlineRulesWithMarkedEnds() // docs/gui.md 3.3 TestEdit, draw 004cd974
     {
         var fx = new GuiFixture(640, 480);
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(GuiFixture.Make("FearGui::TestEdit", 10, 20, 100, 19, ("active", (byte)1)));
         fx.Content(root);
         var dev = new BlitDev();
@@ -135,7 +135,7 @@ public class GuiShellBorderTests
         for (var i = 0; i < 15; i++)
             a.Bitmaps.Add(new PbmpBitmap { Width = 4 + i, Height = 20 + i });   // piece i is (4 + i) x (20 + i)
         fx.Host.SetArray("ShellSliderCtrl.pba", a);
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(GuiFixture.Make("FearGui::FGSlider", 10, 20, 140, 17, ("active", (byte)1), ("maxValue", 0x3f800000u)));
         fx.Content(root);
         var dev = new BlitDev();
@@ -155,7 +155,7 @@ public class GuiShellBorderTests
         fx.Host.SetFont("sf_orange214_10.pft", Font(5));
         fx.Host.SetFont("sf_grey100_10b.pft", Font(9));
         fx.Host.SetFont("sf_black_10.pft", Font(8));
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(GuiFixture.Make("FearGui::FGMenuItem", 10, 20, 129, 19, ("text", "Item")));
         fx.Content(root);
         var dlg = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);

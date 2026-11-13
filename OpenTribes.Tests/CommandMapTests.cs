@@ -71,9 +71,9 @@ public class CommandMapTests
     {
         var fx = new GuiFixture();
         fx.Host.Hud = new StaticHudSource { CommandMapValue = Picture() };
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
-        GuiControl map = GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
+        var map = GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
         root.AddChild(parent);
         parent.AddChild(map);
         fx.Content(root);
@@ -94,7 +94,7 @@ public class CommandMapTests
     {
         var fx = new GuiFixture();
         fx.Host.Hud = new StaticHudSource();
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408));
         fx.Content(root);
         var dev = new StretchDev();
@@ -207,7 +207,7 @@ public class CommandMapTests
         for (var y = 0; y < CommandMapBake.Size; ++y)
             for (var x = 0; x < CommandMapBake.Size; ++x)
                 pic[(y * CommandMapBake.Size) + x] = (byte)((y / 256 * 4) + (x / 256) + 1);
-        PbmpBitmap[] tiles = CommandMapBake.Tiles(pic);
+        var tiles = CommandMapBake.Tiles(pic);
         Assert.Equal(16, tiles.Length);
         for (var i = 0; i < 16; ++i)
         {
@@ -239,12 +239,12 @@ public class CommandMapTests
     [Fact]
     public void MarksCarryTheSlotsTheirDatablocksAndTheRecords()
     {
-        CommandMapMarks marks = new ClientHudSource(MarkWorld()).CommandMapMarks!;
+        var marks = new ClientHudSource(MarkWorld()).CommandMapMarks!;
         Assert.Equal((2049, 0), (marks.LocalId, marks.LocalTeam));
         Assert.Equal(new[] { 1, 2, 129 }, marks.Slots.Select(m => m.Slot));
-        CommandMapSlotMark dan = marks.Slots[1];
+        var dan = marks.Slots[1];
         Assert.Equal(("Dan", 2050, 3, 129, 1), (dan.ClientName, dan.ClientId, dan.OrderIcon, dan.OrderTarget, dan.OrderStatus));
-        CommandMapSlotMark turret = marks.Slots[2];
+        var turret = marks.Slots[2];
         Assert.Equal(("M_turret", "Balcony Turret", 100, true), (turret.Icon, turret.TargetName, turret.Range, turret.Active));
         // a record that never got an order named an issuer has no order, even when the shared field holds a commander id
         Assert.Equal(-1, marks.Slots[0].OrderIcon);
@@ -254,7 +254,7 @@ public class CommandMapTests
     [Fact]
     public void SlotsAreDroppedWithoutADatablock()
     {
-        ClientWorld w = MarkWorld();
+        var w = MarkWorld();
         w.DataBlocks.Blocks.Remove((19, 0));
         Assert.Equal(new[] { 1, 2 }, new ClientHudSource(w).CommandMapMarks!.Slots.Select(m => m.Slot));
     }
@@ -263,7 +263,7 @@ public class CommandMapTests
     public void DrawPutsTheCircleOrderLineIconsAndNamesOverTheTiles()
     {
         var fx = new GuiFixture();
-        ClientWorld w = MarkWorld();
+        var w = MarkWorld();
         var hud = new ClientHudSource(w) { CommandMapSource = Picture };
         fx.Host.Hud = hud;
         fx.Interp.SetVariable("$pref::mapFilter", "15");
@@ -279,8 +279,8 @@ public class CommandMapTests
         for (var i = 0; i < 8; ++i)
             here.Bitmaps.Add(new PbmpBitmap { Width = 9, Height = 9 });
         fx.Host.SetArray("CmdWhereAmI.pba", here);
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
         root.AddChild(parent);
         parent.AddChild(GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408));
         fx.Content(root);
@@ -310,7 +310,7 @@ public class CommandMapTests
         fx.Interp.SetVariable("$pref::mapFilter", "0");
         fx.Interp.SetVariable("$pref::mapSensorRange", "0");
         fx.Host.SetFont("if_small.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 8 });
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408));
         fx.Content(root);
         var dev = new StretchDev();
@@ -324,8 +324,8 @@ public class CommandMapTests
     {
         var fx = new GuiFixture();
         fx.Host.Hud = new StaticHudSource { CommandMapValue = Picture() };
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
         var map = (GuiCommandMap)GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
         root.AddChild(parent);
         parent.AddChild(map);

@@ -143,7 +143,7 @@ public sealed class GhostManager
     /// <summary>Returns the ghost class of an object by its class name.</summary>
     /// <param name="obj">The object.</param>
     /// <returns>The class, or null for classes that are not ghosted.</returns>
-    public static GhostClass? GhostClassOf(SimObject obj) => sRegistry.TryGetValue(obj.ClassName(), out GhostClass? c) ? c : null;
+    public static GhostClass? GhostClassOf(SimObject obj) => sRegistry.TryGetValue(obj.ClassName(), out var c) ? c : null;
 
     /// <summary>Registers a ghost class.</summary>
     /// <param name="className">The class name.</param>
@@ -153,7 +153,7 @@ public sealed class GhostManager
     /// <summary>Finds a ghost class by name.</summary>
     /// <param name="className">The class name.</param>
     /// <returns>The class, or null.</returns>
-    public static GhostClass? FindGhostClass(string className) => sRegistry.TryGetValue(className, out GhostClass? c) ? c : null;
+    public static GhostClass? FindGhostClass(string className) => sRegistry.TryGetValue(className, out var c) ? c : null;
 
     /// <summary>Empties the registry, the start state of a fresh test process.</summary>
     public static void ResetRegistry() => sRegistry.Clear();
@@ -214,7 +214,7 @@ public sealed class GhostManager
     // src/game/ghost_manager.cpp GhostManager::addGhost: 00553300.
     private Entry? AddGhost(SimObject obj, bool keep)
     {
-        Entry? e = mFree;
+        var e = mFree;
         if (e == null)
             return null;
         mFree = e.Next;
@@ -258,7 +258,7 @@ public sealed class GhostManager
     /// <remarks>Follows 005532a8.</remarks>
     public void MarkInScope(SimObject obj, bool keep = false)
     {
-        if (mByObject.TryGetValue(obj, out Entry? e))
+        if (mByObject.TryGetValue(obj, out var e))
         {
             e.Flags |= kInScope;
             return;
@@ -271,7 +271,7 @@ public sealed class GhostManager
     /// <remarks>Follows 00553500.</remarks>
     public void AddAlwaysObjects(IReadOnlyList<SimObject> objects)
     {
-        foreach (SimObject o in objects)
+        foreach (var o in objects)
             MarkInScope(o, true);
     }
 
@@ -283,7 +283,7 @@ public sealed class GhostManager
     /// <param name="bits">The mask bits.</param>
     public void SetMaskBits(SimObject obj, uint bits)
     {
-        if (mByObject.TryGetValue(obj, out Entry? e))
+        if (mByObject.TryGetValue(obj, out var e))
             e.Mask |= bits;
     }
 
@@ -293,7 +293,7 @@ public sealed class GhostManager
     {
         if (obj == mScopeObject)
             mScopeObject = null;
-        if (!mByObject.TryGetValue(obj, out Entry? e))
+        if (!mByObject.TryGetValue(obj, out var e))
             return;
         mByObject.Remove(obj);
         e.Object = null;
@@ -305,7 +305,7 @@ public sealed class GhostManager
     /// <returns>The index, or -1 when the object is not ghosted or not yet created.</returns>
     public int GhostIndex(SimObject? obj)
     {
-        if (obj == null || !mByObject.TryGetValue(obj, out Entry? e) || (e.Flags & (kCreate | kCreating)) != 0)
+        if (obj == null || !mByObject.TryGetValue(obj, out var e) || (e.Flags & (kCreate | kCreating)) != 0)
             return -1;
         return e.Index;
     }
@@ -315,7 +315,7 @@ public sealed class GhostManager
     {
         if (mFreeRecords.Count != 0)
         {
-            Record r = mFreeRecords.Pop();
+            var r = mFreeRecords.Pop();
             r.Mask = r.State = 0;
             r.Entry = null;
             r.NextInPacket = r.NextInEntry = null;
@@ -347,13 +347,13 @@ public sealed class GhostManager
         {
             if (mMode == ModeKind.Normal)
             {
-                for (Entry? e = mHead; e != null; e = e.Next)
+                for (var e = mHead; e != null; e = e.Next)
                     if ((e.Flags & kKeep) == 0)
                         e.Flags &= ~kInScope;
                 if (mScopeObject != null && ScopeQuery != null)
                     ScopeQuery(this);
             }
-            for (Entry? e = mHead; e != null; e = e.Next)
+            for (var e = mHead; e != null; e = e.Next)
                 if ((e.Flags & kInScope) == 0)
                 {
                     e.Flags |= kDelete;
@@ -368,9 +368,9 @@ public sealed class GhostManager
         // Selection: deletes first (priority 0), then updates by priority.
         var updates = new List<Item>();
         var deletes = new List<Item>();
-        for (Entry? e = mHead; e != null;)
+        for (var e = mHead; e != null;)
         {
-            Entry? next = e.Next;
+            var next = e.Next;
             if ((e.Flags & kDelete) != 0 && (e.Flags & kCreate) != 0)
             {
                 FreeEntry(e); // never sent
@@ -391,7 +391,7 @@ public sealed class GhostManager
                     var p = 1.0f;
                     if (mScopeObject != null)
                     {
-                        GhostClass? cls = GhostClassOf(e.Object!);
+                        var cls = GhostClassOf(e.Object!);
                         if (cls?.Priority != null)
                             p = cls.Priority(e.Object!, this, e.Mask, e.Skip);
                         else if (DefaultPriority != null)
@@ -416,7 +416,7 @@ public sealed class GhostManager
             }
             bs.WriteFlag(true);
             bs.WriteInt(e.Index, mIdBits);
-            Record r = NewRecord();
+            var r = NewRecord();
             r.NextInPacket = packet;
             r.NextInEntry = e.InFlight;
             e.InFlight = r;
@@ -424,7 +424,7 @@ public sealed class GhostManager
             if ((e.Flags & kDelete) == 0)
             {
                 bs.WriteFlag(false);
-                GhostClass? cls = GhostClassOf(e.Object!);
+                var cls = GhostClassOf(e.Object!);
                 var isNew = (e.Flags & kCreate) != 0;
                 if (isNew)
                 {
@@ -449,16 +449,16 @@ public sealed class GhostManager
             e.Skip = 0;
             packet = r;
         }
-        foreach (Item it in deletes)
+        foreach (var it in deletes)
             WriteEntry(it.Entry);
-        foreach (Item it in sorted)
+        foreach (var it in sorted)
             WriteEntry(it.Entry);
         bs.WriteFlag(false);
 
         if (mMode == ModeKind.Always)
         {
             var done = true;
-            for (Entry? e = mHead; e != null; e = e.Next)
+            for (var e = mHead; e != null; e = e.Next)
                 if ((e.Flags & (kCreate | kCreating)) != 0)
                 {
                     done = false;
@@ -484,17 +484,17 @@ public sealed class GhostManager
     /// <param name="delivered">True when the packet was delivered.</param>
     public void Notify(uint token, bool delivered)
     {
-        if (!mPackets.TryGetValue(token, out Record? r))
+        if (!mPackets.TryGetValue(token, out var r))
             return;
         mPackets.Remove(token);
         while (r != null)
         {
-            Record? nextR = r.NextInPacket;
-            Entry e = r.Entry!;
+            var nextR = r.NextInPacket;
+            var e = r.Entry!;
             // Unlink r (and the older records behind it) from the entry's in-flight list.
             uint later = 0;
             Record? prev = null;
-            Record? cur = e.InFlight;
+            var cur = e.InFlight;
             while (cur != null && cur != r)
             {
                 later |= cur.Mask;

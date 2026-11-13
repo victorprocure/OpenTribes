@@ -45,7 +45,7 @@ public sealed class SmokePool
     /// <remarks>Follows FUN_0045b4a4: takes the next ring slot and plays Sequence01 once. The puff keeps drifting with the velocity and is removed <paramref name="scale"/> seconds after the spawn (+0x04 deadline = ftol(scale * 1000) + now, FUN_0045b070 reads it), whichever of that and the sequence end comes first. The roll about the view axis is random (+0x98, 0 to 2 pi).</remarks>
     public void Spawn(RenderShape shape, double x, double y, double z, double scale = 1, double vx = 0, double vy = 0, double vz = 0)
     {
-        Puff p = mRing[mNext];
+        var p = mRing[mNext];
         mNext = (mNext + 1) % mRing.Length;
         var seq = shape.FindSequence("Sequence01");
         if (seq < 0)
@@ -65,7 +65,7 @@ public sealed class SmokePool
     public int RemoveInside(double x, double y, double z, double radius)
     {
         var n = 0;
-        foreach (Puff p in mRing)
+        foreach (var p in mRing)
         {
             if (!p.Active)
                 continue;
@@ -83,7 +83,7 @@ public sealed class SmokePool
     /// <param name="dt">The time step in seconds.</param>
     public void Tick(double dt)
     {
-        foreach (Puff p in mRing)
+        foreach (var p in mRing)
         {
             if (!p.Active)
                 continue;
@@ -104,7 +104,7 @@ public sealed class SmokePool
     /// <param name="ctx">The frame context.</param>
     public void Build(FrameContext ctx)
     {
-        foreach (Puff p in mRing)
+        foreach (var p in mRing)
         {
             if (!p.Active)
                 continue;
@@ -113,13 +113,13 @@ public sealed class SmokePool
             if (l < 1e-6)
                 continue;
             // +Y is the view ray, camera to puff (the same basis as the explosion images), rolled about it by the puff's random angle.
-            Xf xf = Mathx.SpinY(p.Roll).Then(Mathx.Basis(p.X, p.Y, p.Z, -fx / l, -fy / l, -fz / l));
+            var xf = Mathx.SpinY(p.Roll).Then(Mathx.Basis(p.X, p.Y, p.Z, -fx / l, -fy / l, -fz / l));
             if (Math.Abs(p.Scale - 1) > 1e-9)
                 xf = new Xf { M0 = p.Scale, M4 = p.Scale, M8 = p.Scale }.Then(xf);
-            ShapeDraw d = ctx.Draw(xf, p.Inst.Shape.Name);
+            var d = ctx.Draw(xf, p.Inst.Shape.Name);
             d.ForceTranslucent = true;
             d.Light = new LightSet { AmbR = 1, AmbG = 1, AmbB = 1, SunR = 0, SunG = 0, SunB = 0 };
-            RenderImage? img = ctx.Renderer.Build(p.Inst, ctx.Camera, d);
+            var img = ctx.Renderer.Build(p.Inst, ctx.Camera, d);
             if (img != null)
                 ctx.Lists.Add(img);
         }

@@ -103,7 +103,7 @@ public partial class GameBase
         for (var i = 0; i < Occupants.Count; ++i)
             if (Occupants[i].Object == source.Id())
             {
-                Occupant o = Occupants[i];
+                var o = Occupants[i];
                 o.Expiry = Store(Add(now, 0.25f));
                 Occupants[i] = o;
                 return;
@@ -125,7 +125,7 @@ public partial class GameBase
         using var chop = ChopScope();
         for (var i = 0; i < Occupants.Count;)
         {
-            Occupant o = Occupants[i];
+            var o = Occupants[i];
             if (Manager()!.FindById(o.Object) == null)
             {
                 Occupants.RemoveAt(i);

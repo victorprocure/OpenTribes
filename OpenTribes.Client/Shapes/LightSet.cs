@@ -99,7 +99,7 @@ public sealed class LightSet
             mNear = new bool[set.Points.Count];
             for (var i = 0; i < mNear.Length; ++i)
             {
-                PointLight l = set.Points[i];
+                var l = set.Points[i];
                 double dx = cx - l.X, dy = cy - l.Y, dz = cz - l.Z, d = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
                 mNear[i] = l.Range + radius >= d && (radius * FarRadii >= d || d <= 1.0);
             }
@@ -146,7 +146,7 @@ public sealed class LightSet
         double r = AmbR + (SunR * ndl), g = AmbG + (SunG * ndl), b = AmbB + (SunB * ndl);
         for (var i = 0; i < Points.Count; ++i)
         {
-            PointLight l = Points[i];
+            var l = Points[i];
             if (near != null && !near[i])
                 continue;
             double dx = l.X - px, dy = l.Y - py, dz = l.Z - pz;

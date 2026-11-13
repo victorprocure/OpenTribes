@@ -172,7 +172,7 @@ public sealed class ClientGhostManager
                     throw new UnsupportedException("ghost index " + idx);
                 if (r.Flag())
                 {
-                    ClientGhost? old = mTable[idx];
+                    var old = mTable[idx];
                     mTable[idx] = null;
                     if (old != null)
                     {
@@ -184,7 +184,7 @@ public sealed class ClientGhostManager
                     block.Updates.Add(new DecodedGhost { Index = idx, Op = "delete", Class = old?.Class ?? "", Text = "ghost " + idx + " delete" });
                     continue;
                 }
-                ClientGhost? g = mTable[idx];
+                var g = mTable[idx];
                 var isNew = g == null;
                 long objValue = -1;
                 if (isNew)
@@ -196,7 +196,7 @@ public sealed class ClientGhostManager
                         throw new UnsupportedException("new ghost " + idx + " class 0x" + tag.ToString("x", CultureInfo.InvariantCulture) + " objid=" + (block.Always ? objValue.ToString(CultureInfo.InvariantCulture) : "None"));
                     g = new ClientGhost { Index = idx, Tag = tag, Class = cls.Name, ObjectValue = objValue };
                 }
-                (string Name, ClientUnpackFn Fn) = Classes[g!.Tag];
+                (string Name, var Fn) = Classes[g!.Tag];
                 var bodyStart = r.Pos;
                 var save = r.Out;
                 var fields = new List<DecodedField>();
@@ -209,7 +209,7 @@ public sealed class ClientGhostManager
                 {
                     r.Out = save;
                 }
-                foreach (DecodedField f in fields)
+                foreach (var f in fields)
                     g.State[f.Name] = f.Value;
                 g.Last = fields;
                 ++g.Updates;
@@ -258,7 +258,7 @@ public sealed class ClientGhostManager
     // GhostManager_registerAlwaysGhosts 005531fc: sorted by the 32 bit value, registered, then onClientGhostAlwaysDone().
     private void RegisterAlways()
     {
-        foreach (ClientGhost g in mAlways.OrderBy(x => (ulong)x.ObjectValue))
+        foreach (var g in mAlways.OrderBy(x => (ulong)x.ObjectValue))
             Register(g);
         mAlways.Clear();
         mWorld.AlwaysDone = true;
@@ -269,7 +269,7 @@ public sealed class ClientGhostManager
     // The control and owner links the GameBase part sets on the PlayerManager records (3.2).
     private void Unlink(ClientGhost g)
     {
-        foreach (ClientPlayerRecord rec in mWorld.Players.Clients.Values)
+        foreach (var rec in mWorld.Players.Clients.Values)
         {
             if (rec.ControlGhost == g.Index)
                 rec.ControlGhost = -1;

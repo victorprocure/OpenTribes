@@ -72,7 +72,7 @@ public static class FramePerf
             if (mName == null)
                 return;
             var end = Stopwatch.GetTimestamp();
-            if (!sSections.TryGetValue(mName, out Acc? a))
+            if (!sSections.TryGetValue(mName, out var a))
             {
                 sSections[mName] = a = new Acc();
                 sOrder.Add(mName);
@@ -132,7 +132,7 @@ public static class FramePerf
         sb.Append($"perf {n} frames: {avg:F2} ms avg ({1000 / avg:F0} fps) p95 {p95:F2} max {max:F2} | alloc {alloc / (double)n / 1024:F0} KB/frame gc {GC.CollectionCount(0) - sGc0}/{GC.CollectionCount(1) - sGc1}/{GC.CollectionCount(2) - sGc2} pause {(GC.GetTotalPauseDuration() - sPauseStart).TotalMilliseconds / n:F2} ms/frame");
         foreach (var name in sOrder)
         {
-            Acc a = sSections[name];
+            var a = sSections[name];
             sb.Append($" | {name} {a.Ms / n:F2}ms");
             if (a.Draws > 0 || a.Tris > 0)
                 sb.Append($" {a.Draws / (double)n:F0}dc {a.Tris / (double)n:F0}tri");

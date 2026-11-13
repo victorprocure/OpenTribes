@@ -159,13 +159,13 @@ public static class AICommands
                                                                                                      return r;
                                                                                                  }
                                                                                                  var hit = new List<AIObject>();
-                                                                                                 foreach (AIObject ai in g.Ai!.Ais)
+                                                                                                 foreach (var ai in g.Ai!.Ais)
                                                                                                      if (ai.Matches(a[1]))
                                                                                                          hit.Add(ai);
                                                                                                  var ids = new List<int>();
-                                                                                                 foreach (AIObject ai in hit)
+                                                                                                 foreach (var ai in hit)
                                                                                                      ids.Add(ai.Id());
-                                                                                                 SimManager? m = g.Sim?.Server();
+                                                                                                 var m = g.Sim?.Server();
                                                                                                  r = "False";
                                                                                                  for (var i = 0; i < hit.Count; ++i)
                                                                                                  {
@@ -191,7 +191,7 @@ public static class AICommands
                 Usage(inr, kSpawnUsage);
                 return "False";
             }
-            SimManager? m = g.Sim?.Server();
+            var m = g.Sim?.Server();
             if (m == null)
             {
                 inr.Print(1, "Requisite manager(s) not found.");
@@ -244,9 +244,9 @@ public static class AICommands
         // ---- AI::List() 0x0043e7a0 ----
         Plain("AI::List", (inr, _) =>
         {
-            foreach (AIObject ai in g.Ai!.Ais)
+            foreach (var ai in g.Ai!.Ais)
             {
-                Player? p = ai.Player();
+                var p = ai.Player();
                 float[] pt = [0, 0, 0], rot = [0, 0, 0];
                 if (p != null)
                 {
@@ -269,7 +269,7 @@ public static class AICommands
                 Usage(inr, kGetIdUsage);
                 return "False";
             }
-            AIObject? ai = g.Ai!.FindByName(a[1]);
+            var ai = g.Ai!.FindByName(a[1]);
             if (ai == null)
             {
                 inr.Print(1, " Could not find drone " + a[1] + ".");
@@ -285,7 +285,7 @@ public static class AICommands
                 Usage(inr, kGetTargetUsage);
                 return "False";
             }
-            AIObject? ai = g.Ai!.FindByName(a[1]);
+            var ai = g.Ai!.FindByName(a[1]);
             if (ai == null)
             {
                 inr.Print(1, " Could not find drone " + a[1] + ".");
@@ -303,7 +303,7 @@ public static class AICommands
                 inr.Print(1, "Get an object id handle (for creating member variables).");
                 return "-1";
             }
-            AIObject? ai = g.Ai!.FindByName(a[1]);
+            var ai = g.Ai!.FindByName(a[1]);
             if (ai == null)
             {
                 inr.Print(1, "Could not find drone " + a[1] + ".  Usage:");
@@ -321,7 +321,7 @@ public static class AICommands
                 inr.Print(1, "Give last action result:  done, working, or foiled.");
                 return "-1";
             }
-            AIObject? ai = g.Ai!.FindByName(a[1]);
+            var ai = g.Ai!.FindByName(a[1]);
             if (ai == null)
             {
                 inr.Print(1, "Couldn't find " + a[1] + ".  Usage:");
@@ -379,8 +379,8 @@ public static class AICommands
                 return "False";
             }
             var id = Numbers.BorlandAtoi(a[2]);
-            ClientRecord? rec = g.Players.Find(id);
-            SimManager? m = g.Sim?.Server();
+            var rec = g.Players.Find(id);
+            var m = g.Sim?.Server();
             if (rec == null || rec.OwnedObject == 0 || m == null || Player.From(m.FindById(rec.OwnedObject)) == null)
             {
                 inr.Print(1, "Couldn't find player for Id " + Numbers.FormatInt(id) + ".");
@@ -465,7 +465,7 @@ public static class AICommands
             }
             var any = false;
             var kept = new List<AIDirective>();
-            foreach (AIDirective d in ai.Directives)
+            foreach (var d in ai.Directives)
             {
                 if (ResourceManager.WildcardMatch(a[2], Numbers.FormatInt(d.Order)))
                     any = true;
@@ -492,7 +492,7 @@ public static class AICommands
                 inr.Print(1, "Listing all directives (no bitset mask given):");
             else
                 inr.Print(1, "Listing directives with bitset mask of " + Numbers.FormatInt(mask) + ":");
-            foreach (AIDirective d in ai.Directives)
+            foreach (var d in ai.Directives)
             {
                 if ((d.Type & mask) == 0)
                     continue;
@@ -558,7 +558,7 @@ public static class AICommands
                 var pattern = a.Length > 3 ? a[3] : "*";
                 var mask = a.Length > 4 ? Numbers.BorlandAtoi(a[4]) : 0xffff;
                 var fn = StringTable.Global().Intern(a[2]);
-                foreach (AIDirective d in ai.Directives)
+                foreach (var d in ai.Directives)
                     if ((d.Type & mask) != 0 && ResourceManager.WildcardMatch(pattern, Numbers.FormatInt(d.Order)))
                         d.Callback[s - 1] = fn;
                 return "True";
@@ -633,7 +633,7 @@ public static class AICommands
                 inr.Print(1, "Like Client::getFirst(), but AI 'reps' are included.");
                 return "-1";
             }
-            List<int> ids = g.Players.PlayerIds();
+            var ids = g.Players.PlayerIds();
             return ids.Count == 0 ? "-1" : Numbers.FormatInt(ids[0]);
         });
         interp.AddCommand("BaseRep::getNext", (inr, a) =>
@@ -644,7 +644,7 @@ public static class AICommands
                 inr.Print(1, "Like Client::getNext(), but AI 'reps' are included.");
                 return "-1";
             }
-            List<int> ids = g.Players.PlayerIds();
+            var ids = g.Players.PlayerIds();
             var id = Numbers.BorlandAtoi(a[1]);
             for (var i = 0; i < ids.Count; ++i)
                 if (ids[i] == id)

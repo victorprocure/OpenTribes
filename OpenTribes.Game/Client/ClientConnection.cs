@@ -192,7 +192,7 @@ public sealed class ClientGameConnection
         var prev = -4;
         while (mQueue.Count != 0 && bs.BitPosition() <= PacketBytes * 8)
         {
-            OutEvent e = mQueue.First!.Value;
+            var e = mQueue.First!.Value;
             while (!mSeqInFlight[mLowSeq & 127] && mLowSeq < mMaxSeq)
                 ++mLowSeq;
             if (e.Ordered && e.Seq > mLowSeq + 126)
@@ -317,11 +317,11 @@ public sealed class ClientGameConnection
             }
             mMarks.Remove(cookie);
         }
-        if (!mInFlight.TryGetValue(cookie, out List<OutEvent>? events))
+        if (!mInFlight.TryGetValue(cookie, out var events))
             return;
         if (delivered)
         {
-            foreach (OutEvent e in events)
+            foreach (var e in events)
                 if (e.Ordered)
                     mSeqInFlight[e.Seq & 127] = false;
         }

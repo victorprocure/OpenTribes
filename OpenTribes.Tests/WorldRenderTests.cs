@@ -24,7 +24,7 @@ public class WorldRenderTests
     [Fact]
     public void ProjectionPutsTheViewAxisAtTheScreenCentre() // WR 1.3: +Y forward, +X right, +Z up
     {
-        Camera3D c = Cam();
+        var c = Cam();
         Assert.True(c.Project(0, 100, 0, out var sx, out var sy, out _));
         Assert.Equal(320, sx, 6);
         Assert.Equal(240, sy, 6);
@@ -42,13 +42,13 @@ public class WorldRenderTests
     [Fact]
     public void YawTurnsLeftAndPitchLooksUp() // interiors.md 5.2: local +Y maps to (-sin yaw, cos yaw, 0)
     {
-        Camera3D c = Cam(yaw: 90);
+        var c = Cam(yaw: 90);
         var (x, y, z) = c.Forward;
         Assert.Equal(-1, x, 9);
         Assert.Equal(0, y, 9);
         Assert.True(c.Project(-100, 0, 0, out var sx, out _, out _));
         Assert.Equal(320, sx, 6);
-        Camera3D p = Cam(pitch: 30);
+        var p = Cam(pitch: 30);
         Assert.Equal(Math.Sin(Math.PI / 6), p.Forward.z, 9);
         Assert.True(p.Project(0, 100 * Math.Cos(Math.PI / 6), 100 * Math.Sin(Math.PI / 6), out _, out var sy, out _));
         Assert.Equal(240, sy, 6);
@@ -57,7 +57,7 @@ public class WorldRenderTests
     [Fact]
     public void ProjectionDistanceAndRadiusAreInverses() // WR 2.4 projectionDistance / projectRadius
     {
-        Camera3D c = Cam();
+        var c = Cam();
         Assert.Equal(320, c.FocalLength, 9);
         var d = c.ProjectionDistance(50, 8);
         Assert.Equal(8 * 320 / 50.0, d, 9);
@@ -67,7 +67,7 @@ public class WorldRenderTests
     [Fact]
     public void ViewProjectionMatrixAgreesWithProject() // R 5.2: ndc depth is 2 near / d - 1 (reversed, as the device stores near / d)
     {
-        Camera3D c = Cam(10, -20, 30, 33, -12, 75);
+        var c = Cam(10, -20, 30, 33, -12, 75);
         var m = new float[16];
         c.ViewProjection(m);
         foreach (var (x, y, z) in new[] { (15.0, 40.0, 25.0), (-30.0, 100.0, 60.0), (80.0, 200.0, 0.0) })
@@ -153,7 +153,7 @@ public class WorldRenderTests
     [Fact]
     public void SmallBlocksTileUpTo256AndTheRenderRepeatsPastTheMapEdge() // WR 2.3, D33
     {
-        GridBlock b = Block(4, (x, y) => (10 * x) + y, (x, y) => (0, (byte)(x + (4 * y))));
+        var b = Block(4, (x, y) => (10 * x) + y, (x, y) => (0, (byte)(x + (4 * y))));
         var t = new TerrainData(b, 16, []);
         Assert.Equal(4, t.SourceSize);
         // heights: source at (x mod N, y mod N), quantised to 11.5 fixed point
@@ -171,7 +171,7 @@ public class WorldRenderTests
     [Fact]
     public void HeightsAreClampedAndQuantisedToElevenPointFive() // WR 2.3 heights
     {
-        GridBlock b = Block(4, (x, y) => x == 0 ? -5f : x == 1 ? 3000f : 1.04f, (x, y) => (0, 0));
+        var b = Block(4, (x, y) => x == 0 ? -5f : x == 1 ? 3000f : 1.04f, (x, y) => (0, 0));
         var t = new TerrainData(b, 1, []);
         Assert.Equal(0, t.LocalHeight(0, 0));
         Assert.Equal(2047, t.LocalHeight(1, 0));
@@ -181,7 +181,7 @@ public class WorldRenderTests
     [Fact]
     public void MaterialIndexAtOrAboveTheCountBecomesZero() // WR 2.3 materials
     {
-        GridBlock b = Block(4, (x, y) => 0, (x, y) => (0, (byte)(x == 0 ? 7 : 2)));
+        var b = Block(4, (x, y) => 0, (x, y) => (0, (byte)(x == 0 ? 7 : 2)));
         var t = new TerrainData(b, 5, []);
         Assert.Equal(0, t.Material(0, 0));
         Assert.Equal(2, t.Material(1, 0));
@@ -190,7 +190,7 @@ public class WorldRenderTests
     [Fact]
     public void LightMapTilesWithTheSameWrapAndOnlyTheFirst256Rows() // WR 2.3 light map, 2.9
     {
-        GridBlock b = Block(4, (x, y) => 0, (x, y) => (0, 0));
+        var b = Block(4, (x, y) => 0, (x, y) => (0, 0));
         var light = new ushort[25];
         for (var i = 0; i < 25; ++i)
             light[i] = (ushort)i;
@@ -232,7 +232,7 @@ public class WorldRenderTests
     [Fact]
     public void DetailDistanceFollowsTheScreenSizeRule() // WR 2.5: distanceScale * size - size
     {
-        Camera3D c = Cam();
+        var c = Cam();
         // screenSize 50: distanceScale = projectionDistance(50, 1) = 320 / 50 = 6.4
         Assert.Equal((6.4 * 16) - 16, TerrainLod.DetailDistance(c, 50, 1), 9);
         Assert.Equal((6.4 * 64) - 64, TerrainLod.DetailDistance(c, 50, 3), 9);
@@ -244,8 +244,8 @@ public class WorldRenderTests
     [Fact]
     public void ScreenErrorWidensTheFrustumTest() // WR 2.4 step 3: pixelError = 1 / projectRadius(screenError, 1), $screenError is script-settable in 1.11
     {
-        TerrainData t = Flat();
-        Camera3D c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
+        var t = Flat();
+        var c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
         TerrainParams p = TerrainParams.FromMission(600, 400, 50);
         Assert.Equal(9.0, p.ScreenError);
         var tight = TerrainLod.Select(t, c, 0, 0, 0, p with { ScreenError = 0 }).Count;
@@ -257,10 +257,10 @@ public class WorldRenderTests
     [Fact]
     public void NearSquaresAreFineAndFarSquaresAreCoarse() // WR 2.5
     {
-        TerrainData t = Flat();
+        var t = Flat();
         // camera 10 m above the flat terrain at the centre of the 3 x 3 domain
-        Camera3D c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
-        List<TerrainSquare> sq = TerrainLod.Select(t, c, 0, 0, 0, TerrainParams.FromMission(600, 400, 50));
+        var c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
+        var sq = TerrainLod.Select(t, c, 0, 0, 0, TerrainParams.FromMission(600, 400, 50));
         Assert.NotEmpty(sq);
         Assert.Contains(sq, s => s.Level == 0);
         static double MinDist(TerrainSquare s)
@@ -283,23 +283,23 @@ public class WorldRenderTests
     [Fact]
     public void EmptySquaresAndSquaresOutsideTheViewAreDropped() // WR 2.5 reject, frustum
     {
-        TerrainData all = Flat(sq: (x, y) => (1 << 3, 0));
-        Camera3D c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
+        var all = Flat(sq: (x, y) => (1 << 3, 0));
+        var c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
         Assert.Empty(TerrainLod.Select(all, c, 0, 0, 0, TerrainParams.FromMission(600, 400, 50)));
         // looking away from a corner: nothing of the far side is selected
-        TerrainData t = Flat();
-        Camera3D away = Cam(0, 0, 110, 135, -20, 60, 640, 480, 0.5, 600); // toward -x, -y: outside the domain
+        var t = Flat();
+        var away = Cam(0, 0, 110, 135, -20, 60, 640, 480, 0.5, 600); // toward -x, -y: outside the domain
         Assert.Empty(TerrainLod.Select(t, away, 0, 0, 0, TerrainParams.FromMission(600, 400, 50)));
     }
 
     [Fact]
     public void SelectedSquaresShareVerticesWithoutCracks() // WR 2.5: the mid points of neighbours are shared (T-junction free)
     {
-        TerrainData t = Flat();
-        Camera3D c = Cam(3072, 3072, 110, 20, -20, 90, 640, 480, 0.5, 600);
+        var t = Flat();
+        var c = Cam(3072, 3072, 110, 20, -20, 90, 640, 480, 0.5, 600);
         TerrainParams p = TerrainParams.FromMission(600, 400, 50);
-        List<TerrainSquare> sq = TerrainLod.Select(t, c, 0, 0, 0, p);
-        TerrainMesh mesh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
+        var sq = TerrainLod.Select(t, c, 0, 0, 0, p);
+        var mesh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
         Assert.True(mesh.TriangleCount > sq.Count);
         // the flat terrain keeps one height whatever the morph does
         Assert.All(mesh.Atlas.Concat(mesh.ByMaterial.Values.SelectMany(v => v)), v => Assert.Equal(100f, v.Z, 3));
@@ -308,15 +308,15 @@ public class WorldRenderTests
     [Fact]
     public void ReusedMeshEqualsAFreshMesh() // the renderer refills one mesh each frame: no vertex of the last frame may remain
     {
-        TerrainData t = Flat();
+        var t = Flat();
         TerrainParams p = TerrainParams.FromMission(600, 400, 50);
         var reuse = new TerrainMesh();
         foreach (var (x, yaw) in new[] { (3072.0, 20.0), (3300.0, 200.0), (3072.0, 20.0) })
         {
-            Camera3D c = Cam(x, 3072, 110, yaw, -20, 90, 640, 480, 0.5, 600);
-            List<TerrainSquare> sq = TerrainLod.Select(t, c, 0, 0, 0, p);
-            TerrainMesh fresh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
-            TerrainMesh again = TerrainMesher.Build(t, sq, c, 0, 0, 0, p, reuse);
+            var c = Cam(x, 3072, 110, yaw, -20, 90, 640, 480, 0.5, 600);
+            var sq = TerrainLod.Select(t, c, 0, 0, 0, p);
+            var fresh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
+            var again = TerrainMesher.Build(t, sq, c, 0, 0, 0, p, reuse);
             Assert.Same(reuse, again);
             Assert.Equal(fresh.Atlas, again.Atlas);
             foreach (var (mat, list) in fresh.ByMaterial)
@@ -329,12 +329,12 @@ public class WorldRenderTests
     public void MorphMovesAVertexToItsParentAverage() // WR 2.5 vertex morph
     {
         // a ramp in x only has parent averages equal to the heights, so use a spike: h = 0 except one corner
-        GridBlock b = Block(256, (x, y) => x == 1 && y == 1 ? 40f : 0f, (x, y) => (0, 0));
+        var b = Block(256, (x, y) => x == 1 && y == 1 ? 40f : 0f, (x, y) => (0, 0));
         var t = new TerrainData(b, 1, []);
         TerrainParams p = TerrainParams.FromMission(600, 400, 50);
         // (1, 1) is the centre of the level 1 square at (0, 0): created at level 0, morph toward the diagonal average 0
-        Camera3D near = Cam(8, 8, 100, 0, -90, 90, 640, 480, 0.5, 600);
-        Camera3D far = Cam(8 + 500, 8, 100, 0, -90, 90, 640, 480, 0.5, 600);
+        var near = Cam(8, 8, 100, 0, -90, 90, 640, 480, 0.5, 600);
+        var far = Cam(8 + 500, 8, 100, 0, -90, 90, 640, 480, 0.5, 600);
         Assert.Equal(40f, TerrainLod.MorphedHeight(t, 1, 1, near, 0, 0, 0, p), 3);
         Assert.Equal(0f, TerrainLod.MorphedHeight(t, 1, 1, far, 0, 0, 0, p), 3);
     }
@@ -342,7 +342,7 @@ public class WorldRenderTests
     [Fact]
     public void SplitDiagonalFollowsTheCheckerboardAtLevelZeroAndTiesChooseTheOtherDiagonal() // WR 2.3
     {
-        TerrainData t = Flat();
+        var t = Flat();
         Assert.True(t.SplitMain(0, 0, 0));
         Assert.False(t.SplitMain(0, 1, 0));
         Assert.True(t.SplitMain(0, 1, 1));
@@ -354,13 +354,13 @@ public class WorldRenderTests
     [Fact]
     public void TrianglesWhollyBeyondTheVisibleDistanceAreDropped() // WR 2.6
     {
-        TerrainData t = Flat();
+        var t = Flat();
         TerrainParams p = TerrainParams.FromMission(600, 400, 50);
-        Camera3D c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
-        List<TerrainSquare> sq = TerrainLod.Select(t, c, 0, 0, 0, p);
-        TerrainMesh mesh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
+        var c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
+        var sq = TerrainLod.Select(t, c, 0, 0, 0, p);
+        var mesh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
         var all = new List<Vertex3D>(mesh.Atlas);
-        foreach (List<Vertex3D> l in mesh.ByMaterial.Values)
+        foreach (var l in mesh.ByMaterial.Values)
             all.AddRange(l);
         for (var i = 0; i + 2 < all.Count; i += 3)
             Assert.Contains(Enumerable.Range(i, 3), k =>
@@ -419,7 +419,7 @@ public class WorldRenderTests
     {
         foreach (var p in new[] { pitch, -pitch, pitch / 2 })
         {
-            Camera3D c = Cam(10, 20, 30, yaw, p * 0.99);
+            var c = Cam(10, 20, 30, yaw, p * 0.99);
             Assert.True(c.Up.z > 0, $"yaw {yaw} pitch {p}");
             Assert.False(c.Project(10, 20, 30, out _, out _, out _)); // the eye itself is not in front
             // a point straight above a point on the view axis lands higher on screen (smaller row)
@@ -438,7 +438,7 @@ public class WorldRenderTests
     {
         var rng = new StarField.Lcg(0x8377);
         Assert.Equal([22271, 16796, 20564, 26778, 27698, 14405, 25654, 21932], Enumerable.Range(0, 8).Select(_ => rng.Next()).ToArray());
-        List<StarField.Star> stars = StarField.Generate(0x8377, 1000);
+        var stars = StarField.Generate(0x8377, 1000);
         Assert.Equal(StarField.Count, stars.Count);
         // first star: components (-729, -204, -436) of length 873.6, brightness draw 26778 % 30 = 18 -> class 3
         Assert.Equal(3, stars[0].Class);
@@ -663,7 +663,7 @@ public class WorldRenderTests
     public void LightAtlasPackingNeverOverlaps() // Internal: the atlas of the interior light maps
     {
         var sizes = new List<(int, int)> { (13, 3), (4, 10), (4, 10), (10, 4), (3, 10), (1, 1), (0, 0), (17, 9) };
-        (int x, int y)[] pos = AtlasPacker.Pack(sizes, 32, out var h);
+        var pos = AtlasPacker.Pack(sizes, 32, out var h);
         for (var i = 0; i < sizes.Count; ++i)
         {
             Assert.True(pos[i].x + sizes[i].Item1 <= 32 && pos[i].y + sizes[i].Item2 <= h);
@@ -681,7 +681,7 @@ public class WorldRenderTests
     [Fact]
     public void MissionFileParsesNestedObjectsAndFields()
     {
-        List<MissionObject> roots = MissionFile.Parse(
+        var roots = MissionFile.Parse(
             "//--- export object begin ---//\ninstant SimGroup \"MissionGroup\" {\n\tinstant SimTerrain \"Terrain\" {\n" +
             "\t\ttedFileName = \"a\\\\b.dtf\";\n\t\tvisibleDistance = \"600\";\n\t\tposition = \"-3072 -3072 0\";\n\t};\n" +
             "\tinstant Sky \"Sky\" {\n\t\ttextures[3] = \"7\";\n\t\tcastShadows = \"True\";\n\t};\n};\n");
@@ -698,7 +698,7 @@ public class WorldRenderTests
     [Fact]
     public void CameraFilesParseAndSelectByMissionPrefix()
     {
-        List<MissionRender.CameraSpec> l = MissionRender.ParseCameraFile("# c\n\nBroadside_drop -196.2,-193.8,197.9,29.7,-56.0\nX_a 1,2,3,4,5,60\n", 90, out var err);
+        var l = MissionRender.ParseCameraFile("# c\n\nBroadside_drop -196.2,-193.8,197.9,29.7,-56.0\nX_a 1,2,3,4,5,60\n", 90, out var err);
         Assert.Equal("", err);
         Assert.Equal(2, l.Count);
         Assert.Equal(new MissionRender.CameraSpec("Broadside_drop", -196.2, -193.8, 197.9, 29.7, -56.0, 90), l[0]);
@@ -726,7 +726,7 @@ public class WorldRenderTests
             System.Text.Encoding.ASCII.GetBytes($"tex{i}.bmp").CopyTo(e, 0x10);
             b.AddRange(e);
         }
-        List<string?>? names = RenderMaterialList.Parse([.. b]);
+        var names = RenderMaterialList.Parse([.. b]);
         Assert.Equal(new string?[] { "tex0.bmp", null, "tex2.bmp" }, names);
     }
 
@@ -750,13 +750,13 @@ public class WorldRenderTests
         }
         if (win == null)
             return;
-        using GlWindow w = win;
+        using var w = win;
         using var dev = new GlGfxDevice(w);
         IGfxDevice d = dev;
         d.SetPalette(Palette());
 
         // tiny terrain: 4 x 4 squares tiled up to 256, flat at height 0, light map 0x8888 (nibble 8 -> 8 / 15 = 136)
-        GridBlock b = Block(4, (x, y) => 0f, (x, y) => (0, 0));
+        var b = Block(4, (x, y) => 0f, (x, y) => (0, 0));
         var light = new ushort[25];
         Array.Fill(light, (ushort)0x8888);
         var data = new TerrainData(b, 1, light);
@@ -830,7 +830,7 @@ public class WorldRenderTests
         }
         if (win == null)
             return;
-        using GlWindow w = win;
+        using var w = win;
         using var dev = new GlGfxDevice(w);
         IGfxDevice d = dev;
         var cam = new Camera3D(0, 0, 0, 0, 0, 90, 32, 32, 0.5, 100);

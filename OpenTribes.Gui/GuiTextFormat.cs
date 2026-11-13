@@ -135,7 +135,7 @@ public sealed class GuiTextFormat
         if (mFonts[0] == null)
             return;
         var widest = 0;
-        foreach (PftFont? f in mFonts)
+        foreach (var f in mFonts)
             if (f != null)
                 widest = Math.Max(widest, Advance(f, 'W'));
         mMinWidth = widest;
@@ -336,7 +336,7 @@ public sealed class GuiTextFormat
             }
             name = arg[(colon + 1)..];
         }
-        PbmpBitmap? bmp = mBitmaps(name);
+        var bmp = mBitmaps(name);
         if (bmp == null)
             return;
         var w = bmp.Width + (dx * 2);
@@ -376,7 +376,7 @@ public sealed class GuiTextFormat
     /// <remarks>A line breaks at the last space that fits. A word wider than the space left drops to the next line, and one wider than a whole line breaks at the character that fits.</remarks>
     private void Place(string run)
     {
-        PftFont? f = Font;
+        var f = Font;
         if (f == null)
             return;
         if (mRight - mX + 1 < Advance(f, 'W'))
@@ -432,7 +432,7 @@ public sealed class GuiTextFormat
     {
         for (var i = 0; i < Pieces.Count;)
         {
-            Piece p = Pieces[i];
+            var p = Pieces[i];
             int k = i, total = 0;
             if (p.Just == 0)
             {
@@ -441,7 +441,7 @@ public sealed class GuiTextFormat
             }
             while (k < Pieces.Count && Pieces[k].Y == p.Y && Pieces[k].Just == p.Just)
             {
-                PftFont? f = mFonts[Pieces[k].Font];
+                var f = mFonts[Pieces[k].Font];
                 total += f == null ? 0 : f.MeasureTextWidth(Pieces[k].Text);
                 ++k;
             }
@@ -451,7 +451,7 @@ public sealed class GuiTextFormat
         }
         for (var i = 0; i < Images.Count;)
         {
-            Image im = Images[i];
+            var im = Images[i];
             if (im.Just != 1)
             {
                 ++i;
@@ -472,10 +472,10 @@ public sealed class GuiTextFormat
     /// <param name="oy">The y of the layout origin.</param>
     public void Draw(GuiPaint p, int ox, int oy)
     {
-        foreach (Piece pc in Pieces)
+        foreach (var pc in Pieces)
             if (mFonts[pc.Font] is PftFont f && pc.Text.Length > 0)
                 p.Text(f, ox + pc.X, oy + pc.Y, pc.Text);
-        foreach (Image im in Images)
+        foreach (var im in Images)
             p.Bitmap(im.Bitmap, ox + im.X, oy + im.Y);
     }
 }

@@ -73,7 +73,7 @@ public class GuiCrosshairZoomTests
     [Fact]
     public void ZoomedViewDrawsTheSniperCrossAcrossTheWholeView()
     {
-        ClipDev d = Render(new HudZoom(22.5, 22.5, 22.5, 100, 110, 5000, 0));
+        var d = Render(new HudZoom(22.5, 22.5, 22.5, 100, 110, 5000, 0));
         Assert.Contains((320, 0, 320, 479), d.Lines);   // vertical line through the centre, full height
         Assert.Contains((0, 240, 639, 240), d.Lines);   // horizontal line, full width
     }
@@ -81,7 +81,7 @@ public class GuiCrosshairZoomTests
     [Fact]
     public void SniperCrosshairFalseKeepsTheReticleOnly()
     {
-        ClipDev d = Render(new HudZoom(22.5, 22.5, 22.5, 100, 110, 5000, 0), "FALSE");
+        var d = Render(new HudZoom(22.5, 22.5, 22.5, 100, 110, 5000, 0), "FALSE");
         Assert.DoesNotContain(d.Lines, l => l.Y1 - l.Y0 > 100 || l.X1 - l.X0 > 100);
     }
 
@@ -89,7 +89,7 @@ public class GuiCrosshairZoomTests
     public void ZoomStepWithTheZoomOffDrawsTheBoxAndItsTextForTwoSeconds()
     {
         // 90 degrees, zoom FOV 22.5: tan(11.25) x 640 x 0.5 = 64 pixels half width, so the box is 640 / 128 = 5x
-        ClipDev d = Render(new HudZoom(90, 22.5, 90, 100, 100, 5000, 4000));
+        var d = Render(new HudZoom(90, 22.5, 90, 100, 100, 5000, 4000));
         Assert.Contains("ZOOM: 5x", d.Texts);
         Assert.DoesNotContain(d.Lines, l => l.Y1 - l.Y0 > 100 || l.X1 - l.X0 > 100);
         Assert.DoesNotContain("ZOOM: 5x", Render(new HudZoom(90, 22.5, 90, 100, 100, 6001, 4000)).Texts);

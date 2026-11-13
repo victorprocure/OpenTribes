@@ -15,8 +15,8 @@ public static class ProjectileBeam
     // src/game/projectile_beam.cpp beamRange: terrain visibleDistance (object 8 +0x2e0), capped at 4000 m.
     internal static float BeamRange(GameState game)
     {
-        SimManager? m = game.Sim?.Server();
-        SimObject? t = m?.FindById(8);
+        var m = game.Sim?.Server();
+        var t = m?.FindById(8);
         if (t is TerrainObject terr && t.ClassName() == "SimTerrain")
         {
             var vis = terr.VisibleDistance();
@@ -106,7 +106,7 @@ internal class Laser : Projectile
     {
         // LaserProjectile_packInitial (0x00463c54): the start only when the client has no ghost of the shooter to take the
         // muzzle from; hit, end and energy always.
-        GameBase? sh = Shooter();
+        var sh = Shooter();
         if (sh == null || ctx.Manager.GhostIndex(sh) == -1)
             Pj.WriteVec(bs, mStart);
         bs.WriteFlag(mHit);
@@ -222,7 +222,7 @@ internal sealed class TargetLaser : Laser
         if (!mHit)
             return false;
         mEnd.CopyTo(output);
-        GameBase? sh = Shooter();
+        var sh = Shooter();
         team = sh != null ? sh.Team : 0;
         return true;
     }
@@ -231,7 +231,7 @@ internal sealed class TargetLaser : Laser
     {
         Pj.WriteVec(bs, mStart);
         Pj.WriteVec(bs, mEnd);
-        GameBase? sh = Shooter();
+        var sh = Shooter();
         bs.WriteInt((uint)((sh != null ? sh.OwnerClient : 0) - 2048) & 0x3ff, 10);
         bs.WriteInt((uint)(sh != null ? sh.Team : 0) & 7, 3);
         bs.WriteFlag(mHit);
@@ -433,8 +433,8 @@ internal class Lightning : Projectile
 
     protected GameBase? Target()
     {
-        SimManager? m = Manager();
-        SimObject? o = m != null && mTarget != 0 ? m.FindById(mTarget) : null;
+        var m = Manager();
+        var o = m != null && mTarget != 0 ? m.FindById(mTarget) : null;
         return o as GameBase;
     }
 
@@ -444,7 +444,7 @@ internal class Lightning : Projectile
         using var chop = X87.Chop();
         var ms = unchecked((int)(now - mLast));
         mLast = now;
-        GameBase? t = Target();
+        var t = Target();
         if (ms == 0 || t == null)
             return;
         float[] d = new float[3], vec = new float[3];
@@ -467,7 +467,7 @@ internal class Lightning : Projectile
 
     protected void PackTarget(BitStream bs, GhostContext ctx)
     {
-        GameBase? t = Target();
+        var t = Target();
         var ghost = t != null ? ctx.Manager.GhostIndex(t) : -1;
         if (bs.WriteFlag(ghost != -1))
         {

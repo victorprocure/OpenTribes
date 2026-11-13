@@ -165,7 +165,7 @@ public static class GuiFactory
 {
     private static bool DerivesFrom(GuiClassRow row, string ancestor)
     {
-        for (GuiClassRow? r = row; r != null && r.Parent.Length > 0; r = GuiClassTable.ByName(r.Parent))
+        for (var r = row; r != null && r.Parent.Length > 0; r = GuiClassTable.ByName(r.Parent))
             if (r.Parent == ancestor)
                 return true;
         return false;
@@ -176,7 +176,7 @@ public static class GuiFactory
     /// <returns>A new control with its class name set.</returns>
     public static GuiControl Create(GuiClassRow row)
     {
-        GuiControl c = Make(row);
+        var c = Make(row);
         c.ClassName = row.Name;
         return c;
     }

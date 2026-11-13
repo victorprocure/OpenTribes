@@ -451,14 +451,14 @@ public static class Collision
                 Records.Add(rec);
                 return Records.Count - 1;
             }
-            IReadOnlyList<BspNode> nodes = Geo.Nodes();
+            var nodes = Geo.Nodes();
             // A well-formed BSP is a tree: a path longer than the node count is a cycle (D11).
             if (child >= nodes.Count || depth > nodes.Count)
                 return -1;
-            BspNode node = nodes[child];
+            var node = nodes[child];
             if (node.PlaneIndex >= Geo.Planes().Count)
                 return -1;
-            Plane pl = Geo.Planes()[node.PlaneIndex];
+            var pl = Geo.Planes()[node.PlaneIndex];
             ReadOnlySpan<float> n = [pl.Nx, pl.Ny, pl.Nz];
             var d = X87.F32(Add(X87.Dot(n, C), pl.D));
             if (Math.Abs(d) >= R)
@@ -482,18 +482,18 @@ public static class Collision
         {
             Touched = true;
             Span<float> w = stackalloc float[3];
-            foreach (ClipEdge e in edges)
+            foreach (var e in edges)
             {
                 for (var which = 0; which < 2; ++which)
                 {
                     var fi = which == 0 ? e.F0 : e.F1;
-                    ClipFace f = Faces[fi];
+                    var f = Faces[fi];
                     if (f.PlaneIndex < 0)
                         continue;
                     var s = Geo.FindSurface(leafIndex, f.PlaneIndex);
                     if (s < 0)
                         continue;
-                    Plane pl = Geo.Planes()[f.PlaneIndex];
+                    var pl = Geo.Planes()[f.PlaneIndex];
                     var output = new CollisionSurface();
                     output.Normal[0] = f.Side ? -pl.Nx : pl.Nx;
                     output.Normal[1] = f.Side ? -pl.Ny : pl.Ny;
@@ -509,7 +509,7 @@ public static class Collision
                 }
                 for (var which = 0; which < 2; ++which)
                 {
-                    ClipVertex v = Verts[which == 0 ? e.V0 : e.V1];
+                    var v = Verts[which == 0 ? e.V0 : e.V1];
                     if (v.Seen)
                         continue;
                     v.Seen = true;
@@ -525,8 +525,8 @@ public static class Collision
         // clip (0x005632f0).
         public void Clip(int recordIndex, List<ClipEdge> edges)
         {
-            Record rec = Records[recordIndex];
-            Plane pl = Geo.Planes()[rec.PlaneIndex];
+            var rec = Records[recordIndex];
+            var pl = Geo.Planes()[rec.PlaneIndex];
             ReadOnlySpan<float> n = [pl.Nx, pl.Ny, pl.Nz];
             var savedVerts = Verts.Count;
             var kf = new ClipFace
@@ -540,11 +540,11 @@ public static class Collision
             var front = new List<ClipEdge>();
             var back = new List<ClipEdge>();
             Span<float> dv = stackalloc float[3];
-            foreach (ClipEdge e in edges)
+            foreach (var e in edges)
             {
                 for (var which = 0; which < 2; ++which)
                 {
-                    ClipVertex v = Verts[which == 0 ? e.V0 : e.V1];
+                    var v = Verts[which == 0 ? e.V0 : e.V1];
                     if (v.Mark < mark)
                     {
                         var s = X87.F32(X87.Dot(n, v.P));
@@ -559,8 +559,8 @@ public static class Collision
                     continue;
                 }
                 var v0Back = ma != mark;
-                Float3 a = Verts[e.V0].P;
-                Float3 b = Verts[e.V1].P;
+                var a = Verts[e.V0].P;
+                var b = Verts[e.V1].P;
                 for (var k = 0; k < 3; ++k)
                     dv[k] = X87.F32(Sub(b[k], a[k]));
                 var den = X87.Dot(n, dv);
@@ -579,7 +579,7 @@ public static class Collision
                 for (var which = 0; which < 2; ++which)
                 {
                     var fj = which == 0 ? e.F0 : e.F1;
-                    ClipFace f = Faces[fj];
+                    var f = Faces[fj];
                     if (f.LastVert < savedVerts)
                     {
                         f.LastVert = nv;
@@ -594,7 +594,7 @@ public static class Collision
             if (rec.Front >= 0 && front.Count != 0)
             {
                 Faces[fi].Side = true;
-                Record child = Records[rec.Front];
+                var child = Records[rec.Front];
                 if (child.PlaneIndex < 0)
                     Leaf(child.Leaf, front);
                 else
@@ -603,7 +603,7 @@ public static class Collision
             if (rec.Back >= 0 && back.Count != 0)
             {
                 Faces[fi].Side = false;
-                Record child = Records[rec.Back];
+                var child = Records[rec.Back];
                 if (child.PlaneIndex < 0)
                     Leaf(child.Leaf, back);
                 else
@@ -634,7 +634,7 @@ public static class Collision
     public static bool CollideTerrain(Terrain terrain, ReadOnlySpan<float> pos, float radius, CollisionHit hit)
     {
         // 5.1 steps 2-3 with an unrotated terrain: M.t = P + (-terrainPos), c = (0, 0, r) * M.
-        Vec3 tp = terrain.Position();
+        var tp = terrain.Position();
         ReadOnlySpan<float> neg = [-tp.X, -tp.Y, -tp.Z];
         Span<float> c = stackalloc float[3];
         for (var i = 0; i < 3; ++i)
@@ -861,7 +861,7 @@ public static class Collision
                 // corner order 0,1,2,3 is counter-clockwise seen from +axis.
                 for (var ti = 0; ti < 2; ++ti)
                 {
-                    ReadOnlySpan<int> tri = tris.Slice(ti * 3, 3);
+                    var tri = tris.Slice(ti * 3, 3);
                     ReadOnlySpan<float> a = corner.Slice(tri[side != 0 ? 1 : 0] * 3, 3);
                     ReadOnlySpan<float> b = corner.Slice(tri[side != 0 ? 0 : 1] * 3, 3);
                     ReadOnlySpan<float> c = corner.Slice(tri[2] * 3, 3);
@@ -893,15 +893,15 @@ public static class Collision
         hit.StepHeight = -1.0f;
         // R+0x10 = X * shape image transform, rel = sphere image transform * its inverse.
         var shape = new TMat3 { Flags = 3, M = Float9.Of(shapeRot), P = Float3.Of(shapePos) };
-        Shape.TmatMul(inst.Root, shape, out TMat3 toWorld);
-        Shape.TmatInverse(toWorld, out TMat3 inv);
+        Shape.TmatMul(inst.Root, shape, out var toWorld);
+        Shape.TmatInverse(toWorld, out var inv);
         var own = new TMat3 { Flags = 3, M = Float9.Of(sphereRot), P = Float3.Of(spherePos) };
-        Shape.TmatMul(own, inv, out TMat3 rel);
+        Shape.TmatMul(own, inv, out var rel);
         hit.Rot = toWorld.M;
         var contacts = new List<ShapeContact>();
         if (!inst.CollideSphere(detail, centre, meshMode, rel, radius, contacts))
             return false;
-        foreach (ShapeContact c in contacts)
+        foreach (var c in contacts)
         {
             var s = new CollisionSurface
             {
@@ -933,10 +933,10 @@ public static class Collision
         // rel as in collideSphereShape; then 0x00435f60: half extents, the box centre carried into the translation by
         // the rotation alone.
         var shape = new TMat3 { Flags = 3, M = Float9.Of(shapeRot), P = Float3.Of(shapePos) };
-        Shape.TmatMul(inst.Root, shape, out TMat3 toWorld);
-        Shape.TmatInverse(toWorld, out TMat3 inv);
+        Shape.TmatMul(inst.Root, shape, out var toWorld);
+        Shape.TmatInverse(toWorld, out var inv);
         var own = new TMat3 { Flags = 3, M = Float9.Of(boxRot), P = Float3.Of(boxPos) };
-        Shape.TmatMul(own, inv, out TMat3 rel);
+        Shape.TmatMul(own, inv, out var rel);
         Span<float> half = stackalloc float[3], centre = stackalloc float[3], moved = stackalloc float[3];
         for (var i = 0; i < 3; ++i)
         {
@@ -984,7 +984,7 @@ public static class Collision
                     return CollideSphereBox(image.Box, image.Rot, image.Pos, centre, mover.Radius, hit);
                 // Collision detail: every box mesh in candidate order, records appended.
                 var all = new List<CollisionSurface>();
-                foreach (Float6 b in image.Boxes)
+                foreach (var b in image.Boxes)
                     if (CollideSphereBox(b, image.Rot, image.Pos, centre, mover.Radius, hit))
                         all.AddRange(hit.Surfaces);
                 hit.Surfaces = all;

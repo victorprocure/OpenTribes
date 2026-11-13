@@ -124,7 +124,7 @@ public class SmackerTests
             fx.Interp.Evaluate("IDSMK_T = 200201, \"t.smk\";");
             fx.Interp.Evaluate("function done() { echo(\"movie done\"); }");
             var dev = new NullDevice();
-            GuiControl c = GuiFixture.Make("FearGui::SmackerCtrl", 0, 0, 640, 480,
+            var c = GuiFixture.Make("FearGui::SmackerCtrl", 0, 0, 640, 480,
                 ("movieTag", 200201u), ("loop", (byte)0), ("movieDoneTag", 0u), ("palStart", 1u), ("palColors", 253u), ("stretch", (byte)1));
             c.Command = "done();";
             fx.Content(c);
@@ -172,7 +172,7 @@ public class SmackerTests
                 res.SetSearchPath("base");
                 fx.Host.Res = res;
                 fx.Interp.Evaluate("IDSMK_T = 200201, \"t.smk\"; function done() { echo(\"movie done\"); }");
-                GuiControl c = GuiFixture.Make("FearGui::SmackerCtrl", 0, 0, 640, 480, ("movieTag", 200201u), ("movieDoneTag", 0u));
+                var c = GuiFixture.Make("FearGui::SmackerCtrl", 0, 0, 640, 480, ("movieTag", 200201u), ("movieDoneTag", 0u));
                 c.Command = "done();";
                 fx.Content(c);
                 fx.Frame();
@@ -197,7 +197,7 @@ public class SmackerTests
     {
         var fx = new GuiFixture();
         fx.Interp.Evaluate("function done() { echo(\"movie done\"); }");
-        GuiControl c = GuiFixture.Make("FearGui::SmackerCtrl", 0, 0, 640, 480, ("movieTag", 0u), ("movieDoneTag", 0u));
+        var c = GuiFixture.Make("FearGui::SmackerCtrl", 0, 0, 640, 480, ("movieTag", 0u), ("movieDoneTag", 0u));
         c.Command = "done();";
         fx.Content(c);
         fx.Frame();
@@ -220,7 +220,7 @@ public class SmackerTests
         var file = Stock();
         if (file == null)
             return;
-        SmackerDecoder d = SmackerDecoder.TryOpen(file, out var err)!;
+        var d = SmackerDecoder.TryOpen(file, out var err)!;
         Assert.NotNull(d);
         Assert.Equal((640, 480, 207), (d.Width, d.Height, d.FrameCount));
         Assert.Equal(66_660, d.FrameMicroseconds);
@@ -241,7 +241,7 @@ public class SmackerTests
         var file = Stock();
         if (file == null)
             return;
-        SmackerDecoder d = SmackerDecoder.TryOpen(file, out _)!;
+        var d = SmackerDecoder.TryOpen(file, out _)!;
         string? at100 = null, at206 = null;
         var n = 0;
         while (d.DecodeNext())
@@ -276,7 +276,7 @@ public class SmackerTests
         var file = Stock();
         if (file == null)
             return;
-        SmackerDecoder d = SmackerDecoder.TryOpen(file, out _)!;
+        var d = SmackerDecoder.TryOpen(file, out _)!;
         var first = new List<string>();
         for (var i = 0; i < 120 && d.DecodeNext(); ++i)
             if (i % 40 == 0 || i == 119)
@@ -297,7 +297,7 @@ public class SmackerTests
         var file = Stock();
         if (file == null)
             return;
-        SmackerDecoder d = SmackerDecoder.TryOpen(file, out _)!;
+        var d = SmackerDecoder.TryOpen(file, out _)!;
         var pcm = d.ReadAudio(0)!;
         var frames = pcm.Length / 4;
         var seconds = frames / 22050.0;
@@ -315,7 +315,7 @@ public class SmackerTests
         var rms = Math.Sqrt(sum / (pcm.Length / 2));
         Assert.InRange(rms, 0.05, 0.5);
         // Through the mixer, offline at the device rate: the output has the level of the movie and ends with the movie.
-        WavData wav = GuiSmacker.ToWave(pcm, d.Audio[0]);
+        var wav = GuiSmacker.ToWave(pcm, d.Audio[0]);
         var mixer = new SoundMixer(48000);
         Assert.NotNull(mixer.Start(wav, false, 1f, 1f));
         var block = new float[4800 * 2];

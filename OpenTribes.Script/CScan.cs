@@ -6,8 +6,8 @@ using OpenTribes.Core;
 /// <remarks>White space is skipped, then a decimal, hexadecimal, infinity or NaN number is read and stored to float in the current mode. The double parse runs in the mode of <c>Fpu</c> and the store follows, which together truncate like the single rounding of strtof.</remarks>
 public static class CScan
 {
-    private static bool IsSpace(char c) => c is ' ' or >= '\t' and <= '\r';
-    private static bool Hex(char c) => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
+    private static bool IsSpace(char c) => c is ' ' or (>= '\t' and <= '\r');
+    private static bool Hex(char c) => c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
 
     /// <summary>Reads one %f at a position, skipping white space first.</summary>
     /// <param name="s">The text.</param>

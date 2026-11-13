@@ -46,7 +46,7 @@ public sealed class GameServer
         if ((f & GhostScope.kNetGhostable) != 0 && (f & GhostScope.kNetScopeAlways) != 0)
             output.Add(obj);
         if (obj.AsSet() is SimSet set)
-            foreach (SimObject m in set.Members())
+            foreach (var m in set.Members())
                 CollectAlways(m, output);
     }
 
@@ -69,7 +69,7 @@ public sealed class GameServer
             OnAccepted = Accepted,
             OnData = (p, d) =>
             {
-                if (!mClients.TryGetValue((int)p.Id, out Client? c))
+                if (!mClients.TryGetValue((int)p.Id, out var c))
                     return;
                 c.Stream!.Receive(d);
                 // An invalid member block ends the connection (docs/game-stream.md 1.6).
@@ -78,7 +78,7 @@ public sealed class GameServer
             },
             OnNotify = (p, cookie, delivered) =>
             {
-                if (mClients.TryGetValue((int)p.Id, out Client? c))
+                if (mClients.TryGetValue((int)p.Id, out var c))
                     c.Stream!.Notify(cookie, delivered);
             },
             OnClosed = Closed,
@@ -86,7 +86,7 @@ public sealed class GameServer
             {
                 foreach (var id in mOrder.ToList())
                 {
-                    if (!mClients.TryGetValue(id, out Client? c))
+                    if (!mClients.TryGetValue(id, out var c))
                         continue;
                     if (mGame.Players.FindHuman(id) is ClientRecord r)
                     {
@@ -150,17 +150,17 @@ public sealed class GameServer
         if (claimGlobals)
         {
             SoundRoute.GhostIndex = (id, obj) =>
-                mClients.TryGetValue(id, out Client? c) && c.Stream != null ? c.Stream.Ghosts().GhostIndex(obj) : -1;
-            SoundRoute.ScopeObject = id => mClients.TryGetValue(id, out Client? c) && c.Stream != null ? c.Stream.Ghosts().ScopeObject() : null;
+                mClients.TryGetValue(id, out var c) && c.Stream != null ? c.Stream.Ghosts().GhostIndex(obj) : -1;
+            SoundRoute.ScopeObject = id => mClients.TryGetValue(id, out var c) && c.Stream != null ? c.Stream.Ghosts().ScopeObject() : null;
         }
         mGame.Players.Send = (id, e) =>
         {
-            if (mClients.TryGetValue(id, out Client? c))
+            if (mClients.TryGetValue(id, out var c))
                 c.Stream!.Post(e);
         };
         mGame.Players.NetStats = id =>
         {
-            if (mClients.TryGetValue(id, out Client? c) && c.Vc != null)
+            if (mClients.TryGetValue(id, out var c) && c.Vc != null)
                 return (c.Vc.RttMs(), c.Vc.PacketLoss());
             return (0u, 0.0f);
         };
@@ -172,7 +172,7 @@ public sealed class GameServer
         if (GameUtil.EqualsNoCase(obj.ClassName(), "SimPath"))
             output.Add(obj);
         if (obj.AsSet() is SimSet set)
-            foreach (SimObject m in set.Members())
+            foreach (var m in set.Members())
                 CollectPaths(m, output);
     }
 
@@ -188,7 +188,7 @@ public sealed class GameServer
         for (var i = 0; i < paths.Count; ++i)
         {
             var pts = new List<(float[] Delta, float[] Rot, float[] Pos)>();
-            foreach (SimObject o in paths[i].AsSet()!.Members())
+            foreach (var o in paths[i].AsSet()!.Members())
             {
                 if (o is not GameBase gb || !GameUtil.EqualsNoCase(gb.ClassName(), "Marker"))
                     continue;
@@ -199,7 +199,7 @@ public sealed class GameServer
             }
             var moveable = false;
             if (paths[i].Group() is SimSet parent)
-                foreach (SimObject o in parent.Members())
+                foreach (var o in parent.Members())
                     moveable = moveable || GameUtil.EqualsNoCase(o.ClassName(), "Moveable");
             if (moveable && pts.Count != 0)
             {
@@ -278,7 +278,7 @@ public sealed class GameServer
     private void Accepted(Player p, Connection vc)
     {
         var id = (int)p.Id;
-        if (!mClients.TryGetValue(id, out Client? c))
+        if (!mClients.TryGetValue(id, out var c))
         {
             c = new Client();
             mClients[id] = c;
@@ -292,7 +292,7 @@ public sealed class GameServer
             ControlObject = () => mGame.Players.ControlObjectOf(id),
             PscInputFn = input =>
             {
-                ClientRecord? r = mGame.Players.FindHuman(id);
+                var r = mGame.Players.FindHuman(id);
                 if (r == null)
                     return;
                 input.Team = r.Team;
@@ -304,13 +304,13 @@ public sealed class GameServer
                 input.ItemCounts = GameEvents.InventoryCounts(mGame.Players.ControlObjectOf(id));
                 input.CommandSlot = (slot, output) =>
                 {
-                    ClientRecord? viewer = mGame.Players.FindHuman(id);
+                    var viewer = mGame.Players.FindHuman(id);
                     return viewer != null && mGame.Players.CommandSlot(viewer, slot, output);
                 };
             },
         };
         c.Stream = new GameConnection(id, vc, hooks);
-        GhostManager gm = c.Stream.Ghosts();
+        var gm = c.Stream.Ghosts();
         // Normal-phase scoping and priorities (docs/game-stream-ghosts.md 6).
         gm.ScopeQuery = g => GhostScope.ScopeGhosts(g, mGame.World, client => mGame.Players.FindHuman(client)?.Camera);
         gm.DefaultPriority = GhostScope.GhostPriority;
@@ -320,8 +320,8 @@ public sealed class GameServer
         gm.OnAlwaysDone = () =>
         {
             // Connection delegate slot +0x68 (0042b7ac): paths, then the script (docs/game-stream-ghosts.md 6.5).
-            if (mClients.TryGetValue(id, out Client? cc))
-                foreach (OutEvent e in PathEvents())
+            if (mClients.TryGetValue(id, out var cc))
+                foreach (var e in PathEvents())
                     cc.Stream!.Post(e);
             mIn.CallFunction("onServerGhostAlwaysDone", new[] { Numbers.FormatInt(id) });
         };
@@ -342,7 +342,7 @@ public sealed class GameServer
     // src/game/game_server.cpp GameServer::queueDataBlocks.
     private void QueueDataBlocks(GameConnection c)
     {
-        DataBlockManager db = mGame.Sim!.DataBlocks();
+        var db = mGame.Sim!.DataBlocks();
         for (var g = 0; g <= 30; ++g)
         {
             var count = db.GroupSize(g);
@@ -367,7 +367,7 @@ public sealed class GameServer
         }
         // After group 30: sensor target names, then the score headings (5.1 step 4). A target without a name sends no
         // event.
-        foreach (OutEvent e in GameEvents.MakeTargetNameEvents(mGame.TargetNames))
+        foreach (var e in GameEvents.MakeTargetNameEvents(mGame.TargetNames))
             c.Post(e);
         c.Post(GameEvents.MakeDeltaScore(true, -1, 0, mGame.TeamScoreHeading));
         c.Post(GameEvents.MakeDeltaScore(false, 2048, 0, mGame.ClientScoreHeading));
@@ -377,7 +377,7 @@ public sealed class GameServer
     private void Closed(Player p)
     {
         var id = (int)p.Id;
-        if (!mClients.TryGetValue(id, out Client? c))
+        if (!mClients.TryGetValue(id, out var c))
             return;
         mGame.Players.RemoveClient(id);
         if (c.Object != null && mGame.Sim?.Server() is SimManager m)
@@ -398,7 +398,7 @@ public sealed class GameServer
                 return "True";
             }
             var id = Numbers.BorlandAtoi(a[1]);
-            if (!mClients.TryGetValue(id, out Client? c))
+            if (!mClients.TryGetValue(id, out var c))
                 return "True";
             var argv = a[2..];
             var total = 0;
@@ -411,7 +411,7 @@ public sealed class GameServer
         });
         mIn.AddCommand("startGhosting", (_, a) =>
         {
-            if (a.Length != 2 || !mClients.TryGetValue(Numbers.BorlandAtoi(a[1]), out Client? c))
+            if (a.Length != 2 || !mClients.TryGetValue(Numbers.BorlandAtoi(a[1]), out var c))
                 return "False";
             c.Stream!.Ghosts().StartGhosting();
             return "True";
@@ -423,6 +423,6 @@ public sealed class GameServer
             return "True";
         });
         mIn.AddCommand("Client::getTransportAddress", (_, a) =>
-            a.Length == 2 && mClients.TryGetValue(Numbers.BorlandAtoi(a[1]), out Client? c) ? c.Address : "");
+            a.Length == 2 && mClients.TryGetValue(Numbers.BorlandAtoi(a[1]), out var c) ? c.Address : "");
     }
 }

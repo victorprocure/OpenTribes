@@ -56,7 +56,7 @@ public static class Program
             captured.Append(line);
         });
         using Stream stdin = new BufferedStream(Console.OpenStandardInput());
-        using Stream stdout = Console.OpenStandardOutput();
+        using var stdout = Console.OpenStandardOutput();
         string? l;
         while ((l = GetLine(stdin)) != null)
         {

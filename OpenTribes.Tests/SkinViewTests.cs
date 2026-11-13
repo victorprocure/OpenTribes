@@ -23,8 +23,8 @@ public class SkinViewTests
     public void TheCommandsOfTheScriptChooseSkinGenderAndArmor()
     {
         var fx = new GuiFixture();
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl v = GuiFixture.Make("FearGui::SkinView", 10, 10, 256, 282);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var v = GuiFixture.Make("FearGui::SkinView", 10, 10, 256, 282);
         v.Id = 7;
         root.AddChild(v);
         fx.Content(root);

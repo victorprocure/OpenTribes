@@ -164,7 +164,7 @@ public sealed class TelnetConsole : IDisposable
     /// <summary>Closes the clients and the listener.</summary>
     public void Dispose()
     {
-        foreach (Client c in mClients)
+        foreach (var c in mClients)
             c.Fd.Dispose();
         mClients.Clear();
         mListenFd?.Dispose();
@@ -187,7 +187,7 @@ public sealed class TelnetConsole : IDisposable
             int n;
             try
             {
-                n = fd.Send(data, SocketFlags.None, out SocketError err);
+                n = fd.Send(data, SocketFlags.None, out var err);
                 if (err != SocketError.Success)
                     return;
             }
@@ -272,7 +272,7 @@ public sealed class TelnetConsole : IDisposable
         {
             var close = false;
             var n = 0;
-            SocketError err = SocketError.Success;
+            var err = SocketError.Success;
             try
             {
                 n = mClients[i].Fd.Receive(buf, 0, buf.Length, SocketFlags.None, out err);
@@ -295,7 +295,7 @@ public sealed class TelnetConsole : IDisposable
             }
             else
             {
-                Socket fd = mClients[i].Fd;
+                var fd = mClients[i].Fd;
                 var host = new TelnetSession.Host
                 {
                     Password = mHost.Password,
@@ -321,7 +321,7 @@ public sealed class TelnetConsole : IDisposable
     /// <param name="line">The line.</param>
     public void ConsoleLine(string line)
     {
-        foreach (Client c in mClients)
+        foreach (var c in mClients)
             if (c.Session.Authenticated())
             {
                 var nul = line.IndexOf('\0');

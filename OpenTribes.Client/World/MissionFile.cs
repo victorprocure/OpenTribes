@@ -62,10 +62,10 @@ public sealed class MissionObject
     /// <returns>The descendants.</returns>
     public IEnumerable<MissionObject> Descendants()
     {
-        foreach (MissionObject c in Children)
+        foreach (var c in Children)
         {
             yield return c;
-            foreach (MissionObject d in c.Descendants())
+            foreach (var d in c.Descendants())
                 yield return d;
         }
     }
@@ -84,7 +84,7 @@ public static class MissionFile
         var roots = new List<MissionObject>();
         while (pos < tokens.Count)
         {
-            MissionObject? o = ReadObject(tokens, ref pos);
+            var o = ReadObject(tokens, ref pos);
             if (o == null)
                 ++pos;
             else
@@ -109,7 +109,7 @@ public static class MissionFile
         {
             if (t[p] is "instant" or "new")
             {
-                MissionObject? c = ReadObject(t, ref p);
+                var c = ReadObject(t, ref p);
                 if (c == null)
                     return null;
                 o.Children.Add(c);

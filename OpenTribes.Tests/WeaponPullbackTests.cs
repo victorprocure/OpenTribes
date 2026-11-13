@@ -9,11 +9,11 @@ public class WeaponPullbackTests
     [Fact]
     public void PullbackMovesOnlyMountPointZeroImages()
     {
-        Xf weapon = PlayerVisual.ImageLocal(0.25, 0.5, 0.125, 0, 0, 0, 0, -0.75);
+        var weapon = PlayerVisual.ImageLocal(0.25, 0.5, 0.125, 0, 0, 0, 0, -0.75);
         Assert.Equal(0.25, weapon.Px, 9);
         Assert.Equal(-0.25, weapon.Py, 9);
         Assert.Equal(0.125, weapon.Pz, 9);
-        Xf pack = PlayerVisual.ImageLocal(0.25, 0.5, 0.125, 0, 0, 0, 2, -0.75);
+        var pack = PlayerVisual.ImageLocal(0.25, 0.5, 0.125, 0, 0, 0, 2, -0.75);
         Assert.Equal(0.5, pack.Py, 9);
     }
 

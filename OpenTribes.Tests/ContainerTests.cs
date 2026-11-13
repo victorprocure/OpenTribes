@@ -22,7 +22,7 @@ public class ContainerTests
 
     private static Container.Entry TerrainEntry(Obj o)
     {
-        Container.Entry e = Entry(o, 0, 0, 0, 100, 100, 50, ObjectType.kTerrainType);
+        var e = Entry(o, 0, 0, 0, 100, 100, 50, ObjectType.kTerrainType);
         e.DatabaseKind = Container.Database.Terrain;
         e.ContainerMask = 0xffffffffu;
         e.VisibleDistance = 600;
@@ -83,7 +83,7 @@ public class ContainerTests
         c.Add(Entry(p, 10, 30, 10, 12, 32, 12));
         c.Add(Entry(q, 14, 10, 10, 16, 12, 12));
         c.Add(Entry(r, 80, 80, 10, 82, 82, 12)); // outside the new container
-        Container.Entry e = Entry(box, 5, 5, 5, 40, 40, 30, ObjectType.kInteriorType);
+        var e = Entry(box, 5, 5, 5, 40, 40, 30, ObjectType.kInteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         c.Add(e);
@@ -268,7 +268,7 @@ public class ContainerTests
     public void InteriorPvs()
     {
         Start();
-        InteriorGeometry? geo = TestGeometry();
+        var geo = TestGeometry();
         Assert.NotNull(geo);
         Assert.True(geo!.LeafAt(new Vec3(5, 0, 0)) == 44 && geo.LeafAt(new Vec3(-5, 0, 0)) == 43 && geo.LeafAt(new Vec3(20, 20, 0)) == 10);
         Assert.True(geo.VisibleLeaves(10).SequenceEqual(new[] { 44 }));
@@ -276,7 +276,7 @@ public class ContainerTests
         var c = new Container();
         Obj t = new("T"), box = new("B"), front = new("f"), behind = new("b"), s = new("s");
         c.Add(TerrainEntry(t));
-        Container.Entry e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
+        var e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         e.Geometry = geo;
@@ -336,11 +336,11 @@ public class ContainerTests
         Start();
         foreach ((var insideByte, var reaches) in new[] { ((byte)0, false), ((byte)0x80, true) })
         {
-            InteriorGeometry? geo = TestGeometry(0, insideByte);
+            var geo = TestGeometry(0, insideByte);
             Assert.NotNull(geo);
             var c = new Container();
             c.Add(TerrainEntry(new Obj("T")));
-            Container.Entry e = Entry(new Obj("B"), 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
+            var e = Entry(new Obj("B"), 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
             e.DatabaseKind = Container.Database.Interior;
             e.ContainerMask = 0xffffffffu;
             e.Geometry = geo;
@@ -364,7 +364,7 @@ public class ContainerTests
         var c = new Container();
         Obj terrain = new("t"), inside = new("i"), roof = new("r");
         c.Add(TerrainEntry(terrain));
-        Container.Entry e = Entry(inside, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.kInteriorType);
+        var e = Entry(inside, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.kInteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         c.Add(e);
@@ -439,7 +439,7 @@ public class ContainerTests
             {
                 float[] box = [Fpu.SubF(cx, 10), 40, 15, Fpu.AddF(cx, 10), 60, 35];
                 Container.PadInteriorBox(box);
-                Container.Entry e = Entry(obj, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.kInteriorType);
+                var e = Entry(obj, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.kInteriorType);
                 e.DatabaseKind = Container.Database.Interior;
                 e.ContainerMask = 0xffffffffu;
                 e.Geometry = g;
@@ -482,7 +482,7 @@ public class ContainerTests
     public void ViaLinkIsReportedOnlyForTheLinkedNeighbour()
     {
         Start();
-        InteriorGeometry g = TestGeometry(0, 0x10)!;
+        var g = TestGeometry(0, 0x10)!;
         g.LinkedInterior = true;
         var f = new LinkFixture(g, g);
         var via = new List<object>();
@@ -502,7 +502,7 @@ public class ContainerTests
         // which sees leaf 44). A linked interior returns only its neighbours' results, B none, so the query stops at the
         // start container and o is not scoped.
         {
-            InteriorGeometry g = TestGeometry(0, 0x10)!;
+            var g = TestGeometry(0, 0x10)!;
             g.LinkedInterior = true;
             var f = new LinkFixture(g, g);
             Assert.Equal("ab", f.Scope(new Vec3(35, 50, 25)));
@@ -516,7 +516,7 @@ public class ContainerTests
         }
         // Leaf 44 without face bits: no link is walked.
         {
-            InteriorGeometry g = TestGeometry(0, 0x08)!;
+            var g = TestGeometry(0, 0x08)!;
             g.LinkedInterior = true;
             var f = new LinkFixture(g, g);
             Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
@@ -524,7 +524,7 @@ public class ContainerTests
         // Camera in A's padded box but outside its instance box (local x 10.5, outside leaf 2 with face bit 0x40): the
         // near face 0x10 selects the link. B is turned so that the camera is in its leaf 44.
         {
-            InteriorGeometry g = TestGeometry(0x40, 0x08)!;
+            var g = TestGeometry(0x40, 0x08)!;
             g.LinkedInterior = true;
             var f = new LinkFixture(g, g, true);
             Assert.Equal("ab", f.Scope(new Vec3(40.5f, 50, 25)));
@@ -534,7 +534,7 @@ public class ContainerTests
         // Not linked: the walk runs too, the result is "camera leaf sees outside" or-ed with the links inside the box, so
         // the query goes on to o; B was visited through the link and is not scoped again.
         {
-            InteriorGeometry g = TestGeometry(0, 0x10)!;
+            var g = TestGeometry(0, 0x10)!;
             var f = new LinkFixture(g, g);
             Assert.Equal("abo", f.Scope(new Vec3(35, 50, 25)));
             Assert.Equal("abo", f.Scope(new Vec3(80, 80, 20)));
@@ -542,8 +542,8 @@ public class ContainerTests
         // The .dis link mask of either side can refuse the link (A 0x10 or B 0x80 removed).
         foreach (var maskA in new uint[] { 0xec, 0xfc })
         {
-            InteriorGeometry ga = TestGeometry(0, 0x10)!;
-            InteriorGeometry gb = TestGeometry(0, 0x10)!;
+            var ga = TestGeometry(0, 0x10)!;
+            var gb = TestGeometry(0, 0x10)!;
             ga.LinkedInterior = gb.LinkedInterior = true;
             ga.LinkableFaces = maskA;
             gb.LinkableFaces = maskA == 0xfc ? 0x7cu : 0xfcu;
@@ -558,7 +558,7 @@ public class ContainerTests
     public void MovedInterior()
     {
         Start();
-        InteriorGeometry g = TestGeometry(0, 0x10)!;
+        var g = TestGeometry(0, 0x10)!;
         g.LinkedInterior = true;
         var f = new LinkFixture(g, g);
         void MoveB(float cx, float cy)
@@ -639,11 +639,11 @@ public class ContainerTests
     public void RayInteriorDatabase()
     {
         Start();
-        InteriorGeometry? geo = TestGeometry();
+        var geo = TestGeometry();
         var c = new Container();
         Obj t = new("T"), box = new("B"), a = new("a"), b = new("b"), d = new("d");
         c.Add(TerrainEntry(t));
-        Container.Entry e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
+        var e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         e.Geometry = geo;
@@ -652,7 +652,7 @@ public class ContainerTests
         var seen = "";
         void AddCast(Obj o, float x0, float x1)
         {
-            Container.Entry en = Entry(o, x0, 20, 10, x1, 22, 12);
+            var en = Entry(o, x0, 20, 10, x1, 22, 12);
             var label = o.Label;
             en.Cast = (s, _, ref hit, ref n) =>
             {

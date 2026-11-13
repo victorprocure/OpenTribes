@@ -433,7 +433,7 @@ public sealed class InteriorGeometry
         var node = 0;
         while (node >= 0)
         {
-            BspNode n = mNodes[node];
+            var n = mNodes[node];
             node = Side(mPlanes[n.PlaneIndex], p) == 1 ? n.Front : n.Back;
         }
         return -(node + 1);
@@ -458,7 +458,7 @@ public sealed class InteriorGeometry
         var li = EmptyLeafIndex(leaf);
         if (li < 0)
             return output;
-        EmptyLeaf l = mEmptyLeaves[li];
+        var l = mEmptyLeaves[li];
         long pos = l.PvsOffset, end = pos + (l.PvsCount >> 1);
         if (end > mBits.Length)
             return output;
@@ -526,7 +526,7 @@ public sealed class InteriorGeometry
                 var vi = EmptyLeafIndex(n);
                 if (vi < 0)
                     continue;
-                EmptyLeaf l = mEmptyLeaves[vi];
+                var l = mEmptyLeaves[vi];
                 float dx = l.MaxX - l.MinX, dy = l.MaxY - l.MinY, dz = l.MaxZ - l.MinZ;
                 var radius = (float)Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
                 if (sphereVisible((l.MinX + l.MaxX) * 0.5f, (l.MinY + l.MaxY) * 0.5f, (l.MinZ + l.MaxZ) * 0.5f, radius))
@@ -535,7 +535,7 @@ public sealed class InteriorGeometry
         }
         else if (IsSolidLeaf(leaf) && leaf - 43 < mSolidLeaves.Count)
         {
-            SolidLeaf sl = mSolidLeaves[leaf - 43];
+            var sl = mSolidLeaves[leaf - 43];
             OrList(surfaceSet, sl.Offset, sl.Count);
             OrList(planeSet, sl.PlaneOffset, sl.PlaneCount);
         }
@@ -549,7 +549,7 @@ public sealed class InteriorGeometry
         {
             if ((surfaceSet[s >> 3] & (0x80 >> (s & 7))) == 0)
                 continue;
-            Surface sf = mSurfaces[s];
+            var sf = mSurfaces[s];
             int pi = sf.PlaneIndex;
             var inSet = (pi >> 3) < planeSet.Length && (planeSet[pi >> 3] & (0x80 >> (pi & 7))) != 0;
             result[s] = inSet != ((sf.Flags & 0x80) == 0);
@@ -576,7 +576,7 @@ public sealed class InteriorGeometry
         var li = EmptyLeafIndex(leaf);
         if (li < 0)
             return 0;
-        EmptyLeaf l = mEmptyLeaves[li];
+        var l = mEmptyLeaves[li];
         if ((l.PvsCount >> 1) == 0 || l.PvsOffset >= mBits.Length)
             return 0;
         return (byte)(mBits[l.PvsOffset] & 0xfc);
@@ -610,7 +610,7 @@ public sealed class InteriorGeometry
             }
             else
             {
-                Plane pl = mPlanes[lastPlane];
+                var pl = mPlanes[lastPlane];
                 n = new Vec3(pl.Nx, pl.Ny, pl.Nz);
                 if (Side(pl, b) != -1)
                     n = new Vec3(-n.X, -n.Y, -n.Z);
@@ -620,10 +620,10 @@ public sealed class InteriorGeometry
         }
         if (node >= mNodes.Count)
             return false;
-        BspNode nd = mNodes[node];
+        var nd = mNodes[node];
         if (nd.PlaneIndex >= mPlanes.Count)
             return false;
-        Plane plane = mPlanes[nd.PlaneIndex];
+        var plane = mPlanes[nd.PlaneIndex];
         var k = Side(plane, b) + (3 * Side(plane, a));
         switch (k)
         {
@@ -642,12 +642,12 @@ public sealed class InteriorGeometry
                 return Rec(nd.Back, lastPlane, a, b, out hit);
             case 2:
             {
-                Vec3 m = Split(plane, a, b);
+                var m = Split(plane, a, b);
                 return Rec(nd.Front, lastPlane, a, m, out hit) || Rec(nd.Back, nd.PlaneIndex, m, b, out hit);
             }
             default: // -2
             {
-                Vec3 m = Split(plane, a, b);
+                var m = Split(plane, a, b);
                 return Rec(nd.Back, lastPlane, a, m, out hit) || Rec(nd.Front, nd.PlaneIndex, m, b, out hit);
             }
         }
@@ -660,7 +660,7 @@ public sealed class InteriorGeometry
     /// <returns>True on a hit.</returns>
     public bool CastLine(Vec3 a, Vec3 b, ref Hit hit)
     {
-        if (!Rec(0, -1, a, b, out Hit h))
+        if (!Rec(0, -1, a, b, out var h))
             return false;
         hit = h;
         return true;
@@ -756,7 +756,7 @@ public sealed class InteriorGeometry
     {
         if (!IsSolidLeaf(leaf) || leaf - 43 >= mSolidLeaves.Count || plane < 0 || plane >= mPlanes.Count)
             return -1;
-        SolidLeaf l = mSolidLeaves[leaf - 43];
+        var l = mSolidLeaves[leaf - 43];
         long p = l.Offset, end = (long)l.Offset + l.Count;
         if (end > mBits.Length)
             end = mBits.Length;
@@ -781,8 +781,8 @@ public sealed class InteriorGeometry
                 var si = bas + bit;
                 if (si < 0 || si >= mSurfaces.Count || mSurfaces[(int)si].PlaneIndex != plane)
                     continue;
-                Surface sf = mSurfaces[(int)si];
-                Plane pl = mPlanes[plane];
+                var sf = mSurfaces[(int)si];
+                var pl = mPlanes[plane];
                 // N = plane normal, negated when planeFront (flags bit 7) is clear.
                 var front = (sf.Flags & 0x80) != 0;
                 N[0] = front ? pl.Nx : -pl.Nx;
@@ -812,7 +812,7 @@ public sealed class InteriorGeometry
     {
         if (!IsSolidLeaf(leaf) || leaf - 43 >= mSolidLeaves.Count)
             return -1;
-        SolidLeaf l = mSolidLeaves[leaf - 43];
+        var l = mSolidLeaves[leaf - 43];
         long p = l.Offset, end = (long)l.Offset + l.Count;
         if (end > mBits.Length)
             end = mBits.Length;
@@ -1072,7 +1072,7 @@ public sealed class InteriorLights
     /// <returns>The id of the first light with this name, -1 when none.</returns>
     public int FindByName(string name)
     {
-        foreach (Light l in mLights)
+        foreach (var l in mLights)
             if (l.Named && l.Name == name)
                 return l.Id;
         return -1;
@@ -1117,8 +1117,8 @@ public sealed class InteriorLights
         var idx = FindIndex(id);
         if (idx < 0 || state == mRun[idx].State)
             return;
-        Light l = mLights[idx];
-        ref Run run = ref mRun[idx];
+        var l = mLights[idx];
+        ref var run = ref mRun[idx];
         if (state < 0)
             state = 0;
         if (state > l.NumStates)
@@ -1129,7 +1129,7 @@ public sealed class InteriorLights
         var at = (long)l.FirstState + state;
         if (at < 0 || at >= mStates.Length)
             return;
-        StateRecord rec = mStates[at];
+        var rec = mStates[at];
         run.Time = rec.Time;
         run.Color = ((uint)((rec.Color[3] + 0x80) >> 8) << 24) | ((uint)((rec.Color[0] + 0x80) >> 8) << 16) |
                     ((uint)((rec.Color[1] + 0x80) >> 8) << 8) | (uint)((rec.Color[2] + 0x80) >> 8);
@@ -1143,7 +1143,7 @@ public sealed class InteriorLights
         var idx = FindIndex(id);
         if (idx < 0)
             return;
-        Light l = mLights[idx];
+        var l = mLights[idx];
         if (!(time >= 0)) // fcomp/sahf: below zero and NaN
             time = 0;
         if (time > l.Duration)
@@ -1155,8 +1155,8 @@ public sealed class InteriorLights
     // src/world/interior.cpp InteriorLights::animate: 0x00556b28.
     private void Animate(int index)
     {
-        Light l = mLights[index];
-        ref Run run = ref mRun[index];
+        var l = mLights[index];
+        ref var run = ref mRun[index];
         if ((l.Flags & 4) == 0)
         {
             // The state is the number of following records whose end time lies below the time.
@@ -1392,7 +1392,7 @@ public static class Interior
         var shape = new InteriorShapeFile();
         if (name.Length == 0 || !res.Read(name, out var dis) || !InteriorShapeFile.Parse(dis, shape))
             return false;
-        foreach (InteriorShapeFile.Lod lod in shape.Lods)
+        foreach (var lod in shape.Lods)
         {
             if (!res.Read(lod.Geometry, out var dig))
                 return false;
@@ -1442,10 +1442,10 @@ public static class Interior
             MaterialList.MaterialListTextures(dml, textures))
             foreach (var t in textures)
                 locks.Load(res, t);
-        foreach (InteriorShapeFile.Lod lod in shape.Lods)
+        foreach (var lod in shape.Lods)
             locks.Load(res, lod.Geometry);
         var lit = new List<ResourceManager.Entry>(); // mission-lit .dil of the LODs so far
-        foreach (InteriorShapeFile.Lod lod in shape.Lods)
+        foreach (var lod in shape.Lods)
         {
             if (lod.LightStateIndex >= shape.LodLights.Count)
                 continue;
@@ -1467,7 +1467,7 @@ public static class Interior
                 }
                 if (!ok)
                 {
-                    foreach (ResourceManager.Entry x in lit)
+                    foreach (var x in lit)
                         ResourceManager.Unlock(x);
                     lit.Clear();
                     missionLit = false;
@@ -1475,7 +1475,7 @@ public static class Interior
             }
             locks.Load(res, BaseLightingName(dil));
         }
-        foreach (ResourceManager.Entry x in lit)
+        foreach (var x in lit)
             locks.Adopt(x);
     }
 }

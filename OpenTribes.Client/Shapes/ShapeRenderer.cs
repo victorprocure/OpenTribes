@@ -92,9 +92,9 @@ public sealed class ShapeRenderer
     // not available to the port; its vectors point out of the faces, as checked on the disc launcher).
     private FrameData Frame(RsMesh mesh, int frame)
     {
-        if (mFrames.TryGetValue((mesh, frame), out FrameData? fd))
+        if (mFrames.TryGetValue((mesh, frame), out var fd))
             return fd;
-        RsFrame f = mesh.Frames[frame];
+        var f = mesh.Frames[frame];
         var count = mesh.VertsPerFrame > 0 ? mesh.VertsPerFrame : (frame + 1 < mesh.Frames.Length ? mesh.Frames[frame + 1].FirstVert - f.FirstVert : (mesh.Verts.Length / 4) - f.FirstVert);
         count = Math.Clamp(count, 0, Math.Max(0, (mesh.Verts.Length / 4) - f.FirstVert));
         fd = new FrameData { P = new float[count * 3], N = new float[count * 3] };
@@ -105,7 +105,7 @@ public sealed class ShapeRenderer
             fd.P[(k * 3) + 1] = (mesh.Verts[o + 1] * f.Sy) + f.Oy;
             fd.P[(k * 3) + 2] = (mesh.Verts[o + 2] * f.Sz) + f.Oz;
         }
-        foreach (RsFace fc in mesh.Faces)
+        foreach (var fc in mesh.Faces)
         {
             if (fc.V0 < 0 || fc.V1 < 0 || fc.V2 < 0 || fc.V0 >= count || fc.V1 >= count || fc.V2 >= count)
                 continue;
@@ -159,9 +159,9 @@ public sealed class ShapeRenderer
     /// <returns>The image, or null when nothing draws.</returns>
     public RenderImage? Build(RenderInstance inst, in Camera3D cam, ShapeDraw p)
     {
-        RenderShape sh = inst.Shape;
+        var sh = inst.Shape;
         // Every instance draws with the default transform of node 0 in front of its nodes (shapes-render.md 3.6 step 4).
-        Xf toWorld = p.NoRootTransform ? p.ToWorld : sh.RootTransform().Then(p.ToWorld);
+        var toWorld = p.NoRootTransform ? p.ToWorld : sh.RootTransform().Then(p.ToWorld);
         var detail = p.ForceDetail != -2 ? p.ForceDetail : DetailFor(sh, cam, toWorld, p.DetailScale);
         LastDetail = detail;
         if (detail < 0)
@@ -169,7 +169,7 @@ public sealed class ShapeRenderer
         inst.Animate(detail);
         var nodeMask = sh.NodesOfDetail(detail).Mask;
         var (ccx, ccy, ccz) = toWorld.Apply(sh.Cx, sh.Cy, sh.Cz);
-        LightSet.ShapeFrame lights = p.Light.ForShape(ccx, ccy, ccz, sh.Radius);
+        var lights = p.Light.ForShape(ccx, ccy, ccz, sh.Radius);
         var (_, depth, _) = cam.ToCamera(ccx, ccy, ccz);
         var dist = Math.Sqrt(((ccx - cam.X) * (ccx - cam.X)) + ((ccy - cam.Y) * (ccy - cam.Y)) + ((ccz - cam.Z) * (ccz - cam.Z)));
         // A shape whose bounding sphere (padded for moving parts) is wholly outside the view makes no image: nothing of it can
@@ -185,7 +185,7 @@ public sealed class ShapeRenderer
         }
         var haze = p.NoHaze ? 0 : (float)TerrainLod.ObjectHaze(dist, p.HazeStart, p.Visible);
         var img = new RenderImage { Label = p.Label.Length > 0 ? p.Label : sh.Name };
-        Dictionary<int, MatState> states = mStates;
+        var states = mStates;
         states.Clear();
         mUsed.Clear();
         var translucent = p.ForceTranslucent || p.Fade > 0;
@@ -194,15 +194,15 @@ public sealed class ShapeRenderer
         LastFaces = LastCulled = 0;
         for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
-            RsObject ob = sh.Objects[oi];
-            RsObjectState st = inst.Objects[oi];
+            var ob = sh.Objects[oi];
+            var st = inst.Objects[oi];
             if ((p.ObjectFilter != null && !p.ObjectFilter.Contains(oi)) || !(ob.Node >= 0 && ob.Node < nodeMask.Length && nodeMask[ob.Node]) || !st.Visible || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length)
                 continue;
-            RsMesh mesh = sh.Meshes[ob.Mesh];
+            var mesh = sh.Meshes[ob.Mesh];
             if (mesh.Faces.Length == 0 || mesh.Frames.Length == 0)
                 continue;
-            Xf ox = inst.ObjectTransform(oi).Then(toWorld);
-            FrameData fd = Frame(mesh, Math.Clamp(st.Frame, 0, mesh.Frames.Length - 1));
+            var ox = inst.ObjectTransform(oi).Then(toWorld);
+            var fd = Frame(mesh, Math.Clamp(st.Frame, 0, mesh.Frames.Length - 1));
             var nv = fd.P.Length / 3;
             if (mWp.Length < nv)
             {
@@ -212,7 +212,7 @@ public sealed class ShapeRenderer
                 mOut = new byte[nv * 2];
             }
             (double x, double y, double z)[] wp = mWp, wn = mWn;
-            (float r, float g, float b)?[] col = mCol;
+            var col = mCol;
             Array.Clear(col, 0, nv);
             for (var k = 0; k < nv; ++k)
             {
@@ -221,7 +221,7 @@ public sealed class ShapeRenderer
                 mOut[k] = ClipCode(cam, wp[k]);
             }
             var tvOffset = mesh.TexVertsPerFrame > 0 && mesh.TexVerts.Length / 2 >= (st.TextureFrame + 1) * mesh.TexVertsPerFrame ? st.TextureFrame * mesh.TexVertsPerFrame : 0;
-            foreach (RsFace f in mesh.Faces)
+            foreach (var f in mesh.Faces)
             {
                 ++LastFaces;
                 if (f.V0 < 0 || f.V1 < 0 || f.V2 < 0 || f.V0 >= nv || f.V1 >= nv || f.V2 >= nv)
@@ -247,8 +247,8 @@ public sealed class ShapeRenderer
                 mi += matBase;
                 if (mi < 0 || mi >= sh.Materials.Length)
                     continue;
-                RsMaterial m = sh.Materials[mi];
-                if (!states.TryGetValue(mi, out MatState ms))
+                var m = sh.Materials[mi];
+                if (!states.TryGetValue(mi, out var ms))
                 {
                     DrawState3D made = default;
                     mUsed.Add(mi);
@@ -266,7 +266,7 @@ public sealed class ShapeRenderer
                     if (blended)
                         translucent = true;
                 }
-                DrawState3D ds = ms.Ds;
+                var ds = ms.Ds;
                 if (ds.Texture == null && m.Type == 3)
                     continue;
                 float alpha = 1;
@@ -295,7 +295,7 @@ public sealed class ShapeRenderer
                     var l = Math.Sqrt((nx * nx) + (ny * ny) + (nz * nz));
                     faceCol = lights.At((x + b.x + c.x) / 3, (y + b.y + c.y) / 3, (z + b.z + c.z) / 3, l > 0 ? -nx / l : 0, l > 0 ? -ny / l : 0, l > 0 ? -nz / l : 1);
                 }
-                List<Vertex3D> list = mBatches[mi];
+                var list = mBatches[mi];
                 for (var k = 0; k < 3; ++k)
                 {
                     var vi = k == 0 ? f.V0 : k == 1 ? f.V1 : f.V2;
@@ -319,7 +319,7 @@ public sealed class ShapeRenderer
         }
         foreach (var mi in mUsed)
         {
-            if (!mBatches.TryGetValue(mi, out List<Vertex3D>? list))
+            if (!mBatches.TryGetValue(mi, out var list))
                 continue;
             if (list.Count > 0)
                 img.Batches.Add(new DrawBatch { Vertices = [.. list], State = states[mi].Ds });
@@ -360,11 +360,11 @@ public sealed class ShapeRenderer
     {
         blended = false;
         IGfxTexture? tex = null;
-        BlendMode kind = BlendMode.Translucent;
+        var kind = BlendMode.Translucent;
         var group = (m.Flags & 0x2000) != 0;
         if (m.Type == 3)
         {
-            TexEntry? te = mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed);
+            var te = mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed);
             if (te?.Texture == null)
             {
                 if (Logged.Add(sh.Name + ":" + m.Name))

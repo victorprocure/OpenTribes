@@ -39,7 +39,7 @@ public class GuiCommandPanelTests
 
     private static GuiControl Root(GuiControl child)
     {
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(child);
         return root;
     }
@@ -114,7 +114,7 @@ public class GuiCommandPanelTests
     [Fact]
     public void TeamRowsFollowTheCommandTree()
     {
-        IReadOnlyList<CommandTeamRow> rows = new ClientHudSource(Team()).CommandTeam;
+        var rows = new ClientHudSource(Team()).CommandTeam;
         Assert.Equal(new[] { "Boss", "Rec", "Dan", "Eve", "Solo" }, rows.Select(r => r.Name));
         Assert.Equal(new[] { 0, 1, 1, 2, 0 }, rows.Select(r => r.Depth));
         Assert.Equal(new[] { true, false, true, false, false }, rows.Select(r => r.HasChildren));

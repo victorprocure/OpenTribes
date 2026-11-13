@@ -31,7 +31,7 @@ public class PartDebrisTests
     {
         // box (-1, -0.5, -0.25)..(1, 0.5, 0.25): size (2, 1, 0.5), squared length 5.25. m_Point3F_lenf gives 2.3125 (bits >> 1 + 0x1fc00000), not 2.2913
         var m = Mesh((new byte[] { 0, 0, 0 }, new byte[] { 200, 100, 50 }, new[] { 0.01f, 0.01f, 0.01f }, new[] { -1f, -0.5f, -0.25f }));
-        PartBox b = PartDebris.Measure(m, 0);
+        var b = PartDebris.Measure(m, 0);
         Assert.Equal(1.15625f, b.Radius);
         Assert.NotEqual((float)(Math.Sqrt(5.25) * 0.5), b.Radius);
         Assert.InRange(Math.Abs(b.Cx) + Math.Abs(b.Cy) + Math.Abs(b.Cz), 0, 1e-6);   // a box symmetric about 0 (up to float rounding of the decode)
@@ -43,7 +43,7 @@ public class PartDebrisTests
     {
         var m = Mesh((new byte[] { 0, 0, 0 }, new byte[] { 200, 100, 50 }, new[] { 0.01f, 0.01f, 0.01f }, new[] { -1f, -0.5f, -0.25f }),
                      (new byte[] { 10, 20, 30 }, "n܂"u8.ToArray(), new[] { 0.02f, 0.01f, 0.05f }, new[] { 1f, 2f, 3f }));
-        PartBox b = PartDebris.Measure(m, 1);
+        var b = PartDebris.Measure(m, 1);
         Assert.Equal((1.2f, 2.2f, 4.5f), (b.MinX, b.MinY, b.MinZ));
         Assert.Equal((3.2f, 4.2f, 9.5f), (b.MaxX, b.MaxY, b.MaxZ), new BoxComparer());
         Assert.Equal(2.2f, b.Cx);

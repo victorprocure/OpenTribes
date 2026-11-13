@@ -162,7 +162,7 @@ public abstract class GuiColumnList : GuiList
                 break;
             if (y + rh <= p.Clip.Top)
                 continue;
-            GfxRect saved = p.Clip;
+            var saved = p.Clip;
             // 0053ccd8: a row is drawn clipped to its own rectangle, so its bottom grid line belongs to the next row.
             p.SetClip(saved.Intersect(new GfxRect(gx, y, gx + Math.Max(W, ColumnsWidth) - 1, y + rh - 1)));
             DrawRow(p, ox, gx, y, row, rh, off);
@@ -182,16 +182,16 @@ public abstract class GuiColumnList : GuiList
         var pw = Parent?.W ?? W;
         p.Fill(ox, oy, pw, hh, off ? HeaderFillOff : HeaderFill);
         var x = gx;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             if (!c.Visible)
                 continue;
             x += c.Width;
             p.Line(x, oy, x, oy + hh, off ? LineOff : LineOn);
         }
-        PftFont? font = HeadFont(off);
+        var font = HeadFont(off);
         x = gx + 1;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             if (!c.Visible)
                 continue;
@@ -213,11 +213,11 @@ public abstract class GuiColumnList : GuiList
     protected virtual void DrawRow(GuiPaint p, int ox, int gx, int y, int row, int rh, bool off)
     {
         var selected = row == Selected;
-        PftFont? font = off ? RowFontOff : selected ? RowFontSelected : HoverRow == row ? RowFontHover : RowFontNormal;
+        var font = off ? RowFontOff : selected ? RowFontSelected : HoverRow == row ? RowFontHover : RowFontNormal;
         var pw = Parent?.W ?? W;
         var line = RowLine(off);
         var x = gx;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             if (!c.Visible)
                 continue;
@@ -226,7 +226,7 @@ public abstract class GuiColumnList : GuiList
         }
         p.Line(x, y, x, y + rh - 1, line);
         x = gx;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             if (!c.Visible)
                 continue;
@@ -254,7 +254,7 @@ public abstract class GuiColumnList : GuiList
     {
         if (font == null)
             return;
-        PftFont? sh = shadow ? ShadowFont : null;
+        var sh = shadow ? ShadowFont : null;
         var fh = GuiPaint.FontHeight(font);
         var cy = Div2(h - fh) + y;
         var tw = GuiPaint.TextWidth(font, text);
@@ -396,7 +396,7 @@ public sealed class GuiFilterCtrl : GuiColumnList
     public override void Wake()
     {
         base.Wake();
-        for (GuiControl? c = Parent; c != null; c = c.Parent)
+        for (var c = Parent; c != null; c = c.Parent)
         {
             if (c is GuiBox box)
             {
@@ -481,7 +481,7 @@ public sealed class ServerColumns
     public bool IsPermutation()
     {
         var seen = new bool[Count];
-        foreach (Entry e in Entries)
+        foreach (var e in Entries)
         {
             if (e.Order < 0 || e.Order >= Count || seen[e.Order])
                 return false;
@@ -516,7 +516,7 @@ public sealed class ServerColumns
         var cur = e.Order;
         // The lookup by order is taken before any order changes (the original fills a table first).
         var byOrder = new Entry?[Count];
-        foreach (Entry x in Entries)
+        foreach (var x in Entries)
             if (x.Order is >= 0 and < Count)
                 byOrder[x.Order] = x;
         for (var o = target; o != cur; o -= step)
@@ -547,7 +547,7 @@ public sealed class GuiOptionColumns : GuiColumnList
     /// <inheritdoc/>
     protected override string? Cell(int dataIndex, int row)
     {
-        ServerColumns.Entry? e = Data.AtOrder(row);
+        var e = Data.AtOrder(row);
         if (e == null)
             return null;
         return dataIndex switch
@@ -569,21 +569,21 @@ public sealed class GuiOptionColumns : GuiColumnList
     /// <inheritdoc/>
     protected override void DrawRow(GuiPaint p, int ox, int gx, int y, int row, int rh, bool off)
     {
-        ServerColumns.Entry? e = Data.AtOrder(row);
+        var e = Data.AtOrder(row);
         var held = !off && mDrag != null && e == mDrag;
-        PftFont? font = off ? RowFontOff : held ? RowFontSelected : mDrag == null && HoverRow == row ? RowFontHover : RowFontNormal;
-        PftFont? dispFont = !off && mToggle != null && e == mToggle ? RowFontSelected : font;
+        var font = off ? RowFontOff : held ? RowFontSelected : mDrag == null && HoverRow == row ? RowFontHover : RowFontNormal;
+        var dispFont = !off && mToggle != null && e == mToggle ? RowFontSelected : font;
         var pw = Parent?.W ?? W;
         var line = RowLine(off);
         var x = gx;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             p.Line(x, y, x, y + rh - 1, line);
             x += c.Width;
         }
         p.Line(x, y, x, y + rh - 1, line);
         x = gx;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             if (Cell(c.DataIndex, row) is string t)
                 DrawCellText(p, c.DataIndex == 2 ? dispFont : font, true, false, c.Width - 4, rh, x + 2, y - 2, t);
@@ -604,7 +604,7 @@ public sealed class GuiOptionColumns : GuiColumnList
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
         if (ly < HeaderH || Selected < 0)
             return r;
-        ServerColumns.Entry? hit = Data.AtOrder(Selected);
+        var hit = Data.AtOrder(Selected);
         if (hit == null)
             return r;
         if (lx >= 0 && lx <= sColumns[0].Width)
@@ -755,7 +755,7 @@ public sealed class GuiServerList : GuiColumnList
     /// <summary>Marks every row as not answered yet and makes failures drop rows again (REFRESH ALL, 004c774c).</summary>
     public void MarkAllUnknown()
     {
-        foreach (Server s in mServers)
+        foreach (var s in mServers)
         {
             s.Ping = 9999;
             s.State = StateUnknown;
@@ -782,7 +782,7 @@ public sealed class GuiServerList : GuiColumnList
         KeepFailed = masterError;
         var ask = new List<Server>();
         var drop = new List<Server>();
-        foreach (Server s in mServers)
+        foreach (var s in mServers)
         {
             if (s.State is not StateUnknown and not StateQuerying)
                 continue;
@@ -799,7 +799,7 @@ public sealed class GuiServerList : GuiColumnList
                 ask.Add(s);
             }
         }
-        foreach (Server s in drop)
+        foreach (var s in drop)
             RemoveServer(s);
         Requery = false;
         return ask;
@@ -835,7 +835,7 @@ public sealed class GuiServerList : GuiColumnList
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("//-----------------------------------\n//\n// Database of GAME servers\n//\n//-----------------------------------\n\n");
-        foreach (Server s in mServers)
+        foreach (var s in mServers)
             sb.Append("addGameServer(\"").Append(s.Address).Append("\", \"").Append(s.Name).Append("\", \"").Append(s.Version)
               .Append("\", \"").Append(s.Ping.ToString(CultureInfo.InvariantCulture)).Append("\", \"")
               .Append(s.Favorite ? "TRUE" : "FALSE").Append("\", \"").Append(s.ModList).Append("\", \"").Append(s.Mission)
@@ -870,7 +870,7 @@ public sealed class GuiServerList : GuiColumnList
         if (y < 0 || y >= HeaderH)
             return CursorHand;
         var edge = 0;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             if (!c.Visible)
                 continue;
@@ -894,7 +894,7 @@ public sealed class GuiServerList : GuiColumnList
         if (ms < 500 || y < 0 || y >= HeaderH)
             return 0;
         var edge = 0;
-        foreach (ListColumn c in Columns)
+        foreach (var c in Columns)
         {
             if (!c.Visible)
                 continue;
@@ -980,7 +980,7 @@ public sealed class GuiServerList : GuiColumnList
     {
         if (row < 0 || row >= mServers.Count)
             return null;
-        Server s = mServers[row];
+        var s = mServers[row];
         var inv = CultureInfo.InvariantCulture;
         return dataIndex switch
         {
@@ -1006,10 +1006,10 @@ public sealed class GuiServerList : GuiColumnList
         // A disabled or dimmed list (a modal dialog above it) shows no icons.
         if (Disabled)
             return true;
-        Server s = mServers[row];
+        var s = mServers[row];
         void Put(string name, ref int px)
         {
-            PbmpBitmap? b = Host.BitmapByName(name);
+            var b = Host.BitmapByName(name);
             if (b == null)
                 return;
             p.Bitmap(b, px, y + Div2(rh - b.Height) + 1);

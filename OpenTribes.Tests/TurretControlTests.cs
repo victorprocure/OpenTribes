@@ -47,9 +47,9 @@ public sealed class TurretControlTests
     public void ControlStateOfATurretIsRead()
     {
         Numbers.EnterScriptFpuMode();
-        ClientWorld cw = World();
+        var cw = World();
         Block(cw, 1.5f, -0.25f, 2, true, 3, 77.5f);
-        ClientPsc psc = cw.Psc;
+        var psc = cw.Psc;
         Assert.Equal("Turret", psc.ControlClass);
         Assert.Equal(kGhost, psc.ControlGhost);
         Assert.Equal(1.5, Convert.ToDouble(psc.ControlState["aimRot"]));
@@ -75,11 +75,11 @@ public sealed class TurretControlTests
     public void BufferedMovesReplayThroughTheAimStep()
     {
         Numbers.EnterScriptFpuMode();
-        ClientWorld cw = World();
+        var cw = World();
         var p = new TurretAimParams(2.0f, 1.0f, false, -0.5f, 0.5f);
         // Three moves: the first tick is at ((receive - 1) & ~31) - 2 * 32.
         var pred = Controlled(cw, 1.0f, 0.0f, 3, p, 3, 3200, _ => ClientPrediction.Quantize(new Move { Turn = 0.25f, Pitch = 0.125f }));
-        TurretControl t = pred.Turret;
+        var t = pred.Turret;
         Assert.True(t.Active);
         Assert.Equal(3104u, t.SimTime);
         Assert.Equal(3, pred.AdvanceTurret(cw.Psc, 3200));
@@ -95,7 +95,7 @@ public sealed class TurretControlTests
     public void OnlyStateThreeFollowsTheMoves()
     {
         Numbers.EnterScriptFpuMode();
-        ClientWorld cw = World();
+        var cw = World();
         var p = new TurretAimParams(2.0f, 1.0f, false, -0.5f, 0.5f);
         var pred = Controlled(cw, 1.0f, 0.1f, 2, p, 2, 3200, _ => ClientPrediction.Quantize(new Move { Turn = 1.0f, Pitch = 1.0f }));
         pred.AdvanceTurret(cw.Psc, 3200);
@@ -107,7 +107,7 @@ public sealed class TurretControlTests
     public void ElevationStaysInTheLimitsAndRotationWraps()
     {
         Numbers.EnterScriptFpuMode();
-        ClientWorld cw = World();
+        var cw = World();
         var p = new TurretAimParams(40.0f, 1.0f, false, -0.5f, 0.5f);
         var pred = Controlled(cw, 6.2f, 0.45f, 3, p, 1, 3200, _ => ClientPrediction.Quantize(new Move { Turn = 1.0f, Pitch = 1.0f }));
         pred.AdvanceTurret(cw.Psc, 3200);
@@ -131,7 +131,7 @@ public sealed class TurretControlTests
     public void ReleaseOnAnotherControlObject()
     {
         Numbers.EnterScriptFpuMode();
-        ClientWorld cw = World();
+        var cw = World();
         var p = new TurretAimParams(2.0f, 1.0f, false, -0.5f, 0.5f);
         var pred = Controlled(cw, 1.0f, 0.0f, 3, p, 1, 3200, _ => new Move());
         Assert.True(pred.Turret.Active);
@@ -156,8 +156,8 @@ public sealed class TurretControlTests
     public void CameraWithoutEyeNodeIsTheObjectTransform()
     {
         Numbers.EnterScriptFpuMode();
-        Transform obj = Make(0, 0, 0.7f, 5, 6, 7);
-        Transform t = TurretCamera.Compute(obj, null, 1.0f, 0.3f, 3f, null, null);
+        var obj = Make(0, 0, 0.7f, 5, 6, 7);
+        var t = TurretCamera.Compute(obj, null, 1.0f, 0.3f, 3f, null, null);
         for (var i = 0; i < 9; ++i)
             Assert.Equal(obj.M[i], t.M[i]);
         Assert.Equal(7f, t.P[2]);
@@ -167,10 +167,10 @@ public sealed class TurretControlTests
     public void CameraIsTheAimEulerAtTheEyeNodeTimesTheObject()
     {
         Numbers.EnterScriptFpuMode();
-        Transform obj = Make(0, 0, 0, 10, 20, 30);
-        Transform node = Make(0.9f, 0.9f, 0.9f, 0, 0, 2);          // only the position of the node is used
+        var obj = Make(0, 0, 0, 10, 20, 30);
+        var node = Make(0.9f, 0.9f, 0.9f, 0, 0, 2);          // only the position of the node is used
         float rot = (float)(Math.PI / 2), elev = 0.4f;
-        Transform t = TurretCamera.Compute(obj, node, rot, elev, 0f, null, null);
+        var t = TurretCamera.Compute(obj, node, rot, elev, 0f, null, null);
         Assert.Equal(10f, t.P[0], 4);
         Assert.Equal(20f, t.P[1], 4);
         Assert.Equal(32f, t.P[2], 4);
@@ -185,13 +185,13 @@ public sealed class TurretControlTests
     public void CameraMovesBackByOnePointThreeTimesTheDistance()
     {
         Numbers.EnterScriptFpuMode();
-        Transform obj = Make(0, 0, 0, 0, 0, 10);
-        Transform t = TurretCamera.Compute(obj, Make(0, 0, 0, 0, 0, 0), 0f, 0f, 2f, null, null);
+        var obj = Make(0, 0, 0, 0, 0, 10);
+        var t = TurretCamera.Compute(obj, Make(0, 0, 0, 0, 0, 0), 0f, 0f, 2f, null, null);
         // forward is +y: back by 2.6 along the forward row, no pitch or roll scaling
         Assert.Equal(-2.6f, t.P[1], 3);
         Assert.Equal(10f, t.P[2], 3);
         var e = new float[3];
-        Transform tilted = TurretCamera.Compute(obj, Make(0, 0, 0, 0, 0, 0), 0f, 0.5f, 2f, null, null);
+        var tilted = TurretCamera.Compute(obj, Make(0, 0, 0, 0, 0, 0), 0f, 0.5f, 2f, null, null);
         MissionTransform.MatrixToEuler(tilted, e);
         Assert.Equal(0.5f, e[0], 4);
     }

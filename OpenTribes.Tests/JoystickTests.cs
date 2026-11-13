@@ -113,7 +113,7 @@ public sealed class JoystickTests
     private static (InputDispatcher D, Sink S) StockJoystickMap()
     {
         var i = new Interpreter();
-        ClientState s = Builtins.RegisterBuiltins(i, null, ".");
+        var s = Builtins.RegisterBuiltins(i, null, ".");
         i.SetOutput(_ => { });
         // The two movement lines of the stock config\joystick.cs.
         i.Evaluate("newActionMap(\"playMap.sae\");" +
@@ -176,7 +176,7 @@ public sealed class JoystickTests
     public void PovEventsKindIsTen()
     {
         var i = new Interpreter();
-        ClientState s = Builtins.RegisterBuiltins(i, null, ".");
+        var s = Builtins.RegisterBuiltins(i, null, ".");
         i.SetOutput(_ => { });
         i.Evaluate("newActionMap(\"p.sae\"); bindAction(joystick0, xpov0, TO, 220010);");
         var sink = new Sink();

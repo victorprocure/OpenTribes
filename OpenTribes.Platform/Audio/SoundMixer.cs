@@ -103,7 +103,7 @@ public sealed class SoundMixer
         output[..(frames * 2)].Clear();
         lock (mLock)
         {
-            foreach (MixVoice v in mVoices)
+            foreach (var v in mVoices)
                 if (v.Active)
                     MixOne(v, output, frames);
             mVoices.RemoveAll(v => !v.Active);
@@ -116,7 +116,7 @@ public sealed class SoundMixer
 
     private void MixOne(MixVoice v, Span<float> o, int frames)
     {
-        WavData w = v.Wave;
+        var w = v.Wave;
         var step = (double)w.Rate / DeviceRate;
         var s = w.Samples;
         var ch = w.Channels;

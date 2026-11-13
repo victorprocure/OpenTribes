@@ -14,7 +14,7 @@ public static class GuiCensus
     public static List<string> GuiNames(ResourceManager res)
     {
         var names = new List<string>();
-        for (ResourceManager.Entry? e = res.FindNext("gui\\*.gui", null, out var name); e != null; e = res.FindNext("gui\\*.gui", e, out name))
+        for (var e = res.FindNext("gui\\*.gui", null, out var name); e != null; e = res.FindNext("gui\\*.gui", e, out name))
             names.Add(name);
         names.Sort(StringComparer.OrdinalIgnoreCase);
         return names;
@@ -26,8 +26,8 @@ public static class GuiCensus
     /// <returns>The process exit code.</returns>
     public static int List(string root, string pattern)
     {
-        ResourceManager res = GfxAssets.Mount(root, out _);
-        for (ResourceManager.Entry? e = res.FindNext(pattern, null, out var name); e != null; e = res.FindNext(pattern, e, out name))
+        var res = GfxAssets.Mount(root, out _);
+        for (var e = res.FindNext(pattern, null, out var name); e != null; e = res.FindNext(pattern, e, out name))
             Console.WriteLine(name);
         return 0;
     }
@@ -38,10 +38,10 @@ public static class GuiCensus
     /// <returns>The process exit code.</returns>
     public static int Tree(string root, string name)
     {
-        ResourceManager res = GfxAssets.Mount(root, out _);
+        var res = GfxAssets.Mount(root, out _);
         if (!GfxAssets.Read(res, name.Contains('.') ? name : name + ".gui", out var data))
             return 1;
-        GuiControl c = GuiLoader.Load(data, out var error);
+        var c = GuiLoader.Load(data, out var error);
         if (c == null)
         {
             Console.WriteLine(error);
@@ -51,7 +51,7 @@ public static class GuiCensus
         {
             var f = string.Join(" ", k.F.Select(kv => $"{kv.Key}={kv.Value}"));
             Console.WriteLine($"{new string(' ', depth * 2)}{k.ClassName} {k.Name} id={k.Id} ({k.X},{k.Y} {k.W}x{k.H}) fl={k.Flags:x} h/v={k.HSizing}/{k.VSizing} cmd='{k.Command}' var='{k.ConsoleVar}' {f}");
-            foreach (GuiControl d in k.Children)
+            foreach (var d in k.Children)
                 Dump(d, depth + 1);
         }
         Dump(c, 0);
@@ -63,7 +63,7 @@ public static class GuiCensus
     /// <returns>The process exit code.</returns>
     public static int Run(string root)
     {
-        ResourceManager res = GfxAssets.Mount(root, out _);
+        var res = GfxAssets.Mount(root, out _);
         var ok = new List<string>();
         var failed = new List<string>();
         var objects = 0;
@@ -75,14 +75,14 @@ public static class GuiCensus
                 failed.Add(name + " (unreadable)");
                 continue;
             }
-            GuiControl c = GuiLoader.Load(data, out var error);
+            var c = GuiLoader.Load(data, out var error);
             if (c == null)
             {
                 failed.Add($"{name}: {error}");
                 continue;
             }
             ok.Add(name);
-            foreach (GuiControl d in c.Descendants())
+            foreach (var d in c.Descendants())
             {
                 ++objects;
                 classes[d.ClassName] = classes.GetValueOrDefault(d.ClassName) + 1;

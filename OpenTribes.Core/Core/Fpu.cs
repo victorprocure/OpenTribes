@@ -302,8 +302,8 @@ public static class Fpu
         else
             mant |= 1L << 52;
         exp -= 1075;
-        BigInteger lhs = mant * BigInteger.Pow(10, k);
-        BigInteger rhs = num;
+        var lhs = mant * BigInteger.Pow(10, k);
+        var rhs = num;
         if (exp >= 0)
             lhs <<= exp;
         else

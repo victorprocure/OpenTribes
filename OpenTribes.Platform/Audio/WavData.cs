@@ -28,7 +28,7 @@ public sealed class WavData
             return this;
         lock (mRates)
         {
-            if (!mRates.TryGetValue((rate, loop), out WavData? w))
+            if (!mRates.TryGetValue((rate, loop), out var w))
                 mRates[(rate, loop)] = w = Resample(rate, loop);
             return w;
         }
@@ -112,7 +112,7 @@ public sealed class WavData
                 var bytesPerFrame = channels * bits / 8;
                 var frames = avail / bytesPerFrame;
                 var s = new float[frames * channels];
-                ReadOnlySpan<byte> p = d.Slice(body, frames * bytesPerFrame);
+                var p = d.Slice(body, frames * bytesPerFrame);
                 if (bits == 8)
                     for (var i = 0; i < s.Length; ++i)
                         s[i] = (p[i] - 128) / 128f;

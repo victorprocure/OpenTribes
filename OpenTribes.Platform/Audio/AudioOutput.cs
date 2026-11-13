@@ -59,7 +59,7 @@ public sealed unsafe class AudioOutput : IDisposable
     [UnmanagedCallersOnly]
     private static void Callback(IntPtr userdata, IntPtr stream, int additional, int total)
     {
-        AudioOutput? o = sActive;
+        var o = sActive;
         if (o == null || o.Mixer == null)
             return;
         var frames = additional / 8;

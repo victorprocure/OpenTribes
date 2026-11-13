@@ -153,7 +153,7 @@ public sealed class SimConsole : IObjectInterface
         mServer = new SimManager(mStrings);
         mInstantGroup = null;
         mCurrent = null;
-        SimManager m = mServer;
+        var m = mServer;
         m.Print = line => mIn.Print(1, line);
         m.SetConsoleHandler((target, text) =>
         {
@@ -181,10 +181,10 @@ public sealed class SimConsole : IObjectInterface
         mTick = (uint)(long)Mul(mClock, 1000.0) & ~31u;
         mTickBase = mTick;
         SimSet? timers = null;
-        foreach (Fixed f in fixedObjects)
+        foreach (var f in fixedObjects)
         {
             SimObject obj;
-            SimObject? made = f.Id == 720 ? SimClasses.CreateObject("SensorManager", mCtx) : null;
+            var made = f.Id == 720 ? SimClasses.CreateObject("SensorManager", mCtx) : null;
             if (f.Id == 12)
                 obj = timers = new SimTimerSet(12, 0.03f); // 0050a818: interval 0.03 s
             else if (made != null)
@@ -200,7 +200,7 @@ public sealed class SimConsole : IObjectInterface
                 timers!.AddObject(obj); // listObjects(12): the SensorManager
         }
         // listObjects(25) starts with the action handler.
-        SimObject? handler = m.FindById(1);
+        var handler = m.FindById(1);
         if (handler != null)
             m.FindById(25)?.AsSet()?.AddObject(handler);
         mCtx.ServerCreated?.Invoke(m);
@@ -246,7 +246,7 @@ public sealed class SimConsole : IObjectInterface
     {
         if (mServer == null)
             return 0;
-        SimManager m = mServer;
+        var m = mServer;
         var target = (uint)(long)Mul(mClock, 1000.0) & ~31u;
         ReadOnlySpan<int> kTickSets = [718, 719, 727];
         var ticks = 0;
@@ -260,7 +260,7 @@ public sealed class SimConsole : IObjectInterface
             m.AdvanceTo(Store(Mul(unchecked(mTick - mTickBase), 0.001)));
             foreach (var id in kTickSets)
             {
-                SimSet? set = m.FindById(id)?.AsSet();
+                var set = m.FindById(id)?.AsSet();
                 if (set == null)
                     continue;
                 // Index loop over the live list (TK4): additions run in the same pass, a removal moves the last member
@@ -332,7 +332,7 @@ public sealed class SimConsole : IObjectInterface
             ++mSkipDepth;
             return;
         }
-        SimObject? raw = SimClasses.CreateObject(className, mCtx);
+        var raw = SimClasses.CreateObject(className, mCtx);
         if (raw == null)
         {
             // The original crashes on an unknown class in an instant (IN8); skip the subtree (D11).
@@ -346,7 +346,7 @@ public sealed class SimConsole : IObjectInterface
             mPendingName = name;
             return;
         }
-        SimGroup? parent = mCurrent.AsGroup();
+        var parent = mCurrent.AsGroup();
         if (parent == null)
         {
             raw.Destroy(); // nested instant under a non-group crashes the original (IN9, D11)
@@ -373,7 +373,7 @@ public sealed class SimConsole : IObjectInterface
             mCurrent = mCurrent.Group();
             return;
         }
-        SimObject top = mCurrent;
+        var top = mCurrent;
         mCurrent = null;
         var name = mPendingName.Length == 0 ? null : mStrings.Intern(mPendingName);
         if (mInstantGroup != null)
@@ -422,14 +422,14 @@ public sealed class SimConsole : IObjectInterface
     /// <returns>False when neither an object nor a block is found, or the block field cannot be read.</returns>
     public bool GetField(string obj, string field, string index, out string output)
     {
-        SimObject? o = mServer?.Find(obj);
+        var o = mServer?.Find(obj);
         if (o != null)
         {
             output = o.DataField(mStrings.Intern(field + index)) ?? "";
             return true;
         }
         output = "";
-        DataBlockManager.Block? block = mDataBlocks.Find(obj);
+        var block = mDataBlocks.Find(obj);
         return block != null && mDataBlocks.GetField(block, field, index, out output);
     }
 
@@ -441,7 +441,7 @@ public sealed class SimConsole : IObjectInterface
     public void SetField(string obj, string field, IReadOnlyList<string> values, string index)
     {
         var first = values.Count == 0 ? "" : values[0];
-        SimObject? o = mServer?.Find(obj);
+        var o = mServer?.Find(obj);
         if (o != null)
         {
             o.SetDataField(mStrings.Intern(field + index), first);
@@ -529,9 +529,9 @@ public sealed class SimConsole : IObjectInterface
         // not a SimVolume reads a null pointer there (a SimSet prints "(null)").
         Cmd("listVolumes", _ =>
         {
-            SimSet? set = Focus()?.FindById(2)?.AsSet();
+            var set = Focus()?.FindById(2)?.AsSet();
             if (set != null)
-                foreach (SimObject m in set.Members())
+                foreach (var m in set.Members())
                 {
                     var file = SimClasses.SimVolumeInfo(m, out var f, out var _) ? f : "(null)";
                     mIn.Print(1, "   \"" + (m.Name() ?? "") + "\": \"" + file + "\"");
@@ -546,10 +546,10 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "newObject: objectName className");
                 return "0";
             }
-            SimManager? focus = Focus();
+            var focus = Focus();
             if (focus == null)
                 return "0";
-            SimObject? raw = SimClasses.CreateObject(a[2], mCtx);
+            var raw = SimClasses.CreateObject(a[2], mCtx);
             if (raw == null)
             {
                 mIn.Print(1, "newObject: persistent create failed (" + a[2] + ")");
@@ -581,7 +581,7 @@ public sealed class SimConsole : IObjectInterface
             }
             for (var i = 1; i < a.Length; ++i)
             {
-                SimObject? obj = Focus()?.Find(a[i]);
+                var obj = Focus()?.Find(a[i]);
                 if (obj != null && obj != Focus())
                 {
                     Focus()!.DeleteObject(obj);
@@ -605,19 +605,19 @@ public sealed class SimConsole : IObjectInterface
         });
         Cmd("listObjects", a =>
         {
-            SimObject? obj = a.Length >= 2 ? Focus()?.Find(a[1]) : Focus();
+            var obj = a.Length >= 2 ? Focus()?.Find(a[1]) : Focus();
             if (obj == null)
             {
                 mIn.Print(1, "listObjects: Could not find object");
                 return yes;
             }
-            SimSet? set = obj.AsSet();
+            var set = obj.AsSet();
             if (set == null)
             {
                 mIn.Print(1, "listObjects: Object is not a set");
                 return yes;
             }
-            foreach (SimObject m in set.Members())
+            foreach (var m in set.Members())
                 mIn.Print(1, ListLine(m));
             return yes;
         });
@@ -628,13 +628,13 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "addToSet: setName [objectName] ...");
                 return no;
             }
-            SimObject? target = Focus()?.Find(a[1]);
+            var target = Focus()?.Find(a[1]);
             if (target == null)
             {
                 mIn.Print(1, "addToSet: Set \"" + a[1] + "\" does not exist");
                 return no;
             }
-            SimSet? set = target.AsSet();
+            var set = target.AsSet();
             if (set == null)
             {
                 mIn.Print(1, "addToSet: Object \"" + a[1] + "\" is not a set");
@@ -643,7 +643,7 @@ public sealed class SimConsole : IObjectInterface
             var error = false;
             for (var i = 2; i < a.Length; ++i)
             {
-                SimObject? obj = Focus()!.Find(a[i]);
+                var obj = Focus()!.Find(a[i]);
                 if (obj == null || obj == Focus())
                 {
                     mIn.Print(1, "addToSet: Object \"" + a[i] + "\" doesn't exist");
@@ -661,7 +661,7 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "renameObject: objectName newObjectName");
                 return no;
             }
-            SimObject? obj = Focus()?.Find(a[1]);
+            var obj = Focus()?.Find(a[1]);
             if (obj == null)
             {
                 mIn.Print(1, "renameObject: object does not exist '" + a[1] + "'.");
@@ -678,7 +678,7 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "GetGroup( object );");
                 return yes; // usage falls through to the shared True exit
             }
-            SimObject? obj = Focus()?.Find(a[1]);
+            var obj = Focus()?.Find(a[1]);
             if (obj == null || obj.Group() == null)
                 return no;
             return Numbers.FormatInt(obj.Group() == Focus() ? Focus()!.ManagerId() : obj.Group()!.Id());
@@ -690,10 +690,10 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "IsMember( set/group, object );");
                 return yes;
             }
-            SimSet? set = Focus()?.Find(a[1])?.AsSet();
+            var set = Focus()?.Find(a[1])?.AsSet();
             if (set == null)
                 return no;
-            foreach (SimObject m in set.Members())
+            foreach (var m in set.Members())
                 if (Matches(m, a[2], mStrings))
                     return yes;
             return no;
@@ -706,10 +706,10 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "GetNextObject( set/group, 0 );  // to retrieve first object in a set");
                 return "True";
             }
-            SimSet? set = Focus()?.Find(a[1])?.AsSet();
+            var set = Focus()?.Find(a[1])?.AsSet();
             if (set == null)
                 return no;
-            IReadOnlyList<SimObject> m = set.Members();
+            var m = set.Members();
             for (var i = 0; i < m.Count; ++i)
                 if (Matches(m[i], a[2], mStrings))
                     return i + 1 < m.Count ? Numbers.FormatInt(m[i + 1].Id()) : "0";
@@ -722,7 +722,7 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "setObjectId: objectName newObjectId");
                 return no;
             }
-            SimObject? obj = Focus()?.Find(a[1]);
+            var obj = Focus()?.Find(a[1]);
             if (obj == null || obj == Focus())
             {
                 mIn.Print(1, "setObjectId: object does not exist '" + a[1] + "'.");
@@ -738,14 +738,14 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "wrong argcount to namToID(name)");
                 return "-1";
             }
-            SimObject? obj = mServer?.Find(a[1]);
+            var obj = mServer?.Find(a[1]);
             return obj != null && obj != mServer ? Numbers.FormatInt(obj.Id()) : "-1";
         });
         Cmd("setInstantGroup", a =>
         {
             if (a.Length != 2 || Focus() == null)
                 return no;
-            SimGroup? g = Focus()!.Find(a[1])?.AsGroup();
+            var g = Focus()!.Find(a[1])?.AsGroup();
             if (g == null)
                 return no;
             mInstantGroup = g == Focus() ? null : g;
@@ -766,13 +766,13 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "schedule(statement, deltaTime, <object>);");
                 return no;
             }
-            SimObject? scheduler = Focus()?.FindById(43);
+            var scheduler = Focus()?.FindById(43);
             if (scheduler == null)
             {
                 mIn.Print(1, "schedule: scheduler is not running");
                 return no;
             }
-            SimObject? dest = a.Length == 3 ? scheduler : Focus()!.Find(a[3]);
+            var dest = a.Length == 3 ? scheduler : Focus()!.Find(a[3]);
             if (dest == null)
                 return no;
             var parsed = Numbers.BorlandAtof(a[2]);
@@ -811,7 +811,7 @@ public sealed class SimConsole : IObjectInterface
                 mIn.Print(1, "GetPathof( filename );");
                 return "True";
             }
-            ResourceManager.Entry? e = mCtx.Resources?.Find(a[1]);
+            var e = mCtx.Resources?.Find(a[1]);
             return e != null ? e.FilePath : "";
         });
     }

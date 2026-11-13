@@ -89,7 +89,7 @@ public sealed class ImageStateMachine
         mInst = inst;
         if (inst == null)
             return;
-        RenderShape sh = inst.Shape;
+        var sh = inst.Shape;
         mSeqActivation = sh.FindSequence("activation");
         mSeqFire = sh.FindSequence("fire");
         mSeqReload = sh.FindSequence("reload");
@@ -107,7 +107,7 @@ public sealed class ImageStateMachine
 
     private RenderThread Make(int seq, double scale)
     {
-        RenderThread t = mInst!.AddThread(seq, 0, mInst.Shape.Sequences[seq].Priority);
+        var t = mInst!.AddThread(seq, 0, mInst.Shape.Sequences[seq].Priority);
         t.TimeScale = scale;
         return t;
     }

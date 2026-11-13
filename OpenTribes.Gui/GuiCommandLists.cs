@@ -59,7 +59,7 @@ public abstract class GuiCommandObjectList : GuiList
     {
         Rows = Host?.Hud is IHudSource hud ? Source(hud) : Array.Empty<CommandListRow>();
         Entries.Clear();
-        foreach (CommandListRow r in Rows)
+        foreach (var r in Rows)
             Entries.Add((r.Name, r.Slot));
         base.PreRender();
     }
@@ -92,7 +92,7 @@ public abstract class GuiCommandObjectList : GuiList
     /// <remarks>Follows 004a97b0 and 004aa4b4. The label of the row goes to $CommandTargetName (not $CommandTarget: only the team list sets that), the order goes to the slot and the cursor returns to select. A click outside the rows does nothing.</remarks>
     protected bool OrderClick(GuiEvent e)
     {
-        GuiCommandMap? map = Map;
+        var map = Map;
         if (!Active || map is not { OrderMode: 1 })
             return false;
         var (col, row) = CellAt(e);
@@ -117,7 +117,7 @@ public abstract class GuiCommandObjectList : GuiList
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        GuiCommandMap? map = Map;
+        var map = Map;
         var slots = Host?.Hud?.CommandSlotTable;
         if (Host == null || map == null || slots == null)
             return;
@@ -126,7 +126,7 @@ public abstract class GuiCommandObjectList : GuiList
         var rowH = RowHeight;
         for (var i = 0; i < Rows.Count; ++i)
         {
-            CommandListRow r = Rows[i];
+            var r = Rows[i];
             if (r.Slot < 0 || r.Slot >= slots.Length)
                 continue;
             var slot = slots[r.Slot];
@@ -136,13 +136,13 @@ public abstract class GuiCommandObjectList : GuiList
                 var left = (high?.Width ?? 0) + (active?.Width ?? 0) + 3;
                 p.Fill(gx + left, py, CellWidth - left, rowH, 0xfc);
             }
-            PbmpBitmap? dmg = slot.Status == 2 ? high : slot.Status == 1 ? med : low;
+            var dmg = slot.Status == 2 ? high : slot.Status == 1 ? med : low;
             if (dmg == null)
                 continue;
             var x = gx + 2;
             p.Bitmap(dmg, x, py + 1);
             x += dmg.Width + 1;
-            PbmpBitmap? flag = slot.Active ? active : inactive;
+            var flag = slot.Active ? active : inactive;
             if (flag != null)
                 p.Bitmap(flag, x, py + 1);
             x += (flag?.Width ?? 0) + 2;

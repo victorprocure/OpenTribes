@@ -20,7 +20,7 @@ public static class FootSurface
         var to = new Vec3((float)x, (float)y, (float)z - 0.5f);
         if (!world.CastRay(from, to, ObjectType.kTerrainType | ObjectType.kInteriorType, null, ref obj, ref hit, ref normal) || obj == null)
             return -1;
-        Material? m = world.Find(obj)?.HitMaterial?.Value;
+        var m = world.Find(obj)?.HitMaterial?.Value;
         return m == null ? -1 : Math.Clamp(m.Type, 0, 14);
     }
 }

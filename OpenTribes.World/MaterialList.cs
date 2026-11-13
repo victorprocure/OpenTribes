@@ -175,7 +175,7 @@ public static class MaterialList
     /// <returns>The materials, or null when missing or malformed. Cached by name for the process.</returns>
     public static List<Material>? Get(ResourceManager res, string name)
     {
-        if (!sCache.TryGetValue(name, out Cached? c))
+        if (!sCache.TryGetValue(name, out var c))
         {
             c = new Cached();
             c.Ok = res.Read(name, out var data) && ParseMaterialList(data, c.List);

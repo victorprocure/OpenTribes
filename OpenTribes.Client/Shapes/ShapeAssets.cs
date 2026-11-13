@@ -72,7 +72,7 @@ public sealed class ShapeAssets : IDisposable
     {
         if (name.Length == 0)
             return null;
-        if (mShapes.TryGetValue(name, out RenderShape? s))
+        if (mShapes.TryGetValue(name, out var s))
             return s;
         var file = name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase) ? name : name + ".dts";
         s = GfxAssets.Read(World.Res, file, out var data) ? RenderShape.Parse(data, name) : null;
@@ -91,11 +91,11 @@ public sealed class ShapeAssets : IDisposable
     public TexEntry? Texture(string map, string skin = "", int damageLevel = 0, bool keyed = false)
     {
         var key = new TexKey(map, skin, damageLevel > 0 ? damageLevel : 0, keyed);
-        if (mTextures.TryGetValue(key, out TexEntry? t))
+        if (mTextures.TryGetValue(key, out var t))
             return t;
         var resolved = skin.Length > 0 ? Skins.Resolve(map, skin, Exists, UseCustomSkins) : map;
         t = null;
-        PbmpBitmap? bmp = World.Bitmap(resolved);
+        var bmp = World.Bitmap(resolved);
         if (bmp == null)
         {
             Missing.Add(resolved);
@@ -104,7 +104,7 @@ public sealed class ShapeAssets : IDisposable
         {
             if (damageLevel > 0)
                 bmp = Skins.ApplyDamage(bmp, damageLevel, DamageDecals);
-            SubPalette sub = World.Palette.FindSubPalette(bmp.PaletteId);
+            var sub = World.Palette.FindSubPalette(bmp.PaletteId);
             var rgba = World.Rgba(bmp, false);
             if (keyed && bmp.Depth == 8)
                 for (var i = 0; i < bmp.Width * bmp.Height; ++i)
@@ -134,7 +134,7 @@ public sealed class ShapeAssets : IDisposable
     /// <param name="skin">The skin name.</param>
     public void Preload(RenderShape shape, string skin)
     {
-        foreach (RsMaterial m in shape.Materials)
+        foreach (var m in shape.Materials)
             if (m.Type == 3)
                 Texture(m.Name, skin, 0, m.Keyed);
     }
@@ -153,7 +153,7 @@ public sealed class ShapeAssets : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (TexEntry? t in mTextures.Values)
+        foreach (var t in mTextures.Values)
             t?.Texture?.Dispose();
         mTextures.Clear();
     }

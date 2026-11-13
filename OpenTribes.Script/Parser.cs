@@ -53,7 +53,7 @@ public static class ScriptParser
             var r = new ParseResult();
             while (mTok.Kind != Tok.End)
             {
-                Node? s = Statement();
+                var s = Statement();
                 if (mFailed)
                 {
                     r.Error = true;
@@ -117,7 +117,7 @@ public static class ScriptParser
                     return InstantDecl();
                 case Tok.Return:
                 {
-                    Node n = MakeNode(NodeKind.Return);
+                    var n = MakeNode(NodeKind.Return);
                     Advance();
                     if (!At(';'))
                         n.A = Expression();
@@ -126,7 +126,7 @@ public static class ScriptParser
                 }
                 case Tok.Continue:
                 {
-                    Node n = MakeNode(NodeKind.Continue);
+                    var n = MakeNode(NodeKind.Continue);
                     Advance();
                     Expect(';');
                     return n;
@@ -134,7 +134,7 @@ public static class ScriptParser
                 case Tok.Break:
                     if (IsChar(mNext, ';'))
                     {
-                        Node n = MakeNode(NodeKind.BreakStmt);
+                        var n = MakeNode(NodeKind.BreakStmt);
                         Advance();
                         Advance();
                         return n;
@@ -156,7 +156,7 @@ public static class ScriptParser
 
         private Node? ExpressionStatement()
         {
-            Node n = MakeNode(NodeKind.ExprStmt);
+            var n = MakeNode(NodeKind.ExprStmt);
             n.A = Expression();
             if (mFailed)
                 return null;
@@ -201,7 +201,7 @@ public static class ScriptParser
 
         private Node? IfStatement()
         {
-            Node n = MakeNode(NodeKind.If);
+            var n = MakeNode(NodeKind.If);
             Advance();
             Expect('(');
             n.A = Expression();
@@ -220,7 +220,7 @@ public static class ScriptParser
 
         private Node? WhileStatement()
         {
-            Node n = MakeNode(NodeKind.While);
+            var n = MakeNode(NodeKind.While);
             Advance();
             Expect('(');
             n.A = Expression();
@@ -233,7 +233,7 @@ public static class ScriptParser
 
         private Node? ForStatement()
         {
-            Node n = MakeNode(NodeKind.For);
+            var n = MakeNode(NodeKind.For);
             Advance();
             Expect('(');
             n.A = Expression();
@@ -250,7 +250,7 @@ public static class ScriptParser
 
         private Node? FunctionDecl()
         {
-            Node n = MakeNode(NodeKind.Function);
+            var n = MakeNode(NodeKind.Function);
             Advance();
             if (!At(Tok.Ident))
                 return Fail();
@@ -284,7 +284,7 @@ public static class ScriptParser
 
         private Node TagDecl()
         {
-            Node n = MakeNode(NodeKind.TagDecl);
+            var n = MakeNode(NodeKind.TagDecl);
             n.Name = mTok.Text;
             Advance(); // TAG
             Advance(); // =
@@ -300,7 +300,7 @@ public static class ScriptParser
 
         private Node? DatablockDecl()
         {
-            Node n = MakeNode(NodeKind.Datablock);
+            var n = MakeNode(NodeKind.Datablock);
             n.ClassName = mTok.Text;
             Advance();
             if (At(Tok.Ident))
@@ -329,7 +329,7 @@ public static class ScriptParser
         {
             if (!At(Tok.Ident))
                 return Fail();
-            Node n = MakeNode(NodeKind.Slot);
+            var n = MakeNode(NodeKind.Slot);
             n.Name = mTok.Text;
             Advance();
             if (At('['))
@@ -366,7 +366,7 @@ public static class ScriptParser
 
         private Node? InstantDecl()
         {
-            Node n = MakeNode(NodeKind.Instant);
+            var n = MakeNode(NodeKind.Instant);
             Advance();
             if (!At(Tok.Ident))
                 return Fail();
@@ -425,13 +425,13 @@ public static class ScriptParser
 
         private Node? Expression(int minPrec = 1)
         {
-            Node? left = Unary();
+            var left = Unary();
             while (!mFailed)
             {
                 var prec = Precedence(mTok);
                 if (prec < minPrec || prec == 0)
                     break;
-                Node n = MakeNode(NodeKind.Binary);
+                var n = MakeNode(NodeKind.Binary);
                 n.Op = mTok.Kind;
                 n.OpChar = mTok.Ch;
                 Advance();
@@ -448,7 +448,7 @@ public static class ScriptParser
                 return null;
             if (At('-') || At('!') || At('~') || At('*'))
             {
-                Node n = MakeNode(NodeKind.Unary);
+                var n = MakeNode(NodeKind.Unary);
                 n.Op = Tok.Char;
                 n.OpChar = mTok.Ch;
                 Advance();
@@ -521,7 +521,7 @@ public static class ScriptParser
                     if (mTok.Ch == '(')
                     {
                         Advance();
-                        Node? e = Expression();
+                        var e = Expression();
                         Expect(')');
                         if (mFailed)
                             return null;
@@ -556,7 +556,7 @@ public static class ScriptParser
                     Advance();
                     if (At('('))
                     {
-                        Node m = MakeNode(NodeKind.MethodCall);
+                        var m = MakeNode(NodeKind.MethodCall);
                         m.Line = line;
                         m.Name = name;
                         m.A = e;
@@ -567,7 +567,7 @@ public static class ScriptParser
                         e = m;
                         continue;
                     }
-                    Node f = MakeNode(NodeKind.Field);
+                    var f = MakeNode(NodeKind.Field);
                     f.Line = line;
                     f.Name = name;
                     f.A = e;
@@ -593,7 +593,7 @@ public static class ScriptParser
                         Advance();
                         if (e.Kind == NodeKind.Field && At('{'))
                         {
-                            Node l = MakeNode(NodeKind.FieldListAssign);
+                            var l = MakeNode(NodeKind.FieldListAssign);
                             Advance();
                             l.A = e;
                             ExprList(l.List);
@@ -601,7 +601,7 @@ public static class ScriptParser
                             e = l;
                             continue;
                         }
-                        Node s = MakeNode(NodeKind.Assign);
+                        var s = MakeNode(NodeKind.Assign);
                         s.A = e;
                         s.B = Expression();
                         e = s;
@@ -609,7 +609,7 @@ public static class ScriptParser
                     }
                     if (IsCompound(mTok.Kind))
                     {
-                        Node s = MakeNode(NodeKind.CompoundAssign);
+                        var s = MakeNode(NodeKind.CompoundAssign);
                         s.Op = mTok.Kind;
                         Advance();
                         s.A = e;
@@ -619,7 +619,7 @@ public static class ScriptParser
                     }
                     if (At(Tok.PlusPlus) || At(Tok.MinusMinus))
                     {
-                        Node s = MakeNode(NodeKind.PostIncDec);
+                        var s = MakeNode(NodeKind.PostIncDec);
                         s.OpChar = At(Tok.PlusPlus) ? '+' : '-';
                         Advance();
                         s.A = e;

@@ -139,10 +139,10 @@ public sealed class ClientPsc
         bs.WriteInt(FovByte, 8);
         bs.WriteInt(FirstMove, 32);
         Move? prev = null;
-        foreach (Move m in Moves)
+        foreach (var m in Moves)
         {
             bs.WriteFlag(true);
-            Move copy = m;
+            var copy = m;
             Game.Moves.PackMove(bs, copy, true, prev);
             prev = m;
         }

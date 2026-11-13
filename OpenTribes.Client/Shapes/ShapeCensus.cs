@@ -51,10 +51,10 @@ public static class ShapeCensus
     /// <returns>The counts.</returns>
     public static Result Run(string root)
     {
-        ResourceManager res = GfxAssets.Mount(root, out _);
+        var res = GfxAssets.Mount(root, out _);
         var r = new Result();
         var names = new List<string>();
-        for (ResourceManager.Entry? e = res.FindNext("*.dts", null, out var name); e != null; e = res.FindNext("*.dts", e, out name))
+        for (var e = res.FindNext("*.dts", null, out var name); e != null; e = res.FindNext("*.dts", e, out name))
             names.Add(name);
         PaletteBank? pal = null;
         foreach (var n in names.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -76,24 +76,24 @@ public static class ShapeCensus
                     continue;
                 }
                 ++r.Loaded;
-                foreach (RsMesh m in s.Meshes)
+                foreach (var m in s.Meshes)
                     if (m.Version == 3)
                         ++r.MeshesV3;
                     else
                         ++r.MeshesOther;
-                foreach (RsSequence q in s.Sequences)
+                foreach (var q in s.Sequences)
                     if (q.NumIfl > 0)
                         ++r.IflSequences;
                 r.Triggers += s.Triggers.Length;
-                foreach (RsKey k in s.Keys)
+                foreach (var k in s.Keys)
                     if ((k.Flags & 0x2000) != 0)
                         ++r.TexKeys;
                 if (s.MaterialDetails > 1)
                     ++r.MultiDetailLists;
-                foreach (RsMaterial m in s.Materials)
+                foreach (var m in s.Materials)
                     r.Flags[m.Flags] = r.Flags.GetValueOrDefault(m.Flags) + 1;
                 var miss = false;
-                foreach (RsMaterial m in s.Materials)
+                foreach (var m in s.Materials)
                     if (m.Type == 3 && GfxAssets.LoadBitmap(res, m.Name) == null)
                     {
                         ++r.MissingTextures;
@@ -132,7 +132,7 @@ public static class ShapeCensus
     /// <returns>0 when everything loaded and stepped, else 1.</returns>
     public static int Report(string root)
     {
-        Result r = Run(root);
+        var r = Run(root);
         Console.WriteLine($"shapes {r.Files} loaded {r.Loaded} failed {r.Failed} exceptions {r.Exceptions}");
         Console.WriteLine($"sequences {r.Sequences} stepped {r.Stepped}; meshes v3 {r.MeshesV3} other {r.MeshesOther}");
         Console.WriteLine($"type-3 materials with no bitmap {r.MissingTextures} in {r.ShapesWithMissing} shapes: {string.Join(" ", r.MissingNames)}");
@@ -153,7 +153,7 @@ public static class ShapeInfo
     /// <returns>The process exit code.</returns>
     public static int Report(string root, string name)
     {
-        ResourceManager res = GfxAssets.Mount(root, out _);
+        var res = GfxAssets.Mount(root, out _);
         if (!GfxAssets.Read(res, name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase) ? name : name + ".dts", out var data) ||
             RenderShape.Parse(data, name) is not RenderShape s)
         {
@@ -166,12 +166,12 @@ public static class ShapeInfo
             Console.WriteLine($"node {i} {s.Names[s.Nodes[i].Name]} parent {s.Nodes[i].Parent}");
         for (var i = 0; i < s.Objects.Length; ++i)
         {
-            RsObject o = s.Objects[i];
+            var o = s.Objects[i];
             var bb = "";
             if (o.Mesh >= 0 && o.Mesh < s.Meshes.Length && s.Meshes[o.Mesh].Frames.Length > 0)
             {
-                RsMesh m = s.Meshes[o.Mesh];
-                RsFrame f = m.Frames[0];
+                var m = s.Meshes[o.Mesh];
+                var f = m.Frames[0];
                 double[] lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
                 for (var k = 0; k < Math.Max(m.VertsPerFrame, 1) && ((f.FirstVert + k) * 4) + 2 < m.Verts.Length; ++k)
                 {
@@ -186,7 +186,7 @@ public static class ShapeInfo
         }
         for (var i = 0; i < s.Sequences.Length; ++i)
         {
-            RsSequence q = s.Sequences[i];
+            var q = s.Sequences[i];
             Console.WriteLine($"seq {i} {s.SequenceName(i)} cyclic {q.Cyclic} dur {q.Duration:F3} prio {q.Priority} trig {q.NumTriggers} ifl {q.NumIfl}");
         }
         for (var i = 0; i < s.Materials.Length; ++i)

@@ -34,7 +34,7 @@ public static partial class ProjectileGhost
         if (initial)
         {
             Pj.WriteIndex(bs, p.DataBlockIndex, p.DataBlockCount());
-            GameBase? sh = p.Shooter();
+            var sh = p.Shooter();
             var ghost = sh != null ? ctx.Manager.GhostIndex(sh) : -1;
             if (bs.WriteFlag(ghost != -1))
                 bs.WriteInt((uint)ghost, 10);

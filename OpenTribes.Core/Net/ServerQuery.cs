@@ -195,7 +195,7 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
         {
             if (!mSock.WaitRead(20))
                 continue;
-            var n = mSock.Receive(out Address from, buf);
+            var n = mSock.Receive(out var from, buf);
             var at = mNow();
             if (n <= 0)
                 continue;
@@ -295,7 +295,7 @@ public static class QueryAddress
             canonical = "IP:Broadcast:" + port.ToString(CultureInfo.InvariantCulture);
             return true;
         }
-        if (!System.Net.IPAddress.TryParse(host, out System.Net.IPAddress? ip) || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        if (!System.Net.IPAddress.TryParse(host, out var ip) || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
             return false;
         var b = ip.GetAddressBytes();
         target = new Address(((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3], port);
@@ -393,9 +393,9 @@ public sealed class ServerQuery
     /// <remarks>Follows SimNet_queueServerQuery.</remarks>
     public void Queue(string address, int index = 0)
     {
-        if (!QueryAddress.TryResolve(address, BroadcastIp, out var canon, out Address target, out var bc, out var ipx))
+        if (!QueryAddress.TryResolve(address, BroadcastIp, out var canon, out var target, out var bc, out var ipx))
             return;
-        foreach (PingEntry e in mPings)
+        foreach (var e in mPings)
             if (string.Equals(e.Address, canon, StringComparison.Ordinal) && e.Index == index)
                 return;
         mPings.Add(new PingEntry { Index = (byte)index, Address = canon, Target = target, Broadcast = bc, Ipx = ipx });
@@ -407,7 +407,7 @@ public sealed class ServerQuery
     /// <param name="ping">The ping entry the request follows.</param>
     public void Request(string address, int ping)
     {
-        if (!QueryAddress.TryResolve(address, BroadcastIp, out var canon, out Address target, out _, out _))
+        if (!QueryAddress.TryResolve(address, BroadcastIp, out var canon, out var target, out _, out _))
             return;
         mRequests.Add(new RequestEntry { Ping = ping, Address = canon, Target = target });
         Process();
@@ -431,7 +431,7 @@ public sealed class ServerQuery
         int i = 0, n = 0;
         while (i < mPings.Count)
         {
-            PingEntry e = mPings[i];
+            var e = mPings[i];
             var send = false;
             if (e.Count == 0)
             {
@@ -483,7 +483,7 @@ public sealed class ServerQuery
             n = 0;
             while (i < mRequests.Count)
             {
-                RequestEntry r = mRequests[i];
+                var r = mRequests[i];
                 var send = false;
                 if (r.Count == 0)
                 {
@@ -525,7 +525,7 @@ public sealed class ServerQuery
     /// <remarks>The exe runs the queue from a 30 ms sim event while anything is in flight.</remarks>
     public void Tick()
     {
-        while (mNet.Receive(out Address from, out var data))
+        while (mNet.Receive(out var from, out var data))
             OnDatagram(from, data, mNet.LastReceiveMs);
         if (mActivePings > 0 || mActiveRequests > 0 || mPings.Count > 0 || mRequests.Count > 0)
             Process();
@@ -533,7 +533,7 @@ public sealed class ServerQuery
 
     private PingEntry? FindPing(string address, int index)
     {
-        foreach (PingEntry e in mPings)
+        foreach (var e in mPings)
             if (string.Equals(e.Address, address, StringComparison.Ordinal) && e.Index == index)
                 return e;
         return null;
@@ -548,10 +548,10 @@ public sealed class ServerQuery
         if (d.Length < 10)
             return;
         var key = (ushort)(d[4] | (d[5] << 8));
-        PingEntry? e = FindPing(addr, 0);
+        var e = FindPing(addr, 0);
         if (e == null)
         {
-            PingEntry? part = FindPing(addr, d[2]);
+            var part = FindPing(addr, d[2]);
             if (part == null || part.Key != key)
                 return;
             mPings.Remove(part);
@@ -565,7 +565,7 @@ public sealed class ServerQuery
             mPings.Remove(e);
             if (mActivePings > 0)
                 --mActivePings;
-            if (QueryAddress.TryResolve(addr, BroadcastIp, out var canon, out Address target, out _, out _))
+            if (QueryAddress.TryResolve(addr, BroadcastIp, out var canon, out var target, out _, out _))
                 for (var n = 1; n <= d[3]; ++n)
                 {
                     if (n == d[2])
@@ -627,9 +627,9 @@ public sealed class ServerQuery
             {
                 // A ping reply counts only while a ping is queued: with the broadcast gone from the queue and nothing else
                 // pending (a LAN-only query), the answer is dropped.
-                if (mPings.Count == 0 || !QueryPackets.TryParsePingReply(data, out PingReply pr))
+                if (mPings.Count == 0 || !QueryPackets.TryParsePingReply(data, out var pr))
                     return;
-                PingEntry? e = FindPing(addr, 0);
+                var e = FindPing(addr, 0);
                 if (e == null)
                 {
                     if (mSeen.Contains(addr))
@@ -658,7 +658,7 @@ public sealed class ServerQuery
                     mRequests.RemoveAt(at);
                     --mActiveRequests;
                 }
-                if (!QueryPackets.TryParseInfoReply(data, out ServerInfoRecord rec))
+                if (!QueryPackets.TryParseInfoReply(data, out var rec))
                 {
                     OnFail?.Invoke(addr);
                     break;

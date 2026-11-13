@@ -78,9 +78,9 @@ public class SensorTests
             w.Run("GameBase::setTeam(" + id + ", " + team.ToString(CultureInfo.InvariantCulture) + ");");
             return p!;
         }
-        Player a = Spawn("10 10 52", 2049, 0);
-        Player b = Spawn("200 200 52", 2050, 1);
-        Player c = Spawn("210 210 52", 0, 1); // a third body for the list tests, no client of its own
+        var a = Spawn("10 10 52", 2049, 0);
+        var b = Spawn("200 200 52", 2050, 1);
+        var c = Spawn("210 210 52", 0, 1); // a third body for the list tests, no client of its own
         Tick(8);
 
         // ---- 3.8 the jamming list: set / unlink / link by Player::setSensorSupression (0x0040fc88) ----
@@ -127,8 +127,8 @@ public class SensorTests
 
         // ---- 3.5 step 4 and 3.6: a sensor of team 0 sees a team 1 target; a jamming Player hides it ----
         w.Run("$s = newObject(\"\", Sensor, Radar); $t = newObject(\"\", StaticShape, Tgt);");
-        GameBase? s = GbOf(w.Run("echo($s);"));
-        GameBase? tg = GbOf(w.Run("echo($t);"));
+        var s = GbOf(w.Run("echo($s);"));
+        var tg = GbOf(w.Run("echo($t);"));
         Assert.True(s != null && tg != null);
         s!.SetTeam(0);
         tg!.SetTeam(1);

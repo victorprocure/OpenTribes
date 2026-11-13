@@ -44,7 +44,7 @@ public class RemoteGhostsTests
 
     private static (RemotePlayer, Player) MakePlayer(string name)
     {
-        Player p = new ClientPredictionTests.Side(name).Spawn("100 100 60");
+        var p = new ClientPredictionTests.Side(name).Spawn("100 100 60");
         return (new RemotePlayer(p), p);
     }
 
@@ -138,7 +138,7 @@ public class RemoteGhostsTests
 
     private static (RemoteVehicle, Flier) MakeFlier(string name)
     {
-        Flier f = new ClientPredictionTests.Side(name).Make("100 100 70");
+        var f = new ClientPredictionTests.Side(name).Make("100 100 70");
         return (new RemoteVehicle(f), f);
     }
 
@@ -257,8 +257,8 @@ public class RemoteGhostsTests
     {
         // Player_applyControlState 0x0041405c and FUN_00414a00 (mounted branch): the transform is the mount point's times the yaw.
         var side = new ClientPredictionTests.Side("rg_mount");
-        Player p = side.Spawn("100 100 60");
-        Flier f = side.Make("100 100 70");
+        var p = side.Spawn("100 100 60");
+        var f = side.Make("100 100 70");
         f.SetPosition([100f, 100f, 70f]);
         var rp = new RemotePlayer(p);
         rp.Place(1000, [99f, 99f, 69f], kVel, 0.4f, 0.05f, false);

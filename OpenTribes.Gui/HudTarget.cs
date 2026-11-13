@@ -60,7 +60,7 @@ public static class HudTargetPicker
         int bestDist = -1, bestPlayerDist = -1, bestX = 0, bestY = 0;
         double bestHealth = -1, bestPlayerHealth = -1;
         int cx = cam.Width / 2, cy = cam.Height / 2;
-        foreach (HudTargetCandidate c in players)
+        foreach (var c in players)
         {
             if (c.Dead || !c.Visible)
                 continue;

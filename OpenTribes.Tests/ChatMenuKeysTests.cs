@@ -21,7 +21,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void ClosedMenuIgnoresKeys()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         Assert.False(t.Showing);
         Assert.False(Press(t, 0x2f, 'v'));
     }
@@ -29,7 +29,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void TopLevelListsItemsAndNoPath()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         Assert.True(t.Showing);
         Assert.Equal("", t.Path());
@@ -39,7 +39,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void HeadingKeyOpensSubLevelWithoutRunning()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         var ran = new List<string>();
         Assert.True(Press(t, 0x2f, 'v', ran));
@@ -52,7 +52,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void LeafRunsCommandAndClosesMode2()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         var ran = new List<string>();
         Press(t, 0x2f, 'v', ran);
@@ -65,7 +65,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void LeafKeepsModeOneMenuOpenAtTop()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 1;
         var ran = new List<string>();
         Press(t, 0x2f, 'v', ran);
@@ -78,7 +78,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void UnknownKeyIsNotConsumed()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         Assert.False(Press(t, 0x1e, 'a'));
         Assert.True(t.Showing);
@@ -87,7 +87,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void KeyMatchIsExactAndNeedsNoModifier()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         Assert.False(Press(t, 0x2f, 'V'));
         Assert.False(Press(t, 0x2f, 'v', mods: 1));
@@ -98,7 +98,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void EscapeClosesMode2FromAnyLevel()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         Assert.True(Press(t, 1, '\0'));
         Assert.False(t.Showing);
@@ -111,7 +111,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void EscapeInMode1GoesBackThenPassesThrough()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 1;
         Press(t, 0x2f, 'v');
         Assert.True(Press(t, 1, '\0'));
@@ -123,7 +123,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void ReleaseOfConsumedKeyIsConsumedOnce()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         Press(t, 0x2f, 'v');
         Assert.True(t.OnKey(0x2f, 2, 'v', 0, _ => { }));
@@ -134,7 +134,7 @@ public class ChatMenuKeysTests
     [Fact]
     public void SetModeResetsLevel()
     {
-        ChatMenuTree t = Build();
+        var t = Build();
         t.Mode = 2;
         Press(t, 0x2f, 'v');
         t.Mode = 2;

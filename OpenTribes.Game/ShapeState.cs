@@ -28,7 +28,7 @@ public static class ShapeState
     {
         if (game.Sim == null || obj.DataBlockName == null)
             return "";
-        DataBlockManager.Block? b = game.Sim.DataBlocks().Find(obj.DataBlockName);
+        var b = game.Sim.DataBlocks().Find(obj.DataBlockName);
         var shape = "";
         if (b != null)
             game.Sim.DataBlocks().GetField(b, "shapeFile", "", out shape);
@@ -75,7 +75,7 @@ public static class ShapeState
         {
             // Animation thread (+0xd54), then the look thread (+0xd58), as the last Player_updateAnimation left them
             // (docs/player-sim.md 5.5).
-            Player.ShapePose pose = pl.Pose;
+            var pose = pl.Pose;
             var animSeq = pose.AnimIndex is >= 0 and < 51 ? pl.PData.AnimSequence[pose.AnimIndex] : 0;
             output.Add(new ShapeThread(animSeq, NormalisePosition(model, animSeq, pose.AnimPosition), SequencePriority(model, animSeq)));
             int lookSeq;
@@ -100,7 +100,7 @@ public static class ShapeState
         if (obj.VisibilityThread)
             AddThread(model.FindSequence("visibility"), obj.DamageState == GameBase.kDestroyed ? 1.0f : 0.0f);
         // The three script threads (docs/static-sim.md 1.7).
-        foreach (GameBase.Thread th in obj.Threads)
+        foreach (var th in obj.Threads)
             if (th.Created)
                 AddThread(th.Sequence, th.Position);
         if (GameUtil.EqualsNoCase(obj.ClassName(), "Turret"))
@@ -119,7 +119,7 @@ public static class ShapeState
             if (obj.TurretHasPower)
             {
                 AddThread(Seq(obj.TurretPowerOnFire ? "fire" : "power"), obj.TurretPowerPos);
-                ShapeThread last = output[^1];
+                var last = output[^1];
                 last.Priority = obj.TurretPowerOnFire ? 0 : -1;
                 output[^1] = last;
             }
@@ -135,17 +135,17 @@ public static class ShapeState
         if (game.Resources == null)
             return null;
         var name = ShapeNameOf(game, obj);
-        ShapeModel? model = name.Length == 0 ? null : Shape.GetShapeModel(game.Resources, name);
+        var model = name.Length == 0 ? null : Shape.GetShapeModel(game.Resources, name);
         if (model == null)
             return null;
         if (sSlots.Count > 4096)
         {
             // Entries of objects that left the container are stale.
-            foreach (GameBase k in sSlots.Keys.ToList())
+            foreach (var k in sSlots.Keys.ToList())
                 if (game.World.Find(k) == null)
                     sSlots.Remove(k);
         }
-        if (!sSlots.TryGetValue(obj, out Slot? slot) || slot.Id != obj.Id() || slot.Model != model)
+        if (!sSlots.TryGetValue(obj, out var slot) || slot.Id != obj.Id() || slot.Model != model)
         {
             slot = new Slot { Id = obj.Id(), Model = model };
             slot.Inst.Build(model);
@@ -183,7 +183,7 @@ public static class ShapeState
     {
         if (game.Resources == null || shape.Length == 0)
             return null;
-        if (!sStatic.TryGetValue(shape, out ShapeInstance? inst))
+        if (!sStatic.TryGetValue(shape, out var inst))
         {
             inst = null;
             if (Shape.GetShapeModel(game.Resources, shape) is ShapeModel model)
@@ -211,7 +211,7 @@ public static class ShapeState
         // thread.
         if (game.Sim == null || obj.DataBlockName == null)
             return false;
-        DataBlockManager.Block? b = game.Sim.DataBlocks().Find(obj.DataBlockName);
+        var b = game.Sim.DataBlocks().Find(obj.DataBlockName);
         if (b == null)
             return false;
         var disabled = game.Sim.DataBlocks().GetField(b, "disableCollision", "", out var v) && Numbers.ParseBool(v);
@@ -222,7 +222,7 @@ public static class ShapeState
         var item = GameUtil.EqualsNoCase(obj.ClassName(), "Item") || GameUtil.EqualsNoCase(obj.ClassName(), "Mine");
         if (item && !obj.ItemCollideable)
             return false;
-        ShapeInstance? inst = ShapeInstanceOf(game, obj);
+        var inst = ShapeInstanceOf(game, obj);
         if (inst == null)
             return false;
         var tm = new TMat3

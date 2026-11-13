@@ -78,7 +78,7 @@ public class AITests
     private static void TestCommands()
     {
         var f = new Fixture("ai_commands");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         // The first AI command creates the manager as object 726 in MissionCleanup (1.2).
         c.Check(w, "echo(isObject(726));", "False");
@@ -165,7 +165,7 @@ public class AITests
     private static void TestDirectives()
     {
         var f = new Fixture("ai_directives");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("AI::Spawn(A1, tarmor, \"100 100 52\"); AI::Spawn(B2, tarmor, \"100 120 52\");");
         // Order rule: no order, 0 and negative orders get `last - last % 100`; the first is 100.
@@ -210,7 +210,7 @@ public class AITests
     private static void TestVariables()
     {
         var f = new Fixture("ai_variables");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("AI::Spawn(C3, tarmor, \"100 100 52\");");
         // Defaults.
@@ -246,11 +246,11 @@ public class AITests
     private static void TestBehavior()
     {
         var f = new Fixture("ai_behavior");
-        Fixtures.World w = f.W;
+        var w = f.W;
         // iq 0: a waypoint 32 m behind. The AI waits for the think gate (50 ticks), then turns by the iq 0 yaw rate every
         // tick (reference run, tools/aidiff.py c_rates).
         w.Run("AI::Spawn(W, tarmor, \"100 100 51\", \"0 0 0\");");
-        Player? p = f.Player("W");
+        var p = f.Player("W");
         Assert.NotNull(p);
         f.Tick(5); // idle: state 1, the think counter runs
         w.Run("AI::DirectiveWaypoint(W, \"99.97 68 50\", 7);");
@@ -276,7 +276,7 @@ public class AITests
         w.Run("AI::Spawn(I, tarmor, \"140 100 51\", \"0 0 0\"); AI::SetVar(I, iq, 100);");
         f.Tick(5);
         w.Run("AI::DirectiveWaypoint(I, \"140 68 50\", 7);");
-        Player q = f.Player("I")!;
+        var q = f.Player("I")!;
         var firstQ = -1;
         for (var i = 0; i < 20 && firstQ < 0; ++i)
         {
@@ -301,7 +301,7 @@ public class AITests
         // Straight ahead: forward = cos(0) * maxSpeed, no side movement (3.3).
         w.Run("AI::Spawn(S, tarmor, \"100 100 51\", \"0 0 0\"); AI::SetVar(S, iq, 100); AI::DirectiveWaypoint(S, \"100 140 50\", 1);");
         f.Tick(20);
-        AIObject s = f.Ai("S")!;
+        var s = f.Ai("S")!;
         Assert.True(s.Move.Forward == s.Sk.MaxSpeed && s.Move.Left == 0.0f && s.Move.Turn == 0.0f);
         w.Run("AI::Delete(\"*\");");
         f.Tick(2);
@@ -314,7 +314,7 @@ public class AITests
         var replay = new R250(0x8377);
         int fired = 0, aimed = 0, windup = 0;
         string pattern = "", expected = "";
-        AIObject t = f.Ai("T")!;
+        var t = f.Ai("T")!;
         for (var i = 0; i < 40; ++i)
         {
             f.Tick();
@@ -370,7 +370,7 @@ public class AITests
         f.Tick();
         var died = w.In.PeekVariable("$died");
         Assert.Equal("P 2049", died);
-        AIObject? corpse = f.Ai("P");
+        var corpse = f.Ai("P");
         Assert.True(corpse == null && w.Game.Ai!.Ais.Count == 1);
         Assert.True(w.Game.Ai.Ais[0].AiName.StartsWith("Corpse", StringComparison.Ordinal) && w.Game.Ai.Ais[0].AiName.Length > 8);
         Assert.False(w.In.HasVariable("$AI::P::iq"));

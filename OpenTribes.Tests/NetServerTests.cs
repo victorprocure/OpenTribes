@@ -140,7 +140,7 @@ public class NetServerTests
 
         // 6.1: hostname clipped to 32, password flag, LastHope version string (lasthope L1).
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.Hostname = new string('h', 40);
             c.Password = "pw";
             c.LastHope = true;
@@ -160,7 +160,7 @@ public class NetServerTests
             var h = new Harness(cfg);
             Assert.Empty(h.Query(Client(1), [0x62, 1, 2, 3]));
             Assert.Empty(h.Query(Client(1), [0x62, 1]));
-            Reply r = Connect(h, Client(5), new Request());
+            var r = Connect(h, Client(5), new Request());
             Assert.True(r.Accepted);
             h.Server.SetGameInfo(() => new GameInfo
             {
@@ -203,7 +203,7 @@ public class NetServerTests
         // 6.2: 0x10 type 3 ping, 40-byte reply with the packet version (1 for "1.11" and "1.30").
         foreach (var lastHope in new[] { false, true })
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.LastHope = lastHope;
             c.Hostname = new string('x', 35);
             var h = new Harness(c);
@@ -249,7 +249,7 @@ public class NetServerTests
 
         // lasthope 2.1 L1: threshold 30 and the 1.30 upgrade text.
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.LastHope = true;
             var h = new Harness(c);
             var r = new Request();
@@ -263,7 +263,7 @@ public class NetServerTests
 
         // 5.2 step 6: a non-empty server password must match exactly.
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.Password = "pw";
             var h = new Harness(c);
             var r = new Request();
@@ -282,12 +282,12 @@ public class NetServerTests
         {
             int Capacity(string max)
             {
-                ServerConfig c = cfg.Clone();
+                var c = cfg.Clone();
                 c.MaxPlayers = max;
                 var h = new Harness(c);
                 for (uint n = 1; n <= 200; ++n)
                 {
-                    Reply r = Connect(h, Client(n), new Request());
+                    var r = Connect(h, Client(n), new Request());
                     if (!r.Accepted)
                     {
                         Assert.Equal("Server is full.", r.Reason);
@@ -310,7 +310,7 @@ public class NetServerTests
             var h = new Harness(cfg);
             string Join(string name, uint n)
             {
-                Reply rep = Connect(h, Client(n), new Request { Name = name });
+                var rep = Connect(h, Client(n), new Request { Name = name });
                 Assert.True(rep.Accepted);
                 return h.Server.PlayerById(rep.PlayerId)!.Name;
             }
@@ -330,9 +330,9 @@ public class NetServerTests
         {
             var h = new Harness(cfg);
             var r = new Request { Gender = "MALE", Voice = "Male3" };
-            Reply a = Connect(h, Client(1), r);
+            var a = Connect(h, Client(1), r);
             r.Gender = "Female";
-            Reply b = Connect(h, Client(2), r);
+            var b = Connect(h, Client(2), r);
             Assert.True(a.Accepted && b.Accepted && a.ManagerId == 2048 && b.ManagerId == 2048);
             Assert.True(h.Server.PlayerById(a.PlayerId)!.Male && !h.Server.PlayerById(b.PlayerId)!.Male);
             Assert.Equal("Male3", h.Server.PlayerById(a.PlayerId)!.Voice);
@@ -342,9 +342,9 @@ public class NetServerTests
         // 8 (live verification): player ids from 2049, freed ids reused last-freed-first.
         {
             var h = new Harness(cfg);
-            Reply a = Connect(h, Client(1), new Request());
-            Reply b = Connect(h, Client(2), new Request());
-            Reply c = Connect(h, Client(3), new Request());
+            var a = Connect(h, Client(1), new Request());
+            var b = Connect(h, Client(2), new Request());
+            var c = Connect(h, Client(3), new Request());
             Assert.True(a.PlayerId == 2049 && b.PlayerId == 2050 && c.PlayerId == 2051);
             Disconnect(h, Client(2), b.ConnectionId);
             Disconnect(h, Client(1), a.ConnectionId);
@@ -367,7 +367,7 @@ public class NetServerTests
                 OnData = (p, d) => data = ByteString.FromBytes(d),
             };
             h.Server.SetHooks(hooks);
-            Reply a = Connect(h, Client(1), new Request());
+            var a = Connect(h, Client(1), new Request());
             Assert.Equal(0, accepted);
             AckAccept(h, Client(1), a.ConnectionId);
             Assert.Equal(1, accepted);
@@ -381,7 +381,7 @@ public class NetServerTests
         // drop logs "Crash Attempt: <address>".
         foreach (var lastHope in new[] { false, true })
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.LastHope = lastHope;
             var h = new Harness(c);
             var p = new VcPacket { Id = 0x2001, IdBit = 1, Seq = 1, Type = 3 };

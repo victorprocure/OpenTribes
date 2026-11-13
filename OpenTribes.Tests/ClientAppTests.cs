@@ -37,7 +37,7 @@ public sealed class ClientAppTests : IDisposable
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
         var all = new List<string> { "--root", mRoot, "--headless" };
         all.AddRange(args);
-        ClientOptions opt = ClientOptions.Parse([.. all], out var err)!;
+        var opt = ClientOptions.Parse([.. all], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
         Assert.True(mApp.Start(out var error), error);
@@ -415,7 +415,7 @@ public sealed class ClientAppTests : IDisposable
         mApp!.Dispose();
         mApp = null;
         Boot("IDACTION_YAW = 00220004; IDACTION_MOVEFORWARD = 00220010; exec(\"config.cs\");");
-        ActionMap m = mApp!.Maps.FindMap("playMap.sae")!;
+        var m = mApp!.Maps.FindMap("playMap.sae")!;
         Assert.Equal(3, m.Bindings.Count);
         Assert.InRange(m.Bindings[0].ScaleF, 0.00098f, 0.00100f);
         Assert.Equal("drop(BackPack);", m.Bindings[2].Command);
@@ -571,7 +571,7 @@ public sealed class ClientAppTests : IDisposable
     [Fact]
     public void OwnOptionsAreRemovedAndGameTokensGoToCargv()
     {
-        ClientOptions o = ClientOptions.Parse(["--root", "/x", "-mod", "m", "+connect", "127.0.0.1:1", "--no-audio", "--screenshot-at", "3,1.5", "+exec", "a.cs"], out var e)!;
+        var o = ClientOptions.Parse(["--root", "/x", "-mod", "m", "+connect", "127.0.0.1:1", "--no-audio", "--screenshot-at", "3,1.5", "+exec", "a.cs"], out var e)!;
         Assert.Equal("", e);
         Assert.Equal("/x", o.Root);
         Assert.True(o.NoAudio);

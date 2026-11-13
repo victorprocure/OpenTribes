@@ -31,8 +31,8 @@ public static class ShapeView
             Console.Error.WriteLine("tribes: --shape needs --screenshot");
             return 2;
         }
-        ResourceManager res = GfxAssets.Mount(root, out _);
-        PaletteBank? bank = GfxAssets.LoadPalette(res, palette ?? "lush.day.ppl") ?? PaletteTables.Grayscale();
+        var res = GfxAssets.Mount(root, out _);
+        var bank = GfxAssets.LoadPalette(res, palette ?? "lush.day.ppl") ?? PaletteTables.Grayscale();
         using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
         if (win == null)
         {
@@ -44,7 +44,7 @@ public static class ShapeView
         dev.SetPalette(bank);
         var world = new WorldAssets(res, bank);
         using var assets = new ShapeAssets(dev, world);
-        RenderShape? shape = assets.Shape(shapeName);
+        var shape = assets.Shape(shapeName);
         if (shape == null)
         {
             Console.Error.WriteLine("tribes: shape not found: " + shapeName);
@@ -53,7 +53,7 @@ public static class ShapeView
         var inst = new RenderInstance(shape);
         if (seq != null)
         {
-            RenderThread? t = inst.AddThread(seq, pos, 0);
+            var t = inst.AddThread(seq, pos, 0);
             if (t == null)
             {
                 Console.Error.WriteLine("tribes: no sequence " + seq);
@@ -83,10 +83,10 @@ public static class ShapeView
         double tx = shape.Cx, ty = shape.Cy, tz = shape.Cz;
         var cam = new Camera3D(tx - (fx * dist), ty - (fy * dist), tz - (fz * dist), yaw, pitch, 60, dev.Width, dev.Height, 0.1, 1000);
         var ctx = new FrameContext { Camera = cam, Assets = assets, Renderer = renderer, Light = LightSet.Default() };
-        ShapeDraw d = ctx.Draw(Xf.Identity, shapeName);
+        var d = ctx.Draw(Xf.Identity, shapeName);
         d.Skin = skin;
         d.ForceDetail = 0;
-        RenderImage? img = renderer.Build(inst, cam, d);
+        var img = renderer.Build(inst, cam, d);
         if (img != null)
             ctx.Lists.Add(img);
         dev.BeginFrame();

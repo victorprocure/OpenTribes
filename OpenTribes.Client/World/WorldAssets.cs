@@ -85,7 +85,7 @@ public sealed class WorldAssets
     /// <returns>The bitmap, or null when it is missing.</returns>
     public PbmpBitmap? Bitmap(string name)
     {
-        if (!mBitmaps.TryGetValue(name, out PbmpBitmap? b))
+        if (!mBitmaps.TryGetValue(name, out var b))
             mBitmaps[name] = b = GfxAssets.LoadBitmap(Res, name);
         return b;
     }
@@ -132,7 +132,7 @@ public sealed class WorldAssets
         var levels = new List<byte[]>();
         if (bmp.Depth != 8)
             return levels;
-        SubPalette sub = Palette.FindSubPalette(bmp.PaletteId);
+        var sub = Palette.FindSubPalette(bmp.PaletteId);
         for (var k = 1; k <= bmp.MipLevels.Count; ++k)
         {
             int w = Math.Max(1, bmp.Width >> k), h = Math.Max(1, bmp.Height >> k);
@@ -166,7 +166,7 @@ public sealed class WorldAssets
     /// <remarks>Follows 005d3ecc: the own mip chain of the file with LINEAR_MIPMAP_NEAREST when the bitmap has more than one level, else LINEAR. Magnification is nearest for a transparent bitmap.</remarks>
     public IGfxTexture CreateTexture(IGfxDevice dev, PbmpBitmap bmp, byte[] level0, bool repeat, bool opaque, bool quantize, bool keyed = false)
     {
-        List<byte[]> levels = MipRgba(bmp, opaque, quantize, keyed);
+        var levels = MipRgba(bmp, opaque, quantize, keyed);
         var options = new TextureOptions(levels.Count > 0, repeat, true, (bmp.Attributes & BitmapAttributes.Transparent) != 0);
         return dev.CreateTexture3D(level0, bmp.Width, bmp.Height, options, levels);
     }
@@ -176,7 +176,7 @@ public sealed class WorldAssets
     public (float r, float g, float b) HazeColor()
     {
         var index = (int)Math.Min(Palette.HazeColor, 255u);
-        SubPalette sp = Palette.SubPalettes[0];
+        var sp = Palette.SubPalettes[0];
         return (sp.Colors[index * 4] / 255f, sp.Colors[(index * 4) + 1] / 255f, sp.Colors[(index * 4) + 2] / 255f);
     }
 }

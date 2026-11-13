@@ -32,8 +32,8 @@ public partial class GameBase
     /// <remarks>Follows the ShapeBase coverage (0x0044e324, vtable +0x180): the ray from the explosion to the box centre reaches the object itself, or nothing.</remarks>
     public virtual float DamageCoverage(ReadOnlySpan<float> pos)
     {
-        Container? c = mCtx.Game?.GetContainer();
-        Container.Entry? e = c?.Find(this);
+        var c = mCtx.Game?.GetContainer();
+        var e = c?.Find(this);
         if (e == null)
             return 1.0f;
         using var chop = X87.Chop();
@@ -95,7 +95,7 @@ public static class DamageCommands
     public static void ApplyRadiusDamage(GameState game, int type, ReadOnlySpan<float> pos, ReadOnlySpan<float> vel, float radius,
                                          float damage, float kick, int source)
     {
-        SimManager? mgr = game.Sim?.Server();
+        var mgr = game.Sim?.Server();
         if (mgr == null)
             return;
         using var chop = X87.Chop();
@@ -105,7 +105,7 @@ public static class DamageCommands
             box[i] = X87.F32(Sub(pos[i], radius));
             box[i + 3] = X87.F32(Add(pos[i], radius));
         }
-        List<object?> found = game.World.FindObjects(box, 0x24c00080u, null);
+        var found = game.World.FindObjects(box, 0x24c00080u, null);
         var ids = new List<int>();
         foreach (var o in found)
             if (o is SimObject so)
@@ -115,7 +115,7 @@ public static class DamageCommands
         {
             // Scripts may delete objects between two damage calls.
             GameBase? gb = mgr.FindById(oid) as GameBase;
-            Container.Entry? e = gb != null ? game.World.Find(gb) : null;
+            var e = gb != null ? game.World.Find(gb) : null;
             if (e == null)
                 continue;
             for (var i = 0; i < 3; ++i)

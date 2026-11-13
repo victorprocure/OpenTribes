@@ -39,7 +39,7 @@ public class TurretElevationLimitsTests
     public void LimitsAreTheMuzzleAnglesOfTheElevateThreadAtZeroAndOne()
     {
         var inst = new RenderInstance(MakeShape());
-        RenderThread elevate = inst.AddThread("elevate")!;
+        var elevate = inst.AddThread("elevate")!;
         elevate.Position = 0.4;
         (var min, var max) = ShapeVisual.ElevationLimitsOf(inst, 1, elevate, null, null);
         Assert.Equal(0.3f, min, 3);
@@ -53,9 +53,9 @@ public class TurretElevationLimitsTests
     public void PowerPoseAndTurnDoNotMoveTheLimits()
     {
         var inst = new RenderInstance(MakeShape());
-        RenderThread elevate = inst.AddThread("elevate")!;
-        RenderThread power = inst.AddThread("power", 0, -1)!;
-        RenderThread turn = inst.AddThread("elevate", 0.7)!;
+        var elevate = inst.AddThread("elevate")!;
+        var power = inst.AddThread("power", 0, -1)!;
+        var turn = inst.AddThread("elevate", 0.7)!;
         (var min, var max) = ShapeVisual.ElevationLimitsOf(inst, 1, elevate, turn, power);
         Assert.Equal(0.3f, min, 3);
         Assert.Equal(0.9f, max, 3);

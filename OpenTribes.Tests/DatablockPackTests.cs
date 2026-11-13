@@ -43,7 +43,7 @@ public class DatablockPackTests
 
     private static void SetRaw(DataBlockManager.Block b, string field, uint raw)
     {
-        DataBlockManager.Value v = b.Find(field)!.Elems[0];
+        var v = b.Find(field)!.Elems[0];
         v.Set = true;
         v.F[0] = BitConverter.UInt32BitsToSingle(raw);
     }
@@ -77,7 +77,7 @@ public class DatablockPackTests
         var fx = new Fx();
         // Group 0: int(6) flags, unit(10) baseVolume, then each optional field only when it differs from a
         // default-constructed profile.
-        DataBlockManager.Block d = fx.Make("SoundProfileData", "spDefault");
+        var d = fx.Make("SoundProfileData", "spDefault");
         {
             var b = new Bits(fx.Pack(d));
             Assert.True(b.U(6) == 0 && b.U(10) == 0);
@@ -90,7 +90,7 @@ public class DatablockPackTests
         (string, uint)[] volumes = [("1", 1023), ("0.1", 102), ("2", 1022), ("-0.5", 0x201 /* -511, not floor -512 */), ("3e6", 0)];
         foreach ((var text, var want) in volumes)
         {
-            DataBlockManager.Block p = fx.Make("SoundProfileData", "vol" + text);
+            var p = fx.Make("SoundProfileData", "vol" + text);
             fx.Set(p, "baseVolume", [text]);
             var b = new Bits(fx.Pack(p));
             b.U(6);
@@ -99,7 +99,7 @@ public class DatablockPackTests
         // Cone angles compare their raw 32 bits with the ctor integers 90 / 180 and are sent as unit(10) of
         // float(raw * 1/360) under round toward zero: raw 100 sends 284; raw 2893 sends 8220 (low bits 28) where round to
         // nearest would give 8221 (29).
-        DataBlockManager.Block a = fx.Make("SoundProfileData", "spAngles");
+        var a = fx.Make("SoundProfileData", "spAngles");
         SetRaw(a, "coneInsideAngle", 100);
         SetRaw(a, "coneOutsideAngle", 2893);
         {
@@ -110,7 +110,7 @@ public class DatablockPackTests
             Assert.True(!b.Flag() && !b.Flag() && !b.Flag() && !b.Flag() && b.Done());
         }
         // Raw 90 is the default; a script float 180 (bits 0x43340000) differs and is out of range.
-        DataBlockManager.Block r = fx.Make("SoundProfileData", "spRaw");
+        var r = fx.Make("SoundProfileData", "spRaw");
         SetRaw(r, "coneInsideAngle", 90);
         fx.Set(r, "coneOutsideAngle", ["180"]);
         {
@@ -120,7 +120,7 @@ public class DatablockPackTests
             Assert.True(b.Flag() && b.U(10) == 0);
         }
         // normal(10): sunit x, sunit y = ftol((c + 1) * 0.5 * 1023), flag z < 0. f32 tails.
-        DataBlockManager.Block n = fx.Make("SoundProfileData", "spCone");
+        var n = fx.Make("SoundProfileData", "spCone");
         fx.Set(n, "coneVector", ["0 -1 -1"]); // normalized at set: (0, -0.7071, -0.7071)
         fx.Set(n, "minDistance", ["30"]);
         fx.Set(n, "maxDistance", ["100"]);
@@ -132,7 +132,7 @@ public class DatablockPackTests
             Assert.True(!b.Flag() && !b.Flag()); // coneOutsideVolume, minDistance equal the defaults
             Assert.True(b.Flag() && b.F32() == 100.0f && b.Done());
         }
-        DataBlockManager.Block x = fx.Make("SoundProfileData", "spX");
+        var x = fx.Make("SoundProfileData", "spX");
         fx.Set(x, "coneVector", ["1 0 0"]);
         {
             var b = new Bits(fx.Pack(x));
@@ -148,7 +148,7 @@ public class DatablockPackTests
         fx.Make("SoundProfileData", "prof0");
         fx.Make("SoundProfileData", "prof1");
         // Group 1: str wavFileName, unit(6) priority, int(8) profile + 1.
-        DataBlockManager.Block s = fx.Make("SoundData", "shot");
+        var s = fx.Make("SoundData", "shot");
         fx.Set(s, "wavFileName", ["shot.wav"]);
         fx.Set(s, "priority", ["0.5"]);
         fx.Set(s, "profile", ["prof1"]);
@@ -156,13 +156,13 @@ public class DatablockPackTests
             var b = new Bits(fx.Pack(s));
             Assert.True(b.Str() == "shot.wav" && b.U(6) == 31 && b.U(8) == 2 && b.Done());
         }
-        DataBlockManager.Block u = fx.Make("SoundData", "bare");
+        var u = fx.Make("SoundData", "bare");
         {
             var b = new Bits(fx.Pack(u));
             Assert.True(b.Str().Length == 0 && b.U(6) == 0 && b.U(8) == 0 && b.Done());
         }
         // Group 2: 10 x str bmpName.
-        DataBlockManager.Block d = fx.Make("DamageSkinData", "skins");
+        var d = fx.Make("DamageSkinData", "skins");
         fx.Set(d, "bmpName", ["dmg2.bmp"], "2");
         {
             var b = new Bits(fx.Pack(d));
@@ -177,7 +177,7 @@ public class DatablockPackTests
     {
         var fx = new Fx();
         // Group 4 StaticShapeData: ShapeBase, then StaticBase: int(8) sfxAmbient + 1, 2 flags.
-        DataBlockManager.Block g = fx.Make("StaticShapeData", "generator");
+        var g = fx.Make("StaticShapeData", "generator");
         fx.Set(g, "shapeFile", ["generator"]);
         fx.Set(g, "mapIcon", ["M_generator"]);
         fx.Set(g, "mapFilter", ["4"]);
@@ -190,7 +190,7 @@ public class DatablockPackTests
             Assert.True(b.U(8) == 0 && !b.Flag() && !b.Flag() && b.Done());
         }
         // Shape name with validateShape: 0xff (0xfe with validateMaterials) + name, u32 CRC.
-        DataBlockManager.Block v = fx.Make("StaticShapeData", "validated");
+        var v = fx.Make("StaticShapeData", "validated");
         fx.Set(v, "shapeFile", ["tower"]);
         fx.Set(v, "validateShape", ["True"]);
         v.ValidationCrc = 0x12345678;
@@ -206,13 +206,13 @@ public class DatablockPackTests
             Assert.True(b.Str() == "\xfetower" && b.U(32) == 0x12345678);
         }
         // Group 21 MarkerData: GameBase, str shapeFile. Groups 26, 30: GameBase only.
-        DataBlockManager.Block m = fx.Make("MarkerData", "marker");
+        var m = fx.Make("MarkerData", "marker");
         {
             var b = new Bits(fx.Pack(m));
             GameBaseHead(b, -1, "", "Shape");
             Assert.True(b.Str().Length == 0 && b.Done());
         }
-        DataBlockManager.Block t = fx.Make("TriggerData", "trigger");
+        var t = fx.Make("TriggerData", "trigger");
         {
             var b = new Bits(fx.Pack(t));
             GameBaseHead(b, -1, "", "Shape");
@@ -227,8 +227,8 @@ public class DatablockPackTests
         }
         // Group 10 FlierData: VehicleData ends with 4 x raw(12) TankData suspension storage that a FlierData never writes,
         // sent zero (D12); then 7 x f32 FlierData fields.
-        DataBlockManager.Block f = fx.Make("FlierData", "flier");
-        OutEvent fe = fx.Pack(f);
+        var f = fx.Make("FlierData", "flier");
+        var fe = fx.Pack(f);
         {
             var b = new Bits(fe);
             Skip(b, fe.BodyBits - ((12 + 7) * 32));
@@ -269,7 +269,7 @@ public class DatablockPackTests
         var fx = new Fx();
         // Group 15 GrenadeData: +0x80 isVisible is not a Grenade field and no ctor writes it: sent set as every reference
         // capture shows (D12). +0x68 is maxLevelFlightDist as stored, sqrt(|v| * 20) (5 -> 10), +0x7c projSpecialTime.
-        DataBlockManager.Block g = fx.Make("GrenadeData", "grenade");
+        var g = fx.Make("GrenadeData", "grenade");
         fx.Set(g, "maxLevelFlightDist", ["5"]);
         fx.Set(g, "projSpecialTime", ["2"]);
         {
@@ -280,7 +280,7 @@ public class DatablockPackTests
         }
         // Group 14 BulletData registers isVisible: the script value is sent. Then f32 rotationPeriod, u32 bulletHoleIndex,
         // f32 tracerLength.
-        DataBlockManager.Block bu = fx.Make("BulletData", "bullet");
+        var bu = fx.Make("BulletData", "bullet");
         fx.Set(bu, "muzzleVelocity", ["425"]);
         fx.Set(bu, "isVisible", ["True"]);
         {
@@ -297,7 +297,7 @@ public class DatablockPackTests
         var fx = new Fx();
         // Group 3 PlayerData: maxForwardSpeed 11 goes out as unit(10) of 11/64 = 175 (4.2 spot value); jumpSurfaceMinDot
         // 0.2 as unit(8) = 51; jumpImpulse 75 as f32.
-        DataBlockManager.Block p = fx.Make("PlayerData", "larmor");
+        var p = fx.Make("PlayerData", "larmor");
         fx.Set(p, "maxForwardSpeed", ["11"]);
         fx.Set(p, "jumpImpulse", ["75"]);
         fx.Set(p, "canCrouch", ["True"]);

@@ -60,7 +60,7 @@ public sealed class ClientHudSource : IHudSource
             // 6 bit field of the control state, scaled by 1/63 [code 00446830 Vehicle_readControlState, constant at 00446a9c].
             if (Psc.ControlClass is "Vehicle" or "Flier" && Psc.ControlState.TryGetValue("dmg6", out var dmg6))
                 return Math.Clamp((float)(D(dmg6, 0) / 63.0), 0, 1);
-            ClientGhost? g = Psc.ControlClass == "ObserverCamera" ? OrbitGhost : Ghost;
+            var g = Psc.ControlClass == "ObserverCamera" ? OrbitGhost : Ghost;
             if (g == null)
                 return 0;
             if (g.State.ContainsKey("dead"))
@@ -101,8 +101,8 @@ public sealed class ClientHudSource : IHudSource
         get
         {
             if (Ghost != null && Ghost.State.TryGetValue("datablock", out var idx) &&
-                mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out ClientDataBlock? b))
-                foreach (DecodedField f in b.Fields)
+                mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out var b))
+                foreach (var f in b.Fields)
                     if (f.Name == "maxEnergy" && D(f.Value, 0) > 0)
                         return D(f.Value, 0);
             return 0;
@@ -169,7 +169,7 @@ public sealed class ClientHudSource : IHudSource
             var slots = MountedImages(g);
             for (var i = 0; i < Psc.ItemCounts.Length; ++i)
             {
-                if (Psc.ItemCounts[i] <= 0 || !mWorld.DataBlocks.Blocks.TryGetValue((5, i), out ClientDataBlock? b))
+                if (Psc.ItemCounts[i] <= 0 || !mWorld.DataBlocks.Blocks.TryGetValue((5, i), out var b))
                     continue;
                 var icon = b.Fields.FirstOrDefault(f => f.Name == "hudIcon" && f.Value is string).Value as string ?? "";
                 if (icon.Length == 0 || !b.Fields.Any(f => f.Name == "showWeaponBar" && D(f.Value, 0) != 0))
@@ -184,7 +184,7 @@ public sealed class ClientHudSource : IHudSource
                         break;
                     }
                 var ammo = -1;
-                if (image >= 0 && mWorld.DataBlocks.Blocks.TryGetValue((6, image), out ClientDataBlock? ib))
+                if (image >= 0 && mWorld.DataBlocks.Blocks.TryGetValue((6, image), out var ib))
                 {
                     var type = (int)ib.Fields.Where(f => f.Name == "ammoType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
                     if (type >= 0 && type < Psc.ItemCounts.Length)
@@ -235,7 +235,7 @@ public sealed class ClientHudSource : IHudSource
                 return list;
             for (var i = 0; i < n && i < Psc.ItemCounts.Length; ++i)
             {
-                if (!mWorld.DataBlocks.Blocks.TryGetValue((5, i), out ClientDataBlock? b) ||
+                if (!mWorld.DataBlocks.Blocks.TryGetValue((5, i), out var b) ||
                     !b.Fields.Any(f => f.Name == "showInventory" && D(f.Value, 0) != 0))
                     continue;
                 string S(string name) => b.Fields.FirstOrDefault(f => f.Name == name && f.Value is string).Value as string ?? "";
@@ -255,11 +255,11 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
-            ClientPlayerManager pm = mWorld.Players;
+            var pm = mWorld.Players;
             var teams = pm.Teams.Values.Where(t => t.Index >= 0).OrderByDescending(t => t.SortValue).ThenBy(t => t.Index)
                 .Select(t => new ScoreRow(t.Index, Expand(t.ScoreText, null, t.Name), t.SortValue)).ToList();
             var clients = pm.Clients.Values.Where(c => !c.Ai).OrderByDescending(c => c.SortValue).ThenBy(c => c.Id)
-                .Select(c => new ScoreRow(c.Id, Expand(c.ScoreText, c, c.Team >= 0 && pm.Teams.TryGetValue(c.Team, out ClientTeam? t) ? t.Name : ""),
+                .Select(c => new ScoreRow(c.Id, Expand(c.ScoreText, c, c.Team >= 0 && pm.Teams.TryGetValue(c.Team, out var t) ? t.Name : ""),
                     c.SortValue)).ToList();
             return new ScoreBoard(pm.TeamHeading, pm.ClientHeading, teams, clients, mWorld.PlayerId);
         }
@@ -320,19 +320,19 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
-            ClientPlayerManager pm = mWorld.Players;
+            var pm = mWorld.Players;
             if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
                 return null;
             var slots = new List<CommandMapSlotMark>();
             for (var i = 0; i < Psc.CommandSlots.Length; ++i)
             {
-                ClientCommandSlot s = Psc.CommandSlots[i];
-                if (!s.Present || !mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out ClientDataBlock? b))
+                var s = Psc.CommandSlots[i];
+                if (!s.Present || !mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out var b))
                     continue;
                 string Str(string name)
-                { foreach (DecodedField fld in b.Fields) if (fld.Name == name) return fld.Value as string ?? ""; return ""; }
+                { foreach (var fld in b.Fields) if (fld.Name == name) return fld.Value as string ?? ""; return ""; }
                 var id = i < 128 ? 0x800 + i : -1;
-                ClientPlayerRecord? rec = s.Group == 3 && id >= 0 ? pm.Get(id) : null;
+                var rec = s.Group == 3 && id >= 0 ? pm.Get(id) : null;
                 var target = i >= 128 && pm.TargetNames.TryGetValue(i - 128, out var tn) ? tn : null;
                 slots.Add(new CommandMapSlotMark(i, s.X, s.Y, s.Team, s.Group, id, Str("mapIcon"), Str("description"), target, (int)Fld(b, "mapFilter", -1),
                     (int)Fld(b, "range", 0), Fld(b, "supression", 0) != 0, s.Active, rec?.Name ?? "", rec is { CmdIssuer: not -1, Commander: >= 0 and < 64 } ? rec.Commander : -1, rec?.CmdTarget ?? -1,
@@ -374,15 +374,15 @@ public sealed class ClientHudSource : IHudSource
         get
         {
             var rows = new List<CommandTeamRow>();
-            ClientPlayerManager pm = mWorld.Players;
+            var pm = mWorld.Players;
             if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
                 return rows;
             void Add(List<ClientPlayerRecord> siblings, int depth, List<(int Depth, bool HasNext)> above)
             {
                 for (var i = 0; i < siblings.Count; ++i)
                 {
-                    ClientPlayerRecord r = siblings[i];
-                    List<ClientPlayerRecord> kids = CommandChildren(r, me.Team);
+                    var r = siblings[i];
+                    var kids = CommandChildren(r, me.Team);
                     var next = i + 1 < siblings.Count;
                     rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, r.Expanded, next, CommandDamage(r.Id), r.CommandStatus + 1, above.ToArray(), r.Selected));
                     if (!r.Expanded)
@@ -402,7 +402,7 @@ public sealed class ClientHudSource : IHudSource
     /// <returns>The status, 0 (low) for none.</returns>
     private int CommandDamage(int clientId)
     {
-        ClientCommandSlot[] slots = Psc.CommandSlots;
+        var slots = Psc.CommandSlots;
         for (var i = 0; i < 128; ++i)
             if (slots[i].Group == 3 && 0x800 + i == clientId)
                 return slots[i].Status;
@@ -420,15 +420,15 @@ public sealed class ClientHudSource : IHudSource
             return rows;
         for (var i = 0; i < Psc.CommandSlots.Length; ++i)
         {
-            ClientCommandSlot s = Psc.CommandSlots[i];
+            var s = Psc.CommandSlots[i];
             if (!s.Present || s.Team != me.Team || !shows(s.Group))
                 continue;
             var name = i >= 128 && mWorld.Players.TargetNames.TryGetValue(i - 128, out var label) && label.Length > 0 ? label : null;
             if (name == null)
             {
-                if (!mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out ClientDataBlock? b))
+                if (!mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out var b))
                     continue;
-                foreach (DecodedField f in b.Fields)
+                foreach (var f in b.Fields)
                     if (f.Name == "description" && f.Value is string d && d.Length > 0)
                         name = d;
             }
@@ -456,7 +456,7 @@ public sealed class ClientHudSource : IHudSource
 
     /// <inheritdoc/>
     public int? CommandBlockFilter(int group, int index) =>
-        mWorld.DataBlocks.Blocks.TryGetValue((group, index), out ClientDataBlock? b) ? (int)Fld(b, "mapFilter", -1) : null;
+        mWorld.DataBlocks.Blocks.TryGetValue((group, index), out var b) ? (int)Fld(b, "mapFilter", -1) : null;
 
     /// <inheritdoc/>
     public string? CommandClientName(int clientId) => mWorld.Players.Get(clientId) is { Ai: false } r ? r.Name : null;
@@ -481,7 +481,7 @@ public sealed class ClientHudSource : IHudSource
     /// <inheritdoc/>
     public bool CommandInChain(int clientId, int commander)
     {
-        for (ClientPlayerRecord? r = mWorld.Players.Get(clientId); r != null; r = mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null)
+        for (var r = mWorld.Players.Get(clientId); r != null; r = mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null)
             if (r.Commander == commander)
                 return true;
         return false;
@@ -491,11 +491,11 @@ public sealed class ClientHudSource : IHudSource
     /// <remarks>+0x74 is the first record under this one in the tree (the oldest, as for the rows), +0x78 the next one under the same commander.</remarks>
     public (int FirstChild, int NextSibling, bool Selected)? CommandLinks(int clientId)
     {
-        ClientPlayerManager pm = mWorld.Players;
+        var pm = mWorld.Players;
         if (pm.Get(clientId) is not { } r || pm.Get(mWorld.PlayerId) is not { } me)
             return null;
         var first = CommandChildren(r, me.Team) is { Count: > 0 } kids ? kids[0].Id : -1;
-        List<ClientPlayerRecord> siblings = CommandChildren(CommandParent(r), r.Team);
+        var siblings = CommandChildren(CommandParent(r), r.Team);
         var at = siblings.IndexOf(r);
         return (first, at >= 0 && at + 1 < siblings.Count ? siblings[at + 1].Id : -1, r.Selected);
     }
@@ -557,8 +557,8 @@ public sealed class ClientHudSource : IHudSource
     private string? BlockString(ClientGhost g, string field)
     {
         if (ObjectGroup(g.Class) is var grp && grp >= 0 && g.State.TryGetValue("datablock", out var idx)
-            && mWorld.DataBlocks.Blocks.TryGetValue((grp, (int)D(idx, -1)), out ClientDataBlock? b))
-            foreach (DecodedField f in b.Fields)
+            && mWorld.DataBlocks.Blocks.TryGetValue((grp, (int)D(idx, -1)), out var b))
+            foreach (var f in b.Fields)
                 if (f.Name == field)
                     return f.Value as string;
         return null;
@@ -574,13 +574,13 @@ public sealed class ClientHudSource : IHudSource
     {
         if (ViewCamera?.Invoke(width, height) is not Camera3D cam || Psc.ControlGhost < 0 || mWorld.PlayerId == 0)
             return null;
-        ClientPlayerManager pm = mWorld.Players;
-        ClientPlayerRecord? me = pm.Get(mWorld.PlayerId);
+        var pm = mWorld.Players;
+        var me = pm.Get(mWorld.PlayerId);
         if (me == null)
             return null;
         var eye = (cam.X, cam.Y, cam.Z);
         var list = new List<HudTargetCandidate>();
-        foreach (ClientGhost g in mWorld.Ghosts.All())
+        foreach (var g in mWorld.Ghosts.All())
         {
             // Crosshair_findTarget skips the control object and every Player whose mount object (+0x1028) is the control object: while
             // piloting, the pilot's own Player and the passengers of the vehicle get no mark and no label [code 004aca84].
@@ -593,8 +593,8 @@ public sealed class ClientHudSource : IHudSource
             var visible = ((owner - 0x800) >> 5) is int w && w < Psc.Visible.Length && ((Psc.Visible[w] >> (owner & 31)) & 1) != 0;
             var head = HeadMount?.Invoke(g.Index) ?? (pos[0], pos[1], pos[2] + 1.4);
             double bw = 1, bd = 1, bh = 2;
-            if (g.State.TryGetValue("datablock", out var idx) && mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out ClientDataBlock? b))
-                foreach (DecodedField f in b.Fields)
+            if (g.State.TryGetValue("datablock", out var idx) && mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out var b))
+                foreach (var f in b.Fields)
                     switch (f.Name)
                     {
                         case "boxWidth":
@@ -615,7 +615,7 @@ public sealed class ClientHudSource : IHudSource
         }
         // Objects of the sensor set: the name is the target name of its slot, else the datablock description; the icon is the green
         // bitmap of the datablock's mapIcon [code GameBaseData_preload: "%s_green.bmp"].
-        foreach (ClientGhost g in mWorld.Ghosts.All())
+        foreach (var g in mWorld.Ghosts.All())
         {
             // The loop of Crosshair_findTarget [code 004aca84, test at 004accdc..004accee] skips the control object before it sorts the object
             // into the Player or the sensor branch: a controlled Turret gets no label.
@@ -651,7 +651,7 @@ public sealed class ClientHudSource : IHudSource
     private static double Fld(ClientDataBlock? b, string name, double def)
     {
         if (b != null)
-            foreach (DecodedField f in b.Fields)
+            foreach (var f in b.Fields)
                 if (f.Name == name)
                     return D(f.Value, def);
         return def;
@@ -667,8 +667,8 @@ public sealed class ClientHudSource : IHudSource
         group = -1;
         var item = D(g.State.GetValueOrDefault("item0"), -1);
         if (item < 0
-            || !mWorld.DataBlocks.Blocks.TryGetValue((5, (int)item), out ClientDataBlock? ib)
-            || !mWorld.DataBlocks.Blocks.TryGetValue((6, (int)Fld(ib, "imageType", -1)), out ClientDataBlock? img))
+            || !mWorld.DataBlocks.Blocks.TryGetValue((5, (int)item), out var ib)
+            || !mWorld.DataBlocks.Blocks.TryGetValue((6, (int)Fld(ib, "imageType", -1)), out var img))
             return null;
         return ProjectileOf(img, out group);
     }
@@ -688,13 +688,13 @@ public sealed class ClientHudSource : IHudSource
         if (grp == -1)
             return null;
         group = grp;
-        return mWorld.DataBlocks.Blocks.TryGetValue((grp, idx), out ClientDataBlock? pb) ? pb : null;
+        return mWorld.DataBlocks.Blocks.TryGetValue((grp, idx), out var pb) ? pb : null;
     }
 
     /// <summary>Returns the gravity of the control player: force 1 of its SimMovement, the world gravity of the terrain ghost, minus its length (004adb98).</summary>
     private float Gravity()
     {
-        foreach (ClientGhost t in mWorld.Ghosts.All())
+        foreach (var t in mWorld.Ghosts.All())
             if (t.State.GetValueOrDefault("contGravity") is double[] { Length: >= 3 } v)
                 return X87.F32(-X87.Len([(float)v[0], (float)v[1], (float)v[2]]));
         return 0f;
@@ -708,7 +708,7 @@ public sealed class ClientHudSource : IHudSource
     private ClientDataBlock? TurretProjectile(ClientGhost g, out int group)
     {
         group = -1;
-        if (!g.State.TryGetValue("datablock", out var di) || !mWorld.DataBlocks.Blocks.TryGetValue((19, (int)D(di, -1)), out ClientDataBlock? tb))
+        if (!g.State.TryGetValue("datablock", out var di) || !mWorld.DataBlocks.Blocks.TryGetValue((19, (int)D(di, -1)), out var tb))
             return null;
         return ProjectileOf(tb, out group);
     }
@@ -750,7 +750,7 @@ public sealed class ClientHudSource : IHudSource
             ? (float)Fld(block, "field@0x68", 0) : 1.0e7f;
         var totalTime = (float)Fld(block, "totalTime", 10000);
         var g = Gravity();
-        foreach (ClientGhost t in mWorld.Ghosts.All())
+        foreach (var t in mWorld.Ghosts.All())
         {
             double[]? pos = null;
             var team = int.MinValue;

@@ -31,8 +31,8 @@ public sealed class VehicleCameraTests
     public void WithoutEyeNodeTheObjectTransformIsTheCamera()
     {
         Numbers.EnterScriptFpuMode();
-        Transform obj = Make(0.2f, 0.1f, 1f, 5, 6, 7);
-        Transform t = VehicleCamera.Compute(obj, null, 3f, null, null);
+        var obj = Make(0.2f, 0.1f, 1f, 5, 6, 7);
+        var t = VehicleCamera.Compute(obj, null, 3f, null, null);
         for (var i = 0; i < 9; ++i)
             Assert.Equal(obj.M[i], t.M[i]);
         Assert.Equal(7f, t.P[2]);
@@ -42,9 +42,9 @@ public sealed class VehicleCameraTests
     public void FirstPersonIsTheEyeNodeTimesTheObject()
     {
         Numbers.EnterScriptFpuMode();
-        Transform obj = Make(0, 0, (float)(Math.PI / 2), 10, 20, 30);
-        Transform eye = Make(0, 0, 0, 0, 1, 2);          // 1 m forward, 2 m up in object space
-        Transform t = VehicleCamera.Compute(obj, eye, 0f, null, null);
+        var obj = Make(0, 0, (float)(Math.PI / 2), 10, 20, 30);
+        var eye = Make(0, 0, 0, 0, 1, 2);          // 1 m forward, 2 m up in object space
+        var t = VehicleCamera.Compute(obj, eye, 0f, null, null);
         // yaw 90 degrees turns +y to -x
         Assert.Equal(9f, t.P[0], 3);
         Assert.Equal(20f, t.P[1], 3);
@@ -58,9 +58,9 @@ public sealed class VehicleCameraTests
     public void ThirdPersonMovesBackTwiceTheArgumentAndScalesPitchAndRoll()
     {
         Numbers.EnterScriptFpuMode();
-        Transform obj = Make(0.5f, 0.4f, 0f, 0, 0, 100);
-        Transform eye = Make(0, 0, 0, 0, 0, 0);
-        Transform t = VehicleCamera.Compute(obj, eye, 2f, null, null);
+        var obj = Make(0.5f, 0.4f, 0f, 0, 0, 100);
+        var eye = Make(0, 0, 0, 0, 0, 0);
+        var t = VehicleCamera.Compute(obj, eye, 2f, null, null);
         var e = new float[3];
         MissionTransform.MatrixToEuler(t, e);
         Assert.Equal(0.4f, e[0], 4);   // pitch * 0.8
@@ -86,8 +86,8 @@ public sealed class VehicleCameraTests
                 return true;
             },
         });
-        Transform obj = Make(0, 0, 0, 0, 0, 10);
-        Transform t = VehicleCamera.Compute(obj, Make(0, 0, 0, 0, 0, 0), 1f, c, null);
+        var obj = Make(0, 0, 0, 0, 0, 10);
+        var t = VehicleCamera.Compute(obj, Make(0, 0, 0, 0, 0, 0), 1f, c, null);
         Assert.Equal(-1.975f, t.P[1], 3);
     }
 
@@ -95,8 +95,8 @@ public sealed class VehicleCameraTests
     public void CameraRollMatchesTheEulerMatrix()
     {
         Numbers.EnterScriptFpuMode();
-        Transform t = Make(0.3f, -0.6f, 1.1f, 1, 2, 3);
-        DemoRender.CameraPose pose = DemoRender.PoseOf(t, true, 7);
+        var t = Make(0.3f, -0.6f, 1.1f, 1, 2, 3);
+        var pose = DemoRender.PoseOf(t, true, 7);
         var cam = new Camera3D(0, 0, 0, pose.YawDeg, pose.PitchDeg, 90, 640, 480, 0.1, 1000, pose.RollDeg);
         var (x, y, z) = cam.Right;
         var f = cam.Forward;

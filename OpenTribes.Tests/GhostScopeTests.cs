@@ -70,7 +70,7 @@ public class GhostScopeTests
 
     private static void CameraRecordTest()
     {
-        CameraRecord rec = Observer();
+        var rec = Observer();
         Assert.True(rec.Dir[0] == 0 && rec.Dir[1] == 1 && rec.Dir[2] == 0);
         Assert.Equal(45.0f, rec.Fov);
         Assert.True(Near(rec.SinHalfFov, -0.487174, 1e-5) && Near(rec.CosHalfFov, -0.873305, 1e-5));
@@ -78,7 +78,7 @@ public class GhostScopeTests
 
     private static void Priority()
     {
-        CameraRecord rec = Observer();
+        var rec = Observer();
         // In front: fov term + distance term.
         Assert.True(Near(Prio(At(0, 100, 0), rec), 1.0 + (0.4 * (1 - (100.0 / 1500)))));
         // Straight behind (outside cos 22.5 rad): distance term only.
@@ -88,23 +88,23 @@ public class GhostScopeTests
         // Item interest, skips, ownership, Player interest.
         Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kItemType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.05));
         Assert.True(Near(Prio(At(0, 100, 0), rec, 3), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.3));
-        PriorityInputs owned = At(0, 100, 0);
+        var owned = At(0, 100, 0);
         owned.OwnerId = 100;
         Assert.True(Near(Prio(owned, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.2));
         Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kPlayerType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.15));
         // Velocity term: |dir x v| through the bit-level square root, (0,0,-10) -> 10.25.
-        PriorityInputs moving = At(0, 100, 0);
+        var moving = At(0, 100, 0);
         moving.Velocity[0] = 10;
         Assert.True(Near(Prio(moving, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + (0.4 * (10.25 / 1500))));
         // Projectile coming at the camera: 0.3 + 0.2 * speed toward it.
-        PriorityInputs shot = At(0, 100, 0, 0x100);
+        var shot = At(0, 100, 0, 0x100);
         shot.Velocity[1] = -10;
         Assert.True(Near(Prio(shot, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + (0.2 * 2.3), 1e-5));
         shot.Velocity[1] = 10;
         Assert.True(Near(Prio(shot, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + (0.2 * 0.3)));
         // The record object itself; a laser with mask bit 27; a centre on the camera.
         Assert.Equal(10.0f, GhostScope.GameBasePriority(At(0, 100, 0), rec, 100, true, 0xffffffffu, 0, new PriorityWeights()));
-        PriorityInputs laser = At(0, 100, 0);
+        var laser = At(0, 100, 0);
         laser.Laser = true;
         Assert.Equal(9.89999962f, Prio(laser, rec, 0, 100, 0x08000000u));
         Assert.NotEqual(9.89999962f, Prio(laser, rec, 0, 100, 0x1u));
@@ -122,7 +122,7 @@ public class GhostScopeTests
         var c = new Container();
         Named t = new("SimTerrain", "T"), a = new("StaticShape", "a"), m = new("Marker", "m"), b = new("Sensor", "b"),
               itr = new("InteriorShape", "I");
-        Container.Entry te = E(t, ObjectType.kTerrainType, -500, -500, 0, 500, 500, 300);
+        var te = E(t, ObjectType.kTerrainType, -500, -500, 0, 500, 500, 300);
         te.DatabaseKind = Container.Database.Terrain;
         te.ContainerMask = 0xffffffffu;
         te.VisibleDistance = 600;
@@ -160,7 +160,7 @@ public class GhostScopeTests
         public EyeBase(ClassContext ctx) : base("Player", Kind.ShapeBase, -1, Array.Empty<PersistDef>(), ctx) { }
         public override Transform EyeTransform()
         {
-            Transform t = Transform;
+            var t = Transform;
             t.P[2] = Core.Fpu.AddF(t.P[2], EyeHeight);
             return t;
         }
@@ -172,7 +172,7 @@ public class GhostScopeTests
     {
         var c = new Container();
         Named t = new("SimTerrain", "T"), far = new("StaticShape", "f");
-        Container.Entry te = E(t, ObjectType.kTerrainType, -5000, -5000, 0, 5000, 5000, 5000);
+        var te = E(t, ObjectType.kTerrainType, -5000, -5000, 0, 5000, 5000, 5000);
         te.DatabaseKind = Container.Database.Terrain;
         te.ContainerMask = 0xffffffffu;
         te.VisibleDistance = 600;

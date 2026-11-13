@@ -157,7 +157,7 @@ public class PlayerTests
         List<string[]> moves = TestPaths.IncTokens(inc, "k" + prefix + "Moves"), states = TestPaths.IncTokens(inc, "k" + prefix + "States");
         var pos = Numbers.FormatFloat(TestPaths.IncF32(start[0])) + " " + Numbers.FormatFloat(TestPaths.IncF32(start[1])) + " " +
                      Numbers.FormatFloat(TestPaths.IncF32(start[2]));
-        Player p = f.Spawn(pos);
+        var p = f.Spawn(pos);
         p.RechargeRate = 8.0f;
         for (var i = 0; i < moves.Count; ++i)
         {
@@ -195,7 +195,7 @@ public class PlayerTests
     private static void TestPlayerLine()
     {
         var f = new Fixture("player_line");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         (string rot, string s, string e, string want)[] rays =
         [
@@ -210,7 +210,7 @@ public class PlayerTests
         ];
         foreach (var (rot, s, e, want) in rays)
         {
-            Player pr = f.Spawn("50 50 900", rot);
+            var pr = f.Spawn("50 50 900", rot);
             var id = Itoa(pr.Id());
             c.Check(w, "if (getLOSInfo(\"" + s + "\", \"" + e + "\", 16)) echo($los::object == " + id +
                        ", \"|\", $los::position, \"|\", $los::normal); else echo(\"miss\");",
@@ -228,7 +228,7 @@ public class PlayerTests
     private static void TestSpawn()
     {
         var f = new Fixture("player_spawn");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         // 1.1: argc != 4 and an unknown armor return -1 without a message.
         c.Check(w, "echo(spawnPlayer());", "-1");
@@ -237,7 +237,7 @@ public class PlayerTests
         // 1.3: onAdd runs before the player joins MissionCleanup; energy = maxEnergy (1.4).
         w.Run("function Player::onAdd(%this) { $added = %this; $inCleanup = Group::objectCount(MissionCleanup);" +
               " GameBase::setRechargeRate(%this, 8); }");
-        Player p = f.Spawn("16 16 80", "0 0 1.5");
+        var p = f.Spawn("16 16 80", "0 0 1.5");
         var id = Itoa(p.Id());
         c.Check(w, "echo($added == " + id + ", \" \", $inCleanup, \" \", Group::objectCount(MissionCleanup));", "1 0 1");
         Assert.True(p.Energy == 60.0f && p.RechargeRate == 8.0f && p.Team == -1);
@@ -247,7 +247,7 @@ public class PlayerTests
         Assert.True(p.BoxMin[0] == -0.5f && p.BoxMax[2] == 2.25f && p.Radius == 1.125f && p.Mass == 9.0f);
         // 1.6: set 719 and container 7 inside the terrain container (gravity entry first, FC5).
         var inSet = false;
-        foreach (SimObject m in w.Sim.Server()!.FindById(719)!.AsSet()!.Members())
+        foreach (var m in w.Sim.Server()!.FindById(719)!.AsSet()!.Members())
             inSet = inSet || m == p;
         Assert.True(inSet && w.Game.World.Find(p) != null && w.Game.World.TerrainOf(p) != null);
         Assert.True(p.Forces().Count == 1 && p.Forces()[0].Type == 1 && p.Forces()[0].V[2] == -20.0f);
@@ -276,7 +276,7 @@ public class PlayerTests
     private static void TestMoveCredit()
     {
         var f = new Fixture("player_credit");
-        Player p = f.Spawn("16 16 500");
+        var p = f.Spawn("16 16 500");
         var jet = new Move
         {
             Jet = true
@@ -306,7 +306,7 @@ public class PlayerTests
         p.ServerTick(1024);
         Assert.True(p.Credit == -26 && p.Transform.P[2] != z && p.TicksWithoutMove == 0 && !p.LastMove.Jet);
         // TK4: without a control client every tick is a null move.
-        Player q = f.Spawn("20 16 500");
+        var q = f.Spawn("20 16 500");
         q.ServerTick(0);
         Assert.True(q.Velocity[2] == -0.64f && q.Credit == 0);
         // TK7: a dead player ignores moves.
@@ -321,7 +321,7 @@ public class PlayerTests
     private static void TestForcesAndAim()
     {
         var f = new Fixture("player_forces");
-        Player p = f.Spawn("16 16 500");
+        var p = f.Spawn("16 16 500");
         var jet = new Move
         {
             Jet = true
@@ -335,7 +335,7 @@ public class PlayerTests
         // SimObject::setTransform (0x005054a4) updates the container entry at once; the force list changes only in the
         // step (FC5).
         {
-            Container.Entry? e = f.W.Game.World.Find(p);
+            var e = f.W.Game.World.Find(p);
             Assert.True(e != null && e.Box[0] < 1000.0f && e.Box[3] > 1000.0f && e.Box[2] <= 500.0f && e.Box[5] > 500.0f);
             Assert.Equal(2, p.Forces().Count);
         }
@@ -351,7 +351,7 @@ public class PlayerTests
         Assert.True(p.Forces().Count == 1 && p.Forces()[0].Type == 1);
 
         // RA2: one wrap of the yaw by the double 2 pi; RA4: pitch clamp to 0x3fc49809.
-        Player q = f.Spawn("20 16 500");
+        var q = f.Spawn("20 16 500");
         var turn = new Move
         {
             Turn = -0.5f
@@ -382,7 +382,7 @@ public class PlayerTests
     private static void TestDragAndClamp()
     {
         var f = new Fixture("player_drag");
-        Player p = f.Spawn("16 16 500");
+        var p = f.Spawn("16 16 500");
         p.UpdateMove(new Move());
         Assert.True(p.Velocity[2] == -0.64f);
         f.W.Run("setTerrainContainer(\"MissionGroup\\\\Terrain\", \"0 0 -20\", 0.5, 10000);");
@@ -396,7 +396,7 @@ public class PlayerTests
             var c = Scaled(Scaled(1.0f, 0.5f), 0.032f);
             return X87.F32(Sub(v, Mul(v, c)));
         }
-        Player q = f.Spawn("20 16 500");
+        var q = f.Spawn("20 16 500");
         q.UpdateMove(new Move());
         Assert.True(Bits(q.Velocity[2]) == Bits(Dragged(-0.64f)) && q.Velocity[2] > -0.64f);
         // Leaving the container removes gravity and keeps the drag (0x0051963c).
@@ -415,7 +415,7 @@ public class PlayerTests
 
         // horzVelClamp: not above 3.0, no clamp; a redeclaration reaches a bound player.
         var g = new Fixture("player_clamp");
-        Player cl = g.Spawn("16 16 500");
+        var cl = g.Spawn("16 16 500");
         cl.Velocity[0] = 8.0f;
         cl.Velocity[1] = 6.0f;
         cl.UpdateMove(new Move());
@@ -442,7 +442,7 @@ public class PlayerTests
     private static void TestConsoleTransform()
     {
         var f = new Fixture("player_console_transform");
-        Player p = f.Spawn("16 16 500");
+        var p = f.Spawn("16 16 500");
         var id = Itoa(p.Id());
         // 3.14159 parses to 0x40490fcf. [live]: the reference control state after this pair of commands carries the yaw
         // 0x40490fcd, one unit lost per round trip.
@@ -454,7 +454,7 @@ public class PlayerTests
         Assert.Equal(20.0f, p.Transform.P[0]);
         // The matrix is rebuilt from the stored angle.
         {
-            Transform t = p.Transform;
+            var t = p.Transform;
             float[] e = [0, 0, p.Rotation[2]];
             MissionTransform.EulerToMatrix(e, ref t);
             var same = true;
@@ -497,7 +497,7 @@ public class PlayerTests
         var extra = 0;
         foreach (var o in f.W.Game.World.Contents(null))
         {
-            Container.Entry e = f.W.Game.World.Find(o)!;
+            var e = f.W.Game.World.Find(o)!;
             if (e.TerrainData == null || e.Box[0] == te.Box[0])
                 continue;
             ++extra;
@@ -522,8 +522,8 @@ public class PlayerTests
         Assert.False(Collision.CollideTerrain(te.TerrainData!, off, r, hit));
 
         // 5.2: box against a solid box interior (x -2..2, y -1..1, z 0..0.8) at the origin.
-        ResourceManager res = f.W.Res;
-        InteriorGeometry? geo = Interior.LoadInterior(res, "high.dis");
+        var res = f.W.Res;
+        var geo = Interior.LoadInterior(res, "high.dis");
         Assert.True(geo != null && geo.FindSurface(43, 1) == 1 && geo.FindSurface(43, 9) == -1 && geo.FindSurface(0, 1) == -1);
         float[] identity = [1, 0, 0, 0, 1, 0, 0, 0, 1], origin = [0, 0, 0];
         float[] bmin = [-0.5f, -0.5f, 0], bmax = [0.5f, 0.5f, 2.25f];
@@ -531,7 +531,7 @@ public class PlayerTests
         float[] into = [-2.4f, 0.25f, 0.25f];
         Assert.True(Collision.CollideInteriorBox(geo!, identity, origin, into, bmin, bmax, hit));
         bool wall = false, top = false;
-        foreach (CollisionSurface s in hit.Surfaces)
+        foreach (var s in hit.Surfaces)
         {
             wall = wall || (s.Normal[0] == -1 && s.Normal[1] == 0 && s.Normal[2] == 0);
             top = top || s.Normal[2] == 1;
@@ -546,10 +546,10 @@ public class PlayerTests
         float[] turned = [10.25f, -2.4f, 0.25f];
         Assert.True(Collision.CollideInteriorBox(geo!, quarter, at, turned, bmin, bmax, hit));
         var rotated = false;
-        foreach (CollisionSurface s in hit.Surfaces)
+        foreach (var s in hit.Surfaces)
         {
             var n = new float[3];
-            Float3 sn = s.Normal;
+            var sn = s.Normal;
             X87.MulVector(sn, hit.Rot, n);
             rotated = rotated || (n[0] == 0 && n[1] == -1 && n[2] == 0);
         }
@@ -578,7 +578,7 @@ public class PlayerTests
     private static void TestInteriorMoves()
     {
         var f = new Fixture("player_interior");
-        Fixtures.World w = f.W;
+        var w = f.W;
         w.Run("instant InteriorShape \"Low\" { fileName = \"low.dis\"; position = \"20 10 50\"; };" +
               "instant InteriorShape \"High\" { fileName = \"high.dis\"; position = \"20 24 50\"; };");
         var none = new Move();
@@ -587,7 +587,7 @@ public class PlayerTests
             Right = 1.0f
         };
         // 4.2: a 0.4 m ledge is climbed in one step.
-        Player p = f.Spawn("15 10 50.2");
+        var p = f.Spawn("15 10 50.2");
         for (var i = 0; i < 40; ++i)
             p.UpdateMove(none);
         Assert.True(p.ContactFlag && p.Velocity[2] == 0.0f);
@@ -600,7 +600,7 @@ public class PlayerTests
         Assert.True(p.Transform.P[0] >= 19.5f && Math.Abs(top - 50.401f) < 2e-3f && p.ContactFlag);
         Assert.True(Math.Abs(p.Velocity[0] - 10.0f) < 1e-3f);
         // The same block 0.8 m high blocks (H > 0.6 r).
-        Player q = f.Spawn("15 24 50.2");
+        var q = f.Spawn("15 24 50.2");
         for (var i = 0; i < 40; ++i)
             q.UpdateMove(none);
         for (var i = 0; i < 60; ++i)
@@ -622,10 +622,10 @@ public class PlayerTests
     private static void TestShapesAndPlayers()
     {
         var f = new Fixture("player_shapes");
-        Fixtures.World w = f.W;
+        var w = f.W;
         // 6 T2.1: the boxes of the detail rooted at the node named "collision" (any case).
         float[] box = [-1, -1.5f, 0, 1, 1.5f, 2];
-        List<byte> dts = DtsCollisionFile(box);
+        var dts = DtsCollisionFile(box);
         var boxes = new List<Float6>();
         Assert.True(Shape.ReadShapeCollisionBoxes([.. dts], boxes) && boxes.Count == 1);
         for (var i = 0; i < 6; ++i)
@@ -636,12 +636,12 @@ public class PlayerTests
               "instant StaticShape \"G\" { dataBlock = \"Gen\"; position = \"40 40 50\"; };");
         Assert.NotNull(w.Game.World.Find(w.Object("G")));
         // A player dropped on the shape rests on the top face of its collision box (z 52).
-        Player p = f.Spawn("40 40 53");
+        var p = f.Spawn("40 40 53");
         for (var i = 0; i < 80; ++i)
             p.UpdateMove(new Move());
         Assert.True(p.ContactFlag && p.Velocity[2] == 0.0f && p.Transform.P[2] >= 52.0f && p.Transform.P[2] < 52.03f);
         // Walking into its side.
-        Player q = f.Spawn("35 40 50.2");
+        var q = f.Spawn("35 40 50.2");
         var right = new Move
         {
             Right = 1.0f
@@ -654,8 +654,8 @@ public class PlayerTests
         Assert.True(q.Transform.P[0] > 38.2f && q.Transform.P[0] < 38.5f && Math.Abs(q.Velocity[0]) < 1e-3f);
 
         // 5.3 and the failed-move fallback (collision 3 notes, 0x00505814).
-        Player a = f.Spawn("100 100 50.2");
-        Player b = f.Spawn("104 100 50.2");
+        var a = f.Spawn("100 100 50.2");
+        var b = f.Spawn("104 100 50.2");
         for (var i = 0; i < 40; ++i)
         {
             a.UpdateMove(new Move());
@@ -681,7 +681,7 @@ public class PlayerTests
     private static void TestItemCollision()
     {
         var f = new Fixture("player_items");
-        Fixtures.World w = f.W;
+        var w = f.W;
         w.Run("ItemData Brick { shapeFile = \"gen\"; mass = 1; friction = 1; elasticity = 0.2; };" +
               "StaticShapeData Gen { shapeFile = \"gen\"; };" +
               "instant InteriorShape \"High\" { fileName = \"high.dis\"; position = \"60 60 60\"; };" +
@@ -697,14 +697,14 @@ public class PlayerTests
                 it.ItemPhysics(0.032f);
             return it!;
         }
-        GameBase a = Settle("OnInterior");
+        var a = Settle("OnInterior");
         Assert.True(a.AtRest && a.Transform.P[2] > 60.7f && a.Transform.P[2] < 61.2f);
         Assert.True(Math.Abs(a.Transform.P[0] - 60.0f) < 0.05f && Math.Abs(a.Transform.P[1] - 60.0f) < 0.05f);
-        GameBase b = Settle("OnShape");
+        var b = Settle("OnShape");
         Assert.True(b.AtRest && b.Transform.P[2] > 82.0f && b.Transform.P[2] < 82.6f);
-        GameBase t = Settle("Turned");
+        var t = Settle("Turned");
         Assert.True(t.AtRest && t.Transform.P[2] > 60.7f && t.Transform.P[2] < 61.2f);
-        InteriorGeometry? geo = Interior.LoadInterior(w.Res, "high.dis");
+        var geo = Interior.LoadInterior(w.Res, "high.dis");
         Assert.NotNull(geo);
         float[] identity = [1, 0, 0, 0, 1, 0, 0, 0, 1], quarter = [0, 1, 0, -1, 0, 0, 0, 0, 1];
         float[] origin = [0, 0, 0], at = [-2.6f, 0, 0.3f];
@@ -725,7 +725,7 @@ public class PlayerTests
     private static void TestAnimationWrap()
     {
         var f = new Fixture("player_anim");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var body = new DtsSpec
         {
             Names = ["bounds", "root", "torso", "run", "wave"],
@@ -814,7 +814,7 @@ public class PlayerTests
         }
 
         var f = new Fixture("player_trigger");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var body = new DtsSpec
         {
             Names = ["bounds", "root", "torso"],
@@ -858,9 +858,9 @@ public class PlayerTests
         }
         string Log() => w.Run("echo($zl);");
         Ticks(4);
-        GameBase a = Trigger("a", "40.75 40 50.5", "0 0 0", "-0.25 -0.25 -0.25 0.25 0.25 0.25", "False");
-        GameBase b = Trigger("b", "60.9 40 50.5", "0 0 0", "-0.2 -0.2 -0.2 0.2 0.2 0.2", "False");
-        GameBase s = Trigger("s", "80 40.5 51", "0 0 0", "-0.3 -0.2 -0.4 0.3 0.2 0.4", "True");
+        var a = Trigger("a", "40.75 40 50.5", "0 0 0", "-0.25 -0.25 -0.25 0.25 0.25 0.25", "False");
+        var b = Trigger("b", "60.9 40 50.5", "0 0 0", "-0.2 -0.2 -0.2 0.2 0.2 0.2", "False");
+        var s = Trigger("s", "80 40.5 51", "0 0 0", "-0.3 -0.2 -0.4 0.3 0.2 0.4", "True");
         Assert.True(!a.TriggerSphere && a.TriggerBox[0] == -0.25f && a.TriggerBox[5] == 0.25f);
         Assert.True(s.TriggerSphere);
         {
@@ -883,7 +883,7 @@ public class PlayerTests
             Assert.Equal(1, images.Count);
         }
         Spawn("1", "40 40 50.1");
-        Player pb = Spawn("2", "60.45 40 50.1");
+        var pb = Spawn("2", "60.45 40 50.1");
         Ticks(3);
         Assert.True(Log() == "Eb2" && b.Occupants.Count == 1 && a.Occupants.Count == 0);
         Ticks(9);
@@ -893,14 +893,14 @@ public class PlayerTests
         Assert.True(Log() == "Eb2Cb2Cb2Lb2" && b.Occupants.Count == 0);
         w.Run("$zl = \"\";");
         Spawn("3", "60 40 50.1");
-        GameBase flat = Trigger("f", "100.59 40 50.5", "0 0 0", "-0.2 -0.2 -0.2 0.2 0.2 0.2", "False");
-        GameBase turnedT = Trigger("t", "120.57 40 50.5", "0 0 0.785398", "-0.2 -0.2 -0.2 0.2 0.2 0.2", "False");
+        var flat = Trigger("f", "100.59 40 50.5", "0 0 0", "-0.2 -0.2 -0.2 0.2 0.2 0.2", "False");
+        var turnedT = Trigger("t", "120.57 40 50.5", "0 0 0.785398", "-0.2 -0.2 -0.2 0.2 0.2 0.2", "False");
         Spawn("4", "100 40 50.1");
-        Player pt = Spawn("5", "120 40 50.1");
+        var pt = Spawn("5", "120 40 50.1");
         Ticks(3);
         Assert.True(flat.Occupants.Count == 0 && turnedT.Occupants.Count == 1 && Log() == "Et5");
         w.Run("$zl = \"\";");
-        Player ps = Spawn("6", "80 40 50.1");
+        var ps = Spawn("6", "80 40 50.1");
         Ticks(3);
         Assert.True(Log() == "Es6" && s.Occupants.Count == 1);
         w.Run("$zl = \"\"; Player::kill(" + Itoa(ps.Id()) + ");");
@@ -909,7 +909,7 @@ public class PlayerTests
         var freed = pt.Id();
         w.Run("$zl = \"\"; deleteObject(" + Itoa(freed) + ");");
         Assert.Equal(0, turnedT.Occupants.Count);
-        Player reborn = Spawn("7", "140 40 50.1");
+        var reborn = Spawn("7", "140 40 50.1");
         Assert.True(reborn.Id() == freed);
         Ticks(12);
         w.Run("GameBase::setActive(\"Zt\", false);");
@@ -921,7 +921,7 @@ public class PlayerTests
     private static void TestMeshContacts()
     {
         var f = new Fixture("player_mesh");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var body = new DtsSpec
         {
             Names = ["bounds", "root", "torso"],
@@ -968,8 +968,8 @@ public class PlayerTests
                 w.Sim.AdvanceRealTime(32);
         }
         Ticks(4);
-        Player near = Spawn("40 37 50.1");
-        Player far = Spawn("40 32 50.1");
+        var near = Spawn("40 37 50.1");
+        var far = Spawn("40 32 50.1");
         Ticks(12);
         var nearId = Itoa(near.Id());
         Assert.True(w.Run("echo($touch);") == nearId + ";");
@@ -986,7 +986,7 @@ public class PlayerTests
             Assert.True(images[1].Radius == 3.0f && images[1].Object == images[0].Object);
         }
 
-        Player target = Spawn("90 90 50.1");
+        var target = Spawn("90 90 50.1");
         Ticks(12);
         w.Run("instant Item \"Thrown\" { dataBlock = \"Pole\"; position = \"90 89.2 50.5\"; };");
         var thrown = w.Object("Thrown") as GameBase;
@@ -1002,7 +1002,7 @@ public class PlayerTests
         Ticks(1); // the event is handled at the start of the next tick
         Assert.True(w.Run("echo($pick);") == Itoa(thrown.Id()) + ">" + Itoa(target.Id()) + ";");
 
-        Player host = Spawn("140 140 50.1");
+        var host = Spawn("140 140 50.1");
         Ticks(12);
         w.Run("instant Item \"Dropped\" { dataBlock = \"Pole\"; position = \"140 140 54\"; };");
         var dropped = (GameBase)w.Object("Dropped")!;
@@ -1021,7 +1021,7 @@ public class PlayerTests
     private static void TestTouchOrder()
     {
         var f = new Fixture("player_touch_order");
-        Fixtures.World w = f.W;
+        var w = f.W;
         w.Run("ItemData Flag2 { shapeFile = \"gen\"; mass = 1; friction = 1; elasticity = 0.2; };" +
               "function Flag2::onCollision(%t, %o) { $log = $log @ \"I\" @ %o @ \";\"; }" +
               "function Player::onCollision(%t, %o) { $log = $log @ \"P\" @ %t @ \"<\" @ %o @ \";\"; }");
@@ -1030,11 +1030,11 @@ public class PlayerTests
             for (var i = 0; i < n; ++i)
                 w.Sim.AdvanceRealTime(32);
         }
-        Player corpse = f.Spawn("100 100 50.1");
+        var corpse = f.Spawn("100 100 50.1");
         Ticks(12);
         w.Run("Player::kill(" + Itoa(corpse.Id()) + ");");
         w.Run("instant Item \"Flag\" { dataBlock = \"Flag2\"; position = \"100 100 50.1\"; };");
-        Player alpha = f.Spawn("130 100 50.1");
+        var alpha = f.Spawn("130 100 50.1");
         alpha.ControlClient = 1; // moves come from a client, the tick steps nothing
         Ticks(12);
         w.Run("$log = \"\";");
@@ -1052,7 +1052,7 @@ public class PlayerTests
     private static void TestRiders()
     {
         var f = new Fixture("player_riders");
-        Fixtures.World w = f.W;
+        var w = f.W;
         w.Run("MarkerData PathMarker;" +
               "MoveableData PLift { shapeFile = \"gen\"; speed = 10; };" +
               "MoveableData PDoor { shapeFile = \"gen\"; speed = 10; displace = false; blockForward = true; };" +
@@ -1063,7 +1063,7 @@ public class PlayerTests
               "  instant Marker \"m1\" { dataBlock = \"PathMarker\"; position = \"70 70 65\"; }; }; };");
         var lift = w.Object("lift/PL") as GameBase;
         Assert.True(lift != null && lift.ShapeClass() == GameBase.ShapeKind.Moveable);
-        Player p = f.Spawn("70 70 62.5");
+        var p = f.Spawn("70 70 62.5");
         void Step(int n)
         {
             for (var i = 0; i < n; ++i)
@@ -1088,7 +1088,7 @@ public class PlayerTests
               "  instant Marker \"d1\" { dataBlock = \"PathMarker\"; position = \"100 100 49\"; }; }; };");
         var door = w.Object("gate/Dr") as GameBase;
         Assert.True(door != null && door.ShapeClass() == GameBase.ShapeKind.Moveable);
-        Player q = f.Spawn("100 100 50.2");
+        var q = f.Spawn("100 100 50.2");
         for (var i = 0; i < 40; ++i)
         {
             w.Sim.AdvanceRealTime(32);
@@ -1115,7 +1115,7 @@ public class PlayerTests
     private static void TestFreeLookOff()
     {
         var f = new Fixture("player_freelook");
-        Player p = f.Spawn("30 30 50.2");
+        var p = f.Spawn("30 30 50.2");
         p.Pitch = 0.5f;
         p.ServerTick(0);
         Assert.True(p.Pitch == 0.5f && p.FreeLookCopy);
@@ -1133,8 +1133,8 @@ public class PlayerTests
     private static void TestRepairThrowFade()
     {
         var f = new Fixture("player_repair");
-        Fixtures.World w = f.W;
-        Player p = f.Spawn("30 30 50.2");
+        var w = f.W;
+        var p = f.Spawn("30 30 50.2");
         var id = Itoa(p.Id());
         w.Run("GameBase::setDamageLevel(" + id + ", 0.3);");
         var start = p.Damage;
@@ -1171,11 +1171,11 @@ public class PlayerTests
     private static void TestCallbacks()
     {
         var f = new Fixture("player_callbacks");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("function Player::onDamage(%this,%type,%value,%pos,%vec,%mom,%vertPos,%quadrant,%object) {" +
               " $dmg = %type @ \"|\" @ %value @ \"|\" @ %pos @ \"|\" @ %vertPos @ \"|\" @ %quadrant @ \"|\" @ %object; }");
-        Player p = f.Spawn("16 16 85");
+        var p = f.Spawn("16 16 85");
         var id = Itoa(p.Id());
         float impact = 0;
         for (var i = 0; i < 80 && !p.ContactFlag; ++i)
@@ -1201,7 +1201,7 @@ public class PlayerTests
         w.Run("ItemData Flg { className = \"Flag\"; };" +
               "instant Item \"F1\" { dataBlock = \"Flg\"; position = \"16 16 50\"; };" +
               "function Item::onCollision(%this, %obj) { $hits = $hits @ %this @ \">\" @ %obj @ \";\"; }");
-        Player q = f.Spawn("16 16 51");
+        var q = f.Spawn("16 16 51");
         var item = (GameBase)w.Object("F1")!;
         w.Sim.AdvanceRealTime(64);
         w.Game.DispatchCollisionEvent(item, q);
@@ -1219,13 +1219,13 @@ public class PlayerTests
     private static void TestInventory()
     {
         var f = new Fixture("player_inventory");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("function Weapon::onMount(%p, %i) { $log = $log @ \"M\" @ %i; }" +
               "function Weapon::onUnmount(%p, %i) { $log = $log @ \"U\" @ %i; }" +
               "function Gun::onUse(%p, %i) { $log = $log @ \"use\" @ %i; }" +
               "function item::onDrop(%p, %i) { $log = $log @ \"drop\" @ %i; }");
-        Player p = f.Spawn("16 16 60");
+        var p = f.Spawn("16 16 60");
         var id = Itoa(p.Id());
         c.Check(w, "echo(getNumItems());", "2");
         c.Check(w, "echo(Player::incItemCount(" + id + ", Gun), Player::incItemCount(" + id + ", Gun, 4)," +
@@ -1270,7 +1270,7 @@ public class PlayerTests
     private static void TestImageStateMachine()
     {
         var f = new Fixture("player_images");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("ItemData Bullets { className = \"Ammo\"; };" +
               "ItemImageData RifleImage { shapeFile = \"gen\"; weaponType = 0; ammoType = Bullets; activateTime = 0.1;" +
@@ -1288,7 +1288,7 @@ public class PlayerTests
               "function ItemImage::onUpdateFire(%p, %s) { $log = $log @ \"u\"; }" +
               "function ItemImage::onDeactivate(%p, %s) { $log = $log @ \"D\"; }" +
               "function Player::onNoAmmo(%p, %s, %i) { $log = $log @ \"N\" @ %i; }");
-        Player p = f.Spawn("16 16 60");
+        var p = f.Spawn("16 16 60");
         p.RechargeRate = 0;
         var id = Itoa(p.Id());
         string State(int slot) => w.Run("echo(Player::getItemState(" + id + ", " + Itoa(slot) + "));");
@@ -1349,7 +1349,7 @@ public class PlayerTests
     private static void TestRadiusDamage()
     {
         var f = new Fixture("player_radius");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("StaticShapeData Pan { shapeFile = \"pan\"; };" +
               "function Pan::onDamage(%this, %type, %value, %pos, %vec, %mom, %src)" +
@@ -1402,15 +1402,15 @@ public class PlayerTests
     private static void TestCastWorldShortening()
     {
         var f = new Fixture("cast_shorten");
-        Fixtures.World w = f.W;
-        Player p = f.Spawn("50 50 50", "0 0 0.3");
+        var w = f.W;
+        var p = f.Spawn("50 50 50", "0 0 0.3");
         var T = new TMat3
         {
             Flags = p.Transform.Flags,
             M = p.Transform.M,
             P = p.Transform.P
         };
-        Shape.TmatInverse(T, out TMat3 inv);
+        Shape.TmatInverse(T, out var inv);
         float[] mn = [p.BoxMin[0], p.BoxMin[1], p.BoxMin[2]], mx = [p.BoxMax[0], p.BoxMax[1], p.BoxHeight];
         void LineHit(float[] S, ReadOnlySpan<float> E, float[] output)
         {
@@ -1490,7 +1490,7 @@ public class PlayerTests
     private static void TestEntryForces()
     {
         var f = new Fixture("player_entry_forces");
-        Fixtures.World w = f.W;
+        var w = f.W;
         w.Run("ItemData Brick { shapeFile = \"gen\"; mass = 1; drag = 1; friction = 1; elasticity = 0.2; };" +
               "GrenadeData Gr { maxLevelFlightDist = 150; elasticity = 0.45; liveTime = 1.0; totalTime = 30; };" +
               "instant Item \"Inside\" { dataBlock = \"Brick\"; position = \"16 16 200\"; };");
@@ -1504,7 +1504,7 @@ public class PlayerTests
                     w.Sim.AdvanceRealTime(1);
             }
         }
-        GameBase? a = Item("Inside");
+        var a = Item("Inside");
         Assert.NotNull(a);
         a!.ItemPhysics(0.032f);
         Assert.True(a.Velocity[2] == -0.64f && a.ItemGravity == 20.0f);
@@ -1519,7 +1519,7 @@ public class PlayerTests
         Tick(1);
         Assert.True(Math.Abs(g.Velocity[2] - (g0 - (20.0f / 30.0f))) < 1e-4f);
         w.Run("instant Item \"Later\" { dataBlock = \"Brick\"; position = \"20 16 200\"; };");
-        GameBase b = Item("Later")!;
+        var b = Item("Later")!;
         b.ItemPhysics(0.032f);
         var c = Scaled(Scaled(1.0f, 0.5f), 0.032f);
         var v1 = X87.F32(Sub(-0.16f, Mul(-0.16f, c)));
@@ -1574,8 +1574,8 @@ public class PlayerTests
     private static void TestMuzzleTransforms()
     {
         var f = new Fixture("player_muzzle");
-        Fixtures.World w = f.W;
-        (DtsSpec body, DtsSpec gun) = MuzzleShapes();
+        var w = f.W;
+        (var body, var gun) = MuzzleShapes();
         PutFile(Path.Combine(f.Root, "base/body.dts"), DtsModelFile(body));
         PutFile(Path.Combine(f.Root, "base/gunm.dts"), DtsModelFile(gun));
         w.Res.SetSearchPath("base"); // rescan: the files were added after the world was built
@@ -1619,7 +1619,7 @@ public class PlayerTests
         Tick(2);
         Offset(m);
         Assert.True(!p!.Pose.FirstPerson && Near3(m.AsSpan(9), 0.75f, 1.25f, 1.4375f));
-        Assert.True(p.ImageMountTransform(0, out TMat3 mount) && Near3(mount.P, 0.75f, 0.5f, 1.375f));
+        Assert.True(p.ImageMountTransform(0, out var mount) && Near3(mount.P, 0.75f, 0.5f, 1.375f));
         p.Pitch = 0.5f;
         p.UpdateAnimation(0.032f);
         var look = 0.5f - (0.5f * 0.5f * 0.651088f);
@@ -1631,13 +1631,13 @@ public class PlayerTests
         Assert.True(Near3(mount.P, 0.75f, (0.5f * c) - (0.125f * s), 1.25f + (0.5f * s) + (0.125f * c)));
         Assert.True(Math.Abs(mount.M[4] - c) < 1e-6f && Math.Abs(mount.M[5] - s) < 1e-6f && Math.Abs(mount.M[7] + s) < 1e-6f);
         p.AiControlled = false;
-        Transform eye = p.EyeTransform();
+        var eye = p.EyeTransform();
         Assert.True(Math.Abs(eye.M[4] - c) < 1e-6f && Math.Abs(eye.P[1] - (p.Transform.P[1] + 0.25f)) < 1e-4f);
         p.Pitch = 0;
         p.UpdateAnimation(0.032f);
         w.Run("Player::unmountItem(" + id + ", 0); Player::mountItem(" + id + ", BackGun, 0);");
         Assert.True(!p.ImageMountTransform(0, out mount) && mount.P[0] == 0 && mount.M[0] == 1);
-        Assert.True(p.MuzzleObjectTransform(0, out TMat3 mz) && Near3(mz.P, 0, 0.75f, 0.0625f));
+        Assert.True(p.MuzzleObjectTransform(0, out var mz) && Near3(mz.P, 0, 0.75f, 0.0625f));
         Assert.Equal(0.0f, p.Pullback);
         Assert.False(p.RaySkip);
         p.Kill();
@@ -1652,7 +1652,7 @@ public class PlayerTests
     {
         var kRef = TestPaths.IncTokens("tests/deflection_vectors.inc", null).Select(r => r.Select(TestPaths.IncU32).ToArray()).ToArray();
         var f = new Fixture("player_deflect");
-        Fixtures.World w = f.W;
+        var w = f.W;
         ProjectileGhost.Register();
         w.Run("BulletData DBl { aimDeflection = 0.25; muzzleVelocity = 425.0; totalTime = 1.5; inheritedVelocityScale = 1.0; };");
         Projectile.ResetProjectileRandoms();
@@ -1664,14 +1664,14 @@ public class PlayerTests
         for (var i = 0; i < n; ++i)
         {
             var id = w.Run("echo(Projectile::spawnProjectile(DBl, \"1 0 0 " + kAxes[i % 4] + " 0 0 1 16 16 93\", -1, \"0 0 0\"));");
-            SimObject? o = w.Object(id);
+            var o = w.Object(id);
             Assert.NotNull(o);
-            GhostClass? cls = GhostManager.GhostClassOf(o!);
+            var cls = GhostManager.GhostClassOf(o!);
             Assert.True(cls != null && cls.Tag == 0x258);
             var buf = new byte[64];
             var g = new BitStream(buf, buf.Length);
             cls!.Pack!(o!, gctx, g, 0xffffffffu);
-            ClientGhost cb = ClientRoundTrip.Unpack(0x258, buf, g.BitPosition(), true, ClientRoundTrip.WorldFor(0x258, o));
+            var cb = ClientRoundTrip.Unpack(0x258, buf, g.BitPosition(), true, ClientRoundTrip.WorldFor(0x258, o));
             Assert.True(ClientRoundTrip.VecIs(cb.State["start"], 16, 16, 93) && (long)cb.State["speed16"]! == 6798 && (long)cb.State["elapsedMs"]! == 0);
             var r = new BitStream(buf, buf.Length);
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag()); // GameBase part
@@ -1695,11 +1695,11 @@ public class PlayerTests
     private static void TestLaserGhost()
     {
         var f = new Fixture("player_laserghost");
-        Fixtures.World w = f.W;
+        var w = f.W;
         PlayerGhost.Register();
         ProjectileGhost.Register();
         w.Run("LaserData SL { damageConversion = 0.007; baseDamageType = 1; beamTime = 0.5; detachFromShooter = false; };");
-        Player p = f.Spawn("16 16 60");
+        var p = f.Spawn("16 16 60");
         var pid = Itoa(p.Id());
         var gm = new GhostManager(2049);
         var gctx = new GhostContext(gm, 2049, true);
@@ -1719,14 +1719,14 @@ public class PlayerTests
             last = o;
         };
         var id = w.Run("echo(Projectile::spawnProjectile(SL, \"1 0 0 0 1 0 0 0 1 16 16 80\", " + pid + ", \"0 0 0\"));");
-        SimObject? obj = w.Object(id);
+        var obj = w.Object(id);
         Assert.True(obj != null && seen == 1 && last == obj);
         Assert.Contains("-1", w.Run("echo(Projectile::spawnProjectile(Nope, \"1 0 0 0 1 0 0 0 1 16 16 80\", -1, \"0 0 0\"));"),
                         StringComparison.Ordinal);
         Assert.Equal(1, seen);
         w.Sim.Server()!.OnRegister = null;
         Assert.Equal(0x140u, (GhostScope.NetFlags(obj!) & 0x140u));
-        GhostClass? cls = GhostManager.GhostClassOf(obj!);
+        var cls = GhostManager.GhostClassOf(obj!);
         Assert.True(cls != null && cls.Tag == 0x25b);
         uint Pack(GhostContext ctx, byte[] buf)
         {
@@ -1737,7 +1737,7 @@ public class PlayerTests
         }
         var buf = new byte[64];
         Assert.Equal(124u, Pack(gctx, buf));
-        ClientGhost cl = ClientRoundTrip.Unpack(0x25b, buf, 124, true, ClientRoundTrip.WorldFor(0x25b, obj)); // client-net.md 3.6
+        var cl = ClientRoundTrip.Unpack(0x25b, buf, 124, true, ClientRoundTrip.WorldFor(0x25b, obj)); // client-net.md 3.6
         Assert.True((long)cl.State["shooterGhost"]! == shooterGhost && (long)cl.State["hit"]! == 0 && !cl.State.ContainsKey("start"));
         Assert.True(ClientRoundTrip.VecIs(cl.State["end"], 16, 3016, 80) && (long)cl.State["energy5"]! == 0);
         var r = new BitStream(buf, buf.Length);
@@ -1751,7 +1751,7 @@ public class PlayerTests
         var other = new GhostManager(2050);
         var octx = new GhostContext(other, 2050, true);
         Assert.True(Pack(octx, buf) == 124 - 10 + 96);
-        ClientGhost cl2 = ClientRoundTrip.Unpack(0x25b, buf, 124 - 10 + 96, true, ClientRoundTrip.WorldFor(0x25b, obj));
+        var cl2 = ClientRoundTrip.Unpack(0x25b, buf, 124 - 10 + 96, true, ClientRoundTrip.WorldFor(0x25b, obj));
         Assert.True(!cl2.State.ContainsKey("shooterGhost") && ClientRoundTrip.VecIs(cl2.State["start"], 16, 16, 80)); // no shooter ghost: start follows
         var r2 = new BitStream(buf, buf.Length);
         r2.ReadInt(7);
@@ -1769,8 +1769,8 @@ public class PlayerTests
     private static void TestFireEdgeTransforms()
     {
         var f = new Fixture("player_fireedge");
-        Fixtures.World w = f.W;
-        (DtsSpec body, DtsSpec gun) = MuzzleShapes();
+        var w = f.W;
+        (var body, var gun) = MuzzleShapes();
         PutFile(Path.Combine(f.Root, "base/body.dts"), DtsModelFile(body));
         PutFile(Path.Combine(f.Root, "base/gunm.dts"), DtsModelFile(gun));
         w.Res.SetSearchPath("base");
@@ -1800,7 +1800,7 @@ public class PlayerTests
             w.Run("Player::trigger(" + id + ", 0, false);");
             var after = w.Run("echo(Group::objectCount(MissionCleanup));");
             Assert.True(int.Parse(after, CultureInfo.InvariantCulture) == int.Parse(before, CultureInfo.InvariantCulture) + 1);
-            SimObject? o = w.Object(w.Run("echo(Group::getObject(MissionCleanup, " + before + "));"));
+            var o = w.Object(w.Run("echo(Group::getObject(MissionCleanup, " + before + "));"));
             Assert.True(o is GameBase);
             var gb = (GameBase)o!;
             v[0] = gb.Velocity[0];
@@ -1811,7 +1811,7 @@ public class PlayerTests
         }
         static bool Near3(ReadOnlySpan<float> v, float x, float y, float z, float tol) =>
             Math.Abs(v[0] - x) < tol && Math.Abs(v[1] - y) < tol && Math.Abs(v[2] - z) < tol;
-        Player p = Make("8 16 50");
+        var p = Make("8 16 50");
         var pidS = Itoa(p.Id());
         w.Run("Player::mountItem(" + pidS + ", AimGun, 0);");
         Steps(p, 4);
@@ -1819,7 +1819,7 @@ public class PlayerTests
         var v = new float[3];
         Shoot(p, v);
         Assert.True(Near3(v, 0, 65, 0, 1e-4f));
-        Player far = Make("8 26 50");
+        var far = Make("8 26 50");
         Steps(far, 4);
         Shoot(p, v);
         var len = MathF.Sqrt((0.75f * 0.75f) + (8.25f * 8.25f) + (0.5625f * 0.5625f));
@@ -1830,18 +1830,18 @@ public class PlayerTests
         Assert.True(Near3(v, 0, 65, 0, 1e-4f));
         w.Run("GameBase::setPosition(" + Itoa(far.Id()) + ", \"8 26 50\");");
         Steps(far, 2);
-        Player wall = Make("8.75 17.2 50");
+        var wall = Make("8.75 17.2 50");
         Steps(wall, 2);
         Steps(p, 1);
         Assert.True(Math.Abs(p.Pullback + 0.75f) < 1e-4f);
-        Assert.True(p.ImageMountTransform(0, out TMat3 mount) && Near3(mount.P, 0.75f, -0.25f, 1.375f, 1e-4f));
+        Assert.True(p.ImageMountTransform(0, out var mount) && Near3(mount.P, 0.75f, -0.25f, 1.375f, 1e-4f));
         w.Run("deleteObject(" + Itoa(wall.Id()) + ");");
         Steps(p, 1);
         Assert.Equal(0.0f, p.Pullback);
         p.Kill();
         Shoot(p, v);
         Assert.True(Near3(v, 0, 65, 0, 1e-4f));
-        Player q = Make("40 16 50");
+        var q = Make("40 16 50");
         w.Run("Player::mountItem(" + Itoa(q.Id()) + ", AimGun, 0);");
         Steps(q, 2);
         q.AiControlled = true;
@@ -1856,7 +1856,7 @@ public class PlayerTests
     private static void TestProjectiles()
     {
         var f = new Fixture("player_projectiles");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("RocketData Rk { muzzleVelocity = 65; terminalVelocity = 65; totalTime = 2.0; liveTime = 1.5; };" +
               "GrenadeData Gr { maxLevelFlightDist = 150; elasticity = 0.45; liveTime = 1.0; totalTime = 30; };" +
@@ -1917,7 +1917,7 @@ public class PlayerTests
     private static void TestBeamAndSeekerProjectiles()
     {
         var f = new Fixture("player_beams");
-        Fixtures.World w = f.W;
+        var w = f.W;
         float[] solar = [-1.28014f, -1.32877f, 0, 1.28014f, 1.32877f, 2.40577f];
         PutFile(Path.Combine(f.Root, "base/panel.dts"), DtsCollisionFile(solar));
         w.Run("SeekingMissileData TM { collisionRadius = 0.0; mass = 2.0; damageClass = 1; damageValue = 0.5;" +
@@ -1966,14 +1966,14 @@ public class PlayerTests
         Tick(1);
         Assert.True(w.Object(id) == null && w.Run("echo($hit);") == "0");
 
-        Player shooter = f.Spawn("0 -40 800");
+        var shooter = f.Spawn("0 -40 800");
         id = w.Run("echo(Projectile::spawnProjectile(TL, \"1 0 0 0 1 0 0 0 1 0 0 800\", " + Itoa(shooter.Id()) + ", \"0 0 0\"));");
         Assert.NotEqual("-1", id);
         Tick(11);
         Assert.True(w.Object(id) != null && Pos(id) == "0 0 800");
         w.Run("deleteObject(" + id + ");");
 
-        Player healer = f.Spawn("0 -3 799");
+        var healer = f.Spawn("0 -3 799");
         w.Run("$log = \"\"; $k = 0;" +
               "function RepairBolt::onAcquire(%a, %p, %t) { $log = $log @ \"A\" @ $k @ \" \"; }" +
               "function RepairBolt::onRelease(%a, %p) { $log = $log @ \"R\" @ $k @ \" \"; }" +
@@ -1992,7 +1992,7 @@ public class PlayerTests
         w.Run("deleteObject(" + id + ");");
 
         w.Run("deleteObject(" + Itoa(healer.Id()) + "); deleteObject(" + Itoa(shooter.Id()) + ");");
-        Player victim = f.Spawn("0 0 800");
+        var victim = f.Spawn("0 0 800");
         w.Run("$log = \"\"; $n = 0;" +
               "function Lightning::damageTarget(%t, %ts, %dps, %eps, %pos, %vec, %mom, %sh) { $n++;" +
               " if($n == 1) $log = %t @ \"|\" @ %ts @ \"|\" @ %dps @ \"|\" @ %eps @ \"|\" @ %vec @ \"|\" @ %mom @ \"|\" @ %sh; }");
@@ -2069,7 +2069,7 @@ public class PlayerTests
     private static void TestMineDestruction()
     {
         var f = new Fixture("player_mine");
-        Fixtures.World w = f.W;
+        var w = f.W;
         w.Run("MineData Mn { mass = 1.0; explosionRadius = 10.0; damageValue = 0.65; damageType = 13;" +
               " kickBackStrength = 150.0; maxDamage = 0.5; triggerRadius = 0.5; };");
         f.Spawn("0 0 800");
@@ -2110,7 +2110,7 @@ public class PlayerTests
     {
         var f = new Fixture("player_wire");
         PlayerGhost.Register();
-        Player p = f.Spawn("16 16 500", "0 0 0.5");
+        var p = f.Spawn("16 16 500", "0 0 0.5");
         var jet = new Move
         {
             Jet = true,
@@ -2141,7 +2141,7 @@ public class PlayerTests
 
         var gm = new GhostManager(2049);
         var gctx = new GhostContext(gm, 2049, true);
-        GhostClass? cls = GhostManager.GhostClassOf(p);
+        var cls = GhostManager.GhostClassOf(p);
         Assert.True(cls != null && cls.Tag == 0x218);
         p.RechargeRate = 8.0f;
         Array.Clear(buf);
@@ -2175,8 +2175,8 @@ public class PlayerTests
         }
         Assert.True(r.BitPosition() == g.BitPosition());
         // Client round trip (client-net.md 3.4): the creating update, then the 0x2000 state update of a non-owner.
-        ClientWorld cw = ClientRoundTrip.WorldFor(0x218, p);
-        ClientGhost cg = ClientRoundTrip.Unpack(0x218, buf, g.BitPosition(), true, cw);
+        var cw = ClientRoundTrip.WorldFor(0x218, p);
+        var cg = ClientRoundTrip.Unpack(0x218, buf, g.BitPosition(), true, cw);
         Assert.True((long)cg.State["team"]! == 15 && (long)cg.State["datablock"]! == 0 && cg.State["mount"] as string == "none");
         Assert.True(ClientRoundTrip.VecIs(cg.State["pos"], p.Transform.P[0], p.Transform.P[1], p.Transform.P[2]));
         Assert.True(ClientRoundTrip.Near(ClientRoundTrip.D(cg.State["rotZ"]), 0.5, 0.0125) && ClientRoundTrip.D(cg.State["f728"]) == 8.0);
@@ -2209,7 +2209,7 @@ public class PlayerTests
     private static void TestPscInventory()
     {
         var f = new Fixture("player_psc");
-        Player p = f.Spawn("16 16 60");
+        var p = f.Spawn("16 16 60");
         var sent = new List<(byte[] Data, uint Cookie)>();
         var transport = new GameConnection.Transport
         {
@@ -2262,7 +2262,7 @@ public class PlayerTests
         Assert.Equal(0, Send().Items.Count);
         p.SetItemCount(3, 5);
         p.SetItemCount(7, 700);
-        Psc a = Send();
+        var a = Send();
         Assert.True(Same(a.Items, (3u, 5), (7u, 511)));
         var cookie = sent[^1].Cookie;
         Assert.True(Same(Send().Items, (7u, 189)));
@@ -2283,7 +2283,7 @@ public class PlayerTests
         w.WriteFlag(false);
         w.WriteFlag(false);
         c.Receive(req);
-        Psc r = Send();
+        var r = Send();
         Assert.True(r.RateSet && r.Interval == 33 && r.Bytes == 450 && !Send().RateSet);
         var count = sent.Count;
         c.Tick(now);      // the previous send was at now - 1000

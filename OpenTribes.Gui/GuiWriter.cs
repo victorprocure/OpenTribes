@@ -32,7 +32,7 @@ public static class GuiWriter
 
     private static void WriteObject(MemoryStream m, GuiControl c)
     {
-        GuiClassRow row = GuiClassTable.ByName(c.ClassName)!;
+        var row = GuiClassTable.ByName(c.ClassName)!;
         var body = new MemoryStream();
         U32(body, c.PersistVersion);
         WriteRoutine(body, c, GuiLoader.RoutineFor(row)!);
@@ -156,9 +156,9 @@ public static class GuiWriter
         U32(m, c.HelpTag);
         Buf81(m, c.ConsoleVar);
         U32(m, (uint)c.Children.Count);
-        foreach (GuiControl k in c.Children)
+        foreach (var k in c.Children)
             WriteObject(m, k);
-        foreach (GuiControl k in c.Children)
+        foreach (var k in c.Children)
             Pstr(m, k.Name ?? "");
     }
 }

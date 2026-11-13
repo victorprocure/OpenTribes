@@ -339,7 +339,7 @@ public sealed class Terrain
         int bx = Ftol(lx) >> shift, by = Ftol(ly) >> shift;
         if (bx < 0 || by < 0 || bx >= mWidth || by >= mHeight)
             return false;
-        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out GridBlock? b))
+        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out var b))
             return false;
         float px = Store(Sub(lx, bx << shift)), py = Store(Sub(ly, by << shift));
         int sx = Ftol(px) >> mScale, sy = Ftol(py) >> mScale;
@@ -350,7 +350,7 @@ public sealed class Terrain
         h = Interp(b, sx, sy, s, u, v);
         Span<float> raw = stackalloc float[3];
         RawNormal(b, sx, sy, s, u, v, raw);
-        Vec3 unit = Normalize(raw);
+        var unit = Normalize(raw);
         n[0] = unit.X;
         n[1] = unit.Y;
         n[2] = unit.Z;
@@ -448,7 +448,7 @@ public sealed class Terrain
         int bx = Ftol(lx) >> shift, by = Ftol(ly) >> shift;
         if (bx < 0 || by < 0 || bx >= mWidth || by >= mHeight)
             return false;
-        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out GridBlock? b))
+        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out var b))
             return false;
         float px = Store(Sub(lx, bx << shift)), py = Store(Sub(ly, by << shift));
         int sx = Ftol(px) >> mScale, sy = Ftol(py) >> mScale;
@@ -715,7 +715,7 @@ public sealed class Terrain
                 v[1] = Store((iy + 1) << S);
                 v[2] = H(ix, iy + 1);
             }
-            TriPlane pl = PlaneOf(raw, v);
+            var pl = PlaneOf(raw, v);
             q.CopyTo(hit);
             SegPlane(pl, a, b, hit); // result flag ignored: a failed test keeps the crossing point
             ((ReadOnlySpan<float>)pl.N).CopyTo(normal);
@@ -803,7 +803,7 @@ public sealed class Terrain
             }
         }
         ReadOnlySpan<float> zero = [0, 0, 0];
-        TriPlane plEnd = PlaneOf(rawEnd, zero);
+        var plEnd = PlaneOf(rawEnd, zero);
         ((ReadOnlySpan<float>)plEnd.N).CopyTo(normal);
         for (var i = 0; i < 3; ++i)
             hit[i] = Store(Add(o[i], p[i]));
@@ -907,7 +907,7 @@ public sealed class Terrain
             }
             if (bx >= 0 && bx < mWidth && by >= 0 && by < mHeight)
             {
-                mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out GridBlock? blk);
+                mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out var blk);
                 o[0] = Store(bx << B);
                 o[1] = Store(by << B);
                 o[2] = 0.0f;

@@ -58,7 +58,7 @@ public static class Program
     {
         if (!App.ClientOptions.IsToolInvocation(args) && !args.Contains("-h") && !args.Contains("--help"))
             return RunClient(args);
-        Options? o = Parse(args);
+        var o = Parse(args);
         if (o == null)
         {
             Console.Error.Write(Usage);
@@ -101,7 +101,7 @@ public static class Program
         if (o.Mission != null)
             return World.MissionRender.Run(o.Root, o.Mission, o.Camera, o.Cameras, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
-        ResourceManager res = GfxAssets.Mount(o.Root, out var volumes);
+        var res = GfxAssets.Mount(o.Root, out var volumes);
         Console.Error.WriteLine($"mounted {volumes} volumes from {o.Root}");
 
         PaletteBank? palette = null;
@@ -187,7 +187,7 @@ public static class Program
         var running = true;
         while (running)
         {
-            while (Sdl3.PollEvent(out SdlEvent ev))
+            while (Sdl3.PollEvent(out var ev))
             {
                 if (ev.Type is Sdl3.EventQuit or Sdl3.EventWindowCloseRequested)
                     running = false;

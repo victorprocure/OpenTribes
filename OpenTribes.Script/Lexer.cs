@@ -143,7 +143,7 @@ public sealed class Lexer
     /// <returns>The line number.</returns>
     public int Line() => mLine;
 
-    private static bool IsAlpha(char c) => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '_';
+    private static bool IsAlpha(char c) => c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or '_';
     private static bool IsDigit(char c) => c is >= '0' and <= '9';
     private static bool IsIdentChar(char c) => IsAlpha(c) || IsDigit(c) || c == ':';
     private static bool IsHex(char c) => IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
@@ -251,7 +251,7 @@ public sealed class Lexer
         ++mPos;
         if (kSingles.Contains(c))
         {
-            Token t = Make(Tok.Char, c.ToString());
+            var t = Make(Tok.Char, c.ToString());
             t.Ch = c;
             return t;
         }

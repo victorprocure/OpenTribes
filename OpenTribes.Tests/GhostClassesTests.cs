@@ -16,7 +16,7 @@ public class GhostClassesTests
     private BitStream Pack(SimObject? obj, uint mask, uint tag)
     {
         Assert.NotNull(obj);
-        GhostClass? cls = GhostManager.GhostClassOf(obj!);
+        var cls = GhostManager.GhostClassOf(obj!);
         Assert.True(cls != null && cls.Tag == tag); // 2.3 tags
         var buf = new byte[4096];
         var w = new BitStream(buf, buf.Length);
@@ -25,7 +25,7 @@ public class GhostClassesTests
         Assert.False(w.Error());
         // Client round trip (docs/client-net.md 3): the unpack of the same class consumes exactly the packed bits.
         var isNew = mask == 0xffffffffu;
-        mClients.TryGetValue(obj!, out ClientGhost? prev);
+        mClients.TryGetValue(obj!, out var prev);
         Client = mClients[obj!] = ClientRoundTrip.Unpack(tag, buf, w.BitPosition(), isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
         return new BitStream(buf, (int)((w.BitPosition() + 7) / 8));
     }
@@ -101,18 +101,18 @@ public class GhostClassesTests
 
         // 3.1 SimVolume: file name with the first spelling interned (the volume scan's).
         {
-            BitStream r = Pack(Obj("vol"), 0xffffffffu, 0x001);
+            var r = Pack(Obj("vol"), 0xffffffffu, 0x001);
             Assert.Equal("data.vol", (string)Client!.State["file"]!); // client-net.md 3.3 SimVolume
             Assert.Equal("data.vol", r.ReadString());
         }
         // 3.1 SimPalette.
         {
-            BitStream r = Pack(Obj("pal"), 0xffffffffu, 0x003);
+            var r = Pack(Obj("pal"), 0xffffffffu, 0x003);
             Assert.Equal("lush.day.ppl", r.ReadString());
         }
         // 3.1 MissionCenterPos: x y w h, ctor 1230 1230 1400 1400; floats parsed toward zero.
         {
-            BitStream r = Pack(Obj("MC"), 0xffffffffu, 0x2cc);
+            var r = Pack(Obj("MC"), 0xffffffffu, 0x2cc);
             var rect = (double[])Client!.State["rect"]!;
             Assert.True(rect.Length == 4 && rect[1] == 1230 && rect[2] == 1400 && rect[3] == -700); // 3.1 MissionCenterPos
             Assert.Equal(0x3dccccccu, U32(r)); // "0.1" truncated (nearest would be 0x3dcccccd)
@@ -123,7 +123,7 @@ public class GhostClassesTests
         {
             var terrain = Obj("Terrain") as TerrainObject;
             Assert.True(terrain != null && w.Sim.Server()!.FindById(8) == terrain); // fixed id 8 (mission.md 3.1)
-            BitStream r = Pack(terrain, 0xffffffffu, 0x002);
+            var r = Pack(terrain, 0xffffffffu, 0x002);
             Assert.True((string)Client!.State["ted"]! == "m.dtf" && ClientRoundTrip.VecIs(Client.State["position"], -8, -8, 0)); // 3.2
             Assert.True(ClientRoundTrip.VecIs(Client.State["contGravity"], 0, 0, -20) && Client.State.ContainsKey("crc"));
             Assert.Equal(1500, ((double[])Client.State["visible/haze/hazeVMin/hazeVMax"]!)[1]);
@@ -140,7 +140,7 @@ public class GhostClassesTests
             Assert.True(r.ReadFlag() && U32(r) == terrain!.Crc());
             byte[] dml = [(byte)'d', (byte)'m', (byte)'l'];
             var crc = 0xffffffffu;
-            foreach (IReadOnlyList<byte> b in new IReadOnlyList<byte>[] { dtf, dtb, dml })
+            foreach (var b in new IReadOnlyList<byte>[] { dtf, dtb, dml })
                 foreach (var c in b)
                 {
                     crc ^= c;
@@ -148,14 +148,14 @@ public class GhostClassesTests
                         crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1)));
                 }
             Assert.True(terrain.Crc() == crc);
-            BitStream r2 = Pack(terrain, 0x40, 0x002);
+            var r2 = Pack(terrain, 0x40, 0x002);
             for (var i = 0; i < 6; ++i)
                 Assert.False(r2.ReadFlag());
             Assert.True(r2.ReadFlag() && U32(r2) == crc);
         }
         // 3.3 SimLight: isStatic first (0x40), then 0x01..0x20; unset fields 0 (D12).
         {
-            BitStream r = Pack(Obj("L"), 0xffffffffu, 0x006);
+            var r = Pack(Obj("L"), 0xffffffffu, 0x006);
             Assert.True((long)Client!.State["type"]! == 5 && (long)Client.State["isStatic"]! == 1 && (double)Client.State["range"]! == 12.5); // 3.3
             Assert.True(ClientRoundTrip.VecIs(Client.State["color"], 1, 0.5, 0.25));
             Assert.True(r.ReadFlag() && r.ReadFlag());
@@ -169,7 +169,7 @@ public class GhostClassesTests
             Vec(r, 0, 0, 0);
             Assert.True(r.ReadFlag());
             Vec(r, 0, 0, -1);
-            BitStream r2 = Pack(Obj("L"), 0x02, 0x006);
+            var r2 = Pack(Obj("L"), 0x02, 0x006);
             Assert.True(!r2.ReadFlag() && !r2.ReadFlag() && r2.ReadFlag() && F32(r2) == 12.5f);
             for (var i = 0; i < 4; ++i)
                 Assert.False(r2.ReadFlag());
@@ -177,7 +177,7 @@ public class GhostClassesTests
         // 3.5 Snowfall: global wind (x, y, -75 for rain), suspendRendering ctor 1, rain.
         {
             Assert.True(w.Sim.Server()!.FindById(714) == Obj("Snow"));
-            BitStream r = Pack(Obj("Snow"), 0xffffffffu, 0x216);
+            var r = Pack(Obj("Snow"), 0xffffffffu, 0x216);
             Assert.True((double)Client!.State["intensity"]! == 0.5 && ClientRoundTrip.VecIs(Client.State["wind"], 3, 4, -75) && (long)Client.State["flagf1"]! == 1); // 3.5
             Assert.True(r.ReadFlag() && F32(r) == 0.5f);
             Assert.True(r.ReadFlag());
@@ -187,7 +187,7 @@ public class GhostClassesTests
         // 3.6 Sky: ctor size 600 (set 300 here), textures i % 2 per element unless set.
         {
             Assert.True(w.Sim.Server()!.FindById(729) == Obj("Sky"));
-            BitStream r = Pack(Obj("Sky"), 0xffffffffu, 0x230);
+            var r = Pack(Obj("Sky"), 0xffffffffu, 0x230);
             Assert.True((string)Client!.State["dml"]! == "sky.dml" && ClientRoundTrip.VecIs(Client.State["vecB8"], 0.25, 0.5, 1)); // 3.6
             Assert.True(((List<object?>)Client.State["textures"]!)[3] is long t3 && t3 == 7);
             Assert.Equal("sky.dml", r.ReadString());
@@ -199,7 +199,7 @@ public class GhostClassesTests
         }
         // 3.6 Planet: incidence clamped to [-89, 89], azimuth as given, ctor size and distance.
         {
-            BitStream r = Pack(Obj("Planet1"), 0xffffffffu, 0x22f);
+            var r = Pack(Obj("Planet1"), 0xffffffffu, 0x22f);
             Assert.True((string)Client!.State["file"]! == "sun" && (double)Client.State["f6c"]! == 400 && (double)Client.State["f70"]! == 89); // 3.6
             Assert.Equal("sun", r.ReadString());
             Assert.True(F32(r) == 400 && F32(r) == 89);
@@ -207,12 +207,12 @@ public class GhostClassesTests
             Vec(r, 0, 0, 0);
             Vec(r, 0.5f, 0.5f, 0.5f);
             Assert.True(F32(r) == 2000 && F32(r) == 11000);
-            BitStream m = Pack(Obj("Planet2"), 0xffffffffu, 0x22f);
+            var m = Pack(Obj("Planet2"), 0xffffffffu, 0x22f);
             Assert.True(m.ReadString() == "" && F32(m) == 0 && F32(m) == -89);
         }
         // 3.6 StarField: ctor flags 1 and 0, colors (1, 0.5, 0.25 grey) per element, inFrontOfSky.
         {
-            BitStream r = Pack(Obj("Stars"), 0xffffffffu, 0x232);
+            var r = Pack(Obj("Stars"), 0xffffffffu, 0x232);
             Assert.True((long)Client!.State["flagAF"]! == 1 && (long)Client.State["flagB0"]! == 0 && ((double[])Client.State["data7c"]!)[3] == 0.75); // 3.6
             Assert.True(r.ReadFlag() && !r.ReadFlag());
             Vec(r, 1, 1, 1);
@@ -222,10 +222,10 @@ public class GhostClassesTests
         }
         // 3.4 InteriorShape: GameBase part (4.1), initial record, then the update form.
         {
-            SimObject? hut = Obj("x/Hut");
+            var hut = Obj("x/Hut");
             Assert.Null(hut); // the TeamGroup was renamed team0 (mission.md TM6)
             hut = Obj("team0/Hut");
-            BitStream r = Pack(hut, 0xffffffffu, 0x20a);
+            var r = Pack(hut, 0xffffffffu, 0x20a);
             Assert.True((string)Client!.State["file"]! == "hut.dis" && (long)Client.State["isContainer"]! == 1 && ClientRoundTrip.VecIs(Client.State["pos"], 1, 2, 3)); // 3.4
             Assert.True((long)Client.State["lightCount"]! == 2 && ((List<object?>)Client.State["states"]!).Count == 2);
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 0 && !r.ReadFlag() && !r.ReadFlag()); // team 0
@@ -247,7 +247,7 @@ public class GhostClassesTests
             Assert.True(inten == 1.0f && rec[4] == 0); // flags 0x10: bit 0 clear
             Assert.False(r.ReadFlag());                // +0x41c
             // Update: position/rotation, one flag per light, then +0x418.
-            BitStream u = Pack(hut, 0x07, 0x20a);
+            var u = Pack(hut, 0x07, 0x20a);
             Assert.True(ClientRoundTrip.Has(Client!, "pos") && ClientRoundTrip.Has(Client!, "lightOn") && ((List<object?>)ClientRoundTrip.Field(Client!, "lightOn")!).Count == 2);
             Assert.True(u.ReadFlag() && u.ReadInt(4) == 0 && !u.ReadFlag() && !u.ReadFlag());
             Assert.False(u.ReadFlag());
@@ -260,7 +260,7 @@ public class GhostClassesTests
             {
                 float[] np = [7, 8, 9];
                 ((GameBase)hut!).SetInteriorPosition(np);
-                BitStream tt = Pack(hut, 0x01, 0x20a);
+                var tt = Pack(hut, 0x01, 0x20a);
                 Assert.False(tt.ReadFlag()); // no GameBase part
                 Assert.False(tt.ReadFlag()); // not initial
                 Assert.True(tt.ReadFlag());
@@ -270,7 +270,7 @@ public class GhostClassesTests
             }
             // G38: the cast reads the current transform (InteriorShape_getCollisionImages 0x0047f814).
             {
-                Container c = w.Game.GetContainer()!;
+                var c = w.Game.GetContainer()!;
                 object? o = null;
                 Vec3 hit = default, nrm = default;
                 bool Ray(float x0, float x1) =>
@@ -282,13 +282,13 @@ public class GhostClassesTests
                 Assert.True(!Ray(2, 2.5f) && Ray(4, 5) && o == hut);
             }
             // isContainer: box extents below 6 give 0; no shape keeps the persist value.
-            BitStream b = Pack(Obj("team0/Box"), 0xffffffffu, 0x20a);
+            var b = Pack(Obj("team0/Box"), 0xffffffffu, 0x20a);
             b.ReadFlag();
             b.ReadInt(4);
             b.ReadFlag();
             b.ReadFlag();
             Assert.True(b.ReadFlag() && b.ReadString() == "box.dis" && b.ReadSignedInt(2) == 0);
-            BitStream n = Pack(Obj("team0/None"), 0xffffffffu, 0x20a);
+            var n = Pack(Obj("team0/None"), 0xffffffffu, 0x20a);
             n.ReadFlag();
             n.ReadInt(4);
             n.ReadFlag();
@@ -304,26 +304,26 @@ public class GhostClassesTests
             var masks = new List<(SimObject, uint)>();
             w.Game.MaskBits = (o, bb) => masks.Add((o, bb));
             w.Run("instant SimGroup \"LG\" { instant SimLight \"LA\" { color = \"1 1 1\"; }; instant SimLight \"LB\" { color = \"1 1 1\"; }; };");
-            SimObject? la = w.Object("LG/LA");
-            SimObject? lb = w.Object("LG/LB");
+            var la = w.Object("LG/LA");
+            var lb = w.Object("LG/LB");
             Assert.True(la != null && lb != null);
             masks.Clear();
             Assert.Equal("True", w.Run("echo(activateGroup(LG, \"0.5\"));"));
             Assert.True(masks.Count == 2 && masks[0].Item1 == la && masks[0].Item2 == 0x04 && masks[1].Item1 == lb);
-            BitStream c = Pack(la, 0x04, 0x006);
+            var c = Pack(la, 0x04, 0x006);
             Assert.True(!c.ReadFlag() && !c.ReadFlag() && !c.ReadFlag() && c.ReadFlag());
             Vec(c, 0.5f, 0.5f, 0.5f);
             masks.Clear();
             Assert.Equal("True", w.Run("echo(activateGroup(" + la!.Id() + ", \"0.25\"));")); // an object: its group, without itself
             Assert.True(masks.Count == 1 && masks[0].Item1 == lb);
-            BitStream d = Pack(lb, 0x04, 0x006);
+            var d = Pack(lb, 0x04, 0x006);
             d.ReadFlag();
             d.ReadFlag();
             d.ReadFlag();
             Assert.True(d.ReadFlag());
             Vec(d, 0.25f, 0.25f, 0.25f);
             Assert.Equal("True", w.Run("echo(activateGroup(" + la.Id() + "));")); // no value: 0
-            BitStream z = Pack(lb, 0x04, 0x006);
+            var z = Pack(lb, 0x04, 0x006);
             z.ReadFlag();
             z.ReadFlag();
             z.ReadFlag();
@@ -335,7 +335,7 @@ public class GhostClassesTests
             // Directional: colour, direction normalized twice, optional ambient (type 1; DirectionalWrap 6).
             static bool Near(float a, double bb) => Math.Abs(a - bb) < 1e-5;
             Assert.NotEqual("0", w.Run("echo(newObject(N1, SimLight, Directional, 1, 0.5, 0.25, 3, 4, 5));"));
-            BitStream n = Pack(w.Object("N1"), 0xffffffffu, 0x006);
+            var n = Pack(w.Object("N1"), 0xffffffffu, 0x006);
             Assert.True(n.ReadFlag() && !n.ReadFlag()); // mask 0x40: isStatic false
             Assert.True(n.ReadFlag() && n.ReadInt(3) == 1);
             Assert.True(n.ReadFlag());
@@ -352,9 +352,9 @@ public class GhostClassesTests
             float ax = F32(n), ay = F32(n), az = F32(n);
             Assert.True(Near(ax, 3 / Math.Sqrt(50.0)) && Near(ay, 4 / Math.Sqrt(50.0)) && Near(az, 5 / Math.Sqrt(50.0)));
             Assert.NotEqual("0", w.Run("echo(newObject(N2, SimLight, DirectionalWrap, 0.3, 0.6, 0.9, 0, 0, 2, 0.2, 0.3, 0.4));"));
-            BitStream wr = Pack(w.Object("N2"), 0x01, 0x006);
+            var wr = Pack(w.Object("N2"), 0x01, 0x006);
             Assert.True(!wr.ReadFlag() && wr.ReadFlag() && wr.ReadInt(3) == 6);
-            BitStream wa = Pack(w.Object("N2"), 0x08, 0x006);
+            var wa = Pack(w.Object("N2"), 0x08, 0x006);
             for (var i = 0; i < 4; ++i)
                 Assert.False(wa.ReadFlag());
             Assert.True(wa.ReadFlag());
@@ -362,7 +362,7 @@ public class GhostClassesTests
             Assert.True(Near(a0, 0.2) && Near(a1, 0.3) && Near(a2, 0.4));
             // Point: type 2, range first; ambient only with 11 arguments.
             Assert.NotEqual("0", w.Run("echo(newObject(N3, SimLight, Point, 50, 1, 1, 0.5, 10, 20, 30));"));
-            BitStream pt = Pack(w.Object("N3"), 0xffffffffu, 0x006);
+            var pt = Pack(w.Object("N3"), 0xffffffffu, 0x006);
             Assert.True(pt.ReadFlag() && !pt.ReadFlag());
             Assert.True(pt.ReadFlag() && pt.ReadInt(3) == 2);
             Assert.True(pt.ReadFlag() && F32(pt) == 50.0f);

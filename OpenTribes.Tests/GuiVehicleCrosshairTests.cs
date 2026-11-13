@@ -12,7 +12,7 @@ public class GuiVehicleCrosshairTests
     {
         var (world, src) = Scene("Flier", kVehicle);
         world.Ghosts.Get(kOther)!.State["pos"] = new[] { 30.0, 60.0, -1.75 };
-        HudTargetResult? r = src.CrosshairTarget(640, 480);
+        var r = src.CrosshairTarget(640, 480);
         // the pilot's own Player (6) and the passenger (7) sit dead ahead and are not listed, the walking Player (8) is off to the side
         Assert.NotNull(r);
         Assert.Single(r!.Marks);
@@ -24,7 +24,7 @@ public class GuiVehicleCrosshairTests
     {
         var (world, src) = Scene("Player", kPilot);
         world.Ghosts.Get(kOther)!.State["pos"] = new[] { 30.0, 60.0, -1.75 };
-        HudTargetResult? r = src.CrosshairTarget(640, 480);
+        var r = src.CrosshairTarget(640, 480);
         Assert.NotNull(r);
         // the control Player (6) is skipped, the Player (7) on the same vehicle is on the other side of the label test
         Assert.Equal("Pilot", r!.Name);

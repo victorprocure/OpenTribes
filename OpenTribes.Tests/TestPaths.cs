@@ -51,7 +51,7 @@ internal static partial class TestPaths
         var single = false;
         if (name != null)
         {
-            Match m = Regex.Match(text, @"\b" + Regex.Escape(name) + @"\s*\[[^\]]*\](\s*\[[^\]]*\])?\s*=\s*\{");
+            var m = Regex.Match(text, @"\b" + Regex.Escape(name) + @"\s*\[[^\]]*\](\s*\[[^\]]*\])?\s*=\s*\{");
             if (!m.Success)
                 throw new InvalidDataException(name);
             start = m.Index + m.Length;

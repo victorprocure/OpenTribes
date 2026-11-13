@@ -30,7 +30,7 @@ public static class TurretCamera
             local.P[i] = node.P[i];
         var a = new TMat3 { Flags = local.Flags, M = local.M, P = local.P };
         var b = new TMat3 { Flags = obj.Flags, M = obj.M, P = obj.P };
-        Shape.TmatMul(a, b, out TMat3 w);
+        Shape.TmatMul(a, b, out var w);
         var p = new float[] { w.P[0], w.P[1], w.P[2] };
         ObserverCamera.PlaceBehind(container, exclude, p, w.M[3], w.M[4], w.M[5], Store(Mul(arg, DistanceFactor)));
         var t = new Transform { Flags = w.Flags, M = w.M };

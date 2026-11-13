@@ -195,7 +195,7 @@ public sealed class Connection
         if ((type & FlagAckRequest) != 0)
         {
             // Retransmit the newest slot with its original type plus flags.
-            ref Slot slot = ref mSlots[mLastSentSeq & 31];
+            ref var slot = ref mSlots[mLastSentSeq & 31];
             slot.Type |= FlagAckRequest;
             wireType = slot.Type | type;
             withId = CarriesId(slot.Type);
@@ -378,7 +378,7 @@ public sealed class Connection
             var i = (mLastSentSeq + 1) & 31;
             do
             {
-                ref Slot slot = ref mSlots[i];
+                ref var slot = ref mSlots[i];
                 if (slot.Type != kFree)
                 {
                     if (!slot.Acked)

@@ -164,7 +164,7 @@ public class WorldTests
         Assert.False(g.CastLine(new Vec3(-5, 0, 0), new Vec3(-1, 0, 0), ref hit));
         Assert.False(g.CastLine(new Vec3(15, 0, 0), new Vec3(11, 0, 0), ref hit));
         // Malformed data is rejected.
-        List<byte> bad = DigFile(7, box, nodes, 1, 45, planes);
+        var bad = DigFile(7, box, nodes, 1, 45, planes);
         bad.RemoveRange(bad.Count - 30, 30);
         Assert.Null(InteriorGeometry.Parse([.. bad]));
     }
@@ -289,12 +289,12 @@ public class WorldTests
         a.Flags = 3;
         b.P = Float3.Of(10, 20, 30);
         b.Flags = 2;
-        Shape.TmatMul(a, b, out TMat3 c);
+        Shape.TmatMul(a, b, out var c);
         Assert.True(c.Flags == 3 && c.M[2] == 1 && c.M[3] == -1 && c.M[7] == -1);
         Assert.True(c.P[0] == 11 && c.P[1] == 17 && c.P[2] == 32);
         // Inverse of a rotation (T1.1): transpose, t' = (-t) R'.
-        Shape.TmatInverse(c, out TMat3 inv);
-        Shape.TmatMul(c, inv, out TMat3 id);
+        Shape.TmatInverse(c, out var inv);
+        Shape.TmatMul(c, inv, out var id);
         for (var i = 0; i < 9; ++i)
             Assert.True(id.M[i] == (i % 4 == 0 ? 1.0f : 0.0f));
         Assert.True(id.P[0] == 0 && id.P[1] == 0 && id.P[2] == 0);
@@ -510,7 +510,7 @@ public class WorldTests
         // The shape is turned by 90 degrees: its local -y side faces world +x; the sphere at world x 11.25 is 0.25 off
         // that side.
         var wn = new float[3];
-        CollisionSurface s0 = chit.Surfaces[0];
+        var s0 = chit.Surfaces[0];
         X87.MulVector(s0.Normal, chit.Rot, wn);
         Assert.True(Near(chit.Surfaces[0].Normal[1], -1) && Near(wn[0], 1) && Near(chit.Surfaces[0].Distance, 0.25f));
         Assert.True(chit.Surfaces[0].HasMaterial && chit.StepHeight == -1.0f);
@@ -582,7 +582,7 @@ public class WorldTests
                 a.M[i] = F(v[0][i]);
             a.P = Float3.Of(1, -2, 0.5f);
             a.Flags = 7;
-            Shape.TmatInverse(a, out TMat3 inv);
+            Shape.TmatInverse(a, out var inv);
             var same = true;
             for (var i = 0; i < 9; ++i)
                 same = same && BitsOf(inv.M[i]) == v[1][i];
@@ -697,7 +697,7 @@ public class WorldTests
         l.SetTime(99, 1.0f); // unknown id: nothing changes
         Assert.Equal(0, l.StateOf(20));
         // Truncated file.
-        List<byte> cut = DilLightingFile(7, defs, states, names);
+        var cut = DilLightingFile(7, defs, states, names);
         cut.RemoveRange(cut.Count - 20, 20);
         Assert.False(l.Parse([.. cut]));
     }

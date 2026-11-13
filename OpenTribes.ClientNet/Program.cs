@@ -53,7 +53,7 @@ var connect = Arg(args, "--connect");
 
 if (decode != null)
 {
-    CaptureTotals t = CaptureDecoder.Decode(decode, dump, Arg(args, "--client"), Console.Error);
+    var t = CaptureDecoder.Decode(decode, dump, Arg(args, "--client"), Console.Error);
     Summary(w =>
     {
         w.WriteString("mode", "decode");
@@ -113,11 +113,11 @@ if (connect != null)
     var name = Arg(args, "--name") ?? "NetClient";
     var seconds = double.Parse(Arg(args, "--seconds") ?? "30", System.Globalization.CultureInfo.InvariantCulture);
     var scriptPath = Arg(args, "--script");
-    List<ScriptStep>? script = scriptPath != null ? MoveScript.Parse(File.ReadAllText(scriptPath)) : null;
+    var script = scriptPath != null ? MoveScript.Parse(File.ReadAllText(scriptPath)) : null;
     var session = new NetClientSession(name, dump, script, Arg(args, "--version") ?? "1.11") { Log = Console.Error.WriteLine };
     if (Arg(args, "--predict") is string predictRoot)
         session.PredictFactory = mission => new PredictionWorld(predictRoot, new[] { "-dedicated", mission }, s => Console.Error.WriteLine(s));
-    SessionResult r = session.Run(connect, seconds);
+    var r = session.Run(connect, seconds);
     Summary(w =>
     {
         w.WriteString("mode", "connect");
@@ -141,7 +141,7 @@ if (connect != null)
         {
             w.WriteString("mission", session.Mission);
             // Prediction error at correction (client-net.md 4.4): distribution over the corrections with a prediction.
-            ClientPrediction pr = session.Prediction;
+            var pr = session.Prediction;
             w.WriteNumber("corrections", pr.Corrections.Count);
             w.WriteNumber("predictedSteps", pr.Steps);
             foreach (var cls in pr.Corrections.Select(c => c.Class).Distinct().OrderBy(c => c, StringComparer.Ordinal))

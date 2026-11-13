@@ -27,7 +27,7 @@ public static class DebrisCloud
     {
         var rows = new List<DebrisRow>();
         double total = 0;
-        foreach (DebrisRow r in all)
+        foreach (var r in all)
         {
             if (r.Mass > budget)
                 break;
@@ -194,9 +194,9 @@ public sealed class DebrisCloudEffect : IEffect
         mCloud = cloud;
         var (found, total) = DebrisCloud.Find(rows, (uint)spec.Mask, spec.Budget);
         var basis = DebrisCloud.Basis(dx, dy, dz, angle);
-        foreach (DebrisRow row in DebrisCloud.Pick(found, total, spec.Budget, rng))
+        foreach (var row in DebrisCloud.Pick(found, total, spec.Budget, rng))
         {
-            RenderInstance? inst = shape(row.Shape);
+            var inst = shape(row.Shape);
             if (inst == null)
                 continue;
             var body = new DebrisBody { Radius = Math.Max(0.1, inst.Shape.Radius) };
@@ -214,12 +214,12 @@ public sealed class DebrisCloudEffect : IEffect
         while (mAcc >= DebrisBody.TimeSlice)
         {
             mAcc -= DebrisBody.TimeSlice;
-            foreach (Piece p in mPieces)
+            foreach (var p in mPieces)
             {
-                DebrisBody b = p.Body;
+                var b = p.Body;
                 if (b.Done)
                     continue;
-                RenderShape sh = p.Inst.Shape;
+                var sh = p.Inst.Shape;
                 var explode = b.WantsExplosion(p.Params, mRng) || b.Integrate(p.Params, mTerrain, mRay, mRng, sh.Cx, sh.Cy, sh.Cz);
                 if (!explode)
                     continue;
@@ -235,13 +235,13 @@ public sealed class DebrisCloudEffect : IEffect
     /// <inheritdoc/>
     public void Build(FrameContext ctx)
     {
-        foreach (Piece p in mPieces)
+        foreach (var p in mPieces)
         {
-            DebrisBody b = p.Body;
+            var b = p.Body;
             if (b.Done)
                 continue;
-            Xf xf = Xf.Euler(b.Ax, b.Ay, b.Az).Then(Xf.Translate(b.X, b.Y, b.Z));
-            RenderImage? img = ctx.Renderer.Build(p.Inst, ctx.Camera, ctx.Draw(xf, p.Inst.Shape.Name + " debris"));
+            var xf = Xf.Euler(b.Ax, b.Ay, b.Az).Then(Xf.Translate(b.X, b.Y, b.Z));
+            var img = ctx.Renderer.Build(p.Inst, ctx.Camera, ctx.Draw(xf, p.Inst.Shape.Name + " debris"));
             if (img != null)
                 ctx.Lists.Add(img);
         }

@@ -66,7 +66,7 @@ public class ClientNetToolTests
     [Fact]
     public void MoveScriptSetsHeldKeysFromItsTimeOn()
     {
-        List<ScriptStep> s = MoveScript.Parse("# comment\n0 fwd=15\n2.5 jump=1 fire=1  # inline\n\n10 spawn=1 turn=0.05\n");
+        var s = MoveScript.Parse("# comment\n0 fwd=15\n2.5 jump=1 fire=1  # inline\n\n10 spawn=1 turn=0.05\n");
         Assert.True(s.Count == 3 && s[0].At == 0 && s[0].Keys["fwd"] == 15 && s[1].At == 2.5 && s[1].Keys["fire"] == 1);
         Assert.True(s[2].Keys["spawn"] == 1 && s[2].Keys["turn"] == 0.05);
         Assert.Throws<FormatException>(() => MoveScript.Parse("1 fwd"));

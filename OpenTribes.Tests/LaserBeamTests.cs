@@ -13,8 +13,8 @@ public class LaserBeamTests
     {
         var cam = new Camera3D(0, 0, 0, 0, 0, 90, 640, 480, 0.5, 1000);
         var ctx = new FrameContext { Camera = cam };
-        RenderImage img = Beams.LaserQuad(ctx, null, [1.0, 2.0, 0.0], [1.0, 200.0, 0.0], 0.25);
-        Vertex3D[] v = img.Batches.Single().Vertices;
+        var img = Beams.LaserQuad(ctx, null, [1.0, 2.0, 0.0], [1.0, 200.0, 0.0], 0.25);
+        var v = img.Batches.Single().Vertices;
         Assert.Equal(6, v.Length);
         Assert.All(v, q => Assert.Equal(0.25f, q.U));                         // u is one value over the beam
         Assert.Equal([0f, 1f], v.Select(q => q.V).Distinct().OrderBy(q => q).ToArray());
@@ -33,7 +33,7 @@ public class LaserHitShapeTests
     [Fact]
     public void HitShapeLivesBeamTimeAndCycleSpansBeamTime()
     {
-        RenderShape shape = RenderShape.Parse(SyntheticShape.Build(), "synthetic")!;
+        var shape = RenderShape.Parse(SyntheticShape.Build(), "synthetic")!;
         var e = new ExplosionEffect(shape, 0, 0, 0, 0.5, 0.1);
         Assert.Equal(500, e.LifeMs);
         Assert.Equal(100, e.AgeMs, 3);

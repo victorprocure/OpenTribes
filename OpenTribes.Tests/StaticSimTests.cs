@@ -19,7 +19,7 @@ public sealed class DefMap<TK, TV> : Dictionary<TK, TV> where TK : notnull
     {
         get
         {
-            if (!TryGetValue(key, out TV? v))
+            if (!TryGetValue(key, out var v))
             {
                 v = mMake();
                 base[key] = v;
@@ -55,7 +55,7 @@ public class StaticSimTests
         PutU16(nodeBytes, 0);
         PutU16(nodeBytes, 0);
         PutU16(nodeBytes, 0);
-        foreach (SeqSpec s in seqs)
+        foreach (var s in seqs)
         {
             PutU32(seqBytes, (uint)NameOf(s.Name));
             PutU32(seqBytes, s.Cyclic ? 1u : 0u);
@@ -121,7 +121,7 @@ public class StaticSimTests
 
     private GameBase Gb(string path)
     {
-        SimObject? o = gw!.Object(path);
+        var o = gw!.Object(path);
         Assert.True(o is GameBase);
         return (GameBase)o!;
     }
@@ -131,7 +131,7 @@ public class StaticSimTests
     {
         gw!.Run(statement);
         var id = gw.Run("echo(" + statement[..statement.IndexOf(' ')] + ");");
-        SimObject? o = gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
+        var o = gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
         Assert.True(o is GameBase);
         return (GameBase)o!;
     }
@@ -260,7 +260,7 @@ public class StaticSimTests
               "};");
 
 
-        GameBase p = Gb("MissionGroup/P");
+        var p = Gb("MissionGroup/P");
         const string P = "\"MissionGroup/P\"";
         static string Q(string src) => "echo(" + src + ");";
         c.Check(w, Q("GameBase::getEnergy(" + P + ")"), "10");  // energy = maxEnergy at the bind
@@ -327,7 +327,7 @@ public class StaticSimTests
         c.Check(w, "echo(GameBase::setEnergy(nosuch, 1), GameBase::getEnergy(nosuch), GameBase::isPowered(nosuch));", "False0False");
         c.Check(w, "echo(GameBase::applyDamage(\"MissionGroup/P\", 0, 0.1, \"1 2\", \"0 0 0\", \"0 0 0\", 0));", "False");
         // 1.2 deleteOnDestroy: the object is deleted 0.5 s after it is destroyed.
-        GameBase dd = Obj("$d = newObject(\"\", StaticShape, Pad, true);");
+        var dd = Obj("$d = newObject(\"\", StaticShape, Pad, true);");
         var ddId = dd.Id();
         w.Run("GameBase::setDamageLevel($d, 5);");
         Tick(15);
@@ -335,7 +335,7 @@ public class StaticSimTests
         Tick(1);
         Assert.Null(w.Sim.Server()!.FindById(ddId));
         // 1.8 collision records: at most one onCollision per second per pair.
-        GameBase ball = Obj("$i = newObject(\"\", Item, Ball, 3, false);");
+        var ball = Obj("$i = newObject(\"\", Item, Ball, 3, false);");
         Assert.Equal(3, ball.ItemCount);
         c.Check(w, "echo($ballCount);", "0");  // Item::onAdd sees count 0: the count follows the datablock
         w.Run("$col = 0;");
@@ -375,12 +375,12 @@ public class StaticSimTests
                 "FalseFalse");
 
         // ---- 2 Moveable ----
-        GameBase el = Gb("MissionGroup/lift/El");
+        var el = Gb("MissionGroup/lift/El");
         c.Check(w, "echo($newPath, \" \", $count);", "1 3");  // the point count is known inside onNewPath
         Assert.True(el.PathId == 0 && el.WaypointCount == 3 && el.MoveState == GameBase.kMoveStopped);
         Assert.Equal(0x6018u, masks[el.Id()]);  // 0x08 setWaypoint, 0x10 and 0x08 snap, 0x4008 state, 0x2000 path
         Assert.True(Gb("MissionGroup/gate/Dr").PathId == 1 && Gb("MissionGroup/kgrp/K").PathId == 2);  // 2.2 path ids
-        GameBase lonely = Gb("MissionGroup/Lonely");
+        var lonely = Gb("MissionGroup/Lonely");
         Assert.Equal(0xff, lonely.PathId);  // no SimPath in its group: unbound
         c.Check(w, "echo(Moveable::getWaypointCount(\"MissionGroup/Lonely\"), Moveable::getPosition(\"MissionGroup/Lonely\")," +
                    " Moveable::getState(\"MissionGroup/Lonely\"), Moveable::moveToWaypoint(\"MissionGroup/Lonely\", 0)," +
@@ -427,7 +427,7 @@ public class StaticSimTests
         Tick(3);
         Assert.True(el.Transform.P[0] == stopX);
         // A blocked move retries every tick and flags 0x4000 on each change (2.5).
-        GameBase dr = Gb("MissionGroup/gate/Dr");
+        var dr = Gb("MissionGroup/gate/Dr");
         var free = false;
         dr.MoveableTestOverride = _ => free;
         masks.Clear();
@@ -440,14 +440,14 @@ public class StaticSimTests
         Tick();
         Assert.True(!dr.MoveBlocked && (masks[dr.Id()] & 0x4008) == 0x4008 && dr.Transform.P[2] > 0);
         // D11 / K1: an onWaypoint method with four parameters is not called.
-        GameBase kk = Gb("MissionGroup/kgrp/K");
+        var kk = Gb("MissionGroup/kgrp/K");
         w.Run("Moveable::moveToWaypoint(\"MissionGroup/kgrp/K\", 1);");
         Tick(10);
         c.Check(w, "echo($k1, \"|\", Moveable::getState(\"MissionGroup/kgrp/K\"));", "|Stop");
         Assert.Equal(1, kk.Waypoint);
 
         // ---- 5 Item on the terrain (flat at z = 10, gravity -20, sphere radius 1) ----
-        GameBase b1 = Obj("$b = newObject(\"\", Item, Ball, 1, false);");
+        var b1 = Obj("$b = newObject(\"\", Item, Ball, 1, false);");
         w.Run("GameBase::setPosition($b, \"16 16 20\");");
         Tick(3);
         Assert.True(Near(b1.Transform.P[2], 19.90784f, 2e-4f) && Near(b1.Velocity[2], -1.92f, 1e-4f) && !b1.AtRest);
@@ -457,7 +457,7 @@ public class StaticSimTests
         maskTimes08.Clear();
         Tick(100);
         {
-            List<float> times = maskTimes08[b1.Id()];
+            var times = maskTimes08[b1.Id()];
             Assert.True(times.Count is >= 3 and <= 4);
             for (var i = 1; i < times.Count; ++i)
                 Assert.True(times[i] - times[i - 1] is > 1.0f and < 1.07f);  // 33 ticks of 0.032 s
@@ -480,7 +480,7 @@ public class StaticSimTests
         // First tick of a placed Item (5.3, P13): the sphere overlaps the plane by 0.4 m. Gravity
         // gives v.z = -0.64, the response (friction 0.5, elasticity 0.5) turns it into
         // 0.5 x 0.6401 = 0.32005, and the item moves 0.32005 x 0.032 up and rests.
-        GameBase b2 = Obj("$b2 = newObject(\"\", Item, Ball, 1, false);");
+        var b2 = Obj("$b2 = newObject(\"\", Item, Ball, 1, false);");
         w.Run("GameBase::setPosition($b2, \"24 24 10.6\"); Item::setVelocity($b2, \"0 0 0\");");
         masks.Clear();
         maskCount08.Clear();
@@ -528,7 +528,7 @@ public class StaticSimTests
         Tick(34);
         Assert.Null(b2.ItemThrower);
         // A rotating Item never moves or rotates (5.3).
-        GameBase sp = Obj("$sp = newObject(\"\", Item, Ball, 1, false, true);");
+        var sp = Obj("$sp = newObject(\"\", Item, Ball, 1, false, true);");
         w.Run("GameBase::setPosition($sp, \"20 20 30\");");
         Tick(5);
         Assert.True(sp.ItemRotates && sp.Transform.P[2] == 30 && sp.Velocity[2] == 0);
@@ -539,15 +539,15 @@ public class StaticSimTests
         c.Check(w, "echo(newObject(\"\", StaticShape, Pad, true, 5));",
                 "StaticBase: <dataFile> [deleteOnDestroy]\nnewObject for: StaticShape failed arg list: Pad, true, 5\n0");
         c.Check(w, "echo(newObject(\"\", StaticShape, NoSuchBlock));", "newObject for: StaticShape failed arg list: NoSuchBlock\n0");
-        GameBase mine = Obj("$mn = newObject(\"\", Mine, Mn);");
+        var mine = Obj("$mn = newObject(\"\", Mine, Mn);");
         Assert.True(mine.DeleteOnDestroy);  // forced by the Mine constructor
 
         // ---- 3 Sensors ----
         var sensors = (SensorManager)w.Sim.Server()!.FindById(720)!;
-        GameBase s0 = Obj("$s0 = newObject(\"\", Sensor, Radar);");
+        var s0 = Obj("$s0 = newObject(\"\", Sensor, Radar);");
         c.Check(w, "echo($radarAdds);", "1");  // Sensor::onAdd runs once for newObject (3.2)
-        GameBase t1 = Obj("$t1 = newObject(\"\", StaticShape, Tgt);");
-        GameBase t2 = Obj("$t2 = newObject(\"\", StaticShape, Tgt);");
+        var t1 = Obj("$t1 = newObject(\"\", StaticShape, Tgt);");
+        var t2 = Obj("$t2 = newObject(\"\", StaticShape, Tgt);");
         Assert.True(t1.TargetIndex == 0 && t2.TargetIndex == 1);  // lowest free slot (3.3)
         s0.SetTeam(0);
         t1.SetTeam(1);
@@ -565,20 +565,20 @@ public class StaticSimTests
         w.Run("GameBase::setActive($s0, true);");
         // A jammer (supression) that detects the target puts it in state 2 and hides it from
         // supressable sensors (3.5 step 4, 5).
-        GameBase jam = Obj("$jam = newObject(\"\", Sensor, Jammer);");
+        var jam = Obj("$jam = newObject(\"\", Sensor, Jammer);");
         jam.SetTeam(1);
         w.Run("GameBase::setPosition($jam, \"60 0 50\"); GameBase::setActive($jam, true);");
         Tick(4);
         Assert.True((t1.SensorWord >> 24) == 2 && (t1.SensorWord & 1) == 0);
         // A not supressable sensor is walked first and still sees it.
-        GameBase ns = Obj("$ns = newObject(\"\", Sensor, NoSup);");
+        var ns = Obj("$ns = newObject(\"\", Sensor, NoSup);");
         ns.SetTeam(0);
         w.Run("GameBase::setPosition($ns, \"0 0 50\"); GameBase::setActive($ns, true);");
         Tick(4);
         // detected; its pinger overwrites the jammed state with 1 (the last writer wins, 3.5)
         Assert.True((t1.SensorWord & 1) != 0 && (t1.SensorWord >> 24) == 1);
         // List order within a team: not supressable first, then pingers before quiet ones.
-        GameBase qt = Obj("$qt = newObject(\"\", Sensor, Quiet);");
+        var qt = Obj("$qt = newObject(\"\", Sensor, Quiet);");
         qt.SetTeam(0);
         Assert.True(sensors.TeamList(0).Count == 3 && sensors.TeamList(0)[0] == ns && sensors.TeamList(0)[1] == s0 &&
                sensors.TeamList(0)[2] == qt);
@@ -592,17 +592,17 @@ public class StaticSimTests
         var freed = t1.TargetIndex;
         w.Run("deleteObject($t1);");
         Assert.Null(w.Game.Targets[freed]);
-        GameBase t3 = Obj("$t3 = newObject(\"\", StaticShape, Tgt);");
+        var t3 = Obj("$t3 = newObject(\"\", StaticShape, Tgt);");
         Assert.True(t3.TargetIndex == freed);
         c.Check(w, Q("getObjectByTargetIndex(" + Numbers.FormatInt(freed) + ")"), Numbers.FormatInt(t3.Id()));
         c.Check(w, "echo(getObjectByTargetIndex(127), getObjectByTargetIndex(-1), getObjectByTargetIndex(128), getObjectByTargetIndex());",
                 "-1-1-1-1");
         // A Marker is visible to its own team without any sweep (Marker_setTeam).
-        GameBase mk = Gb("MissionGroup/lift/Path/m0");
+        var mk = Gb("MissionGroup/lift/Path/m0");
         Assert.True(PlayerManager.VisibleToTeam(mk, 0) && PlayerManager.VisibleToTeam(mk, 1));
 
         // ---- 6 Trigger ----
-        GameBase zn = Gb("MissionGroup/Zn");
+        var zn = Gb("MissionGroup/Zn");
         c.Check(w, "echo($zlog);", "A");  // onActivate once at registration
         Assert.True(zn.TriggerActive);
         c.Check(w, "echo(GameBase::isActive(\"MissionGroup/Zn\"), GameBase::isPowered(\"MissionGroup/Zn\")," +
@@ -651,7 +651,7 @@ public class StaticSimTests
 
 
         // ---- 4 Turret idle ----
-        GameBase tu = Gb("MissionGroup/Tu");
+        var tu = Gb("MissionGroup/Tu");
         w.Run("GameBase::setActive(\"MissionGroup/Tu\", true);"); // the search step needs an active, enabled turret
         masks.Clear();
         Tick(5);
@@ -662,7 +662,7 @@ public class StaticSimTests
         Assert.True(tu.TurretMode == 0 && (masks[tu.Id()] & 0x10000) != 0);
         // Activation with the power/fire sequences takes the power sequence length (0.06 s at dt 0.032: two steps), then
         // state 3; deactivation runs the thread back (4.8).
-        GameBase tu2 = Gb("MissionGroup/Tu2");
+        var tu2 = Gb("MissionGroup/Tu2");
         Assert.True(tu2.TurretHasPower && Near(tu2.TurretPowerDuration, 0.06f));
         masks.Clear();
         tu2.TurretActivate(0.032f);
@@ -702,7 +702,7 @@ public class StaticSimTests
             }
             Assert.True(MaterialList.ParseMaterialList([.. Pers("TS::MaterialList", 3, v3)], list) && list.Count == 2);
             Assert.True(list[0].Type == 13 && list[1].Type == 4 && list[0].UseDefaults); // v3: useDefaultProps is 1
-            List<byte> bad = Pers("TS::MaterialList", 5, v3);
+            var bad = Pers("TS::MaterialList", 5, v3);
             Assert.False(MaterialList.ParseMaterialList([.. bad], list));
             c.Check(w, "echo(setMaterialProperty(Glass, 0.5, 1.6), setMaterialProperty(glass, 2, 3), setMaterialProperty(Lava, 1, 1)," +
                        " setMaterialProperty(Glass, 1));",

@@ -70,7 +70,7 @@ public sealed class PacketDump : IDisposable
     private static void Fields(Utf8JsonWriter w, string name, IEnumerable<DecodedField> fields)
     {
         w.WriteStartArray(name);
-        foreach (DecodedField f in fields)
+        foreach (var f in fields)
         {
             w.WriteStartArray();
             w.WriteStringValue(f.Name);
@@ -176,7 +176,7 @@ public sealed class PacketDump : IDisposable
             if (p.RateReq is var (ri, rs))
                 w.WriteString("rateReq", ri + "ms/" + rs);
             w.WriteStartArray("events");
-            foreach (DecodedEvent e in p.Events)
+            foreach (var e in p.Events)
             {
                 w.WriteStartObject();
                 w.WriteNumber("tag", e.Tag);
@@ -204,7 +204,7 @@ public sealed class PacketDump : IDisposable
                 w.WriteBoolean("done", p.Ghosts.Done);
                 w.WriteNumber("bits", p.Ghosts.Bits);
                 w.WriteStartArray("updates");
-                foreach (DecodedGhost g in p.Ghosts.Updates)
+                foreach (var g in p.Ghosts.Updates)
                 {
                     w.WriteStartObject();
                     w.WriteNumber("i", g.Index);

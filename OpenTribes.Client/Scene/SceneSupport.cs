@@ -17,7 +17,7 @@ public sealed class Db
     /// <param name="group">The datablock group.</param>
     /// <param name="index">The index in the group.</param>
     /// <returns>The block, or null when it does not exist.</returns>
-    public ClientDataBlock? Block(int group, long index) => mBlocks.Blocks.TryGetValue((group, (int)index), out ClientDataBlock? b) ? b : null;
+    public ClientDataBlock? Block(int group, long index) => mBlocks.Blocks.TryGetValue((group, (int)index), out var b) ? b : null;
 
     /// <summary>Lists the blocks of one group in index order (the order of the data block manager).</summary>
     /// <param name="group">The datablock group.</param>
@@ -33,7 +33,7 @@ public sealed class Db
     {
         if (b == null)
             return null;
-        foreach (DecodedField f in b.Fields)
+        foreach (var f in b.Fields)
             if (f.Name == name)
                 return f.Value;
         return null;
@@ -94,7 +94,7 @@ public readonly record struct ThreadSlot(int Slot, int Sequence, int State, bool
         if (threads is not System.Collections.IEnumerable e)
             return l;
         foreach (var o in e)
-            if (o is string s && TryParse(s, out ThreadSlot t))
+            if (o is string s && TryParse(s, out var t))
                 l.Add(t);
         return l;
     }

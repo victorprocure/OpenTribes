@@ -33,7 +33,7 @@ public sealed class HostGameTests : IDisposable
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function onConnection(%m) { $conn = %m; }\nfunction Game::EndFrame() {}\n" +
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
-        ClientOptions opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
+        var opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
         Assert.True(mApp.Start(out var error), error);
@@ -280,7 +280,7 @@ public sealed class HostGameStockTests : IDisposable
         Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
         Directory.CreateSymbolicLink(Path.Combine(mRoot, "base"), Path.Combine(game, "base"));
         File.Copy(Path.Combine(game, "console.cs"), Path.Combine(mRoot, "console.cs"));
-        ClientOptions opt = ClientOptions.Parse(predict ? ["--root", mRoot, "--headless"] : ["--root", mRoot, "--headless", "--no-predict"], out var err)!;
+        var opt = ClientOptions.Parse(predict ? ["--root", mRoot, "--headless"] : ["--root", mRoot, "--headless", "--no-predict"], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
         Assert.True(mApp.Start(out var error), error);

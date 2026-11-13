@@ -156,14 +156,14 @@ public sealed class ClientDataBlocks
 
     private static E[] LayoutOf(string name)
     {
-        if (Layouts.TryGetValue(name, out E[]? l))
+        if (Layouts.TryGetValue(name, out var l))
             return l;
         return Special(name);
     }
 
     private static void Fields(ClientReader r, E[] layout)
     {
-        foreach (E e in layout)
+        foreach (var e in layout)
         {
             switch (e.K)
             {
@@ -372,7 +372,7 @@ public sealed class ClientDataBlocks
     {
         if (Resources == null)
             return null;
-        foreach (DecodedField f in b.Fields)
+        foreach (var f in b.Fields)
         {
             if (!f.Name.EndsWith(".crc", StringComparison.Ordinal) || f.Value is not long wire)
                 continue;

@@ -26,10 +26,10 @@ public static class FullscreenPlan
     {
         (int W, int H)? best = null;
         var bestDist = long.MaxValue;
-        foreach ((int W, int H) m in modes)
+        foreach (var m in modes)
         {
             var d = Math.Abs((long)m.W - w) + Math.Abs((long)m.H - h);
-            if (d < bestDist || d == bestDist && best is { } b && (long)m.W * m.H > (long)b.W * b.H)
+            if (d < bestDist || (d == bestDist && best is { } b && (long)m.W * m.H > (long)b.W * b.H))
             {
                 best = m;
                 bestDist = d;
@@ -53,7 +53,7 @@ public static class FullscreenPlan
     /// <param name="pref">The <c>$pref::OpenTribes::FullscreenWindowed</c> value.</param>
     /// <returns>True when the option was given, or the pref is "1" or "true" in any case.</returns>
     public static bool UseDesktopMode(bool optionGiven, string? pref)
-        => optionGiven || pref != null && (pref.Trim() == "1" || pref.Trim().Equals("true", StringComparison.OrdinalIgnoreCase));
+        => optionGiven || (pref != null && (pref.Trim() == "1" || pref.Trim().Equals("true", StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>Computes the destination of a canvas in a window: scaled to fit, aspect kept, centred.</summary>
     /// <param name="canvas">The canvas size.</param>

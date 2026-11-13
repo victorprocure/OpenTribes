@@ -74,7 +74,7 @@ public static class InteriorLightMaps
         for (var s = 0; s < maps.Length && s < geo.Surfaces.Length; ++s)
         {
             var map = maps[s];
-            InteriorGeometryData.Surface surf = geo.Surfaces[s];
+            var surf = geo.Surfaces[s];
             if (map == null || !surf.VisibleToOutside || (surf.Plane * 4) + 2 >= geo.Planes.Length)
                 continue;
             var pi = surf.Plane * 4;
@@ -110,7 +110,7 @@ public static class InteriorLightMaps
             yield break;
         for (var j = 0; j < light.StateCount; ++j)
         {
-            InteriorLighting.State st = baseLt.States[light.FirstState + j];
+            var st = baseLt.States[light.FirstState + j];
             int count = (ushort)st.DataCount, index = (ushort)st.DataIndex;
             for (var k = 0; k < count && index + k < baseLt.StateDatas.Length; ++k)
                 yield return baseLt.StateDatas[index + k].Surface;
@@ -126,7 +126,7 @@ public static class InteriorLightMaps
     /// <param name="only">The surfaces to write, or null for all.</param>
     public static void Apply(ushort[]?[] maps, InteriorLighting baseLt, InteriorLighting? mission, int lightIndex, float time, HashSet<int>? only)
     {
-        InteriorLighting.Light light = baseLt.Lights[lightIndex];
+        var light = baseLt.Lights[lightIndex];
         if (light.StateCount <= 0 || light.FirstState < 0 || light.FirstState + light.StateCount > baseLt.States.Length)
             return;
         var records = baseLt.States.AsSpan(light.FirstState, light.StateCount);
@@ -145,20 +145,20 @@ public static class InteriorLightMaps
     public static void Apply(ushort[]?[] maps, InteriorLighting baseLt, InteriorLighting? mission, int lightIndex, int state,
                              (int mono, int r, int g, int b) colour, HashSet<int>? only)
     {
-        InteriorLighting.Light light = baseLt.Lights[lightIndex];
+        var light = baseLt.Lights[lightIndex];
         if (light.StateCount <= 0 || light.FirstState < 0 || light.FirstState + light.StateCount > baseLt.States.Length || state < 0 ||
             state >= light.StateCount)
             return;
-        InteriorLighting.State st = baseLt.States[light.FirstState + state];
+        var st = baseLt.States[light.FirstState + state];
         int count = (ushort)st.DataCount, index = (ushort)st.DataIndex;
         for (var k = 0; k < count && index + k < baseLt.StateDatas.Length; ++k)
         {
-            InteriorLighting.StateData sd = baseLt.StateDatas[index + k];
+            var sd = baseLt.StateDatas[index + k];
             if (sd.MapIndex < 0 || sd.Surface < 0 || sd.Surface >= maps.Length || maps[sd.Surface] == null)
                 continue;
             if (only != null && !only.Contains(sd.Surface))
                 continue;
-            InteriorLighting.Surface surf = baseLt.Surfaces[sd.Surface];
+            var surf = baseLt.Surfaces[sd.Surface];
             var src = baseLt.MapData;
             long off = sd.MapIndex;
             if (mission != null && mission.TryMissionOffset((uint)sd.MapIndex, out var dest))
@@ -369,7 +369,7 @@ public sealed class InteriorRenderer : IDisposable
         var resolved = Interior.ResolveInteriorName(mAssets.Res, fileName);
         if (resolved.Length == 0)
             return false;
-        if (!mModels.TryGetValue(resolved, out InteriorModel? model))
+        if (!mModels.TryGetValue(resolved, out var model))
         {
             model = null;
             var shape = new InteriorShapeFile();
@@ -411,7 +411,7 @@ public sealed class InteriorRenderer : IDisposable
     {
         if (model.Lods[index] != null)
             return model.Lods[index];
-        InteriorShapeFile.Lod l = model.Shape.Lods[index];
+        var l = model.Shape.Lods[index];
         if (!mAssets.Res.Read(l.Geometry, out var dig))
         {
             Console.Error.WriteLine($"interior: {model.Name} lod {index}: geometry {l.Geometry} not found");
@@ -473,11 +473,11 @@ public sealed class InteriorRenderer : IDisposable
     /// <summary>Loads every detail level of every model in use (geometry, lighting, light atlas, material bitmaps), so the first frame that sees an interior from a new distance does not stall on file reads and texture uploads.</summary>
     public void Preload()
     {
-        foreach (InteriorModel? model in mModels.Values)
+        foreach (var model in mModels.Values)
             if (model != null)
                 for (var i = 0; i < model.Lods.Length; ++i)
                 {
-                    InteriorLodModel? lod = Lod(model, i);
+                    var lod = Lod(model, i);
                     if (lod?.Base == null)
                         continue;
                     foreach (var name in lod.Materials)
@@ -489,14 +489,14 @@ public sealed class InteriorRenderer : IDisposable
 
     private void BuildAtlas(InteriorLodModel lod)
     {
-        InteriorLighting? lt = lod.Base;
+        var lt = lod.Base;
         if (lt == null)
             return;
         // The lights the client runs by itself: auto start flag (the ghost light record On, Tribes.exe 0047f3f4), with a cycle.
         var running = new List<int>();
         for (var i = 0; i < lt.Lights.Length; ++i)
         {
-            InteriorLighting.Light l = lt.Lights[i];
+            var l = lt.Lights[i];
             if (l.AutoStart && l.StateCount > 1 && l.Duration > 0 && l.FirstState >= 0 && l.FirstState + l.StateCount <= lt.States.Length)
                 running.Add(i);
         }
@@ -523,7 +523,7 @@ public sealed class InteriorRenderer : IDisposable
         for (var i = 0; i < maps.Length; ++i)
             sizes[i] = maps[i] == null ? (0, 0) : (lt.Surfaces[i].SizeX + 2, lt.Surfaces[i].SizeY + 2);
         lod.AtlasW = 1024;
-        (int x, int y)[] packed = AtlasPacker.Pack(sizes, lod.AtlasW, out var h);
+        var packed = AtlasPacker.Pack(sizes, lod.AtlasW, out var h);
         lod.LmPos = new (int, int)[maps.Length];
         for (var i = 0; i < maps.Length; ++i)
             lod.LmPos[i] = (packed[i].x + 1, packed[i].y + 1);
@@ -545,13 +545,13 @@ public sealed class InteriorRenderer : IDisposable
     private static void ApplyLights(InteriorLodModel lod, ushort[]?[] maps, HashSet<int>? only, long step, int[] randomState,
                                     (int mono, int r, int g, int b)[] randomColor)
     {
-        InteriorLighting lt = lod.Base!;
+        var lt = lod.Base!;
         var run = 0;
         for (var i = 0; i < lt.Lights.Length; ++i)
         {
             if (run < lod.Running.Length && lod.Running[run] == i)
             {
-                InteriorLighting.Light l = lt.Lights[i];
+                var l = lt.Lights[i];
                 if (!l.Random)
                     InteriorLightMaps.Apply(maps, lt, lod.Mission, i, StepTime(step, l), only);
                 else if (randomState[i] >= 0)
@@ -568,12 +568,12 @@ public sealed class InteriorRenderer : IDisposable
     // The light state of the running lights at `step` as numbers: equal keys give equal atlases.
     private static int[] LightKey(InteriorLodModel lod, long step, int[] randomState)
     {
-        InteriorLighting lt = lod.Base!;
+        var lt = lod.Base!;
         var key = new int[lod.Running.Length * 5];
         for (var r = 0; r < lod.Running.Length; ++r)
         {
             var i = lod.Running[r];
-            InteriorLighting.Light l = lt.Lights[i];
+            var l = lt.Lights[i];
             if (l.Random)
             {
                 key[r * 5] = randomState[i];
@@ -594,7 +594,7 @@ public sealed class InteriorRenderer : IDisposable
 
     private static void WriteSurface(InteriorLodModel lod, byte[] rgba, int i, ushort[] map)
     {
-        InteriorLighting lt = lod.Base!;
+        var lt = lod.Base!;
         int w = lt.Surfaces[i].SizeX, hh = lt.Surfaces[i].SizeY;
         if (w <= 0 || hh <= 0)
             return;
@@ -629,7 +629,7 @@ public sealed class InteriorRenderer : IDisposable
     // instance by the steps taken and finds or builds the atlas of its light state.
     private LightAtlas InstanceAtlas(Instance inst, InteriorLodModel lod, long step)
     {
-        InteriorLighting lt = lod.Base!;
+        var lt = lod.Base!;
         var n = lt.Lights.Length;
         if (inst.RandomState.Length < n)
         {
@@ -650,7 +650,7 @@ public sealed class InteriorRenderer : IDisposable
         for (; inst.LightStep < step; ++inst.LightStep)
             foreach (var i in lod.Running)
             {
-                InteriorLighting.Light l = lt.Lights[i];
+                var l = lt.Lights[i];
                 if (!l.Random)
                     continue;
                 // 00556cb0: the time wraps by the end time of record 1 and a state is drawn then
@@ -676,7 +676,7 @@ public sealed class InteriorRenderer : IDisposable
             }
         var key = LightKey(lod, step, inst.RandomState);
         LightAtlas? found = null;
-        foreach (LightAtlas a in lod.Atlases)
+        foreach (var a in lod.Atlases)
             if (a.Key.AsSpan().SequenceEqual(key))
             {
                 found = a;
@@ -714,9 +714,9 @@ public sealed class InteriorRenderer : IDisposable
             mWhite ??= mDev.CreateTexture3D([255, 255, 255, 255], 1, 1, new TextureOptions(false, true, false));
             return mWhite;
         }
-        if (mTextures.TryGetValue(name, out IGfxTexture? t))
+        if (mTextures.TryGetValue(name, out var t))
             return t;
-        PbmpBitmap? bmp = mAssets.Bitmap(name);
+        var bmp = mAssets.Bitmap(name);
         t = bmp != null && bmp.Width > 0 && bmp.Height > 0
             ? mAssets.CreateTexture(mDev, bmp, mAssets.PackedRgba(bmp, true), true, true, true)
             : null;
@@ -794,7 +794,7 @@ public sealed class InteriorRenderer : IDisposable
     {
         if (inst.Box != null)
             return true;
-        InteriorLodModel? lod0 = Lod(inst.Model, 0);
+        var lod0 = Lod(inst.Model, 0);
         if (lod0 == null)
             return false;
         float[] b = lod0.Geo.Box, m = inst.M;
@@ -827,7 +827,7 @@ public sealed class InteriorRenderer : IDisposable
     {
         for (var i = 0; i < Instances.Count; ++i)
         {
-            Instance inst = Instances[i];
+            var inst = Instances[i];
             if (i == exclude || !EnsureBox(inst) || !inst.IsContainer)
                 continue;
             var cb = inst.Box!;
@@ -848,14 +848,14 @@ public sealed class InteriorRenderer : IDisposable
     /// <remarks>The render query of the PVS database (00483e84): a camera in a solid leaf scopes nothing. Otherwise the objects in the leaves of the PVS of the camera (leaf 43 and up), in solid leaves, and, when the camera leaf sees outside, the objects outside the geometry box.</remarks>
     public bool ScopeReaches(int i, double[] objectBox, in Camera3D cam)
     {
-        Instance inst = Instances[i];
-        InteriorGeometry? leaves = Lod(inst.Model, 0)?.Leaves;
+        var inst = Instances[i];
+        var leaves = Lod(inst.Model, 0)?.Leaves;
         if (leaves == null)
             return true;
         if (inst.ScopeX != cam.X || inst.ScopeY != cam.Y || inst.ScopeZ != cam.Z || inst.ScopeLeaves == null)
         {
             (inst.ScopeX, inst.ScopeY, inst.ScopeZ) = (cam.X, cam.Y, cam.Z);
-            Vec3 lc = ToLocal(inst, cam.X, cam.Y, cam.Z);
+            var lc = ToLocal(inst, cam.X, cam.Y, cam.Z);
             var camLeaf = leaves.LeafAt(lc);
             inst.ScopeNothing = leaves.IsSolid(camLeaf);
             inst.ScopeOutside = leaves.SeesOutside(camLeaf);
@@ -909,10 +909,10 @@ public sealed class InteriorRenderer : IDisposable
             ContainerMask = 0xffffffffu,
         };
         c.Add(terrain);
-        foreach (Instance inst in Instances)
+        foreach (var inst in Instances)
         {
-            InteriorLodModel? lod0 = Lod(inst.Model, 0);
-            InteriorGeometry? g = lod0?.Leaves;
+            var lod0 = Lod(inst.Model, 0);
+            var g = lod0?.Leaves;
             if (g == null)
                 continue;
             g.LinkedInterior = inst.Model.Shape.LinkedInterior;
@@ -922,10 +922,10 @@ public sealed class InteriorRenderer : IDisposable
                 m.M[i] = inst.M[i];
             m.P = new Vec3((float)inst.X, (float)inst.Y, (float)inst.Z);
             var box = new float[] { 1e30f, 1e30f, 1e30f, -1e30f, -1e30f, -1e30f };
-            Float6 gb = g.Box;
+            var gb = g.Box;
             for (var k = 0; k < 8; ++k)
             {
-                Vec3 w = m.ToWorld(new Vec3(gb[(k & 1) != 0 ? 3 : 0], gb[(k & 2) != 0 ? 4 : 1], gb[(k & 4) != 0 ? 5 : 2]));
+                var w = m.ToWorld(new Vec3(gb[(k & 1) != 0 ? 3 : 0], gb[(k & 2) != 0 ? 4 : 1], gb[(k & 4) != 0 ? 5 : 2]));
                 for (var i = 0; i < 3; ++i)
                 {
                     box[i] = Math.Min(box[i], w[i]);
@@ -971,12 +971,12 @@ public sealed class InteriorRenderer : IDisposable
     /// <remarks>The stock scope draws the contents of a container first: its shapes through <paramref name="contents"/>, the interiors filed in its database, then the container itself (InteriorShape_findObjects 00480648, vtable +0x98 runs the database and then the own image of the interior).</remarks>
     public void Draw(in Camera3D camera, TerrainParams haze, Action<int>? contents = null)
     {
-        Camera3D cam = camera;
+        var cam = camera;
         DrawnSurfaces = DrawnInstances = 0;
         ++mFrame;
         // the first tick of an instance comes whether or not it is seen: the first frame that finds it here
         if (SimSeconds is double sim)
-            foreach (Instance inst in Instances)
+            foreach (var inst in Instances)
                 inst.LightOrigin ??= sim;
         TerrainReached(cam); // refreshes the set of interiors reached through links for this camera point
         var n = Instances.Count;
@@ -1002,13 +1002,13 @@ public sealed class InteriorRenderer : IDisposable
 
         void DrawOne(int index)
         {
-            Instance inst = Instances[index];
-            InteriorModel model = inst.Model;
+            var inst = Instances[index];
+            var model = inst.Model;
             // camera in interior space: local = (world - p) * M^T (rotation matrices are orthonormal)
             double dx = cam.X - inst.X, dy = cam.Y - inst.Y, dz = cam.Z - inst.Z;
             var m = inst.M;
             double lx = (dx * m[0]) + (dy * m[1]) + (dz * m[2]), ly = (dx * m[3]) + (dy * m[4]) + (dz * m[5]), lz = (dx * m[6]) + (dy * m[7]) + (dz * m[8]);
-            InteriorLodModel? lod0 = Lod(model, 0);
+            var lod0 = Lod(model, 0);
             if (lod0 == null)
                 return;
             var bx = lod0.Geo.Box;
@@ -1027,21 +1027,21 @@ public sealed class InteriorRenderer : IDisposable
             if (!inside && !SphereVisible(cam, ccx, ccy, ccz, lod0.Radius))
                 return;
             // detail level (3.2): the sphere of the last level's box, projected by view depth
-            InteriorLodModel? lastLod = Lod(model, Math.Max(Math.Min(model.Shape.Lods.Count, model.Lods.Length) - 1, 0));
+            var lastLod = Lod(model, Math.Max(Math.Min(model.Shape.Lods.Count, model.Lods.Length) - 1, 0));
             var lb = (lastLod ?? lod0).Geo.Box;
             var (sx, sy, sz, sr) = DetailSphere(lb);
             var (_, scy, _) = cam.ToCamera((sx * m[0]) + (sy * m[3]) + (sz * m[6]) + inst.X, (sx * m[1]) + (sy * m[4]) + (sz * m[7]) + inst.Y,
                                                (sx * m[2]) + (sy * m[5]) + (sz * m[8]) + inst.Z);
             var pixels = DetailPixels(scy, sr, cam.FocalLength);
             var computed = ModelLod(model, pixels, false);
-            InteriorLodModel? cand = Lod(model, computed);
+            var cand = Lod(model, computed);
             var loaded = cand != null && cand.Base != null && cand.Atlases.Count > 0;
             var lodIndex = ChooseDetail(inside, mGateLinked.Contains(inst), loaded, inst.LodIndex, computed);
-            InteriorLodModel? lod = Lod(model, lodIndex);
+            var lod = Lod(model, lodIndex);
             if (lod == null || lod.Base == null || lod.Atlases.Count == 0)
                 return;
             inst.LodIndex = lodIndex;
-            LightAtlas atlas = InstanceAtlas(inst, lod, InstanceStep(inst));
+            var atlas = InstanceAtlas(inst, lod, InstanceStep(inst));
             inst.DrawnLod = lod;
             inst.DrawnAtlas = atlas;
             // 1.4: one haze amount for the image, from the distance of the object position
@@ -1080,14 +1080,14 @@ public sealed class InteriorRenderer : IDisposable
     // The world-space triangles of every surface of `lod` for this instance (3.3 steps 7 to 9 minus the per-frame parts).
     private SurfaceMesh[] BuildMeshes(Instance inst, InteriorLodModel lod)
     {
-        InteriorGeometryData g = lod.Geo;
-        InteriorLighting lt = lod.Base!;
+        var g = lod.Geo;
+        var lt = lod.Base!;
         var m = inst.M;
         var meshes = new SurfaceMesh[g.Surfaces.Length];
         var shiftMip = (int)Math.Min(g.HighestMipLevel, 8u);
         for (var s = 0; s < g.Surfaces.Length; ++s)
         {
-            InteriorGeometryData.Surface surf = g.Surfaces[s];
+            var surf = g.Surfaces[s];
             if (surf.VertexCount < 3 || (surf.Plane * 4) + 3 >= g.Planes.Length)
                 continue;
             // texture region in texels (3.5), light map coordinates in pixels of 2^lightScaleShift texels with one margin pixel
@@ -1097,10 +1097,10 @@ public sealed class InteriorRenderer : IDisposable
             var matName = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
             if (matName != null && inst.Skin.Length > 0)
                 matName = Skins.Resolve(matName, inst.Skin, n => GfxAssets.Read(mAssets.Res, n, out _), false);
-            IGfxTexture? tex = MaterialTexture(matName);
+            var tex = MaterialTexture(matName);
             double bw = tex?.Width ?? 1, bh = tex?.Height ?? 1;
             var (ax, ay) = lod.LmPos[s];
-            InteriorLighting.Surface lmSurf = lt.Surfaces[s];
+            var lmSurf = lt.Surfaces[s];
             var verts = new Vertex3D[surf.VertexCount];
             for (var k = 0; k < surf.VertexCount; ++k)
             {
@@ -1148,12 +1148,12 @@ public sealed class InteriorRenderer : IDisposable
 
     private void DrawInstance(Instance inst, InteriorLodModel lod, IGfxTexture? atlas, in Camera3D cam, (double x, double y, double z) camLocal, float haze)
     {
-        InteriorGeometryData g = lod.Geo;
+        var g = lod.Geo;
         bool[]? selected = null;
         if (lod.Leaves != null && lod.Leaves.SurfaceCountTotal == g.Surfaces.Length)
         {
             var m = inst.M;
-            Camera3D c = cam;
+            var c = cam;
             selected = lod.Leaves.SelectSurfaces(new Vec3((float)camLocal.x, (float)camLocal.y, (float)camLocal.z), (x, y, z, r) =>
             {
                 var (cx, cy, cz) = c.ToCamera((x * m[0]) + (y * m[3]) + (z * m[6]) + inst.X, (x * m[1]) + (y * m[4]) + (z * m[7]) + inst.Y,
@@ -1161,18 +1161,18 @@ public sealed class InteriorRenderer : IDisposable
                 return SphereVisible(c, cx, cy, cz, r);
             });
         }
-        if (!inst.Meshes.TryGetValue(lod, out SurfaceMesh[]? meshes))
+        if (!inst.Meshes.TryGetValue(lod, out var meshes))
             inst.Meshes[lod] = meshes = BuildMeshes(inst, lod);
-        List<Vertex3D> list = mBatch;
+        var list = mBatch;
         list.Clear();
         var curKey = int.MinValue;
         IGfxTexture? curTex = null;
         for (var s = 0; s < meshes.Length; ++s)
         {
-            Vertex3D[]? tris = meshes[s].Triangles;
+            var tris = meshes[s].Triangles;
             if (tris == null)
                 continue;
-            InteriorGeometryData.Surface surf = g.Surfaces[s];
+            var surf = g.Surfaces[s];
             if (selected != null)
             {
                 if (!selected[s])
@@ -1207,7 +1207,7 @@ public sealed class InteriorRenderer : IDisposable
                 }
             if (haze != 0)
             {
-                Span<Vertex3D> added = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list)[start..];
+                var added = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list)[start..];
                 for (var k = 0; k < added.Length; ++k)
                     added[k].Haze = haze;
             }
@@ -1251,19 +1251,19 @@ public sealed class InteriorRenderer : IDisposable
         t = double.MaxValue;
         normal = default;
         light = default;
-        foreach (Instance inst in Instances)
+        foreach (var inst in Instances)
         {
-            LightAtlas? atlas = inst.DrawnAtlas;
-            InteriorLodModel? lod = inst.DrawnLod;
-            if (atlas == null || lod == null || !inst.Meshes.TryGetValue(lod, out SurfaceMesh[]? meshes) || inst.Box == null)
+            var atlas = inst.DrawnAtlas;
+            var lod = inst.DrawnLod;
+            if (atlas == null || lod == null || !inst.Meshes.TryGetValue(lod, out var meshes) || inst.Box == null)
                 continue;
             var bx = inst.Box;
-            if (sx < bx[0] - length && dx >= 0 || sx > bx[3] + length && dx <= 0 || sy < bx[1] - length && dy >= 0 || sy > bx[4] + length && dy <= 0 ||
-                sz < bx[2] - length && dz >= 0 || sz > bx[5] + length && dz <= 0)
+            if ((sx < bx[0] - length && dx >= 0) || (sx > bx[3] + length && dx <= 0) || (sy < bx[1] - length && dy >= 0) || (sy > bx[4] + length && dy <= 0) ||
+                (sz < bx[2] - length && dz >= 0) || (sz > bx[5] + length && dz <= 0))
                 continue;
-            foreach (SurfaceMesh mesh in meshes)
+            foreach (var mesh in meshes)
             {
-                Vertex3D[]? tr = mesh.Triangles;
+                var tr = mesh.Triangles;
                 if (tr == null)
                     continue;
                 for (var i = 0; i + 2 < tr.Length; i += 3)
@@ -1306,14 +1306,14 @@ public sealed class InteriorRenderer : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (IGfxTexture? t in mTextures.Values)
+        foreach (var t in mTextures.Values)
             t?.Dispose();
         mWhite?.Dispose();
-        foreach (InteriorModel? m in mModels.Values)
+        foreach (var m in mModels.Values)
             if (m != null)
-                foreach (InteriorLodModel? l in m.Lods)
+                foreach (var l in m.Lods)
                     if (l != null)
-                        foreach (LightAtlas a in l.Atlases)
+                        foreach (var a in l.Atlases)
                             a.Texture?.Dispose();
     }
 }

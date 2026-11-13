@@ -21,7 +21,7 @@ public sealed class ClientInputTests
     private static (Interpreter I, ClientState S) Setup()
     {
         var i = new Interpreter();
-        ClientState s = Builtins.RegisterBuiltins(i, null, ".");
+        var s = Builtins.RegisterBuiltins(i, null, ".");
         i.SetOutput(_ => { });
         // tags used by the binds: IDACTION_x = 220000 + n
         i.Evaluate("$A = 1;");

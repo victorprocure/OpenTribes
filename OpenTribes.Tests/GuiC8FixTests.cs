@@ -66,7 +66,7 @@ public class GuiC8FixTests
     [Fact]
     public void ChatEntryDrawsPromptTextShadeAndCursorAtTheBottomCentre() // gui.md 3.3 FearGuiChat: draw 004a3ebc, layout 004a3e68
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         fx.Host.SetFont("sf_yellow_10b.pft", Font(7));
         var chat = (GuiChat)GuiFixture.Make("FearGui::FearGuiChat", 135, 414, 370, 36,
             ("active", (byte)1), ("maxLength", (uint)80), ("fontTag", 0u), ("highlightFontTag", 150007u));
@@ -75,7 +75,7 @@ public class GuiC8FixTests
         fx.Content(root);
         chat.Open();
         fx.Type("hi");
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.EndsWith("'SAY: '"));
         Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.EndsWith("'hi'"));
         Assert.Contains("fill c0", calls);                                                  // the shade, not the opaque white of the plain TextEdit
@@ -98,9 +98,9 @@ public class GuiC8FixTests
     public void ChatEntryWrapsLongTextBelowThePrompt() // 004a3e68: the control grows by one line height per wrapped line
     {
         var f = Font(7);
-        List<(int Start, int Length)> one = GuiChat.WrapLines(f, "SAY: ", "hi", 370);
+        var one = GuiChat.WrapLines(f, "SAY: ", "hi", 370);
         Assert.Single(one);
-        List<(int Start, int Length)> two = GuiChat.WrapLines(f, "SAY: ", new string('x', 80), 370);
+        var two = GuiChat.WrapLines(f, "SAY: ", new string('x', 80), 370);
         Assert.True(two.Count >= 2);
         Assert.Equal(80, two.Sum(l => l.Length));
         Assert.Equal(two[0].Length, two[1].Start);
@@ -109,10 +109,10 @@ public class GuiC8FixTests
     [Fact]
     public void MessageWindowDrawsItsShadeAndBrackets() // gui.md 4.2 FearGuiChatDisplay draw 004a633c: chatE = 0 draws the shade and both brackets
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         root.AddChild(GuiFixture.Make("FearGui::FearGuiChatDisplay", 132, 9, 370, 45, ("lines", 3u), ("chatE", 0u), ("hudX", 0u), ("hudY", 0u)));
         fx.Content(root);
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         Assert.Contains("fill c0", calls);
         Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cf8"));
         Assert.Contains(calls, c => c.StartsWith("line ") && c.EndsWith(" cfc"));
@@ -133,13 +133,13 @@ public class GuiC8FixTests
     [Fact]
     public void CenterPrintReadsMarkupAndChatDisplayDoesNot() // gui.md 3.3 CenterPrint (formatted-text layout 00488f80), 4.2 chat display (plain, 004a633c)
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         root.AddChild(GuiFixture.Make("CenterPrint", 25, 419, 590, 36));
         root.AddChild(GuiFixture.Make("FearGui::FearGuiChatDisplay", 132, 9, 370, 45, ("lines", 3u), ("hudX", 0u), ("hudY", 0u)));
         fx.Content(root);
         fx.Host.CenterPrint("<jc><f1>Flag <f0>taken", 0);
         fx.Host.AddChat("<f1>Tester: <f0>hello<jl>");
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         Assert.Contains(calls, c => c.StartsWith("text w8 ") && c.EndsWith("'Flag '"));
         Assert.Contains(calls, c => c.StartsWith("text w8 ") && c.EndsWith("'taken'"));          // no stock font is loaded here: slot 0 falls back, the other slots are empty
         Assert.Contains(calls, c => c.EndsWith("'<f1>Tester: <f0>hello<jl>'"));       // the chat display shows the text as it is
@@ -149,11 +149,11 @@ public class GuiC8FixTests
     [Fact]
     public void FormattedTextControlWrapsMarkedUpText() // gui.md 3.3 FearGuiFormattedText: markup, wrapping
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         root.AddChild(GuiFixture.Make("FearGuiFormattedText", 0, 0, 120, 100, ("lineSpacing", 0u)));
         fx.Content(root);
         ((GuiTextWrap)root.Children[0]).Text = "<jc><f1>aaaa bbbb cccc dddd eeee";
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         Assert.DoesNotContain(calls, c => c.Contains('<'));
         Assert.True(calls.Count(c => c.StartsWith("text w7")) >= 2);          // slot 1 is not loaded here, so font 0 (7 px glyphs): 120 px wide, wrapped
     }
@@ -161,7 +161,7 @@ public class GuiC8FixTests
     [Fact]
     public void FgTextFormatTakesTheLayoutHeightPlusFour() // 004ce3f8: TextFormat at the control width, height + 4; fonts 150111, 150121, 150161
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         root.AddChild(GuiFixture.Make("FearGui::FGTextFormat", 0, 0, 120, 1));
         fx.Content(root);
         var t = (GuiTextWrap)root.Children[0];
@@ -185,7 +185,7 @@ public class GuiC8FixTests
     [Fact]
     public void WeaponHudResizesToItsRowsAndPrintsTheAmmo() // gui.md 4.2 CurrentWeaponHud: width icon + 38, height (icon + 4) x rows + 10
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         fx.Host.SetFont("if_g_8.pft", Font(6));
         fx.Host.SetFont("if_dg_8.pft", Font(5));
         var src = new StaticHudSource();
@@ -197,14 +197,14 @@ public class GuiC8FixTests
         fx.Content(root);
         Draw(fx);                                   // the first frame resizes the control
         Assert.Equal((62, ((24 + 4) * 2) + 10), (hud.W, hud.H));   // no bitmaps in the fixture: the icon is taken as 24 x 24
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         Assert.Contains(calls, c => c.StartsWith("text w5 ") && c.EndsWith("'100'"));   // the dim font of a weapon that is not mounted
     }
 
     [Fact]
     public void CenterPrintLaysOutWithItsThreeFontsAndTheStockTags() // 00488f80: TextFormat at the box width less 4, box height + 8; 00489108: drawn 2 pixels in
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         fx.Host.SetFont("sf_orange214_10.pft", Font(6));
         fx.Host.SetFont("sf_orange255_10.pft", Font(7));
         fx.Host.SetFont("sf_white_9b.pft", Font(9));
@@ -212,7 +212,7 @@ public class GuiC8FixTests
         root.AddChild(cp);
         fx.Content(root);
         fx.Host.CenterPrint("<f1>ab<f2>cd<f7>ef<n>gh<l2>ij", 0);
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         Assert.Contains(calls, c => c.StartsWith("text w6 ") && c.EndsWith("'gh'"));      // f7 has no font in slot 7: font 0 (also <n> breaks the line)
         Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.EndsWith("'ab'"));
         Assert.Contains(calls, c => c.StartsWith("text w9 ") && c.EndsWith("'cd'"));
@@ -223,13 +223,13 @@ public class GuiC8FixTests
     [Fact]
     public void CenterPrintCentresALineWithJc() // 005370b8 `<jc>` inside CenterPrint: 2 pixels in, the box less 4 wide
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         fx.Host.SetFont("sf_orange214_10.pft", Font(6));
         var cp = (GuiCenterPrint)GuiFixture.Make("CenterPrint", 25, 419, 590, 36);
         root.AddChild(cp);
         fx.Content(root);
         fx.Host.CenterPrint("<jc>abcd", 2);
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         var x = 35 + 2 + ((570 - 4 - 1 - 24) / 2);        // box x, inset, then the room left of the line (right margin is width - 1)
         Assert.Contains(calls, c => c.StartsWith("text w6 ") && c.Contains($" {x},") && c.EndsWith("'abcd'"));
     }
@@ -239,7 +239,7 @@ public class GuiC8FixTests
     {
         foreach (var (type, y) in new[] { (0, -1), (1, -1), (2, 35) })
         {
-            GuiFixture fx = Fixture(out GuiControl root);
+            var fx = Fixture(out var root);
             var cp = (GuiCenterPrint)GuiFixture.Make("CenterPrint", 25, 419, 590, 36);
             root.AddChild(cp);
             fx.Content(root);
@@ -259,11 +259,11 @@ public class GuiC8FixTests
     [Fact]
     public void FormattedTextHonoursItsJustificationTag() // gui.md 3.3 FearGuiFormattedText: `<jc>` centres the lines (the loading text)
     {
-        GuiFixture fx = Fixture(out GuiControl root);
+        var fx = Fixture(out var root);
         root.AddChild(GuiFixture.Make("FearGuiFormattedText", 0, 0, 120, 100, ("lineSpacing", 0u)));
         fx.Content(root);
         ((GuiTextWrap)root.Children[0]).Text = "<jc>abcd";
-        List<string> calls = Draw(fx);
+        var calls = Draw(fx);
         Assert.Contains(calls, c => c.StartsWith("text w7 ") && c.Contains(" 45,") && c.EndsWith("'abcd'"));   // the layout centres in the width less the last column (005370b8)
     }
 

@@ -52,12 +52,12 @@ public sealed class GuiRuntime
     /// <returns>The control, or null.</returns>
     public GuiControl? FindControl(string key)
     {
-        if (Named.TryGetValue(key, out GuiControl? n))
+        if (Named.TryGetValue(key, out var n))
             return n;
         var numeric = uint.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var id);
-        foreach (GuiControl root in Canvas.Stack.Concat(Named.Values))
+        foreach (var root in Canvas.Stack.Concat(Named.Values))
         {
-            GuiControl? c = numeric ? root.FindById(id) : root.FindByName(key);
+            var c = numeric ? root.FindById(id) : root.FindByName(key);
             if (c != null)
                 return c;
         }
@@ -71,9 +71,9 @@ public sealed class GuiRuntime
     /// <remarks>Follows the stock lookup of the chat display `playGui` / 140113 (0040dbfc, 0053a048). A control of the same id inside another object (the chat display of `commandGui`) is not found.</remarks>
     public GuiControl? FindChildOf(string objectName, uint id)
     {
-        GuiControl? obj = Named.TryGetValue(objectName, out GuiControl? n) ? n : null;
+        var obj = Named.TryGetValue(objectName, out var n) ? n : null;
         if (obj == null)
-            foreach (GuiControl root in Canvas.Stack)
+            foreach (var root in Canvas.Stack)
                 if ((obj = root.FindByName(objectName)) != null)
                     break;
         if (obj == null)
@@ -104,7 +104,7 @@ public sealed class GuiRuntime
 
     private void CtrlCmd<T>(string name, int argc, string usage, Func<T, string[], string?> body) where T : GuiControl => Cmd(name, argc, usage, a =>
                                                                                                                                {
-                                                                                                                                   GuiControl? c = FindControl(a[1]);
+                                                                                                                                   var c = FindControl(a[1]);
                                                                                                                                    if (c is not T t)
                                                                                                                                    {
                                                                                                                                        Interp.Print(1, $"{name} - invalid control {a[1]}.");
@@ -121,12 +121,12 @@ public sealed class GuiRuntime
         {
             if (c is GuiCmdObserve o)
                 return o;
-            foreach (GuiControl k in c.Children)
+            foreach (var k in c.Children)
                 if (In(k) is GuiCmdObserve f)
                     return f;
             return null;
         }
-        foreach (GuiControl root in Named.Values.Concat(Canvas.Stack))
+        foreach (var root in Named.Values.Concat(Canvas.Stack))
             if (In(root) is GuiCmdObserve o)
                 return o;
         return null;
@@ -166,7 +166,7 @@ public sealed class GuiRuntime
         {
             if (CanvasArg(a[0], a[1]) is not GuiCanvas c)
                 return "False";
-            GuiClassRow? row = GuiClassTable.ByName(a[2]);
+            var row = GuiClassTable.ByName(a[2]);
             if (row == null)
             {
                 Interp.Print(1, $"{a[0]}: {a[2]} is not a valid class name");
@@ -232,7 +232,7 @@ public sealed class GuiRuntime
                 inr.Print(1, "loadObject: objectName fileName");
                 return "0";
             }
-            GuiControl? c = Canvas.LoadFile(a[2]);
+            var c = Canvas.LoadFile(a[2]);
             if (c == null)
                 return "0";
             c.Name = a[1];

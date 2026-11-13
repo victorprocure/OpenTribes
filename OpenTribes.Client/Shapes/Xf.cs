@@ -39,7 +39,7 @@ public struct Xf
     /// <returns>The transform.</returns>
     public static Xf Translate(double x, double y, double z)
     {
-        Xf r = Identity;
+        var r = Identity;
         r.Px = x;
         r.Py = y;
         r.Pz = z;

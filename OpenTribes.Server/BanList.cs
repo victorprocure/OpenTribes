@@ -53,7 +53,7 @@ public sealed class BanList
             return;
         // The duplicate test uses the address as given, before the port is replaced, so
         // banning "IP:a.b.c.d:port" twice stores two "IP:a.b.c.d:*" entries.
-        foreach (Entry e in mEntries)
+        foreach (var e in mEntries)
             if (EqualNoCase(e.Address, address))
             {
                 e.Expiry = expiry;
@@ -130,7 +130,7 @@ public sealed class BanList
     public List<string> ExportLines()
     {
         var output = new List<string>();
-        foreach (Entry e in mEntries)
+        foreach (var e in mEntries)
             output.Add("BanList::addAbsolute(\"" + e.Address + "\", " + e.Expiry.ToString(CultureInfo.InvariantCulture) + ");");
         return output;
     }

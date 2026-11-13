@@ -51,12 +51,12 @@ public static class Numbers
         if (s.Length == 0)
             return false;
         foreach (var c in s)
-            if (c is not (>= '0' and <= '9' or '.' or 'e' or 'E' or '+' or '-'))
+            if (c is not ((>= '0' and <= '9') or '.' or 'e' or 'E' or '+' or '-'))
                 return false;
         return true;
     }
 
-    private static bool IsSpace(char c) => c is ' ' or >= '\t' and <= '\r';
+    private static bool IsSpace(char c) => c is ' ' or (>= '\t' and <= '\r');
     private static bool IsDigit(char c) => c is >= '0' and <= '9';
 
     /// <summary>Parses a decimal number like the Borland atof: strtod of the matched text.</summary>

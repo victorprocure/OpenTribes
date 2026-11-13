@@ -45,7 +45,7 @@ public sealed class SimPathObject : SimGroup
         mPoints.Clear();
         if (mFields.Boolean("isCompressed", false))
             return true; // the stored list would be used; none exists in a mission
-        foreach (SimObject m in Members())
+        foreach (var m in Members())
         {
             if (m is not GameBase gb)
                 continue;
@@ -77,7 +77,7 @@ public sealed class SimPathObject : SimGroup
             return n;
         using var chop = ChopScope();
         rec = mPoints[i];
-        Point next = mPoints[i + 1 < n ? i + 1 : 0];
+        var next = mPoints[i + 1 < n ? i + 1 : 0];
         for (var k = 0; k < 3; ++k)
         {
             dpos[k] = Store(Sub(next.Pos[k], rec.Pos[k]));
@@ -127,10 +127,10 @@ public partial class GameBase
         // script is told on the server), then every thread advances.
         for (var slot = 0; slot < 3; ++slot)
         {
-            Thread t = Threads[slot];
+            var t = Threads[slot];
             if (!t.Created)
                 continue;
-            ShapeSequence? seq = Anim != null && t.Sequence >= 0 && t.Sequence < Anim.Sequences.Count ? Anim.Sequences[t.Sequence] : null;
+            var seq = Anim != null && t.Sequence >= 0 && t.Sequence < Anim.Sequences.Count ? Anim.Sequences[t.Sequence] : null;
             if (seq != null && !seq.Cyclic && (t.Flags & kThreadAtEnd) == 0)
             {
                 var done = (t.Flags & kThreadForward) != 0 ? t.Position >= 1.0f : t.Position <= 0.0f;
@@ -185,14 +185,14 @@ public partial class GameBase
     /// <remarks>Follows vtable +0x140 (0x00448840). The record of <paramref name="other"/> is found from index 0. A record that expired earlier in the list is taken over with expiry 0, else one is appended.</remarks>
     public void OnCollision(GameBase other, GameServices? services = null)
     {
-        GameServices? game = services ?? mCtx.Game;
+        var game = services ?? mCtx.Game;
         if (game == null)
             return;
         var now = Manager() != null ? Manager()!.Time() : 0.0f;
         var rec = -1;
         for (var i = 0; i < CollisionRecords.Count; ++i)
         {
-            CollisionRecord r = CollisionRecords[i];
+            var r = CollisionRecords[i];
             if (r.Other == other.Id())
             {
                 rec = i;
@@ -210,7 +210,7 @@ public partial class GameBase
             CollisionRecords.Add(new CollisionRecord { Other = other.Id(), Expiry = 0 });
             rec = CollisionRecords.Count - 1;
         }
-        CollisionRecord c = CollisionRecords[rec];
+        var c = CollisionRecords[rec];
         if (now <= c.Expiry)
             return;
         c.Expiry = Store(Add(now, 1.0f));
@@ -376,7 +376,7 @@ public partial class GameBase
     {
         if (!DeleteOnDestroy || Manager() == null)
             return;
-        SimManager m = Manager()!;
+        var m = Manager()!;
         m.PostEvent(this, Store(Add(m.Time(), 0.5f)), () => m.DeleteObject(this));
     }
 
@@ -520,7 +520,7 @@ public partial class GameBase
     {
         if (Group() == null || mCtx.Game == null)
             return;
-        foreach (SimObject m in Group()!.Members())
+        foreach (var m in Group()!.Members())
         {
             if (!GameUtil.EqualsNoCase(m.ClassName(), "SimPath"))
                 continue;

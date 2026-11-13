@@ -140,7 +140,7 @@ public sealed class ProjectileVisual : Visual
     /// <inheritdoc/>
     public override void Tick(double dt)
     {
-        if (!mHavePos || Exploded || mInst == null && mBlock == null)
+        if (!mHavePos || Exploded || (mInst == null && mBlock == null))
             return;
         mSpin += dt;
         if (mInst != null && mAmbient != null && AdvancesAmbient(Class))
@@ -167,7 +167,7 @@ public sealed class ProjectileVisual : Visual
             {
                 if (smoke.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
                     smoke = smoke[..^4];
-                RenderShape? sh = M.Assets.Shape(smoke);
+                var sh = M.Assets.Shape(smoke);
                 if (sh != null)
                     M.Smoke.Spawn(sh, x, y, z, 1, 0, 0, 1);
             }
@@ -267,15 +267,15 @@ public sealed class ProjectileVisual : Visual
         var (x, y, z) = PosNow();
         if (mInst != null && mShape != null && Db.Flag(mBlock, "isVisible"))
         {
-            Xf xf = ImageBasis(Class, x, y, z, mVx, mVy, mVz - (Class == "Grenade" ? 20 * Math.Clamp(M.Time - mUpdate, 0, 5) : 0),
+            var xf = ImageBasis(Class, x, y, z, mVx, mVy, mVz - (Class == "Grenade" ? 20 * Math.Clamp(M.Time - mUpdate, 0, 5) : 0),
                 ctx.Camera.X, ctx.Camera.Y, ctx.Camera.Z);
             var period = Db.Num(mBlock, "rotationPeriod");
             if (period > 0)
                 xf = Mathx.SpinY((M.Time - mT0) % period / period * Math.PI * 2).Then(xf);
-            ShapeDraw d = ctx.Draw(xf, mShape.Name);
+            var d = ctx.Draw(xf, mShape.Name);
             d.NoHaze = true;
             d.Light = new LightSet { AmbR = 1, AmbG = 1, AmbB = 1, SunR = 0, SunG = 0, SunB = 0 };
-            RenderImage? img = ctx.Renderer.Build(mInst, ctx.Camera, d);
+            var img = ctx.Renderer.Build(mInst, ctx.Camera, d);
             if (img != null)
                 ctx.Lists.Add(img);
         }
@@ -291,7 +291,7 @@ public sealed class ProjectileVisual : Visual
     {
         var sp = Math.Sqrt((mVx * mVx) + (mVy * mVy) + (mVz * mVz));
         double fx = sp > 1e-6 ? mVx / sp : 0, fy = sp > 1e-6 ? mVy / sp : 1, fz = sp > 1e-6 ? mVz / sp : 0;
-        Xf axes = Class == "RocketDumb" ? Mathx.RocketBasis(x, y, z, fx, fy, fz) : Mathx.Basis(x, y, z, fx, fy, fz);
+        var axes = Class == "RocketDumb" ? Mathx.RocketBasis(x, y, z, fx, fy, fz) : Mathx.Basis(x, y, z, fx, fy, fz);
         double length = Db.Num(mBlock, "trailLength", 10), width = Db.Num(mBlock, "trailWidth", 0.3);
         if (!mTrailInit)
         {
@@ -305,7 +305,7 @@ public sealed class ProjectileVisual : Visual
             var k = length / len;
             (mTailX, mTailY, mTailZ) = (x + (vx * k), y + (vy * k), z + (vz * k));
         }
-        TexEntry? tex = ctx.Assets.Texture("trailAdd2.bmp");
+        var tex = ctx.Assets.Texture("trailAdd2.bmp");
         if (tex?.Texture == null)
             return;
         // v scrolls with the sim clock: the update gets the float at sim manager +0x80 (seconds) and the draw takes frac(5 t), v from f / 2 at the tail to (f + 1) / 2 at the projectile
@@ -369,7 +369,7 @@ public sealed class BeamVisual : Visual
             var hit = Db.Str(mBlock, Class == "LaserProjectile" ? "hitName" : "hitShapeName");
             if (hit.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
                 hit = hit[..^4];
-            RenderShape? sh = hit.Length > 0 ? M.Assets.Shape(hit) : null;
+            var sh = hit.Length > 0 ? M.Assets.Shape(hit) : null;
             if (sh == null && Class == "TargetLaser")
                 sh = M.Assets.Shape("paint");
             if (sh == null && Class == "LaserProjectile")
@@ -391,7 +391,7 @@ public sealed class BeamVisual : Visual
         {
             double[] a;
             var sg = (int)Num("shooterGhost", -1);
-            if (sg >= 0 && M.Visuals.TryGetValue(sg, out Visual? sv) && sv.MuzzlePoint is var (x, y, z))
+            if (sg >= 0 && M.Visuals.TryGetValue(sg, out var sv) && sv.MuzzlePoint is var (x, y, z))
                 a = [x, y, z];
             else if (Has("start"))
                 a = Vec("start");
@@ -401,10 +401,10 @@ public sealed class BeamVisual : Visual
         }
         // Lightning, Repair: shooter muzzle to the target ghost position + offset
         int shooter = (int)Num("shooterGhost", -1), target = (int)Num("targetGhost", -1);
-        if (shooter < 0 || !M.Visuals.TryGetValue(shooter, out Visual? sh) || sh.MuzzlePoint is not var (mx, my, mz))
+        if (shooter < 0 || !M.Visuals.TryGetValue(shooter, out var sh) || sh.MuzzlePoint is not var (mx, my, mz))
             return null;
         double[] end;
-        if (target >= 0 && M.Visuals.TryGetValue(target, out Visual? tv) && tv.Position is var (tx, ty, tz))
+        if (target >= 0 && M.Visuals.TryGetValue(target, out var tv) && tv.Position is var (tx, ty, tz))
         {
             var off = Vec("offset");
             end = [tx + off[0], ty + off[1], tz + off[2] + 1.0];
@@ -434,7 +434,7 @@ public sealed class BeamVisual : Visual
         RenderImage img;
         if (Class == "LaserProjectile")
         {
-            TexEntry? tex = ctx.Assets.Texture(Db.Str(mBlock, "laserBitmapName") is { Length: > 0 } n ? n : "laserPulse.bmp");
+            var tex = ctx.Assets.Texture(Db.Str(mBlock, "laserBitmapName") is { Length: > 0 } n ? n : "laserPulse.bmp");
             var strength = (float)(Num("energy5", 31) / 31.0);
             double beamTime = Math.Max(Db.Num(mBlock, "beamTime", 0.5), 1e-3), age = M.Time - mStart;
             if (age > beamTime)
@@ -444,7 +444,7 @@ public sealed class BeamVisual : Visual
         }
         else if (Class == "TargetLaser")
         {
-            TexEntry? tex = ctx.Assets.Texture(Db.Str(mBlock, "laserBitmapName") is { Length: > 0 } n ? n : "paintPulse.bmp");
+            var tex = ctx.Assets.Texture(Db.Str(mBlock, "laserBitmapName") is { Length: > 0 } n ? n : "paintPulse.bmp");
             img = Beams.Strip(ctx, tex, new[] { a, b }, 0.12, 1, 1, 1, 0.9f, 8, "targetlaser");
         }
         else
@@ -456,7 +456,7 @@ public sealed class BeamVisual : Visual
             double bias = Db.Num(mBlock, "displaceBias", 0.15), width = Db.Num(mBlock, "beamWidth", 0.125);
             var interval = Math.Max(Db.Num(mBlock, "updateTime", 120), 16) * 0.001;
             var bmp = Db.Str(mBlock, "bitmapName");
-            TexEntry? tex = ctx.Assets.Texture(bmp.Length > 0 ? bmp : Class == "Lightning" ? "lightningNew.bmp" : "repairadd.bmp");
+            var tex = ctx.Assets.Texture(bmp.Length > 0 ? bmp : Class == "Lightning" ? "lightningNew.bmp" : "repairadd.bmp");
             img = new RenderImage { Category = 1, Label = Class };
             var step = (int)Math.Floor((M.Time - mStart) / interval);
             var t = ((M.Time - mStart) / interval) - step;
@@ -467,7 +467,7 @@ public sealed class BeamVisual : Visual
                 double[][] p0 = Beams.BoltPoints(a, b, div, bias, r0), p1 = Beams.BoltPoints(a, b, div, bias, r1);
                 var pts = Beams.Lerp(p0, p1, t);
                 float cr = Class == "Lightning" ? 0.7f : 0.85f, cg = Class == "Lightning" ? 0.8f : 0.25f, cb = Class == "Lightning" ? 1f : 0.25f;
-                RenderImage one = Beams.Strip(ctx, tex, pts, width * (Class == "Lightning" ? 3 : 4), cr, cg, cb, 1, 2, Class);
+                var one = Beams.Strip(ctx, tex, pts, width * (Class == "Lightning" ? 3 : 4), cr, cg, cb, 1, 2, Class);
                 img.Batches.AddRange(one.Batches);
             }
         }

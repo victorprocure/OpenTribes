@@ -97,19 +97,19 @@ public class InteriorLightStateTests
         var assets = new WorldAssets(new ResourceManager(Path.GetTempPath()), PaletteTables.Grayscale());
         using var r = new InteriorRenderer(dev, assets);
         var model = new InteriorModel { Name = "synthetic" };
-        InteriorLodModel lod = Lod();
+        var lod = Lod();
         r.Install(model, lod, 40, 120, 5, 0, 0, 0);
         // a second instance of the same lod, added a step later: its first tick is one light step after the first
         r.Instances.Add(new InteriorRenderer.Instance { Model = model, X = 40, Y = 120, Z = 5, M = InteriorRenderer.EulerMatrix(0, 0, 0) });
 
         // frame 0: both instances start now (step 0): one atlas for the two
-        List<IGfxTexture?> f0 = Frame(dev, r, 10.0);
+        var f0 = Frame(dev, r, 10.0);
         Assert.Equal(2, f0.Count);
         Assert.NotNull(f0[0]);
         Assert.Same(f0[0], f0[1]);
         // a step later a third instance appears: its first tick is that frame
         r.Instances.Add(new InteriorRenderer.Instance { Model = model, X = 40, Y = 120, Z = 5, M = InteriorRenderer.EulerMatrix(0, 0, 0) });
-        List<IGfxTexture?> f1 = Frame(dev, r, 10.0 + InteriorRenderer.LightStep);
+        var f1 = Frame(dev, r, 10.0 + InteriorRenderer.LightStep);
         Assert.Equal(3, f1.Count);
         Assert.Same(f1[0], f1[1]);              // step 1: state 1 (lit)
         Assert.NotSame(f1[0], f1[2]);           // the instance that is at its own step 0: state 0

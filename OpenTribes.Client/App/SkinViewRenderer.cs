@@ -45,7 +45,7 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
             return true;
         if (mApp.Dev == null)
             return false;
-        PaletteBank bank = mApp.CurrentPalette ?? GfxAssets.LoadPalette(mApp.Res, "lush.day.ppl") ?? PaletteTables.Grayscale();
+        var bank = mApp.CurrentPalette ?? GfxAssets.LoadPalette(mApp.Res, "lush.day.ppl") ?? PaletteTables.Grayscale();
         mAssets = new ShapeAssets(mApp.Dev, new WorldAssets(mApp.Res, bank));
         mRenderer = new ShapeRenderer(mAssets);
         return true;
@@ -137,12 +137,12 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
             view.Zoom = fit;
         view.ZoomMin = fit;
         view.ZoomMax = MaxDistance(w, h);
-        Camera3D cam = CameraFor(mShape.Cx, mShape.Cy, mShape.Cz, view.Male, view.Yaw, w, h, view.Zoom);
+        var cam = CameraFor(mShape.Cx, mShape.Cy, mShape.Cz, view.Male, view.Yaw, w, h, view.Zoom);
         var ctx = new FrameContext { Camera = cam, Assets = mAssets!, Renderer = mRenderer, Light = Light(cam, mShape.Cx, mShape.Cy, mShape.Cz) };
-        ShapeDraw d = ctx.Draw(Xf.Identity, name);
+        var d = ctx.Draw(Xf.Identity, name);
         d.Skin = view.SkinBase;
         d.ForceDetail = 0;
-        RenderImage? img = mRenderer.Build(mInst, cam, d);
+        var img = mRenderer.Build(mInst, cam, d);
         if (img == null)
             return;
         ctx.Lists.Add(img);

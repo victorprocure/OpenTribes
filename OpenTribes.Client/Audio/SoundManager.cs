@@ -125,7 +125,7 @@ public sealed class SoundManager
     /// <returns>The wave, or null when it is missing or invalid.</returns>
     public WavData? LoadWave(string name)
     {
-        if (mWaves.TryGetValue(name, out WavData? w))
+        if (mWaves.TryGetValue(name, out var w))
             return w;
         var bytes = ReadWave?.Invoke(name);
         w = bytes == null ? null : WavData.TryParse(bytes);
@@ -151,7 +151,7 @@ public sealed class SoundManager
     /// <summary>Finds a voice.</summary>
     /// <param name="handle">The voice handle.</param>
     /// <returns>The voice, or null for an unknown handle.</returns>
-    public SoundVoice? Find(int handle) => handle > 0 && mByHandle.TryGetValue(handle, out SoundVoice? v) ? v : null;
+    public SoundVoice? Find(int handle) => handle > 0 && mByHandle.TryGetValue(handle, out var v) ? v : null;
 
     /// <summary>Tells whether a voice finished or does not exist.</summary>
     /// <param name="handle">The voice handle.</param>
@@ -173,7 +173,7 @@ public sealed class SoundManager
     /// <summary>Stops every voice.</summary>
     public void StopAll()
     {
-        foreach (SoundVoice v in mVoices)
+        foreach (var v in mVoices)
             Kill(v);
     }
 
@@ -248,7 +248,7 @@ public sealed class SoundManager
     /// <returns>The voice handle, or 0 when the sound did not start.</returns>
     public int PlayWave(string wave, SoundProfile? profile = null, double priority = 0, SoundXf? at = null)
     {
-        SoundProfile p = profile ?? SoundProfile.Default;
+        var p = profile ?? SoundProfile.Default;
         return Acquire(wave, p, priority, at ?? new SoundXf(0, 0, 0), datablock2D: false);
     }
 
@@ -258,7 +258,7 @@ public sealed class SoundManager
     /// <returns>The voice handle, or 0 when the sound did not start.</returns>
     public int PlayPair(int id, SoundXf? at = null)
     {
-        if (!Pairs.TryGetValue(id, out var pair) || !Profiles.TryGetValue(pair.Profile, out SoundProfile p))
+        if (!Pairs.TryGetValue(id, out var pair) || !Profiles.TryGetValue(pair.Profile, out var p))
             return Reject();
         return Acquire(pair.Wave, p, pair.Priority, at ?? new SoundXf(0, 0, 0), datablock2D: false);
     }
@@ -270,7 +270,7 @@ public sealed class SoundManager
     /// <returns>The voice handle, or 0 for a missing block or wave.</returns>
     public int PlayDatablock(long index, SoundXf at, double? priorityOverride = null)
     {
-        if (!TryDatablock(index, out var wave, out SoundProfile p, out var priority))
+        if (!TryDatablock(index, out var wave, out var p, out var priority))
             return Reject();
         return Acquire(wave, p, priorityOverride ?? priority, at, datablock2D: true);
     }
@@ -286,12 +286,12 @@ public sealed class SoundManager
         wave = "";
         profile = SoundProfile.Default;
         priority = 0;
-        ClientDataBlock? sd = Block(1, index);
+        var sd = Block(1, index);
         if (sd == null)
             return false;
         wave = Field(sd, "wavFileName") as string ?? "";
         priority = ToD(Field(sd, "priority"));
-        ClientDataBlock? pb = Block(0, (long)ToD(Field(sd, "profile")));
+        var pb = Block(0, (long)ToD(Field(sd, "profile")));
         if (pb == null || wave.Length == 0)
             return false;
         profile = ProfileOf(pb);
@@ -303,7 +303,7 @@ public sealed class SoundManager
     /// <returns>The profile.</returns>
     public static SoundProfile ProfileOf(ClientDataBlock b)
     {
-        SoundProfile p = SoundProfile.Default;
+        var p = SoundProfile.Default;
         p.Flags = (uint)ToD(Field(b, "flags"));
         p.BaseVolume = ToD(Field(b, "baseVolume"));
         if (Field(b, "coneInsideAngle") != null)
@@ -322,11 +322,11 @@ public sealed class SoundManager
     }
 
     private ClientDataBlock? Block(int group, long index) =>
-        DataBlocks != null && DataBlocks.Blocks.TryGetValue((group, (int)index), out ClientDataBlock? b) ? b : null;
+        DataBlocks != null && DataBlocks.Blocks.TryGetValue((group, (int)index), out var b) ? b : null;
 
     private static object? Field(ClientDataBlock b, string name)
     {
-        foreach (DecodedField f in b.Fields)
+        foreach (var f in b.Fields)
             if (f.Name == name)
                 return f.Value;
         return null;
@@ -359,7 +359,7 @@ public sealed class SoundManager
             if (Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)) > p.MaxDist)
                 return Reject();
         }
-        WavData? data = LoadWave(wave);
+        var data = LoadWave(wave);
         if (data == null)
             return Reject();
         var v = new SoundVoice
@@ -434,12 +434,12 @@ public sealed class SoundManager
     public void Tick(long nowMs)
     {
         NowMs = nowMs;
-        foreach (SoundVoice v in mVoices)
+        foreach (var v in mVoices)
             if (v.Playing && !v.Dead && !v.Loops && v.Mix != null && v.Mix.Done)
                 Kill(v);
         Borland.BorlandQsort(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mVoices), Compare);
         var n = 0;
-        foreach (SoundVoice v in mVoices)
+        foreach (var v in mVoices)
         {
             if (v.Dead)
                 continue;
@@ -459,7 +459,7 @@ public sealed class SoundManager
             }
         }
         // 2.6 update: gain and pan of every voice when the listener moved or the voice moved.
-        foreach (SoundVoice v in mVoices)
+        foreach (var v in mVoices)
         {
             if (v.Dead || !v.Spatial || !(mListenerMoved || v.PosChanged))
                 continue;

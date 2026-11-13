@@ -84,21 +84,21 @@ public sealed class WorldScene : IDisposable
             error = "mission not found: " + missionName;
             return scene;
         }
-        List<MissionObject> roots = MissionFile.Parse(File.ReadAllText(file, System.Text.Encoding.Latin1));
+        var roots = MissionFile.Parse(File.ReadAllText(file, System.Text.Encoding.Latin1));
         if (roots.Count == 0)
         {
             error = "no objects in " + file;
             return scene;
         }
         var all = new List<MissionObject>();
-        foreach (MissionObject r in roots)
+        foreach (var r in roots)
         {
             all.Add(r);
             all.AddRange(r.Descendants());
         }
         var res = new ResourceManager(root);
         res.SetSearchPath("config;base;base\\missions");
-        foreach (MissionObject o in all.Where(o => o.Class == "SimVolume"))
+        foreach (var o in all.Where(o => o.Class == "SimVolume"))
             res.AddVolume(o.Get("fileName"));
         return LoadFrom(dev, res, missionName, all, out error);
     }
@@ -115,13 +115,13 @@ public sealed class WorldScene : IDisposable
     {
         error = "";
         var scene = new WorldScene(dev) { MissionName = missionName };
-        MissionObject? pal = all.FirstOrDefault(o => o.Class == "SimPalette");
-        PaletteBank? bank = pal != null ? GfxAssets.LoadPalette(res, pal.Get("fileName")) : null;
+        var pal = all.FirstOrDefault(o => o.Class == "SimPalette");
+        var bank = pal != null ? GfxAssets.LoadPalette(res, pal.Get("fileName")) : null;
         bank ??= PaletteTables.Grayscale();
         scene.Assets = new WorldAssets(res, bank) { Gamma = gamma };
         scene.HazeColor = scene.Assets.HazeColor();
 
-        MissionObject? terrain = all.FirstOrDefault(o => o.Class == "SimTerrain");
+        var terrain = all.FirstOrDefault(o => o.Class == "SimTerrain");
         if (terrain != null)
             scene.LoadTerrain(dev, res, terrain, ref error);
         else
@@ -155,7 +155,7 @@ public sealed class WorldScene : IDisposable
             light.SunB = (float)inten[2];
             scene.Interiors.Sun = light;
         }
-        foreach (MissionObject o in all.Where(o => o.Class == "InteriorShape"))
+        foreach (var o in all.Where(o => o.Class == "InteriorShape"))
         {
             double[] p = o.GetVector("position"), r = o.GetVector("rotation");
             ++scene.InteriorCount;
@@ -167,14 +167,14 @@ public sealed class WorldScene : IDisposable
         scene.TerrainDraw?.Warm();
 
         var visible = scene.Terrain.Visible;
-        MissionObject? sky = all.FirstOrDefault(o => o.Class == "Sky");
+        var sky = all.FirstOrDefault(o => o.Class == "Sky");
         if (sky != null)
         {
             var tex = new int[SkyRenderer.Panels];
             for (var i = 0; i < tex.Length; ++i)
                 tex[i] = (int)sky.GetDouble($"textures[{i}]", i % 2);
             var dml = sky.Get("dmlName");
-            List<string?>? mats = dml.Length > 0 ? scene.Assets.MaterialList(dml) : null;
+            var mats = dml.Length > 0 ? scene.Assets.MaterialList(dml) : null;
             double[] sc = sky.GetVector("skyColor"), hc = sky.GetVector("hazeColor");
             static (float, float, float) C(double[] v) => ((float)Math.Clamp(Finite(v[0]), 0, 1), (float)Math.Clamp(Finite(v[1]), 0, 1), (float)Math.Clamp(Finite(v[2]), 0, 1));
             scene.Sky = new SkyRenderer(dev, scene.Assets, mats, tex, sky.GetDouble("size", 600), sky.GetDouble("featurePosition", 0), visible, C(sc), C(hc));
@@ -190,7 +190,7 @@ public sealed class WorldScene : IDisposable
                 scene.ClearColor = (pr / 255f, pg / 255f, pb / 255f);
             }
         }
-        MissionObject? stars = all.FirstOrDefault(o => o.Class == "StarField");
+        var stars = all.FirstOrDefault(o => o.Class == "StarField");
         if (stars != null)
         {
             scene.Stars = StarField.Generate(StarField.DefaultSeed, 1.05 * visible);
@@ -206,7 +206,7 @@ public sealed class WorldScene : IDisposable
             }
             scene.StarColors = cols;
         }
-        MissionObject? sun = all.FirstOrDefault(o => o.Class == "Planet");
+        var sun = all.FirstOrDefault(o => o.Class == "Planet");
         if (sun != null)
         {
             scene.SunAzimuth = sun.GetDouble("azimuth", 0);
@@ -214,7 +214,7 @@ public sealed class WorldScene : IDisposable
             scene.SunIntensity = sun.GetVector("intensity");
             scene.SunAmbient = sun.GetVector("ambient");
         }
-        foreach (MissionObject o in all.Where(o => o.Class == "Planet"))
+        foreach (var o in all.Where(o => o.Class == "Planet"))
         {
             var bmp = o.Get("fileName");
             if (bmp.Length == 0)
@@ -254,7 +254,7 @@ public sealed class WorldScene : IDisposable
         var dml = t.MaterialListName();
         var mdot = dml.LastIndexOf('.');
         dml = (mdot <= 0 ? dml : dml[..mdot]) + ".dml";
-        List<string?> mats = Assets.MaterialList(dml) ?? [];
+        var mats = Assets.MaterialList(dml) ?? [];
         var light = TerrainData.ReadLightMap(dtb, block.Size);
         var data = new TerrainData(block, mats.Count, light);
         var pos = o.GetVector("position");
@@ -302,7 +302,7 @@ public sealed class WorldScene : IDisposable
         var near = new List<PointLight>();
         if (DynamicLights == null)
             return near;
-        foreach (PointLight l in DynamicLights)
+        foreach (var l in DynamicLights)
             if (l.Range > 0)
                 near.Add(l);
         near.Sort((a, b) => (((a.X - cx) * (a.X - cx)) + ((a.Y - cy) * (a.Y - cy)) + ((a.Z - cz) * (a.Z - cz)))
@@ -312,7 +312,7 @@ public sealed class WorldScene : IDisposable
 
     private void SendDynamicLights(double cx, double cy, double cz)
     {
-        List<PointLight> near = NearLights(cx, cy, cz);
+        var near = NearLights(cx, cy, cz);
         if (near.Count == 0)
         {
             mDev.SetDynamicLights([]);
@@ -349,8 +349,8 @@ public sealed class WorldScene : IDisposable
             mDev.BeginFrame();
             mDev.ClearRgb((byte)(ClearColor.r * 255), (byte)(ClearColor.g * 255), (byte)(ClearColor.b * 255));
         }
-        Camera3D bg = MakeCamera(x, y, z, yaw, pitch, fov, w, h, true, roll);
-        Camera3D world = MakeCamera(x, y, z, yaw, pitch, fov, w, h, false, roll);
+        var bg = MakeCamera(x, y, z, yaw, pitch, fov, w, h, true, roll);
+        var world = MakeCamera(x, y, z, yaw, pitch, fov, w, h, false, roll);
         mDev.BeginScene3D(bg, HazeColor.r, HazeColor.g, HazeColor.b);
         using (FramePerf.Scope("sky"))
         {
@@ -359,7 +359,7 @@ public sealed class WorldScene : IDisposable
             Sky?.Draw(bg);
             if (StarsInFront && Stars.Count > 0)
                 StarField.Draw(mDev, bg, Stars, StarColors);
-            foreach (PlanetRenderer p in Planets)
+            foreach (var p in Planets)
                 p.Draw(bg);
         }
         mDev.SetCamera3D(world);
@@ -398,7 +398,7 @@ public sealed class WorldScene : IDisposable
         TerrainDraw?.Dispose();
         Interiors?.Dispose();
         Sky?.Dispose();
-        foreach (PlanetRenderer p in Planets)
+        foreach (var p in Planets)
             p.Dispose();
     }
 }

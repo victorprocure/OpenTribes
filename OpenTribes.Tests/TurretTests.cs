@@ -38,7 +38,7 @@ public class TurretTests
         PutU16(nodeBytes, 0);
         PutU16(nodeBytes, 0);
         PutU16(nodeBytes, 0);
-        foreach (SeqSpec s in seqs)
+        foreach (var s in seqs)
         {
             PutU32(seqBytes, (uint)NameOf(s.Name));
             PutU32(seqBytes, s.Cyclic ? 1u : 0u);
@@ -87,7 +87,7 @@ public class TurretTests
 
     private GameBase GbOf(string id)
     {
-        SimObject? o = gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
+        var o = gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
         Assert.True(o is GameBase);
         return (GameBase)o!;
     }
@@ -172,18 +172,18 @@ public class TurretTests
             w.Run("GameBase::setTeam(" + id + ", " + Itoa(team) + ");");
             return p!;
         }
-        GameBase tu = GbOf(w.Run("echo(Group::getObject(MissionGroup, 0));"));
-        GameBase tb = GbOf(w.Run("echo(Group::getObject(MissionGroup, 1));"));
-        GameBase ti = GbOf(w.Run("echo(Group::getObject(MissionGroup, 2));"));
+        var tu = GbOf(w.Run("echo(Group::getObject(MissionGroup, 0));"));
+        var tb = GbOf(w.Run("echo(Group::getObject(MissionGroup, 1));"));
+        var ti = GbOf(w.Run("echo(Group::getObject(MissionGroup, 2));"));
         w.Run("GameBase::setTeam(" + Itoa(tu.Id()) + ", 0); GameBase::setTeam(" + Itoa(tb.Id()) + ", 0); GameBase::setTeam(" +
               Itoa(ti.Id()) + ", 0);");
-        foreach (GameBase g in new[] { tu, tb, ti })
+        foreach (var g in new[] { tu, tb, ti })
             w.Run("GameBase::setActive(" + Itoa(g.Id()) + ", true);");
         Assert.True(Near(tu.TurretData.ReloadDelay, 0.8f, 1e-5f) && tu.TurretData.Speed == 2.0f); // the datablock stores 0.799998
 
         // 4.4: a Player of the turret's own team is ignored.
-        Player friendly = Spawn("110 100 52", 2050, 0);
-        Player enemy = Spawn("700 700 51", 2049, 1);
+        var friendly = Spawn("110 100 52", 2050, 0);
+        var enemy = Spawn("700 700 51", 2049, 1);
         Tick(6);
         Assert.True(tu.TurretMode == 0 && tu.TurretInRange == 0);
 
@@ -431,7 +431,7 @@ public class TurretTests
             w.Res.SetSearchPath("base"); // rescan
             w.Run("TurretData TModel { shapeFile = \"tgun\"; range = 100; projectileType = Slug; speed = 2; speedModifier = 2;" +
                   " reloadDelay = 0.8; maxEnergy = 100; minGunEnergy = 10; maxGunEnergy = 6; };");
-            GameBase tm = GbOf(w.Run("$tm = newObject(\"\", Turret, TModel); GameBase::setPosition($tm, \"300 300 55\"); echo($tm);"));
+            var tm = GbOf(w.Run("$tm = newObject(\"\", Turret, TModel); GameBase::setPosition($tm, \"300 300 55\"); echo($tm);"));
             Assert.True(tm != null && tm.TurretHasPower && !tm.TurretPowerOnFire && tm.TurretPowerPos == 0.0f);
             Assert.True(Near(tm!.TurretMinElevation, -0.5236f, 2e-3f) && Near(tm.TurretMaxElevation, 1.0472f, 2e-3f));
             {
@@ -439,7 +439,7 @@ public class TurretTests
                 var p0 = X87.F32(Div(Sub(0.0f, tm.TurretMinElevation), Sub(tm.TurretMaxElevation, tm.TurretMinElevation)));
                 Assert.True(tm.TurretElevatePos == X87.F32(Add(X87.F32(Sub(p0, 1.0f)), 1.0f)) && tm.TurretTurnPos == 0.0f);
             }
-            ShapeModel? model = Shape.GetShapeModel(w.Res, "tgun");
+            var model = Shape.GetShapeModel(w.Res, "tgun");
             Assert.NotNull(model);
             void Pose(float[] output)
             {
@@ -466,7 +466,7 @@ public class TurretTests
                     Assert.True(mz.P[i] == X87.F32(Add(node[i], tm.Transform.P[i])));
             }
             tm.TurretRotation = 1.0f;
-            tm.TurretMuzzleTransform(out Transform mz2);
+            tm.TurretMuzzleTransform(out var mz2);
             Assert.True(BitsOf(mz2.P[0]) == BitsOf(mz.P[0]) && BitsOf(mz2.P[1]) == BitsOf(mz.P[1]) && BitsOf(mz2.P[2]) == BitsOf(mz.P[2]) &&
                         mz2.M[0] != mz.M[0]);
             tm.TurretSyncThreads();
@@ -506,13 +506,13 @@ public class TurretTests
 
         // 4.7 step 4, ROADMAP G28: the seeker cone search of a shot fired by the controlling client.
         {
-            GameBase ts = GbOf(w.Run("echo(Group::getObject(MissionGroup, 3));"));
+            var ts = GbOf(w.Run("echo(Group::getObject(MissionGroup, 3));"));
             w.Run("GameBase::setTeam(" + Itoa(ts.Id()) + ", 0);");
-            Player a = Spawn("305 140 51", 2049, 1);
-            Player b = Spawn("315 140 51", 2050, 1);
-            Player c = Spawn("325 140 51", 2051 - 1, 1);
+            var a = Spawn("305 140 51", 2049, 1);
+            var b = Spawn("315 140 51", 2050, 1);
+            var c = Spawn("325 140 51", 2051 - 1, 1);
             w.Game.Players.AddClient(2051, "Third", "male1", true);
-            Player d = Spawn("335 140 51", 2051, 1);
+            var d = Spawn("335 140 51", 2051, 1);
             w.Run("Client::setControlObject(2049, " + Itoa(ts.Id()) + ");");
             ts.Fov = 1.5f;
             var idle2 = new Move();
@@ -538,7 +538,7 @@ public class TurretTests
                 Assert.True(w.Sim.Server()!.Find("MissionCleanup")!.AsSet()!.Members().Count == n + 1);
                 return LastMissile()!.SeekerTarget();
             }
-            foreach (Player p in new[] { a, b, d })
+            foreach (var p in new[] { a, b, d })
                 p.SensorWord = 1u; // detected by team 0
             c.SensorWord = 0;
             Assert.True(Shot() == a.Id()); // the largest cosine
@@ -558,7 +558,7 @@ public class TurretTests
 
         // 4.4: findTarget walks the player list (humans and AI), so an AI player is a target like a human one.
         {
-            ClientRecord? r = w.Game.Players.AddClient(2060, "Drone", "male1", true, true);
+            var r = w.Game.Players.AddClient(2060, "Drone", "male1", true, true);
             Assert.True(r != null && r.IsAI);
             var id = w.Run("echo(spawnPlayer(tarmor, \"300 400 51\", \"0 0 0\"));");
             Player? drone = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
@@ -566,7 +566,7 @@ public class TurretTests
             r!.OwnedObject = drone!.Id();
             w.Run("GameBase::setTeam(" + id + ", 1);");
             w.Run("instant Turret \"Tz\" { dataBlock = \"TGun\"; position = \"300 430 55\"; };");
-            GameBase tz = GbOf(w.Run("echo(nameToId(Tz));"));
+            var tz = GbOf(w.Run("echo(nameToId(Tz));"));
             w.Run("GameBase::setTeam(" + Itoa(tz.Id()) + ", 0);");
             drone.SensorWord = 1u; // detected by team 0
             Assert.True(tz.TurretFindTarget() == drone);

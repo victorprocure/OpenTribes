@@ -37,7 +37,7 @@ public static class DemoRender
     {
         var list = new List<MissionObject>();
         static string V(object? o) => o is double[] d ? string.Join(" ", d.Select(x => x.ToString("R", CultureInfo.InvariantCulture))) : Convert.ToString(o, CultureInfo.InvariantCulture) ?? "";
-        foreach (ClientGhost g in w.Ghosts.All().OrderBy(g => g.Index))
+        foreach (var g in w.Ghosts.All().OrderBy(g => g.Index))
         {
             var o = new MissionObject { Class = g.Class };
             object? S(string k) => g.State.GetValueOrDefault(k);
@@ -116,7 +116,7 @@ public static class DemoRender
     /// <remarks>client-net.md 4.5 and game-stream.md 6.6: an ObserverCamera in mode 0 to 2 stands at its position. In mode 3 it orbits the centre of the orbit object at the stored distance (-1: the own view of the object). A Player is seen through its eye.</remarks>
     public static CameraPose? ControlCamera(SceneModel m, ClientWorld w)
     {
-        ClientPsc psc = w.Psc;
+        var psc = w.Psc;
         if (psc.ControlGhost < 0)
             return null;
         var st = psc.ControlState;
@@ -139,7 +139,7 @@ public static class DemoRender
             }
             var og = (int)D("orbitGhost", -1);
             var ob = Vv("orbit");
-            if (og >= 0 && m.Visuals.TryGetValue(og, out Visual? tv) && tv.Position is var (x, y, z))
+            if (og >= 0 && m.Visuals.TryGetValue(og, out var tv) && tv.Position is var (x, y, z))
             {
                 if (ob[2] < 0)
                 {
@@ -177,7 +177,7 @@ public static class DemoRender
     /// <param name="exclude">The object that the line ignores.</param>
     /// <returns>The pose, or null when the ghost is not a shape.</returns>
     public static CameraPose? TurretCamera(SceneModel m, int ghost, float rotation, float elevation, float distance, OpenTribes.World.Container? world, object? exclude)
-        => m.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? TurretCamera(sv, ghost, rotation, elevation, distance, world, exclude) : null;
+        => m.Visuals.TryGetValue(ghost, out var v) && v is ShapeVisual sv ? TurretCamera(sv, ghost, rotation, elevation, distance, world, exclude) : null;
 
     /// <summary>Builds the camera of a controlled turret from its visual.</summary>
     /// <param name="sv">The turret visual.</param>
@@ -193,7 +193,7 @@ public static class DemoRender
     {
         if (!sv.TryCameraInputs(out var obj, out var eye) || !sv.HasShapeInstance)
             return null;
-        Sim.Transform t = Game.TurretCamera.Compute(obj, eye, rotation, elevation, distance, world, exclude);
+        var t = Game.TurretCamera.Compute(obj, eye, rotation, elevation, distance, world, exclude);
         return PoseOf(t, distance == 0f || eye == null, ghost);
     }
 
@@ -207,7 +207,7 @@ public static class DemoRender
     /// <remarks>Follows Player_getEyeTransform (0041248c) for a Player on a mount: the object transform (the mount point times the yaw) times the <c>dummy eye</c> node turned by the pitch about x. The view direction is the second row, up the third.</remarks>
     public static CameraPose? RiderCamera(SceneModel m, int ghost, in Sim.Transform body, float[] pos, double pitchRad)
     {
-        if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not PlayerVisual pv || !pv.TryEyeLocal(pitchRad, out var ex, out var ey, out var ez))
+        if (!m.Visuals.TryGetValue(ghost, out var v) || v is not PlayerVisual pv || !pv.TryEyeLocal(pitchRad, out var ex, out var ey, out var ez))
             return null;
         var t = new Sim.Transform();
         float cp = (float)Math.Cos(pitchRad), sp = (float)Math.Sin(pitchRad);
@@ -233,9 +233,9 @@ public static class DemoRender
     /// <remarks>Follows Vehicle_getCameraTransform (00445d88, docs/client-net.md 4.2): the <c>dummy eye</c> node transform times the drawn object transform, moved back by 2 * distance (placeBehind through <paramref name="world"/>, the object itself ignored), pitch * 0.8 and roll * 0.5 while the distance is not 0. First person (distance 0) is the eye node itself, the view mode only changes the distance.</remarks>
     public static CameraPose? VehicleCamera(SceneModel m, int ghost, float distance, OpenTribes.World.Container? world, object? exclude)
     {
-        if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || !sv.TryCameraInputs(out var obj, out var eye))
+        if (!m.Visuals.TryGetValue(ghost, out var v) || v is not ShapeVisual sv || !sv.TryCameraInputs(out var obj, out var eye))
             return null;
-        Sim.Transform t = Game.VehicleCamera.Compute(obj, eye, distance, world, exclude);
+        var t = Game.VehicleCamera.Compute(obj, eye, distance, world, exclude);
         return PoseOf(t, distance == 0f, ghost);
     }
 
@@ -264,7 +264,7 @@ public static class DemoRender
     /// <remarks>Follows Player_getEyeTransform.</remarks>
     public static (double x, double y, double z) EyeOf(SceneModel m, int ghost, double x, double y, double z, double yawRad, double pitchRad)
     {
-        if (m.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv && pv.TryEyeLocal(pitchRad, out var ex, out var ey, out var ez))
+        if (m.Visuals.TryGetValue(ghost, out var v) && v is PlayerVisual pv && pv.TryEyeLocal(pitchRad, out var ex, out var ey, out var ez))
         {
             double c = Math.Cos(yawRad), s = Math.Sin(yawRad);
             return (x + (ex * c) - (ey * s), y + (ex * s) + (ey * c), z + ez);
@@ -303,7 +303,7 @@ public static class DemoRender
                                          OpenTribes.World.Container? world, object? exclude)
     {
         double px = x, py = y, pz = z;
-        if (m.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv && pv.TryChaseZ(out var cz))
+        if (m.Visuals.TryGetValue(ghost, out var v) && v is PlayerVisual pv && pv.TryChaseZ(out var cz))
             pz = z + cz;
         else
             (px, py, pz) = EyeOf(m, ghost, x, y, z, yawRad, pitchRad);
@@ -322,7 +322,7 @@ public static class DemoRender
     public static CameraPose? ActionCamera(SceneModel m, OpenTribes.World.Terrain? terrain, double dist)
     {
         (double x, double y, double z)? pivot = null;
-        foreach (Effects.ExplosionEffect e in m.Effects.OfType<Effects.ExplosionEffect>().OrderBy(e => e.AgeMs))
+        foreach (var e in m.Effects.OfType<Effects.ExplosionEffect>().OrderBy(e => e.AgeMs))
         {
             pivot = e.Origin;
             break;
@@ -332,7 +332,7 @@ public static class DemoRender
         if (pivot is not var (px, py, pz))
             return null;
         double bestD = 25 * 25;
-        foreach (PlayerVisual pv in m.Visuals.Values.OfType<PlayerVisual>())
+        foreach (var pv in m.Visuals.Values.OfType<PlayerVisual>())
             if (pv.Position is var (qx, qy, qz) && ((qx - px) * (qx - px)) + ((qy - py) * (qy - py)) + ((qz - pz) * (qz - pz)) < bestD)
             {
                 bestD = ((qx - px) * (qx - px)) + ((qy - py) * (qy - py)) + ((qz - pz) * (qz - pz));
@@ -370,7 +370,7 @@ public static class DemoRender
     /// <returns>The pose, or null when the ghost is not a player.</returns>
     public static CameraPose? GhostCamera(SceneModel m, int ghost)
     {
-        if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v.Position is not var (x, y, z) || v is not PlayerVisual p)
+        if (!m.Visuals.TryGetValue(ghost, out var v) || v.Position is not var (x, y, z) || v is not PlayerVisual p)
             return null;
         return new CameraPose(x, y, z + 1.8, p.YawAngle * 180 / Math.PI, p.ViewPitch * 180 / Math.PI, true, ghost);
     }
@@ -437,7 +437,7 @@ public static class DemoRender
         // Pass 1: the environment ghosts (volumes, palette, terrain, sky, interiors) of the always phase.
         var pre = new DemoPlayback(data);
         pre.StepUntilEnvironment();
-        List<MissionObject> env = EnvironmentObjects(pre.World);
+        var env = EnvironmentObjects(pre.World);
         using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
         if (win == null)
         {
@@ -446,8 +446,8 @@ public static class DemoRender
         }
         using var dev = new GlGfxDevice(win);
         GlWindow.SetSwapInterval(0);
-        ResourceManager res = GfxAssets.Mount(root, out _, "config;base;base\\missions");
-        foreach (MissionObject o in env.Where(o => o.Class == "SimVolume"))
+        var res = GfxAssets.Mount(root, out _, "config;base;base\\missions");
+        foreach (var o in env.Where(o => o.Class == "SimVolume"))
             res.AddVolume(o.Get("fileName"));
         var name = Path.GetFileNameWithoutExtension(demoPath);
         using WorldScene scene = WorldScene.LoadFrom(dev, res, name, env, out var loadError);
@@ -485,8 +485,8 @@ public static class DemoRender
         foreach (var t in ts)
         {
             play.StepTo(t * 1000);
-            CameraPose? pose = actionDist > 0 ? ActionCamera(model, scene.TerrainModel, actionDist)
-                : orbitCam != null && model.Visuals.TryGetValue((int)orbitCam[0], out Visual? ov) && ov.Position is var (ox, oy, oz)
+            var pose = actionDist > 0 ? ActionCamera(model, scene.TerrainModel, actionDist)
+                : orbitCam != null && model.Visuals.TryGetValue((int)orbitCam[0], out var ov) && ov.Position is var (ox, oy, oz)
                     ? Orbit(ox, oy, oz + 1.2, orbitCam[2] * Math.PI / 180, orbitCam[3] * Math.PI / 180, orbitCam[1])
                 : fixedCam != null ? new CameraPose(fixedCam[0], fixedCam[1], fixedCam[2], fixedCam[3], fixedCam[4], false, -1)
                 : ghostCam >= 0 ? GhostCamera(model, ghostCam) : ControlCamera(model, play.World);
@@ -495,7 +495,7 @@ public static class DemoRender
                 Console.Error.WriteLine($"  t={t}: no camera (the control object has no position yet)");
                 continue;
             }
-            CameraPose c = pose.Value;
+            var c = pose.Value;
             scene.Near = NearFor(c, play.World);
             var ctx = new FrameContext { HazeStart = scene.Terrain.HazeStart, Visible = scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
             int images = 0, draws = 0;
@@ -540,7 +540,7 @@ public static class DemoRender
             var path = dir ? Path.Combine(output, $"{name}_{t.ToString("0.###", CultureInfo.InvariantCulture)}.png") : output;
             MissionRender.WritePng(path, px, dev.Width, dev.Height);
             if (Environment.GetEnvironmentVariable("OT_DEMO_VERBOSE") != null)
-                foreach (Visual v in model.Visuals.Values.Where(v => v.Position != null).OrderBy(v => { var (x, y, z) = v.Position!.Value; return ((x - c.X) * (x - c.X)) + ((y - c.Y) * (y - c.Y)) + ((z - c.Z) * (z - c.Z)); }).Take(12))
+                foreach (var v in model.Visuals.Values.Where(v => v.Position != null).OrderBy(v => { var (x, y, z) = v.Position!.Value; return ((x - c.X) * (x - c.X)) + ((y - c.Y) * (y - c.Y)) + ((z - c.Z) * (z - c.Z)); }).Take(12))
                 {
                     var gh = float.NaN;
                     scene.TerrainModel?.Height((float)v.Position!.Value.x, (float)v.Position!.Value.y, ref gh);

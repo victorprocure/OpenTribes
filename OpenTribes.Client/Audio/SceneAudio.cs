@@ -65,7 +65,7 @@ public sealed class SceneAudio
 
     private GhostSounds Gs(int ghost)
     {
-        if (!mGhosts.TryGetValue(ghost, out GhostSounds? g))
+        if (!mGhosts.TryGetValue(ghost, out var g))
             mGhosts[ghost] = g = new GhostSounds();
         return g;
     }
@@ -106,7 +106,7 @@ public sealed class SceneAudio
     /// <param name="pkt">The decoded packet.</param>
     public void OnPacket(DecodedPacket pkt)
     {
-        foreach (DecodedEvent e in pkt.Events)
+        foreach (var e in pkt.Events)
         {
             object? F(string n) => e.Fields.FirstOrDefault(f => f.Name == n).Value;
             switch (e.Tag)
@@ -136,9 +136,9 @@ public sealed class SceneAudio
     // LocSoundEvent: listener position + direction * (distance * profile maxDist), identity orientation, zero velocity.
     private void LocSound(long sound, double[]? dir, double dist)
     {
-        if (!Sound.TryDatablock(sound, out _, out SoundProfile p, out _))
+        if (!Sound.TryDatablock(sound, out _, out var p, out _))
             return;
-        Listener l = Sound.Listener;
+        var l = Sound.Listener;
         var at = new SoundXf(l.X, l.Y, l.Z);
         if (dir != null && dist >= 0)
         {
@@ -152,9 +152,9 @@ public sealed class SceneAudio
     // SoundEvent: stop the channel's voice, play at the object, remember the handle (0..3).
     private void ShapeSound(int ghost, int channel, long sound)
     {
-        if (!M.Visuals.TryGetValue(ghost, out Visual? v) || channel is < 0 or > 3)
+        if (!M.Visuals.TryGetValue(ghost, out var v) || channel is < 0 or > 3)
             return;
-        GhostSounds g = Gs(ghost);
+        var g = Gs(ghost);
         Sound.Stop(g.Channel[channel]);
         g.Channel[channel] = Play("SoundEvent", sound, v.Position);
     }
@@ -175,11 +175,11 @@ public sealed class SceneAudio
     {
         if (!PlayVoices)
             return;
-        ClientPlayerRecord? rec = M.World.Players.Get(client);
-        if (rec == null || rec.OwnedGhost < 0 || !M.Visuals.TryGetValue(rec.OwnedGhost, out Visual? v) || v.Position == null)
+        var rec = M.World.Players.Get(client);
+        if (rec == null || rec.OwnedGhost < 0 || !M.Visuals.TryGetValue(rec.OwnedGhost, out var v) || v.Position == null)
             return;
         var wave = VoiceWave(client, text);
-        if (wave == null || !ProfileZero(out SoundProfile p))
+        if (wave == null || !ProfileZero(out var p))
             return;
         if (mVoiceByClient.TryGetValue(client, out var old))
             Sound.Stop(old);
@@ -191,7 +191,7 @@ public sealed class SceneAudio
     private bool ProfileZero(out SoundProfile p)
     {
         p = SoundProfile.Default;
-        if (Sound.DataBlocks == null || !Sound.DataBlocks.Blocks.TryGetValue((0, 0), out ClientDataBlock? b))
+        if (Sound.DataBlocks == null || !Sound.DataBlocks.Blocks.TryGetValue((0, 0), out var b))
             return false;
         p = SoundManager.ProfileOf(b);
         return true;
@@ -217,7 +217,7 @@ public sealed class SceneAudio
     // Sfx::SoundEvent (kinds 0 and 2), priority 1.0.
     private void SfxEvent(int kind, string name, int profileId, double[]? pos)
     {
-        if (!Sound.Profiles.TryGetValue(profileId, out SoundProfile p))
+        if (!Sound.Profiles.TryGetValue(profileId, out var p))
             return;
         if (kind == 0)
             Count("Sfx::SoundEvent", Sound.PlayWave(name, p, 1.0));
@@ -259,7 +259,7 @@ public sealed class SceneAudio
     /// <param name="ghost">The ghost index.</param>
     public void OnDelete(int ghost)
     {
-        if (!mGhosts.Remove(ghost, out GhostSounds? g))
+        if (!mGhosts.Remove(ghost, out var g))
             return;
         StopAll(g);
     }
@@ -287,10 +287,10 @@ public sealed class SceneAudio
     /// <remarks>Follows Turret_activate (00455b34) and Turret_deactivate (00455cc4), ghost branches: the sound starts from the own tick of the ghost, at the thread position the pose model reports, and first stops the whir handle (+0x910). The datablock fields are activationSound (+0x13c) and deactivateSound (+0x140).</remarks>
     public void TurretPower(ShapeVisual sv, bool on)
     {
-        ClientDataBlock? b = Db.Block(19, DatablockIndex(sv));
+        var b = Db.Block(19, DatablockIndex(sv));
         if (b == null)
             return;
-        GhostSounds g = Gs(sv.Index);
+        var g = Gs(sv.Index);
         var sound = Idx(b, on ? "activationSound" : "deactivateSound");
         if (sound < 0)
             return;
@@ -307,7 +307,7 @@ public sealed class SceneAudio
     /// <param name="isNew">True when the ghost is new.</param>
     public void OnGhost(Visual v, DecodedGhost u, bool isNew)
     {
-        GhostSounds g = Gs(v.Index);
+        var g = Gs(v.Index);
         bool has(string n) => u.Fields.Any(f => f.Name == n);
         switch (v)
         {
@@ -370,7 +370,7 @@ public sealed class SceneAudio
     {
         if (slot is < 0 or > 7)
             return;
-        GhostSounds g = Gs(pl.Index);
+        var g = Gs(pl.Index);
         var h = Play("Image" + field[3..], Idx(image, field), pl.Position);
         g.Image.Started(slot, h, h != 0 && Sound.IsLooping(h));
     }
@@ -392,7 +392,7 @@ public sealed class SceneAudio
     /// <param name="z">The foot z.</param>
     public void Footstep(PlayerVisual p, bool right, double x, double y, double z)
     {
-        ClientDataBlock? pd = Db.Block(3, (int)Db.ToDouble(p.Ghost.State.GetValueOrDefault("datablock"), -1));
+        var pd = Db.Block(3, (int)Db.ToDouble(p.Ghost.State.GetValueOrDefault("datablock"), -1));
         var m = SurfaceType?.Invoke(x, y, z) ?? -1;
         if (m < 0 && M.Terrain != null)
         {
@@ -415,7 +415,7 @@ public sealed class SceneAudio
         var group = sv.Class switch { "StaticShape" => 4, "Turret" => 19, "Sensor" => 8, "Moveable" => 7, "Vehicle" => 9, "Flier" => 10, _ => -1 };
         if (group < 0)
             return;
-        ClientDataBlock? b = Db.Block(group, idx);
+        var b = Db.Block(group, idx);
         if (b == null)
             return;
         double Num(string k, double def = 0) => Db.ToDouble(sv.Ghost.State.GetValueOrDefault(k), def);
@@ -525,7 +525,7 @@ public sealed class SceneAudio
     // when the thread stops or pauses, reaches the end, or changes sequence.
     private void SequenceSounds(ShapeVisual sv, GhostSounds g, ClientDataBlock b, (double, double, double)? pos, object? threads)
     {
-        foreach (ThreadSlot s in ThreadSlot.ParseAll(threads))
+        foreach (var s in ThreadSlot.ParseAll(threads))
         {
             if (s.Slot is < 0 or > 2)
                 continue;
@@ -571,7 +571,7 @@ public sealed class SceneAudio
     {
         foreach (var (index, g) in mGhosts)
         {
-            if (!M.Visuals.TryGetValue(index, out Visual? v))
+            if (!M.Visuals.TryGetValue(index, out var v))
                 continue;
             var pos = v.Position;
             switch (v)
@@ -582,7 +582,7 @@ public sealed class SceneAudio
                     var jet = pl.Jetting && pl.MountGhost < 0;
                     if (jet && g.Looper == 0)
                     {
-                        ClientDataBlock? pd = Db.Block(3, DatablockIndex(v));
+                        var pd = Db.Block(3, DatablockIndex(v));
                         g.Looper = Play("Jet", Idx(pd, "jetSound"), pos);
                     }
                     else if (jet)

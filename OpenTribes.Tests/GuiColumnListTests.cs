@@ -57,7 +57,7 @@ public class GuiColumnListTests
     public void MasterListSortsByNameIgnoringCaseAndSelectsById()
     {
         var fx = new GuiFixture();
-        GuiControl list = GuiFixture.Make("FearGui::MasterServerList", 0, 0, 244, 74, ("active", (byte)1));
+        var list = GuiFixture.Make("FearGui::MasterServerList", 0, 0, 244, 74, ("active", (byte)1));
         list.Name = "Masters";
         fx.Content(list);
         fx.Interp.Evaluate("FGMasterList::addEntry(Masters, \"US Master\", \"a.example:1\", 0);");
@@ -81,11 +81,11 @@ public class GuiColumnListTests
     public void ColumnListIsAsHighAsItsHeaderAndRows()
     {
         var fx = new GuiFixture();
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 272, 284, ("headerY", 23u), ("verticalPolicy", 1u), ("horizontalPolicy", 1u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 1, 1, 270, 282);
-        GuiControl list = GuiFixture.Make("FearGui::MasterServerList", 0, 0, 244, 74, ("active", (byte)1));
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 272, 284, ("headerY", 23u), ("verticalPolicy", 1u), ("horizontalPolicy", 1u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 1, 1, 270, 282);
+        var list = GuiFixture.Make("FearGui::MasterServerList", 0, 0, 244, 74, ("active", (byte)1));
         list.Name = "Masters";
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
@@ -103,11 +103,11 @@ public class GuiColumnListTests
     public void FilterBoxIsDimmedUntilAFilterIsChosen() // 004d8fe4
     {
         var fx = new GuiFixture();
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl box = GuiFixture.Make("FearGui::FearGuiBox", 10, 10, 230, 197);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 3, 3, 224, 152, ("headerY", 23u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 0, 0, 224, 152);
-        GuiControl filter = GuiFixture.Make("FearGui::FilterCtrl", 0, 0, 256, 23, ("active", (byte)0));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var box = GuiFixture.Make("FearGui::FearGuiBox", 10, 10, 230, 197);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 3, 3, 224, 152, ("headerY", 23u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 0, 0, 224, 152);
+        var filter = GuiFixture.Make("FearGui::FilterCtrl", 0, 0, 256, 23, ("active", (byte)0));
         root.AddChild(box);
         box.AddChild(scroll);
         scroll.AddChild(content);
@@ -127,10 +127,10 @@ public class ServerListTests
         var fx = new GuiFixture();
         foreach (var (k, v) in prefs)
             fx.Host.SetVar(k, v);
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
-        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        var list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
@@ -176,10 +176,10 @@ public class ServerListRowTests
 {
     private static GuiServerList MakeList()
     {
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
-        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        var list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
@@ -192,7 +192,7 @@ public class ServerListRowTests
     [Fact]
     public void FindsRowsByAddressIgnoringCase()
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(new GuiServerList.Server(1, "A", "IP:127.0.0.1:28001", "1.11", 5, false));
         Assert.Equal("A", l.Find("ip:127.0.0.1:28001")!.Name);
         Assert.Null(l.Find("IP:127.0.0.1:28002"));
@@ -201,7 +201,7 @@ public class ServerListRowTests
     [Fact]
     public void RefreshMarksEveryRowUnknownAndFailuresDropRowsAgain() // 004c774c
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(new GuiServerList.Server(1, "A", "IP:1.2.3.4:1", "1.11", 5, false) { State = GuiServerList.StateInfo });
         l.KeepFailed = true;
         l.MarkAllUnknown();
@@ -213,7 +213,7 @@ public class ServerListRowTests
     [Fact]
     public void RemovingARowKeepsTheSelectionOnTheSameServer()
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         for (var i = 1; i <= 3; ++i)
             l.AddServer(new GuiServerList.Server(i, "S" + i, "IP:1.2.3.4:" + i, "1.11", 5, false));
         l.Select(2);

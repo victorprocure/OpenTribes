@@ -65,7 +65,7 @@ public sealed class GuiInventoryList : GuiList
     public static List<Row> Build(IEnumerable<InventoryEntry> items, bool purchase)
     {
         var rows = new List<Row>();
-        foreach (InventoryEntry e in items)
+        foreach (var e in items)
         {
             if (purchase ? !e.Shopping : e.Count == 0)
                 continue;
@@ -153,10 +153,10 @@ public sealed class GuiInventoryList : GuiList
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
         var rh = CellHeight;
-        PftFont? normal = NormalFont;
-        PftFont? selected = Host?.FontByTag(SelectedFontTag) ?? normal;
-        PftFont? disabled = Host?.FontByTag(DisabledFontTag) ?? normal;
-        PbmpBitmap? star = Host?.BitmapByName("I_Favorite.bmp");
+        var normal = NormalFont;
+        var selected = Host?.FontByTag(SelectedFontTag) ?? normal;
+        var disabled = Host?.FontByTag(DisabledFontTag) ?? normal;
+        var star = Host?.BitmapByName("I_Favorite.bmp");
         for (var i = 0; i < Rows.Count; ++i)
         {
             var y = gy + (i * rh);
@@ -164,7 +164,7 @@ public sealed class GuiInventoryList : GuiList
                 break;
             if (y + rh < p.Clip.Top)
                 continue;
-            Row row = Rows[i];
+            var row = Rows[i];
             if (row.IsHeader)
             {
                 // The cell is 300 wide and starts one pixel left of the control, so only its top and bottom edges show (0048ac04, cell origin 0053ccd8).
@@ -175,7 +175,7 @@ public sealed class GuiInventoryList : GuiList
                 continue;
             }
             p.Fill(gx, y, W, rh, 0);
-            PftFont? f = !row.Enabled ? disabled : row.Item == SelectedItem ? selected : normal;
+            var f = !row.Enabled ? disabled : row.Item == SelectedItem ? selected : normal;
             p.Text(f, gx + TextX, y + TextY, row.Text);
             p.Text(f, gx + ValueX, y + TextY, row.Value.ToString(CultureInfo.InvariantCulture));
             if (star != null && Host != null && Host.Favorites.Contains(row.Item))

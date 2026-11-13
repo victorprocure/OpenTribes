@@ -111,7 +111,7 @@ public class BacklogTests
 
         // Event bodies (reference captures, tools/cmddiff.py).
         {
-            OutEvent e = CommandMap.MakeCommandEvent(2050, 2049, 1, false, 3, -1, 100, 200, true, true, "Attack the base");
+            var e = CommandMap.MakeCommandEvent(2050, 2049, 1, false, 3, -1, 100, 200, true, true, "Attack the base");
             ExpectEq(DescribeCommand(e), "client=2050 status=1 issuer=2049 icon=3 target=-1 x=100 y=200 text='Attack the base'",
                      "command event with text");
             Expect(e.Tag == 0x455 && e.Guaranteed && e.Ordered, "command event is ordered");
@@ -130,7 +130,7 @@ public class BacklogTests
             Expect(z.U(7) == 2 && !z.Flag() && z.Done(), "commander 0 is absent");
         }
         {
-            OutEvent e = CommandMap.MakeVoiceEvent(2049, "a_very_long_voice_name");
+            var e = CommandMap.MakeVoiceEvent(2049, "a_very_long_voice_name");
             var b = new Bits(e);
             Expect(e.Tag == 0x45f && e.Guaranteed && !e.Ordered, "voice event is guaranteed unordered");
             Expect(b.U(7) == 1 && b.Str() == "a_very_" && b.Done(), "voice name is cut to 7 characters");
@@ -275,7 +275,7 @@ public class BacklogTests
         List<string> Drain()
         {
             var o = new List<string>();
-            foreach (Sent s in sent)
+            foreach (var s in sent)
             {
                 if (s.E.Tag == 0x455)
                 {
@@ -376,12 +376,12 @@ public class BacklogTests
               " instant InteriorShape \"Hut\" { filename = \"hut.dis\"; };" +
               " instant InteriorShape \"Gone\" { filename = \"missing.dis\"; };" +
               " instant InteriorShape \"Bare\" { filename = \"nodil.dis\"; }; };");
-        SimObject? hutObj = w.Object("MissionGroup/Hut");
+        var hutObj = w.Object("MissionGroup/Hut");
         GameBase? hut = hutObj as GameBase;
         Expect(hut != null && hut.InteriorGeo != null && hut.InteriorNet.Lighting.Size() == 2, "interior with two lights");
         if (hut == null)
             return;
-        InteriorLights lights = hut.InteriorNet.Lighting;
+        var lights = hut.InteriorNet.Lighting;
         int State(int id) => lights.StateOf(id);
         var answers = "";
         void Run(string line) => answers += w.Run("echo(" + line + ");") + "\n";

@@ -9,8 +9,8 @@ public sealed partial class Player
     /// <returns>The mount object, or null.</returns>
     public GameBase? MountObject()
     {
-        SimManager? m = Manager();
-        SimObject? o = m != null && MountId != 0 ? m.FindById(MountId) : null;
+        var m = Manager();
+        var o = m != null && MountId != 0 ? m.FindById(MountId) : null;
         return o as GameBase;
     }
 
@@ -26,7 +26,7 @@ public sealed partial class Player
         MountPoint = point;
         if (obj == null)
             return;
-        obj.GetMountTransform(point, out Transform t);
+        obj.GetMountTransform(point, out var t);
         float[] e = [0, 0, 0];
         MissionTransform.MatrixToEuler(t, e);
         var yaw = e[2];
@@ -66,11 +66,11 @@ public sealed partial class Player
     /// <remarks>The mounted branch of Player_applyControlState (0x0041405c) and of the client ghost interpolation FUN_00414a00. The transform is set raw, with no collision, and the container entry follows. Same product as the mounted step.</remarks>
     public bool PlaceOnMount()
     {
-        GameBase? m = MountObject();
+        var m = MountObject();
         if (m == null)
             return false;
         using var chop = X87.Chop();
-        m.GetMountTransform(MountPoint, out Transform mt);
+        m.GetMountTransform(MountPoint, out var mt);
         var r = new TMat3();
         var mm = new TMat3();
         float[] yawOnly = [0, 0, Rotation[2]];
@@ -79,7 +79,7 @@ public sealed partial class Player
         mm.Flags = mt.Flags;
         mm.M = mt.M;
         mm.P = mt.P;
-        Shape.TmatMul(r, mm, out TMat3 output);
+        Shape.TmatMul(r, mm, out var output);
         Transform.M = output.M;
         Transform.P = output.P;
         Transform.Flags = (output.Flags & 7u) | 3u;
@@ -94,7 +94,7 @@ public sealed partial class Player
     public void MountedStep(Move mv)
     {
         using var chop = X87.Chop();
-        GameBase? m = MountObject();
+        var m = MountObject();
         if (m == null)
         {
             // The mount object is gone (the original clears the mount from its delete notification).
@@ -104,7 +104,7 @@ public sealed partial class Player
         Velocity[0] = m.Velocity[0];
         Velocity[1] = m.Velocity[1];
         Velocity[2] = m.Velocity[2];
-        m.GetMountTransform(MountPoint, out Transform mt);
+        m.GetMountTransform(MountPoint, out var mt);
         var r = new TMat3();
         var mm = new TMat3();
         float[] yawOnly = [0, 0, Rotation[2]];
@@ -113,7 +113,7 @@ public sealed partial class Player
         mm.Flags = mt.Flags;
         mm.M = mt.M;
         mm.P = mt.P;
-        Shape.TmatMul(r, mm, out TMat3 output);
+        Shape.TmatMul(r, mm, out var output);
         Transform.M = output.M;
         Transform.P = output.P;
         Transform.Flags = (output.Flags & 7u) | 3u;

@@ -53,7 +53,7 @@ public static class Huffman
 
     // src/net/huffman.cpp isAsciiAlnum.
     private static bool IsAsciiAlnum(int c) =>
-c is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z';
+c is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'z');
 
     // src/net/huffman.cpp struct Tables.
     private sealed class Tables
@@ -137,7 +137,7 @@ c is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z';
     /// <returns>The symbol.</returns>
     public static byte HuffmanDecode(Func<bool> readBit)
     {
-        HuffNode[] nodes = sTables.Nodes;
+        var nodes = sTables.Nodes;
         var index = 0;
         while (index >= 0)
             index = readBit() ? nodes[index].Child1 : nodes[index].Child0;

@@ -52,7 +52,7 @@ public class PlayerManagerTests
         public List<(int, uint)> Take()
         {
             var r = new List<(int, uint)>();
-            foreach (Sent s in SentEvents)
+            foreach (var s in SentEvents)
                 r.Add((s.To, s.E.Tag));
             SentEvents.Clear();
             return r;
@@ -82,7 +82,7 @@ public class PlayerManagerTests
     private static List<(int, int)> Keys(List<Sent> sent, uint tag)
     {
         var r = new List<(int, int)>();
-        foreach (Sent s in sent)
+        foreach (var s in sent)
             if (s.E.Tag == tag)
                 r.Add((s.To, Key(s.E)));
         return r;
@@ -106,7 +106,7 @@ public class PlayerManagerTests
     private static List<Delta> DeltasTo(List<Sent> sent, int to)
     {
         var r = new List<Delta>();
-        foreach (Sent s in sent)
+        foreach (var s in sent)
             if (s.To == to && s.E.Tag == 0x44d)
                 r.Add(DeltaOf(s.E));
         return r;
@@ -131,7 +131,7 @@ public class PlayerManagerTests
         fx.Run("Client::setSkin(2050, beagle);");
         fx.Pm().RemoveClient(2050);
         Assert.Equal("2049 2 ", fx.Run("echo(Client::getNext(2051), \" \", getNumClients(), \" \", Client::getName(2050));"));
-        ClientRecord? r = fx.Add(2050, "Again", false);
+        var r = fx.Add(2050, "Again", false);
         Assert.True(r != null && r.Skin == "base" && r.Team == -1 && r.Commander == -1 && r.JoinOrder == 3);
         Assert.Equal("2050 Female", fx.Run("echo(Client::getFirst(), \" \", Client::getGender(2050));"));
     }
@@ -239,7 +239,7 @@ public class PlayerManagerTests
         fx.Add(2049);
         fx.Add(2050);
         fx.Finished(2049);
-        ClientRecord t = fx.Pm().Find(2050)!;
+        var t = fx.Pm().Find(2050)!;
         t.CommandIcon = 5;
         t.CommandStatus = 1;
         t.CommandIssuer = 2049;
@@ -270,7 +270,7 @@ public class PlayerManagerTests
         List<(uint, string)> Lines()
         {
             var r = new List<(uint, string)>();
-            foreach (Sent s in fx.SentEvents)
+            foreach (var s in fx.SentEvents)
             {
                 Assert.True(s.To == 2049 && s.E.Tag == 0x459);
                 var b = new Bits(s.E);
@@ -284,7 +284,7 @@ public class PlayerManagerTests
         // 6 step 3: entering 3 or 5 from another mode sends every line with stamp > mark. Stamps start at 1 and the
         // counter at 0, so all 32 lines go on every entry until the first set.
         Assert.Equal("True", fx.Run("echo(Client::setGuiMode(2049, 5));"));
-        List<(uint, string)> all = Lines();
+        var all = Lines();
         Assert.True(all.Count == 32 && all[0].Item1 == 0 && all[31].Item1 == 31 && all[7].Item2.Length == 0);
         fx.Run("Client::setGuiMode(2049, 3);"); // 5 -> 3: no objectives
         Assert.Equal(0, Lines().Count);
@@ -491,7 +491,7 @@ public class PlayerManagerTests
         foreach (var id in new[] { 2049, 2050 })
         {
             var tags = new List<uint>();
-            foreach (Sent s in fx.SentEvents)
+            foreach (var s in fx.SentEvents)
                 if (s.To == id)
                     tags.Add(s.E.Tag);
             Assert.True(tags.SequenceEqual(new uint[] { 0x450, 0x44f }));

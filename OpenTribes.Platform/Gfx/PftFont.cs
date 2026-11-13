@@ -155,13 +155,13 @@ public sealed class PftFont
     {
         if ((Flags & FlagFixedWidth) != 0)
             return GlyphCellWidth;
-        return TryGetGlyph(ch, out GlyphEntry g) ? g.Width : MissingWidth;
+        return TryGetGlyph(ch, out var g) ? g.Width : MissingWidth;
     }
 
     /// <summary>Gets the height of a character.</summary>
     /// <param name="ch">The character.</param>
     /// <returns>The glyph height, or <see cref="MissingHeight"/>.</returns>
-    public int CharHeight(int ch) => TryGetGlyph(ch, out GlyphEntry g) ? g.Height : MissingHeight;
+    public int CharHeight(int ch) => TryGetGlyph(ch, out var g) ? g.Height : MissingHeight;
 
     /// <summary>Measures the width of a text (measureTextWidth).</summary>
     /// <param name="text">The text.</param>

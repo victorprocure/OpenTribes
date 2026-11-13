@@ -108,7 +108,7 @@ public static class MathCommands
 
     // ---- number parsing: the original's sscanf("%f") ----
 
-    private static bool IsSpaceC(char c) => c is ' ' or >= '\t' and <= '\r';
+    private static bool IsSpaceC(char c) => c is ' ' or (>= '\t' and <= '\r');
     private static bool IsDigitC(char c) => c is >= '0' and <= '9';
     private static char At(string s, int i) => i < s.Length ? s[i] : '\0';
 
@@ -646,7 +646,7 @@ public static class MathCommands
                 i.Print(1, "Invalid argcount for " + a[0] + ".");
                 return null;
             }
-            ResourceManager.Entry? e = res?.Find(a[1]);
+            var e = res?.Find(a[1]);
             if (e == null)
             {
                 i.Print(1, "Couldn't find file: " + a[1]);

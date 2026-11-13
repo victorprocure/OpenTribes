@@ -59,7 +59,7 @@ public class ClientModelCrcTests
     [Fact]
     public void CrcInput()
     {
-        ResourceManager res = Mount(Root("crc_input"));
+        var res = Mount(Root("crc_input"));
         // Shape bytes alone: CRC-32 of "abc", seed 0xffffffff, no final inversion (0xcadbbe3d, DataBlocksTests).
         Assert.Equal(0xcadbbe3du, DataBlockManager.ValidationCrc(res, "larmor.dts", false));
         // The materials flag adds the texture of the material list on top of the shape.
@@ -73,8 +73,8 @@ public class ClientModelCrcTests
     [Fact]
     public void Comparison()
     {
-        ResourceManager res = Mount(Root("crc_compare"));
-        ClientDataBlocks c = Client(res);
+        var res = Mount(Root("crc_compare"));
+        var c = Client(res);
         var larmor = DataBlockManager.ValidationCrc(res, "larmor.dts", false);
         // ShapeBase: the name on the wire has no extension, the model is <name>.dts.
         Assert.Null(c.CheckModel(Block("shapeFile", "larmor", larmor, false)));
@@ -98,13 +98,13 @@ public class ClientModelCrcTests
     public void Textures()
     {
         var root = Root("crc_tex");
-        ResourceManager res = Mount(root);
-        ClientDataBlocks c = Client(res);
+        var res = Mount(root);
+        var c = Client(res);
         var wire = DataBlockManager.ValidationCrc(res, "mat.dts", true);
         Assert.Null(c.CheckModel(Block("shapeFile", "mat", wire, true)));
         // The texture differs locally: with the materials flag the check fails, without it the shape alone still matches.
         PutFile(Path.Combine(root, "base/t1.bmp"), "texture two");
-        ResourceManager changed = Mount(root);
+        var changed = Mount(root);
         Assert.NotNull(Client(changed).CheckModel(Block("shapeFile", "mat", wire, true)));
         Assert.Null(Client(changed).CheckModel(Block("shapeFile", "mat", DataBlockManager.ValidationCrc(res, "mat.dts", false), false)));
     }

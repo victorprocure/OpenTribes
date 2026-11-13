@@ -203,7 +203,7 @@ public class GuiControl : IGuiResponder
     public void SetCanvas(GuiCanvas? canvas)
     {
         Canvas = canvas;
-        foreach (GuiControl k in Children)
+        foreach (var k in Children)
             k.SetCanvas(canvas);
     }
 
@@ -215,7 +215,7 @@ public class GuiControl : IGuiResponder
     public (int x, int y) GlobalOrigin()
     {
         int gx = 0, gy = 0;
-        for (GuiControl? c = this; c != null; c = c.Parent)
+        for (var c = this; c != null; c = c.Parent)
         {
             gx += c.X;
             gy += c.Y;
@@ -247,7 +247,7 @@ public class GuiControl : IGuiResponder
     {
         for (var i = Children.Count - 1; i >= 0; --i)
         {
-            GuiControl k = Children[i];
+            var k = Children[i];
             if (!k.Visible)
                 continue;
             if (px >= k.X && py >= k.Y && px < k.X + k.W && py < k.Y + k.H && k.PickInside(px - k.X, py - k.Y))
@@ -269,7 +269,7 @@ public class GuiControl : IGuiResponder
     {
         if (Id == id && id != 0)
             return this;
-        foreach (GuiControl k in Children)
+        foreach (var k in Children)
             if (k.FindById(id) is GuiControl r)
                 return r;
         return null;
@@ -282,7 +282,7 @@ public class GuiControl : IGuiResponder
     {
         if (Name != null && string.Equals(Name, name, StringComparison.OrdinalIgnoreCase))
             return this;
-        foreach (GuiControl k in Children)
+        foreach (var k in Children)
             if (k.FindByName(name) is GuiControl r)
                 return r;
         return null;
@@ -293,8 +293,8 @@ public class GuiControl : IGuiResponder
     public IEnumerable<GuiControl> Descendants()
     {
         yield return this;
-        foreach (GuiControl k in Children)
-            foreach (GuiControl d in k.Descendants())
+        foreach (var k in Children)
+            foreach (var d in k.Descendants())
                 yield return d;
     }
 
@@ -309,7 +309,7 @@ public class GuiControl : IGuiResponder
     public virtual void Resize(int x, int y, int w, int h)
     {
         int ow = W, oh = H;
-        foreach (GuiControl k in Children.ToArray())
+        foreach (var k in Children.ToArray())
             k.ParentResized(ow, oh, w, h);
         X = x;
         Y = y;
@@ -404,7 +404,7 @@ public class GuiControl : IGuiResponder
     /// <summary>Wakes the children first, then the control (slot 0xb0, 0053a6e8).</summary>
     public void WakeTree()
     {
-        foreach (GuiControl k in Children.ToArray())
+        foreach (var k in Children.ToArray())
             k.WakeTree();
         Wake();
     }
@@ -412,7 +412,7 @@ public class GuiControl : IGuiResponder
     /// <summary>Closes the children first, then the control.</summary>
     public void CloseTree()
     {
-        foreach (GuiControl k in Children.ToArray())
+        foreach (var k in Children.ToArray())
             k.CloseTree();
         Close();
     }
@@ -420,7 +420,7 @@ public class GuiControl : IGuiResponder
     /// <summary>Runs <see cref="PreRender"/> on the children first, then on the control.</summary>
     public void PreRenderTree()
     {
-        foreach (GuiControl k in Children.ToArray())
+        foreach (var k in Children.ToArray())
             k.PreRenderTree();
         PreRender();
     }
@@ -480,7 +480,7 @@ public class GuiControl : IGuiResponder
     // 004cca88: the hand over the tab children of the menu.
     private uint TabMenuCursor(int lx, int ly)
     {
-        foreach (GuiControl c in Children)
+        foreach (var c in Children)
             if (c is GuiMenuItem && lx >= c.X && lx <= c.X + c.W && ly >= c.Y && ly <= c.Y + c.H)
                 return CursorHand;
         return 0;
@@ -518,13 +518,13 @@ public class GuiControl : IGuiResponder
     /// <param name="gy">The control y in canvas pixels.</param>
     protected void RenderChildren(GuiPaint p, int gx, int gy)
     {
-        foreach (GuiControl k in Children.ToArray())
+        foreach (var k in Children.ToArray())
         {
             if (!k.Visible)
                 continue;
-            GfxRect saved = p.Clip;
+            var saved = p.Clip;
             GfxRect r = new(gx + k.X, gy + k.Y, gx + k.X + k.W - 1, gy + k.Y + k.H - 1);
-            GfxRect c = saved.Intersect(r);
+            var c = saved.Intersect(r);
             if (c.IsEmpty)
                 continue;
             p.SetClip(c);
@@ -578,7 +578,7 @@ public class GuiControl : IGuiResponder
     {
         if (Parent == null)
             return;
-        foreach (GuiControl s in Parent.Children.ToArray())
+        foreach (var s in Parent.Children.ToArray())
             if (s != this)
                 s.Message(this, tag);
     }

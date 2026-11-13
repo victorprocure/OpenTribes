@@ -156,7 +156,7 @@ void main() {
     /// <inheritdoc/>
     public void FlushTextureCache()
     {
-        foreach (CachedTexture t in mCache.Values)
+        foreach (var t in mCache.Values)
             Api.DeleteTexture(t.Name);
         mCache.Clear();
     }
@@ -164,7 +164,7 @@ void main() {
     /// <inheritdoc/>
     public void FlushTexture(PbmpBitmap bitmap)
     {
-        if (mCache.Remove(bitmap, out CachedTexture? t))
+        if (mCache.Remove(bitmap, out var t))
             Api.DeleteTexture(t.Name);
     }
 
@@ -209,7 +209,7 @@ void main() {
     /// <inheritdoc/>
     public void Clear(int colorIndex)
     {
-        SubPalette sub = mBank.SubPalettes[0];
+        var sub = mBank.SubPalettes[0];
         colorIndex = Math.Clamp(colorIndex, 0, 255);
         ClearRgb(sub.Colors[colorIndex * 4], sub.Colors[(colorIndex * 4) + 1], sub.Colors[(colorIndex * 4) + 2]);
     }
@@ -260,7 +260,7 @@ void main() {
             Api.Disable_(GlApi.ScissorTest);
             return;
         }
-        GfxRect r = c.Intersect(new GfxRect(0, 0, Width - 1, Height - 1));
+        var r = c.Intersect(new GfxRect(0, 0, Width - 1, Height - 1));
         Api.Enable_(GlApi.ScissorTest);
         if (r.IsEmpty)
             Api.Scissor_(0, 0, 0, 0);
@@ -316,7 +316,7 @@ void main() {
     private (float r, float g, float b) FlatColor(int index)
     {
         index = Math.Clamp(index, 0, 255);
-        SubPalette sp = mBank.SubPalettes[0];
+        var sp = mBank.SubPalettes[0];
         return (PaletteTables.GammaFloat(sp.IndexToRed![index], mGamma),
                 PaletteTables.GammaFloat(sp.IndexToGreen![index], mGamma),
                 PaletteTables.GammaFloat(sp.IndexToBlue![index], mGamma));
@@ -395,9 +395,9 @@ void main() {
 
     private CachedTexture Texture(PbmpBitmap bmp)
     {
-        if (mCache.TryGetValue(bmp, out CachedTexture? t))
+        if (mCache.TryGetValue(bmp, out var t))
             return t;
-        SubPalette sub = mBank.FindSubPalette(bmp.PaletteId);
+        var sub = mBank.FindSubPalette(bmp.PaletteId);
         var rgba = PaletteTables.ToRgba(bmp, sub, mGammaTable);
         // Stock blit 005d8290 uploads through 005d3ecc, which packs palette-indexed bitmaps by subpalette kind (005d7148) unless
         // $pref::OpenGL::NoPackedTextures or Use32BitTex is set; then it uploads the 8 bit tables unpacked (005d5164, 005d5e34, 005d5a3c).
@@ -438,8 +438,8 @@ void main() {
         src = src.Intersect(new GfxRect(0, 0, bmp.Width - 1, bmp.Height - 1));
         if (src.IsEmpty || w <= 0 || h <= 0)
             return;
-        CachedTexture tex = Texture(bmp);
-        BlendMode mode = bmp.Blend;
+        var tex = Texture(bmp);
+        var mode = bmp.Blend;
         // 4: translucent is a 50% blend [I]; a translucent (kind 2) subpalette carries its own alpha in the texture.
         var alpha = 1f;
         if (mode == BlendMode.Translucent && mBank.FindSubPalette(bmp.PaletteId).Kind != 2)

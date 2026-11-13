@@ -333,8 +333,8 @@ internal static class AIMath
     // src/game/ai_object.cpp playerOfRep: 0x0043fe38.
     public static Player? PlayerOfRep(GameState g, int clientId)
     {
-        ClientRecord? r = g.Players.Find(clientId);
-        SimManager? m = g.Sim?.Server();
+        var r = g.Players.Find(clientId);
+        var m = g.Sim?.Server();
         if (r == null || r.OwnedObject == 0 || m == null)
             return null;
         return Player.From(m.FindById(r.OwnedObject));
@@ -525,10 +525,10 @@ public sealed partial class AIObject : SimObject
     /// <returns>The Player, or null once it is gone.</returns>
     public Player? Player()
     {
-        SimManager? m = Game.Sim?.Server();
+        var m = Game.Sim?.Server();
         if (m == null || PlayerPtr == null)
             return null;
-        SimObject? o = m.FindById(PlayerId);
+        var o = m.FindById(PlayerId);
         return o != null && o == PlayerPtr ? PlayerPtr : null;
     }
 
@@ -540,7 +540,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043db28.</remarks>
     public override bool OnAdd()
     {
-        Player? p = Player();
+        var p = Player();
         if (p == null)
             return false;
         RepId = Game.AllocateRecordId != null ? Game.AllocateRecordId() : Game.Players.NextFreeId();
@@ -585,7 +585,7 @@ public sealed partial class AIObject : SimObject
             return true;
         if ((Flags & 2) != 0)
         {
-            Player? p = Player();
+            var p = Player();
             return p != null && p.MapName != null && ResourceManager.WildcardMatch(pattern, p.MapName);
         }
         return false;
@@ -624,7 +624,7 @@ public sealed partial class AIObject : SimObject
     /// <param name="notify">True to notify the script.</param>
     public void VariableChanged(string var, string value, bool notify = true)
     {
-        VarType type = VarType.Int;
+        var type = VarType.Int;
         int which; // the field: the C++ float* / int32_t*
         bool eq(string n) => GameUtil.EqualsNoCase(var, n);
         if (eq("iq"))
@@ -725,18 +725,18 @@ public sealed partial class AIObject : SimObject
     {
         if ((Flags & 8) != 0 || Game.Console == null)
             return;
-        Interpreter inr = Game.Console;
-        GameState g = Game;
+        var inr = Game.Console;
+        var g = Game;
         var aiName = AiName;
-        foreach (VarDef d in kVars)
+        foreach (var d in kVars)
         {
             var full = VarName(d.Name);
             var var = d.Name;
             void Bind() =>
                 inr.BindVariable(full, v =>
                 {
-                    AIManager? mgr = g.Ai;
-                    AIObject? ai = mgr?.FindByName(aiName);
+                    var mgr = g.Ai;
+                    var ai = mgr?.FindByName(aiName);
                     if (ai != null && (ai.Flags & 8) != 0)
                         ai.VariableChanged(var, v);
                 });
@@ -778,7 +778,7 @@ public sealed partial class AIObject : SimObject
     {
         if ((Flags & 8) == 0 || Game.Console == null)
             return;
-        foreach (VarDef d in kVars)
+        foreach (var d in kVars)
             Game.Console.EraseGlobal(VarName(d.Name));
         Flags &= ~8u;
     }
@@ -829,7 +829,7 @@ public sealed partial class AIObject : SimObject
     {
         for (var i = 0; i < Directives.Count; ++i)
         {
-            AIDirective d = Directives[i];
+            var d = Directives[i];
             if ((d.Type & mask) == 0)
                 continue;
             if (order == d.Order)
@@ -950,7 +950,7 @@ public sealed partial class AIObject : SimObject
             d.Point.CopyTo(output);
             return;
         }
-        Player? p = AIMath.PlayerOfRep(Game, d.Client);
+        var p = AIMath.PlayerOfRep(Game, d.Client);
         if (p != null)
         {
             Span<float> tp = stackalloc float[3];
@@ -1007,8 +1007,8 @@ public sealed partial class AIObject : SimObject
                 {
                     for (var i = 0; i < n - 1; ++i)
                     {
-                        AIDirective lo = Directives[list[i]];
-                        AIDirective hi = Directives[list[i + 1]];
+                        var lo = Directives[list[i]];
+                        var hi = Directives[list[i + 1]];
                         if (order < hi.Order && order > lo.Order)
                         {
                             result = Direction == -1 ? list[i] : list[i + 1];
@@ -1070,7 +1070,7 @@ public sealed partial class AIObject : SimObject
     {
         if (d.Sub != AIDirective.kPlayer)
             return true;
-        Player? p = AIMath.PlayerOfRep(Game, d.Client);
+        var p = AIMath.PlayerOfRep(Game, d.Client);
         if (p == null || p.Dead)
             return false;
         var spot = Sk.SpotDistance();
@@ -1094,7 +1094,7 @@ public sealed partial class AIObject : SimObject
             return;
         foreach (var i in list)
         {
-            AIDirective d = Directives[i];
+            var d = Directives[i];
             if (TargetInRange(d))
                 d.Flags |= AIDirective.kInRange;
             else
@@ -1117,19 +1117,19 @@ public sealed partial class AIObject : SimObject
             var k = start;
             do
             {
-                AIDirective d = Directives[list[k]];
+                var d = Directives[list[k]];
                 if ((d.Flags & AIDirective.kInRange) != 0)
                 {
                     if (d.Sub == AIDirective.kPlayer)
                     {
-                        Player? tp = AIMath.PlayerOfRep(Game, d.Client);
-                        Player? self = Player();
+                        var tp = AIMath.PlayerOfRep(Game, d.Client);
+                        var self = Player();
                         var seen = tp != null && self != null && Los(self, tp);
                         if (seen)
                         {
                             if ((d.Flags & AIDirective.kLOS) == 0)
                             {
-                                AIDirective copy = d.Clone();
+                                var copy = d.Clone();
                                 Callback(copy, (d.Flags & AIDirective.kHadLOS) != 0 ? 3 : 0);
                             }
                             if (list[k] < Directives.Count)
@@ -1138,7 +1138,7 @@ public sealed partial class AIObject : SimObject
                         else if ((d.Flags & AIDirective.kLOS) != 0)
                         {
                             d.Flags &= unchecked((ushort)~AIDirective.kLOS);
-                            AIDirective copy = d.Clone();
+                            var copy = d.Clone();
                             Callback(copy, 2);
                         }
                     }
@@ -1159,20 +1159,20 @@ public sealed partial class AIObject : SimObject
         {
             if (list[k] >= Directives.Count)
                 break;
-            AIDirective d = Directives[list[k]];
+            var d = Directives[list[k]];
             if (d.Sub != AIDirective.kPlayer)
             {
                 CurrentTarget = list[k];
                 continue;
             }
-            Player? tp = AIMath.PlayerOfRep(Game, d.Client);
+            var tp = AIMath.PlayerOfRep(Game, d.Client);
             if (tp != null)
             {
                 if (tp.Dead)
                 {
                     if ((d.Flags & AIDirective.kDeathReported) == 0)
                     {
-                        AIDirective copy = d.Clone();
+                        var copy = d.Clone();
                         Callback(copy, 1);
                         if (list[k] < Directives.Count)
                             Directives[list[k]].Flags |= AIDirective.kDeathReported;
@@ -1195,7 +1195,7 @@ public sealed partial class AIObject : SimObject
             }
             else if ((d.Flags & AIDirective.kDeathReported) == 0)
             {
-                AIDirective copy = d.Clone();
+                var copy = d.Clone();
                 Callback(copy, 1);
                 if (list[k] < Directives.Count)
                     Directives[list[k]].Flags |= AIDirective.kDeathReported;
@@ -1207,7 +1207,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043bcb4.</remarks>
     public void Sense()
     {
-        Player? self = Player();
+        var self = Player();
         if (self == null)
             return;
         AIMath.TargetPoint(Game, self, Frame.Own);
@@ -1233,7 +1233,7 @@ public sealed partial class AIObject : SimObject
                 di = NextWaypoint(WaypointOrder);
             if (di < 0)
                 break;
-            AIDirective d = Directives[di].Clone();
+            var d = Directives[di].Clone();
             var p = new float[3];
             DirectivePoint(d, p);
             if (d.Type == AIDirective.kFollow || !AtWaypoint(p))
@@ -1268,11 +1268,11 @@ public sealed partial class AIObject : SimObject
             return !(Game.TeamCount - 1 > 0);
         }
         var kept = new List<AIDirective>(Directives.Count);
-        foreach (AIDirective d in Directives)
+        foreach (var d in Directives)
         {
             if (d.Type == AIDirective.kTarget && ((uint)d.Order & 0x7fff8000u) == kAutoBase)
             {
-                ClientRecord? r = Game.Players.Find(d.Client);
+                var r = Game.Players.Find(d.Client);
                 if (r != null && Enemy(r))
                 {
                     kept.Add(d);
@@ -1291,7 +1291,7 @@ public sealed partial class AIObject : SimObject
         var added = false;
         foreach (var id in Game.Players.PlayerIds())
         {
-            ClientRecord? r = Game.Players.Find(id);
+            var r = Game.Players.Find(id);
             if (r == null || !Enemy(r))
                 continue;
             var bit = r.Id - 2048;
@@ -1332,7 +1332,7 @@ public sealed partial class AIObject : SimObject
         {
             ScriptedTargets = true;
             var kept = new List<AIDirective>();
-            foreach (AIDirective d in Directives)
+            foreach (var d in Directives)
                 if (!(d.Type == AIDirective.kTarget && ((uint)d.Order & 0x7fff8000u) == kAutoBase))
                     kept.Add(d);
             Directives = kept;
@@ -1364,7 +1364,7 @@ public sealed partial class AIObject : SimObject
             return null;
         if (!ThinkGate(force))
             return null;
-        Player? p = AIMath.PlayerOfRep(Game, AttackId);
+        var p = AIMath.PlayerOfRep(Game, AttackId);
         if (p == null || p.Dead)
             return null;
         Span<float> tp = stackalloc float[3];
@@ -1372,7 +1372,7 @@ public sealed partial class AIObject : SimObject
         var d = Dist3(Frame.Own, tp);
         if (!(Sk.SpotDistance() > d))
             return null;
-        Player? self = Player();
+        var self = Player();
         if (self == null || !Los(self, p))
             return null;
         return p;
@@ -1423,7 +1423,7 @@ public sealed partial class AIObject : SimObject
     // src/game/ai_object.cpp AIObject::stateAttack: 0x0043bb20.
     private void StateAttack()
     {
-        Player? p = AttackTargetVisible(true);
+        var p = AttackTargetVisible(true);
         if (p != null)
             EngagePlayer(p);
         else
@@ -1435,7 +1435,7 @@ public sealed partial class AIObject : SimObject
     {
         if (CurrentTarget >= 0 && CurrentTarget < Directives.Count)
         {
-            AIDirective d = Directives[CurrentTarget].Clone();
+            var d = Directives[CurrentTarget].Clone();
             switch (d.Sub)
             {
                 case AIDirective.kPlayer:
@@ -1499,7 +1499,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043c6e4.</remarks>
     public YawError YawErrorOf(ReadOnlySpan<float> point)
     {
-        Player self = Player()!;
+        var self = Player()!;
         var dx = X87.F32(Sub(point[0], Frame.Own[0]));
         var dy = X87.F32(Sub(point[1], Frame.Own[1]));
         var t = AIMath.Atan2Safe(dy, dx);
@@ -1548,7 +1548,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043d228.</remarks>
     public YawError SteerYaw(ReadOnlySpan<float> point)
     {
-        YawError e = YawErrorOf(point);
+        var e = YawErrorOf(point);
         var v = RateStep(Sk.Rate, e.Abs);
         Move.Turn = e.Diff >= 0.0f ? v : -v;
         return e;
@@ -1560,7 +1560,7 @@ public sealed partial class AIObject : SimObject
     /// <remarks>Follows 0x0043c7bc.</remarks>
     public YawError SteerPitch(ReadOnlySpan<float> point)
     {
-        Player self = Player()!;
+        var self = Player()!;
         var d2 = Dist2(point, Frame.Own);
         var dz = X87.F32(Sub(point[2], Frame.Own[2]));
         var desired = X87.F32(AIMath.Atan2Safe(dz, d2));
@@ -1642,7 +1642,7 @@ public sealed partial class AIObject : SimObject
         var dist = Dist3(point, Frame.Own);
         if (!(dist > 1.0f))
             return;
-        YawError e = SteerYaw(point);
+        var e = SteerYaw(point);
         SetMoveDirection(e, X87.F32(SpeedForDistance(dist)), 0);
     }
 
@@ -1654,7 +1654,7 @@ public sealed partial class AIObject : SimObject
         var dist = Dist3(point, Frame.Own);
         if (!(dist > 0.2))
             return;
-        YawError e = YawErrorOf(point);
+        var e = YawErrorOf(point);
         e.Cur = X87.F32(Add(Move.Turn, e.Cur));
         SetMoveDirection(e, X87.F32(SpeedForDistance(dist)), 0);
     }
@@ -1692,14 +1692,14 @@ public sealed partial class AIObject : SimObject
     private bool WeaponSpeed()
     {
         ProjectileSpeed = 0;
-        Player? self = Player();
+        var self = Player();
         if (self == null)
             return false;
-        Player.ImageSlot slot = self.Images[0];
+        var slot = self.Images[0];
         int group = slot.Info.ProjGroup, index = slot.Info.ProjIndex;
         if (group == -1 || Game.Sim == null)
             return false;
-        DataBlockManager.Block? b = Game.Sim.DataBlocks().At(group, index);
+        var b = Game.Sim.DataBlocks().At(group, index);
         if (b == null)
             return false;
         var speed = group switch

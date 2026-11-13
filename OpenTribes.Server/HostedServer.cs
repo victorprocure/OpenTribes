@@ -69,7 +69,7 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     {
         DeleteServer();
         ServerClasses.EnsureRegistered();
-        Interpreter.World world = mIn.NewWorld();
+        var world = mIn.NewWorld();
         var net = new NetServer(new ServerConfig { Port = 0 });
         var game = new GameState();
         var ctx = new ClassContext { Resources = mRes };
@@ -112,7 +112,7 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         });
         // The world commands are the process's, not a world's.
         mIn.Unregister(world, "newServer", "focusServer", "deleteServer", "newClient", "focusClient", "deleteClient");
-        Interpreter.World? prev = mIn.FocusedWorld();
+        var prev = mIn.FocusedWorld();
         mIn.Focus(world);
         try
         {
@@ -143,7 +143,7 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
             var ok = false;
             if (name == "IP")
             {
-                ok = net.IsOpen() && !net.LoopbackOnly || net.Open(unchecked((ushort)port), false);
+                ok = (net.IsOpen() && !net.LoopbackOnly) || net.Open(unchecked((ushort)port), false);
                 ipActivated |= ok;
             }
             else if (name == "LOOPBACK")

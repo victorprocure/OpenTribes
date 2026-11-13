@@ -147,7 +147,7 @@ public sealed class BitStream
         }
         for (var i = 0; i < len; ++i)
         {
-            HuffmanCode code = Huffman.HuffmanCode((byte)s[i]);
+            var code = Huffman.HuffmanCode((byte)s[i]);
             for (var b = 0; b < code.Length; ++b)
                 WriteFlag(((code.Bits >> b) & 1) != 0);
         }

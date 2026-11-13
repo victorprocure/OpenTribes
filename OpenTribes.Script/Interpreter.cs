@@ -180,7 +180,7 @@ public sealed class Interpreter
             mRegisterTarget.Commands[key] = new Function { Builtin = cmd };
             return;
         }
-        if (mFunctions.TryGetValue(key, out Function? f) && f.Builtin != null)
+        if (mFunctions.TryGetValue(key, out var f) && f.Builtin != null)
             mReplacedCommands.Add(name);
         mFunctions[key] = new Function { Builtin = cmd };
     }
@@ -229,7 +229,7 @@ public sealed class Interpreter
     /// <param name="registrations">The registrations to run.</param>
     public void Register(World w, Action registrations)
     {
-        World? previous = mRegisterTarget;
+        var previous = mRegisterTarget;
         mRegisterTarget = w;
         try
         {
@@ -341,7 +341,7 @@ public sealed class Interpreter
             return;
         }
         ScopeFor(key)[key] = value;
-        if (mBindings.TryGetValue(key, out Action<string>? onSet))
+        if (mBindings.TryGetValue(key, out var onSet))
             onSet(value);
     }
 
@@ -408,13 +408,13 @@ public sealed class Interpreter
         var nul = text.IndexOf('\0');
         var src = nul < 0 ? text : text[..nul];
         Numbers.EnterScriptFpuMode(); // pow can leave round-to-nearest behind; the original's next ftol resets it
-        ParseResult r = ScriptParser.Parse(src);
+        var r = ScriptParser.Parse(src);
         if (r.Error)
             Print(1, ScriptParser.SyntaxErrorMessage(r, fileName.Length == 0 ? "" : mStrings.Intern(fileName)));
 
         var saved = mLastValue;
         mLastValue = "";
-        foreach (Node s in r.Statements)
+        foreach (var s in r.Statements)
             Exec(s); // top-level completion codes are ignored
         var result = mLastValue;
         mLastValue = saved;
@@ -430,7 +430,7 @@ public sealed class Interpreter
         if (!name.Contains(".cs", StringComparison.Ordinal) && !name.Contains(".mis", StringComparison.Ordinal) &&
             !name.Contains(".dsc", StringComparison.Ordinal) && !name.Contains(".mac", StringComparison.Ordinal))
             name += ".cs";
-        ResourceManager.Entry? entry = mResources?.Find(name);
+        var entry = mResources?.Find(name);
         var data = Array.Empty<byte>();
         if (entry == null || !mResources!.Read(entry, out data))
         {
@@ -447,9 +447,9 @@ public sealed class Interpreter
     // src/script/interpreter.cpp Interpreter::execList.
     private Completion ExecList(List<Node> list)
     {
-        foreach (Node s in list)
+        foreach (var s in list)
         {
-            Completion c = Exec(s);
+            var c = Exec(s);
             if (c != Completion.Normal)
                 return c;
         }
@@ -473,7 +473,7 @@ public sealed class Interpreter
             case NodeKind.While:
                 while (Truthy(EvalFloat(n.A!)))
                 {
-                    Completion c = ExecList(n.Body);
+                    var c = ExecList(n.Body);
                     if (c == Completion.BreakLoop)
                         break;
                     if (c == Completion.ReturnFn)
@@ -484,7 +484,7 @@ public sealed class Interpreter
                 EvalString(n.A!);
                 while (Truthy(EvalFloat(n.B!)))
                 {
-                    Completion c = ExecList(n.Body);
+                    var c = ExecList(n.Body);
                     if (c == Completion.BreakLoop)
                         break;
                     if (c == Completion.ReturnFn)
@@ -496,7 +496,7 @@ public sealed class Interpreter
             {
                 var fname = mStrings.Intern(n.Name);
                 mFunctions[fname] = new Function { Decl = n };
-                foreach (World w in mWorlds) // a script function replaces a native command, as in the shared set
+                foreach (var w in mWorlds) // a script function replaces a native command, as in the shared set
                     w.Commands.Remove(fname);
                 return Completion.Normal;
             }
@@ -539,7 +539,7 @@ public sealed class Interpreter
             }
             case NodeKind.Datablock:
                 mObjects?.BeginDataBlock(n.ClassName, n.Name);
-                foreach (Node s in n.Slots)
+                foreach (var s in n.Slots)
                     Exec(s);
                 mObjects?.EndDataBlock();
                 return Completion.Normal;
@@ -547,9 +547,9 @@ public sealed class Interpreter
             {
                 var name = n.A != null ? EvalString(n.A) : "";
                 mObjects?.BeginObject(n.ClassName, name);
-                foreach (Node s in n.Slots)
+                foreach (var s in n.Slots)
                     Exec(s);
-                foreach (Node c in n.Children)
+                foreach (var c in n.Children)
                     Exec(c);
                 mObjects?.EndObject();
                 return Completion.Normal;
@@ -559,7 +559,7 @@ public sealed class Interpreter
                 var index = IndexString(n.Index);
                 var values = new List<string>();
                 if (n.IsList)
-                    foreach (Node v in n.List)
+                    foreach (var v in n.List)
                         values.Add(EvalString(v));
                 else
                     values.Add(EvalString(n.A!));
@@ -861,14 +861,14 @@ public sealed class Interpreter
             case NodeKind.Call:
             {
                 var args = new List<string>();
-                foreach (Node a in n.List)
+                foreach (var a in n.List)
                     args.Add(EvalString(a));
                 return Call(n.Name, args);
             }
             case NodeKind.MethodCall:
             {
                 var args = new List<string> { EvalString(n.A!) };
-                foreach (Node a in n.List)
+                foreach (var a in n.List)
                     args.Add(EvalString(a));
                 return Call("dot_op_" + n.Name, args);
             }
@@ -893,7 +893,7 @@ public sealed class Interpreter
             {
                 var obj = EvalString(n.A!.A!);
                 var values = new List<string>();
-                foreach (Node v in n.List)
+                foreach (var v in n.List)
                     values.Add(EvalString(v));
                 mObjects?.SetField(obj, n.A.Name, values, IndexString(n.A.Index));
                 return values.Count == 0 ? "" : values[^1];
@@ -950,7 +950,7 @@ public sealed class Interpreter
     public bool HasFunction(string name)
     {
         var key = mStrings.Lookup(name);
-        return key != null && (mFocus != null && mFocus.Commands.ContainsKey(key) || mFunctions.ContainsKey(key));
+        return key != null && ((mFocus != null && mFocus.Commands.ContainsKey(key)) || mFunctions.ContainsKey(key));
     }
 
     /// <summary>Gets the parameter count of a script function.</summary>
@@ -963,7 +963,7 @@ public sealed class Interpreter
             return -1;
         if (mFocus != null && mFocus.Commands.ContainsKey(key))
             return -1;
-        return !mFunctions.TryGetValue(key, out Function? f) || f.Decl == null ? -1 : f.Decl.Params.Count;
+        return !mFunctions.TryGetValue(key, out var f) || f.Decl == null ? -1 : f.Decl.Params.Count;
     }
 
     /// <summary>Calls a function or command by name.</summary>
@@ -987,10 +987,10 @@ public sealed class Interpreter
         if (fn.Builtin != null)
         {
             args.Insert(0, key);
-            Command cmd = fn.Builtin; // the command may redefine itself
+            var cmd = fn.Builtin; // the command may redefine itself
             return cmd(this, [.. args]) ?? "False";
         }
-        Node decl = fn.Decl!;
+        var decl = fn.Decl!;
         mFrames.Add(new Frame());
         for (var i = 0; i < decl.Params.Count && i < args.Count; ++i)
             SetVariable(decl.Params[i], args[i]);

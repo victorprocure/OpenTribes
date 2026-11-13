@@ -118,7 +118,7 @@ public sealed class SimManager : SimGroup
     // src/sim/sim_manager.cpp SimManager::dictInsert.
     private void DictInsert(SimObject obj)
     {
-        if (!mIds.TryGetValue(obj.mId, out List<SimObject>? v))
+        if (!mIds.TryGetValue(obj.mId, out var v))
             mIds[obj.mId] = v = [];
         v.Add(obj);
     }
@@ -126,7 +126,7 @@ public sealed class SimManager : SimGroup
     // src/sim/sim_manager.cpp SimManager::dictErase.
     private void DictErase(SimObject obj)
     {
-        if (!mIds.TryGetValue(obj.mId, out List<SimObject>? v))
+        if (!mIds.TryGetValue(obj.mId, out var v))
             return;
         v.RemoveAll(o => o == obj);
         if (v.Count == 0)
@@ -177,12 +177,12 @@ public sealed class SimManager : SimGroup
         OnUnregister?.Invoke(obj);
         obj.mGroup?.RemoveObject(obj);
         var sets = new List<SimSet>(obj.mInSets);
-        foreach (SimSet s in sets)
+        foreach (var s in sets)
             s.RemoveObject(obj);
         DictErase(obj);
-        for (LinkedListNode<Event>? n = mEvents.First; n != null;)
+        for (var n = mEvents.First; n != null;)
         {
-            LinkedListNode<Event>? next = n.Next;
+            var next = n.Next;
             if (n.Value.Dest == obj || n.Value.Sender == obj)
                 mEvents.Remove(n);
             n = next;
@@ -222,7 +222,7 @@ public sealed class SimManager : SimGroup
     /// <param name="id">The id.</param>
     /// <returns>The object, or null.</returns>
     public SimObject? FindById(int id) =>
-        mIds.TryGetValue(id, out List<SimObject>? v) && v.Count != 0 ? v[^1] : null;
+        mIds.TryGetValue(id, out var v) && v.Count != 0 ? v[^1] : null;
 
     /// <summary>Resolves a script string to an object (docs/sim.md 3.2): an id, a path of names, or an id followed by a path. The root is returned for <c>0</c>.</summary>
     /// <param name="s">The script string.</param>
@@ -258,11 +258,11 @@ public sealed class SimManager : SimGroup
             var name = part.Length == 0 ? null : mStrings.Lookup(part);
             if (name == null)
                 return null;
-            SimSet? container = current.AsSet();
+            var container = current.AsSet();
             if (container == null)
                 return null;
-            SimGroup? group = container.AsGroup();
-            SimObject? next = group != null ? group.FindChild(name) : container.FindMemberByName(name);
+            var group = container.AsGroup();
+            var next = group != null ? group.FindChild(name) : container.FindMemberByName(name);
             if (next == null)
                 return null;
             if (end < 0)
@@ -297,7 +297,7 @@ public sealed class SimManager : SimGroup
     // src/sim/sim_manager.cpp SimManager::insertEvent: 004fdf2c, upper bound by float time.
     private void InsertEvent(Event e)
     {
-        LinkedListNode<Event>? it = mEvents.First;
+        var it = mEvents.First;
         while (it != null && it.Value.Time <= e.Time)
             it = it.Next;
         if (it == null)
@@ -339,7 +339,7 @@ public sealed class SimManager : SimGroup
                 mQueueTime = mTargetTime;
                 break;
             }
-            Event e = mEvents.First!.Value;
+            var e = mEvents.First!.Value;
             mEvents.RemoveFirst();
             if (mQueueTime < e.Time)
                 mQueueTime = e.Time;
@@ -359,7 +359,7 @@ public sealed class SimManager : SimGroup
         if (mEvents.Count != 0)
         {
             var bas = mEvents.First!.Value.Time;
-            for (LinkedListNode<Event>? it = mEvents.First.Next; it != null; it = it.Next)
+            for (var it = mEvents.First.Next; it != null; it = it.Next)
                 it.Value.Time = Fpu.SubF(it.Value.Time, bas);
             mEvents.First.Value.Time = 0;
         }

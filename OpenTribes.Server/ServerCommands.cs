@@ -26,7 +26,7 @@ public static class ServerCommands
     /// <remarks>The ban list commands (00401808 to 004018a0) return lowercase <c>true</c> and <c>false</c>. <c>net::kick</c> is plugin 0051f86c id 5 and calls 0042babc. <c>quit</c> is 005f3504, PostQuitMessage.</remarks>
     public static void RegisterServerCommands(Interpreter interp, ServerCommandContext ctx)
     {
-        NetServer net = ctx.Net!;
+        var net = ctx.Net!;
 
         interp.AddCommand("BanList::add", (i, a) =>
         {
@@ -123,7 +123,7 @@ public static class ServerCommands
             return null;
         });
 
-        Action? quit = ctx.Quit;
+        var quit = ctx.Quit;
         interp.AddCommand("quit", (i, a) =>
         {
             quit?.Invoke();

@@ -446,7 +446,7 @@ public sealed class SmackerDecoder
         var br = new BitReader(copy, 0, copy.Length);
         int bw = (Width + 3) / 4, bh = (Height + 3) / 4, blocks = bw * bh;
         var blk = 0;
-        foreach (BigTree t in mTrees)
+        foreach (var t in mTrees)
             t.ResetCache();
         try
         {
@@ -533,7 +533,7 @@ public sealed class SmackerDecoder
     /// <returns>The PCM bytes, or null when the track carries no audio.</returns>
     public byte[]? ReadAudio(int track)
     {
-        SmackerAudioTrack a = Audio[track];
+        var a = Audio[track];
         if (!a.HasData || a.Rate <= 0)
             return null;
         var pcm = new MemoryStream();
@@ -552,7 +552,7 @@ public sealed class SmackerDecoder
                     break;
                 if (t == track)
                 {
-                    ReadOnlySpan<byte> body = chunk.Slice(p + 4, alen - 4);
+                    var body = chunk.Slice(p + 4, alen - 4);
                     if (a.Packed)
                     {
                         var dec = UnpackAudio(body, a);

@@ -64,14 +64,14 @@ public static class CommandMap
         maxDist = range = 0;
         if (game.Sim == null)
             return false;
-        DataBlockManager db = game.Sim.DataBlocks();
-        DataBlockManager.Block? sound = db.Find(name);
+        var db = game.Sim.DataBlocks();
+        var sound = db.Find(name);
         if (sound == null || sound.Group != 1)
             return false;
         index = sound.Index;
         if (!db.GetField(sound, "profile", "", out var profileName) || profileName.Length == 0)
             return false;
-        DataBlockManager.Block? profile = db.Find(profileName);
+        var profile = db.Find(profileName);
         if (profile == null || profile.Group != 0)
             return false;
         if (!db.GetField(profile, "minDistance", "", out var mn) || !db.GetField(profile, "maxDistance", "", out var mx))
@@ -85,13 +85,13 @@ public static class CommandMap
     // src/game/command_map.cpp issueCommand: 0x0040c828.
     private static void IssueCommand(GameState game, Interpreter interp, int issuer, int commanded, int icon, string text, int[] pair, int target)
     {
-        PlayerManager pm = game.Players;
+        var pm = game.Players;
         if (game.Sim?.Server() == null)
             return; // isServer
         if (target is < (-1) or > 255)
             return;
-        ClientRecord? issuerRec = pm.FindHuman(issuer);
-        ClientRecord? cmd = pm.Find(commanded);
+        var issuerRec = pm.FindHuman(issuer);
+        var cmd = pm.Find(commanded);
         ++pm.CommandCounter();
         if (issuer != 0)
         {
@@ -102,7 +102,7 @@ public static class CommandMap
         {
             // 0x0040cad4: is the issuer on the commander chain above the commanded client?
             var above = false;
-            for (ClientRecord? r = cmd; r != null;)
+            for (var r = cmd; r != null;)
             {
                 if (r.Commander == issuer)
                 {
@@ -146,7 +146,7 @@ public static class CommandMap
             return; // issuer 0: the original dereferences null in the delivery loop (D11)
         foreach (var id in pm.Humans())
         {
-            ClientRecord? h = pm.Find(id);
+            var h = pm.Find(id);
             if (h == null)
                 continue;
             if (h.GuiMirror == 2)
@@ -165,7 +165,7 @@ public static class CommandMap
     // src/game/command_map.cpp selectCommander: 0x0040cb50 remoteSelectCommander.
     private static void SelectCommander(GameState game, int client, int commander)
     {
-        PlayerManager pm = game.Players;
+        var pm = game.Players;
         if (game.Sim?.Server() == null)
             return;
         // 0x0040b46c: a commander that is not a human in the list is dropped first.
@@ -174,15 +174,15 @@ public static class CommandMap
                 r.Commander = -1;
         if (commander == client)
             return;
-        ClientRecord? rec = pm.Find(client);
-        ClientRecord? cmdr = commander >= 0 ? pm.FindHuman(commander) : null;
+        var rec = pm.Find(client);
+        var cmdr = commander >= 0 ? pm.FindHuman(commander) : null;
         if (rec == null)
             return;
         if (cmdr != null && cmdr.Team != rec.Team)
             return;
         if (cmdr == rec)
             return;
-        ClientRecord? current = pm.FindHuman(rec.Commander);
+        var current = pm.FindHuman(rec.Commander);
         if (cmdr == current)
             return;
         var old = rec.Commander;
@@ -193,7 +193,7 @@ public static class CommandMap
         }
         else
         {
-            ClientRecord? r = cmdr;
+            var r = cmdr;
             while (r != null && rec.Id != r.Commander)
                 r = pm.FindHuman(r.Commander);
             if (r == null)
@@ -208,10 +208,10 @@ public static class CommandMap
     // src/game/command_map.cpp setCommandStatus: 0x0040cbf0.
     private static bool SetCommandStatus(GameState game, int client, int status, string text)
     {
-        PlayerManager pm = game.Players;
+        var pm = game.Players;
         if (game.Sim?.Server() == null)
             return false;
-        ClientRecord? rec = pm.FindHuman(client);
+        var rec = pm.FindHuman(client);
         if (rec == null)
             return false;
         ++pm.CommandCounter();
@@ -227,7 +227,7 @@ public static class CommandMap
         }
         foreach (var id in pm.Humans())
         {
-            ClientRecord? h = pm.Find(id);
+            var h = pm.Find(id);
             if (h == null)
                 continue;
             if (h.GuiMirror == 2)
@@ -424,17 +424,17 @@ public static class CommandMap
             if (game.Sim?.Server() == null || a.Length != 3)
                 return "False";
             var speaker = Numbers.BorlandAtoi(a[1]);
-            ClientRecord? rec = game.Players.FindHuman(speaker);
+            var rec = game.Players.FindHuman(speaker);
             if (rec == null || rec.OwnedObject == 0)
                 return "True";
-            DataBlockManager.Block? profile = game.Sim.DataBlocks().At(0, 0);
+            var profile = game.Sim.DataBlocks().At(0, 0);
             if (ServerObject(game, rec.OwnedObject) is not GameBase owned || profile == null || !game.Sim.DataBlocks().GetField(profile, "maxDistance", "", out var mx))
                 return "True";
             var maxDist = Store(Numbers.BorlandAtof(mx));
             var d = new float[3];
             foreach (var id in game.Players.Humans())
             {
-                GameBase? scope = ScopeOf(game, id);
+                var scope = ScopeOf(game, id);
                 if (scope == null)
                     continue;
                 for (var i = 0; i < 3; ++i)
@@ -457,7 +457,7 @@ public static class CommandMap
             var d = new float[3];
             foreach (var id in game.Players.Humans())
             {
-                GameBase? scope = ScopeOf(game, id);
+                var scope = ScopeOf(game, id);
                 if (scope == null)
                     continue;
                 for (var i = 0; i < 3; ++i)
@@ -475,7 +475,7 @@ public static class CommandMap
         {
             if (game.Sim?.Server() == null || a.Length != 4)
                 return "False";
-            GameBase? gb = game.Players.FindServerObject(a[1]);
+            var gb = game.Players.FindServerObject(a[1]);
             if (gb == null)
                 return "False";
             if (!SoundProfile(game, a[2], out var index, out _, out var range))
@@ -485,7 +485,7 @@ public static class CommandMap
             foreach (var id in game.Players.Humans())
             {
                 var ghost = SoundRoute.GhostIndex != null ? SoundRoute.GhostIndex(id, gb) : -1;
-                GameBase? scope = ScopeOf(game, id);
+                var scope = ScopeOf(game, id);
                 if (ghost < 0 || scope == null)
                     continue;
                 for (var i = 0; i < 3; ++i)

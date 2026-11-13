@@ -192,11 +192,11 @@ public sealed class ServerBrowser : IDisposable
     // 0x2230a: every row is pinged again (004c77a8); nothing happens without rows.
     private void RefreshVisible()
     {
-        GuiServerList? list = List;
+        var list = List;
         if (list == null || list.Servers.Count == 0)
             return;
-        ServerQuery q = Query();
-        foreach (GuiServerList.Server s in list.Servers.ToList())
+        var q = Query();
+        foreach (var s in list.Servers.ToList())
         {
             q.Queue(s.Address);
             s.State = GuiServerList.StateQuerying;
@@ -231,10 +231,10 @@ public sealed class ServerBrowser : IDisposable
     // INFO: the dialog opens over the selected server and shows what its info reply gave.
     private bool OpenInfo()
     {
-        GuiServerList? list = List;
+        var list = List;
         if (list == null || list.Selected < 0 || list.Selected >= list.Servers.Count || list.Servers[list.Selected].State != GuiServerList.StateInfo)
             return true;
-        GuiServerList.Server row = list.Servers[list.Selected];
+        var row = list.Servers[list.Selected];
         mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\ServerInfo.gui\");");
         FillInfoDialog(row);
         ShowFlags(row);
@@ -260,7 +260,7 @@ public sealed class ServerBrowser : IDisposable
     // info and a query queue. The row keeps its state and flags until the answers come.
     private void RefreshSelected()
     {
-        GuiServerList? list = List;
+        var list = List;
         if (list == null || list.Selected < 0 || list.Selected >= list.Servers.Count || list.Servers[list.Selected].State != GuiServerList.StateInfo)
             return;
         Query().Queue(list.Servers[list.Selected].Address);
@@ -270,7 +270,7 @@ public sealed class ServerBrowser : IDisposable
     // +0x244, found again by address). Both need a selected row that has its info. The file is written when the search ends or the screen closes.
     private void SetSelectedFlag(bool favorite)
     {
-        GuiServerList? list = List;
+        var list = List;
         if (list == null || list.Selected < 0 || list.Selected >= list.Servers.Count || list.Servers[list.Selected].State != GuiServerList.StateInfo)
             return;
         if (Find(favorite ? InfoFavoriteBoxId : InfoNeverPingBoxId) is not GuiUniversalButton box)
@@ -286,7 +286,7 @@ public sealed class ServerBrowser : IDisposable
     /// <param name="content">The control that holds the list, or null for the current content.</param>
     public void SaveList(GuiControl? content = null)
     {
-        GuiServerList? list = content?.FindById(ListId) as GuiServerList ?? List;
+        var list = content?.FindById(ListId) as GuiServerList ?? List;
         if (list == null)
             return;
         var path = Builtins.ResolveGamePath(mApp.Opt.Root, "config\\GameServerList.cs");
@@ -322,12 +322,12 @@ public sealed class ServerBrowser : IDisposable
     private void Cancel()
     {
         mQuery?.CancelAll();
-        GuiServerList? list = List;
+        var list = List;
         if (list != null)
         {
             list.KeepFailed = true;
             list.Requery = false;
-            foreach (GuiServerList.Server s in list.Servers)
+            foreach (var s in list.Servers)
                 if (s.State == GuiServerList.StateQuerying)
                     s.State = GuiServerList.StateUnknown;
         }
@@ -348,12 +348,12 @@ public sealed class ServerBrowser : IDisposable
     /// <summary>Runs queryServers (0042bb50, TribesNet_queryServers): the LAN broadcast on the game port, then the first master unless lanOnly is set.</summary>
     public void QueryServers()
     {
-        ServerQuery q = Query();
+        var q = Query();
         mInfoCount = 0;
         q.ClearSeen();
         // 004c525c: the never-ping rows count as answered, a broadcast or master reply for one is not queried.
         if (List is { } list)
-            foreach (GuiServerList.Server s in list.Servers)
+            foreach (var s in list.Servers)
                 if (s.NeverPing && QueryAddress.TryResolve(s.Address, 0, out var canon, out _, out _, out _))
                     q.AddSeen(canon);
         var port = IntVar("$Server::Port", 0).ToString(CultureInfo.InvariantCulture);
@@ -373,10 +373,10 @@ public sealed class ServerBrowser : IDisposable
     // 0042caf0: a ping answered. The row is added or updated (004c5c0c); a server of this version gets an info request.
     private void OnPing(string address, string name, int ping, ushort packetVersion)
     {
-        GuiServerList? list = List;
+        var list = List;
         if (list != null)
         {
-            GuiServerList.Server? row = list.Find(address);
+            var row = list.Find(address);
             if (row == null)
             {
                 row = new GuiServerList.Server(mOwner.NextRow(), name, address, packetVersion.ToString(CultureInfo.InvariantCulture), ping, false);
@@ -453,7 +453,7 @@ public sealed class ServerBrowser : IDisposable
     // 0042cb88: a ping or an info request gave up, or the server speaks another version.
     private void OnFail(string address)
     {
-        GuiServerList? list = List;
+        var list = List;
         if (list?.Find(address) is { } row)
         {
             row.State = GuiServerList.StateTimeout;
@@ -480,7 +480,7 @@ public sealed class ServerBrowser : IDisposable
             if (!queued)
                 MasterError();
         }
-        ServerQuery q = Query();
+        var q = Query();
         if (q.PendingPings < 1)
         {
             if (q.PendingRequests < 2)
@@ -526,7 +526,7 @@ public sealed class ServerBrowser : IDisposable
         // 004d7ac4 -> 004c7820: rows that never answered go, favorites are asked directly, then the file is written.
         if (List is { } list)
         {
-            foreach (GuiServerList.Server s in list.EndSearch(mMasterError))
+            foreach (var s in list.EndSearch(mMasterError))
                 Query().Queue(s.Address);
             SaveList();
         }
@@ -541,7 +541,7 @@ public sealed class ServerBrowser : IDisposable
     /// <summary>Sets the buttons of the screen (004d7648): JOIN needs a selected row, INFO one that has its info.</summary>
     public void UpdateButtons()
     {
-        GuiServerList? list = List;
+        var list = List;
         var sel = list != null && list.Selected >= 0 && list.Selected < list.Servers.Count;
         if (Find(JoinId) is GuiActive join)
             join.Active = sel;

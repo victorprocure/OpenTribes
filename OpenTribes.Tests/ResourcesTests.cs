@@ -133,11 +133,11 @@ public class ResourcesTests
         Assert.Equal("loose", Text(res, "loose.cs"));
 
         // OF2-OF4: newest entries first; a rescan prepends only new files.
-        List<string> cs = List(res, "*.cs");
+        var cs = List(res, "*.cs");
         Assert.Equal("t.cs", cs[0]); // newest: mounted last
-        List<string> mission = List(res, "dup.cs");
+        var mission = List(res, "dup.cs");
         // base\missions scanned after base: the bare missions entry is newer than "missions\dup.cs".
-        List<string> all = List(res, "*dup.cs");
+        var all = List(res, "*dup.cs");
         Assert.Equal(4, all.Count);
         Assert.True(all[0] is "later.cs" or "dup.cs");
         var sawPrefixed = false;
@@ -146,7 +146,7 @@ public class ResourcesTests
         Assert.True(sawPrefixed);
 
         // OF3: loose files in reverse case-insensitive order within a directory.
-        List<string> ab = List(res, "?.cs");
+        var ab = List(res, "?.cs");
         Assert.Equal(["t.cs", "b.cs", "A.cs"], ab);
 
         // OF5/RQ2: the first spelling interned is displayed for later case variants.
@@ -170,12 +170,12 @@ public class ResourcesTests
         res.SetSearchPath(kPath);
         Assert.True(res.AddVolume("mis.vol") && res.AddVolume("other.vol"));
         Assert.Null(res.Load("missing.dis"));
-        ResourceManager.Entry? early = res.Load("early.dil");
+        var early = res.Load("early.dil");
         Assert.True(early != null && early.Locks == 1 && early.HasInstance);
         ResourceManager.Unlock(early!);
         res.Purge(); // mounted: the unlocked instance goes, the entry stays
         Assert.True(res.Find("early.dil") == early && !early!.HasInstance);
-        ResourceManager.Entry kept = res.Load("kept.dis")!;
+        var kept = res.Load("kept.dis")!;
         ResourceManager.Unlock(kept); // its object is gone, the instance waits for purge
         {
             var holder = new ResourceLocks(); // an object that still holds its resource
@@ -185,12 +185,12 @@ public class ResourcesTests
             Assert.True(res.Find("never.bmp") == null && res.Find("early.dil") == null);
             Assert.True(res.Find("kept.dis")!.Flags == ResourceManager.Stale && Text(res, "kept.dis") == "<missing>");
             // A load of a stale entry returns its instance.
-            ResourceManager.Entry? again = res.Load("kept.dis");
+            var again = res.Load("kept.dis");
             Assert.True(again == kept && kept.Locks == 1);
             ResourceManager.Unlock(again!);
             // Remounting reuses the kept entries in place; the others are created in front.
             Assert.True(res.AddVolume("mis.vol"));
-            List<string> order = List(res, "*");
+            var order = List(res, "*");
             int At(string n) => order.IndexOf(n);
             Assert.True(At("early.dil") < At("never.bmp") && At("never.bmp") < At("o.cs") && At("o.cs") < At("held.dig") &&
                         At("held.dig") < At("kept.dis") && At("early.dil") >= 0);

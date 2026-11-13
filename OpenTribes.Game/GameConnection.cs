@@ -324,7 +324,7 @@ public sealed class GameConnection
         var prev = -4; // first ordered event of a packet carries its sequence
         while (mQueue.Count != 0 && bs.BitPosition() <= mPacketBytes * 8)
         {
-            OutEvent e = mQueue.First!.Value;
+            var e = mQueue.First!.Value;
             // Low mark: first sequence still in flight, at most the highest written (0x00551c04).
             while (!mSeqInFlight[mLowSeq & 127] && mLowSeq < mMaxSeq)
                 ++mLowSeq;
@@ -370,7 +370,7 @@ public sealed class GameConnection
     // record was filled, which is whenever a control object exists.
     private bool WritePsc(BitStream bs, PscRecord rec)
     {
-        GameBase? control = mHooks.ControlObject?.Invoke();
+        var control = mHooks.ControlObject?.Invoke();
         bs.WriteInt(GuiMode, 3);
         bs.WriteFlag(Flag6a);
         bs.WriteInt(unchecked((uint)MoveCount - 1u), 32);
@@ -585,7 +585,7 @@ public sealed class GameConnection
     // carried; a delivered one moves the watermark.
     public void Notify(uint cookie, bool delivered)
     {
-        if (mMarks.TryGetValue(cookie, out PacketMark? mk))
+        if (mMarks.TryGetValue(cookie, out var mk))
         {
             if (delivered)
             {
@@ -603,17 +603,17 @@ public sealed class GameConnection
             mGhosts.Notify(g, delivered);
             mGhostTokens.Remove(cookie);
         }
-        if (mPscRecords.TryGetValue(cookie, out PscRecord? p))
+        if (mPscRecords.TryGetValue(cookie, out var p))
         {
             if (!delivered)
                 PscDropped(p);
             mPscRecords.Remove(cookie);
         }
-        if (!mInFlight.TryGetValue(cookie, out List<OutEvent>? events))
+        if (!mInFlight.TryGetValue(cookie, out var events))
             return;
         if (delivered)
         {
-            foreach (OutEvent e in events)
+            foreach (var e in events)
                 if (e.Ordered)
                     mSeqInFlight[e.Seq & 127] = false;
         }
@@ -712,7 +712,7 @@ public sealed class GameConnection
             }
             // Ordered: dispatch in sequence; others wait, keyed by sequence, until their turn.
             mPendingRecv[seq] = e;
-            while (mPendingRecv.TryGetValue(mExpectedSeq, out InEvent? next))
+            while (mPendingRecv.TryGetValue(mExpectedSeq, out var next))
             {
                 mPendingRecv.Remove(mExpectedSeq);
                 mExpectedSeq = (mExpectedSeq + 1) & 127;
@@ -726,7 +726,7 @@ public sealed class GameConnection
     // move index, moves. Moves the server already has are skipped; the rest go to the control object in one call.
     private bool ReadPsc(BitStream bs)
     {
-        GameBase? control = mHooks.ControlObject?.Invoke();
+        var control = mHooks.ControlObject?.Invoke();
         var fov = bs.ReadInt(8);
         control?.Fov = Store(Mul(Mul(Div(Div(fov, 255.0), 180.0), 3.141592653589793), 135.0));
         // The index is client data: 32-bit wrap like the original's subtraction, never overflow.

@@ -123,11 +123,11 @@ public class VehicleTests
         Assert.True(moves.Count == states.Count); // static_assert(N == M)
         var pos = Numbers.FormatFloat(TestPaths.IncF32(start[0])) + " " + Numbers.FormatFloat(TestPaths.IncF32(start[1])) + " " +
                      Numbers.FormatFloat(TestPaths.IncF32(start[2]));
-        Flier fl = f.Make(data, pos);
+        var fl = f.Make(data, pos);
         fl.Piloted = true;
         for (var i = 0; i < moves.Count; ++i)
         {
-            Move m = MakeMove(moves[i]);
+            var m = MakeMove(moves[i]);
             fl.Update(ref m, 0.032f);
             var s = states[i].Take(13).Select(TestPaths.IncU32).ToArray();
             var landed = int.Parse(states[i][13], CultureInfo.InvariantCulture);
@@ -173,10 +173,10 @@ public class VehicleTests
     private static void TestCreation()
     {
         var f = new Fixture("vehicle_create");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("function Vehicle::onAdd(%this) { $added = %this; GameBase::setRechargeRate(%this, 10); }");
-        Flier v = f.Make("Scout", "-40 0 60");
+        var v = f.Make("Scout", "-40 0 60");
         var id = Itoa(v.Id());
         c.Check(w, "echo($added == " + id + ");", "1");
         c.Check(w, "echo(getObjectType(" + id + "), \" \", GameBase::getDataName(" + id + "), \" \", GameBase::isActive(" +
@@ -186,12 +186,12 @@ public class VehicleTests
                     v.SpeedL == 0 && v.SpeedS == 0 && v.Credit == 0 && v.FireCount == 0);
         Assert.Equal(0x199, v.ItemFlags);
         bool in718 = false, in719 = false;
-        foreach (SimObject m in w.Sim.Server()!.FindById(718)!.AsSet()!.Members())
+        foreach (var m in w.Sim.Server()!.FindById(718)!.AsSet()!.Members())
             in718 = in718 || m == v;
-        foreach (SimObject m in w.Sim.Server()!.FindById(719)!.AsSet()!.Members())
+        foreach (var m in w.Sim.Server()!.FindById(719)!.AsSet()!.Members())
             in719 = in719 || m == v;
         Assert.True(in718 && !in719 && w.Game.World.Find(v) != null && w.Game.World.TerrainOf(v) != null);
-        Vehicle.VData d = v.Data;
+        var d = v.Data;
         Assert.True(d.MaxSpeed == 50 && d.MinSpeed == -2 && d.MaxVertical == 10 && d.MaxAlt == 25 && d.Lift == 0.75f);
         Assert.True(Bits(d.Accel) == Bits(X87.F32(0.399999)) && d.DriverPose == 22 && d.VisibleDriver);
         Assert.True(v.MaxDamage == X87.F32(0.599999) && v.MaxEnergy == 100);
@@ -207,7 +207,7 @@ public class VehicleTests
     private static void TestCredit()
     {
         var f = new Fixture("vehicle_credit");
-        Flier v = f.Make("Scout", "128 128 70");
+        var v = f.Make("Scout", "128 128 70");
         var jet = new Move
         {
             Jet = true
@@ -252,10 +252,10 @@ public class VehicleTests
     private static void TestMounting()
     {
         var f = new Fixture("vehicle_mount");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
-        Flier v = f.Make("Scout", "100 100 80");
-        Player p = f.Spawn("100 100 54");
+        var v = f.Make("Scout", "100 100 80");
+        var p = f.Spawn("100 100 54");
         string vid = Itoa(v.Id()), pid = Itoa(p.Id());
         c.Check(w, "echo(Player::getMountObject(" + pid + "));", "-1");
         c.Check(w, "echo(Player::setMountObject(" + pid + ", " + vid + ", 1), \" \", Player::getMountObject(" + pid + "));",
@@ -290,10 +290,10 @@ public class VehicleTests
     private static void TestCommands()
     {
         var f = new Fixture("vehicle_commands");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
-        Flier v = f.Make("Scout", "100 100 80");
-        Player p = f.Spawn("100 100 54");
+        var v = f.Make("Scout", "100 100 80");
+        var p = f.Spawn("100 100 54");
         string vid = Itoa(v.Id()), pid = Itoa(p.Id());
         c.Check(w, "echo(Vehicle::canMount());", "wrong argcount to canMount (Vehicle, Player)\nFalse");
         c.Check(w, "echo(Vehicle::canRide());", "wrong argcount to canRide (Vehicle, Player)\nFalse");
@@ -320,13 +320,13 @@ public class VehicleTests
     private static void TestDamage()
     {
         var f = new Fixture("vehicle_damage");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var c = new Cases();
         w.Run("function Vehicle::onDamage(%this, %type, %value, %pos, %vec, %mom, %obj)" +
               " { $dmg = %type @ \"|\" @ %value @ \"|\" @ %vec @ \"|\" @ %mom @ \"|\" @ %obj;" +
               " GameBase::setDamageLevel(%this, GameBase::getDamageLevel(%this) + %value); }" +
               "function Vehicle::onDestroyed(%this, %mom) { $destroyed = %this; }");
-        Flier v = f.Make("Scout", "128 128 120");
+        var v = f.Make("Scout", "128 128 120");
         var vid = Itoa(v.Id());
         v.Piloted = true;
         v.ControlClient = 2049;
@@ -342,7 +342,7 @@ public class VehicleTests
         var none = new Move();
         v.Update(ref none, 0.032f);
         Assert.True(v.Velocity[0] == 5.0f && v.Velocity[2] < 0);
-        Flier g = f.Make("Scout", "60 60 52.5");
+        var g = f.Make("Scout", "60 60 52.5");
         g.Piloted = true;
         g.SpeedF = 50;
         g.SpeedT = 50;
@@ -378,12 +378,12 @@ public class VehicleTests
     private static void TestHulls()
     {
         var f = new Fixture("vehicle_hulls");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var none = new Move();
         w.Run("function Vehicle::onDamage(%this, %type, %value, %pos, %vec, %mom, %obj) { $hd = $hd @ %this @ \":\" @ %value @ \" \"; }");
         {
-            Flier low = f.Make("Scout", "100 100 53");
-            Flier high = f.Make("Scout", "100 100 58");
+            var low = f.Make("Scout", "100 100 53");
+            var high = f.Make("Scout", "100 100 58");
             for (var i = 0; i < 80; ++i)
             {
                 low.Update(ref none, 0.032f);
@@ -394,14 +394,14 @@ public class VehicleTests
             Assert.Equal(0, w.Run("echo($hd);").Length);
             high.Transform.P[2] = 55.5f;
             high.UpdateGround();
-            Container.Entry? e = w.Game.World.Find(high);
+            var e = w.Game.World.Find(high);
             Assert.True(e != null && high.Transform.P[2] > 55.9f && e.Box[2] == high.Transform.P[2]);
             w.Run("deleteObject(" + Itoa(low.Id()) + "); deleteObject(" + Itoa(high.Id()) + ");");
         }
         for (var dead = 0; dead < 2; ++dead)
         {
-            Flier v = f.Make("Scout", "300 300 120");
-            Player p = f.Spawn("300 302 120");
+            var v = f.Make("Scout", "300 300 120");
+            var p = f.Spawn("300 302 120");
             p.Dead = dead != 0;
             w.Run("$hd = \"\";");
             v.Velocity[1] = 5.0f;
@@ -427,7 +427,7 @@ public class VehicleTests
         }
         for (var pass = 0; pass < 2; ++pass)
         {
-            Flier v = f.Make("Scout", "400 400 120");
+            var v = f.Make("Scout", "400 400 120");
             v.Velocity[0] = 3.0f;
             v.Velocity[1] = 0.0f;
             v.Velocity[2] = -1.0f;
@@ -441,7 +441,7 @@ public class VehicleTests
             w.Run("deleteObject(" + Itoa(v.Id()) + ");");
         }
         {
-            Flier v = f.Make("Scout", "600 600 120");
+            var v = f.Make("Scout", "600 600 120");
             f.Spawn("600 602 120");
             w.Run("function Vehicle::onDamage(%this, %type, %value, %pos, %vec, %mom, %obj) { $hr = GameBase::getRotation(%this); }");
             w.Run("$hr = \"none\";");
@@ -456,8 +456,8 @@ public class VehicleTests
             w.Run("function Vehicle::onDamage(%this, %type, %value, %pos, %vec, %mom, %obj) { $hd = $hd @ %this @ \":\" @ %value @ \" \"; }");
         }
         {
-            Flier v = f.Make("Scout", "500 500 120");
-            Player p = f.Spawn("500 500 120");
+            var v = f.Make("Scout", "500 500 120");
+            var p = f.Spawn("500 500 120");
             v.Rotation[0] = -0.2f;
             MissionTransform.EulerToMatrix(v.Rotation, ref v.Transform);
             v.Transform.P[0] = 500;
@@ -473,10 +473,10 @@ public class VehicleTests
             Assert.True(p.Transform.M[5] == pitched && p.Transform.P[1] > 500.4f);
         }
         {
-            Flier v = f.Make("Scout", "700 700 120");
-            Player p = f.Spawn("700 701.5 120");
-            Flier parked = f.Make("HAPC", "700 703.2 120");
-            Flier away = f.Make("HAPC", "700 760 120");
+            var v = f.Make("Scout", "700 700 120");
+            var p = f.Spawn("700 701.5 120");
+            var parked = f.Make("HAPC", "700 703.2 120");
+            var away = f.Make("HAPC", "700 760 120");
             Assert.True((v.ItemFlags & 5) == 1 && (parked.ItemFlags & 5) == 1 && (away.ItemFlags & 5) == 1);
             parked.Velocity[0] = 0;
             parked.Velocity[1] = 0;
@@ -490,7 +490,7 @@ public class VehicleTests
             Assert.True(parked.Transform.P[0] == at[0] && parked.Transform.P[1] == at[1] && parked.Transform.P[2] == at[2]);
             Assert.True(parked.Velocity[0] == 0.0f && parked.Velocity[1] == 0.0f && parked.Velocity[2] == -0.64f);
             Assert.Equal(0, w.Game.mDisplaceHidden.Count);
-            foreach (Flier hull in new[] { parked, away })
+            foreach (var hull in new[] { parked, away })
             {
                 hull.Velocity[0] = 3.0f;
                 hull.Velocity[1] = 0.0f;
@@ -499,7 +499,7 @@ public class VehicleTests
                 Assert.True(hull.ProcessCollision(hits, 0));
                 Assert.True(hull == parked ? hull.Velocity[0] == 3.0f : hull.Velocity[0] < 3.0f);
             }
-            Player q = f.Spawn("700 701.5 121.2");
+            var q = f.Spawn("700 701.5 121.2");
             var qz = q.Transform.P[2];
             float[] again = [700, 699.98f, 120];
             Assert.True(w.Game.MoveableDisplace(v, again));
@@ -513,13 +513,13 @@ public class VehicleTests
             GameBase Gb(string make, string pos)
             {
                 var id = w.Run("echo(" + make + ");");
-                SimObject? o = w.Object(id);
+                var o = w.Object(id);
                 Assert.True(o is GameBase);
                 w.Run("GameBase::setPosition(" + id + ", \"" + pos + "\");");
                 return (GameBase)o!;
             }
-            Flier v = f.Make("Scout", "900 900 120");
-            Player p = f.Spawn("900 901.5 120");
+            var v = f.Make("Scout", "900 900 120");
+            var p = f.Spawn("900 901.5 120");
             v.Velocity[0] = 0;
             v.Velocity[1] = 5.0f;
             v.Velocity[2] = 0;
@@ -534,8 +534,8 @@ public class VehicleTests
                 p.Transform.P[1] = py; // the same overlap for the next object
                 p.UpdateContainer();
             }
-            GameBase item = Gb("newObject(\"\", Item, Ball, 1, false)", "900 903.2 120");
-            GameBase far = Gb("newObject(\"\", Item, Ball, 1, false)", "900 960 120");
+            var item = Gb("newObject(\"\", Item, Ball, 1, false)", "900 903.2 120");
+            var far = Gb("newObject(\"\", Item, Ball, 1, false)", "900 960 120");
             item.AtRest = far.AtRest = true;
             Assert.Equal(5, (item.ItemFlags & 5));
             var at = item.Transform.P[1]; // 903.2 as setPosition reads it
@@ -553,20 +553,20 @@ public class VehicleTests
             Player? sp = Player.From(w.Object(w.Run("echo(spawnPlayer(sarmor, \"900 901.5 120\", \"0 0 0\"));")));
             Assert.NotNull(sp);
             p = sp!;
-            GameBase mine = Gb("newObject(\"\", Mine, Mn)", "900 903.2 120");
+            var mine = Gb("newObject(\"\", Mine, Mn)", "900 903.2 120");
             Assert.True(mine.ShapeTriggerRadius == 2.5f && (mine.ItemFlags & 5) == 5);
             Shove();
             Assert.True((mine.ItemFlags & 5) == 0 && mine.Transform.P[1] == at);
             Assert.True(mine.Velocity[0] == 0.0f && mine.Velocity[1] == 5.0f && mine.Velocity[2] == 0.0f);
             {
                 w.Run("$mc = 0; function Mn::onCollision(%this, %obj) { $mc = $mc @ getObjectType(%obj); }");
-                Flier hull = f.Make("Scout", "900 906.5 120");
+                var hull = f.Make("Scout", "900 906.5 120");
                 var cands = new List<CollisionImage>();
                 var hits = new List<CollisionHit>();
                 float[] hp = [hull.Transform.P[0], hull.Transform.P[1], hull.Transform.P[2]];
                 hull.HullCandidates(hp, cands, Flier.kHullMask);
                 int spheres = 0, shapes = 0;
-                foreach (CollisionImage im in cands)
+                foreach (var im in cands)
                     if (im.Object == mine)
                     {
                         if (im.ImageKind == CollisionImage.Kind.TriggerSphere)
@@ -578,7 +578,7 @@ public class VehicleTests
                 var n = cands.Count;
                 hull.TestAt(hp, cands, hits);
                 Assert.True(cands.Count == n - 1);
-                foreach (CollisionImage im in cands)
+                foreach (var im in cands)
                     Assert.False((im.Object == mine && im.ImageKind == CollisionImage.Kind.TriggerSphere));
                 w.Run("deleteObject(" + Itoa(hull.Id()) + ");"); // the sender is gone: the event is dropped
                 w.Sim.AdvanceRealTime(33);
@@ -593,13 +593,13 @@ public class VehicleTests
                 w.Run("deleteObject(" + Itoa(hull.Id()) + ");");
             }
             w.Run("deleteObject(" + Itoa(mine.Id()) + ");");
-            GameBase crate = Gb("newObject(\"\", StaticShape, Crate, true)", "900 903.2 120");
+            var crate = Gb("newObject(\"\", StaticShape, Crate, true)", "900 903.2 120");
             Assert.True((crate.ItemFlags & 5) == 5 && w.Run("echo(GameBase::getRotation(" + Itoa(crate.Id()) + "));") == "0 0 0");
             Shove();
             Assert.True((crate.ItemFlags & 5) == 0 && crate.Transform.P[1] == at && crate.Velocity[1] == 0.0f);
             Assert.Equal("0 -0 -0", w.Run("echo(GameBase::getRotation(" + Itoa(crate.Id()) + "));"));
             w.Run("deleteObject(" + Itoa(crate.Id()) + ");");
-            GameBase lift = Gb("newObject(\"\", Moveable, Lift, true)", "900 903.2 120");
+            var lift = Gb("newObject(\"\", Moveable, Lift, true)", "900 903.2 120");
             far.Attach(lift);
             Assert.True((far.ItemFlags & 5) == 5 && far.AtRest);
             Shove();
@@ -613,14 +613,14 @@ public class VehicleTests
                   "function Vehicle::onDamage(%this, %type, %value, %pos, %vec, %mom, %obj) {" +
                   " $hd = $hd @ %value @ \" \"; $rot = GameBase::getRotation(%this);" +
                   " if($ray) getLOSInfo(\"1000 1000 60\", \"1000 1000 51\", -1); }");
-            Flier a = f.Make("Scout", "1000 1000 53");
+            var a = f.Make("Scout", "1000 1000 53");
             for (var i = 0; i < 80; ++i)
                 a.Update(ref none, 0.032f);
             Assert.True(a.Landed && w.Run("echo($hd);").Length == 0);
             var low = a.Transform.P[2];
             var pos = "1000 1001.7 " + CFormat.G(low, 9);
-            Flier b = f.Make("Scout", pos);
-            Container.Entry e = w.Game.World.Find(a)!;
+            var b = f.Make("Scout", pos);
+            var e = w.Game.World.Find(a)!;
             var q0 = e.ImageQueries;
             var id = Itoa(a.Id());
             a.Update(ref none, 0.032f);
@@ -639,7 +639,7 @@ public class VehicleTests
             w.Run("function Vehicle::onDamage(%this, %type, %value, %pos, %vec, %mom, %obj) { $hd = $hd @ %this @ \":\" @ %value @ \" \"; }");
         }
         {
-            Player p = f.Spawn("800 800 50.5");
+            var p = f.Spawn("800 800 50.5");
             for (var i = 0; i < 40; ++i)
                 p.UpdateMove(none);
             Assert.True(p.RestFlag && p.ContactFlag);
@@ -659,7 +659,7 @@ public class VehicleTests
     private static void TestTriggers()
     {
         var f = new Fixture("vehicle_triggers");
-        Fixtures.World w = f.W;
+        var w = f.W;
         var none = new Move();
         w.Run("TriggerData Zone;" +
               "function Zone::onEnter(%t, %o) { $zl = $zl @ \"E\" @ $zi[%t]; }" +
@@ -681,20 +681,20 @@ public class VehicleTests
             }
         }
         string Log() => w.Run("echo($zl);");
-        GameBase inBox = Trigger("a", "100 100 60", "-1 -1 -1 1 1 1", "False");
-        GameBase aside = Trigger("b", "106 100 60", "-1 -1 -1 1 1 1", "False");
-        GameBase inSphere = Trigger("s", "130 100 60", "-1 -1 -1 1 1 1", "True");
-        Flier v = f.Make("Scout", "100 100 60.2");
-        Flier u = f.Make("Scout", "130 100 60.2");
+        var inBox = Trigger("a", "100 100 60", "-1 -1 -1 1 1 1", "False");
+        var aside = Trigger("b", "106 100 60", "-1 -1 -1 1 1 1", "False");
+        var inSphere = Trigger("s", "130 100 60", "-1 -1 -1 1 1 1", "True");
+        var v = f.Make("Scout", "100 100 60.2");
+        var u = f.Make("Scout", "130 100 60.2");
         Tick(v, 1);
         Tick(u, 1);
         Assert.Equal("EaEs", Log());
         Assert.True(inBox.Occupants.Count == 1 && inSphere.Occupants.Count == 1 && aside.Occupants.Count == 0);
         w.Run("deleteObject(" + Itoa(v.Id()) + "); deleteObject(" + Itoa(u.Id()) + "); $zl = \"\";");
-        GameBase far = Trigger("f", "202.1 100 60", "-1 -1 -1 1 1 1", "False");
-        GameBase near = Trigger("n", "301.9 100 60", "-1 -1 -1 1 1 1", "False");
-        Flier vf = f.Make("Scout", "200 100 60.2");
-        Flier vn = f.Make("Scout", "300 100 60.2");
+        var far = Trigger("f", "202.1 100 60", "-1 -1 -1 1 1 1", "False");
+        var near = Trigger("n", "301.9 100 60", "-1 -1 -1 1 1 1", "False");
+        var vf = f.Make("Scout", "200 100 60.2");
+        var vn = f.Make("Scout", "300 100 60.2");
         Tick(vf, 1);
         Tick(vn, 1);
         Assert.True(Log() == "En" && far.Occupants.Count == 0 && near.Occupants.Count == 1);
@@ -710,7 +710,7 @@ public class VehicleTests
     private static void TestWire()
     {
         var f = new Fixture("vehicle_wire");
-        Flier v = f.Make("Scout", "128 128 70");
+        var v = f.Make("Scout", "128 128 70");
         v.ControlClient = 2049;
         v.Piloted = true;
         v.SpeedF = 25;
@@ -744,10 +744,10 @@ public class VehicleTests
         v.PackUpdate(full, 2050, 0xffffffffu, true);
         Assert.True(full.BitPosition() > 100 && (b3[0] & 1) == 0);
         // Client round trip (client-net.md 3.5): the creating update, the 0x2000 state update, the owner-only form.
-        ClientWorld cw = ClientRoundTrip.WorldFor(0x223, v);
-        ClientGhost cv = ClientRoundTrip.Unpack(0x223, b3, full.BitPosition(), true, cw);
+        var cw = ClientRoundTrip.WorldFor(0x223, v);
+        var cv = ClientRoundTrip.Unpack(0x223, b3, full.BitPosition(), true, cw);
         Assert.True(cv.Class == "Flier" && ClientRoundTrip.Has(cv, "datablock") && ClientRoundTrip.Has(cv, "team") && !ClientRoundTrip.Has(cv, "ownerOnly"));
-        ClientGhost co = ClientRoundTrip.Unpack(0x223, b2, owner.BitPosition(), false, cw, cv);
+        var co = ClientRoundTrip.Unpack(0x223, b2, owner.BitPosition(), false, cw, cv);
         Assert.Equal(1, (long)co.State["ownerOnly"]!);
         var b4 = new byte[256];
         var upd = new BitStream(b4, b4.Length);
@@ -757,10 +757,10 @@ public class VehicleTests
         v.Piloted = false;
         v.PackUpdate(upd2, 2050, 0x2000, false);
         Assert.True(upd.BitPosition() > 0 && upd2.BitPosition() > 0);
-        ClientGhost cu = ClientRoundTrip.Unpack(0x223, b4, upd.BitPosition(), false, cw, cv);
+        var cu = ClientRoundTrip.Unpack(0x223, b4, upd.BitPosition(), false, cw, cv);
         Assert.True(ClientRoundTrip.Has(cu, "rot") && ClientRoundTrip.Has(cu, "pos") && ClientRoundTrip.Has(cu, "move") && ClientRoundTrip.Has(cu, "f8d8"));
         Assert.True(ClientRoundTrip.VecIs(ClientRoundTrip.Field(cu, "pos"), v.Transform.P[0], v.Transform.P[1], v.Transform.P[2]));
-        ClientGhost cu2 = ClientRoundTrip.Unpack(0x223, b5, upd2.BitPosition(), false, cw, cv);
+        var cu2 = ClientRoundTrip.Unpack(0x223, b5, upd2.BitPosition(), false, cw, cv);
         Assert.True(ClientRoundTrip.Has(cu2, "pos"), string.Join(",", cu2.Last.Select(x => x.Name)));
     }
 

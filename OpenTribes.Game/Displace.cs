@@ -148,14 +148,14 @@ public sealed partial class GameState
             p.MoverImageOf(mv);
             return Collision.TestImage(mv, image, hit);
         }
-        GameBase.ShapeKind cls = o.ShapeClass();
+        var cls = o.ShapeClass();
         var hulls = cls == GameBase.ShapeKind.Vehicle && mover.ShapeClass() == GameBase.ShapeKind.Vehicle;
         if (cls != GameBase.ShapeKind.Item && cls != GameBase.ShapeKind.Mine && !hulls)
             return false;
         var other = new CollisionImage();
         if (!ShapeImage(o, other))
             return false;
-        MoverImage self = SphereImageOf(mover, image.Rot, image.Pos);
+        var self = SphereImageOf(mover, image.Rot, image.Pos);
         return Collision.TestImage(self, other, hit);
     }
 
@@ -206,7 +206,7 @@ public sealed partial class GameState
         image.Rot = gb.Transform.M;
         image.Pos = gb.Transform.P;
         image.Object = gb;
-        DataBlockManager.Block? b = Sim != null && gb.DataBlockName != null ? Sim.DataBlocks().Find(gb.DataBlockName) : null;
+        var b = Sim != null && gb.DataBlockName != null ? Sim.DataBlocks().Find(gb.DataBlockName) : null;
         Span<float> box = stackalloc float[6];
         if (b == null || Resources == null || !Sim!.DataBlocks().GetField(b, "shapeFile", "", out var shape) || shape.Length == 0 ||
             !Shape.ShapeBox(Resources, shape, box))
@@ -214,7 +214,7 @@ public sealed partial class GameState
         image.Box = Float6.Of(box);
         image.ImageKind = CollisionImage.Kind.Shape;
         image.Boxes = Shape.ShapeCollisionBoxes(Resources, shape);
-        GameBase.ShapeKind cls = gb.ShapeClass();
+        var cls = gb.ShapeClass();
         image.NonBlocking = cls == GameBase.ShapeKind.Item && !gb.ItemCollideable;
         // StaticBase_bindShape (0x0044f68c): the collision detail, else detail 0. Item_applyCollideable (0x00451574, also
         // the Mine bind) puts the image in bounds mode.
@@ -257,7 +257,7 @@ public sealed partial class GameState
         }
         if (mDisplaceHidden.Count >= kMaxDisplaceDepth)
             return true;
-        SimManager? manager = mover.Manager();
+        var manager = mover.Manager();
         var records = new List<DisplaceRecord>();
         void Record(GameBase o)
         {
@@ -308,9 +308,9 @@ public sealed partial class GameState
         void Rollback()
         {
             Unhide();
-            foreach (DisplaceRecord r in records)
+            foreach (var r in records)
             {
-                GameBase o = r.Object;
+                var o = r.Object;
                 o.Transform = r.Xf;
                 if (Player.From(o) is Player p)
                 {
@@ -359,7 +359,7 @@ public sealed partial class GameState
             playerMover.MoverImageOf(self);
             // Sphere and box images (a Trigger, the trigger sphere of a station, a door or a Mine) are tested against the
             // Player's own shape (Player::buildCandidates).
-            foreach (CollisionImage im in images)
+            foreach (var im in images)
                 if (im.ImageKind is CollisionImage.Kind.TriggerSphere or CollisionImage.Kind.Trigger)
                 {
                     self.Instance = ShapeState.ShapeInstanceOf(this, mover);
@@ -367,7 +367,7 @@ public sealed partial class GameState
                     self.MeshMode = true;
                     break;
                 }
-            foreach (CollisionImage im in images)
+            foreach (var im in images)
             {
                 if (im.Object is not GameBase o || o.IsInterior() || Hidden(o) || riders.Contains(o.Id()))
                     continue;
@@ -391,7 +391,7 @@ public sealed partial class GameState
                 // A Vehicle moves with the collision mask 0x80 during its own displace (Flier_update U16). Its object box
                 // is turned by its matrix (bit 0x40 of +0x164, HF6).
                 overlapMask = top ? 0x80u : (Flier.kHullMask & ~0x46u);
-                Mat m = mover.WorldMat();
+                var m = mover.WorldMat();
                 Span<float> box = stackalloc float[6];
                 Shape.RotatedWorldBox(mover.ShapeQueryBox, m, box);
                 Collision.SweptBox(box[..3], box[3..], zero, mover.Velocity, 0.032f, query);
@@ -405,7 +405,7 @@ public sealed partial class GameState
                 if (so is GameBase o)
                     found.Add(o);
         }
-        foreach (GameBase o in found)
+        foreach (var o in found)
         {
             if (Hidden(o) || riders.Contains(o.Id()) || !Overlaps(o))
                 continue;
@@ -419,9 +419,9 @@ public sealed partial class GameState
         Unhide();
         // Commit: onDisplaced (Player 0x00416574, Item 0x00451978, a vehicle has the empty default 0x005067cc) and the
         // saved velocity.
-        foreach (DisplaceRecord r in records)
+        foreach (var r in records)
         {
-            GameBase o = r.Object;
+            var o = r.Object;
             if (Player.From(o) != null)
             {
                 o.SetMaskBits(0x12000);
@@ -481,7 +481,7 @@ public sealed partial class GameState
     /// <remarks>Follows StaticBase_getCollisionImages (0x0044fff0).</remarks>
     public bool StaticHasImage(GameBase gb)
     {
-        DataBlockManager.Block? b = gb.DataBlockName != null ? Sim!.DataBlocks().Find(gb.DataBlockName) : null;
+        var b = gb.DataBlockName != null ? Sim!.DataBlocks().Find(gb.DataBlockName) : null;
         var disabled = b != null && Sim!.DataBlocks().GetField(b, "disableCollision", "", out var v) && Numbers.ParseBool(v);
         return !((disabled || gb.DamageState == GameBase.kDestroyed) && !gb.VisibilityThread);
     }
@@ -500,11 +500,11 @@ public sealed partial class GameState
         }
         // Objects other than interiors are gated by the container query itself, whose database tests are not symmetric
         // (an object whose box starts exactly at the query's end is not found: 0x004fc3fc, docs/collision.md 11.8).
-        List<object?> exact = World.FindObjects(query, mask, mover);
+        var exact = World.FindObjects(query, mask, mover);
         Span<float> padded = stackalloc float[6];
         foreach (var obj in World.FindObjects(wide, mask, mover))
         {
-            Container.Entry? e = World.Find(obj);
+            var e = World.Find(obj);
             if (e == null)
                 continue;
             var image = new CollisionImage
@@ -620,7 +620,7 @@ public sealed partial class GameState
     /// <remarks>Event 0x41f (8 E1) is queued at the manager's current time, so it runs at the start of the next tick. It is dropped when the sender is gone by then.</remarks>
     public override void PostCollisionEvent(SimObject? target, SimObject? sender)
     {
-        SimManager? m = target?.Manager();
+        var m = target?.Manager();
         if (m == null || sender == null)
             return;
         var senderId = sender.Id();

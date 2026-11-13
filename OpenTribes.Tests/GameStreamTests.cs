@@ -242,12 +242,12 @@ public class GameStreamTests
         s.PutString("Tribes 1.11");
         s.PutBits(new byte[] { 0xa5 }, 5);
         Assert.True(s.Bits() == 3 + Bits.StrBits("Tribes 1.11") + 5);
-        OutEvent e = s.Finish(0x401);
+        var e = s.Finish(0x401);
         var b = new Bits(e);
         Assert.True(b.U(3) == 1 && b.Str() == "Tribes 1.11" && b.U(5) == 0x05 && b.Done());
         // finish resets the writer; an unguaranteed event is never ordered (2.2).
         Assert.True(s.Bits() == 0 && s.Bytes().Count == 0);
-        OutEvent u = s.Finish(0x461, false, true);
+        var u = s.Finish(0x461, false, true);
         Assert.True(!u.Guaranteed && !u.Ordered && u.BodyBits == 0 && u.Seq == -1);
     }
 
@@ -255,38 +255,38 @@ public class GameStreamTests
     public void TestBuilders()
     {
         // 2.5 SimConsoleEvent: int(5) argc, argc str; guaranteed ordered (2.3).
-        OutEvent re = GameEvents.MakeRemoteEval(new[] { "SVInfo", "1.11", "host" });
+        var re = GameEvents.MakeRemoteEval(new[] { "SVInfo", "1.11", "host" });
         Assert.True(re.Tag == 0x408 && re.Guaranteed && re.Ordered);
         {
             var b = new Bits(re);
             Assert.True(b.U(5) == 3 && b.Str() == "SVInfo" && b.Str() == "1.11" && b.Str() == "host" && b.Done());
         }
         // 2.5 TeamAddEvent: u32 +0x24 (0), u32 team (signed), str name, str skin.
-        OutEvent ta = GameEvents.MakeTeamAdd(-1, "unnamed", "base");
+        var ta = GameEvents.MakeTeamAdd(-1, "unnamed", "base");
         Assert.True(ta.Tag == 0x44f && ta.Ordered);
         {
             var b = new Bits(ta);
             Assert.True(b.U(32) == 0 && b.S32() == -1 && b.Str() == "unnamed" && b.Str() == "base" && b.Done());
         }
         // 2.5 DeltaScoreEvent: flag isTeam; int(4) team + 1 or int(7) id - 2048; u32 sort; str text.
-        OutEvent dt = GameEvents.MakeDeltaScore(true, -1, 0, "Team\tScore");
+        var dt = GameEvents.MakeDeltaScore(true, -1, 0, "Team\tScore");
         Assert.True(dt.Tag == 0x44d && dt.Ordered);
         {
             var b = new Bits(dt);
             Assert.True(b.Flag() && b.U(4) == 0 && b.U(32) == 0 && b.Str() == "Team\tScore" && b.Done());
         }
-        OutEvent dc = GameEvents.MakeDeltaScore(false, 2050, -5, "%n\t%t");
+        var dc = GameEvents.MakeDeltaScore(false, 2050, -5, "%n\t%t");
         {
             var b = new Bits(dc);
             Assert.True(!b.Flag() && b.U(7) == 2 && b.S32() == -5 && b.Str() == "%n\t%t" && b.Done());
         }
-        OutEvent d7 = GameEvents.MakeDeltaScore(true, 7, 3, "");
+        var d7 = GameEvents.MakeDeltaScore(true, 7, 3, "");
         {
             var b = new Bits(d7);
             Assert.True(b.Flag() && b.U(4) == 8 && b.U(32) == 3 && b.Str().Length == 0 && b.Done());
         }
         // 2.5 TargetNameEvent: int(7) index, str name; ordered (observed).
-        OutEvent tn = GameEvents.MakeTargetName(3, "Main Generator");
+        var tn = GameEvents.MakeTargetName(3, "Main Generator");
         Assert.True(tn.Tag == 0x45d && tn.Ordered);
         {
             var b = new Bits(tn);
@@ -294,28 +294,28 @@ public class GameStreamTests
         }
         // SimPathEvent without a path (a SimPath removed): destination object 42, index, flag 0.
         {
-            OutEvent pr = GameEvents.MakePathRemoved(3);
+            var pr = GameEvents.MakePathRemoved(3);
             Assert.True(pr.Tag == 0x425 && !pr.Ordered);
             var b = new Bits(pr);
             Assert.True(!b.Flag() && !b.Flag() && b.U(32) == 42 && b.U(32) == 3 && !b.Flag() && b.Done());
         }
         // Unnamed targets send no event.
         {
-            List<OutEvent> evs = GameEvents.MakeTargetNameEvents(new[] { "A", "", "", "B" });
+            var evs = GameEvents.MakeTargetNameEvents(new[] { "A", "", "", "B" });
             Assert.Equal(2, evs.Count);
             Bits b0 = new(evs[0]), b1 = new(evs[1]);
             Assert.True(b0.U(7) == 0 && b0.Str() == "A" && b1.U(7) == 3 && b1.Str() == "B");
         }
         // player-manager.md 11 PlayerAddEvent: u32 id, flag isAI, str name, skin, voice, int(1) male, u32 commander (-1
         // none), flag + int(3) team (flag 0 = -1).
-        OutEvent pa = GameEvents.MakePlayerAdd(2050, false, "Pilot", "base", "male2", true, -1, -1);
+        var pa = GameEvents.MakePlayerAdd(2050, false, "Pilot", "base", "male2", true, -1, -1);
         Assert.True(pa.Tag == 0x44b && pa.Ordered);
         {
             var b = new Bits(pa);
             Assert.True(b.U(32) == 2050 && !b.Flag() && b.Str() == "Pilot" && b.Str() == "base" && b.Str() == "male2");
             Assert.True(b.U(1) == 1 && b.S32() == -1 && !b.Flag() && b.Done());
         }
-        OutEvent pb = GameEvents.MakePlayerAdd(2051, true, "Bot", "beagle", "female1", false, 2050, 5);
+        var pb = GameEvents.MakePlayerAdd(2051, true, "Bot", "beagle", "female1", false, 2050, 5);
         {
             var b = new Bits(pb);
             Assert.True(b.U(32) == 2051 && b.Flag() && b.Str() == "Bot" && b.Str() == "beagle" && b.Str() == "female1");
@@ -337,7 +337,7 @@ public class GameStreamTests
         };
         c.Tick(1000);
         Assert.Equal(1, f.Sent.Count);
-        Packet p = Decode(f.Sent[0].Data);
+        var p = Decode(f.Sent[0].Data);
         Assert.True(!p.RateSet && !p.RateReq && !p.HasEvents && p.HasPsc && !p.Ghosts);
         Assert.True(p.Mode == 5 && p.Flag6a && p.LastMove == 0xffffffff && !p.Control);
         Assert.True(p.BitsCount == 42 && p.Bytes == 6);
@@ -407,7 +407,7 @@ public class GameStreamTests
             var c = new GameConnection(2049, f.Transport(), Capture(calls));
             c.SetOwnRate(33, 450);
             c.Tick(1000);
-            Packet p = Decode(f.Sent[0].Data);
+            var p = Decode(f.Sent[0].Data);
             Assert.True(!p.RateSet && p.RateReq && p.ReqBits == (33u | (450u << 10)));
             c.Tick(1100);
             Assert.False(Decode(f.Sent[1].Data).RateReq);
@@ -433,7 +433,7 @@ public class GameStreamTests
             Assert.False(Decode(f.Sent[0].Data).RateSet);
             c.Receive(RateOnly(-1, 0, 200, 0));
             c.Tick(1200);
-            Packet p = Decode(f.Sent[1].Data);
+            var p = Decode(f.Sent[1].Data);
             Assert.True(p.RateSet && p.SetBits == (200u | (0u << 10)));
             c.Notify(f.Sent[1].Cookie, false);
             c.Tick(1400);
@@ -494,21 +494,21 @@ public class GameStreamTests
         c.Post(EvOf(14, true, false));
         c.Post(EvOf(15));
         c.Tick(1000);
-        Packet p = Decode(f.Sent[^1].Data);
+        var p = Decode(f.Sent[^1].Data);
         Assert.True(p.HasEvents && p.Events.Count == 6 && c.Queued() == 0);
-        List<Ev> e = p.Events;
+        var e = p.Events;
         Assert.True(e[0].Ordered && !e[0].Next && e[0].Seq == 0 && e[0].HeaderBits == 18 && e[0].Body == 10);
         Assert.True(e[1].Ordered && e[1].Next && e[1].Seq == 1 && e[1].HeaderBits == 10 && e[1].Body == 11);
         Assert.True(!e[2].Guaranteed && e[2].HeaderBits == 9 && e[2].Body == 12);
         Assert.True(e[3].Ordered && e[3].Next && e[3].Seq == 2 && e[3].HeaderBits == 10);
         Assert.True(e[4].Guaranteed && !e[4].Ordered && e[4].HeaderBits == 11 && e[4].Body == 14);
         Assert.True(e[5].Ordered && !e[5].Next && e[5].Seq == 3 && e[5].HeaderBits == 18 && e[5].Body == 15);
-        foreach (Ev x in p.Events)
+        foreach (var x in p.Events)
             Assert.Equal(0x401u, x.Tag);
         // A new packet starts again at -4: its first ordered event is explicit.
         c.Post(EvOf(16));
         c.Tick(1100);
-        Packet q = Decode(f.Sent[^1].Data);
+        var q = Decode(f.Sent[^1].Data);
         Assert.True(q.Events.Count == 1 && !q.Events[0].Next && q.Events[0].Seq == 4);
     }
 
@@ -530,7 +530,7 @@ public class GameStreamTests
         c.Notify(lost, false);
         Assert.Equal(4, c.Queued());
         c.Tick(1100);
-        Packet p = Decode(f.Sent[^1].Data);
+        var p = Decode(f.Sent[^1].Data);
         Assert.Equal(4, p.Events.Count);
         Assert.True(p.Events[0].Body == 1 && p.Events[0].Seq == 0 && !p.Events[0].Next);
         Assert.True(p.Events[1].Body == 2 && p.Events[1].Seq == 1 && p.Events[1].Next);
@@ -563,7 +563,7 @@ public class GameStreamTests
                 var before = f.Sent.Count;
                 c.Tick(now += 100);
                 Assert.True(f.Sent.Count == before + 1);
-                Packet p = Decode(f.Sent[^1].Data);
+                var p = Decode(f.Sent[^1].Data);
                 if (p.Events.Count == 0)
                     return;
                 cookies.Add(f.Sent[^1].Cookie);
@@ -668,7 +668,7 @@ public class GameStreamTests
         var f = new Fake();
         var calls = new Calls();
         var invalid = 0;
-        GameConnection.Hooks h = Capture(calls);
+        var h = Capture(calls);
         h.InvalidPacket = () => ++invalid;
         var c = new GameConnection(2049, f.Transport(), h);
         Deliver(c, new ClientPacket()
@@ -695,7 +695,7 @@ public class GameStreamTests
 
         public GameConnection.Hooks Hooks()
         {
-            GameConnection.Hooks h = Capture(CallsOf);
+            var h = Capture(CallsOf);
             h.ActionEvent = Dests.Add;
             h.InvalidPacket = () => ++Invalid;
             return h;
@@ -757,7 +757,7 @@ public class GameStreamTests
         ];
         foreach (var tag in rejected)
         {
-            foreach (ClientPacket.Kind kind in new[] { ClientPacket.Kind.Ordered, ClientPacket.Kind.Unordered, ClientPacket.Kind.Unguaranteed })
+            foreach (var kind in new[] { ClientPacket.Kind.Ordered, ClientPacket.Kind.Unordered, ClientPacket.Kind.Unguaranteed })
             {
                 var log = new ActionLog();
                 var c = new GameConnection(2049, f.Transport(), log.Hooks());

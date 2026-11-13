@@ -131,7 +131,7 @@ public static class Beams
             v.Add(V(p1, 1, u1, 1));
             v.Add(V(p0, 1, u0, 1));
         }
-        BlendMode kind = forceBlend ?? (tex != null && (tex.Blend == BlendMode.Additive || tex.Blend == BlendMode.Subtractive) ? tex.Blend : BlendMode.Additive);
+        var kind = forceBlend ?? (tex != null && (tex.Blend == BlendMode.Additive || tex.Blend == BlendMode.Subtractive) ? tex.Blend : BlendMode.Additive);
         img.Batches.Add(new DrawBatch { Vertices = [.. v], State = new DrawState3D(tex?.Texture, null, true, 0, true, false, kind) });
         return img;
     }
@@ -173,7 +173,7 @@ public static class Beams
         Vertex3D V(double[] p, double h, double sgn, float vv) =>
             new((float)(p[0] + (sx * h * sgn)), (float)(p[1] + (sy * h * sgn)), (float)(p[2] + (sz * h * sgn)), (float)u, vv, 0, 0, 0, 1, 1, 1, 1);
         Vertex3D v0 = V(a, ha, -1, 0), v1 = V(a, ha, 1, 1), v2 = V(b, hb, 1, 1), v3 = V(b, hb, -1, 0);
-        BlendMode kind = tex != null && (tex.Blend == BlendMode.Additive || tex.Blend == BlendMode.Subtractive) ? tex.Blend : BlendMode.Additive;
+        var kind = tex != null && (tex.Blend == BlendMode.Additive || tex.Blend == BlendMode.Subtractive) ? tex.Blend : BlendMode.Additive;
         img.Batches.Add(new DrawBatch { Vertices = [v0, v1, v2, v0, v2, v3], State = new DrawState3D(tex?.Texture, null, true, 0, true, false, kind) });
         return img;
     }

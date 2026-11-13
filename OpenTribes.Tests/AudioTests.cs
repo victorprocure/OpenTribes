@@ -65,7 +65,7 @@ public class AudioTests
     [Fact]
     public void Decodes16BitMono() // 1.1
     {
-        WavData w = WavData.TryParse(Wave16(22050, 0, 16384, -32768, 32767))!;
+        var w = WavData.TryParse(Wave16(22050, 0, 16384, -32768, 32767))!;
         Assert.Equal((1, 22050, 16, 4), (w.Channels, w.Rate, w.Bits, w.Frames));
         Assert.Equal([0f, 0.5f, -1f, 32767 / 32768f], w.Samples);
     }
@@ -73,7 +73,7 @@ public class AudioTests
     [Fact]
     public void Decodes8BitStereoInterleaved() // 1.1
     {
-        WavData w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 2, 11025, 8)), Chunk("data", [128, 0, 192, 255])))!;
+        var w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 2, 11025, 8)), Chunk("data", [128, 0, 192, 255])))!;
         Assert.Equal((2, 2), (w.Channels, w.Frames));
         Assert.Equal([0f, -1f, 0.5f, 127 / 128f], w.Samples);
     }
@@ -81,7 +81,7 @@ public class AudioTests
     [Fact]
     public void Decodes16BitStereoInterleaved() // 1.1
     {
-        WavData w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 2, 22050, 16)), Chunk("data", Pcm16(8192, -8192, 16384, 0))))!;
+        var w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 2, 22050, 16)), Chunk("data", Pcm16(8192, -8192, 16384, 0))))!;
         Assert.Equal((2, 2), (w.Channels, w.Frames));
         Assert.Equal([0.25f, -0.25f, 0.5f, 0f], w.Samples);
     }
@@ -91,7 +91,7 @@ public class AudioTests
     {
         var file = Riff(Chunk("fmt ", Fmt(1, 1, 22050, 16, 18)), Chunk("LIST", [1, 2, 3]), Chunk("fact", new byte[4]),
             Chunk("data", Pcm16(100, -100)), Chunk("smpl", new byte[36]));
-        WavData w = WavData.TryParse(file)!;
+        var w = WavData.TryParse(file)!;
         Assert.Equal(2, w.Frames);
         Assert.Equal(100 / 32768f, w.Samples[0]);
     }
@@ -150,8 +150,8 @@ public class AudioTests
     [Fact]
     public void LinearInDecibelsBetweenMinAndMax() // 2.7 step 4, D39
     {
-        SoundProfile p = P3D(5, 500);
-        Listener l = Listener.Identity;
+        var p = P3D(5, 500);
+        var l = Listener.Identity;
         double a(double d) => SoundGain.Attenuation3D(p, new SoundXf(0, d, 0), l, 1, out _);
         Assert.Equal(0, a(5), 12);
         Assert.Equal(0, a(1), 12);
@@ -169,7 +169,7 @@ public class AudioTests
     public void PanFormula() // 2.7 step 1: 0.2 * dot(right, source - listener) / d
     {
         Listener l = new() { X = 10, Y = 20, Z = 5, RightX = 1 };
-        SoundProfile p = P3D(100, 200);
+        var p = P3D(100, 200);
         SoundGain.Attenuation3D(p, new SoundXf(20, 20, 5), l, 1, out var pan);
         Assert.Equal(0.2, pan, 12);                  // 10 m to the right
         SoundGain.Attenuation3D(p, new SoundXf(0, 20, 5), l, 1, out pan);
@@ -213,7 +213,7 @@ public class AudioTests
         p.ConeX = 0;
         p.ConeY = 1;
         p.ConeZ = 0;
-        Listener l = Listener.Identity;
+        var l = Listener.Identity;
         double a(double lx, double ly) => SoundGain.Attenuation3D(p, new SoundXf(0, 0, 0), new Listener { X = lx, Y = ly, RightX = 1 }, 1, out _);
         Assert.Equal(0, a(0, 10), 12);               // in front of the cone: inside
         Assert.Equal(0.05, a(0, -10), 12);           // behind: coneOutsideVolume / 12
@@ -233,7 +233,7 @@ public class AudioTests
     [Fact]
     public void Mixer2DUnityGivesExactSamples() // 4.2: mono at the device rate, unity gain, both channels
     {
-        WavData w = WavData.TryParse(Wave16(22050, 0, 16384, -16384, 32767, -32768, 8192))!;
+        var w = WavData.TryParse(Wave16(22050, 0, 16384, -16384, 32767, -32768, 8192))!;
         var m = new SoundMixer(22050);
         m.Start(w, false, 1f, 1f);
         var o = new float[16];
@@ -262,7 +262,7 @@ public class AudioTests
     [Fact]
     public void MixerAppliesGainsAndClips()
     {
-        WavData w = WavData.TryParse(Wave16(22050, 16384, 16384))!;
+        var w = WavData.TryParse(Wave16(22050, 16384, 16384))!;
         var m = new SoundMixer(22050);
         m.Start(w, false, 0.5f, 0.25f);
         m.Start(w, false, 1f, 1f);
@@ -300,7 +300,7 @@ public class AudioTests
     {
         var m = new SoundMixer(48000);
         var ones = Enumerable.Repeat((short)16384, 2000).ToArray();
-        MixVoice v = m.Start(WavData.TryParse(Wave16(48000, ones))!, false, 1f, 1f)!;
+        var v = m.Start(WavData.TryParse(Wave16(48000, ones))!, false, 1f, 1f)!;
         m.SetGains(v, 0f, 0f);
         var o = new float[2 * 400];
         Render(m, o, 400);
@@ -326,7 +326,7 @@ public class AudioTests
     [Fact]
     public void AdmissionKeepsMaxBuffersPlusOneByPriority() // 2.5, D41
     {
-        SoundManager sm = Mgr(maxBuffers: 3);
+        var sm = Mgr(maxBuffers: 3);
         var h = new int[8];
         for (var i = 0; i < 8; ++i)
         {
@@ -343,7 +343,7 @@ public class AudioTests
     [Fact]
     public void EqualPriorityLaterStartWins() // 2.5 step 1
     {
-        SoundManager sm = Mgr(maxBuffers: 1);
+        var sm = Mgr(maxBuffers: 1);
         var h = new int[5];
         for (var i = 0; i < 5; ++i)
         {
@@ -357,7 +357,7 @@ public class AudioTests
     [Fact]
     public void ExplicitPriorityBeatsLoudness() // 2.5: priority 0 voices rank by 1 - attenuation, below any explicit priority >= that rank
     {
-        SoundManager sm = Mgr(maxBuffers: 0);
+        var sm = Mgr(maxBuffers: 0);
         sm.SetListener(0, 0, 0, 1, 0, 0);
         var near = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 10, 0));
         var far = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 300, 0));
@@ -372,7 +372,7 @@ public class AudioTests
     [Fact]
     public void LoudnessRankingBetweenPriorityZeroVoices() // 2.5
     {
-        SoundManager sm = Mgr(maxBuffers: 1);
+        var sm = Mgr(maxBuffers: 1);
         var a = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 200, 0));
         var b = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 50, 0));
         var c = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 100, 0));
@@ -384,7 +384,7 @@ public class AudioTests
     [Fact]
     public void SuspendedLoopResumesAtSampleZero() // 2.5 step 3, D41
     {
-        SoundManager sm = Mgr(maxBuffers: 0, level: 8000);
+        var sm = Mgr(maxBuffers: 0, level: 8000);
         var loop = sm.PlayWave("a.wav", P2D(loop: true), 0.2);
         sm.Tick(1);
         var o = new float[2 * 500];
@@ -403,7 +403,7 @@ public class AudioTests
     [Fact]
     public void OneShotCutByLimitIsGone() // 2.5
     {
-        SoundManager sm = Mgr(maxBuffers: 0);
+        var sm = Mgr(maxBuffers: 0);
         var lo = sm.PlayWave("a.wav", P2D(), 0.1);
         var hi = sm.PlayWave("a.wav", P2D(), 0.9);
         sm.Tick(1);
@@ -417,7 +417,7 @@ public class AudioTests
     [Fact]
     public void NonLoopingBeyondMaxDistNeverStarts() // 2.4 step 2
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.SetListener(0, 0, 0, 1, 0, 0);
         Assert.Equal(0, sm.PlayWave("a.wav", P3D(5, 100), 0, new SoundXf(0, 100.5, 0)));
         Assert.Empty(sm.Voices);
@@ -427,9 +427,9 @@ public class AudioTests
     [Fact]
     public void LoopingBeyondMaxDistIsCreatedSilentAndStartsWhenInRange() // 2.4 step 2, 2.10
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.SetListener(0, 0, 0, 1, 0, 0);
-        SoundProfile loop = P3D(5, 100);
+        var loop = P3D(5, 100);
         loop.Flags |= SoundProfile.Looping;
         var h = sm.PlayWave("a.wav", loop, 0, new SoundXf(0, 250, 0));
         Assert.True(h > 0);
@@ -446,7 +446,7 @@ public class AudioTests
     [Fact]
     public void StaleHandlesDoNothing() // 2.3
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         var h = sm.PlayWave("a.wav", P2D(), 0.5);
         sm.Stop(h);
         sm.Tick(1);
@@ -463,7 +463,7 @@ public class AudioTests
     [Fact]
     public void MissingWaveOrMutedOrNoDeviceReturnsZero() // 1.1, 2.3, 2.4 step 1, F1
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         Assert.Equal(0, sm.PlayWave("miss1.wav"));
         sm.Mute(true);
         Assert.Equal(0, sm.PlayWave("a.wav"));
@@ -477,7 +477,7 @@ public class AudioTests
     [Fact]
     public void MuteStopsEveryVoice() // 2.3
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         var h = sm.PlayWave("a.wav", P2D(loop: true));
         sm.Mute(true);
         sm.Tick(1);
@@ -488,14 +488,14 @@ public class AudioTests
     [Fact]
     public void TwoDPrefAppliesOnceAtStartOnly() // 2.8, D42
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.Sfx2DVolume = 0.5;
         var h = sm.PlayWave("a.wav", P2D());
         Assert.Equal(0.069, sm.Find(h)!.Attenuation, 12);
         sm.Sfx2DVolume = 0.01;
         sm.Tick(1);
         Assert.Equal(0.069, sm.Find(h)!.Attenuation, 12);   // not updated while the voice plays
-        SoundProfile withBase = P2D();
+        var withBase = P2D();
         withBase.BaseVolume = 0.9;
         Assert.Equal(1.0, sm.Find(sm.PlayWave("a.wav", withBase))!.Attenuation, 12);   // min(1, ...)
     }
@@ -503,7 +503,7 @@ public class AudioTests
     [Fact]
     public void ThreeDPrefIsLive() // 2.8
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.SetListener(0, 0, 0, 1, 0, 0);
         var h = sm.PlayWave("a.wav", P3D(50, 500), 0, new SoundXf(0, 10, 0));
         Assert.Equal(0, sm.Find(h)!.Attenuation, 12);
@@ -516,7 +516,7 @@ public class AudioTests
     [Fact]
     public void ThreeDVoiceFollowsPositionAndListener() // 2.6
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.SetListener(0, 0, 0, 1, 0, 0);
         var h = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(10, 0, 0));
         Assert.Equal(0.2, sm.Find(h)!.Pan, 12);
@@ -531,8 +531,8 @@ public class AudioTests
     [Fact]
     public void SilentVoiceIsNotStartedButKeepsWantsToStart() // 2.4 step 5
     {
-        SoundManager sm = Mgr();
-        SoundProfile p = P2D();
+        var sm = Mgr();
+        var p = P2D();
         p.BaseVolume = 2;
         var h = sm.PlayWave("a.wav", p);
         Assert.False(sm.Find(h)!.Playing);
@@ -543,7 +543,7 @@ public class AudioTests
     [Fact]
     public void PlaysThroughTheMixerWithPanGains() // 2.11 end to end: unity 2D, then panned 3D
     {
-        SoundManager sm = Mgr(level: 16000);
+        var sm = Mgr(level: 16000);
         sm.PlayWave("a.wav", P2D(), 0);
         sm.Sfx2DVolume = 1;
         var o = new float[4];
@@ -583,11 +583,11 @@ public class AudioTests
     [Fact]
     public void DatablockSoundsUseTheProfileDefaultsAndStay2DFullVolume() // 1.3, 2.8, D42
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.DataBlocks = Blocks();
         sm.SetListener(0, 0, 0, 1, 0, 0);
         sm.Sfx2DVolume = 0.01;
-        Assert.True(sm.TryDatablock(0, out _, out SoundProfile p, out _));
+        Assert.True(sm.TryDatablock(0, out _, out var p, out _));
         Assert.Equal((5.0, 40.0, 90, 180), (p.MinDist, p.MaxDist, p.ConeInside, p.ConeOutside));
         Assert.True(p.Is3D);
         Assert.Equal(0, sm.PlayDatablock(0, new SoundXf(0, 41, 0)));      // beyond the profile maxDist
@@ -603,7 +603,7 @@ public class AudioTests
     [Fact]
     public void SfxCommandsBuildProfilesAndPairsAndStaySilentOnMissingWaves() // 2.8, F1, F2
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.DeviceOpen = false;
         var interp = new Interpreter();
         var lines = new List<string>();
@@ -616,7 +616,7 @@ public class AudioTests
         interp.Evaluate("sfxAddPair(450001, 460002, \"a.wav\"); sfxAddPair(450002, 460000, \"miss.wav\"); sfxAddPair(450003, 460000, \"a.wav\", 0.5);");
         Assert.Contains("Sfx::Manager 22050kHz 16bit stereo", lines);
         Assert.Equal((5.0, 500.0, SoundProfile.Software3D), (sm.Profiles[460002].MinDist, sm.Profiles[460002].MaxDist, sm.Profiles[460002].Flags));
-        SoundProfile c = sm.Profiles[460003];
+        var c = sm.Profiles[460003];
         // F2: coneInside, coneOutside, x, y, z, coneOutsideVolume, then the flags; the vector is normalised.
         Assert.Equal((30, 60, 0.0, 0.0, 1.0, 0.5, SoundProfile.Software3D | SoundProfile.Looping), (c.ConeInside, c.ConeOutside, c.ConeX, c.ConeY, c.ConeZ, c.ConeOutsideVolume, c.Flags));
         Assert.True(sm.Profiles[460001].Loops);
@@ -650,7 +650,7 @@ public class AudioTests
     [Fact]
     public void SequencerPlaysChannelEntriesOneAfterAnother() // 2.12
     {
-        SoundManager sm = Mgr(frames: 100);
+        var sm = Mgr(frames: 100);
         sm.Profiles[1] = P2D();
         sm.Pairs[10] = (1, "a.wav", 0);
         sm.Pairs[11] = (1, "a.wav", 0);
@@ -673,11 +673,11 @@ public class AudioTests
     [Fact]
     public void GuiWavesPlayThroughTheSoundManager() // 3.5: the GUI plays a named wave with the static 2D profile
     {
-        SoundManager sm = Mgr();
+        var sm = Mgr();
         sm.Sfx2DVolume = 0.5;
         IGuiAudio gui = new GuiAudio(sm);
         gui.Play("Button1.wav");
-        SoundVoice v = Assert.Single(sm.Voices);
+        var v = Assert.Single(sm.Voices);
         Assert.False(v.Profile.Is3D);
         Assert.Equal(0.069, v.Attenuation, 12);
         Assert.Equal(0, v.Priority);
@@ -688,7 +688,7 @@ public class AudioTests
     {
         static float[] Run()
         {
-            SoundManager sm = Mgr(level: 3000);
+            var sm = Mgr(level: 3000);
             sm.SetListener(0, 0, 0, 1, 0, 0);
             sm.PlayWave("a.wav", P3D(5, 300), 0, new SoundXf(30, 40, 0));
             sm.PlayWave("a.wav", P2D(loop: true), 0);

@@ -72,7 +72,7 @@ public static class GhostScope
     // src/game/ghost_scope.cpp classOf.
     private static ClassFlags? ClassOf(SimObject obj)
     {
-        foreach (ClassFlags c in kClasses)
+        foreach (var c in kClasses)
             if (GameUtil.EqualsNoCase(c.Cls, obj.ClassName()))
                 return c;
         return null;
@@ -111,7 +111,7 @@ public static class GhostScope
         if (obj is GameBase gb)
             for (var i = 0; i < 3; ++i)
                 input.Velocity[i] = gb.Velocity[i]; // +0x194
-        SimObject? recObj = gm.Camera.Object;
+        var recObj = gm.Camera.Object;
         return GameBasePriority(input, gm.Camera, recObj != null ? recObj.Id() : 0, recObj == obj, mask, skipCount, sWeights);
     }
 
@@ -135,7 +135,7 @@ public static class GhostScope
     /// <returns>The flags, or 0 for classes that are not ghosted by scope.</returns>
     public static uint NetFlags(SimObject obj)
     {
-        ClassFlags? c = ClassOf(obj);
+        var c = ClassOf(obj);
         return obj.NetFlags(c != null ? c.Flags : 0);
     }
 
@@ -163,7 +163,7 @@ public static class GhostScope
             ("$GameBase::upOwnership", () => sWeights.Ownership, v => sWeights.Ownership = v),
             ("$GameBase::upInterest", () => sWeights.Interest, v => sWeights.Interest = v),
         ];
-        foreach ((var name, Func<float> get, Action<float> set) in vars)
+        foreach ((var name, var get, var set) in vars)
         {
             interp.SetVariable(name, Numbers.FormatFloat(get()));
             interp.BindVariable(name, s => set(Store(Numbers.BorlandAtof(s))));
@@ -272,10 +272,10 @@ public static class GhostScope
     /// <remarks>Follows vtable +0x6c of the scope object.</remarks>
     public static void ScopeGhosts(GhostManager gm, Container container, Func<int, SimObject?>? cameraOf = null)
     {
-        SimObject? so = gm.ScopeObject();
+        var so = gm.ScopeObject();
         if (so == null)
             return;
-        CameraRecord rec = gm.Camera;
+        var rec = gm.Camera;
         // markInScope (005532a8): net flag 0x80 objects only for connection 2049.
         void Mark(SimObject obj)
         {
@@ -309,7 +309,7 @@ public static class GhostScope
         {
             // 004498ec: translation and row 1 of the eye transform (vtable +0x110), half of fov +0x22c.
             rec.Object = so;
-            Transform eye = gb.EyeTransform();
+            var eye = gb.EyeTransform();
             for (var i = 0; i < 3; ++i)
             {
                 rec.Pos[i] = eye.P[i];
@@ -355,7 +355,7 @@ public static class GhostScope
     /// <returns>The GameBase priority (004488e8) for GameBase classes, 0.0 for other NetObjects (0050a594).</returns>
     public static float GhostPriority(SimObject obj, GhostManager gm, uint mask, uint skipCount)
     {
-        ClassFlags? c = ClassOf(obj);
+        var c = ClassOf(obj);
         if (c != null && c.GameBase)
             return GameBaseClassPriority(obj, gm, mask, skipCount);
         return NetObjectPriority(obj, gm, mask, skipCount);
@@ -365,7 +365,7 @@ public static class GhostScope
     /// <remarks>GameBase classes are registered by tag when no packer exists yet (docs/game-stream-ghosts.md 4.1).</remarks>
     public static void RegisterGhostPriorities()
     {
-        foreach (ClassFlags c in kClasses)
+        foreach (var c in kClasses)
         {
             GhostClass.PriorityFn prio = c.GameBase ? GameBaseClassPriority : NetObjectPriority;
             if (GhostManager.FindGhostClass(c.Cls) is GhostClass g)

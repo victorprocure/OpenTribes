@@ -86,7 +86,7 @@ public sealed class GuiCommandView : GuiControl
     private void DrawFrame(GuiPaint p, int gx, int gy)
     {
         var low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
-        PbmaArray? a = Host?.ArrayByName(low ? "LRCmdViewCtrl.pba" : "CmdViewCtrl.pba");
+        var a = Host?.ArrayByName(low ? "LRCmdViewCtrl.pba" : "CmdViewCtrl.pba");
         if (a == null || a.Bitmaps.Count < 15)
             return;
         PbmpBitmap B(int i) => a.Bitmaps[i];
@@ -173,7 +173,7 @@ public sealed class GuiDlgBox : GuiActive
 
     private bool IsAncestorOf(GuiControl c)
     {
-        for (GuiControl? p = c; p != null; p = p.Parent)
+        for (var p = c; p != null; p = p.Parent)
             if (p == this)
                 return true;
         return false;
@@ -363,7 +363,7 @@ public sealed class GuiUniversalButton : GuiActive
     {
         On = U("on") != 0;
         var lr = LowRes;
-        PbmpBitmap? df = Pic("_DF", lr) ?? Pic("_DF", false);
+        var df = Pic("_DF", lr) ?? Pic("_DF", false);
         if (df != null)
         {
             W = df.Width;
@@ -407,7 +407,7 @@ public sealed class GuiUniversalButton : GuiActive
     {
         if (!Active)
             return;
-        GuiControl? before = Canvas?.Content;
+        var before = Canvas?.Content;
         if (RadioId != 0)
         {
             On = true;
@@ -437,7 +437,7 @@ public sealed class GuiUniversalButton : GuiActive
         GuiControl root = this;
         while (root.Parent != null)
             root = root.Parent;
-        GuiControl? page = root.FindById(MessageTag) ?? Canvas.Content?.FindById(MessageTag);
+        var page = root.FindById(MessageTag) ?? Canvas.Content?.FindById(MessageTag);
         page?.SetVisible(show);
     }
 
@@ -523,8 +523,8 @@ public sealed class GuiCFGButton : GuiSimpleText
     {
         base.Wake();
         // 0049e460: the extent is the idle row picture, widened to the label (+2), and the label height above it.
-        PbmpBitmap? df = Pic("CFG_Controls_DF.BMP");
-        PftFont? fb = FontB;
+        var df = Pic("CFG_Controls_DF.BMP");
+        var fb = FontB;
         if (df != null && fb != null)
         {
             W = Math.Max(df.Width, GuiPaint.TextWidth(fb, ResolvedText()) + 2);
@@ -540,7 +540,7 @@ public sealed class GuiCFGButton : GuiSimpleText
     private void RefreshBinding()
     {
         var map = S("actionMap");
-        ActionMap? m = Host?.Actions?.FindMap(ClientCommands.ActionMapName(map));
+        var m = Host?.Actions?.FindMap(ClientCommands.ActionMapName(map));
         Binding = map.Length == 0 ? "" : BindingText.For(m, Command, (int)U("makeAction"), BitConverter.UInt32BitsToSingle(U("makeValue")),
             AltCommand, (int)U("breakAction"), BitConverter.UInt32BitsToSingle(U("breakValue")), U("actionFlags"));
     }
@@ -554,7 +554,7 @@ public sealed class GuiCFGButton : GuiSimpleText
         var dimmed = Dimmed;
         PftFont? fa = FontA, fb = FontB, fc = FontC, shadow = FontShadow;
         var name = ResolvedText();
-        PbmpBitmap? pic = dimmed ? Pic("CFG_Controls_NA.BMP") : Pressed || WaitingForKey ? Pic("CFG_Controls_ON.BMP") : Pic("CFG_Controls_DF.BMP");
+        var pic = dimmed ? Pic("CFG_Controls_NA.BMP") : Pressed || WaitingForKey ? Pic("CFG_Controls_ON.BMP") : Pic("CFG_Controls_DF.BMP");
         var fh = GuiPaint.FontHeight(fb);
         if (pic != null)
             p.Bitmap(pic, gx + Centered(W - pic.Width), gy + fh - 1);
@@ -578,7 +578,7 @@ public sealed class GuiCFGButton : GuiSimpleText
         var x = gx + Centered(W - (iconsW + GuiPaint.TextWidth(fa, key) + 1));
         for (var i = 0; i < codes; ++i)
         {
-            PbmpBitmap? ic = b[i] == 1 ? shiftPic : b[i] == 2 ? ctrlPic : altPic;
+            var ic = b[i] == 1 ? shiftPic : b[i] == 2 ? ctrlPic : altPic;
             if (!dimmed && ic != null)
                 p.Bitmap(ic, x, by + 4);
             x += (ic?.Width ?? 0) + 2;
@@ -600,7 +600,7 @@ public sealed class GuiSwitch : GuiActive
     protected override void Action()
     {
         On = !On;
-        GuiControl? t = Canvas?.Content?.FindById(U("targetId"));
+        var t = Canvas?.Content?.FindById(U("targetId"));
         t?.SetVisible(On);
         base.Action();
     }
@@ -649,10 +649,10 @@ public sealed class GuiMenuItem : GuiSimpleText
         GuiControl menu = this;
         while (menu.Parent != null && !(menu.Parent is GuiActive && menu.Parent.ClassName.EndsWith("MenuCtrl", StringComparison.Ordinal)))
             menu = menu.Parent;
-        GuiControl scope = menu.Parent ?? menu;
+        var scope = menu.Parent ?? menu;
         if (page != 0)
         {
-            GuiControl? top = Canvas?.Top;
+            var top = Canvas?.Top;
             foreach (GuiControl item in scope.Descendants().OfType<GuiMenuItem>())
                 if (item != this)
                 {
@@ -674,13 +674,13 @@ public sealed class GuiMenuItem : GuiSimpleText
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        PbmpBitmap? pic = Host?.BitmapByName("MNU_Expand_DF.BMP");
+        var pic = Host?.BitmapByName("MNU_Expand_DF.BMP");
         int indent = pic?.Width ?? 19, rowH = pic?.Height ?? 19;
         var s = ResolvedText();
         if (s.Length > 0 && Host != null)
         {
             var main = Dimmed ? "sf_grey100_10b.pft" : Children.Count > 0 ? "sf_orange255_10.pft" : U("tabSet") != 0 ? "sf_white_10.pft" : "sf_orange214_10.pft";
-            PftFont? f = Host.FontByName(main);
+            var f = Host.FontByName(main);
             var ty = gy + ((rowH - GuiPaint.FontHeight(f)) / 2);
             p.Text(Host.FontByName("sf_black_10.pft"), gx + indent - 1, ty - 1, s);
             p.Text(f, gx + indent, ty - 2, s);
@@ -688,7 +688,7 @@ public sealed class GuiMenuItem : GuiSimpleText
         if (Children.Count > 0 && U("expanded") != 0)
         {
             var y = gy + rowH;
-            foreach (GuiControl c in Children)
+            foreach (var c in Children)
             {
                 c.Render(p, gx + indent - c.X, y - c.Y);
                 y += c.H;
@@ -834,7 +834,7 @@ public sealed class GuiSlider : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        PbmaArray? a = Pieces;
+        var a = Pieces;
         if (a != null && a.Bitmaps.Count >= 15)
         {
             // Draw [code 004ca7b8], pieces of ShellSliderCtrl.pba: left cap 2 (0 dimmed), the stretched bar 11 (9 dimmed), the right
@@ -1006,7 +1006,7 @@ public sealed class GuiTextWrap : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        PftFont? f = BaseFont;
+        var f = BaseFont;
         if (UsesLayout && Host != null)
             Layout()?.Draw(p, gx, gy);
         else if (f != null)

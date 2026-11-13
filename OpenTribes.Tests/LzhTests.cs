@@ -247,7 +247,7 @@ public class LzhTests
             var input = new byte[256];
             for (var i = 0; i < 256; ++i)
                 input[i] = (byte)i;
-            Encoded e = Encode(input, 0);
+            var e = Encode(input, 0);
             Assert.Equal(input, Decode(e.Bytes, input.Length));
             ++cases;
         }
@@ -260,7 +260,7 @@ public class LzhTests
                 text += "Starsiege Tribes LZH section " + (i % 7) + " ";
             text += new string('z', 200);
             var input = Bytes(text);
-            Encoded e = Encode(input, kN);
+            var e = Encode(input, kN);
             Assert.True(e.Matches > 10 && e.Bytes.Length < input.Length / 2);
             Assert.Equal(input, Decode(e.Bytes, input.Length));
             ++cases;
@@ -273,7 +273,7 @@ public class LzhTests
                 input.Add((byte)('a' + (Rnd() % 26)));
             input.AddRange(input.GetRange(0, 40));
             var inArr = input.ToArray();
-            Encoded e = Encode(inArr, kN);
+            var e = Encode(inArr, kN);
             Assert.Equal(inArr, Decode(e.Bytes, inArr.Length));
             ++cases;
         }
@@ -283,7 +283,7 @@ public class LzhTests
             var input = new byte[40000];
             for (var i = 0; i < 40000; ++i)
                 input[i] = Rnd() % 7 == 0 ? (byte)'e' : (byte)Rnd();
-            Encoded e = Encode(input, 0);
+            var e = Encode(input, 0);
             Assert.True(e.Symbols >= 32768);
             Assert.Equal(input, Decode(e.Bytes, input.Length));
             ++cases;
@@ -296,7 +296,7 @@ public class LzhTests
             for (var i = 0; i < 50; ++i)
                 text += "section " + i + ";";
             var input = Bytes(text);
-            Encoded e = Encode(input, kN);
+            var e = Encode(input, kN);
             var stream = new List<byte>(e.Bytes);
             stream.AddRange(Enumerable.Repeat((byte)0xee, 16)); // next section
             Assert.Equal(input, Decode([.. stream], input.Length, out var used));

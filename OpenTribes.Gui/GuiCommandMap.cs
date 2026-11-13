@@ -242,15 +242,15 @@ public sealed class GuiCommandMap : GuiControl
     // control of that size, kept over the parent; the current place when nothing counts.
     private (int X, int Y) CenterPos(int w, int h)
     {
-        IHudSource? hud = Host?.Hud;
-        CommandLocalClient? me = hud?.CommandLocal;
-        ClientCommandSlot[] slots = Slots;
+        var hud = Host?.Hud;
+        var me = hud?.CommandLocal;
+        var slots = Slots;
         long sumX = 0, sumY = 0;
         var n = 0;
         var pref = PrefFilter;
         for (var i = 0; i < slots.Length; ++i)
         {
-            ClientCommandSlot s = slots[i];
+            var s = slots[i];
             if (!Selected[i] || me == null || me.Value.Team != s.Team || !s.Present || hud!.CommandBlockFilter(s.Group, s.Index) is not int filter)
                 continue;
             if (filter != -1 && (filter & 0xff & pref) == 0)
@@ -356,7 +356,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>Deselecting switches the command menu off, selecting a player switches it on and marks the player's record.</remarks>
     public void SelectSlot(int slot, bool on)
     {
-        GuiHost? host = Host;
+        var host = Host;
         var menu = host?.ChatMenuExists?.Invoke(CommandMenuName) == true;
         if (menu && !on)
             host!.SetChatMenuMode?.Invoke(CommandMenuName, 0);
@@ -374,7 +374,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <param name="on">The new state.</param>
     public void SelectClient(int clientId, bool on)
     {
-        ClientCommandSlot[] slots = Slots;
+        var slots = Slots;
         if (clientId < 0)
         {
             for (var i = 0; i < slots.Length; ++i)
@@ -403,7 +403,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <param name="slot">The slot, -1 for none.</param>
     public void SelectTurret(int slot)
     {
-        ClientCommandSlot[] slots = Slots;
+        var slots = Slots;
         for (var i = 0; i < slots.Length; ++i)
             if (slots[i].Group == 0x13)
                 SelectSlot(i, false);
@@ -415,7 +415,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <param name="slot">The slot, -1 for none.</param>
     public void SelectStatic(int slot)
     {
-        ClientCommandSlot[] slots = Slots;
+        var slots = Slots;
         for (var i = 0; i < slots.Length; ++i)
             if (slots[i].Group is 4 or 8)
                 SelectSlot(i, false);
@@ -435,7 +435,7 @@ public sealed class GuiCommandMap : GuiControl
 
     private int FirstSelected(Func<ClientCommandSlot, bool> kind)
     {
-        ClientCommandSlot[] slots = Slots;
+        var slots = Slots;
         for (var i = 0; i < slots.Length; ++i)
             if (kind(slots[i]) && Selected[i])
                 return i;
@@ -447,7 +447,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <returns>The slot, -1 for none.</returns>
     public int SlotOfClient(int clientId)
     {
-        ClientCommandSlot[] slots = Slots;
+        var slots = Slots;
         for (var i = 0; i < slots.Length; ++i)
             if (slots[i].Group == 3 && 0x800 + i == clientId)
                 return i;
@@ -468,7 +468,7 @@ public sealed class GuiCommandMap : GuiControl
             OrderText = text;
             return;
         }
-        IHudSource? hud = Host?.Hud;
+        var hud = Host?.Hud;
         if (hud?.CommandLocal is not CommandLocalClient me)
             return;
         var shown = text ?? "";
@@ -495,7 +495,7 @@ public sealed class GuiCommandMap : GuiControl
 
     private int CountSelectedPlayers(CommandLocalClient me)
     {
-        ClientCommandSlot[] slots = Slots;
+        var slots = Slots;
         var n = 0;
         for (var i = 0; i < slots.Length; ++i)
             if (Selected[i] && slots[i].Group == 3 && me.Team == slots[i].Team)
@@ -528,7 +528,7 @@ public sealed class GuiCommandMap : GuiControl
         }
         else
             args.Add(Inv(targetSlot));
-        ClientCommandSlot[] slots = Slots;
+        var slots = Slots;
         for (var i = 0; i < slots.Length; ++i)
             if (Selected[i] && slots[i].Group == 3 && me.Team == slots[i].Team)
                 args.Add(Inv(0x800 + i));
@@ -604,12 +604,12 @@ public sealed class GuiCommandMap : GuiControl
             mClearOnAdd = true;
         var single = Group != 3;
         var singleHeld = Group == 4 ? SelectedStaticTarget() >= 0 : Group == 0x13 && SelectedTurretTarget() >= 0;
-        IHudSource hud = Host!.Hud!;
-        ClientCommandSlot[] slots = Slots;
+        var hud = Host!.Hud!;
+        var slots = Slots;
         var pref = PrefFilter;
         for (var i = 0; i < slots.Length; ++i)
         {
-            ClientCommandSlot s = slots[i];
+            var s = slots[i];
             if (!s.Present || s.Team != me.Team || hud.CommandBlockFilter(s.Group, s.Index) is not int filter)
                 continue;
             if (filter != -1 && (filter & 0xff & pref) == 0)
@@ -643,8 +643,8 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>The slot nearest to the click under 4 pixels (any slot) is the target, else the click is a waypoint. The kind of the target and its team set $CommandTarget, its name $CommandTargetName (the scripts of Commander::StarCommand read them).</remarks>
     private void ClickOrder(int lx, int ly, CommandLocalClient me)
     {
-        IHudSource hud = Host!.Hud!;
-        ClientCommandSlot[] slots = Slots;
+        var hud = Host!.Hud!;
+        var slots = Slots;
         var best = -1;
         var bestDist = 4.0f;
         for (var i = 0; i < slots.Length; ++i)
@@ -665,7 +665,7 @@ public sealed class GuiCommandMap : GuiControl
             IssueOrder(lx * 0x3ff / W, (H - ly) * 0x3ff / H, -1);
             return;
         }
-        ClientCommandSlot t = slots[best];
+        var t = slots[best];
         var name = best < 0x80 ? hud.CommandClientName(0x800 + best) ?? "" : hud.CommandTargetName(best) ?? "";
         Host.SetVar("$CommandTargetName", name);
         var friendly = t.Team == me.Team;
@@ -710,10 +710,10 @@ public sealed class GuiCommandMap : GuiControl
             int right = Math.Max(mDragX1, mDragX0), bottom = Math.Max(mDragY1, mDragY0);
             var single = Group != 3;
             var singleHeld = Group == 4 ? SelectedStaticTarget() >= 0 : Group == 0x13 && SelectedTurretTarget() >= 0;
-            ClientCommandSlot[] slots = Slots;
+            var slots = Slots;
             for (var i = 0; i < slots.Length; ++i)
             {
-                ClientCommandSlot s = slots[i];
+                var s = slots[i];
                 if (!s.Present || me.Team != s.Team || !InGroup(s.Group))
                     continue;
                 int sx = SlotX(s), sy = SlotY(s);
@@ -817,7 +817,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        CommandMapPicture? pic = Host?.Hud?.CommandMap;
+        var pic = Host?.Hud?.CommandMap;
         if (pic == null)
             return;
         if (!ReferenceEquals(pic, mFitted) && Parent != null)
@@ -844,7 +844,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>The sensor circles of 004d04e8 and the five passes of 004cf94c (0 and 1 the objects: icon, label. 2 to 4 the players: icon, order line and mark, name. 4 also the where-am-I mark). Positions are the slot's 1/1024 coordinates scaled to the control, y up.</remarks>
     private void RenderMarks(GuiPaint p, CommandMapMarks marks, CommandMapPicture pic, int gx, int gy)
     {
-        GuiHost host = Host!;
+        var host = Host!;
         var filter = int.TryParse(host.GetVar("$pref::mapFilter"), out var f) ? f : 0;
         var showNames = Truthy(host.GetVar("$pref::mapNames"));
         int SX(CommandMapSlotMark m) => (m.X * W) >> 10;
@@ -852,7 +852,7 @@ public sealed class GuiCommandMap : GuiControl
         if (Truthy(host.GetVar("$pref::mapSensorRange")))
         {
             var scale = W / pic.W;
-            foreach (CommandMapSlotMark m in marks.Slots)
+            foreach (var m in marks.Slots)
             {
                 if ((m.Group != 8 && m.Group != 19) || m.Team != marks.LocalTeam || !m.Active)
                     continue;
@@ -869,12 +869,12 @@ public sealed class GuiCommandMap : GuiControl
             }
         }
         var bySlot = new Dictionary<int, CommandMapSlotMark>();
-        foreach (CommandMapSlotMark m in marks.Slots)
+        foreach (var m in marks.Slots)
             bySlot[m.Slot] = m;
-        PftFont? font = host.FontByName("if_small.pft");
+        var font = host.FontByName("if_small.pft");
         PbmaArray? icons = host.ArrayByName("CmdIconsCtrl.pba"), whereAmI = host.ArrayByName("CmdWhereAmI.pba");
         for (var pass = 0; pass < 5; ++pass)
-            foreach (CommandMapSlotMark m in marks.Slots)
+            foreach (var m in marks.Slots)
             {
                 if ((filter & 0x80) == 0 && (m.Filter & filter) == 0)
                     continue;
@@ -882,7 +882,7 @@ public sealed class GuiCommandMap : GuiControl
                 if (pass < 2 ? player : !player)
                     continue;
                 int px = gx + SX(m), py = gy + SY(m);
-                PbmpBitmap? icon = m.Icon.Length > 0 ? host.BitmapByName(m.Icon + (m.Team == marks.LocalTeam ? "_green.bmp" : "_red.bmp")) : null;
+                var icon = m.Icon.Length > 0 ? host.BitmapByName(m.Icon + (m.Team == marks.LocalTeam ? "_green.bmp" : "_red.bmp")) : null;
                 if (player && m.ClientId == marks.LocalId && pass == 4)
                 {
                     int piece = 0, flip = 0;
@@ -899,7 +899,7 @@ public sealed class GuiCommandMap : GuiControl
                         }
                     if (Selected[m.Slot])
                         piece += 4;
-                    PbmpBitmap? b = whereAmI?.Bitmaps.Count > piece ? whereAmI.Bitmaps[piece] : null;
+                    var b = whereAmI?.Bitmaps.Count > piece ? whereAmI.Bitmaps[piece] : null;
                     if (b != null)
                         p.Dev.Blit(GuiPaint.KeyedBitmap(b), px - (b.Width >> 1), py - (b.Height >> 1), (BlitFlip)flip);
                 }
@@ -913,12 +913,12 @@ public sealed class GuiCommandMap : GuiControl
                 {
                     if (m.OrderIcon != -1 && (pass == 2 || pass == 4))
                     {
-                        (var tx, var ty) = m.OrderTarget != -1 && bySlot.TryGetValue(m.OrderTarget, out CommandMapSlotMark? t) ? (t.X, t.Y) : (m.OrderX, m.OrderY);
+                        (var tx, var ty) = m.OrderTarget != -1 && bySlot.TryGetValue(m.OrderTarget, out var t) ? (t.X, t.Y) : (m.OrderX, m.OrderY);
                         int sx = gx + ((tx * W) >> 10), sy = gy + (H - ((ty * H) >> 10));
                         p.Line(px, py, sx, sy, m.OrderStatus == 1 ? 0xf2 : 0xff);
                         if (m.OrderIcon is > 0 and < 9 && icons?.Bitmaps.Count > m.OrderIcon - 1)
                         {
-                            PbmpBitmap b = icons.Bitmaps[m.OrderIcon - 1];
+                            var b = icons.Bitmaps[m.OrderIcon - 1];
                             p.Bitmap(b, sx - (b.Width >> 1), sy - (b.Height >> 1));
                         }
                     }

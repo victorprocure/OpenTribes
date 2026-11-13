@@ -21,9 +21,9 @@ public static class GfxText
         foreach (var ch in text)
         {
             var advance = font.CharWidth(ch);
-            if (font.TryGetGlyph(ch, out GlyphEntry g) && font.Sheets.Get(g.Sheet) is PbmpBitmap sheet)
+            if (font.TryGetGlyph(ch, out var g) && font.Sheets.Get(g.Sheet) is PbmpBitmap sheet)
             {
-                GfxRect r = g.SheetRect;
+                var r = g.SheetRect;
                 var yOff = font.Baseline + g.Baseline - (r.Bottom - r.Top);
                 if (!scaled)
                 {

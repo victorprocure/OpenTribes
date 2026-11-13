@@ -73,8 +73,8 @@ public class CommandOrdersTests
             Fx.Host.SetChatMenuMode = (n, m) => Menu.Add($"{n} {m}");
             Fx.Interp.AddCommand("remoteEval", (_, a) => { Remote.Add(string.Join("|", a.Skip(1))); return "True"; });
             Fx.Interp.SetVariable("$pref::mapFilter", "15");
-            GuiControl root = Root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-            GuiControl parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
+            var root = Root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+            var parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
             Map = (GuiCommandMap)GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
             Current = GuiFixture.Make("FearGui::FGCurrentCommand", 5, 5, 100, 20);
             root.AddChild(parent);
@@ -83,7 +83,7 @@ public class CommandOrdersTests
             Current.Id = GuiCommandMap.CurrentCommandId;
             if (withTeamList)
             {
-                GuiControl team = GuiFixture.Make("FearGui::CommandTeamCtrl", 450, 100, 640, 15, ("active", (byte)1));
+                var team = GuiFixture.Make("FearGui::CommandTeamCtrl", 450, 100, 640, 15, ("active", (byte)1));
                 root.AddChild(team);
                 Team = (GuiCommandTeam)team;
             }
@@ -464,7 +464,7 @@ public class CommandOrdersTests
 
     private static void ListDown(Rig r, int row, byte mod = 0, int clicks = 1, int dx = 60)
     {
-        GuiCommandTeam team = r.Team!;
+        var team = r.Team!;
         team.PreRender();
         var (gx, gy) = team.GlobalOrigin();
         team.MsDown(new GuiEvent { X = gx + dx, Y = gy + (row * team.RowHeight) + 2, Mod = mod, ClickCount = clicks });
@@ -597,7 +597,7 @@ public sealed class CommandOrdersClientTests : IDisposable
         app.Interp.SetVariable("$pref::mapFilter", "15");
         var remote = new List<string>();
         app.Interp.AddCommand("remoteEval", (_, a) => { remote.Add(string.Join("|", a.Skip(1))); return "True"; });
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         var map = (GuiCommandMap)GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
         map.Id = GuiCommandMap.MapId;
         var current = GuiFixture.Make("FearGui::FGCurrentCommand", 5, 5, 100, 20);

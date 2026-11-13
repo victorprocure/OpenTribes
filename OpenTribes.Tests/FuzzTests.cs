@@ -107,7 +107,7 @@ public class FuzzTests
     private static void Fuzz(IReadOnlyList<List<byte>> seeds, uint rounds, uint seed, Action<byte[]> run)
     {
         var r = new Rng(seed);
-        foreach (List<byte> s in seeds)
+        foreach (var s in seeds)
             run([.. s]);
         for (uint i = 0; i < rounds; ++i)
             run([.. r.Below(8) == 0 ? RandomBytes(r, 300) : Mutate(seeds[(int)r.Below((uint)seeds.Count)], r)]);
@@ -142,9 +142,9 @@ public class FuzzTests
             Squares = [.. new byte[32]]
         };
         float[] box = [-8, -8, -8, 8, 8, 8];
-        List<byte> dig = DigFile(0x1234, box, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } });
-        List<byte> dis = DisFile("hut-00.dig", "hut-000.dil");
-        List<byte> dtb = DtbFile(t, 0, 16);
+        var dig = DigFile(0x1234, box, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } });
+        var dis = DisFile("hut-00.dig", "hut-000.dil");
+        var dtb = DtbFile(t, 0, 16);
 
         Fuzz(new[] { dig }, 20000, 1, b =>
         {
@@ -210,7 +210,7 @@ public class FuzzTests
             using var a = new VolArchive();
             if (!a.Open(Path.Combine(dir, "m.vol")))
                 return;
-            foreach (VolEntry e in a.Entries())
+            foreach (var e in a.Entries())
                 a.Read(e, out _);
         });
     }
@@ -432,7 +432,7 @@ public class FuzzTests
         var seedBytes = seed.ToArray();
         for (uint i = 0; i < 60000; ++i)
         {
-            GameConnection conn = connPtr;
+            var conn = connPtr;
             if (r.Below(2) == 0)
             {
                 var patch = new BitStream(seedBytes, seedBytes.Length);
@@ -596,7 +596,7 @@ public class FuzzTests
             if (r.Below(4) == 0)
             {
                 // Cut or mutated: no outcome is claimed beyond one report at most and no dispatch after it.
-                List<byte> b = r.Below(2) != 0 ? whole.GetRange(0, (int)r.Below((uint)whole.Count + 1)) : Mutate(whole, r);
+                var b = r.Below(2) != 0 ? whole.GetRange(0, (int)r.Below((uint)whole.Count + 1)) : Mutate(whole, r);
                 conn.Receive(b.ToArray());
                 Assert.True(invalid <= 1 && invalid == 1 == conn.Invalid());
                 int c0 = calls, a0 = actions;
@@ -681,7 +681,7 @@ public class FuzzTests
                     bans.IsBanned(query);
                     break;
             }
-            foreach (BanList.Entry e in bans.Entries())
+            foreach (var e in bans.Entries())
                 Assert.True(e.Address.Length <= BanList.kMaxAddress);
             if (bans.Entries().Count > 2000)
                 bans = new BanList(() => 1000);
@@ -737,7 +737,7 @@ public class FuzzTests
         PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, 50, 50));
         PutFile(Path.Combine(root, "base/t.dml"), "dml");
         float[] box = [-8, -8, -8, 8, 8, 8];
-        List<byte> dig = DigFile(0x1234, box, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } });
+        var dig = DigFile(0x1234, box, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } });
         PutFile(Path.Combine(root, "base/hut.dis"), DisFile("hut-00.dig", "hut-000.dil"));
         PutFile(Path.Combine(root, "base/hut-00.dig"), dig);
         PutFile(Path.Combine(root, "base/hut-000.dil"), DilFile(0x1234, new List<LightRec>(), [], ""));

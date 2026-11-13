@@ -8,7 +8,7 @@ public static class ControlAim
     {
         var a = new TMat3 { Flags = local.Flags, M = local.M, P = local.P };
         var b = new TMat3 { Flags = obj.Flags, M = obj.M, P = obj.P };
-        Shape.TmatMul(a, b, out TMat3 w);
+        Shape.TmatMul(a, b, out var w);
         return new Transform { Flags = w.Flags, M = w.M, P = w.P };
     }
 

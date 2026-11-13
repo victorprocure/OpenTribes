@@ -15,12 +15,12 @@ public static class PlayerCommands
     // client id naming the client's owned object.
     private static Player? FindPlayer(GameState game, string arg)
     {
-        SimManager? m = ServerOf(game);
+        var m = ServerOf(game);
         if (m == null)
             return null;
         if (Player.From(m.Find(arg)) is Player p)
             return p;
-        ClientRecord? r = game.Players.Find(Numbers.BorlandAtoi(arg));
+        var r = game.Players.Find(Numbers.BorlandAtoi(arg));
         return r != null && r.OwnedObject != 0 ? Player.From(m.FindById(r.OwnedObject)) : null;
     }
 
@@ -33,13 +33,13 @@ public static class PlayerCommands
         var i = 0;
         while (i < arg.Length && (arg[i] == ' ' || arg[i] == '\t' || arg[i] == '\n' || arg[i] == '\r'))
             ++i;
-        DataBlockManager db = game.Sim.DataBlocks();
+        var db = game.Sim.DataBlocks();
         if (i < arg.Length && arg[i] >= '0' && arg[i] <= '9')
         {
             var n = Numbers.BorlandAtoi(arg[i..]);
             return n >= 0 && n < db.GroupSize(5) ? n : -1;
         }
-        DataBlockManager.Block? b = db.Find(arg[i..]);
+        var b = db.Find(arg[i..]);
         return b != null && b.Group == 5 ? b.Index : -1;
     }
 
@@ -66,7 +66,7 @@ public static class PlayerCommands
     // src/game/player_commands.cpp itemName.
     private static string? ItemName(GameState game, int type)
     {
-        DataBlockManager.Block? b = game.Sim != null && type >= 0 ? game.Sim.DataBlocks().At(5, type) : null;
+        var b = game.Sim != null && type >= 0 ? game.Sim.DataBlocks().At(5, type) : null;
         return b?.Name;
     }
 
@@ -91,7 +91,7 @@ public static class PlayerCommands
         // spawnPlayer(armor, pos, rot) 0x0043a1d0.
         interp.AddCommand("spawnPlayer", (_, a) =>
         {
-            SimManager? m = ServerOf(g);
+            var m = ServerOf(g);
             if (m == null || a.Length != 4)
                 return "-1";
             float[] pos = Scan3(a[2]), rot = Scan3(a[3]);
@@ -154,7 +154,7 @@ public static class PlayerCommands
             new("Player::isExposed", "isExposed(player)", "False", "False", p =>
             {
                 // 0x00421180: no mount object, or the mount object's vtable +0x164 (Vehicle: visibleDriver).
-                GameBase? m = p.MountObject();
+                var m = p.MountObject();
                 Vehicle? v = Vehicle.From(m);
                 return m == null || v == null || v.Data.VisibleDriver ? "True" : "False";
             }),
@@ -165,7 +165,7 @@ public static class PlayerCommands
             new("Player::getMountObject", "Player::getMountObject(Player)", "False", "-1",
                 p => Numbers.FormatInt(p.MountId != 0 ? p.MountId : -1)),
         ];
-        foreach (Reader rd in kReaders)
+        foreach (var rd in kReaders)
             interp.AddCommand(rd.Name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -173,7 +173,7 @@ public static class PlayerCommands
                     inr.Print(1, "wrong argcount to " + (rd.Usage ?? (a[0] + "(player)")));
                     return rd.BadArgc;
                 }
-                Player? p = FindPlayer(g, a[1]);
+                var p = FindPlayer(g, a[1]);
                 return p != null ? rd.Read(p) : rd.NotFound;
             });
 
@@ -238,7 +238,7 @@ public static class PlayerCommands
         });
         interp.AddCommand("Player::setDetectParameters", (_, a) =>
         {
-            Player? p = a.Length == 4 ? FindPlayer(g, a[1]) : null;
+            var p = a.Length == 4 ? FindPlayer(g, a[1]) : null;
             if (p != null)
             {
                 p.DetectHazeFactor = Store(Numbers.BorlandAtof(a[2]));
@@ -286,7 +286,7 @@ public static class PlayerCommands
             new("Player::incItemCount", "incItemCount(player,type,<count>)", 2),
             new("Player::decItemCount", "decItemCount(player,type,<count>)", 3),
         ];
-        foreach (CountCmd c in kCounts)
+        foreach (var c in kCounts)
             interp.AddCommand(c.Name, (inr, a) =>
             {
                 var ok = c.Mode == 0 ? a.Length == 3 : c.Mode == 1 ? a.Length == 4 : a.Length is 3 or 4;
@@ -295,7 +295,7 @@ public static class PlayerCommands
                     inr.Print(1, "wrong argcount to " + c.Usage);
                     return "0";
                 }
-                if (!PlayerAndItem(inr, g, a, out Player? p, out var item))
+                if (!PlayerAndItem(inr, g, a, out var p, out var item))
                     return "0";
                 var n = a.Length == 4 ? Numbers.BorlandAtoi(a[3]) : 1;
                 var cur = p!.ItemCountOf(item);
@@ -310,10 +310,10 @@ public static class PlayerCommands
                 inr.Print(1, "wrong argcount to getItemClassCount(player,className)");
                 return "0";
             }
-            Player? p = FindPlayer(g, a[1]);
+            var p = FindPlayer(g, a[1]);
             if (p == null || g.Sim == null)
                 return "0";
-            DataBlockManager db = g.Sim.DataBlocks();
+            var db = g.Sim.DataBlocks();
             var n = 0;
             for (var t = 0; t < Player.kItemTypes && t < db.GroupSize(5); ++t)
                 if (p.Counts[t] != 0 && db.GetField(db.At(5, t)!, "className", "", out var cls) &&
@@ -328,7 +328,7 @@ public static class PlayerCommands
                 inr.Print(1, "wrong argcount to mountItem(player,type,imageSlot,<team>)");
                 return "False";
             }
-            if (!PlayerAndItem(inr, g, a, out Player? p, out var item))
+            if (!PlayerAndItem(inr, g, a, out var p, out var item))
                 return "False";
             var slot = Numbers.BorlandAtoi(a[3]);
             if (slot is < 0 or >= Player.kImageSlots)
@@ -347,7 +347,7 @@ public static class PlayerCommands
             new("Player::getItemState", "getItemState", "False", 3),
             new("Player::isTriggered", "isTriggered", "False", 4),
         ];
-        foreach (SlotCmd c in kSlots)
+        foreach (var c in kSlots)
             interp.AddCommand(c.Name, (inr, a) =>
             {
                 var r = c.Fail;
@@ -357,7 +357,7 @@ public static class PlayerCommands
                     inr.Print(1, "wrong argcount to " + label + "(player,imageSlot)");
                     return r;
                 }
-                Player? p = FindPlayer(g, a[1]);
+                var p = FindPlayer(g, a[1]);
                 if (p == null)
                     return r;
                 var slot = Numbers.BorlandAtoi(a[2]);
@@ -366,7 +366,7 @@ public static class PlayerCommands
                     inr.Print(1, label + ": invalid imageSlot");
                     return r;
                 }
-                Player.ImageSlot s = p.Images[slot];
+                var s = p.Images[slot];
                 switch (c.Kind)
                 {
                     case 0:
@@ -397,7 +397,7 @@ public static class PlayerCommands
                 inr.Print(1, "wrong argcount to trigger(player,imageSlot,<bool>)");
                 return "False";
             }
-            Player? p = FindPlayer(g, a[1]);
+            var p = FindPlayer(g, a[1]);
             if (p == null)
                 return "False";
             var slot = Numbers.BorlandAtoi(a[2]);
@@ -415,7 +415,7 @@ public static class PlayerCommands
             new("Player::dropItem", "dropItem(player,type)", "onDrop"),
             new("Player::deployItem", "deployItem(player,type)", "onDeploy"),
         ];
-        foreach (UseCmd c in kUses)
+        foreach (var c in kUses)
             interp.AddCommand(c.Name, (inr, a) =>
             {
                 if (a.Length != 3)
@@ -423,7 +423,7 @@ public static class PlayerCommands
                     inr.Print(1, "wrong argcount to " + c.Usage);
                     return "False";
                 }
-                if (!PlayerAndItem(inr, g, a, out Player? p, out var item))
+                if (!PlayerAndItem(inr, g, a, out var p, out var item))
                     return "False";
                 if (p!.ItemCountOf(item) != 0)
                     p.ItemCallback(item, c.Event, c.Event[2] == 'D' && c.Event[3] == 'e' ? "0.000000,0.000000,0.000000" : null);

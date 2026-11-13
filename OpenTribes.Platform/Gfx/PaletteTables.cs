@@ -19,12 +19,12 @@ public static class PaletteTables
         var t = new byte[256];
         for (var i = 1; i < 256; ++i)
         {
-            BigInteger x = Chop(Chop(i * OneOver255, 0, 64).Item1, 0, 53).Item1; // value x * 2^-71
+            var x = Chop(Chop(i * OneOver255, 0, 64).Item1, 0, 53).Item1; // value x * 2^-71
             var xd = (double)x * Math.Pow(2, -71);
             if (e == Math.Floor(e) && e < 4096)
             {
                 // extended chain: acc = x, then for each bit of e below the leading one: acc = acc * acc, and acc * x when the bit is set
-                BigInteger acc = x;
+                var acc = x;
                 var sh = 71; // acc * 2^-sh
                 for (var bit = BitLength((long)e) - 2; bit >= 0; --bit)
                 {
@@ -66,7 +66,7 @@ public static class PaletteTables
         int bits = BitConverter.SingleToInt32Bits(gamma), ex = (bits >> 23) & 0xff;
         long mg = ex == 0 ? (bits & 0x7fffff) << 1 : (bits & 0x7fffff) | 0x800000;
         var eg = (ex == 0 ? 1 : ex) - 150; // gamma = mg * 2^eg
-        BigInteger q = (BigInteger.One << 54) / mg; // 2^54 / mg has at least 30 bits
+        var q = (BigInteger.One << 54) / mg; // 2^54 / mg has at least 30 bits
         var drop = (int)q.GetBitLength() - 24;
         q = q >> drop << drop;
         return (double)q * Math.Pow(2, -54 - eg);

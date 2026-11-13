@@ -88,7 +88,7 @@ public sealed class TurretControl
         while ((int)(SimTime - now) < 0)
         {
             var next = Math.Min((SimTime + 32) & ~31u, now);
-            if (ClientPrediction.MoveForTick(psc, SimTime, now, out Move bm, out _))
+            if (ClientPrediction.MoveForTick(psc, SimTime, now, out var bm, out _))
             {
                 Aim(ClientPrediction.ServerMove(bm), (float)((next - SimTime) * 0.001));
                 ++steps;

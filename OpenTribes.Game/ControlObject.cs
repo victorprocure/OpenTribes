@@ -287,7 +287,7 @@ public sealed class ObserverCamera : GameBase
     // (max + min) stored, then halved.
     private bool ObjectCentre(GameBase obj, Span<float> output)
     {
-        Container.Entry? e = mServices.Container?.Find(obj);
+        var e = mServices.Container?.Find(obj);
         for (var i = 0; i < 3; ++i)
         {
             if (e != null)
@@ -529,7 +529,7 @@ public sealed class ObserverCamera : GameBase
     {
         for (var i = 0; i < count; ++i)
         {
-            Move mv = moves[i];
+            var mv = moves[i];
             if (mv.Fire && !LastMove.Fire)
                 Call("Observer::triggerDown", ClientId);
             else if (!mv.Fire && LastMove.Fire)

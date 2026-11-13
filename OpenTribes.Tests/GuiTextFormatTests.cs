@@ -23,7 +23,7 @@ public sealed class GuiTextFormatTests
     [Fact]
     public void FontTagSelectsTheTenFontTableAndClampsIt()
     {
-        GuiTextFormat l = Layout("<f5>ab<f1>cd<f99>ef<f-3>gh", 400);
+        var l = Layout("<f5>ab<f1>cd<f99>ef<f-3>gh", 400);
         Assert.Equal([5, 1, 9, 0], l.Pieces.Select(p => p.Font).ToArray());
         Assert.Equal([0, 22, 22 + (2 * 7), 22 + (2 * 7) + (2 * 15)], l.Pieces.Select(p => p.X).ToArray());
     }
@@ -48,7 +48,7 @@ public sealed class GuiTextFormatTests
     [Fact]
     public void WordsWrapAtTheLastSpaceThatFits()
     {
-        GuiTextFormat l = Layout("aaaa bbbb cccc", 60);      // 10 characters of 6 px fit
+        var l = Layout("aaaa bbbb cccc", 60);      // 10 characters of 6 px fit
         Assert.Equal(new[] { "aaaa bbbb", "cccc" }, l.Pieces.Select(p => p.Text).ToArray());
         Assert.Equal([0, 10], l.Pieces.Select(p => p.Y).ToArray());
         Assert.Equal((10 * 2) + 2, l.Height);
@@ -57,23 +57,23 @@ public sealed class GuiTextFormatTests
     [Fact]
     public void CentreAndRightJustificationMoveEachLineByItsRoom()
     {
-        GuiTextFormat c = Layout("<jc>abcd", 100);
+        var c = Layout("<jc>abcd", 100);
         Assert.Equal((100 - 1 - 24) / 2, c.Pieces[0].X);
-        GuiTextFormat r = Layout("<jr>abcd", 100);
+        var r = Layout("<jr>abcd", 100);
         Assert.Equal(100 - 1 - 24, r.Pieces[0].X);
     }
 
     [Fact]
     public void LeftMarginIsCountedInSpaceWidthsOfFontZero()
     {
-        GuiTextFormat l = Layout("<l3>x", 200);
+        var l = Layout("<l3>x", 200);
         Assert.Equal(18, l.Pieces[0].X);
     }
 
     [Fact]
     public void TabAdvancesToTheNextStopOfThreeSpaces()
     {
-        GuiTextFormat l = Layout("a\tb", 200);
+        var l = Layout("a\tb", 200);
         Assert.Equal([0, 18], l.Pieces.Select(p => p.X).ToArray());
     }
 
@@ -81,7 +81,7 @@ public sealed class GuiTextFormatTests
     public void TwoCentredBitmapsSitSideBySideCentredOnTheLine()
     {
         var bmps = new Dictionary<string, PbmpBitmap> { ["a.bmp"] = Bmp(100, 40), ["b.bmp"] = Bmp(60, 40) };
-        GuiTextFormat l = Layout("<jc><B0,0:a.bmp><B0,0:b.bmp>", 400, n => bmps.GetValueOrDefault(n));
+        var l = Layout("<jc><B0,0:a.bmp><B0,0:b.bmp>", 400, n => bmps.GetValueOrDefault(n));
         Assert.Equal(2, l.Images.Count);
         Assert.Equal((400 - 160) / 2, l.Images[0].X);
         Assert.Equal(((400 - 160) / 2) + 100, l.Images[1].X);
@@ -92,7 +92,7 @@ public sealed class GuiTextFormatTests
     public void ABitmapTagOffsetsAreInTheWidthTwice()
     {
         var bmps = new Dictionary<string, PbmpBitmap> { ["a.bmp"] = Bmp(20, 30) };
-        GuiTextFormat l = Layout("<B5,2:a.bmp>text", 400, n => bmps.GetValueOrDefault(n));
+        var l = Layout("<B5,2:a.bmp>text", 400, n => bmps.GetValueOrDefault(n));
         Assert.Equal(5, l.Images[0].X);
         Assert.Equal(2, l.Images[0].Y);
         Assert.Equal(30 + 4 + 2, l.Height);
@@ -102,21 +102,21 @@ public sealed class GuiTextFormatTests
     [Fact]
     public void ALiteralLessThanAndUnknownTagsAreHandled()
     {
-        GuiTextFormat l = Layout("a<<b<q>c", 200);
+        var l = Layout("a<<b<q>c", 200);
         Assert.Equal("a<bc", string.Concat(l.Pieces.Select(p => p.Text)));
     }
 
     [Fact]
     public void VariableTagInsertsTheConsoleText()
     {
-        GuiTextFormat l = Layout("x<vname>y", 200, vars: n => n == "name" ? "NAME" : "");
+        var l = Layout("x<vname>y", 200, vars: n => n == "name" ? "NAME" : "");
         Assert.Equal("xNAMEy", string.Concat(l.Pieces.Select(p => p.Text)));
     }
 
     [Fact]
     public void WidthBelowTheWidestGlyphLeavesTheLayoutEmpty()
     {
-        GuiTextFormat l = Layout("abc", 5);
+        var l = Layout("abc", 5);
         Assert.False(l.Valid);
         Assert.Empty(l.Pieces);
     }

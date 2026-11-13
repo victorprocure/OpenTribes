@@ -30,9 +30,9 @@ public sealed class GuiHostScreenTests : IDisposable
     {
         var fx = new GuiFixture();
         fx.Interp.SetVariable("$Server::HostName", "TRIBES Server");
-        GuiControl edit = GuiFixture.Make("FearGui::TestEdit", 0, 0, 100, 19, ("active", (byte)1), ("maxLength", 80u));
+        var edit = GuiFixture.Make("FearGui::TestEdit", 0, 0, 100, 19, ("active", (byte)1), ("maxLength", 80u));
         edit.ConsoleVar = "Server::HostName";
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(edit);
         fx.Content(root);
         fx.Frame();
@@ -46,10 +46,10 @@ public sealed class GuiHostScreenTests : IDisposable
         var fx = new GuiFixture();
         fx.Host.SetFont("sf_orange214_10.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 13 });
         fx.Host.SetFont("sf_white_10.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 13 });
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 100, 60, ("verticalPolicy", 2u), ("horizontalPolicy", 1u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 0, 0, 100, 60);
-        GuiControl list = GuiFixture.Make("FearGui::FGTextList", 0, 0, 640, 60, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 100, 60, ("verticalPolicy", 2u), ("horizontalPolicy", 1u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 0, 0, 100, 60);
+        var list = GuiFixture.Make("FearGui::FGTextList", 0, 0, 640, 60, ("active", (byte)1));
         list.Name = "MissionList";
         list.ConsoleVar = "$pref::LastMission";
         root.AddChild(scroll);
@@ -101,14 +101,14 @@ public sealed class GuiHostScreenTests : IDisposable
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n$pref::PlayGameMode = \"HOST\";\n");
-        ClientOptions opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
+        var opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
         Assert.Equal("", err);
         mApp = new ClientApp(opt);
         Assert.True(mApp.Start(out var error), error);
         foreach (var (mode, id) in new[] { ("HOST", 100105u), ("TRAIN", 100998u), ("JOIN", 100103u), ("", 100103u) })
         {
             mApp.Interp.SetVariable("$pref::PlayGameMode", mode);
-            GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+            var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
             var radios = new Dictionary<uint, GuiUniversalButton>();
             foreach (var (rid, name) in new[] { (100103u, "JOIN"), (100105u, "HOST"), (100998u, "TRAIN") })
             {

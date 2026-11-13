@@ -33,7 +33,7 @@ public class UdpTests
         n = 0;
         for (var tries = 0; tries < 200 && n == 0; ++tries)
         {
-            n = b.Receive(out Address from, buf);
+            n = b.Receive(out var from, buf);
             if (n == 0)
                 Thread.Sleep(5);
             else
@@ -54,7 +54,7 @@ public class UdpTests
         Assert.True(client.OpenToward(to));
         Assert.True(client.Send(to, [1, 2, 3]));
         var buf = new byte[16];
-        Assert.Equal(3, server.Receive(out Address from, buf));
+        Assert.Equal(3, server.Receive(out var from, buf));
         Assert.Equal(client.Port(), from.Port);
         Assert.Equal(0u + 0x7f000001u, from.Ip);
         Assert.Equal(0, server.Receive(out _, buf));

@@ -85,7 +85,7 @@ public class ServerQueryTests
     [Fact]
     public void ParsesAPingReply()
     {
-        Assert.True(QueryPackets.TryParsePingReply(PingReply(7, 3, 1, "Hello"), out PingReply r));
+        Assert.True(QueryPackets.TryParsePingReply(PingReply(7, 3, 1, "Hello"), out var r));
         Assert.Equal((ushort)7, r.Key);
         Assert.Equal((byte)3, r.Players);
         Assert.Equal((ushort)1, r.PacketVersion);
@@ -96,7 +96,7 @@ public class ServerQueryTests
     [Fact]
     public void ParsesAnInfoReply()
     {
-        Assert.True(QueryPackets.TryParseInfoReply(InfoReply(9, 1), out ServerInfoRecord r));
+        Assert.True(QueryPackets.TryParseInfoReply(InfoReply(9, 1), out var r));
         Assert.Equal((ushort)9, r.Key);
         Assert.Equal("Tribes", r.GameName);
         Assert.Equal("1.11", r.Version);
@@ -122,7 +122,7 @@ public class ServerQueryTests
     [InlineData("ip:broadcast:28001", "IP:Broadcast:28001", true)]
     public void ResolvesAddressText(string text, string canonical, bool broadcast)
     {
-        Assert.True(QueryAddress.TryResolve(text, 0xffffffff, out var c, out Address t, out var b, out _));
+        Assert.True(QueryAddress.TryResolve(text, 0xffffffff, out var c, out var t, out var b, out _));
         Assert.Equal(canonical, c);
         Assert.Equal(broadcast, b);
         Assert.Equal((ushort)28001, t.Port);

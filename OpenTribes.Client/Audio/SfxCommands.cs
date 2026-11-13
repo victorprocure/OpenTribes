@@ -136,7 +136,7 @@ public sealed class SfxCommands
             var id = a.Length >= 3 ? (int)D(a[1]) : 0;
             if (a.Length < 3 || id == 0)
             { mInterp.Print(1, usage); return "False"; }
-            SoundProfile p = SoundProfile.Default;
+            var p = SoundProfile.Default;
             p.Id = id;
             p.BaseVolume = D(a[2]);
             if (!ParseFlags("sfxAdd2DProfile", a, 3, ref p.Flags))
@@ -152,7 +152,7 @@ public sealed class SfxCommands
             var id = a.Length >= 5 ? (int)D(a[1]) : 0;
             if (a.Length < 5 || id == 0)
             { mInterp.Print(1, usage); return "False"; }
-            SoundProfile p = SoundProfile.Default;
+            var p = SoundProfile.Default;
             p.Id = id;
             p.BaseVolume = D(a[2]);
             p.MinDist = D(a[3]);
@@ -226,7 +226,7 @@ public sealed class SfxCommands
         }));
         mInterp.AddCommand("sfxSetListenerPosition", (_, a) => NeedSound(a, 4, "sfxSetListenerPosition x y z", x =>
         {
-            Listener l = mSound.Listener;
+            var l = mSound.Listener;
             mSound.SetListener(D(x[1]), D(x[2]), D(x[3]), l.RightX, l.RightY, l.RightZ);
             return "True";
         }));

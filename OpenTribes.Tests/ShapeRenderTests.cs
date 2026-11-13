@@ -50,13 +50,13 @@ public class ShapeRenderTests
     [Fact]
     public void ReaderKeepsTextureVerticesTriggersImageListsAndMaterials()
     {
-        RenderShape s = Shape();
+        var s = Shape();
         Assert.Equal(3, s.Nodes.Length);
         Assert.Equal(2, s.Sequences.Length);
         Assert.Single(s.Triggers);
         Assert.Equal(1, s.Sequences[1].NumIfl);                 // 1.2 sequence tail
         Assert.Equal(1, s.Sequences[0].NumTriggers);
-        RsMesh m = s.Meshes[0];
+        var m = s.Meshes[0];
         Assert.Equal(8, m.TexVerts.Length);                     // 1.2 texture vertices
         Assert.Equal(2, m.Faces[0].T1);
         Assert.Equal(4, m.TexVertsPerFrame);
@@ -109,7 +109,7 @@ public class ShapeRenderTests
     [Fact]
     public void DetailFollowsTheProjectedRadiusAndThePreferenceScale() // SR 2.3 step 1
     {
-        RenderShape s = Shape();                                 // details 20 and 5, radius 2
+        var s = Shape();                                 // details 20 and 5, radius 2
         var r = new ShapeRenderer(new ShapeAssets(null, new WorldAssets(new ResourceManager(Path.GetTempPath()), PaletteTables.Grayscale())));
         var cam = new Camera3D(0, 0, 0, 0, 0, 90, 640, 480, 0.5, 1000);
         static Xf at(double d) => Xf.Translate(0, d, 0);
@@ -122,10 +122,10 @@ public class ShapeRenderTests
     [Fact]
     public void RootTransformIsTheNodeZeroDefaultAndStaysOutOfTheNodeTable() // SR 3.6 image root transform
     {
-        RenderShape sh = Shape();
+        var sh = Shape();
         var di = sh.Nodes[0].DefaultTransform;
         sh.Transforms[di] = new RsTransform { Qw = 1, Tx = -0.002, Ty = 0.184, Tz = -0.164 };  // the disc launcher's node 0
-        Xf r = sh.RootTransform();
+        var r = sh.RootTransform();
         Assert.Equal((-0.002, 0.184, -0.164), r.Apply(0, 0, 0));
         var inst = new RenderInstance(sh);
         inst.Animate(0);
@@ -137,17 +137,17 @@ public class ShapeRenderTests
     [Fact]
     public void LowerbackNodeHangsOnTheUprightFrameInAViewMode() // SR 3.4, 5.2
     {
-        RenderShape sh = Shape();
+        var sh = Shape();
         sh.Names[sh.Nodes[1].Name] = "lowerback36";
         var inst = new RenderInstance(sh);
-        RenderThread spin = inst.AddThread("spin")!;
+        var spin = inst.AddThread("spin")!;
         spin.Position = 0.3;
         inst.Animate(0);
-        Xf plain = inst.NodeWorld[1];
+        var plain = inst.NodeWorld[1];
         inst.ViewMode = 1;
         inst.Animate(0);
-        Xf viewed = inst.NodeWorld[1];
-        Xf expect = plain.Then(Xf.Euler(0, 0, Math.PI / 2));
+        var viewed = inst.NodeWorld[1];
+        var expect = plain.Then(Xf.Euler(0, 0, Math.PI / 2));
         Assert.Equal(expect.M0, viewed.M0, 9);
         Assert.Equal(expect.M1, viewed.M1, 9);
         Assert.Equal(expect.M3, viewed.M3, 9);
@@ -161,12 +161,12 @@ public class ShapeRenderTests
     public void CyclicThreadsWrapAndOneShotThreadsClamp() // SR 3.1
     {
         var inst = new RenderInstance(Shape());
-        RenderThread spin = inst.AddThread("spin")!;
+        var spin = inst.AddThread("spin")!;
         inst.Advance(spin, 1.5);                                 // 1.5 s of a 2 s cycle
         Assert.Equal(0.75, spin.Position, 9);
         inst.Advance(spin, 1.0);
         Assert.Equal(0.25, spin.Position, 9);                    // wrapped
-        RenderThread one = inst.AddThread("frames")!;
+        var one = inst.AddThread("frames")!;
         inst.Advance(one, 5);
         Assert.Equal(1.0, one.Position, 9);                      // clamped at the end
         Assert.True(one.AtEnd(inst.Shape));
@@ -179,7 +179,7 @@ public class ShapeRenderTests
     public void NodeTranslationInterpolatesBetweenKeys() // SR 3.1: node transforms interpolate (collision.md T2.5a)
     {
         var inst = new RenderInstance(Shape());
-        RenderThread spin = inst.AddThread("spin")!;
+        var spin = inst.AddThread("spin")!;
         spin.TimeScale = 0;
         spin.Position = 0.25;                                    // half way between the keys at 0 and 0.5
         inst.Animate(0);
@@ -196,7 +196,7 @@ public class ShapeRenderTests
     public void FrameTriggersFireWhenTheirPositionIsPassed() // SR 3.7
     {
         var inst = new RenderInstance(Shape());
-        RenderThread spin = inst.AddThread("spin")!;
+        var spin = inst.AddThread("spin")!;
         var got = new List<uint>();
         inst.Advance(spin, 0.9, got);                            // 0 to 0.45
         Assert.Empty(got);
@@ -216,7 +216,7 @@ public class ShapeRenderTests
     {
         var inst = new RenderInstance(Shape());
         Assert.Equal([0, 1], inst.Remap);                // identity before any thread
-        RenderThread t = inst.AddThread("frames")!;
+        var t = inst.AddThread("frames")!;
         t.TimeScale = 0;
         t.Position = 0.25;
         inst.Animate(0);
@@ -233,7 +233,7 @@ public class ShapeRenderTests
     public void ATransitionBlendsFromThePoseAtTheSwitch() // SR 3.3
     {
         var inst = new RenderInstance(Shape());
-        RenderThread t = inst.AddThread("spin")!;
+        var t = inst.AddThread("spin")!;
         t.TimeScale = 0;
         t.Position = 0.5;                                        // node 1 at x = 2
         inst.Animate(0);
@@ -334,16 +334,16 @@ public class ShapeRenderTests
         var decal = new PbmpBitmap { Width = 16, Height = 16, Pixels = new byte[256], Attributes = BitmapAttributes.OwnsMemory };
         for (var i = 0; i < 256; ++i)
             decal.Pixels[i] = (byte)(i % 3 == 0 ? 0 : 9);        // index 0 stays clear
-        PbmpBitmap same = Skins.ApplyDamage(skin, 0, new[] { decal });
+        var same = Skins.ApplyDamage(skin, 0, new[] { decal });
         Assert.Same(skin, same);                                 // level 0: nothing
-        PbmpBitmap worn = Skins.ApplyDamage(skin, 2, new[] { decal });
+        var worn = Skins.ApplyDamage(skin, 2, new[] { decal });
         Assert.NotSame(skin, worn);
         Assert.All(skin.Pixels, p => Assert.Equal(5, p));         // the original is untouched
         var marked = worn.Pixels.Count(p => p == 9);
         Assert.InRange(marked, 1, 64 * 64);
-        PbmpBitmap worse = Skins.ApplyDamage(skin, 3, new[] { decal });
+        var worse = Skins.ApplyDamage(skin, 3, new[] { decal });
         Assert.True(worse.Pixels.Count(p => p == 9) >= marked);
-        PbmpBitmap again = Skins.ApplyDamage(skin, 2, new[] { decal });
+        var again = Skins.ApplyDamage(skin, 2, new[] { decal });
         Assert.Equal(worn.Pixels, again.Pixels);                  // deterministic
     }
 
@@ -355,7 +355,7 @@ public class ShapeRenderTests
     [Fact]
     public void ExplosionLifeAndLightPhases() // SR 4.3 Life and Light curve
     {
-        LightCurve c = Curve();
+        var c = Curve();
         Assert.Equal(600, c.LifeMs);                              // trunc(1.5 * 0.4 * 1000)
         Assert.Equal(150, c.TA);
         Assert.Equal(510, c.TB);
@@ -374,7 +374,7 @@ public class ShapeRenderTests
     [Fact]
     public void AnExplosionLivesForItsLifeAndGivesALightWhileItDoes() // SR 4.3, 4.9
     {
-        RenderShape s = Shape();
+        var s = Shape();
         var db = new ClientDataBlock { Group = 20, Class = "ExplosionData" };
         void F(string n, object v) => db.Fields.Add(new DecodedField(n, v));
         F("timeScale", 1.0);
@@ -395,7 +395,7 @@ public class ShapeRenderTests
         var e = new ExplosionEffect(s, db, 1, 2, 3, 0, 0, 1, new Random(1));
         Assert.Equal(2000, e.LifeMs);
         Assert.True(e.Alive);
-        PointLight? l = e.Light;
+        var l = e.Light;
         Assert.NotNull(l);
         Assert.Equal(3, l!.Value.Z);
         Assert.Equal(4.0, l.Value.Range, 9);
@@ -412,7 +412,7 @@ public class ShapeRenderTests
     [Fact]
     public void DebrisPiecesLandOnTheFloorAndEachEndsInTheSpawnedExplosion()
     {
-        RenderShape s = Shape();
+        var s = Shape();
         var explosions = new List<(int index, double z)>();
         var piece = new DebrisParams(MinTimeout: 3, MaxTimeout: 6, ExplodeOnBounce: 0.3, ExplodeOnRest: true, Explosion: 7);
         // an interior floor at z 10 (no terrain): the pieces start above it and must stay on it
@@ -519,10 +519,10 @@ public class ShapeRenderTests
     [Fact]
     public void PartDebrisCloudThrowsEveryPieceOutFromTheShapeCentreAtBurstStrengthOverMass() // 00476858, ShapeBase_explode 0044cdec
     {
-        RenderShape s = Shape();
+        var s = Shape();
         var d = new DebrisEffect(new RenderInstance(s), Xf.Translate(0, 0, 50), 3, -2, 1, null, new Random(9));
         Assert.True(d.PieceCount > 0);
-        foreach (DebrisBody b in d.Bodies)
+        foreach (var b in d.Bodies)
         {
             var dv = Math.Sqrt(((b.Vx - 3) * (b.Vx - 3)) + ((b.Vy + 2) * (b.Vy + 2)) + ((b.Vz - 1) * (b.Vz - 1)));
             Assert.True(Math.Abs(dv - 8) < 1e-9 || dv < 1e-9, $"burst of 2000 / 250 or none (a piece at the shape centre), got {dv}");
@@ -584,7 +584,7 @@ public class ShapeRenderTests
     {
         var p = DebrisParams.Default with { SpawnMask = 3, SpawnStrength = 90, SpawnRadius = 0.4 };
         var b = new DebrisBody { X = 1, Y = 2, Z = 3, Vx = 4, Mass = 100 };
-        DebrisCloudSpec spec = b.SecondaryCloud(p, 9990)!.Value;
+        var spec = b.SecondaryCloud(p, 9990)!.Value;
         Assert.Equal((3, 1.0, 2.0, 3.0, 4.0, 90.0, 90.0, 0.4, 9990.0), (spec.Mask, spec.X, spec.Y, spec.Z, spec.Vx, spec.Budget, spec.Strength, spec.Radius, spec.Remaining));
         Assert.Null(b.SecondaryCloud(p with { SpawnMask = 0 }, 9990));
         Assert.Null(b.SecondaryCloud(p, 0));
@@ -603,7 +603,7 @@ public class ShapeRenderTests
     [Fact]
     public void SmokePoolIsARingAndPuffsDieWhenTheirSequenceEnds() // SR 4.5
     {
-        RenderShape s = Shape();                                  // no Sequence01: the first sequence plays (2 s, cyclic)
+        var s = Shape();                                  // no Sequence01: the first sequence plays (2 s, cyclic)
         var pool = new SmokePool(3);
         for (var i = 0; i < 5; ++i)
             pool.Spawn(s, i, 0, 0);
@@ -614,7 +614,7 @@ public class ShapeRenderTests
     [Fact]
     public void SmokePuffsDriftUpAndExpireAfterScaleSeconds() // SR 4.5 FUN_0045b4a4 / FUN_0045b070
     {
-        RenderShape s = Shape();                                  // sequence 2 s, cyclic
+        var s = Shape();                                  // sequence 2 s, cyclic
         var pool = new SmokePool(4);
         pool.Spawn(s, 0, 0, 0, 1, 0, 0, 1);
         pool.Tick(0.5);
@@ -633,7 +633,7 @@ public class ShapeRenderTests
     [Fact]
     public void SmokePuffsAreRemovedByRadius() // SR 4.5 FUN_0045b6d4
     {
-        RenderShape s = Shape();
+        var s = Shape();
         var pool = new SmokePool(10);
         pool.Spawn(s, 0, 0, 0);
         pool.Spawn(s, 10, 0, 0);
@@ -659,7 +659,7 @@ public class ShapeRenderTests
     [Fact]
     public void DecalQuadIsLiftedAlongTheNormalAndSizedByTheTable() // SR 4.6 Footprint
     {
-        DecalRing.Entry e = DecalRing.Quad(2, 10, 20, 30, 0, 0, 1, 0, 1, 0);
+        var e = DecalRing.Quad(2, 10, 20, 30, 0, 0, 1, 0, 1, 0);
         Assert.Equal(30.05, e.Cz, 9);                             // lifted by 0.05 along the normal
         var w = Math.Abs(e.Corners[3] - e.Corners[0]);         // right extent: 2 * half = 0.4
         Assert.Equal(0.4, w, 9);
@@ -721,10 +721,10 @@ public class ShapeRenderTests
     [Fact]
     public void ThreadSlotsAndImagesParseFromTheGhostText() // client-net.md 3.2, 3.4
     {
-        List<ThreadSlot> t = ThreadSlot.ParseAll(new List<object?> { "0:seq=3 state=0 fwd=1 end=1", "2:seq=-1 state=2 fwd=0 end=0" });
+        var t = ThreadSlot.ParseAll(new List<object?> { "0:seq=3 state=0 fwd=1 end=1", "2:seq=-1 state=2 fwd=0 end=0" });
         Assert.Equal(new ThreadSlot(0, 3, 0, true, true), t[0]);
         Assert.Equal(new ThreadSlot(2, -1, 2, false, false), t[1]);
-        List<ImageSlot> im = ImageSlot.ParseAll(new List<object?> { "0:img=21 state=-1 01 0 f=0", "1:img=29 state=2 11 1", "2:img=-1 state=-1 00 0 f=0" });
+        var im = ImageSlot.ParseAll(new List<object?> { "0:img=21 state=-1 01 0 f=0", "1:img=29 state=2 11 1", "2:img=-1 state=-1 00 0 f=0" });
         Assert.Equal(new ImageSlot(0, 21, -1, 0, false, true, false), im[0]);
         Assert.Equal(new ImageSlot(1, 29, 2, 1, true, true, false), im[1]);
         Assert.Equal(-1, im[2].Image);
@@ -733,7 +733,7 @@ public class ShapeRenderTests
     [Fact]
     public void ABasisPlacesLocalYAlongTheForwardVector() // SR 4.3 faceCamera: the image faces the camera
     {
-        Xf b = Mathx.Basis(1, 2, 3, 0, 1, 0);
+        var b = Mathx.Basis(1, 2, 3, 0, 1, 0);
         var (x, y, z) = b.Apply(0, 5, 0);
         Assert.Equal((1.0, 7.0, 3.0), (x, y, z));
         var (ux, uy, uz) = b.Rotate(0, 0, 1);                     // local up stays world up
@@ -764,11 +764,11 @@ public class ShapeRenderTests
     [Fact]
     public void ObserverOrbitMovesBackAlongTheViewDirection() // game-stream.md 6.6 mode 3
     {
-        DemoRender.CameraPose c = DemoRender.Orbit(10, 20, 30, 0, 0, 5);          // yaw 0 looks along +Y
+        var c = DemoRender.Orbit(10, 20, 30, 0, 0, 5);          // yaw 0 looks along +Y
         Assert.Equal(10, c.X, 9);
         Assert.Equal(15, c.Y, 9);
         Assert.Equal(30, c.Z, 9);
-        DemoRender.CameraPose up = DemoRender.Orbit(0, 0, 0, 0, Math.PI / 6, 10);  // looking up 30 degrees from below
+        var up = DemoRender.Orbit(0, 0, 0, 0, Math.PI / 6, 10);  // looking up 30 degrees from below
         Assert.Equal(-10 * Math.Cos(Math.PI / 6), up.Y, 9);
         Assert.Equal(-10 * Math.Sin(Math.PI / 6), up.Z, 9);
     }
@@ -796,18 +796,18 @@ public class ShapeRenderTests
         using (win)
         using (var dev = new GlGfxDevice(win))
         {
-            PaletteBank bank = PaletteTables.Grayscale();
+            var bank = PaletteTables.Grayscale();
             dev.SetPalette(bank);
             using var assets = new ShapeAssets(dev, new WorldAssets(new ResourceManager(Path.GetTempPath()), bank));
-            RenderShape shape = Shape();
+            var shape = Shape();
             var inst = new RenderInstance(shape);
             var renderer = new ShapeRenderer(assets);
             var cam = new Camera3D(0, -5, 0, 0, 0, 60, dev.Width, dev.Height, 0.5, 100);
             var ctx = new FrameContext { Camera = cam, Assets = assets, Renderer = renderer, Light = new LightSet { AmbR = 1, AmbG = 1, AmbB = 1, SunR = 0, SunG = 0, SunB = 0 } };
             // viewed from the front the quad (facing -Y) is drawn; from behind it is culled (SR 2.4 step 6)
-            ShapeDraw d = ctx.Draw(Xf.Identity, "synthetic");
+            var d = ctx.Draw(Xf.Identity, "synthetic");
             d.ForceDetail = 0;
-            RenderImage? img = renderer.Build(inst, cam, d);
+            var img = renderer.Build(inst, cam, d);
             Assert.NotNull(img);
             Assert.Equal(0, renderer.LastCulled);
             Assert.Single(img!.Batches);

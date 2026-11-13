@@ -20,7 +20,7 @@ public class BitStreamTests
         uint maxLen = 0;
         for (var c = 0; c < 256; ++c)
         {
-            HuffmanCode code = Huffman.HuffmanCode((byte)c);
+            var code = Huffman.HuffmanCode((byte)c);
             Assert.True(code.Length > 0);
             maxLen = code.Length > maxLen ? code.Length : maxLen;
             var bit = 0;

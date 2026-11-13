@@ -47,11 +47,11 @@ public static class ClientRoundTrip
     {
         var (name, fn) = ClientGhostManager.Classes[tag];
         var r = new ClientReader((byte[])buf.Clone(), world);
-        ClientGhost g = prev ?? new ClientGhost { Tag = tag, Class = name };
+        var g = prev ?? new ClientGhost { Tag = tag, Class = name };
         r.Out = [];
         fn(r, g, isNew);
         Assert.True(r.Pos == (int)bits, name + ": client read " + r.Pos + " bits, the pack wrote " + bits);
-        foreach (DecodedField f in r.Out)
+        foreach (var f in r.Out)
             g.State[f.Name] = f.Value;
         g.Last = r.Out;
         return g;

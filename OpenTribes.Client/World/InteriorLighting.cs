@@ -256,7 +256,7 @@ public sealed class InteriorLighting
     /// <returns>The pixels, or null when the surface has no size.</returns>
     public ushort[]? SurfaceMap(int surface, InteriorLighting? mission)
     {
-        Surface s = Surfaces[surface];
+        var s = Surfaces[surface];
         var px = s.SizeX * s.SizeY;
         if (px <= 0)
             return null;
@@ -268,7 +268,7 @@ public sealed class InteriorLighting
         }
         var index = s.Word & 0xbfffffff;
         var compressed = (s.Word & 0x40000000u) != 0;
-        InteriorLighting src = this;
+        var src = this;
         long offset = index;
         if (mission != null && mission.TryMissionOffset(index, out var dest))
         {
@@ -323,7 +323,7 @@ public sealed class InteriorLighting
     /// <returns>The mono, red, green and blue bytes.</returns>
     public static (int mono, int r, int g, int b) ColorAt(ReadOnlySpan<State> records, float duration, int state, float time)
     {
-        State a = records[state];
+        var a = records[state];
         float ta = a.EndTime, tb;
         State n;
         if (state != records.Length - 1)

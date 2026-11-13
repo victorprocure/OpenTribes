@@ -162,7 +162,7 @@ public sealed class CanvasRoot : IGuiResponder
     /// <remarks>Follows 00535b7c (docs/gui.md 2.8): tags 100002 to 109998 load a content file, 110001 and 110002 pop the dialog, 110003 to 119998 push a dialog, 120001 to 129998 run a command. The text of the tag is the file or command.</remarks>
     public bool Message(GuiControl? sender, int tag)
     {
-        GuiHost host = mCanvas.Host;
+        var host = mCanvas.Host;
         var text = host.TagText((uint)tag);
         if (tag is > 100001 and < 109999)
         {
@@ -322,13 +322,13 @@ public sealed class GuiCanvas
     /// <returns>The next responder.</returns>
     public IGuiResponder ResponderAbove(GuiControl c)
     {
-        GuiControl top = c;
+        var top = c;
         while (top.Parent != null)
             top = top.Parent;
         var i = Stack.IndexOf(top);
         if (i > 0)
             return Stack[i - 1];
-        return mDelegateOf.TryGetValue(top, out GuiDelegate? d) ? d : Root;
+        return mDelegateOf.TryGetValue(top, out var d) ? d : Root;
     }
 
     /// <summary>Returns whether a dialog dims a control (docs/gui.md 2.5).</summary>
@@ -338,8 +338,8 @@ public sealed class GuiCanvas
     {
         if (Stack.Count < 2)
             return false;
-        GuiControl dlg = Stack[1];
-        GuiControl r = c;
+        var dlg = Stack[1];
+        var r = c;
         while (r.Parent != null)
             r = r.Parent;
         return r != dlg && dlg.FindById(141000) != null;
@@ -357,7 +357,7 @@ public sealed class GuiCanvas
             Host.Print("Could not load gui: " + name);
             return null;
         }
-        GuiControl c = GuiLoader.Load(data, out var error);
+        var c = GuiLoader.Load(data, out var error);
         if (c == null)
         {
             Host.Print("Could not load gui: " + name);
@@ -379,7 +379,7 @@ public sealed class GuiCanvas
     public bool LoadContent(string file)
     {
         Trace.Add("load content " + file);
-        GuiControl? c = LoadFile(file);
+        var c = LoadFile(file);
         if (c == null)
             return false;
         // The content control is named after its file: JoinGame.gui is `JoinGameGui`, play.gui `playGui` (the names of the
@@ -417,9 +417,9 @@ public sealed class GuiCanvas
             CallContentHook(Stack[0], "onClose");
         if (Stack.Count == 1)
         {
-            GuiControl old = Stack[0];
+            var old = Stack[0];
             Stack.RemoveAt(0);
-            if (mDelegateOf.TryGetValue(old, out GuiDelegate? oldDel))
+            if (mDelegateOf.TryGetValue(old, out var oldDel))
                 oldDel.OnRemove?.Invoke(old);
             old.CloseTree();
             old.SetCanvas(null);
@@ -453,7 +453,7 @@ public sealed class GuiCanvas
     public bool PushDialog(string file)
     {
         Trace.Add("push dialog " + file);
-        GuiControl? c = LoadFile(file);
+        var c = LoadFile(file);
         if (c == null)
             return false;
         PushDialog(c);
@@ -477,10 +477,10 @@ public sealed class GuiCanvas
     {
         if (Stack.Count < 2)
             return;
-        GuiControl dlg = Stack[^1];
+        var dlg = Stack[^1];
         if (!force)
         {
-            GuiDelegate? d = mDelegateOf.GetValueOrDefault(Stack[0]);
+            var d = mDelegateOf.GetValueOrDefault(Stack[0]);
             if (d?.OnPop != null && d.OnPop(dlg, message) == -1)
                 return;
         }
@@ -518,10 +518,10 @@ public sealed class GuiCanvas
     /// <returns>True when it took the focus.</returns>
     public bool SetFirstResponder(IGuiResponder r)
     {
-        IGuiResponder old = FirstResponder;
+        var old = FirstResponder;
         if (!old.CanRelease())
             return false;
-        IGuiResponder next = r.CanTake() ? r : Root;
+        var next = r.CanTake() ? r : Root;
         FirstResponder = next;
         if (next != old && (next == Root || old == Root))
             KeyRepeatAt = -1;
@@ -540,7 +540,7 @@ public sealed class GuiCanvas
                 return;
             if (c.WantsTab)
                 TabList.Add(c);
-            foreach (GuiControl k in c.Children)
+            foreach (var k in c.Children)
                 Collect(k);
         }
     }
@@ -561,7 +561,7 @@ public sealed class GuiCanvas
         for (var step = 0; step < n; ++step)
         {
             idx = (idx + dir + n) % n;
-            GuiControl cand = TabList[idx];
+            var cand = TabList[idx];
             if (cand.CanTake())
             {
                 SetFirstResponder(cand);
@@ -599,7 +599,7 @@ public sealed class GuiCanvas
     {
         if (Lock != null)
             return Lock;
-        GuiControl? top = Top;
+        var top = Top;
         return top?.Pick((int)CursorX - top.X, (int)CursorY - top.Y);
     }
 
@@ -612,10 +612,10 @@ public sealed class GuiCanvas
 
     private void Dispatch(GuiEvent e, bool drag)
     {
-        GuiControl? target = Target();
+        var target = Target();
         if (Lock == null && target != Hover)
         {
-            GuiControl? old = Hover;
+            var old = Hover;
             old?.MsLeave(e);
             Hover = target;
             mHoverTick = Now;
@@ -716,7 +716,7 @@ public sealed class GuiCanvas
             if (string.Equals(r, "true", StringComparison.OrdinalIgnoreCase))
                 return true;
         }
-        IGuiResponder entry = FirstResponder;
+        var entry = FirstResponder;
         if (make)
         {
             mLastKey = ge;
@@ -741,7 +741,7 @@ public sealed class GuiCanvas
         mMods = ev.Mod;
         if (ev.ObjType is RawInput.ObjXAxis or RawInput.ObjYAxis)
         {
-            GuiControl? top = Top;
+            var top = Top;
             int mx = top?.W ?? Width, my = top?.H ?? Height;
             int ox = (int)CursorX, oy = (int)CursorY;
             if (ev.ObjType == RawInput.ObjXAxis)
@@ -807,7 +807,7 @@ public sealed class GuiCanvas
     public void Frame()
     {
         var now = Now;
-        foreach (GuiDelegate d in mDelegateOf.Values.Distinct())
+        foreach (var d in mDelegateOf.Values.Distinct())
             d.OnFrame?.Invoke();
         if (KeyRepeatAt >= 0 && now > KeyRepeatAt && FirstResponder != Root)
         {
@@ -817,7 +817,7 @@ public sealed class GuiCanvas
         if (MouseRepeatAt >= 0 && now > MouseRepeatAt && LeftDown && Lock != null)
             Lock.MsRepeat(MouseEvent());
         // A pre-render may replace the content (the movie control runs its done command there), so walk a copy.
-        foreach (GuiControl el in Stack.ToArray())
+        foreach (var el in Stack.ToArray())
         {
             if (el.X != 0 || el.Y != 0 || el.W != Width || el.H != Height)
             {
@@ -828,8 +828,8 @@ public sealed class GuiCanvas
         }
         ResolveCursor();
         UpdateHelp(now);
-        foreach (GuiControl el in Stack.ToArray())
-            foreach (GuiControl c in el.Descendants())
+        foreach (var el in Stack.ToArray())
+            foreach (var c in el.Descendants())
                 if (c.ConsoleVar.Length > 0)
                 {
                     var v = Host.GetVar(c.ConsoleVar);
@@ -859,7 +859,7 @@ public sealed class GuiCanvas
     {
         var p = new GuiPaint(dev, Host);
         dev.SetClip(null);
-        foreach (GuiControl el in Stack)
+        foreach (var el in Stack)
         {
             p.SetClip(new GfxRect(0, 0, dev.Width - 1, dev.Height - 1));
             el.Render(p, 0, 0);
@@ -954,7 +954,7 @@ public sealed class GuiCanvas
     /// <remarks>It takes the cursor tag of the lock control, else of the hover control, and picks the override slot when the tag changed. A tag of 0 falls back to the default cursor.</remarks>
     private void ResolveCursor()
     {
-        GuiControl? src = Lock ?? Hover;
+        var src = Lock ?? Hover;
         uint tag = 0;
         if (CursorOn && src != null)
         {

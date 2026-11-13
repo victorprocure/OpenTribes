@@ -116,7 +116,7 @@ public sealed class PlayDelegate : IActionConsumer
     /// <param name="name">The map name.</param>
     public void Push(string name)
     {
-        ActionMap? m = Map(name);
+        var m = Map(name);
         if (m == null)
             return;
         mApp.Input.Push(m, this);
@@ -127,7 +127,7 @@ public sealed class PlayDelegate : IActionConsumer
     /// <param name="name">The map name.</param>
     public void Pop(string name)
     {
-        ActionMap? m = Map(name);
+        var m = Map(name);
         if (m == null)
             return;
         mApp.Input.Pop(m, this);
@@ -141,7 +141,7 @@ public sealed class PlayDelegate : IActionConsumer
     /// <remarks>It handles the actions that are not move input (3.10).</remarks>
     public bool OnAction(int action, int kind, float value)
     {
-        if (mApp.Game == null || mApp.Game.IsDemo && action != MoveBuilder.ObserverToggle)
+        if (mApp.Game == null || (mApp.Game.IsDemo && action != MoveBuilder.ObserverToggle))
         {
             // No connection: only the script and GUI actions have an effect.
             if (action is Chat or MenuPage or EscapePressed)
@@ -257,7 +257,7 @@ public sealed class PlayDelegate : IActionConsumer
     /// <remarks>The zoom (140211) and center (140216) buttons hand their lit state to the map. The three tabs (140115 players, 140116 controllables, 140117 objects) tell it which kind it selects.</remarks>
     public bool Message(GuiControl? sender, int tag)
     {
-        GuiCommandMap? map = Map();
+        var map = Map();
         switch (tag)
         {
             case (int)ZoomButtonId when sender is GuiUniversalButton zoom:
@@ -299,7 +299,7 @@ public sealed class PlayDelegate : IActionConsumer
     /// <param name="mode">The GUI mode.</param>
     public void SetGuiMode(int mode)
     {
-        Interpreter i = mApp.Interp;
+        var i = mApp.Interp;
         mScoreDialog = null;
         i.Evaluate("setCMMode(PlayChatMenu, 0); setCMMode(CommandChatMenu, 0);");
         switch (mode)

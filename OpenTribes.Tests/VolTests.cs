@@ -38,7 +38,7 @@ public class VolTests
         PutTag(b, "PVOL");
         PutU32(b, 0);
         var offsets = new List<uint>();
-        foreach (Spec s in specs)
+        foreach (var s in specs)
         {
             offsets.Add((uint)b.Count);
             PutTag(b, "VBLK");
@@ -53,7 +53,7 @@ public class VolTests
 
         var strings = "";
         var nameOffsets = new List<uint>();
-        foreach (Spec s in specs)
+        foreach (var s in specs)
         {
             nameOffsets.Add(s.Name != null ? (uint)strings.Length : 0xffffffff);
             if (s.Name != null)
@@ -116,7 +116,7 @@ public class VolTests
         Assert.Empty(vol.Entries()[3].Name);
 
         var buf = Array.Empty<byte>();
-        VolEntry? e = vol.Find("zeta.CS");
+        var e = vol.Find("zeta.CS");
         Assert.True(e != null && vol.Read(e, out buf));
         Assert.Equal("echo(\"z\");", Str(buf));
 
@@ -205,11 +205,11 @@ public class VolTests
         var buf = Array.Empty<byte>();
         for (var i = 0; i < plain.Count; ++i)
         {
-            VolEntry? pe = vol.Find(names[i]);
+            var pe = vol.Find(names[i]);
             Assert.True(pe != null && vol.Read(pe, out buf));
             Assert.Equal(plain[i], Str(buf));
         }
-        VolEntry? e = vol.Find("skip.rle");
+        var e = vol.Find("skip.rle");
         Assert.True(e != null && vol.Read(e, out buf) && Str(buf) == "kkkkkkkkkkhi");
         e = vol.Find("cut.rle");
         Assert.True(e != null && vol.Read(e, out buf) && Str(buf) == "yy");

@@ -28,7 +28,7 @@ public sealed class GuiObjectivePage : GuiActive
     /// <returns>The total height of the page.</returns>
     private int Update()
     {
-        IReadOnlyList<string?> lines = Host?.Hud?.ObjectiveLines ?? Array.Empty<string?>();
+        var lines = Host?.Hud?.ObjectiveLines ?? Array.Empty<string?>();
         PftFont?[]? fonts = null;
         var total = 0;
         for (var i = 0; i < LineCount; ++i)
@@ -71,7 +71,7 @@ public sealed class GuiObjectivePage : GuiActive
         {
             Update();
             var y = gy;
-            foreach (GuiTextFormat? l in mLayouts)
+            foreach (var l in mLayouts)
                 if (l != null)
                 {
                     l.Draw(p, gx, y);

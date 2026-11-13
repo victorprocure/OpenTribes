@@ -16,13 +16,13 @@ public class ClientNetProjectileTests
 
     private (ClientGhost, uint) PackAndRead(SimObject obj, uint tag, uint mask, ClientGhost? prev = null)
     {
-        GhostClass? cls = GhostManager.GhostClassOf(obj);
+        var cls = GhostManager.GhostClassOf(obj);
         Assert.True(cls != null && cls.Tag == tag);
         var buf = new byte[512];
         var w = new BitStream(buf, buf.Length);
         cls!.Pack!(obj, new GhostContext(gm, 2049, mask == 0xffffffffu), w, mask);
         Assert.False(w.Error());
-        ClientGhost g = Unpack(tag, buf, w.BitPosition(), mask == 0xffffffffu, WorldFor(tag, obj, 4), prev);
+        var g = Unpack(tag, buf, w.BitPosition(), mask == 0xffffffffu, WorldFor(tag, obj, 4), prev);
         return (g, w.BitPosition());
     }
 
@@ -53,27 +53,27 @@ public class ClientNetProjectileTests
         SimObject Spawn(string db)
         {
             var id = w.Run("echo(Projectile::spawnProjectile(" + db + ", \"1 0 0 0 1 0 0 0 1 16 16 80\", -1, \"0 0 0\"));");
-            SimObject? o = w.Object(id);
+            var o = w.Object(id);
             Assert.True(o != null, db + " spawn: " + id);
             return o!;
         }
 
         // Grenade 0x259: initial position and velocity, then the update flags.
-        SimObject gr = Spawn("DG");
+        var gr = Spawn("DG");
         var (g1, _) = PackAndRead(gr, 0x259, 0xffffffffu);
         Assert.True(VecIs(g1.State["pos"], 16, 16, 80) && Has(g1, "vel") && (long)g1.State["datablock"]! == 0);
         var (g2, _) = PackAndRead(gr, 0x259, 0x01, g1);
-        Assert.True(Has(g2, "pos") && !Has(g2, "vel") && !Has(g2, "dir9") || Has(g2, "dir9"));
+        Assert.True((Has(g2, "pos") && !Has(g2, "vel") && !Has(g2, "dir9")) || Has(g2, "dir9"));
         var (g3, _) = PackAndRead(gr, 0x259, 0x0a, g1);
         Assert.True(Has(g3, "bounceType"));
 
         // RocketDumb 0x25a and SeekingMissile 0x25d.
-        SimObject ro = Spawn("DR");
+        var ro = Spawn("DR");
         var (r1, _) = PackAndRead(ro, 0x25a, 0xffffffffu);
         Assert.True(VecIs(r1.State["pos"], 16, 16, 80) && Has(r1, "vel"));
         var (r2, _) = PackAndRead(ro, 0x25a, 0x01, r1);
         Assert.True(Has(r2, "flag314"));
-        SimObject se = Spawn("DS");
+        var se = Spawn("DS");
         var (s1, _) = PackAndRead(se, 0x25d, 0xffffffffu);
         Assert.True(VecIs(s1.State["pos"], 16, 16, 80));
         var (s2, _) = PackAndRead(se, 0x25d, 0x01, s1);
@@ -104,7 +104,7 @@ public class ClientNetProjectileTests
         tlw.WriteFlag(true);
         var wt = new ClientWorld();
         wt.DataBlocks.Counts[24] = 1;
-        ClientGhost t1 = Unpack(0x25c, buf, tlw.BitPosition(), true, wt);
+        var t1 = Unpack(0x25c, buf, tlw.BitPosition(), true, wt);
         Assert.True(VecIs(t1.State["start"], 1, 2, 3) && VecIs(t1.State["end"], 4, 5, 6) && (long)t1.State["ownerClient"]! == 2053);
         Assert.True((long)t1.State["team"]! == 1 && (long)t1.State["hit"]! == 1);
         // TargetLaser update: start, end, hit (no mask bits).
@@ -113,7 +113,7 @@ public class ClientNetProjectileTests
         Head(tuw, false);
         tuw.WriteF32s([7, 8, 9, 1, 1, 1]);
         tuw.WriteFlag(false);
-        ClientGhost t2 = Unpack(0x25c, buf, tuw.BitPosition(), false, wt, t1);
+        var t2 = Unpack(0x25c, buf, tuw.BitPosition(), false, wt, t1);
         Assert.True(VecIs(t2.State["start"], 7, 8, 9) && (long)t2.State["hit"]! == 0);
         // Lightning initial with a target: flag, target ghost (10), offset.
         buf = new byte[256];
@@ -127,7 +127,7 @@ public class ClientNetProjectileTests
         var wl = new ClientWorld();
         wl.DataBlocks.Counts[28] = 1;
         wl.DataBlocks.Counts[29] = 1;
-        ClientGhost l1 = Unpack(0x25e, buf, lw.BitPosition(), true, wl);
+        var l1 = Unpack(0x25e, buf, lw.BitPosition(), true, wl);
         Assert.True((long)l1.State["targetGhost"]! == 77 && VecIs(l1.State["offset"], 0.5, 0.25, 0));
         // RepairEffect update (mask 0x08): flag, target block with flag.
         buf = new byte[256];
@@ -137,7 +137,7 @@ public class ClientNetProjectileTests
         rw.WriteFlag(true);
         rw.WriteInt(9, 10);
         rw.WriteF32s([1, 0, 0]);
-        ClientGhost e1 = Unpack(0x25f, buf, rw.BitPosition(), false, wl, new ClientGhost { Tag = 0x25f, Class = "RepairEffect" });
+        var e1 = Unpack(0x25f, buf, rw.BitPosition(), false, wl, new ClientGhost { Tag = 0x25f, Class = "RepairEffect" });
         Assert.Equal(9, (long)e1.State["targetGhost"]!);
     }
 }

@@ -204,7 +204,7 @@ public static class Program
                         // 0x0054fxxx: a server that is not $SinglePlayer announces itself.
                         if (master != null && sim != null && sim.Server() != null)
                         {
-                            SimManager m = sim.Server()!;
+                            var m = sim.Server()!;
                             master.OnNetworkStart(args, true, (delay, action) => m.PostEvent(m, Fpu.AddF(m.Time(), delay), action));
                         }
                         return true;
@@ -222,7 +222,7 @@ public static class Program
             GhostClasses.Register();
             game.Resources = resources;
             GameCommands.Register(console, game);
-            SimConsole simOps = sim;
+            var simOps = sim;
             {
                 var ops = new ServerCommandContext
                 {
@@ -230,7 +230,7 @@ public static class Program
                     RootDir = root,
                     IsChatMenu = name =>
                     {
-                        SimObject? obj = simOps.Server()?.Find(name);
+                        var obj = simOps.Server()?.Find(name);
                         return obj != null && obj.ClassName() == "ChatMenu";
                     },
                     Quit = () => sStop = true,
@@ -238,10 +238,10 @@ public static class Program
                 ServerCommands.RegisterServerCommands(console, ops);
                 master = new MasterHeartbeat(console, server, allowMasters);
                 master.RegisterCommands();
-                Interpreter inLog = console;
+                var inLog = console;
                 server.SetLeveledLog(inLog.Print);
             }
-            ResourceManager res = resources;
+            var res = resources;
             console.BindVariable("$ConsoleWorld::DefaultSearchPath", res.SetSearchPath);
             // Engine variable; the reference under Wine reports 0 (docs/server-ops.md 2.3).
             console.SetVariable("$CPU::estimatedSpeed", "0");
@@ -272,7 +272,7 @@ public static class Program
                 // group, index, name, then each field that a constructor initializes, with its count.
                 sim.DataBlocks().ForEach(b =>
                 {
-                    foreach (DataBlockManager.Field f in b.Fields)
+                    foreach (var f in b.Fields)
                         if (!f.Def.Uninit)
                             StdIo.Write(Num(b.Group) + "\t" + Num(b.Index) + "\t" + b.Name + "\t" + f.Def.Name + "\t" + Num(f.Def.Count) + "\n");
                 });
@@ -307,7 +307,7 @@ public static class Program
         GameServer? gameServer = null;
         if (console != null)
         {
-            Interpreter inTelnet = console;
+            var inTelnet = console;
             var th = new TelnetConsole.Host
             {
                 Port = () => Numbers.BorlandAtoi(inTelnet.PeekVariable("$TelnetPort")),
@@ -352,7 +352,7 @@ public static class Program
         }
         if (virtualStep != 0 && sim != null)
             sim.SetClockSource(() => Fpu.Mul(virtualMs, 0.001));
-        CFile? frameInput = frameEvalFile.Length == 0 ? null : CFile.Open(frameEvalFile);
+        var frameInput = frameEvalFile.Length == 0 ? null : CFile.Open(frameEvalFile);
         if (frameEvalFile.Length != 0 && frameInput == null)
         {
             StdIo.Err("cannot read " + ByteString.FromHost(frameEvalFile) + "\n");

@@ -239,7 +239,7 @@ public sealed class SimTimerSet : SimSet
     // src/sim/sim_classes.cpp SimTimerSet::post.
     private void Post()
     {
-        SimManager m = Manager()!;
+        var m = Manager()!;
         m.PostEvent(this, Fpu.AddF(m.Time(), mInterval), Fire);
     }
 
@@ -623,7 +623,7 @@ public static class SimClasses
     /// <param name="factory">The factory.</param>
     public static void RegisterClass(string name, ClassFactory factory)
     {
-        foreach (ClassEntry c in sRegistry)
+        foreach (var c in sRegistry)
             if (EqualsNoCase(c.Name, name))
             {
                 c.Make = factory;
@@ -638,7 +638,7 @@ public static class SimClasses
     /// <returns>The object, or null when the class is unknown.</returns>
     public static SimObject? CreateObject(string className, ClassContext ctx)
     {
-        foreach (ClassEntry c in sRegistry)
+        foreach (var c in sRegistry)
             if (EqualsNoCase(c.Name, className))
                 return c.Make(ctx);
         return null;

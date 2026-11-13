@@ -168,15 +168,15 @@ public static class StaticCommands
             }
             // Event 0x420 with the value (default 0) goes to every member of the set, or of the group the object is in,
             // except the object itself (0x0041e704). Only SimLight handles it.
-            SimObject? obj = FindPlain(a[1]);
+            var obj = FindPlain(a[1]);
             if (obj == null)
                 return "False";
-            SimSet? set = obj.AsSet() ?? obj.Group();
+            var set = obj.AsSet() ?? obj.Group();
             if (set == null)
                 return "True";
             var value = a.Length > 2 ? Store(Numbers.BorlandAtof(a[2])) : 0.0f;
             var members = new List<SimObject>(set.Members());
-            foreach (SimObject m in members)
+            foreach (var m in members)
                 if (m != obj)
                     m.OnActivateEvent(value);
             return "True";
@@ -195,7 +195,7 @@ public static class StaticCommands
                 inr.Print(1, "wrong argcount to playSequence(object, thread, <sequence>)");
                 return "False";
             }
-            GameBase? gb = FindSB(a[1]);
+            var gb = FindSB(a[1]);
             if (gb == null || !SlotOf(a[2], out var slot))
                 return "False";
             if (a.Length == 4)
@@ -269,8 +269,8 @@ public static class StaticCommands
                 inr.Print(1, "wrong argcount to setTarget (Turret, Player)");
                 return "False";
             }
-            GameBase? turret = game.Players.FindServerObject(a[1]);
-            GameBase? player = game.Players.FindServerObject(a[2]);
+            var turret = game.Players.FindServerObject(a[1]);
+            var player = game.Players.FindServerObject(a[2]);
             if (turret != null && turret.ShapeClass() == GameBase.ShapeKind.Turret && player != null && Player.From(player) != null)
             {
                 turret.TurretPreferred = player.Id();
@@ -282,7 +282,7 @@ public static class StaticCommands
         // ---- Item and fade (5, 8.4) ----
         Def("Item::getCount", 2, "wrong argcount to getObjectItemCount(item)", "-1", "-1", (inr, a, r) =>
         {
-            GameBase? gb = FindItem(a[1]);
+            var gb = FindItem(a[1]);
             if (gb == null)
             {
                 inr.Print(1, a[0] + ": could not find item");
@@ -292,7 +292,7 @@ public static class StaticCommands
         });
         Def("Item::isRotating", 2, "wrong argcount to isRotatingItem(item)", "False", "False", (inr, a, r) =>
         {
-            GameBase? gb = FindItem(a[1]);
+            var gb = FindItem(a[1]);
             if (gb == null)
                 inr.Print(1, a[0] + ": could not find item");
             else if (gb.ItemRotates)
@@ -301,7 +301,7 @@ public static class StaticCommands
         });
         Def("Item::hide", 3, "wrong argcount to hideItem(item,bool)", "False", "False", (inr, a, r) =>
         {
-            GameBase? gb = FindItem(a[1]);
+            var gb = FindItem(a[1]);
             if (gb == null)
             {
                 inr.Print(1, a[0] + ": could not find item (" + a[1] + ")");
@@ -330,13 +330,13 @@ public static class StaticCommands
         });
         Def("GameBase::throw", 5, "wrong argcount to throwObject(item,object,vel,bool random)", "False", "False", (inr, a, r) =>
         {
-            GameBase? item = FindGB(a[1]);
+            var item = FindGB(a[1]);
             if (item == null)
             {
                 inr.Print(1, a[0] + ": could not find item to throw");
                 return r;
             }
-            GameBase? thrower = FindGB(a[2]);
+            var thrower = FindGB(a[2]);
             if (thrower == null)
             {
                 inr.Print(1, a[0] + ": could not find object");
@@ -347,7 +347,7 @@ public static class StaticCommands
             // The join counter of the throwing client's record is stored with it (0x00451284, read at 0x004524f8).
             if (item.ShapeClass() == GameBase.ShapeKind.Mine || item.ShapeClass() == GameBase.ShapeKind.Item)
             {
-                ClientRecord? rec = item.ItemThrowerClient > 0 ? game.Players.Find(item.ItemThrowerClient) : null;
+                var rec = item.ItemThrowerClient > 0 ? game.Players.Find(item.ItemThrowerClient) : null;
                 item.ItemThrowerJoin = rec != null ? rec.JoinOrder : -1;
             }
             return "True";

@@ -44,7 +44,7 @@ public static partial class PlayerGhost
         if ((mask & 0x01) != 0)
         {
             mask &= ~0x480u;
-            foreach (GameBase.Thread t in gb.Threads)
+            foreach (var t in gb.Threads)
                 if (t.Sequence != -1)
                 {
                     mask |= 0x400;
@@ -66,7 +66,7 @@ public static partial class PlayerGhost
         if (bs.WriteFlag((mask & 0x400) != 0))
             for (var i = 0; i < 3; ++i)
             {
-                GameBase.Thread t = gb.Threads[i];
+                var t = gb.Threads[i];
                 if (bs.WriteFlag(t.Sequence != -1 && (mask & (0x800u << i)) != 0))
                 {
                     bs.WriteInt((uint)t.Sequence, 4);
@@ -104,7 +104,7 @@ public static partial class PlayerGhost
         uint pending = 0;
         if ((mask & 0x8000) != 0)
         {
-            GameBase? mo = p.MountObject();
+            var mo = p.MountObject();
             var gi = mo != null ? ctx.Manager.GhostIndex(mo) : -1;
             if (mo != null && gi < 0)
             {
@@ -169,7 +169,7 @@ public static partial class PlayerGhost
         if (bs.WriteFlag((mask & 0x20000) != 0))
             for (var i = 0; i < Player.kImageSlots; ++i)
             {
-                Player.ImageSlot s = p.Images[i];
+                var s = p.Images[i];
                 if (!bs.WriteFlag((mask & (0x100000u << i)) != 0))
                     continue;
                 bs.WriteInt((uint)(s.Item + 1) & 0xff, 8);

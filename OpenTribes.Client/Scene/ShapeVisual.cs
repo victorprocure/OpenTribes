@@ -157,7 +157,7 @@ public class ShapeVisual : Visual
         {
             if (!HavePos || Shape == null)
                 return null;
-            Xf xf = PoseXf();
+            var xf = PoseXf();
             var b = Shape.Box;
             var box = new[] { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
             for (var c = 0; c < 8; ++c)
@@ -372,9 +372,9 @@ public class ShapeVisual : Visual
         }
         if (u.Fields.Any(f => f.Name == "rotZ") && Group is 5 or 23)
             Yaw = Num("rotZ") * Math.PI * 2;
-        foreach (DecodedField f in u.Fields)
+        foreach (var f in u.Fields)
             if (f.Name == "threads")
-                foreach (ThreadSlot s in ThreadSlot.ParseAll(f.Value))
+                foreach (var s in ThreadSlot.ParseAll(f.Value))
                     ApplySlot(s);
         if (u.Fields.Any(f => f.Name == "fade"))
             StartFade((long)Num("fade") == 2);
@@ -400,7 +400,7 @@ public class ShapeVisual : Visual
     {
         if (Inst == null || s.Slot < 0 || s.Slot > 2)
             return;
-        RenderThread? t = Slots[s.Slot];
+        var t = Slots[s.Slot];
         if (s.Sequence < 0 || s.Sequence >= Inst.Shape.Sequences.Length)
         {
             t?.TimeScale = 0;
@@ -495,7 +495,7 @@ public class ShapeVisual : Visual
         {
             elevate.Position = position;
             inst.Animate(0);
-            Xf e = inst.NodeWorld[node];
+            var e = inst.NodeWorld[node];
             var t = new Sim.Transform { Flags = 3u };
             double[] m = [e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8];
             for (var i = 0; i < 9; ++i)
@@ -582,7 +582,7 @@ public class ShapeVisual : Visual
         var node = sh.FindNode("debris0");
         if (node < 0)
             return false;
-        foreach (RsDetail d in sh.Details)
+        foreach (var d in sh.Details)
             if (d.RootNode == node)
                 return true;
         return false;
@@ -595,7 +595,7 @@ public class ShapeVisual : Visual
     {
         if (!HavePos || Shape == null)
             return null;
-        Xf xf = PoseXf();
+        var xf = PoseXf();
         double[] lo = [Shape.Box[0], Shape.Box[1], Shape.Box[2]], hi = [Shape.Box[3], Shape.Box[4], Shape.Box[5]];
         var r = Block == null ? 0 : Db.Num(Block, "triggerRadius");
         if (r != 0)
@@ -665,7 +665,7 @@ public class ShapeVisual : Visual
         if (n < 0)
             return true;
         Inst!.Animate(0);
-        Xf e = Inst.NodeWorld[n];
+        var e = Inst.NodeWorld[n];
         var t = new Sim.Transform { Flags = 3u };
         double[] m = [e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8];
         for (var i = 0; i < 9; ++i)
@@ -689,7 +689,7 @@ public class ShapeVisual : Visual
             return;
         if (Group is 5 or 23 && Num("rotates") != 0 && Num("atRest", 1) != 0)
             SpinZ += 3.0 * dt;   // Item_clientUpdate: spin about z at 3 rad/s (3.5)
-        foreach (RenderThread? t in Slots)
+        foreach (var t in Slots)
             if (t != null)
                 Inst.Advance(t, dt);
         if (Ambient != null)
@@ -750,7 +750,7 @@ public class ShapeVisual : Visual
     /// <remarks>Items and vehicles probe again every 250 ms (Item_queryRender, Vehicle_renderQuery). The other shapes probe once (ShapeBase_processQuery).</remarks>
     protected LightSet ProbedLight(FrameContext ctx)
     {
-        LightProbe? probe = M.Probe;
+        var probe = M.Probe;
         var box = probe == null ? null : WorldBox;
         if (probe == null || box == null)
             return ctx.Light;
@@ -769,13 +769,13 @@ public class ShapeVisual : Visual
     {
         if (Inst == null || Shape == null || !HavePos || Hidden)
             return;
-        ShapeDraw d = ctx.Draw(PoseXf(), Shape.Name);
+        var d = ctx.Draw(PoseXf(), Shape.Name);
         d.Light = ProbedLight(ctx);
         d.Skin = Skin;
         d.DamageLevel = Group is 3 or 4 or 19 ? DamageLevel : 0;
         d.Fade = FadeAmount();
         d.DetailScale = 1;
-        RenderImage? img = ctx.Renderer.Build(Inst, ctx.Camera, d);
+        var img = ctx.Renderer.Build(Inst, ctx.Camera, d);
         if (img != null)
             ctx.Lists.Add(img);
     }

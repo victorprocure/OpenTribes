@@ -50,7 +50,7 @@ public static partial class GhostClasses
         {
             var id = (int)r.Int(7) + 0x800;
             r.Add("controlClient", (long)id);
-            foreach (ClientPlayerRecord rec in r.World.Players.Clients.Values.Where(x => x.ControlGhost == g.Index))
+            foreach (var rec in r.World.Players.Clients.Values.Where(x => x.ControlGhost == g.Index))
                 rec.ControlGhost = -1;
             if (r.World.Players.Get(id) is ClientPlayerRecord c)
                 c.ControlGhost = g.Index;
@@ -59,7 +59,7 @@ public static partial class GhostClasses
         {
             var id = (int)r.Int(7) + 0x800;
             r.Add("ownerClient", (long)id);
-            foreach (ClientPlayerRecord rec in r.World.Players.Clients.Values.Where(x => x.OwnedGhost == g.Index))
+            foreach (var rec in r.World.Players.Clients.Values.Where(x => x.OwnedGhost == g.Index))
                 rec.OwnedGhost = -1;
             if (r.World.Players.Get(id) is ClientPlayerRecord c)
                 c.OwnedGhost = g.Index;

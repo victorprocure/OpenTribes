@@ -80,7 +80,7 @@ public class HeadlessRenderTests
     [Fact]
     public void BlendModesAreExactOrWithinTolerance() // 2.2.1, 4 blits, 5.4 blend functions
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
@@ -139,7 +139,7 @@ public class HeadlessRenderTests
     [Fact]
     public void FlatFillsLineClipFlipAndStretch() // 1.7 clip, 4 rects, lines, flips, stretch
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
@@ -159,7 +159,7 @@ public class HeadlessRenderTests
         dev.FillRect(new GfxRect(0, 18, 20, 30), 3);
         dev.SetClip(null);
         // Flip: a 2 x 2 bitmap with indices 1 2 / 3 4 drawn with flip X and flip Y.
-        PbmpBitmap quad = Bitmap(Pbmp(2, 2, [1, 2, 0, 0, 3, 4, 0, 0], attrs: 0));
+        var quad = Bitmap(Pbmp(2, 2, [1, 2, 0, 0, 3, 4, 0, 0], attrs: 0));
         dev.Blit(quad, 40, 4, BlitFlip.X);
         dev.Blit(quad, 44, 4, BlitFlip.Y);
         dev.Blit(quad, 48, 4, BlitFlip.X | BlitFlip.Y);
@@ -219,7 +219,7 @@ public class HeadlessRenderTests
     [Fact]
     public void TextThroughASyntheticFontAndGamma() // 4 text, 3.3 gamma table
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
@@ -238,7 +238,7 @@ public class HeadlessRenderTests
                           lookupOffset: 65, [0, 1],
                           [(0, 0, 0, 3, 4, 0), (0, 4, 1, 5, 6, -1)],
                           Pbma([Pbmp(16, 8, sheet, attrs: 9, pidx: 0xFFFFFFFF)]));
-        Assert.True(PftFont.TryParse(file, out PftFont? font, out var err), err);
+        Assert.True(PftFont.TryParse(file, out var font, out var err), err);
 
         dev.BeginFrame();
         dev.ClearRgb(0, 0, 0);
@@ -278,7 +278,7 @@ public class HeadlessRenderTests
     [Fact]
     public void TextureCacheIsKeyedPerBitmapAndFlushedByPalette() // 3.4
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);

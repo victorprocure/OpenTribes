@@ -47,7 +47,7 @@ public sealed class PredictionWorld
         Game.Resources = resources;
         GameCommands.Register(Console, Game);
         var net = new NetServer(new ServerConfig { Port = 0 });
-        SimConsole simOps = Sim;
+        var simOps = Sim;
         ServerCommands.RegisterServerCommands(Console, new ServerCommandContext
         {
             Net = net,
@@ -87,7 +87,7 @@ public sealed class PredictionWorld
         if (!g.State.TryGetValue("datablock", out var dbv) || dbv is not long db)
             return null;
         var group = g.Class == "Player" ? 3 : 10;
-        DataBlockManager.Block? b = Sim.DataBlocks().At(group, (int)db);
+        var b = Sim.DataBlocks().At(group, (int)db);
         if (b == null)
             return null;
         var pos = "0 0 0";
@@ -116,7 +116,7 @@ public sealed class PredictionWorld
         if (!g.State.TryGetValue("datablock", out var dbv) || dbv is not long db)
             return null;
         var group = g.Class switch { "Player" => 3, "Flier" => 10, "Vehicle" => 9, _ => -1 };
-        DataBlockManager.Block? b = group < 0 ? null : Sim.DataBlocks().At(group, (int)db);
+        var b = group < 0 ? null : Sim.DataBlocks().At(group, (int)db);
         if (b == null)
             return null;
         var pos = string.Join(" ", position.Select(v => Numbers.FormatFloat(v)));

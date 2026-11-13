@@ -246,7 +246,7 @@ public class ClientCommandsTests
 
             var tree = new ChatMenuTree();
             Assert.True(tree.Add("aAlpha\\bBeta", new[] { "c1", "c2" }) && tree.Root.Children.Count == 1);
-            ChatMenuNode a = tree.Root.Children[0];
+            var a = tree.Root.Children[0];
             Assert.True(a.Key == 'a' && a.Text == "Alpha" && !a.Leaf && a.Children.Count == 1);
             Assert.True(a.Children[0].Leaf && a.Children[0].Commands.Count == 2 && a.Children[0].Text == "Beta");
             Assert.True(tree.Add("z" + new string('y', 40), Enumerable.Repeat("w", 12).ToList()));
