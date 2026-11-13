@@ -57,4 +57,35 @@ public class VideoOptionsTests
         Assert.Equal(1, fs.FindEntryByName("opengl"));
         Assert.Equal(-1, fs.FindEntryByName("Glide"));
     }
+
+    [Fact]
+    public void FullscreenWindowedCheckFollowsTheFullscreenRadioAndWritesThePref()
+    {
+        var (fx, root) = Screen();
+        foreach (int id in new[] { VideoOptions.WindowedRadio, VideoOptions.FullscreenRadio })
+        {
+            GuiControl r = GuiFixture.Make("FearGui::FGUniversalButton", 0, 0, 18, 15);
+            r.Id = (uint)id;
+            root.AddChild(r);
+        }
+        var fs = (GuiUniversalButton)root.FindById(VideoOptions.FullscreenRadio)!;
+        fs.On = false;
+        const string pref = "$pref::OpenTribes::FullscreenWindowed";
+        fx.Host.SetVar(pref, "TRUE");
+        VideoOptions.AddFullscreenWindowed(root, fx.Host, pref);
+        var box = (GuiUniversalButton)root.FindById(VideoOptions.FullscreenWindowedCheck)!;
+        Assert.True(box.On);
+        Assert.False(box.Active);
+        fs.On = true;
+        VideoOptions.SyncFullscreenWindowed(root);
+        Assert.True(box.Active);
+        box.Activate();
+        Assert.False(box.On);
+        Assert.Equal("FALSE", fx.Host.GetVar(pref));
+        box.Activate();
+        Assert.Equal("TRUE", fx.Host.GetVar(pref));
+        fs.On = false;
+        VideoOptions.SyncFullscreenWindowed(root);
+        Assert.False(box.Active);
+    }
 }

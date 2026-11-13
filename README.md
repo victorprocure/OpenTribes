@@ -51,6 +51,7 @@ Useful options:
 | Option | Effect |
 |---|---|
 | `--windowed` | Stay in a window, even when the game settings ask for full screen |
+| `--fullscreen-windowed` | Full screen as a borderless window at the desktop resolution, instead of switching the display to the game's full screen resolution. The Video options page has the same setting as a check box |
 | `--no-audio` | Start without sound |
 | `--allow-remote` | Allow connecting to servers outside this machine, and let a hosted public game announce itself to master servers outside it. Without it the client only talks to 127.0.0.1 |
 | `--allow-browser` | Let in-game links open in your web browser |

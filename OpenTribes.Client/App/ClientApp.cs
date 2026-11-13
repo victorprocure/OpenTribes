@@ -327,12 +327,29 @@ public sealed class ClientApp : IDisposable
     {
         if (Win == null || ForceWindowed && on)
             return;
-        Win.SetFullscreen(on);
+        // Stock switches to $pref::VideoFullScreenRes (setFSResolution, switchMode 005806d8): the canvas becomes that size.
+        mDesktopApplied = DesktopModeWanted;
+        Win.SetFullscreen(on, FullscreenSize.W, FullscreenSize.H, mDesktopApplied);
+    }
+
+    public const string FullscreenWindowedPref = "$pref::OpenTribes::FullscreenWindowed";
+    private bool mDesktopApplied;
+
+    // The borderless desktop full screen: the command line option, else the pref (the Video options checkbox).
+    public bool DesktopModeWanted => FullscreenPlan.UseDesktopMode(Opt.FullscreenWindowed, Interp.PeekVariable(FullscreenWindowedPref));
+
+    // Switching the setting while in full screen applies at once.
+    public void ApplyFullscreenModeChange()
+    {
+        if (Win != null && IsFullscreen && DesktopModeWanted != mDesktopApplied)
+            SetFullscreen(true);
     }
 
     public void ResizeWindow(int w, int h)
     {
-        if (!LockSize || IsFullscreen)
+        if (IsFullscreen)
+            SetFullscreen(true);
+        else if (!LockSize)
             Win?.SetSize(w, h);
     }
 
@@ -667,6 +684,7 @@ public sealed class ClientApp : IDisposable
     {
         if (Dev == null || Win == null)
             return;
+        ApplyFullscreenModeChange();
         (int w, int h) = Win.PixelSize();
         if (w > 0 && h > 0)
         {
