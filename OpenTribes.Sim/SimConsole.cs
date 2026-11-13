@@ -86,7 +86,7 @@ public sealed class SimConsole : IObjectInterface
         _ctx = ctx;
         _strings = strings ?? StringTable.Global();
         _dataBlocks = new DataBlockManager(_strings, l => interp.Print(1, l));
-        Stopwatch start = Stopwatch.StartNew();
+        var start = Stopwatch.StartNew();
         _clockSource = () => start.Elapsed.TotalSeconds;
         if (clockOwner == null)
         {
@@ -285,7 +285,7 @@ public sealed class SimConsole : IObjectInterface
             _in.SetVariable("$ConsoleWorld::FrameRate", CFormat.F(Div(1.0, _frameAverage), 2) + " fps");
             _in.SetVariable("$ConsoleWorld::msecsPerFrame", CFormat.F(Mul(1000.0, _frameAverage), 2));
         }
-        _in.CallFunction("Game::EndFrame", Array.Empty<string>());
+        _in.CallFunction("Game::EndFrame", []);
     }
 
     /// <summary>Advances an internal millisecond clock, then runs <see cref="UpdateClock"/> and <see cref="AdvanceServer"/>.</summary>

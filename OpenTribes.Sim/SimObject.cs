@@ -4,11 +4,11 @@ namespace OpenTribes.Sim;
 /// <remarks>Port of src/sim/sim_object.cpp. Names are interned strings (<see cref="Core.StringTable"/>) compared by reference, as the C++ compares the pointers. The C++ <c>delete</c> of an object is <see cref="Destroy"/>, and the destructors of <see cref="SimSet"/> and <see cref="SimGroup"/> delete their members.</remarks>
 public abstract class SimObject
 {
-    internal int mId { get; set; }
-    internal string? mName { get; set; }
-    internal SimGroup? mGroup { get; set; }
-    internal SimManager? mManager { get; set; }
-    internal uint mSequence { get; set; }
+    internal int RawId { get; set; }
+    internal string? RawName { get; set; }
+    internal SimGroup? RawGroup { get; set; }
+    internal SimManager? RawManager { get; set; }
+    internal uint RawSequence { get; set; }
     internal bool OwnsPoolId { get; set; }
     internal bool Removed { get; set; }
     private readonly List<KeyValuePair<string, string>> _fields = [];
@@ -81,19 +81,19 @@ public abstract class SimObject
 
     /// <summary>Gets the object id.</summary>
     /// <returns>The id.</returns>
-    public int Id() => mId;
+    public int Id() => RawId;
     /// <summary>Gets the object name.</summary>
     /// <returns>The interned name, or null when unnamed.</returns>
-    public string? Name() => mName;
+    public string? Name() => RawName;
     /// <summary>Gets the group that holds the object.</summary>
     /// <returns>The group, or null.</returns>
-    public SimGroup? Group() => mGroup;
+    public SimGroup? Group() => RawGroup;
     /// <summary>Gets the manager the object is registered with.</summary>
     /// <returns>The manager, or null.</returns>
-    public SimManager? Manager() => mManager;
+    public SimManager? Manager() => RawManager;
     /// <summary>Gets the registration sequence number. Groups unregister members newest first by it.</summary>
     /// <returns>The sequence number.</returns>
-    public uint Sequence() => mSequence;
+    public uint Sequence() => RawSequence;
 
     /// <summary>Reads a dynamic data field (OB4). Fields are keyed by interned name and the newest wins.</summary>
     /// <param name="name">The interned field name.</param>
@@ -130,7 +130,7 @@ public abstract class SimObject
 public class SimSet : SimObject
 {
     /// <summary>The members in order.</summary>
-    protected List<SimObject> mMembers { get; } = [];
+    protected List<SimObject> MemberList { get; } = [];
     /// <summary>True when the set deletes its members with itself.</summary>
     protected bool OwnsMembers { get; set; }
     /// <summary>True when removal keeps the member order.</summary>
@@ -140,7 +140,7 @@ public class SimSet : SimObject
     public override void Destroy()
     {
         if (OwnsMembers)
-            foreach (var m in mMembers)
+            foreach (var m in MemberList)
                 m.Destroy();
     }
 
@@ -162,7 +162,7 @@ public class SimSet : SimObject
 
     /// <summary>Gets the members in order.</summary>
     /// <returns>The members.</returns>
-    public IReadOnlyList<SimObject> Members() => mMembers;
+    public IReadOnlyList<SimObject> Members() => MemberList;
 
     /// <summary>Sets the ordered-removal flag (+0x5d). Removal then keeps the member order (docs/sim.md GS4).</summary>
     /// <param name="ordered">True to keep the order.</param>
@@ -172,9 +172,9 @@ public class SimSet : SimObject
     /// <param name="obj">The object.</param>
     public virtual void AddObject(SimObject obj)
     {
-        if (mMembers.Contains(obj))
+        if (MemberList.Contains(obj))
             return;
-        mMembers.Add(obj);
+        MemberList.Add(obj);
         obj.InSets.Add(this);
     }
 
@@ -183,17 +183,17 @@ public class SimSet : SimObject
     /// <remarks>The ordered flag is checked at 004fe430.</remarks>
     public virtual void RemoveObject(SimObject obj)
     {
-        var it = mMembers.IndexOf(obj);
+        var it = MemberList.IndexOf(obj);
         if (it < 0)
             return;
         if (Ordered)
         {
-            mMembers.RemoveAt(it); // ordered flag +0x5d [code 004fe430]
+            MemberList.RemoveAt(it); // ordered flag +0x5d [code 004fe430]
         }
         else
         {
-            mMembers[it] = mMembers[^1]; // swap-remove (GS4)
-            mMembers.RemoveAt(mMembers.Count - 1);
+            MemberList[it] = MemberList[^1]; // swap-remove (GS4)
+            MemberList.RemoveAt(MemberList.Count - 1);
         }
         obj.InSets.RemoveAll(s => s == this);
     }
@@ -203,8 +203,8 @@ public class SimSet : SimObject
     /// <returns>The member, or null.</returns>
     public SimObject? FindMemberByName(string interned)
     {
-        foreach (var m in mMembers)
-            if (ReferenceEquals(m.mName, interned))
+        foreach (var m in MemberList)
+            if (ReferenceEquals(m.RawName, interned))
                 return m;
         return null;
     }
@@ -212,7 +212,7 @@ public class SimSet : SimObject
     /// <summary>Unregisters the members when the set owns them, otherwise releases them.</summary>
     public override void OnRemove()
     {
-        var members = new List<SimObject>(mMembers);
+        var members = new List<SimObject>(MemberList);
         if (OwnsMembers)
         {
             foreach (var m in members)
@@ -222,7 +222,7 @@ public class SimSet : SimObject
         }
         foreach (var m in members)
             m.InSets.RemoveAll(s => s == this);
-        mMembers.Clear();
+        MemberList.Clear();
     }
 
     /// <summary>Registers members added before the set was registered, in order (IN4). A member whose <see cref="SimObject.OnAdd"/> fails is reported and deleted after the loop.</summary>
@@ -231,9 +231,9 @@ public class SimSet : SimObject
     public override bool OnAdd()
     {
         var failed = new List<SimObject>();
-        for (var i = 0; i < mMembers.Count; ++i)
+        for (var i = 0; i < MemberList.Count; ++i)
         {
-            var m = mMembers[i];
+            var m = MemberList[i];
             if (m.Manager() != null || Manager()!.RegisterObject(m))
                 continue;
             Manager()!.Print?.Invoke("Failed to registerObject of type: " + m.ClassName() + " (" + (m.Name() ?? "<Unnamed>") + ")");
@@ -254,9 +254,9 @@ public class SimGroup : SimSet
     /// <summary>Deletes all members.</summary>
     public override void Destroy()
     {
-        foreach (var m in mMembers)
+        foreach (var m in MemberList)
             m.Destroy();
-        mMembers.Clear();
+        MemberList.Clear();
     }
 
     /// <inheritdoc/>
@@ -273,16 +273,16 @@ public class SimGroup : SimSet
     /// <summary>Unregisters the members newest first. They stay in the group for the destructor (RD2).</summary>
     public override void OnRemove()
     {
-        var members = new List<SimObject>(mMembers);
+        var members = new List<SimObject>(MemberList);
         members.Sort((a, b) => b.Sequence().CompareTo(a.Sequence()));
         foreach (var m in members)
         {
             if (m.Manager() == null)
                 continue;
             Manager()!.UnregisterObject(m);
-            m.mGroup = this;
-            if (!mMembers.Contains(m))
-                mMembers.Add(m);
+            m.RawGroup = this;
+            if (!MemberList.Contains(m))
+                MemberList.Add(m);
         }
     }
 
@@ -290,11 +290,11 @@ public class SimGroup : SimSet
     /// <param name="obj">The object.</param>
     public override void AddObject(SimObject obj)
     {
-        if (obj.mGroup == this)
+        if (obj.RawGroup == this)
             return;
-        obj.mGroup?.RemoveObject(obj);
-        obj.mGroup = this;
-        mMembers.Add(obj);
+        obj.RawGroup?.RemoveObject(obj);
+        obj.RawGroup = this;
+        MemberList.Add(obj);
         NameInsert(obj);
         obj.OnGroupAdd();
     }
@@ -303,21 +303,21 @@ public class SimGroup : SimSet
     /// <param name="obj">The object.</param>
     public override void RemoveObject(SimObject obj)
     {
-        var it = mMembers.IndexOf(obj);
+        var it = MemberList.IndexOf(obj);
         if (it < 0)
             return;
         NameErase(obj);
         if (Ordered)
         {
-            mMembers.RemoveAt(it);
+            MemberList.RemoveAt(it);
         }
         else
         {
-            mMembers[it] = mMembers[^1];
-            mMembers.RemoveAt(mMembers.Count - 1);
+            MemberList[it] = MemberList[^1];
+            MemberList.RemoveAt(MemberList.Count - 1);
         }
         obj.OnGroupRemove();
-        obj.mGroup = null;
+        obj.RawGroup = null;
     }
 
     /// <summary>Finds a direct child by name. The newest insertion wins (NM3).</summary>
@@ -326,7 +326,7 @@ public class SimGroup : SimSet
     public SimObject? FindChild(string interned)
     {
         for (var i = _named.Count - 1; i >= 0; --i)
-            if (ReferenceEquals(_named[i].mName, interned))
+            if (ReferenceEquals(_named[i].RawName, interned))
                 return _named[i];
         return null;
     }
@@ -336,17 +336,17 @@ public class SimGroup : SimSet
     /// <param name="interned">The new interned name, or null.</param>
     public void AssignName(SimObject obj, string? interned)
     {
-        if (obj.mGroup == this)
+        if (obj.RawGroup == this)
             NameErase(obj);
-        obj.mName = interned;
-        if (obj.mGroup == this)
+        obj.RawName = interned;
+        if (obj.RawGroup == this)
             NameInsert(obj);
     }
 
     // src/sim/sim_object.cpp SimGroup::nameInsert.
     private void NameInsert(SimObject obj)
     {
-        if (obj.mName != null)
+        if (obj.RawName != null)
             _named.Add(obj);
     }
 

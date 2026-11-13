@@ -666,7 +666,7 @@ public sealed class DataBlockManager
             if (values.Count == count)
             {
                 for (var i = 0; i < count; ++i)
-                    Write(f, i, new[] { values[i] });
+                    Write(f, i, [values[i]]);
                 return;
             }
             _print("setDataField: array set access out of range.");

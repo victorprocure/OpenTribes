@@ -44,7 +44,7 @@ public sealed class SimManager : SimGroup
     public SimManager(StringTable strings)
     {
         _strings = strings;
-        mManager = this;
+        RawManager = this;
     }
 
     /// <inheritdoc/>
@@ -118,19 +118,19 @@ public sealed class SimManager : SimGroup
     // src/sim/sim_manager.cpp SimManager::dictInsert.
     private void DictInsert(SimObject obj)
     {
-        if (!_ids.TryGetValue(obj.mId, out var v))
-            _ids[obj.mId] = v = [];
+        if (!_ids.TryGetValue(obj.RawId, out var v))
+            _ids[obj.RawId] = v = [];
         v.Add(obj);
     }
 
     // src/sim/sim_manager.cpp SimManager::dictErase.
     private void DictErase(SimObject obj)
     {
-        if (!_ids.TryGetValue(obj.mId, out var v))
+        if (!_ids.TryGetValue(obj.RawId, out var v))
             return;
         v.RemoveAll(o => o == obj);
         if (v.Count == 0)
-            _ids.Remove(obj.mId);
+            _ids.Remove(obj.RawId);
     }
 
     /// <summary>Registers an object (OB2): sequence, id (ID1), then <see cref="SimObject.OnAdd"/>.</summary>
@@ -138,30 +138,30 @@ public sealed class SimManager : SimGroup
     /// <returns>False if OnAdd fails. The object is then unregistered again.</returns>
     public bool RegisterObject(SimObject obj)
     {
-        obj.mSequence = _sequenceCounter++;
+        obj.RawSequence = _sequenceCounter++;
         obj.Removed = false;
-        obj.mManager = this;
-        if (obj.mId == 0 && obj.FixedId() != 0)
-            obj.mId = obj.FixedId();
-        if (obj.mId == 0)
+        obj.RawManager = this;
+        if (obj.RawId == 0 && obj.FixedId() != 0)
+            obj.RawId = obj.FixedId();
+        if (obj.RawId == 0)
         {
-            obj.mId = AllocateId();
+            obj.RawId = AllocateId();
             obj.OwnsPoolId = true;
         }
         DictInsert(obj);
         if (obj.OnAdd())
         {
-            if (OnRegister != null && obj.mManager == this)
+            if (OnRegister != null && obj.RawManager == this)
                 OnRegister(obj);
             return true;
         }
         DictErase(obj);
-        obj.mManager = null;
+        obj.RawManager = null;
         if (obj.OwnsPoolId)
         {
-            FreeId(obj.mId);
+            FreeId(obj.RawId);
             obj.OwnsPoolId = false;
-            obj.mId = 0;
+            obj.RawId = 0;
         }
         return false;
     }
@@ -170,12 +170,12 @@ public sealed class SimManager : SimGroup
     /// <param name="obj">The object.</param>
     public void UnregisterObject(SimObject obj)
     {
-        if (obj.mManager == null || obj == this)
+        if (obj.RawManager == null || obj == this)
             return;
         obj.Removed = true;
         obj.OnRemove();
         OnUnregister?.Invoke(obj);
-        obj.mGroup?.RemoveObject(obj);
+        obj.RawGroup?.RemoveObject(obj);
         var sets = new List<SimSet>(obj.InSets);
         foreach (var s in sets)
             s.RemoveObject(obj);
@@ -187,10 +187,10 @@ public sealed class SimManager : SimGroup
                 _events.Remove(n);
             n = next;
         }
-        obj.mManager = null;
+        obj.RawManager = null;
         if (obj.OwnsPoolId)
         {
-            FreeId(obj.mId);
+            FreeId(obj.RawId);
             obj.OwnsPoolId = false;
         }
     }
@@ -202,7 +202,7 @@ public sealed class SimManager : SimGroup
         if (obj == this)
             return; // deleteObject(0) would delete the root in the original (D11)
         UnregisterObject(obj);
-        obj.mGroup?.RemoveObject(obj);
+        obj.RawGroup?.RemoveObject(obj);
         obj.Destroy();
     }
 
@@ -211,9 +211,9 @@ public sealed class SimManager : SimGroup
     /// <returns>False when registration fails.</returns>
     public bool AddToRoot(SimObject obj)
     {
-        if (obj.mManager == null && !RegisterObject(obj))
+        if (obj.RawManager == null && !RegisterObject(obj))
             return false;
-        if (obj.mGroup == null)
+        if (obj.RawGroup == null)
             AddObject(obj);
         return true;
     }
@@ -282,7 +282,7 @@ public sealed class SimManager : SimGroup
         DictErase(obj);
         if (obj.OwnsPoolId)
         {
-            FreeId(obj.mId);
+            FreeId(obj.RawId);
             obj.OwnsPoolId = false;
         }
         if (id == 0)
@@ -290,7 +290,7 @@ public sealed class SimManager : SimGroup
             id = AllocateId();
             obj.OwnsPoolId = true;
         }
-        obj.mId = id;
+        obj.RawId = id;
         DictInsert(obj);
     }
 
