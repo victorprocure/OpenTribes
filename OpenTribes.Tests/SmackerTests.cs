@@ -136,6 +136,10 @@ public class SmackerTests
             fx.Canvas.Frame();
             Assert.Contains("movie done", fx.Output);
             Assert.Equal(3, dev.Stretches);
+            // The device caches the texture of the bitmap it draws (the keyed copy), so every flush must name a drawn bitmap or a new
+            // frame never replaces the cached one (issue 44: sound but no picture).
+            Assert.NotEmpty(dev.Flushed);
+            Assert.All(dev.Flushed, b => Assert.Contains(b, dev.Drawn));
         }
         finally
         {
@@ -320,12 +324,13 @@ public class SmackerTests
     private sealed class NullDevice : IGfxDevice
     {
         public int Stretches;
+        public readonly List<PbmpBitmap> Flushed = new(), Drawn = new();
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
         public void SetPalette(PaletteBank bank, float gamma = 1f) { }
         public void FlushTextureCache() { }
-        public void FlushTexture(PbmpBitmap bitmap) { }
+        public void FlushTexture(PbmpBitmap bitmap) => Flushed.Add(bitmap);
         public void BeginFrame() { }
         public void EndFrame() { }
         public void Clear(int colorIndex) { }
@@ -336,7 +341,7 @@ public class SmackerTests
         public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f) { }
         public void Blit(PbmpBitmap bitmap, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
-        public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) => ++Stretches;
+        public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { ++Stretches; Drawn.Add(bitmap); }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public byte[] ReadPixels() => Array.Empty<byte>();
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
