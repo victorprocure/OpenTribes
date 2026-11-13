@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using OpenTribes.Gui;
-using OpenTribes.Platform.Sdl;
 using OpenTribes.Script;
 
 /// <summary>The console commands of the client with their real effect, registered over the stub table of OpenTribes.Script (<c>ClientCommandTable</c>).</summary>
@@ -55,7 +54,7 @@ public sealed class ClientCommandHandlers
 
     private void Cmd(string name, Func<string[], string?> body) => I.AddCommand(name, (_, a) => body(a));
 
-    private bool IsCanvas(string cmd, string name, bool quiet = false)
+    private bool IsCanvas(string name, bool quiet = false)
     {
         if (string.Equals(name, _app.Canvas.Name, StringComparison.OrdinalIgnoreCase))
             return true;
@@ -131,7 +130,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "HTMLOpenAndGoWin(canvas, url);");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[1]))
+            if (!IsCanvas(a[1]))
                 return "False";
             if (Html(a, 2) is string bad)
                 return bad;
@@ -165,7 +164,7 @@ public sealed class ClientCommandHandlers
     {
         Cmd("flushTextureCache", a =>
         {
-            if (a.Length >= 2 && !IsCanvas(a[0], a[1]))
+            if (a.Length >= 2 && !IsCanvas(a[1]))
                 return "False";
             _app.Dev?.FlushTextureCache();
             return "";
@@ -177,7 +176,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "setGamma(canvasName, gamma);");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[1]))
+            if (!IsCanvas(a[1]))
                 return "False";
             var g = Numbers.BorlandAtof(a[2]);
             if (g is < 0.05 or > 20)
@@ -196,7 +195,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "setFullscreenDevice(canvasName, deviceName);");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[1]))
+            if (!IsCanvas(a[1]))
                 return "False";
             if (!DeviceNames.Contains(a[2], StringComparer.OrdinalIgnoreCase))
             {
@@ -213,7 +212,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "setWindowedDevice(canvasName, deviceName);");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[1]))
+            if (!IsCanvas(a[1]))
                 return "False";
             if (!DeviceNames.Contains(a[2], StringComparer.OrdinalIgnoreCase))
             {
@@ -248,11 +247,11 @@ public sealed class ClientCommandHandlers
                 return "False";
             }
             // D31: Software and OpenGL exist; Glide is not reproduced (the stock default then falls to Software).
-            return IsCanvas(a[0], a[1]) && (string.Equals(a[2], "OpenGL", StringComparison.OrdinalIgnoreCase) || string.Equals(a[2], "Software", StringComparison.OrdinalIgnoreCase)) ? "true" : "False";
+            return IsCanvas(a[1]) && (string.Equals(a[2], "OpenGL", StringComparison.OrdinalIgnoreCase) || string.Equals(a[2], "Software", StringComparison.OrdinalIgnoreCase)) ? "true" : "False";
         });
         Cmd("messageCanvasDevice", a =>
         {
-            if (a.Length >= 2 && !IsCanvas(a[0], a[1]))
+            if (a.Length >= 2 && !IsCanvas(a[1]))
                 return "False";
             return "";
         });
@@ -269,7 +268,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "screenShot(canvasName [, fileName]);");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[1]))
+            if (!IsCanvas(a[1]))
                 return "False";
             string file;
             if (a.Length == 3)
@@ -290,11 +289,11 @@ public sealed class ClientCommandHandlers
         });
         Cmd("swapSurfaces", a =>
         {
-            if (a.Length == 2 && IsCanvas(a[0], a[1]))
+            if (a.Length == 2 && IsCanvas(a[1]))
                 _app.SetFullscreen(!_app.IsFullscreen);
             return "";
         });
-        Cmd("isFullscreenMode", a => a.Length == 2 && IsCanvas(a[0], a[1]) ? (_app.IsFullscreen ? "true" : "FALSE") : "False");
+        Cmd("isFullscreenMode", a => a.Length == 2 && IsCanvas(a[1]) ? (_app.IsFullscreen ? "true" : "FALSE") : "False");
         Cmd("setFullscreenMode", a =>
         {
             if (a.Length != 3)
@@ -302,7 +301,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "setFullscreenMode(canvasName, bool);");
                 return "False";
             }
-            if (IsCanvas(a[0], a[1]))
+            if (IsCanvas(a[1]))
                 _app.SetFullscreen(IsTrue(a[2]));
             return "";
         });
@@ -313,7 +312,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "setFSResolution(canvasName, WxH);");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[1]))
+            if (!IsCanvas(a[1]))
                 return "False";
             var wh = a[2].Split('x');
             if (wh.Length == 2 && int.TryParse(wh[0], out var w) && int.TryParse(wh[1], out var h) && w > 0 && h > 0)
@@ -351,7 +350,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "setWindowSize(canvasName, width, height);");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[1]))
+            if (!IsCanvas(a[1]))
                 return "False";
             int w = Numbers.BorlandAtoi(a[2]), h = Numbers.BorlandAtoi(a[3]);
             if (w > 0 && h > 0)
@@ -375,7 +374,7 @@ public sealed class ClientCommandHandlers
 
     private string? StepRes(string[] a, int d)
     {
-        if (a.Length != 2 || !IsCanvas(a[0], a[1]))
+        if (a.Length != 2 || !IsCanvas(a[1]))
             return "False";
         _resIndex = (_resIndex + d + Modes.Length) % Modes.Length;
         var (w, h) = Modes[_resIndex];
@@ -526,10 +525,10 @@ public sealed class ClientCommandHandlers
             return "True";
         });
         // 2.7: the cursor and operating system pointer switches.
-        Cmd("windowsMouseEnable", a => { if (a.Length == 2 && IsCanvas(a[0], a[1])) _app.WindowsMouse = true; return ""; });
-        Cmd("windowsMouseDisable", a => { if (a.Length == 2 && IsCanvas(a[0], a[1])) _app.WindowsMouse = false; return ""; });
-        Cmd("windowsKeyboardEnable", a => { if (a.Length == 2 && IsCanvas(a[0], a[1])) _app.WindowsKeyboard = true; return ""; });
-        Cmd("windowsKeyboardDisable", a => { if (a.Length == 2 && IsCanvas(a[0], a[1])) _app.WindowsKeyboard = false; return ""; });
+        Cmd("windowsMouseEnable", a => { if (a.Length == 2 && IsCanvas(a[1])) _app.WindowsMouse = true; return ""; });
+        Cmd("windowsMouseDisable", a => { if (a.Length == 2 && IsCanvas(a[1])) _app.WindowsMouse = false; return ""; });
+        Cmd("windowsKeyboardEnable", a => { if (a.Length == 2 && IsCanvas(a[1])) _app.WindowsKeyboard = true; return ""; });
+        Cmd("windowsKeyboardDisable", a => { if (a.Length == 2 && IsCanvas(a[1])) _app.WindowsKeyboard = false; return ""; });
         _ = _inputOpen;
     }
 
@@ -600,7 +599,7 @@ public sealed class ClientCommandHandlers
                 I.Print(1, "newRedbook <obj Id> <canvas Id>");
                 return "False";
             }
-            if (!IsCanvas(a[0], a[2]))
+            if (!IsCanvas(a[2]))
                 return "False";
             // The install's console.log of a machine with no drive shows no line here, only the later
             // `unable to find Redbook Obj CD` (client-scripts.md 2.5 says `Err, could not open a device.`: spec error E1).

@@ -81,7 +81,7 @@ public static class AudioTools
     public static int Census(string root)
     {
         var res = GfxAssets.Mount(root, out var volumes, SearchPath);
-        using AudioSession s = AudioSession.Create(root, live: false, res);
+        using var s = AudioSession.Create(root, live: false, res);
         var scripts = s.RunSoundScripts();
         Console.WriteLine($"volumes {volumes}; sound scripts ok {scripts}; profiles {s.Sound.Profiles.Count}, pairs {s.Sound.Pairs.Count}");
         foreach (var l in s.Log.Where(l => l.Length > 0).Take(8))
@@ -187,7 +187,7 @@ public static class AudioTools
     /// <returns>The process exit code.</returns>
     public static int Live(string root, string wave, double seconds)
     {
-        using AudioSession s = AudioSession.Create(root, live: true);
+        using var s = AudioSession.Create(root, live: true);
         var ok = s.RunSoundScripts();
         foreach (var l in s.Log.Take(4))
             Console.WriteLine("  log: " + l);
@@ -230,7 +230,7 @@ public static class AudioTools
         var res = GfxAssets.Mount(root, out _, SearchPath);
         foreach (var o in env.Where(o => o.Class == "SimVolume"))
             res.AddVolume(o.Get("fileName"));
-        using AudioSession s = AudioSession.Create(root, live: false, res);
+        using var s = AudioSession.Create(root, live: false, res);
         if (!s.RunSoundScripts())
         {
             Console.Error.WriteLine("tribes: the sound scripts failed");

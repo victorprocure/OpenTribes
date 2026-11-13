@@ -21,7 +21,6 @@ public sealed class ProjectileVisual : Visual
     private bool _smokeInit;
     private bool _trailInit;                    // trailType 1: the ribbon starts at the first render and draws from the second
     private double _tailX, _tailY, _tailZ;
-    private double _spin;
 
     /// <inheritdoc/>
     public override (double x, double y, double z)? Position => _havePos ? PosNow() : null;
@@ -142,7 +141,6 @@ public sealed class ProjectileVisual : Visual
     {
         if (!_havePos || Exploded || (_inst == null && _block == null))
             return;
-        _spin += dt;
         if (_inst != null && _ambient != null && AdvancesAmbient(Class))
             _inst.Advance(_ambient, dt);
         var (x, y, z) = PosNow();
@@ -344,7 +342,6 @@ public sealed class BeamVisual : Visual
     private ClientDataBlock? _block;
     private int _group;
     private double _start;
-    private Random _rng = new(1);
     private bool _hitShown;
 
     /// <inheritdoc/>
@@ -353,7 +350,6 @@ public sealed class BeamVisual : Visual
         base.Init(m, g);
         _group = Class switch { "LaserProjectile" => 17, "TargetLaser" => 24, "Lightning" => 28, _ => 29 };
         _start = m.Time;
-        _rng = new Random((g.Index * 7919) + 13);
     }
 
     /// <inheritdoc/>
@@ -445,7 +441,7 @@ public sealed class BeamVisual : Visual
         else if (Class == "TargetLaser")
         {
             var tex = ctx.Assets.Texture(Db.Str(_block, "laserBitmapName") is { Length: > 0 } n ? n : "paintPulse.bmp");
-            img = Beams.Strip(ctx, tex, new[] { a, b }, 0.12, 1, 1, 1, 0.9f, 8, "targetlaser");
+            img = Beams.Strip(ctx, tex, [a, b], 0.12, 1, 1, 1, 0.9f, 8, "targetlaser");
         }
         else
         {

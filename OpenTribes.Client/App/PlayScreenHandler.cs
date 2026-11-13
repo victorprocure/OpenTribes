@@ -5,7 +5,7 @@ using OpenTribes.Script;
 
 /// <summary>The play delegate: it owns <c>actionMap.sae</c>, <c>playMap.sae</c> and <c>pdaMap.sae</c>, pushes and pops them when the canvas content control changes (PlayDelegate_setContentControl 004dcc4c), receives their actions and handles the ones that are not move input (chat, score page, escape), and switches the GUI with the PSC GUI mode (PlayDelegate_setGuiMode 004dc84c).</summary>
 /// <remarks>docs/client-scripts.md 3.8 and 3.10.</remarks>
-public sealed class PlayDelegate : IActionConsumer
+public sealed class PlayScreenHandler : IActionConsumer
 {
     /// <summary>The control id of the play screen.</summary>
     public const uint PlayGuiId = 140114;
@@ -62,7 +62,7 @@ public sealed class PlayDelegate : IActionConsumer
 
     /// <summary>Creates the delegate.</summary>
     /// <param name="app">The client.</param>
-    public PlayDelegate(ClientApp app) => _app = app;
+    public PlayScreenHandler(ClientApp app) => _app = app;
 
     // The maps of the three stock names, found on use (config.cs replaces them with NewActionMap).
     private ActionMap? Map(string n) => _app.Maps.FindMap(n);
@@ -225,7 +225,7 @@ public sealed class PlayDelegate : IActionConsumer
                     _app.Canvas.CursorOn = false;
                     return true;
                 }
-                _app.Interp.CallFunction("EnterLobbyMode", Array.Empty<string>());
+                _app.Interp.CallFunction("EnterLobbyMode", []);
                 return false;
             }
             default:
@@ -273,24 +273,26 @@ public sealed class PlayDelegate : IActionConsumer
                 var id = team.FirstReportable();
                 if (id < 0)
                     return false;
-                _app.Interp.CallFunction("remoteEval", new[] { "2048", "SelectCommander", id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                _app.Interp.CallFunction("remoteEval", ["2048", "SelectCommander", id.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
                 return true;
             }
             case UnreportButton:
                 if (_app.Host.Hud?.CommandLocal == null)
                     return false;
-                _app.Interp.CallFunction("remoteEval", new[] { "2048", "SelectCommander", "-1" });
+                _app.Interp.CallFunction("remoteEval", ["2048", "SelectCommander", "-1"]);
                 return true;
             case TakeControlButton:
             {
                 var target = map?.SelectedTurretTarget() ?? -1;
                 if (target >= 0)
-                    _app.Interp.CallFunction("remoteEval", new[] { "2048", "CmdrMountObject", target.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                    _app.Interp.CallFunction("remoteEval", ["2048", "CmdrMountObject", target.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
                 return true;
             }
             case PlayersTab or TurretsTab or ObjectsTab:
                 map?.Group = tag == PlayersTab ? 3 : tag == TurretsTab ? 0x13 : 4;
                 return true;
+            default:
+                break;
         }
         return false;
     }
@@ -321,6 +323,8 @@ public sealed class PlayDelegate : IActionConsumer
                 break;
             case 5:
                 i.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CmdObjectives.gui\");");
+                break;
+            default:
                 break;
         }
         if (mode != 0 && i.HasFunction("loadPlayGui") && mode != 1)

@@ -3,7 +3,6 @@ namespace OpenTribes.Client.Scene;
 using System.Globalization;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Client.World;
-using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Gl;
@@ -385,10 +384,9 @@ public static class DemoRender
     /// <param name="width">The image width in pixels.</param>
     /// <param name="height">The image height in pixels.</param>
     /// <param name="videoDriver">The video driver name, or null for the default.</param>
-    /// <param name="atOnly">Renders only this time of the list, or null for all.</param>
     /// <param name="hud">True to draw the HUD.</param>
     /// <returns>The process exit code: 2 without an output path.</returns>
-    public static int Run(string root, string demoPath, string times, string? camera, double fov, string? output, int width, int height, string? videoDriver, double? atOnly = null, bool hud = false)
+    public static int Run(string root, string demoPath, string times, string? camera, double fov, string? output, int width, int height, string? videoDriver, bool hud = false)
     {
         if (output == null)
         {
@@ -438,7 +436,7 @@ public static class DemoRender
         var pre = new DemoPlayback(data);
         pre.StepUntilEnvironment();
         var env = EnvironmentObjects(pre.World);
-        using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
+        using var win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
         if (win == null)
         {
             Console.Error.WriteLine("tribes: cannot open a window with an OpenGL 3.3 core context: " + error);
@@ -450,7 +448,7 @@ public static class DemoRender
         foreach (var o in env.Where(o => o.Class == "SimVolume"))
             res.AddVolume(o.Get("fileName"));
         var name = Path.GetFileNameWithoutExtension(demoPath);
-        using WorldScene scene = WorldScene.LoadFrom(dev, res, name, env, out var loadError);
+        using var scene = WorldScene.LoadFrom(dev, res, name, env, out var loadError);
         if (loadError.Length > 0)
             Console.Error.WriteLine("tribes: " + loadError);
         dev.SetPalette(scene.Assets.Palette);

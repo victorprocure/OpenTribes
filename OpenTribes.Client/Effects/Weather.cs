@@ -67,7 +67,7 @@ public sealed class WeatherEffect
     {
         var l = Math.Sqrt((windX * windX) + (windY * windY) + 1);
         double dx = windX / l, dy = windY / l, dz = -1 / l;
-        (double x, double y, double z) = ((forward.y * dz) - (forward.z * dy), (forward.z * dx) - (forward.x * dz), (forward.x * dy) - (forward.y * dx));
+        var (x, y, z) = ((forward.y * dz) - (forward.z * dy), (forward.z * dx) - (forward.x * dz), (forward.x * dy) - (forward.y * dx));
         (double, double, double) At(double along, double across) => (p.x + (dx * along) + (x * across), p.y + (dy * along) + (y * across), p.z + (dz * along) + (z * across));
         return (p, At(StreakWide, -StreakHalfWidth), At(StreakEnd, 0), At(StreakWide, StreakHalfWidth));
     }

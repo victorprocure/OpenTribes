@@ -91,6 +91,8 @@ public sealed class ClientDelegates
                 case "Options":
                     d.OnOpenContent = FillVideoOptions;
                     break;
+                default:
+                    break;
             }
             _app.Canvas.Delegates[n] = d;
         }
@@ -197,9 +199,11 @@ public sealed class ClientDelegates
                 if (name.Length == 0)
                     return true;
                 _app.Canvas.PopDialog(tag);
-                _app.Interp.CallFunction("AddPlayerConfig", new[] { name });
+                _app.Interp.CallFunction("AddPlayerConfig", [name]);
                 return true;
             }
+            default:
+                break;
         }
         return false;
     }
@@ -216,9 +220,11 @@ public sealed class ClientDelegates
                 if (Find(ServerList) is not GuiList list || list.Selected < 0 || !Servers.TryGetValue(list.Entries[list.Selected].Id, out var s))
                     return true;
                 _app.Interp.SetVariable("$Server::Address", s.Address);
-                _app.Interp.CallFunction("JoinGame", Array.Empty<string>());
+                _app.Interp.CallFunction("JoinGame", []);
                 return true;
             }
+            default:
+                break;
         }
         return Browser.Message(tag);
     }

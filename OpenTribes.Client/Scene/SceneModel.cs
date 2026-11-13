@@ -138,7 +138,7 @@ public sealed class SceneModel
                 Visuals[u.Index] = v = nv;
             }
             v.OnUpdate(u, u.Op == "new");
-            Audio?.OnGhost(v, u, u.Op == "new");
+            Audio?.OnGhost(v, u);
         }
     }
 
@@ -156,7 +156,7 @@ public sealed class SceneModel
                 Effects.RemoveAt(i);
         }
         Smoke.Tick(dt);
-        Audio?.Frame(dt);
+        Audio?.Frame();
     }
 
     /// <summary>Finds the nearest interior surface along a ray, with its normal (<c>InteriorRenderer.Probe</c>). The live game sets it.</summary>
@@ -323,6 +323,8 @@ public sealed class SceneModel
                     k *= sv.LightFade;
                     if (k > 0)
                         set.Add(new PointLight(x, y, z, (float)(Db.Num(db, "lightColor.x") * k), (float)(Db.Num(db, "lightColor.y") * k), (float)(Db.Num(db, "lightColor.z") * k), Db.Num(db, "lightRadius", 3)));
+                    break;
+                default:
                     break;
             }
         }

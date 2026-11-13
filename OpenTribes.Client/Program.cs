@@ -2,7 +2,6 @@ namespace OpenTribes.Client;
 
 using System.Diagnostics;
 using System.Globalization;
-using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Gl;
 using OpenTribes.Platform.Sdl;
@@ -118,7 +117,7 @@ public static class Program
             return Gui.GuiRun.Run(o.Root, o.Gui, o.Exec, o.Input, o.Screenshot, o.Width, o.Height, o.VideoDriver);
 
         if (o.Demo != null)
-            return Scene.DemoRender.Run(o.Root, o.Demo, o.At ?? "0", o.Camera, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver, null, args.Contains("--hud"));
+            return Scene.DemoRender.Run(o.Root, o.Demo, o.At ?? "0", o.Camera, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver, args.Contains("--hud"));
 
         if (o.Mission != null)
             return World.MissionRender.Run(o.Root, o.Mission, o.Camera, o.Cameras, o.Fov, o.Screenshot, o.Width, o.Height, o.VideoDriver);
@@ -171,7 +170,7 @@ public static class Program
             Console.Error.WriteLine($"palette {paletteName.Length switch { 0 => "(embedded)", _ => paletteName }}");
 
         var shot = o.Screenshot != null;
-        using GlWindow? win = GlWindow.TryCreate("Tribes", o.Width, o.Height, shot, o.VideoDriver, out var error);
+        using var win = GlWindow.TryCreate("Tribes", o.Width, o.Height, shot, o.VideoDriver, out var error);
         if (win == null)
         {
             Console.Error.WriteLine("tribes: cannot open a window with an OpenGL 3.3 core context: " + error);
@@ -179,7 +178,7 @@ public static class Program
         }
         Console.Error.WriteLine($"video {win.VideoDriver}, OpenGL {win.GlVersion}");
         using var glDevice = new GlGfxDevice(win);
-        IGfxDevice dev = glDevice;
+        var dev = glDevice;
         dev.SetPalette(palette);
         GlWindow.SetSwapInterval(shot ? 0 : 1);
 
@@ -190,7 +189,7 @@ public static class Program
             if (bitmap != null)
                 dev.Blit(bitmap, (dev.Width - bitmap.Width) / 2, (dev.Height - bitmap.Height) / 2);
             if (font != null)
-                dev.DrawText(font, 8, 8, o.Text);
+                GfxText.DrawAt(dev, font, 8, 8, o.Text);
             dev.EndFrame();
         }
 
@@ -224,7 +223,7 @@ public static class Program
     // The real client process: console.cs, the stock scripts, the frame loop.
     private static int RunClient(string[] args)
     {
-        App.ClientOptions? opt = App.ClientOptions.Parse(args, out var error);
+        var opt = App.ClientOptions.Parse(args, out var error);
         if (opt == null)
         {
             Console.Error.WriteLine("tribes: " + error);

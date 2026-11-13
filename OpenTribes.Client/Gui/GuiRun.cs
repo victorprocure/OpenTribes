@@ -262,8 +262,8 @@ public static class GuiRun
     /// <returns>The process exit code.</returns>
     public static int Run(string root, string gui, string? exec, string? input, string? output, int width, int height, string? videoDriver)
     {
-        GuiSession s = GuiSession.Create(root, width, height);
-        using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
+        var s = GuiSession.Create(root, width, height);
+        using var win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
         if (win == null)
         {
             Console.Error.WriteLine("tribes: cannot open a window with an OpenGL 3.3 core context: " + error);

@@ -420,7 +420,7 @@ public sealed class InteriorRenderer : IDisposable
             Console.Error.WriteLine($"interior: {model.Name} lod {index}: geometry {l.Geometry} not found");
             return null;
         }
-        InteriorGeometryData? geo = InteriorGeometryData.Parse(dig);
+        var geo = InteriorGeometryData.Parse(dig);
         if (geo == null)
         {
             Console.Error.WriteLine($"interior: {model.Name} lod {index}: geometry {l.Geometry} rejected");
@@ -441,7 +441,7 @@ public sealed class InteriorRenderer : IDisposable
             var lightName = model.Shape.LodLights[li];
             if (_assets.Res.Read(lightName, out var lb))
             {
-                InteriorLighting? first = InteriorLighting.Parse(lb);
+                var first = InteriorLighting.Parse(lb);
                 if (first != null && first.IsMission && first.BuildId == geo.BuildId)
                 {
                     lod.Mission = first;
@@ -760,7 +760,7 @@ public sealed class InteriorRenderer : IDisposable
     {
         if (inside || model.Shape.Lods.Count == 0)
             return 0;
-        IReadOnlyList<InteriorShapeFile.Lod> lods = model.Shape.Lods;
+        var lods = model.Shape.Lods;
         for (var i = 0; i < lods.Count; ++i)
             if ((int)lods[i].MinPixels < pixels)
                 return i;

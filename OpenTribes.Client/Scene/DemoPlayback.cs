@@ -56,6 +56,10 @@ public sealed class DemoPlayback
                     case DemoRecordKind.Move:
                         World.Psc.Moves.Add(rec.Move);
                         break;
+                    case DemoRecordKind.Action:
+                    case DemoRecordKind.Other:
+                    default:
+                        break;
                 }
             }
             OnFrame?.Invoke(0.032);

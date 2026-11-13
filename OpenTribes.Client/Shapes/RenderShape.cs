@@ -299,7 +299,7 @@ public sealed class RenderShape
         if (Nodes.Length == 0 || Nodes[0].DefaultTransform < 0 || Nodes[0].DefaultTransform >= Transforms.Length)
             return Xf.Identity;
         var t = Transforms[Nodes[0].DefaultTransform];
-        Xf r = Xf.FromQuat(t.Qx, t.Qy, t.Qz, t.Qw);
+        var r = Xf.FromQuat(t.Qx, t.Qy, t.Qz, t.Qw);
         (r.Px, r.Py, r.Pz) = (t.Tx, t.Ty, t.Tz);
         return r;
     }

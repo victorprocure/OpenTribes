@@ -87,14 +87,14 @@ public sealed class LiveGame : IDisposable
                 _app.Interp.CallFunction(fn, list);
         };
         w.DataBlocks.OnProgress = (name, pct) =>
-            _app.Interp.CallFunction("dataGotBlock", new[] { name, pct.ToString("0.######", CultureInfo.InvariantCulture) });
+            _app.Interp.CallFunction("dataGotBlock", [name, pct.ToString("0.######", CultureInfo.InvariantCulture)]);
         // The mode change runs while the packet is read, so a chat event of a later packet already finds playGui (PlayerManager_message).
         w.Psc.OnGuiMode = mode =>
         {
             _guiModeSeen = mode;
             _app.Play.SetGuiMode(mode);
         };
-        w.Players.ChatDisplayExists = () => _app.GuiRt.FindChildOf("playGui", PlayDelegate.ChatDisplayId) != null;
+        w.Players.ChatDisplayExists = () => _app.GuiRt.FindChildOf("playGui", PlayScreenHandler.ChatDisplayId) != null;
         w.Psc.OnScript = null;   // the play delegate evaluates loadPlayGui() on mode changes (PlayDelegate.SetGuiMode)
     }
 
@@ -128,27 +128,27 @@ public sealed class LiveGame : IDisposable
                 Joined = true;
             else
                 Joined = false;
-            interp.CallFunction("onConnection", new[] { msg });
+            interp.CallFunction("onConnection", [msg]);
             if (msg != "Accepted")
                 Stop();
         };
         Net.OnPacketError = text =>
         {
             Joined = false;
-            interp.CallFunction("onConnectionError", new[] { netWorld.ServerId.ToString(CultureInfo.InvariantCulture), netWorld.PlayerId.ToString(CultureInfo.InvariantCulture), text });
+            interp.CallFunction("onConnectionError", [netWorld.ServerId.ToString(CultureInfo.InvariantCulture), netWorld.PlayerId.ToString(CultureInfo.InvariantCulture), text]);
             Stop();
         };
-        Net.OnDataFinished = () => interp.CallFunction("dataFinished", Array.Empty<string>());
+        Net.OnDataFinished = () => interp.CallFunction("dataFinished", []);
         Net.OnAlwaysDone = () =>
         {
             interp.SetVariable("$ClientGhostAlwaysDone", "1");
-            interp.CallFunction("onClientGhostAlwaysDone", Array.Empty<string>());
+            interp.CallFunction("onClientGhostAlwaysDone", []);
         };
         Net.PacketHook = OnPacket;
         if (!_app.Opt.NoPredict)
         {
             var root = _app.Opt.Root;
-            Net.PredictFactory = mission => new PredictionWorld(root, new[] { "-dedicated", mission }, s => _app.Log("predict: " + s));
+            Net.PredictFactory = mission => new PredictionWorld(root, ["-dedicated", mission], s => _app.Log("predict: " + s));
         }
         _app.InitSecondaryHooks(this);
         if (!Net.Connect(hostPort))
@@ -190,7 +190,7 @@ public sealed class LiveGame : IDisposable
         interp.SetVariable("$playingDemo", "1");
         Joined = true;
         _app.InitSecondaryHooks(this);
-        interp.CallFunction("onConnection", new[] { "Accepted" });
+        interp.CallFunction("onConnection", ["Accepted"]);
         // The record reader runs from the first frame; the environment appears when the always phase ends.
         return true;
     }
@@ -692,16 +692,14 @@ public sealed class LiveGame : IDisposable
     }
 
     /// <summary>Moves the listener to the camera (step F15).</summary>
-    /// <param name="dt">The frame time in seconds.</param>
-    /// <param name="now">The time in milliseconds.</param>
-    public void UpdateSound(double dt, uint now)
+    public void UpdateSound()
     {
         if (_audio == null)
             return;
         var c = Camera();
         if (c is { } pose)
             _audio.SetListener(pose.X, pose.Y, pose.Z, pose.YawDeg * Math.PI / 180);
-        _audio.Frame(dt);
+        _audio.Frame();
     }
 
     /// <summary>Gets the near plane the PSC camera query answers for the current view (<c>WorldScene.ViewNear</c>, 004077a8).</summary>

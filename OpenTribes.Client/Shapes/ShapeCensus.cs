@@ -1,6 +1,5 @@
 namespace OpenTribes.Client.Shapes;
 
-using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 
 /// <summary>The shape census: loads every <c>.dts</c> of the mounted volumes for rendering and steps each sequence, then reports counts and the first failures.</summary>
@@ -68,7 +67,7 @@ public static class ShapeCensus
                     ++r.Failed;
                     continue;
                 }
-                RenderShape? s = RenderShape.Parse(data, n);
+                var s = RenderShape.Parse(data, n);
                 if (s == null)
                 {
                     r.Failures.Add(n + ": parse");

@@ -84,7 +84,7 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
     {
         var dist = distance ?? FitDistance(male, w, h);
         var zOff = (male ? -0.3 : -0.1) + ZShift;
-        Xf rot = Xf.Euler(-0.25, 0, -yaw);
+        var rot = Xf.Euler(-0.25, 0, -yaw);
         var (px, py, pz) = rot.Apply(cx, cy - dist, cz + zOff);
         var (fx, fy, fz) = rot.Rotate(0, 1, 0);
         double camYaw = Math.Atan2(-fx, fy) * 180 / Math.PI, camPitch = Math.Asin(Math.Clamp(fz, -1, 1)) * 180 / Math.PI;

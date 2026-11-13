@@ -259,6 +259,8 @@ public sealed class ImageStateMachine
                 else
                     SetState(SpinUp);
                 break;
+            default:
+                break;
         }
     }
 
@@ -336,6 +338,8 @@ public sealed class ImageStateMachine
                 Timer = Data.ActivateTime;
                 PlaySound?.Invoke("sfxActivate");
                 StartState(_seqActivation);
+                break;
+            default:
                 break;
         }
     }

@@ -52,9 +52,9 @@ public struct SoundProfile
     };
 
     /// <summary>True when the profile is a software or hardware 3D profile.</summary>
-    public readonly bool Is3D => (Flags & (Software3D | Hardware3D)) != 0;
+    public readonly bool Is3D => (_flags & (Software3D | Hardware3D)) != 0;
     /// <summary>True when the profile loops or streams.</summary>
-    public readonly bool Loops => (Flags & (Looping | Streaming)) != 0;
+    public readonly bool Loops => (_flags & (Looping | Streaming)) != 0;
 }
 
 /// <summary>The listener: position and the world right axis (first row of the rotation, 2.6).</summary>

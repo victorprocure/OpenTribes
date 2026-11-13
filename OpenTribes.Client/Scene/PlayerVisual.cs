@@ -480,7 +480,7 @@ public sealed class PlayerVisual : ShapeVisual
     /// <returns>The transform.</returns>
     public static Xf ImageLocal(double ox, double oy, double oz, double rx, double ry, double rz, int mountPoint, double pullback)
     {
-        Xf local = Xf.Euler(rx, ry, rz);
+        var local = Xf.Euler(rx, ry, rz);
         local.Px = ox;
         local.Py = mountPoint == 0 ? pullback + oy : oy;
         local.Pz = oz;
@@ -496,7 +496,7 @@ public sealed class PlayerVisual : ShapeVisual
         var mount = node >= 0 ? Inst.NodeWorld[node] : Xf.Identity;
         if (node >= 0 && pitch is double pv && !_dead && im.MountPoint is 0 or 1)
         {
-            Xf r = Xf.Euler(pv, 0, 0);
+            var r = Xf.Euler(pv, 0, 0);
             (r.Px, r.Py, r.Pz) = (mount.Px, mount.Py, mount.Pz);
             mount = r;
         }
@@ -607,10 +607,10 @@ public sealed class PlayerVisual : ShapeVisual
     // First person frame of the control player: the eye node (looks thread at the camera pitch, first person view mode) lands on the
     // camera and the weapon hangs on the hand node of the same pose: the body is the yaw turned transform that puts the eye there
     // (5.2, `Player_getEyeTransform`), and the mount pitch is the camera pitch (Player +0xfc4 of the control object).
-    private (Xf body, double? pitch) FirstPersonFrame(FrameContext ctx, Xf body, double? pitchOnly)
+    private (Xf body, double? pitch) FirstPersonFrame(FrameContext ctx, double? pitchOnly)
     {
         TryEyeLocal(ctx.Camera.Pitch, out var ex, out var ey, out var ez);
-        body = EyeAlignedBody(ctx.Camera.X, ctx.Camera.Y, ctx.Camera.Z, ctx.Camera.Yaw, ex, ey, ez);
+        var body = EyeAlignedBody(ctx.Camera.X, ctx.Camera.Y, ctx.Camera.Z, ctx.Camera.Yaw, ex, ey, ez);
         if (pitchOnly != null)
             pitchOnly = ctx.Camera.Pitch;
         return (body, pitchOnly);
@@ -627,7 +627,7 @@ public sealed class PlayerVisual : ShapeVisual
     /// <returns>The body transform.</returns>
     public static Xf EyeAlignedBody(double cx, double cy, double cz, double yawRad, double ex, double ey, double ez)
     {
-        Xf yaw = Xf.Euler(0, 0, yawRad);
+        var yaw = Xf.Euler(0, 0, yawRad);
         var (rx, ry, rz) = yaw.Apply(ex, ey, ez);
         return yaw.Then(Xf.Translate(cx - rx, cy - ry, cz - rz));
     }
@@ -642,7 +642,7 @@ public sealed class PlayerVisual : ShapeVisual
             return;
         var body = PoseXf();
         double? pitch = ViewModeSet(true, true) ? ViewPitch : null;
-        (body, pitch) = FirstPersonFrame(ctx, body, pitch);
+        (body, pitch) = FirstPersonFrame(ctx, pitch);
         _fpBody = body;
         _fpPitch = pitch;
         Inst.Animate(0);
@@ -662,7 +662,7 @@ public sealed class PlayerVisual : ShapeVisual
         var body = PoseXf();
         double? pitchOnly = ViewModeSet(firstPerson, ctx.ControlGhost == Index) ? ViewPitch : null;
         if (firstPerson)
-            (body, pitchOnly) = FirstPersonFrame(ctx, body, pitchOnly);
+            (body, pitchOnly) = FirstPersonFrame(ctx, pitchOnly);
         var fade = FadeAmount();
         var detail = -1;
         if (!firstPerson)

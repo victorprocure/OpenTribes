@@ -51,7 +51,7 @@ public sealed class ClientApp : IDisposable
     /// <summary>The audio output, or null without audio.</summary>
     public AudioOutput? AudioDev { get; set; }
     /// <summary>The play delegate.</summary>
-    public PlayDelegate Play { get; set; } = null!;
+    public PlayScreenHandler Play { get; set; } = null!;
     /// <summary>The console command handlers.</summary>
     public ClientCommandHandlers Handlers { get; set; } = null!;
     /// <summary>The GUI delegates.</summary>
@@ -235,7 +235,7 @@ public sealed class ClientApp : IDisposable
             OfferToGui = OfferToGui,
             GlobalMap = Maps.FindMap("SimGame.sae")
         };
-        Play = new PlayDelegate(this);
+        Play = new PlayScreenHandler(this);
         Handlers = new ClientCommandHandlers(this);
 
         SetupAudio();
@@ -467,7 +467,7 @@ public sealed class ClientApp : IDisposable
         {
             Interp.SetVariable("$errorString", "Only local servers can be joined (127.0.0.0/8); start with --allow-remote to lift this.");
             Log("connect: " + address + " is not a local address");
-            Interp.CallFunction("onConnection", new[] { "Rejected" });
+            Interp.CallFunction("onConnection", ["Rejected"]);
             return false;
         }
         if (a.StartsWith("LOOPBACK", StringComparison.OrdinalIgnoreCase))
@@ -490,7 +490,7 @@ public sealed class ClientApp : IDisposable
         if (!ok)
         {
             Interp.SetVariable("$errorString", "Could not connect to " + address);
-            Interp.CallFunction("onConnection", new[] { "Rejected" });
+            Interp.CallFunction("onConnection", ["Rejected"]);
             Game.Dispose();
             Game = null;
         }
@@ -591,7 +591,7 @@ public sealed class ClientApp : IDisposable
     }
 
     /// <summary>The command map control (DAT_006a83d8), found by its id while the command screen is loaded.</summary>
-    public GuiCommandMap? CommandMap => GuiRt?.FindControl(PlayDelegate.CommanderMapId.ToString(CultureInfo.InvariantCulture)) as GuiCommandMap;
+    public GuiCommandMap? CommandMap => GuiRt?.FindControl(PlayScreenHandler.CommanderMapId.ToString(CultureInfo.InvariantCulture)) as GuiCommandMap;
 
     // The console world of the client: the chat menus of the scripts live in it.
     private GameState _gameState = null!;
@@ -602,7 +602,7 @@ public sealed class ClientApp : IDisposable
     {
         if (_gameState.ChatMenus.Showing(_gameState, "CurServerMenu") is not var (title, tree))
             return null;
-        return new ServerMenuView(title, tree.Root.Children.Select(c => (c.Key, c.Text)).ToList());
+        return new ServerMenuView(title, [.. tree.Root.Children.Select(c => (c.Key, c.Text))]);
     }
 
     /// <summary>Gets the chat menu object a FGChatMenu control names (004a7934).</summary>
@@ -614,7 +614,7 @@ public sealed class ClientApp : IDisposable
             return null;
         return _gameState.ChatMenus.Showing(_gameState, name) is var (_, tree)
             ? new ChatMenuState(true, tree.Path(), tree.Lines())
-            : new ChatMenuState(false, "", Array.Empty<string>());
+            : new ChatMenuState(false, "", []);
     }
 
     /// <summary>Gets the player chat menu (<c>v</c>) as the chat display draws it (004a633c).</summary>
@@ -631,7 +631,7 @@ public sealed class ClientApp : IDisposable
     // key runs its command words as a console command [code 00402068, 004021cc].
     private bool MenuKey(InputEvent ev, char ch) =>
         ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10 &&
-        _gameState.ChatMenus.OnKey(_gameState, ev.ObjInst, ev.Action, ch, ev.Modifiers, words => Interp.CallFunction(words[0], words.Skip(1).ToArray()));
+        _gameState.ChatMenus.OnKey(_gameState, ev.ObjInst, ev.Action, ch, ev.Modifiers, words => Interp.CallFunction(words[0], [.. words.Skip(1)]));
 
     /// <summary>Moves the chat lines of the client PlayerManager to the HUD chat ring (client-net.md 2.4).</summary>
     /// <param name="g">The game.</param>
@@ -738,7 +738,7 @@ public sealed class ClientApp : IDisposable
         _lastFrameMs = now;
         if (Sound != null)
         {
-            Game?.UpdateSound(dt, now);
+            Game?.UpdateSound();
             Sound.Tick(now);
         }
         // F16: render.
@@ -756,7 +756,7 @@ public sealed class ClientApp : IDisposable
 
     private readonly IrcHistory _ircHistory = new();
 
-    internal bool PlayViewActive => Canvas.Content?.Id is PlayDelegate.PlayGuiId;
+    internal bool PlayViewActive => Canvas.Content?.Id is PlayScreenHandler.PlayGuiId;
 
     /// <summary>Renders the 3D view and the GUI.</summary>
     public void RenderFrame()
@@ -1019,6 +1019,8 @@ public sealed class ClientApp : IDisposable
                 case Sdl3.EventWindowFocusGained:
                     Canvas.WindowActive = true;
                     break;
+                default:
+                    break;
             }
         }
     }
@@ -1027,7 +1029,7 @@ public sealed class ClientApp : IDisposable
     private void OnCloseBox()
     {
         if (Interp.HasFunction("onQuit"))
-            Interp.CallFunction("onQuit", Array.Empty<string>());
+            Interp.CallFunction("onQuit", []);
         else
             QuitRequested = true;
     }
@@ -1041,7 +1043,7 @@ public sealed class ClientApp : IDisposable
         {
             Interp.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\quit.gui\");");
             if (Interp.HasFunction("onExit"))
-                Interp.CallFunction("onExit", Array.Empty<string>());
+                Interp.CallFunction("onExit", []);
         }
         catch (Exception e)
         {

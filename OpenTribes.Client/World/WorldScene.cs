@@ -234,7 +234,7 @@ public sealed class WorldScene : IDisposable
     {
         var ted = o.Get("tedFileName");
         Terrain = TerrainParams.FromMission(o.GetDouble("visibleDistance", 3000), o.GetDouble("hazeDistance", 2000), o.GetDouble("screenSize", 120));
-        Terrain? t = OpenTribes.World.Terrain.Load(res, ted);
+        var t = OpenTribes.World.Terrain.Load(res, ted);
         if (t == null)
         {
             error = "terrain not loadable: " + ted;

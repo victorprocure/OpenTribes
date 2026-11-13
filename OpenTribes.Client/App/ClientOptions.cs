@@ -162,6 +162,8 @@ public sealed class ClientOptions
                             return null;
                         }
                         break;
+                    default:
+                        break;
                 }
                 continue;
             }

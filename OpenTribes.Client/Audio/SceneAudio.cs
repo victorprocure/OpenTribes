@@ -138,6 +138,8 @@ public sealed class SceneAudio
                 case 0x453:
                     ChatWave((int)Db.ToDouble(F("from")), F("msg") as string ?? "");
                     break;
+                default:
+                    break;
             }
         }
     }
@@ -313,8 +315,7 @@ public sealed class SceneAudio
     /// <summary>Starts and stops the sounds that follow the state of a ghost after an update.</summary>
     /// <param name="v">The visual of the ghost.</param>
     /// <param name="u">The decoded update.</param>
-    /// <param name="isNew">True when the ghost is new.</param>
-    public void OnGhost(Visual v, DecodedGhost u, bool isNew)
+    public void OnGhost(Visual v, DecodedGhost u)
     {
         var g = Gs(v.Index);
         bool has(string n) => u.Fields.Any(f => f.Name == n);
@@ -344,6 +345,8 @@ public sealed class SceneAudio
                 break;
             case ShapeVisual sv:
                 ShapeGhost(sv, g, u, has);
+                break;
+            default:
                 break;
         }
     }
@@ -502,7 +505,7 @@ public sealed class SceneAudio
                     g.LastRotation = r;
                     g.LastElevation = e;
                 }
-                AmbientAndState(sv, g, b, pos, has);
+                AmbientAndState(sv, g, b, pos);
                 break;
             }
             case "Moveable":
@@ -521,11 +524,11 @@ public sealed class SceneAudio
                     else if (g.Run == 0 && st != 0)
                         g.Run = Play("MoveableRun", Idx(b, "sfxRun"), pos);
                 }
-                AmbientAndState(sv, g, b, pos, has);
+                AmbientAndState(sv, g, b, pos);
                 break;
             }
             default:
-                AmbientAndState(sv, g, b, pos, has);
+                AmbientAndState(sv, g, b, pos);
                 break;
         }
     }
@@ -560,7 +563,7 @@ public sealed class SceneAudio
     }
 
     // StaticBase ambient sound (3.3): starts on a ghost with a datablock, stops when the damage state becomes 2 or 3.
-    private void AmbientAndState(ShapeVisual sv, GhostSounds g, ClientDataBlock b, (double, double, double)? pos, Func<string, bool> has)
+    private void AmbientAndState(ShapeVisual sv, GhostSounds g, ClientDataBlock b, (double, double, double)? pos)
     {
         var ds = (int)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("damageState"), 1);
         if (ds >= 2)
@@ -575,8 +578,7 @@ public sealed class SceneAudio
 
 
     /// <summary>Runs once per client frame after the visuals ticked: moves the listener, the follow the object voices and the stops.</summary>
-    /// <param name="dt">The frame time in seconds.</param>
-    public void Frame(double dt)
+    public void Frame()
     {
         foreach (var (index, g) in _ghosts)
         {

@@ -33,13 +33,15 @@ public sealed class ClientScript
         switch (w[0].ToLowerInvariant())
         {
             case "play":
-                return _app.Game != null && _app.Game.HasScene && _app.Canvas.Content?.Id == PlayDelegate.PlayGuiId;
+                return _app.Game != null && _app.Game.HasScene && _app.Canvas.Content?.Id == PlayScreenHandler.PlayGuiId;
             case "player":
                 return _app.Game?.World.Psc.ControlClass == "Player";
             case "connected":
                 return _app.Game != null && _app.Game.Joined;
             case "content":
                 return w.Length > 1 && _app.Canvas.Content?.Id.ToString(CultureInfo.InvariantCulture) == w[1];
+            default:
+                break;
         }
         var r = what.StartsWith('$') && !what.Contains(' ') && !what.Contains('(')
             ? _app.Interp.PeekVariable(what)

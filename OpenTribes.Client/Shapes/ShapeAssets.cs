@@ -40,7 +40,7 @@ public sealed class ShapeAssets : IDisposable
     /// <summary>The names of the files that could not be loaded.</summary>
     public HashSet<string> Missing { get; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The bitmaps of the damage skins (DamageSkinData bmpName).</summary>
-    public IReadOnlyList<PbmpBitmap> DamageDecals { get; set; } = Array.Empty<PbmpBitmap>();
+    public IReadOnlyList<PbmpBitmap> DamageDecals { get; set; } = [];
     /// <summary>True to use the custom skins of a player.</summary>
     public bool UseCustomSkins { get; set; } = true;
     /// <summary>The detail of the damage skins.</summary>

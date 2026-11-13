@@ -157,7 +157,7 @@ public sealed class RenderInstance
             var tr = Shape.Triggers[q.FirstTrigger + i];
             double pos = Math.Abs(tr.Position);
             var forward = t.TimeScale >= 0;
-            if (tr.Position >= 0 != forward && tr.Position != 0)
+            if ((tr.Position >= 0) != forward && tr.Position != 0)
                 continue;
             bool hit;
             if (wrapped)
@@ -415,13 +415,13 @@ public sealed class RenderInstance
                     for (var k = 0; k < 3; ++k)
                         LocalT[node][k] = (_fromT[node][k] * (1 - blend)) + (LocalT[node][k] * blend);
                 }
-                Xf local = Xf.FromQuat(LocalQ[node][0], LocalQ[node][1], LocalQ[node][2], LocalQ[node][3]);
+                var local = Xf.FromQuat(LocalQ[node][0], LocalQ[node][1], LocalQ[node][2], LocalQ[node][3]);
                 local.Px = LocalT[node][0];
                 local.Py = LocalT[node][1];
                 local.Pz = LocalT[node][2];
                 if (ViewMode != 0 && _lowerBack[node] && done && (ViewMode == 1 || _rootNode >= 0))
                 {
-                    Xf frame = Xf.Euler(0, 0, Math.PI / 2);
+                    var frame = Xf.Euler(0, 0, Math.PI / 2);
                     if (ViewMode == 1)
                         (frame.Px, frame.Py, frame.Pz) = (NodeWorld[nd.Parent].Px, NodeWorld[nd.Parent].Py, NodeWorld[nd.Parent].Pz);
                     else

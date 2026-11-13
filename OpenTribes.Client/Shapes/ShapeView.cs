@@ -3,7 +3,6 @@ namespace OpenTribes.Client.Shapes;
 using System.Globalization;
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.World;
-using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Gl;
 
@@ -33,7 +32,7 @@ public static class ShapeView
         }
         var res = GfxAssets.Mount(root, out _);
         var bank = GfxAssets.LoadPalette(res, palette ?? "lush.day.ppl") ?? PaletteTables.Grayscale();
-        using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
+        using var win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
         if (win == null)
         {
             Console.Error.WriteLine("tribes: cannot open a window: " + error);

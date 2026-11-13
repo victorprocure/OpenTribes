@@ -176,6 +176,8 @@ public sealed class ServerBrowser : IDisposable
             case InfoNeverPingId:
                 SetSelectedFlag(favorite: false);
                 return true;
+            default:
+                break;
         }
         return false;
     }
@@ -254,7 +256,7 @@ public sealed class ServerBrowser : IDisposable
     /// <summary>The number of pings not answered yet.</summary>
     public int PendingPings => _query?.PendingPings ?? 0;
     /// <summary>The addresses seen by the query.</summary>
-    public IReadOnlyList<string> SeenAddresses => _query?.Seen ?? Array.Empty<string>();
+    public IReadOnlyList<string> SeenAddresses => _query?.Seen ?? [];
 
     // 004d8754: the dialog's REFRESH asks the selected server again (SimNet_queueServerQuery 0054fff0); it needs a selected row that has its
     // info and a query queue. The row keeps its state and flags until the answers come.
@@ -362,7 +364,7 @@ public sealed class ServerBrowser : IDisposable
         if (!IsTrue(Var("$pref::lanOnly")))
         {
             if (_app.Interp.HasFunction("checkMasterTranslation"))
-                _app.Interp.CallFunction("checkMasterTranslation", Array.Empty<string>());
+                _app.Interp.CallFunction("checkMasterTranslation", []);
             _masterCount = IntVar("$Server::numMasters", 0);
             _masterIndex = 0;
             if (_masterCount != 0 && Var("$Server::XLMasterN0") is { Length: > 0 } m)
@@ -413,7 +415,7 @@ public sealed class ServerBrowser : IDisposable
             row.Info = r.Info;
             row.TeamHeading = r.TeamHeading;
             row.ClientHeading = r.ClientHeading;
-            row.Rows = r.Rows.ToList();
+            row.Rows = [.. r.Rows];
             row.Cpu = r.Cpu;
             row.Password = r.Password;
             row.Dedicated = r.Dedicated;

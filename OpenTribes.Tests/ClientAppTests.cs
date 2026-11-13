@@ -429,7 +429,7 @@ public sealed class ClientAppTests : IDisposable
     private void EnterPlay()
     {
         _app!.Game = new LiveGame(_app);
-        var play = new GuiControl { Id = PlayDelegate.PlayGuiId };
+        var play = new GuiControl { Id = PlayScreenHandler.PlayGuiId };
         _app.Canvas.SetContent(play);
         _app.Play.UpdateContent(play.Id);
     }

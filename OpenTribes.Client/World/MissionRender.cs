@@ -108,7 +108,7 @@ public static class MissionRender
             Console.Error.WriteLine("tribes: --mission needs --camera or --cameras, and --screenshot");
             return 2;
         }
-        using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
+        using var win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
         if (win == null)
         {
             Console.Error.WriteLine("tribes: cannot open a window with an OpenGL 3.3 core context: " + error);
@@ -116,7 +116,7 @@ public static class MissionRender
         }
         using var dev = new GlGfxDevice(win);
         GlWindow.SetSwapInterval(0);
-        using WorldScene scene = WorldScene.Load(dev, root, mission, out var loadError);
+        using var scene = WorldScene.Load(dev, root, mission, out var loadError);
         if (loadError.Length > 0)
             Console.Error.WriteLine("tribes: " + loadError);
         dev.SetPalette(scene.Assets?.Palette ?? Platform.Gfx.PaletteTables.Grayscale());
@@ -138,7 +138,7 @@ public static class MissionRender
         return 0;
     }
 
-    private static readonly uint[] sCrc = MakeCrc();
+    private static readonly uint[] CrcTable = MakeCrc();
 
     private static uint[] MakeCrc()
     {
@@ -157,9 +157,9 @@ public static class MissionRender
     {
         var c = 0xffffffffu;
         foreach (var b in type)
-            c = sCrc[(c ^ b) & 0xff] ^ (c >> 8);
+            c = CrcTable[(c ^ b) & 0xff] ^ (c >> 8);
         foreach (var b in data)
-            c = sCrc[(c ^ b) & 0xff] ^ (c >> 8);
+            c = CrcTable[(c ^ b) & 0xff] ^ (c >> 8);
         return c ^ 0xffffffffu;
     }
 
