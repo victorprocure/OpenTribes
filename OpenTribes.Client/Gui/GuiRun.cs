@@ -1,9 +1,3 @@
-// `tribes --root DIR --gui NAME [--exec SCRIPT.cs] [--input EVENTS] --screenshot OUT.png`: loads a GUI over the canvas,
-// optionally runs a script first, feeds synthetic input events, and renders the result (ROADMAP M9 C6).
-//
-// Input file, one command per line (`#` starts a comment):
-//   move X Y | click X Y | rclick X Y | dblclick X Y | down | up | key NAME [shift|ctrl|alt]... | keydown NAME | keyup NAME
-//   clickctl NAME_OR_ID | where NAME_OR_ID | var $NAME | type TEXT | wait MS | frame | eval CONSOLE TEXT | echo TEXT | shot FILE.png | focus
 using System.Globalization;
 using System.Text;
 using OpenTribes.Client.World;
@@ -15,17 +9,31 @@ using OpenTribes.Script;
 
 namespace OpenTribes.Client.Gui;
 
+/// <summary>A GUI over a canvas without the game: the interpreter, the resources, the canvas, a clock and synthetic input.</summary>
 public sealed class GuiSession
 {
+    /// <summary>The script interpreter.</summary>
     public Interpreter Interp = null!;
+    /// <summary>The mounted resources.</summary>
     public ResourceManager Res = null!;
+    /// <summary>The GUI host.</summary>
     public GuiHost Host = null!;
+    /// <summary>The canvas.</summary>
     public GuiCanvas Canvas = null!;
+    /// <summary>The GUI runtime.</summary>
     public GuiRuntime Runtime = null!;
+    /// <summary>The clock in milliseconds.</summary>
     public long Clock;
+    /// <summary>The graphics device, or null before rendering.</summary>
     public IGfxDevice? Dev;
+    /// <summary>Receives the output lines.</summary>
     public Action<string> Log = Console.WriteLine;
 
+    /// <summary>Creates a session with the built in commands and the tag dictionary.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="width">The canvas width in pixels.</param>
+    /// <param name="height">The canvas height in pixels.</param>
+    /// <returns>The session.</returns>
     public static GuiSession Create(string root, int width, int height)
     {
         var s = new GuiSession();
@@ -42,6 +50,8 @@ public sealed class GuiSession
         return s;
     }
 
+    /// <summary>Runs canvas frames for a span of time, 16 ms each.</summary>
+    /// <param name="ms">The span in milliseconds.</param>
     public void Advance(int ms)
     {
         for (int left = ms; left > 0; left -= 16)
@@ -51,12 +61,15 @@ public sealed class GuiSession
         }
     }
 
+    /// <summary>Evaluates a script file.</summary>
+    /// <param name="path">The script path.</param>
     public void Exec(string path)
     {
         string text = ByteString.FromBytes(File.ReadAllBytes(path));
         Interp.Evaluate(text, Path.GetFileName(path));
     }
 
+    /// <summary>Renders one frame of the canvas.</summary>
     public void Render()
     {
         Dev!.BeginFrame();
@@ -68,6 +81,9 @@ public sealed class GuiSession
     private void Mouse(byte objType, byte index, byte action, float value = 0) =>
         Canvas.HandleInput(new RawInput { Device = RawInput.DevMouse, ObjType = objType, Index = index, Action = action, Value = value });
 
+    /// <summary>Moves the mouse cursor.</summary>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
     public void MoveTo(int x, int y)
     {
         int dx = x - (int)Canvas.CursorX, dy = y - (int)Canvas.CursorY;
@@ -75,10 +91,17 @@ public sealed class GuiSession
         if (dy != 0) Mouse(RawInput.ObjYAxis, 0, 0, dy);
     }
 
+    /// <summary>Presses or releases a mouse button.</summary>
+    /// <param name="index">The button index.</param>
+    /// <param name="down">True to press.</param>
     public void Button(int index, bool down) => Mouse(RawInput.ObjButton, (byte)index, (byte)(down ? 1 : 0));
 
     private byte mMods;
 
+    /// <summary>Sends a key event.</summary>
+    /// <param name="name">The key name.</param>
+    /// <param name="make">True to send the key down event.</param>
+    /// <param name="brk">True to send the key up event.</param>
     public void Key(string name, bool make, bool brk)
     {
         int scan = GuiCanvas.ScanForName(name);
@@ -103,6 +126,12 @@ public sealed class GuiSession
         if (brk) { ev.Action = 0; Canvas.HandleInput(ev); }
     }
 
+    /// <summary>Runs an input file, one command per line.</summary>
+    /// <param name="path">The input file path.</param>
+    /// <remarks>
+    /// <c>#</c> starts a comment. The commands are:
+    /// <c>move X Y | click X Y | rclick X Y | dblclick X Y | down | up | key NAME [shift|ctrl|alt]... | keydown NAME | keyup NAME | clickctl NAME_OR_ID | where NAME_OR_ID | var $NAME | type TEXT | wait MS | frame | eval CONSOLE TEXT | echo TEXT | shot FILE.png | focus</c>
+    /// </remarks>
     public void RunInput(string path)
     {
         foreach (string raw in File.ReadAllLines(path))
@@ -172,8 +201,20 @@ public sealed class GuiSession
     }
 }
 
+/// <summary>The GUI screenshot tool: loads a GUI over the canvas, optionally runs a script first, feeds synthetic input events and renders the result.</summary>
+/// <remarks>Started with <c>tribes --root DIR --gui NAME [--exec SCRIPT.cs] [--input EVENTS] --screenshot OUT.png</c>.</remarks>
 public static class GuiRun
 {
+    /// <summary>Runs the session and writes the screenshot.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="gui">The screen name.</param>
+    /// <param name="exec">A script to run first, or null.</param>
+    /// <param name="input">An input file, or null.</param>
+    /// <param name="output">The PNG path.</param>
+    /// <param name="width">The image width in pixels.</param>
+    /// <param name="height">The image height in pixels.</param>
+    /// <param name="videoDriver">The video driver name, or null for the default.</param>
+    /// <returns>The process exit code.</returns>
     public static int Run(string root, string gui, string? exec, string? input, string? output, int width, int height, string? videoDriver)
     {
         GuiSession s = GuiSession.Create(root, width, height);

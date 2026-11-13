@@ -4,11 +4,13 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.World;
 
-// Render-side reading of `.dml` material lists (docs/collision.md 4.2 layout, world-render.md 2.8): one entry per
-// (detail, index); entries whose flags & 0xf == 3 name a bitmap at +0x10. The world renderer indexes by entry number
-// (terrain material byte, interior surface material, sky panel), so a non-texture entry stays in place with a null name.
+/// <summary>Reads <c>.dml</c> material lists for the renderer.</summary>
+/// <remarks>docs/collision.md 4.2 layout, world-render.md 2.8. One entry per (detail, index). Entries whose flags &amp; 0xf == 3 name a bitmap at +0x10. The world renderer indexes by entry number (terrain material byte, interior surface material, sky panel), so a non-texture entry stays in place with a null name.</remarks>
 public static class RenderMaterialList
 {
+    /// <summary>Parses a material list.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <returns>The bitmap name of each entry, null for an entry without a bitmap, or null when the file is not a material list.</returns>
     public static List<string?>? Parse(byte[] d)
     {
         if (d.Length < 12 || d[0] != 'P' || d[1] != 'E' || d[2] != 'R' || d[3] != 'S')
@@ -45,16 +47,18 @@ public static class RenderMaterialList
     }
 }
 
-// Loads the files of one world through the resource manager and converts bitmaps to RGBA through the world palette.
+/// <summary>Loads the files of one world through the resource manager and converts bitmaps to RGBA through the world palette.</summary>
 public sealed class WorldAssets
 {
+    /// <summary>The resources the files load from.</summary>
     public ResourceManager Res { get; }
+    /// <summary>The world palette.</summary>
     public PaletteBank Palette { get; set; }
     private byte[] mGammaTable = PaletteTables.GammaTable(1f);
     private float mGamma = 1f;
 
-    // The display gamma ($pref::Display::gammaValue): the table 005d4880 builds serves every texture upload of the surface (005d3ecc), world and
-    // GUI alike (the upload routines 005d5164, 005d5784, 005d5a3c, 005d5e34, 005d7148 and 005d7674 read the same per-palette tables).
+    /// <summary>The display gamma (<c>$pref::Display::gammaValue</c>).</summary>
+    /// <remarks>The table 005d4880 builds serves every texture upload of the surface (005d3ecc), world and GUI alike. The upload routines 005d5164, 005d5784, 005d5a3c, 005d5e34, 005d7148 and 005d7674 read the same per palette tables.</remarks>
     public float Gamma
     {
         get => mGamma;
@@ -68,12 +72,18 @@ public sealed class WorldAssets
     }
     private readonly Dictionary<string, PbmpBitmap?> mBitmaps = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Creates the loader.</summary>
+    /// <param name="res">The resources to load from.</param>
+    /// <param name="palette">The world palette.</param>
     public WorldAssets(ResourceManager res, PaletteBank palette)
     {
         Res = res;
         Palette = palette;
     }
 
+    /// <summary>Loads a bitmap once and caches it.</summary>
+    /// <param name="name">The bitmap name.</param>
+    /// <returns>The bitmap, or null when it is missing.</returns>
     public PbmpBitmap? Bitmap(string name)
     {
         if (!mBitmaps.TryGetValue(name, out PbmpBitmap? b))
@@ -81,11 +91,17 @@ public sealed class WorldAssets
         return b;
     }
 
+    /// <summary>Loads and parses a material list.</summary>
+    /// <param name="name">The <c>.dml</c> file name.</param>
+    /// <returns>The bitmap names, or null when the file is missing or invalid.</returns>
     public List<string?>? MaterialList(string name) =>
         GfxAssets.Read(Res, name, out byte[] data) ? RenderMaterialList.Parse(data) : null;
 
-    // RGBA8 through the subpalette of the bitmap's PiDX (renderer.md 3.4). `opaque` forces alpha 255 (terrain and
-    // interior polygons draw with keyed transparency off, world-render.md 2.4 and 3.3).
+    /// <summary>Converts a bitmap to RGBA8 through the subpalette of its PiDX.</summary>
+    /// <param name="bmp">The bitmap.</param>
+    /// <param name="opaque">True to force alpha 255. Terrain and interior polygons draw with keyed transparency off.</param>
+    /// <returns>The RGBA pixels.</returns>
+    /// <remarks>renderer.md 3.4. For opaque, world-render.md 2.4 and 3.3.</remarks>
     public byte[] Rgba(PbmpBitmap bmp, bool opaque)
     {
         byte[] rgba = PaletteTables.ToRgba(bmp, Palette.FindSubPalette(bmp.PaletteId), mGammaTable);
@@ -95,15 +111,23 @@ public sealed class WorldAssets
         return rgba;
     }
 
-    // RGBA8 of the bitmap through its subpalette, packed the way the stock upload packs it (`Pack`); 24 bit bitmaps are not palette indexed.
+    /// <summary>Converts a bitmap to RGBA8 through its subpalette, packed the way the stock upload packs it. 24 bit bitmaps are not palette indexed.</summary>
+    /// <param name="bmp">The bitmap.</param>
+    /// <param name="opaque">True to force alpha 255.</param>
+    /// <returns>The RGBA pixels.</returns>
     public byte[] PackedRgba(PbmpBitmap bmp, bool opaque)
     {
         byte[] rgba = Rgba(bmp, opaque);
         return bmp.Depth == 8 ? PaletteTables.Pack(rgba, Palette.FindSubPalette(bmp.PaletteId)) : rgba;
     }
 
-    // Levels 1 .. MipCount-1 of the bitmap's own mip chain as RGBA8 (the stock client uploads each file level, 005d7148 loop over
-    // bitmap +0x5c; the levels are not row padded). Empty when the file has no chain.
+    /// <summary>Converts levels 1 to MipCount - 1 of the own mip chain of a bitmap to RGBA8.</summary>
+    /// <param name="bmp">The bitmap.</param>
+    /// <param name="opaque">True to force alpha 255.</param>
+    /// <param name="quantize">True to pack the colours the way the stock upload does.</param>
+    /// <param name="keyed">True to keep the transparent key.</param>
+    /// <returns>The levels, or an empty list when the file has no chain.</returns>
+    /// <remarks>The stock client uploads each file level (005d7148, loop over bitmap +0x5c). The levels are not row padded.</remarks>
     public List<byte[]> MipRgba(PbmpBitmap bmp, bool opaque, bool quantize = true, bool keyed = false)
     {
         var levels = new List<byte[]>();
@@ -131,9 +155,16 @@ public sealed class WorldAssets
         return levels;
     }
 
-    // A texture the way the stock upload makes it (005d3ecc): the file's own mip chain with LINEAR_MIPMAP_NEAREST when the bitmap has more
-    // than one level, else LINEAR, magnification nearest for a transparent bitmap. `level0` is the converted base level, `repeat` the wrap
-    // mode the caller of the upload asks for (clamp to edge or repeat).
+    /// <summary>Creates a texture the way the stock upload makes it.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="bmp">The bitmap.</param>
+    /// <param name="level0">The converted base level.</param>
+    /// <param name="repeat">True to repeat, false to clamp to edge: the wrap mode the caller of the upload asks for.</param>
+    /// <param name="opaque">True when the bitmap is opaque.</param>
+    /// <param name="quantize">True to pack the colours the way the stock upload does.</param>
+    /// <param name="keyed">True to keep the transparent key.</param>
+    /// <returns>The texture.</returns>
+    /// <remarks>Follows 005d3ecc: the own mip chain of the file with LINEAR_MIPMAP_NEAREST when the bitmap has more than one level, else LINEAR. Magnification is nearest for a transparent bitmap.</remarks>
     public IGfxTexture CreateTexture(IGfxDevice dev, PbmpBitmap bmp, byte[] level0, bool repeat, bool opaque, bool quantize, bool keyed = false)
     {
         List<byte[]> levels = MipRgba(bmp, opaque, quantize, keyed);
@@ -141,7 +172,8 @@ public sealed class WorldAssets
         return dev.CreateTexture3D(level0, bmp.Width, bmp.Height, options, levels);
     }
 
-    // The haze colour (D34, 6.3): entry `hazeColor` of the first subpalette of the world palette.
+    /// <summary>Reads the haze colour (D34, 6.3): entry <c>hazeColor</c> of the first subpalette of the world palette.</summary>
+    /// <returns>The red, green and blue values.</returns>
     public (float r, float g, float b) HazeColor()
     {
         int index = (int)Math.Min(Palette.HazeColor, 255u);
