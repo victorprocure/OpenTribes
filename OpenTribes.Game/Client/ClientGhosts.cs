@@ -5,55 +5,88 @@ using System.Globalization;
 
 namespace OpenTribes.Game;
 
-// A client ghost object: the decoded state of the class, as the unpack routines of 3.2 .. 3.6 leave it.
+/// <summary>A client ghost object: the decoded state of the class, as the unpack routines leave it (docs/game-stream-ghosts.md 3.2 to 3.6).</summary>
 public sealed class ClientGhost
 {
+    /// <summary>The ghost index.</summary>
     public int Index;
+    /// <summary>The class tag.</summary>
     public uint Tag;
+    /// <summary>The class name.</summary>
     public string Class = "";
-    public long ObjectValue = -1;        // the 32 bit priority value of the always phase
-    public bool Registered;              // registered with the client manager (object +0x44 != 0)
+    /// <summary>The 32-bit priority value of the always phase.</summary>
+    public long ObjectValue = -1;
+    /// <summary>True once registered with the client manager (object +0x44 is not 0).</summary>
+    public bool Registered;
+    /// <summary>The number of updates received.</summary>
     public int Updates;
+    /// <summary>The decoded state by field name.</summary>
     public readonly Dictionary<string, object?> State = new(StringComparer.Ordinal);
+    /// <summary>The fields of the last update.</summary>
     public List<DecodedField> Last = new();
 }
 
-// Unpack routine of one class: reads the update into r.Out; `isNew` is the creating update (object not registered).
+/// <summary>Reads the update of one class into the reader output.</summary>
+/// <param name="r">The reader.</param>
+/// <param name="g">The ghost.</param>
+/// <param name="isNew">True for the creating update, when the object is not registered.</param>
 public delegate void ClientUnpackFn(ClientReader r, ClientGhost g, bool isNew);
 
+/// <summary>One ghost entry as read from the stream.</summary>
 public sealed class DecodedGhost
 {
+    /// <summary>The ghost index.</summary>
     public int Index;
+    /// <summary>The operation: "new", "update" or "delete".</summary>
     public string Op = "";               // "new", "update" or "delete"
+    /// <summary>The class name.</summary>
     public string Class = "";
+    /// <summary>The class tag.</summary>
     public uint Tag;
+    /// <summary>The priority value of the always phase.</summary>
     public long ObjectValue = -1;
+    /// <summary>The number of bits the entry took.</summary>
     public int Bits;
+    /// <summary>The decoded fields.</summary>
     public List<DecodedField> Fields = new();
+    /// <summary>The one line text.</summary>
     public string Text = "";
 }
 
+/// <summary>The ghost block of a packet as read from the stream.</summary>
 public sealed class DecodedGhostBlock
 {
+    /// <summary>True for the always phase.</summary>
     public bool Always;
+    /// <summary>The number of bits of a ghost index.</summary>
     public int IdBits;
+    /// <summary>True when the phase is done.</summary>
     public bool Done;
+    /// <summary>The number of bits the block took.</summary>
     public int Bits;
+    /// <summary>The entries.</summary>
     public readonly List<DecodedGhost> Updates = new();
 }
 
+/// <summary>The client GhostManager: reads the ghost block, creates and deletes client ghost objects and keeps the always phase list.</summary>
+/// <remarks>See docs/client-net.md 3.1 and docs/game-stream-ghosts.md 2. The per-class unpack routines sit next to the pack routine of each class (GhostClasses, PlayerGhost, ProjectileGhost) and register here.</remarks>
 public sealed class ClientGhostManager
 {
     private readonly ClientWorld mWorld;
     private readonly ClientGhost?[] mTable = new ClientGhost?[1024];
     private readonly List<ClientGhost> mAlways = new();           // always phase ghosts waiting for registration (2.7)
+    /// <summary>Called when a ghost is created.</summary>
     public Action<ClientGhost>? OnCreate;
+    /// <summary>Called when a ghost is deleted.</summary>
     public Action<ClientGhost>? OnDelete;
+    /// <summary>Called once when the always phase completes.</summary>
     public Action? OnAlwaysDone;
 
     private static readonly Dictionary<uint, (string Name, ClientUnpackFn Fn)> sClasses = new();
     private static readonly object sLock = new();
 
+    /// <summary>Creates a manager for a client world.</summary>
+    /// <param name="world">The client world.</param>
     public ClientGhostManager(ClientWorld world)
     {
         mWorld = world;
@@ -73,8 +106,13 @@ public sealed class ClientGhostManager
         }
     }
 
+    /// <summary>Registers the unpack routine of a class.</summary>
+    /// <param name="tag">The class tag.</param>
+    /// <param name="name">The class name.</param>
+    /// <param name="fn">The unpack routine.</param>
     public static void RegisterClass(uint tag, string name, ClientUnpackFn fn) => sClasses[tag] = (name, fn);
 
+    /// <summary>Gets the registered classes by tag.</summary>
     public static IReadOnlyDictionary<uint, (string Name, ClientUnpackFn Fn)> Classes
     {
         get
@@ -84,25 +122,39 @@ public sealed class ClientGhostManager
         }
     }
 
+    /// <summary>Returns a ghost by index.</summary>
+    /// <param name="index">The ghost index.</param>
+    /// <returns>The ghost, or null.</returns>
     public ClientGhost? Get(int index) => index >= 0 && index < mTable.Length ? mTable[index] : null;
+    /// <summary>Returns the class name of a ghost.</summary>
+    /// <param name="index">The ghost index.</param>
+    /// <returns>The class name, or null.</returns>
     public string? ClassOf(int index) => Get(index)?.Class;
+    /// <summary>Returns every ghost in the table.</summary>
+    /// <returns>The ghosts.</returns>
     public IEnumerable<ClientGhost> All() => mTable.Where(g => g != null)!;
+    /// <summary>Gets the number of ghosts in the table.</summary>
     public int Count => mTable.Count(g => g != null);
 
-    // Puts a ghost into the table without a ghost block (tests and tools that build the client state directly).
+    /// <summary>Puts a ghost into the table without a ghost block. For tests and tools that build the client state directly.</summary>
+    /// <param name="g">The ghost.</param>
     public void Insert(ClientGhost g)
     {
         mTable[g.Index] = g;
         g.Registered = true;
     }
 
+    /// <summary>Clears the table.</summary>
     public void Clear()
     {
         Array.Clear(mTable);
         mAlways.Clear();
     }
 
-    // GhostManager readPacket 00552cc8. Entries decode into the returned block; the table follows 3.1.
+    /// <summary>Reads the ghost block of a packet. The entries decode into the returned block and the table follows docs/client-net.md 3.1.</summary>
+    /// <param name="r">The reader.</param>
+    /// <returns>The decoded block.</returns>
+    /// <remarks>Follows GhostManager readPacket (00552cc8).</remarks>
     public DecodedGhostBlock Read(ClientReader r)
     {
         int start = r.Pos;
