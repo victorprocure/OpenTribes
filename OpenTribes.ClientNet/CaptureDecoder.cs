@@ -96,7 +96,7 @@ public static class CaptureDecoder
         {
             if (line.Length == 0)
                 continue;
-            using JsonDocument doc = JsonDocument.Parse(line);
+            using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
             if (!root.TryGetProperty("hex", out var hexEl))
                 continue;

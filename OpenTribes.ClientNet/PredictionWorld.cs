@@ -94,11 +94,11 @@ public sealed class PredictionWorld
         if (psc.ControlState.TryGetValue("pos", out var pv) && pv is double[] p)
             pos = string.Join(" ", p.Select(v => Numbers.FormatFloat((float)v)));
         var id = g.Class == "Player"
-            ? Console.CallFunction("spawnPlayer", new[] { b.Name, pos, "0 0 0" })
-            : Console.CallFunction("newObject", new[] { "", "Flier", b.Name, "true" });
+            ? Console.CallFunction("spawnPlayer", [b.Name, pos, "0 0 0"])
+            : Console.CallFunction("newObject", ["", "Flier", b.Name, "true"]);
         if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
             return null;
-        GameBase? o = Sim.Server()?.FindById(n) as GameBase;
+        var o = Sim.Server()?.FindById(n) as GameBase;
         if (o is Flier f)
         {
             var q = pos.Split(' ').Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
@@ -122,13 +122,13 @@ public sealed class PredictionWorld
         var pos = string.Join(" ", position.Select(v => Numbers.FormatFloat(v)));
         var id = g.Class switch
         {
-            "Player" => Console.CallFunction("spawnPlayer", new[] { b.Name, pos, "0 0 0" }),
-            "Flier" => Console.CallFunction("newObject", new[] { "", "Flier", b.Name, "true" }),
-            _ => Console.CallFunction("newObject", new[] { "", "Vehicle", b.Name, "true" }),
+            "Player" => Console.CallFunction("spawnPlayer", [b.Name, pos, "0 0 0"]),
+            "Flier" => Console.CallFunction("newObject", ["", "Flier", b.Name, "true"]),
+            _ => Console.CallFunction("newObject", ["", "Vehicle", b.Name, "true"]),
         };
         if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
             return null;
-        GameBase? o = Sim.Server()?.FindById(n) as GameBase;
+        var o = Sim.Server()?.FindById(n) as GameBase;
         if (o is Vehicle v)
             v.SetPosition(position);
         return o;

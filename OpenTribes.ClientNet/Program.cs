@@ -72,7 +72,7 @@ if (decode != null)
 
 if (demo != null)
 {
-    DemoFile d = DemoFile.Parse(File.ReadAllBytes(demo));
+    var d = DemoFile.Parse(File.ReadAllBytes(demo));
     var world = new ClientWorld();
     var conn = new ClientGameConnection(world);
     double ms = 0;
@@ -116,7 +116,7 @@ if (connect != null)
     var script = scriptPath != null ? MoveScript.Parse(File.ReadAllText(scriptPath)) : null;
     var session = new NetClientSession(name, dump, script, Arg(args, "--version") ?? "1.11") { Log = Console.Error.WriteLine };
     if (Arg(args, "--predict") is string predictRoot)
-        session.PredictFactory = mission => new PredictionWorld(predictRoot, new[] { "-dedicated", mission }, s => Console.Error.WriteLine(s));
+        session.PredictFactory = mission => new PredictionWorld(predictRoot, ["-dedicated", mission], s => Console.Error.WriteLine(s));
     var r = session.Run(connect, seconds);
     Summary(w =>
     {
