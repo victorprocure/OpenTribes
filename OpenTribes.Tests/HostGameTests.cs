@@ -139,6 +139,11 @@ public sealed class HostGameTests : IDisposable
         Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0);");
         Assert.True(mApp!.Hosted.Net!.IsOpen());
         Assert.True(mApp.Hosted.Net.LoopbackOnly);
+        // Stock passes the packets in memory: a real UDP socket reaches nothing of this game.
+        using var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
+        probe.Client.ReceiveTimeout = 50;
+        probe.Send(new byte[] { 0x10, 0x05 }, 2, new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, mApp.Hosted.Net.Port()));
+        Assert.Equal(0, probe.Available);
     }
 
     [Fact]

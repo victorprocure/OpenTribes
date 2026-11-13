@@ -4,9 +4,88 @@ using System.Net.Sockets;
 
 namespace OpenTribes.Net;
 
+// The in-process datagram network of the LOOPBACK transport (LOOPTransport 0058d744; its connect 0058d7d4 pairs two virtual
+// connections that hand each other packets by memory copy, with no socket). A memory socket owns a port on 127.0.0.1 and
+// delivers to the other memory sockets of the process only.
+internal static class MemoryNet
+{
+    private static readonly object sLock = new();
+    private static readonly Dictionary<ushort, Queue<(Address From, byte[] Data)>> sQueues = new();
+    private static ushort sNext = 40000;
+
+    public static bool Has(ushort port)
+    {
+        lock (sLock)
+            return sQueues.ContainsKey(port);
+    }
+
+    // Port 0 picks a free port; false when the port is taken.
+    public static bool Register(ref ushort port)
+    {
+        lock (sLock)
+        {
+            if (port == 0)
+            {
+                for (int i = 0; i < 0x10000 && port == 0; ++i)
+                {
+                    ushort c = sNext == 0xffff ? (ushort)40000 : ++sNext;
+                    if (!sQueues.ContainsKey(c))
+                        port = c;
+                }
+                if (port == 0)
+                    return false;
+            }
+            else if (sQueues.ContainsKey(port))
+                return false;
+            sQueues[port] = new Queue<(Address, byte[])>();
+            return true;
+        }
+    }
+
+    public static void Unregister(ushort port)
+    {
+        lock (sLock)
+            sQueues.Remove(port);
+    }
+
+    public static bool Deliver(Address from, ushort to, ReadOnlySpan<byte> data)
+    {
+        lock (sLock)
+        {
+            if (!sQueues.TryGetValue(to, out var q))
+                return false;
+            q.Enqueue((from, data.ToArray()));
+            return true;
+        }
+    }
+
+    public static bool HasPending(ushort port)
+    {
+        lock (sLock)
+            return sQueues.TryGetValue(port, out var q) && q.Count > 0;
+    }
+
+    public static bool TryTake(ushort port, out Address from, out byte[] data)
+    {
+        lock (sLock)
+        {
+            if (sQueues.TryGetValue(port, out var q) && q.Count > 0)
+            {
+                (from, data) = q.Dequeue();
+                return true;
+            }
+        }
+        from = default;
+        data = Array.Empty<byte>();
+        return false;
+    }
+}
+
 public sealed class UdpSocket : IDisposable
 {
+    private const uint LoopbackIp = 0x7f000001;
     private Socket? mFd;
+    private bool mMemory;
     private ushort mPort;
     // recvfrom hands the caller the first `capacity` bytes of a larger datagram and drops the rest; .NET reports
     // that as an error, so the datagram is taken whole here and cut to the caller's buffer.
@@ -20,7 +99,27 @@ public sealed class UdpSocket : IDisposable
     {
         mFd?.Dispose();
         mFd = null;
+        if (mMemory)
+            MemoryNet.Unregister(mPort);
+        mMemory = false;
     }
+
+    // The LOOPBACK transport: a socket that only other sockets of this process reach (LOOPTransport 0058d744). Port 0 picks
+    // a free one.
+    public bool OpenMemory(ushort port)
+    {
+        Close();
+        if (!MemoryNet.Register(ref port))
+            return false;
+        mMemory = true;
+        mPort = port;
+        return true;
+    }
+
+    // The socket of a client that joins `target`: a memory socket when the target is a LOOPBACK server of this process,
+    // else an ordinary one on any port.
+    public bool OpenToward(Address target) =>
+        target.Ip == LoopbackIp && MemoryNet.Has(target.Port) ? OpenMemory(0) : Open(0);
 
     private static IPAddress ToIp(uint ip) =>
         new(new[] { (byte)(ip >> 24), (byte)(ip >> 16), (byte)(ip >> 8), (byte)ip });
@@ -32,8 +131,7 @@ public sealed class UdpSocket : IDisposable
     }
 
     // src/net/udp.cpp UdpSocket::open.
-    // loopbackOnly: the in-process transport of a hosted single-player game (LOOPBACK, 0058d7d4) is a datagram socket that
-    // only this machine can reach.
+    // loopbackOnly binds 127.0.0.1 only.
     public bool Open(ushort port, bool loopbackOnly = false)
     {
         Close();
@@ -72,6 +170,8 @@ public sealed class UdpSocket : IDisposable
     // src/net/udp.cpp UdpSocket::send.
     public bool Send(Address to, ReadOnlySpan<byte> data)
     {
+        if (mMemory)
+            return to.Ip == LoopbackIp && MemoryNet.Deliver(new Address(LoopbackIp, mPort), to.Port, data);
         if (mFd == null)
             return false;
         try
@@ -88,6 +188,14 @@ public sealed class UdpSocket : IDisposable
     public int Receive(out Address from, Span<byte> buffer)
     {
         from = default;
+        if (mMemory)
+        {
+            if (!MemoryNet.TryTake(mPort, out from, out byte[] packet))
+                return 0;
+            int len = Math.Min(packet.Length, buffer.Length);
+            packet.AsSpan(0, len).CopyTo(buffer);
+            return len;
+        }
         if (mFd == null)
             return -1;
         EndPoint ep = new IPEndPoint(IPAddress.Any, 0);
@@ -113,6 +221,17 @@ public sealed class UdpSocket : IDisposable
     // Waits up to `ms` for a datagram; false on timeout or when the socket is closed.
     public bool WaitRead(int ms)
     {
+        if (mMemory)
+        {
+            for (int waited = 0; waited <= ms; ++waited)
+            {
+                if (MemoryNet.HasPending(mPort))
+                    return true;
+                if (waited < ms)
+                    Thread.Sleep(1);
+            }
+            return false;
+        }
         Socket? fd = mFd;
         try
         {

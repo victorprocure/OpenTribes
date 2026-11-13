@@ -3,7 +3,7 @@
 // FearGame_consoleCallback cases 0x79-0x7e, FearApp_onIdle 004ebc34]. Here the console variables, the script functions and
 // the resources are shared and the console commands of each world answer while that world has the focus
 // (Interpreter.World). The loopback transport of the stock exe (LOOPTransport 0058d744, 0058d7d4) is an in-process
-// memory copy of the datagrams; this port uses a UDP socket bound to the loopback address instead.
+// memory copy of the datagrams; a game with only LOOPBACK uses the same here (UdpSocket.OpenMemory), no socket.
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
@@ -82,7 +82,7 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         game.AllocateRecordId = () => (int)net.AllocatePlayerId();
         game.ReleaseRecordId = id => net.ReleasePlayerId((uint)id);
         // serverDelegate (FearCSDelegate, isServer): the IP transport opens the socket; a game with only LOOPBACK (the
-        // $SinglePlayer form of createServer) is reachable from this machine only.
+        // $SinglePlayer form of createServer) is reachable from this process only.
         var master = new MasterHeartbeat(mIn, net, mAllowMasters);
         ctx.StartNetwork = args => ActivateTransports(args, net, sim, master);
         ctx.ServerCreated = m =>
@@ -155,7 +155,7 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         }
         if (!anyOk)
             return false;
-        // The in-memory LOOPBACK transport is a loopback-only datagram socket here, opened when no IP transport is.
+        // The LOOPBACK transport is the in-process datagram queue, opened when no IP transport is.
         if (!ipActivated && !net.IsOpen() && !(loopback && net.Open(loopbackPort, true)))
             return false;
         mServing = net.IsOpen();

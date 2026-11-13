@@ -42,4 +42,51 @@ public class UdpTests
         Assert.Equal(3, n);
         Assert.True(buf.AsSpan(0, 3).SequenceEqual(small));
     }
+
+    [Fact]
+    public void MemorySocketsPassPacketsInProcessWithoutAnOsSocket() // LOOPTransport 0058d744, connect 0058d7d4
+    {
+        using var server = new UdpSocket();
+        using var client = new UdpSocket();
+        Assert.True(server.OpenMemory(0));
+        Assert.NotEqual(0, server.Port());
+        var to = new Address(0x7f000001u, server.Port());
+        Assert.True(client.OpenToward(to));
+        Assert.True(client.Send(to, new byte[] { 1, 2, 3 }));
+        var buf = new byte[16];
+        Assert.Equal(3, server.Receive(out Address from, buf));
+        Assert.Equal(client.Port(), from.Port);
+        Assert.Equal(0u + 0x7f000001u, from.Ip);
+        Assert.Equal(0, server.Receive(out _, buf));
+        // The answer goes back by the sender's address.
+        Assert.True(server.Send(from, new byte[] { 9 }));
+        Assert.Equal(1, client.Receive(out _, buf));
+        Assert.Equal(9, buf[0]);
+    }
+
+    [Fact]
+    public void AMemorySocketIsNotReachableFromARealSocket()
+    {
+        using var server = new UdpSocket();
+        using var real = new UdpSocket();
+        Assert.True(server.OpenMemory(0) && real.Open(0));
+        Assert.True(real.Send(new Address(0x7f000001u, server.Port()), new byte[] { 1 }));
+        Assert.False(server.WaitRead(30));
+        // Nor does it send out: a target that is no memory socket is refused.
+        Assert.False(server.Send(new Address(0x7f000001u, real.Port()), new byte[] { 1 }));
+    }
+
+    [Fact]
+    public void ClosingAMemorySocketFreesItsPort()
+    {
+        var s = new UdpSocket();
+        Assert.True(s.OpenMemory(0));
+        ushort port = s.Port();
+        using var other = new UdpSocket();
+        Assert.False(other.OpenMemory(port));
+        s.Close();
+        Assert.True(other.OpenMemory(port));
+        using var ordinary = new UdpSocket(); // a target that is no memory socket gets an ordinary socket
+        Assert.True(ordinary.OpenToward(new Address(0x7f000001u, 1)));
+    }
 }

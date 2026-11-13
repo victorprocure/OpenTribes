@@ -134,7 +134,7 @@ public sealed class NetClientSession : ConnectionEvents
         ApplyPacketPrefs();
         Address server = Resolve(hostPort);
         mServerAddress = server;
-        if (!mSock.Open(0))
+        if (!mSock.OpenToward(server))
             return false;
         var rng = new Random();
         uint id = (uint)rng.NextInt64(1, 0xffffffffL);
@@ -402,7 +402,7 @@ public sealed class NetClientSession : ConnectionEvents
     {
         var res = new SessionResult();
         Address server = Resolve(hostPort);
-        if (!mSock.Open(0))
+        if (!mSock.OpenToward(server))
             throw new IOException("cannot open a UDP socket");
         var rng = new Random();
         uint id = (uint)rng.NextInt64(1, 0xffffffffL);
