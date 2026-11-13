@@ -214,6 +214,7 @@ public sealed class InteriorRenderer : IDisposable
         internal double? LightOrigin;
         internal long LightStep;
         internal InteriorLodModel? DrawnLod;
+        internal int LodIndex; // the detail level in use (ITRInstance +0xb4), 0 at the start
         internal LightAtlas? DrawnAtlas;
         internal InteriorLodModel? LightLod;
         internal float[] RandomTime = Array.Empty<float>();
@@ -643,6 +644,19 @@ public sealed class InteriorRenderer : IDisposable
         return minPixels.Count - 1;
     }
 
+    // The detail level of the frame, the draw function 00480be4 with ITRInstance_updateDetail (00556fa4). Inside the geometry box of the
+    // current detail, or when the image link flag (image +0x18, bit 2 of the interior's +0x418: the walk reached it through a link
+    // record of a neighbour) is set, ITRInstance_changeDetail(0) forces the full detail level. Otherwise the level comes from the
+    // projected size, but updateDetail only runs when the shape resource of the instance (+0x3c, data +0x14) is loaded and keeps
+    // the previous level when it is not. The port's analogue of the missing data is a level without its lighting: the previous
+    // level stays.
+    public static int ChooseDetail(bool inside, bool linkFlag, bool dataLoaded, int previous, int computed)
+    {
+        if (inside || linkFlag)
+            return 0;
+        return dataLoaded ? computed : previous;
+    }
+
     private static int ModelLod(InteriorModel model, int pixels, bool inside)
     {
         if (inside || model.Shape.Lods.Count == 0)
@@ -751,6 +765,8 @@ public sealed class InteriorRenderer : IDisposable
     private int mGateCount = -1;
     private double mGateX = double.NaN, mGateY, mGateZ;
     private bool mGateResult = true;
+    // The interiors the render walk of the camera point reached through a link record (image link flag, see ChooseDetail).
+    private readonly HashSet<object> mGateLinked = new();
 
     // The stock render walk reaches the terrain image only when the container interior the camera point lies in (a container of the
     // terrain database, box = geometry box padded by 3) accepts the scope: `004fa9c8` (terrain, vtable +0x98) calls the scope of the
@@ -770,7 +786,8 @@ public sealed class InteriorRenderer : IDisposable
         if (mGateX != cam.X || mGateY != cam.Y || mGateZ != cam.Z)
         {
             (mGateX, mGateY, mGateZ) = (cam.X, cam.Y, cam.Z);
-            mGateResult = mGate.RenderReaches(new OpenTribes.World.Vec3((float)cam.X, (float)cam.Y, (float)cam.Z));
+            mGateLinked.Clear();
+            mGateResult = mGate.RenderReaches(new OpenTribes.World.Vec3((float)cam.X, (float)cam.Y, (float)cam.Z), o => mGateLinked.Add(o));
         }
         return mGateResult;
     }
@@ -848,6 +865,7 @@ public sealed class InteriorRenderer : IDisposable
         if (SimSeconds is double sim)
             foreach (Instance inst in Instances)
                 inst.LightOrigin ??= sim;
+        TerrainReached(cam); // refreshes the set of interiors reached through links for this camera point
         int n = Instances.Count;
         var parent = new int[n];
         var reached = new bool[n];
@@ -902,10 +920,14 @@ public sealed class InteriorRenderer : IDisposable
             var (_, scy, _) = cam.ToCamera(sx * m[0] + sy * m[3] + sz * m[6] + inst.X, sx * m[1] + sy * m[4] + sz * m[7] + inst.Y,
                                                sx * m[2] + sy * m[5] + sz * m[8] + inst.Z);
             int pixels = DetailPixels(scy, sr, cam.FocalLength);
-            int lodIndex = ModelLod(model, pixels, inside);
+            int computed = ModelLod(model, pixels, false);
+            InteriorLodModel? cand = Lod(model, computed);
+            bool loaded = cand != null && cand.Base != null && cand.Atlases.Count > 0;
+            int lodIndex = ChooseDetail(inside, mGateLinked.Contains(inst), loaded, inst.LodIndex, computed);
             InteriorLodModel? lod = Lod(model, lodIndex);
             if (lod == null || lod.Base == null || lod.Atlases.Count == 0)
                 return;
+            inst.LodIndex = lodIndex;
             LightAtlas atlas = InstanceAtlas(inst, lod, InstanceStep(inst));
             inst.DrawnLod = lod;
             inst.DrawnAtlas = atlas;
@@ -997,6 +1019,15 @@ public sealed class InteriorRenderer : IDisposable
 
     // Stock draws the visible surfaces one polygon at a time in surface index order (0055ec98 walks the surface bit set
     // ascending), so equal 16 bit depths resolve by index. Consecutive surfaces of one material share a draw call.
+    // True when the triangle is seen counter-clockwise from the camera, the winding the device cull drops (the same sign rule as the
+    // shape renderer: the kept faces are clockwise seen from outside).
+    public static bool BackFacing(in Vertex3D a, in Vertex3D b, in Vertex3D c, double camX, double camY, double camZ)
+    {
+        double ux = b.X - a.X, uy = b.Y - a.Y, uz = b.Z - a.Z, vx = c.X - a.X, vy = c.Y - a.Y, vz = c.Z - a.Z;
+        double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        return nx * (camX - a.X) + ny * (camY - a.Y) + nz * (camZ - a.Z) > 0;
+    }
+
     private void DrawInstance(Instance inst, InteriorLodModel lod, IGfxTexture? atlas, in Camera3D cam, (double x, double y, double z) camLocal, float haze)
     {
         InteriorGeometryData g = lod.Geo;
@@ -1045,7 +1076,17 @@ public sealed class InteriorRenderer : IDisposable
             curKey = meshes[s].Key;
             curTex = meshes[s].Texture;
             int start = list.Count;
-            list.AddRange(tris);
+            // Device cull (renderer.md 5.6 point 4): beginScene3d (005daa30) turns the GL back face cull on with GL_CW as the front
+            // face, so every polygon of the interior draw loses the triangles seen from behind, clipped or not. The stock surface
+            // vertices run clockwise seen from the plane's front side (checked on the stock .dig files: the vertex order normal
+            // points away from the viewing side for every surface), the winding BackFacing keeps.
+            for (int k = 0; k + 2 < tris.Length; k += 3)
+                if (!BackFacing(tris[k], tris[k + 1], tris[k + 2], cam.X, cam.Y, cam.Z))
+                {
+                    list.Add(tris[k]);
+                    list.Add(tris[k + 1]);
+                    list.Add(tris[k + 2]);
+                }
             if (haze != 0)
             {
                 Span<Vertex3D> added = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list).Slice(start);
