@@ -1,11 +1,14 @@
 namespace OpenTribes.Client.World;
 
-// The element order the stock client's C runtime sort (the exe's `qsort`, world-render.md 2.8) leaves for keys that compare
-// equal. Written from the algorithm as measured on the exe: median of three (middle, last, first), a partition pass that
-// gathers keys equal to the pivot next to it and swaps them back around it, recursion into the smaller side and a loop on
-// the larger one. Not stable.
+/// <summary>The element order the stock client's C runtime sort (the exe's <c>qsort</c>, world-render.md 2.8) leaves for keys that compare equal.</summary>
+/// <remarks>Written from the algorithm as measured on the exe: median of three (middle, last, first), a partition pass that gathers keys equal to the pivot next to it and swaps them back around it, recursion into the smaller side and a loop on the larger one. Not stable.</remarks>
 public static class StockSort
 {
+    /// <summary>Sorts the first elements of an array in the stock order.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="a">The array to sort in place.</param>
+    /// <param name="count">The number of elements to sort.</param>
+    /// <param name="cmp">The key comparison.</param>
     public static void Sort<T>(T[] a, int count, Comparison<T> cmp)
     {
         if (count > 1)

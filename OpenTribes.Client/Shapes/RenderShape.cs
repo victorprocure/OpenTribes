@@ -1,75 +1,263 @@
-// Render-side `.dts` reader (docs/shapes-render.md 1.1, 1.2): everything the collision loader of OpenTribes.World skips
-// (texture vertices, face texture indices, the material list, the sequence tail with triggers and image lists, the
-// per-instance remap size) next to the node, object, detail and key tables. Independent of ShapeModel so the server path
-// stays untouched. Layouts: docs/interiors.md 8.2 and 8.3.
 using System.Buffers.Binary;
 using System.Text;
 
 namespace OpenTribes.Client.Shapes;
 
-public struct RsNode { public int Name, Parent, NumSub, FirstSub, DefaultTransform; }
+/// <summary>A node of the shape tree.</summary>
+public struct RsNode
+{
+    /// <summary>The index of the name in the name table.</summary>
+    public int Name;
+    /// <summary>The parent node, -1 for none.</summary>
+    public int Parent;
+    /// <summary>The number of sub sequences of the node.</summary>
+    public int NumSub;
+    /// <summary>The index of the first sub sequence.</summary>
+    public int FirstSub;
+    /// <summary>The index of the default transform.</summary>
+    public int DefaultTransform;
+}
+
+/// <summary>A sequence of the shape.</summary>
 public struct RsSequence
 {
+    /// <summary>The index of the name in the name table.</summary>
     public int Name;
+    /// <summary>True when the sequence loops.</summary>
     public bool Cyclic;
+    /// <summary>The duration in seconds.</summary>
     public float Duration;
-    public int Priority, FirstTrigger, NumTriggers, NumIfl, FirstIfl;
+    /// <summary>The priority.</summary>
+    public int Priority;
+    /// <summary>The index of the first trigger.</summary>
+    public int FirstTrigger;
+    /// <summary>The number of triggers.</summary>
+    public int NumTriggers;
+    /// <summary>The number of image lists.</summary>
+    public int NumIfl;
+    /// <summary>The index of the first image list.</summary>
+    public int FirstIfl;
 }
-public struct RsSubSequence { public int Sequence, NumKeys, FirstKey; }
-public struct RsKey { public float Position; public int Index; public int Flags; }     // Flags: 0x8000 visible, 0x4000 visibility valid, 0x2000 material valid, 0x1000 frame valid
-public struct RsTransform { public double Qx, Qy, Qz, Qw, Tx, Ty, Tz; }
-public struct RsObject { public int Name, Flags, Mesh, Node, NumSub, FirstSub; public double Ox, Oy, Oz; }
-public struct RsDetail { public int RootNode; public float Size; }
-public struct RsTrigger { public float Position; public uint Value; }
-public struct RsFace { public int V0, T0, V1, T1, V2, T2, Material; }
-public struct RsFrame { public int FirstVert; public float Sx, Sy, Sz, Ox, Oy, Oz; }
 
+/// <summary>The part of a sequence that animates one node or object.</summary>
+public struct RsSubSequence
+{
+    /// <summary>The sequence index.</summary>
+    public int Sequence;
+    /// <summary>The number of keys.</summary>
+    public int NumKeys;
+    /// <summary>The index of the first key.</summary>
+    public int FirstKey;
+}
+
+/// <summary>A key of a sub sequence.</summary>
+public struct RsKey
+{
+    /// <summary>The position in the sequence, 0 to 1.</summary>
+    public float Position;
+    /// <summary>The index of the transform, frame or material the key selects.</summary>
+    public int Index;
+    /// <summary>The flags: 0x8000 visible, 0x4000 visibility valid, 0x2000 material valid, 0x1000 frame valid.</summary>
+    public int Flags;
+}
+
+/// <summary>A node transform: a rotation quaternion and a translation.</summary>
+public struct RsTransform
+{
+    /// <summary>The quaternion x.</summary>
+    public double Qx;
+    /// <summary>The quaternion y.</summary>
+    public double Qy;
+    /// <summary>The quaternion z.</summary>
+    public double Qz;
+    /// <summary>The quaternion w.</summary>
+    public double Qw;
+    /// <summary>The translation x.</summary>
+    public double Tx;
+    /// <summary>The translation y.</summary>
+    public double Ty;
+    /// <summary>The translation z.</summary>
+    public double Tz;
+}
+
+/// <summary>An object of the shape: a mesh on a node.</summary>
+public struct RsObject
+{
+    /// <summary>The index of the name in the name table.</summary>
+    public int Name;
+    /// <summary>The flags.</summary>
+    public int Flags;
+    /// <summary>The mesh index.</summary>
+    public int Mesh;
+    /// <summary>The node the object hangs on.</summary>
+    public int Node;
+    /// <summary>The number of sub sequences of the object.</summary>
+    public int NumSub;
+    /// <summary>The index of the first sub sequence.</summary>
+    public int FirstSub;
+    /// <summary>The offset x from the node.</summary>
+    public double Ox;
+    /// <summary>The offset y from the node.</summary>
+    public double Oy;
+    /// <summary>The offset z from the node.</summary>
+    public double Oz;
+}
+
+/// <summary>A detail level of the shape.</summary>
+public struct RsDetail
+{
+    /// <summary>The root node of the detail.</summary>
+    public int RootNode;
+    /// <summary>The size the detail applies from.</summary>
+    public float Size;
+}
+
+/// <summary>A trigger of a sequence.</summary>
+public struct RsTrigger
+{
+    /// <summary>The position in the sequence, 0 to 1.</summary>
+    public float Position;
+    /// <summary>The trigger value.</summary>
+    public uint Value;
+}
+
+/// <summary>A face of a mesh.</summary>
+public struct RsFace
+{
+    /// <summary>The first vertex index.</summary>
+    public int V0;
+    /// <summary>The first texture vertex index.</summary>
+    public int T0;
+    /// <summary>The second vertex index.</summary>
+    public int V1;
+    /// <summary>The second texture vertex index.</summary>
+    public int T1;
+    /// <summary>The third vertex index.</summary>
+    public int V2;
+    /// <summary>The third texture vertex index.</summary>
+    public int T2;
+    /// <summary>The material index.</summary>
+    public int Material;
+}
+
+/// <summary>A frame of a mesh: where its vertices start and how its packed bytes decode.</summary>
+public struct RsFrame
+{
+    /// <summary>The index of the first vertex of the frame.</summary>
+    public int FirstVert;
+    /// <summary>The scale x of the packed vertices.</summary>
+    public float Sx;
+    /// <summary>The scale y of the packed vertices.</summary>
+    public float Sy;
+    /// <summary>The scale z of the packed vertices.</summary>
+    public float Sz;
+    /// <summary>The origin x of the packed vertices.</summary>
+    public float Ox;
+    /// <summary>The origin y of the packed vertices.</summary>
+    public float Oy;
+    /// <summary>The origin z of the packed vertices.</summary>
+    public float Oz;
+}
+
+/// <summary>A mesh of the shape.</summary>
 public sealed class RsMesh
 {
-    public byte[] Verts = Array.Empty<byte>();        // 4 bytes per packed vertex: x, y, z, normal index
-    public float[] TexVerts = Array.Empty<float>();   // u, v pairs
+    /// <summary>The packed vertices, 4 bytes each: x, y, z, normal index.</summary>
+    public byte[] Verts = Array.Empty<byte>();
+    /// <summary>The texture vertices as u, v pairs.</summary>
+    public float[] TexVerts = Array.Empty<float>();
+    /// <summary>The faces.</summary>
     public RsFace[] Faces = Array.Empty<RsFace>();
+    /// <summary>The frames.</summary>
     public RsFrame[] Frames = Array.Empty<RsFrame>();
-    public int TexVertsPerFrame, VertsPerFrame;
+    /// <summary>The texture vertices per frame.</summary>
+    public int TexVertsPerFrame;
+    /// <summary>The vertices per frame.</summary>
+    public int VertsPerFrame;
+    /// <summary>The mesh version.</summary>
     public int Version;
 }
 
-// One entry of the material list (shapes-render.md 1.3); file offsets: +0 flags, +4 alpha, +8 palette index, +0xc RGB, +0x10 name.
+/// <summary>One entry of the material list (shapes-render.md 1.3).</summary>
+/// <remarks>File offsets: +0 flags, +4 alpha, +8 palette index, +0xc RGB, +0x10 name.</remarks>
 public struct RsMaterial
 {
+    /// <summary>The flags.</summary>
     public uint Flags;
+    /// <summary>The palette index.</summary>
     public int PaletteIndex;
-    public byte R, G, B;
+    /// <summary>The red.</summary>
+    public byte R;
+    /// <summary>The green.</summary>
+    public byte G;
+    /// <summary>The blue.</summary>
+    public byte B;
+    /// <summary>The bitmap name.</summary>
     public string Name;
+    /// <summary>The material type, the low four flag bits. Type 3 names a bitmap.</summary>
     public int Type => (int)(Flags & 0xf);
+    /// <summary>The shading mode, flag bits 8 to 11.</summary>
     public int Shading => (int)((Flags >> 8) & 0xf);
+    /// <summary>True for a keyed (transparent colour) material.</summary>
     public bool Keyed => (Flags & 0x1000) != 0;
+    /// <summary>True for a translucent material.</summary>
     public bool Translucent => (Flags & 0x2000) != 0;
 }
 
+/// <summary>The render side <c>.dts</c> reader: everything the collision loader of OpenTribes.World skips (texture vertices, face texture indices, the material list, the sequence tail with triggers and image lists, the per instance remap size) next to the node, object, detail and key tables.</summary>
+/// <remarks>docs/shapes-render.md 1.1 and 1.2, layouts in docs/interiors.md 8.2 and 8.3. It is independent of <c>ShapeModel</c>, so the server path stays untouched.</remarks>
 public sealed class RenderShape
 {
+    /// <summary>The shape file name.</summary>
     public string Name = "";
+    /// <summary>The file version.</summary>
     public uint Version;
+    /// <summary>The radius of the bounding sphere.</summary>
     public float Radius;
-    public double Cx, Cy, Cz;
-    public float[] Box = new float[6];   // the shape box, as the server's ShapeBox
+    /// <summary>The centre of the bounding sphere.</summary>
+    public double Cx;
+    /// <summary>The centre y.</summary>
+    public double Cy;
+    /// <summary>The centre z.</summary>
+    public double Cz;
+    /// <summary>The shape box, as the <c>ShapeBox</c> of the server.</summary>
+    public float[] Box = new float[6];
+    /// <summary>The always node, -1 for none.</summary>
     public int AlwaysNode = -1;
+    /// <summary>The size of the image list remap of an instance.</summary>
     public int RemapSize;
+    /// <summary>The nodes.</summary>
     public RsNode[] Nodes = Array.Empty<RsNode>();
+    /// <summary>The sequences.</summary>
     public RsSequence[] Sequences = Array.Empty<RsSequence>();
+    /// <summary>The sub sequences.</summary>
     public RsSubSequence[] SubSequences = Array.Empty<RsSubSequence>();
+    /// <summary>The keys.</summary>
     public RsKey[] Keys = Array.Empty<RsKey>();
+    /// <summary>The node transforms.</summary>
     public RsTransform[] Transforms = Array.Empty<RsTransform>();
+    /// <summary>The name table.</summary>
     public string[] Names = Array.Empty<string>();
+    /// <summary>The objects.</summary>
     public RsObject[] Objects = Array.Empty<RsObject>();
+    /// <summary>The details.</summary>
     public RsDetail[] Details = Array.Empty<RsDetail>();
+    /// <summary>The triggers.</summary>
     public RsTrigger[] Triggers = Array.Empty<RsTrigger>();
+    /// <summary>The meshes.</summary>
     public RsMesh[] Meshes = Array.Empty<RsMesh>();
+    /// <summary>The material list.</summary>
     public RsMaterial[] Materials = Array.Empty<RsMaterial>();
-    public int MaterialDetails = 1, MaterialCount;   // the list holds MaterialDetails * MaterialCount entries
+    /// <summary>The number of material details. The list holds <c>MaterialDetails * MaterialCount</c> entries.</summary>
+    public int MaterialDetails = 1;
+    /// <summary>The number of materials per detail.</summary>
+    public int MaterialCount;
+    /// <summary>The children of each node.</summary>
     public List<int>[] Children = Array.Empty<List<int>>();
 
+    /// <summary>Finds a name in the name table, ignoring case.</summary>
+    /// <param name="name">The name.</param>
+    /// <returns>The index, or -1 when it is not there.</returns>
     public int FindName(string name)
     {
         for (int i = 0; i < Names.Length; ++i)
@@ -78,6 +266,9 @@ public sealed class RenderShape
         return -1;
     }
 
+    /// <summary>Finds a node by name.</summary>
+    /// <param name="name">The node name.</param>
+    /// <returns>The node index, or -1 when it is not there.</returns>
     public int FindNode(string name)
     {
         int n = FindName(name);
@@ -89,8 +280,10 @@ public sealed class RenderShape
         return -1;
     }
 
-    // A node in the subtree of `detail` whose name is `baseName` plus the digits of the detail suffix ("dummy hand" finds
-    // "dummy hand36" in detail 0 of the armors); -1 when none.
+    /// <summary>Finds a node in the subtree of a detail whose name is a base name plus the digits of the detail suffix (<c>dummy hand</c> finds <c>dummy hand36</c> in detail 0 of the armors).</summary>
+    /// <param name="baseName">The base name.</param>
+    /// <param name="detail">The detail index.</param>
+    /// <returns>The node index, or -1 when none.</returns>
     public int FindNodeBase(string baseName, int detail)
     {
         if (mNodeBase.TryGetValue((baseName, detail), out int cached))
@@ -98,9 +291,9 @@ public sealed class RenderShape
         return mNodeBase[(baseName, detail)] = FindNodeBaseUncached(baseName, detail);
     }
 
-    // The instance root transform (shapes-render.md 3.6): the default transform of node 0, which an instance keeps from its
-    // creation and puts in front of every node when it draws. Node 0 itself is never animated and stays at identity in the
-    // node table, so the node positions (mounts, muzzle) do not contain it. Only the Player resets it to identity.
+    /// <summary>Gets the instance root transform (shapes-render.md 3.6): the default transform of node 0, which an instance keeps from its creation and puts in front of every node when it draws.</summary>
+    /// <returns>The transform.</returns>
+    /// <remarks>Node 0 itself is never animated and stays at identity in the node table, so the node positions (mounts, muzzle) do not contain it. Only the Player resets it to identity.</remarks>
     public Xf RootTransform()
     {
         if (Nodes.Length == 0 || Nodes[0].DefaultTransform < 0 || Nodes[0].DefaultTransform >= Transforms.Length)
@@ -115,14 +308,18 @@ public sealed class RenderShape
     private float[]? mDetailSizes;
     private readonly Dictionary<int, DetailNodeSet> mDetailNodes = new();
 
-    // The nodes drawn and animated for one detail: the always node's subtree and the detail root's subtree, as a sorted list
-    // (the order of the node walk) and as a flag per node. Built once per detail.
+    /// <summary>The nodes drawn and animated for one detail: the subtree of the always node and the subtree of the detail root, as a sorted list (the order of the node walk) and as a flag per node. Built once per detail.</summary>
     public sealed class DetailNodeSet
     {
+        /// <summary>The node indices in walk order.</summary>
         public int[] Sorted = Array.Empty<int>();
+        /// <summary>The flag of each node.</summary>
         public bool[] Mask = Array.Empty<bool>();
     }
 
+    /// <summary>Gets the nodes of a detail.</summary>
+    /// <param name="detail">The detail index.</param>
+    /// <returns>The node set.</returns>
     public DetailNodeSet NodesOfDetail(int detail)
     {
         if (mDetailNodes.TryGetValue(detail, out DetailNodeSet? set))
@@ -153,6 +350,9 @@ public sealed class RenderShape
         return FindNode(baseName);
     }
 
+    /// <summary>Finds a sequence by name.</summary>
+    /// <param name="name">The sequence name.</param>
+    /// <returns>The sequence index, or -1 when it is not there.</returns>
     public int FindSequence(string name)
     {
         int n = FindName(name);
@@ -164,8 +364,14 @@ public sealed class RenderShape
         return -1;
     }
 
+    /// <summary>Gets the name of a sequence.</summary>
+    /// <param name="s">The sequence index.</param>
+    /// <returns>The name, or empty for an invalid index.</returns>
     public string SequenceName(int s) => s >= 0 && s < Sequences.Length && Sequences[s].Name >= 0 && Sequences[s].Name < Names.Length ? Names[Sequences[s].Name] : "";
 
+    /// <summary>Gets the root node of a detail.</summary>
+    /// <param name="detail">The detail index.</param>
+    /// <returns>The node index.</returns>
     public int DetailRoot(int detail)
     {
         int node = 1;
@@ -178,7 +384,9 @@ public sealed class RenderShape
         return node >= 0 && node < Nodes.Length ? node : -1;
     }
 
-    // Nodes of the subtree under `root`, root first, parents before children.
+    /// <summary>Lists the nodes of the subtree under a root, root first, parents before children.</summary>
+    /// <param name="root">The root node.</param>
+    /// <returns>The node indices.</returns>
     public List<int> Subtree(int root)
     {
         var l = new List<int>();
@@ -196,8 +404,13 @@ public sealed class RenderShape
         return l;
     }
 
-    // shapes-render.md 2.3 steps 2 and 3 (`005b9704`): with fewer than 2 details the result is 0, else the first detail
-    // whose size is at most |size|; a stored size of 0 or no match gives -1 (not drawn). Clamped to [minDetail, nDetails - 1].
+    /// <summary>Chooses the detail for a size.</summary>
+    /// <param name="sizes">The size of each detail.</param>
+    /// <param name="size">The size to choose for.</param>
+    /// <param name="minDetail">The lowest detail allowed.</param>
+    /// <param name="maxDetail">The highest detail allowed.</param>
+    /// <returns>The detail index, or -1 when nothing draws.</returns>
+    /// <remarks>shapes-render.md 2.3 steps 2 and 3 (005b9704): with fewer than 2 details the result is 0, else the first detail whose size is at most |size|. A stored size of 0 or no match gives -1 (not drawn). The result is clamped to [minDetail, nDetails - 1].</remarks>
     public static int ChooseDetail(IReadOnlyList<float> sizes, double size, int minDetail = -1, int maxDetail = 1000)
     {
         int n = sizes.Count;
@@ -221,6 +434,9 @@ public sealed class RenderShape
         return d;
     }
 
+    /// <summary>Chooses the detail of this shape for a size.</summary>
+    /// <param name="size">The size.</param>
+    /// <returns>The detail index, or -1 when nothing draws.</returns>
     public int ChooseDetail(double size) => ChooseDetail(mDetailSizes ??= Details.Select(x => x.Size).ToArray(), size);
 
     private static long[] RecordSizes(uint v)
@@ -268,7 +484,10 @@ public sealed class RenderShape
         return Encoding.Latin1.GetString(d, (int)p, n);
     }
 
-    // Reads a PERS TS::Shape block. Returns null when malformed.
+    /// <summary>Reads a PERS TS::Shape block.</summary>
+    /// <param name="dts">The file bytes.</param>
+    /// <param name="name">The shape name.</param>
+    /// <returns>The shape, or null when the file is malformed.</returns>
     public static RenderShape? Parse(byte[] dts, string name = "")
     {
         var r = new Cur(dts);

@@ -1,6 +1,3 @@
-// One joined game or one playing demo of the `tribes` client (docs/client-net.md 1 to 5, docs/client-app.md 2.2): the
-// connection or the demo reader, the client world, the scene built from the environment ghosts, the prediction, and the
-// per-frame steps F9 to F16. The scripts do the talking (onConnection, dataFinished, remote evals); this class feeds them.
 using System.Globalization;
 using OpenTribes.Client.Audio;
 using OpenTribes.Client.Scene;
@@ -15,19 +12,29 @@ using OpenTribes.Script;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>One joined game or one playing demo of the <c>tribes</c> client: the connection or the demo reader, the client world, the scene built from the environment ghosts, the prediction, and the per frame steps F9 to F16.</summary>
+/// <remarks>docs/client-net.md 1 to 5 and docs/client-app.md 2.2. The scripts do the talking (onConnection, dataFinished, remote evals). This class feeds them.</remarks>
 public sealed class LiveGame : IDisposable
 {
     private readonly ClientApp mApp;
+    /// <summary>The network session, or null.</summary>
     public NetClientSession? Net;
+    /// <summary>The demo that plays, or null.</summary>
     public DemoPlayback? Demo;
+    /// <summary>The client world.</summary>
     public ClientWorld World = new();
+    /// <summary>The mission name.</summary>
     public string Mission = "";
+    /// <summary>The name of the demo.</summary>
     public string DemoName = "";
+    /// <summary>True once the game is joined.</summary>
     public bool Joined;
 
-    // The scene, built once the environment ghosts exist (world-render.md 6.1).
+    /// <summary>The scene, built once the environment ghosts exist (world-render.md 6.1).</summary>
     public WorldScene? Scene;
+    /// <summary>The scene model.</summary>
     public SceneModel? Model;
+    /// <summary>The shape loader.</summary>
     public ShapeAssets? Assets;
     private ShapeRenderer? mRenderer;
     private SceneAudio? mAudio;
@@ -38,14 +45,20 @@ public sealed class LiveGame : IDisposable
     private int mGuiModeSeen = -1;
     private uint mPrevMs;
     private bool mPrevSet;
+    /// <summary>The error of the last scene build, or empty.</summary>
     public string SceneError = "";
+    /// <summary>The notes of the scene build.</summary>
     public readonly List<string> Notes = new();
 
+    /// <summary>Creates the game state.</summary>
+    /// <param name="app">The client.</param>
     public LiveGame(ClientApp app) => mApp = app;
 
+    /// <summary>True when a demo plays.</summary>
     public bool IsDemo => Demo != null;
+    /// <summary>True when the scene exists.</summary>
     public bool HasScene => Scene != null && Model != null;
-    // The mission palette the play view draws with (the HUD bitmaps are paletted too); null before the scene exists.
+    /// <summary>The mission palette the play view draws with (the HUD bitmaps are paletted too), or null before the scene exists.</summary>
     public PaletteBank? WorldPalette => HasScene ? Scene!.Assets.Palette : null;
 
     // ---- start ----
@@ -86,7 +99,10 @@ public sealed class LiveGame : IDisposable
         w.Psc.OnScript = null;   // the play delegate evaluates loadPlayGui() on mode changes (PlayDelegate.SetGuiMode)
     }
 
-    // connect(address): the join. R6 is checked by the command.
+    /// <summary>Joins a game (<c>connect(address)</c>). R6 is checked by the command.</summary>
+    /// <param name="hostPort">The address as host and port.</param>
+    /// <param name="interp">The interpreter.</param>
+    /// <returns>True when the connection started.</returns>
     public bool StartNet(string hostPort, Interpreter interp)
     {
         var dump = new PacketDump(null);
@@ -146,7 +162,10 @@ public sealed class LiveGame : IDisposable
 
     private static string Or(string v, string def) => v.Length > 0 ? v : def;
 
-    // playDemo(file): a recording through the same receive path (client-net.md 5.4).
+    /// <summary>Plays a recording through the same receive path as the network (<c>playDemo(file)</c>, client-net.md 5.4).</summary>
+    /// <param name="path">The demo file.</param>
+    /// <param name="interp">The interpreter.</param>
+    /// <returns>True when the demo started.</returns>
     public bool StartDemo(string path, Interpreter interp)
     {
         byte[] data;
@@ -175,6 +194,7 @@ public sealed class LiveGame : IDisposable
         return true;
     }
 
+    /// <summary>Disconnects and forgets the session and the demo.</summary>
     public void Stop()
     {
         Net?.Disconnect();
@@ -183,6 +203,7 @@ public sealed class LiveGame : IDisposable
         Joined = false;
     }
 
+    /// <summary>Disconnects from the server.</summary>
     public void Disconnect()
     {
         Net?.Disconnect();
@@ -191,6 +212,9 @@ public sealed class LiveGame : IDisposable
 
     // ---- remote eval from the console ----
 
+    /// <summary>Posts a remote eval from the console.</summary>
+    /// <param name="argv">The arguments of the command.</param>
+    /// <returns>False when there is no open connection.</returns>
     public bool PostRemoteEval(string[] argv)
     {
         if (Net == null || !Net.IsOpen)
@@ -201,7 +225,9 @@ public sealed class LiveGame : IDisposable
 
     // ---- per frame ----
 
-    // Steps F9 to F14 (client-app.md 2.2): moves, receive, send, prediction, scene upkeep.
+    /// <summary>Runs the steps F9 to F14 (client-app.md 2.2): moves, receive, send, prediction, scene upkeep.</summary>
+    /// <param name="now">The time in milliseconds.</param>
+    /// <param name="moves">The move builder.</param>
     public void Frame(uint now, MoveBuilder moves)
     {
         uint prev = mPrevSet ? mPrevMs : now;
@@ -276,8 +302,11 @@ public sealed class LiveGame : IDisposable
     private OpenTribes.Gui.CommandMapPicture? mCommandMap;
     private bool mCommandMapDirty = true;
 
+    /// <summary>Marks the command map picture as stale.</summary>
     public void RebuildCommandMap() => mCommandMapDirty = true;
 
+    /// <summary>Builds the command map picture, or returns the last one while it is current.</summary>
+    /// <returns>The picture, or null.</returns>
     public OpenTribes.Gui.CommandMapPicture? CommandMapPicture()
     {
         if (!mCommandMapDirty)
@@ -380,6 +409,8 @@ public sealed class LiveGame : IDisposable
         mQueued.Clear();
     }
 
+    /// <summary>Gets the camera of the view.</summary>
+    /// <returns>The pose, or null without a scene.</returns>
     public DemoRender.CameraPose? Camera()
     {
         if (Model == null)
@@ -440,9 +471,10 @@ public sealed class LiveGame : IDisposable
 
     private DemoRender.CameraPose? mLastPose;
 
-    // The eye and muzzle transforms of the control Vehicle, Flier or Turret in world space for the aim markers (FUN_004ada90 calls vtable
-    // +0x110 and +0x10c of the control object [code 004adacd, 004ae719]). The vehicle fire counter (+0x948) is the one the ghost stream
-    // set: the owner only ghost of the pilot carries none, so it keeps the value of an earlier update or 0.
+    /// <summary>Gets the eye and muzzle transforms of the control Vehicle, Flier or Turret in world space for the aim markers.</summary>
+    /// <param name="ghost">The control ghost index.</param>
+    /// <returns>The transforms, or null.</returns>
+    /// <remarks>FUN_004ada90 calls vtable +0x110 and +0x10c of the control object (004adacd, 004ae719). The vehicle fire counter (+0x948) is the one the ghost stream set: the owner only ghost of the pilot carries none, so it keeps the value of an earlier update or 0.</remarks>
     public HudControlAim? ControlAimInputs(int ghost)
     {
         if (Model == null || !Model.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || World.Ghosts.Get(ghost) is not { } g)
@@ -501,9 +533,10 @@ public sealed class LiveGame : IDisposable
         pv.SetImageSteps(predicted, steps);
     }
 
-    // The compass heading of the control object (CompassHud 004e7e5c reads vtable +0x178 = Euler z of the object's transform, `00413850`):
-    // a piloted Vehicle or Flier as drawn, a Player on a mount (passenger) the Euler z of its mount transform. Null: the control state's
-    // own rotation (a Player on foot, whose transform yaw is its rotZ).
+    /// <summary>Gets the compass heading of the control object.</summary>
+    /// <param name="ghost">The control ghost index.</param>
+    /// <returns>The heading, or null for the rotZ of the control state (a Player on foot, whose transform yaw is its rotZ).</returns>
+    /// <remarks>CompassHud (004e7e5c) reads vtable +0x178 = Euler z of the transform of the object (00413850): a piloted Vehicle or Flier as drawn, a Player on a mount (passenger) the Euler z of its mount transform.</remarks>
     public double? ControlHeading(int ghost)
     {
         ClientPsc psc = World.Psc;
@@ -654,7 +687,9 @@ public sealed class LiveGame : IDisposable
         }
     }
 
-    // Step F15: the listener follows the camera.
+    /// <summary>Moves the listener to the camera (step F15).</summary>
+    /// <param name="dt">The frame time in seconds.</param>
+    /// <param name="now">The time in milliseconds.</param>
     public void UpdateSound(double dt, uint now)
     {
         if (mAudio == null)
@@ -665,11 +700,16 @@ public sealed class LiveGame : IDisposable
         mAudio.Frame(dt);
     }
 
-    // The near plane the PSC camera query answers for the current view (WorldScene.ViewNear, 004077a8).
+    /// <summary>Gets the near plane the PSC camera query answers for the current view (<c>WorldScene.ViewNear</c>, 004077a8).</summary>
+    /// <returns>The near plane.</returns>
     public double ViewNear() => OpenTribes.Client.World.WorldScene.ViewNear(mApp.Play.Moves.FirstPersonNow, World.Psc.ControlClass == "ObserverCamera");
 
-    // Step F16, the world part: draws the 3D view and then `overlay2D` (the GUI). False when there is no scene yet.
-    // `view`: the rectangle of a TSControl that draws the world inside the GUI draw (the observer panel of the command screen).
+    /// <summary>Draws the 3D view and then the GUI (step F16, the world part).</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="fov">The field of view.</param>
+    /// <param name="overlay2D">Draws the GUI after the 3D view.</param>
+    /// <param name="view">The rectangle of a TSControl that draws the world inside the GUI draw (the observer panel of the command screen), or null.</param>
+    /// <returns>False when there is no scene yet.</returns>
     public bool Render(IGfxDevice dev, double fov, Action overlay2D, GfxRect? view = null)
     {
         if (Scene == null || Model == null)
@@ -702,6 +742,7 @@ public sealed class LiveGame : IDisposable
         return true;
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         Net?.Disconnect();

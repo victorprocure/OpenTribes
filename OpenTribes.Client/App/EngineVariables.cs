@@ -1,18 +1,19 @@
-// docs/client-scripts.md 5.1: the variables the engine registers with a type (Console_addVariable 005f40d8). A script assigns
-// text; the registered cell parses it by its type and reads back in its own format, so `export("pref::*", ...)` writes
-// `$pref::TerrainDetail = "1.000000";` and `$pref::IgnoreTargets = "False";` like the install's ClientPrefs.cs shows.
-// Types (005f5240): 1 bool, 2 int, 3 float, 4 double, 5 float clamped to 0..1. Variables with a plugin id (6 floats, strings) and
-// the ones the engine owns elsewhere keep the plain script store.
 using OpenTribes.Core;
 using OpenTribes.Script;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The variables the engine registers with a type.</summary>
+/// <remarks>docs/client-scripts.md 5.1, Console_addVariable (005f40d8). A script assigns text. The registered cell parses it by its type and reads back in its own format, so <c>export("pref::*", ...)</c> writes <c>$pref::TerrainDetail = "1.000000";</c> and <c>$pref::IgnoreTargets = "False";</c> like the install's ClientPrefs.cs shows. Types (005f5240): 1 bool, 2 int, 3 float, 4 double, 5 float clamped to 0..1. Variables with a plugin id (6 floats, strings) and the ones the engine owns elsewhere keep the plain script store.</remarks>
 public static class EngineVariables
 {
+    /// <summary>A registered variable.</summary>
+    /// <param name="Name">The variable name with its <c>$</c>.</param>
+    /// <param name="Type">The type code of 005f5240.</param>
+    /// <param name="Default">The image default.</param>
     public readonly record struct Cell(string Name, int Type, double Default);
 
-    // The image defaults of 5.1; a script default overrides them (clientDefaults.cs runs after registration).
+    /// <summary>The cells of the startup registration, with the image defaults of 5.1. A script default overrides them (clientDefaults.cs runs after registration).</summary>
     public static readonly Cell[] Cells =
     {
         new("$pref::PlayerFov", 3, 0), new("$pref::PlayerZoomSpeed", 3, 0), new("$pref::IgnoreTargets", 1, 0),
@@ -38,10 +39,8 @@ public static class EngineVariables
         new("$net::predictForwardTime", 2, 0), new("$net::interpolateTime", 2, 64),
     };
 
-    // The variables the T2 terrain renderer registers when it is created (TerrainRender_registerVars 0x005768e4, called at the end of
-    // the renderer constructor 0x0057497e). They take over the names of the startup cells and bind to the renderer's own statics:
-    // $screenError is read by the frame setup (0x0057c08d), the others are only registered. The image defaults are 9, 45, 4, 500 and
-    // renderSimTerrain true; the statistics are 0. LastHope 1.30 overwrote this function with a return (docs/lasthope-1.30.md L7).
+    /// <summary>The variables the T2 terrain renderer registers when it is created.</summary>
+    /// <remarks>TerrainRender_registerVars (005768e4), called at the end of the renderer constructor (0057497e). They take over the names of the startup cells and bind to the statics of the renderer. <c>$screenError</c> is read by the frame setup (0057c08d), the others are only registered. The image defaults are 9, 45, 4, 500 and renderSimTerrain true. The statistics are 0. LastHope 1.30 overwrote this function with a return (docs/lasthope-1.30.md L7).</remarks>
     public static readonly Cell[] TerrainCells =
     {
         new("$T2::dynamicTextureCount", 2, 0), new("$T2::unusedTextureCount", 2, 0), new("$T2::textureSpaceUsed", 2, 0),
@@ -50,10 +49,16 @@ public static class EngineVariables
         new("$farDistance", 3, 500), new("$renderSimTerrain", 1, 1),
     };
 
-    // The text a typed cell shows for an assigned text (the readback of 5.1).
-    // The typed bool of a registered variable (the `True` or `False` readback of type 1).
+    /// <summary>Reads the typed bool of a registered variable: the <c>True</c> or <c>False</c> readback of type 1.</summary>
+    /// <param name="interp">The interpreter.</param>
+    /// <param name="name">The variable name.</param>
+    /// <returns>True when the variable reads <c>True</c>.</returns>
     public static bool IsSet(Interpreter interp, string name) => interp.GetVariable(name) == "True";
 
+    /// <summary>Returns the text a typed cell shows for an assigned text (the readback of 5.1).</summary>
+    /// <param name="type">The type code.</param>
+    /// <param name="text">The assigned text.</param>
+    /// <returns>The text in the format of the type.</returns>
     public static string Normalize(int type, string text)
     {
         switch (type)
@@ -85,10 +90,12 @@ public static class EngineVariables
         return Fpu.IsPrintedDecimal(t, decimals) ? Fpu.AtLeastDecimal(d, t, single) : d;
     }
 
-    // Registers every cell on the interpreter: the image default now, the typed readback after every assignment.
+    /// <summary>Registers every cell on the interpreter: the image default now, the typed readback after every assignment.</summary>
+    /// <param name="interp">The interpreter.</param>
     public static void Register(Interpreter interp) => RegisterCells(interp, Cells);
 
-    // The terrain renderer registers once per process; a later terrain keeps the values, as the statics keep them.
+    /// <summary>Registers the terrain renderer cells. The renderer registers once per process, so a later terrain keeps the values, as the statics keep them.</summary>
+    /// <param name="interp">The interpreter.</param>
     public static void RegisterTerrain(Interpreter interp) => RegisterCells(interp, TerrainCells);
 
     private static void RegisterCells(Interpreter interp, Cell[] cells)

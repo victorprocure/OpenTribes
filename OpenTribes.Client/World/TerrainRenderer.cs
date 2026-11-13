@@ -2,11 +2,11 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.World;
 
-// world-render.md 2: the terrain image. Textures: one per material of the `.dml` (the level 0 squares, 2.8), one atlas of
-// 8 x 8 pixels per cell (the larger squares: stands in for the cover bitmap and the on-demand composites, Internal in
-// mechanism, 2.8) and the light map (2.9). Selection, morph and haze are TerrainLod.
+/// <summary>The terrain image.</summary>
+/// <remarks>world-render.md 2. Textures: one per material of the <c>.dml</c> (the level 0 squares, 2.8), one atlas of 8 x 8 pixels per cell (the larger squares: stands in for the cover bitmap and the on demand composites, 2.8) and the light map (2.9). Selection, morph and haze are <c>TerrainLod</c>.</remarks>
 public sealed class TerrainRenderer : IDisposable
 {
+    /// <summary>The side of one cell of the atlas in pixels.</summary>
     public const int AtlasCell = 16;
 
     private readonly TerrainData mData;
@@ -15,13 +15,31 @@ public sealed class TerrainRenderer : IDisposable
     private readonly List<string?> mMaterials;
     private readonly Dictionary<int, IGfxTexture?> mMaterialTextures = new();
     private IGfxTexture? mAtlas, mLight;
-    public double OriginX, OriginY, OriginZ;
+    /// <summary>The x of the terrain origin.</summary>
+    public double OriginX;
+    /// <summary>The y of the terrain origin.</summary>
+    public double OriginY;
+    /// <summary>The z of the terrain origin.</summary>
+    public double OriginZ;
+    /// <summary>The terrain parameters.</summary>
     public TerrainParams Params;
-    public int LastSquares, LastTriangles;
-    // The point lights of the frame (nearest first); the squares they touch get their own light map (TerrainLightSet).
+    /// <summary>The number of squares the last draw rendered.</summary>
+    public int LastSquares;
+    /// <summary>The number of triangles the last draw rendered.</summary>
+    public int LastTriangles;
+    /// <summary>The point lights of the frame, nearest first. The squares they touch get their own light map (<see cref="TerrainLightSet"/>).</summary>
     public IReadOnlyList<Shapes.PointLight>? DynamicLights;
     private readonly TerrainMesh mMesh = new();
 
+    /// <summary>Creates the renderer.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="assets">The world assets.</param>
+    /// <param name="data">The terrain data.</param>
+    /// <param name="materials">The bitmap name of each material.</param>
+    /// <param name="ox">The x of the terrain origin.</param>
+    /// <param name="oy">The y of the terrain origin.</param>
+    /// <param name="oz">The z of the terrain origin.</param>
+    /// <param name="p">The terrain parameters.</param>
     public TerrainRenderer(IGfxDevice dev, WorldAssets assets, TerrainData data, List<string?> materials, double ox, double oy,
                            double oz, TerrainParams p)
     {
@@ -46,8 +64,12 @@ public sealed class TerrainRenderer : IDisposable
         return t;
     }
 
-    // 8 x 8 colours per cell: each material bitmap box-filtered down (the mip 4 of a 128 x 128 bitmap), laid out by the
-    // cell's material (2.3 cover bitmap, 2.8 composite).
+    /// <summary>Builds the atlas of 8 x 8 colours per cell: each material bitmap box filtered down (the mip 4 of a 128 x 128 bitmap), laid out by the material of the cell.</summary>
+    /// <param name="data">The terrain data.</param>
+    /// <param name="materialRgba">Returns the RGBA pixels of a material, or null.</param>
+    /// <param name="materialSize">Returns the width and height of a material bitmap.</param>
+    /// <returns>The atlas pixels.</returns>
+    /// <remarks>world-render.md 2.3 (cover bitmap) and 2.8 (composite).</remarks>
     public static byte[] BuildAtlas(TerrainData data, Func<int, byte[]?> materialRgba, Func<int, (int w, int h)> materialSize)
     {
         int dim = TerrainData.Cells * AtlasCell;
@@ -143,7 +165,7 @@ public sealed class TerrainRenderer : IDisposable
         }
     }
 
-    // Builds the atlas and the light map now instead of at the first draw.
+    /// <summary>Builds the atlas, the light map and the material textures now instead of at the first draw.</summary>
     public void Warm()
     {
         EnsureTextures();
@@ -151,7 +173,13 @@ public sealed class TerrainRenderer : IDisposable
             MaterialTexture(i);
     }
 
-    // The commander map picture of an area (CommandMapBake): the materials as the perspective view sees them (packed colours).
+    /// <summary>Renders the commander map picture of an area: the materials as the perspective view sees them (packed colours).</summary>
+    /// <param name="areaX">The x of the lower left corner of the area.</param>
+    /// <param name="areaY">The y of the lower left corner of the area.</param>
+    /// <param name="areaW">The width of the area.</param>
+    /// <param name="areaH">The height of the area.</param>
+    /// <param name="nearest">Returns the palette index nearest to a red, green and blue value.</param>
+    /// <returns>The 8 bit picture, see <see cref="CommandMapBake.Render"/>.</returns>
     public byte[] RenderCommandMap(double areaX, double areaY, double areaW, double areaH, Func<int, int, int, int> nearest)
     {
         var rgbaCache = new Dictionary<int, (byte[]? Rgba, int W, int H)>();
@@ -170,6 +198,8 @@ public sealed class TerrainRenderer : IDisposable
 
     private readonly Dictionary<long, float> mGrow = new();
 
+    /// <summary>Draws the terrain for a camera.</summary>
+    /// <param name="cam">The camera.</param>
     public void Draw(in Camera3D cam)
     {
         EnsureTextures();
@@ -232,13 +262,17 @@ public sealed class TerrainRenderer : IDisposable
         return mDev.CreateTexture3D(rgba, w, h, new TextureOptions(false, false, true));
     }
 
-    // The static light map value under a world point as 0..1 colours (the nibbles over 15, ShapeBase_lightProbe 0044e6f4).
+    /// <summary>Reads the static light map value under a world point.</summary>
+    /// <param name="x">The world x.</param>
+    /// <param name="y">The world y.</param>
+    /// <returns>The red, green and blue values, 0 to 1 (the nibbles over 15, ShapeBase_lightProbe 0044e6f4).</returns>
     public (float r, float g, float b) LightAt(double x, double y)
     {
         ushort w = mData.LightWord((int)Math.Floor((x - OriginX) / TerrainData.CellSize), (int)Math.Floor((y - OriginY) / TerrainData.CellSize));
         return ((w >> 8 & 0xf) / 15f, (w >> 4 & 0xf) / 15f, (w & 0xf) / 15f);
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         foreach (IGfxTexture? t in mMaterialTextures.Values)

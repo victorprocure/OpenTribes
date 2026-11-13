@@ -1,30 +1,50 @@
-// docs/gui.md 2.2: the delegates of the GUI screens (`SimGui::PlayerSetupDelegate`, `JoinGameDelegate`, ...) receive the control
-// messages of their screen (vtable slot 0x74). C6 left them without handlers (gui.md Q6); this class gives the ones the join
-// flow needs, derived from the stock scripts and the message tags of the `.gui` files:
-//   PlayerSetup: the name field enables DONE when it holds text (140318); DONE adds the player and closes the dialog (140060).
-//   JoinGame: a list row enables JOIN (140016); JOIN joins the selected server (140006); the refresh buttons, CANCEL and the query
-//   behind them are ServerBrowser.
-// The server list holds the servers the script gave with addGameServer() and the ones the query found (R6: loopback only by default).
 using System.Globalization;
 using OpenTribes.Script;
 using OpenTribes.Gui;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The delegates of the GUI screens (<c>SimGui::PlayerSetupDelegate</c>, <c>JoinGameDelegate</c>, ...) that receive the control messages of their screen (vtable slot 0x74).</summary>
+/// <remarks>
+/// <para>docs/gui.md 2.2. The handlers are the ones the join flow needs, derived from the stock scripts and the message tags of the <c>.gui</c> files.</para>
+/// <list type="bullet">
+/// <item><description>PlayerSetup: the name field enables DONE when it holds text (140318). DONE adds the player and closes the dialog (140060).</description></item>
+/// <item><description>JoinGame: a list row enables JOIN (140016). JOIN joins the selected server (140006). The refresh buttons, CANCEL and the query behind them are <see cref="ServerBrowser"/>.</description></item>
+/// </list>
+/// <para>The server list holds the servers the script gave with <c>addGameServer()</c> and the ones the query found (R6: loopback only by default).</para>
+/// </remarks>
 public sealed class ClientDelegates
 {
-    public const int NameEdit = 140318, DoneButton = 140060, ServerList = 140016, JoinButton = 140006, RefreshAll = 140017,
-        RefreshVisible = 140042, CancelQuery = 140026;
+    /// <summary>The control id of the player name field.</summary>
+    public const int NameEdit = 140318;
+    /// <summary>The control id of the DONE button.</summary>
+    public const int DoneButton = 140060;
+    /// <summary>The control id of the server list.</summary>
+    public const int ServerList = 140016;
+    /// <summary>The control id of the JOIN button.</summary>
+    public const int JoinButton = 140006;
+    /// <summary>The control id of the refresh all button.</summary>
+    public const int RefreshAll = 140017;
+    /// <summary>The control id of the refresh visible button.</summary>
+    public const int RefreshVisible = 140042;
+    /// <summary>The control id of the cancel query button.</summary>
+    public const int CancelQuery = 140026;
 
     private readonly ClientApp mApp;
-    // Row id to the address the row joins.
+    /// <summary>Maps a row id to the address and name of the server the row joins.</summary>
     public readonly Dictionary<int, (string Address, string Name)> Servers = new();
     private int mNextRow = 1;
+    /// <summary>Hands out the next list row id.</summary>
+    /// <returns>The row id.</returns>
     public int NextRow() => mNextRow++;
+    /// <summary>The server query behind the join screen.</summary>
     public ServerBrowser Browser { get; }
 
+    /// <summary>The game version the client reports.</summary>
     public const string GameVersion = "1.11";
 
+    /// <summary>Creates the delegates.</summary>
+    /// <param name="app">The client.</param>
     public ClientDelegates(ClientApp app)
     {
         mApp = app;
@@ -34,6 +54,7 @@ public sealed class ClientDelegates
     private static readonly string[] Names =
         { "MainMenu", "Connect", "PlayerSetup", "JoinGame", "CreateServer", "Recordings", "Options", "IRCChat", "play", "command", "quit" };
 
+    /// <summary>Installs a delegate on the canvas for every screen.</summary>
     public void Install()
     {
         foreach (string n in Names)
@@ -128,7 +149,8 @@ public sealed class ClientDelegates
 
     private GuiControl? mSeeded;
 
-    // The join screen runs config\GameServerList.cs when it opens (client-scripts.md 6.3, 004c712d).
+    /// <summary>Runs <c>config\GameServerList.cs</c> when the join screen opens.</summary>
+    /// <remarks>client-scripts.md 6.3, 004c712d.</remarks>
     public void Poll()
     {
         GuiControl? content = mApp.Canvas.Content;
@@ -140,7 +162,7 @@ public sealed class ClientDelegates
         Browser.OnOpen();
     }
 
-    // Every frame: the replies and timers of the server query.
+    /// <summary>Handles the replies and timers of the server query. Runs every frame.</summary>
     public void Tick()
     {
         Browser.Tick();

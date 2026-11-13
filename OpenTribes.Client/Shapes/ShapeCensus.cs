@@ -1,20 +1,54 @@
-// `tribes --shape-census`: loads every `.dts` of the mounted volumes for rendering and steps each sequence (acceptance of
-// ROADMAP M9 C5: every shape loads and animates). Reports counts and the first failures.
 using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.Shapes;
 
+/// <summary>The shape census: loads every <c>.dts</c> of the mounted volumes for rendering and steps each sequence, then reports counts and the first failures.</summary>
+/// <remarks>Started with <c>tribes --shape-census</c>.</remarks>
 public static class ShapeCensus
 {
+    /// <summary>The counts of one census run.</summary>
     public sealed class Result
     {
-        public int IflSequences, Triggers, TexKeys, MultiDetailLists, Files, Loaded, Failed, Sequences, Stepped, Exceptions, MeshesV3, MeshesOther, MissingTextures, ShapesWithMissing;
+        /// <summary>The sequences that use an IFL.</summary>
+        public int IflSequences;
+        /// <summary>The triggers of all shapes.</summary>
+        public int Triggers;
+        /// <summary>The keys that carry a texture frame (flag 0x2000).</summary>
+        public int TexKeys;
+        /// <summary>The shapes with more than one material detail.</summary>
+        public int MultiDetailLists;
+        /// <summary>The files found.</summary>
+        public int Files;
+        /// <summary>The shapes that loaded.</summary>
+        public int Loaded;
+        /// <summary>The files that did not load.</summary>
+        public int Failed;
+        /// <summary>The sequences found.</summary>
+        public int Sequences;
+        /// <summary>The sequences stepped without an exception.</summary>
+        public int Stepped;
+        /// <summary>The exceptions thrown.</summary>
+        public int Exceptions;
+        /// <summary>The meshes of version 3.</summary>
+        public int MeshesV3;
+        /// <summary>The meshes of another version.</summary>
+        public int MeshesOther;
+        /// <summary>The type 3 materials whose bitmap is missing.</summary>
+        public int MissingTextures;
+        /// <summary>The shapes with a missing bitmap.</summary>
+        public int ShapesWithMissing;
+        /// <summary>The count of materials by flag value.</summary>
         public readonly SortedDictionary<uint, int> Flags = new();
+        /// <summary>The failure messages, one per file.</summary>
         public readonly List<string> Failures = new();
+        /// <summary>The names of the missing bitmaps.</summary>
         public readonly SortedSet<string> MissingNames = new(StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>Loads every shape and steps every sequence.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <returns>The counts.</returns>
     public static Result Run(string root)
     {
         ResourceManager res = GfxAssets.Mount(root, out _);
@@ -86,6 +120,9 @@ public static class ShapeCensus
         return r;
     }
 
+    /// <summary>Runs the census and prints the counts and the first 20 failures.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <returns>0 when everything loaded and stepped, else 1.</returns>
     public static int Report(string root)
     {
         Result r = Run(root);
@@ -100,9 +137,13 @@ public static class ShapeCensus
     }
 }
 
+/// <summary>The shape info tool.</summary>
 public static class ShapeInfo
 {
-    // `tribes --shape-info NAME`: a text summary of one shape (details, objects with frame 0 bounds, sequences, materials).
+    /// <summary>Prints a text summary of one shape: details, objects with frame 0 bounds, sequences and materials (<c>tribes --shape-info NAME</c>).</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="name">The shape file name.</param>
+    /// <returns>The process exit code.</returns>
     public static int Report(string root, string name)
     {
         ResourceManager res = GfxAssets.Mount(root, out _);

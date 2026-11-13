@@ -3,24 +3,38 @@ using System.Text;
 
 namespace OpenTribes.Client.World;
 
-// A mission object of a `.mis` text file (docs/mission.md): `instant Class "name" { field = "value"; ... children }`.
-// The client renders from a local copy of the mission without a server, so this reads only the structure; the objects
-// themselves are the render-side data of world-render.md 6.1.
+/// <summary>A mission object of a <c>.mis</c> text file: <c>instant Class "name" { field = "value"; ... children }</c>.</summary>
+/// <remarks>docs/mission.md. The client renders from a local copy of the mission without a server, so this reads only the structure. The objects themselves are the render-side data of world-render.md 6.1.</remarks>
 public sealed class MissionObject
 {
+    /// <summary>The class name.</summary>
     public string Class = "";
+    /// <summary>The object name.</summary>
     public string Name = "";
+    /// <summary>The fields by name, ignoring case.</summary>
     public readonly Dictionary<string, string> Fields = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The child objects in file order.</summary>
     public readonly List<MissionObject> Children = new();
 
+    /// <summary>Reads a field as text.</summary>
+    /// <param name="key">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The field text or the default.</returns>
     public string Get(string key, string def = "") => Fields.TryGetValue(key, out string? v) ? v : def;
 
+    /// <summary>Reads a field as a number.</summary>
+    /// <param name="key">The field name.</param>
+    /// <param name="def">The value when the field is missing or not a number.</param>
+    /// <returns>The number or the default.</returns>
     public double GetDouble(string key, double def) =>
         Fields.TryGetValue(key, out string? v) && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
             ? d
             : def;
 
-    // "x y z": missing or malformed components are zero.
+    /// <summary>Reads a field as a vector of numbers separated by spaces. Missing or malformed components are zero.</summary>
+    /// <param name="key">The field name.</param>
+    /// <param name="count">The number of components.</param>
+    /// <returns>The components.</returns>
     public double[] GetVector(string key, int count = 3)
     {
         var r = new double[count];
@@ -33,6 +47,10 @@ public sealed class MissionObject
         return r;
     }
 
+    /// <summary>Reads a field as a flag: <c>true</c> in any case or <c>1</c>.</summary>
+    /// <param name="key">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The flag or the default.</returns>
     public bool GetBool(string key, bool def)
     {
         if (!Fields.TryGetValue(key, out string? v))
@@ -40,6 +58,8 @@ public sealed class MissionObject
         return v.Equals("true", StringComparison.OrdinalIgnoreCase) || v == "1";
     }
 
+    /// <summary>Walks all descendants, each object before its children.</summary>
+    /// <returns>The descendants.</returns>
     public IEnumerable<MissionObject> Descendants()
     {
         foreach (MissionObject c in Children)
@@ -51,9 +71,12 @@ public sealed class MissionObject
     }
 }
 
+/// <summary>Reads <c>.mis</c> text.</summary>
 public static class MissionFile
 {
-    // Returns the top-level objects (normally the single MissionGroup); null when the text has no object.
+    /// <summary>Parses mission text.</summary>
+    /// <param name="text">The contents of a <c>.mis</c> file.</param>
+    /// <returns>The top level objects (normally the single MissionGroup), or null when the text has no object.</returns>
     public static List<MissionObject> Parse(string text)
     {
         var tokens = Tokenize(text);

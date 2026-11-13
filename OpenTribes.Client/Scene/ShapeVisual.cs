@@ -1,19 +1,24 @@
-// Ghost shape visuals (docs/shapes-render.md 2.1, 3.5): the object classes that draw one shape (StaticShape, Turret,
-// Sensor, Moveable, Item, Mine, Vehicle, Flier) with the three ShapeBase thread slots, damage skins, fade and the
-// destroy effects.
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
 
 namespace OpenTribes.Client.Scene;
 
+/// <summary>The visual of one ghost: it applies the updates of the ghost, ticks, and builds its images each frame.</summary>
 public abstract class Visual
 {
+    /// <summary>The ghost index.</summary>
     public int Index;
+    /// <summary>The class name of the ghost.</summary>
     public string Class = "";
+    /// <summary>The ghost the visual shows.</summary>
     public ClientGhost Ghost = null!;
+    /// <summary>The scene model.</summary>
     protected SceneModel M = null!;
 
+    /// <summary>Binds the visual to its ghost and scene.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="g">The ghost.</param>
     public virtual void Init(SceneModel m, ClientGhost g)
     {
         M = m;
@@ -22,54 +27,120 @@ public abstract class Visual
         Class = g.Class;
     }
 
+    /// <summary>Applies a ghost update.</summary>
+    /// <param name="u">The decoded update.</param>
+    /// <param name="isNew">True for the first update of the ghost.</param>
     public abstract void OnUpdate(DecodedGhost u, bool isNew);
+    /// <summary>Advances the visual.</summary>
+    /// <param name="dt">The time step in seconds.</param>
     public virtual void Tick(double dt) { }
+    /// <summary>Adds the images of the visual to the frame.</summary>
+    /// <param name="ctx">The frame context.</param>
     public virtual void Build(FrameContext ctx) { }
+    /// <summary>Called when the ghost is deleted.</summary>
     public virtual void OnDelete() { }
+    /// <summary>The position of the object, or null when unknown.</summary>
     public virtual (double x, double y, double z)? Position => null;
-    // The world box of the object (min xyz, max xyz) used to file it in a container interior, null when unknown.
+    /// <summary>The world box of the object (min xyz, max xyz) used to file it in a container interior, or null when unknown.</summary>
     public virtual double[]? WorldBox => null;
-    // Where a beam or projectile of this object starts: the muzzle (4.7).
+    /// <summary>Where a beam or projectile of this object starts: the muzzle (4.7).</summary>
     public virtual (double x, double y, double z)? MuzzlePoint => Position;
 
+    /// <summary>Reads a number of the ghost state.</summary>
+    /// <param name="key">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The number or the default.</returns>
     protected double Num(string key, double def = 0) => Ghost.State.TryGetValue(key, out object? v) ? Db.ToDouble(v, def) : def;
+    /// <summary>Tells whether the ghost state has a field.</summary>
+    /// <param name="key">The field name.</param>
+    /// <returns>True when the field exists.</returns>
     protected bool Has(string key) => Ghost.State.ContainsKey(key);
+    /// <summary>Reads a vector of the ghost state.</summary>
+    /// <param name="key">The field name.</param>
+    /// <returns>The vector, or three zeros when the field is missing.</returns>
     protected double[] Vec(string key) => Ghost.State.TryGetValue(key, out object? v) ? Db.Vec(v) : new double[3];
 }
 
+/// <summary>The visual of the object classes that draw one shape (StaticShape, Turret, Sensor, Moveable, Item, Mine, Vehicle, Flier): the three ShapeBase thread slots, damage skins, fade and the destroy effects.</summary>
+/// <remarks>docs/shapes-render.md 2.1 and 3.5.</remarks>
 public class ShapeVisual : Visual
 {
+    /// <summary>The shape.</summary>
     protected RenderShape? Shape;
+    /// <summary>The shape instance.</summary>
     protected RenderInstance? Inst;
+    /// <summary>The datablock.</summary>
     protected ClientDataBlock? Block;
+    /// <summary>The datablock group of the class.</summary>
     protected int Group;
+    /// <summary>The index of the loaded datablock, -1 for none.</summary>
     protected int BlockIndex = -1;
+    /// <summary>The threads of the three ShapeBase thread slots.</summary>
     protected readonly RenderThread?[] Slots = new RenderThread?[3];
+    /// <summary>The sequence of each thread slot, -1 for none.</summary>
     protected readonly int[] SlotSeq = { -1, -1, -1 };
+    /// <summary>True for each thread slot that runs.</summary>
     protected readonly bool[] SlotRunning = new bool[3];
-    protected RenderThread? Ambient, Visibility, Turn, Elevate, TurretPower;
-    // Turret_onNewDataBlock 0x00452970: the mode driven power / fire thread (+0x8a4) and its sequences.
+    /// <summary>The ambient thread.</summary>
+    protected RenderThread? Ambient;
+    /// <summary>The visibility thread.</summary>
+    protected RenderThread? Visibility;
+    /// <summary>The turn thread of a turret.</summary>
+    protected RenderThread? Turn;
+    /// <summary>The elevate thread of a turret.</summary>
+    protected RenderThread? Elevate;
+    /// <summary>The power thread of a turret.</summary>
+    protected RenderThread? TurretPower;
+    /// <summary>The mode driven power and fire thread (+0x8a4) and its sequences, set up by Turret_onNewDataBlock (00452970).</summary>
     protected TurretGhostPose? TurretPose;
     private int mPowerSeq = -1, mFireSeq = -1;
-    protected double X, Y, Z, Yaw, Pitch, Roll;
+    /// <summary>The x position of the object.</summary>
+    protected double X;
+    /// <summary>The y position of the object.</summary>
+    protected double Y;
+    /// <summary>The z position of the object.</summary>
+    protected double Z;
+    /// <summary>The heading (Euler z).</summary>
+    protected double Yaw;
+    /// <summary>The pitch (Euler y).</summary>
+    protected double Pitch;
+    /// <summary>The roll (Euler x).</summary>
+    protected double Roll;
+    /// <summary>True once the ghost sent a position.</summary>
     protected bool HavePos;
+    /// <summary>The damage value.</summary>
     protected double Damage;
+    /// <summary>The damage state.</summary>
     protected int DamageState = 1;
-    protected double FadeStart = -1, FadeDir;       // seconds of scene time; dir 1 fading out, -1 in
+    /// <summary>The scene time the fade started, -1 for none.</summary>
+    protected double FadeStart = -1;
+    /// <summary>The fade direction: 1 fading out, -1 fading in.</summary>
+    protected double FadeDir;
+    /// <summary>True while the object is hidden.</summary>
     protected bool Hidden;
+    /// <summary>The skin name.</summary>
     protected string Skin = "";
+    /// <summary>The extra spin about z.</summary>
     protected double SpinZ;
+    /// <summary>The seconds since the ghost was created.</summary>
     protected double Age;
     private (RenderShape, string) mPreloaded;
 
+    /// <inheritdoc/>
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
 
-    // True while a simulated copy of the ghost (RemoteGhosts) sets the state each frame: the stream update leaves it alone.
+    /// <summary>True while a simulated copy of the ghost (RemoteGhosts) sets the state each frame: the stream update leaves it alone.</summary>
     public bool Driven;
-    // The drawn heading (Euler z), the compass input of a piloted vehicle (docs/gui.md 4.2 Compass).
+    /// <summary>The drawn heading (Euler z), the compass input of a piloted vehicle (docs/gui.md 4.2 Compass).</summary>
     public double HeadingRad => Yaw;
 
-    // The state of the simulated copy of a Vehicle or Flier: Euler angles x, y, z and the position.
+    /// <summary>Sets the state of the simulated copy of a Vehicle or Flier.</summary>
+    /// <param name="rx">The Euler x.</param>
+    /// <param name="ry">The Euler y.</param>
+    /// <param name="rz">The Euler z.</param>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
     public void SetSmoothed(double rx, double ry, double rz, double x, double y, double z)
     {
         (Roll, Pitch, Yaw) = (rx, ry, rz);
@@ -77,9 +148,10 @@ public class ShapeVisual : Visual
         HavePos = true;
     }
 
-    // Seconds since the ghost was created (Item::onAdd stores the time, Item::updateLight counts the light pulse from it).
+    /// <summary>The seconds since the ghost was created (Item::onAdd stores the time, Item::updateLight counts the light pulse from it).</summary>
     public double LightAge => Age;
 
+    /// <inheritdoc/>
     public override double[]? WorldBox
     {
         get
@@ -99,9 +171,12 @@ public class ShapeVisual : Visual
         }
     }
 
-    // Sequence name of the shape, for the sequence sounds (docs/audio.md 3.3).
+    /// <summary>Gets the name of a sequence of the shape, for the sequence sounds (docs/audio.md 3.3).</summary>
+    /// <param name="sequence">The sequence index.</param>
+    /// <returns>The name, or empty without a shape.</returns>
     public string SequenceName(int sequence) => Shape?.SequenceName(sequence) ?? "";
 
+    /// <inheritdoc/>
     public override (double x, double y, double z)? MuzzlePoint
     {
         get
@@ -124,12 +199,14 @@ public class ShapeVisual : Visual
         _ => 4,
     };
 
+    /// <inheritdoc/>
     public override void Init(SceneModel m, ClientGhost g)
     {
         base.Init(m, g);
         Group = GroupOf(g.Class);
     }
 
+    /// <summary>Loads the datablock and shape of the ghost when the datablock index changed, and sets up the instance and its threads.</summary>
     protected void LoadBlock()
     {
         int idx = (int)Num("datablock", -1);
@@ -179,10 +256,10 @@ public class ShapeVisual : Visual
         }
     }
 
-    // Flier_onNewDataBlock 0042e0c0 on a ghost: when the shape has the names `jet` and `idle`, thread +0x950 runs the sequence `jet` at
-    // position 0.5 (Flier_clientUpdate sets its position every frame, so it is not advanced) and thread +0x954 the sequence `idle`
-    // at 0; the indices of `thrust` (+0x968) and `idle` (+0x96c) are looked up for the switch.
-    protected RenderThread? FlierJet, FlierIdle;
+    /// <summary>The jet thread of a Flier: Flier_onNewDataBlock (0042e0c0) runs the sequence <c>jet</c> at position 0.5 when the shape has the names <c>jet</c> and <c>idle</c>. Flier_clientUpdate sets its position every frame, so it is not advanced.</summary>
+    protected RenderThread? FlierJet;
+    /// <summary>The idle thread of a Flier: thread +0x954 runs the sequence <c>idle</c> at 0. The indices of <c>thrust</c> (+0x968) and <c>idle</c> (+0x96c) are looked up for the switch.</summary>
+    protected RenderThread? FlierIdle;
     private int mThrustSeq = -1, mIdleSeq = -1;
     private bool mFlierBraking, mFlierActive;
     private float mFlierF, mFlierT, mFlierMax = 1;
@@ -205,8 +282,13 @@ public class ShapeVisual : Visual
         }
     }
 
-    // The values Flier_clientUpdate reads: braking and active (+0x960, +0x961), forward speed F (+0x940), desired speed T (+0x8c8) and the
-    // datablock maxSpeed (+0x110). A Flier nobody pilots has both flags cleared first.
+    /// <summary>Sets the values Flier_clientUpdate reads.</summary>
+    /// <param name="piloted">True when somebody pilots the Flier. A Flier nobody pilots has both flags cleared first.</param>
+    /// <param name="braking">The braking flag (+0x960).</param>
+    /// <param name="active">The active flag (+0x961).</param>
+    /// <param name="f">The forward speed (+0x940).</param>
+    /// <param name="t">The desired speed (+0x8c8).</param>
+    /// <param name="maxSpeed">The datablock maxSpeed (+0x110).</param>
     public void SetFlierState(bool piloted, bool braking, bool active, float f, float t, float maxSpeed)
     {
         mFlierBraking = piloted && braking;
@@ -254,6 +336,7 @@ public class ShapeVisual : Visual
         }
     }
 
+    /// <inheritdoc/>
     public override void OnUpdate(DecodedGhost u, bool isNew)
     {
         LoadBlock();
@@ -340,9 +423,12 @@ public class ShapeVisual : Visual
             t.TimeScale = 0;
     }
 
-    // The aim of a Turret that is the control object (Turret_readControlState 0045711c and Turret_clientUpdate 00456428 write +0x8b4 and
-    // +0x8b8, Turret_updateAim 00456874 hands the thread positions on, item 7 of docs/static-sim.md 14.5): elevate = (elevation - min) /
-    // (max - min) when the limits differ, turn = rotation / 2 pi (the rotation limits are 0 and 0). The ghost sends no aim to its owner.
+    /// <summary>Sets the aim of a Turret that is the control object.</summary>
+    /// <param name="rotation">The rotation.</param>
+    /// <param name="elevation">The elevation.</param>
+    /// <param name="minElevation">The lower elevation limit.</param>
+    /// <param name="maxElevation">The upper elevation limit.</param>
+    /// <remarks>Follows Turret_readControlState (0045711c) and Turret_clientUpdate (00456428), which write +0x8b4 and +0x8b8, and Turret_updateAim (00456874), which hands the thread positions on (item 7 of docs/static-sim.md 14.5): elevate = (elevation - min) / (max - min) when the limits differ, turn = rotation / 2 pi (the rotation limits are 0 and 0). The ghost sends no aim to its owner.</remarks>
     public void SetTurretAim(float rotation, float elevation, float minElevation, float maxElevation)
     {
         if (TurretPose is { } pose)
@@ -359,8 +445,11 @@ public class ShapeVisual : Visual
     private float mMinElevation, mMaxElevation;
     private bool mHaveLimits;
 
-    // The elevation limits of the turret shape: Turret_onNewDataBlock 00452970 reads the Euler x of the node `dummy muzzle` with the
-    // `elevate` thread at position 0 and at 1 (a minimum above pi loses 2 pi). False without the shape, the thread or the node.
+    /// <summary>Reads the elevation limits of the turret shape.</summary>
+    /// <param name="min">The lower limit.</param>
+    /// <param name="max">The upper limit.</param>
+    /// <returns>False without the shape, the thread or the node.</returns>
+    /// <remarks>Follows Turret_onNewDataBlock (00452970): the Euler x of the node <c>dummy muzzle</c> with the <c>elevate</c> thread at position 0 and at 1. A minimum above pi loses 2 pi.</remarks>
     public bool TryElevationLimits(out float min, out float max)
     {
         (min, max) = (mMinElevation, mMaxElevation);
@@ -374,9 +463,14 @@ public class ShapeVisual : Visual
         return true;
     }
 
-    // Turret_onNewDataBlock 00452970 (limits at +0x8bc and +0x8c0): the Euler x of the `dummy muzzle` node entry (Mat3_toEuler 005eceb4)
-    // with the `elevate` thread at position 0 and at 1. The routine runs before the power / fire thread (+0x8a4) is created and with the
-    // turn thread at 0, so the nodes carry neither the power pose (it folds the barrels) nor the current turn.
+    /// <summary>Reads the elevation limits of a turret shape instance.</summary>
+    /// <param name="inst">The shape instance.</param>
+    /// <param name="node">The node index of <c>dummy muzzle</c>.</param>
+    /// <param name="elevate">The elevate thread.</param>
+    /// <param name="turn">The turn thread, or null.</param>
+    /// <param name="power">The power thread, or null.</param>
+    /// <returns>The lower and upper limit.</returns>
+    /// <remarks>Follows Turret_onNewDataBlock (00452970, limits at +0x8bc and +0x8c0): the Euler x of the <c>dummy muzzle</c> node entry (Mat3_toEuler 005eceb4) with the <c>elevate</c> thread at position 0 and at 1. The routine runs before the power and fire thread (+0x8a4) is created and with the turn thread at 0, so the nodes carry neither the power pose (it folds the barrels) nor the current turn.</remarks>
     public static (float Min, float Max) ElevationLimitsOf(RenderInstance inst, int node, RenderThread elevate, RenderThread? turn, RenderThread? power)
     {
         double keep = elevate.Position;
@@ -448,6 +542,7 @@ public class ShapeVisual : Visual
         Skin = M.TeamSkin(team);
     }
 
+    /// <summary>Runs the destroy effects: the explosion, the debris and the hide of the shape.</summary>
     protected virtual void Destroyed()
     {
         if (Inst == null || Block == null)
@@ -470,7 +565,9 @@ public class ShapeVisual : Visual
             Hidden = true;
     }
 
-    // TSShapeInstance_findDetailNode (005b96a0) with "debris0": a detail whose root node is named debris0.
+    /// <summary>Tells whether the shape has a <c>debris0</c> detail, a detail whose root node is named debris0 (TSShapeInstance_findDetailNode, 005b96a0).</summary>
+    /// <param name="sh">The shape.</param>
+    /// <returns>True when the detail exists.</returns>
     public static bool HasDebrisDetail(RenderShape sh)
     {
         int node = sh.FindNode("debris0");
@@ -482,9 +579,9 @@ public class ShapeVisual : Visual
         return false;
     }
 
-    // The world box of the object [code 004aca84 reads +0x70..+0x84]: the shape box bound by ShapeBase::onNewDataBlock (0044b274), widened to
-    // +-triggerRadius by StaticBase (0044f68c) when the datablock has one, rotated to an axis aligned box (005edbb4). Position is the object
-    // transform origin (+0x188), which the pick measures the distance from.
+    /// <summary>Builds the HUD box of the object: the box and the object origin.</summary>
+    /// <returns>The box min and max and the origin, or null without a shape.</returns>
+    /// <remarks>Follows 004aca84, which reads +0x70 to +0x84: the shape box bound by ShapeBase::onNewDataBlock (0044b274), widened to plus or minus triggerRadius by StaticBase (0044f68c) when the datablock has one, rotated to an axis aligned box (005edbb4). The position is the object transform origin (+0x188), which the pick measures the distance from.</remarks>
     public (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)? HudBox()
     {
         if (!HavePos || Shape == null)
@@ -509,6 +606,8 @@ public class ShapeVisual : Visual
         return (x0, y0, z0, x1, y1, z1, xf.Px, xf.Py, xf.Pz);
     }
 
+    /// <summary>Gets the centre of the shape box in world space.</summary>
+    /// <returns>The centre.</returns>
     protected (double x, double y, double z) BoxCenter()
     {
         if (Shape == null)
@@ -516,21 +615,28 @@ public class ShapeVisual : Visual
         return PoseXf().Apply(Shape.Cx, Shape.Cy, Shape.Cz);
     }
 
-    // Vehicle_isDriverVisible 004453cc (vtable +0x164): the datablock byte +0x170, `visibleDriver`.
-    // Vehicle_getDriverPose (vtable +0x168): the datablock int +0x174, `driverPose`; 0 without a datablock.
+    /// <summary>The driver pose of a Vehicle: the datablock int +0x174 <c>driverPose</c> (Vehicle_getDriverPose, vtable +0x168), 0 without a datablock.</summary>
     public int DriverPose => Block == null ? 0 : (int)Db.Num(Block, "driverPose");
 
+    /// <summary>True when the driver is visible: the datablock byte +0x170 <c>visibleDriver</c> (Vehicle_isDriverVisible 004453cc, vtable +0x164).</summary>
     public bool DriverVisible => Block == null || Db.Flag(Block, "visibleDriver");
 
-    // The inputs of Vehicle_getCameraTransform 00445d88: the object transform as drawn (Euler x, y, z and the position, rotation and
-    // translation flags) and the `dummy eye` node transform (animated, in object space), null without that node.
+    /// <summary>True when the visual has a shape instance.</summary>
     public bool HasShapeInstance => Inst != null && Shape != null;
 
+    /// <summary>Reads the inputs of Vehicle_getCameraTransform (00445d88): the object transform as drawn (Euler x, y, z and the position, rotation and translation flags) and the <c>dummy eye</c> node transform (animated, in object space).</summary>
+    /// <param name="obj">The object transform.</param>
+    /// <param name="eye">The eye node transform, or null without that node.</param>
+    /// <returns>True when the visual has a shape instance.</returns>
     public bool TryCameraInputs(out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? eye) =>
         TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out eye, out _);
 
-    // The object transform as drawn and the animated transform (object space) of the node `find` picks, null when it picks none.
-    // `haveShape` is false while the visual has no shape instance (the stock vtable +0x10c then reports no transform).
+    /// <summary>Reads the object transform as drawn and the animated transform (object space) of the node a finder picks.</summary>
+    /// <param name="find">Picks a node of the shape.</param>
+    /// <param name="obj">The object transform.</param>
+    /// <param name="node">The node transform, or null when the finder picks none.</param>
+    /// <param name="haveShape">False while the visual has no shape instance (the stock vtable +0x10c then reports no transform).</param>
+    /// <returns>True when the transforms are valid.</returns>
     public bool TryNodeInputs(Func<RenderShape, int> find, out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? node, out bool haveShape)
     {
         obj = new OpenTribes.Sim.Transform();
@@ -555,8 +661,11 @@ public class ShapeVisual : Visual
         return true;
     }
 
+    /// <summary>Builds the pose of the object: Euler angles at the position.</summary>
+    /// <returns>The transform to the world.</returns>
     protected virtual Xf PoseXf() => Xf.Euler(Roll, Pitch, Yaw + SpinZ).Then(Xf.Translate(X, Y, Z));
 
+    /// <inheritdoc/>
     public override void Tick(double dt)
     {
         Age += dt;
@@ -599,9 +708,11 @@ public class ShapeVisual : Visual
     // The fade runs 2500 ms (the divisor at 0061a2fc).
     private const double FadeSeconds = 2.5;
 
-    // Item::updateLight (00451bb0) multiplies the pulse by 1 - fade: the light fades with the shape on hide and show.
+    /// <summary>The light fade of the object: Item::updateLight (00451bb0) multiplies the pulse by 1 - fade, so the light fades with the shape on hide and show.</summary>
     public double LightFade => 1 - FadeAmount();
 
+    /// <summary>Gets the fade amount of the shape, 0 fully visible to 1 gone.</summary>
+    /// <returns>The fade amount.</returns>
     protected virtual double FadeAmount()
     {
         if (FadeStart < 0)
@@ -612,12 +723,16 @@ public class ShapeVisual : Visual
         return Math.Clamp(1 - f, 0, 1);
     }
 
+    /// <summary>The damage level of the skin.</summary>
     protected virtual int DamageLevel => Skins.DamageLevel(Damage, M.Assets.DamageSkinDetail);
 
+    /// <summary>The smoothed state of the light probe of this object.</summary>
     protected readonly ProbeState mProbe = new();
 
-    // The light set of this object's main image: the scene light adjusted by the probe state. Items and vehicles probe again every 250 ms
-    // (Item_queryRender, Vehicle_renderQuery); the other shapes probe once (ShapeBase_processQuery).
+    /// <summary>Builds the light set of the main image of the object: the scene light adjusted by the probe state.</summary>
+    /// <param name="ctx">The frame context.</param>
+    /// <returns>The light set.</returns>
+    /// <remarks>Items and vehicles probe again every 250 ms (Item_queryRender, Vehicle_renderQuery). The other shapes probe once (ShapeBase_processQuery).</remarks>
     protected LightSet ProbedLight(FrameContext ctx)
     {
         LightProbe? probe = M.Probe;
@@ -634,6 +749,7 @@ public class ShapeVisual : Visual
         return mProbe.Active ? ctx.Light.WithProbe(mProbe.Colour.r, mProbe.Colour.g, mProbe.Colour.b, mProbe.Strength) : ctx.Light;
     }
 
+    /// <inheritdoc/>
     public override void Build(FrameContext ctx)
     {
         if (Inst == null || Shape == null || !HavePos || Hidden)

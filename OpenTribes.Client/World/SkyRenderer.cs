@@ -2,27 +2,44 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.World;
 
-// world-render.md 4.1: the sky band of 16 panels with two caps.
+/// <summary>The sky band of 16 panels with two caps (world-render.md 4.1).</summary>
 public sealed class SkyRenderer : IDisposable
 {
+    /// <summary>The number of panels of the band.</summary>
     public const int Panels = 16;
 
     private readonly IGfxDevice mDev;
     private readonly IGfxTexture?[] mPanelTextures;
     private readonly int[] mPanelIndex = new int[Panels];
     private readonly (float r, float g, float b) mTop, mBottom;
-    public double Size = 600, FeaturePosition;
+    /// <summary>The size of the band.</summary>
+    public double Size = 600;
+    /// <summary>The feature position, the azimuth offset of the panels in degrees.</summary>
+    public double FeaturePosition;
+    /// <summary>The visible distance.</summary>
     public double Visible = 600;
+    /// <summary>True when the sky has a material list with textures. Otherwise the sky is solid.</summary>
     public bool Textured { get; }
 
-    // 4.1 Init: the band radius is 1.5 * visible.
+    /// <summary>The band radius is this factor times the visible distance (4.1 Init).</summary>
     public const double BandRadiusFactor = 1.5;
 
-    // Panel heights relative to the camera [code 00477b48]: the lower point is z - size * 0.125 (constant 00478490), the upper point adds
-    // size * 0.875 (00478494) to that same stored value, so it lies at z + size * 3/4. The caps are at z - size and, adding 2 * size (00478498), z + size.
-    public const double LowerFactor = -0.125, UpperFactor = 0.75;
+    /// <summary>The lower point of the panels relative to the camera, as a factor of the size: z - size * 0.125 (constant 00478490).</summary>
+    /// <remarks>Follows 00477b48. The upper point adds size * 0.875 (00478494) to that same stored value, so it lies at z + size * 3/4. The caps are at z - size and, adding 2 * size (00478498), z + size.</remarks>
+    public const double LowerFactor = -0.125;
+    /// <summary>The upper point of the panels relative to the camera, as a factor of the size.</summary>
+    public const double UpperFactor = 0.75;
 
-    // materials: bitmap names of the sky `.dml` (null when the sky has no material list: solid sky).
+    /// <summary>Creates the sky.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="assets">The world assets.</param>
+    /// <param name="materials">The bitmap names of the sky <c>.dml</c>, or null when the sky has no material list (solid sky).</param>
+    /// <param name="textures">The material index of each panel.</param>
+    /// <param name="size">The size of the band.</param>
+    /// <param name="featurePosition">The feature position in degrees.</param>
+    /// <param name="visible">The visible distance.</param>
+    /// <param name="skyColor">The sky colour.</param>
+    /// <param name="hazeColor">The haze colour.</param>
     public SkyRenderer(IGfxDevice dev, WorldAssets assets, List<string?>? materials, int[] textures, double size,
                        double featurePosition, double visible, (float, float, float) skyColor, (float, float, float) hazeColor)
     {
@@ -65,11 +82,17 @@ public sealed class SkyRenderer : IDisposable
         }
     }
 
+    /// <summary>The colour of a solid sky, the top colour.</summary>
     public (float r, float g, float b) SolidColor => mTop;
 
-    // Azimuth in degrees of panel vertex i (4.1 Init: 90 + featurePosition - 22.5, 22.5 degrees clockwise per step).
+    /// <summary>Computes the azimuth of panel vertex i in degrees: 90 + featurePosition - 22.5, 22.5 degrees clockwise per step (4.1 Init).</summary>
+    /// <param name="i">The vertex index.</param>
+    /// <param name="featurePosition">The feature position in degrees.</param>
+    /// <returns>The azimuth in degrees.</returns>
     public static double Azimuth(int i, double featurePosition) => 90 + featurePosition - 22.5 - 22.5 * i;
 
+    /// <summary>Draws the sky band.</summary>
+    /// <param name="cam">The background camera.</param>
     public void Draw(in Camera3D cam)
     {
         if (!Textured)
@@ -109,6 +132,7 @@ public sealed class SkyRenderer : IDisposable
         }
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         foreach (IGfxTexture? t in mPanelTextures.Distinct())
@@ -116,16 +140,21 @@ public sealed class SkyRenderer : IDisposable
     }
 }
 
-// world-render.md 4.2: the star generator and its draw.
+/// <summary>The star generator and its draw (world-render.md 4.2).</summary>
 public static class StarField
 {
+    /// <summary>The number of stars.</summary>
     public const int Count = 3000;
 
-    // The exe's C runtime generator (00607408): x = x * 0x15a4e35 + 1, result bits 16 to 30.
+    /// <summary>The C runtime random generator of the exe (00607408): x = x * 0x15a4e35 + 1, result bits 16 to 30.</summary>
     public sealed class Lcg
     {
         private uint mState;
+        /// <summary>Creates the generator.</summary>
+        /// <param name="seed">The seed.</param>
         public Lcg(uint seed) => mState = seed;
+        /// <summary>Gets the next value.</summary>
+        /// <returns>The value, 0 to 32767.</returns>
         public int Next()
         {
             mState = unchecked(mState * 0x15a4e35u + 1);
@@ -133,14 +162,20 @@ public static class StarField
         }
     }
 
+    /// <summary>A star.</summary>
+    /// <param name="X">The x position on the sphere.</param>
+    /// <param name="Y">The y position on the sphere.</param>
+    /// <param name="Z">The z position on the sphere.</param>
+    /// <param name="Class">The brightness class: 0, 2, 3 or 4.</param>
     public readonly record struct Star(double X, double Y, double Z, int Class);
 
-    // Seed source (open): Random_seed calls srand with its seed, and the function-static generators seed with 0x8377
-    // (docs/static-sim.md 1.7); that is the best reading of "the sequence after the last Random_seed".
+    /// <summary>The default seed. Open: Random_seed calls srand with its seed and the function static generators seed with 0x8377 (docs/static-sim.md 1.7). That is the best reading of "the sequence after the last Random_seed".</summary>
     public const uint DefaultSeed = 0x8377;
 
-    // 4.2 Init: rejection sampling of 3000 stars in a ball of radius 1000 (vertical axis excluded), brightness class
-    // from rand() % 30: 0 -> 0, 1..8 -> 2, 9..22 -> 3, 23..29 -> 4. Positions are unit vectors scaled by `radius`.
+    /// <summary>Generates the stars (4.2 Init): rejection sampling of 3000 stars in a ball of radius 1000 (vertical axis excluded), brightness class from rand() % 30: 0 gives 0, 1..8 gives 2, 9..22 gives 3, 23..29 gives 4.</summary>
+    /// <param name="seed">The seed.</param>
+    /// <param name="radius">The radius the unit vectors are scaled by.</param>
+    /// <returns>The stars.</returns>
     public static List<Star> Generate(uint seed, double radius)
     {
         var rng = new Lcg(seed);
@@ -159,6 +194,11 @@ public static class StarField
         return stars;
     }
 
+    /// <summary>Draws the stars.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="cam">The background camera.</param>
+    /// <param name="stars">The stars.</param>
+    /// <param name="colors">The colour of each brightness class.</param>
     public static void Draw(IGfxDevice dev, in Camera3D cam, List<Star> stars, (float, float, float)[] colors)
     {
         var tris = new List<Vertex3D>(stars.Count * 6);
@@ -185,13 +225,28 @@ public static class StarField
     }
 }
 
-// world-render.md 4.3: the sun or moon billboard.
+/// <summary>The sun or moon billboard (world-render.md 4.3).</summary>
 public sealed class PlanetRenderer : IDisposable
 {
     private readonly IGfxDevice mDev;
     private readonly IGfxTexture? mTexture;
-    public readonly double Azimuth, Incidence, Size, Distance;
+    /// <summary>The azimuth in degrees.</summary>
+    public readonly double Azimuth;
+    /// <summary>The incidence in degrees.</summary>
+    public readonly double Incidence;
+    /// <summary>The size of the billboard.</summary>
+    public readonly double Size;
+    /// <summary>The distance of the billboard.</summary>
+    public readonly double Distance;
 
+    /// <summary>Creates the planet.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="assets">The world assets.</param>
+    /// <param name="fileName">The bitmap file name.</param>
+    /// <param name="azimuth">The azimuth in degrees.</param>
+    /// <param name="incidence">The incidence in degrees.</param>
+    /// <param name="size">The size of the billboard.</param>
+    /// <param name="distance">The distance of the billboard.</param>
     public PlanetRenderer(IGfxDevice dev, WorldAssets assets, string fileName, double azimuth, double incidence, double size,
                           double distance)
     {
@@ -205,15 +260,22 @@ public sealed class PlanetRenderer : IDisposable
             mTexture = assets.CreateTexture(dev, bmp, assets.PackedRgba(bmp, false), false, false, true);
     }
 
+    /// <summary>True when the bitmap loaded.</summary>
     public bool HasBitmap => mTexture != null;
 
-    // 4.3 Planet_setup: v = distance * (cos inc cos(az + 90), cos inc sin(az + 90), sin inc).
+    /// <summary>Computes the direction of a planet (4.3 Planet_setup): v = distance * (cos inc cos(az + 90), cos inc sin(az + 90), sin inc).</summary>
+    /// <param name="azimuth">The azimuth in degrees.</param>
+    /// <param name="incidence">The incidence in degrees.</param>
+    /// <param name="distance">The distance.</param>
+    /// <returns>The vector from the camera.</returns>
     public static (double x, double y, double z) Direction(double azimuth, double incidence, double distance)
     {
         double az = (azimuth + 90) * Math.PI / 180, inc = incidence * Math.PI / 180;
         return (distance * Math.Cos(inc) * Math.Cos(az), distance * Math.Cos(inc) * Math.Sin(az), distance * Math.Sin(inc));
     }
 
+    /// <summary>Draws the billboard.</summary>
+    /// <param name="cam">The background camera.</param>
     public void Draw(in Camera3D cam)
     {
         if (mTexture == null)
@@ -234,5 +296,6 @@ public sealed class PlanetRenderer : IDisposable
         mDev.Draw3D(new[] { p0, p1, p2, p0, p2, p3 }, new DrawState3D(mTexture, null, false, 0.5f, false, false));
     }
 
+    /// <inheritdoc/>
     public void Dispose() => mTexture?.Dispose();
 }

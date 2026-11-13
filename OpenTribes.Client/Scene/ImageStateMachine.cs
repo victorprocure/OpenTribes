@@ -1,45 +1,88 @@
-// Client side item image state machine of a Player ghost (docs/player-sim.md 7.5, docs/shapes-render.md 3.6, docs/audio.md 3.2).
-// The server decides the ammo flag, the trigger and the fire count; the ghost carries them and this class runs the state timers,
-// the image threads (state sequence, ambient, spin) and the per state sounds the way `Player_updateImageState` and
-// `Player_setImageState` do on a ghost.
 using OpenTribes.Client.Shapes;
 
 namespace OpenTribes.Client.Scene;
 
+/// <summary>The weapon data the state machine of an image needs.</summary>
 public sealed class ImageStateData
 {
-    public int WeaponType = -1, AmmoType = -1;
-    public double ActivateTime, FireTime, ReloadTime, SpinUpTime, SpinDownTime;
+    /// <summary>The weapon type of the image, -1 for none.</summary>
+    public int WeaponType = -1;
+    /// <summary>The ammo type of the image, -1 for none.</summary>
+    public int AmmoType = -1;
+    /// <summary>The activate state time in seconds.</summary>
+    public double ActivateTime;
+    /// <summary>The fire state time in seconds.</summary>
+    public double FireTime;
+    /// <summary>The reload state time in seconds.</summary>
+    public double ReloadTime;
+    /// <summary>The spin up state time in seconds.</summary>
+    public double SpinUpTime;
+    /// <summary>The spin down state time in seconds.</summary>
+    public double SpinDownTime;
 }
 
+/// <summary>The client side item image state machine of a Player ghost.</summary>
+/// <remarks>docs/player-sim.md 7.5, docs/shapes-render.md 3.6 and docs/audio.md 3.2. The server decides the ammo flag, the trigger and the fire count. The ghost carries them and this class runs the state timers, the image threads (state sequence, ambient, spin) and the per state sounds the way <c>Player_updateImageState</c> and <c>Player_setImageState</c> do on a ghost.</remarks>
 public sealed class ImageStateMachine
 {
-    public const int Reset = 0, Fire = 1, NoAmmo = 2, Idle = 3, Ready = 4, Reload = 5, SpinUp = 6, SpinDown = 7, Activate = 8;
-    // The update step of a move (`updateMove` calls the state update with 0.032 s).
+    /// <summary>The Reset state.</summary>
+    public const int Reset = 0;
+    /// <summary>The Fire state.</summary>
+    public const int Fire = 1;
+    /// <summary>The NoAmmo state.</summary>
+    public const int NoAmmo = 2;
+    /// <summary>The Idle state.</summary>
+    public const int Idle = 3;
+    /// <summary>The Ready state.</summary>
+    public const int Ready = 4;
+    /// <summary>The Reload state.</summary>
+    public const int Reload = 5;
+    /// <summary>The SpinUp state.</summary>
+    public const int SpinUp = 6;
+    /// <summary>The SpinDown state.</summary>
+    public const int SpinDown = 7;
+    /// <summary>The Activate state.</summary>
+    public const int Activate = 8;
+    /// <summary>The length in seconds of one state update of a move: <c>updateMove</c> calls the state update with 0.032 s.</summary>
     public const double Step = 0.032;
 
+    /// <summary>The current state.</summary>
     public int State;
+    /// <summary>The time left in the current state, in seconds.</summary>
     public double Timer;
-    public bool Triggered, Ammo;
+    /// <summary>True while the trigger is held.</summary>
+    public bool Triggered;
+    /// <summary>True when the weapon has ammo.</summary>
+    public bool Ammo;
+    /// <summary>The fire count of the ghost stream.</summary>
     public int FireCount;
+    /// <summary>The weapon data.</summary>
     public readonly ImageStateData Data;
-    public RenderThread? StateThread, Ambient, Spin;
+    /// <summary>The thread of the state sequence, or null when the shape has no activation sequence.</summary>
+    public RenderThread? StateThread;
+    /// <summary>The ambient thread, or null.</summary>
+    public RenderThread? Ambient;
+    /// <summary>The spin thread, or null.</summary>
+    public RenderThread? Spin;
 
     private readonly RenderInstance? mInst;
     private readonly int mSeqActivation = -1, mSeqFire = -1, mSeqReload = -1, mSeqNoAmmo = -1, mSeqReady = -1;
     private double mAccum;
 
-    // The control object runs its state update with the moves of the client prediction (`Player_updateMove` is called for
-    // every step of the prediction, replays after a server block included, and runs `Player_updateImageState` with 0.032 s),
-    // not once per 0.032 s of time. When set, `Advance` only moves the image threads and `Step` runs the updates.
+    /// <summary>True when the state updates run per prediction step instead of per 0.032 s of time.</summary>
+    /// <remarks>The control object runs its state update with the moves of the client prediction (<c>Player_updateMove</c> is called for every step of the prediction, replays after a server block included, and runs <c>Player_updateImageState</c> with 0.032 s), not once per 0.032 s of time. When set, <see cref="Advance"/> only moves the image threads and <see cref="StepMoves"/> runs the updates.</remarks>
     public bool Stepped;
 
-    // Called when the state is left (a looping state sound stops) and when a state plays its sound (field name of the datablock).
+    /// <summary>Called when the state is left, so a looping state sound stops.</summary>
     public Action? StopLoopingSound;
+    /// <summary>Called when a state plays its sound, with the field name of the datablock.</summary>
     public Action<string>? PlaySound;
-    // Called when a shot is fired (state Fire entered, or fired again while a spinning weapon keeps firing).
+    /// <summary>Called when a shot is fired: state Fire entered, or fired again while a spinning weapon keeps firing.</summary>
     public Action? Fired;
 
+    /// <summary>Creates the state machine and its threads.</summary>
+    /// <param name="data">The weapon data.</param>
+    /// <param name="inst">The shape instance of the image, or null.</param>
     public ImageStateMachine(ImageStateData data, RenderInstance? inst)
     {
         Data = data;
@@ -69,7 +112,8 @@ public sealed class ImageStateMachine
         return t;
     }
 
-    // Advances the image threads (every frame) and runs the state update once per 0.032 s of time.
+    /// <summary>Advances the image threads every frame and runs the state update once per 0.032 s of time.</summary>
+    /// <param name="dt">The frame time in seconds.</param>
     public void Advance(double dt)
     {
         if (mInst != null)
@@ -91,18 +135,23 @@ public sealed class ImageStateMachine
         }
     }
 
-    // `count` prediction steps of the control object (see `Stepped`).
+    /// <summary>Runs the state update for prediction steps of the control object (see <see cref="Stepped"/>).</summary>
+    /// <param name="count">The number of steps.</param>
     public void StepMoves(int count)
     {
         for (int i = 0; i < count; ++i)
             Update(Step);
     }
 
-    // `Player_setImage` on a registered object enters Activate.
+    /// <summary>Enters Activate, as <c>Player_setImage</c> does on a registered object.</summary>
     public void Mount() => SetState(Activate);
 
-    // The ghost stream values of one slot (`Player_unpackImages`): trigger, ammo flag and fire count. A new ghost
-    // only stores the count (and starts in Fire when the initial flag is set); a registered one enters Fire when the count changed.
+    /// <summary>Applies the values of one slot of the ghost stream (<c>Player_unpackImages</c>): trigger, ammo flag and fire count.</summary>
+    /// <param name="triggered">The trigger flag.</param>
+    /// <param name="ammo">The ammo flag.</param>
+    /// <param name="fireCount">The fire count.</param>
+    /// <param name="registered">True for a registered ghost, which enters Fire when the count changed. A new ghost only stores the count.</param>
+    /// <param name="initialFire">True when a new ghost starts in Fire.</param>
     public void Unpack(bool triggered, bool ammo, int fireCount, bool registered, bool initialFire)
     {
         Triggered = triggered;
@@ -122,6 +171,8 @@ public sealed class ImageStateMachine
         Update(0);
     }
 
+    /// <summary>Runs one state update.</summary>
+    /// <param name="dt">The time step in seconds.</param>
     public void Update(double dt)
     {
         Timer -= dt;
@@ -231,6 +282,8 @@ public sealed class ImageStateMachine
             Spin.TimeScale = v;
     }
 
+    /// <summary>Enters a state: stops the looping sound, sets the timer and plays the sound of the state.</summary>
+    /// <param name="next">The state.</param>
     public void SetState(int next)
     {
         int old = State;

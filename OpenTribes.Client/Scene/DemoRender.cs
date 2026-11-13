@@ -1,5 +1,3 @@
-// `tribes --demo FILE.rec --at T,T,... [--camera follow|X,Y,Z,YAW,PITCH|ghost:N|orbit:N,DIST,YAW,PITCH|action[:DIST]] --screenshot OUT`: plays the demo through the
-// C3a reader and renders the world, the ghosts as shapes and the effects at the given times (ROADMAP M9 C5).
 using System.Globalization;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Client.World;
@@ -10,12 +8,14 @@ using OpenTribes.Platform.Gl;
 
 namespace OpenTribes.Client.Scene;
 
+/// <summary>The demo renderer: plays a demo through the reader and renders the world, the ghosts as shapes and the effects at the given times.</summary>
+/// <remarks>Started with <c>tribes --demo FILE.rec --at T,T,... [--camera follow|X,Y,Z,YAW,PITCH|ghost:N|orbit:N,DIST,YAW,PITCH|action[:DIST]] --screenshot OUT</c>.</remarks>
 public static class DemoRender
 {
-    // The Sky ghost update as the persistent fields the sky renderer reads: Sky_unpackUpdate 00477824 reads the material list name, the sky
-    // colour (+0xb8), the haze colour (+0xc4), the feature position (+0x11c), the size (+0x124) and the 16 panel indices (+0xdc); the
-    // persistent field table of Sky_initPersistFields (004776fc) names +0x11c featurePosition and +0x124 size. Sky_initTextures (00478548)
-    // and the band draw (00477b48) read both from the object, so the client uses the values the server sent.
+    /// <summary>Stores the Sky ghost update as the persistent fields the sky renderer reads.</summary>
+    /// <param name="o">The mission object that gets the fields.</param>
+    /// <param name="state">The ghost state.</param>
+    /// <remarks>Sky_unpackUpdate (00477824) reads the material list name, the sky colour (+0xb8), the haze colour (+0xc4), the feature position (+0x11c), the size (+0x124) and the 16 panel indices (+0xdc). The persistent field table of Sky_initPersistFields (004776fc) names +0x11c featurePosition and +0x124 size. Sky_initTextures (00478548) and the band draw (00477b48) read both from the object, so the client uses the values the server sent.</remarks>
     public static void SkyFields(MissionObject o, IReadOnlyDictionary<string, object?> state)
     {
         static string V(object? o) => o is double[] d ? string.Join(" ", d.Select(x => x.ToString("R", CultureInfo.InvariantCulture))) : Convert.ToString(o, CultureInfo.InvariantCulture) ?? "";
@@ -30,7 +30,9 @@ public static class DemoRender
                 o.Fields[$"textures[{i}]"] = V(tex[i]);
     }
 
-    // The environment ghosts as the mission objects the world renderer reads (world-render.md 6.1).
+    /// <summary>Builds the environment ghosts as the mission objects the world renderer reads (world-render.md 6.1).</summary>
+    /// <param name="w">The client world.</param>
+    /// <returns>The mission objects.</returns>
     public static List<MissionObject> EnvironmentObjects(ClientWorld w)
     {
         var list = new List<MissionObject>();
@@ -89,16 +91,29 @@ public static class DemoRender
         return list;
     }
 
-    // The near plane of a demo render: the same PSC camera query answer as live play (WorldScene.ViewNear, 004077a8; the demo runs the
-    // same TSControl camera query 00546dc4 to the control object). A pose that is not the control object's eye (a free, ghost or orbit
-    // camera of this tool) is not first person and keeps 0.01.
+    /// <summary>Gives the near plane of a demo render.</summary>
+    /// <param name="c">The camera pose.</param>
+    /// <param name="w">The client world.</param>
+    /// <returns>The near distance.</returns>
+    /// <remarks>It is the same PSC camera query answer as live play (<c>WorldScene.ViewNear</c>, 004077a8). The demo runs the same TSControl camera query (00546dc4) to the control object. A pose that is not the eye of the control object (a free, ghost or orbit camera of this tool) is not first person and keeps 0.01.</remarks>
     public static double NearFor(CameraPose c, ClientWorld w) => WorldScene.ViewNear(c.FirstPerson, w.Psc.ControlClass == "ObserverCamera");
 
+    /// <summary>A camera position and orientation.</summary>
+    /// <param name="X">The x position.</param>
+    /// <param name="Y">The y position.</param>
+    /// <param name="Z">The z position.</param>
+    /// <param name="YawDeg">The yaw in degrees.</param>
+    /// <param name="PitchDeg">The pitch in degrees.</param>
+    /// <param name="FirstPerson">True for the eye of the control object.</param>
+    /// <param name="ControlGhost">The ghost index of the control object.</param>
+    /// <param name="RollDeg">The roll in degrees.</param>
     public readonly record struct CameraPose(double X, double Y, double Z, double YawDeg, double PitchDeg, bool FirstPerson, int ControlGhost, double RollDeg = 0);
 
-    // The camera of the control object (client-net.md 4.5, game-stream.md 6.6): an ObserverCamera in mode 0 to 2 stands at its
-    // position, in mode 3 it orbits the centre of the orbit object at the stored distance (-1: the object's own view), a
-    // Player is seen through its eye.
+    /// <summary>Builds the camera of the control object.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="w">The client world.</param>
+    /// <returns>The pose, or null when there is none.</returns>
+    /// <remarks>client-net.md 4.5 and game-stream.md 6.6: an ObserverCamera in mode 0 to 2 stands at its position. In mode 3 it orbits the centre of the orbit object at the stored distance (-1: the own view of the object). A Player is seen through its eye.</remarks>
     public static CameraPose? ControlCamera(SceneModel m, ClientWorld w)
     {
         ClientPsc psc = w.Psc;
@@ -152,15 +167,28 @@ public static class DemoRender
         return null;
     }
 
-    // The camera of a controlled Turret (Turret_getCameraTransform 004564fc, vtable +0x170): the `dummy eye` node position of the animated
-    // shape with the Euler angles (elevation, 0, rotation), times the object transform, moved back by 1.3 * `distance`. Without the node
-    // the object transform. First person is distance 0.
+    /// <summary>Builds the camera of a controlled turret from its ghost.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="ghost">The turret ghost index.</param>
+    /// <param name="rotation">The turret rotation.</param>
+    /// <param name="elevation">The turret elevation.</param>
+    /// <param name="distance">The view distance, 0 for first person.</param>
+    /// <param name="world">The container for the clear line test, or null.</param>
+    /// <param name="exclude">The object that the line ignores.</param>
+    /// <returns>The pose, or null when the ghost is not a shape.</returns>
     public static CameraPose? TurretCamera(SceneModel m, int ghost, float rotation, float elevation, float distance, OpenTribes.World.Container? world, object? exclude)
         => m.Visuals.TryGetValue(ghost, out Visual? v) && v is ShapeVisual sv ? TurretCamera(sv, ghost, rotation, elevation, distance, world, exclude) : null;
 
-    // Turret_getCameraTransform 004564fc does nothing while the turret has no shape instance (+0x328 is 0): the output transform is not
-    // written. The ghost can exist before its datablock and shape are loaded, and the object transform alone (the body of the turret) is
-    // not a camera, so there is no pose until the instance exists.
+    /// <summary>Builds the camera of a controlled turret from its visual.</summary>
+    /// <param name="sv">The turret visual.</param>
+    /// <param name="ghost">The turret ghost index.</param>
+    /// <param name="rotation">The turret rotation.</param>
+    /// <param name="elevation">The turret elevation.</param>
+    /// <param name="distance">The view distance, 0 for first person.</param>
+    /// <param name="world">The container for the clear line test, or null.</param>
+    /// <param name="exclude">The object that the line ignores.</param>
+    /// <returns>The pose, or null while the turret has no shape instance.</returns>
+    /// <remarks>Follows Turret_getCameraTransform (004564fc, vtable +0x170): the <c>dummy eye</c> node position of the animated shape with the Euler angles (elevation, 0, rotation), times the object transform, moved back by 1.3 * distance. Without the node it is the object transform. The function does nothing while the turret has no shape instance (+0x328 is 0) and does not write the output transform. The ghost can exist before its datablock and shape are loaded, and the object transform alone (the body of the turret) is not a camera, so there is no pose until the instance exists.</remarks>
     public static CameraPose? TurretCamera(ShapeVisual sv, int ghost, float rotation, float elevation, float distance, OpenTribes.World.Container? world, object? exclude)
     {
         if (!sv.TryCameraInputs(out var obj, out var eye) || !sv.HasShapeInstance)
@@ -169,8 +197,14 @@ public static class DemoRender
         return PoseOf(t, distance == 0f || eye == null, ghost);
     }
 
-    // Player_getEyeTransform 0041248c for a Player on a mount: the object transform (the mount point's times the yaw) times the `dummy eye`
-    // node turned by the pitch about x. The view direction is the second row, up the third. Null without the node.
+    /// <summary>Builds the eye camera of a player on a mount.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="ghost">The player ghost index.</param>
+    /// <param name="body">The mount transform.</param>
+    /// <param name="pos">The player position.</param>
+    /// <param name="pitchRad">The pitch in radians.</param>
+    /// <returns>The pose, or null without the eye node.</returns>
+    /// <remarks>Follows Player_getEyeTransform (0041248c) for a Player on a mount: the object transform (the mount point times the yaw) times the <c>dummy eye</c> node turned by the pitch about x. The view direction is the second row, up the third.</remarks>
     public static CameraPose? RiderCamera(SceneModel m, int ghost, in OpenTribes.Sim.Transform body, float[] pos, double pitchRad)
     {
         if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not PlayerVisual pv || !pv.TryEyeLocal(pitchRad, out double ex, out double ey, out double ez))
@@ -189,10 +223,14 @@ public static class DemoRender
         return PoseOf(t, true, ghost);
     }
 
-    // The camera of a piloted Vehicle or Flier (Vehicle_getCameraTransform 00445d88, docs/client-net.md 4.2): `distance` is the
-    // PSC view distance timer (+0x9c). The `dummy eye` node transform times the drawn object transform, moved back by 2 * distance
-    // (placeBehind through `world`, the object itself ignored), pitch * 0.8 and roll * 0.5 while the distance is not 0. First person
-    // (distance 0) is the eye node itself, the view mode only changes the distance.
+    /// <summary>Builds the camera of a piloted Vehicle or Flier.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="ghost">The vehicle ghost index.</param>
+    /// <param name="distance">The PSC view distance timer (+0x9c), 0 for first person.</param>
+    /// <param name="world">The container for the clear line test, or null.</param>
+    /// <param name="exclude">The object that the line ignores.</param>
+    /// <returns>The pose, or null without the eye node.</returns>
+    /// <remarks>Follows Vehicle_getCameraTransform (00445d88, docs/client-net.md 4.2): the <c>dummy eye</c> node transform times the drawn object transform, moved back by 2 * distance (placeBehind through <paramref name="world"/>, the object itself ignored), pitch * 0.8 and roll * 0.5 while the distance is not 0. First person (distance 0) is the eye node itself, the view mode only changes the distance.</remarks>
     public static CameraPose? VehicleCamera(SceneModel m, int ghost, float distance, OpenTribes.World.Container? world, object? exclude)
     {
         if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v is not ShapeVisual sv || !sv.TryCameraInputs(out var obj, out var eye))
@@ -201,7 +239,11 @@ public static class DemoRender
         return PoseOf(t, distance == 0f, ghost);
     }
 
-    // Yaw, pitch and roll of a camera transform (the Euler words of Mat3_toEuler, in degrees).
+    /// <summary>Gets yaw, pitch and roll of a camera transform (the Euler words of Mat3_toEuler, in degrees).</summary>
+    /// <param name="t">The camera transform.</param>
+    /// <param name="firstPerson">True for a first person view.</param>
+    /// <param name="ghost">The control ghost index.</param>
+    /// <returns>The pose.</returns>
     public static CameraPose PoseOf(in OpenTribes.Sim.Transform t, bool firstPerson, int ghost)
     {
         var e = new float[3];
@@ -210,8 +252,16 @@ public static class DemoRender
         return new CameraPose(t.P[0], t.P[1], t.P[2], e[2] * d, e[0] * d, firstPerson, ghost, e[1] * d);
     }
 
-    // Camera position of a first person view: the body position plus the `dummy eye` node of the player shape, turned by the yaw,
-    // with the looks thread at the camera pitch (`Player_getEyeTransform`). Without the node: 1.8 above the body.
+    /// <summary>Computes the camera position of a first person view: the body position plus the <c>dummy eye</c> node of the player shape, turned by the yaw, with the looks thread at the camera pitch. Without the node it is 1.8 above the body.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="ghost">The player ghost index.</param>
+    /// <param name="x">The body x.</param>
+    /// <param name="y">The body y.</param>
+    /// <param name="z">The body z.</param>
+    /// <param name="yawRad">The yaw in radians.</param>
+    /// <param name="pitchRad">The pitch in radians.</param>
+    /// <returns>The eye position.</returns>
+    /// <remarks>Follows Player_getEyeTransform.</remarks>
     public static (double x, double y, double z) EyeOf(SceneModel m, int ghost, double x, double y, double z, double yawRad, double pitchRad)
     {
         if (m.Visuals.TryGetValue(ghost, out Visual? v) && v is PlayerVisual pv && pv.TryEyeLocal(pitchRad, out double ex, out double ey, out double ez))
@@ -222,17 +272,33 @@ public static class DemoRender
         return (x, y, z + 1.8);
     }
 
-    // The transform moved back along the view direction by `distance`.
+    /// <summary>Moves a view back along its direction.</summary>
+    /// <param name="cx">The x position of the view.</param>
+    /// <param name="cy">The y position of the view.</param>
+    /// <param name="cz">The z position of the view.</param>
+    /// <param name="yaw">The yaw in degrees.</param>
+    /// <param name="pitch">The pitch in degrees.</param>
+    /// <param name="distance">The distance to move back.</param>
+    /// <returns>The pose.</returns>
     public static CameraPose Orbit(double cx, double cy, double cz, double yaw, double pitch, double distance)
     {
         double fx = -Math.Sin(yaw) * Math.Cos(pitch), fy = Math.Cos(yaw) * Math.Cos(pitch), fz = Math.Sin(pitch);
         return new CameraPose(cx - fx * distance, cy - fy * distance, cz - fz * distance, yaw * 180 / Math.PI, pitch * 180 / Math.PI, false, -1);
     }
 
-    // The third person camera of the control Player (Player_getCameraTransform 00412324 with a view distance of 0.01 or more): the
-    // object transform (yaw, body position) times the pitch rotation at (0, 0, z of the `dummyalways chasecam` node), moved back along
-    // the view direction by GameBase_placeBehind 00449604 (ray of 2.5 * distance, mask 0x20c00006, margin 0.025). Without the node
-    // the eye position is the start. A null `world` keeps the full distance.
+    /// <summary>Builds the third person camera of the control Player.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="ghost">The player ghost index.</param>
+    /// <param name="x">The body x.</param>
+    /// <param name="y">The body y.</param>
+    /// <param name="z">The body z.</param>
+    /// <param name="yawRad">The yaw in radians.</param>
+    /// <param name="pitchRad">The pitch in radians.</param>
+    /// <param name="distance">The view distance, 0.01 or more.</param>
+    /// <param name="world">The container for the clear line test. Null keeps the full distance.</param>
+    /// <param name="exclude">The object that the line ignores.</param>
+    /// <returns>The pose.</returns>
+    /// <remarks>Follows Player_getCameraTransform (00412324) with a view distance of 0.01 or more: the object transform (yaw, body position) times the pitch rotation at (0, 0, z of the <c>dummyalways chasecam</c> node), moved back along the view direction by GameBase_placeBehind (00449604: ray of 2.5 * distance, mask 0x20c00006, margin 0.025). Without the node the eye position is the start.</remarks>
     public static CameraPose ChaseCamera(SceneModel m, int ghost, double x, double y, double z, double yawRad, double pitchRad, float distance,
                                          OpenTribes.World.Container? world, object? exclude)
     {
@@ -248,8 +314,11 @@ public static class DemoRender
         return new CameraPose(p[0], p[1], p[2], yawRad * 180 / Math.PI, pitchRad * 180 / Math.PI, false, -1);
     }
 
-    // `--camera action[:DIST]`: orbits the newest explosion (else a projectile, else a player), pulled towards the nearest
-    // player within 25 m, from the side with a clear line over the terrain.
+    /// <summary>Builds the camera of <c>--camera action[:DIST]</c>: it orbits the newest explosion (else a projectile, else a player), pulled towards the nearest player within 25 m, from the side with a clear line over the terrain.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="terrain">The terrain for the clear line test, or null.</param>
+    /// <param name="dist">The orbit distance.</param>
+    /// <returns>The pose, or null when nothing is happening.</returns>
     public static CameraPose? ActionCamera(SceneModel m, OpenTribes.World.Terrain? terrain, double dist)
     {
         (double x, double y, double z)? pivot = null;
@@ -295,6 +364,10 @@ public static class DemoRender
         return best;
     }
 
+    /// <summary>Builds the camera that follows a player ghost.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="ghost">The ghost index.</param>
+    /// <returns>The pose, or null when the ghost is not a player.</returns>
     public static CameraPose? GhostCamera(SceneModel m, int ghost)
     {
         if (!m.Visuals.TryGetValue(ghost, out Visual? v) || v.Position is not var (x, y, z) || v is not PlayerVisual p)
@@ -302,6 +375,19 @@ public static class DemoRender
         return new CameraPose(x, y, z + 1.8, p.YawAngle * 180 / Math.PI, p.ViewPitch * 180 / Math.PI, true, ghost);
     }
 
+    /// <summary>Plays a demo and renders it at the given times.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="demoPath">The demo file.</param>
+    /// <param name="times">The times in seconds, separated by commas.</param>
+    /// <param name="camera">The camera mode, or null for the default.</param>
+    /// <param name="fov">The field of view.</param>
+    /// <param name="output">The PNG path. Required.</param>
+    /// <param name="width">The image width in pixels.</param>
+    /// <param name="height">The image height in pixels.</param>
+    /// <param name="videoDriver">The video driver name, or null for the default.</param>
+    /// <param name="atOnly">Renders only this time of the list, or null for all.</param>
+    /// <param name="hud">True to draw the HUD.</param>
+    /// <returns>The process exit code: 2 without an output path.</returns>
     public static int Run(string root, string demoPath, string times, string? camera, double fov, string? output, int width, int height, string? videoDriver, double? atOnly = null, bool hud = false)
     {
         if (output == null)

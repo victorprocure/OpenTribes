@@ -1,33 +1,50 @@
-// Shape image builder (docs/shapes-render.md 1.3, 2.3 to 2.7): detail choice, frame vertices, face culling, material
-// states (shading, keyed and translucent blends, fade), vertex lighting. The output is a RenderImage of world-space
-// triangle batches that RenderLists sorts and draws through the 3D device calls of OpenTribes.Platform.
 using OpenTribes.Client.World;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.Shapes;
 
+/// <summary>The parameters of one shape draw.</summary>
 public sealed class ShapeDraw
 {
+    /// <summary>The transform of the shape to the world.</summary>
     public Xf ToWorld = Xf.Identity;
-    public bool NoRootTransform;       // the Player armor only: ShapeBase_resetRootTransform clears the instance root transform (3.6 step 4)
+    /// <summary>True for the Player armor only: ShapeBase_resetRootTransform clears the instance root transform (3.6 step 4).</summary>
+    public bool NoRootTransform;
+    /// <summary>The lights.</summary>
     public LightSet Light = LightSet.Default();
-    public double Fade;                // f of 2.2 step 3: 0 fully visible, 1 gone; alpha = 1 - f
+    /// <summary>The fade f of 2.2 step 3: 0 fully visible, 1 gone. The alpha is 1 - f.</summary>
+    public double Fade;
+    /// <summary>The skin name.</summary>
     public string Skin = "";
+    /// <summary>The damage level of the skin.</summary>
     public int DamageLevel;
-    public double DetailScale = 1;     // instance +0x90: the shape detail preference
-    public int ForceDetail = -2;       // -2 chooses by size
-    public bool ForceTranslucent;      // category 1 whatever the materials say
-    // The device culls the back faces of every polygon (beginScene3d 005daa30: cull on, front face CW), so a face that crosses a clip plane and goes
-    // through the clipper 005b1f68 is culled by its winding too. Set for the explosion shapes (a camera inside a cone sees only back faces).
+    /// <summary>The scale of the detail choice, the shape detail preference (instance +0x90).</summary>
+    public double DetailScale = 1;
+    /// <summary>The detail to draw, or -2 to choose by size.</summary>
+    public int ForceDetail = -2;
+    /// <summary>True to draw in category 1 whatever the materials say.</summary>
+    public bool ForceTranslucent;
+    /// <summary>True to cull a face that crosses a clip plane by its winding too, set for the explosion shapes (a camera inside a cone sees only back faces).</summary>
+    /// <remarks>The device culls the back faces of every polygon (beginScene3d 005daa30: cull on, front face CW), so a face that goes through the clipper 005b1f68 is culled by its winding too.</remarks>
     public bool CullClipped;
+    /// <summary>A sort key that replaces the computed one, or null.</summary>
     public double? FixedSortKey;
-    public double HazeStart = 1e9, Visible = 1e9;
-    public bool NoHaze;                // the image fog amount stays 0 (projectile images never set it): haze none
-    public double SortBias;            // added to the key (the flame draws just in front of the body)
+    /// <summary>The distance where the haze starts.</summary>
+    public double HazeStart = 1e9;
+    /// <summary>The visible distance.</summary>
+    public double Visible = 1e9;
+    /// <summary>True to keep the fog amount of the image at 0 (projectile images never set it): no haze.</summary>
+    public bool NoHaze;
+    /// <summary>A bias added to the sort key (the flame draws just in front of the body).</summary>
+    public double SortBias;
+    /// <summary>The label of the render image.</summary>
     public string Label = "";
-    public HashSet<int>? ObjectFilter;  // draw only these objects (debris parts)
+    /// <summary>The objects to draw, or null for all (debris parts).</summary>
+    public HashSet<int>? ObjectFilter;
 }
 
+/// <summary>The shape image builder: detail choice, frame vertices, face culling, material states (shading, keyed and translucent blends, fade) and vertex lighting.</summary>
+/// <remarks>docs/shapes-render.md 1.3 and 2.3 to 2.7. The output is a <see cref="RenderImage"/> of world space triangle batches that <see cref="RenderLists"/> sorts and draws through the 3D device calls of OpenTribes.Platform.</remarks>
 public sealed class ShapeRenderer
 {
     private sealed class FrameData
@@ -53,11 +70,21 @@ public sealed class ShapeRenderer
 
     private readonly ShapeAssets mAssets;
     private readonly Dictionary<(RsMesh, int), FrameData> mFrames = new();
-    public bool FlipWinding;           // set by tests that check the cull rule
-    public int LastDetail = -1, LastFaces, LastCulled;
+    /// <summary>True to flip the winding, set by tests that check the cull rule.</summary>
+    public bool FlipWinding;
+    /// <summary>The detail of the last build.</summary>
+    public int LastDetail = -1;
+    /// <summary>The faces of the last build.</summary>
+    public int LastFaces;
+    /// <summary>The culled faces of the last build.</summary>
+    public int LastCulled;
+    /// <summary>The names of the files already logged.</summary>
     public readonly HashSet<string> Logged = new();
+    /// <summary>The number of draws skipped for a missing texture.</summary>
     public int SkippedMissingTexture;
 
+    /// <summary>Creates the builder.</summary>
+    /// <param name="assets">The shape assets.</param>
     public ShapeRenderer(ShapeAssets assets) => mAssets = assets;
 
     // 1.2: vertex k of a frame is packed[firstVert + k].xyz * scale + origin, in mesh space; the normals are the area
@@ -104,7 +131,12 @@ public sealed class ShapeRenderer
         return fd;
     }
 
-    // 2.3: size = cameraScale * projected radius * instance scale, then the detail by size.
+    /// <summary>Chooses the detail of a shape (2.3): size = cameraScale * projected radius * instance scale, then the detail by size.</summary>
+    /// <param name="shape">The shape.</param>
+    /// <param name="cam">The camera.</param>
+    /// <param name="toWorld">The transform to the world.</param>
+    /// <param name="scale">The instance scale.</param>
+    /// <returns>The detail index.</returns>
     public int DetailFor(RenderShape shape, in Camera3D cam, in Xf toWorld, double scale)
     {
         var (cx, cy, cz) = toWorld.Apply(shape.Cx, shape.Cy, shape.Cz);
@@ -116,6 +148,11 @@ public sealed class ShapeRenderer
         return shape.ChooseDetail(size);
     }
 
+    /// <summary>Builds the render image of an instance.</summary>
+    /// <param name="inst">The shape instance.</param>
+    /// <param name="cam">The camera.</param>
+    /// <param name="p">The draw parameters.</param>
+    /// <returns>The image, or null when nothing draws.</returns>
     public RenderImage? Build(RenderInstance inst, in Camera3D cam, ShapeDraw p)
     {
         RenderShape sh = inst.Shape;

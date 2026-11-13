@@ -1,10 +1,10 @@
-// Smoke puff pool (docs/shapes-render.md 4.5): a ring of camera facing one-shot shapes ($pref::maxNumSmokePuffs, default
-// 100). A puff plays `Sequence01` once and dies when it ends.
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 
 namespace OpenTribes.Client.Effects;
 
+/// <summary>The smoke puff pool: a ring of camera facing one shot shapes (<c>$pref::maxNumSmokePuffs</c>, default 100). A puff plays <c>Sequence01</c> once and dies when it ends.</summary>
+/// <remarks>docs/shapes-render.md 4.5.</remarks>
 public sealed class SmokePool
 {
     private sealed class Puff
@@ -18,8 +18,11 @@ public sealed class SmokePool
     private readonly Puff[] mRing;
     private int mNext;
     private readonly Random mRoll = new(0x8377);
+    /// <summary>The size of the ring.</summary>
     public int Capacity => mRing.Length;
 
+    /// <summary>Creates the pool.</summary>
+    /// <param name="capacity">The size of the ring.</param>
     public SmokePool(int capacity = 100)
     {
         mRing = new Puff[Math.Max(capacity, 1)];
@@ -27,12 +30,19 @@ public sealed class SmokePool
             mRing[i] = new Puff();
     }
 
+    /// <summary>The number of live puffs.</summary>
     public int Live => mRing.Count(p => p.Active);
 
-    // FUN_0045b4a4: takes the next ring slot (evicting the oldest live puff) and plays Sequence01 once.
-    // The puff keeps drifting with `velocity` and is removed `scale` seconds after the spawn (+0x04 deadline =
-    // ftol(scale * 1000) + now, FUN_0045b070 reads it), whichever of that and the sequence end comes first. The
-    // roll about the view axis is random (+0x98, 0..2 pi).
+    /// <summary>Starts a puff in the next ring slot, evicting the oldest live puff.</summary>
+    /// <param name="shape">The puff shape.</param>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
+    /// <param name="scale">The life in seconds.</param>
+    /// <param name="vx">The drift velocity x.</param>
+    /// <param name="vy">The drift velocity y.</param>
+    /// <param name="vz">The drift velocity z.</param>
+    /// <remarks>Follows FUN_0045b4a4: takes the next ring slot and plays Sequence01 once. The puff keeps drifting with the velocity and is removed <paramref name="scale"/> seconds after the spawn (+0x04 deadline = ftol(scale * 1000) + now, FUN_0045b070 reads it), whichever of that and the sequence end comes first. The roll about the view axis is random (+0x98, 0 to 2 pi).</remarks>
     public void Spawn(RenderShape shape, double x, double y, double z, double scale = 1, double vx = 0, double vy = 0, double vz = 0)
     {
         Puff p = mRing[mNext];
@@ -46,7 +56,12 @@ public sealed class SmokePool
         (p.Vx, p.Vy, p.Vz, p.Age, p.Life, p.Roll) = (vx, vy, vz, 0, scale, mRoll.NextDouble() * 2 * Math.PI);
     }
 
-    // FUN_0045b6d4: removes every puff inside the radius (a projectile exploded).
+    /// <summary>Removes every puff inside a radius, because a projectile exploded (FUN_0045b6d4).</summary>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
+    /// <param name="radius">The radius.</param>
+    /// <returns>The number of puffs removed.</returns>
     public int RemoveInside(double x, double y, double z, double radius)
     {
         int n = 0;
@@ -64,6 +79,8 @@ public sealed class SmokePool
         return n;
     }
 
+    /// <summary>Advances the live puffs.</summary>
+    /// <param name="dt">The time step in seconds.</param>
     public void Tick(double dt)
     {
         foreach (Puff p in mRing)
@@ -83,6 +100,8 @@ public sealed class SmokePool
         }
     }
 
+    /// <summary>Adds the render images of the live puffs to the frame.</summary>
+    /// <param name="ctx">The frame context.</param>
     public void Build(FrameContext ctx)
     {
         foreach (Puff p in mRing)

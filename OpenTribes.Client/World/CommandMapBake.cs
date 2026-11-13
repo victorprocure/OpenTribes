@@ -2,28 +2,34 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.World;
 
-// The base picture of the commander map (docs/world-render.md 2.11): FearGui::TSCommander `rebuildCommandMap` [code 0041e3d4,
-// 004cef14] renders the world from above with an orthographic camera into 8 x 8 tiles of 128 x 128 pixels, 8 bit bitmaps of the
-// mission palette, and keeps the result as 4 x 4 bitmaps of 256 x 256. The camera stands over the middle of the mission area
-// (MissionCenterPos x y w h, the lower left corner and the extent) and its view volume is exactly the area, so one pixel of the
-// 1024 x 1024 picture is area / 1024 world units and the top row is the north edge [code 004d0ef8: left = -w / 2, top = +h / 2,
-// camera at area corner + extent / 2, z 500, looking down]. The script runs it with `$pref::terrainTextureDetail` 1 (the finest
-// textures [code client.cs onClientGhostAlwaysDone]).
-//
-// What is drawn here is the terrain: the per cell material bitmap in the orientation of the cell flags, times the light map
-// (the same two inputs as the perspective renderer, world-render.md 2.8, 2.9), taken per pixel instead of by triangles. One pixel is
-// about one world unit and a cell is eight, so each texel of the cell picture (the material box filtered to 16 x 16, 2.8) is about
-// two pixels; four samples per pixel stand in for the area average of the software renderer. The picture is 8 bit like the stock
-// tile bitmaps: every colour becomes the nearest entry of the palette (Internal in mechanism: the software renderer reaches the
-// index through the palette shade tables). Squares flagged empty stay index 0.
+/// <summary>The base picture of the commander map, baked from above.</summary>
+/// <remarks>
+/// <para>docs/world-render.md 2.11. FearGui::TSCommander <c>rebuildCommandMap</c> (0041e3d4, 004cef14) renders the world from above with an orthographic camera into 8 x 8 tiles of 128 x 128 pixels, 8 bit bitmaps of the mission palette, and keeps the result as 4 x 4 bitmaps of 256 x 256. The camera stands over the middle of the mission area (MissionCenterPos x y w h, the lower left corner and the extent) and its view volume is exactly the area, so one pixel of the 1024 x 1024 picture is area / 1024 world units and the top row is the north edge (004d0ef8: left = -w / 2, top = +h / 2, camera at area corner + extent / 2, z 500, looking down). The script runs it with <c>$pref::terrainTextureDetail</c> 1, the finest textures (client.cs onClientGhostAlwaysDone).</para>
+/// <para>What is drawn here is the terrain: the per cell material bitmap in the orientation of the cell flags, times the light map (the same two inputs as the perspective renderer, world-render.md 2.8, 2.9), taken per pixel instead of by triangles. One pixel is about one world unit and a cell is eight, so each texel of the cell picture (the material box filtered to 16 x 16, 2.8) is about two pixels. Four samples per pixel stand in for the area average of the software renderer. The picture is 8 bit like the stock tile bitmaps: every colour becomes the nearest entry of the palette. Squares flagged empty stay index 0.</para>
+/// </remarks>
 public static class CommandMapBake
 {
+    /// <summary>The side of the picture in pixels.</summary>
     public const int Size = 1024;
+    /// <summary>The side of one tile bitmap in pixels.</summary>
     public const int TileSize = 256;
+    /// <summary>The number of tiles along one side.</summary>
     public const int TilesPerSide = 4;
+    /// <summary>The pixels of one terrain cell in the atlas.</summary>
     public const int CellPixels = TerrainRenderer.AtlasCell;
 
-    // The 8 bit picture, rows top to bottom, `Size` x `Size` palette indices.
+    /// <summary>Renders the 8 bit picture of the terrain from above.</summary>
+    /// <param name="data">The terrain.</param>
+    /// <param name="originX">The x of the terrain origin.</param>
+    /// <param name="originY">The y of the terrain origin.</param>
+    /// <param name="areaX">The x of the lower left corner of the mission area.</param>
+    /// <param name="areaY">The y of the lower left corner of the mission area.</param>
+    /// <param name="areaW">The width of the area.</param>
+    /// <param name="areaH">The height of the area.</param>
+    /// <param name="materialRgba">Returns the RGBA pixels of a material, or null.</param>
+    /// <param name="materialSize">Returns the width and height of a material bitmap.</param>
+    /// <param name="nearest">Returns the palette index nearest to a red, green and blue value.</param>
+    /// <returns>The picture, rows top to bottom, <see cref="Size"/> x <see cref="Size"/> palette indices.</returns>
     public static byte[] Render(TerrainData data, double originX, double originY, double areaX, double areaY, double areaW, double areaH,
                                 Func<int, byte[]?> materialRgba, Func<int, (int w, int h)> materialSize, Func<int, int, int, int> nearest)
     {
@@ -122,7 +128,9 @@ public static class CommandMapBake
         return s;
     }
 
-    // Cuts the picture into the 4 x 4 bitmaps of 256 x 256 the control keeps (row major, [row * 4 + column]).
+    /// <summary>Cuts the picture into the 4 x 4 bitmaps of 256 x 256 the control keeps.</summary>
+    /// <param name="picture">The picture from <see cref="Render"/>.</param>
+    /// <returns>The tiles, row major: index row * 4 + column.</returns>
     public static PbmpBitmap[] Tiles(byte[] picture)
     {
         var tiles = new PbmpBitmap[TilesPerSide * TilesPerSide];

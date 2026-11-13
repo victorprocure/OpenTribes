@@ -1,34 +1,60 @@
-// The Video options lists [code 004d9228 devices, 004d946c modes]: the driver combos get one entry per display device, the resolution
-// combo one per mode of the chosen full screen driver; each combo then selects the saved preference or, without one, the device in
-// use. The devices are our own platform's: the software renderer and OpenGL (named with its renderer string); Glide is not
-// reproduced (D31). The stock client lists the devices Windows reports, so the OpenGL entry shows another renderer text there.
 using System.Globalization;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gl;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The Video options lists: the driver combos get one entry per display device, the resolution combo one per mode of the chosen full screen driver. Each combo then selects the saved preference or, without one, the device in use.</summary>
+/// <remarks>Follows 004d9228 (devices) and 004d946c (modes). The devices are our own platform's: the software renderer and OpenGL (named with its renderer string). Glide is not reproduced (D31). The stock client lists the devices Windows reports, so the OpenGL entry shows another renderer text there.</remarks>
 public static class VideoOptions
 {
-    public const int WindowedCombo = 140400, FullscreenCombo = 140401, ResolutionCombo = 140402,
-        WindowedRadio = 140405, FullscreenRadio = 140406, FullscreenWindowedCheck = 140410;
+    /// <summary>The control id of the windowed driver combo.</summary>
+    public const int WindowedCombo = 140400;
+    /// <summary>The control id of the full screen driver combo.</summary>
+    public const int FullscreenCombo = 140401;
+    /// <summary>The control id of the resolution combo.</summary>
+    public const int ResolutionCombo = 140402;
+    /// <summary>The control id of the windowed radio button.</summary>
+    public const int WindowedRadio = 140405;
+    /// <summary>The control id of the full screen radio button.</summary>
+    public const int FullscreenRadio = 140406;
+    /// <summary>The control id of the fullscreen windowed check box.</summary>
+    public const int FullscreenWindowedCheck = 140410;
 
+    /// <summary>A display device.</summary>
+    /// <param name="Name">The device name.</param>
+    /// <param name="Info">The info string, or null.</param>
+    /// <param name="Id">The device id.</param>
+    /// <param name="Windowed">True when the device can run windowed.</param>
+    /// <param name="Fullscreen">True when the device can run full screen.</param>
     public sealed record Device(string Name, string? Info, int Id, bool Windowed, bool Fullscreen)
     {
-        // 004d9228: the name, and " [info]" when the device has an info string.
+        /// <summary>The list text: the name, and " [info]" when the device has an info string (004d9228).</summary>
         public string Text => Info is { Length: > 0 } ? $"{Name} [{Info}]" : Name;
     }
 
+    /// <summary>Lists the devices of the platform.</summary>
+    /// <param name="renderer">The renderer string of OpenGL, or null.</param>
+    /// <returns>The devices.</returns>
     public static List<Device> Devices(string? renderer) => new()
     {
         new Device("Software", null, 0, true, true),
         new Device("OpenGL", renderer, 1, true, true),
     };
 
-    // 004d946c: "WxH" per mode, the id is the mode index.
+    /// <summary>Lists the mode names as "WxH" (004d946c). The id of an entry is the mode index.</summary>
+    /// <param name="modes">The modes.</param>
+    /// <returns>The names.</returns>
     public static List<string> ModeNames(IEnumerable<(int W, int H)> modes) =>
         modes.Select(m => $"{m.W}x{m.H}").ToList();
 
+    /// <summary>Fills the combos of the Video page.</summary>
+    /// <param name="root">The root of the options screen.</param>
+    /// <param name="host">The GUI host.</param>
+    /// <param name="renderer">The renderer string of OpenGL, or null.</param>
+    /// <param name="modes">The display modes.</param>
+    /// <param name="windowedDefault">The device used windowed.</param>
+    /// <param name="fullscreenDefault">The device used full screen.</param>
     public static void Fill(GuiControl root, GuiHost host, string? renderer, IReadOnlyList<(int W, int H)> modes, string windowedDefault, string fullscreenDefault)
     {
         if (root.FindById(WindowedCombo) is not GuiCombo win || root.FindById(FullscreenCombo) is not GuiCombo fs || root.FindById(ResolutionCombo) is not GuiCombo res)
@@ -55,10 +81,11 @@ public static class VideoOptions
         res.SetSelectedIndex(r < 0 ? 0 : r);
     }
 
-    // Our own controls on the stock Video page (Options.gui; the stock files stay as they are): "Fullscreen windowed" picks the
-    // borderless desktop full screen over the display mode change. It is the stock check box button (FGUniversalButton, BTN_CheckBox
-    // bitmaps, a switch mirroring the pref as TRUE or FALSE) with a label in the stock label font, on its own row under the Gamma
-    // slider. It is active only while the full screen radio (140406) is on.
+    /// <summary>Adds the "Fullscreen windowed" check box to the Video page (Options.gui; the stock files stay as they are).</summary>
+    /// <param name="root">The root of the options screen.</param>
+    /// <param name="host">The GUI host.</param>
+    /// <param name="pref">The preference variable that the check box mirrors.</param>
+    /// <remarks>The box picks the borderless desktop full screen over the display mode change. It is the stock check box button (FGUniversalButton, BTN_CheckBox bitmaps, a switch mirroring the pref as TRUE or FALSE) with a label in the stock label font, on its own row under the Gamma slider. It is active only while the full screen radio (140406) is on.</remarks>
     public static void AddFullscreenWindowed(GuiControl root, GuiHost host, string pref)
     {
         if (root.FindById(FullscreenWindowedCheck) != null || root.FindById(FullscreenRadio) is not GuiUniversalButton radio || radio.Parent is not GuiControl parent)
@@ -79,7 +106,8 @@ public static class VideoOptions
         SyncFullscreenWindowed(root);
     }
 
-    // Active follows the full screen radio.
+    /// <summary>Makes the check box active only while the full screen radio is on.</summary>
+    /// <param name="root">The root of the options screen.</param>
     public static void SyncFullscreenWindowed(GuiControl root)
     {
         if (root.FindById(FullscreenWindowedCheck) is GuiUniversalButton box && root.FindById(FullscreenRadio) is GuiUniversalButton fs && box.Active != fs.On)
@@ -96,14 +124,18 @@ public static class VideoOptions
     }
 }
 
-// The label of "Fullscreen windowed": the stock label look (FGSimpleText, orange with a black shadow) and the dimmed grey look
-// when its check box is inactive [FGSimpleText::draw 004c9c70 fonts].
+/// <summary>The label of "Fullscreen windowed": the stock label look (FGSimpleText, orange with a black shadow) and the dimmed grey look when its check box is inactive.</summary>
+/// <remarks>Follows the FGSimpleText::draw fonts (004c9c70).</remarks>
 public sealed class FullscreenWindowedLabel : GuiSimpleText
 {
+    /// <summary>The check box this label belongs to.</summary>
     public GuiUniversalButton? Box;
+    /// <inheritdoc/>
     public override bool WantsTab => false;
+    /// <inheritdoc/>
     public override bool CanTake() => false;
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         if (Host == null || Canvas == null)

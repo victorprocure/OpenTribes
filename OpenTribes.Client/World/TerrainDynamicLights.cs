@@ -2,15 +2,12 @@ using OpenTribes.Client.Shapes;
 
 namespace OpenTribes.Client.World;
 
-// world-render.md 2.9: the dynamic light of terrain squares. A square touched by a light gets a private 9 x 9 light map of its own
-// (nodes at one eighth of the square side) that starts as the static light map and takes every light's contribution per node, the
-// way the stock terrain renderer does [code 005775bc (light mask), 00577270 (static nodes), 00576eac and its helpers 00576a34,
-// 00576ab0, 00576b88, 00576c84, 00576d94 (light per node), 00577514 (nibbles)]. The terrain does not use the interior formula:
-// a node adds trunc(L * (1 - d^2 / range^2) * 255) to its 8 bit channel (L the colour channel as it is, 0 to 1), and the nibble is
-// the channel >> 4, 15 from 256 up.
+/// <summary>The dynamic light of terrain squares.</summary>
+/// <remarks>world-render.md 2.9. A square touched by a light gets a private 9 x 9 light map of its own (nodes at one eighth of the square side) that starts as the static light map and takes every light's contribution per node, the way the stock terrain renderer does (005775bc light mask, 00577270 static nodes, 00576eac and its helpers 00576a34, 00576ab0, 00576b88, 00576c84, 00576d94 light per node, 00577514 nibbles). The terrain does not use the interior formula: a node adds trunc(L * (1 - d^2 / range^2) * 255) to its 8 bit channel (L the colour channel as it is, 0 to 1), and the nibble is the channel >> 4, 15 from 256 up.</remarks>
 public sealed class TerrainLightSet
 {
-    public const int MaxLights = 31; // the light count of a frame is capped at 31 [code 0057956c]
+    /// <summary>The most lights of a frame, 31 (0057956c).</summary>
+    public const int MaxLights = 31;
 
     private readonly struct Entry
     {
@@ -28,8 +25,14 @@ public sealed class TerrainLightSet
     }
 
     private readonly Entry[] mLights;
+    /// <summary>The number of lights in the set.</summary>
     public int Count => mLights.Length;
 
+    /// <summary>Creates the set with the light positions moved to the terrain origin.</summary>
+    /// <param name="lights">The lights of the frame.</param>
+    /// <param name="ox">The x of the terrain origin.</param>
+    /// <param name="oy">The y of the terrain origin.</param>
+    /// <param name="oz">The z of the terrain origin.</param>
     public TerrainLightSet(IReadOnlyList<PointLight> lights, double ox, double oy, double oz)
     {
         int n = Math.Min(lights.Count, MaxLights);
@@ -38,8 +41,13 @@ public sealed class TerrainLightSet
             mLights[i] = new Entry(lights[i], ox, oy, oz);
     }
 
-    // 005775bc: bit i is set when light i's sphere reaches the box of the square (its corners in x and y, its lowest and highest
-    // height in z); strictly inside the radius.
+    /// <summary>Finds the lights that reach a square.</summary>
+    /// <param name="t">The terrain.</param>
+    /// <param name="level">The level of the square.</param>
+    /// <param name="x">The square x.</param>
+    /// <param name="y">The square y.</param>
+    /// <returns>A mask where bit i is set when the sphere of light i reaches the square.</returns>
+    /// <remarks>Follows 005775bc. The sphere is tested against the box of the square (its corners in x and y, its lowest and highest height in z), strictly inside the radius.</remarks>
     public uint Mask(TerrainData t, int level, int x, int y)
     {
         const float cs = (float)TerrainData.CellSize;
@@ -58,7 +66,14 @@ public sealed class TerrainLightSet
         return mask;
     }
 
-    // 00577270 then 00576eac per light of the mask, 00577514: the 9 x 9 nibbles (R, G, B per node, row major) of the square.
+    /// <summary>Computes the 9 x 9 light nibbles of a square.</summary>
+    /// <param name="t">The terrain.</param>
+    /// <param name="level">The level of the square.</param>
+    /// <param name="x">The square x.</param>
+    /// <param name="y">The square y.</param>
+    /// <param name="mask">The light mask of the square.</param>
+    /// <param name="nibbles">The output: R, G, B per node, row major.</param>
+    /// <remarks>Follows 00577270, then 00576eac per light of the mask, then 00577514.</remarks>
     public void Nodes(TerrainData t, int level, int x, int y, uint mask, byte[] nibbles)
     {
         var e = new int[81 * 3];

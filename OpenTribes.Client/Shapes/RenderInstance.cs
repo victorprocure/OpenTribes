@@ -1,41 +1,62 @@
-// Render-side shape instance (docs/shapes-render.md 3): threads, sequence stepping, node transforms by interpolated keys,
-// object frames, visibility and texture frames, the image-list remap (1.5), frame triggers (3.7) and run-time
-// transitions (3.3). Computes in double; the server's ShapeInstance (Fpu truncating math) is not used.
 namespace OpenTribes.Client.Shapes;
 
+/// <summary>A playing sequence of a shape instance.</summary>
 public sealed class RenderThread
 {
+    /// <summary>The sequence index, -1 for none.</summary>
     public int Sequence = -1;
+    /// <summary>The position in the sequence, 0 to 1.</summary>
     public double Position;
+    /// <summary>The playback speed factor. A negative value plays backwards.</summary>
     public double TimeScale = 1;
+    /// <summary>The priority of the thread.</summary>
     public int Priority;
+    /// <summary>The position before the last advance.</summary>
     public double LastPosition;
 
+    /// <summary>Tells whether a one shot sequence reached its end.</summary>
+    /// <param name="s">The shape that owns the sequence.</param>
+    /// <returns>True when the sequence is not cyclic and the position is at the end in the direction of play.</returns>
     public bool AtEnd(RenderShape s) => Sequence >= 0 && Sequence < s.Sequences.Length && !s.Sequences[Sequence].Cyclic &&
         (TimeScale >= 0 ? Position >= 1.0 : Position <= 0.0);
 }
 
+/// <summary>The state of one object of the shape.</summary>
 public struct RsObjectState
 {
-    public int Frame, TextureFrame;
+    /// <summary>The frame index.</summary>
+    public int Frame;
+    /// <summary>The texture frame index.</summary>
+    public int TextureFrame;
+    /// <summary>True when the object draws.</summary>
     public bool Visible;
 }
 
+/// <summary>The render side instance of a shape: threads, sequence stepping, node transforms by interpolated keys, object frames, visibility and texture frames, the image list remap (1.5), frame triggers (3.7) and run time transitions (3.3).</summary>
+/// <remarks>docs/shapes-render.md 3. It computes in double. The <c>ShapeInstance</c> of the server (Fpu truncating math) is not used.</remarks>
 public sealed class RenderInstance
 {
+    /// <summary>The shape.</summary>
     public readonly RenderShape Shape;
+    /// <summary>The playing threads.</summary>
     public readonly List<RenderThread> Threads = new();
+    /// <summary>The image list remap of the materials (1.5).</summary>
     public readonly int[] Remap;
-    public readonly Xf[] NodeWorld;                // node -> shape space
+    /// <summary>The transform of each node to shape space.</summary>
+    public readonly Xf[] NodeWorld;
+    /// <summary>The state of each object.</summary>
     public readonly RsObjectState[] Objects;
-    public readonly double[][] LocalQ, LocalT;     // node local rotation (x, y, z, w) and translation as animated
+    /// <summary>The local rotation of each node as x, y, z, w, as animated.</summary>
+    public readonly double[][] LocalQ;
+    /// <summary>The local translation of each node, as animated.</summary>
+    public readonly double[][] LocalT;
+    /// <summary>True for each node that is visible.</summary>
     public bool[] NodeVisible;
+    /// <summary>The detail the nodes were last animated for, -2 for none.</summary>
     public int DetailAnimated = -2;
 
-    // Player view mode (player-sim.md 5.2, byte +0x9e of the instance): 0 none, 1 chase or third person, 2 first person. With a mode set
-    // a `lowerback` node that a thread animates does not hang on its parent: its parent frame is the fixed upright frame (yaw pi / 2)
-    // at the parent's position (mode 1) or at (0, 0, height of `dummyalways root`) (mode 2), so the whole upper body, the eye and
-    // the hand follow the looks thread alone and never the leg cycle.
+    /// <summary>The player view mode (player-sim.md 5.2, byte +0x9e of the instance): 0 none, 1 chase or third person, 2 first person.</summary>
+    /// <remarks>With a mode set, a <c>lowerback</c> node that a thread animates does not hang on its parent. Its parent frame is the fixed upright frame (yaw pi / 2) at the position of the parent (mode 1) or at (0, 0, height of <c>dummyalways root</c>) (mode 2), so the whole upper body, the eye and the hand follow the looks thread alone and never the leg cycle.</remarks>
     public int ViewMode;
     private readonly bool[] mLowerBack;
     private readonly int mRootNode;
@@ -44,6 +65,8 @@ public sealed class RenderInstance
     private double[][]? mFromQ, mFromT;
     private double mBlendLeft, mBlendDuration;
 
+    /// <summary>Creates an instance of a shape with no threads.</summary>
+    /// <param name="shape">The shape.</param>
     public RenderInstance(RenderShape shape)
     {
         Shape = shape;
@@ -75,6 +98,11 @@ public sealed class RenderInstance
         Animate(0);
     }
 
+    /// <summary>Adds a thread.</summary>
+    /// <param name="sequence">The sequence index.</param>
+    /// <param name="position">The start position, 0 to 1.</param>
+    /// <param name="priority">The priority.</param>
+    /// <returns>The thread.</returns>
     public RenderThread AddThread(int sequence, double position = 0, int priority = 0)
     {
         var t = new RenderThread { Sequence = sequence, Position = position, Priority = priority, LastPosition = position };
@@ -82,13 +110,21 @@ public sealed class RenderInstance
         return t;
     }
 
+    /// <summary>Adds a thread by sequence name.</summary>
+    /// <param name="sequence">The sequence name.</param>
+    /// <param name="position">The start position, 0 to 1.</param>
+    /// <param name="priority">The priority.</param>
+    /// <returns>The thread, or null when the shape has no such sequence.</returns>
     public RenderThread? AddThread(string sequence, double position = 0, int priority = 0)
     {
         int s = Shape.FindSequence(sequence);
         return s < 0 ? null : AddThread(s, position, priority);
     }
 
-    // shapes-render.md 3.1: position += dt * timeScale / duration; a cyclic sequence wraps, a one-shot clamps to 0..1.
+    /// <summary>Advances one thread: position += dt * timeScale / duration (shapes-render.md 3.1). A cyclic sequence wraps and a one shot clamps to 0..1.</summary>
+    /// <param name="t">The thread.</param>
+    /// <param name="dt">The time step in seconds.</param>
+    /// <param name="triggers">Receives the triggers the thread passed, or null.</param>
     public void Advance(RenderThread t, double dt, List<uint>? triggers = null)
     {
         if (t.Sequence < 0 || t.Sequence >= Shape.Sequences.Length)
@@ -133,6 +169,9 @@ public sealed class RenderInstance
         }
     }
 
+    /// <summary>Advances every thread and the transition blend.</summary>
+    /// <param name="dt">The time step in seconds.</param>
+    /// <param name="triggers">Receives the triggers the threads passed, or null.</param>
     public void Advance(double dt, List<uint>? triggers = null)
     {
         foreach (RenderThread t in Threads)
@@ -145,7 +184,11 @@ public sealed class RenderInstance
         }
     }
 
-    // 3.3: switch a thread to another sequence and blend the node poses over `duration` seconds.
+    /// <summary>Switches a thread to another sequence and blends the node poses over a duration (3.3).</summary>
+    /// <param name="t">The thread.</param>
+    /// <param name="sequence">The new sequence index.</param>
+    /// <param name="position">The start position.</param>
+    /// <param name="duration">The blend time in seconds.</param>
     public void StartTransition(RenderThread t, int sequence, double position, double duration)
     {
         Animate(Math.Max(DetailAnimated, 0));
@@ -157,6 +200,7 @@ public sealed class RenderInstance
         t.LastPosition = position;
     }
 
+    /// <summary>True while a transition blend runs.</summary>
     public bool Blending => mBlendLeft > 0;
 
     private int SubFor(int first, int count, int sequence)
@@ -169,7 +213,10 @@ public sealed class RenderInstance
         return -1;
     }
 
-    // Last key whose position is at most p; before the first key a cyclic sequence takes the last key, a one-shot the first.
+    /// <summary>Finds the last key whose position is at most p. Before the first key a cyclic sequence takes the last key and a one shot the first.</summary>
+    /// <param name="sub">The sub sequence.</param>
+    /// <param name="p">The position.</param>
+    /// <returns>The key index.</returns>
     public int CurrentKey(in RsSubSequence sub, double p)
     {
         if (sub.NumKeys <= 0 || sub.FirstKey < 0 || sub.FirstKey + sub.NumKeys > Shape.Keys.Length)
@@ -189,7 +236,13 @@ public sealed class RenderInstance
         return last;
     }
 
-    // The pair of keys around p and the blend fraction (node transforms interpolate, 3.1).
+    /// <summary>Finds the pair of keys around p and the blend fraction. Node transforms interpolate (3.1).</summary>
+    /// <param name="sub">The sub sequence.</param>
+    /// <param name="p">The position.</param>
+    /// <param name="lo">The key before p.</param>
+    /// <param name="hi">The key after p.</param>
+    /// <param name="frac">The blend fraction from <paramref name="lo"/> to <paramref name="hi"/>.</param>
+    /// <returns>True when keys were found.</returns>
     public bool FindKeys(in RsSubSequence sub, double p, out int lo, out int hi, out double frac)
     {
         lo = hi = 0;
@@ -280,7 +333,8 @@ public sealed class RenderInstance
         return l;
     }
 
-    // Recomputes node transforms, object states and the image-list remap for the subtree of `detail` and the always node.
+    /// <summary>Recomputes node transforms, object states and the image list remap for the subtree of a detail and the always node.</summary>
+    /// <param name="detail">The detail index.</param>
     public void Animate(int detail)
     {
         DetailAnimated = detail;
@@ -410,6 +464,9 @@ public sealed class RenderInstance
         }
     }
 
+    /// <summary>Gets the transform of an object to shape space: its own offset, then its node.</summary>
+    /// <param name="objectIndex">The object index.</param>
+    /// <returns>The transform.</returns>
     public Xf ObjectTransform(int objectIndex)
     {
         RsObject ob = Shape.Objects[objectIndex];

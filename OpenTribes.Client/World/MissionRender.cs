@@ -4,12 +4,26 @@ using OpenTribes.Platform.Gl;
 
 namespace OpenTribes.Client.World;
 
-// `tribes --mission`: loads a mission locally and renders one frame per camera to an image file.
+/// <summary>The local mission renderer: loads a mission and renders one frame per camera to an image file.</summary>
+/// <remarks>Started with <c>tribes --mission</c>.</remarks>
 public static class MissionRender
 {
+    /// <summary>A named camera.</summary>
+    /// <param name="Name">The camera name, used in the output file name.</param>
+    /// <param name="X">The x position.</param>
+    /// <param name="Y">The y position.</param>
+    /// <param name="Z">The z position.</param>
+    /// <param name="Yaw">The yaw angle.</param>
+    /// <param name="Pitch">The pitch angle.</param>
+    /// <param name="Fov">The field of view.</param>
     public readonly record struct CameraSpec(string Name, double X, double Y, double Z, double Yaw, double Pitch, double Fov);
 
-    // "X,Y,Z,YAW,PITCH[,FOV]"
+    /// <summary>Parses a camera of the form <c>X,Y,Z,YAW,PITCH[,FOV]</c>.</summary>
+    /// <param name="text">The text to parse.</param>
+    /// <param name="name">The camera name.</param>
+    /// <param name="defaultFov">The field of view when the text has none.</param>
+    /// <param name="cam">The camera on success.</param>
+    /// <returns>True when the text parsed.</returns>
     public static bool TryParseCamera(string text, string name, double defaultFov, out CameraSpec cam)
     {
         cam = default;
@@ -25,7 +39,11 @@ public static class MissionRender
         return true;
     }
 
-    // One camera per line: NAME X,Y,Z,YAW,PITCH[,FOV]; blank lines and lines starting with # or // are skipped.
+    /// <summary>Parses a camera file with one camera per line: <c>NAME X,Y,Z,YAW,PITCH[,FOV]</c>. Blank lines and lines starting with <c>#</c> or <c>//</c> are skipped.</summary>
+    /// <param name="text">The file text.</param>
+    /// <param name="defaultFov">The field of view for lines without one.</param>
+    /// <param name="error">The error text, or empty when the file parsed.</param>
+    /// <returns>The cameras.</returns>
     public static List<CameraSpec> ParseCameraFile(string text, double defaultFov, out string error)
     {
         error = "";
@@ -48,6 +66,17 @@ public static class MissionRender
         return list;
     }
 
+    /// <summary>Loads a mission and renders it from each camera to PNG files.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="mission">The mission file name.</param>
+    /// <param name="camera">One camera as <c>X,Y,Z,YAW,PITCH[,FOV]</c>, or null.</param>
+    /// <param name="camerasFile">A camera file, or null.</param>
+    /// <param name="fov">The default field of view.</param>
+    /// <param name="output">The output file, or a directory when several cameras render.</param>
+    /// <param name="width">The image width in pixels.</param>
+    /// <param name="height">The image height in pixels.</param>
+    /// <param name="videoDriver">The video driver name, or null for the default.</param>
+    /// <returns>The process exit code.</returns>
     public static int Run(string root, string mission, string? camera, string? camerasFile, double fov, string? output, int width,
                           int height, string? videoDriver)
     {
@@ -134,7 +163,11 @@ public static class MissionRender
         return c ^ 0xffffffffu;
     }
 
-    // Writes an 8-bit RGB PNG (filter 0, zlib) from RGBA rows, top row first.
+    /// <summary>Writes an 8 bit RGB PNG (filter 0, zlib) from RGBA rows, top row first.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="rgba">The RGBA pixels.</param>
+    /// <param name="w">The width in pixels.</param>
+    /// <param name="h">The height in pixels.</param>
     public static void WritePng(string path, byte[] rgba, int w, int h)
     {
         using var raw = new MemoryStream();

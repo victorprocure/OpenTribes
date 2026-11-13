@@ -1,37 +1,67 @@
-// Snowfall / rain (docs/shapes-render.md 4.8). Count, speed, box and streak shape follow the exe (FUN_004411c8, FUN_004412a4,
-// FUN_00442338, Snowfall_onAdd): the particles live in a cube of side 2 * 200 around the camera (radius 200 sphere),
-// rain falls at 2 * 75 units per second plus twice the wind, snow at 35. A rain streak is a kite: the tip at the particle, the widest
-// point (0.15 across) 2 units along the fall direction and the end 2.25 units along it. The particles are not simulated one by
-// one: each one has a fixed pseudo random start and wraps in the cube, so the picture depends on the time only.
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.Effects;
 
+/// <summary>Snowfall and rain.</summary>
+/// <remarks>docs/shapes-render.md 4.8. Count, speed, box and streak shape follow the exe (FUN_004411c8, FUN_004412a4, FUN_00442338, Snowfall_onAdd): the particles live in a cube of side 2 * 200 around the camera (radius 200 sphere), rain falls at 2 * 75 units per second plus twice the wind, snow at 35. A rain streak is a kite: the tip at the particle, the widest point (0.15 across) 2 units along the fall direction and the end 2.25 units along it. The particles are not simulated one by one: each one has a fixed pseudo random start and wraps in the cube, so the picture depends on the time only.</remarks>
 public sealed class WeatherEffect
 {
-    public double Intensity = 0.5, WindX, WindY;
-    public bool Rain, Suspended;
-    public const int MaxRain = 2048, MaxSnow = 1024; // 004419b8
-    public const double Radius = 200;                 // +0x2000c: spawn cube half side and recycle radius
-    public const double RainFall = 150, SnowFall = 35; // rain: wind z -75 applied twice; snow: wind z -35
-    public const double MinDepth = 2;                 // +0x20014: nothing closer than this along the view axis draws
-    // The streak is a flat fill: the colour bytes (255, 255, 255; Snowfall_init 00441120) scaled by 2/3 (constant 00442978) and snapped to
-    // the surface palette, so grey 170 before the snap; on the OpenGL path it blends with the constant alpha 0.55 (0x3f0ccccd, 004424de).
-    public const float RainShade = 170f / 255f, RainAlpha = 0.55f;
-    public const double StreakEnd = 2.25, StreakWide = 2.0, StreakHalfWidth = 0.075;
+    /// <summary>The precipitation intensity, 0 to 1.</summary>
+    public double Intensity = 0.5;
+    /// <summary>The wind x.</summary>
+    public double WindX;
+    /// <summary>The wind y.</summary>
+    public double WindY;
+    /// <summary>True for rain, false for snow.</summary>
+    public bool Rain;
+    /// <summary>True while the ghost suspends its rendering.</summary>
+    public bool Suspended;
+    /// <summary>The most rain particles (004419b8).</summary>
+    public const int MaxRain = 2048;
+    /// <summary>The most snow particles (004419b8).</summary>
+    public const int MaxSnow = 1024;
+    /// <summary>The half side of the spawn cube and the recycle radius (+0x2000c).</summary>
+    public const double Radius = 200;
+    /// <summary>The rain fall speed: wind z -75 applied twice.</summary>
+    public const double RainFall = 150;
+    /// <summary>The snow fall speed: wind z -35.</summary>
+    public const double SnowFall = 35;
+    /// <summary>The depth along the view axis under which nothing draws (+0x20014).</summary>
+    public const double MinDepth = 2;
+    /// <summary>The grey of a rain streak. A flat fill: the colour bytes (255, 255, 255; Snowfall_init 00441120) scaled by 2/3 (constant 00442978) and snapped to the surface palette, so grey 170 before the snap.</summary>
+    public const float RainShade = 170f / 255f;
+    /// <summary>The constant alpha of a rain streak on the OpenGL path (0x3f0ccccd, 004424de).</summary>
+    public const float RainAlpha = 0.55f;
+    /// <summary>The distance along the fall direction to the end of a streak.</summary>
+    public const double StreakEnd = 2.25;
+    /// <summary>The distance along the fall direction to the widest point of a streak.</summary>
+    public const double StreakWide = 2.0;
+    /// <summary>The half width of a streak at its widest point.</summary>
+    public const double StreakHalfWidth = 0.075;
 
-    // Particles for an intensity 0..1 (count scales linearly with the kind's maximum).
-    // Rain and snow draw only while `$pref::weatherPrecipitation` is on [code 004420a4] and the ghost does not suspend its rendering
-    // [code 00441c50]; the same switch holds the loop sound back (the sound starts inside the same block).
+    /// <summary>Tells whether precipitation draws.</summary>
+    /// <param name="preference">The <c>$pref::weatherPrecipitation</c> switch.</param>
+    /// <param name="suspended">True when the ghost suspends its rendering.</param>
+    /// <param name="intensity">The intensity.</param>
+    /// <returns>True when the particles draw.</returns>
+    /// <remarks>Follows 004420a4 (the preference) and 00441c50 (the suspend flag). The same switch holds the loop sound back, because the sound starts inside the same block.</remarks>
     public static bool Draws(bool preference, bool suspended, double intensity) => preference && !suspended && intensity > 0;
 
+    /// <summary>Gives the particle count for an intensity: it scales linearly with the maximum of the kind.</summary>
+    /// <param name="intensity">The intensity, 0 to 1.</param>
+    /// <param name="rain">True for rain, false for snow.</param>
+    /// <returns>The particle count.</returns>
     public static int Count(double intensity, bool rain) => (int)Math.Clamp(intensity * (rain ? MaxRain : MaxSnow), 0, rain ? MaxRain : MaxSnow);
 
-    // The four points of one rain streak (tip, left, end, right): d = normalize(wind.x, wind.y, -1), the left and right points
-    // 2 units along d from the tip and 0.075 to each side along `side`, the end 2.25 units along d [code 00442338]. The side
-    // vector is the cross product of the camera's forward axis (matrix row 1, saved at 00684250 by 00442188) and d, not normalised.
+    /// <summary>Builds the four points of one rain streak.</summary>
+    /// <param name="p">The particle position.</param>
+    /// <param name="windX">The wind x.</param>
+    /// <param name="windY">The wind y.</param>
+    /// <param name="forward">The forward axis of the camera.</param>
+    /// <returns>The tip, left, end and right points.</returns>
+    /// <remarks>Follows 00442338. d = normalize(wind.x, wind.y, -1). The left and right points are 2 units along d from the tip and 0.075 to each side along the side vector. The end is 2.25 units along d. The side vector is the cross product of the camera forward axis (matrix row 1, saved at 00684250 by 00442188) and d, not normalised.</remarks>
     public static ((double x, double y, double z) tip, (double x, double y, double z) left, (double x, double y, double z) end,
                    (double x, double y, double z) right) Streak((double x, double y, double z) p, double windX, double windY, (double x, double y, double z) forward)
     {
@@ -42,6 +72,9 @@ public sealed class WeatherEffect
         return (p, At(StreakWide, -StreakHalfWidth), At(StreakEnd, 0), At(StreakWide, StreakHalfWidth));
     }
 
+    /// <summary>Adds the render image of the particles to the frame.</summary>
+    /// <param name="ctx">The frame context.</param>
+    /// <param name="time">The time in seconds.</param>
     public void Build(FrameContext ctx, double time)
     {
         if (!Draws(true, Suspended, Intensity))

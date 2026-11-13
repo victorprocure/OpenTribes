@@ -1,35 +1,57 @@
-// The render context lists (docs/shapes-render.md 2.7): category 3 first list sorted ascending, category 0 opaque in query
-// order, category 1 translucent sorted ascending by key (far to near), category 2 foreground after the scene.
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.Shapes;
 
+/// <summary>One batch of triangles that draws with one state.</summary>
 public sealed class DrawBatch
 {
+    /// <summary>The vertices.</summary>
     public Vertex3D[] Vertices = Array.Empty<Vertex3D>();
+    /// <summary>The draw state.</summary>
     public DrawState3D State;
 }
 
+/// <summary>The drawing of one object: batches in a category with a sort key.</summary>
 public sealed class RenderImage
 {
-    public int Category;           // 0 opaque, 1 translucent, 2 foreground, 3 first
+    /// <summary>The category: 0 opaque, 1 translucent, 2 foreground, 3 first.</summary>
+    public int Category;
+    /// <summary>The sort key inside the category.</summary>
     public double SortKey;
+    /// <summary>The batches to draw.</summary>
     public readonly List<DrawBatch> Batches = new();
+    /// <summary>The label, for traces.</summary>
     public string Label = "";
-    public int Container = -1;     // the interior (instance index) whose database holds the object, -1 none
+    /// <summary>The interior (instance index) whose database holds the object, -1 for none.</summary>
+    public int Container = -1;
     internal bool Drawn;
 }
 
+/// <summary>The render context lists: category 3 first list sorted ascending, category 0 opaque in query order, category 1 translucent sorted ascending by key (far to near), category 2 foreground after the scene.</summary>
+/// <remarks>docs/shapes-render.md 2.7.</remarks>
 public sealed class RenderLists
 {
-    public readonly List<RenderImage> First = new(), Opaque = new(), Translucent = new(), Foreground = new();
-    // Set by the builder while it adds the images of one object (SceneModel.Build).
+    /// <summary>The first list (category 3).</summary>
+    public readonly List<RenderImage> First = new();
+    /// <summary>The opaque list (category 0).</summary>
+    public readonly List<RenderImage> Opaque = new();
+    /// <summary>The translucent list (category 1).</summary>
+    public readonly List<RenderImage> Translucent = new();
+    /// <summary>The foreground list (category 2).</summary>
+    public readonly List<RenderImage> Foreground = new();
+    /// <summary>The interior container of the images added now. The builder sets it while it adds the images of one object (<c>SceneModel.Build</c>).</summary>
     public int CurrentContainer = -1;
+    /// <summary>The number of images in all lists.</summary>
     public int ImageCount => First.Count + Opaque.Count + Translucent.Count + Foreground.Count;
 
-    // 2.2 step 4: key = n / depth when depth > n, else 0.99, n the near distance; larger keys are nearer.
+    /// <summary>Computes the sort key of a translucent image (2.2 step 4): n / depth when depth is greater than n, else 0.99, where n is the near distance. Larger keys are nearer.</summary>
+    /// <param name="depth">The depth of the image.</param>
+    /// <param name="near">The near distance.</param>
+    /// <returns>The key.</returns>
     public static double SortKey(double depth, double near) => depth > near ? near / depth : 0.99;
 
+    /// <summary>Adds an image to the list of its category. Images without batches are dropped.</summary>
+    /// <param name="img">The image.</param>
     public void Add(RenderImage img)
     {
         if (img.Batches.Count == 0)
@@ -44,7 +66,8 @@ public sealed class RenderLists
         }
     }
 
-    // The images in drawing order: first (ascending), opaque (query order), translucent (ascending key), foreground.
+    /// <summary>Lists the images in drawing order: first (ascending), opaque (query order), translucent (ascending key), foreground.</summary>
+    /// <returns>The images.</returns>
     public IEnumerable<RenderImage> Ordered()
     {
         foreach (RenderImage i in First.OrderBy(x => x.SortKey))
@@ -57,8 +80,11 @@ public sealed class RenderLists
             yield return i;
     }
 
-    // The opaque images of the objects in the database of interior `container`: the stock scope draws the contents of a
-    // container interior before the interior itself (InteriorShape_findObjects 00480648 vtable +0x98: database, then own image).
+    /// <summary>Draws the opaque images of the objects in the database of an interior.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="container">The interior instance index.</param>
+    /// <returns>The number of batches drawn.</returns>
+    /// <remarks>The stock scope draws the contents of a container interior before the interior itself (InteriorShape_findObjects 00480648, vtable +0x98: database, then own image).</remarks>
     public int DrawContents(IGfxDevice dev, int container)
     {
         int n = 0;
@@ -76,7 +102,9 @@ public sealed class RenderLists
         return n;
     }
 
-    // Everything not yet drawn.
+    /// <summary>Draws every image not yet drawn, in drawing order.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <returns>The number of batches drawn.</returns>
     public int Draw(IGfxDevice dev)
     {
         int n = 0;
@@ -93,6 +121,7 @@ public sealed class RenderLists
         return n;
     }
 
+    /// <summary>Empties all lists and resets the container.</summary>
     public void Clear()
     {
         First.Clear(); Opaque.Clear(); Translucent.Clear(); Foreground.Clear();

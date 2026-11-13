@@ -1,5 +1,3 @@
-// Projectile family visuals (docs/shapes-render.md 4.5, 4.7): shape projectiles with trails and lights, and the beam
-// classes (laser, target laser, lightning, repair).
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
@@ -7,6 +5,8 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.Scene;
 
+/// <summary>The visual of a shape projectile (bullet, grenade, rocket, seeking missile) with trail and light.</summary>
+/// <remarks>docs/shapes-render.md 4.5 and 4.7.</remarks>
 public sealed class ProjectileVisual : Visual
 {
     private int mGroup;
@@ -23,7 +23,9 @@ public sealed class ProjectileVisual : Visual
     private double mTailX, mTailY, mTailZ;
     private double mSpin;
 
+    /// <inheritdoc/>
     public override (double x, double y, double z)? Position => mHavePos ? (PosNow()) : null;
+    /// <summary>True once the projectile exploded.</summary>
     public bool Exploded => mExploded;
 
     private (double, double, double) PosNow()
@@ -33,6 +35,7 @@ public sealed class ProjectileVisual : Visual
         return (mX + mVx * dt, mY + mVy * dt, mZ + mVz * dt + 0.5 * g * dt * dt);
     }
 
+    /// <inheritdoc/>
     public override void Init(SceneModel m, ClientGhost g)
     {
         base.Init(m, g);
@@ -40,6 +43,7 @@ public sealed class ProjectileVisual : Visual
         mT0 = m.Time;
     }
 
+    /// <inheritdoc/>
     public override void OnUpdate(DecodedGhost u, bool isNew)
     {
         bool has(string n) => u.Fields.Any(f => f.Name == n);
@@ -127,11 +131,13 @@ public sealed class ProjectileVisual : Visual
             M.AddBulletHole(x, y, z, n[0], n[1], n[2]);
     }
 
-    // The client update of Bullet (0045c1ec path), RocketDumb and SeekingMissile advances the `ambient` thread (ShapeThread_advanceTime
-    // 005c01b0); Grenade_clientUpdate (0045fb7d..0045ffd0, tribes111 bytes: no call to 005c01b0) never does, so the shell shows
-    // frame 0 of its blink (olite00, a white palette entry) for its whole flight.
+    /// <summary>Tells whether the <c>ambient</c> thread of a projectile class advances.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <returns>False for a grenade, true for the others.</returns>
+    /// <remarks>The client update of Bullet (0045c1ec path), RocketDumb and SeekingMissile advances the thread (ShapeThread_advanceTime 005c01b0). Grenade_clientUpdate (0045fb7d to 0045ffd0, tribes111 bytes: no call to 005c01b0) never does, so the shell shows frame 0 of its blink (olite00, a white palette entry) for its whole flight.</remarks>
     public static bool AdvancesAmbient(string cls) => cls != "Grenade";
 
+    /// <inheritdoc/>
     public override void Tick(double dt)
     {
         if (!mHavePos || mExploded || mInst == null && mBlock == null)
@@ -191,8 +197,13 @@ public sealed class ProjectileVisual : Visual
         return true;
     }
 
+    /// <summary>Computes the smoke puff interval of a grenade.</summary>
+    /// <param name="special">The datablock projSpecialTime (+0x7c).</param>
+    /// <param name="r">The speed loss ratio.</param>
+    /// <returns>The interval in milliseconds, ftol(1000 * special * (1 + 2 r)) (0045ffd0).</returns>
     public static int SmokeInterval(double special, double r) => (int)(special * (1 + 2 * r) * 1000);
 
+    /// <summary>The light the projectile casts, or null when it has none or exploded.</summary>
     public PointLight? Light
     {
         get
@@ -207,13 +218,24 @@ public sealed class ProjectileVisual : Visual
         }
     }
 
-    // Orientation of the projectile image, FUN_0045a5b8 (render query, vtable 0061b558 path 0045a170). Bullet_onAdd (0045bd00, flag +0x4c bit 2 = ghost
-    // branch) and SeekingMissile_onAdd (004663c8, same branch) set the image flag +0x2d4 = 1 and switch the image to camera facing: FUN_0052a2a0
-    // sets the axis to (position - camera) normalised, (0,1,0) when closer than 1e-3, and FUN_0052a3b4 builds the basis from it
-    // with FUN_00529e6c. Every other class keeps the Projectile_ctor default (+0x458 = 1): the axis is the normalised velocity
-    // (+0x194) through the same FUN_00529e6c basis (its world-up fallback for |axis.z| >= 0.95 is RocketBasis).
+    /// <summary>Tells whether the image of a projectile class faces the camera.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <returns>True for Bullet and SeekingMissile.</returns>
+    /// <remarks>Orientation of the projectile image, FUN_0045a5b8 (render query, vtable 0061b558 path 0045a170). Bullet_onAdd (0045bd00, flag +0x4c bit 2 = ghost branch) and SeekingMissile_onAdd (004663c8, same branch) set the image flag +0x2d4 = 1 and switch the image to camera facing: FUN_0052a2a0 sets the axis to (position - camera) normalised, (0,1,0) when closer than 1e-3, and FUN_0052a3b4 builds the basis from it with FUN_00529e6c. Every other class keeps the Projectile_ctor default (+0x458 = 1): the axis is the normalised velocity (+0x194) through the same FUN_00529e6c basis, whose world up fallback for |axis.z| >= 0.95 is RocketBasis.</remarks>
     public static bool FacesCamera(string cls) => cls is "Bullet" or "SeekingMissile";
 
+    /// <summary>Builds the orientation of the projectile image.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <param name="x">The projectile x.</param>
+    /// <param name="y">The projectile y.</param>
+    /// <param name="z">The projectile z.</param>
+    /// <param name="vx">The velocity x.</param>
+    /// <param name="vy">The velocity y.</param>
+    /// <param name="vz">The velocity z.</param>
+    /// <param name="cx">The camera x.</param>
+    /// <param name="cy">The camera y.</param>
+    /// <param name="cz">The camera z.</param>
+    /// <returns>The image basis at the projectile position.</returns>
     public static Xf ImageBasis(string cls, double x, double y, double z, double vx, double vy, double vz, double cx, double cy, double cz)
     {
         double ax, ay, az;
@@ -237,6 +259,7 @@ public sealed class ProjectileVisual : Visual
         return Mathx.RocketBasis(x, y, z, ax, ay, az);
     }
 
+    /// <inheritdoc/>
     public override void Build(FrameContext ctx)
     {
         if (!mHavePos || mExploded)
@@ -315,7 +338,7 @@ public sealed class ProjectileVisual : Visual
     }
 }
 
-// LaserProjectile, TargetLaser, Lightning and RepairEffect (4.7).
+/// <summary>The visual of the beam classes: LaserProjectile, TargetLaser, Lightning and RepairEffect (4.7).</summary>
 public sealed class BeamVisual : Visual
 {
     private ClientDataBlock? mBlock;
@@ -324,6 +347,7 @@ public sealed class BeamVisual : Visual
     private Random mRng = new(1);
     private bool mHitShown;
 
+    /// <inheritdoc/>
     public override void Init(SceneModel m, ClientGhost g)
     {
         base.Init(m, g);
@@ -332,6 +356,7 @@ public sealed class BeamVisual : Visual
         mRng = new Random(g.Index * 7919 + 13);
     }
 
+    /// <inheritdoc/>
     public override void OnUpdate(DecodedGhost u, bool isNew)
     {
         if (u.Fields.Any(f => f.Name == "datablock") || mBlock == null)
@@ -389,6 +414,7 @@ public sealed class BeamVisual : Visual
         return (new[] { mx, my, mz }, end);
     }
 
+    /// <summary>The light at the end point of the beam, or null when the datablock has none.</summary>
     public PointLight? Light
     {
         get
@@ -400,6 +426,7 @@ public sealed class BeamVisual : Visual
         }
     }
 
+    /// <inheritdoc/>
     public override void Build(FrameContext ctx)
     {
         if (Endpoints() is not var (a, b))

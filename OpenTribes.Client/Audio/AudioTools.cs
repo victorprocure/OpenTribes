@@ -1,5 +1,3 @@
-// Command line helpers of the audio stage (ROADMAP M9 C7): --cat NAME (a resource to stdout), --sound-census (every wave and
-// sound datablock through the offline mixer), --audio-live WAVE (the SDL3 device), --demo ... --audio-out (offline mix of a demo span).
 using System.Globalization;
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
@@ -12,10 +10,17 @@ using OpenTribes.World;
 
 namespace OpenTribes.Client.Audio;
 
+/// <summary>Command line helpers of the audio stage.</summary>
+/// <remarks><c>--cat NAME</c> writes a resource to stdout. <c>--sound-census</c> runs every wave and sound datablock through the offline mixer. <c>--audio-live WAVE</c> plays on the SDL3 device. <c>--demo ... --audio-out</c> mixes a span of a demo offline.</remarks>
 public static class AudioTools
 {
+    /// <summary>The resource search path of the audio tools.</summary>
     public const string SearchPath = "config;base;base\\voices;base\\missions";
 
+    /// <summary>Writes a resource to standard output.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="name">The resource name.</param>
+    /// <returns>The process exit code.</returns>
     public static int Cat(string root, string name)
     {
         ResourceManager res = GfxAssets.Mount(root, out _, SearchPath);
@@ -29,7 +34,10 @@ public static class AudioTools
         return 0;
     }
 
-    // 16 bit PCM stereo WAV.
+    /// <summary>Writes a 16 bit PCM stereo WAV file.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="interleaved">The interleaved left and right samples.</param>
+    /// <param name="rate">The sample rate in Hz.</param>
     public static void WriteWav(string path, short[] interleaved, int rate)
     {
         using var f = File.Create(path);
@@ -58,6 +66,9 @@ public static class AudioTools
 
     // ---- census ----
 
+    /// <summary>Runs every wave and sound datablock through the offline mixer and prints the result.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <returns>The process exit code.</returns>
     public static int Census(string root)
     {
         ResourceManager res = GfxAssets.Mount(root, out int volumes, SearchPath);
@@ -152,6 +163,11 @@ public static class AudioTools
 
     // ---- live device ----
 
+    /// <summary>Plays a wave on the live device.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="wave">The wave name.</param>
+    /// <param name="seconds">How long to run.</param>
+    /// <returns>The process exit code.</returns>
     public static int Live(string root, string wave, double seconds)
     {
         using AudioSession s = AudioSession.Create(root, live: true);
@@ -180,6 +196,13 @@ public static class AudioTools
 
     // ---- offline demo mix ----
 
+    /// <summary>Mixes a span of a demo offline into a WAV file.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="demoPath">The demo file.</param>
+    /// <param name="at">The start time in seconds, optionally followed by more comma separated values.</param>
+    /// <param name="seconds">The length of the span.</param>
+    /// <param name="outPath">The WAV file to write.</param>
+    /// <returns>The process exit code.</returns>
     public static int RenderDemo(string root, string demoPath, string at, double seconds, string outPath)
     {
         double start = double.Parse(at.Split(',')[0], CultureInfo.InvariantCulture);

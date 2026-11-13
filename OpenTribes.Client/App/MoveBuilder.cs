@@ -1,53 +1,141 @@
-// docs/client-net.md 4.1 and 4.2: the actions of the play maps fill the accumulators of the move being built
-// (PlayerPSC_onAction 004070b0) and every crossed 32 ms boundary appends a move (PlayerPSC_collectMoves 00404c3c).
 using OpenTribes.Game;
 using OpenTribes.Gui;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>Builds the moves of the control player from the actions of the play maps.</summary>
+/// <remarks>docs/client-net.md 4.1 and 4.2. The actions fill the accumulators of the move being built (PlayerPSC_onAction 004070b0) and every crossed 32 ms boundary appends a move (PlayerPSC_collectMoves 00404c3c). The action ids are 220000 plus the number in fear.strings.cs (client-scripts.md 3.10).</remarks>
 public sealed class MoveBuilder
 {
-    // Action ids: 220000 + the number in fear.strings.cs (client-scripts.md 3.10).
-    public const int Fire1 = 220001, Pitch = 220003, Yaw = 220004, MoveLeft = 220007, MoveRight = 220008, MoveBack = 220009,
-        MoveForward = 220010, MoveUp = 220011, View = 220017, Break1 = 220019, Run = 220104, Strafe = 220105, UseItem = 220106,
-        Jet = 220107, Crouch = 220110, Stand = 220111, ToggleCrouch = 220112, SniperFov = 220113, IncSniperFov = 220114,
-        ObserverToggle = 220214, LookUp = 220221, LookDown = 220222, TurnLeft = 220223, TurnRight = 220224, PitchSpeed = 220225,
-        YawSpeed = 220226, CenterView = 220230;
+    /// <summary>The action id for the fire button (FIRE1).</summary>
+    public const int Fire1 = 220001;
+    /// <summary>The action id for the pitch axis.</summary>
+    public const int Pitch = 220003;
+    /// <summary>The action id for the yaw axis.</summary>
+    public const int Yaw = 220004;
+    /// <summary>The action id for move left.</summary>
+    public const int MoveLeft = 220007;
+    /// <summary>The action id for move right.</summary>
+    public const int MoveRight = 220008;
+    /// <summary>The action id for move back.</summary>
+    public const int MoveBack = 220009;
+    /// <summary>The action id for move forward.</summary>
+    public const int MoveForward = 220010;
+    /// <summary>The action id for move up (jump).</summary>
+    public const int MoveUp = 220011;
+    /// <summary>The action id for the view toggle (first and third person).</summary>
+    public const int View = 220017;
+    /// <summary>The action id for the brake.</summary>
+    public const int Break1 = 220019;
+    /// <summary>The action id for run.</summary>
+    public const int Run = 220104;
+    /// <summary>The action id for strafe.</summary>
+    public const int Strafe = 220105;
+    /// <summary>The action id for use an item.</summary>
+    public const int UseItem = 220106;
+    /// <summary>The action id for jet.</summary>
+    public const int Jet = 220107;
+    /// <summary>The action id for crouch.</summary>
+    public const int Crouch = 220110;
+    /// <summary>The action id for stand.</summary>
+    public const int Stand = 220111;
+    /// <summary>The action id for toggle crouch.</summary>
+    public const int ToggleCrouch = 220112;
+    /// <summary>The action id for the sniper zoom.</summary>
+    public const int SniperFov = 220113;
+    /// <summary>The action id for increase the sniper field of view.</summary>
+    public const int IncSniperFov = 220114;
+    /// <summary>The action id for the observer toggle.</summary>
+    public const int ObserverToggle = 220214;
+    /// <summary>The action id for look up.</summary>
+    public const int LookUp = 220221;
+    /// <summary>The action id for look down.</summary>
+    public const int LookDown = 220222;
+    /// <summary>The action id for turn left.</summary>
+    public const int TurnLeft = 220223;
+    /// <summary>The action id for turn right.</summary>
+    public const int TurnRight = 220224;
+    /// <summary>The action id for the pitch speed.</summary>
+    public const int PitchSpeed = 220225;
+    /// <summary>The action id for the yaw speed.</summary>
+    public const int YawSpeed = 220226;
+    /// <summary>The action id for center the view.</summary>
+    public const int CenterView = 220230;
 
+    /// <summary>The most moves that wait for acknowledgement.</summary>
     public const int MaxMoves = 30;
 
-    // The move being built (psc +0x70..+0x8c) and the key rates (+0x3f0..+0x404).
-    public float Forward, Backward, Left, Right;
-    public bool JetOn, CrouchOn, JumpOn;
+    /// <summary>The forward key rate (+0x3f0 to +0x404).</summary>
+    public float Forward;
+    /// <summary>The backward key rate.</summary>
+    public float Backward;
+    /// <summary>The left key rate.</summary>
+    public float Left;
+    /// <summary>The right key rate.</summary>
+    public float Right;
+    /// <summary>True while the jet key is held.</summary>
+    public bool JetOn;
+    /// <summary>True while the crouch key is held.</summary>
+    public bool CrouchOn;
+    /// <summary>True while the jump key is held.</summary>
+    public bool JumpOn;
+    /// <summary>The item type of the use item action, -1 for none.</summary>
     public int UseItemType = -1;
-    public float TurnAcc, PitchAcc;
-    public float YawSpeedKey, PitchSpeedKey, TurnLeftKey, TurnRightKey, LookUpKey, LookDownKey;
-    public uint FireCounter = 0, SampledFire = 0;
-    public bool ThirdPerson;                 // not +0xa0 (first person): the VIEW toggle (0040706c.. PlayerPSC_onActionDefault)
+    /// <summary>The accumulated turn of the move being built.</summary>
+    public float TurnAcc;
+    /// <summary>The accumulated pitch of the move being built.</summary>
+    public float PitchAcc;
+    /// <summary>The yaw speed key rate.</summary>
+    public float YawSpeedKey;
+    /// <summary>The pitch speed key rate.</summary>
+    public float PitchSpeedKey;
+    /// <summary>The turn left key rate.</summary>
+    public float TurnLeftKey;
+    /// <summary>The turn right key rate.</summary>
+    public float TurnRightKey;
+    /// <summary>The look up key rate.</summary>
+    public float LookUpKey;
+    /// <summary>The look down key rate.</summary>
+    public float LookDownKey;
+    /// <summary>The fire counter.</summary>
+    public uint FireCounter = 0;
+    /// <summary>The fire counter of the last sampled move.</summary>
+    public uint SampledFire = 0;
+    /// <summary>True for the third person view: not +0xa0 (first person), the VIEW toggle (0040706c, PlayerPSC_onActionDefault).</summary>
+    public bool ThirdPerson;
+    /// <summary>The current field of view.</summary>
     public double CurrentFov = 90;
-    // +0x9c: the third person distance, 0 in first person and up to 4 m, eased at 15 m/s (4.2 step 1).
+    /// <summary>The third person distance (+0x9c): 0 in first person and up to 4 m, eased at 15 m/s (4.2 step 1).</summary>
     public float ViewDist;
+    /// <summary>The largest third person distance.</summary>
     public const float MaxViewDist = 4f;
-    // The zoom (0060f0b0 on) and its FOV (0060f0a4, 22.5 at start: the PlayerFov callback 004040b0 stores 90 * 0.25 in 0060f078 and the PSC
-    // constructor copies it). INC_SNIPER_FOV only changes this value and the view only follows it while the zoom is on.
+    /// <summary>True while the zoom is on (0060f0b0).</summary>
     public bool ZoomOn;
+    /// <summary>The field of view of the zoom (0060f0a4). It is 22.5 at start: the PlayerFov callback (004040b0) stores 90 * 0.25 in 0060f078 and the PSC constructor copies it. INC_SNIPER_FOV only changes this value and the view only follows it while the zoom is on.</summary>
     public double ZoomTarget = 22.5;
-    // The FOV animation of the PSC [code 00406f47, 00406e06, 004077cd]: from +0x408 to +0x40c over the times +0x414 .. +0x418 (ms), the
-    // length being $pref::PlayerZoomSpeed (0060f0a8, clamped 0..1) * 1000. CurrentFov (0060f0a0) follows it at every frame.
-    public double FovFrom = 90, FovTo = 90;
-    public uint FovStart, FovEnd;
-    // 0060f0b4: the time of the last INC_SNIPER_FOV while the zoom was off (the crosshair shows the zoom box for 2 s after it).
+    /// <summary>The field of view the animation starts from (+0x408).</summary>
+    public double FovFrom = 90;
+    /// <summary>The field of view the animation ends at (+0x40c).</summary>
+    public double FovTo = 90;
+    /// <summary>The start time of the FOV animation in milliseconds (+0x414).</summary>
+    public uint FovStart;
+    /// <summary>The end time of the FOV animation in milliseconds (+0x418).</summary>
+    public uint FovEnd;
+    /// <summary>The time of the last INC_SNIPER_FOV while the zoom was off (0060f0b4). The crosshair shows the zoom box for 2 s after it.</summary>
     public uint ZoomStepStamp;
-    // The client time (006a83a0) of the last frame.
+    /// <summary>The client time (006a83a0) of the last frame.</summary>
     public uint LastNow;
+    /// <summary>Reads <c>$pref::PlayerZoomSpeed</c> (0060f0a8, clamped 0 to 1). The FOV animation lasts that value times 1000 ms (00406f47, 00406e06, 004077cd), and <see cref="CurrentFov"/> (0060f0a0) follows it at every frame.</summary>
     public Func<double> ZoomSpeed = () => 0;
+    /// <summary>True for the first person view.</summary>
     public bool FirstPersonNow => !ThirdPerson && ViewDist == 0;
-    // True when the control object may look (vtable +0x11c) and when PITCH is reversed (flier with $pref::flipFlierY).
+    /// <summary>Tells whether the control object may look (vtable +0x11c).</summary>
     public Func<bool> CanLook = () => true;
+    /// <summary>Tells whether PITCH is reversed (flier with <c>$pref::flipFlierY</c>).</summary>
     public Func<bool> ReversePitch = () => false;
-    // CENTERVIEW [code PlayerPSC_onActionDefault 00406ce8, action 0x35c46]: returns the pitch of the owned control Player (+0xfc4) and
-    // sets it to 0; null when there is no owned object.
+    /// <summary>Takes the pitch of the owned control Player (+0xfc4) and sets it to 0, for CENTERVIEW (PlayerPSC_onActionDefault 00406ce8, action 0x35c46). Returns null when there is no owned object.</summary>
     public Func<float?> TakeControlPitch = () => null;
+    /// <summary>Reads <c>$pref::PlayerFov</c>.</summary>
     public Func<double> PrefFov = () => 90;
 
     private static float Clamp(float v, float lo, float hi) => Math.Min(Math.Max(v, lo), hi);
@@ -55,7 +143,10 @@ public sealed class MoveBuilder
     // scaled(v) = clamp(v * currentFov / 90, -1, 1)
     private float Scaled(float v) => Clamp((float)(v * CurrentFov / 90.0), -1f, 1f);
 
-    // True when the action is one of the rows of 4.1 (it is consumed here).
+    /// <summary>Applies an action of the play maps.</summary>
+    /// <param name="id">The action id.</param>
+    /// <param name="v">The action value.</param>
+    /// <returns>True when the action is one of the rows of 4.1 and was consumed here.</returns>
     public bool OnAction(int id, float v)
     {
         switch (id)
@@ -157,8 +248,8 @@ public sealed class MoveBuilder
         FovEnd = (uint)(long)(LastNow + (float)ZoomSpeed() * 1000f);
     }
 
-    // The FOV update of the camera getter [code 004077cd]: inside the animation the value is interpolated linearly, after it the
-    // value snaps to 90 (third person), the zoom FOV (zoom on) or $pref::PlayerFov.
+    /// <summary>Updates the field of view of the camera getter (004077cd): inside the animation the value is interpolated linearly. After it the value snaps to 90 (third person), the zoom FOV (zoom on) or <c>$pref::PlayerFov</c>.</summary>
+    /// <param name="now">The client time in milliseconds.</param>
     public void UpdateFov(uint now)
     {
         if (now < FovEnd)
@@ -170,10 +261,13 @@ public sealed class MoveBuilder
         }
     }
 
-    // What the crosshair reads [code 00404578].
+    /// <summary>Reads the zoom state for the crosshair (00404578).</summary>
+    /// <returns>The zoom state.</returns>
     public HudZoom HudZoomState() => new(CurrentFov, ZoomTarget, FovTo, FovStart, FovEnd, LastNow, ZoomStepStamp);
 
-    // 4.2 step 1: the view distance moves toward 0 in first person and toward 4 otherwise, 15 * dt * 0.001 per call.
+    /// <summary>Moves the view distance toward 0 in first person and toward 4 otherwise, 15 * dt * 0.001 per call (4.2 step 1).</summary>
+    /// <param name="prev">The previous client time in milliseconds.</param>
+    /// <param name="now">The new client time in milliseconds.</param>
     public void UpdateViewDist(uint prev, uint now)
     {
         float step = 15f * (now - prev) * 0.001f;
@@ -188,8 +282,11 @@ public sealed class MoveBuilder
         Turn = turn, Pitch = pitch,
     };
 
-    // 4.2: called every frame with the previous and the new client time (ms). Appends the moves of the 32 ms
-    // boundaries crossed to the PSC buffer (at most 30 wait for acknowledgement).
+    /// <summary>Appends the moves of the 32 ms boundaries crossed since the last frame to the PSC buffer (4.2). At most 30 wait for acknowledgement.</summary>
+    /// <param name="psc">The client packet state.</param>
+    /// <param name="prev">The previous client time in milliseconds.</param>
+    /// <param name="now">The new client time in milliseconds.</param>
+    /// <returns>The number of moves appended.</returns>
     public int Collect(ClientPsc psc, uint prev, uint now)
     {
         UpdateViewDist(prev, now);
@@ -224,6 +321,7 @@ public sealed class MoveBuilder
         return made;
     }
 
+    /// <summary>Resets the builder to its start state.</summary>
     public void Reset()
     {
         Forward = Backward = Left = Right = 0;

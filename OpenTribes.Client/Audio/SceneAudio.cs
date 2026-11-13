@@ -1,6 +1,3 @@
-// docs/audio.md 3: where sounds start. Network events (3.1) and the ghost-driven sounds (3.2 to 3.4) of the scene model, over the
-// SoundManager. The scene model calls the On* hooks while it applies packets and ghost updates; Frame runs once per client frame
-// after the visuals ticked (listener, follow-the-object positions, stops).
 using System.Globalization;
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Scene;
@@ -9,20 +6,23 @@ using OpenTribes.World;
 
 namespace OpenTribes.Client.Audio;
 
+/// <summary>Starts the sounds of the scene: network events and the sounds driven by ghosts.</summary>
+/// <remarks>docs/audio.md 3 (where sounds start): network events (3.1) and the ghost driven sounds (3.2 to 3.4) of the scene model, over the <see cref="SoundManager"/>. The scene model calls the <c>On*</c> hooks while it applies packets and ghost updates. <see cref="Frame"/> runs once per client frame after the visuals ticked (listener, follow the object positions, stops).</remarks>
 public sealed class SceneAudio
 {
+    /// <summary>The sound manager the sounds play on.</summary>
     public readonly SoundManager Sound;
     private readonly SceneModel M;
     private Db Db => M.Db;
 
-    // $pref::playVoices (1.5): the stock default when unset is true.
+    /// <summary>True when voices play: <c>$pref::playVoices</c> (1.5), which is true when unset.</summary>
     public bool PlayVoices => M.World.Players.PlayVoices();
-    // Surface type (0..14) of a terrain material byte for the footstep tables (3.2); empty means type 0.
+    /// <summary>The materials of the terrain, to pick the footstep surface type of a terrain material byte (3.2). Empty means type 0.</summary>
     public List<Material>? TerrainMaterials;
-    // Surface type under a foot from the prediction container (terrain and interiors, FootSurface); -1 none. Null offline.
+    /// <summary>Reads the surface type (0 to 14) under a foot from the prediction container (terrain and interiors, <see cref="FootSurface"/>), -1 for none. Null offline.</summary>
     public Func<double, double, double, int>? SurfaceType;
 
-    // Statistics for the offline report: sounds started per source.
+    /// <summary>The number of sounds started per source, for the offline report.</summary>
     public readonly Dictionary<string, int> Started = new();
 
     private sealed class GhostSounds
@@ -43,8 +43,12 @@ public sealed class SceneAudio
     private readonly Dictionary<int, GhostSounds> mGhosts = new();
     private readonly Dictionary<int, int> mVoiceByClient = new();
     private int mPrecip;
+    /// <summary>The queue of sounds that play one after another.</summary>
     public readonly SoundSequencer Sequencer;
 
+    /// <summary>Creates the scene audio.</summary>
+    /// <param name="m">The scene model.</param>
+    /// <param name="sound">The sound manager.</param>
     public SceneAudio(SceneModel m, SoundManager sound)
     {
         M = m;
@@ -85,16 +89,21 @@ public sealed class SceneAudio
 
     private static long Idx(ClientDataBlock? b, string field) => b == null ? -1 : (long)Db.Num(b, field, -1);
 
-    // ---- listener (2.6) ----
 
+    /// <summary>Moves the listener (2.6).</summary>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
+    /// <param name="yawRad">The heading in radians.</param>
     public void SetListener(double x, double y, double z, double yawRad)
     {
         var (rx, ry, rz) = SoundGain.RightOfYaw(yawRad);
         Sound.SetListener(x, y, z, rx, ry, rz);
     }
 
-    // ---- network events (3.1) ----
 
+    /// <summary>Starts the sounds of the events of a packet (3.1).</summary>
+    /// <param name="pkt">The decoded packet.</param>
     public void OnPacket(DecodedPacket pkt)
     {
         foreach (DecodedEvent e in pkt.Events)
@@ -236,13 +245,18 @@ public sealed class SceneAudio
         return int.TryParse(text.AsSpan(p, e - p), NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : int.MinValue;
     }
 
-    // ---- effects (3.4) ----
 
+    /// <summary>Plays the sound of an explosion datablock (3.4).</summary>
+    /// <param name="db">The explosion datablock.</param>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
     public void OnExplosion(ClientDataBlock db, double x, double y, double z) =>
         Count("Explosion", Idx(db, "soundId") is long s && s >= 0 ? Sound.PlayDatablock(s, new SoundXf(x, y, z)) : 0);
 
-    // ---- ghosts (3.2, 3.3, 3.4) ----
 
+    /// <summary>Stops the sounds of a ghost that goes away (3.2 to 3.4).</summary>
+    /// <param name="ghost">The ghost index.</param>
     public void OnDelete(int ghost)
     {
         if (!mGhosts.Remove(ghost, out GhostSounds? g))
@@ -267,9 +281,10 @@ public sealed class SceneAudio
         g.Image.Clear();
     }
 
-    // Turret_activate 0x00455b34 / Turret_deactivate 0x00455cc4 (ghost branches): the power sound starts from the ghost's own tick, at the
-    // thread position the pose model reports, and first stops the whir handle (+0x910). Datablock fields activationSound (+0x13c) and
-    // deactivateSound (+0x140).
+    /// <summary>Plays the power sound of a turret.</summary>
+    /// <param name="sv">The turret visual.</param>
+    /// <param name="on">True for power up, false for power down.</param>
+    /// <remarks>Follows Turret_activate (00455b34) and Turret_deactivate (00455cc4), ghost branches: the sound starts from the own tick of the ghost, at the thread position the pose model reports, and first stops the whir handle (+0x910). The datablock fields are activationSound (+0x13c) and deactivateSound (+0x140).</remarks>
     public void TurretPower(ShapeVisual sv, bool on)
     {
         ClientDataBlock? b = Db.Block(19, DatablockIndex(sv));
@@ -286,6 +301,10 @@ public sealed class SceneAudio
 
     private int DatablockIndex(Visual v) => (int)Db.ToDouble(v.Ghost.State.GetValueOrDefault("datablock"), -1);
 
+    /// <summary>Starts and stops the sounds that follow the state of a ghost after an update.</summary>
+    /// <param name="v">The visual of the ghost.</param>
+    /// <param name="u">The decoded update.</param>
+    /// <param name="isNew">True when the ghost is new.</param>
     public void OnGhost(Visual v, DecodedGhost u, bool isNew)
     {
         GhostSounds g = Gs(v.Index);
@@ -320,8 +339,10 @@ public sealed class SceneAudio
         }
     }
 
-    // 3.2 weapon image sounds: the image state machine of the ghost (`ImageStateMachine`) names the datablock sound of each state it
-    // enters (Activate, Fire, Ready, Reload, SpinUp, SpinDown). A still-playing looping image sound stops when the state changes.
+    /// <summary>Plays the sound of the state a weapon image entered (3.2): Activate, Fire, Ready, Reload, SpinUp or SpinDown.</summary>
+    /// <param name="pl">The player visual.</param>
+    /// <param name="slot">The image slot.</param>
+    /// <remarks>The image state machine of the ghost (<c>ImageStateMachine</c>) names the datablock sound of each state it enters. A still playing looping image sound stops when the state changes.</remarks>
     public void ImageStateChanged(PlayerVisual pl, int slot)
     {
         if (slot is < 0 or > 7)
@@ -329,7 +350,10 @@ public sealed class SceneAudio
         Sound.Stop(Gs(pl.Index).Image.StateChanged(slot));
     }
 
-    // The image of a slot is replaced or removed: the stored voice stops, looping or not [code 0041a64c Player_resetImage].
+    /// <summary>Stops the stored voice of a slot whose image was replaced or removed, looping or not.</summary>
+    /// <param name="pl">The player visual.</param>
+    /// <param name="slot">The image slot.</param>
+    /// <remarks>Follows 0041a64c Player_resetImage.</remarks>
     public void ImageReset(PlayerVisual pl, int slot)
     {
         if (slot is < 0 or > 7)
@@ -337,6 +361,11 @@ public sealed class SceneAudio
         Sound.Stop(Gs(pl.Index).Image.Reset(slot));
     }
 
+    /// <summary>Plays one sound field of an image datablock and keeps the voice in the slot.</summary>
+    /// <param name="pl">The player visual.</param>
+    /// <param name="slot">The image slot, 0 to 7.</param>
+    /// <param name="image">The image datablock.</param>
+    /// <param name="field">The sound field name, starting with <c>snd</c>.</param>
     public void ImageSound(PlayerVisual pl, int slot, ClientDataBlock? image, string field)
     {
         if (slot is < 0 or > 7)
@@ -346,14 +375,21 @@ public sealed class SceneAudio
         g.Image.Started(slot, h, h != 0 && Sound.IsLooping(h));
     }
 
-    // 3.2 animation sound: a one shot at the player position when a ghost starts an animation whose PlayerData entry has a sound.
+    /// <summary>Plays the one shot at the player position when a ghost starts an animation whose PlayerData entry has a sound (3.2).</summary>
+    /// <param name="p">The player visual.</param>
+    /// <param name="sound">The sound datablock index.</param>
     public void AnimationSound(PlayerVisual p, long sound)
     {
         Sound.TryDatablock(sound, out string wave, out _, out _);
         Play("Animation " + wave, sound, p.Position);
     }
 
-    // Footstep trigger (3.2): right foot 1, left foot 2, on the ground. The surface type indexes the datablock's 15 pairs.
+    /// <summary>Plays a footstep (3.2): the surface type indexes the 15 pairs of the datablock.</summary>
+    /// <param name="p">The player visual.</param>
+    /// <param name="right">True for the right foot (1), false for the left foot (2). The foot is on the ground.</param>
+    /// <param name="x">The foot x.</param>
+    /// <param name="y">The foot y.</param>
+    /// <param name="z">The foot z.</param>
     public void Footstep(PlayerVisual p, bool right, double x, double y, double z)
     {
         ClientDataBlock? pd = Db.Block(3, (int)Db.ToDouble(p.Ghost.State.GetValueOrDefault("datablock"), -1));
@@ -528,8 +564,9 @@ public sealed class SceneAudio
             g.Looper = Play("Ambient", Idx(b, "sfxAmbient"), pos);
     }
 
-    // ---- per frame ----
 
+    /// <summary>Runs once per client frame after the visuals ticked: moves the listener, the follow the object voices and the stops.</summary>
+    /// <param name="dt">The frame time in seconds.</param>
     public void Frame(double dt)
     {
         foreach (var (index, g) in mGhosts)

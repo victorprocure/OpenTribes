@@ -1,20 +1,30 @@
-// Explosion (docs/shapes-render.md 4.3): a one-shot shape with a life, a three phase light curve, camera facing, random
-// spin and an optional position shift. Created by a projectile explode update, ShapeBase_explode and debris.
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
 
 namespace OpenTribes.Client.Effects;
 
+/// <summary>The light curve of an explosion.</summary>
+/// <param name="TimeScale">The time scale of the datablock.</param>
+/// <param name="Duration">The duration of the explosion shape sequence in seconds.</param>
+/// <param name="TimeZero">The first key time as a fraction of the life.</param>
+/// <param name="TimeOne">The second key time as a fraction of the life.</param>
+/// <param name="Colors">The light colour at the three key points.</param>
+/// <param name="Rad">The light radius factor at the three key points.</param>
+/// <param name="Range">The light range.</param>
 public readonly record struct LightCurve(double TimeScale, double Duration, double TimeZero, double TimeOne, float[][] Colors, double[] Rad, double Range)
 {
-    // 4.3 Life: trunc(timeScale * duration * 1000) ms; the two key times are the same fractions of it.
+    /// <summary>The life in milliseconds: trunc(timeScale * duration * 1000) (4.3).</summary>
     public double LifeMs => Math.Truncate(TimeScale * Duration * 1000);
+    /// <summary>The first key time in milliseconds, the same fraction of the life as <c>TimeZero</c>.</summary>
     public double TA => Math.Truncate(TimeScale * Duration * 1000 * TimeZero);
+    /// <summary>The second key time in milliseconds, the same fraction of the life as <c>TimeOne</c>.</summary>
     public double TB => Math.Truncate(TimeScale * Duration * 1000 * TimeOne);
 
-    // 4.3 Light curve at e ms after the start: phases 0..tA, tA..tB, tB..life; the radius of phase 2 is the continuous form
-    // rad[1] * g + rad[2] * (1 - g) (Q8 chooses it over the literal export). Null after the life.
+    /// <summary>Gives the light at a time after the start (4.3): phases 0 to tA, tA to tB and tB to life.</summary>
+    /// <param name="e">The time since the start in milliseconds.</param>
+    /// <returns>The colour and radius, or null after the life.</returns>
+    /// <remarks>The radius of phase 2 is the continuous form rad[1] * g + rad[2] * (1 - g) (Q8 chooses it over the literal export).</remarks>
     public (float r, float g, float b, double radius)? At(double e)
     {
         double life = LifeMs, tA = TA, tB = TB;
@@ -39,6 +49,8 @@ public readonly record struct LightCurve(double TimeScale, double Duration, doub
         ((float)(a[0] * f + b[0] * (1 - f)), (float)(a[1] * f + b[1] * (1 - f)), (float)(a[2] * f + b[2] * (1 - f)), rad);
 }
 
+/// <summary>A one shot shape with a life, a three phase light curve, camera facing, random spin and an optional position shift.</summary>
+/// <remarks>docs/shapes-render.md 4.3. Created by a projectile explode update, ShapeBase_explode and debris.</remarks>
 public sealed class ExplosionEffect : IEffect
 {
     private readonly RenderInstance mInst;
@@ -46,12 +58,18 @@ public sealed class ExplosionEffect : IEffect
     private readonly double mX, mY, mZ, mAx, mAy, mAz, mSpin;
     private readonly bool mFace, mShift;
     private double mAge;                       // ms
+    /// <summary>The light curve, or null when the datablock has none.</summary>
     public readonly LightCurve? Curve;
+    /// <summary>The position of the explosion.</summary>
     public (double x, double y, double z) Origin => (mX, mY, mZ);
+    /// <summary>The age in milliseconds.</summary>
     public double AgeMs => mAge;
+    /// <summary>The life in milliseconds.</summary>
     public double LifeMs { get; }
 
+    /// <inheritdoc/>
     public bool Alive => mAge < LifeMs;
+    /// <inheritdoc/>
     public PointLight? Light
     {
         get
@@ -62,6 +80,16 @@ public sealed class ExplosionEffect : IEffect
         }
     }
 
+    /// <summary>Creates an explosion of a datablock.</summary>
+    /// <param name="shape">The explosion shape.</param>
+    /// <param name="db">The explosion datablock, or null.</param>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
+    /// <param name="ax">The surface axis x.</param>
+    /// <param name="ay">The surface axis y.</param>
+    /// <param name="az">The surface axis z.</param>
+    /// <param name="rng">The random source for the spin.</param>
     public ExplosionEffect(RenderShape shape, ClientDataBlock? db, double x, double y, double z, double ax, double ay, double az, Random rng)
     {
         (mX, mY, mZ) = (x, y, z);
@@ -101,9 +129,14 @@ public sealed class ExplosionEffect : IEffect
         }
     }
 
-    // Hit shape of a LaserProjectile (LaserProjectile_loadResources 00463204, image setup 00463810): identity transform at the end
-    // point, only the `ambient` thread (none when the shape lacks it) with timeScale = sequence duration / beamTime so one cycle
-    // spans beamTime, and the image exists only while the beam lives (beamTime seconds after it started, `elapsed` already spent).
+    /// <summary>Creates the hit shape of a LaserProjectile.</summary>
+    /// <param name="shape">The hit shape.</param>
+    /// <param name="x">The x position of the end point.</param>
+    /// <param name="y">The y position of the end point.</param>
+    /// <param name="z">The z position of the end point.</param>
+    /// <param name="beamTime">The beam time in seconds.</param>
+    /// <param name="elapsed">The seconds of the beam already spent.</param>
+    /// <remarks>Follows LaserProjectile_loadResources (00463204) and the image setup (00463810): identity transform at the end point, only the <c>ambient</c> thread (none when the shape lacks it) with timeScale = sequence duration / beamTime so one cycle spans beamTime. The image exists only while the beam lives: beamTime seconds after it started.</remarks>
     public ExplosionEffect(RenderShape shape, double x, double y, double z, double beamTime, double elapsed)
     {
         (mX, mY, mZ) = (x, y, z);
@@ -118,12 +151,14 @@ public sealed class ExplosionEffect : IEffect
         LifeMs = beamTime * 1000;
     }
 
+    /// <inheritdoc/>
     public void Tick(double dt)
     {
         mAge += dt * 1000;
         mInst.Advance(dt);
     }
 
+    /// <inheritdoc/>
     public void Build(FrameContext ctx)
     {
         if (!Alive)
