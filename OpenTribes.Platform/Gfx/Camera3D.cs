@@ -24,16 +24,27 @@ public struct Vertex3D
 {
     /// <summary>The position, the texture coordinate, the light map coordinate, the shade colour and alpha, and the haze (0 clear, 1 fully the haze colour).</summary>
     public float X { get; set; }
+    /// <inheritdoc cref="X"/>
     public float Y { get; set; }
+    /// <inheritdoc cref="X"/>
     public float Z { get; set; }
+    /// <inheritdoc cref="X"/>
     public float U { get; set; }
+    /// <inheritdoc cref="X"/>
     public float V { get; set; }
+    /// <inheritdoc cref="X"/>
     public float Lu { get; set; }
+    /// <inheritdoc cref="X"/>
     public float Lv { get; set; }
+    /// <inheritdoc cref="X"/>
     public float R { get; set; }
+    /// <inheritdoc cref="X"/>
     public float G { get; set; }
+    /// <inheritdoc cref="X"/>
     public float B { get; set; }
+    /// <inheritdoc cref="X"/>
     public float A { get; set; }
+    /// <inheritdoc cref="X"/>
     public float Haze { get; set; }
 
     /// <summary>Creates a vertex.</summary>
@@ -95,18 +106,25 @@ public struct Camera3D
 {
     /// <summary>The position, the yaw and pitch in radians, and the horizontal field of view in radians.</summary>
     public double X { get; set; }
+    /// <inheritdoc cref="X"/>
     public double Y { get; set; }
+    /// <inheritdoc cref="X"/>
     public double Z { get; set; }
+    /// <inheritdoc cref="X"/>
     public double Yaw { get; set; }
+    /// <inheritdoc cref="X"/>
     public double Pitch { get; set; }
+    /// <inheritdoc cref="X"/>
     public double HorizontalFov { get; set; }
     /// <summary>The rotation about the view axis, the y word of the Euler transform. A positive roll turns the right vector toward -up.</summary>
     public double Roll { get; set; }
     /// <summary>The viewport size in pixels.</summary>
     public int Width { get; set; }
+    /// <inheritdoc cref="Width"/>
     public int Height { get; set; }
     /// <summary>The near and far plane distances.</summary>
     public double Near { get; set; }
+    /// <inheritdoc cref="Near"/>
     public double Far { get; set; }
 
     /// <summary>Creates a camera from angles in degrees.</summary>

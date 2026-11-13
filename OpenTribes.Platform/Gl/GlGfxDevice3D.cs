@@ -109,17 +109,17 @@ void main() {
         _u3DynCol = Api.UniformLocation(_program3D, "uDynCol[0]");
         _vao3D = Api.GenVertexArray();
         _vbo3D = Api.GenBuffer();
-        Api.BindVertexArray_(_vao3D);
-        Api.BindBuffer_(GlApi.ArrayBuffer, _vbo3D);
+        Api.BindVertexArrayPtr(_vao3D);
+        Api.BindBufferPtr(GlApi.ArrayBuffer, _vbo3D);
         var stride = Marshal.SizeOf<Vertex3D>();
-        Api.VertexAttribPointer_(0, 3, GlApi.Float, 0, stride, (void*)0);
-        Api.VertexAttribPointer_(1, 2, GlApi.Float, 0, stride, (void*)12);
-        Api.VertexAttribPointer_(2, 2, GlApi.Float, 0, stride, (void*)20);
-        Api.VertexAttribPointer_(3, 4, GlApi.Float, 0, stride, (void*)28);
-        Api.VertexAttribPointer_(4, 1, GlApi.Float, 0, stride, (void*)44);
+        Api.VertexAttribPointerPtr(0, 3, GlApi.FloatType, 0, stride, (void*)0);
+        Api.VertexAttribPointerPtr(1, 2, GlApi.FloatType, 0, stride, (void*)12);
+        Api.VertexAttribPointerPtr(2, 2, GlApi.FloatType, 0, stride, (void*)20);
+        Api.VertexAttribPointerPtr(3, 4, GlApi.FloatType, 0, stride, (void*)28);
+        Api.VertexAttribPointerPtr(4, 1, GlApi.FloatType, 0, stride, (void*)44);
         for (uint i = 0; i < 5; ++i)
-            Api.EnableVertexAttribArray_(i);
-        Api.BindVertexArray_(_vao);
+            Api.EnableVertexAttribArrayPtr(i);
+        Api.BindVertexArrayPtr(_vao);
     }
 
     private void Dispose3D()
@@ -127,9 +127,9 @@ void main() {
         if (_program3D == 0)
             return;
         uint vao = _vao3D, vbo = _vbo3D;
-        Api.DeleteVertexArrays_(1, &vao);
-        Api.DeleteBuffers_(1, &vbo);
-        Api.DeleteProgram_(_program3D);
+        Api.DeleteVertexArraysPtr(1, &vao);
+        Api.DeleteBuffersPtr(1, &vbo);
+        Api.DeleteProgramPtr(_program3D);
         _program3D = 0;
     }
 
@@ -139,21 +139,21 @@ void main() {
         if (width <= 0 || height <= 0 || rgba.Length < width * height * 4)
             throw new ArgumentException("texture data does not match its size");
         var name = Api.GenTexture();
-        Api.ActiveTexture_(GlApi.Texture0);
-        Api.BindTexture_(GlApi.Texture2D, name);
-        Api.PixelStorei_(GlApi.UnpackAlignment, 1);
+        Api.ActiveTexturePtr(GlApi.Texture0);
+        Api.BindTexturePtr(GlApi.Texture2D, name);
+        Api.PixelStoreiPtr(GlApi.UnpackAlignment, 1);
         fixed (byte* p = rgba)
-            Api.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, width, height, 0, GlApi.Rgba, GlApi.UnsignedByte, p);
+            Api.TexImage2DPtr(GlApi.Texture2D, 0, (int)GlApi.Rgba8, width, height, 0, GlApi.Rgba, GlApi.UnsignedByte, p);
         var filter = options.Linear ? GlApi.Linear : GlApi.Nearest;
         // Magnified texels are bilinear like the stock client's (compared at 640 x 480 and 1280 x 960 with tools/shotdiff.py).
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)(options.NearestMag ? GlApi.Nearest : filter));
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter,
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureMagFilter, (int)(options.NearestMag ? GlApi.Nearest : filter));
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureMinFilter,
                           options.Mipmaps ? (int)(options.Linear ? GlApi.LinearMipmapLinear : 0x2700) : (int)filter);
         var wrap = options.Repeat ? GlApi.Repeat : GlApi.ClampToEdge;
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureWrapS, (int)wrap);
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureWrapT, (int)wrap);
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureWrapS, (int)wrap);
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureWrapT, (int)wrap);
         if (options.Mipmaps)
-            Api.GenerateMipmap_(GlApi.Texture2D);
+            Api.GenerateMipmapPtr(GlApi.Texture2D);
         return new Texture3D { Name = name, Width = width, Height = height, Gl = Api };
     }
 
@@ -165,23 +165,23 @@ void main() {
         if (width <= 0 || height <= 0 || rgba.Length < width * height * 4)
             throw new ArgumentException("texture data does not match its size");
         var name = Api.GenTexture();
-        Api.ActiveTexture_(GlApi.Texture0);
-        Api.BindTexture_(GlApi.Texture2D, name);
-        Api.PixelStorei_(GlApi.UnpackAlignment, 1);
+        Api.ActiveTexturePtr(GlApi.Texture0);
+        Api.BindTexturePtr(GlApi.Texture2D, name);
+        Api.PixelStoreiPtr(GlApi.UnpackAlignment, 1);
         fixed (byte* p = rgba)
-            Api.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, width, height, 0, GlApi.Rgba, GlApi.UnsignedByte, p);
+            Api.TexImage2DPtr(GlApi.Texture2D, 0, (int)GlApi.Rgba8, width, height, 0, GlApi.Rgba, GlApi.UnsignedByte, p);
         for (var k = 0; k < mipLevels.Count; ++k)
             fixed (byte* p = mipLevels[k])
-                Api.TexImage2D_(GlApi.Texture2D, k + 1, (int)GlApi.Rgba8, Math.Max(1, width >> (k + 1)), Math.Max(1, height >> (k + 1)), 0,
+                Api.TexImage2DPtr(GlApi.Texture2D, k + 1, (int)GlApi.Rgba8, Math.Max(1, width >> (k + 1)), Math.Max(1, height >> (k + 1)), 0,
                                GlApi.Rgba, GlApi.UnsignedByte, p);
         // Stock filters: linear magnification (nearest for a transparent bitmap), LINEAR_MIPMAP_NEAREST minification (code 005d3f99,
         // 005d3fa2, 005d3fb9).
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureMagFilter, (int)(options.NearestMag ? GlApi.Nearest : GlApi.Linear));
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureMinFilter, 0x2701);
-        Api.TexParameteri_(GlApi.Texture2D, 0x813D, mipLevels.Count); // TEXTURE_MAX_LEVEL
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureMagFilter, (int)(options.NearestMag ? GlApi.Nearest : GlApi.Linear));
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureMinFilter, 0x2701);
+        Api.TexParameteriPtr(GlApi.Texture2D, 0x813D, mipLevels.Count); // TEXTURE_MAX_LEVEL
         var wrap = options.Repeat ? GlApi.Repeat : GlApi.ClampToEdge;
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureWrapS, (int)wrap);
-        Api.TexParameteri_(GlApi.Texture2D, GlApi.TextureWrapT, (int)wrap);
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureWrapS, (int)wrap);
+        Api.TexParameteriPtr(GlApi.Texture2D, GlApi.TextureWrapT, (int)wrap);
         return new Texture3D { Name = name, Width = width, Height = height, Gl = Api };
     }
 
@@ -198,34 +198,34 @@ void main() {
         _in3D = true;
         Draws3D = 0;
         (_hazeR, _hazeG, _hazeB) = (hazeR, hazeG, hazeB);
-        Api.BindFramebuffer_(GlApi.Framebuffer, _fbo);
+        Api.BindFramebufferPtr(GlApi.Framebuffer, _fbo);
         if (_viewport3D is GfxRect vr && !vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1)).IsEmpty)
         {
             var r = vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1));
             // GL counts rows from the bottom
-            Api.Viewport_(vr.Left, Height - 1 - vr.Bottom, vr.Width, vr.Height);
-            Api.Enable_(GlApi.ScissorTest);
-            Api.Scissor_(r.Left, Height - 1 - r.Bottom, r.Width, r.Height);
+            Api.ViewportPtr(vr.Left, Height - 1 - vr.Bottom, vr.Width, vr.Height);
+            Api.EnablePtr(GlApi.ScissorTest);
+            Api.ScissorPtr(r.Left, Height - 1 - r.Bottom, r.Width, r.Height);
         }
         else
         {
-            Api.Viewport_(0, 0, Width, Height);
-            Api.Disable_(GlApi.ScissorTest);
+            Api.ViewportPtr(0, 0, Width, Height);
+            Api.DisablePtr(GlApi.ScissorTest);
         }
-        Api.Disable_(GlApi.CullFace);
-        Api.UseProgram_(_program3D);
-        Api.BindVertexArray_(_vao3D);
-        Api.BindBuffer_(GlApi.ArrayBuffer, _vbo3D);
-        Api.BindSampler_(0, 0);
-        Api.BindSampler_(1, 0);
-        Api.Uniform1i_(_u3Tex, 0);
-        Api.Uniform1i_(_u3Light, 1);
-        Api.Uniform3f_(_u3Haze, hazeR, hazeG, hazeB);
-        Api.Enable_(GlApi.DepthTest);
-        Api.DepthFunc_(GlApi.GEqual);
-        Api.DepthMask_(1);
-        Api.ClearDepth_(0.0);
-        Api.Clear_(GlApi.DepthBufferBit);
+        Api.DisablePtr(GlApi.CullFace);
+        Api.UseProgramPtr(_program3D);
+        Api.BindVertexArrayPtr(_vao3D);
+        Api.BindBufferPtr(GlApi.ArrayBuffer, _vbo3D);
+        Api.BindSamplerPtr(0, 0);
+        Api.BindSamplerPtr(1, 0);
+        Api.Uniform1iPtr(_u3Tex, 0);
+        Api.Uniform1iPtr(_u3Light, 1);
+        Api.Uniform3fPtr(_u3Haze, hazeR, hazeG, hazeB);
+        Api.EnablePtr(GlApi.DepthTest);
+        Api.DepthFuncPtr(GlApi.GEqual);
+        Api.DepthMaskPtr(1);
+        Api.ClearDepthPtr(0.0);
+        Api.ClearPtr(GlApi.DepthBufferBit);
         SetCamera3D(camera);
     }
 
@@ -242,14 +242,14 @@ void main() {
             (_dynCol[i * 3], _dynCol[(i * 3) + 1], _dynCol[(i * 3) + 2]) = (l.R, l.G, l.B);
         }
         _dynCount = n;
-        Api.UseProgram_(_program3D);
-        Api.Uniform1i_(_u3DynCount, n);
+        Api.UseProgramPtr(_program3D);
+        Api.Uniform1iPtr(_u3DynCount, n);
         if (n > 0)
         {
             fixed (float* p = _dynPos)
-                Api.Uniform4fv_(_u3DynPos, n, p);
+                Api.Uniform4fvPtr(_u3DynPos, n, p);
             fixed (float* p = _dynCol)
-                Api.Uniform3fv_(_u3DynCol, n, p);
+                Api.Uniform3fvPtr(_u3DynCol, n, p);
         }
     }
 
@@ -259,7 +259,7 @@ void main() {
         Span<float> m = stackalloc float[16];
         camera.ViewProjection(m);
         fixed (float* p = m)
-            Api.UniformMatrix4fv_(_u3ViewProj, 1, 0, p);
+            Api.UniformMatrix4fvPtr(_u3ViewProj, 1, 0, p);
     }
 
     /// <inheritdoc/>
@@ -271,48 +271,51 @@ void main() {
             return;
         var tex = state.Texture as Texture3D;
         var light = state.LightMap as Texture3D;
-        Api.Uniform1i_(_u3UseTex, tex != null ? 1 : 0);
-        Api.Uniform1i_(_u3UseLight, light != null ? 1 : 0);
-        Api.Uniform1f_(_u3AlphaTest, state.AlphaTest);
+        Api.Uniform1iPtr(_u3UseTex, tex != null ? 1 : 0);
+        Api.Uniform1iPtr(_u3UseLight, light != null ? 1 : 0);
+        Api.Uniform1fPtr(_u3AlphaTest, state.AlphaTest);
         if (tex != null)
         {
-            Api.ActiveTexture_(GlApi.Texture0);
-            Api.BindTexture_(GlApi.Texture2D, tex.Name);
+            Api.ActiveTexturePtr(GlApi.Texture0);
+            Api.BindTexturePtr(GlApi.Texture2D, tex.Name);
         }
         if (light != null)
         {
-            Api.ActiveTexture_(GlApi.Texture1);
-            Api.BindTexture_(GlApi.Texture2D, light.Name);
+            Api.ActiveTexturePtr(GlApi.Texture1);
+            Api.BindTexturePtr(GlApi.Texture2D, light.Name);
         }
-        Api.ActiveTexture_(GlApi.Texture0);
+        Api.ActiveTexturePtr(GlApi.Texture0);
         if (state.DepthTest)
-            Api.Enable_(GlApi.DepthTest);
+            Api.EnablePtr(GlApi.DepthTest);
         else
-            Api.Disable_(GlApi.DepthTest);
-        Api.DepthMask_((byte)(state.DepthWrite ? 1 : 0));
+            Api.DisablePtr(GlApi.DepthTest);
+        Api.DepthMaskPtr((byte)(state.DepthWrite ? 1 : 0));
         if (state.Blend)
         {
-            Api.Enable_(GlApi.Blend);
+            Api.EnablePtr(GlApi.Blend);
             switch (state.BlendKind)
             {
                 case BlendMode.Additive:
-                    Api.BlendFunc_(GlApi.SrcAlpha, GlApi.ONE);
+                    Api.BlendFuncPtr(GlApi.SrcAlpha, GlApi.ONE);
                     break;
                 case BlendMode.Subtractive:
-                    Api.BlendFunc_(GlApi.ZERO, GlApi.OneMinusSrcColor);
+                    Api.BlendFuncPtr(GlApi.ZERO, GlApi.OneMinusSrcColor);
                     break;
+                case BlendMode.Opaque:
+                case BlendMode.Transparent:
+                case BlendMode.Translucent:
                 default:
-                    Api.BlendFunc_(GlApi.SrcAlpha, GlApi.OneMinusSrcAlpha);
+                    Api.BlendFuncPtr(GlApi.SrcAlpha, GlApi.OneMinusSrcAlpha);
                     break;
             }
         }
         else
         {
-            Api.Disable_(GlApi.Blend);
+            Api.DisablePtr(GlApi.Blend);
         }
         fixed (Vertex3D* p = triangles)
-            Api.BufferData_(GlApi.ArrayBuffer, triangles.Length * sizeof(Vertex3D), p, GlApi.StreamDraw);
-        Api.DrawArrays_(GlApi.Triangles, 0, triangles.Length - (triangles.Length % 3));
+            Api.BufferDataPtr(GlApi.ArrayBuffer, triangles.Length * sizeof(Vertex3D), p, GlApi.StreamDraw);
+        Api.DrawArraysPtr(GlApi.Triangles, 0, triangles.Length - (triangles.Length % 3));
         ++Draws3D;
         ++DrawCalls;
         Triangles += triangles.Length / 3;
@@ -322,8 +325,8 @@ void main() {
     public void EndScene3D()
     {
         _in3D = false;
-        Api.DepthMask_(1);
-        Api.Disable_(GlApi.Blend);
+        Api.DepthMaskPtr(1);
+        Api.DisablePtr(GlApi.Blend);
         Prepare2D();
         ApplyClip();
     }

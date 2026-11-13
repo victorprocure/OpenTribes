@@ -74,9 +74,9 @@ public sealed class JoystickSet : IDisposable
     /// <summary>Closes every device.</summary>
     public void Dispose()
     {
-        foreach (var (Id, Handle, Name, Axes, Buttons, Hats) in _devices)
-            if (Handle != IntPtr.Zero)
-                Sdl3.CloseJoystick(Handle);
+        foreach (var (id2, handle, name, axes, buttons, hats) in _devices)
+            if (handle != IntPtr.Zero)
+                Sdl3.CloseJoystick(handle);
         _devices.Clear();
     }
 }

@@ -20,8 +20,11 @@ public sealed class SubPalette
     public byte[]? IdentityMap { get; set; }
     /// <summary>The red, green, blue and alpha float maps of kinds 1, 2, 6 and 8.</summary>
     public float[]? IndexToRed { get; set; }
+    /// <inheritdoc cref="IndexToRed"/>
     public float[]? IndexToGreen { get; set; }
+    /// <inheritdoc cref="IndexToRed"/>
     public float[]? IndexToBlue { get; set; }
+    /// <inheritdoc cref="IndexToRed"/>
     public float[]? IndexToAlpha { get; set; }
 
     /// <summary>Reads the colour of an entry.</summary>
@@ -59,6 +62,7 @@ public sealed class PaletteBank
     public float[]? ColorWeights { get; set; }
     /// <summary>The first and last used palette index.</summary>
     public uint UsedStart { get; set; }
+    /// <inheritdoc cref="UsedStart"/>
     public uint UsedEnd { get; set; }
 
     /// <summary>Gets the number of shade steps.</summary>

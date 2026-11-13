@@ -80,7 +80,7 @@ public static partial class Sdl3
 
     /// <summary>Shuts SDL down (SDL_Quit).</summary>
     [LibraryImport(Lib, EntryPoint = "SDL_Quit")]
-    public static partial void Quit();
+    internal static partial void Quit();
 
     [LibraryImport(Lib, EntryPoint = "SDL_GetCurrentVideoDriver")]
     private static partial IntPtr GetCurrentVideoDriverPtr();
@@ -101,7 +101,7 @@ public static partial class Sdl3
     /// <summary>Destroys a window (SDL_DestroyWindow).</summary>
     /// <param name="window">The window.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_DestroyWindow")]
-    public static partial void DestroyWindow(IntPtr window);
+    internal static partial void DestroyWindow(IntPtr window);
 
     /// <summary>Shows a window (SDL_ShowWindow).</summary>
     /// <param name="window">The window.</param>
@@ -131,7 +131,7 @@ public static partial class Sdl3
     /// <param name="window">The window.</param>
     /// <returns>The context, or zero on failure.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_CreateContext")]
-    public static partial IntPtr GlCreateContext(IntPtr window);
+    internal static partial IntPtr GlCreateContext(IntPtr window);
 
     /// <summary>Destroys an OpenGL context (SDL_GL_DestroyContext).</summary>
     /// <param name="context">The context.</param>
@@ -189,17 +189,17 @@ public static partial class Sdl3
     /// <summary>Gets the time since SDL started in nanoseconds (SDL_GetTicksNS).</summary>
     /// <returns>The time.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetTicksNS")]
-    public static partial ulong GetTicksNS();
+    internal static partial ulong GetTicksNS();
 
     /// <summary>Gets the high resolution counter (SDL_GetPerformanceCounter).</summary>
     /// <returns>The counter.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetPerformanceCounter")]
-    public static partial ulong GetPerformanceCounter();
+    internal static partial ulong GetPerformanceCounter();
 
     /// <summary>Gets the frequency of the high resolution counter (SDL_GetPerformanceFrequency).</summary>
     /// <returns>The frequency in counts per second.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetPerformanceFrequency")]
-    public static partial ulong GetPerformanceFrequency();
+    internal static partial ulong GetPerformanceFrequency();
 
     /// <summary>Turns relative mouse mode on or off (SDL_SetWindowRelativeMouseMode).</summary>
     /// <param name="window">The window.</param>
@@ -305,7 +305,7 @@ public static partial class Sdl3
     /// <param name="window">The window.</param>
     /// <returns>The flags.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetWindowFlags")]
-    public static partial ulong GetWindowFlags(IntPtr window);
+    internal static partial ulong GetWindowFlags(IntPtr window);
 
     /// <summary>The SDL_WINDOW_FULLSCREEN flag.</summary>
     public const ulong WindowFullscreen = 0x1;
@@ -313,7 +313,7 @@ public static partial class Sdl3
     /// <summary>Waits for a number of milliseconds (SDL_Delay).</summary>
     /// <param name="ms">The time to wait.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_Delay")]
-    public static partial void Delay(uint ms);
+    internal static partial void Delay(uint ms);
 
     [LibraryImport(Lib, EntryPoint = "SDL_GetDisplayForWindow")]
     private static partial uint GetDisplayForWindow(IntPtr window);
@@ -346,65 +346,58 @@ public static partial class Sdl3
     }
 }
 
-/// <summary>The SDL_Event union, 128 bytes. Only the fields the client reads are exposed.</summary>
-[StructLayout(LayoutKind.Explicit, Size = 128)]
-public struct SdlEvent
+/// <summary>The SDL_Event union, 128 bytes. Only the fields the client reads are exposed, read from the native record at their offsets.</summary>
+public readonly struct SdlEvent
 {
+    private readonly SdlEventBytes _raw;
+
     /// <summary>The event type.</summary>
-    public uint Type => _type;
-    [FieldOffset(0)] private uint _type;
+    public uint Type => Read<uint>(0);
     /// <summary>The window id, for window and keyboard events.</summary>
-    public uint WindowId => _windowId;
-    [FieldOffset(16)] private uint _windowId;
+    public uint WindowId => Read<uint>(16);
     /// <summary>The new width, for window events.</summary>
-    public int Data1 => _data1;
-    [FieldOffset(20)] private int _data1;
+    public int Data1 => Read<int>(20);
     /// <summary>The new height, for window events.</summary>
-    public int Data2 => _data2;
-    [FieldOffset(24)] private int _data2;
+    public int Data2 => Read<int>(24);
     /// <summary>The scancode, for keyboard events.</summary>
-    public uint Scancode => _scancode;
-    [FieldOffset(24)] private uint _scancode;
+    public uint Scancode => Read<uint>(24);
     /// <summary>The SDL_Keycode, for keyboard events.</summary>
-    public uint Key => _key;
-    [FieldOffset(28)] private uint _key;
+    public uint Key => Read<uint>(28);
     /// <summary>Whether the key is down, for keyboard events.</summary>
-    public byte Down => _down;
-    [FieldOffset(36)] private byte _down;
+    public byte Down => Read<byte>(36);
     /// <summary>Whether the key is a repeat, for keyboard events.</summary>
-    public byte Repeat => _repeat;
-    [FieldOffset(37)] private byte _repeat;
+    public byte Repeat => Read<byte>(37);
     /// <summary>The SDL_Keymod, for keyboard events.</summary>
-    public ushort Mod => _mod;
-    [FieldOffset(32)] private ushort _mod;
+    public ushort Mod => Read<ushort>(32);
     /// <summary>The x movement, for mouse motion.</summary>
-    public float XRel => _xRel;
-    [FieldOffset(36)] private float _xRel;
+    public float XRel => Read<float>(36);
     /// <summary>The y movement, for mouse motion.</summary>
-    public float YRel => _yRel;
-    [FieldOffset(40)] private float _yRel;
+    public float YRel => Read<float>(40);
     /// <summary>The button, for mouse button events: 1 left, 2 middle, 3 right.</summary>
-    public byte Button => _button;
-    [FieldOffset(24)] private byte _button;
+    public byte Button => Read<byte>(24);
     /// <summary>Whether the button is down, for mouse button events.</summary>
-    public byte ButtonDown => _buttonDown;
-    [FieldOffset(25)] private byte _buttonDown;
+    public byte ButtonDown => Read<byte>(25);
     /// <summary>The vertical wheel movement, for mouse wheel events.</summary>
-    public float WheelY => _wheelY;
-    [FieldOffset(28)] private float _wheelY;
+    public float WheelY => Read<float>(28);
     /// <summary>The instance id, for joystick events.</summary>
-    public uint JoyWhich => _joyWhich;
-    [FieldOffset(16)] private uint _joyWhich;
+    public uint JoyWhich => Read<uint>(16);
     /// <summary>The axis, hat or button index, for joystick events.</summary>
-    public byte JoyIndex => _joyIndex;
-    [FieldOffset(20)] private byte _joyIndex;
+    public byte JoyIndex => Read<byte>(20);
     /// <summary>The SDL_HAT_* bits, for joystick hat events.</summary>
-    public byte JoyHat => _joyHat;
-    [FieldOffset(21)] private byte _joyHat;
+    public byte JoyHat => Read<byte>(21);
     /// <summary>Whether the button is down, for joystick button events.</summary>
-    public byte JoyDown => _joyDown;
-    [FieldOffset(21)] private byte _joyDown;
+    public byte JoyDown => Read<byte>(21);
     /// <summary>The axis value, -32768 to 32767, for joystick axis events.</summary>
-    public short JoyAxisValue => _joyAxisValue;
-    [FieldOffset(24)] private short _joyAxisValue;
+    public short JoyAxisValue => Read<short>(24);
+
+    private T Read<T>(int offset)
+        where T : unmanaged => System.Runtime.InteropServices.MemoryMarshal.Read<T>(((ReadOnlySpan<byte>)_raw)[offset..]);
 }
+
+/// <summary>The 128 bytes of an SDL_Event.</summary>
+[System.Runtime.CompilerServices.InlineArray(128)]
+internal struct SdlEventBytes
+{
+    private byte _element;
+}
+

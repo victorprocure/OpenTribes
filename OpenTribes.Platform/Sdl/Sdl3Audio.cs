@@ -35,7 +35,7 @@ public static partial class Sdl3
     /// <summary>Shuts a subsystem down (SDL_QuitSubSystem).</summary>
     /// <param name="flags">The subsystem flags.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_QuitSubSystem")]
-    public static partial void QuitSubSystem(uint flags);
+    internal static partial void QuitSubSystem(uint flags);
 
     /// <summary>Sets a hint (SDL_SetHint).</summary>
     /// <param name="name">The hint name.</param>
@@ -52,7 +52,7 @@ public static partial class Sdl3
     /// <param name="userdata">The user data passed to the callback.</param>
     /// <returns>The stream, or zero on failure.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_OpenAudioDeviceStream")]
-    public static unsafe partial IntPtr OpenAudioDeviceStream(uint devid, AudioSpec* spec, IntPtr callback, IntPtr userdata);
+    internal static unsafe partial IntPtr OpenAudioDeviceStream(uint devid, AudioSpec* spec, IntPtr callback, IntPtr userdata);
 
     /// <summary>Starts the stream's device (SDL_ResumeAudioStreamDevice).</summary>
     /// <param name="stream">The stream.</param>
@@ -73,13 +73,13 @@ public static partial class Sdl3
     /// <summary>Destroys a stream and its device (SDL_DestroyAudioStream).</summary>
     /// <param name="stream">The stream.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_DestroyAudioStream")]
-    public static partial void DestroyAudioStream(IntPtr stream);
+    internal static partial void DestroyAudioStream(IntPtr stream);
 
     /// <summary>Gets the device of a stream (SDL_GetAudioStreamDevice).</summary>
     /// <param name="stream">The stream.</param>
     /// <returns>The device id.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetAudioStreamDevice")]
-    public static partial uint GetAudioStreamDevice(IntPtr stream);
+    internal static partial uint GetAudioStreamDevice(IntPtr stream);
 
     /// <summary>Gets the preferred format of a device (SDL_GetAudioDeviceFormat).</summary>
     /// <param name="devid">The device id.</param>

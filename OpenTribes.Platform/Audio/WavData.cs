@@ -36,20 +36,20 @@ public sealed class WavData
 
     private WavData Resample(int rate, bool loop)
     {
-        const int H = 16;
+        const int h2 = 16;
         var ratio = (double)Rate / rate;                       // source frames per output frame
         var fc = 0.97 * Math.Min(Rate, rate) / 2.0 / Rate;     // cutoff in cycles per source sample
         var outFrames = (int)Math.Max(1, Math.Round(Frames / ratio));
         var o = new float[outFrames * Channels];
         var scale = 2 * fc;
-        const int Res = 512;                                       // kernel table steps per source sample
-        var tab = new double[(2 * H * Res) + 2];
+        const int res = 512;                                       // kernel table steps per source sample
+        var tab = new double[(2 * h2 * res) + 2];
         for (var i = 0; i < tab.Length; ++i)
         {
-            var u = ((double)i / Res) - H;
+            var u = ((double)i / res) - h2;
             var x = u * scale * Math.PI;
             var sinc = Math.Abs(x) < 1e-9 ? 1 : Math.Sin(x) / x;
-            var wx = u / H;
+            var wx = u / h2;
             tab[i] = scale * sinc * (0.42 + (0.5 * Math.Cos(Math.PI * wx)) + (0.08 * Math.Cos(2 * Math.PI * wx)));
         }
         for (var j = 0; j < outFrames; ++j)
@@ -59,7 +59,7 @@ public sealed class WavData
             for (var c = 0; c < Channels; ++c)
             {
                 double acc = 0;
-                for (var k = k0 - H + 1; k <= k0 + H; ++k)
+                for (var k = k0 - h2 + 1; k <= k0 + h2; ++k)
                 {
                     var idx = k;
                     if (idx < 0 || idx >= Frames)
@@ -68,7 +68,7 @@ public sealed class WavData
                             continue;
                         idx = ((idx % Frames) + Frames) % Frames;
                     }
-                    var pos = (t - k + H) * Res;
+                    var pos = (t - k + h2) * res;
                     var pi = (int)pos;
                     var h = tab[pi] + ((tab[pi + 1] - tab[pi]) * (pos - pi));
                     acc += Samples[(idx * Channels) + c] * h;

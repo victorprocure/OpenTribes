@@ -384,7 +384,7 @@ public sealed class SmackerDecoder
         if (NextFrame >= FrameCount)
             return false;
         var i = NextFrame++;
-        ReadOnlySpan<byte> chunk = new ReadOnlySpan<byte>(_data, _frameStart[i], _frameSize[i]);
+        var chunk = new ReadOnlySpan<byte>(_data, _frameStart[i], _frameSize[i]);
         var p = 0;
         PaletteChanged = false;
         var type = _frameType[i];
@@ -474,7 +474,9 @@ public sealed class SmackerDecoder
                         case 3:
                             SolidBlock(bx, by, (byte)extra);
                             break;
+                        default:
                             // 2: void, the block keeps the previous picture.
+                            break;
                     }
                 }
             }
@@ -545,7 +547,7 @@ public sealed class SmackerDecoder
         {
             if ((_frameType[i] & (2 << track)) == 0)
                 continue;
-            ReadOnlySpan<byte> chunk = new ReadOnlySpan<byte>(_data, _frameStart[i], _frameSize[i]);
+            var chunk = new ReadOnlySpan<byte>(_data, _frameStart[i], _frameSize[i]);
             var p = (_frameType[i] & 1) != 0 && chunk.Length > 0 ? chunk[0] * 4 : 0;
             for (var t = 0; t < MaxTracks && p + 4 <= chunk.Length; ++t)
             {
@@ -559,7 +561,7 @@ public sealed class SmackerDecoder
                     var body = chunk.Slice(p + 4, alen - 4);
                     if (a.Packed)
                     {
-                        var dec = UnpackAudio(body, a);
+                        var dec = UnpackAudio(body);
                         if (dec != null)
                             pcm.Write(dec);
                     }
@@ -577,7 +579,7 @@ public sealed class SmackerDecoder
 
     // One Huffman DPCM audio chunk: the unpacked byte count, three flag bits (data, stereo, 16 bit), 1 << (stereo + 16 bit) byte
     // trees, the start value of each channel (the right channel first) and then one delta per sample.
-    private static byte[]? UnpackAudio(ReadOnlySpan<byte> body, SmackerAudioTrack a)
+    private static byte[]? UnpackAudio(ReadOnlySpan<byte> body)
     {
         if (body.Length < 5)
             return null;

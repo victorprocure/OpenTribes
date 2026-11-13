@@ -25,7 +25,7 @@ public static class PlatformPaths
     {
         OsKind.Windows => ["SDL3.dll", "SDL3"],
         OsKind.MacOS => ["libSDL3.0.dylib", "libSDL3.dylib", "SDL3.framework/SDL3", "SDL3"],
-        _ => ["libSDL3.so.0", "libSDL3.so", "SDL3"],
+        OsKind.Linux or _ => ["libSDL3.so.0", "libSDL3.so", "SDL3"],
     };
 
     /// <summary>Gets the per-user directory the client uses as its game directory overlay when the install is read-only (D54).</summary>
@@ -44,6 +44,7 @@ public static class PlatformPaths
             }
             case OsKind.MacOS:
                 return Path.Combine(home, "Library", "Application Support", "OpenTribes");
+            case OsKind.Linux:
             default:
             {
                 var xdg = env("XDG_DATA_HOME");
@@ -67,11 +68,11 @@ public static class PlatformPaths
     }
 
     /// <summary>Gets the SDL audio driver to use when the user gave none.</summary>
-    /// <param name="os">The operating system.</param>
+    /// <param name="_">The operating system. It does not change the choice.</param>
     /// <param name="env">Returns an environment variable, or null.</param>
     /// <param name="videoDriver">The video driver in use.</param>
     /// <returns>The driver. A Linux session without a display or a sound server socket gets the dummy driver, and only when the video driver is the offscreen one (a headless run). Null otherwise.</returns>
-    public static string? DefaultAudioDriver(OsKind os, Func<string, string?> env, string? videoDriver)
+    public static string? DefaultAudioDriver(OsKind _, Func<string, string?> env, string? videoDriver)
     {
         if (!string.IsNullOrEmpty(env("SDL_AUDIO_DRIVER")))
             return null;
