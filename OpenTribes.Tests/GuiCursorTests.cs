@@ -81,7 +81,7 @@ public class GuiHelpTests
         var b = GuiFixture.Make("FearGui::FGUniversalButton", 100, 100, 60, 20, ("active", (byte)1));
         b.HelpTag = 220700;
         root.AddChild(b);
-        fx.Content(root, new GuiDelegate { Name = "T", HelpPopups = popups });
+        fx.Content(root, new GuiScreenResponder { Name = "T", HelpPopups = popups });
         return (fx, b);
     }
 

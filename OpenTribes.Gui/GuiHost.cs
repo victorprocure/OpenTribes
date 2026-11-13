@@ -312,13 +312,13 @@ public interface IHudSource
     /// <param name="width">The view width.</param>
     /// <param name="height">The view height.</param>
     /// <returns>The markers.</returns>
-    public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => Array.Empty<HudTargetMarker>();
+    public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => [];
     /// <summary>Gets a value that is true while the sensor pings.</summary>
     public bool SensorPing { get; }
     /// <summary>Gets a value that is true while the sensor has a lock.</summary>
     public bool SensorLocked { get; }
     /// <summary>Gets the item datablocks with showInventory set, with the counts and the station masks of the client player state (the lists of CmdInventory.gui). Empty without a client.</summary>
-    public IReadOnlyList<InventoryEntry> InventoryItems => Array.Empty<InventoryEntry>();
+    public IReadOnlyList<InventoryEntry> InventoryItems => [];
     /// <summary>Gets the scoreboard of the client player manager (docs/client-net.md 2.3 DeltaScoreEvent), null without one.</summary>
     public ScoreBoard? Scores => null;
     /// <summary>Gets the menu a script put on display, null without one.</summary>
@@ -330,11 +330,11 @@ public interface IHudSource
     /// <returns>The state, null when there is no such chat menu.</returns>
     public ChatMenuState? NamedMenu(string name) => null;
     /// <summary>Gets the rows of the command team list of the local player's team (CommandTeamCtrl, docs/gui.md 3.3 "The command screen panels").</summary>
-    public IReadOnlyList<CommandTeamRow> CommandTeam => Array.Empty<CommandTeamRow>();
+    public IReadOnlyList<CommandTeamRow> CommandTeam => [];
     /// <summary>Gets the rows of the Objects list (CommandItemCtrl) of the command screen.</summary>
-    public IReadOnlyList<CommandListRow> CommandObjects => Array.Empty<CommandListRow>();
+    public IReadOnlyList<CommandListRow> CommandObjects => [];
     /// <summary>Gets the rows of the Controllables list (CommandTurretCtrl) of the command screen.</summary>
-    public IReadOnlyList<CommandListRow> CommandControllables => Array.Empty<CommandListRow>();
+    public IReadOnlyList<CommandListRow> CommandControllables => [];
     /// <summary>Returns the client id of the first selected record of the local player's records (the CMDObserve toggle takes it).</summary>
     /// <returns>The client id, -1 for none.</returns>
     public int CommandFirstSelectedClient() => -1;
@@ -343,7 +343,7 @@ public interface IHudSource
     /// <summary>Gets the slots and the local client for the marks over the map, null without a client.</summary>
     public CommandMapMarks? CommandMapMarks => null;
     /// <summary>Gets the mission objective lines (TeamObjectiveEvent), 32 slots. A slot nobody set is null.</summary>
-    public IReadOnlyList<string?> ObjectiveLines => Array.Empty<string?>();
+    public IReadOnlyList<string?> ObjectiveLines => [];
 
     // ---- what the command map and the team list read and write (TSCommander 004d1bf0 .. 004d3018, CommandTeamCtrl 004a8b00) ----
     /// <summary>Gets the local human client of the command map (PlayerManager_findHumanClient of the manager id), null without one.</summary>
@@ -365,8 +365,8 @@ public interface IHudSource
     public string? CommandTargetName(int slot) => null;
     /// <summary>Sets the selected byte (+0x68) of the client record with an id (PlayerManager_findClient).</summary>
     /// <param name="clientId">The client id.</param>
-    /// <param name="on">The new state.</param>
-    public void CommandSetSelected(int clientId, bool on) { }
+    /// <param name="selected">The new state.</param>
+    public void CommandSetSelected(int clientId, bool selected) { }
     /// <summary>Flips the expanded byte (+0x69) of a record, as a click on the tree glyph does.</summary>
     /// <param name="clientId">The client id.</param>
     public void CommandToggleExpanded(int clientId) { }

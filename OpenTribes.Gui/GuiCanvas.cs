@@ -34,7 +34,7 @@ public struct RawInput
 }
 
 /// <summary>The responder a canvas puts below the content control of a screen: it forwards to the canvas root and calls the screen's hooks.</summary>
-public sealed class GuiDelegate : IGuiResponder
+public sealed class GuiScreenResponder : IGuiResponder
 {
     /// <summary>The delegate name, the file name of its screen.</summary>
     public string Name { get; set; } = "";
@@ -56,7 +56,7 @@ public sealed class GuiDelegate : IGuiResponder
     public Action<GuiControl>? OnContentReady { get; set; }
     /// <summary>Called when the canvas is removing the delegate's content (slot 0x60). JoinGame saves its server list there (004d7630).</summary>
     public Action<GuiControl>? OnRemove { get; set; }
-    private IGuiResponder? Up => Canvas?.Root;
+    private CanvasRoot? Up => Canvas?.Root;
     /// <inheritdoc/>
     public bool MsDown(GuiEvent e) => Up?.MsDown(e) ?? false;
     /// <inheritdoc/>
@@ -154,6 +154,8 @@ public sealed class CanvasRoot : IGuiResponder
                     return true;
                 }
                 return false;
+            default:
+                break;
         }
         return false;
     }
@@ -211,8 +213,8 @@ public sealed class GuiCanvas
     /// <summary>The replaced content controls that are not deleted on replacement, by name.</summary>
     public Dictionary<string, GuiControl> Retained { get; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The delegates by screen name.</summary>
-    public Dictionary<string, GuiDelegate> Delegates { get; } = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<GuiControl, GuiDelegate> _delegateOf = [];
+    public Dictionary<string, GuiScreenResponder> Delegates { get; } = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<GuiControl, GuiScreenResponder> _delegateOf = [];
     /// <summary>The canvas root responder.</summary>
     public CanvasRoot Root { get; }
     /// <summary>The responder that gets the keys.</summary>
@@ -367,7 +369,7 @@ public sealed class GuiCanvas
         return c;
     }
 
-    private GuiDelegate? DelegateFor(string file)
+    private GuiScreenResponder? DelegateFor(string file)
     {
         var baseName = Path.GetFileNameWithoutExtension(file.Replace('\\', '/'));
         return Delegates.GetValueOrDefault(baseName);
@@ -406,7 +408,7 @@ public sealed class GuiCanvas
     /// <param name="c">The new content control.</param>
     /// <param name="del">The screen's delegate, or null.</param>
     /// <remarks>It pops every dialog and calls the old content's onClose and the delegate's remove hook. The old content is kept by name when its flag bit 1 is clear: play.gui and CmdInventory.gui have flags 1 and a lookup by name still finds them (00533fdc, 0040dbfc).</remarks>
-    public void SetContent(GuiControl c, GuiDelegate? del = null)
+    public void SetContent(GuiControl c, GuiScreenResponder? del = null)
     {
         Lock = null;
         Hover = null;
@@ -665,6 +667,8 @@ public sealed class GuiCanvas
                 return 0xd2;
             case "delete":
                 return 0xd3;
+            default:
+                break;
         }
         if (name.Length == 1)
         {
@@ -910,7 +914,7 @@ public sealed class GuiCanvas
         var fonts = new PftFont?[GuiTextFormat.FontCount];
         fonts[0] = HelpFont(0);
         fonts[1] = HelpFont(1);
-        GuiTextFormat layout = GuiTextFormat.Layout(text[(comma + 1)..], req - 6, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
+        var layout = GuiTextFormat.Layout(text[(comma + 1)..], req - 6, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
         int w = Math.Min(req, layout.MaxWidth + 6), h = Math.Min(0xc0, layout.Height + 6);
         // Below the cursor (the height of the default cursor bitmap), pushed back inside the window by three pixels.
         int x = (int)CursorX, y = (int)CursorY + (CursorBitmap?.Height ?? 0);

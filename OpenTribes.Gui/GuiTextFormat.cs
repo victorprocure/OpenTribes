@@ -289,6 +289,8 @@ public sealed class GuiTextFormat
                 j = start -= tag.Length + 2;
                 break;
             }
+            default:
+                break;
         }
         return true;
     }
@@ -391,7 +393,7 @@ public sealed class GuiTextFormat
                 --fit;
             if (fit == rest.Length)
             {
-                AddPiece(rest, avail);
+                AddPiece(rest);
                 _x += Measure(rest);
                 MaxWidth = Math.Max(MaxWidth, _x);
                 return;
@@ -413,7 +415,7 @@ public sealed class GuiTextFormat
                 cut = Math.Max(fit, 1);
             }
             var piece = rest[..cut];
-            AddPiece(piece, avail);
+            AddPiece(piece);
             _x += Measure(piece);
             MaxWidth = Math.Max(MaxWidth, _x);
             NewLine();
@@ -423,7 +425,7 @@ public sealed class GuiTextFormat
         }
     }
 
-    private void AddPiece(string text, int avail) =>
+    private void AddPiece(string text) =>
         // a right justified piece centres or aligns inside the room from the cursor, the others inside the margins
         Pieces.Add(new Piece { Font = _font, Just = _just, X = _x, Y = _y, Text = text, Avail = _just == 2 ? _right - _x : _right - _left });
 

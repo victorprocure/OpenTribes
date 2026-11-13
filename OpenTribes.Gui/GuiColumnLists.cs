@@ -288,7 +288,7 @@ public abstract class GuiColumnList : GuiList
 /// <remarks>Follows ctor 004d5d08, wake 004d5368, add 004d55e0, delete 004d5708, select by id 004d5840 and select row 004d54d0.</remarks>
 public sealed class GuiMasterList : GuiColumnList
 {
-    private static readonly ListColumn[] sColumns =
+    private static readonly ListColumn[] ColumnTable =
     [
         new(131310, 0, 122), // IDSTR_SI_MASTER_SERVER
         new(131306, 1, 122), // IDSTR_SI_ADDRESS
@@ -297,7 +297,7 @@ public sealed class GuiMasterList : GuiColumnList
     private readonly List<string> _addresses = [];
 
     /// <inheritdoc/>
-    protected override IReadOnlyList<ListColumn> Columns => sColumns;
+    protected override IReadOnlyList<ListColumn> Columns => ColumnTable;
     /// <inheritdoc/>
     protected override int RowCount => Entries.Count;
 
@@ -376,7 +376,7 @@ public sealed class GuiMasterList : GuiColumnList
 /// <remarks>Follows wake 004be06c.</remarks>
 public sealed class GuiFilterCtrl : GuiColumnList
 {
-    private static readonly ListColumn[] sColumns =
+    private static readonly ListColumn[] ColumnTable =
     [
         new(131600, 0, 70), new(131601, 1, 87), new(131602, 2, 67), new(-1, 3, 32),
     ];
@@ -385,7 +385,7 @@ public sealed class GuiFilterCtrl : GuiColumnList
     public int ChosenFilter { get; set; }
 
     /// <inheritdoc/>
-    protected override IReadOnlyList<ListColumn> Columns => sColumns;
+    protected override IReadOnlyList<ListColumn> Columns => ColumnTable;
     /// <inheritdoc/>
     protected override int RowCount => 0;
     /// <inheritdoc/>
@@ -530,7 +530,7 @@ public sealed class ServerColumns
 /// <remarks>Follows ctor 004bd678, wake 004bce4c, row 004bcf44, down 004bc9a4, drag 004bcad4 and up 004bcc28. A press on a name picks the row up (white) and dragging moves it, a press in DISP toggles YES and NO. The release writes the preferences.</remarks>
 public sealed class GuiOptionColumns : GuiColumnList
 {
-    private static readonly ListColumn[] sColumns = [new(131501, 0, 70), new(131502, 1, 161), new(131503, 2, 36)];
+    private static readonly ListColumn[] ColumnTable = [new(131501, 0, 70), new(131502, 1, 161), new(131503, 2, 36)];
 
     /// <summary>The state of the columns.</summary>
     public ServerColumns Data { get; } = new();
@@ -538,7 +538,7 @@ public sealed class GuiOptionColumns : GuiColumnList
     private int _dragRow = -1;
 
     /// <inheritdoc/>
-    protected override IReadOnlyList<ListColumn> Columns => sColumns;
+    protected override IReadOnlyList<ListColumn> Columns => ColumnTable;
     /// <inheritdoc/>
     protected override int RowCount => ServerColumns.Count;
     /// <inheritdoc/>
@@ -607,12 +607,12 @@ public sealed class GuiOptionColumns : GuiColumnList
         var hit = Data.AtOrder(Selected);
         if (hit == null)
             return r;
-        if (lx >= 0 && lx <= sColumns[0].Width)
+        if (lx >= 0 && lx <= ColumnTable[0].Width)
         {
             _drag = hit;
             _dragRow = Selected;
         }
-        else if (lx >= sColumns[0].Width + sColumns[1].Width && lx <= sColumns[0].Width + sColumns[1].Width + sColumns[2].Width)
+        else if (lx >= ColumnTable[0].Width + ColumnTable[1].Width && lx <= ColumnTable[0].Width + ColumnTable[1].Width + ColumnTable[2].Width)
         {
             _toggle = hit;
             hit.Display = !hit.Display;
@@ -695,7 +695,7 @@ public sealed class GuiServerList : GuiColumnList
         /// <summary>The player heading of the score table.</summary>
         public string ClientHeading { get; set; } = "";
         /// <summary>The rows of the score table (ServerInfoCtrl).</summary>
-        public IReadOnlyList<string> Rows { get; set; } = Array.Empty<string>();
+        public IReadOnlyList<string> Rows { get; set; } = [];
 
         /// <summary>Creates a record.</summary>
         /// <param name="id">The row id.</param>
@@ -1041,6 +1041,8 @@ public sealed class GuiServerList : GuiColumnList
                 }
                 else
                     Put(s.State switch { StateUnknown => "I_Unknown.bmp", StateTimeout => "I_Timeout.bmp", StateQuerying => "I_Pinging.bmp", _ => "I_Querying.bmp" }, ref ix);
+                break;
+            default:
                 break;
         }
         return true;

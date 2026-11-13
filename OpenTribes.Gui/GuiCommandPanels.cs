@@ -95,7 +95,7 @@ public sealed class GuiCommandTeam : GuiList
     private int _lastRow = -1;
     private const int CellWidth = 640;
     /// <summary>Gets the rows, rebuilt before each render.</summary>
-    public IReadOnlyList<CommandTeamRow> Rows { get; private set; } = Array.Empty<CommandTeamRow>();
+    public IReadOnlyList<CommandTeamRow> Rows { get; private set; } = [];
     private const uint TagWaypointArrow = 160558;
 
     private GuiCommandMap? Map
@@ -211,7 +211,7 @@ public sealed class GuiCommandTeam : GuiList
     /// <inheritdoc/>
     public override void PreRender()
     {
-        Rows = Host?.Hud?.CommandTeam ?? Array.Empty<CommandTeamRow>();
+        Rows = Host?.Hud?.CommandTeam ?? [];
         Entries.Clear();
         foreach (var r in Rows)
             Entries.Add((r.Name, r.Id));

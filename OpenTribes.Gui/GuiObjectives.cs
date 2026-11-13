@@ -28,7 +28,7 @@ public sealed class GuiObjectivePage : GuiActive
     /// <returns>The total height of the page.</returns>
     private int Update()
     {
-        var lines = Host?.Hud?.ObjectiveLines ?? Array.Empty<string?>();
+        var lines = Host?.Hud?.ObjectiveLines ?? [];
         PftFont?[]? fonts = null;
         var total = 0;
         for (var i = 0; i < LineCount; ++i)

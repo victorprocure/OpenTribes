@@ -431,6 +431,8 @@ public class GuiScroll : GuiControl
             case 10:
                 ScrollBy(vw, 0);
                 break;
+            default:
+                break;
         }
     }
 
@@ -513,6 +515,8 @@ public class GuiScroll : GuiControl
                 case 0xcd:
                     ScrollBy(ScrollLineX, 0);
                     return true;
+                default:
+                    break;
             }
         }
         return base.KeyDown(e);
@@ -606,18 +610,18 @@ public class GuiScroll : GuiControl
         p.Bitmap(bm[!active ? 0 : _repeatPart == 1 ? 1 : 2], bx, by);
         int top = by + VArrowTop, end = by + length - VArrowBottom;
         if (!active)
-            Fill(p, bm[21], bx, top, bm[21].Width, end - top, true);
+            Fill(p, bm[21], bx, top, bm[21].Width, end - top);
         else
         {
             var (t, l) = Thumb(true);
             var drag = _dragPart == 8 && bm.Count > 28;
             PbmpBitmap cap0 = bm[drag ? 30 : 17], mid = bm[drag ? 28 : 15], cap1 = bm[drag ? 29 : 16];
             int ty = by + t, te = ty + l;
-            Fill(p, bm[_repeatPart == 3 ? 22 : 23], bx, top, bm[23].Width, ty - top, true);
+            Fill(p, bm[_repeatPart == 3 ? 22 : 23], bx, top, bm[23].Width, ty - top);
             p.Bitmap(cap0, bx, ty);
-            Fill(p, mid, bx, ty + cap0.Height, mid.Width, te - cap1.Height - (ty + cap0.Height), true);
+            Fill(p, mid, bx, ty + cap0.Height, mid.Width, te - cap1.Height - (ty + cap0.Height));
             p.Bitmap(cap1, bx, te - cap1.Height);
-            Fill(p, bm[_repeatPart == 4 ? 22 : 23], bx, te, bm[23].Width, end - te, true);
+            Fill(p, bm[_repeatPart == 4 ? 22 : 23], bx, te, bm[23].Width, end - te);
         }
         p.Bitmap(bm[!active ? 3 : _repeatPart == 2 ? 4 : 5], bx, end);
     }
@@ -629,23 +633,23 @@ public class GuiScroll : GuiControl
         p.Bitmap(bm[!active ? 6 : _repeatPart == 5 ? 7 : 8], bx, by);
         int left = bx + HArrowLeft, end = bx + length - HArrowRight;
         if (!active)
-            Fill(p, bm[18], left, by, end - left, bm[18].Height, false);
+            Fill(p, bm[18], left, by, end - left, bm[18].Height);
         else
         {
             var (t, l) = Thumb(false);
             var drag = _dragPart == 9 && bm.Count > 25;
             PbmpBitmap cap0 = bm[drag ? 26 : 13], mid = bm[drag ? 25 : 12], cap1 = bm[drag ? 27 : 14];
             int tx = bx + t, te = tx + l;
-            Fill(p, bm[_repeatPart == 7 ? 19 : 20], left, by, tx - left, bm[20].Height, false);
+            Fill(p, bm[_repeatPart == 7 ? 19 : 20], left, by, tx - left, bm[20].Height);
             p.Bitmap(cap0, tx, by);
-            Fill(p, mid, tx + cap0.Width, by, te - cap1.Width - (tx + cap0.Width), mid.Height, false);
+            Fill(p, mid, tx + cap0.Width, by, te - cap1.Width - (tx + cap0.Width), mid.Height);
             p.Bitmap(cap1, te - cap1.Width, by);
-            Fill(p, bm[_repeatPart == 10 ? 19 : 20], te, by, end - te, bm[20].Height, false);
+            Fill(p, bm[_repeatPart == 10 ? 19 : 20], te, by, end - te, bm[20].Height);
         }
         p.Bitmap(bm[!active ? 9 : _repeatPart == 6 ? 10 : 11], end, by);
     }
 
-    private static void Fill(GuiPaint p, PbmpBitmap b, int x, int y, int w, int h, bool vertical)
+    private static void Fill(GuiPaint p, PbmpBitmap b, int x, int y, int w, int h)
     {
         if (w > 0 && h > 0)
             p.BitmapStretch(b, x, y, w, h);

@@ -104,6 +104,8 @@ public static class GuiWriter
                 m.WriteByte((byte)c.U("stretch"));
                 WriteRoutine(m, c, "Active");
                 return;
+            default:
+                break;
         }
         foreach (var op in GuiLoader.Routines[routine])
         {
@@ -134,6 +136,8 @@ public static class GuiWriter
                     break;
                 case "skip81":
                     Buf81(m, "");
+                    break;
+                default:
                     break;
             }
         }

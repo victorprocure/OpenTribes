@@ -338,7 +338,7 @@ public sealed class GuiCompassHud : GuiHud
         {
             // 004e7e5c: the arrow is a filled triangle in palette 0xfc, rotated like the glyphs (+0x58 sets 0xfc).
             var pts = Arrow(yaw, w, lr, cx, cy);
-            HudFrame.FillPolygon(p, new[] { ((int)pts[0].X, (int)pts[0].Y), ((int)pts[1].X, (int)pts[1].Y), ((int)pts[2].X, (int)pts[2].Y) }, 0xfc, 1f);
+            HudFrame.FillPolygon(p, [((int)pts[0].X, (int)pts[0].Y), ((int)pts[1].X, (int)pts[1].Y), ((int)pts[2].X, (int)pts[2].Y)], 0xfc, 1f);
         }
         // The readout origin [code 004e7e5c, 004e86d9 and 004e87b5 for "000"]: x = trunc(cx + 1.0 - (textWidth >> 1)), y = trunc(cy - height + 3.0)
         // with (cx, cy) the compass centre (31.5 or 18.5 inside the bitmap) and height = (font cell height * font scale y) >> 16, the
@@ -1024,7 +1024,7 @@ public sealed class GuiCenterPrint : GuiControl
         var w = pw - (low ? 30 : 70);
         // The prepare handler [code 00488f80] lays the message out at the box width less 4 with the TextFormat routine [005370b8];
         // the box is the layout height + 8 high and the layout is drawn 2 pixels inside it [draw 00489108].
-        GuiTextFormat layout = GuiTextFormat.Layout(Host.CenterText, w - 4, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
+        var layout = GuiTextFormat.Layout(Host.CenterText, w - 4, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
         var h = layout.Height + 8;
         var bx = low ? 15 : 35;
         var by = Host.CenterType == 0 ? (ph - h) / 2 : Host.CenterType == 1 ? ph - h - (low ? 15 : 35) : (low ? 15 : 35);

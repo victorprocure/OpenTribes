@@ -310,6 +310,8 @@ public static class GuiFactory
             case "MEButton":
             case "MEPopupButton":
                 return new GuiTextButton();
+            default:
+                break;
         }
         if (DerivesFrom(row, "SimGui::ArrayCtrl") || row.Name == "SimGui::ArrayCtrl")
             return new GuiList();

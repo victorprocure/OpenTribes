@@ -338,6 +338,8 @@ public static class GuiLoader
                 Run(c, "Active", b, ctx, file, limit);
                 return;
             }
+            default:
+                break;
         }
         if (!Routines.TryGetValue(routine, out var ops))
             throw new GuiLoadException(2, "no routine " + routine);

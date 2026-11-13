@@ -8,7 +8,7 @@ public sealed class GuiServerInfo : GuiList
 {
     /// <summary>The column starts of the team and player rows: the first column starts at 0 and the list ends at 0x280 (004c91f8).</summary>
     private int[] _teamColumns = [0, 0x280], _playerColumns = [0, 0x280];
-    private IReadOnlyList<string> _rows = Array.Empty<string>();
+    private IReadOnlyList<string> _rows = [];
 
     /// <summary>Gets the number of rows.</summary>
     public int RowCount => _rows.Count;
@@ -26,7 +26,7 @@ public sealed class GuiServerInfo : GuiList
     }
 
     /// <summary>Removes all rows.</summary>
-    public void ClearServer() => SetServer("", "", Array.Empty<string>());
+    public void ClearServer() => SetServer("", "", []);
 
     private static int[] Columns(string heading)
     {

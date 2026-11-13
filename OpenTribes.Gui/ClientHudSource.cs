@@ -295,6 +295,8 @@ public sealed class ClientHudSource : IHudSource
                         sb.Append((int)(player.Loss * 100));
                         ++i;
                         continue;
+                    default:
+                        break;
                 }
             }
             sb.Append(text[i]);
@@ -384,7 +386,7 @@ public sealed class ClientHudSource : IHudSource
                     var r = siblings[i];
                     var kids = CommandChildren(r, me.Team);
                     var next = i + 1 < siblings.Count;
-                    rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, r.Expanded, next, CommandDamage(r.Id), r.CommandStatus + 1, above.ToArray(), r.Selected));
+                    rows.Add(new CommandTeamRow(r.Id, r.Name, depth, kids.Count > 0, r.Expanded, next, CommandDamage(r.Id), r.CommandStatus + 1, [.. above], r.Selected));
                     if (!r.Expanded)
                         continue;
                     var nested = new List<(int Depth, bool HasNext)> { (depth, next) };
@@ -465,10 +467,10 @@ public sealed class ClientHudSource : IHudSource
     public string? CommandTargetName(int slot) => slot >= 128 && _world.Players.TargetNames.TryGetValue(slot - 128, out var n) ? n : null;
 
     /// <inheritdoc/>
-    public void CommandSetSelected(int clientId, bool on)
+    public void CommandSetSelected(int clientId, bool selected)
     {
         if (_world.Players.Get(clientId) is { } r)
-            r.Selected = on;
+            r.Selected = selected;
     }
 
     /// <inheritdoc/>
@@ -591,7 +593,7 @@ public sealed class ClientHudSource : IHudSource
             if (owner < 0x800 || pm.Get(owner) is not ClientPlayerRecord rec)
                 continue;
             var visible = ((owner - 0x800) >> 5) is int w && w < Psc.Visible.Length && ((Psc.Visible[w] >> (owner & 31)) & 1) != 0;
-            var head = HeadMount?.Invoke(g.Index) ?? (pos[0], pos[1], pos[2] + 1.4);
+            var (x, y, z) = HeadMount?.Invoke(g.Index) ?? (pos[0], pos[1], pos[2] + 1.4);
             double bw = 1, bd = 1, bh = 2;
             if (g.State.TryGetValue("datablock", out var idx) && _world.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out var b))
                 foreach (var f in b.Fields)
@@ -606,10 +608,12 @@ public sealed class ClientHudSource : IHudSource
                         case "boxNormalHeight":
                             bh = D(f.Value, bh);
                             break;
+                        default:
+                            break;
                     }
             var dead = g.State.ContainsKey("dead");
             var damage = dead ? 1 : Math.Clamp(D(g.State.GetValueOrDefault("damage"), 0), 0, 1);
-            var top = (head.X, head.Y, head.Z + 0.65);
+            var top = (x, y, z + 0.65);
             var clear = LineClear?.Invoke(eye, (pos[0], pos[1], pos[2] + (bh * 0.5))) ?? true;
             list.Add(new HudTargetCandidate(rec.Name, top, (pos[0], pos[1], pos[2]), Math.Min(bw, bd), bh, rec.Team, damage, dead, visible, clear));
         }

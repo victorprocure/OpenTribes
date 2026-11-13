@@ -81,7 +81,7 @@ internal sealed class GuiFixture
         return c;
     }
 
-    public GuiControl Content(GuiControl root, GuiDelegate? del = null)
+    public GuiControl Content(GuiControl root, GuiScreenResponder? del = null)
     {
         Canvas.SetContent(root, del);
         Canvas.Frame();
@@ -846,7 +846,7 @@ public class GuiTests
     public void DelegateCanKeepADialogOpen() // 2.2 pop dialog
     {
         var fx = new GuiFixture();
-        var del = new GuiDelegate { Name = "x", OnPop = (d, m) => -1 };
+        var del = new GuiScreenResponder { Name = "x", OnPop = (d, m) => -1 };
         fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480), del);
         fx.Canvas.PushDialog(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480));
         fx.Canvas.PopDialog(0);

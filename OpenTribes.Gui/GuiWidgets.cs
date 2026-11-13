@@ -330,7 +330,6 @@ public sealed class GuiUniversalButton : GuiActive
     /// <remarks>Follows 0049f1cc: the hand while the button is active.</remarks>
     public override uint CursorTagAt(int lx, int ly) => Active ? CursorHand : 0;
 
-    private static readonly string[] Suffixes = ["_DF", "_HI", "_MD", "_MH", "_ON", "_NA", "_BD", "_BO"];
     private long _flashClock;
     /// <summary>True while the button is on.</summary>
     public bool On { get; set; }

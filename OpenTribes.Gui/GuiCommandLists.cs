@@ -16,7 +16,7 @@ public abstract class GuiCommandObjectList : GuiList
     private const uint TagWaypointArrow = 160558;
 
     /// <summary>Gets the rows, rebuilt before each render.</summary>
-    public IReadOnlyList<CommandListRow> Rows { get; private set; } = Array.Empty<CommandListRow>();
+    public IReadOnlyList<CommandListRow> Rows { get; private set; } = [];
 
     /// <summary>Returns the rows of the list from the HUD source.</summary>
     /// <param name="hud">The HUD source.</param>
@@ -57,7 +57,7 @@ public abstract class GuiCommandObjectList : GuiList
     /// <remarks>Follows 004a98b8 and 004aa6b8: the count is zero without a local client.</remarks>
     public override void PreRender()
     {
-        Rows = Host?.Hud is IHudSource hud ? Source(hud) : Array.Empty<CommandListRow>();
+        Rows = Host?.Hud is IHudSource hud ? Source(hud) : [];
         Entries.Clear();
         foreach (var r in Rows)
             Entries.Add((r.Name, r.Slot));

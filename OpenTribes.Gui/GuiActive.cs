@@ -509,6 +509,8 @@ public class GuiTextEdit : GuiSimpleText
                         }
                     }
                     return true;
+                default:
+                    break;
             }
         }
         if (e.Scan is 0x01 or 0x0f or 0xc8 or 0xd0)
@@ -559,6 +561,8 @@ public class GuiTextEdit : GuiSimpleText
                     --Cursor;
                 }
                 return true;
+            default:
+                break;
         }
         var ch = e.Ascii;
         if (ch is (>= (char)0x20 and < (char)0x7f) or >= (char)0xa0)

@@ -342,6 +342,8 @@ public class GuiControl : IGuiResponder
             case 3:
                 nx = (newW - W) >> 1;
                 break;
+            default:
+                break;
         }
         switch (VSizing)
         {
@@ -353,6 +355,8 @@ public class GuiControl : IGuiResponder
                 break;
             case 3:
                 ny = (newH - H) >> 1;
+                break;
+            default:
                 break;
         }
         if (nx != X || ny != Y || nw != W || nh != H)
@@ -648,7 +652,7 @@ public sealed class GuiPaint
     /// <param name="color">The palette index.</param>
     public void Line(int x0, int y0, int x1, int y1, int color) => Dev.DrawLine(x0, y0, x1, y1, color);
 
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PbmpBitmap, PbmpBitmap> sKeyed = [];
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PbmpBitmap, PbmpBitmap> KeyedCache = [];
 
     /// <summary>Returns the copy of a bitmap with the transparent flag set.</summary>
     /// <param name="b">The bitmap.</param>
@@ -656,7 +660,7 @@ public sealed class GuiPaint
     /// <remarks>The stock client draws every GUI picture with palette index 0 clear (its palette entry has alpha 0): the weapon HUD icons show the shade behind them and the command screen's frame pieces leave the buttons under them visible. The bitmap attributes do not say so (stock files carry 8 only), so the draw uses a copy with the transparent flag.</remarks>
     public static PbmpBitmap KeyedBitmap(PbmpBitmap b) => Keyed(b);
     private static PbmpBitmap Keyed(PbmpBitmap b) => (b.Attributes & BitmapAttributes.Transparent) != 0 || b.Depth != 8 ? b :
-        sKeyed.GetValue(b, o => new PbmpBitmap
+        KeyedCache.GetValue(b, o => new PbmpBitmap
         {
             Width = o.Width,
             Height = o.Height,
