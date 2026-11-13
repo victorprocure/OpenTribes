@@ -49,6 +49,7 @@ public sealed class BitStream
     {
         for (uint i = 0; i < (bitCount + 7) / 8; ++i)
             dst[(int)i] = 0;
+
         if ((ulong)(mPos + bitCount) > mLimitBits)
         {
             mError = true;
@@ -64,7 +65,7 @@ public sealed class BitStream
     /// <param name="bitCount">The number of bits, 1 to 32.</param>
     public void WriteInt(uint value, uint bitCount)
     {
-        ReadOnlySpan<byte> bytes = stackalloc byte[4] { (byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24) };
+        ReadOnlySpan<byte> bytes = [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24)];
         WriteBits(bitCount, bytes);
     }
 
