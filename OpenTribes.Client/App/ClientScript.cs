@@ -1,20 +1,20 @@
-// The automation hook of the client (ROADMAP M9 C8): `tribes --input FILE` drives a whole session from a timed script.
-//
-// One command per line, `#` starts a comment. A line may start with `@SECONDS` (app time, the same clock as
-// `--screenshot-at`); without it the line runs at the time of the line before it. `wait SECONDS` moves that time on.
-//   move X Y | mouse DX DY | click [X Y] | rclick [X Y] | dblclick [X Y] | down | up | rdown | rup | wheel N
-//   key NAME [shift|ctrl|alt]... | keydown NAME | keyup NAME | hold NAME SECONDS | type TEXT
-//   eval CONSOLE TEXT | echo TEXT | var $NAME | where NAME_OR_ID | clickctl NAME_OR_ID | focus | shot NAME | quit | wait SECONDS
-//   waitfor WHAT [SECONDS]: holds the later lines until WHAT is true (or SECONDS, default 60, passed); WHAT is `play` (the play
-//   screen shows the world), `player` (the control object is a Player), `connected`, `content ID`, or console text that gives true/1.
-// `key`, `keydown` and `keyup` go through the same dispatcher as an SDL key event (modifiers, GUI first, then the maps);
-// `mouse` is a raw relative count like an SDL motion event; `move` and `click` place the GUI cursor first.
 using System.Globalization;
 using OpenTribes.Gui;
 using OpenTribes.Script;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The automation hook of the client: <c>tribes --input FILE</c> drives a whole session from a timed script.</summary>
+/// <remarks>
+/// <para>One command per line, <c>#</c> starts a comment. A line may start with <c>@SECONDS</c> (app time, the same clock as <c>--screenshot-at</c>). Without it the line runs at the time of the line before it. <c>wait SECONDS</c> moves that time on.</para>
+/// <list type="bullet">
+/// <item><description><c>move X Y | mouse DX DY | click [X Y] | rclick [X Y] | dblclick [X Y] | down | up | rdown | rup | wheel N</c></description></item>
+/// <item><description><c>key NAME [shift|ctrl|alt]... | keydown NAME | keyup NAME | hold NAME SECONDS | type TEXT</c></description></item>
+/// <item><description><c>eval CONSOLE TEXT | echo TEXT | var $NAME | where NAME_OR_ID | clickctl NAME_OR_ID | focus | shot NAME | quit | wait SECONDS</c></description></item>
+/// <item><description><c>waitfor WHAT [SECONDS]</c> holds the later lines until WHAT is true or SECONDS (default 60) passed. WHAT is <c>play</c> (the play screen shows the world), <c>player</c> (the control object is a Player), <c>connected</c>, <c>content ID</c>, or console text that gives true or 1.</description></item>
+/// </list>
+/// <para><c>key</c>, <c>keydown</c> and <c>keyup</c> go through the same dispatcher as an SDL key event (modifiers, GUI first, then the maps). <c>mouse</c> is a raw relative count like an SDL motion event. <c>move</c> and <c>click</c> place the GUI cursor first.</para>
+/// </remarks>
 public sealed class ClientScript
 {
     private readonly ClientApp mApp;
@@ -43,6 +43,10 @@ public sealed class ClientScript
         return r.Equals("true", StringComparison.OrdinalIgnoreCase) || r == "1";
     }
 
+    /// <summary>Reads a script file.</summary>
+    /// <param name="app">The client the script drives.</param>
+    /// <param name="path">The script path.</param>
+    /// <returns>The script.</returns>
     public static ClientScript Load(ClientApp app, string path)
     {
         var s = new ClientScript(app);
@@ -72,9 +76,11 @@ public sealed class ClientScript
         return s;
     }
 
+    /// <summary>True when every line has run and no queued action is left.</summary>
     public bool Finished => mNext >= mLines.Count && mQueued.Count == 0;
 
-    // Runs every command that is due at `nowMs`.
+    /// <summary>Runs every command that is due.</summary>
+    /// <param name="nowMs">The app time in milliseconds.</param>
     public void Run(uint nowMs)
     {
         double sec = nowMs / 1000.0;
@@ -114,7 +120,9 @@ public sealed class ClientScript
 
     private void Echo(string s) => mApp.Interp.Print(1, s);
 
-    // Finds the scan code of a key name or character: the table of client-scripts.md 3.4.
+    /// <summary>Finds the scan code of a key name or character, using the table of client-scripts.md 3.4.</summary>
+    /// <param name="name">The key name or a single character.</param>
+    /// <returns>The scan code and whether the character needs shift.</returns>
     public static (int Scan, bool Shift) Lookup(string name)
     {
         if (name.Length == 1)

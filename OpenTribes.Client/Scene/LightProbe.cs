@@ -2,15 +2,20 @@ using OpenTribes.Client.Shapes;
 
 namespace OpenTribes.Client.Scene;
 
-// The shape light probe (ShapeBase_queryLight 0044ebc8, ShapeBase_lightProbe 0044e6f4, the smoothing 0044e5f4 and 0044e50c): a ray from the top of
-// the object's box straight down, h + 20 long (h the box half height along the ray), to the nearest terrain or interior surface; the light map
-// value there and the strength (length - t) / length become the object's ambient and sun adjust (LightSet.WithProbe).
+/// <summary>The shape light probe: a ray from the top of the box of an object straight down to the nearest terrain or interior surface.</summary>
+/// <remarks>Follows ShapeBase_queryLight (0044ebc8), ShapeBase_lightProbe (0044e6f4) and the smoothing (0044e5f4, 0044e50c). The ray is h + 20 long (h the half height of the box along the ray). The light map value at the hit and the strength (length - t) / length become the ambient and sun adjust of the object (<c>LightSet.WithProbe</c>).</remarks>
 public sealed class LightProbe
 {
+    /// <summary>Casts the ray into the interiors. Takes the ray start and direction and returns the hit, its distance and the light there.</summary>
     public Func<double, double, double, double, double, double, double, (bool hit, double t, (float r, float g, float b) light)>? Interior;
+    /// <summary>Reads the terrain light map value at an x and y position.</summary>
     public Func<double, double, (float r, float g, float b)>? TerrainLight;
+    /// <summary>The terrain the ray tests.</summary>
     public OpenTribes.World.Terrain? Ground;
 
+    /// <summary>Probes the light below an object.</summary>
+    /// <param name="box">The box of the object as minimum x, y, z then maximum x, y, z.</param>
+    /// <returns>Whether a surface was hit, the light colour there and the strength.</returns>
     public (bool ok, (float r, float g, float b) rgb, float strength) Query(double[] box)
     {
         double cx = (box[0] + box[3]) * 0.5, cy = (box[1] + box[4]) * 0.5, cz = (box[2] + box[5]) * 0.5;
@@ -41,15 +46,20 @@ public sealed class LightProbe
     }
 }
 
-// The per object state of 0044e5f4: the target and the smoothed colour and strength (halved toward the target at each update).
+/// <summary>The per object state of the probe: the target and the smoothed colour and strength, halved toward the target at each update (0044e5f4).</summary>
 public sealed class ProbeState
 {
     private bool mValid;
     private int mCountdown;
     private (float r, float g, float b) mCur, mTarget;
     private float mStrength, mTargetStrength;
+    /// <summary>The time of the last update, or -1 before the first.</summary>
     public double LastUpdate = -1;
 
+    /// <summary>Feeds the result of one probe and moves the smoothed values.</summary>
+    /// <param name="found">True when the ray hit a surface.</param>
+    /// <param name="rgb">The light colour at the hit.</param>
+    /// <param name="strength">The strength of the hit.</param>
     public void Update(bool found, (float r, float g, float b) rgb, float strength)
     {
         if (found)
@@ -77,7 +87,10 @@ public sealed class ProbeState
         }
     }
 
+    /// <summary>True while the smoothed light applies.</summary>
     public bool Active => mValid || mCountdown != 0;
+    /// <summary>The smoothed light colour.</summary>
     public (float r, float g, float b) Colour => mCur;
+    /// <summary>The smoothed strength.</summary>
     public float Strength => mStrength;
 }

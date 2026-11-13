@@ -1,26 +1,34 @@
-// PartDebris (docs/shapes-render.md 4.4): the collision radius of a debris piece, from the box of its part. Stock functions followed:
-//   loadShape  0047603c  the collision radius of a piece (the bounds of its part)
-//   part box   005c3b18 / 005ad14c  the part of one object: the object's frame box, moved so that it is centred on the part origin
-// ShapeBase_explode (0044cdec) makes parts of one object each (005c463c, 005c3b18 counts it), so the piece end 004762e0 always takes the plain
-// Debris_explode for stock shapes and the re-split path (004764f8, 00475edc, 005c4060) is never reached. It is not ported.
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
 using OpenTribes.World;
 
 namespace OpenTribes.Client.Effects;
 
-// The box of the part of one object, in the object's own space, as the part keeps it after 005c3b18.
-// Min/Max: the frame box before the move (005ad14c). Centre: its middle (the part origin moves there). Radius: loadShape 0047603c of the moved box.
+/// <summary>The box of the part of one object, in the object's own space, as the part keeps it after 005c3b18.</summary>
+/// <param name="MinX">The frame box minimum x before the move (005ad14c).</param>
+/// <param name="MinY">The frame box minimum y.</param>
+/// <param name="MinZ">The frame box minimum z.</param>
+/// <param name="MaxX">The frame box maximum x.</param>
+/// <param name="MaxY">The frame box maximum y.</param>
+/// <param name="MaxZ">The frame box maximum z.</param>
+/// <param name="Cx">The box centre x: the part origin moves there.</param>
+/// <param name="Cy">The box centre y.</param>
+/// <param name="Cz">The box centre z.</param>
+/// <param name="Radius">The collision radius from loadShape (0047603c) of the moved box.</param>
+/// <param name="SphereX">The sphere centre x of the moved box (+0x30c).</param>
+/// <param name="SphereY">The sphere centre y.</param>
+/// <param name="SphereZ">The sphere centre z.</param>
 public readonly record struct PartBox(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ, float Cx, float Cy, float Cz, float Radius, float SphereX, float SphereY, float SphereZ);
 
+/// <summary>The collision radius of a debris piece, from the box of its part.</summary>
+/// <remarks>docs/shapes-render.md 4.4. Follows loadShape (0047603c, the bounds of a piece) and the part box (005c3b18 and 005ad14c: the object's frame box, moved so that it is centred on the part origin). ShapeBase_explode (0044cdec) makes parts of one object each (005c463c, 005c3b18 counts it), so the piece end 004762e0 always takes the plain Debris_explode for stock shapes. The re-split path (004764f8, 00475edc, 005c4060) is never reached and is not ported.</remarks>
 public static class PartDebris
 {
-    // 005ad14c TSCelAnimMesh_getFrameBox, then 005c3b18 (the single object part) and 0047603c (loadShape).
-    //   005ad14c: min = decoded vertex FirstVert of the frame, max = decoded vertex FirstVert + 1 (byte * frame scale + frame origin), in that order.
-    //   005c3b18: centre c = (min + max) * 0.5 and the part's bounds are min - c and max - c.
-    //   0047603c: size = max - min of those bounds, radius (+0x318) = m_Point3F_lenf(size) * 0.5, sphere centre (+0x30c) = (min + max) * 0.5 of the bounds.
-    // m_Point3F_lenf 005ed031 is the bit trick sqrt (bits >> 1) + 0x1fc00000, not an exact root, so a piece is up to 6% wider than its half diagonal.
-    // The frame is the object's current frame (+4 of the object instance, copied by 005c463c); an index outside the mesh is clamped as the renderer does.
+    /// <summary>Measures the part box of one frame of a mesh.</summary>
+    /// <param name="mesh">The mesh of the object.</param>
+    /// <param name="frame">The frame index, clamped to the mesh as the renderer does.</param>
+    /// <returns>The box, or the default value when the mesh has no frame box (the stock mesh always has one).</returns>
+    /// <remarks>Follows 005ad14c (TSCelAnimMesh_getFrameBox: min is the decoded vertex FirstVert of the frame, max is FirstVert + 1, byte * frame scale + frame origin), 005c3b18 (centre c = (min + max) * 0.5, the part bounds are min - c and max - c) and 0047603c (size = max - min of those bounds, radius +0x318 = m_Point3F_lenf(size) * 0.5, sphere centre +0x30c = (min + max) * 0.5 of the bounds). m_Point3F_lenf 005ed031 is a bit trick square root (bits >> 1) + 0x1fc00000, not an exact root, so a piece is up to 6% wider than its half diagonal. The frame is the current frame of the object (+4 of the object instance, copied by 005c463c).</remarks>
     public static PartBox Measure(RsMesh mesh, int frame)
     {
         if (mesh.Frames.Length == 0 || mesh.Verts.Length < (mesh.Frames[Math.Clamp(frame, 0, mesh.Frames.Length - 1)].FirstVert + 2) * 4)

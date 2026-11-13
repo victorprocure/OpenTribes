@@ -1,6 +1,3 @@
-// The model of the Player Setup screen (FearGui::SkinView draw 0049af20, armor choice 0049a9bc, FGSkin::set 0049a798): the player armor
-// of the gender in the chosen skin, looping its "run" sequence, drawn into the control's rectangle with the camera of 004998e0 and
-// 0049a9bc. The stock fits the camera from the bounds of the shape and lights it with an ambient and a headlight.
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Client.World;
@@ -9,6 +6,8 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The model of the Player Setup screen: the player armor of the gender in the chosen skin, looping its "run" sequence, drawn into the rectangle of the control.</summary>
+/// <remarks>Follows FearGui::SkinView draw (0049af20), the armor choice (0049a9bc) and FGSkin::set (0049a798), with the camera of 004998e0 and 0049a9bc. The stock fits the camera from the bounds of the shape and lights it with an ambient and a headlight.</remarks>
 public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
 {
     private static readonly string[] sMale = { "larmor.dts", "marmor.dts", "harmor.dts" };
@@ -33,8 +32,11 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
     private string mKey = "";
     private long mLastMs = -1;
 
+    /// <summary>Creates the renderer.</summary>
+    /// <param name="app">The client that owns the device and resources.</param>
     public SkinViewRenderer(ClientApp app) => mApp = app;
 
+    /// <summary>Releases the shape assets.</summary>
     public void Dispose() => mAssets?.Dispose();
 
     private bool Ensure()
@@ -49,18 +51,35 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         return true;
     }
 
-    // The camera of the view: the stock puts it behind the model, looks down by 0.25 radians and turns it around the model
-    // with the view angle (004998e0, 0049af20).
+    /// <summary>Computes the distance of the camera from the model so the armor fits the view.</summary>
+    /// <param name="male">True for a male armor, false for a female armor.</param>
+    /// <param name="w">The view width in pixels.</param>
+    /// <param name="h">The view height in pixels.</param>
+    /// <returns>The distance.</returns>
+    /// <remarks>Follows 004998e0 and 0049af20: the stock puts the camera behind the model, looks down by 0.25 radians and turns it around the model with the view angle.</remarks>
     public static double FitDistance(bool male, int w, int h)
     {
         double tanH = Math.Tan(HalfAngle), tanV = tanH * h / Math.Max(w, 1);
         return Fit * Math.Max((male ? 0.85 : 0.75) / tanH, (male ? 1.325 : 1.25) / tanV);
     }
 
-    // +0x1f4 [code 004998e0, camera vtable +0xc = 005aa65c]: the camera call (10.0, smaller side in pixels) gives
-    // 10 * near * (half the width in pixels) / (tan(0.3) * smaller side); the near of the view's camera is 1.0 (0049a511).
+    /// <summary>Computes the largest camera distance the view allows.</summary>
+    /// <param name="w">The view width in pixels.</param>
+    /// <param name="h">The view height in pixels.</param>
+    /// <returns>The distance.</returns>
+    /// <remarks>Follows +0x1f4 of 004998e0 (camera vtable +0xc = 005aa65c): the camera call (10.0, smaller side in pixels) gives 10 * near * (half the width in pixels) / (tan(0.3) * smaller side). The near of the camera of the view is 1.0 (0049a511).</remarks>
     public static double MaxDistance(int w, int h) => 10.0 * 1.0 * (w * 0.5) / (Math.Tan(HalfAngle) * Math.Min(w, h));
 
+    /// <summary>Builds the camera that looks at the model.</summary>
+    /// <param name="cx">The model centre x.</param>
+    /// <param name="cy">The model centre y.</param>
+    /// <param name="cz">The model centre z.</param>
+    /// <param name="male">True for a male armor.</param>
+    /// <param name="yaw">The view angle around the model.</param>
+    /// <param name="w">The view width in pixels.</param>
+    /// <param name="h">The view height in pixels.</param>
+    /// <param name="distance">The camera distance, or null to fit the model.</param>
+    /// <returns>The camera.</returns>
     public static Camera3D CameraFor(double cx, double cy, double cz, bool male, double yaw, int w, int h, double? distance = null)
     {
         double dist = distance ?? FitDistance(male, w, h);
@@ -83,6 +102,13 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
         return new() { AmbR = Ambient, AmbG = Ambient, AmbB = Ambient, SunX = dx / len, SunY = dy / len, SunZ = dz / len, SunR = 1f, SunG = 1f, SunB = 1f };
     }
 
+    /// <summary>Draws the model of a skin view control.</summary>
+    /// <param name="view">The control.</param>
+    /// <param name="p">The paint target.</param>
+    /// <param name="x">The left edge of the control.</param>
+    /// <param name="y">The top edge of the control.</param>
+    /// <param name="w">The control width.</param>
+    /// <param name="h">The control height.</param>
     public void Draw(GuiShapeView view, GuiPaint p, int x, int y, int w, int h)
     {
         if (view.ClassName != "FearGui::SkinView" || w <= 0 || h <= 0 || !Ensure() || view.SkinBase.Length == 0)

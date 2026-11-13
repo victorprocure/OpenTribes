@@ -1,19 +1,23 @@
-// docs/client-scripts.md 2.8: the sfx* console commands over the SoundManager. The profile argument order follows the code
-// (docs/audio.md F2): sfxAdd3DProfile id, baseVolume, minDist, maxDist [, coneInside, coneOutside, x, y, z, coneOutsideVolume] [, flags...].
 using System.Globalization;
 using OpenTribes.Script;
 
 namespace OpenTribes.Client.Audio;
 
+/// <summary>The sfx* console commands over the <see cref="SoundManager"/>.</summary>
+/// <remarks>docs/client-scripts.md 2.8. The profile argument order follows the code (docs/audio.md F2): <c>sfxAdd3DProfile id, baseVolume, minDist, maxDist [, coneInside, coneOutside, x, y, z, coneOutsideVolume] [, flags...]</c>.</remarks>
 public sealed class SfxCommands
 {
     private readonly Interpreter mInterp;
     private readonly SoundManager mSound;
     private bool mCreated;
-    // Opens the output device; the caller decides what that means (SDL stream, offline mixer). False prints the stock failure text.
+    /// <summary>Opens the output device. The caller decides what that means (SDL stream, offline mixer). False prints the stock failure text.</summary>
     public Func<bool> OpenDevice = () => true;
+    /// <summary>Closes the output device.</summary>
     public Action? CloseDevice;
 
+    /// <summary>Registers the commands.</summary>
+    /// <param name="interp">The interpreter that gets the commands.</param>
+    /// <param name="sound">The sound manager the commands drive.</param>
     public SfxCommands(Interpreter interp, SoundManager sound)
     {
         mInterp = interp;

@@ -1,35 +1,48 @@
-// Decal ring (docs/shapes-render.md 4.6): footprints and bullet holes as textured quads on the terrain, drawn with the
-// subtractive blend of their bitmaps. A fixed ring ($pref::NumDecals, default 50, 0 to 200) overwrites the oldest.
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.Effects;
 
+/// <summary>The decal ring: footprints and bullet holes as textured quads on the terrain, drawn with the subtractive blend of their bitmaps.</summary>
+/// <remarks>docs/shapes-render.md 4.6. A fixed ring (<c>$pref::NumDecals</c>, default 50, 0 to 200) overwrites the oldest.</remarks>
 public sealed class DecalRing
 {
-    // The table at 006173ec: file and half size. Index 5 names the left heavy foot again (no heavyfootr.bmp exists).
+    /// <summary>The decal bitmaps and their half sizes (table at 006173ec). Index 5 names the left heavy foot again, because no heavyfootr.bmp exists.</summary>
     public static readonly (string File, double Half)[] Table =
     {
         ("lightfootl.bmp", 0.15), ("lightfootr.bmp", 0.15), ("medfootl.bmp", 0.20), ("medfootr.bmp", 0.20),
         ("heavyfootl.bmp", 0.32), ("heavyfootl.bmp", 0.32), ("bullethole.bmp", 0.15),
     };
 
+    /// <summary>One decal.</summary>
     public struct Entry
     {
+        /// <summary>The index in <see cref="Table"/>.</summary>
         public int Bitmap;
-        public double Cx, Cy, Cz;
-        public double[] Corners;      // 4 x (x, y, z)
+        /// <summary>The centre x.</summary>
+        public double Cx;
+        /// <summary>The centre y.</summary>
+        public double Cy;
+        /// <summary>The centre z.</summary>
+        public double Cz;
+        /// <summary>The four corners as x, y, z each.</summary>
+        public double[] Corners;
     }
 
     private readonly Entry[] mRing;
     private int mCursor, mCount;
+    /// <summary>The size of the ring.</summary>
     public int Capacity => mRing.Length;
+    /// <summary>The number of decals in the ring.</summary>
     public int Count => mCount;
 
+    /// <summary>Creates a ring.</summary>
+    /// <param name="capacity">The size of the ring, clamped to 0 to 200.</param>
     public DecalRing(int capacity = 50) => mRing = new Entry[Math.Clamp(capacity, 0, 200)];
 
-    // FUN_00433a00: inserts at the cursor and wraps.
+    /// <summary>Inserts a decal at the cursor and wraps (FUN_00433a00).</summary>
+    /// <param name="e">The decal.</param>
     public void Add(in Entry e)
     {
         if (mRing.Length == 0)
@@ -39,7 +52,18 @@ public sealed class DecalRing
         mCount = Math.Min(mCount + 1, mRing.Length);
     }
 
-    // The quad of a decal: center +- right * half +- forward * half, lifted 0.05 along the surface normal.
+    /// <summary>Builds the quad of a decal: centre plus or minus right times half plus or minus forward times half, lifted 0.05 along the surface normal.</summary>
+    /// <param name="bitmap">The index in <see cref="Table"/>.</param>
+    /// <param name="cx">The centre x.</param>
+    /// <param name="cy">The centre y.</param>
+    /// <param name="cz">The centre z.</param>
+    /// <param name="nx">The surface normal x.</param>
+    /// <param name="ny">The surface normal y.</param>
+    /// <param name="nz">The surface normal z.</param>
+    /// <param name="fx">The forward x.</param>
+    /// <param name="fy">The forward y.</param>
+    /// <param name="fz">The forward z.</param>
+    /// <returns>The decal.</returns>
     public static Entry Quad(int bitmap, double cx, double cy, double cz, double nx, double ny, double nz, double fx, double fy, double fz)
     {
         double half = Table[bitmap].Half;
@@ -63,6 +87,8 @@ public sealed class DecalRing
         return new Entry { Bitmap = bitmap, Cx = cx, Cy = cy, Cz = cz, Corners = c };
     }
 
+    /// <summary>Adds the render image of all decals to the frame.</summary>
+    /// <param name="ctx">The frame context.</param>
     public void Build(FrameContext ctx)
     {
         var img = new RenderImage { Category = 1, SortKey = 0.0, Label = "decals" };

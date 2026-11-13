@@ -1,5 +1,3 @@
-// `tribes --shape NAME [--palette PPL] [--seq NAME] [--at P] [--camera YAW,PITCH] --screenshot OUT.png`: one shape on a gray
-// background, framed by its radius; for looking at the shape renderer without a mission.
 using System.Globalization;
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.World;
@@ -9,8 +7,23 @@ using OpenTribes.Platform.Gl;
 
 namespace OpenTribes.Client.Shapes;
 
+/// <summary>The shape viewer: one shape on a gray background, framed by its radius, for looking at the shape renderer without a mission.</summary>
+/// <remarks>Started with <c>tribes --shape NAME [--palette PPL] [--seq NAME] [--at P] [--camera YAW,PITCH] --screenshot OUT.png</c>.</remarks>
 public static class ShapeView
 {
+    /// <summary>Renders the shape to a PNG file.</summary>
+    /// <param name="root">The game root directory.</param>
+    /// <param name="shapeName">The shape file name.</param>
+    /// <param name="palette">The palette file name, or null for lush.day.ppl.</param>
+    /// <param name="seq">The sequence to pose, or null for none.</param>
+    /// <param name="pos">The sequence position, 0 to 1.</param>
+    /// <param name="camera">The camera as <c>YAW,PITCH</c>, or null for the default view.</param>
+    /// <param name="output">The PNG path. Required.</param>
+    /// <param name="width">The image width in pixels.</param>
+    /// <param name="height">The image height in pixels.</param>
+    /// <param name="videoDriver">The video driver name, or null for the default.</param>
+    /// <param name="skin">The skin name, or empty for the base skin.</param>
+    /// <returns>The process exit code: 0 on success, 1 on a failure, 2 for a missing output path.</returns>
     public static int Run(string root, string shapeName, string? palette, string? seq, double pos, string? camera, string? output, int width, int height, string? videoDriver, string skin = "")
     {
         if (output == null)

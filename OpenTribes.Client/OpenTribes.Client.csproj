@@ -3,6 +3,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>tribes</AssemblyName>
     <RootNamespace>OpenTribes.Client</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\OpenTribes.Core\OpenTribes.Core.csproj" />

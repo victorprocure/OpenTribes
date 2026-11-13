@@ -1,16 +1,21 @@
-// Beams and bolts (docs/shapes-render.md 4.7): camera facing quad strips with the beam bitmap, blend by the bitmap
-// attributes (add, subtract or texture alpha), fullbright, depth test without depth write. The bolt jitter is random on
-// the stock client too, so only the look matches (spec Q12).
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.Effects;
 
+/// <summary>Beams and bolts: camera facing quad strips with the beam bitmap.</summary>
+/// <remarks>docs/shapes-render.md 4.7. The blend follows the bitmap attributes (add, subtract or texture alpha), fullbright, depth test without depth write. The bolt jitter is random on the stock client too, so only the look matches (spec Q12).</remarks>
 public static class Beams
 {
-    // A polyline of 2^n + 1 points from `a` to `b`; each midpoint is displaced perpendicular to the beam by up to
-    // `bias` times the length of the segment it splits (Lightning `segmentDivisions` and `displaceBias`).
+    /// <summary>Builds a jittered polyline of 2^n + 1 points from one end to the other.</summary>
+    /// <param name="a">The start point.</param>
+    /// <param name="b">The end point.</param>
+    /// <param name="divisions">The number n of recursive splits (Lightning <c>segmentDivisions</c>).</param>
+    /// <param name="bias">The share of the split segment length that a midpoint moves sideways at most (Lightning <c>displaceBias</c>).</param>
+    /// <param name="rng">The random source for the displacement.</param>
+    /// <returns>The points, each as x, y, z.</returns>
+    /// <remarks>Each midpoint is displaced perpendicular to the beam by up to <paramref name="bias"/> times the length of the segment it splits.</remarks>
     public static double[][] BoltPoints(double[] a, double[] b, int divisions, double bias, Random rng)
     {
         divisions = Math.Clamp(divisions, 0, 8);
@@ -54,6 +59,11 @@ public static class Beams
         return pts;
     }
 
+    /// <summary>Blends two polylines of the same point count.</summary>
+    /// <param name="a">The polyline at t = 0.</param>
+    /// <param name="b">The polyline at t = 1.</param>
+    /// <param name="t">The blend factor.</param>
+    /// <returns>The blended points.</returns>
     public static double[][] Lerp(double[][] a, double[][] b, double t)
     {
         int n = Math.Min(a.Length, b.Length);
@@ -63,7 +73,19 @@ public static class Beams
         return r;
     }
 
-    // A strip of quads along the polyline, `width` wide, facing the camera; u runs along the beam `repeat` times.
+    /// <summary>Builds a strip of quads along a polyline, facing the camera.</summary>
+    /// <param name="ctx">The frame context.</param>
+    /// <param name="tex">The beam bitmap, or null for a plain colour.</param>
+    /// <param name="pts">The polyline points.</param>
+    /// <param name="width">The strip width.</param>
+    /// <param name="r">The red factor.</param>
+    /// <param name="g">The green factor.</param>
+    /// <param name="b">The blue factor.</param>
+    /// <param name="a">The alpha factor.</param>
+    /// <param name="repeat">How many times u runs along the beam.</param>
+    /// <param name="label">The label of the render image.</param>
+    /// <param name="forceBlend">A blend mode that replaces the one of the bitmap, or null.</param>
+    /// <returns>The render image.</returns>
     public static RenderImage Strip(FrameContext ctx, TexEntry? tex, IReadOnlyList<double[]> pts, double width, float r, float g, float b, float a, double repeat = 1,
                                     string label = "beam", BlendMode? forceBlend = null)
     {
@@ -104,12 +126,17 @@ public static class Beams
         return img;
     }
 
-    // The laser beam of LaserProjectile_draw 00463fd0 / image setup 00463810: one quad from the start to the end point, facing the camera.
-    // side = unit((camera - start) x unit(end - start)); the half width is 0.04 (DAT_0061bff0) times 1 / projectRadius(point, 0.04) where
-    // that radius is under one pixel, else times 1, taken at each end, so the beam is at least one pixel wide at both ends. The texture
-    // coordinate u is one value for the whole beam, `u`, and v runs 0 to 1 across it (the bitmap column picked by the beam's age).
+    /// <summary>The half width of the laser quad before the one pixel minimum, 0.04 (DAT_0061bff0).</summary>
     public const double LaserHalfWidth = 0.04;
 
+    /// <summary>Builds the laser beam quad from the start to the end point, facing the camera.</summary>
+    /// <param name="ctx">The frame context.</param>
+    /// <param name="tex">The beam bitmap, or null for a plain colour.</param>
+    /// <param name="a">The start point.</param>
+    /// <param name="b">The end point.</param>
+    /// <param name="u">The texture coordinate u of the whole beam: the bitmap column picked by the age of the beam.</param>
+    /// <returns>The render image.</returns>
+    /// <remarks>Follows LaserProjectile_draw 00463fd0 and the image setup 00463810. side = unit((camera - start) x unit(end - start)). The half width is 0.04 times 1 / projectRadius(point, 0.04) where that radius is under one pixel, else times 1, taken at each end, so the beam is at least one pixel wide at both ends. v runs 0 to 1 across the beam.</remarks>
     public static RenderImage LaserQuad(FrameContext ctx, TexEntry? tex, double[] a, double[] b, double u)
     {
         var img = new RenderImage { Category = 1, SortKey = 0, Label = "laser" };

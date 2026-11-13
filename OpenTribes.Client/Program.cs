@@ -7,7 +7,7 @@ using OpenTribes.Platform.Sdl;
 
 namespace OpenTribes.Client;
 
-// The `tribes` executable (ROADMAP M9). C2: window, GL context, event loop, `--show` and `--screenshot`.
+/// <summary>The <c>tribes</c> executable: the client, plus the viewer, census and test tools.</summary>
 public static class Program
 {
     private const string Usage =
@@ -51,6 +51,9 @@ public static class Program
         public int Width = 640, Height = 480;
     }
 
+    /// <summary>Starts the client, or runs the tool that the arguments select.</summary>
+    /// <param name="args">The command line arguments.</param>
+    /// <returns>The process exit code.</returns>
     public static int Main(string[] args)
     {
         if (!App.ClientOptions.IsToolInvocation(args) && !args.Contains("-h") && !args.Contains("--help"))
