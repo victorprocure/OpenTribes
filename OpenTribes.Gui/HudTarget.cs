@@ -1,30 +1,58 @@
-// The crosshair target of the play HUD (docs/gui.md 4.2 Crosshair): every other player on screen gets a friend or foe mark above its
-// head, and the one nearest to the viewer whose pick box holds the view centre gives the label under the crosshair. Objects of the
-// sensor set (turrets, stations, generators, flags: anything with a target index or a Sensor) of the viewer's own team compete for the
-// label too and bring their green map icon; they get no mark.
-// Own code from the stock behaviour of `FearGui::Crosshair` draw [code 004ab500] and `Crosshair_findTarget` [code 004aca84].
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
-// One player the picker looks at. Head is the mount point 2 transform position plus 0.65 up [code 004aca84]; Position is the object
-// transform position (+0x188); Width and Height are the world box (the smaller horizontal extent and the vertical one).
+/// <summary>One player the picker looks at.</summary>
+/// <param name="Name">The name shown under the crosshair.</param>
+/// <param name="Head">The mount point 2 transform position plus 0.65 up (004aca84).</param>
+/// <param name="Position">The object transform position (+0x188).</param>
+/// <param name="Width">The world box width: the smaller horizontal extent.</param>
+/// <param name="Height">The world box height.</param>
+/// <param name="Team">The team index.</param>
+/// <param name="Damage">The damage level, 0 to 1.</param>
+/// <param name="Dead">True when the player is dead.</param>
+/// <param name="Visible">True when the player is on screen and shown.</param>
+/// <param name="LineClear">True when the eye has a clear line to the player.</param>
+/// <param name="IsObject">True for a sensor set object (turret, station, generator, flag) instead of a player.</param>
+/// <param name="Icon">The map icon bitmap of an object, or null.</param>
 public sealed record HudTargetCandidate(
     string Name, (double X, double Y, double Z) Head, (double X, double Y, double Z) Position, double Width, double Height,
     int Team, double Damage, bool Dead, bool Visible, bool LineClear, bool IsObject = false, string? Icon = null);
 
+/// <summary>A friend or foe mark above a player's head.</summary>
+/// <param name="X">The mark x.</param>
+/// <param name="Y">The mark y.</param>
+/// <param name="Friend">True for a friend mark, false for a foe mark.</param>
 public readonly record struct HudTargetMark(int X, int Y, bool Friend);
 
-// Marks of every counted player, the label of the picked one (null without a pick) and its damage level (below 0: no health box).
-// Icon is the map icon bitmap of a picked object, drawn with its bottom centre at (IconX, IconY).
+/// <summary>The marks of every counted player and the picked target.</summary>
+/// <param name="Marks">The marks of every counted player.</param>
+/// <param name="Name">The label of the picked target, null without a pick.</param>
+/// <param name="Damage">The damage level of the picked target, below 0 for no health box.</param>
+/// <param name="Icon">The map icon bitmap of a picked object, drawn with its bottom centre at (<paramref name="IconX"/>, <paramref name="IconY"/>).</param>
+/// <param name="IconX">The icon x.</param>
+/// <param name="IconY">The icon y.</param>
 public sealed record HudTargetResult(IReadOnlyList<HudTargetMark> Marks, string? Name, double Damage, string? Icon = null, int IconX = 0, int IconY = 0);
 
+/// <summary>The crosshair target of the play HUD (docs/gui.md 4.2 Crosshair).</summary>
+/// <remarks>Every other player on screen gets a friend or foe mark above its head. The one nearest to the viewer whose pick box holds the view centre gives the label under the crosshair. Objects of the sensor set (turrets, stations, generators, flags: anything with a target index or a Sensor) of the viewer's own team compete for the label too and bring their green map icon, but get no mark. Follows the stock crosshair draw (004ab500) and Crosshair_findTarget (004aca84).</remarks>
 public static class HudTargetPicker
 {
-    public const double ShowHealthFrom = 1.0;      // half width in pixels from which the health box shows [code 004ad411]
-    public const int MinHalfWidth = 8, MinBelow = 12, Above = 4;
+    /// <summary>The half width in pixels from which the health box shows (004ad411).</summary>
+    public const double ShowHealthFrom = 1.0;
+    /// <summary>The minimum half width of the pick box in pixels.</summary>
+    public const int MinHalfWidth = 8;
+    /// <summary>The minimum height of the pick box below the head in pixels.</summary>
+    public const int MinBelow = 12;
+    /// <summary>The height of the pick box above the head in pixels.</summary>
+    public const int Above = 4;
 
-    // The eye is the camera position, myTeam the local player's team and teams the team count of the client player manager.
+    /// <summary>Marks every player and picks the target under the crosshair.</summary>
+    /// <param name="cam">The camera of the viewer.</param>
+    /// <param name="players">The players and sensor objects.</param>
+    /// <param name="myTeam">The local player's team.</param>
+    /// <param name="teams">The team count of the client player manager.</param>
+    /// <returns>The marks and the picked target.</returns>
     public static HudTargetResult Find(Camera3D cam, IReadOnlyList<HudTargetCandidate> players, int myTeam, int teams)
     {
         var marks = new List<HudTargetMark>();
@@ -85,8 +113,10 @@ public static class HudTargetPicker
         return new HudTargetResult(marks, best.Name, bestHealth, best.IsObject ? best.Icon : null, bestX, bestY);
     }
 
-    // The length of the health bar in pixels for a damage level and the inner width of the box (27 - 2, low resolution 20 - 2)
-    // [code 004ac88d]: at least 1, none at full damage.
+    /// <summary>Returns the length of the health bar.</summary>
+    /// <param name="damage">The damage level.</param>
+    /// <param name="innerWidth">The inner width of the box (27 - 2, low resolution 20 - 2).</param>
+    /// <returns>The length in pixels: at least 1, none at full damage (004ac88d).</returns>
     public static int BarLength(double damage, int innerWidth)
     {
         if (damage < 0 || damage > 1)

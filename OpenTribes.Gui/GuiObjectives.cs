@@ -1,18 +1,19 @@
-// FearGui::FGHCommandObjectivePage (docs/gui.md 3.3.1): the mission objective page of CmdObjectives.gui. The server sets up to 32
-// lines (Team::setObjective, TeamObjectiveEvent); each line is its own formatted text laid out at the page width with the table of
-// ten fonts, and the lines stack from the top. The page takes the total height plus 4 so that the scroll control around it follows.
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
+/// <summary>The mission objective page of CmdObjectives.gui (FearGui::FGHCommandObjectivePage, docs/gui.md 3.3.1).</summary>
+/// <remarks>The server sets up to 32 lines (Team::setObjective, TeamObjectiveEvent). Each line is its own formatted text laid out at the page width with the table of ten fonts, and the lines stack from the top. The page takes the total height plus 4 so that the scroll control around it follows.</remarks>
 public sealed class GuiObjectivePage : GuiActive
 {
+    /// <summary>The number of objective lines.</summary>
     public const int LineCount = 32;
 
     private readonly GuiTextFormat?[] mLayouts = new GuiTextFormat?[LineCount];
     private readonly string?[] mTexts = new string?[LineCount];
     private int mLaidWidth = -1;
 
+    /// <inheritdoc/>
     public override bool WantsTab => false;
 
     private PftFont?[] Fonts()
@@ -23,7 +24,8 @@ public sealed class GuiObjectivePage : GuiActive
         return fonts;
     }
 
-    // Lays out the lines whose text or the page width changed; returns the total height of the page.
+    /// <summary>Lays out the lines whose text or the page width changed.</summary>
+    /// <returns>The total height of the page.</returns>
     private int Update()
     {
         IReadOnlyList<string?> lines = Host?.Hud?.ObjectiveLines ?? Array.Empty<string?>();
@@ -50,6 +52,7 @@ public sealed class GuiObjectivePage : GuiActive
         return total;
     }
 
+    /// <inheritdoc/>
     public override void PreRender()
     {
         if (Host == null)
@@ -59,6 +62,7 @@ public sealed class GuiObjectivePage : GuiActive
             H = h;
     }
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
