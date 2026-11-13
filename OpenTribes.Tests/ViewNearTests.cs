@@ -1,6 +1,8 @@
 // The near plane of the PSC camera query (PlayerPSC camera query 004077a8, bytes 004078a0 to 00407901) and what it does to the stored
 // depth of the 16 bit buffer: the device keeps z = near / d (setDepthRange 005daa14).
+using OpenTribes.Client.Scene;
 using OpenTribes.Client.World;
+using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Tests;
@@ -14,6 +16,20 @@ public sealed class ViewNearTests
     [InlineData(false, true, 0.01)]
     public void NearFollowsViewState(bool firstPerson, bool observer, double expected) =>
         Assert.Equal(expected, WorldScene.ViewNear(firstPerson, observer));
+
+    [Theory]
+    [InlineData("Player", true, 0.2)]
+    [InlineData("Player", false, 0.01)]
+    [InlineData("Vehicle", true, 0.2)]
+    [InlineData("ObserverCamera", true, 0.01)]
+    public void DemoRenderUsesTheSameQuery(string controlClass, bool firstPerson, double expected)
+    {
+        // 00546dc4 asks the control object's camera query in demo playback as in live play (004077a8).
+        var w = new ClientWorld();
+        w.Psc.ControlClass = controlClass;
+        var pose = new DemoRender.CameraPose(0, 0, 0, 0, 0, firstPerson, 1);
+        Assert.Equal(expected, DemoRender.NearFor(pose, w));
+    }
 
     // 16 bit window depth of a point at forward distance d: ndc z = 2 near / d - 1, window z = (ndc + 1) / 2 * 65535.
     private static double Window16(double near, double d) => near / d * 65535.0;

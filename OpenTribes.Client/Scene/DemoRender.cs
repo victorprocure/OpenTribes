@@ -89,6 +89,11 @@ public static class DemoRender
         return list;
     }
 
+    // The near plane of a demo render: the same PSC camera query answer as live play (WorldScene.ViewNear, 004077a8; the demo runs the
+    // same TSControl camera query 00546dc4 to the control object). A pose that is not the control object's eye (a free, ghost or orbit
+    // camera of this tool) is not first person and keeps 0.01.
+    public static double NearFor(CameraPose c, ClientWorld w) => WorldScene.ViewNear(c.FirstPerson, w.Psc.ControlClass == "ObserverCamera");
+
     public readonly record struct CameraPose(double X, double Y, double Z, double YawDeg, double PitchDeg, bool FirstPerson, int ControlGhost, double RollDeg = 0);
 
     // The camera of the control object (client-net.md 4.5, game-stream.md 6.6): an ObserverCamera in mode 0 to 2 stands at its
@@ -394,6 +399,7 @@ public static class DemoRender
                 continue;
             }
             CameraPose c = pose.Value;
+            scene.Near = NearFor(c, play.World);
             var ctx = new FrameContext { HazeStart = scene.Terrain.HazeStart, Visible = scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
             int images = 0, draws = 0;
             ctx.ContainerOf = scene.Interiors == null ? null : box => scene.Interiors.ContainerOf(box, ctx.Camera);
