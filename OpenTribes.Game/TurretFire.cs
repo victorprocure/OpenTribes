@@ -8,12 +8,14 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/turret.hpp namespace turret: position of a shape thread as the instance keeps it (docs/static-sim.md 14.6).
-// Every store is an f32 store toward zero.
+/// <summary>The position of a shape thread as the instance keeps it. Every store is an f32 store toward zero.</summary>
+/// <remarks>Port of namespace turret in src/game/turret.hpp (docs/static-sim.md 14.6).</remarks>
 public static class TurretThread
 {
-    // src/game/turret.hpp threadNormalise: TSSequence_normalise (0x005b8d94): below 0 or above 1 a cyclic sequence wraps
-    // by floor, a one-shot sequence clamps.
+    /// <summary>Normalises a thread position: below 0 or above 1 a cyclic sequence wraps by floor and a one-shot sequence clamps.</summary>
+    /// <param name="pos">The position, updated in place.</param>
+    /// <param name="cyclic">True for a cyclic sequence.</param>
+    /// <remarks>Follows TSSequence_normalise (0x005b8d94).</remarks>
     public static void ThreadNormalise(ref float pos, bool cyclic)
     {
         if (pos < 0.0f)
@@ -22,8 +24,11 @@ public static class TurretThread
             pos = cyclic ? X87.F32(Sub(pos, Math.Floor((double)pos))) : 1.0f;
     }
 
-    // src/game/turret.hpp threadStep: thread step (0x005c01f0 -> 0x005c02f0, time scale 1.0):
-    // pos = f32(f32(scale x delta) + pos).
+    /// <summary>Steps a thread position: <c>pos = f32(f32(scale x delta) + pos)</c> with time scale 1.0.</summary>
+    /// <param name="pos">The position, updated in place.</param>
+    /// <param name="delta">The step.</param>
+    /// <param name="cyclic">True for a cyclic sequence.</param>
+    /// <remarks>Follows 0x005c01f0 and 0x005c02f0.</remarks>
     public static void ThreadStep(ref float pos, float delta, bool cyclic)
     {
         float d = X87.F32(Mul(1.0f, delta));
@@ -31,12 +36,20 @@ public static class TurretThread
         ThreadNormalise(ref pos, cyclic);
     }
 
-    // src/game/turret.hpp threadSetPos: TSThread_setPosition (0x005c0190): a step by f32((target - pos) / scale), not an
-    // assignment.
+    /// <summary>Moves a thread position toward a target by a step of <c>f32((target - pos) / scale)</c>, not an assignment.</summary>
+    /// <param name="pos">The position, updated in place.</param>
+    /// <param name="target">The target position.</param>
+    /// <param name="cyclic">True for a cyclic sequence.</param>
+    /// <remarks>Follows TSThread_setPosition (0x005c0190).</remarks>
     public static void ThreadSetPos(ref float pos, float target, bool cyclic) =>
         ThreadStep(ref pos, X87.F32(Div(Sub(target, pos), 1.0f)), cyclic);
 
-    // src/game/turret.hpp threadAdvance: TSThread_advance (0x005c01b0): a step by f32(dt / duration of the sequence).
+    /// <summary>Advances a thread position by a step of <c>f32(dt / duration of the sequence)</c>.</summary>
+    /// <param name="pos">The position, updated in place.</param>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <param name="duration">The duration of the sequence.</param>
+    /// <param name="cyclic">True for a cyclic sequence.</param>
+    /// <remarks>Follows TSThread_advance (0x005c01b0).</remarks>
     public static void ThreadAdvance(ref float pos, float dt, float duration, bool cyclic) =>
         ThreadStep(ref pos, X87.F32(Div(dt, duration)), cyclic);
 }
@@ -54,7 +67,7 @@ public partial class GameBase
     // src/game/turret_fire.cpp turretFire: the function-static R250 of each deflection path.
     private static readonly R250 sTurretNormalPath = new(0x8377), sTurretSustainedPath = new(0x8377);
 
-    // The two generators as a freshly started process has them (the tests share one process).
+    /// <summary>Resets the two turret random generators to a fresh process state. For tests, which share one process.</summary>
     public static void ResetTurretRandoms()
     {
         sTurretNormalPath.Reseed(0x8377);
@@ -381,8 +394,9 @@ public partial class GameBase
         }
     }
 
-    // src/game/turret_fire.cpp GameBase::turretUsePower: 0x00452e1c: the thread takes `power` at its current position with
-    // priority -1; the elevation drops to 0 and the elevate thread follows.
+    /// <summary>Starts the power thread: it takes <c>power</c> at its current position with priority -1.</summary>
+    /// <returns>True when the thread started.</returns>
+    /// <remarks>Follows 0x00452e1c. The elevation drops to 0 and the elevate thread follows.</remarks>
     public bool TurretUsePower()
     {
         if (!TurretHasPower)
@@ -401,7 +415,8 @@ public partial class GameBase
         return true;
     }
 
-    // src/game/turret_fire.cpp GameBase::turretUseFire: 0x00452dd0: the thread takes `fire` at position 1 with priority 0.
+    /// <summary>Starts the fire thread: it takes <c>fire</c> at position 1 with priority 0.</summary>
+    /// <remarks>Follows 0x00452dd0.</remarks>
     public void TurretUseFire()
     {
         if (!TurretHasPower)
@@ -412,9 +427,8 @@ public partial class GameBase
         TurretThread.ThreadSetPos(ref TurretPowerPos, 1.0f, CyclicSeq(this, SeqOf(this, "fire")));
     }
 
-    // src/game/turret_fire.cpp GameBase::turretSyncThreads: end of Turret_updateAim (0x00456eca): the elevate and turn
-    // threads step to the positions of the new angles, the power / fire thread advances in state 3, and the shape is
-    // animated: the pose the muzzle and the aim read until the next update.
+    /// <summary>Brings the turret threads in step with the aim angles.</summary>
+    /// <remarks>Follows the end of Turret_updateAim (0x00456eca). The elevate and turn threads step to the positions of the new angles, the power and fire thread advances in state 3, and the shape is animated: the pose the muzzle and the aim read until the next update.</remarks>
     public void TurretSyncThreads()
     {
         if (TurretElevatePos >= 0 && TurretMaxElevation != TurretMinElevation)
@@ -438,8 +452,9 @@ public partial class GameBase
 
     // ---- activation (4.8), turret_sim.cpp ----
 
-    // src/game/turret_sim.cpp GameBase::turretActivate: 0x00455b34 (4.8). The power / fire thread runs `power` forward;
-    // at 0.99 (f64) it switches to `fire` at position 1 and the turret is on.
+    /// <summary>Runs one tick of the power-up sequence.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows 0x00455b34 (docs/static-sim.md 4.8). The power and fire thread runs <c>power</c> forward. At 0.99 (f64) it switches to <c>fire</c> at position 1 and the turret is on.</remarks>
     public void TurretActivate(float dt)
     {
         if (TurretMode != 2 && TurretMode != 3)
@@ -464,8 +479,9 @@ public partial class GameBase
         }
     }
 
-    // src/game/turret_sim.cpp GameBase::turretDeactivate: 0x00455cc4 (4.8): rotate home, then run the power thread
-    // backwards.
+    /// <summary>Runs one tick of the power-down sequence: rotates home, then runs the power thread backwards.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows 0x00455cc4 (docs/static-sim.md 4.8).</remarks>
     public void TurretDeactivate(float dt)
     {
         if (TurretMode != 0 && TurretMode != 1)
@@ -516,7 +532,12 @@ public partial class GameBase
 
     // ---- target selection (4.4) ----
 
-    // src/game/turret_fire.cpp GameBase::turretTestTarget: 0x0045446c.
+    /// <summary>Tests a player as a target.</summary>
+    /// <param name="pl">The player, or null.</param>
+    /// <param name="limit">The best value so far, updated when the player is closer.</param>
+    /// <param name="range">The turret range.</param>
+    /// <returns>True when the player is a valid target.</returns>
+    /// <remarks>Follows 0x0045446c.</remarks>
     public bool TurretTestTarget(GameBase? pl, ref float limit, float range)
     {
         if (Services() == null)
@@ -563,7 +584,9 @@ public partial class GameBase
         return false;
     }
 
-    // src/game/turret_fire.cpp GameBase::turretFindTarget: 0x00454ad8.
+    /// <summary>Finds the best target in range.</summary>
+    /// <returns>The target, or null.</returns>
+    /// <remarks>Follows 0x00454ad8.</remarks>
     public GameBase? TurretFindTarget()
     {
         if (Services() == null)
@@ -597,8 +620,8 @@ public partial class GameBase
         return best;
     }
 
-    // src/game/turret_fire.cpp GameBase::turretSearchStep: 0x00456288 / 0x00457cc0 after the control client, damage state
-    // and active tests (4.4).
+    /// <summary>Runs the target search of one tick.</summary>
+    /// <remarks>Follows 0x00456288 and 0x00457cc0 after the control client, damage state and active tests (docs/static-sim.md 4.4).</remarks>
     public void TurretSearchStep()
     {
         float now = Manager() != null ? Manager()!.Time() : 0.0f;
@@ -675,8 +698,10 @@ public partial class GameBase
         return aimed;
     }
 
-    // src/game/turret_fire.cpp GameBase::turretTrack: 0x00454bf8. Both angles step towards the lead point; each that
-    // reaches it counts.
+    /// <summary>Steps both aim angles toward the lead point of a target. Each angle that reaches it counts.</summary>
+    /// <param name="target">The target.</param>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows 0x00454bf8.</remarks>
     public void TurretTrack(GameBase target, float dt)
     {
         if (Services() == null)
@@ -701,8 +726,9 @@ public partial class GameBase
 
     // ---- muzzle ----
 
-    // src/game/turret_fire.cpp GameBase::eyeTransform: vtable +0x110: the eye transform in world space (Turret 0x004566ac,
-    // `dummy eye`); the object transform otherwise or without the node.
+    /// <summary>Returns the eye transform in world space.</summary>
+    /// <returns>The Turret <c>dummy eye</c> node transform, or the object transform without the node or for other classes.</returns>
+    /// <remarks>Follows vtable +0x110 (Turret 0x004566ac).</remarks>
     public virtual Transform EyeTransform()
     {
         if (ShapeClass() != ShapeKind.Turret)
@@ -711,7 +737,10 @@ public partial class GameBase
         return eye;
     }
 
-    // src/game/turret_fire.cpp GameBase::turretMuzzleTransform: 0x004565e0; without the node the object transform itself.
+    /// <summary>Computes the muzzle transform of the turret.</summary>
+    /// <param name="output">Receives the transform. Without the node it is the object transform itself.</param>
+    /// <returns>True when the <c>dummy muzzle</c> node exists.</returns>
+    /// <remarks>Follows 0x004565e0.</remarks>
     public bool TurretMuzzleTransform(out Transform output) => NodeTransform(this, "dummy muzzle", out output);
 
     // ---- fire (4.7) ----
@@ -770,7 +799,10 @@ public partial class GameBase
         return best != null && bestDot > limit ? best : null;
     }
 
-    // src/game/turret_fire.cpp GameBase::turretFire: 0x004531e4.
+    /// <summary>Fires the turret.</summary>
+    /// <param name="byPlayer">True when a player control client fires it.</param>
+    /// <param name="target">The target, or null.</param>
+    /// <remarks>Follows 0x004531e4.</remarks>
     public void TurretFire(bool byPlayer, GameBase? target)
     {
         if (Services() == null)
@@ -897,7 +929,8 @@ public partial class GameBase
         }
     }
 
-    // src/game/turret_fire.cpp GameBase::turretStopBeam: 0x00454420.
+    /// <summary>Stops the beam of a sustained turret.</summary>
+    /// <remarks>Follows 0x00454420.</remarks>
     public void TurretStopBeam()
     {
         TurretStamp = TurretTickMs;
@@ -909,8 +942,8 @@ public partial class GameBase
         TurretBeamTarget = 0;
     }
 
-    // src/game/turret_fire.cpp GameBase::turretSustainedFireTick: 0x00457df0: the beam of a sustained turret. Without a
-    // control client the target is tested and tracked again; the projectile always gets the eye transform.
+    /// <summary>Runs the sustained fire tick: the beam of a sustained turret.</summary>
+    /// <remarks>Follows 0x00457df0. Without a control client the target is tested and tracked again. The projectile always gets the eye transform.</remarks>
     public void TurretSustainedFireTick()
     {
         if (Services() == null)
@@ -971,8 +1004,7 @@ public partial class GameBase
         return r;
     }
 
-    // src/game/turret_control.cpp GameBase::turretJump: script method `jump(turret)` when one is defined (none in the base
-    // scripts).
+    /// <summary>Calls the script method <c>jump(turret)</c> when one is defined. The base scripts define none.</summary>
     public void TurretJump()
     {
         GameState g = StateOf(this);
@@ -981,7 +1013,10 @@ public partial class GameBase
             Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()) });
     }
 
-    // src/game/turret_control.cpp GameBase::turretUpdateAim: 0x00456874. `move` is null for an uncontrolled turret.
+    /// <summary>Updates the aim of the turret for one move.</summary>
+    /// <param name="move">The move, or null for an uncontrolled turret.</param>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows 0x00456874.</remarks>
     public void TurretUpdateAim(TurretMove? move, float dt)
     {
         using var chop = X87.Chop();
@@ -1054,8 +1089,10 @@ public partial class GameBase
             SetMaskBits(0x2000);
     }
 
-    // src/game/turret_control.cpp GameBase::turretApplyMoves: 0x00457080: for each move, the aim update runs with the
-    // previously stored move, the credit drops by one (at least 1), then the new move is stored.
+    /// <summary>Applies the moves of a control packet.</summary>
+    /// <param name="moves">The moves.</param>
+    /// <param name="count">The number of moves.</param>
+    /// <remarks>Follows 0x00457080: for each move the aim update runs with the previously stored move, the credit drops by one (at least 1), then the new move is stored.</remarks>
     public void TurretApplyMoves(Move[] moves, int count)
     {
         using var chop = X87.Chop();
@@ -1074,7 +1111,9 @@ public partial class GameBase
             TurretCredit = 1;
     }
 
-    // src/game/turret_control.cpp GameBase::turretWriteControlState: 0x004572f8.
+    /// <summary>Writes the turret control state.</summary>
+    /// <param name="bs">The stream to write.</param>
+    /// <remarks>Follows 0x004572f8.</remarks>
     public void TurretWriteControlState(BitStream bs)
     {
         bs.WriteF32(TurretRotation);
@@ -1085,14 +1124,20 @@ public partial class GameBase
         bs.WriteF32(Energy);
     }
 
-    // src/game/turret_control.cpp GameBase::applyMoves: vtable +0x150.
+    /// <summary>Applies the moves of a control packet to the object.</summary>
+    /// <param name="moves">The moves.</param>
+    /// <param name="count">The number of moves.</param>
+    /// <remarks>Follows vtable +0x150.</remarks>
     public virtual void ApplyMoves(Move[] moves, int count)
     {
         if (mShapeClass == ShapeKind.Turret)
             TurretApplyMoves(moves, count);
     }
 
-    // src/game/turret_control.cpp GameBase::writeControlState: vtable +0x15c.
+    /// <summary>Writes the control state of the object.</summary>
+    /// <param name="bs">The stream to write.</param>
+    /// <param name="ctx">The connection context.</param>
+    /// <remarks>Follows vtable +0x15c.</remarks>
     public virtual void WriteControlState(BitStream bs, ControlContext ctx)
     {
         if (mShapeClass == ShapeKind.Turret)
