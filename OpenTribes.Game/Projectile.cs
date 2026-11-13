@@ -6,16 +6,25 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/projectile.hpp RayHit: ray hit with the data a projectile impact needs (the "info" of 0x00505f6c).
+/// <summary>A ray hit with the data a projectile impact needs (the "info" of 0x00505f6c).</summary>
 public struct RayHit
 {
+    /// <summary>The object that was hit, or null.</summary>
     public GameBase? Object;
+    /// <summary>The type bits of the hit object.</summary>
     public uint Type;
-    public Float3 Point, Normal;
+    /// <summary>The hit point.</summary>
+    public Float3 Point;
+    /// <summary>The surface normal at the hit point.</summary>
+    public Float3 Normal;
+    /// <summary>True when the hit is on the terrain.</summary>
     public bool Terrain;
+    /// <summary>The distance from the ray start to the hit.</summary>
     public float Distance;
-    public Material? Material; // surface record +0x20 of terrain and interior hits
+    /// <summary>The surface record (+0x20) of terrain and interior hits.</summary>
+    public Material? Material;
 
+    /// <summary>Creates an empty hit with the normal (0, 0, 1).</summary>
     public RayHit()
     {
         Object = null;
@@ -28,17 +37,24 @@ public struct RayHit
     }
 }
 
-// src/game/projectile.hpp and projectile_internal.hpp namespace pj: helpers shared by the projectile source files.
+/// <summary>The helpers shared by the projectile source files (namespace pj).</summary>
 public static class Pj
 {
-    // src/game/projectile.cpp pj::field.
+    /// <summary>Finds a field of a datablock.</summary>
+    /// <param name="b">The datablock.</param>
+    /// <param name="name">The field name.</param>
+    /// <returns>The field, or null.</returns>
     public static DataBlockManager.Field? Field(DataBlockManager.Block b, string name)
     {
         DataBlockManager.Field? f = b.Find(name);
         return f != null && f.Elems.Count != 0 ? f : null;
     }
 
-    // src/game/projectile.cpp pj::real.
+    /// <summary>Reads a real field of a datablock.</summary>
+    /// <param name="b">The datablock.</param>
+    /// <param name="name">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The value.</returns>
     public static float Real(DataBlockManager.Block b, string name, float def)
     {
         DataBlockManager.Field? f = Field(b, name);
@@ -51,7 +67,11 @@ public static class Pj
         return def;
     }
 
-    // src/game/projectile.cpp pj::integer.
+    /// <summary>Reads an integer field of a datablock.</summary>
+    /// <param name="b">The datablock.</param>
+    /// <param name="name">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The value.</returns>
     public static int Integer(DataBlockManager.Block b, string name, int def)
     {
         DataBlockManager.Field? f = Field(b, name);
@@ -64,7 +84,11 @@ public static class Pj
         return def;
     }
 
-    // src/game/projectile.cpp pj::boolean.
+    /// <summary>Reads a boolean field of a datablock.</summary>
+    /// <param name="b">The datablock.</param>
+    /// <param name="name">The field name.</param>
+    /// <param name="def">The value when the field is missing.</param>
+    /// <returns>The value.</returns>
     public static bool Boolean(DataBlockManager.Block b, string name, bool def)
     {
         DataBlockManager.Field? f = Field(b, name);
@@ -77,11 +101,18 @@ public static class Pj
         return def;
     }
 
-    // src/game/projectile.cpp pj::ftol: crt_ftol.
+    /// <summary>Converts a double to an unsigned integer as crt_ftol does.</summary>
+    /// <param name="x">The value.</param>
+    /// <returns>The converted value.</returns>
     public static uint Ftol(double x) =>
         unchecked((uint)(int)(double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0));
 
-    // src/game/projectile_beam.cpp pj::worldBox: world box of a container 7 entry, false when the object has none.
+    /// <summary>Reads the world box of a container 7 entry.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="obj">The object.</param>
+    /// <param name="mn">Receives the box minimum.</param>
+    /// <param name="mx">Receives the box maximum.</param>
+    /// <returns>False when the object has no entry.</returns>
     public static bool WorldBox(GameState game, GameBase? obj, Span<float> mn, Span<float> mx)
     {
         Container.Entry? e = obj != null ? game.World.Find(obj) : null;
@@ -95,8 +126,12 @@ public static class Pj
         return true;
     }
 
-    // src/game/projectile_beam.cpp pj::findMethod: GameBase_findScriptMethod (0x0044864c): mapName, data name,
-    // className, C++ class, plain. Projectile blocks have no className field.
+    /// <summary>Finds the script function of a method on an object.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="obj">The object.</param>
+    /// <param name="method">The method name.</param>
+    /// <returns>The function name, or an empty string.</returns>
+    /// <remarks>Follows GameBase_findScriptMethod (0x0044864c). The lookup order is mapName, data name, className, C++ class, plain. Projectile blocks have no className field.</remarks>
     public static string FindMethod(GameState game, GameBase obj, string method)
     {
         if (game.Console == null)
@@ -114,8 +149,12 @@ public static class Pj
         return "";
     }
 
-    // src/game/projectile_beam.cpp pj::callMethod: the original builds the call as text with sprintf and evaluates it,
-    // so numbers pass through the %g formatting and the script's number parser. `args` are the formatted tokens.
+    /// <summary>Calls a script function with formatted arguments.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="fn">The function name.</param>
+    /// <param name="args">The formatted argument tokens.</param>
+    /// <returns>The call result.</returns>
+    /// <remarks>The original builds the call as text with sprintf and evaluates it, so numbers pass through the <c>%g</c> formatting and the script's number parser.</remarks>
     public static string CallMethod(GameState game, string fn, IReadOnlyList<string> args)
     {
         if (game.Console == null)
@@ -126,7 +165,9 @@ public static class Pj
         return game.Console.Evaluate(line + ");");
     }
 
-    // src/game/projectile_beam.cpp pj::fmtG: %g.
+    /// <summary>Formats a number as <c>%g</c>.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string FmtG(double v) => Numbers.FormatFloat(v);
 
     // src/game/projectile_ghost.cpp ftolBits.
@@ -136,14 +177,24 @@ public static class Pj
         return (uint)i & ((1u << (int)bits) - 1);
     }
 
-    // src/game/projectile_ghost.cpp pj::writeVec.
+    /// <summary>Writes a vector as three raw floats.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <param name="v">The vector.</param>
     public static void WriteVec(BitStream bs, ReadOnlySpan<float> v) => bs.WriteF32s(v[..3]);
 
-    // src/game/projectile_ghost.cpp pj::writeUnit: BitStream::writeFloat (0x00582fb0).
+    /// <summary>Writes a unit float in a number of bits.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <param name="v">The value.</param>
+    /// <param name="bits">The number of bits.</param>
+    /// <remarks>Follows BitStream::writeFloat (0x00582fb0).</remarks>
     public static void WriteUnit(BitStream bs, float v, uint bits) =>
         bs.WriteInt(FtolBits(Mul((double)(int)((1u << (int)bits) - 1), v), bits), bits);
 
-    // src/game/projectile_ghost.cpp pj::writeNormal: writeSignedFloat (0x00583018) of x and y, then the sign of z.
+    /// <summary>Writes a unit normal: x and y as signed floats, then the sign of z.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <param name="n">The normal.</param>
+    /// <param name="bits">The number of bits of x and y.</param>
+    /// <remarks>Follows writeSignedFloat (0x00583018).</remarks>
     public static void WriteNormal(BitStream bs, ReadOnlySpan<float> n, uint bits)
     {
         for (int i = 0; i < 2; ++i)
@@ -154,8 +205,11 @@ public static class Pj
         bs.WriteFlag(n[2] < 0.0f);
     }
 
-    // src/game/projectile_ghost.cpp pj::writeIndex: datablock index width (0x00402b60): the bit length of the group
-    // count + 1.
+    /// <summary>Writes a datablock index, whose width is the bit length of the group count + 1.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <param name="index">The datablock index.</param>
+    /// <param name="groupCount">The number of blocks in the group.</param>
+    /// <remarks>Follows 0x00402b60.</remarks>
     public static void WriteIndex(BitStream bs, int index, int groupCount)
     {
         uint n = (uint)groupCount + 1, bits = 1;
@@ -164,69 +218,154 @@ public static class Pj
         bs.WriteInt((uint)index & (bits >= 32 ? 0xffffffffu : ((1u << (int)bits) - 1)), bits);
     }
 
-    // src/game/projectile_ghost.cpp pj::explosionCount.
+    /// <summary>Returns the number of explosion datablocks (group 20).</summary>
+    /// <param name="game">The game state.</param>
+    /// <returns>The count.</returns>
     public static int ExplosionCount(GameState game) => game.DataBlockCount(20);
 }
 
-// src/game/projectile.hpp class Projectile.
+/// <summary>The base class of the projectiles.</summary>
+/// <remarks>Port of class Projectile in src/game/projectile.hpp. See docs/projectile-sim.md.</remarks>
 public abstract class Projectile : GameBase
 {
-    // src/game/projectile.hpp ProjectileGroup: group of ProjectileData blocks per class (projectile-sim.md 0).
-    public const int kBulletGroup = 14, kGrenadeGroup = 15, kRocketGroup = 16, kLaserGroup = 17, kTargetLaserGroup = 24,
-                     kSeekerGroup = 25, kLightningGroup = 28, kRepairGroup = 29;
-    // src/game/projectile.hpp kProjectileType: object type of every projectile in container 7 (+0x48).
+    /// <summary>The datablock group of Bullet projectiles (docs/projectile-sim.md 0).</summary>
+    public const int kBulletGroup = 14;
+    /// <summary>The datablock group of Grenade projectiles.</summary>
+    public const int kGrenadeGroup = 15;
+    /// <summary>The datablock group of Rocket projectiles.</summary>
+    public const int kRocketGroup = 16;
+    /// <summary>The datablock group of Laser projectiles.</summary>
+    public const int kLaserGroup = 17;
+    /// <summary>The datablock group of TargetLaser projectiles.</summary>
+    public const int kTargetLaserGroup = 24;
+    /// <summary>The datablock group of Seeker projectiles.</summary>
+    public const int kSeekerGroup = 25;
+    /// <summary>The datablock group of Lightning projectiles.</summary>
+    public const int kLightningGroup = 28;
+    /// <summary>The datablock group of RepairEffect projectiles.</summary>
+    public const int kRepairGroup = 29;
+    /// <summary>The object type of every projectile in container 7 (+0x48).</summary>
     public const uint kProjectileType = 0x100;
 
-    protected const float kSlice = 0.0333333351f; // 0x3d088889
+    /// <summary>The time slice of a projectile step, 1/30 s (0x3d088889).</summary>
+    protected const float kSlice = 0.0333333351f;
 
     // src/game/projectile.cpp deflectionRandom (0x00685ef8) and explosionRandom (0x006862f4).
     private static readonly R250 sDeflection = new(), sExplosion = new();
 
-    // src/game/projectile.cpp resetProjectileRandoms: the two generators as a freshly started server has them (seed
-    // 0x8377).
+    /// <summary>Resets the two projectile random generators to the state of a freshly started server (seed 0x8377).</summary>
     public static void ResetProjectileRandoms()
     {
         sDeflection.Reseed(0x8377);
         sExplosion.Reseed(0x8377);
     }
 
-    // src/game/projectile.hpp Projectile::Data: ProjectileData values (docs/datablocks.md 5.19 - 5.27).
+    /// <summary>The ProjectileData values (docs/datablocks.md 5.19 to 5.27).</summary>
     public sealed class PData
     {
-        public int ExplosionTag, ExpRandCycle, DamageClass, DamageType, OwnerGraceMS = 1000;
+        /// <summary>The explosion datablock tag.</summary>
+        public int ExplosionTag;
+        /// <summary>The explosion random cycle.</summary>
+        public int ExpRandCycle;
+        /// <summary>The damage class.</summary>
+        public int DamageClass;
+        /// <summary>The damage type.</summary>
+        public int DamageType;
+        /// <summary>The time in milliseconds during which the owner is not hit.</summary>
+        public int OwnerGraceMS = 1000;
+        /// <summary>True when the projectile can hit its owner.</summary>
         public bool CollideWithOwner;
-        public float CollisionRadius, Mass = 1, DamageValue, ExplosionRadius, Kick, AimDeflection;
-        public float MuzzleVelocity, TerminalVelocity, Acceleration, TotalTime = 10000, LiveTime = 10000;
-        public float InheritedScale, Elasticity = 0.5f;
+        /// <summary>The collision radius.</summary>
+        public float CollisionRadius;
+        /// <summary>The mass.</summary>
+        public float Mass = 1;
+        /// <summary>The direct damage value.</summary>
+        public float DamageValue;
+        /// <summary>The explosion radius.</summary>
+        public float ExplosionRadius;
+        /// <summary>The explosion kick.</summary>
+        public float Kick;
+        /// <summary>The aim deflection.</summary>
+        public float AimDeflection;
+        /// <summary>The muzzle velocity.</summary>
+        public float MuzzleVelocity;
+        /// <summary>The terminal velocity.</summary>
+        public float TerminalVelocity;
+        /// <summary>The acceleration.</summary>
+        public float Acceleration;
+        /// <summary>The total life in milliseconds.</summary>
+        public float TotalTime = 10000;
+        /// <summary>The live time in milliseconds.</summary>
+        public float LiveTime = 10000;
+        /// <summary>The fraction of the shooter velocity the projectile inherits.</summary>
+        public float InheritedScale;
+        /// <summary>The elasticity of bounces.</summary>
+        public float Elasticity = 0.5f;
     }
 
+    /// <summary>The game state.</summary>
     protected readonly GameState mGame;
+    /// <summary>The class name.</summary>
     protected readonly string mCls;
+    /// <summary>The datablock values.</summary>
     protected readonly PData mData = new();
+    /// <summary>The datablock group.</summary>
     protected readonly int mGroup;
+    /// <summary>The datablock, or null.</summary>
     protected DataBlockManager.Block? mBlock;
-    protected int mShooter;                  // +0x210
-    protected int mInitShooter = -1;         // +0x328 until onAdd
-    protected int mShooterObject;            // +0x32c: id of the shooter found in onAdd
-    protected int mOwner, mOwnerJoin = -1;   // +0x320, +0x324
-    protected readonly float[] mInherited = new float[3]; // +0x330
-    protected readonly float[] mLaunch = new float[3];    // +0x33c
-    protected int mExclude;                  // +0x1f8
-    protected int mGrace;                    // +0x2dc
-    protected uint mLast;                    // +0x304
-    protected uint mLastSend;                // +0x308
-    protected bool mDying, mLive = true;     // +0x30c, +0x314
-    protected uint mDeleteTime, mLiveEnd, mTotalEnd; // +0x310, +0x318, +0x31c
-    protected bool mExploded;                // +0x439
-    protected readonly float[] mExpPos = new float[3], mExpNormal = { 0, 0, 1 }; // +0x43c, +0x448
-    protected int mExpIndex;                 // +0x454
+    /// <summary>The id of the shooter (+0x210).</summary>
+    protected int mShooter;
+    /// <summary>The id of the shooter passed to init, until onAdd (+0x328).</summary>
+    protected int mInitShooter = -1;
+    /// <summary>The id of the shooter object found in onAdd (+0x32c).</summary>
+    protected int mShooterObject;
+    /// <summary>The id of the owner client (+0x320).</summary>
+    protected int mOwner;
+    /// <summary>The join counter of the owner client at the shot (+0x324).</summary>
+    protected int mOwnerJoin = -1;
+    /// <summary>The inherited velocity (+0x330).</summary>
+    protected readonly float[] mInherited = new float[3];
+    /// <summary>The launch velocity (+0x33c).</summary>
+    protected readonly float[] mLaunch = new float[3];
+    /// <summary>The id of the object excluded from queries (+0x1f8).</summary>
+    protected int mExclude;
+    /// <summary>The owner grace counter (+0x2dc).</summary>
+    protected int mGrace;
+    /// <summary>The time of the last step (+0x304).</summary>
+    protected uint mLast;
+    /// <summary>The time of the last ghost update (+0x308).</summary>
+    protected uint mLastSend;
+    /// <summary>True while the projectile is dying (+0x30c).</summary>
+    protected bool mDying;
+    /// <summary>True while the projectile is live (+0x314).</summary>
+    protected bool mLive = true;
+    /// <summary>The time of deletion (+0x310).</summary>
+    protected uint mDeleteTime;
+    /// <summary>The end of the live time (+0x318).</summary>
+    protected uint mLiveEnd;
+    /// <summary>The end of the total time (+0x31c).</summary>
+    protected uint mTotalEnd;
+    /// <summary>True once the projectile exploded (+0x439).</summary>
+    protected bool mExploded;
+    /// <summary>The explosion position (+0x43c).</summary>
+    protected readonly float[] mExpPos = new float[3];
+    /// <summary>The explosion normal (+0x448).</summary>
+    protected readonly float[] mExpNormal = { 0, 0, 1 };
+    /// <summary>The explosion datablock index (+0x454).</summary>
+    protected int mExpIndex;
+    /// <summary>The box of the shape.</summary>
     protected readonly float[] mShapeBox = new float[6];
+    /// <summary>True while the projectile is in container 7.</summary>
     protected bool mInContainer;
-    protected bool mGravity;                 // +0x16c bit 0: the gravity force is integrated
+    /// <summary>True when the gravity force is integrated (+0x16c bit 0).</summary>
+    protected bool mGravity;
 
     private static ClassContext OwnContext(GameState game) => new() { Game = game, Resources = game.Resources };
 
-    // src/game/projectile.cpp Projectile::Projectile.
+    /// <summary>Creates a projectile.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="cls">The class name.</param>
+    /// <param name="group">The datablock group.</param>
     protected Projectile(GameState game, string cls, int group) : base(cls, Kind.Marker, group, Array.Empty<PersistDef>(), OwnContext(game))
     {
         mGame = game;
@@ -239,7 +378,9 @@ public abstract class Projectile : GameBase
         "Bullet", "Grenade", "RocketDumb", "LaserProjectile", "TargetLaser", "SeekingMissile", "Lightning", "RepairEffect",
     };
 
-    // src/game/projectile.cpp Projectile::from.
+    /// <summary>Casts an object to a projectile.</summary>
+    /// <param name="obj">The object, or null.</param>
+    /// <returns>The projectile, or null when the object is not one.</returns>
     public static Projectile? From(SimObject? obj)
     {
         if (obj == null)
@@ -250,10 +391,15 @@ public abstract class Projectile : GameBase
         return null;
     }
 
+    /// <summary>Returns the datablock values.</summary>
+    /// <returns>The values.</returns>
     public PData Data() => mData;
+    /// <summary>Tells whether the projectile exploded.</summary>
+    /// <returns>True after the explosion.</returns>
     public bool Exploded() => mExploded;
 
-    // src/game/projectile.cpp Projectile::shooter: the shooter object (delete-notified in the original), or null.
+    /// <summary>Returns the shooter object. The original delete-notifies it.</summary>
+    /// <returns>The shooter, or null.</returns>
     public GameBase? Shooter()
     {
         SimManager? m = Manager();
@@ -261,8 +407,9 @@ public abstract class Projectile : GameBase
         return o as GameBase;
     }
 
-    // src/game/projectile.cpp Projectile::ownerClientId: owner client id (0x0045af24): the `source` of every damage
-    // call, 0 when unknown.
+    /// <summary>Returns the owner client id, the <c>source</c> of every damage call.</summary>
+    /// <returns>The client id, 0 when unknown.</returns>
+    /// <remarks>Follows 0x0045af24.</remarks>
     public int OwnerClientId()
     {
         if (mOwner == 0)
@@ -271,7 +418,11 @@ public abstract class Projectile : GameBase
         return r != null && r.JoinOrder == mOwnerJoin ? mOwner : 0;
     }
 
-    // src/game/projectile.cpp Projectile::init: vtable +0x1b4: transform, inherited velocity, shooter id.
+    /// <summary>Initialises the projectile: transform, inherited velocity and shooter id.</summary>
+    /// <param name="t">The transform.</param>
+    /// <param name="velocity">The velocity the projectile inherits.</param>
+    /// <param name="shooterId">The shooter object id.</param>
+    /// <remarks>Follows vtable +0x1b4.</remarks>
     public virtual void Init(in Transform t, ReadOnlySpan<float> velocity, int shooterId)
     {
         Transform = t;
@@ -281,33 +432,62 @@ public abstract class Projectile : GameBase
         mInherited[2] = velocity[2];
     }
 
-    // src/game/projectile.hpp Projectile::setEnergy: vtable +0x1b8: energy used and fraction (lasers).
+    /// <summary>Sets the energy used by a shot and its fraction (lasers).</summary>
+    /// <param name="used">The energy used.</param>
+    /// <param name="fraction">The fraction of the full charge.</param>
+    /// <remarks>Follows vtable +0x1b8.</remarks>
     public virtual void SetShotEnergy(float used, float fraction) { }
-    // src/game/projectile.hpp Projectile::shutOff / updateTransform: vtable +0x1c0 / +0x1c4 (sustained weapons).
+    /// <summary>Shuts a sustained projectile off (vtable +0x1c0).</summary>
     public virtual void ShutOff() { }
+    /// <summary>Updates the transform of a sustained projectile (vtable +0x1c4).</summary>
+    /// <param name="t">The new transform.</param>
     public virtual void UpdateTransform(in Transform t) { }
-    // src/game/projectile.hpp: vtable +0x1c8 / +0x1cc / +0x1d0 (seekers).
+    /// <summary>Tells whether the projectile wants a target, as seekers do (vtable +0x1c8).</summary>
+    /// <returns>True for a seeker.</returns>
     public virtual bool WantsTarget() => false;
+    /// <summary>Returns the range in which a target is acquired (vtable +0x1cc).</summary>
+    /// <returns>The range.</returns>
     public virtual float TargetRange() => 0.0f;
+    /// <summary>Sets the target of a seeker (vtable +0x1d0).</summary>
+    /// <param name="t">The target, or null.</param>
     public virtual void SetTarget(GameBase? t) { }
-    public virtual int SeekerTarget() => 0; // the object id a seeker steers to, 0 none
-    public virtual bool IsSustained() => false; // vtable +0x1bc
-    // vtable +0x118 of TargetLaser: the end point and team of a hit beam (set 725 users).
+    /// <summary>Returns the object id a seeker steers to.</summary>
+    /// <returns>The id, or 0 for none.</returns>
+    public virtual int SeekerTarget() => 0;
+    /// <summary>Tells whether the projectile is a sustained weapon (vtable +0x1bc).</summary>
+    /// <returns>True for a sustained projectile.</returns>
+    public virtual bool IsSustained() => false;
+    /// <summary>Returns the end point and team of the beam of a TargetLaser (vtable +0x118, used by set 725).</summary>
+    /// <param name="output">Receives the end point.</param>
+    /// <param name="team">Receives the team.</param>
+    /// <returns>True when the beam hit something.</returns>
     public virtual bool BeamTargetPoint(Span<float> output, out int team)
     {
         team = 0;
         return false;
     }
 
-    // Ghost packers (docs/projectile-sim.md 5), called by ProjectileGhost.
+    /// <summary>Writes the initial ghost data (docs/projectile-sim.md 5). Called by <see cref="ProjectileGhost"/>.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <param name="ctx">The connection context.</param>
     public abstract void PackInitial(BitStream bs, GhostContext ctx);
+    /// <summary>Writes the explosion ghost data.</summary>
+    /// <param name="bs">The stream.</param>
     public virtual void PackExplode(BitStream bs) { }
+    /// <summary>Writes a ghost update.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <param name="mask">The dirty mask.</param>
+    /// <param name="ctx">The connection context.</param>
     public virtual void PackUpdate(BitStream bs, uint mask, GhostContext ctx) { }
 
-    // Class hooks of onAdd and the time limits (vtable +0x188, +0x18c).
+    /// <summary>The class hook of onAdd (vtable +0x188).</summary>
     protected virtual void ClassOnAdd() { }
+    /// <summary>Reads the class values of the datablock.</summary>
+    /// <param name="b">The datablock.</param>
     protected virtual void ReadData(DataBlockManager.Block b) { }
+    /// <summary>Called when the live time passed. The default ends the live state (vtable +0x18c).</summary>
     protected virtual void OnLiveTimePassed() => mLive = false;
+    /// <summary>Called when the total time passed.</summary>
     protected virtual void OnTotalTimePassed() { }
 
     // src/game/projectile.cpp slab: T7.1 slab test (0x005ebe80): t of the entry, or 0 when the start is inside.
@@ -379,8 +559,13 @@ public abstract class Projectile : GameBase
         return f != null && !string.IsNullOrEmpty(f.Elems[0].Str) ? f.Elems[0].Str : null;
     }
 
-    // src/game/projectile.cpp integrate: SimMovement_integrate (0x00505460). `drag` is the container drag (+0x124) of a
-    // class with movement flag 0x10 (Grenade): v -= v * ((mediumDrag 1.0 * drag) * dt) after the forces (0x00505144).
+    /// <summary>Integrates the projectile motion one step.</summary>
+    /// <param name="p">The projectile.</param>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <param name="acc">The acceleration, or null.</param>
+    /// <param name="target">Receives the target position.</param>
+    /// <param name="drag">The container drag (+0x124) of a class with movement flag 0x10 (Grenade).</param>
+    /// <remarks>Follows SimMovement_integrate (0x00505460). The drag applies as <c>v -= v * ((mediumDrag 1.0 * drag) * dt)</c> after the forces (0x00505144).</remarks>
     protected static void Integrate(Projectile p, float dt, float[]? acc, float[] target, float drag = 0)
     {
         float[] old = { p.Velocity[0], p.Velocity[1], p.Velocity[2] };
@@ -398,9 +583,15 @@ public abstract class Projectile : GameBase
             target[i] = X87.F32(Add(Mul(Add(old[i], p.Velocity[i]), h), p.Transform.P[i]));
     }
 
-    // src/game/projectile.cpp castWorld: nearest line hit of container 7 (docs/collision.md 9): terrain, interiors with
-    // their own line tests and, for shapes and players, the collision boxes (the face test of T7 for boxes). `exclude`
-    // is skipped.
+    /// <summary>Finds the nearest line hit in container 7 (docs/collision.md 9).</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="s">The segment start.</param>
+    /// <param name="e">The segment end.</param>
+    /// <param name="mask">The object type mask.</param>
+    /// <param name="exclude">The object that is skipped.</param>
+    /// <param name="hit">Receives the hit.</param>
+    /// <returns>True on a hit.</returns>
+    /// <remarks>Tests terrain, interiors with their own line tests and, for shapes and players, the collision boxes (the face test of T7 for boxes).</remarks>
     public static bool CastWorld(GameState game, ReadOnlySpan<float> s, ReadOnlySpan<float> e, uint mask, SimObject? exclude,
                                  ref RayHit hit)
     {
@@ -543,8 +734,7 @@ public abstract class Projectile : GameBase
         return found;
     }
 
-    // src/game/projectile.cpp Projectile::placeInContainer: container 7 entry of the projectile at its current transform
-    // (shape box).
+    /// <summary>Puts the projectile in container 7 at its current transform, using the shape box.</summary>
     protected void PlaceInContainer()
     {
         if (mInContainer)
@@ -574,7 +764,7 @@ public abstract class Projectile : GameBase
         mGame.EnteredForces(this, g, ref d); // the gravity force of the terrain container (FC2)
     }
 
-    // src/game/projectile.cpp Projectile::removeFromContainer.
+    /// <summary>Removes the projectile from container 7.</summary>
     protected void RemoveFromContainer()
     {
         if (mInContainer)
@@ -582,7 +772,8 @@ public abstract class Projectile : GameBase
         mInContainer = false;
     }
 
-    // src/game/projectile.cpp Projectile::moveTo: SimObject_setTransform with a new position.
+    /// <summary>Moves the projectile to a new position (SimObject_setTransform).</summary>
+    /// <param name="p">The position.</param>
     protected void MoveTo(ReadOnlySpan<float> p)
     {
         Transform.P[0] = p[0];
@@ -600,7 +791,9 @@ public abstract class Projectile : GameBase
         }
     }
 
-    // src/game/projectile.cpp Projectile::graceTick: 0x0045a718: the owner grace counter.
+    /// <summary>Counts down the owner grace time.</summary>
+    /// <param name="ms">The elapsed time in milliseconds.</param>
+    /// <remarks>Follows 0x0045a718.</remarks>
     protected void GraceTick(int ms)
     {
         if (mGrace != 0)
@@ -611,7 +804,8 @@ public abstract class Projectile : GameBase
         }
     }
 
-    // src/game/projectile.cpp Projectile::excludeObject: query exclusion by the owner rule (2.1 step 3).
+    /// <summary>Returns the object excluded from queries by the owner rule (docs/projectile-sim.md 2.1 step 3).</summary>
+    /// <returns>The object, or null.</returns>
     protected SimObject? ExcludeObject()
     {
         SimManager? m = Manager();
@@ -622,7 +816,7 @@ public abstract class Projectile : GameBase
         return null;
     }
 
-    // src/game/projectile.cpp Projectile::onAdd.
+    /// <inheritdoc/>
     public override bool OnAdd()
     {
         // GameBase datablock bind without the ShapeBase part (resolveDataBlock reads shape fields).
@@ -699,7 +893,7 @@ public abstract class Projectile : GameBase
         return true;
     }
 
-    // src/game/projectile.cpp Projectile::onRemove.
+    /// <inheritdoc/>
     public override void OnRemove()
     {
         if (mInContainer)
@@ -707,8 +901,9 @@ public abstract class Projectile : GameBase
         mInContainer = false;
     }
 
-    // src/game/projectile.cpp Projectile::registerWith: registers with the manager and the MissionCleanup group. The
-    // object is dropped on failure.
+    /// <summary>Registers the projectile with the manager and the MissionCleanup group. The object is dropped on failure.</summary>
+    /// <param name="m">The server manager.</param>
+    /// <returns>True when registered.</returns>
     public bool RegisterWith(SimManager m)
     {
         if (!m.RegisterObject(this))
@@ -718,7 +913,8 @@ public abstract class Projectile : GameBase
         return true;
     }
 
-    // src/game/projectile.cpp Projectile::explosionIndex.
+    /// <summary>Returns the explosion datablock index.</summary>
+    /// <returns>The index.</returns>
     protected int ExplosionIndex()
     {
         if (mData.ExpRandCycle <= 1)
@@ -727,7 +923,9 @@ public abstract class Projectile : GameBase
         return mData.ExplosionTag + unchecked((int)Pj.Ftol(X87.F32(Mul(u, mData.ExpRandCycle))));
     }
 
-    // src/game/projectile.cpp Projectile::setExplosion.
+    /// <summary>Records the explosion position and normal.</summary>
+    /// <param name="pos">The position.</param>
+    /// <param name="normal">The normal.</param>
     protected void SetExplosion(ReadOnlySpan<float> pos, ReadOnlySpan<float> normal)
     {
         pos[..3].CopyTo(mExpPos);
@@ -736,8 +934,9 @@ public abstract class Projectile : GameBase
         mExploded = true;
     }
 
-    // src/game/projectile.cpp Projectile::explodeAtImpact: 0x00459eb4: the hit object's type decides whether the client
-    // is told.
+    /// <summary>Explodes at an impact. The hit object's type decides whether the client is told.</summary>
+    /// <param name="hit">The hit.</param>
+    /// <remarks>Follows 0x00459eb4.</remarks>
     protected void ExplodeAtImpact(in RayHit hit)
     {
         if ((hit.Type & 0x44a00026u) != 0)
@@ -748,17 +947,23 @@ public abstract class Projectile : GameBase
 
     private static readonly float[] kUp = { 0, 0, 1 };
 
-    // src/game/projectile.cpp Projectile::explodeAtPosition.
+    /// <summary>Explodes at a position.</summary>
+    /// <param name="pos">The position.</param>
     protected void ExplodeAtPosition(ReadOnlySpan<float> pos)
     {
         SetExplosion(pos, kUp);
         SetMaskBits(0x04);
     }
 
-    // src/game/projectile.cpp Projectile::directDamageValue: 0x00459d90.
+    /// <summary>Returns the direct damage value.</summary>
+    /// <param name="now">The time in milliseconds.</param>
+    /// <returns>The damage value.</returns>
+    /// <remarks>Follows 0x00459d90.</remarks>
     protected virtual float DirectDamageValue(uint now) => mData.DamageValue;
 
-    // src/game/projectile.cpp Projectile::directDamage.
+    /// <summary>Applies direct damage to the hit object.</summary>
+    /// <param name="hit">The hit.</param>
+    /// <param name="now">The time in milliseconds.</param>
     protected void DirectDamage(in RayHit hit, uint now)
     {
         if (hit.Object == null || (hit.Type & 0x24c00080u) == 0)
@@ -767,7 +972,9 @@ public abstract class Projectile : GameBase
         hit.Object.ApplyDamage(mData.DamageType, DirectDamageValue(now), hit.Point, Velocity, zero, OwnerClientId());
     }
 
-    // src/game/projectile.cpp Projectile::radiusDamageAt: 0x00459e58 radius damage.
+    /// <summary>Applies radius damage around a position.</summary>
+    /// <param name="pos">The blast centre.</param>
+    /// <remarks>Follows 0x00459e58.</remarks>
     protected void RadiusDamageAt(ReadOnlySpan<float> pos)
     {
         if (!(mData.ExplosionRadius > 0.0f))
@@ -776,8 +983,10 @@ public abstract class Projectile : GameBase
                                          mData.Kick, OwnerClientId());
     }
 
-    // src/game/projectile.cpp Projectile::impact: impact handling shared by the classes (damageClass switch of
-    // 0x0045aa38).
+    /// <summary>Handles an impact, shared by the classes: the damage class switch.</summary>
+    /// <param name="hit">The hit.</param>
+    /// <param name="now">The time in milliseconds.</param>
+    /// <remarks>Follows 0x0045aa38.</remarks>
     protected void Impact(in RayHit hit, uint now)
     {
         if (mData.DamageClass == 0)
@@ -795,7 +1004,12 @@ public abstract class Projectile : GameBase
         mDeleteTime = unchecked(now + 500);
     }
 
-    // src/game/projectile.cpp Projectile::advance: the shared step (2.1, 0x0045a73c).
+    /// <summary>Runs the shared projectile step (docs/projectile-sim.md 2.1).</summary>
+    /// <param name="now">The time in milliseconds.</param>
+    /// <param name="variableSlice">True to use a variable time slice.</param>
+    /// <param name="hit">Receives the hit when the step ends in one.</param>
+    /// <returns>True when the step hit something.</returns>
+    /// <remarks>Follows 0x0045a73c.</remarks>
     protected bool Advance(uint now, bool variableSlice, ref RayHit hit)
     {
         using var chop = X87.Chop();
@@ -829,7 +1043,9 @@ public abstract class Projectile : GameBase
         return false;
     }
 
-    // src/game/projectile.cpp Projectile::baseTick: 0x0045aa38.
+    /// <summary>Runs the base tick.</summary>
+    /// <param name="now">The time in milliseconds.</param>
+    /// <remarks>Follows 0x0045aa38.</remarks>
     protected void BaseTick(uint now)
     {
         if (mDying)
@@ -854,8 +1070,12 @@ public abstract class Projectile : GameBase
             Impact(hit, now);
     }
 
-    // src/game/projectile.cpp Projectile::create: Projectile_createFromType (0x0046f46c): null for a group without a
-    // class or a missing block.
+    /// <summary>Creates a projectile from a datablock.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="group">The datablock group.</param>
+    /// <param name="index">The datablock index.</param>
+    /// <returns>The projectile, or null for a group without a class or a missing block.</returns>
+    /// <remarks>Follows Projectile_createFromType (0x0046f46c).</remarks>
     public static Projectile? Create(GameState game, int group, int index)
     {
         if (game.Sim == null)
