@@ -1,65 +1,91 @@
-// FearGui::TSCommander, the commander map (command.gui): docs/gui.md 3.3 "The command map".
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
-// The base picture the map control keeps (`rebuildCommandMap`, the terrain seen from above): the mission area it covers (MissionCenterPos
-// x y w h, the lower left corner and the extent, +0x298 .. +0x2a4) and the 4 x 4 bitmaps of 256 x 256 pixels in row major order
-// (+0x2f0). The 1024 x 1024 picture shows the area with the north edge on top.
+/// <summary>The base picture the map control keeps: the terrain seen from above (`rebuildCommandMap`).</summary>
+/// <param name="X">The mission area lower left x (MissionCenterPos, +0x298).</param>
+/// <param name="Y">The mission area lower left y.</param>
+/// <param name="W">The mission area width.</param>
+/// <param name="H">The mission area height (+0x2a4).</param>
+/// <param name="Tiles">The 4 x 4 bitmaps of 256 x 256 pixels in row major order (+0x2f0). The 1024 x 1024 picture shows the area with the north edge on top.</param>
 public sealed record CommandMapPicture(float X, float Y, float W, float H, PbmpBitmap[] Tiles);
 
-// One slot of the command map as the draw reads it (the slot table at `DAT_006a83d8` + 0x340, its datablock and, for a client slot, the record):
-// the position in 1/1024 of the area, the team, the datablock group (3 player, 4 static shape, 8 sensor, 10 vehicle, 19 turret) and its map
-// fields (mapFilter +0x18, mapIcon +0x1c, description +0x20, the sensor range +0x104 and the flag at +0x10c), the label of a target slot
-// (TargetNameEvent), the active flag, and for a client slot the client id, the name and the current command of its record.
+/// <summary>One slot of the command map as the draw reads it.</summary>
+/// <param name="Slot">The slot index in the slot table (DAT_006a83d8 + 0x340).</param>
+/// <param name="X">The x position in 1/1024 of the area.</param>
+/// <param name="Y">The y position in 1/1024 of the area.</param>
+/// <param name="Team">The team.</param>
+/// <param name="Group">The datablock group: 3 player, 4 static shape, 8 sensor, 10 vehicle, 19 turret.</param>
+/// <param name="ClientId">The client id of a client slot.</param>
+/// <param name="Icon">The map icon of the datablock (mapIcon, +0x1c).</param>
+/// <param name="Description">The description of the datablock (+0x20).</param>
+/// <param name="TargetName">The label of a target slot (TargetNameEvent), or null.</param>
+/// <param name="Filter">The map filter of the datablock (mapFilter, +0x18).</param>
+/// <param name="Range">The sensor range (+0x104).</param>
+/// <param name="RangeFlag">The flag at +0x10c.</param>
+/// <param name="Active">The active flag.</param>
+/// <param name="ClientName">The name of the client record.</param>
+/// <param name="OrderIcon">The current command of the record.</param>
+/// <param name="OrderTarget">The target of the current command.</param>
+/// <param name="OrderStatus">The status of the current command.</param>
+/// <param name="OrderX">The waypoint x of the current command.</param>
+/// <param name="OrderY">The waypoint y of the current command.</param>
 public sealed record CommandMapSlotMark(int Slot, int X, int Y, int Team, int Group, int ClientId, string Icon, string Description, string? TargetName,
     int Filter, int Range, bool RangeFlag, bool Active, string ClientName, int OrderIcon, int OrderTarget, int OrderStatus, int OrderX, int OrderY);
 
-// What the map draws over the picture: the local client (record id and team), its heading (the control object's yaw as 0 to 256) and the slots.
+/// <summary>What the map draws over the picture.</summary>
+/// <param name="LocalId">The record id of the local client.</param>
+/// <param name="LocalTeam">The team of the local client.</param>
+/// <param name="Heading">The control object's yaw as 0 to 256.</param>
+/// <param name="Slots">The slots.</param>
 public sealed record CommandMapMarks(int LocalId, int LocalTeam, int Heading, IReadOnlyList<CommandMapSlotMark> Slots);
 
-// TSCommander [code 004ceb18 ctor, 004ced10 dtor, 004cef14 rebuild, 004cf784 prepare, 004d04e8 draw]. Constructed it is the 408 x 408 control of
-// the file; the rebuild (`onClientGhostAlwaysDone`) renders the picture and then fits the control into its parent: the control is scaled
-// by min(parent width, parent height) / max(width, height) (both sides truncated) and centred in the parent on any axis where the parent
-// is larger [code 004cf3ed .. 004cf4f1]. Draw: the clip becomes the parent's rectangle, then the 16 tiles are stretched over the control,
-// each a quarter of its width and height (rounded up when four of them fall short), row by row from the control's top left corner.
-// Zoom (004d3424 in, 004d3710 out), the pan with the right button (004d2d78, 004d2e5c, 004d2fe0), the zoom animation (004cf784), the selection
-// and the order cursor (left button 004d1bf0, 004d2754, 004d2b1c; 004d2a98, 004d291c, 004d2404, 004d2614, 004d23bc) and the centring on the
-// selected slots (004d3018, 004d3220, 004d32c4) are ported.
+/// <summary>The commander map (FearGui::TSCommander, command.gui, docs/gui.md 3.3 "The command map").</summary>
+/// <remarks>
+/// <para>Follows ctor 004ceb18, dtor 004ced10, rebuild 004cef14, prepare 004cf784 and draw 004d04e8. Constructed it is the 408 x 408 control of the file. The rebuild (`onClientGhostAlwaysDone`) renders the picture and then fits the control into its parent: the control is scaled by min(parent width, parent height) / max(width, height) (both sides truncated) and centred in the parent on any axis where the parent is larger (004cf3ed to 004cf4f1).</para>
+/// <para>Draw: the clip becomes the parent's rectangle, then the 16 tiles are stretched over the control, each a quarter of its width and height (rounded up when four of them fall short), row by row from the control's top left corner.</para>
+/// <para>The zoom (004d3424 in, 004d3710 out), the pan with the right button (004d2d78, 004d2e5c, 004d2fe0), the zoom animation (004cf784), the selection and the order cursor (left button 004d1bf0, 004d2754, 004d2b1c, 004d2a98, 004d291c, 004d2404, 004d2614, 004d23bc) and the centring on the selected slots (004d3018, 004d3220, 004d32c4) are ported.</para>
+/// </remarks>
 public sealed class GuiCommandMap : GuiControl
 {
     private CommandMapPicture? mFitted;
 
-    // The zoom mode (+0x28c: a left click zooms in, a right click out), the centre mode (+0x28d), the number of zoom steps (+0x290, 0 to 4), the
-    // animation (+0x2d0 with its start tick +0x2d4, the rectangle it started from +0x2b0 and the one it ends at +0x2c0) and the pan (+0x274 with
-    // the mouse (+0x264, +0x268) and the position (+0x278, +0x27c) where it started, +0x2d1 once the zoom or animation took the button).
+    /// <summary>True in zoom mode (+0x28c): a left click zooms in, a right click out.</summary>
     public bool ZoomMode;
+    /// <summary>The number of zoom steps (+0x290), 0 to 4.</summary>
     public int ZoomSteps;
     private bool mAnimating, mPanning, mButtonTaken;
     private long mAnimStart;
     private (int X, int Y, int W, int H) mFrom, mTo;
     private int mPanMouseX, mPanMouseY, mPanX, mPanY;
 
+    /// <summary>Gets a value that is true while the zoom animation runs.</summary>
     public bool Animating => mAnimating;
+    /// <summary>The maximum number of zoom steps.</summary>
     public const int MaxZoomSteps = 4;
 
-    // The ids of the controls of command.gui the map talks to: the current command line (0x223b2), the zoom (0x223b3) and centre (0x223b8) buttons
-    // are 140210, 140211 and 140216 in the file.
-    public const uint MapId = 140201, CurrentCommandId = 140210, CenterButtonId = 140216;
+    /// <summary>The id of the map control in command.gui.</summary>
+    public const uint MapId = 140201;
+    /// <summary>The id of the current command line (0x223b2) in command.gui. The zoom (0x223b3) and centre (0x223b8) buttons are 140211 and 140216 in the file.</summary>
+    public const uint CurrentCommandId = 140210;
+    /// <summary>The id of the centre button in command.gui.</summary>
+    public const uint CenterButtonId = 140216;
+    /// <summary>The name of the chat menu object the map drives.</summary>
     public const string CommandMenuName = "CommandChatMenu";
     // The default cursors [code 004d23bc]: the arrow (0x27326) and the waypoint wait cursor (0x2732f) while the order cursor is on; the map's own
     // cursors [code 004d1b54]: 0x2732d zoom, 0x27328 open hand, 0x27329 grab, 0x2732c waypoint.
     private const uint TagArrow = 160550, TagWayWait = 160559, TagZoom = 160557, TagOpenHand = 160552, TagGrab = 160553, TagWaypoint = 160556;
 
-    // The selection and order state: +0x280 order mode (0 select, 1 the next click gives the order), +0x28f the kind the map selects (3 players, 4 statics
-    // and sensors, 0x13 turrets; the three list tabs of the screen set it), +0x360 the selected byte of each of the 256 slots, +0x28e (clear the selection
-    // when the next slot is added), +0x284 and +0x288 the order the menu chose, +0x275 (set while a script runs on behalf of an order, setIssueCommand
-    // then only stores), +0x260 to +0x270 the drag rectangle.
+    /// <summary>Gets the order mode (+0x280): 0 select, 1 the next click gives the order.</summary>
     public int OrderMode { get; private set; }
+    /// <summary>The kind the map selects (+0x28f): 3 players, 4 statics and sensors, 0x13 turrets. The three list tabs of the screen set it.</summary>
     public int Group = 3;
+    /// <summary>The selected byte of each of the 256 slots (+0x360).</summary>
     public readonly bool[] Selected = new bool[256];
+    /// <summary>The order the menu chose (+0x284).</summary>
     public int OrderAction;
+    /// <summary>The text of the order the menu chose (+0x288).</summary>
     public string? OrderText;
     private bool mClearOnAdd, mScriptGuard, mDragging;
     private int mDragX0, mDragY0, mDragX1, mDragY1;
@@ -100,8 +126,11 @@ public sealed class GuiCommandMap : GuiControl
         mTo = to;
     }
 
-    // 004d3424: a step in. The control doubles in size around the cursor point and the change runs over `$pref::CommanderZoomTime`. In centre mode
-    // the new place is the one that centres the selected slots (004d3018) and the centre animation restarts from the current place (004d3284).
+    /// <summary>Zooms in one step.</summary>
+    /// <param name="cursorX">The cursor x in canvas pixels.</param>
+    /// <param name="cursorY">The cursor y in canvas pixels.</param>
+    /// <param name="overControl">True when the cursor is over the control.</param>
+    /// <remarks>Follows 004d3424: the control doubles in size around the cursor point and the change runs over `$pref::CommanderZoomTime`. In centre mode the new place is the one that centres the selected slots (004d3018) and the centre animation restarts from the current place (004d3284).</remarks>
     public void ZoomIn(int cursorX, int cursorY, bool overControl)
     {
         if (ZoomSteps >= MaxZoomSteps || Parent == null)
@@ -124,7 +153,11 @@ public sealed class GuiCommandMap : GuiControl
         StartAnimation(Clamp(px, py, nw, nh));
     }
 
-    // 004d3710: a step out; at no zoom the control is fitted again at once.
+    /// <summary>Zooms out one step. At no zoom the control is fitted again at once.</summary>
+    /// <param name="cursorX">The cursor x in canvas pixels.</param>
+    /// <param name="cursorY">The cursor y in canvas pixels.</param>
+    /// <param name="overControl">True when the cursor is over the control.</param>
+    /// <remarks>Follows 004d3710.</remarks>
     public void ZoomOut(int cursorX, int cursorY, bool overControl)
     {
         if (Parent == null)
@@ -161,12 +194,14 @@ public sealed class GuiCommandMap : GuiControl
         return Contains(lx, ly);
     }
 
+    /// <summary>Zooms in at the cursor: the keyboard form (the play delegate action ZOOM_IN, 004dd280 case 0x35c2f).</summary>
     public void ZoomInAtCursor()
     {
         bool over = CursorOver(out int cx, out int cy);
         ZoomIn(cx, cy, over);
     }
 
+    /// <summary>Zooms out at the cursor: the keyboard form (the play delegate action ZOOM_OUT, 004dd280 case 0x35c30).</summary>
     public void ZoomOutAtCursor()
     {
         bool over = CursorOver(out int cx, out int cy);
@@ -175,7 +210,7 @@ public sealed class GuiCommandMap : GuiControl
 
     // ---- centre mode [code 004d3018, 004d3220, 004d3284, 004d32c4] ----
 
-    // 004d3220: the centre mode on starts the centring from the current place; off only clears the flag.
+    /// <summary>Gets or sets the centre mode (+0x28d). Turning it on starts the centring from the current place, turning it off only clears the flag (004d3220).</summary>
     public bool CenterMode
     {
         get => mCenterMode;
@@ -250,7 +285,8 @@ public sealed class GuiCommandMap : GuiControl
             (X, Y) = mCenterTo;
     }
 
-    // 004cf784: the animation step of every frame. The pan and the drag end when the canvas no longer holds the mouse for the control.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004cf784: the animation step of every frame. The pan and the drag end when the canvas no longer holds the mouse for the control.</remarks>
     public override void PreRender()
     {
         if (Canvas?.Lock != this)
@@ -301,7 +337,8 @@ public sealed class GuiCommandMap : GuiControl
             b.On = false;
     }
 
-    // 004d23bc: the order mode and the default cursor that goes with it.
+    /// <summary>Sets the order mode and the default cursor that goes with it (004d23bc).</summary>
+    /// <param name="mode">0 select, 1 the next click gives the order.</param>
     public void SetOrderMode(int mode)
     {
         OrderMode = mode;
@@ -313,7 +350,10 @@ public sealed class GuiCommandMap : GuiControl
             Canvas.SetCursorBitmap(wait);
     }
 
-    // 004d2a98: select or deselect a slot. Deselecting switches the command menu off, selecting a player switches it on and marks the player's record.
+    /// <summary>Selects or deselects a slot (004d2a98).</summary>
+    /// <param name="slot">The slot.</param>
+    /// <param name="on">The new state.</param>
+    /// <remarks>Deselecting switches the command menu off, selecting a player switches it on and marks the player's record.</remarks>
     public void SelectSlot(int slot, bool on)
     {
         GuiHost? host = Host;
@@ -329,7 +369,9 @@ public sealed class GuiCommandMap : GuiControl
         }
     }
 
-    // 004d291c: select the player with that client id (only while the map shows players), or, with a negative id, deselect every player.
+    /// <summary>Selects the player with a client id (004d291c), only while the map shows players.</summary>
+    /// <param name="clientId">The client id. A negative id deselects every player.</param>
+    /// <param name="on">The new state.</param>
     public void SelectClient(int clientId, bool on)
     {
         ClientCommandSlot[] slots = Slots;
@@ -357,7 +399,8 @@ public sealed class GuiCommandMap : GuiControl
         SelectSlot(found, on);
     }
 
-    // 004d27d0 / 004d28a8: deselect the turrets / statics (and sensors), then select the one at that slot if the map shows that kind.
+    /// <summary>Deselects the turrets, then selects the one at a slot if the map shows that kind (004d27d0).</summary>
+    /// <param name="slot">The slot, -1 for none.</param>
     public void SelectTurret(int slot)
     {
         ClientCommandSlot[] slots = Slots;
@@ -368,6 +411,8 @@ public sealed class GuiCommandMap : GuiControl
             SelectSlot(slot, true);
     }
 
+    /// <summary>Deselects the statics (and sensors), then selects the one at a slot if the map shows that kind (004d28a8).</summary>
+    /// <param name="slot">The slot, -1 for none.</param>
     public void SelectStatic(int slot)
     {
         ClientCommandSlot[] slots = Slots;
@@ -378,9 +423,14 @@ public sealed class GuiCommandMap : GuiControl
             SelectSlot(slot, true);
     }
 
-    // 004d2798 / 004d2830 / 004d2870: the first selected slot of the shown kind, as the target index (slot - 128 for objects, the slot for players), -1 for none.
+    /// <summary>Returns the first selected turret as the target index (004d2798).</summary>
+    /// <returns>The slot - 128, -1 for none.</returns>
     public int SelectedTurretTarget() => Group != 0x13 ? -1 : FirstSelected(s => s.Group == 0x13) is int i and >= 0 ? i - 0x80 : -1;
+    /// <summary>Returns the first selected static or sensor as the target index (004d2830).</summary>
+    /// <returns>The slot - 128, -1 for none.</returns>
     public int SelectedStaticTarget() => Group != 4 ? -1 : FirstSelected(s => s.Group is 4 or 8) is int i and >= 0 ? i - 0x80 : -1;
+    /// <summary>Returns the first selected player slot (004d2870).</summary>
+    /// <returns>The slot, -1 for none.</returns>
     public int SelectedPlayerSlot() => Group != 3 ? -1 : FirstSelected(s => s.Group == 3);
 
     private int FirstSelected(Func<ClientCommandSlot, bool> kind)
@@ -392,7 +442,9 @@ public sealed class GuiCommandMap : GuiControl
         return -1;
     }
 
-    // 004d2a44: the slot of the player with that client id, -1 for none.
+    /// <summary>Returns the slot of the player with a client id (004d2a44).</summary>
+    /// <param name="clientId">The client id.</param>
+    /// <returns>The slot, -1 for none.</returns>
     public int SlotOfClient(int clientId)
     {
         ClientCommandSlot[] slots = Slots;
@@ -404,9 +456,10 @@ public sealed class GuiCommandMap : GuiControl
 
     // ---- the order [code 004d2614, 004d2404, 004d25ec] ----
 
-    // 004d2614 (the console function setIssueCommand, 00421e14): the menu chose an order. While an order runs its script this only stores it. Else the
-    // current command line shows the text up to its voice tag; an action of -1 or no selected player of the team ends the order cursor, anything else
-    // starts it and keeps the order for the next click.
+    /// <summary>Handles the order the menu chose (the console function setIssueCommand, 00421e14; 004d2614).</summary>
+    /// <param name="action">The order action, -1 to end the order cursor.</param>
+    /// <param name="text">The order text.</param>
+    /// <remarks>While an order runs its script this only stores it. Else the current command line shows the text up to its voice tag. An action of -1 or no selected player of the team ends the order cursor, anything else starts it and keeps the order for the next click.</remarks>
     public void SetIssueCommand(int action, string? text)
     {
         if (mScriptGuard)
@@ -450,10 +503,11 @@ public sealed class GuiCommandMap : GuiControl
         return n;
     }
 
-    // 004d2404: send the order to the selected players of the team. A text that starts with `*` is first resolved by `Commander::StarCommand`
-    // (which calls setIssueCommand back and so replaces the order); afterwards the chosen order is put back. With no target the order is the
-    // waypoint (x, y in 1/1024 of the mission area), else it names the slot: remoteEval(2048, IssueCommand, action, text, x, y, clients...) or
-    // remoteEval(2048, IssueTargCommand, action, text, slot, clients...).
+    /// <summary>Sends the order to the selected players of the team (004d2404).</summary>
+    /// <param name="wayX">The waypoint x in 1/1024 of the mission area.</param>
+    /// <param name="wayY">The waypoint y in 1/1024 of the mission area.</param>
+    /// <param name="targetSlot">The target slot, or 0 for a waypoint order.</param>
+    /// <remarks>A text that starts with `*` is first resolved by `Commander::StarCommand` (which calls setIssueCommand back and so replaces the order). Afterwards the chosen order is put back. With no target the order is the waypoint, else it names the slot: remoteEval(2048, IssueCommand, action, text, x, y, clients...) or remoteEval(2048, IssueTargCommand, action, text, slot, clients...).</remarks>
     private void IssueOrder(int wayX, int wayY, int targetSlot)
     {
         if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
@@ -485,12 +539,14 @@ public sealed class GuiCommandMap : GuiControl
 
     private static string Inv(int v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-    // 004d25ec: an order on the object at that slot.
+    /// <summary>Gives the order to the object at a slot (004d25ec).</summary>
+    /// <param name="slot">The slot.</param>
     public void IssueTargetOrder(int slot) => IssueOrder(0, 0, slot);
 
     // ---- the mouse ----
 
-    // 004d1b54 (the cursor tag): the zoom cursor in zoom mode, the hand while the picture is dragged, the waypoint cursor while the order waits.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d1b54: the zoom cursor in zoom mode, the hand while the picture is dragged, the waypoint cursor while the order waits.</remarks>
     public override uint CursorTagAt(int lx, int ly)
     {
         if (ZoomMode)
@@ -500,8 +556,8 @@ public sealed class GuiCommandMap : GuiControl
         return OrderMode == 1 ? TagWaypoint : 0;
     }
 
-    // The left button (004d1bf0). Centre mode ends. In zoom mode a click zooms in. Else, unless the picture is animating, the click picks slots (order
-    // mode 0) or gives the order (order mode 1), and the mouse stays with the control until the button comes up.
+    /// <inheritdoc/>
+    /// <remarks>Follows the left button 004d1bf0. Centre mode ends. In zoom mode a click zooms in. Else, unless the picture is animating, the click picks slots (order mode 0) or gives the order (order mode 1), and the mouse stays with the control until the button comes up.</remarks>
     public override bool MsDown(GuiEvent e)
     {
         if (mPanning)
@@ -535,9 +591,12 @@ public sealed class GuiCommandMap : GuiControl
         return true;
     }
 
-    // 004d1bf0, order mode 0: the first slot of the shown kind and of the team within 3 pixels of the click that the map filter shows. Without shift it
-    // becomes the only selected slot of its kind; with shift it flips, but a kind that holds one slot (statics, turrets) takes no more once one is
-    // selected. The slots of the other kinds are always deselected.
+    /// <summary>Picks slots at a click in order mode 0 (004d1bf0).</summary>
+    /// <param name="e">The mouse event.</param>
+    /// <param name="lx">The local x.</param>
+    /// <param name="ly">The local y.</param>
+    /// <param name="me">The local client.</param>
+    /// <remarks>It takes the first slot of the shown kind and of the team within 3 pixels of the click that the map filter shows. Without shift it becomes the only selected slot of its kind. With shift it flips, but a kind that holds one slot (statics, turrets) takes no more once one is selected. The slots of the other kinds are always deselected.</remarks>
     private void PickSlots(GuiEvent e, int lx, int ly, CommandLocalClient me)
     {
         bool shift = (e.Mod & 3) != 0;
@@ -577,8 +636,11 @@ public sealed class GuiCommandMap : GuiControl
         }
     }
 
-    // 004d1bf0, order mode 1: the slot nearest to the click under 4 pixels (any slot) is the target, else the click is a waypoint. The kind of the
-    // target and its team set $CommandTarget, its name $CommandTargetName (the scripts of Commander::StarCommand read them).
+    /// <summary>Handles a click in order mode 1 (004d1bf0).</summary>
+    /// <param name="lx">The local x.</param>
+    /// <param name="ly">The local y.</param>
+    /// <param name="me">The local client.</param>
+    /// <remarks>The slot nearest to the click under 4 pixels (any slot) is the target, else the click is a waypoint. The kind of the target and its team set $CommandTarget, its name $CommandTargetName (the scripts of Commander::StarCommand read them).</remarks>
     private void ClickOrder(int lx, int ly, CommandLocalClient me)
     {
         IHudSource hud = Host!.Hud!;
@@ -623,7 +685,8 @@ public sealed class GuiCommandMap : GuiControl
             IssueTargetOrder(best);
     }
 
-    // 004d2754: the drag moves the far corner of the rectangle.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d2754: the drag moves the far corner of the rectangle.</remarks>
     public override bool MsDrag(GuiEvent e)
     {
         if (!ZoomMode && !mAnimating)
@@ -631,8 +694,8 @@ public sealed class GuiCommandMap : GuiControl
         return true;
     }
 
-    // 004d2b1c: the button comes up. The mouse is let go; in order mode 0 the slots of the shown kind and team inside the rectangle are selected (the
-    // first selection after a plain click clears the old one; a kind of one slot takes the first), then the order cursor ends.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d2b1c: the button comes up. The mouse is let go. In order mode 0 the slots of the shown kind and team inside the rectangle are selected (the first selection after a plain click clears the old one, a kind of one slot takes the first), then the order cursor ends.</remarks>
     public override bool MsUp(GuiEvent e)
     {
         mDragging = false;
@@ -674,8 +737,8 @@ public sealed class GuiCommandMap : GuiControl
         return true;
     }
 
-    // The right button (004d2d78): in zoom mode a click zooms out, else it starts the pan unless an animation runs. It does nothing while the left
-    // button drags.
+    /// <inheritdoc/>
+    /// <remarks>Follows the right button 004d2d78: in zoom mode a click zooms out, else it starts the pan unless an animation runs. It does nothing while the left button drags.</remarks>
     public override bool MsRightDown(GuiEvent e)
     {
         if (mDragging)
@@ -698,7 +761,8 @@ public sealed class GuiCommandMap : GuiControl
         return true;
     }
 
-    // 004d2e5c: the pan follows the mouse and keeps the picture over the parent.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d2e5c: the pan follows the mouse and keeps the picture over the parent.</remarks>
     public override bool MsRightDrag(GuiEvent e)
     {
         if (ZoomMode || mCenterMode || mButtonTaken || Parent == null)
@@ -707,7 +771,8 @@ public sealed class GuiCommandMap : GuiControl
         return true;
     }
 
-    // 004d2fe0
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d2fe0.</remarks>
     public override bool MsRightUp(GuiEvent e)
     {
         mButtonTaken = false;
@@ -716,7 +781,14 @@ public sealed class GuiCommandMap : GuiControl
         return true;
     }
 
-    // The control rectangle after the fit of 004cef14 for a parent of that size.
+    /// <summary>Returns the control rectangle after the fit of 004cef14 for a parent of a size.</summary>
+    /// <param name="x">The x.</param>
+    /// <param name="y">The y.</param>
+    /// <param name="w">The width.</param>
+    /// <param name="h">The height.</param>
+    /// <param name="parentW">The parent width.</param>
+    /// <param name="parentH">The parent height.</param>
+    /// <returns>The fitted rectangle.</returns>
     public static (int X, int Y, int W, int H) Fit(int x, int y, int w, int h, int parentW, int parentH)
     {
         float scale = (float)Math.Min(parentW, parentH) / Math.Max(w, h);
@@ -731,7 +803,9 @@ public sealed class GuiCommandMap : GuiControl
     // sar by one with the carry added back for a negative value: the exe halves toward zero.
     private static int Half(int v) => v / 2;
 
-    // Tile size on screen: a quarter of the side, plus one when four tiles are narrower than the control [code 004d04e8].
+    /// <summary>Returns the tile size on screen: a quarter of the side, plus one when four tiles are narrower than the control (004d04e8).</summary>
+    /// <param name="side">The control side.</param>
+    /// <returns>The tile size in pixels.</returns>
     public static int TileSpan(int side)
     {
         int t = (int)(side * 0.25f);
@@ -740,6 +814,7 @@ public sealed class GuiCommandMap : GuiControl
 
     private static bool Truthy(string v) => v.Length > 0 && !v.Equals("0", StringComparison.Ordinal) && !v.Equals("false", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         CommandMapPicture? pic = Host?.Hud?.CommandMap;
@@ -765,8 +840,8 @@ public sealed class GuiCommandMap : GuiControl
                 Math.Max(mDragY1, mDragY0) + gy), 0xff);
     }
 
-    // The sensor circles of 004d04e8 and the five passes of 004cf94c (0 and 1 the objects: icon, label; 2 to 4 the players: icon, order line and
-    // mark, name; 4 also the where-am-I mark). Positions are the slot's 1/1024 coordinates scaled to the control, y up.
+    /// <summary>Draws the sensor circles and the marks over the picture.</summary>
+    /// <remarks>The sensor circles of 004d04e8 and the five passes of 004cf94c (0 and 1 the objects: icon, label. 2 to 4 the players: icon, order line and mark, name. 4 also the where-am-I mark). Positions are the slot's 1/1024 coordinates scaled to the control, y up.</remarks>
     private void RenderMarks(GuiPaint p, CommandMapMarks marks, CommandMapPicture pic, int gx, int gy)
     {
         GuiHost host = Host!;
