@@ -1,24 +1,27 @@
-// docs/audio.md 1.1 (loader [code 00531094]): the RIFF/WAVE reader of the sound system. It accepts what the stock loader accepts:
-// the 12 byte header, a chunk walk with even padding that stops at the first `data` chunk (so `fmt ` must come first), a `fmt `
-// chunk of at least 14 bytes, no check of the format tag or the channel count. The bits per sample (offset 14) decide how the
-// data reads: 8 bit unsigned, 16 bit signed little endian. Anything else fails the load, which makes the play call return 0.
 namespace OpenTribes.Platform.Audio;
 
+/// <summary>A decoded RIFF/WAVE sound (docs/audio.md 1.1, loader 00531094).</summary>
+/// <remarks>The reader accepts what the stock loader accepts: the 12-byte header, a chunk walk with even padding that stops at the first <c>data</c> chunk (so <c>fmt </c> must come first), and a <c>fmt </c> chunk of at least 14 bytes. It does not check the format tag or the channel count. The bits per sample (offset 14) decide how the data reads: 8-bit unsigned or 16-bit signed little endian. Anything else fails the load, which makes the play call return 0.</remarks>
 public sealed class WavData
 {
+    /// <summary>The channel count.</summary>
     public int Channels;
+    /// <summary>The sample rate.</summary>
     public int Rate;
+    /// <summary>The bits per sample, 8 or 16.</summary>
     public int Bits;
+    /// <summary>The number of frames.</summary>
     public int Frames;
-    // Interleaved samples, -1..1.
+    /// <summary>The interleaved samples, -1 to 1.</summary>
     public float[] Samples = Array.Empty<float>();
 
     private readonly Dictionary<(int Rate, bool Loop), WavData> mRates = new();
 
-    // The wave at another sample rate, band-limited (windowed sinc, 16 lobes each side, cutoff at 97% of the lower Nyquist). The stock
-    // client's output on the recording harness has no energy above the source Nyquist and a flat passband to about 5 kHz for 11025 Hz
-    // sources; linear interpolation (the mixer's fallback) droops 3 dB at 4 to 5 kHz and mirrors the band above 5.5 kHz. A looping
-    // wave wraps around, a one-shot continues with silence. Cached per (rate, loop).
+    /// <summary>Converts the wave to another sample rate with a band-limited filter.</summary>
+    /// <param name="rate">The target rate.</param>
+    /// <param name="loop">Whether the wave loops. A looping wave wraps around and a one-shot continues with silence.</param>
+    /// <returns>The converted wave. Cached per rate and loop flag.</returns>
+    /// <remarks>The filter is a windowed sinc with 16 lobes each side and a cutoff at 97% of the lower Nyquist. The mixer's linear interpolation droops 3 dB at 4 to 5 kHz and mirrors the band above 5.5 kHz for 11025 Hz sources, where the stock client's output has no energy above the source Nyquist and a flat passband to about 5 kHz.</remarks>
     public WavData AtRate(int rate, bool loop)
     {
         if (rate == Rate || Frames == 0)
@@ -76,6 +79,9 @@ public sealed class WavData
         return new WavData { Channels = Channels, Rate = rate, Bits = Bits, Frames = outFrames, Samples = o };
     }
 
+    /// <summary>Parses a RIFF/WAVE file.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <returns>The wave, or null when the file is not accepted.</returns>
     public static WavData? TryParse(ReadOnlySpan<byte> d)
     {
         if (d.Length < 12 || d[0] != 'R' || d[1] != 'I' || d[2] != 'F' || d[3] != 'F' || d[8] != 'W' || d[9] != 'A' || d[10] != 'V' || d[11] != 'E')

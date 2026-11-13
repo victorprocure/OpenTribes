@@ -1,18 +1,16 @@
 using System.Numerics;
 namespace OpenTribes.Platform.Gfx;
 
-// docs/renderer.md 3.3 and 3.4: palette-to-RGBA conversion with the gamma table.
+/// <summary>Converts palettes to RGBA with the gamma table (docs/renderer.md 3.3 and 3.4).</summary>
 public static class PaletteTables
 {
-    public const float MinGamma = 0.05f, MaxGamma = 20f; // 1.9: gamma range
+    /// <summary>The lowest and highest gamma (docs/renderer.md 1.9).</summary>
+    public const float MinGamma = 0.05f, MaxGamma = 20f;
 
-    // 3.3 item 1: the gamma table of 005d4880, g[i] = trunc(255 * pow(i * (1/255), e)) with e = 1.0f / gamma (the surface's float gamma at +0x228, the
-    // pref default 1). The x87 sequence runs with the control word of the ftol helper (0x0f7f, 48813c, which stays loaded): extended precision,
-    // round toward zero. So e is the quotient truncated to a float, i * (1/255) is a product with the 80 bit constant 0x3ff7:8080808080808081
-    // (1/255 rounded up) truncated to 64 and then, stored as the pow argument, to 53 bits, and pow (606d90) of an integer exponent below 4096 is
-    // a square and multiply chain in extended precision that returns x itself for e = 1. At gamma 1 that makes 255 * x fall just below i for
-    // every i from 1 to 254, so the stock default table is i - 1 there (0 and 255 stay). Other exponents go through fyl2x and exp, modelled
-    // with a double pow (only a result within 1e-15 of an integer could differ).
+    /// <summary>Builds the gamma table of 005d4880 (docs/renderer.md 3.3 item 1).</summary>
+    /// <param name="gamma">The surface gamma.</param>
+    /// <returns>The 256 entries, g[i] = trunc(255 * pow(i * (1/255), e)) with e = 1.0f / gamma.</returns>
+    /// <remarks>The x87 sequence runs with the control word of the ftol helper (0f7f, 48813c, which stays loaded): extended precision, round toward zero. So e is the quotient truncated to a float, and i * (1/255) is a product with the 80-bit constant 3ff7:8080808080808081 (1/255 rounded up) truncated to 64 bits and then, stored as the pow argument, to 53 bits. pow (606d90) of an integer exponent below 4096 is a square and multiply chain in extended precision that returns x itself for e = 1. At gamma 1 that makes 255 * x fall just below i for every i from 1 to 254, so the stock default table is i - 1 there (0 and 255 stay). Other exponents go through fyl2x and exp, modelled with a double pow (only a result within 1e-15 of an integer could differ).</remarks>
     public static byte[] GammaTable(float gamma)
     {
         gamma = Math.Clamp(gamma, MinGamma, MaxGamma);
@@ -70,13 +68,18 @@ public static class PaletteTables
         return (double)q * Math.Pow(2, -54 - eg);
     }
 
-    // 3.3: flat colors go through the float maps raised to the same exponent.
+    /// <summary>Applies the gamma to a flat colour through the float maps raised to the same exponent (docs/renderer.md 3.3).</summary>
+    /// <param name="c">The colour channel, 0 to 1.</param>
+    /// <param name="gamma">The surface gamma.</param>
+    /// <returns>The corrected channel.</returns>
     public static float GammaFloat(float c, float gamma) =>
         gamma == 1f ? c : MathF.Pow(c, 1f / Math.Clamp(gamma, MinGamma, MaxGamma));
 
-    // 3.4: converts a bitmap to RGBA8 through the subpalette selected by its PiDX and the gamma table.
-    // Alpha: opaque 255; index 0 is 0 when attribute bit0 is set; the palette flags byte of a translucent
-    // (kind 2) subpalette is the alpha of a translucent bitmap (3.3 item 3, 4.).
+    /// <summary>Converts a bitmap to RGBA8 through the subpalette selected by its PiDX and the gamma table (docs/renderer.md 3.4).</summary>
+    /// <param name="bmp">The bitmap.</param>
+    /// <param name="sub">The subpalette.</param>
+    /// <param name="gamma">The gamma table.</param>
+    /// <returns>The RGBA8 pixels. Alpha is opaque 255, but index 0 is 0 when attribute bit 0 is set. The palette flags byte of a translucent (kind 2) subpalette is the alpha of a translucent bitmap (3.3 item 3 and 4).</returns>
     public static byte[] ToRgba(PbmpBitmap bmp, SubPalette sub, byte[] gamma)
     {
         int w = bmp.Width, h = bmp.Height, stride = bmp.Stride;
@@ -108,11 +111,11 @@ public static class PaletteTables
         return rgba;
     }
 
-    // The packed 16-bit table the stock client uploads a palette-indexed bitmap through, selected by the kind of the bitmap's subpalette
-    // (palette install 005d4880, upload 005d7148): kinds 0, 1, 6 and 8 give RGBA5551 (5 bit channels, a 1 bit alpha), kind 2
-    // (translucent) gives RGBA4444 (4 bit channels and alpha); the other kinds have no table. The driver reads a 5 bit value v back as
-    // (v << 3) | (v >> 2) and a 4 bit value n as n * 17. Transparent bitmaps (attribute 1) pick the table variant with alpha 0 for index 0, which
-    // `ToRgba` already gave them, so only the colour channels (5551) or all four channels (4444) change here. In place.
+    /// <summary>Applies the packed 16-bit table the stock client uploads a palette-indexed bitmap through, in place (palette install 005d4880, upload 005d7148).</summary>
+    /// <param name="rgba">The RGBA8 pixels.</param>
+    /// <param name="sub">The subpalette that selects the table by its kind.</param>
+    /// <returns>The same array.</returns>
+    /// <remarks>Kinds 0, 1, 6 and 8 give RGBA5551 (5-bit channels and a 1-bit alpha). Kind 2 (translucent) gives RGBA4444. The other kinds have no table. The driver reads a 5-bit value v back as (v &lt;&lt; 3) | (v &gt;&gt; 2) and a 4-bit value n as n * 17. Transparent bitmaps (attribute 1) pick the table variant with alpha 0 for index 0, which <see cref="ToRgba"/> already gave them, so only the colour channels (5551) or all four channels (4444) change.</remarks>
     public static byte[] Pack(byte[] rgba, SubPalette sub)
     {
         switch (sub.Kind)
@@ -131,7 +134,8 @@ public static class PaletteTables
         }
     }
 
-    // A 256-entry gray ramp bank, the palette in use before a real one is installed.
+    /// <summary>Creates a 256-entry gray ramp bank, the palette in use before a real one is installed.</summary>
+    /// <returns>The bank.</returns>
     public static PaletteBank Grayscale()
     {
         var rgba = new byte[1024];

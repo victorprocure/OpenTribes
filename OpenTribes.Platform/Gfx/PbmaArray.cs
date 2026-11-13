@@ -3,20 +3,26 @@ using System.Buffers.Binary;
 namespace OpenTribes.Platform.Gfx;
 
 // docs/renderer.md 2.3: `.pba` PBMA bitmap array.
+/// <summary>A <c>.pba</c> PBMA bitmap array (docs/renderer.md 2.3).</summary>
 public sealed class PbmaArray
 {
+    /// <summary>The number of chunks.</summary>
     public uint ChunkCount;
-    // The head's bitmapCount; Bitmaps.Count is the number of PBMP chunks actually read.
+    /// <summary>The bitmapCount of the head. <c>Bitmaps.Count</c> is the number of PBMP chunks actually read.</summary>
     public uint BitmapCount;
+    /// <summary>The bitmaps.</summary>
     public List<PbmpBitmap> Bitmaps = new();
-    // `user`: BitmapCount * userSize bytes, or null.
+    /// <summary>The <c>user</c> data, BitmapCount * userSize bytes, or null.</summary>
     public byte[]? User;
-    // `rmap`: sorted sparse ids, one per bitmap, or null (then the id is the slot).
+    /// <summary>The <c>rmap</c> sorted sparse ids, one per bitmap, or null. Then the id is the slot.</summary>
     public uint[]? Rmap;
 
+    /// <summary>Gets the size of the user data of each bitmap.</summary>
     public int UserSize => User != null && BitmapCount != 0 ? User.Length / (int)BitmapCount : 0;
 
-    // Slot lookup: binary search in rmap, else the id is the slot. Null when absent.
+    /// <summary>Gets a bitmap by id: a binary search in rmap, else the id is the slot.</summary>
+    /// <param name="id">The id.</param>
+    /// <returns>The bitmap, or null when absent.</returns>
     public PbmpBitmap? Get(uint id)
     {
         if (Rmap != null)
@@ -37,6 +43,12 @@ public sealed class PbmaArray
         return id < Bitmaps.Count ? Bitmaps[(int)id] : null;
     }
 
+    /// <summary>Parses a <c>.pba</c> file.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="includePalette">Whether to read the embedded palettes.</param>
+    /// <param name="array">Receives the array.</param>
+    /// <param name="error">Receives the failure reason.</param>
+    /// <returns>True on success.</returns>
     public static bool TryParse(ReadOnlySpan<byte> data, bool includePalette, out PbmaArray? array, out string error)
     {
         array = null;

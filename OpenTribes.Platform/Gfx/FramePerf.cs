@@ -3,16 +3,17 @@ using System.Text;
 
 namespace OpenTribes.Platform.Gfx;
 
-// Counters a device can expose to the frame timer: draw calls and triangles submitted so far.
+/// <summary>Counters a device can expose to the frame timer.</summary>
 public interface IGfxStats
 {
+    /// <summary>Gets the draw calls submitted so far.</summary>
     long DrawCalls { get; }
+    /// <summary>Gets the triangles submitted so far.</summary>
     long Triangles { get; }
 }
 
-// Frame timing log for play-tests: `OT_PERF=N` (frames per report) turns it on. Sections are timed with `Scope`, each one also
-// records the draw calls and triangles the device saw while it was open. One line per report: frame time, allocation and
-// collections per frame, then ms, draws and triangles per section.
+/// <summary>The frame timing log for play-tests. <c>OT_PERF=N</c>, the frames per report, turns it on.</summary>
+/// <remarks>Sections are timed with <see cref="Scope"/>. Each also records the draw calls and triangles the device saw while it was open. One line per report: frame time, allocation and collections per frame, then ms, draws and triangles per section.</remarks>
 public static class FramePerf
 {
     private sealed class Acc
@@ -33,20 +34,29 @@ public static class FramePerf
     private static int sFrames;
     private static readonly double sTickMs = 1000.0 / Stopwatch.Frequency;
 
+    /// <summary>Gets the number of frames per report, 0 when off.</summary>
     public static int ReportEvery { get; private set; } = ParseEvery();
+    /// <summary>Gets whether the log is on.</summary>
     public static bool On => ReportEvery > 0;
+    /// <summary>The device whose draw counters the sections record.</summary>
     public static IGfxStats? Device;
+    /// <summary>The writer the reports go to.</summary>
     public static TextWriter Out = Console.Error;
 
     private static int ParseEvery() => int.TryParse(Environment.GetEnvironmentVariable("OT_PERF"), out int n) && n > 0 ? n : 0;
 
+    /// <summary>Turns the log on.</summary>
+    /// <param name="every">The number of frames per report.</param>
     public static void Enable(int every) => ReportEvery = every;
 
+    /// <summary>A timed section. Dispose it to record the time.</summary>
     public readonly struct Section : IDisposable
     {
         private readonly string? mName;
         private readonly long mStart, mDraws, mTris, mBytes;
 
+        /// <summary>Starts a section.</summary>
+        /// <param name="name">The section name.</param>
         public Section(string name)
         {
             mName = name;
@@ -56,6 +66,7 @@ public static class FramePerf
             mBytes = GC.GetAllocatedBytesForCurrentThread();
         }
 
+        /// <summary>Records the section.</summary>
         public void Dispose()
         {
             if (mName == null)
@@ -75,9 +86,12 @@ public static class FramePerf
         }
     }
 
+    /// <summary>Starts a timed section.</summary>
+    /// <param name="name">The section name.</param>
+    /// <returns>The section, or a no-op value when the log is off.</returns>
     public static Section Scope(string name) => On ? new Section(name) : default;
 
-    // Call once at the top of every frame; the previous frame is closed and, every ReportEvery frames, reported.
+    /// <summary>Marks the start of a frame. Call it once at the top of every frame. The previous frame is closed and, every <see cref="ReportEvery"/> frames, reported.</summary>
     public static void FrameStart()
     {
         if (!On)

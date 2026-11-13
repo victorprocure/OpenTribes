@@ -1,21 +1,29 @@
-// docs/audio.md 4.2: the SDL3 audio stream. One float 32 stereo playback stream at the device rate; the callback pulls a block
-// from the mixer. No device (or no SDL audio driver) leaves Device false and the caller runs silent (2.1).
 using System.Runtime.InteropServices;
 using OpenTribes.Platform.Sdl;
 
 namespace OpenTribes.Platform.Audio;
 
+/// <summary>The SDL3 audio stream (docs/audio.md 4.2): one float32 stereo playback stream at the device rate. The callback pulls a block from the mixer.</summary>
+/// <remarks>When there is no device or no SDL audio driver, <see cref="Opened"/> stays false and the caller runs silent (2.1).</remarks>
 public sealed unsafe class AudioOutput : IDisposable
 {
     private static AudioOutput? sActive;
     private IntPtr mStream;
+    /// <summary>Gets the mixer the callback pulls from.</summary>
     public SoundMixer? Mixer { get; private set; }
+    /// <summary>Gets the description of the opened device.</summary>
     public string Description { get; private set; } = "";
+    /// <summary>Gets the message of the last failure, empty after a success.</summary>
     public string Error { get; private set; } = "";
+    /// <summary>Gets whether a stream is open.</summary>
     public bool Opened => mStream != IntPtr.Zero;
+    /// <summary>Gets the sample rate of the device.</summary>
     public int DeviceRate { get; private set; }
     private float[] mBlock = new float[8192];
 
+    /// <summary>Opens the default playback device.</summary>
+    /// <param name="preferredRate">The sample rate to ask for. SDL converts when the device differs.</param>
+    /// <returns>The output. Check <see cref="Opened"/> and <see cref="Error"/>.</returns>
     public static AudioOutput Open(int preferredRate = 48000)
     {
         var o = new AudioOutput();
@@ -65,6 +73,7 @@ public sealed unsafe class AudioOutput : IDisposable
         }
     }
 
+    /// <summary>Closes the stream and the device.</summary>
     public void Dispose()
     {
         if (mStream != IntPtr.Zero)

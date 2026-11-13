@@ -2,13 +2,14 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Platform.Gl;
 
-// OpenGL 3.3 core implementation of IGfxDevice (D30, D31). Everything draws into an offscreen framebuffer of
-// the window size; EndFrame copies it to the window and swaps, ReadPixels reads it back. 2D calls are batched per
-// call into a streaming vertex buffer; one shader draws flat colors and textures (docs/renderer.md 4).
+/// <summary>The OpenGL 3.3 core implementation of <see cref="IGfxDevice"/> (D30, D31).</summary>
+/// <remarks>Everything draws into an offscreen framebuffer of the window size. <see cref="EndFrame"/> copies it to the window and swaps, and <see cref="ReadPixels"/> reads it back. 2D calls are batched per call into a streaming vertex buffer. One shader draws flat colors and textures (docs/renderer.md 4).</remarks>
 public sealed unsafe partial class GlGfxDevice : IGfxDevice, IGfxStats
 {
     private long mDrawCalls, mTriangles;
+    /// <summary>Gets the draw calls issued so far.</summary>
     public long DrawCalls => mDrawCalls;
+    /// <summary>Gets the triangles issued so far.</summary>
     public long Triangles => mTriangles;
 
     private const string VertexSource = @"#version 330 core
@@ -57,11 +58,17 @@ void main() {
     private int mVertCount;
     private bool mDisposed;
 
+    /// <inheritdoc/>
     public int Width => mWidth;
+    /// <inheritdoc/>
     public int Height => mHeight;
+    /// <summary>Gets the GL function table.</summary>
     public GlApi Api => gl;
+    /// <summary>Gets the GL renderer string.</summary>
     public string Renderer => gl.GetString(GlApi.Renderer);
 
+    /// <summary>Creates a device that draws into a window.</summary>
+    /// <param name="window">The window, with its GL context current.</param>
     public GlGfxDevice(GlWindow window)
     {
         mWin = window;
@@ -137,6 +144,7 @@ void main() {
         gl.BindBuffer_(GlApi.ArrayBuffer, mVbo);
     }
 
+    /// <inheritdoc/>
     public void SetPalette(PaletteBank bank, float gamma = 1f)
     {
         mBank = bank;
@@ -145,9 +153,10 @@ void main() {
         FlushTextureCache();
     }
 
-    // The packing gate of 005d3ecc, read at each upload: false when $pref::OpenGL::NoPackedTextures or Use32BitTex is set.
+    /// <summary>The packing gate of 005d3ecc, read at each upload. It returns false when <c>$pref::OpenGL::NoPackedTextures</c> or <c>Use32BitTex</c> is set.</summary>
     public Func<bool>? PackedTextures { get; set; }
 
+    /// <inheritdoc/>
     public void FlushTextureCache()
     {
         foreach (CachedTexture t in mCache.Values)
@@ -155,14 +164,17 @@ void main() {
         mCache.Clear();
     }
 
+    /// <inheritdoc/>
     public void FlushTexture(PbmpBitmap bitmap)
     {
         if (mCache.Remove(bitmap, out CachedTexture? t))
             gl.DeleteTexture(t.Name);
     }
 
+    /// <summary>Gets the number of cached textures.</summary>
     public int CachedTextureCount => mCache.Count;
 
+    /// <inheritdoc/>
     public void BeginFrame()
     {
         (int w, int h) = mWin.PixelSize();
@@ -176,6 +188,7 @@ void main() {
         gl.Disable_(GlApi.ScissorTest);
     }
 
+    /// <inheritdoc/>
     public void EndFrame()
     {
         gl.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
@@ -196,6 +209,7 @@ void main() {
         Prepare2D();
     }
 
+    /// <inheritdoc/>
     public void Clear(int colorIndex)
     {
         SubPalette sub = mBank.SubPalettes[0];
@@ -203,6 +217,7 @@ void main() {
         ClearRgb(sub.Colors[colorIndex * 4], sub.Colors[colorIndex * 4 + 1], sub.Colors[colorIndex * 4 + 2]);
     }
 
+    /// <inheritdoc/>
     public void ClearRgb(byte r, byte g, byte b)
     {
         gl.Disable_(GlApi.ScissorTest);
@@ -210,6 +225,7 @@ void main() {
         gl.Clear_(GlApi.ColorBufferBit);
     }
 
+    /// <inheritdoc/>
     public void SetClip(GfxRect? clip) => mClip = clip;
 
     // ---- vertex batching ----
@@ -316,6 +332,7 @@ void main() {
         Quad(x0, y0, x1 + 1, y1 + 1, 0, 0, 0, 0, r, g, b, alpha);
     }
 
+    /// <inheritdoc/>
     public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f)
     {
         if (rect.IsEmpty)
@@ -324,6 +341,7 @@ void main() {
         Flush(GlApi.Triangles, alpha < 1f ? BlendMode.Transparent : BlendMode.Opaque, null, false);
     }
 
+    /// <inheritdoc/>
     public void FillRectRgb(GfxRect rect, byte r, byte g, byte b, float alpha)
     {
         if (rect.IsEmpty || alpha <= 0f)
@@ -332,6 +350,7 @@ void main() {
         Flush(GlApi.Triangles, alpha < 1f ? BlendMode.Transparent : BlendMode.Opaque, null, false);
     }
 
+    /// <inheritdoc/>
     public void DrawRectOutline(GfxRect rect, int colorIndex)
     {
         if (rect.IsEmpty)
@@ -348,7 +367,7 @@ void main() {
         Flush(GlApi.Triangles, BlendMode.Opaque, null, false);
     }
 
-    // Bresenham, both end points included; one pixel quad per step.
+    /// <inheritdoc/>
     public void DrawLine(int x0, int y0, int x1, int y1, int colorIndex)
     {
         int dx = Math.Abs(x1 - x0), dy = -Math.Abs(y1 - y0);
@@ -400,15 +419,19 @@ void main() {
         return t;
     }
 
+    /// <inheritdoc/>
     public void Blit(PbmpBitmap bitmap, int x, int y, BlitFlip flip = BlitFlip.None) =>
         BlitRegion(bitmap, new GfxRect(0, 0, bitmap.Width - 1, bitmap.Height - 1), x, y, flip);
 
+    /// <inheritdoc/>
     public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) =>
         Draw(bitmap, source, x, y, source.Width, source.Height, flip, false);
 
+    /// <inheritdoc/>
     public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) =>
         BlitRegionStretch(bitmap, new GfxRect(0, 0, bitmap.Width - 1, bitmap.Height - 1), x, y, width, height, flip);
 
+    /// <inheritdoc/>
     public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height,
                                   BlitFlip flip = BlitFlip.None) =>
         Draw(bitmap, source, x, y, width, height, flip, width != source.Width || height != source.Height);
@@ -434,6 +457,7 @@ void main() {
         Flush(GlApi.Triangles, mode, tex, linear);
     }
 
+    /// <inheritdoc/>
     public byte[] ReadPixels()
     {
         gl.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
@@ -448,8 +472,11 @@ void main() {
         return flipped;
     }
 
+    /// <summary>Gets the last GL error.</summary>
+    /// <returns>The GL error code.</returns>
     public uint GetError() => gl.GetError_();
 
+    /// <summary>Releases the GL objects of the device.</summary>
     public void Dispose()
     {
         if (mDisposed)

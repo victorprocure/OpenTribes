@@ -91,7 +91,7 @@ void main() {
     private bool mIn3D;
     private int mDraws3D;
 
-    // Draw calls issued since the last BeginScene3D (a statistic for tests and the console).
+    /// <summary>Gets the draw calls issued since the last <see cref="BeginScene3D"/>, a statistic for tests and the console.</summary>
     public int Draws3D => mDraws3D;
 
     private void Init3D()
@@ -134,6 +134,7 @@ void main() {
         mProgram3D = 0;
     }
 
+    /// <inheritdoc/>
     public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options)
     {
         if (width <= 0 || height <= 0 || rgba.Length < width * height * 4)
@@ -157,6 +158,7 @@ void main() {
         return new Texture3D { Name = name, Width = width, Height = height, Gl = gl };
     }
 
+    /// <inheritdoc/>
     public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options, IReadOnlyList<byte[]> mipLevels)
     {
         if (mipLevels.Count == 0 || !options.Mipmaps)
@@ -186,8 +188,10 @@ void main() {
 
     private GfxRect? mViewport3D;
 
+    /// <inheritdoc/>
     public void SetViewport3D(GfxRect? rect) => mViewport3D = rect;
 
+    /// <inheritdoc/>
     public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB)
     {
         if (mProgram3D == 0)
@@ -226,6 +230,7 @@ void main() {
         SetCamera3D(camera);
     }
 
+    /// <inheritdoc/>
     public void SetDynamicLights(ReadOnlySpan<DynamicLight> lights)
     {
         if (mProgram3D == 0)
@@ -249,6 +254,7 @@ void main() {
         }
     }
 
+    /// <inheritdoc/>
     public void SetCamera3D(in Camera3D camera)
     {
         Span<float> m = stackalloc float[16];
@@ -257,6 +263,7 @@ void main() {
             gl.UniformMatrix4fv_(mU3ViewProj, 1, 0, p);
     }
 
+    /// <inheritdoc/>
     public void Draw3D(ReadOnlySpan<Vertex3D> triangles, in DrawState3D state)
     {
         if (!mIn3D)
@@ -312,6 +319,7 @@ void main() {
         mTriangles += triangles.Length / 3;
     }
 
+    /// <inheritdoc/>
     public void EndScene3D()
     {
         mIn3D = false;

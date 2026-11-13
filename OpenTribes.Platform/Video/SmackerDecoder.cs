@@ -1,20 +1,24 @@
-// A Smacker (SMK2 and SMK4) movie decoder written from the public format description: header, packed Huffman trees, palette
-// records, the 4x4 block video (mono, full, void and solid blocks) and the audio tracks (raw PCM and the Huffman DPCM packing).
-// No third-party code and no smackw32.dll. The stock client plays its movies through that DLL (docs/gui.md SmackerCtrl); the
-// decoder here gives the same pictures and sound from the file alone.
 namespace OpenTribes.Platform.Video;
 
+/// <summary>One audio track of a Smacker movie.</summary>
 public sealed class SmackerAudioTrack
 {
+    /// <summary>The sample rate.</summary>
     public int Rate;
+    /// <summary>The channel count.</summary>
     public int Channels = 1;
+    /// <summary>The bits per sample, 8 or 16.</summary>
     public int Bits = 8;
+    /// <summary>Whether the track is Huffman DPCM packed rather than raw PCM.</summary>
     public bool Packed;
+    /// <summary>Whether the track carries data.</summary>
     public bool HasData;
-    // The largest unpacked buffer of one frame in bytes (header field).
+    /// <summary>The largest unpacked buffer of one frame in bytes (header field).</summary>
     public int MaxBytes;
 }
 
+/// <summary>A Smacker (SMK2 and SMK4) movie decoder.</summary>
+/// <remarks>It is written from the public format description: header, packed Huffman trees, palette records, the 4x4 block video (mono, full, void and solid blocks) and the audio tracks (raw PCM and the Huffman DPCM packing). There is no third-party code and no smackw32.dll. The stock client plays its movies through that DLL (docs/gui.md SmackerCtrl). This decoder gives the same pictures and sound from the file alone.</remarks>
 public sealed class SmackerDecoder
 {
     private const int MaxTracks = 7;
@@ -27,25 +31,33 @@ public sealed class SmackerDecoder
     private const int TreeMmap = 0, TreeMclr = 1, TreeFull = 2, TreeType = 3;
     private static readonly int[] sBlockRuns = BuildRuns();
 
+    /// <summary>Gets the picture width in pixels.</summary>
     public int Width { get; }
+    /// <summary>Gets the picture height in pixels.</summary>
     public int Height { get; }
-    // Frames to play, ring frame included.
+    /// <summary>Gets the number of frames to play, ring frame included.</summary>
     public int FrameCount { get; }
-    // Header flags: bit 0 ring frame, bit 1 Y interlaced, bit 2 Y doubled.
+    /// <summary>Gets the header flags: bit 0 ring frame, bit 1 Y interlaced, bit 2 Y doubled.</summary>
     public uint Flags { get; }
+    /// <summary>Gets whether the picture is Y interlaced or Y doubled.</summary>
     public bool YDoubled => (Flags & 6) != 0;
-    // Frame duration in microseconds: a positive header value is milliseconds, a negative one is 10 microsecond units, 0 means 100 ms.
+    /// <summary>Gets the frame duration in microseconds.</summary>
+    /// <remarks>A positive header value is milliseconds, a negative one is 10 microsecond units, and 0 means 100 ms.</remarks>
     public long FrameMicroseconds { get; }
+    /// <summary>Gets the frame rate.</summary>
     public double FramesPerSecond => 1_000_000.0 / FrameMicroseconds;
+    /// <summary>Gets the audio tracks.</summary>
     public SmackerAudioTrack[] Audio { get; } = new SmackerAudioTrack[MaxTracks];
 
-    // Decoder state: the picture (palette indices, row by row), the 256 entry RGB palette (768 bytes) and the next frame number.
+    /// <summary>Gets the picture as palette indices, row by row.</summary>
     public byte[] Pixels { get; private set; }
+    /// <summary>Gets the 256-entry RGB palette, 768 bytes.</summary>
     public byte[] Palette { get; } = new byte[768];
+    /// <summary>Gets the number of the next frame to decode.</summary>
     public int NextFrame { get; private set; }
-    // Set when the last decoded frame replaced the palette.
+    /// <summary>Gets whether the last decoded frame replaced the palette.</summary>
     public bool PaletteChanged { get; private set; }
-    // Bits left unread at the end of the last frame's video data, for tests and diagnostics (negative: the frame ran past its data).
+    /// <summary>Gets the bits left unread at the end of the last frame's video data, for tests and diagnostics. Negative means the frame ran past its data.</summary>
     public int LastVideoSlackBits { get; private set; }
 
     private SmackerDecoder(byte[] data, int w, int h, int frames, uint flags, long usec, int[] starts, int[] sizes, byte[] types)
@@ -64,9 +76,16 @@ public sealed class SmackerDecoder
 
     private int mTreesAt, mTreeSize;
 
+    /// <summary>Tests whether data starts with a Smacker signature.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <returns>True for SMK2 and SMK4.</returns>
     public static bool IsSmacker(ReadOnlySpan<byte> d) =>
         d.Length >= 4 && d[0] == 'S' && d[1] == 'M' && d[2] == 'K' && (d[3] == '2' || d[3] == '4');
 
+    /// <summary>Opens a movie.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <param name="error">Receives the failure reason.</param>
+    /// <returns>The decoder, or null on failure. A truncated file plays what is there.</returns>
     public static SmackerDecoder? TryOpen(byte[] d, out string error)
     {
         error = "";
@@ -341,12 +360,12 @@ public sealed class SmackerDecoder
         TreeBitsLeft = br.BitsLeft;
     }
 
-    // Unread bits after the four trees (padding only in a good file).
+    /// <summary>Gets the unread bits after the four trees. They are padding only in a good file.</summary>
     public int TreeBitsLeft { get; private set; }
 
     // ---- frames ----
 
-    // Back to frame 0 with the state of a freshly opened file.
+    /// <summary>Goes back to frame 0 with the state of a freshly opened file.</summary>
     public void Rewind()
     {
         NextFrame = 0;
@@ -354,7 +373,8 @@ public sealed class SmackerDecoder
         Array.Clear(Palette);
     }
 
-    // Decodes the next frame into Pixels and Palette. Returns false at the end of the movie.
+    /// <summary>Decodes the next frame into <see cref="Pixels"/> and <see cref="Palette"/>.</summary>
+    /// <returns>False at the end of the movie.</returns>
     public bool DecodeNext()
     {
         if (NextFrame >= FrameCount)
@@ -508,8 +528,9 @@ public sealed class SmackerDecoder
 
     // ---- audio ----
 
-    // Decodes the whole audio track to little endian PCM (8 bit unsigned or 16 bit signed, interleaved) without decoding any
-    // video. Returns null when the track carries no audio.
+    /// <summary>Decodes a whole audio track to little endian PCM, 8-bit unsigned or 16-bit signed, interleaved, without decoding any video.</summary>
+    /// <param name="track">The track index.</param>
+    /// <returns>The PCM bytes, or null when the track carries no audio.</returns>
     public byte[]? ReadAudio(int track)
     {
         SmackerAudioTrack a = Audio[track];
