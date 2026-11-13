@@ -332,3 +332,21 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         Assert.Single(l.Servers);
     }
 }
+
+public class MasterMotdTests
+{
+    [Fact]
+    public void DialogTextIsTheMasterNameThenTheMessage() // 004d7fbf
+    {
+        Assert.Equal("<f1>Message of the day from: Harness<f0>\n\nLocal test master", ServerBrowser.MotdText("Harness", "Local test master"));
+        Assert.Equal("<f1>Message of the day from: <f0>\n\n", ServerBrowser.MotdText("", ""));
+    }
+
+    [Fact]
+    public void DialogTextIsCutAt1023Characters() // 004d7fbf
+    {
+        string text = ServerBrowser.MotdText("M", new string('x', 5000));
+        Assert.Equal(1023, text.Length);
+        Assert.StartsWith("<f1>Message of the day from: M<f0>\n\nxxx", text);
+    }
+}

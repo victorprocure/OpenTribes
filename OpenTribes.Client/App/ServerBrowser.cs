@@ -14,7 +14,7 @@ namespace OpenTribes.Client.App;
 public sealed class ServerBrowser : IDisposable
 {
     // IDDLG_SERVER_INFO (the INFO button's message) and the controls of ServerInfo.gui.
-    public const int InfoDialogTag = 110014, InfoNameId = 140500, InfoAddressId = 140501, InfoPingId = 140502, InfoVersionId = 140503,
+    public const int MotdDialogTag = 110015, InfoDialogTag = 110014, InfoNameId = 140500, InfoAddressId = 140501, InfoPingId = 140502, InfoVersionId = 140503,
         InfoModId = 140504, InfoMissionId = 140505, InfoPasswordId = 140506, InfoDedicatedId = 140509, InfoTableId = 140510;
     // The info dialog's REFRESH, Favorite and Never Ping buttons (004d8754, 004d862c, 004d86bf).
     public const int InfoRefreshId = 0x2230b, InfoFavoriteId = 0x2230c, InfoNeverPingId = 0x2230d, InfoFavoriteBoxId = 0x2230c, InfoNeverPingBoxId = 0x2230d;
@@ -105,6 +105,8 @@ public sealed class ServerBrowser : IDisposable
         {
             case InfoDialogTag:
                 return OpenInfo();
+            case MotdDialogTag:
+                return OpenMotd();
             case RefreshAllId:
                 RefreshAll();
                 return true;
@@ -151,6 +153,26 @@ public sealed class ServerBrowser : IDisposable
         list.KeepFailed = true;
         list.Requery = false;
         StartUi("Pinging visible servers");
+    }
+
+    // 004d7fbf (the M.O.T.D. button, IDDLG_MASTER_MOTD): the dialog gui\\MasterMOTD.gui opens and its text control (140900) takes
+    // "<f1>Message of the day from: <$pref::MSName><f0>" and two line feeds, then $pref::MSMOTD, the whole text cut to 1023 characters.
+    // $pref::MSprevMOTD becomes the message that was shown and the button state is worked out again (004d7770).
+    public static string MotdText(string name, string motd)
+    {
+        string text = "<f1>Message of the day from: " + name + "<f0>\n\n";
+        return text + motd[..Math.Min(motd.Length, Math.Max(0, 1023 - text.Length))];
+    }
+
+    private bool OpenMotd()
+    {
+        string name = Var("$pref::MSName");
+        string motd = Var("$pref::MSMOTD");
+        mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\MasterMOTD.gui\");");
+        mApp.GuiRt.Canvas.Top?.FindById(MotdId)?.SetText(MotdText(name, motd));
+        mApp.Interp.SetVariable("$pref::MSprevMOTD", motd);
+        UpdateMotd();
+        return true;
     }
 
     // INFO: the dialog opens over the selected server and shows what its info reply gave.
