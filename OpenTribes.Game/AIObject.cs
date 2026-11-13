@@ -9,22 +9,50 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/ai_manager.hpp struct AIDirective: directive record (docs/ai-sim.md 2.1, 0x38 bytes in the original).
+/// <summary>A directive record of an AI player (docs/ai-sim.md 2.1, 0x38 bytes in the original).</summary>
 public sealed class AIDirective
 {
-    public const int kWaypoint = 1, kFollow = 2, kTarget = 4, kGuard = 8;          // Type
-    public const int kPlayer = 1, kLaser = 2, kPoint = 4;                           // Sub
-    public const ushort kLOS = 1, kHadLOS = 2, kDeathReported = 4, kInRange = 8;    // Flag
+    /// <summary>The directive type: waypoint.</summary>
+    public const int kWaypoint = 1;
+    /// <summary>The directive type: follow.</summary>
+    public const int kFollow = 2;
+    /// <summary>The directive type: target.</summary>
+    public const int kTarget = 4;
+    /// <summary>The directive type: guard.</summary>
+    public const int kGuard = 8;
+    /// <summary>The target sub type: a player.</summary>
+    public const int kPlayer = 1;
+    /// <summary>The target sub type: a laser.</summary>
+    public const int kLaser = 2;
+    /// <summary>The target sub type: a point.</summary>
+    public const int kPoint = 4;
+    /// <summary>The directive flag: the target is in line of sight.</summary>
+    public const ushort kLOS = 1;
+    /// <summary>The directive flag: the target was in line of sight.</summary>
+    public const ushort kHadLOS = 2;
+    /// <summary>The directive flag: the death of the target was reported.</summary>
+    public const ushort kDeathReported = 4;
+    /// <summary>The directive flag: the target is in range.</summary>
+    public const ushort kInRange = 8;
+    /// <summary>The directive type (one of the k constants for type).</summary>
     public int Type;
+    /// <summary>The sub type of a target directive.</summary>
     public int Sub;
-    public readonly string?[] Callback = new string?[4]; // interned; type 4 defaults in addDirective
+    /// <summary>The four callback names, interned. Type 4 defaults in addDirective.</summary>
+    public readonly string?[] Callback = new string?[4];
+    /// <summary>The directive flags.</summary>
     public ushort Flags;
+    /// <summary>The directive order. Directives run in ascending order.</summary>
     public int Order;
+    /// <summary>The target client id.</summary>
     public int Client;
+    /// <summary>The target point.</summary>
     public readonly float[] Point = new float[3];
+    /// <summary>The radius of the directive.</summary>
     public float Radius;
 
-    // The C++ struct copy.
+    /// <summary>Copies the directive, as the C++ struct copy does.</summary>
+    /// <returns>The copy.</returns>
     public AIDirective Clone()
     {
         var d = new AIDirective { Type = Type, Sub = Sub, Flags = Flags, Order = Order, Client = Client, Radius = Radius };
@@ -34,18 +62,37 @@ public sealed class AIDirective
     }
 }
 
-// src/game/ai_manager.hpp struct AISkill: the skill block at +0x114 (docs/ai-sim.md 5.2).
+/// <summary>The skill block at +0x114 (docs/ai-sim.md 5.2).</summary>
 public sealed class AISkill
 {
-    public float SpotDist = -1;     // +0x00 variable `spotDist`
-    public float Spot = 50;         // +0x04 derived
-    public int Think = 50;          // +0x08
-    public float MaxSpeed = 0.4f;   // +0x0c
-    public float UnusedA = 1.3f, UnusedB = 4.0f;           // +0x10, +0x14
-    public readonly float[] RateUnused = new float[3];      // +0x20
-    public readonly float[] Rate = new float[3];            // +0x2c: yaw rate r, 2r, 0.1r
-    public float SmartRange = 145, DumbRange = 55, SmartMinAccuracy = 0.2f; // +0x38..+0x40 variables
-    public float Range, MinAccuracy, Skill;                                 // +0x44..+0x4c
+    /// <summary>The spot distance variable <c>spotDist</c>, negative for the derived value (+0x00).</summary>
+    public float SpotDist = -1;
+    /// <summary>The derived spot distance (+0x04).</summary>
+    public float Spot = 50;
+    /// <summary>The think period (+0x08).</summary>
+    public int Think = 50;
+    /// <summary>The maximum speed (+0x0c).</summary>
+    public float MaxSpeed = 0.4f;
+    /// <summary>An unused value (+0x10).</summary>
+    public float UnusedA = 1.3f;
+    /// <summary>An unused value (+0x14).</summary>
+    public float UnusedB = 4.0f;
+    /// <summary>The unused yaw rates (+0x20).</summary>
+    public readonly float[] RateUnused = new float[3];
+    /// <summary>The yaw rates r, 2r and 0.1r (+0x2c).</summary>
+    public readonly float[] Rate = new float[3];
+    /// <summary>The range of a smart AI, a variable (+0x38).</summary>
+    public float SmartRange = 145;
+    /// <summary>The range of a dumb AI, a variable (+0x3c).</summary>
+    public float DumbRange = 55;
+    /// <summary>The minimum accuracy of a smart AI, a variable (+0x40).</summary>
+    public float SmartMinAccuracy = 0.2f;
+    /// <summary>The range in use (+0x44).</summary>
+    public float Range;
+    /// <summary>The minimum accuracy in use (+0x48).</summary>
+    public float MinAccuracy;
+    /// <summary>The skill in use (+0x4c).</summary>
+    public float Skill;
 
     // src/game/ai_object.cpp bitsFloat.
     private static float BitsFloat(uint b) => BitConverter.UInt32BitsToSingle(b);
@@ -58,7 +105,9 @@ public sealed class AISkill
         t[2] = X87.F32(Mul(0.1, r));
     }
 
-    // src/game/ai_object.cpp AISkill::build: 0x00440ccc.
+    /// <summary>Builds the skill block for a smart or dumb AI.</summary>
+    /// <param name="smart">True for a smart AI.</param>
+    /// <remarks>Follows 0x00440ccc.</remarks>
     public void Build(bool smart)
     {
         SpotDist = -1.0f;
@@ -87,7 +136,9 @@ public sealed class AISkill
         SmartMinAccuracy = BitsFloat(0x3e4ccccd);
     }
 
-    // src/game/ai_object.cpp AISkill::applyIq: 0x00440d98.
+    /// <summary>Applies the IQ to the skill block.</summary>
+    /// <param name="s">The IQ value.</param>
+    /// <remarks>Follows 0x00440d98.</remarks>
     public void ApplyIq(float s)
     {
         AISkill smart = new(), dumb = new();
@@ -106,14 +157,19 @@ public sealed class AISkill
         Skill = s;
     }
 
-    // src/game/ai_object.cpp AISkill::accuracy: 0x00440eb8.
+    /// <summary>Returns the aim accuracy at a distance.</summary>
+    /// <param name="dist">The distance to the target.</param>
+    /// <returns>The accuracy.</returns>
+    /// <remarks>Follows 0x00440eb8.</remarks>
     public float Accuracy(float dist)
     {
         float p = X87.F32(AIMath.FractionOf(Range, 0.0f, dist));
         return X87.F32(AIMath.LerpF(p, MinAccuracy, Skill));
     }
 
-    // src/game/ai_manager.hpp AISkill::spotDistance: 0x00440eec.
+    /// <summary>Returns the distance at which the AI spots targets.</summary>
+    /// <returns>The variable <c>spotDist</c> when it is not negative, else the derived value.</returns>
+    /// <remarks>Follows 0x00440eec.</remarks>
     public float SpotDistance() => SpotDist < 0.0f ? Spot : SpotDist;
 }
 
@@ -295,74 +351,136 @@ internal static class AIMath
     }
 }
 
-// src/game/ai_manager.hpp class AIObject.
+/// <summary>An AI player: the per-AI object with its skill block, directives, steering, aiming and target bookkeeping.</summary>
+/// <remarks>Port of class AIObject in src/game/ai_manager.hpp. See docs/ai-sim.md. The field offsets of the original are in docs/ai-sim.md 1.3.</remarks>
 public sealed partial class AIObject : SimObject
 {
+    /// <summary>The game state.</summary>
     public readonly GameState Game;
-    // ---- fields (offsets of the original in docs/ai-sim.md 1.3) ----
-    public uint Flags;  // 1 death handled, 2 display name differs, 4 laser aim, 8 variables registered
+    /// <summary>The AI flags: 1 death handled, 2 display name differs, 4 laser aim, 8 variables registered.</summary>
+    public uint Flags;
+    /// <summary>True while the AI is active.</summary>
     public bool Active;
+    /// <summary>The aim error phase.</summary>
     public byte ErrorPhase;
+    /// <summary>The think counter.</summary>
     public ushort ThinkCounter;
+    /// <summary>True once the home position was captured.</summary>
     public bool HomeCaptured;
+    /// <summary>The name of the died callback.</summary>
     public string? CbDied;
+    /// <summary>The name of the bored callback.</summary>
     public string? CbBored;
+    /// <summary>The name of the periodic callback.</summary>
     public string? CbPeriodic;
+    /// <summary>The speed of the current projectile.</summary>
     public float ProjectileSpeed;
-    public float Skill, Iq;
+    /// <summary>The skill.</summary>
+    public float Skill;
+    /// <summary>The IQ.</summary>
+    public float Iq;
+    /// <summary>True once the waypoints are done.</summary>
     public bool WaypointsDone;
+    /// <summary>The order of the current waypoint.</summary>
     public int WaypointOrder;
+    /// <summary>The waypoint direction, 1 forward.</summary>
     public int Direction = 1;
+    /// <summary>The path type.</summary>
     public int PathType;
+    /// <summary>The client id of the last line of sight check.</summary>
     public int LastLosClient;
-    public int LosCounter = 5, LosPeriod = 5;
+    /// <summary>The line of sight counter.</summary>
+    public int LosCounter = 5;
+    /// <summary>The line of sight period.</summary>
+    public int LosPeriod = 5;
+    /// <summary>The seek offset.</summary>
     public readonly float[] SeekOff = { 3, 3, 0 };
+    /// <summary>The previous waypoint point.</summary>
     public readonly float[] PreviousPoint = new float[3];
+    /// <summary>The attack mode.</summary>
     public int AttackMode;
-    public int TargetId = -1;       // +0xb4
-    public int CurrentTarget = -1;  // +0xb8 as an index into directives, -1 none
+    /// <summary>The id of the target (+0xb4).</summary>
+    public int TargetId = -1;
+    /// <summary>The current target as an index into the directives, -1 for none (+0xb8).</summary>
+    public int CurrentTarget = -1;
+    /// <summary>The automatic target bits.</summary>
     public readonly byte[] AutoBits = new byte[18];
-    public int PeriodicCounter, PeriodicPeriod;
+    /// <summary>The periodic callback counter.</summary>
+    public int PeriodicCounter;
+    /// <summary>The periodic callback period.</summary>
+    public int PeriodicPeriod;
+    /// <summary>The team id, -1 for none.</summary>
     public int Team = -1;
+    /// <summary>The move the AI issues.</summary>
     public Move Move = new();
+    /// <summary>The AI state.</summary>
     public int State;
 
-    // src/game/ai_manager.hpp AIObject::Trigger.
+    /// <summary>The trigger state of the AI weapon.</summary>
     public sealed class TriggerState
     {
-        public int Count, Cooldown;
+        /// <summary>The trigger count.</summary>
+        public int Count;
+        /// <summary>The trigger cooldown.</summary>
+        public int Cooldown;
+        /// <summary>The trigger probability per roll.</summary>
         public float Pct = 0.17f;
+        /// <summary>The trigger windup.</summary>
         public int Windup = 6;
     }
+    /// <summary>The trigger state.</summary>
     public readonly TriggerState Trigger = new();
+    /// <summary>The skill block.</summary>
     public readonly AISkill Sk = new();
-    public bool ScriptedTargets = true; // +0x164
-    public int AttackId;                // +0x198
+    /// <summary>True when the targets are scripted (+0x164).</summary>
+    public bool ScriptedTargets = true;
+    /// <summary>The attack id (+0x198).</summary>
+    public int AttackId;
+    /// <summary>The id of the representative.</summary>
     public int RepId;
+    /// <summary>True once a client record was taken.</summary>
     public bool RecordTaken;
+    /// <summary>The AI name (+0x1a0, 31 characters at most). <c>SimObject.Name()</c> is the object name.</summary>
     public string AiName = "";  // name (+0x1a0, 31 characters at most); SimObject.Name() is the object name
+    /// <summary>The voice set.</summary>
     public string Voice = "";
+    /// <summary>The result text of the last command.</summary>
     public string Result = "Done";
+    /// <summary>The client id of the AI player.</summary>
     public int PlayerId;
+    /// <summary>The Player object of the AI.</summary>
     public Player? PlayerPtr;
+    /// <summary>The directives in order.</summary>
     public List<AIDirective> Directives = new();
 
-    // src/game/ai_manager.hpp AIObject::Frame: the per-tick frame (docs/ai-sim.md 1.6).
+    /// <summary>The per-tick frame state (docs/ai-sim.md 1.6).</summary>
     public sealed class FrameState
     {
+        /// <summary>True when the frame has a move target.</summary>
         public bool HasMoveTarget;
+        /// <summary>The move target.</summary>
         public readonly float[] MoveTarget = { -1e6f, -1e6f, -1e6f };
+        /// <summary>The own position.</summary>
         public readonly float[] Own = new float[3];
     }
+    /// <summary>The frame state of the current tick.</summary>
     public FrameState Frame = new();
 
-    // src/game/ai_manager.hpp AIObject::YawError.
+    /// <summary>The yaw error of a steering step.</summary>
     public struct YawError
     {
-        public float Abs, Desired, Cur, Diff;
+        /// <summary>The absolute error.</summary>
+        public float Abs;
+        /// <summary>The desired angle.</summary>
+        public float Desired;
+        /// <summary>The current angle.</summary>
+        public float Cur;
+        /// <summary>The signed difference.</summary>
+        public float Diff;
     }
 
-    // src/game/ai_object.cpp AIObject::AIObject.
+    /// <summary>Creates an AI object.</summary>
+    /// <param name="g">The game state.</param>
     public AIObject(GameState g)
     {
         Game = g;
@@ -374,13 +492,19 @@ public sealed partial class AIObject : SimObject
         Sk.Skill = 0;
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => "AI::Object";
+    /// <inheritdoc/>
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
 
-    // src/game/ai_object.cpp AIObject::~AIObject.
+    /// <inheritdoc/>
     public override void Destroy() => Game.Ai?.Remove(this);
 
-    // src/game/ai_object.cpp aiTargetPoint: Player_getTargetPoint (0x004125a0): the centre of the Player's container box.
+    /// <summary>Computes the target point of a Player: the centre of its container box.</summary>
+    /// <param name="g">The game state.</param>
+    /// <param name="p">The Player.</param>
+    /// <param name="output">Receives the point.</param>
+    /// <remarks>Follows Player_getTargetPoint (0x004125a0).</remarks>
     public static void AiTargetPoint(GameState g, Player p, Span<float> output)
     {
         Span<float> mn = stackalloc float[3], mx = stackalloc float[3];
@@ -397,7 +521,8 @@ public sealed partial class AIObject : SimObject
         }
     }
 
-    // src/game/ai_object.cpp AIObject::player: null once the Player is gone.
+    /// <summary>Returns the Player of the AI.</summary>
+    /// <returns>The Player, or null once it is gone.</returns>
     public Player? Player()
     {
         SimManager? m = Game.Sim?.Server();
@@ -407,10 +532,12 @@ public sealed partial class AIObject : SimObject
         return o != null && o == PlayerPtr ? PlayerPtr : null;
     }
 
-    // src/game/ai_manager.hpp AIObject::valid.
+    /// <summary>Tells whether the AI is active and its Player exists.</summary>
+    /// <returns>True when valid.</returns>
     public bool Valid() => Active && Player() != null;
 
-    // src/game/ai_object.cpp AIObject::onAdd: 0x0043db28.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0043db28.</remarks>
     public override bool OnAdd()
     {
         Player? p = Player();
@@ -434,7 +561,8 @@ public sealed partial class AIObject : SimObject
         return true;
     }
 
-    // src/game/ai_object.cpp AIObject::onRemove: 0x0043dbd8.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0043dbd8.</remarks>
     public override void OnRemove()
     {
         Active = false;
@@ -447,7 +575,10 @@ public sealed partial class AIObject : SimObject
         Game.Ai?.Remove(this);
     }
 
-    // src/game/ai_object.cpp AIObject::matches: 0x0043ffbc.
+    /// <summary>Tests the AI name against a pattern.</summary>
+    /// <param name="pattern">The pattern.</param>
+    /// <returns>True when the name matches.</returns>
+    /// <remarks>Follows 0x0043ffbc.</remarks>
     public bool Matches(string pattern)
     {
         if (ResourceManager.WildcardMatch(pattern, AiName))
@@ -479,13 +610,18 @@ public sealed partial class AIObject : SimObject
         new("smartGuyMinAccuracy", VarType.FloatG, true),
     };
 
-    // src/game/ai_manager.hpp AIObject::varName.
+    /// <summary>Returns the console variable name of an AI variable.</summary>
+    /// <param name="var">The variable name.</param>
+    /// <returns>The name <c>$AI::name::var</c>.</returns>
     public string VarName(string var) => "$AI::" + AiName + "::" + var;
 
     // src/game/ai_object.cpp variableChanged: the function-static flag: the stored text is not parsed again.
     private static bool sCanonicalizing;
 
-    // src/game/ai_object.cpp AIObject::variableChanged.
+    /// <summary>Applies a changed AI console variable.</summary>
+    /// <param name="var">The variable name.</param>
+    /// <param name="value">The new value.</param>
+    /// <param name="notify">True to notify the script.</param>
     public void VariableChanged(string var, string value, bool notify = true)
     {
         VarType type = VarType.Int;
@@ -554,7 +690,8 @@ public sealed partial class AIObject : SimObject
             Game.Ai.Recompute = true;
     }
 
-    // src/game/ai_object.cpp AIObject::registerVariables: 0x0043ad04.
+    /// <summary>Registers the console variables of the AI.</summary>
+    /// <remarks>Follows 0x0043ad04.</remarks>
     public void RegisterVariables()
     {
         if ((Flags & 8) != 0 || Game.Console == null)
@@ -606,7 +743,8 @@ public sealed partial class AIObject : SimObject
         Flags |= 8;
     }
 
-    // src/game/ai_object.cpp AIObject::removeVariables: 0x0043af04.
+    /// <summary>Removes the console variables of the AI.</summary>
+    /// <remarks>Follows 0x0043af04.</remarks>
     public void RemoveVariables()
     {
         if ((Flags & 8) == 0 || Game.Console == null)
@@ -621,7 +759,8 @@ public sealed partial class AIObject : SimObject
     // think period 4 (tests/test_ai.cpp testBehavior iq 100; aidiff motion c_rates, d_follow, target e_target_iq100).
     private static readonly double kHundredth = Math.ScaleB((double)(0xa3d70a3d70a3d70aUL & ~0x7ffUL), -70);
 
-    // src/game/ai_object.cpp AIObject::recomputeSkill: 0x0043b0ac.
+    /// <summary>Recomputes the skill block from the IQ and the variables.</summary>
+    /// <remarks>Follows 0x0043b0ac.</remarks>
     public void RecomputeSkill()
     {
         double v = Mul(kHundredth, Iq);
@@ -672,7 +811,12 @@ public sealed partial class AIObject : SimObject
         return -1;
     }
 
-    // src/game/ai_object.cpp AIObject::addDirective: 0x00440420, order < 1: assigned. `d` is taken by value.
+    /// <summary>Adds a directive.</summary>
+    /// <param name="d">The directive, taken by value.</param>
+    /// <param name="order">The order. Below 1 it is assigned.</param>
+    /// <param name="sort">True to keep the directives sorted.</param>
+    /// <returns>True when the directive was added.</returns>
+    /// <remarks>Follows 0x00440420.</remarks>
     public bool AddDirective(AIDirective d, int order, bool sort = true)
     {
         d = d.Clone();
@@ -723,7 +867,11 @@ public sealed partial class AIObject : SimObject
 
     // ---- distances ----
 
-    // src/game/ai_object.cpp AIObject::dist3: 0x0043a9f0 (a - b).
+    /// <summary>Computes the 3D distance between two points.</summary>
+    /// <param name="a">The first point.</param>
+    /// <param name="b">The second point.</param>
+    /// <returns>The distance of <c>a - b</c>.</returns>
+    /// <remarks>Follows 0x0043a9f0.</remarks>
     public float Dist3(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         Span<float> d = stackalloc float[3];
@@ -734,7 +882,11 @@ public sealed partial class AIObject : SimObject
         return X87.Lenf(d);
     }
 
-    // src/game/ai_object.cpp AIObject::dist2: 0x0043a924.
+    /// <summary>Computes the distance between two points in the x and y plane.</summary>
+    /// <param name="a">The first point.</param>
+    /// <param name="b">The second point.</param>
+    /// <returns>The distance.</returns>
+    /// <remarks>Follows 0x0043a924.</remarks>
     public float Dist2(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         float dx = X87.F32(Sub(a[0], b[0])), dy = X87.F32(Sub(a[1], b[1]));
@@ -744,7 +896,10 @@ public sealed partial class AIObject : SimObject
 
     // ---- callbacks (4) ----
 
-    // src/game/ai_object.cpp AIObject::callback: 0x00440a28.
+    /// <summary>Runs a directive callback.</summary>
+    /// <param name="d">The directive, or null.</param>
+    /// <param name="slot">The callback slot.</param>
+    /// <remarks>Follows 0x00440a28.</remarks>
     public void Callback(AIDirective? d, int slot)
     {
         string? fn = d != null ? d.Callback[slot] : (slot == 0 ? CbDied : slot == 1 ? CbBored : CbPeriodic);
@@ -1019,7 +1174,8 @@ public sealed partial class AIObject : SimObject
         }
     }
 
-    // src/game/ai_object.cpp AIObject::sense: 0x0043bcb4.
+    /// <summary>Senses targets and line of sight.</summary>
+    /// <remarks>Follows 0x0043bcb4.</remarks>
     public void Sense()
     {
         Player? self = Player();
@@ -1068,7 +1224,8 @@ public sealed partial class AIObject : SimObject
 
     private const uint kAutoBase = 0x5d658000u;
 
-    // src/game/ai_object.cpp AIObject::refreshAutoTargets: 0x00440118.
+    /// <summary>Refreshes the automatic targets.</summary>
+    /// <remarks>Follows 0x00440118.</remarks>
     public void RefreshAutoTargets()
     {
         if (ScriptedTargets)
@@ -1127,7 +1284,8 @@ public sealed partial class AIObject : SimObject
             SortDirectives();
     }
 
-    // src/game/ai_object.cpp AIObject::setAutomaticTargets: 0x00440348.
+    /// <summary>Switches to automatic targets.</summary>
+    /// <remarks>Follows 0x00440348.</remarks>
     public void SetAutomaticTargets()
     {
         if (ScriptedTargets)
@@ -1137,7 +1295,8 @@ public sealed partial class AIObject : SimObject
         }
     }
 
-    // src/game/ai_object.cpp AIObject::setScriptedTargets: 0x00440370.
+    /// <summary>Switches to scripted targets.</summary>
+    /// <remarks>Follows 0x00440370.</remarks>
     public void SetScriptedTargets()
     {
         if (!ScriptedTargets)
@@ -1270,7 +1429,8 @@ public sealed partial class AIObject : SimObject
         }
     }
 
-    // src/game/ai_object.cpp AIObject::act: 0x0043bf3c.
+    /// <summary>Runs the action of one AI tick.</summary>
+    /// <remarks>Follows 0x0043bf3c.</remarks>
     public void Act()
     {
         Move = new Move();
@@ -1304,7 +1464,10 @@ public sealed partial class AIObject : SimObject
 
     // ---- steering (3.3) ----
 
-    // src/game/ai_object.cpp AIObject::yawError: 0x0043c6e4.
+    /// <summary>Computes the yaw error toward a point.</summary>
+    /// <param name="point">The point.</param>
+    /// <returns>The error.</returns>
+    /// <remarks>Follows 0x0043c6e4.</remarks>
     public YawError YawErrorOf(ReadOnlySpan<float> point)
     {
         Player self = Player()!;
@@ -1350,7 +1513,10 @@ public sealed partial class AIObject : SimObject
         return v;
     }
 
-    // src/game/ai_object.cpp AIObject::steerYaw: 0x0043d228.
+    /// <summary>Steers the yaw toward a point.</summary>
+    /// <param name="point">The point.</param>
+    /// <returns>The yaw error.</returns>
+    /// <remarks>Follows 0x0043d228.</remarks>
     public YawError SteerYaw(ReadOnlySpan<float> point)
     {
         YawError e = YawErrorOf(point);
@@ -1359,7 +1525,10 @@ public sealed partial class AIObject : SimObject
         return e;
     }
 
-    // src/game/ai_object.cpp AIObject::steerPitch: 0x0043c7bc.
+    /// <summary>Steers the pitch toward a point.</summary>
+    /// <param name="point">The point.</param>
+    /// <returns>The pitch error.</returns>
+    /// <remarks>Follows 0x0043c7bc.</remarks>
     public YawError SteerPitch(ReadOnlySpan<float> point)
     {
         Player self = Player()!;
@@ -1386,7 +1555,10 @@ public sealed partial class AIObject : SimObject
     private static readonly double kTwoThirds = Math.ScaleB((double)0xaaaaaaaaaaaaaaabUL, -64);
     private static readonly double kOneThird = Math.ScaleB((double)0xaaaaaaaaaaaaaaabUL, -65);
 
-    // src/game/ai_object.cpp AIObject::speedForDistance: 0x0043d0e4.
+    /// <summary>Computes the speed for a distance to the goal.</summary>
+    /// <param name="dist">The distance.</param>
+    /// <returns>The speed.</returns>
+    /// <remarks>Follows 0x0043d0e4.</remarks>
     public float SpeedForDistance(float dist)
     {
         if (!(dist < 1.7))
@@ -1400,7 +1572,11 @@ public sealed partial class AIObject : SimObject
         return X87.F32(AIMath.LerpF(t, Sk.MaxSpeed, lo));
     }
 
-    // src/game/ai_object.cpp AIObject::setMoveDirection: 0x0043c4b4 (`adjust` unused).
+    /// <summary>Sets the move direction from a yaw error.</summary>
+    /// <param name="e">The yaw error.</param>
+    /// <param name="speed">The speed.</param>
+    /// <param name="adjust">Unused.</param>
+    /// <remarks>Follows 0x0043c4b4.</remarks>
     public void SetMoveDirection(in YawError e, float speed, float adjust)
     {
         _ = adjust;
@@ -1429,7 +1605,9 @@ public sealed partial class AIObject : SimObject
         }
     }
 
-    // src/game/ai_object.cpp AIObject::moveToward: 0x0043d298.
+    /// <summary>Moves toward a point.</summary>
+    /// <param name="point">The point.</param>
+    /// <remarks>Follows 0x0043d298.</remarks>
     public void MoveToward(ReadOnlySpan<float> point)
     {
         float dist = Dist3(point, Frame.Own);
@@ -1439,7 +1617,9 @@ public sealed partial class AIObject : SimObject
         SetMoveDirection(e, X87.F32(SpeedForDistance(dist)), 0);
     }
 
-    // src/game/ai_object.cpp AIObject::moveTowardKeepTurn: 0x0043d198.
+    /// <summary>Moves toward a point and keeps the current turn.</summary>
+    /// <param name="point">The point.</param>
+    /// <remarks>Follows 0x0043d198.</remarks>
     public void MoveTowardKeepTurn(ReadOnlySpan<float> point)
     {
         float dist = Dist3(point, Frame.Own);
@@ -1452,7 +1632,10 @@ public sealed partial class AIObject : SimObject
 
     // ---- trigger (3.6) ----
 
-    // src/game/ai_object.cpp AIObject::roll: 0x00440c60.
+    /// <summary>Rolls a random chance.</summary>
+    /// <param name="pct">The probability.</param>
+    /// <returns>True when the roll succeeded.</returns>
+    /// <remarks>Follows 0x00440c60.</remarks>
     public bool Roll(float pct)
     {
         if (!(pct >= 0.0f))
@@ -1463,7 +1646,9 @@ public sealed partial class AIObject : SimObject
         return Mul(u, 2.3283064365386963e-10) < pct;
     }
 
-    // src/game/ai_object.cpp AIObject::triggerPull: 0x00440f08.
+    /// <summary>Decides whether to pull the trigger.</summary>
+    /// <returns>True when the trigger is pulled.</returns>
+    /// <remarks>Follows 0x00440f08.</remarks>
     public bool TriggerPull()
     {
         Trigger.Cooldown = 24;
@@ -1507,7 +1692,11 @@ public sealed partial class AIObject : SimObject
         return !(Mul(speed, speed) < 1e-12f);
     }
 
-    // src/game/ai_object.cpp AIObject::aimError: 0x0043c004.
+    /// <summary>Computes the aim point with the aim error.</summary>
+    /// <param name="target">The target Player, or null.</param>
+    /// <param name="point">The target point, or null.</param>
+    /// <param name="output">Receives the aim point.</param>
+    /// <remarks>Follows 0x0043c004.</remarks>
     public void AimError(Player? target, float[]? point, Span<float> output)
     {
         float[] p = new float[3];
