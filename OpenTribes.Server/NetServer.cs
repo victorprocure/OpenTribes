@@ -1,44 +1,69 @@
-// Port of src/server/net_server.hpp and src/server/net_server.cpp: dedicated server networking, connectionless
-// queries and the connect handshake. Original: query handler 0x0042a4cc, connect handler 0x0042ad6c, DNet info 0x0054f608.
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Net;
 
 namespace OpenTribes.Server;
 
-// src/server/net_server.hpp struct ServerConfig.
+/// <summary>The static settings of the server, used for query replies when no game is running.</summary>
+/// <remarks>Port of src/server/net_server.hpp ServerConfig.</remarks>
 public sealed class ServerConfig
 {
+    /// <summary>The UDP port.</summary>
     public ushort Port = 28001;
+    /// <summary>The host name shown in the server list.</summary>
     public string Hostname = "TRIBES Server";
+    /// <summary>The join password, empty for none.</summary>
     public string Password = "";
+    /// <summary>The player limit as text.</summary>
     public string MaxPlayers = "8";
+    /// <summary>The server description text.</summary>
     public string Info = "Default TRIBES server setup\nAdmin: Unknown\nEmail: Unknown";
+    /// <summary>The loaded mods.</summary>
     public string ModList = "base";
+    /// <summary>The mission type.</summary>
     public string MissionType = "";
+    /// <summary>The mission name.</summary>
     public string MissionName = "";
+    /// <summary>True for a dedicated server.</summary>
+    /// <summary>True for a dedicated server.</summary>
     public bool Dedicated = true;
-    public bool LastHope; // 1.30 version string, threshold and upgrade message
+    /// <summary>True to use the LastHope 1.30 version string, threshold and upgrade message.</summary>
+    public bool LastHope;
 
+    /// <summary>Copies the settings.</summary>
+    /// <returns>The copy.</returns>
     public ServerConfig Clone() => (ServerConfig)MemberwiseClone();
 }
 
-// src/server/net_server.hpp struct GameInfo: live values for query replies, read from the script state when a game is
-// running (docs/net-protocol.md 6.1).
+/// <summary>The live values for query replies, read from the script state when a game is running (docs/net-protocol.md 6.1).</summary>
+/// <remarks>Port of src/server/net_server.hpp GameInfo.</remarks>
 public sealed class GameInfo
 {
+    /// <summary>The server variables the reply reports, as script text.</summary>
     public string Hostname = "", Password = "", MaxPlayers = "", Info = "", ModList = "", MissionType = "", MissionName = "";
+    /// <summary>True for a dedicated server.</summary>
     public bool Dedicated = true;
+    /// <summary>The CPU speed the info reply reports.</summary>
     public int CpuSpeed;
+    /// <summary>The text of <c>$CPU::estimatedSpeed</c>. Empty sends -1 in the 0x10 info.</summary>
     public string CpuText = "0"; // $CPU::estimatedSpeed as text; empty sends -1 in the 0x10 info
+    /// <summary>The number of teams.</summary>
     public int TeamCount = -1;
+    /// <summary>The headings of the team and client columns in the info reply.</summary>
     public string TeamHeading = "", ClientHeading = "";
 
-    // src/server/net_server.hpp GameInfo::TeamRow.
+    /// <summary>One team row of the info reply. Port of src/server/net_server.hpp GameInfo::TeamRow.</summary>
     public sealed class TeamRow
     {
-        public string Name, Score; // score text as set by Team::setScore
+        /// <summary>The team name and the score text as set by <c>Team::setScore</c>.</summary>
+        public string Name, Score;
+        /// <summary>The sort value. Rows sort by descending value.</summary>
+        /// <summary>The sort value.</summary>
         public int Sort;
+        /// <summary>Creates a row.</summary>
+        /// <param name="name">The team name.</param>
+        /// <param name="score">The score text.</param>
+        /// <param name="sort">The sort value.</param>
         public TeamRow(string name, string score, int sort = 0)
         {
             Name = name;
@@ -46,42 +71,63 @@ public sealed class GameInfo
             Sort = sort;
         }
     }
-    public List<TeamRow> Teams = new(); // teams 0..n-1
+    /// <summary>The team rows, teams 0 to n-1.</summary>
+    public List<TeamRow> Teams = new();
 
-    // src/server/net_server.hpp GameInfo::PlayerRow: client record details by player id (docs/player-manager.md 2.1).
-    // Players without an entry report the values of a fresh record.
+    /// <summary>The client record details of one player by player id (docs/player-manager.md 2.1). Players without an entry report the values of a fresh record.</summary>
+    /// <remarks>Port of src/server/net_server.hpp GameInfo::PlayerRow.</remarks>
     public sealed class PlayerRow
     {
+        /// <summary>The player id.</summary>
+        /// <summary>The player record id.</summary>
         public uint Id;
+        /// <summary>The team.</summary>
         public int Team = -1;
+        /// <summary>The score text as set by <c>Client::setScore</c>.</summary>
         public string Score = ""; // score text as set by Client::setScore
+        /// <summary>The sort value.</summary>
         public int Sort;
-        public uint Ping;         // ms, as stored by the 1.5 s update
+        /// <summary>The ping in milliseconds, as stored by the 1.5 s update.</summary>
+        public uint Ping;
+        /// <summary>The packet loss.</summary>
         public float Loss;
     }
+    /// <summary>The player rows.</summary>
     public List<PlayerRow> Players = new();
 }
 
-// src/server/net_server.hpp struct Player.
+/// <summary>A connected player. Port of src/server/net_server.hpp Player.</summary>
 public sealed class Player
 {
+    /// <summary>The player record id.</summary>
     public uint Id;
+    /// <summary>The player name.</summary>
     public string Name = "";
+    /// <summary>The voice set.</summary>
     public string Voice = "";
+    /// <summary>True for a male player.</summary>
     public bool Male;
+    /// <summary>The player's connection.</summary>
     public Connection? Connection;
 }
 
-// src/server/net_server.hpp struct NetHooks: game-layer callbacks for accepted connections (type-0 data, notify, close, tick).
+/// <summary>The game-layer callbacks for accepted connections: type-0 data, notify, close and tick. Port of src/server/net_server.hpp NetHooks.</summary>
 public sealed class NetHooks
 {
+    /// <summary>Called when a connection is established.</summary>
     public Action<Player, Connection>? OnAccepted;
+    /// <summary>Called with the payload of a data packet.</summary>
     public Action<Player, byte[]>? OnData;
+    /// <summary>Called with the cookie of a sent packet and whether it was delivered.</summary>
     public Action<Player, uint, bool>? OnNotify;
+    /// <summary>Called when a player's connection ends.</summary>
     public Action<Player>? OnClosed;
+    /// <summary>Called every network step with the clock in milliseconds.</summary>
     public Action<uint>? OnTick;
 }
 
+/// <summary>The server networking: the socket, connectionless queries and the connect handshake.</summary>
+/// <remarks>Port of src/server/net_server.cpp. The original has the query handler at 0042a4cc, the connect handler at 0042ad6c and the DNet info at 0054f608.</remarks>
 public sealed class NetServer : ConnectionEvents
 {
     private const uint kFirstPlayerId = 2049;   // first player record id observed on the original
@@ -147,7 +193,9 @@ public sealed class NetServer : ConnectionEvents
             output.Add((byte)s[i]);
     }
 
-    // src/server/net_server.cpp NetServer::NetServer.
+    /// <summary>Creates the server. The LastHope setting selects the 1.30 or 1.11 version string and upgrade message.</summary>
+    /// <param name="config">The settings, copied.</param>
+    /// <remarks>The packet version is the version string's part before the first <c>.</c> (0042b73c). Session connection ids are seeded from the clock (0058b890).</remarks>
     public NetServer(ServerConfig config)
     {
         mConfig = config.Clone();
@@ -175,11 +223,17 @@ public sealed class NetServer : ConnectionEvents
         mLog = line => StdIo.Out(line);
     }
 
-    // src/server/net_server.cpp NetServer::open.
+    /// <summary>Opens the socket on the configured port.</summary>
+    /// <returns>True on success.</returns>
     public bool Open() => mSocket.Open(mConfig.Port);
 
+    /// <summary>True when the server is open on the in-process loopback transport only.</summary>
     public bool LoopbackOnly { get; private set; }
 
+    /// <summary>Opens the socket on a port.</summary>
+    /// <param name="port">The port, or 0 for any.</param>
+    /// <param name="loopbackOnly">True to use the in-process loopback transport.</param>
+    /// <returns>True on success.</returns>
     public bool Open(ushort port, bool loopbackOnly = false)
     {
         LoopbackOnly = loopbackOnly;
@@ -187,21 +241,39 @@ public sealed class NetServer : ConnectionEvents
         return loopbackOnly ? mSocket.OpenMemory(port) : mSocket.Open(port, false);
     }
 
+    /// <summary>Closes the socket.</summary>
     public void Close() => mSocket.Close();
 
+    /// <summary>Tells whether the socket is open.</summary>
+    /// <returns>True when open.</returns>
     public bool IsOpen() => mSocket.Port() != 0;
+    /// <summary>Sets the source of live query reply values. Without one the static config answers.</summary>
+    /// <param name="provider">The provider, or null.</param>
     public void SetGameInfo(Func<GameInfo>? provider) => mGameInfo = provider;
+    /// <summary>Sets the game-layer callbacks.</summary>
+    /// <param name="hooks">The callbacks.</param>
     public void SetHooks(NetHooks hooks) => mHooks = hooks;
+    /// <summary>Gets the ban list.</summary>
+    /// <returns>The list.</returns>
     public BanList Bans() => mBans;
-    // Log with a print level: 1 = printf, n = dbprintf(n). Replaces setLog when set.
+    /// <summary>Sets a log with print levels, where 1 is <c>printf</c> and n is <c>dbprintf(n)</c>. It replaces <see cref="SetLog"/> when set.</summary>
+    /// <param name="log">The log, or null.</param>
     public void SetLeveledLog(Action<int, string>? log) => mLeveledLog = log;
-    // Test seam: replaces the socket for outgoing datagrams.
+    /// <summary>Replaces the socket for outgoing datagrams. A test seam.</summary>
+    /// <param name="send">The send function.</param>
     public void SetSendFunction(SendFn send) => mSendOverride = send;
-    // Console output (default: stdout).
+    /// <summary>Sets the console output. The default is stdout.</summary>
+    /// <param name="log">The log.</param>
     public void SetLog(Action<string> log) => mLog = log;
-    // One datagram outside any connection (master heartbeat).
+    /// <summary>Sends one datagram outside any connection, for the master heartbeat.</summary>
+    /// <param name="to">The destination.</param>
+    /// <param name="data">The payload.</param>
     public void SendConnectionless(Address to, ReadOnlySpan<byte> data) => Send(to, data);
+    /// <summary>Gets the connected players.</summary>
+    /// <returns>The players.</returns>
     public IReadOnlyList<Player> Players() => mPlayers;
+    /// <summary>Gets the bound port.</summary>
+    /// <returns>The port.</returns>
     public ushort Port() => mSocket.Port();
 
     // src/server/net_server.cpp NetServer::currentInfo.
@@ -230,7 +302,8 @@ public sealed class NetServer : ConnectionEvents
         return Math.Min(n, 128);
     }
 
-    // src/server/net_server.cpp NetServer::poll: drains the socket, then runs connection timeouts. nowMs is a millisecond tick.
+    /// <summary>Drains the socket, then runs connection timeouts.</summary>
+    /// <param name="nowMs">The clock in milliseconds.</param>
     public void Poll(uint nowMs)
     {
         Drain(nowMs);
@@ -238,16 +311,18 @@ public sealed class NetServer : ConnectionEvents
         TickConnections(nowMs);
     }
 
-    // src/server/net_server.cpp NetServer::receivePackets: the two network steps of a server frame (docs/sim.md TK2):
-    // receivePackets before the ticks (socket and connection timers, 0058bb24), sendPackets after them (the game layer
-    // writes one packet per connection that is due, 00550d2c).
+    /// <summary>Runs the first network step of a server frame: the socket and the connection timers (docs/sim.md TK2).</summary>
+    /// <param name="nowMs">The clock in milliseconds.</param>
+    /// <remarks>Follows 0058bb24. <see cref="SendPackets"/> runs after the ticks.</remarks>
     public void ReceivePackets(uint nowMs)
     {
         Drain(nowMs);
         TickConnections(nowMs);
     }
 
-    // src/server/net_server.cpp NetServer::sendPackets.
+    /// <summary>Runs the last network step of a server frame: the game layer writes one packet per connection that is due.</summary>
+    /// <param name="nowMs">The clock in milliseconds.</param>
+    /// <remarks>Follows 00550d2c.</remarks>
     public void SendPackets(uint nowMs)
     {
         mNow = nowMs;
@@ -278,7 +353,10 @@ public sealed class NetServer : ConnectionEvents
         }
     }
 
-    // src/server/net_server.cpp NetServer::receive: handles one received datagram (poll calls it for each one). Public for tests.
+    /// <summary>Handles one received datagram. <see cref="Poll"/> calls it for each one. Public for tests.</summary>
+    /// <param name="from">The sender.</param>
+    /// <param name="data">The datagram.</param>
+    /// <param name="nowMs">The clock in milliseconds.</param>
     public void Receive(Address from, ReadOnlySpan<byte> data, uint nowMs)
     {
         mNow = nowMs;
@@ -573,8 +651,8 @@ public sealed class NetServer : ConnectionEvents
         Send(from, output);
     }
 
-    // src/server/net_server.cpp NetServer::playerList: listPlayers (FearPlugin id 9): "Server: <n> clients", then one
-    // line per player, newest first: "<id> (<address>): <name> - <score text>".
+    /// <summary>Builds the <c>listPlayers</c> output (FearPlugin id 9): <c>Server: &lt;n&gt; clients</c>, then one line per player, newest first: <c>&lt;id&gt; (&lt;address&gt;): &lt;name&gt; - &lt;score text&gt;</c>.</summary>
+    /// <returns>The lines.</returns>
     public List<string> PlayerList()
     {
         var output = new List<string> { "Server: " + Str(mPlayers.Count) + " clients" };
@@ -588,7 +666,9 @@ public sealed class NetServer : ConnectionEvents
         return output;
     }
 
-    // src/server/net_server.cpp NetServer::playerById.
+    /// <summary>Finds a player by id.</summary>
+    /// <param name="id">The player id.</param>
+    /// <returns>The player, or null.</returns>
     public Player? PlayerById(uint id)
     {
         foreach (Player p in mPlayers)
@@ -597,8 +677,11 @@ public sealed class NetServer : ConnectionEvents
         return null;
     }
 
-    // src/server/net_server.cpp NetServer::kick: Net::kick (0x0042babc): closes the game side, sends a disconnect carrying
-    // the reason (NUL included) and frees the player id. reason null: the default text. False when no player has that id.
+    /// <summary>Kicks a player: closes the game side, sends a disconnect that carries the reason (NUL included) and frees the player id.</summary>
+    /// <param name="playerId">The player id.</param>
+    /// <param name="reason">The reason, or null for the default text.</param>
+    /// <returns>False when no player has that id.</returns>
+    /// <remarks>Follows Net::kick (0042babc).</remarks>
     public bool Kick(uint playerId, string? reason)
     {
         Player? p = PlayerById(playerId);
@@ -612,9 +695,10 @@ public sealed class NetServer : ConnectionEvents
         return true;
     }
 
-    // src/server/net_server.cpp NetServer::dropInvalid: the SimNet error delegate (0x0042b7f8) after an invalid client
-    // packet (docs/game-stream.md 1.6): the game side closes (client record removed) and the connection is deleted, which
-    // sends a disconnect without a payload.
+    /// <summary>Drops a player after an invalid client packet (docs/game-stream.md 1.6): the game side closes, the client record is removed and the connection is deleted, which sends a disconnect without a payload.</summary>
+    /// <param name="playerId">The player id.</param>
+    /// <returns>False when no player has that id.</returns>
+    /// <remarks>Follows the SimNet error delegate (0042b7f8).</remarks>
     public bool DropInvalid(uint playerId)
     {
         Player? p = PlayerById(playerId);
@@ -628,8 +712,8 @@ public sealed class NetServer : ConnectionEvents
         return true;
     }
 
-    // src/server/net_server.cpp NetServer::allocatePlayerId: player record ids (docs/player-manager.md 2), connections
-    // and AI players share one pool.
+    /// <summary>Allocates a player record id (docs/player-manager.md 2). Connections and AI players share one pool. Ids are reused last-freed-first and unused ids follow in order.</summary>
+    /// <returns>The id.</returns>
     public uint AllocatePlayerId()
     {
         if (mFreePlayerIds.Count == 0)
@@ -639,7 +723,8 @@ public sealed class NetServer : ConnectionEvents
         return id;
     }
 
-    // src/server/net_server.hpp NetServer::releasePlayerId.
+    /// <summary>Returns a player record id to the pool.</summary>
+    /// <param name="id">The id.</param>
     public void ReleasePlayerId(uint id) => mFreePlayerIds.Add(id);
 
     // src/server/net_server.cpp NetServer::uniqueName.
@@ -683,7 +768,10 @@ public sealed class NetServer : ConnectionEvents
         return nul < 0 ? s : s[..nul];
     }
 
-    // src/server/net_server.cpp NetServer::onConnectRequest.
+    /// <summary>Handles a connect request: checks the ban list, the packet version, the game type, the game version, the password and the player limit, then accepts or rejects.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The request payload.</param>
+    /// <remarks>Follows 0042ad6c. A banned address gets no answer and its connection is removed.</remarks>
     public override void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload)
     {
         // 0x0042ad6c: a banned address gets no answer; its VC is removed.
@@ -760,8 +848,8 @@ public sealed class NetServer : ConnectionEvents
         mPlayers.Add(new Player { Id = id, Name = name, Voice = voice, Male = male, Connection = c });
     }
 
-    // src/server/net_server.cpp NetServer::onAckRangeOverflow: 1.30 logs the oversized ack-range list
-    // (docs/lasthope-1.30.md L2, DECISIONS D11).
+    /// <summary>Logs the oversized ack-range list on 1.30 (docs/lasthope-1.30.md L2, DECISIONS D11).</summary>
+    /// <param name="c">The connection.</param>
     public override void OnAckRangeOverflow(Connection c)
     {
         if (mConfig.LastHope)
@@ -777,8 +865,8 @@ public sealed class NetServer : ConnectionEvents
         return null;
     }
 
-    // src/server/net_server.cpp NetServer::onEstablished: the accept was acknowledged, the game stream starts
-    // (docs/game-stream.md 5.1).
+    /// <summary>Starts the game stream once the accept was acknowledged (docs/game-stream.md 5.1).</summary>
+    /// <param name="c">The connection.</param>
     public override void OnEstablished(Connection c)
     {
         Player? p = PlayerFor(c);
@@ -786,7 +874,9 @@ public sealed class NetServer : ConnectionEvents
             mHooks.OnAccepted?.Invoke(p, c);
     }
 
-    // src/server/net_server.cpp NetServer::onData.
+    /// <summary>Passes a data packet to the game layer.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="data">The payload.</param>
     public override void OnData(Connection c, ReadOnlySpan<byte> data)
     {
         Player? p = PlayerFor(c);
@@ -794,7 +884,10 @@ public sealed class NetServer : ConnectionEvents
             mHooks.OnData?.Invoke(p, data.ToArray());
     }
 
-    // src/server/net_server.cpp NetServer::onNotify.
+    /// <summary>Passes a delivery notification to the game layer.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="cookie">The cookie of the sent packet.</param>
+    /// <param name="delivered">True when the peer acknowledged it.</param>
     public override void OnNotify(Connection c, uint cookie, bool delivered)
     {
         Player? p = PlayerFor(c);
@@ -802,7 +895,10 @@ public sealed class NetServer : ConnectionEvents
             mHooks.OnNotify?.Invoke(p, cookie, delivered);
     }
 
-    // src/server/net_server.cpp NetServer::onClosed.
+    /// <summary>Tells the game layer, frees the player id and removes the player when a connection ends.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="reason">The disconnect reason bytes.</param>
+    /// <param name="timedOut">True on a timeout or replacement.</param>
     public override void OnClosed(Connection c, ReadOnlySpan<byte> reason, bool timedOut)
     {
         Player? p = PlayerFor(c);

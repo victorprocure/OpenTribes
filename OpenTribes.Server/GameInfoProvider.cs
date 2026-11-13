@@ -1,12 +1,15 @@
-// Port convention (no C++ file): the query reply source of src/server/main.cpp, shared by the dedicated server and a hosted
-// game (docs/net-protocol.md 6.1): the reply reads the live script state.
 using OpenTribes.Game;
 using OpenTribes.Script;
 
 namespace OpenTribes.Server;
 
+/// <summary>The query reply source of src/server/main.cpp, shared by the dedicated server and a hosted game (docs/net-protocol.md 6.1). The reply reads the live script state.</summary>
 public static class GameInfoProvider
 {
+    /// <summary>Creates the provider.</summary>
+    /// <param name="console">The script interpreter that holds the server variables.</param>
+    /// <param name="game">The game state that holds the teams and players.</param>
+    /// <returns>A function that builds the current server info.</returns>
     public static Func<GameInfo> Create(Interpreter console, GameState game) => () =>
     {
         var g = new GameInfo

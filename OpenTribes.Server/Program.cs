@@ -1,4 +1,3 @@
-// Port of src/server/main.cpp: the dedicated server executable.
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -48,6 +47,8 @@ internal sealed class CFile : IDisposable
     public void Dispose() => mStream.Dispose();
 }
 
+/// <summary>The dedicated server executable.</summary>
+/// <remarks>Port of src/server/main.cpp.</remarks>
 public static class Program
 {
     private static volatile bool sStop;
@@ -94,7 +95,9 @@ public static class Program
             StdIo.Err(Num(kv.Value).PadLeft(6) + " " + kv.Key + "\n");
     }
 
-    // src/server/main.cpp main.
+    /// <summary>Runs the dedicated server until it is told to quit.</summary>
+    /// <param name="argv">The command line arguments.</param>
+    /// <returns>The process exit code.</returns>
     public static int Main(string[] argv)
     {
         var config = new ServerConfig();

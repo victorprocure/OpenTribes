@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>tribes-server</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>OpenTribes.Server</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

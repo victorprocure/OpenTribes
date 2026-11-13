@@ -1,9 +1,3 @@
-// A server world inside a client process (client-app.md 1.7): the stock exe keeps a client world and a server world in
-// one process, with one console, one resource manager and one scaled clock [code FearWorld_create 004eb470,
-// FearGame_consoleCallback cases 0x79-0x7e, FearApp_onIdle 004ebc34]. Here the console variables, the script functions and
-// the resources are shared and the console commands of each world answer while that world has the focus
-// (Interpreter.World). The loopback transport of the stock exe (LOOPTransport 0058d744, 0058d7d4) is an in-process
-// memory copy of the datagrams; a game with only LOOPBACK uses the same here (UdpSocket.OpenMemory), no socket.
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
@@ -11,11 +5,13 @@ using OpenTribes.Sim;
 
 namespace OpenTribes.Server;
 
+/// <summary>Registers the script classes a server world needs.</summary>
 public static class ServerClasses
 {
     private static bool sRegistered;
     private static readonly object sLock = new();
 
+    /// <summary>Registers the mission and ghost classes once.</summary>
     public static void EnsureRegistered()
     {
         lock (sLock)
@@ -29,6 +25,8 @@ public static class ServerClasses
     }
 }
 
+/// <summary>A server world inside a client process (client-app.md 1.7).</summary>
+/// <remarks>The stock exe keeps a client world and a server world in one process, with one console, one resource manager and one scaled clock (FearWorld_create 004eb470, FearGame_consoleCallback cases 0x79-0x7e, FearApp_onIdle 004ebc34). Here the console variables, the script functions and the resources are shared, and the console commands of each world answer while that world has the focus (<c>Interpreter.World</c>). The stock loopback transport (LOOPTransport 0058d744, 0058d7d4) is an in-process memory copy of the datagrams. A game with only LOOPBACK uses the same here (<see cref="OpenTribes.Net.UdpSocket.OpenMemory"/>), with no socket.</remarks>
 public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
 {
     private readonly Interpreter mIn;
@@ -42,6 +40,12 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
     private NetServer? mNet;
     private bool mServing;
 
+    /// <summary>Creates the host. No world exists until <see cref="NewServer"/>.</summary>
+    /// <param name="interp">The shared interpreter.</param>
+    /// <param name="resources">The shared resource manager.</param>
+    /// <param name="root">The game directory.</param>
+    /// <param name="clientSim">The console of the client world, whose clock the server world takes.</param>
+    /// <param name="allowMasters">True when the operator allows masters outside loopback (R6).</param>
     public HostedServer(Interpreter interp, ResourceManager resources, string root, SimConsole clientSim, bool allowMasters = false)
     {
         mAllowMasters = allowMasters;
@@ -51,14 +55,20 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         mClientSim = clientSim;
     }
 
+    /// <summary>Tells whether a server world exists.</summary>
     public bool Exists => mSim != null;
+    /// <summary>The console of the server world, or null.</summary>
     public SimConsole? Sim => mSim;
+    /// <summary>The game state of the server world, or null.</summary>
     public GameState? Game => mGame;
+    /// <summary>The network of the server world, or null.</summary>
     public NetServer? Net => mNet;
+    /// <summary>The interpreter world of the server world, or null.</summary>
     public Interpreter.World? World => mWorld;
 
-    // Case 0x7c of FearGame_consoleCallback: the server slot is refilled, which destroys the world in it (MG1), and the new
-    // world starts its tick clock at the scaled clock of this frame.
+    /// <summary>Creates the server world, replacing any existing one.</summary>
+    /// <returns>Always true.</returns>
+    /// <remarks>Follows case 0x7c of FearGame_consoleCallback. The server slot is refilled, which destroys the world in it (MG1), and the new world starts its tick clock at the scaled clock of this frame.</remarks>
     public bool NewServer()
     {
         DeleteServer();
@@ -120,12 +130,9 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         return true;
     }
 
-    // SimNet_activate 0x0054e86c: every (transport, port) pair is activated in order and logs one line at print level 2,
-    // "SimNET: Session (server|client): transport NAME on port N: Ok|ERROR". The word is Ok once any transport has
-    // activated, so an IP bind that fails while nothing else has started prints ERROR [format 0x0063ead8, words 0x0063eb18
-    // and 0x0063eb1b]. The delegate fails when no transport started, and nothing falls back to another port. The IP
-    // transport is UDPTransport_activate 0058bfac (bind of the exact port, a failure closes the socket); the LOOPBACK
-    // transport always activates (0058d7c4). Transport names match exactly (DNetSession_activateTransport 0058ba60).
+    /// <summary>Activates every (transport, port) pair in order, as the server delegate does, and logs one line per pair at print level 2: <c>SimNET: Session (server|client): transport NAME on port N: Ok|ERROR</c>.</summary>
+    /// <returns>False when no transport started. Nothing falls back to another port.</returns>
+    /// <remarks>Follows SimNet_activate (0054e86c). The word is Ok once any transport has activated, so an IP bind that fails while nothing else has started prints ERROR (format 0063ead8, words 0063eb18 and 0063eb1b). The IP transport is UDPTransport_activate (0058bfac): bind of the exact port, and a failure closes the socket. The LOOPBACK transport always activates (0058d7c4). Transport names match exactly (DNetSession_activateTransport 0058ba60). A hosted game with an IP transport that is not <c>$SinglePlayer</c> announces itself like a dedicated server to the masters (R6: loopback ones unless remote masters are allowed).</remarks>
     private bool ActivateTransports(IReadOnlyList<string> args, NetServer net, SimConsole sim, MasterHeartbeat master)
     {
         bool isServer = args.Count > 0 && args[0].Length > 0 && args[0][0] is 't' or 'T' or '1';
@@ -166,7 +173,8 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         return mServing;
     }
 
-    // Case 0x7a: focus the server world; False when the slot is empty.
+    /// <summary>Focuses the server world.</summary>
+    /// <returns>False when the slot is empty (case 0x7a).</returns>
     public bool FocusServer()
     {
         if (mWorld == null || mSim?.Server() == null)
@@ -175,10 +183,10 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         return true;
     }
 
-    // Case 0x79.
+    /// <summary>Focuses the client world (case 0x79).</summary>
     public void FocusClient() => mIn.Focus(null);
 
-    // Cases 0x7d, 0x7e: the world and its connections end.
+    /// <summary>Ends the world and its connections (cases 0x7d and 0x7e).</summary>
     public void DeleteServer()
     {
         if (mWorld == null)
@@ -193,9 +201,9 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         mServing = false;
     }
 
-    // The server half of a frame (FearWorld_advance 004eba40, client-app.md 2.2 F3): the transports, the 32 ms tick loop,
-    // then one packet write per due connection (sim.md 8.3 TK1 to TK5). Runs with the server focus; the client focus is
-    // back afterwards (FearWorld_clientAdvance 004eb7ac sets it again at its start).
+    /// <summary>Runs the server half of a frame: the transports, the 32 ms tick loop, then one packet write per due connection (docs/sim.md 8.3 TK1 to TK5). It runs with the server focus and the client focus is back afterwards.</summary>
+    /// <param name="nowMs">The unscaled clock in milliseconds.</param>
+    /// <remarks>Follows FearWorld_advance (004eba40), client-app.md 2.2 F3. FearWorld_clientAdvance (004eb7ac) sets the client focus again at its start.</remarks>
     public void Frame(uint nowMs)
     {
         if (mWorld == null || mSim == null || mNet == null || mSim.Server() == null)
@@ -216,5 +224,6 @@ public sealed class HostedServer : SimConsole.IWorldHost, IDisposable
         }
     }
 
+    /// <summary>Deletes the server world.</summary>
     public void Dispose() => DeleteServer();
 }

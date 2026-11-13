@@ -1,6 +1,3 @@
-// Port of src/server/master.hpp and src/server/master.cpp: master server heartbeat (SimNet_sendMasterHeartbeat
-// 0x0054f478) and the DNet master commands (0x00422ad8, 0x00422a74). ROADMAP 8.3, rule R6: nothing leaves the machine
-// unless the operator opts in (--allow-masters); loopback masters always work (tests).
 using System.Net;
 using System.Net.Sockets;
 using OpenTribes.Net;
@@ -8,11 +5,16 @@ using OpenTribes.Script;
 
 namespace OpenTribes.Server;
 
+/// <summary>The master server heartbeat and the DNet master commands.</summary>
+/// <remarks>Port of src/server/master.cpp. Follows SimNet_sendMasterHeartbeat (0054f478) and the DNet master commands (00422ad8, 00422a74), ROADMAP 8.3. Rule R6: nothing leaves the machine unless the operator opts in with <c>--allow-masters</c>. Loopback masters always work, which the tests use.</remarks>
 public sealed class MasterHeartbeat
 {
-    public const float kPeriod = 120.0f; // seconds of sim time between heartbeats
+    /// <summary>The sim time in seconds between heartbeats.</summary>
+    public const float kPeriod = 120.0f;
 
-    // schedule(delay, action): run action after delay seconds of sim time.
+    /// <summary>Runs an action after a delay of sim time.</summary>
+    /// <param name="delay">The delay in seconds.</param>
+    /// <param name="action">The action.</param>
     public delegate void Schedule(float delay, Action action);
 
     private static readonly byte[] kHeartbeat = { 0x10, 0x05, 0xff, 0, 0, 0, 0, 0 };
@@ -25,7 +27,10 @@ public sealed class MasterHeartbeat
     private readonly List<string> mResolved = new(); // "IP:a.b.c.d:port" or ""
     private bool mResolveDone;
 
-    // src/server/master.cpp MasterHeartbeat::MasterHeartbeat.
+    /// <summary>Creates the heartbeat.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="net">The server network that sends the heartbeat.</param>
+    /// <param name="allowRemote">True when the operator allows masters outside loopback (R6).</param>
     public MasterHeartbeat(Interpreter interp, NetServer net, bool allowRemote)
     {
         mIn = interp;
@@ -33,8 +38,11 @@ public sealed class MasterHeartbeat
         mAllowRemote = allowRemote;
     }
 
-    // src/server/master.cpp parseMasterAddress: "IP:a.b.c.d:port" (prefix optional, ASCII case-insensitive). A host
-    // name instead of the dotted address is looked up only when resolveNames is set. False when malformed.
+    /// <summary>Parses <c>IP:a.b.c.d:port</c>. The prefix is optional and matched without case.</summary>
+    /// <param name="text">The address text.</param>
+    /// <param name="result">Receives the address.</param>
+    /// <param name="resolveNames">True to look up a host name given instead of the dotted address.</param>
+    /// <returns>False when malformed.</returns>
     public static bool ParseMasterAddress(string text, out Address result, bool resolveNames)
     {
         result = default;
@@ -137,7 +145,8 @@ public sealed class MasterHeartbeat
         return true;
     }
 
-    // src/server/master.cpp MasterHeartbeat::registerCommands: DNet::resolveMasters, DNet::getResolvedMaster.
+    /// <summary>Registers <c>DNet::resolveMasters</c> and <c>DNet::getResolvedMaster</c>.</summary>
+    /// <remarks>Follows 00422ad8: up to 10 names, stopping at the first empty one. The original resolves them on a thread and returns the count at once. Here names resolve during the call, and only with <c>--allow-masters</c>. Dotted addresses always translate. <c>getResolvedMaster</c> (00422a74) returns an empty string until the resolve finished, for a wrong argument count and for an index outside 0 to 9.</remarks>
     public void RegisterCommands()
     {
         // 0x00422ad8: up to 10 names, stopping at the first empty one; the original resolves them on a thread and
@@ -172,10 +181,12 @@ public sealed class MasterHeartbeat
         });
     }
 
-    // SimNet_activate 0x0054e86c, its tail: once the transports of a FearCSDelegate have started, the first round runs
-    // when the delegate is a server (first argument starts with t, T or 1), a transport started and one of the
-    // (transport, port) pairs is named exactly "IP" (case-sensitive compare with 0x0063ead5), and $SinglePlayer is not
-    // true. A dedicated server and a game hosted by a client go through this same code.
+    /// <summary>Starts the heartbeat when the network start of a FearCSDelegate makes the process a public server.</summary>
+    /// <param name="args">The delegate arguments: the server flag, then (transport, port) pairs.</param>
+    /// <param name="transportStarted">True when a transport started.</param>
+    /// <param name="schedule">Schedules the later heartbeats.</param>
+    /// <returns>True when the first round ran.</returns>
+    /// <remarks>Follows the tail of SimNet_activate (0054e86c). The delegate must be a server (first argument starts with t, T or 1), a transport must have started, one of the pairs must be named exactly <c>IP</c> (case-sensitive compare with 0063ead5), and <c>$SinglePlayer</c> must not be true. A dedicated server and a game hosted by a client go through this same code.</remarks>
     public bool OnNetworkStart(IReadOnlyList<string> args, bool transportStarted, Schedule schedule)
     {
         bool isServer = args.Count > 0 && args[0].Length > 0 && args[0][0] is 't' or 'T' or '1';
@@ -188,16 +199,16 @@ public sealed class MasterHeartbeat
         return true;
     }
 
-    // src/server/master.cpp MasterHeartbeat::start: server network start (not $SinglePlayer): first heartbeat, then
-    // one every 120 s.
+    /// <summary>Sends the first heartbeat and schedules one every 120 s. Used on a server network start that is not <c>$SinglePlayer</c>.</summary>
+    /// <param name="schedule">Schedules the later heartbeats.</param>
     public void Start(Schedule schedule)
     {
         mSchedule = schedule;
         Beat();
     }
 
-    // src/server/master.cpp MasterHeartbeat::beat: one heartbeat round: default $Server::HostPublicGame, reschedule,
-    // then if public run checkMasterTranslation() and send `10 05 ff 00 00 00 00 00` to $inet::Master1..N.
+    /// <summary>Runs one heartbeat round: defaults <c>$Server::HostPublicGame</c> to TRUE, schedules the next round, and for a public server runs <c>checkMasterTranslation()</c> and sends <c>10 05 ff 00 00 00 00 00</c> to <c>$inet::Master1</c> to <c>N</c>.</summary>
+    /// <remarks>R6: without the operator's opt-in only loopback masters are contacted.</remarks>
     public void Beat()
     {
         // An unset $Server::HostPublicGame becomes TRUE: a server is public unless told otherwise.
