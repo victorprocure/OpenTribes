@@ -11,56 +11,56 @@ namespace OpenTribes.Client.App;
 public sealed class ServerBrowser : IDisposable
 {
     /// <summary>The message tag of the M.O.T.D. button (IDDLG_MASTER_MOTD).</summary>
-    /// <summary>The message tag of the INFO button (IDDLG_SERVER_INFO).</summary>
-    /// <summary>The control id of the server name in ServerInfo.gui.</summary>
-    /// <summary>The control id of the address.</summary>
-    /// <summary>The control id of the ping.</summary>
-    /// <summary>The control id of the version.</summary>
-    /// <summary>The control id of the mod.</summary>
-    /// <summary>The control id of the mission.</summary>
-    /// <summary>The control id of the password flag.</summary>
-    /// <summary>The control id of the dedicated flag.</summary>
-    /// <summary>The control id of the player table.</summary>
     public const int MotdDialogTag = 110015;
+    /// <summary>The message tag of the INFO button (IDDLG_SERVER_INFO).</summary>
     public const int InfoDialogTag = 110014;
+    /// <summary>The control id of the server name in ServerInfo.gui.</summary>
     public const int InfoNameId = 140500;
+    /// <summary>The control id of the address.</summary>
     public const int InfoAddressId = 140501;
+    /// <summary>The control id of the ping.</summary>
     public const int InfoPingId = 140502;
+    /// <summary>The control id of the version.</summary>
     public const int InfoVersionId = 140503;
+    /// <summary>The control id of the mod.</summary>
     public const int InfoModId = 140504;
+    /// <summary>The control id of the mission.</summary>
     public const int InfoMissionId = 140505;
+    /// <summary>The control id of the password flag.</summary>
     public const int InfoPasswordId = 140506;
+    /// <summary>The control id of the dedicated flag.</summary>
     public const int InfoDedicatedId = 140509;
+    /// <summary>The control id of the player table.</summary>
     public const int InfoTableId = 140510;
     /// <summary>The control id of the REFRESH button of the info dialog (004d8754).</summary>
-    /// <summary>The message tag of the Favorite check box of the info dialog (004d862c).</summary>
-    /// <summary>The message tag of the Never Ping check box of the info dialog (004d86bf).</summary>
-    /// <summary>The control id of the Favorite check box.</summary>
-    /// <summary>The control id of the Never Ping check box.</summary>
     public const int InfoRefreshId = 0x2230b;
+    /// <summary>The message tag of the Favorite check box of the info dialog (004d862c).</summary>
     public const int InfoFavoriteId = 0x2230c;
+    /// <summary>The message tag of the Never Ping check box of the info dialog (004d86bf).</summary>
     public const int InfoNeverPingId = 0x2230d;
+    /// <summary>The control id of the Favorite check box.</summary>
     public const int InfoFavoriteBoxId = 0x2230c;
+    /// <summary>The control id of the Never Ping check box.</summary>
     public const int InfoNeverPingBoxId = 0x2230d;
     /// <summary>The control id of the server list.</summary>
-    /// <summary>The control id of the JOIN button.</summary>
-    /// <summary>The control id of the INFO button.</summary>
-    /// <summary>The control id of the REFRESH ALL button.</summary>
-    /// <summary>The control id of the REFRESH VIS button.</summary>
-    /// <summary>The control id of the CANCEL button.</summary>
-    /// <summary>The control id of the progress box.</summary>
-    /// <summary>The control id of the progress bar.</summary>
-    /// <summary>The control id of the progress text.</summary>
-    /// <summary>The control id of the text of the M.O.T.D. dialog.</summary>
     public const int ListId = 140016;
+    /// <summary>The control id of the JOIN button.</summary>
     public const int JoinId = 140006;
+    /// <summary>The control id of the INFO button.</summary>
     public const int InfoId = 140018;
+    /// <summary>The control id of the REFRESH ALL button.</summary>
     public const int RefreshAllId = 140017;
+    /// <summary>The control id of the REFRESH VIS button.</summary>
     public const int RefreshVisId = 140042;
+    /// <summary>The control id of the CANCEL button.</summary>
     public const int CancelId = 140026;
+    /// <summary>The control id of the progress box.</summary>
     public const int BoxId = 140027;
+    /// <summary>The control id of the progress bar.</summary>
     public const int ProgressId = 140024;
+    /// <summary>The control id of the progress text.</summary>
     public const int TextId = 140025;
+    /// <summary>The control id of the text of the M.O.T.D. dialog.</summary>
     public const int MotdId = 140900;
 
     private readonly ClientApp mApp;
