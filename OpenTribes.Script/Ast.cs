@@ -1,53 +1,107 @@
-// Port of src/script/ast.hpp: script syntax tree. Node kinds follow the grammar in docs/script.md section 2.1.
 namespace OpenTribes.Script;
 
-// src/script/ast.hpp enum class NodeKind.
+/// <summary>The kind of a syntax tree node, following the grammar in docs/script.md section 2.1.</summary>
+/// <remarks>Port of src/script/ast.hpp. Each member lists the <see cref="Node"/> fields it uses.</remarks>
 public enum NodeKind
 {
-    // expressions
-    Int, Float, String, Ident, BreakWord, TagRef,
-    Var,          // name; index (optional)
-    Field,        // a = object; name; index (optional); b = second subscript (optional)
-    Call,         // name; list = args
-    MethodCall,   // a = object; name; list = args
-    Unary,        // op; a
-    Binary,       // op; a, b
-    Assign,       // a = lvalue; b = value
-    FieldListAssign,  // a = field; list = values
-    CompoundAssign,   // op; a = lvalue; b = value
-    PostIncDec,       // op ('+' or '-'); a = lvalue
-    // statements
-    ExprStmt,     // a
-    If,           // a = cond; body; elseBody (hasElse)
-    While,        // a = cond; body
-    For,          // a, b, c; body
-    Function,     // name; params; body
-    Return,       // a (optional)
+    /// <summary>An integer literal.</summary>
+    Int,
+    /// <summary>A float literal.</summary>
+    Float,
+    /// <summary>A string literal.</summary>
+    String,
+    /// <summary>An identifier.</summary>
+    Ident,
+    /// <summary>A break word.</summary>
+    BreakWord,
+    /// <summary>A tag reference.</summary>
+    TagRef,
+    /// <summary>A variable: name and optional index.</summary>
+    Var,
+    /// <summary>A field: A is the object, plus name, optional index and optional second subscript in B.</summary>
+    Field,
+    /// <summary>A function call: name and the arguments in the list.</summary>
+    Call,
+    /// <summary>A method call: A is the object, plus name and the arguments in the list.</summary>
+    MethodCall,
+    /// <summary>A unary operation: operator and A.</summary>
+    Unary,
+    /// <summary>A binary operation: operator, A and B.</summary>
+    Binary,
+    /// <summary>An assignment: A is the lvalue and B the value.</summary>
+    Assign,
+    /// <summary>A field assigned a list: A is the field and the list holds the values.</summary>
+    FieldListAssign,
+    /// <summary>A compound assignment: operator, A is the lvalue and B the value.</summary>
+    CompoundAssign,
+    /// <summary>A post increment or decrement: operator '+' or '-' and A is the lvalue.</summary>
+    PostIncDec,
+    /// <summary>An expression statement: A.</summary>
+    ExprStmt,
+    /// <summary>An if statement: A is the condition, plus body and the else body when HasElse is set.</summary>
+    If,
+    /// <summary>A while loop: A is the condition, plus body.</summary>
+    While,
+    /// <summary>A for loop: A, B and C, plus body.</summary>
+    For,
+    /// <summary>A function definition: name, parameters and body.</summary>
+    Function,
+    /// <summary>A return statement with an optional A.</summary>
+    Return,
+    /// <summary>A continue statement.</summary>
     Continue,
+    /// <summary>A break statement.</summary>
     BreakStmt,
-    TagDecl,      // name; a = id; b = text (optional)
-    Datablock,    // className; name (optional); slots
-    Instant,      // className; a = name expr (optional); slots; children (instants)
-    Slot,         // name; index (optional); b = second subscript (optional); a = value or list
+    /// <summary>A tag declaration: name, A is the id and B the optional text.</summary>
+    TagDecl,
+    /// <summary>A datablock: class name, optional name and slots.</summary>
+    Datablock,
+    /// <summary>An instant: class name, optional name expression in A, slots and child instants.</summary>
+    Instant,
+    /// <summary>A slot: name, optional index, optional second subscript in B and A as the value or list.</summary>
+    Slot,
 }
 
-// src/script/ast.hpp struct Node. The C++ unique_ptr children are plain references; a failed parse
-// may leave null entries in the lists of a tree that is then discarded.
+/// <summary>A syntax tree node.</summary>
+/// <remarks>The C++ unique_ptr children are plain references. A failed parse may leave null entries in the lists of a tree that is then discarded.</remarks>
 public sealed class Node
 {
+    /// <summary>The node kind.</summary>
     public NodeKind Kind;
+    /// <summary>The source line.</summary>
     public int Line;
-    public Tok Op = Tok.End; // operator token kind
-    public char OpChar;      // operator character for Tok.Char operators
-    public string Name = ""; // identifier, variable, field, function or class name; literal text
+    /// <summary>The operator token kind.</summary>
+    public Tok Op = Tok.End;
+    /// <summary>The operator character for <c>Tok.Char</c> operators.</summary>
+    public char OpChar;
+    /// <summary>The identifier, variable, field, function or class name, or the literal text.</summary>
+    public string Name = "";
+    /// <summary>The class name of a datablock or instant.</summary>
     public string ClassName = "";
+    /// <summary>Whether the expression was written in parentheses.</summary>
     public bool Parenthesized;
+    /// <summary>Whether an if statement has an else branch.</summary>
     public bool HasElse;
-    public bool IsList;      // Slot with {a, b} value
-    public Node? A, B, C;
-    public readonly List<Node> Index = new();    // subscript expressions
-    public readonly List<Node> List = new();     // arguments, values
-    public readonly List<Node> Body = new(), ElseBody = new();
-    public readonly List<Node> Slots = new(), Children = new();
+    /// <summary>Whether a slot has a <c>{a, b}</c> value.</summary>
+    public bool IsList;
+    /// <summary>The first child.</summary>
+    public Node? A;
+    /// <summary>The second child.</summary>
+    public Node? B;
+    /// <summary>The third child.</summary>
+    public Node? C;
+    /// <summary>The subscript expressions.</summary>
+    public readonly List<Node> Index = new();
+    /// <summary>The arguments or values.</summary>
+    public readonly List<Node> List = new();
+    /// <summary>The statements of the body.</summary>
+    public readonly List<Node> Body = new();
+    /// <summary>The statements of the else body.</summary>
+    public readonly List<Node> ElseBody = new();
+    /// <summary>The slots of a datablock or instant.</summary>
+    public readonly List<Node> Slots = new();
+    /// <summary>The child instants of an instant.</summary>
+    public readonly List<Node> Children = new();
+    /// <summary>The parameter names of a function.</summary>
     public readonly List<string> Params = new();
 }

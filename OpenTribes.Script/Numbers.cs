@@ -1,7 +1,3 @@
-// Port of src/script/numbers.hpp and src/script/numbers.cpp: number conversions of the script
-// (docs/script.md 3.1-3.3), in the form of the portable truncating build (DECISIONS D25, docs/portable-float.md 1):
-// double values; parsing and digit generation (%g, %f) follow the rounding mode of Fpu (toward zero in the script
-// FPU mode, docs/script.md 3.2), computed on the exact values (Fpu.ParseChop, CFormat below).
 using System.Globalization;
 using System.Numerics;
 using System.Text;
@@ -9,18 +5,21 @@ using OpenTribes.Core;
 
 namespace OpenTribes.Script;
 
+/// <summary>The number conversions of the script (docs/script.md 3.1 to 3.3), in the form of the portable truncating build (DECISIONS D25, docs/portable-float.md 1).</summary>
+/// <remarks>Values are doubles. Parsing and digit generation (%g, %f) follow the rounding mode of <c>Fpu</c>, toward zero in the script FPU mode (docs/script.md 3.2), and are computed on the exact values. Port of src/script/numbers.cpp.</remarks>
 public static class Numbers
 {
-    // A quiet NaN with the sign bit clear (std::numeric_limits<double>::quiet_NaN, nanLD).
+    /// <summary>A quiet NaN with the sign bit clear.</summary>
     public static readonly double NaN = BitConverter.Int64BitsToDouble(0x7ff8000000000000L);
-    // The same NaN with the sign bit set.
+    /// <summary>The same NaN with the sign bit set.</summary>
     public static readonly double NegNaN = BitConverter.Int64BitsToDouble(unchecked((long)0xfff8000000000000UL));
 
-    // src/script/numbers.cpp enterScriptFpuMode: puts the FPU in round-toward-zero, as the original's crt_ftol
-    // (0x0048813c) leaves it.
+    /// <summary>Puts the FPU in round-toward-zero, as the original's crt_ftol leaves it (0048813c).</summary>
     public static void EnterScriptFpuMode() => Fpu.EnterChop();
 
-    // src/script/numbers.cpp isTrueString: "True", ASCII case-insensitive.
+    /// <summary>Tests for the string "True", ASCII case-insensitive.</summary>
+    /// <param name="s">The string.</param>
+    /// <returns>True when it matches.</returns>
     public static bool IsTrueString(string s)
     {
         const string kTrue = "true";
@@ -32,7 +31,9 @@ public static class Numbers
         return true;
     }
 
-    // src/script/numbers.cpp parseBool: T/t true, F/f false, else atof != 0 (Console_parseBool).
+    /// <summary>Parses a boolean (Console_parseBool): T or t is true, F or f is false, anything else is atof not equal to 0.</summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The value.</returns>
     public static bool ParseBool(string s)
     {
         if (s.Length != 0 && (s[0] == 'T' || s[0] == 't'))
@@ -42,7 +43,9 @@ public static class Numbers
         return BorlandAtof(s) != 0;
     }
 
-    // src/script/numbers.cpp looksNumeric: non-empty, only 0-9 . e E + - (0x005f6280).
+    /// <summary>Tests whether a string is non-empty and holds only 0-9 . e E + - (005f6280).</summary>
+    /// <param name="s">The string.</param>
+    /// <returns>True when it looks numeric.</returns>
     public static bool LooksNumeric(string s)
     {
         if (s.Length == 0)
@@ -56,7 +59,9 @@ public static class Numbers
     private static bool IsSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
     private static bool IsDigit(char c) => c >= '0' && c <= '9';
 
-    // src/script/numbers.cpp borlandAtof: decimal only; strtod of the matched text (double in the portable build).
+    /// <summary>Parses a decimal number like the Borland atof: strtod of the matched text.</summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The value, a double in the portable build.</returns>
     public static double BorlandAtof(string s)
     {
         // [ws][sign]digits[.digits][(e|E)[sign]digits]; no hex, inf or nan forms.
@@ -112,7 +117,9 @@ public static class Numbers
     // strtod of a text matched by one of the decimal grammars of this port, in the current rounding mode.
     internal static double Strtod(string number) => Fpu.Parse(number);
 
-    // src/script/numbers.cpp borlandAtoi: wraps modulo 2^32.
+    /// <summary>Parses an integer like the Borland atoi, wrapping modulo 2^32.</summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The value.</returns>
     public static int BorlandAtoi(string s)
     {
         int i = 0;
@@ -127,7 +134,9 @@ public static class Numbers
         return unchecked((int)(negative ? 0u - v : v));
     }
 
-    // src/script/numbers.cpp parseIntLiteral: INT token, decimal (atoi) or hex (strtol).
+    /// <summary>Parses an INT token, decimal (atoi) or hexadecimal (strtol).</summary>
+    /// <param name="text">The token text.</param>
+    /// <returns>The value.</returns>
     public static int ParseIntLiteral(string text)
     {
         if (text.Length > 2 && (text[1] == 'x' || text[1] == 'X'))
@@ -144,7 +153,9 @@ public static class Numbers
         return BorlandAtoi(text);
     }
 
-    // src/script/numbers.cpp formatFloat: %g, Borland spellings for INF/NAN.
+    /// <summary>Formats a number as %g, with the Borland spellings for INF and NAN.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string FormatFloat(double v)
     {
         if (double.IsInfinity(v))
@@ -154,7 +165,9 @@ public static class Numbers
         return CFormat.G(v, 6); // digits truncate in round-toward-zero mode
     }
 
-    // src/script/numbers.cpp formatFloat15: %.15g, binary float arithmetic in LastHope 1.30 (L5).
+    /// <summary>Formats a number as %.15g, using binary float arithmetic as LastHope 1.30 does (docs/lasthope-1.30.md L5).</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string FormatFloat15(double v)
     {
         if (double.IsInfinity(v) || double.IsNaN(v))
@@ -162,10 +175,14 @@ public static class Numbers
         return CFormat.G(v, 15);
     }
 
-    // src/script/numbers.cpp formatInt.
+    /// <summary>Formats an integer in decimal.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string FormatInt(int v) => v.ToString(CultureInfo.InvariantCulture);
 
-    // src/script/numbers.cpp floatToInt: fistp truncation, 0x80000000 when out of range.
+    /// <summary>Converts a double to an int by fistp truncation.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The value, 0x80000000 when out of range.</returns>
     public static int FloatToInt(double v)
     {
         Fpu.EnterChop(); // crt_ftol leaves the FPU in round-toward-zero (0x0048813c)
@@ -175,9 +192,8 @@ public static class Numbers
     }
 }
 
-// Port convention (no C++ file): the printf conversions %g, %e and %f of the C++ code (snprintf), with the
-// digits generated from the exact decimal value of the double and rounded in the current mode of Fpu: truncated
-// (toward zero) in the script FPU mode, as the original prints them (docs/script.md 3.2), else nearest-even. Special values print as the C library does (inf, nan).
+/// <summary>The printf conversions %g, %e and %f of the C++ code (snprintf).</summary>
+/// <remarks>The digits are generated from the exact decimal value of the double and rounded in the current mode of <c>Fpu</c>: truncated in the script FPU mode, as the original prints them (docs/script.md 3.2), else to nearest even. Special values print as the C library does (inf, nan).</remarks>
 public static class CFormat
 {
     // Exact decimal digits of a finite non-zero |v|: v = 0.D * 10^(exp10 + 1) = D[0].D[1..] * 10^exp10.
@@ -250,7 +266,10 @@ public static class CFormat
         return v < 0 ? "-inf" : "inf";
     }
 
-    // %.{prec}f
+    /// <summary>Formats a number as %.{prec}f.</summary>
+    /// <param name="v">The value.</param>
+    /// <param name="prec">The number of decimals.</param>
+    /// <returns>The text.</returns>
     public static string F(double v, int prec)
     {
         if (!double.IsFinite(v))
@@ -263,7 +282,10 @@ public static class CFormat
         return sign + Fixed(d, e, prec);
     }
 
-    // %.{prec}g
+    /// <summary>Formats a number as %.{prec}g.</summary>
+    /// <param name="v">The value.</param>
+    /// <param name="prec">The number of significant digits.</param>
+    /// <returns>The text.</returns>
     public static string G(double v, int prec)
     {
         if (!double.IsFinite(v))

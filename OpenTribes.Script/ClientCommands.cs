@@ -1,57 +1,88 @@
-// Port of src/script/client_commands.hpp and src/script/client_commands.cpp: client-side console commands as
-// they behave on a dedicated server: GUI, canvas, input, sound, CD audio, tool windows, editors, IRC
-// (docs/mods.md 5). There is no canvas, input manager or sound device, so most commands print their usage
-// or "not found" message. Action maps keep real state (docs/mods.md 5.4).
 using System.Text;
 using OpenTribes.Core;
 
 namespace OpenTribes.Script;
 
-// src/script/client_commands.hpp struct InputEvent: input event of a binding (parser 0x005228fc).
+/// <summary>An input event of a binding (parser 005228fc): device, object, action and modifiers.</summary>
 public struct InputEvent : IEquatable<InputEvent>
 {
-    public byte DeviceType; // 1 device, 2 mouse, 3 keyboard, 4 joystick
-    public byte DeviceInst; // trailing number of the device word
-    public byte ObjType;    // 2 button, 3-9 pov, 10 key, 11-16 axes, 17 slider
-    public byte ObjInst;    // key code for keys, trailing number otherwise
-    public byte Action;     // 1 make, 2 break, 3 move
-    public byte Modifiers;  // 1/2 shift, 4/8 control, 16/32 alt (left/right)
+    /// <summary>The device type: 1 device, 2 mouse, 3 keyboard, 4 joystick.</summary>
+    public byte DeviceType;
+    /// <summary>The trailing number of the device word.</summary>
+    public byte DeviceInst;
+    /// <summary>The object type: 2 button, 3 to 9 POV, 10 key, 11 to 16 axes, 17 slider.</summary>
+    public byte ObjType;
+    /// <summary>The key code for keys, the trailing number otherwise.</summary>
+    public byte ObjInst;
+    /// <summary>The action: 1 make, 2 break, 3 move.</summary>
+    public byte Action;
+    /// <summary>The modifier bits: 1 and 2 shift, 4 and 8 control, 16 and 32 alt, for left and right.</summary>
+    public byte Modifiers;
 
+    /// <summary>Tests two events for equality.</summary>
+    /// <param name="o">The other event.</param>
+    /// <returns>True when every field is equal.</returns>
     public readonly bool Equals(InputEvent o) =>
         DeviceType == o.DeviceType && DeviceInst == o.DeviceInst && ObjType == o.ObjType &&
         ObjInst == o.ObjInst && Action == o.Action && Modifiers == o.Modifiers;
+    /// <summary>Tests an object for equality.</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>True when it is an equal <see cref="InputEvent"/>.</returns>
     public override readonly bool Equals(object? obj) => obj is InputEvent o && Equals(o);
+    /// <summary>Gets a hash of all fields.</summary>
+    /// <returns>The hash code.</returns>
     public override readonly int GetHashCode() => HashCode.Combine(DeviceType, DeviceInst, ObjType, ObjInst, Action, Modifiers);
+    /// <summary>Tests two events for equality.</summary>
+    /// <param name="a">The first event.</param>
+    /// <param name="b">The second event.</param>
+    /// <returns>True when equal.</returns>
     public static bool operator ==(InputEvent a, InputEvent b) => a.Equals(b);
+    /// <summary>Tests two events for inequality.</summary>
+    /// <param name="a">The first event.</param>
+    /// <param name="b">The second event.</param>
+    /// <returns>True when not equal.</returns>
     public static bool operator !=(InputEvent a, InputEvent b) => !a.Equals(b);
 }
 
-// src/script/client_commands.hpp struct ActionBinding.
+/// <summary>One binding of an action map.</summary>
 public sealed class ActionBinding
 {
+    /// <summary>The binding flag bits: None, Value, Flip, Center, Square, Cube, DeadZone and Scale.</summary>
     public const uint None = 1, Value = 2, Flip = 4, Center = 8, Square = 16, Cube = 32, DeadZone = 64, Scale = 128;
+    /// <summary>The bound input event.</summary>
     public InputEvent Event;
+    /// <summary>Whether the binding runs a command instead of an action.</summary>
     public bool IsCommand;
-    public string Command = ""; // bindCommand / bind
-    public int Action;          // bindAction: action tag id
+    /// <summary>The command text (bindCommand and bind).</summary>
+    public string Command = "";
+    /// <summary>The action tag id (bindAction).</summary>
+    public int Action;
+    /// <summary>The flag bits.</summary>
     public uint Flags;
+    /// <summary>The value, the dead zone and the scale.</summary>
     public float ValueF, DeadZoneF, ScaleF = 1;
 }
 
-// src/script/client_commands.hpp struct ActionMap.
+/// <summary>An action map, a list of bindings.</summary>
 public sealed class ActionMap
 {
-    public string Name = ""; // resource name, ends in ".sae"
+    /// <summary>The resource name, ending in ".sae".</summary>
+    public string Name = "";
+    /// <summary>The bindings.</summary>
     public readonly List<ActionBinding> Bindings = new();
 }
 
-// src/script/client_commands.hpp struct ClientState.
+/// <summary>The state of the client-side commands: the action maps and the current map.</summary>
 public sealed class ClientState
 {
-    public string CurrentMap = ""; // set by editActionMap/newActionMap, "" when unset
+    /// <summary>The name of the map set by editActionMap or newActionMap, empty when unset.</summary>
+    public string CurrentMap = "";
+    /// <summary>The action maps.</summary>
     public readonly List<ActionMap> Maps = new();
 
-    // src/script/client_commands.cpp ClientState::findMap: ASCII case-insensitive.
+    /// <summary>Finds an action map by name.</summary>
+    /// <param name="name">The map name, matched ASCII case-insensitively.</param>
+    /// <returns>The map, or null.</returns>
     public ActionMap? FindMap(string name)
     {
         foreach (ActionMap m in Maps)
@@ -61,11 +92,23 @@ public sealed class ClientState
     }
 }
 
+/// <summary>The client-side console commands as they behave on a dedicated server: GUI, canvas, input, sound, CD audio, tool windows, editors and IRC (docs/mods.md 5).</summary>
+/// <remarks>Port of src/script/client_commands.cpp. A server has no canvas, input manager or sound device, so most commands print their usage or "not found" message. Action maps keep real state (docs/mods.md 5.4).</remarks>
 public static class ClientCommands
 {
-    // src/script/client_commands.cpp struct Rule (table: ClientCommandTable.cs).
+    /// <summary>A table-driven command rule (table in ClientCommandTable.cs).</summary>
+    /// <param name="Name">The command name.</param>
+    /// <param name="Lo">The lowest argument count.</param>
+    /// <param name="Hi">The highest argument count.</param>
+    /// <param name="Out">The output text.</param>
+    /// <param name="Ret">The return value.</param>
+    /// <param name="Crash">Whether the original dereferences a null pointer here. The port rejects the call instead (DECISIONS D11).</param>
     public readonly record struct Rule(string Name, byte Lo, byte Hi, string Out, string Ret, bool Crash);
-    // src/script/client_commands.cpp struct KeyName (table: ClientKeyTable.cs).
+    /// <summary>A key table entry (table in ClientKeyTable.cs).</summary>
+    /// <param name="Code">The key code.</param>
+    /// <param name="Lower">The unshifted character.</param>
+    /// <param name="Upper">The shifted character.</param>
+    /// <param name="Name">The key name, or null.</param>
     public readonly record struct KeyName(byte Code, char Lower, char Upper, string? Name);
 
     private readonly record struct NameValue(string Name, byte Value);
@@ -205,7 +248,9 @@ public static class ClientCommands
         }
     }
 
-    // src/script/client_commands.cpp actionMapName: appends ".sae" unless the name already has that extension (0x00520a98).
+    /// <summary>Appends ".sae" to a map name unless it already has that extension (00520a98).</summary>
+    /// <param name="name">The map name.</param>
+    /// <returns>The resource name.</returns>
     public static string ActionMapName(string name)
     {
         int dot = name.LastIndexOf('.');
@@ -214,8 +259,10 @@ public static class ClientCommands
         return name + ".sae";
     }
 
-    // src/script/client_commands.cpp parseInputEvent: words before "TO" of bind/bindAction/bindCommand.
-    // False: malformed device section.
+    /// <summary>Parses the words before "TO" of bind, bindAction and bindCommand into an input event.</summary>
+    /// <param name="w">The words.</param>
+    /// <param name="ev">Receives the event.</param>
+    /// <returns>False when the device section is malformed.</returns>
     public static bool ParseInputEvent(List<string> w, ref InputEvent ev)
     {
         int i = 0, n = w.Count;
@@ -283,8 +330,10 @@ public static class ClientCommands
         return true;
     }
 
-    // src/script/client_commands.cpp parseActionTarget: words after "TO" of bindAction (action id, value, flags).
-    // False: malformed TO section.
+    /// <summary>Parses the words after "TO" of bindAction: action id, value and flags.</summary>
+    /// <param name="w">The words.</param>
+    /// <param name="b">The binding to fill.</param>
+    /// <returns>False when the TO section is malformed.</returns>
     public static bool ParseActionTarget(List<string> w, ActionBinding b)
     {
         int n = w.Count;
@@ -332,8 +381,11 @@ public static class ClientCommands
         return true;
     }
 
-    // sscanf(s, "%f", &f) == 1 of the C library: white space, then a decimal, hexadecimal, infinity or NaN
-    // number, stored to float in the current mode (strtof; here the double parse, then the store).
+    /// <summary>Reads a number like sscanf(s, "%f", &amp;f) == 1 of the C library.</summary>
+    /// <param name="s">The text.</param>
+    /// <param name="f">Receives the number.</param>
+    /// <returns>True when one number was read.</returns>
+    /// <remarks>White space is skipped, then a decimal, hexadecimal, infinity or NaN number is read and stored to float in the current mode (strtof: the double parse, then the store).</remarks>
     public static bool ScanFloat(string s, out float f)
     {
         f = 0;
@@ -432,7 +484,10 @@ public static class ClientCommands
         return true;
     }
 
-    // src/script/client_commands.cpp formatBinding: one saveActionMap line without the line end (writer 0x00522ca8).
+    /// <summary>Formats one binding as a saveActionMap line without the line end (writer 00522ca8).</summary>
+    /// <param name="b">The binding.</param>
+    /// <param name="tagName">Gives the tag name of an action id, or null.</param>
+    /// <returns>The line.</returns>
     public static string FormatBinding(ActionBinding b, Func<int, string>? tagName)
     {
         InputEvent ev = b.Event;
@@ -868,8 +923,11 @@ public static class ClientCommands
         });
     }
 
-    // src/script/client_commands.cpp registerClientCommands: registers every client-side command.
-    // rootDir: game directory for saveActionMap.
+    /// <summary>Registers every client-side command.</summary>
+    /// <param name="interp">The interpreter.</param>
+    /// <param name="res">The resource manager, or null.</param>
+    /// <param name="rootDir">The game directory for saveActionMap.</param>
+    /// <returns>The client state the commands share.</returns>
     public static ClientState RegisterClientCommands(Interpreter interp, ResourceManager? res, string rootDir)
     {
         var st = new ClientState();

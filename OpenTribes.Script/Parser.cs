@@ -1,22 +1,31 @@
-// Port of src/script/parser.hpp and src/script/parser.cpp: script parser. Accepts the same language as the
-// original LALR parser (CMDparse 0x005ee998): top-level statements completed before a syntax error are kept.
 namespace OpenTribes.Script;
 
-// src/script/parser.hpp struct ParseResult.
+/// <summary>The result of a parse.</summary>
 public sealed class ParseResult
 {
-    public readonly List<Node> Statements = new(); // complete top-level statements, in order
+    /// <summary>The complete top-level statements, in order.</summary>
+    public readonly List<Node> Statements = new();
+    /// <summary>Whether a syntax error occurred.</summary>
     public bool Error;
+    /// <summary>The line of the syntax error.</summary>
     public int ErrorLine;
+    /// <summary>The token at the syntax error.</summary>
     public Token ErrorToken = new();
 }
 
+/// <summary>The script parser. It accepts the same language as the original LALR parser (CMDparse, 005ee998), and top-level statements completed before a syntax error are kept.</summary>
+/// <remarks>Port of src/script/parser.cpp.</remarks>
 public static class ScriptParser
 {
-    // src/script/parser.cpp parse.
+    /// <summary>Parses a script.</summary>
+    /// <param name="source">The script text.</param>
+    /// <returns>The statements and any error.</returns>
     public static ParseResult Parse(string source) => new Parser(source).Run();
 
-    // src/script/parser.cpp syntaxErrorMessage: the message the original prints for a syntax error (0x005f8010).
+    /// <summary>Builds the message the original prints for a syntax error (005f8010).</summary>
+    /// <param name="r">The parse result.</param>
+    /// <param name="fileName">The file name, empty for console input.</param>
+    /// <returns>The message.</returns>
     public static string SyntaxErrorMessage(ParseResult r, string fileName)
     {
         if (fileName.Length == 0)

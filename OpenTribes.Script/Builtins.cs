@@ -1,11 +1,10 @@
-// Port of src/script/builtins.hpp and src/script/builtins.cpp: built-in commands that do not need the
-// simulation: console core (0x005f3a7c), File/String utilities (0x004018c8), getWord. Behavior notes:
-// docs/script.md 5. Game paths are byte strings; rootDir is a host path.
 using System.Text;
 using OpenTribes.Core;
 
 namespace OpenTribes.Script;
 
+/// <summary>Built-in script commands that do not need the simulation: the console core (005f3a7c), the File and String utilities (004018c8) and getWord.</summary>
+/// <remarks>Port of src/script/builtins.cpp. Behaviour notes are in docs/script.md 5. Game paths are byte strings and the root directory is a host path.</remarks>
 public static class Builtins
 {
     private static char LowerAscii(char c) => (c >= 'A' && c <= 'Z') ? (char)(c + 0x20) : c;
@@ -134,8 +133,10 @@ public static class Builtins
             interp.Print(1, l);
     }
 
-    // src/script/builtins.cpp resolveGamePath: host path of a game path below rootDir; components match
-    // case-insensitively and either slash separates. Empty when the path is absolute, names a drive or contains "..".
+    /// <summary>Resolves a game path below a root directory to a host path.</summary>
+    /// <param name="rootDir">The game directory.</param>
+    /// <param name="path">The game path. Components match case-insensitively and either slash separates.</param>
+    /// <returns>The host path, empty when the path is absolute, names a drive or contains "..".</returns>
     public static string ResolveGamePath(string rootDir, string path)
     {
         string p = path.Replace('\\', '/');
@@ -153,14 +154,19 @@ public static class Builtins
         return HostPath(rootDir, path);
     }
 
-    // src/script/builtins.cpp isWriteablePath: file write check of the resource manager (0x00587528).
+    /// <summary>Tests whether a file write is allowed (resource manager, 00587528).</summary>
+    /// <param name="path">The game path.</param>
+    /// <returns>True when the path is writeable.</returns>
     public static bool IsWriteablePath(string path) => Writeable(path);
 
-    // src/script/builtins.cpp hostFilePath: host path of a game path below rootDir.
+    /// <summary>Resolves a game path below a root directory to a host file path.</summary>
+    /// <param name="rootDir">The game directory.</param>
+    /// <param name="path">The game path.</param>
+    /// <returns>The host path.</returns>
     public static string HostFilePath(string rootDir, string path) => HostPath(rootDir, path);
 
-    // src/script/builtins.cpp applyLastHopeMode: switches the interpreter to the LastHope 1.30 command set
-    // (docs/lasthope-1.30.md L1, L5, L8, L9).
+    /// <summary>Switches the interpreter to the LastHope 1.30 command set (docs/lasthope-1.30.md L1, L5, L8, L9).</summary>
+    /// <param name="interp">The interpreter.</param>
     public static void ApplyLastHopeMode(Interpreter interp)
     {
         interp.SetLastHope(true);
@@ -179,8 +185,10 @@ public static class Builtins
         interp.AddCommand("sound", (i, a) => "true");
     }
 
-    // src/script/builtins.cpp exportEscape: escaping used by export (0x005f3744): \t \n \r \\ \" and \xHH for
-    // other control and high bytes, with the original's hex digit bug (10-15 print as K-P).
+    /// <summary>Escapes a string the way export does (005f3744).</summary>
+    /// <param name="value">The string.</param>
+    /// <returns>The string with \t \n \r \\ \" and \xHH for other control and high bytes.</returns>
+    /// <remarks>Keeps the original's hex digit bug: the digits 10 to 15 print as K to P.</remarks>
     public static string ExportEscape(string value)
     {
         var output = new StringBuilder();
@@ -209,7 +217,11 @@ public static class Builtins
         return output.ToString();
     }
 
-    // src/script/builtins.cpp registerBuiltins. rootDir: game directory for file commands.
+    /// <summary>Registers the built-in commands.</summary>
+    /// <param name="interp">The interpreter.</param>
+    /// <param name="res">The resource manager, or null.</param>
+    /// <param name="rootDir">The game directory for file commands.</param>
+    /// <returns>The client state the commands share.</returns>
     public static ClientState RegisterBuiltins(Interpreter interp, ResourceManager? res, string rootDir)
     {
         // Client-side commands exist on a dedicated server too (docs/mods.md 5).

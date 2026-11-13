@@ -1,27 +1,24 @@
-// Port of src/script/math_commands.hpp and src/script/math_commands.cpp: math, vector and utility commands that
-// need no simulation state: sprintf, pow, getRandom, timeStamp, which and the Vector:: family (docs/script.md 6.7).
-// Portable form only (DECISIONS D25, docs/portable-float.md 1): the x87 instruction wrappers are nearbyint,
-// expm1(x ln2), ldexp, y log2(x), atan2 and plain double operations, the rotation matrix is world::eulerMatrix,
-// and the basic operations, the parse and the float stores follow the rounding mode of Fpu, as in the portable truncating
-// build (docs/portable-float.md 1); the C library functions (log2, exp, atan2, sin, cos) round to nearest.
 using System.Text;
 using OpenTribes.Core;
 using OpenTribes.World;
 
 namespace OpenTribes.Script;
 
-// src/script/math_commands.hpp class RandomR250: the generator behind getRandom, a 250-word shift register seeded
-// from a linear congruential generator (0x005eb5a0, 0x005eb660). The original seeds it with 0x8377 on the first
-// getRandom call and never reseeds.
+/// <summary>The generator behind getRandom: a 250-word shift register seeded from a linear congruential generator (005eb5a0, 005eb660).</summary>
+/// <remarks>The original seeds it with 0x8377 on the first getRandom call and never reseeds.</remarks>
 public sealed class RandomR250
 {
+    /// <summary>The seed the original uses on the first getRandom call.</summary>
     public const uint kOriginalSeed = 0x8377;
     private readonly uint[] mWord = new uint[250];
     private uint mIndex;
 
+    /// <summary>Creates a generator.</summary>
+    /// <param name="seed">The seed.</param>
     public RandomR250(uint seed = kOriginalSeed) => Reseed(seed);
 
-    // src/script/math_commands.cpp RandomR250::reseed.
+    /// <summary>Seeds the generator.</summary>
+    /// <param name="seed">The seed.</param>
     public void Reseed(uint seed)
     {
         uint state = seed;
@@ -41,7 +38,8 @@ public sealed class RandomR250
         }
     }
 
-    // src/script/math_commands.cpp RandomR250::next.
+    /// <summary>Gets the next random number.</summary>
+    /// <returns>The number.</returns>
     public uint Next()
     {
         uint other = mIndex >= 0x93 ? mIndex - 0x93 : mIndex + 0x67;
@@ -51,6 +49,8 @@ public sealed class RandomR250
     }
 }
 
+/// <summary>The math, vector and utility commands that need no simulation state: sprintf, pow, getRandom, timeStamp, which and the Vector:: family (docs/script.md 6.7).</summary>
+/// <remarks>Port of src/script/math_commands.cpp. Portable form only (DECISIONS D25, docs/portable-float.md 1): the x87 instruction wrappers are nearbyint, expm1(x ln2), ldexp, y log2(x), atan2 and plain double operations, and the rotation matrix is <c>world::eulerMatrix</c>. The basic operations, the parse and the float stores follow the rounding mode of <c>Fpu</c>. The C library functions (log2, exp, atan2, sin, cos) round to nearest.</remarks>
 public static class MathCommands
 {
     // ---- x87 instruction wrappers, portable form ----
@@ -269,12 +269,16 @@ public static class MathCommands
     // src/script/math_commands.cpp wrongArgs.
     private static void WrongArgs(Interpreter interp, string what, string name) => interp.Print(1, "wrong argcount to " + name + what);
 
-    // src/script/math_commands.cpp formatF32: output formatting of a float as the commands print it (%g of the double).
+    /// <summary>Formats a float the way the commands print it (%g of the double).</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string FormatF32(float v) => Numbers.FormatFloat(v);
 
-    // src/script/math_commands.cpp formatSprintf: sprintf (0x0041cc54). args[0] is the format, args[k] replaces
-    // "%<k>". A missing argument reads as empty and a "%" not followed by 1-9 is copied (both crash or hang the
-    // original, DECISIONS D11). Output is cut at 1063 characters, the size of the original's buffer.
+    /// <summary>Formats a string like sprintf (0041cc54).</summary>
+    /// <param name="format">The format string.</param>
+    /// <param name="args">The arguments. The first is the format and argument k replaces "%k".</param>
+    /// <returns>The text, cut at 1063 characters, the size of the original's buffer.</returns>
+    /// <remarks>A missing argument reads as empty and a "%" not followed by 1 to 9 is copied. Both crash or hang the original (DECISIONS D11).</remarks>
     public static string FormatSprintf(string format, IReadOnlyList<string> args)
     {
         const int kLimit = 1063;
@@ -302,9 +306,10 @@ public static class MathCommands
         return output.ToString();
     }
 
-    // src/script/math_commands.cpp scanFloats3: "%f %f %f" the way the original's sscanf reads it: components that do
-    // not parse keep their value in output (the original leaves stack garbage there, DECISIONS D12 uses the caller's
-    // value). Returns the number of components read.
+    /// <summary>Reads "%f %f %f" the way the original's sscanf does.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="output">Receives the components. Components that do not parse keep their value, where the original leaves stack garbage (DECISIONS D12 uses the caller's value).</param>
+    /// <returns>The number of components read.</returns>
     public static int ScanFloats3(string text, float[] output)
     {
         string t = CString.CStr(text);
@@ -319,11 +324,17 @@ public static class MathCommands
         return n;
     }
 
-    // src/script/math_commands.cpp borlandPow: Borland pow (0x00606d90) as the script command calls it. error is set
-    // when the original reports a math error (its handler never returns on the dedicated server, DECISIONS D11);
-    // the value is then what the handler would return.
+    /// <summary>Computes a power like the Borland pow (00606d90) as the script command calls it.</summary>
+    /// <param name="x">The base.</param>
+    /// <param name="y">The exponent.</param>
+    /// <returns>The value. After a math error it is what the original's handler would return.</returns>
     public static double BorlandPow(double x, double y) => BorlandPow(x, y, out _);
 
+    /// <summary>Computes a power like the Borland pow (00606d90) and reports math errors.</summary>
+    /// <param name="x">The base.</param>
+    /// <param name="y">The exponent.</param>
+    /// <param name="error">Set when the original reports a math error. Its handler never returns on the dedicated server (DECISIONS D11).</param>
+    /// <returns>The value. After a math error it is what the handler would return.</returns>
     public static double BorlandPow(double x, double y, out bool error)
     {
         error = false;
@@ -594,7 +605,10 @@ public static class MathCommands
         });
     }
 
-    // src/script/math_commands.cpp registerMathCommands. seed: getRandom's seed (tests fix it; the default is the original's).
+    /// <summary>Registers the math commands.</summary>
+    /// <param name="interp">The interpreter.</param>
+    /// <param name="res">The resource manager, or null.</param>
+    /// <param name="seed">The seed of getRandom. Tests fix it. The default is the original's.</param>
     public static void RegisterMathCommands(Interpreter interp, ResourceManager? res, uint seed = RandomR250.kOriginalSeed)
     {
         RegisterVectors(interp);
