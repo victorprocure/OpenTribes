@@ -668,19 +668,22 @@ public sealed class ClientCommandHandlers
             }
             return mApp.PlayDemo(a[1]) ? "True" : "False";
         });
-        // R6: the master list is local only. Names resolve if they are numeric loopback addresses; every other master stays
-        // unresolved and the script goes on with an empty list. The resolved ones read back as "IP:a.b.c.d:port" (0x00422a74).
+        // 00422ad8: the result is the number of names copied (up to the first empty one, at most 10), whether or not they resolve; the
+        // lookup of each runs on its own and 00422a74 reads slot i back ("" while a slot is unresolved). translateMasters() stores
+        // the count in $Server::numMasters, so unresolved names still leave it above 0.
+        // R6: the master list is local only. Names resolve only if they are numeric loopback addresses ("IP:a.b.c.d:port").
         Cmd("DNet::resolveMasters", a =>
         {
             mResolvedMasters.Clear();
-            for (int k = 1; k < a.Length && k <= 10; ++k)
+            int count = 0;
+            for (int k = 1; k < a.Length && k <= 10 && a[k].Length != 0; ++k, ++count)
             {
-                if (a[k].Length == 0)
-                    break;
+                string slot = "";
                 if (mApp.IsLocalAddress(a[k]) && OpenTribes.Net.QueryAddress.TryResolve("IP:" + a[k].Replace("IP:", "", StringComparison.OrdinalIgnoreCase), 0, out string canon, out _, out _, out _))
-                    mResolvedMasters.Add(canon);
+                    slot = canon;
+                mResolvedMasters.Add(slot);
             }
-            return mResolvedMasters.Count.ToString(CultureInfo.InvariantCulture);
+            return count.ToString(CultureInfo.InvariantCulture);
         });
         Cmd("DNet::getResolvedMaster", a =>
             a.Length >= 2 && int.TryParse(a[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int i) && i >= 0 && i < mResolvedMasters.Count ? mResolvedMasters[i] : "");
