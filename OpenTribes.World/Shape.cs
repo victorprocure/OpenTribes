@@ -1,34 +1,35 @@
-// Port of src/world/shape.hpp and src/world/shape.cpp: .dts shape bounds (docs/interiors.md 8.2-8.4), the shape model
-// and instance with its line, sphere and box tests (docs/collision.md 6 T1-T8). Portable truncating form
-// (docs/portable-float.md 1): the x87::Chop guards are Fpu.ChopScope, every double operation follows the mode of Fpu,
-// x87::f32 is Fpu.F32Chop, a plain float store is Fpu.Store, and the x87 helpers fpatanLD, fptanLD, fldpiLD and
-// fsincosLD are Math.Atan2, Math.Tan, the double pi and Math.Sin, Math.Cos (round to nearest).
 using System.Runtime.CompilerServices;
 using OpenTribes.Core;
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.World;
 
+/// <summary>Three ints stored inline.</summary>
 [InlineArray(3)]
 public struct Int3
 {
     private int mElement;
 }
 
+/// <summary>Four shorts stored inline.</summary>
 [InlineArray(4)]
 public struct Short4
 {
     private short mElement;
 }
 
-// src/world/shape.hpp struct TMat3 (TMat3F, T1.1): flags 1 = rotation present, 2 = translation present, 4 = general
-// matrix.
+/// <summary>A node transform (TMat3F, docs/collision.md T1.1).</summary>
+/// <remarks>The flags are 1 for rotation present, 2 for translation present and 4 for a general matrix.</remarks>
 public struct TMat3
 {
+    /// <summary>The flag bits.</summary>
     public uint Flags;
+    /// <summary>The 3x3 matrix.</summary>
     public Float9 M;
+    /// <summary>The translation.</summary>
     public Float3 P;
 
+    /// <summary>Creates an identity transform.</summary>
     public TMat3()
     {
         Flags = 0;
@@ -37,47 +38,65 @@ public struct TMat3
     }
 }
 
-// src/world/shape.hpp struct ShapeSequence.
+/// <summary>An animation sequence of a shape, as the server sees it.</summary>
 public sealed class ShapeSequence
 {
+    /// <summary>The sequence name.</summary>
     public string Name = "";
+    /// <summary>Whether the sequence loops.</summary>
     public bool Cyclic;
+    /// <summary>The duration in seconds.</summary>
     public float Duration;
 }
 
-// src/world/shape.hpp struct ShapeAnim: animation data the server uses (docs/interiors.md 8.2,
-// docs/game-stream-ghosts.md 4.2): sequence names, cyclic flags and durations for the ShapeBase threads, and the node
-// rotations a Turret reads for its elevation limits.
+/// <summary>The animation data the server uses (docs/interiors.md 8.2, docs/game-stream-ghosts.md 4.2): sequence names, cyclic flags and durations for the ShapeBase threads, and the node rotations a turret reads for its elevation limits.</summary>
 public sealed class ShapeAnim
 {
+    /// <summary>A shape node.</summary>
     public struct Node
     {
+        /// <summary>The name index, the parent node, the number of sub-sequences, the first sub-sequence and the default transform.</summary>
         public int Name, Parent, NumSub, FirstSub, DefaultTransform;
     }
+    /// <summary>The sub-sequence of a node or object within one sequence.</summary>
     public struct SubSequence
     {
+        /// <summary>The sequence index, the number of keys and the first key.</summary>
         public int Sequence, NumKeys, FirstKey;
     }
+    /// <summary>A keyframe.</summary>
     public struct Key
     {
+        /// <summary>The position within the sequence.</summary>
         public float Position;
+        /// <summary>The index of the key's rotation.</summary>
         public uint Transform;
     }
+    /// <summary>A rotation quaternion.</summary>
     public struct Quat
     {
+        /// <summary>The quaternion components.</summary>
         public float X, Y, Z, W;
     }
 
+    /// <summary>The sequences.</summary>
     public List<ShapeSequence> Sequences = new();
+    /// <summary>The name table.</summary>
     public List<string> Names = new();
+    /// <summary>The name index of each sequence.</summary>
     public List<int> SequenceNames = new();
+    /// <summary>The nodes.</summary>
     public List<Node> Nodes = new();
+    /// <summary>The sub-sequences.</summary>
     public List<SubSequence> SubSequences = new();
+    /// <summary>The keyframes.</summary>
     public List<Key> Keys = new();
+    /// <summary>The key rotations.</summary>
     public List<Quat> Rotations = new();
 
-    // src/world/shape.cpp ShapeAnim::findSequence: index of the first sequence whose name matches (ASCII
-    // case-insensitive), or -1 (0x005b9798: the first matching entry of the name table decides).
+    /// <summary>Finds a sequence by name (005b9798).</summary>
+    /// <param name="name">The sequence name, matched ASCII case-insensitively.</param>
+    /// <returns>The index of the first matching sequence, or -1. The first matching entry of the name table decides.</returns>
     public int FindSequence(string name)
     {
         int n = Shape.FindName(this, name);
@@ -87,8 +106,12 @@ public sealed class ShapeAnim
         return -1;
     }
 
-    // src/world/shape.cpp ShapeAnim::nodePitchRange: Euler x of a node's rotation in shape space at the first and the
-    // last keyframe of a sequence (Turret onNewDataBlock 0x00452970). False when the node or sequence is missing.
+    /// <summary>Reads the pitch range of a node's rotation over a sequence (turret onNewDataBlock, 00452970).</summary>
+    /// <param name="sequence">The sequence name.</param>
+    /// <param name="node">The node name.</param>
+    /// <param name="first">Receives the Euler x of the node's rotation in shape space at the first keyframe.</param>
+    /// <param name="last">Receives the Euler x at the last keyframe.</param>
+    /// <returns>False when the node or the sequence is missing.</returns>
     public bool NodePitchRange(string sequence, string node, ref float first, ref float last)
     {
         int seq = FindSequence(sequence);
@@ -144,36 +167,53 @@ public sealed class ShapeAnim
     }
 }
 
-// src/world/shape.hpp struct ShapeModel: the data of a TS::Shape the server reads, in the version 8 layout
-// (0x005b9998 converts older files). Every index is validated when it is used, not when it is read.
+/// <summary>The data of a TS::Shape the server reads, in the version 8 layout (005b9998 converts older files).</summary>
+/// <remarks>Every index is validated when it is used, not when it is read.</remarks>
 public sealed class ShapeModel
 {
+    /// <summary>A shape node.</summary>
     public struct Node
     {
+        /// <summary>The name index, the parent node, the number of sub-sequences, the first sub-sequence and the default transform.</summary>
         public short Name, Parent, NumSub, FirstSub, DefaultTransform;
     }
+    /// <summary>An animation sequence.</summary>
     public struct Sequence
     {
+        /// <summary>The name index.</summary>
         public int Name;
+        /// <summary>Whether the sequence loops.</summary>
         public bool Cyclic;
+        /// <summary>The duration in seconds.</summary>
         public float Duration;
+        /// <summary>The priority.</summary>
         public int Priority;
     }
+    /// <summary>The sub-sequence of a node or object within one sequence.</summary>
     public struct SubSequence
     {
+        /// <summary>The sequence index, the number of keys and the first key.</summary>
         public short Sequence, NumKeys, FirstKey;
     }
+    /// <summary>A keyframe.</summary>
     public struct Key
     {
+        /// <summary>The position within the sequence.</summary>
         public float Position;
-        public ushort Index; // transform index (node keys) or frame index (object keys)
-        public ushort Flags; // 0x8000 visible, 0x4000 visibility valid, 0x2000 material valid, 0x1000 frame valid
+        /// <summary>The transform index for node keys, or the frame index for object keys.</summary>
+        public ushort Index;
+        /// <summary>The key flags: 0x8000 visible, 0x4000 visibility valid, 0x2000 material valid, 0x1000 frame valid.</summary>
+        public ushort Flags;
     }
+    /// <summary>A stored node transform.</summary>
     public struct Transform
     {
+        /// <summary>The packed rotation quaternion.</summary>
         public Short4 Q;
+        /// <summary>The translation.</summary>
         public Float3 T;
 
+        /// <summary>Creates a default transform.</summary>
         public Transform()
         {
             Q = default;
@@ -181,44 +221,71 @@ public sealed class ShapeModel
             T = default;
         }
     }
+    /// <summary>A shape object, a mesh attached to a node.</summary>
     public struct Object
     {
+        /// <summary>The name index.</summary>
         public short Name;
+        /// <summary>The object flags.</summary>
         public ushort Flags;
+        /// <summary>The mesh index.</summary>
         public int Mesh;
+        /// <summary>The node the object hangs on.</summary>
         public short Node;
+        /// <summary>The offset from the node.</summary>
         public Float3 Offset;
+        /// <summary>The number of sub-sequences and the first sub-sequence.</summary>
         public short NumSub, FirstSub;
     }
+    /// <summary>A level of detail.</summary>
     public struct Detail
     {
+        /// <summary>The root node of the detail subtree.</summary>
         public int RootNode;
+        /// <summary>The detail size.</summary>
         public float Size;
     }
+    /// <summary>A transition between two sequences.</summary>
     public struct Transition
     {
+        /// <summary>The start and end sequences.</summary>
         public int StartSequence, EndSequence;
+        /// <summary>The start and end positions and the duration.</summary>
         public float StartPosition, EndPosition, Duration;
+        /// <summary>The transform of the transition.</summary>
         public Transform Transform;
     }
+    /// <summary>A mesh face.</summary>
     public struct Face
     {
+        /// <summary>The vertex indices.</summary>
         public Int3 V;
+        /// <summary>The material index.</summary>
         public int Material;
     }
+    /// <summary>A mesh frame.</summary>
     public struct Frame
     {
+        /// <summary>The index of the frame's first vertex.</summary>
         public int FirstVert;
+        /// <summary>The scale and origin that decode the packed vertices.</summary>
         public Float3 Scale, Origin;
     }
+    /// <summary>A cel animation mesh.</summary>
     public sealed class Mesh
     {
-        public byte[] Verts = Array.Empty<byte>(); // 4 bytes per packed vertex: x, y, z, normal index
+        /// <summary>The packed vertices, 4 bytes each: x, y, z and the normal index.</summary>
+        public byte[] Verts = Array.Empty<byte>();
+        /// <summary>The faces.</summary>
         public Face[] Faces = Array.Empty<Face>();
+        /// <summary>The frames.</summary>
         public Frame[] Frames = Array.Empty<Frame>();
 
-        // src/world/shape.cpp ShapeModel::Mesh::vertex: decoded vertex `index` of a frame (T2.7):
-        // f32(u8 * scale + origin). False when the index is outside the vertex array.
+        /// <summary>Decodes one vertex of a frame (docs/collision.md T2.7).</summary>
+        /// <param name="f">The frame.</param>
+        /// <param name="index">The vertex index.</param>
+        /// <param name="output">Receives the vertex, f32(u8 * scale + origin).</param>
+        /// <returns>False when the index is outside the vertex array.</returns>
         public bool Vertex(in Frame f, int index, Span<float> output)
         {
             long i = (long)f.FirstVert + index;
@@ -230,24 +297,40 @@ public sealed class ShapeModel
         }
     }
 
+    /// <summary>The file version.</summary>
     public uint Version;
+    /// <summary>The bounding sphere radius.</summary>
     public float Radius;
+    /// <summary>The bounding sphere centre.</summary>
     public Float3 Center;
+    /// <summary>The shape box, min xyz then max xyz.</summary>
     public Float6 Box;
-    public int AlwaysNode = -1; // TS::Shape +0xe4 (version >= 6)
+    /// <summary>The "always" node (TS::Shape +0xe4, version 6 and up), -1 when none.</summary>
+    public int AlwaysNode = -1;
+    /// <summary>The nodes.</summary>
     public Node[] Nodes = Array.Empty<Node>();
+    /// <summary>The sequences.</summary>
     public Sequence[] Sequences = Array.Empty<Sequence>();
+    /// <summary>The sub-sequences.</summary>
     public SubSequence[] SubSequences = Array.Empty<SubSequence>();
+    /// <summary>The keyframes.</summary>
     public Key[] Keys = Array.Empty<Key>();
+    /// <summary>The transforms.</summary>
     public Transform[] Transforms = Array.Empty<Transform>();
+    /// <summary>The name table.</summary>
     public string[] Names = Array.Empty<string>();
+    /// <summary>The objects.</summary>
     public Object[] Objects = Array.Empty<Object>();
+    /// <summary>The details.</summary>
     public Detail[] Details = Array.Empty<Detail>();
+    /// <summary>The transitions.</summary>
     public Transition[] Transitions = Array.Empty<Transition>();
+    /// <summary>The meshes.</summary>
     public Mesh[] Meshes = Array.Empty<Mesh>();
 
-    // src/world/shape.cpp ShapeModel::findName: first name equal to `name` (ASCII case-insensitive), -1 if none
-    // (0x005b96d8).
+    /// <summary>Finds a name in the name table (005b96d8).</summary>
+    /// <param name="name">The name, matched ASCII case-insensitively.</param>
+    /// <returns>The index of the first match, -1 if none.</returns>
     public int FindName(string name)
     {
         for (int i = 0; i < Names.Length; ++i)
@@ -256,7 +339,9 @@ public sealed class ShapeModel
         return -1;
     }
 
-    // src/world/shape.cpp ShapeModel::findNode: first node whose name index is that name, -1 if none (0x005b9660).
+    /// <summary>Finds a node by name (005b9660).</summary>
+    /// <param name="name">The node name.</param>
+    /// <returns>The first node whose name index is that name, -1 if none.</returns>
     public int FindNode(string name)
     {
         int n = FindName(name);
@@ -268,8 +353,8 @@ public sealed class ShapeModel
         return -1;
     }
 
-    // src/world/shape.cpp ShapeModel::collisionDetail: the last detail whose root is the node named "collision", 0 when
-    // there is none (image +0x74, StaticBase_bindShape 0x0044f68c, T2.1).
+    /// <summary>Finds the collision detail (image +0x74, StaticBase_bindShape 0044f68c, docs/collision.md T2.1).</summary>
+    /// <returns>The last detail whose root is the node named "collision", 0 when there is none.</returns>
     public int CollisionDetail()
     {
         int node = FindNode("collision");
@@ -280,7 +365,9 @@ public sealed class ShapeModel
         return detail;
     }
 
-    // src/world/shape.cpp ShapeModel::findSequence.
+    /// <summary>Finds a sequence by name.</summary>
+    /// <param name="name">The sequence name.</param>
+    /// <returns>The sequence index, -1 if none.</returns>
     public int FindSequence(string name)
     {
         int n = FindName(name);
@@ -292,7 +379,10 @@ public sealed class ShapeModel
         return -1;
     }
 
-    // src/world/shape.cpp ShapeModel::parse.
+    /// <summary>Parses a .dts shape.</summary>
+    /// <param name="dts">The file bytes.</param>
+    /// <param name="output">Receives the model.</param>
+    /// <returns>True on success.</returns>
     public static bool Parse(byte[] dts, ShapeModel output)
     {
         output.Reset();
@@ -570,14 +660,17 @@ public sealed class ShapeModel
     }
 }
 
-// src/world/shape.hpp struct ShapeThread: one animation thread of an instance, as far as node transforms and object
-// states depend on it (docs/collision.md T2.5a).
+/// <summary>One animation thread of an instance, as far as node transforms and object states depend on it (docs/collision.md T2.5a).</summary>
 public struct ShapeThread
 {
+    /// <summary>The sequence index.</summary>
     public int Sequence;
+    /// <summary>The position within the sequence.</summary>
     public float Position;
+    /// <summary>The priority.</summary>
     public int Priority;
 
+    /// <summary>Creates a thread with no sequence.</summary>
     public ShapeThread()
     {
         Sequence = -1;
@@ -585,6 +678,10 @@ public struct ShapeThread
         Priority = 0;
     }
 
+    /// <summary>Creates a thread.</summary>
+    /// <param name="sequence">The sequence index.</param>
+    /// <param name="position">The position within the sequence.</param>
+    /// <param name="priority">The priority.</param>
     public ShapeThread(int sequence, float position, int priority)
     {
         Sequence = sequence;
@@ -593,16 +690,23 @@ public struct ShapeThread
     }
 }
 
-// src/world/shape.hpp struct ShapeSurface: result of a line test (T1.7), in shape root space.
+/// <summary>The result of a line test in shape root space (docs/collision.md T1.7).</summary>
 public struct ShapeSurface
 {
+    /// <summary>The hit parameter along the segment.</summary>
     public float T;
+    /// <summary>The hit position.</summary>
     public Float3 Position;
+    /// <summary>The surface normal.</summary>
     public Float3 Normal;
-    public int Material; // face material index, -1 in bounds mode
+    /// <summary>The face material index, -1 in bounds mode.</summary>
+    public int Material;
+    /// <summary>The face index.</summary>
     public int Face;
-    public int Part;     // object index
+    /// <summary>The object index.</summary>
+    public int Part;
 
+    /// <summary>Creates an empty result.</summary>
     public ShapeSurface()
     {
         T = 0;
@@ -614,16 +718,23 @@ public struct ShapeSurface
     }
 }
 
-// src/world/shape.hpp struct ShapeContact: one record of a sphere test (T1.7, T4), in shape root space.
+/// <summary>One record of a sphere test in shape root space (docs/collision.md T1.7, T4).</summary>
 public struct ShapeContact
 {
+    /// <summary>The contact position.</summary>
     public Float3 Position;
+    /// <summary>The contact normal.</summary>
     public Float3 Normal;
-    public float Distance; // +0x1c
-    public int Material;   // face material index, -1 in bounds mode (+0x20 = 0)
+    /// <summary>The contact distance (+0x1c).</summary>
+    public float Distance;
+    /// <summary>The face material index, -1 in bounds mode (+0x20 is 0).</summary>
+    public int Material;
+    /// <summary>The face index.</summary>
     public int Face;
-    public int Part;       // object index
+    /// <summary>The object index.</summary>
+    public int Part;
 
+    /// <summary>Creates an empty record.</summary>
     public ShapeContact()
     {
         Position = default;
@@ -635,15 +746,18 @@ public struct ShapeContact
     }
 }
 
-// src/world/shape.hpp struct ShapeInstance: TSShapeInstance (T1.3), node entries and object states of one shape on the
-// server.
+/// <summary>TSShapeInstance (docs/collision.md T1.3): the node entries and object states of one shape on the server.</summary>
 public sealed class ShapeInstance
 {
+    /// <summary>The state of one object.</summary>
     public struct ObjectState
     {
+        /// <summary>The frame index.</summary>
         public int Frame;
+        /// <summary>Whether the object is visible.</summary>
         public bool Visible;
 
+        /// <summary>Creates a visible state at frame 0.</summary>
         public ObjectState()
         {
             Frame = 0;
@@ -651,21 +765,31 @@ public sealed class ShapeInstance
         }
     }
 
+    /// <summary>The shape model.</summary>
     public ShapeModel? ShapeData;
-    public TMat3[] Entries = Array.Empty<TMat3>(); // node -> root space, identity until animated
-    public byte[] NodeActive = Array.Empty<byte>(); // node instance +0x08
+    /// <summary>The node transforms to root space, identity until animated.</summary>
+    public TMat3[] Entries = Array.Empty<TMat3>();
+    /// <summary>The active flag of each node (node instance +0x08).</summary>
+    public byte[] NodeActive = Array.Empty<byte>();
+    /// <summary>The object states.</summary>
     public ObjectState[] Objects = Array.Empty<ObjectState>();
+    /// <summary>The animation threads.</summary>
     public List<ShapeThread> Threads = new();
-    public byte ViewMode;        // instance +0x9e (the Player sets 2 for first person animations)
-    public TMat3 Root = new();   // instance +0xa0: default transform of node 0, flags 3
-    // Node overrides (T2.5a, 0x005c2f54): a thread-driven node marked here takes, in view mode 2, the override matrix
-    // with the height of the source node as its parent.
+    /// <summary>The view mode (instance +0x9e). The player sets 2 for first person animations.</summary>
+    public byte ViewMode;
+    /// <summary>The default transform of node 0 (instance +0xa0), flags 3.</summary>
+    public TMat3 Root = new();
+    /// <summary>The node overrides (docs/collision.md T2.5a, 005c2f54): a thread-driven node marked here takes, in view mode 2, the override matrix with the height of the source node as its parent.</summary>
     public byte[] OverrideNode = Array.Empty<byte>();
+    /// <summary>The source node of the override, -1 when none.</summary>
     public int OverrideSource = -1;
+    /// <summary>The override matrix.</summary>
     public TMat3 OverrideMatrix = new();
     private readonly List<KeyValuePair<int, List<int>>> mDetailNodes = new();
 
-    // src/world/shape.cpp ShapeInstance::detailRoot: root node of a detail (T2.2), -1 when there is none.
+    /// <summary>Gets the root node of a detail (docs/collision.md T2.2).</summary>
+    /// <param name="detail">The detail index.</param>
+    /// <returns>The root node, -1 when there is none.</returns>
     public int DetailRoot(int detail)
     {
         if (ShapeData == null || detail < 0)
@@ -680,8 +804,8 @@ public sealed class ShapeInstance
         return node >= 0 && node < ShapeData.Nodes.Length ? node : -1;
     }
 
-    // src/world/shape.cpp ShapeInstance::build: TSShapeInstance_build (0x005c0ba8), identity entries, default object
-    // states, then one animate pass.
+    /// <summary>Builds the instance from a model (TSShapeInstance_build, 005c0ba8): identity entries, default object states, then one animate pass.</summary>
+    /// <param name="model">The shape model.</param>
     public void Build(ShapeModel model)
     {
         ShapeData = model;
@@ -714,8 +838,7 @@ public sealed class ShapeInstance
         Animate();
     }
 
-    // src/world/shape.cpp ShapeInstance::animate: TSShapeInstance_animate (0x005c1210), the subtree of detail 0 and of
-    // the "always" node.
+    /// <summary>Animates the subtree of detail 0 and of the "always" node (TSShapeInstance_animate, 005c1210).</summary>
     public void Animate()
     {
         if (ShapeData == null)
@@ -769,7 +892,9 @@ public sealed class ShapeInstance
         }
     }
 
-    // src/world/shape.cpp ShapeInstance::setOverride.
+    /// <summary>Marks the nodes whose names start with a prefix as overridden (005c2f54).</summary>
+    /// <param name="prefix">The node name prefix.</param>
+    /// <param name="sourceNode">The name of the node whose height the override uses.</param>
     public void SetOverride(string prefix, string sourceNode)
     {
         if (ShapeData == null)
@@ -799,8 +924,13 @@ public sealed class ShapeInstance
         public float Tval;
     }
 
-    // src/world/shape.cpp ShapeInstance::castLine: TSShapeInstance_castRay (0x005c1300, T7) on detail 0. s0, e0:
-    // segment in the space `rel` maps to root space (null: already root space). faces false is the bounds mode.
+    /// <summary>Casts a line against detail 0 (TSShapeInstance_castRay, 005c1300, docs/collision.md T7).</summary>
+    /// <param name="s0">The segment start in the space that <paramref name="rel"/> maps to root space.</param>
+    /// <param name="e0">The segment end in the same space.</param>
+    /// <param name="faces">True to test faces, false for the bounds mode.</param>
+    /// <param name="rel">The transform to root space, or null when the segment is already in root space.</param>
+    /// <param name="output">Receives the surface hit.</param>
+    /// <returns>True on a hit.</returns>
     public bool CastLine(ReadOnlySpan<float> s0, ReadOnlySpan<float> e0, bool faces, TMat3? rel, ref ShapeSurface output)
     {
         if (ShapeData == null)
@@ -943,8 +1073,9 @@ public sealed class ShapeInstance
         return true;
     }
 
-    // src/world/shape.cpp ShapeInstance::detailNodes: nodes of a detail subtree in visiting order (T2.4), cached per
-    // detail.
+    /// <summary>Lists the nodes of a detail subtree in visiting order (docs/collision.md T2.4). Cached per detail.</summary>
+    /// <param name="detail">The detail index.</param>
+    /// <returns>The node indices.</returns>
     public List<int> DetailNodes(int detail)
     {
         foreach (var e in mDetailNodes)
@@ -957,9 +1088,11 @@ public sealed class ShapeInstance
         return order;
     }
 
-    // src/world/shape.cpp ShapeInstance::collideBox: TSShapeInstance_collideBox (0x005c2264, T6): true when the frame
-    // box of a visible object of the detail subtree overlaps the box with half extents `half` whose centre frame `rel`
-    // maps to root space.
+    /// <summary>Tests a box against the visible objects of a detail subtree (TSShapeInstance_collideBox, 005c2264, docs/collision.md T6).</summary>
+    /// <param name="detail">The detail index.</param>
+    /// <param name="half">The half extents of the box.</param>
+    /// <param name="rel">The transform that maps the box's centre frame to root space.</param>
+    /// <returns>True when the frame box of a visible object overlaps the box.</returns>
     public bool CollideBox(int detail, ReadOnlySpan<float> half, in TMat3 rel)
     {
         if (ShapeData == null)
@@ -1005,10 +1138,14 @@ public sealed class ShapeInstance
         return false;
     }
 
-    // src/world/shape.cpp ShapeInstance::collideSphere: TSShapeInstance_collideSphere (0x005c1d7c, T4) on the subtree of
-    // `detail`. p0: centre in the space `rel` maps to root space (null: already root space). faces true is the mesh mode
-    // (T4.1), false the bounds mode of Item images (T4.2). Records are appended to `out` in root space. True when `out`
-    // is not empty afterwards (the original does not reset the list).
+    /// <summary>Tests a sphere against a detail subtree (TSShapeInstance_collideSphere, 005c1d7c, docs/collision.md T4).</summary>
+    /// <param name="detail">The detail index.</param>
+    /// <param name="p0">The sphere centre in the space that <paramref name="rel"/> maps to root space.</param>
+    /// <param name="faces">True for the mesh mode (T4.1), false for the bounds mode of item images (T4.2).</param>
+    /// <param name="rel">The transform to root space, or null when the centre is already in root space.</param>
+    /// <param name="radius">The sphere radius.</param>
+    /// <param name="output">Receives the contact records in root space. The list is not cleared first, as in the original.</param>
+    /// <returns>True when <paramref name="output"/> is not empty afterwards.</returns>
     public bool CollideSphere(int detail, ReadOnlySpan<float> p0, bool faces, TMat3? rel, float radius, List<ShapeContact> output)
     {
         if (ShapeData == null)
@@ -1117,10 +1254,11 @@ public sealed class ShapeInstance
     }
 }
 
-// The free functions of src/world/shape.cpp.
+/// <summary>Reads .dts shape files: bounds, collision boxes, animation data and models, with by-name caches.</summary>
+/// <remarks>Port of src/world/shape.cpp (docs/interiors.md 8.2 to 8.4, docs/collision.md 6 T1 to T8). Uses the truncating form of docs/portable-float.md 1: the x87::Chop guards are <c>Fpu.ChopScope</c>, every double operation follows the mode of <c>Fpu</c>, x87::f32 is <c>Fpu.F32Chop</c> and a plain float store is <c>Fpu.Store</c>. The x87 helpers fpatanLD, fptanLD, fldpiLD and fsincosLD are Math.Atan2, Math.Tan, the double pi and Math.Sin and Math.Cos (round to nearest).</remarks>
 public static class Shape
 {
-    // Port convention (no C++ function): empties the by-name caches, the start state of a C++ test process.
+    /// <summary>Empties the by-name caches, the start state of a C++ test process.</summary>
     public static void ResetCaches()
     {
         sSphereCache.Clear();
@@ -1143,9 +1281,11 @@ public static class Shape
         return new[] { nodes, seq, sub, key, trans, names, objects, details, transitions, triggers };
     }
 
-    // src/world/shape.cpp readShapeBox: shape box (TS::Shape +0x14..+0x28) of a PERS TS::Shape block. Versions >= 8
-    // store it in the header; older versions take the frame-0 box of the first object on node 0. False on malformed
-    // data.
+    /// <summary>Reads the shape box (TS::Shape +0x14 to +0x28) of a PERS TS::Shape block.</summary>
+    /// <param name="dts">The file bytes.</param>
+    /// <param name="box">Receives the box, six floats.</param>
+    /// <returns>False on malformed data.</returns>
+    /// <remarks>Versions 8 and up store it in the header. Older versions take the frame-0 box of the first object on node 0.</remarks>
     public static bool ReadShapeBox(byte[] dts, Span<float> box)
     {
         var r = new Reader(dts);
@@ -1232,8 +1372,11 @@ public static class Shape
         return true;
     }
 
-    // src/world/shape.cpp readShapeSphere: bounding sphere of the shape (TS::Shape +0x04 radius, +0x08 centre), the
-    // collision image of an Item (docs/collision.md T1.2).
+    /// <summary>Reads the bounding sphere of a shape (TS::Shape +0x04 radius, +0x08 centre), the collision image of an item (docs/collision.md T1.2).</summary>
+    /// <param name="dts">The file bytes.</param>
+    /// <param name="radius">Receives the radius.</param>
+    /// <param name="center">Receives the centre, three floats.</param>
+    /// <returns>False on malformed data.</returns>
     public static bool ReadShapeSphere(byte[] dts, ref float radius, Span<float> center)
     {
         var r = new Reader(dts);
@@ -1260,7 +1403,12 @@ public static class Shape
     }
     private static readonly Dictionary<string, CachedSphere> sSphereCache = new(StringComparer.Ordinal);
 
-    // src/world/shape.cpp shapeSphere: cached by name.
+    /// <summary>Gets the bounding sphere of a named shape, cached by name.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="name">The shape name.</param>
+    /// <param name="radius">Receives the radius.</param>
+    /// <param name="center">Receives the centre, three floats.</param>
+    /// <returns>False when the shape is missing or malformed.</returns>
     public static bool ShapeSphere(ResourceManager res, string name, ref float radius, Span<float> center)
     {
         if (!sSphereCache.TryGetValue(name, out CachedSphere? c))
@@ -1285,7 +1433,11 @@ public static class Shape
     }
     private static readonly Dictionary<string, CachedBox> sBoxCache = new(StringComparer.Ordinal);
 
-    // src/world/shape.cpp shapeBox: loads "<name>.dts" through the resource manager; results are cached by name.
+    /// <summary>Gets the box of a shape by loading "&lt;name&gt;.dts" through the resource manager. Results are cached by name.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="name">The shape name.</param>
+    /// <param name="box">Receives the box, six floats.</param>
+    /// <returns>False when the shape is missing or malformed.</returns>
     public static bool ShapeBox(ResourceManager res, string name, Span<float> box)
     {
         if (!sBoxCache.TryGetValue(name, out CachedBox? c))
@@ -1351,7 +1503,10 @@ public static class Shape
                 output[r * 3 + c] = Add(Add(Mul(a[r * 3], b[c]), Mul(a[r * 3 + 1], b[3 + c])), Mul(a[r * 3 + 2], b[6 + c]));
     }
 
-    // src/world/shape.cpp readShapeAnim.
+    /// <summary>Reads the animation data of a .dts shape.</summary>
+    /// <param name="dts">The file bytes.</param>
+    /// <param name="output">Receives the animation data.</param>
+    /// <returns>False on malformed data.</returns>
     public static bool ReadShapeAnim(byte[] dts, ShapeAnim output)
     {
         var r = new Reader(dts);
@@ -1479,7 +1634,10 @@ public static class Shape
 
     private static readonly Dictionary<string, (bool ok, ShapeAnim anim)> sAnimCache = new(StringComparer.Ordinal);
 
-    // src/world/shape.cpp shapeAnim: cached by name; null when the shape is missing or malformed.
+    /// <summary>Gets the animation data of a named shape, cached by name.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="name">The shape name.</param>
+    /// <returns>The animation data, null when the shape is missing or malformed.</returns>
     public static ShapeAnim? GetShapeAnim(ResourceManager res, string name)
     {
         if (!sAnimCache.TryGetValue(name, out var c))
@@ -1492,8 +1650,11 @@ public static class Shape
         return c.ok ? c.anim : null;
     }
 
-    // src/world/shape.cpp rotatedWorldBox: world box of an object box under a transform (0x005edbb4 -> 0x005ed8bc):
-    // rotated centre plus |M| applied to the half extents, then the translation.
+    /// <summary>Computes the world box of an object box under a transform (005edbb4 to 005ed8bc).</summary>
+    /// <param name="local">The object box, min xyz then max xyz.</param>
+    /// <param name="m">The transform.</param>
+    /// <param name="output">Receives the world box, six floats.</param>
+    /// <remarks>The rotated centre plus |M| applied to the half extents, then the translation.</remarks>
     public static void RotatedWorldBox(ReadOnlySpan<float> local, in Mat m, Span<float> output)
     {
         // Half-sum centre and half extents, each stored as f32.
@@ -1541,9 +1702,10 @@ public static class Shape
         }
     }
 
-    // src/world/shape.cpp readShapeCollisionBoxes: collision detail (docs/collision.md 6 T2.1, T9): the detail whose
-    // root node is named "collision". Each object is returned as the frame box of its mesh plus the object offset, in
-    // shape root space. False when the shape has no such detail (versions 7 and 8 only).
+    /// <summary>Reads the collision detail boxes of a shape (docs/collision.md 6 T2.1, T9).</summary>
+    /// <param name="dts">The file bytes.</param>
+    /// <param name="output">Receives, per object of the detail whose root node is named "collision", the frame box of its mesh plus the object offset, in shape root space.</param>
+    /// <returns>False when the shape has no such detail. Only versions 7 and 8 have one.</returns>
     public static bool ReadShapeCollisionBoxes(byte[] dts, List<Float6> output)
     {
         output.Clear();
@@ -1658,7 +1820,10 @@ public static class Shape
 
     private static readonly Dictionary<string, List<Float6>> sCollisionCache = new(StringComparer.Ordinal);
 
-    // src/world/shape.cpp shapeCollisionBoxes: cached by name; null without a collision detail.
+    /// <summary>Gets the collision boxes of a named shape, cached by name.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="name">The shape name.</param>
+    /// <returns>The boxes, null without a collision detail.</returns>
     public static List<Float6>? ShapeCollisionBoxes(ResourceManager res, string name)
     {
         if (!sCollisionCache.TryGetValue(name, out List<Float6>? boxes))
@@ -1767,12 +1932,20 @@ public static class Shape
     // src/world/shape.cpp nameEquals.
     internal static bool NameEquals(string a, string b) => SameNameNoCase(a, b);
 
-    // src/world/shape.cpp boxCollideLine: m_Box3F_collideLine (0x005ebe80): segment s..e against the box. t is the entry
-    // parameter as an f32, 0 when s is inside the box. Faces are entered strictly inside their edges.
+    /// <summary>Tests a segment against a box (m_Box3F_collideLine, 005ebe80).</summary>
+    /// <param name="s">The segment start.</param>
+    /// <param name="e">The segment end.</param>
+    /// <param name="mn">The box minimum.</param>
+    /// <param name="mx">The box maximum.</param>
+    /// <param name="t">Receives the entry parameter as an f32, 0 when the start is inside the box.</param>
+    /// <returns>True on a hit. Faces are entered strictly inside their edges.</returns>
     public static bool BoxCollideLine(ReadOnlySpan<float> s, ReadOnlySpan<float> e, ReadOnlySpan<float> mn, ReadOnlySpan<float> mx,
                                       ref float t) => SlabTest(s, e, mn, mx, ref t);
 
-    // src/world/shape.cpp tmatMul: m_mul_TMat3F (0x005ed2b2): out = a x b (apply a, then b).
+    /// <summary>Multiplies two transforms (m_mul_TMat3F, 005ed2b2): apply a, then b.</summary>
+    /// <param name="a">The first transform.</param>
+    /// <param name="b">The second transform.</param>
+    /// <param name="output">Receives the product.</param>
     public static void TmatMul(in TMat3 a, in TMat3 b, out TMat3 output)
     {
         var o = new TMat3();
@@ -1785,7 +1958,9 @@ public static class Shape
         output = o;
     }
 
-    // src/world/shape.cpp tmatInverse: inverse as inlined by the collision code (T1.1).
+    /// <summary>Inverts a transform as the collision code inlines it (docs/collision.md T1.1).</summary>
+    /// <param name="a">The transform.</param>
+    /// <param name="output">Receives the inverse.</param>
     public static void TmatInverse(in TMat3 a, out TMat3 output)
     {
         TMat3 o = a;
@@ -1826,8 +2001,9 @@ public static class Shape
         output = o;
     }
 
-    // src/world/shape.cpp quatToMatrix: quaternion to matrix (0x005ee124, T2.5 step 2): sets the 3x3 and the rotation
-    // flags.
+    /// <summary>Converts a quaternion to a matrix (005ee124, docs/collision.md T2.5 step 2).</summary>
+    /// <param name="q">The quaternion, four floats.</param>
+    /// <param name="output">Receives the 3x3 and the rotation flags.</param>
     public static void QuatToMatrix(ReadOnlySpan<float> q, ref TMat3 output)
     {
         float x = q[0], y = q[1], z = q[2], w = q[3];
@@ -1854,9 +2030,10 @@ public static class Shape
         output.Flags = (output.Flags & ~4u) | 1u;
     }
 
-    // src/world/shape.cpp eulerMatrix: m_mat3_setEuler (0x005ed42e), the 3x3 and flag bits 0 and 2 from Euler angles
-    // x, y, z. The translation and flag bit 1 are left as they are. Portable form: fsincosLD is sin and cos of the
-    // double (libm, not rounded toward zero).
+    /// <summary>Sets the 3x3 and flag bits 0 and 2 from Euler angles (m_mat3_setEuler, 005ed42e).</summary>
+    /// <param name="e">The Euler angles x, y, z.</param>
+    /// <param name="output">The transform. Its translation and flag bit 1 are left as they are.</param>
+    /// <remarks>Portable form: fsincosLD is the sin and cos of the double (libm, not rounded toward zero).</remarks>
     public static void EulerMatrix(ReadOnlySpan<float> e, ref TMat3 output)
     {
         using var chop = ChopScope();
@@ -1901,9 +2078,12 @@ public static class Shape
         output.Flags = (output.Flags | 1u) & ~4u;
     }
 
-    // src/world/shape.cpp shapeModel: cached by name ("<name>.dts"); null when the shape is missing or malformed.
     private static readonly Dictionary<string, (bool ok, ShapeModel model)> sModelCache = new(StringComparer.Ordinal);
 
+    /// <summary>Gets the model of a named shape ("&lt;name&gt;.dts"), cached by name.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="name">The shape name.</param>
+    /// <returns>The model, null when the shape is missing or malformed.</returns>
     public static ShapeModel? GetShapeModel(ResourceManager res, string name)
     {
         if (!sModelCache.TryGetValue(name, out var c))
@@ -2323,12 +2503,14 @@ public static class Shape
         }
     }
 
-    // src/world/shape.cpp crtCos: cos of the C runtime (crt_cos 0x00606890), extended result. The caller holds a Chop
-    // scope.
+    /// <summary>Computes the cosine of the C runtime (crt_cos, 00606890) with an extended result.</summary>
+    /// <param name="x">The angle in radians.</param>
+    /// <returns>The cosine. The caller holds a Chop scope.</returns>
     public static double CrtCos(double x) => CrtCosCore(x);
 
-    // src/world/shape.cpp matrixEulerX: x angle of Mat3_getEuler (0x005eceb4): asin of m[5] as a double through the
-    // runtime's asin, stored as f32. 0 for a matrix without the rotation flag.
+    /// <summary>Gets the x angle of Mat3_getEuler (005eceb4): asin of m[5] through the runtime's asin, stored as f32.</summary>
+    /// <param name="m">The transform.</param>
+    /// <returns>The angle, 0 for a matrix without the rotation flag.</returns>
     public static float MatrixEulerX(in TMat3 m)
     {
         if ((m.Flags & 1u) == 0)
@@ -2366,9 +2548,16 @@ public static class Shape
         }
     }
 
-    // src/world/shape.cpp sphereTriangle: TSCelAnimMesh_collideSphere (0x005ac684, T4.1 steps 1-7): `pm` is the centre
-    // in mesh space. On a hit `position` is the contact point, `normal` the unit face normal and `distance` the plane
-    // distance of the centre (0 <= distance < r).
+    /// <summary>Tests a sphere against one mesh triangle (TSCelAnimMesh_collideSphere, 005ac684, docs/collision.md T4.1 steps 1 to 7).</summary>
+    /// <param name="pm">The sphere centre in mesh space.</param>
+    /// <param name="r">The sphere radius.</param>
+    /// <param name="a">The first triangle vertex.</param>
+    /// <param name="b">The second triangle vertex.</param>
+    /// <param name="c">The third triangle vertex.</param>
+    /// <param name="position">Receives the contact point on a hit.</param>
+    /// <param name="normal">Receives the unit face normal on a hit.</param>
+    /// <param name="distance">Receives the plane distance of the centre on a hit, 0 or more and below the radius.</param>
+    /// <returns>True on a hit.</returns>
     public static bool SphereTriangle(ReadOnlySpan<float> pm, float r, ReadOnlySpan<float> a, ReadOnlySpan<float> b,
                                       ReadOnlySpan<float> c, Span<float> position, Span<float> normal, ref float distance)
     {
@@ -2476,9 +2665,12 @@ public static class Shape
         new(1, 6, 0, 7, 0, 2, 1, 1, 2, 0, 0, 1, 2, 1, 0, 2),
     };
 
-    // src/world/shape.cpp orientedBoxesOverlap: m_Box3F_collideOrientedBox (0x005ec754, T6): separating axis test of a
-    // box with half extents `a` on the axes of the frame against a box with half extents `b` whose axes are the rows of
-    // `m` and whose centre is `t`. Touching boxes overlap.
+    /// <summary>Tests two oriented boxes with a separating axis test (m_Box3F_collideOrientedBox, 005ec754, docs/collision.md T6).</summary>
+    /// <param name="a">The half extents of the box on the axes of the frame.</param>
+    /// <param name="b">The half extents of the second box, whose axes are the rows of <paramref name="m"/>.</param>
+    /// <param name="m">The rotation of the second box.</param>
+    /// <param name="t">The centre of the second box.</param>
+    /// <returns>True when the boxes overlap. Touching boxes overlap.</returns>
     public static bool OrientedBoxesOverlap(ReadOnlySpan<float> a, ReadOnlySpan<float> b, ReadOnlySpan<float> m, ReadOnlySpan<float> t)
     {
         using var chop = ChopScope();
@@ -2515,14 +2707,31 @@ public static class Shape
         return true;
     }
 
-    // src/world/shape.cpp shapeLine: ShapeCollisionImage against a line (T2.3, T3 case 3): `object` is the image
-    // transform (object to world). On a hit `point` and `normal` are in world space.
+    /// <summary>Tests a line against a shape image (ShapeCollisionImage, docs/collision.md T2.3, T3 case 3).</summary>
+    /// <param name="inst">The shape instance.</param>
+    /// <param name="obj">The image transform, object to world.</param>
+    /// <param name="s">The segment start.</param>
+    /// <param name="e">The segment end.</param>
+    /// <param name="faces">True to test faces, false for the bounds mode.</param>
+    /// <param name="point">Receives the hit point in world space.</param>
+    /// <param name="normal">Receives the hit normal in world space.</param>
+    /// <returns>True on a hit.</returns>
     public static bool ShapeLine(ShapeInstance inst, in TMat3 obj, ReadOnlySpan<float> s, ReadOnlySpan<float> e, bool faces,
                                  Span<float> point, Span<float> normal)
     {
         var sf = new ShapeSurface();
         return ShapeLine(inst, obj, s, e, faces, point, normal, ref sf);
     }
+/// <summary>Tests a line against a shape image and also reports the surface.</summary>
+/// <param name="inst">The shape instance.</param>
+/// <param name="obj">The image transform, object to world.</param>
+/// <param name="s">The segment start.</param>
+/// <param name="e">The segment end.</param>
+/// <param name="faces">True to test faces, false for the bounds mode.</param>
+/// <param name="point">Receives the hit point in world space.</param>
+/// <param name="normal">Receives the hit normal in world space.</param>
+/// <param name="surface">Receives the surface in shape root space.</param>
+/// <returns>True on a hit.</returns>
 
     public static bool ShapeLine(ShapeInstance inst, in TMat3 obj, ReadOnlySpan<float> s, ReadOnlySpan<float> e, bool faces,
                                  Span<float> point, Span<float> normal, ref ShapeSurface surface)

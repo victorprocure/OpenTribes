@@ -1,6 +1,3 @@
-// Port of src/world/interior.hpp and src/world/interior.cpp: interior collision data (docs/interiors.md): .dis
-// (ITRShape), the state-0 LOD-0 .dig (ITRGeometry) and the server's BSP line cast. All arithmetic follows the current
-// rounding mode of Fpu (ldouble is double in the portable build, docs/portable-float.md 1); a float store is Fpu.Store.
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using OpenTribes.Core;
@@ -8,11 +5,16 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.World;
 
-// src/world/interior.hpp struct Vec3.
+/// <summary>A three-float vector.</summary>
 public struct Vec3
 {
+    /// <summary>The components.</summary>
     public float X, Y, Z;
 
+    /// <summary>Creates a vector.</summary>
+    /// <param name="x">The x component.</param>
+    /// <param name="y">The y component.</param>
+    /// <param name="z">The z component.</param>
     public Vec3(float x, float y, float z)
     {
         X = x;
@@ -20,7 +22,8 @@ public struct Vec3
         Z = z;
     }
 
-    // (&v.x)[i] of the C++.
+    /// <summary>Gets or sets a component by index, 0 for x, 1 for y, anything else for z.</summary>
+    /// <param name="i">The component index.</param>
     public float this[int i]
     {
         readonly get => i == 0 ? X : i == 1 ? Y : Z;
@@ -36,19 +39,23 @@ public struct Vec3
     }
 }
 
-// src/world/interior.hpp struct Plane: n.p + d = 0, front is n.p + d > 0.
+/// <summary>A plane: n.p + d = 0, with the front side at n.p + d &gt; 0.</summary>
 public struct Plane
 {
+    /// <summary>The normal components and the distance.</summary>
     public float Nx, Ny, Nz, D;
 }
 
-// src/world/interior.hpp struct BspNode: front, back >= 0 node, < 0 leaf -(c + 1).
+/// <summary>A BSP node. A child index of 0 or more is a node, below 0 it is the leaf -(c + 1).</summary>
 public struct BspNode
 {
+    /// <summary>The index of the node's plane.</summary>
     public ushort PlaneIndex;
+    /// <summary>The front and back child indices.</summary>
     public short Front, Back;
 }
 
+/// <summary>Four unsigned 16-bit values stored inline.</summary>
 [InlineArray(4)]
 public struct UShort4
 {
@@ -128,22 +135,28 @@ internal sealed class Reader
     }
 }
 
-// src/world/interior.hpp class InteriorGeometry.
+/// <summary>The collision geometry of an interior: the state-0 LOD-0 .dig (ITRGeometry) with its BSP, and the server's BSP line cast.</summary>
+/// <remarks>Port of src/world/interior.cpp (docs/interiors.md). All arithmetic follows the current rounding mode of <c>Fpu</c> (ldouble is double in the portable build, docs/portable-float.md 1) and a float store is <c>Fpu.Store</c>.</remarks>
 public sealed class InteriorGeometry
 {
     private const float kPlaneEps = 1e-5f; // DAT_0063f9a0
 
-    // src/world/interior.hpp InteriorGeometry::Hit.
+    /// <summary>The result of a line cast.</summary>
     public struct Hit
     {
-        public Vec3 Point, Normal; // geometry space
+        /// <summary>The hit point and the surface normal, in geometry space.</summary>
+        public Vec3 Point, Normal;
+        /// <summary>The leaf that was entered and the index of the plane that was crossed.</summary>
         public int Leaf, PlaneIndex;
     }
 
-    public Float6 Box;                     // min xyz, max xyz
-    public string MaterialListName = "";   // .dml of the .dis (docs/collision.md 4.3), empty when unknown
-    // Link data of the .dis (docs/interiors.md 3): the linkedInterior byte and the linkableFaces mask of state 0, LOD 0.
+    /// <summary>The geometry box, min xyz then max xyz.</summary>
+    public Float6 Box;
+    /// <summary>The .dml of the .dis (docs/collision.md 4.3), empty when unknown.</summary>
+    public string MaterialListName = "";
+    /// <summary>The linkedInterior byte of the .dis (docs/interiors.md 3), state 0, LOD 0.</summary>
     public bool LinkedInterior;
+    /// <summary>The linkableFaces mask of the .dis (docs/interiors.md 3), state 0, LOD 0.</summary>
     public uint LinkableFaces = 0xfc;
 
     private struct Surface
@@ -180,14 +193,27 @@ public sealed class InteriorGeometry
     private byte[] mBits = Array.Empty<byte>();
     private uint mSolidCount;
 
+    /// <summary>Tests whether a leaf number is a solid leaf.</summary>
+    /// <param name="leaf">The leaf number.</param>
+    /// <returns>True for a solid leaf.</returns>
     public bool IsSolid(int leaf) => IsSolidLeaf(leaf);
+    /// <summary>Gets the number of solid leaves.</summary>
+    /// <returns>The count.</returns>
     public uint SolidCount() => mSolidCount;
+    /// <summary>Gets the number of empty leaves.</summary>
+    /// <returns>The count.</returns>
     public int EmptyCount() => mEmptyLeaves.Count;
+    /// <summary>Gets the BSP nodes.</summary>
+    /// <returns>The nodes.</returns>
     public IReadOnlyList<BspNode> Nodes() => mNodes;
+    /// <summary>Gets the BSP planes.</summary>
+    /// <returns>The planes.</returns>
     public IReadOnlyList<Plane> Planes() => mPlanes;
     private bool IsSolidLeaf(int leaf) => leaf >= 43 && leaf < 43 + (int)mSolidCount;
 
-    // src/world/interior.hpp InteriorGeometry::surfaceMaterial: material byte of a surface (0xff: none).
+    /// <summary>Gets the material byte of a surface.</summary>
+    /// <param name="surface">The surface index.</param>
+    /// <returns>The material byte, 0xff for none.</returns>
     public byte SurfaceMaterial(int surface) =>
         surface >= 0 && surface < mSurfaces.Count ? mSurfaces[surface].Material : (byte)0xff;
 
@@ -212,7 +238,9 @@ public sealed class InteriorGeometry
                         Store(Add(Div(Mul(dz, num), den), a.Z)));
     }
 
-    // src/world/interior.cpp InteriorGeometry::parse: a PERS ITRGeometry block, null on malformed data.
+    /// <summary>Parses a PERS ITRGeometry block.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <returns>The geometry, or null on malformed data.</returns>
     public static InteriorGeometry? Parse(byte[] data)
     {
         var r = new Reader(data);
@@ -363,8 +391,9 @@ public sealed class InteriorGeometry
         return g;
     }
 
-    // src/world/interior.cpp InteriorGeometry::outcode: ITRGeometry_boxOutcode (00554408): x 1/2, y 4/8, z 0x10/0x20
-    // below/above the box.
+    /// <summary>Computes the box outcode of a point (ITRGeometry_boxOutcode, 00554408).</summary>
+    /// <param name="p">The point in geometry space.</param>
+    /// <returns>The outcode bits: x 1 and 2, y 4 and 8, z 0x10 and 0x20 for below and above the box.</returns>
     public uint Outcode(Vec3 p)
     {
         uint c = 0;
@@ -378,8 +407,10 @@ public sealed class InteriorGeometry
         return c;
     }
 
-    // src/world/interior.cpp InteriorGeometry::leafAt: outside the box the outcode is the leaf (reserved empty leaves
-    // 0..42); inside, the BSP leaf of the point (0048366c: side 1 goes front, 0 and -1 go back).
+    /// <summary>Finds the leaf number of a point.</summary>
+    /// <param name="p">The point in geometry space.</param>
+    /// <returns>Outside the box the outcode, which is one of the reserved empty leaves 0 to 42. Inside, the BSP leaf of the point.</returns>
+    /// <remarks>Follows 0048366c: side 1 goes front, 0 and -1 go back.</remarks>
     public int LeafAt(Vec3 p)
     {
         uint c = Outcode(p);
@@ -403,8 +434,10 @@ public sealed class InteriorGeometry
         return i < mEmptyLeaves.Count ? (int)i : -1;
     }
 
-    // src/world/interior.cpp InteriorGeometry::visibleLeaves: PVS of an empty leaf: bit vector over leaf numbers, most
-    // significant bit first; a zero byte is followed by a count of zero bytes it stands for (0056234c).
+    /// <summary>Lists the leaves visible from an empty leaf (0056234c).</summary>
+    /// <param name="leaf">The empty leaf number.</param>
+    /// <returns>The visible leaf numbers.</returns>
+    /// <remarks>The PVS is a bit vector over leaf numbers, most significant bit first. A zero byte is followed by a count of the zero bytes it stands for.</remarks>
     public List<int> VisibleLeaves(int leaf)
     {
         var output = new List<int>();
@@ -455,12 +488,14 @@ public sealed class InteriorGeometry
         }
     }
 
+    /// <summary>Gets the total number of surfaces.</summary>
     public int SurfaceCountTotal => mSurfaces.Count;
 
-    // The surfaces the stock renderer draws for a camera at `cam` (interior space) [code 0055db5c, 0055e1a4, 0055e2d8,
-    // 0055e4b0, 0055e578]: the surface and plane lists of the camera leaf, plus those of every leaf of its PVS from 6 up whose
-    // bounding sphere (centre of the leaf box, diameter of its diagonal as the radius) passes `sphereVisible`; planes the camera is
-    // not in front of are dropped, then the surfaces whose plane flag disagrees. A solid camera leaf only has its own lists.
+    /// <summary>Selects the surfaces the stock renderer draws for a camera (code 0055db5c, 0055e1a4, 0055e2d8, 0055e4b0, 0055e578).</summary>
+    /// <param name="cam">The camera point in interior space.</param>
+    /// <param name="sphereVisible">Tests a bounding sphere given as four floats, the centre and the radius, against the view.</param>
+    /// <returns>A flag per surface.</returns>
+    /// <remarks>Takes the surface and plane lists of the camera leaf, plus those of every leaf of its PVS from 6 up whose bounding sphere passes <paramref name="sphereVisible"/>. The sphere centre is the centre of the leaf box and its radius is the diagonal. Planes the camera is not in front of are dropped, then the surfaces whose plane flag disagrees. A solid camera leaf only has its own lists.</remarks>
     public bool[] SelectSurfaces(Vec3 cam, Func<float, float, float, float, bool> sphereVisible)
     {
         int leaf = LeafAt(cam);
@@ -514,10 +549,14 @@ public sealed class InteriorGeometry
         OrList(planeSet, l.PlaneOffset, l.PlaneCount);
     }
 
-    // src/world/interior.cpp InteriorGeometry::seesOutside.
+    /// <summary>Tests whether an empty leaf sees outside.</summary>
+    /// <param name="leaf">The leaf number.</param>
+    /// <returns>True when <see cref="OutsideFaces"/> is not zero.</returns>
     public bool SeesOutside(int leaf) => OutsideFaces(leaf) != 0;
 
-    // src/world/interior.cpp InteriorGeometry::outsideFaces: 0055449c, the first PVS byte & 0xfc.
+    /// <summary>Gets the outside face bits of an empty leaf (0055449c).</summary>
+    /// <param name="leaf">The leaf number.</param>
+    /// <returns>The first PVS byte masked with 0xfc, 0 when none.</returns>
     public byte OutsideFaces(int leaf)
     {
         int li = EmptyLeafIndex(leaf);
@@ -600,7 +639,11 @@ public sealed class InteriorGeometry
         }
     }
 
-    // src/world/interior.cpp InteriorGeometry::castLine: first solid leaf entered along a -> b (0x00560420).
+    /// <summary>Finds the first solid leaf entered along a segment (00560420).</summary>
+    /// <param name="a">The segment start in geometry space.</param>
+    /// <param name="b">The segment end in geometry space.</param>
+    /// <param name="hit">Receives the hit.</param>
+    /// <returns>True on a hit.</returns>
     public bool CastLine(Vec3 a, Vec3 b, ref Hit hit)
     {
         if (!Rec(0, -1, a, b, out Hit h))
@@ -690,8 +733,11 @@ public sealed class InteriorGeometry
         return false;
     }
 
-    // src/world/interior.cpp InteriorGeometry::surfaceAt: ITRCollision_surfaceInfo (0x00561ba8, docs/collision.md 5.2
-    // part 4.1): the first surface of the solid leaf on `plane` whose polygon holds the point, or -1.
+    /// <summary>Finds the first surface of a solid leaf on a plane whose polygon holds a point (ITRCollision_surfaceInfo, 00561ba8, docs/collision.md 5.2 part 4.1).</summary>
+    /// <param name="leaf">The solid leaf number.</param>
+    /// <param name="plane">The plane index.</param>
+    /// <param name="point">The point.</param>
+    /// <returns>The surface index, or -1.</returns>
     public int SurfaceAt(int leaf, int plane, Vec3 point)
     {
         if (!IsSolidLeaf(leaf) || leaf - 43 >= mSolidLeaves.Count || plane < 0 || plane >= mPlanes.Count)
@@ -744,8 +790,10 @@ public sealed class InteriorGeometry
         return -1;
     }
 
-    // src/world/interior.cpp InteriorGeometry::findSurface: first surface of the solid leaf whose plane index equals
-    // `plane` (0x005611e0), or -1.
+    /// <summary>Finds the first surface of a solid leaf whose plane index equals a plane (005611e0).</summary>
+    /// <param name="leaf">The solid leaf number.</param>
+    /// <param name="plane">The plane index.</param>
+    /// <returns>The surface index, or -1.</returns>
     public int FindSurface(int leaf, int plane)
     {
         if (!IsSolidLeaf(leaf) || leaf - 43 >= mSolidLeaves.Count)
@@ -780,24 +828,38 @@ public sealed class InteriorGeometry
     }
 }
 
-// src/world/interior.hpp struct InteriorShapeFile: .dis file (docs/interiors.md 3).
+/// <summary>A .dis interior shape file (docs/interiors.md 3).</summary>
 public sealed class InteriorShapeFile
 {
+    /// <summary>One level of detail of the shape.</summary>
     public sealed class Lod
     {
-        public string Geometry = "";  // .dig name
-        public uint LightStateIndex;  // first lodLightStates entry of this LOD
+        /// <summary>The .dig name.</summary>
+        public string Geometry = "";
+        /// <summary>The index of the first lodLightStates entry of this LOD.</summary>
+        public uint LightStateIndex;
+        /// <summary>The linkable faces mask.</summary>
         public uint LinkableFaces;
-        public uint MinPixels;        // render: the LOD is used below this projected size (world-render.md 3.2)
+        /// <summary>The projected size below which the LOD is used when rendering (world-render.md 3.2).</summary>
+        public uint MinPixels;
     }
-    public string CollisionGeometry = "";      // state 0, LOD 0 .dig name
-    public string MaterialList = "";           // .dml name (after the name buffer)
-    public bool LinkedInterior;                // u8 after the material list name (+0x48)
-    public uint State0Lod;                     // lods index of state 0, LOD 0
-    public readonly List<Lod> Lods = new();    // every LOD of every state
-    public readonly List<string> LodLights = new(); // lodLightStates as .dil names
+    /// <summary>The .dig name of state 0, LOD 0.</summary>
+    public string CollisionGeometry = "";
+    /// <summary>The .dml name, stored after the name buffer.</summary>
+    public string MaterialList = "";
+    /// <summary>The linkedInterior byte after the material list name (+0x48).</summary>
+    public bool LinkedInterior;
+    /// <summary>The index in <see cref="Lods"/> of state 0, LOD 0.</summary>
+    public uint State0Lod;
+    /// <summary>Every LOD of every state.</summary>
+    public readonly List<Lod> Lods = new();
+    /// <summary>The lodLightStates entries as .dil names.</summary>
+    public readonly List<string> LodLights = new();
 
-    // src/world/interior.cpp InteriorShapeFile::parse.
+    /// <summary>Parses a .dis file.</summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="output">Receives the parsed file.</param>
+    /// <returns>True on success.</returns>
     public static bool Parse(byte[] data, InteriorShapeFile output)
     {
         var r = new Reader(data);
@@ -878,31 +940,46 @@ public sealed class InteriorShapeFile
     }
 }
 
-// src/world/interior.hpp class InteriorLights: light state of an ITRInstance (docs/interiors.md 5.4): the lights of
-// the base lighting of state 0, LOD 0 and one run state per light (instance +0x34, 16 bytes each). Only the console
-// commands change it; the ghost light records do not follow it.
+/// <summary>The light state of an ITRInstance (docs/interiors.md 5.4): the lights of the base lighting of state 0, LOD 0 and one run state per light (instance +0x34, 16 bytes each).</summary>
+/// <remarks>Only the console commands change it. The ghost light records do not follow it.</remarks>
 public sealed class InteriorLights
 {
+    /// <summary>One light record of the lighting.</summary>
     public sealed class Light
     {
-        public int Id;            // record +0x00
-        public bool Named;        // name offset is not -1
-        public string Name = "";  // record +0x04 into the name buffer
-        public int NumStates;     // +0x08
-        public int FirstState;    // +0x0c
-        public float Duration;    // +0x10
-        public uint Flags;        // +0x14: bit 2 loops to the last state, bit 4 random
+        /// <summary>The light id (record +0x00).</summary>
+        public int Id;
+        /// <summary>Whether the light has a name, that is the name offset is not -1.</summary>
+        public bool Named;
+        /// <summary>The name from the name buffer (record +0x04).</summary>
+        public string Name = "";
+        /// <summary>The number of states (+0x08).</summary>
+        public int NumStates;
+        /// <summary>The index of the first state record (+0x0c).</summary>
+        public int FirstState;
+        /// <summary>The duration (+0x10).</summary>
+        public float Duration;
+        /// <summary>The flags (+0x14). Bit 2 loops to the last state and bit 4 is random.</summary>
+        public uint Flags;
     }
+    /// <summary>One 16-byte state record of the lighting (+0x30).</summary>
     public struct StateRecord // 16 bytes of the lighting (+0x30)
     {
+        /// <summary>The state color.</summary>
         public UShort4 Color;
-        public float Time; // +8
+        /// <summary>The state end time (+8).</summary>
+        public float Time;
     }
+    /// <summary>The run state of one light.</summary>
     public struct Run
     {
+        /// <summary>The current state.</summary>
         public int State;
+        /// <summary>The time within the current state.</summary>
         public float Time;
+        /// <summary>Extra run data.</summary>
         public int Aux;
+        /// <summary>The current color.</summary>
         public uint Color;
     }
 
@@ -910,11 +987,21 @@ public sealed class InteriorLights
     private StateRecord[] mStates = Array.Empty<StateRecord>();
     private Run[] mRun = Array.Empty<Run>();
 
+    /// <summary>Gets the number of lights.</summary>
+    /// <returns>The count.</returns>
     public int Size() => mLights.Count;
+    /// <summary>Gets a light record.</summary>
+    /// <param name="i">The light index.</param>
+    /// <returns>The light.</returns>
     public Light GetLight(int i) => mLights[i];
+    /// <summary>Gets the run state of a light.</summary>
+    /// <param name="i">The light index.</param>
+    /// <returns>The run state.</returns>
     public Run GetRun(int i) => mRun[i];
 
-    // src/world/interior.cpp InteriorLights::parse.
+    /// <summary>Parses the light records of an ITRLighting block.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <returns>True on success.</returns>
     public bool Parse(byte[] d)
     {
         mLights.Clear();
@@ -964,8 +1051,9 @@ public sealed class InteriorLights
         return true;
     }
 
-    // src/world/interior.cpp InteriorLights::findByName: 0x0055c7ec, the id of the first light with this exact name,
-    // -1 when none.
+    /// <summary>Finds a light by name (0055c7ec).</summary>
+    /// <param name="name">The exact name.</param>
+    /// <returns>The id of the first light with this name, -1 when none.</returns>
     public int FindByName(string name)
     {
         foreach (Light l in mLights)
@@ -974,8 +1062,9 @@ public sealed class InteriorLights
         return -1;
     }
 
-    // src/world/interior.cpp InteriorLights::findIndex: 0x0055d804, halving search for the first light whose id is not
-    // below `id`; -1 past the end.
+    /// <summary>Finds the first light whose id is not below an id by halving search (0055d804).</summary>
+    /// <param name="id">The light id.</param>
+    /// <returns>The light index, -1 past the end.</returns>
     public int FindIndex(int id)
     {
         int first = 0, len = mLights.Count;
@@ -995,14 +1084,18 @@ public sealed class InteriorLights
         return first == mLights.Count ? -1 : first;
     }
 
-    // src/world/interior.cpp InteriorLights::stateOf: 0x00556e4c; -1 for an unknown id.
+    /// <summary>Gets the current state of a light (00556e4c).</summary>
+    /// <param name="id">The light id.</param>
+    /// <returns>The state, -1 for an unknown id.</returns>
     public int StateOf(int id)
     {
         int i = FindIndex(id);
         return i < 0 ? -1 : mRun[i].State;
     }
 
-    // src/world/interior.cpp InteriorLights::setState: 0x00556898.
+    /// <summary>Sets the state of a light (00556898).</summary>
+    /// <param name="id">The light id.</param>
+    /// <param name="state">The new state.</param>
     public void SetState(int id, int state)
     {
         int idx = FindIndex(id);
@@ -1026,7 +1119,9 @@ public sealed class InteriorLights
                     (uint)((rec.Color[1] + 0x80) >> 8) << 8 | (uint)((rec.Color[2] + 0x80) >> 8);
     }
 
-    // src/world/interior.cpp InteriorLights::setTime: 0x00556dd4.
+    /// <summary>Sets the time of a light (00556dd4).</summary>
+    /// <param name="id">The light id.</param>
+    /// <param name="time">The new time.</param>
     public void SetTime(int id, float time)
     {
         int idx = FindIndex(id);
@@ -1071,46 +1166,59 @@ public sealed class InteriorLights
     }
 }
 
-// src/world/interior.hpp struct InteriorNetInfo: what the InteriorShape initial ghost update sends
-// (docs/game-stream-ghosts.md 3.4).
+/// <summary>What the InteriorShape initial ghost update sends (docs/game-stream-ghosts.md 3.4).</summary>
 public sealed class InteriorNetInfo
 {
+    /// <summary>The base light state of one light.</summary>
     public struct Light
     {
-        public float Intensity; // .dil light record +0x10
-        public bool On;         // .dil light record +0x14 bit 0
+        /// <summary>The intensity (.dil light record +0x10).</summary>
+        public float Intensity;
+        /// <summary>Whether the light is on (.dil light record +0x14 bit 0).</summary>
+        public bool On;
     }
-    // buildId of the .dig of every LOD, then the checksum of the base .dil of every LOD in light state 0 (0x00484428).
+    /// <summary>The buildId of the .dig of every LOD, then the checksum of the base .dil of every LOD in light state 0 (00484428).</summary>
     public List<uint> StateWords = new();
-    public List<Light> Lights = new();              // base .dil of state 0, LOD 0 (0x0047f00c)
-    public InteriorLights Lighting = new();         // the same lighting with its run state (instance +0x98, +0x34)
+    /// <summary>The base .dil lights of state 0, LOD 0 (0047f00c).</summary>
+    public List<Light> Lights = new();
+    /// <summary>The same lighting with its run state (instance +0x98, +0x34).</summary>
+    public InteriorLights Lighting = new();
 }
 
-// src/world/interior.hpp struct Mat: row-vector transform, world = local * M + p (docs/interiors.md 5.2).
+/// <summary>A row-vector transform: world = local * M + p (docs/interiors.md 5.2).</summary>
 public struct Mat
 {
+    /// <summary>The 3x3 rotation.</summary>
     public Float9 M;
+    /// <summary>The translation.</summary>
     public Vec3 P;
 
+    /// <summary>Creates the identity transform.</summary>
     public Mat()
     {
         M = Float9.Identity();
         P = default;
     }
 
-    // src/world/interior.cpp Mat::toWorld.
+    /// <summary>Transforms a point to world space.</summary>
+    /// <param name="v">The local point.</param>
+    /// <returns>The world point.</returns>
     public readonly Vec3 ToWorld(Vec3 v) =>
         new(Store(Add(Add(Add(Mul(v.X, M[0]), Mul(v.Y, M[3])), Mul(v.Z, M[6])), P.X)),
             Store(Add(Add(Add(Mul(v.X, M[1]), Mul(v.Y, M[4])), Mul(v.Z, M[7])), P.Y)),
             Store(Add(Add(Add(Mul(v.X, M[2]), Mul(v.Y, M[5])), Mul(v.Z, M[8])), P.Z)));
 
-    // src/world/interior.cpp Mat::toWorldVector.
+    /// <summary>Transforms a vector to world space, without the translation.</summary>
+    /// <param name="v">The local vector.</param>
+    /// <returns>The world vector.</returns>
     public readonly Vec3 ToWorldVector(Vec3 v) =>
         new(Store(Add(Add(Mul(v.X, M[0]), Mul(v.Y, M[3])), Mul(v.Z, M[6]))),
             Store(Add(Add(Mul(v.X, M[1]), Mul(v.Y, M[4])), Mul(v.Z, M[7]))),
             Store(Add(Add(Mul(v.X, M[2]), Mul(v.Y, M[5])), Mul(v.Z, M[8]))));
 
-    // src/world/interior.cpp Mat::toLocal.
+    /// <summary>Transforms a world point to local space.</summary>
+    /// <param name="v">The world point.</param>
+    /// <returns>The local point.</returns>
     public readonly Vec3 ToLocal(Vec3 v)
     {
         double dx = Sub(v.X, P.X), dy = Sub(v.Y, P.Y), dz = Sub(v.Z, P.Z);
@@ -1120,11 +1228,13 @@ public struct Mat
     }
 }
 
-// The free functions of src/world/interior.cpp.
+/// <summary>Loads interior files and lighting through the resource manager.</summary>
 public static class Interior
 {
-    // src/world/interior.cpp resolveInteriorName: resolves an InteriorShape fileName (L3 mission-lit fallback); empty
-    // when absent.
+    /// <summary>Resolves an InteriorShape file name, with the mission-lit fallback (L3).</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="fileName">The InteriorShape file name.</param>
+    /// <returns>The resolved name, empty when absent.</returns>
     public static string ResolveInteriorName(ResourceManager res, string fileName)
     {
         if (res.Find(fileName) != null)
@@ -1141,7 +1251,10 @@ public static class Interior
         return res.Find(bas) != null ? bas : "";
     }
 
-    // src/world/interior.cpp interiorMaterialList: material list (.dml) name of an InteriorShape file; empty when absent.
+    /// <summary>Gets the material list (.dml) name of an InteriorShape file.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="fileName">The InteriorShape file name.</param>
+    /// <returns>The name, empty when absent.</returns>
     public static string InteriorMaterialList(ResourceManager res, string fileName)
     {
         string name = ResolveInteriorName(res, fileName);
@@ -1151,8 +1264,10 @@ public static class Interior
         return shape.MaterialList;
     }
 
-    // src/world/interior.cpp loadInterior: resolves an InteriorShape fileName (L3 mission-lit fallback) and loads its
-    // geometry.
+    /// <summary>Resolves an InteriorShape file name, with the mission-lit fallback (L3), and loads its geometry.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="fileName">The InteriorShape file name.</param>
+    /// <returns>The geometry, or null when absent or malformed.</returns>
     public static InteriorGeometry? LoadInterior(ResourceManager res, string fileName)
     {
         string name = ResolveInteriorName(res, fileName);
@@ -1245,7 +1360,11 @@ public static class Interior
         return true;
     }
 
-    // src/world/interior.cpp loadInteriorNetInfo.
+    /// <summary>Loads what the InteriorShape initial ghost update sends.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="fileName">The InteriorShape file name.</param>
+    /// <param name="output">Receives the net info.</param>
+    /// <returns>True on success.</returns>
     public static bool LoadInteriorNetInfo(ResourceManager res, string fileName, InteriorNetInfo output)
     {
         output.StateWords = new List<uint>();
@@ -1277,10 +1396,11 @@ public static class Interior
         return true;
     }
 
-    // src/world/interior.cpp loadInteriorResources: loads the resources of an InteriorShape's ITRInstance
-    // (0x0047ec6c, 0x00555f48) into locks, which the object holds; they keep their instances until purge after it
-    // (docs/resources.md 8.7): the .dis, its .dml and the bitmap of every texture material, and per LOD the .dig, the
-    // .dil of light state 0 when the fileName is mission-lit and exists, and the base .dil.
+    /// <summary>Loads the resources of an InteriorShape's ITRInstance (0047ec6c, 00555f48).</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="fileName">The InteriorShape file name.</param>
+    /// <param name="locks">Receives the locks. The object holds them and the instances stay until purge after it (docs/resources.md 8.7).</param>
+    /// <remarks>Loads the .dis, its .dml and the bitmap of every texture material, and per LOD the .dig, the .dil of light state 0 when the file name is mission-lit and exists, and the base .dil.</remarks>
     public static void LoadInteriorResources(ResourceManager res, string fileName, ResourceLocks locks)
     {
         string name = ResolveInteriorName(res, fileName);
