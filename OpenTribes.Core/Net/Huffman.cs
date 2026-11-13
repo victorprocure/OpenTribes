@@ -1,12 +1,16 @@
-// Port of src/net/huffman.hpp and src/net/huffman.cpp: string Huffman coder used by BitStream strings.
 namespace OpenTribes.Net;
 
-// src/net/huffman.hpp struct HuffmanCode.
+/// <summary>The Huffman code of one symbol.</summary>
 public readonly struct HuffmanCode
 {
+    /// <summary>The code bits, LSB first. Bit i is the i-th bit written.</summary>
     public readonly ulong Bits;   // LSB first, bit i is the i-th bit written
+    /// <summary>The code length in bits.</summary>
     public readonly byte Length;
 
+    /// <summary>Creates a code.</summary>
+    /// <param name="bits">The code bits, LSB first.</param>
+    /// <param name="length">The code length in bits.</param>
     public HuffmanCode(ulong bits, byte length)
     {
         Bits = bits;
@@ -14,6 +18,8 @@ public readonly struct HuffmanCode
     }
 }
 
+/// <summary>The string Huffman coder used by <see cref="BitStream"/> strings.</summary>
+/// <remarks>Port of src/net/huffman.cpp. The tree is built from the fixed character frequencies once at start-up.</remarks>
 public static class Huffman
 {
     // src/net/huffman.hpp detail::HuffNode.
@@ -121,10 +127,14 @@ public static class Huffman
 
     private static readonly Tables sTables = new();
 
-    // src/net/huffman.cpp huffmanCode.
+    /// <summary>Gets the code of a symbol.</summary>
+    /// <param name="symbol">The byte value.</param>
+    /// <returns>The code.</returns>
     public static global::OpenTribes.Net.HuffmanCode HuffmanCode(byte symbol) => sTables.Codes[symbol];
 
-    // src/net/huffman.hpp huffmanDecode: walks the tree with bits from readBit until a leaf; returns the symbol.
+    /// <summary>Decodes one symbol by walking the tree with bits from <paramref name="readBit"/> until a leaf.</summary>
+    /// <param name="readBit">Supplies the next bit.</param>
+    /// <returns>The symbol.</returns>
     public static byte HuffmanDecode(Func<bool> readBit)
     {
         HuffNode[] nodes = sTables.Nodes;

@@ -1,33 +1,35 @@
-// Port of the rounding-mode parts of the portable truncating build (src/core/ldouble.hpp with OT_PORTABLE_TRUNCATE,
-// the Chop guard and x87::f32 of src/world/collision.cpp, docs/portable-float.md 1): kChopMode is FE_TOWARDZERO, the
-// Chop guards, enterScriptFpuMode and floatToInt set it, and every double operation, strtod, float store and printf
-// digit generation follows the current mode. C# has no rounding mode, so the mode is the flag TowardZero and the
-// toward-zero results are computed in software from the nearest result and its exact error.
 using System.Globalization;
 using System.Numerics;
 
 namespace OpenTribes.Core;
 
+/// <summary>Emulates the original's floating point rounding mode. C# has no rounding mode, so the mode is the flag <see cref="TowardZero"/> and toward-zero results are computed in software from the nearest result and its exact error.</summary>
+/// <remarks>Port of the rounding-mode parts of the portable truncating build (src/core/ldouble.hpp with OT_PORTABLE_TRUNCATE, the Chop guard and x87::f32 of src/world/collision.cpp, docs/portable-float.md 1). The Chop guards, <see cref="EnterChop"/> and the float-to-int conversion set the mode, and every double operation, strtod, float store and printf digit generation follows it.</remarks>
 public static class Fpu
 {
-    // The current rounding mode of the C++ process: true for FE_TOWARDZERO, false for FE_TONEAREST (the start-up mode).
+    /// <summary>The current rounding mode of the C++ process: true for FE_TOWARDZERO, false for FE_TONEAREST (the start-up mode).</summary>
     public static bool TowardZero;
 
-    // fesetround(kChopMode): enterScriptFpuMode, floatToInt.
+    /// <summary>Switches to toward-zero rounding, as <c>fesetround(kChopMode)</c> does in the script start-up and float-to-int paths.</summary>
     public static void EnterChop() => TowardZero = true;
 
-    // x87::Chop: toward zero for a scope, the previous mode restored at its end.
+    /// <summary>Scope that rounds toward zero and restores the previous mode when disposed. Port of <c>x87::Chop</c>.</summary>
     public readonly struct Chop : IDisposable
     {
         private readonly bool mOld;
+        /// <summary>Starts the scope in toward-zero mode.</summary>
+        /// <param name="old">The mode to restore on dispose.</param>
         public Chop(bool old)
         {
             mOld = old;
             TowardZero = true;
         }
+        /// <summary>Restores the mode saved at construction.</summary>
         public void Dispose() => TowardZero = mOld;
     }
 
+    /// <summary>Starts a toward-zero scope that restores the current mode when disposed.</summary>
+    /// <returns>The scope.</returns>
     public static Chop ChopScope() => new(TowardZero);
 
     private static double TowardZeroStep(double r) => r > 0 ? Math.BitDecrement(r) : Math.BitIncrement(r);
@@ -35,7 +37,10 @@ public static class Fpu
     // Finite operands whose nearest result overflowed: toward zero gives the largest finite double.
     private static double Overflow(double r) => r > 0 ? double.MaxValue : -double.MaxValue;
 
-    // a + b rounded toward zero (TwoSum gives the exact error of the nearest sum).
+    /// <summary>Adds two doubles and rounds toward zero. TwoSum gives the exact error of the nearest sum.</summary>
+    /// <param name="a">The first operand.</param>
+    /// <param name="b">The second operand.</param>
+    /// <returns>The sum rounded toward zero.</returns>
     public static double AddChop(double a, double b)
     {
         double r = a + b;
@@ -48,10 +53,16 @@ public static class Fpu
         return r;
     }
 
-    // a - b rounded toward zero.
+    /// <summary>Subtracts two doubles and rounds toward zero.</summary>
+    /// <param name="a">The minuend.</param>
+    /// <param name="b">The subtrahend.</param>
+    /// <returns>The difference rounded toward zero.</returns>
     public static double SubChop(double a, double b) => AddChop(a, -b);
 
-    // a * b rounded toward zero (fma gives the exact error).
+    /// <summary>Multiplies two doubles and rounds toward zero. A fused multiply-add gives the exact error.</summary>
+    /// <param name="a">The first factor.</param>
+    /// <param name="b">The second factor.</param>
+    /// <returns>The product rounded toward zero.</returns>
     public static double MulChop(double a, double b)
     {
         double r = a * b;
@@ -63,7 +74,10 @@ public static class Fpu
         return r;
     }
 
-    // a / b rounded toward zero: the remainder a - r b has the sign of (exact - r) times the sign of b.
+    /// <summary>Divides two doubles and rounds toward zero. The remainder <c>a - r*b</c> has the sign of (exact - r) times the sign of <paramref name="b"/>.</summary>
+    /// <param name="a">The dividend.</param>
+    /// <param name="b">The divisor.</param>
+    /// <returns>The quotient rounded toward zero.</returns>
     public static double DivChop(double a, double b)
     {
         double r = a / b;
@@ -78,7 +92,9 @@ public static class Fpu
         return r;
     }
 
-    // sqrt(a) rounded toward zero: a - r^2 < 0 means r is above the exact root.
+    /// <summary>Takes the square root and rounds toward zero. A negative <c>a - r^2</c> means the nearest root is above the exact one.</summary>
+    /// <param name="a">The operand.</param>
+    /// <returns>The root rounded toward zero.</returns>
     public static double SqrtChop(double a)
     {
         double r = Math.Sqrt(a);
@@ -89,11 +105,10 @@ public static class Fpu
         return r;
     }
 
-    // strtod of a decimal text ([sign]digits[.digits][(e|E)[sign]digits]) rounded toward zero: the nearest double,
-    // stepped toward zero when it is larger in magnitude than the exact decimal value (exact integer comparison).
-    // A text beyond the double range stays +-infinity: the original parses into the 80-bit unit, which holds 1e400, and
-    // the store overflows (the C++ truncating build clamps to DBL_MAX there, docs/portable-float.md 5 item 1; the port
-    // follows the original).
+    /// <summary>Parses decimal text (<c>[sign]digits[.digits][(e|E)[sign]digits]</c>) and rounds toward zero. The nearest double is stepped toward zero when its magnitude exceeds the exact decimal value (exact integer comparison).</summary>
+    /// <param name="text">The decimal text.</param>
+    /// <returns>The parsed value. Text beyond the double range stays infinite.</returns>
+    /// <remarks>The original parses into the 80-bit unit, which holds 1e400, and the store overflows. The C++ truncating build clamps to DBL_MAX there (docs/portable-float.md 5 item 1). The port follows the original.</remarks>
     public static double ParseChop(string text)
     {
         double r = ParseNearest(text);
@@ -148,30 +163,70 @@ public static class Fpu
         double.Parse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent,
                      CultureInfo.InvariantCulture);
 
-    // strtod in the current mode.
+    /// <summary>Parses decimal text in the current rounding mode.</summary>
+    /// <param name="text">The decimal text.</param>
+    /// <returns>The parsed value.</returns>
     public static double Parse(string text) => TowardZero ? ParseChop(text) : ParseNearest(text);
 
-    // The basic double operations in the current mode.
+    /// <summary>Adds two doubles in the current rounding mode.</summary>
+    /// <param name="a">The first operand.</param>
+    /// <param name="b">The second operand.</param>
+    /// <returns>The sum.</returns>
     public static double Add(double a, double b) => TowardZero ? AddChop(a, b) : a + b;
+    /// <summary>Subtracts two doubles in the current rounding mode.</summary>
+    /// <param name="a">The minuend.</param>
+    /// <param name="b">The subtrahend.</param>
+    /// <returns>The difference.</returns>
     public static double Sub(double a, double b) => TowardZero ? SubChop(a, b) : a - b;
+    /// <summary>Multiplies two doubles in the current rounding mode.</summary>
+    /// <param name="a">The first factor.</param>
+    /// <param name="b">The second factor.</param>
+    /// <returns>The product.</returns>
     public static double Mul(double a, double b) => TowardZero ? MulChop(a, b) : a * b;
+    /// <summary>Divides two doubles in the current rounding mode.</summary>
+    /// <param name="a">The dividend.</param>
+    /// <param name="b">The divisor.</param>
+    /// <returns>The quotient.</returns>
     public static double Div(double a, double b) => TowardZero ? DivChop(a, b) : a / b;
+    /// <summary>Takes a square root in the current rounding mode.</summary>
+    /// <param name="a">The operand.</param>
+    /// <returns>The root.</returns>
     public static double Sqrt(double a) => TowardZero ? SqrtChop(a) : Math.Sqrt(a);
 
-    // float(x) in the current mode: the plain store of the C++ (math_commands.cpp f32, script float conversions).
+    /// <summary>Converts a double to float in the current rounding mode, like the plain float store in the C++ (math_commands.cpp f32, script float conversions).</summary>
+    /// <param name="d">The value to store.</param>
+    /// <returns>The float value.</returns>
     public static float Store(double d) => TowardZero ? F32Chop(d) : (float)d;
 
-    // Single-precision float + - * / of the C++ (SSE single operations, which follow the same mode): the double result
-    // rounded toward zero, then stored toward zero, is the toward-zero float result (both roundings truncate).
+    /// <summary>Adds two floats like the C++ SSE single operation, which follows the same rounding mode.</summary>
+    /// <param name="a">The first operand.</param>
+    /// <param name="b">The second operand.</param>
+    /// <returns>The sum.</returns>
+    /// <remarks>All four single-precision operations compute the double result rounded toward zero and then store it toward zero. Both roundings truncate, so the result is the toward-zero float result.</remarks>
     public static float AddF(float a, float b) => TowardZero ? F32Chop(AddChop(a, b)) : a + b;
+    /// <summary>Subtracts two floats like the C++ SSE single operation. See <see cref="AddF"/>.</summary>
+    /// <param name="a">The minuend.</param>
+    /// <param name="b">The subtrahend.</param>
+    /// <returns>The difference.</returns>
     public static float SubF(float a, float b) => TowardZero ? F32Chop(SubChop(a, b)) : a - b;
+    /// <summary>Multiplies two floats like the C++ SSE single operation. See <see cref="AddF"/>.</summary>
+    /// <param name="a">The first factor.</param>
+    /// <param name="b">The second factor.</param>
+    /// <returns>The product.</returns>
     public static float MulF(float a, float b) => TowardZero ? F32Chop(MulChop(a, b)) : a * b;
+    /// <summary>Divides two floats like the C++ SSE single operation. See <see cref="AddF"/>.</summary>
+    /// <param name="a">The dividend.</param>
+    /// <param name="b">The divisor.</param>
+    /// <returns>The quotient.</returns>
     public static float DivF(float a, float b) => TowardZero ? F32Chop(DivChop(a, b)) : a / b;
-    // sqrtf (SSE sqrtss under the mode).
+    /// <summary>Takes a single-precision square root like <c>sqrtf</c> (SSE <c>sqrtss</c> under the current mode).</summary>
+    /// <param name="a">The operand.</param>
+    /// <returns>The root.</returns>
     public static float SqrtF(float a) => TowardZero ? F32Chop(SqrtChop(a)) : MathF.Sqrt(a);
 
-    // The float nearest to d, stepped one ulp toward zero when its magnitude exceeds d's: float(x) under FE_TOWARDZERO.
-    // A finite d beyond the float range gives +-float.MaxValue; NaN, infinities, zeros and exact values are unchanged.
+    /// <summary>Converts a double to the float nearest to it, stepped one ulp toward zero when its magnitude exceeds that of <paramref name="d"/>. This is <c>float(x)</c> under FE_TOWARDZERO.</summary>
+    /// <param name="d">The value to convert.</param>
+    /// <returns>The float. A finite value beyond the float range gives plus or minus <see cref="float.MaxValue"/>. NaN, infinities, zeros and exact values are unchanged.</returns>
     public static float F32Chop(double d)
     {
         float f = (float)d;
@@ -184,9 +239,11 @@ public static class Fpu
         return f;
     }
 
-    // Stable text round trip (ROADMAP M9 C8 fix, client-scripts.md E7): true when `text` is `[-]digits.digits` or `[-]digits`
-    // with `decimals` digits after the point (a printed `%f`), or, with decimals < 0, at most six significant digits in
-    // plain form (a printed `%g` without exponent). Such text is what the engine itself printed.
+    /// <summary>Tells whether <paramref name="text"/> is a number the engine itself printed, so a parse and print round trip is stable.</summary>
+    /// <param name="text">The text, <c>[-]digits.digits</c> or <c>[-]digits</c>.</param>
+    /// <param name="decimals">The digits after the point of a printed <c>%f</c>. A negative value means a printed <c>%g</c> without exponent, which has at most six significant digits.</param>
+    /// <returns>True when the text has that shape.</returns>
+    /// <remarks>Used by the script number conversions (ROADMAP M9 C8, client-scripts.md E7).</remarks>
     public static bool IsPrintedDecimal(string text, int decimals)
     {
         int i = text.Length > 0 && text[0] == '-' ? 1 : 0;
@@ -214,9 +271,11 @@ public static class Fpu
         return sig == 6 || sig == 0;
     }
 
-    // `chopped` is the toward-zero parse of the plain decimal `text`. A printed digit string truncates, so the value it parses to
-    // must not lie below the decimal or the next print loses a unit of the last digit. Steps up to two floats (or doubles) away
-    // from zero until the magnitude is at least the decimal's; an exact value stays.
+    /// <summary>Steps a toward-zero parse away from zero until its magnitude is at least the decimal's. A printed digit string truncates, so a value that parses below the decimal would lose a unit of the last digit on the next print.</summary>
+    /// <param name="chopped">The toward-zero parse of <paramref name="text"/>.</param>
+    /// <param name="text">The plain decimal text.</param>
+    /// <param name="single">True to step in floats, false to step in doubles.</param>
+    /// <returns>The adjusted value. Steps at most three times. An exact value stays.</returns>
     public static double AtLeastDecimal(double chopped, string text, bool single)
     {
         if (double.IsNaN(chopped) || double.IsInfinity(chopped) || chopped == 0)
