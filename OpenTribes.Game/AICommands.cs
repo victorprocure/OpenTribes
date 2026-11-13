@@ -4,6 +4,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The <c>AI::*</c> and <c>BaseRep::*</c> console commands.</summary>
+/// <remarks>Plugin 0x0043f684 and 0x0043f8fc (docs/ai-sim.md 6). A C++ handler sets its result through a reference and returns true. Here it returns the result.</remarks>
 public static class AICommands
 {
     private static readonly string[] kSpawnUsage =

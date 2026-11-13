@@ -228,7 +228,7 @@ public static class GameUtil
     public static string Itoa(int v) => Numbers.FormatInt(v);
 }
 
-// src/game/mission_objects.hpp class GameBase: the GameBase family.
+/// <summary>The base class of the mission objects: the GameBase family.</summary>
 public partial class GameBase : SimObject
 {
     // src/game/mission_objects.hpp GameBase::Kind.

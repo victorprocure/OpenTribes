@@ -184,6 +184,6 @@ public static partial class PlayerGhost
         return pending;
     }
 
-    // src/game/player_ghost.cpp registerPlayerGhostClass.
+    /// <summary>Registers the Player ghost class (tag 0x218).</summary>
     public static void Register() => GhostManager.RegisterGhostClass("Player", new GhostClass { Tag = 0x218, Pack = PackPlayer });
 }

@@ -5,9 +5,13 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The script commands of the non-player objects: GameBase state, power, damage, energy, threads, Moveable, targets, Item and fade.</summary>
+/// <remarks>Argument-count texts and failure returns are those of the registered handlers (docs/static-sim.md 8). The projectile commands are in <see cref="ProjectileFire"/>.</remarks>
 public static class StaticCommands
 {
-    // src/game/static_commands.cpp registerStaticCommands.
+    /// <summary>Registers the non-player object commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         // "GB": 0x00422d18, findObject cast to GameBase, else a client id naming its owned object.

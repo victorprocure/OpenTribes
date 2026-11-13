@@ -8,6 +8,8 @@ using Value = OpenTribes.Game.DataBlockManager.Value;
 
 namespace OpenTribes.Game;
 
+/// <summary>The datablock pack routines, the body of a DataBlockEvent (docs/game-stream.md 4.2).</summary>
+/// <remarks>The original packs under round toward zero, which its crt_ftol (0x0048813c) leaves set. The guard here is <c>Fpu.ChopScope</c>.</remarks>
 public static class DatablockPack
 {
     // src/game/datablock_pack.cpp ftol: crt_ftol: fistp to 32 bits; out of range and NaN give the integer indefinite.
@@ -576,7 +578,11 @@ public static class DatablockPack
         w.PutString(r.S("bitmapName", "lightningTemp.bmp"));
     }
 
-    // src/game/datablock_pack.cpp packDataBlock: writes the block's pack layout. False for groups that cannot be sent.
+    /// <summary>Writes the pack layout of a datablock.</summary>
+    /// <param name="db">The datablock manager.</param>
+    /// <param name="block">The block to pack.</param>
+    /// <param name="w">The event writer.</param>
+    /// <returns>False for groups that cannot be sent.</returns>
     public static bool PackDataBlock(DataBlockManager db, Block block, EventWriter w)
     {
         _ = db;

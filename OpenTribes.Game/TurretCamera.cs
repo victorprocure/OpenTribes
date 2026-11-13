@@ -5,17 +5,24 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// Turret_getCameraTransform 004564fc (Turret slot 0x170).
+/// <summary>The third person camera of a turret.</summary>
+/// <remarks>Follows Turret_getCameraTransform (004564fc, Turret slot 0x170).</remarks>
 public static class TurretCamera
 {
-    // double 0x004565d8: the factor of the view distance (the camera argument is the PSC +0x9c timer).
+    /// <summary>The factor of the view distance (double at 0x004565d8). The camera argument is the PSC +0x9c timer.</summary>
     public const double DistanceFactor = 1.3;
 
     // `obj` is the object transform (+0x94), `eyeNode` the translation of the `dummy eye` node of the animated shape (the +0x30 table, 0x34
-    // bytes per node, position at +0x28), null when the shape has no such node (index +0x88c = -1: the camera is the object transform and
-    // the distance is ignored). With a node: the rotation is Euler (elevation, 0, rotation) at the node position (flag 2), multiplied
-    // by the object transform (m_mul_TMat3F 005ed2b2), then GameBase_placeBehind 00449604 by arg * 1.3. No pitch or roll scaling,
-    // unlike the Vehicle camera.
+    /// <summary>Computes the camera transform of a turret.</summary>
+    /// <param name="obj">The object transform (+0x94).</param>
+    /// <param name="eyeNode">The translation of the <c>dummy eye</c> node of the animated shape, or null when the shape has none. Without it the camera is the object transform and the distance is ignored.</param>
+    /// <param name="rotation">The turret rotation.</param>
+    /// <param name="elevation">The turret elevation.</param>
+    /// <param name="arg">The camera argument (view distance timer).</param>
+    /// <param name="container">The container used to keep the camera out of geometry.</param>
+    /// <param name="exclude">The object ignored by that test.</param>
+    /// <returns>The camera transform.</returns>
+    /// <remarks>With a node: Euler (elevation, 0, rotation) at the node position (flag 2), multiplied by the object transform (m_mul_TMat3F 005ed2b2), then GameBase_placeBehind (00449604) by <c>arg * 1.3</c>. Unlike the vehicle camera there is no pitch or roll scaling.</remarks>
     public static Transform Compute(in Transform obj, in Transform? eyeNode, float rotation, float elevation, float arg, Container? container, object? exclude)
     {
         if (eyeNode is not { } node)

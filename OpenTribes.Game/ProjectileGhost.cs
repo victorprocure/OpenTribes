@@ -47,7 +47,7 @@ public static partial class ProjectileGhost
         return remaining;
     }
 
-    // src/game/projectile_ghost.cpp registerProjectileGhostClasses.
+    /// <summary>Registers the ghost classes of the projectiles (Bullet, Grenade, RocketDumb, LaserProjectile, TargetLaser, SeekingMissile, Lightning, RepairEffect).</summary>
     public static void Register()
     {
         (string cls, uint tag)[] kClasses =
