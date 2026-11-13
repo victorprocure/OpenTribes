@@ -7,7 +7,7 @@ using OpenTribes.Server;
 
 public class LastHopeTests
 {
-    private static readonly string sTmp = TestPaths.TmpDir("lasthope");
+    private static readonly string Tmp = TestPaths.TmpDir("lasthope");
 
     [Fact]
     public void LastHope()
@@ -15,7 +15,7 @@ public class LastHopeTests
         var interp = new Interpreter();
         var output = "";
         interp.SetOutput(line => output += (output.Length == 0 ? "" : "\n") + line);
-        Builtins.RegisterBuiltins(interp, null, sTmp);
+        Builtins.RegisterBuiltins(interp, null, Tmp);
         string Run(string line)
         {
             output = "";
@@ -60,7 +60,7 @@ public class LastHopeTests
         }
 
         // L15: the log session header has no zero padding and ends "\n\r".
-        var path = Path.Combine(sTmp, "lasthope-console.log");
+        var path = Path.Combine(Tmp, "lasthope-console.log");
         File.Delete(path);
         {
             var when = new DateTime(2026, 10, 9, 7, 5, 3);

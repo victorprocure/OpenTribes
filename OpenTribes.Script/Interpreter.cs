@@ -54,42 +54,42 @@ public sealed class Interpreter
     /// <remarks>The console variables and the script functions are shared, like the one console of the stock exe. The commands and the object interface follow the focus (the stock focus pointer DAT_006a8494, set per world by FearWorld_advance 004eba40 and FearWorld_clientAdvance 004eb7ac and by focusServer and focusClient, cases 0x7a and 0x79 of FearGame_consoleCallback).</remarks>
     public sealed class World
     {
-        internal readonly Dictionary<string, Function> Commands = new(StringComparer.Ordinal);
+        internal Dictionary<string, Function> Commands { get; } = new(StringComparer.Ordinal);
         /// <summary>The object interface of this world.</summary>
-        public IObjectInterface? Objects;
+        public IObjectInterface? Objects { get; set; }
     }
 
     internal sealed class Function
     {
-        public Node? Decl;
-        public Command? Builtin;
+        public Node? Decl { get; set; }
+        public Command? Builtin { get; set; }
     }
     private sealed class Frame
     {
-        public readonly Dictionary<string, string> Locals = new(StringComparer.Ordinal);
-        public string Result = "";
+        public Dictionary<string, string> Locals { get; } = new(StringComparer.Ordinal);
+        public string Result { get; set; } = "";
     }
 
-    private readonly StringTable mStrings;
-    private readonly Dictionary<string, string> mGlobals = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, Function> mFunctions = new(StringComparer.Ordinal);
-    private World? mFocus;               // the world whose commands answer first (null: only the shared set)
-    private World? mRegisterTarget;      // AddCommand fills this world while a registration runs
-    private IObjectInterface? mSharedObjects;
-    private readonly List<World> mWorlds = [];
-    private readonly List<Frame> mFrames = []; // [0] is the global frame
-    private readonly Dictionary<int, string> mTagText = [];
-    private readonly Dictionary<int, string> mTagRaw = [];
-    private readonly Dictionary<string, int> mTagIds = new(StringComparer.Ordinal);
-    private Action<string>? mOutput;
-    private IObjectInterface? mObjects;
-    private ResourceManager? mResources;
-    private int mPrintLevel = 1;
-    private bool mLastHope;
-    private readonly List<string> mReplacedCommands = [];
-    private string mLastValue = "";
-    private readonly Dictionary<string, Action<string>> mBindings = new(StringComparer.Ordinal);
-    private readonly SortedDictionary<string, int> mUnknown = new(StringComparer.Ordinal);
+    private readonly StringTable _strings;
+    private readonly Dictionary<string, string> _globals = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Function> _functions = new(StringComparer.Ordinal);
+    private World? _focus;               // the world whose commands answer first (null: only the shared set)
+    private World? _registerTarget;      // AddCommand fills this world while a registration runs
+    private IObjectInterface? _sharedObjects;
+    private readonly List<World> _worlds = [];
+    private readonly List<Frame> _frames = []; // [0] is the global frame
+    private readonly Dictionary<int, string> _tagText = [];
+    private readonly Dictionary<int, string> _tagRaw = [];
+    private readonly Dictionary<string, int> _tagIds = new(StringComparer.Ordinal);
+    private Action<string>? _output;
+    private IObjectInterface? _objects;
+    private ResourceManager? _resources;
+    private int _printLevel = 1;
+    private bool _lastHope;
+    private readonly List<string> _replacedCommands = [];
+    private string _lastValue = "";
+    private readonly Dictionary<string, Action<string>> _bindings = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<string, int> _unknown = new(StringComparer.Ordinal);
 
     // x87 tests against zero: NaN compares unordered, which the original treats as equal to 0.
     private static bool Truthy(double v) => v != 0 && !double.IsNaN(v);
@@ -116,13 +116,13 @@ public sealed class Interpreter
     /// <param name="strings">The string table, or null for a new one.</param>
     public Interpreter(StringTable? strings = null)
     {
-        mStrings = strings ?? StringTable.Global();
+        _strings = strings ?? StringTable.Global();
         Numbers.EnterScriptFpuMode();
-        mFrames.Add(new Frame());
+        _frames.Add(new Frame());
         // Engine-bound console variables exist from the start (0x005f3a7c) [live].
-        mGlobals[mStrings.Intern("$Console::printLevel")] = "1";
-        mGlobals[mStrings.Intern("$Console::logBufferEnabled")] = "False";
-        mGlobals[mStrings.Intern("$Console::updateMetrics")] = "False";
+        _globals[_strings.Intern("$Console::printLevel")] = "1";
+        _globals[_strings.Intern("$Console::logBufferEnabled")] = "False";
+        _globals[_strings.Intern("$Console::updateMetrics")] = "False";
 
         // Console core commands (0x005f3a7c).
         AddCommand("echo", (interp, argv) =>
@@ -174,36 +174,36 @@ public sealed class Interpreter
     /// <param name="cmd">The command.</param>
     public void AddCommand(string name, Command cmd)
     {
-        var key = mStrings.Intern(name);
-        if (mRegisterTarget != null)
+        var key = _strings.Intern(name);
+        if (_registerTarget != null)
         {
-            mRegisterTarget.Commands[key] = new Function { Builtin = cmd };
+            _registerTarget.Commands[key] = new Function { Builtin = cmd };
             return;
         }
-        if (mFunctions.TryGetValue(key, out var f) && f.Builtin != null)
-            mReplacedCommands.Add(name);
-        mFunctions[key] = new Function { Builtin = cmd };
+        if (_functions.TryGetValue(key, out var f) && f.Builtin != null)
+            _replacedCommands.Add(name);
+        _functions[key] = new Function { Builtin = cmd };
     }
 
     /// <summary>Gets the native commands that were registered more than once.</summary>
     /// <returns>The names.</returns>
-    public IReadOnlyList<string> ReplacedCommands() => mReplacedCommands;
+    public IReadOnlyList<string> ReplacedCommands() => _replacedCommands;
     /// <summary>Switches the LastHope 1.30 behaviour on or off (docs/lasthope-1.30.md L5).</summary>
     /// <param name="on">Whether LastHope mode is on.</param>
-    public void SetLastHope(bool on) => mLastHope = on;
+    public void SetLastHope(bool on) => _lastHope = on;
     /// <summary>Gets whether LastHope 1.30 behaviour is on.</summary>
     /// <returns>True when on.</returns>
-    public bool LastHope() => mLastHope;
+    public bool LastHope() => _lastHope;
     /// <summary>Sets the console output sink.</summary>
     /// <param name="output">The sink, or null.</param>
-    public void SetOutput(Action<string>? output) => mOutput = output;
+    public void SetOutput(Action<string>? output) => _output = output;
     /// <summary>Sets the object interface of the focused world.</summary>
     /// <param name="objects">The interface, or null.</param>
     public void SetObjects(IObjectInterface? objects)
     {
-        mSharedObjects = objects;
-        if (mFocus == null)
-            mObjects = objects;
+        _sharedObjects = objects;
+        if (_focus == null)
+            _objects = objects;
     }
 
     /// <summary>Creates a world. Commands registered inside <see cref="Register"/> answer only while it has the focus.</summary>
@@ -211,7 +211,7 @@ public sealed class Interpreter
     public World NewWorld()
     {
         var w = new World();
-        mWorlds.Add(w);
+        _worlds.Add(w);
         return w;
     }
 
@@ -219,9 +219,9 @@ public sealed class Interpreter
     /// <param name="w">The world.</param>
     public void DropWorld(World w)
     {
-        if (mFocus == w)
+        if (_focus == w)
             Focus(null);
-        mWorlds.Remove(w);
+        _worlds.Remove(w);
     }
 
     /// <summary>Runs registrations so that the commands they add belong to a world.</summary>
@@ -229,15 +229,15 @@ public sealed class Interpreter
     /// <param name="registrations">The registrations to run.</param>
     public void Register(World w, Action registrations)
     {
-        var previous = mRegisterTarget;
-        mRegisterTarget = w;
+        var previous = _registerTarget;
+        _registerTarget = w;
         try
         {
             registrations();
         }
         finally
         {
-            mRegisterTarget = previous;
+            _registerTarget = previous;
         }
     }
 
@@ -247,43 +247,43 @@ public sealed class Interpreter
     public void Unregister(World w, params string[] names)
     {
         foreach (var n in names)
-            w.Commands.Remove(mStrings.Intern(n));
+            w.Commands.Remove(_strings.Intern(n));
     }
 
     /// <summary>Gets the world that has the focus.</summary>
     /// <returns>The world, or null for the shared (client) world.</returns>
-    public World? FocusedWorld() => mFocus;
+    public World? FocusedWorld() => _focus;
 
     /// <summary>Moves the focus to a world, as the stock focus switch does.</summary>
     /// <param name="w">The world, or null for the shared (client) world.</param>
     public void Focus(World? w)
     {
-        mFocus = w;
-        mObjects = w?.Objects ?? mSharedObjects;
+        _focus = w;
+        _objects = w?.Objects ?? _sharedObjects;
     }
     /// <summary>Sets the resource manager.</summary>
     /// <param name="res">The resource manager, or null.</param>
-    public void SetResources(ResourceManager? res) => mResources = res;
+    public void SetResources(ResourceManager? res) => _resources = res;
     /// <summary>Gets the current print level.</summary>
     /// <returns>The level.</returns>
-    public int PrintLevel() => mPrintLevel;
+    public int PrintLevel() => _printLevel;
     /// <summary>Gets the calls to names that have no function or command.</summary>
     /// <returns>The call counts by interned name.</returns>
-    public IReadOnlyDictionary<string, int> UnknownCommands() => mUnknown;
+    public IReadOnlyDictionary<string, int> UnknownCommands() => _unknown;
 
     /// <summary>Prints console output at a print level (printf is 1, dbprintf(n) is n).</summary>
     /// <param name="level">The print level.</param>
     /// <param name="line">The text.</param>
     public void Print(int level, string line)
     {
-        if (level <= mPrintLevel && mPrintLevel != 0 && mOutput != null)
-            mOutput(line);
+        if (level <= _printLevel && _printLevel != 0 && _output != null)
+            _output(line);
     }
 
     // ---- variables ----
 
     // src/script/interpreter.cpp Interpreter::scopeFor.
-    private Dictionary<string, string> ScopeFor(string name) => name.Length != 0 && name[0] == '%' ? mFrames[^1].Locals : mGlobals;
+    private Dictionary<string, string> ScopeFor(string name) => name.Length != 0 && name[0] == '%' ? _frames[^1].Locals : _globals;
 
     /// <summary>Reads a variable.</summary>
     /// <param name="name">The variable name.</param>
@@ -296,7 +296,7 @@ public sealed class Interpreter
     /// <returns>The value.</returns>
     public string GetVariable(string name, out bool found)
     {
-        var key = mStrings.Intern(name);
+        var key = _strings.Intern(name);
         var scope = ScopeFor(key);
         found = scope.TryGetValue(key, out var v);
         if (!found)
@@ -310,15 +310,15 @@ public sealed class Interpreter
     /// <summary>Reads a global from the engine side.</summary>
     /// <param name="name">The variable name.</param>
     /// <returns>The value, empty when unset.</returns>
-    public string PeekVariable(string name) => mGlobals.TryGetValue(mStrings.Intern(name), out var v) ? v : "";
+    public string PeekVariable(string name) => _globals.TryGetValue(_strings.Intern(name), out var v) ? v : "";
 
     /// <summary>Tests whether a variable exists.</summary>
     /// <param name="name">The variable name.</param>
     /// <returns>True when it exists.</returns>
     public bool HasVariable(string name)
     {
-        var key = mStrings.Lookup(name);
-        return key != null && mGlobals.ContainsKey(key);
+        var key = _strings.Lookup(name);
+        return key != null && _globals.ContainsKey(key);
     }
 
     /// <summary>Writes a variable.</summary>
@@ -326,29 +326,29 @@ public sealed class Interpreter
     /// <param name="value">The value.</param>
     public void SetVariable(string name, string value)
     {
-        var key = mStrings.Intern(name);
-        if (key == mStrings.Intern("$Console::printLevel"))
+        var key = _strings.Intern(name);
+        if (key == _strings.Intern("$Console::printLevel"))
         {
             // Engine-bound int variable: stores atoi of the value.
-            mPrintLevel = Numbers.BorlandAtoi(value);
-            mGlobals[key] = Numbers.FormatInt(mPrintLevel);
+            _printLevel = Numbers.BorlandAtoi(value);
+            _globals[key] = Numbers.FormatInt(_printLevel);
             return;
         }
-        if (key == mStrings.Intern("$Console::logBufferEnabled") || key == mStrings.Intern("$Console::updateMetrics"))
+        if (key == _strings.Intern("$Console::logBufferEnabled") || key == _strings.Intern("$Console::updateMetrics"))
         {
             // Engine-bound bool variables store True or False.
-            mGlobals[key] = Numbers.IsTrueString(value) || Numbers.BorlandAtoi(value) != 0 ? "True" : "False";
+            _globals[key] = Numbers.IsTrueString(value) || Numbers.BorlandAtoi(value) != 0 ? "True" : "False";
             return;
         }
         ScopeFor(key)[key] = value;
-        if (mBindings.TryGetValue(key, out var onSet))
+        if (_bindings.TryGetValue(key, out var onSet))
             onSet(value);
     }
 
     /// <summary>Binds a callback to a variable. It runs after every assignment, like the original's variable callbacks.</summary>
     /// <param name="name">The variable name.</param>
     /// <param name="onSet">The callback, given the new value.</param>
-    public void BindVariable(string name, Action<string> onSet) => mBindings[mStrings.Intern(name)] = onSet;
+    public void BindVariable(string name, Action<string> onSet) => _bindings[_strings.Intern(name)] = onSet;
 
     // src/script/interpreter.cpp Interpreter::indexString.
     private string IndexString(List<Node> index)
@@ -365,14 +365,14 @@ public sealed class Interpreter
 
     /// <summary>Gets the globals for the export and delete built-ins.</summary>
     /// <returns>The name and value pairs.</returns>
-    public List<KeyValuePair<string, string>> Globals() => [.. mGlobals];
+    public List<KeyValuePair<string, string>> Globals() => [.. _globals];
 
     /// <summary>Lists the function names, including global-frame % variables (docs/script.md 3.6.9).</summary>
     /// <returns>The names.</returns>
     public List<string> FunctionNames()
     {
-        var output = new List<string>(mFunctions.Keys);
-        output.AddRange(mFrames[0].Locals.Keys);
+        var output = new List<string>(_functions.Keys);
+        output.AddRange(_frames[0].Locals.Keys);
         return output;
     }
 
@@ -380,20 +380,20 @@ public sealed class Interpreter
     /// <param name="name">The variable name.</param>
     public void EraseGlobal(string name)
     {
-        var key = mStrings.Lookup(name);
+        var key = _strings.Lookup(name);
         if (key != null)
-            mGlobals.Remove(key);
+            _globals.Remove(key);
     }
 
     /// <summary>Removes a function.</summary>
     /// <param name="name">The function name.</param>
     public void EraseFunction(string name)
     {
-        var key = mStrings.Lookup(name);
+        var key = _strings.Lookup(name);
         if (key != null)
         {
-            mFunctions.Remove(key);
-            mFrames[0].Locals.Remove(key);
+            _functions.Remove(key);
+            _frames[0].Locals.Remove(key);
         }
     }
 
@@ -410,14 +410,14 @@ public sealed class Interpreter
         Numbers.EnterScriptFpuMode(); // pow can leave round-to-nearest behind; the original's next ftol resets it
         var r = ScriptParser.Parse(src);
         if (r.Error)
-            Print(1, ScriptParser.SyntaxErrorMessage(r, fileName.Length == 0 ? "" : mStrings.Intern(fileName)));
+            Print(1, ScriptParser.SyntaxErrorMessage(r, fileName.Length == 0 ? "" : _strings.Intern(fileName)));
 
-        var saved = mLastValue;
-        mLastValue = "";
+        var saved = _lastValue;
+        _lastValue = "";
         foreach (var s in r.Statements)
             Exec(s); // top-level completion codes are ignored
-        var result = mLastValue;
-        mLastValue = saved;
+        var result = _lastValue;
+        _lastValue = saved;
         return result;
     }
 
@@ -430,9 +430,9 @@ public sealed class Interpreter
         if (!name.Contains(".cs", StringComparison.Ordinal) && !name.Contains(".mis", StringComparison.Ordinal) &&
             !name.Contains(".dsc", StringComparison.Ordinal) && !name.Contains(".mac", StringComparison.Ordinal))
             name += ".cs";
-        var entry = mResources?.Find(name);
+        var entry = _resources?.Find(name);
         var data = Array.Empty<byte>();
-        if (entry == null || !mResources!.Read(entry, out data))
+        if (entry == null || !_resources!.Read(entry, out data))
         {
             Print(1, "exec: invalid script file " + name + ".");
             return false;
@@ -464,8 +464,8 @@ public sealed class Interpreter
             case NodeKind.ExprStmt:
             {
                 var v = EvalString(n.A!);
-                mFrames[^1].Result = v;
-                mLastValue = v;
+                _frames[^1].Result = v;
+                _lastValue = v;
                 return Completion.Normal;
             }
             case NodeKind.If:
@@ -494,14 +494,14 @@ public sealed class Interpreter
                 return Completion.Normal;
             case NodeKind.Function:
             {
-                var fname = mStrings.Intern(n.Name);
-                mFunctions[fname] = new Function { Decl = n };
-                foreach (var w in mWorlds) // a script function replaces a native command, as in the shared set
+                var fname = _strings.Intern(n.Name);
+                _functions[fname] = new Function { Decl = n };
+                foreach (var w in _worlds) // a script function replaces a native command, as in the shared set
                     w.Commands.Remove(fname);
                 return Completion.Normal;
             }
             case NodeKind.Return:
-                mFrames[^1].Result = n.A != null ? EvalString(n.A) : "";
+                _frames[^1].Result = n.A != null ? EvalString(n.A) : "";
                 return Completion.ReturnFn;
             case NodeKind.Continue:
                 return Completion.ContinueLoop;
@@ -511,16 +511,16 @@ public sealed class Interpreter
             {
                 var id = Numbers.BorlandAtoi(EvalString(n.A!));
                 var text = n.B != null ? EvalString(n.B) : "";
-                var name = mStrings.Intern(n.Name);
+                var name = _strings.Intern(n.Name);
                 // Id 0 is ignored without a line; a negative id registers the name but is never
                 // found by id (see the C++ interpreter, [code 005ee5ac]).
                 if (id == 0)
                     return Completion.Normal;
-                if (id > 0 && mTagText.ContainsKey(id))
+                if (id > 0 && _tagText.ContainsKey(id))
                 {
                     Print(1, "Error: id " + Numbers.FormatInt(id) + " already defined to a tag.");
                 }
-                else if (mTagIds.TryGetValue(name, out var existing))
+                else if (_tagIds.TryGetValue(name, out var existing))
                 {
                     Print(1, "Error: define " + name + " already defined to tag " + Numbers.FormatInt(existing) + ".");
                 }
@@ -530,28 +530,28 @@ public sealed class Interpreter
                     // case variants (fear.strings.cs "ARMOR" makes className = "Armor" read ARMOR).
                     if (id > 0)
                     {
-                        mTagText[id] = text.Length == 0 ? text : mStrings.Intern(text);
-                        mTagRaw[id] = text;
+                        _tagText[id] = text.Length == 0 ? text : _strings.Intern(text);
+                        _tagRaw[id] = text;
                     }
-                    mTagIds[name] = id;
+                    _tagIds[name] = id;
                 }
                 return Completion.Normal;
             }
             case NodeKind.Datablock:
-                mObjects?.BeginDataBlock(n.ClassName, n.Name);
+                _objects?.BeginDataBlock(n.ClassName, n.Name);
                 foreach (var s in n.Slots)
                     Exec(s);
-                mObjects?.EndDataBlock();
+                _objects?.EndDataBlock();
                 return Completion.Normal;
             case NodeKind.Instant:
             {
                 var name = n.A != null ? EvalString(n.A) : "";
-                mObjects?.BeginObject(n.ClassName, name);
+                _objects?.BeginObject(n.ClassName, name);
                 foreach (var s in n.Slots)
                     Exec(s);
                 foreach (var c in n.Children)
                     Exec(c);
-                mObjects?.EndObject();
+                _objects?.EndObject();
                 return Completion.Normal;
             }
             case NodeKind.Slot:
@@ -563,7 +563,7 @@ public sealed class Interpreter
                         values.Add(EvalString(v));
                 else
                     values.Add(EvalString(n.A!));
-                mObjects?.SetSlot(n.Name, values, index);
+                _objects?.SetSlot(n.Name, values, index);
                 return Completion.Normal;
             }
             default:
@@ -782,7 +782,7 @@ public sealed class Interpreter
         if (lv.Kind == NodeKind.Var)
             return GetVariable(lv.Name + IndexString(lv.Index));
         var obj = EvalString(lv.A!);
-        if (mObjects == null || !mObjects.GetField(obj, lv.Name, IndexString(lv.Index), out var output))
+        if (_objects == null || !_objects.GetField(obj, lv.Name, IndexString(lv.Index), out var output))
             return "False";
         return output;
     }
@@ -796,7 +796,7 @@ public sealed class Interpreter
             return;
         }
         var obj = EvalString(lv.A!);
-        mObjects?.SetField(obj, lv.Name, new[] { value }, IndexString(lv.Index));
+        _objects?.SetField(obj, lv.Name, new[] { value }, IndexString(lv.Index));
     }
 
     // src/script/interpreter.cpp Interpreter::compoundAssign.
@@ -819,7 +819,7 @@ public sealed class Interpreter
                 v = Fpu.Mul(l, r);
             else
                 v = Fpu.Div(l, r);
-            result = mLastHope ? Numbers.FormatFloat15(v) : Numbers.FormatFloat(v);
+            result = _lastHope ? Numbers.FormatFloat15(v) : Numbers.FormatFloat(v);
         }
         else
         {
@@ -854,7 +854,7 @@ public sealed class Interpreter
             case NodeKind.BreakWord:
                 return n.Name;
             case NodeKind.TagRef:
-                return Numbers.FormatInt(mTagIds.TryGetValue(mStrings.Intern(n.Name), out var tagId) ? tagId : 0);
+                return Numbers.FormatInt(_tagIds.TryGetValue(_strings.Intern(n.Name), out var tagId) ? tagId : 0);
             case NodeKind.Var:
             case NodeKind.Field:
                 return ReadLvalue(n);
@@ -874,7 +874,7 @@ public sealed class Interpreter
             }
             case NodeKind.Unary:
                 if (n.OpChar == '*')
-                    return mTagText.TryGetValue(EvalInt(n.A!), out var text) ? text : "<INVALID TAG>";
+                    return _tagText.TryGetValue(EvalInt(n.A!), out var text) ? text : "<INVALID TAG>";
                 break;
             case NodeKind.Binary:
                 if (n.OpChar == '@' || n.Op == Tok.DollarPlus)
@@ -895,7 +895,7 @@ public sealed class Interpreter
                 var values = new List<string>();
                 foreach (var v in n.List)
                     values.Add(EvalString(v));
-                mObjects?.SetField(obj, n.A.Name, values, IndexString(n.A.Index));
+                _objects?.SetField(obj, n.A.Name, values, IndexString(n.A.Index));
                 return values.Count == 0 ? "" : values[^1];
             }
             case NodeKind.CompoundAssign:
@@ -908,7 +908,7 @@ public sealed class Interpreter
         if (StaticTypeOf(n) == StaticType.TFloat)
         {
             // 1.30 changed the format of FloatBinaryExprNode only; literals and negation keep %g.
-            if (mLastHope && n.Kind == NodeKind.Binary)
+            if (_lastHope && n.Kind == NodeKind.Binary)
                 return Numbers.FormatFloat15(EvalFloat(n));
             return Numbers.FormatFloat(EvalFloat(n));
         }
@@ -920,7 +920,7 @@ public sealed class Interpreter
     /// <returns>The name, or empty.</returns>
     public string TagName(int id)
     {
-        foreach (var kv in mTagIds)
+        foreach (var kv in _tagIds)
             if (kv.Value == id)
                 return kv.Key;
         return "";
@@ -929,18 +929,18 @@ public sealed class Interpreter
     /// <summary>Gets the id a tag name was defined with.</summary>
     /// <param name="name">The tag name.</param>
     /// <returns>The id, or 0.</returns>
-    public int TagId(string name) => mTagIds.TryGetValue(name, out var id) ? id : 0;
+    public int TagId(string name) => _tagIds.TryGetValue(name, out var id) ? id : 0;
 
     /// <summary>Gets the text of a tag id from the GUI tag dictionary (docs/gui.md 1.5).</summary>
     /// <param name="id">The tag id.</param>
     /// <returns>The text, or null when no tag has that id.</returns>
-    public string? TagText(int id) => mTagText.TryGetValue(id, out var t) ? t : null;
+    public string? TagText(int id) => _tagText.TryGetValue(id, out var t) ? t : null;
 
     /// <summary>Gets the text of a tag id as the dictionary file spells it.</summary>
     /// <param name="id">The tag id.</param>
     /// <returns>The text, or null when no tag has that id.</returns>
     /// <remarks>A tag used as a script value takes the first spelling the string table saw: a command name such as <c>version</c> fixes the case of the tag "Version". The screens draw the file's spelling.</remarks>
-    public string? TagTextRaw(int id) => mTagRaw.TryGetValue(id, out var t) ? t : null;
+    public string? TagTextRaw(int id) => _tagRaw.TryGetValue(id, out var t) ? t : null;
 
     // ---- calls ----
 
@@ -949,8 +949,8 @@ public sealed class Interpreter
     /// <returns>True when it exists.</returns>
     public bool HasFunction(string name)
     {
-        var key = mStrings.Lookup(name);
-        return key != null && ((mFocus != null && mFocus.Commands.ContainsKey(key)) || mFunctions.ContainsKey(key));
+        var key = _strings.Lookup(name);
+        return key != null && ((_focus != null && _focus.Commands.ContainsKey(key)) || _functions.ContainsKey(key));
     }
 
     /// <summary>Gets the parameter count of a script function.</summary>
@@ -958,12 +958,12 @@ public sealed class Interpreter
     /// <returns>The count, -1 for a built-in or an unknown name.</returns>
     public int FunctionParamCount(string name)
     {
-        var key = mStrings.Lookup(name);
+        var key = _strings.Lookup(name);
         if (key == null)
             return -1;
-        if (mFocus != null && mFocus.Commands.ContainsKey(key))
+        if (_focus != null && _focus.Commands.ContainsKey(key))
             return -1;
-        return !mFunctions.TryGetValue(key, out var f) || f.Decl == null ? -1 : f.Decl.Params.Count;
+        return !_functions.TryGetValue(key, out var f) || f.Decl == null ? -1 : f.Decl.Params.Count;
     }
 
     /// <summary>Calls a function or command by name.</summary>
@@ -975,12 +975,12 @@ public sealed class Interpreter
     // src/script/interpreter.cpp Interpreter::call.
     private string Call(string name, List<string> args)
     {
-        var key = mStrings.Intern(name);
-        if (mFocus == null || !mFocus.Commands.TryGetValue(key, out var fn))
-            mFunctions.TryGetValue(key, out fn);
+        var key = _strings.Intern(name);
+        if (_focus == null || !_focus.Commands.TryGetValue(key, out var fn))
+            _functions.TryGetValue(key, out fn);
         if (fn == null)
         {
-            mUnknown[key] = mUnknown.TryGetValue(key, out var count) ? count + 1 : 1;
+            _unknown[key] = _unknown.TryGetValue(key, out var count) ? count + 1 : 1;
             Print(1, key + ": Unknown command.");
             return "False";
         }
@@ -991,12 +991,12 @@ public sealed class Interpreter
             return cmd(this, [.. args]) ?? "False";
         }
         var decl = fn.Decl!;
-        mFrames.Add(new Frame());
+        _frames.Add(new Frame());
         for (var i = 0; i < decl.Params.Count && i < args.Count; ++i)
             SetVariable(decl.Params[i], args[i]);
         ExecList(decl.Body);
-        var result = mFrames[^1].Result;
-        mFrames.RemoveAt(mFrames.Count - 1);
+        var result = _frames[^1].Result;
+        _frames.RemoveAt(_frames.Count - 1);
         return result;
     }
 }

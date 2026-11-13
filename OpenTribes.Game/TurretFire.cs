@@ -56,22 +56,22 @@ public static class TurretThread
 
 public partial class GameBase
 {
-    private const double kPiD = 3.14159265358979323846;
-    private const double kTwoPiD = 6.283185307179586;
-    private const double kHalfPiD = 1.5707963267948966;
-    private const float kTwoPiF = 6.2831855f;
+    private const double PiD = 3.14159265358979323846;
+    private const double TwoPiD = 6.283185307179586;
+    private const double HalfPiD = 1.5707963267948966;
+    private const float TwoPiF = 6.2831855f;
 
     // 1 / (2 pi) as the 80-bit constant at 0x00457070, rounded to 53 bits.
-    private static readonly double kInvTwoPi = 0xa2f9836e4e4416f4UL * Math.ScaleB(1.0, -66);
+    private static readonly double InvTwoPi = 0xa2f9836e4e4416f4UL * Math.ScaleB(1.0, -66);
 
     // src/game/turret_fire.cpp turretFire: the function-static R250 of each deflection path.
-    private static readonly R250 sTurretNormalPath = new(0x8377), sTurretSustainedPath = new(0x8377);
+    private static readonly R250 TurretNormalPath = new(0x8377), TurretSustainedPath = new(0x8377);
 
     /// <summary>Resets the two turret random generators to a fresh process state. For tests, which share one process.</summary>
     public static void ResetTurretRandoms()
     {
-        sTurretNormalPath.Reseed(0x8377);
-        sTurretSustainedPath.Reseed(0x8377);
+        TurretNormalPath.Reseed(0x8377);
+        TurretSustainedPath.Reseed(0x8377);
     }
 
     // src/game/turret_fire.cpp stateOf.
@@ -84,29 +84,29 @@ public partial class GameBase
         if (a == 0.0 && b == 0.0)
             return 0; // the original's error handler never returns (DECISIONS D11)
         if (a == 0.0)
-            return double.IsNegative(b) ? (double.IsNegative(a) ? -kPiD : kPiD) : a;
+            return double.IsNegative(b) ? (double.IsNegative(a) ? -PiD : PiD) : a;
         if (b == 0.0)
-            return double.IsNegative(a) ? -kHalfPiD : kHalfPiD;
+            return double.IsNegative(a) ? -HalfPiD : HalfPiD;
         var r = Div(a, b);
         var neg = r < 0;
         var ar = neg ? -r : r;
         double v;
         if (ar == 1)
-            v = Div(kPiD, 4);
+            v = Div(PiD, 4);
         else if (ar < 1)
             v = Math.Atan2(ar, 1.0);
         else
-            v = Sub(Math.Atan2(1.0, ar), kHalfPiD);
+            v = Sub(Math.Atan2(1.0, ar), HalfPiD);
         // atan(r) = neg ? -v : v for ar <= 1; for ar > 1 the branch above holds fpatan(1, ar) - pi/2 = -(atan(ar)), so the
         // sign flips.
         var t = ar is < 1 or 1 ? (neg ? -v : v) : (neg ? v : -v);
         if (double.IsNegative(b))
-            t = double.IsNegative(a) ? Sub(t, kPiD) : Add(t, kPiD);
+            t = double.IsNegative(a) ? Sub(t, PiD) : Add(t, PiD);
         return t;
     }
 
     // src/game/turret_fire.cpp calcRotation: 0x00452fa8: atan2(y, x) + pi/2 as f32.
-    private static float CalcRotation(float y, float x) => X87.F32(Add(Atan2Borland(y, x), kHalfPiD));
+    private static float CalcRotation(float y, float x) => X87.F32(Add(Atan2Borland(y, x), HalfPiD));
 
     // src/game/turret_fire.cpp calcElevation: 0x00452efc: pitch of the point (x, y, z) in the turret's frame.
     private static float CalcElevation(float x, float y, float z)
@@ -116,25 +116,25 @@ public partial class GameBase
         var c = X87.F32(Mul(Math.Cos(t), x));
         var r = X87.F32(Sub(c, Mul(Math.Sin(t), y)));
         var nz = -z;
-        return X87.F32(Sub(Atan2Borland(r, nz), kHalfPiD));
+        return X87.F32(Sub(Atan2Borland(r, nz), HalfPiD));
     }
 
     // src/game/turret_fire.cpp wrapRotation: 0x00453120.
     private static void WrapRotation(ref float r)
     {
-        while (r > kTwoPiD)
-            r = X87.F32(Sub(r, kTwoPiD));
+        while (r > TwoPiD)
+            r = X87.F32(Sub(r, TwoPiD));
         while (r < 0.0f)
-            r = X87.F32(Add(r, kTwoPiD));
+            r = X87.F32(Add(r, TwoPiD));
     }
 
     // src/game/turret_fire.cpp wrapElevation: 0x0045317c.
     private static void WrapElevation(ref float e)
     {
-        while (e < -kPiD)
-            e = X87.F32(Add(e, kTwoPiD));
-        while (e > kPiD)
-            e = X87.F32(Sub(e, kTwoPiD));
+        while (e < -PiD)
+            e = X87.F32(Add(e, TwoPiD));
+        while (e > PiD)
+            e = X87.F32(Sub(e, TwoPiD));
     }
 
     // src/game/turret_fire.cpp boxCentre: centre of a container entry box: (max + min) * 0.5, each step stored as f32
@@ -289,8 +289,8 @@ public partial class GameBase
         {
             speed = group switch
             {
-                Projectile.kRocketGroup => Pj.Real(b!, "terminalVelocity", 0.0f),
-                Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup => Pj.Real(b!, "muzzleVelocity", 0.0f),
+                Projectile.RocketGroup => Pj.Real(b!, "terminalVelocity", 0.0f),
+                Projectile.BulletGroup or Projectile.GrenadeGroup or Projectile.SeekerGroup => Pj.Real(b!, "muzzleVelocity", 0.0f),
                 _ => 1.0e7f,// lasers, lightning, repair: the constant at 0x00462920
             };
         }
@@ -313,8 +313,8 @@ public partial class GameBase
     private static bool OutsideAimLimits(GameBase t, float elevation, float rotation)
     {
         var outside = false;
-        if (rotation > kPiD)
-            rotation = X87.F32(Sub(rotation, kTwoPiF));
+        if (rotation > PiD)
+            rotation = X87.F32(Sub(rotation, TwoPiF));
         if (t.TurretRotationMax != t.TurretRotationMin)
         {
             if ((rotation > 0.0f && rotation > t.TurretRotationMax) || (!(rotation >= 0.0f) && !(rotation >= t.TurretRotationMin)))
@@ -355,8 +355,8 @@ public partial class GameBase
                 TurretThread.ThreadSetPos(ref TurretElevatePos, 1.0f, elevateCyclic);
                 inst = ShapeState.ShapeInstanceOf(g, this);
                 var hi = Shape.MatrixEulerX(inst!.Entries[node]);
-                if (lo > kPiD)
-                    lo = X87.F32(Sub(lo, kTwoPiF));
+                if (lo > PiD)
+                    lo = X87.F32(Sub(lo, TwoPiF));
                 TurretMinElevation = lo;
                 TurretMaxElevation = hi;
                 limits = true;
@@ -367,8 +367,8 @@ public partial class GameBase
         {
             // No shape model (synthetic shapes): the keyframe rotations of the node chain.
             TurretThread.ThreadSetPos(ref TurretElevatePos, 1.0f, elevateCyclic);
-            if (plo > kPiD)
-                plo = X87.F32(Sub(plo, kTwoPiF));
+            if (plo > PiD)
+                plo = X87.F32(Sub(plo, TwoPiF));
             TurretMinElevation = plo;
             TurretMaxElevation = phi;
             limits = true;
@@ -435,7 +435,7 @@ public partial class GameBase
         {
             float target;
             if (Math.Abs((double)X87.F32(Sub(TurretRotationMax, TurretRotationMin))) <= (double)1e-5f)
-                target = X87.F32(Mul(kInvTwoPi, TurretRotation));
+                target = X87.F32(Mul(InvTwoPi, TurretRotation));
             else
                 target = X87.F32(Div(Sub(TurretRotation, TurretRotationMin), Sub(TurretRotationMax, TurretRotationMin)));
             TurretThread.ThreadSetPos(ref TurretTurnPos, target, CyclicSeq(this, SeqOf(this, "turn")));
@@ -650,11 +650,11 @@ public partial class GameBase
         var step = X87.F32(Mul(TurretData.Speed, dt));
         var desired = CalcRotation(-l[1], -l[0]);
         while (desired < 0.0f)
-            desired = X87.F32(Add(kTwoPiF, desired));
-        while (desired > kTwoPiD)
-            desired = X87.F32(Sub(desired, kTwoPiF));
+            desired = X87.F32(Add(TwoPiF, desired));
+        while (desired > TwoPiD)
+            desired = X87.F32(Sub(desired, TwoPiF));
         var delta = X87.F32(Sub(desired, TurretRotation));
-        if (delta is > (float)kPiD or < (float)-kPiD)
+        if (delta is > (float)PiD or < (float)-PiD)
             step = -step;
         if (delta >= step || -step >= delta)
         {
@@ -676,7 +676,7 @@ public partial class GameBase
         step = X87.F32(Mul(TurretData.Speed, dt));
         desired = CalcElevation(l[0], l[1], l[2]);
         delta = X87.F32(Sub(desired, TurretElevation));
-        if (delta is > (float)kPiD or < (float)-kPiD)
+        if (delta is > (float)PiD or < (float)-PiD)
             step = -step;
         if (delta >= step || -step >= delta)
         {
@@ -833,12 +833,12 @@ public partial class GameBase
         if (!byPlayer && TurretData.Deflection != 0.0f)
         {
             // Random aim error on the Euler angles x and z: a function-static R250 per path.
-            var rng = sustained ? sTurretSustainedPath : sTurretNormalPath;
+            var rng = sustained ? TurretSustainedPath : TurretNormalPath;
             var e = new float[3];
             MissionTransform.MatrixToEuler(xf, e);
             foreach (var axis in new[] { 0, 2 })
             {
-                var v = Mul(Sub(Mul(rng.Next(), (double)2.3283064e-10f), 0.5f), kTwoPiD);
+                var v = Mul(Sub(Mul(rng.Next(), (double)2.3283064e-10f), 0.5f), TwoPiD);
                 v = Mul(v, TurretData.Deflection);
                 e[axis] = X87.F32(Add(v, e[axis]));
             }
@@ -948,7 +948,7 @@ public partial class GameBase
             return;
         var g = StateOf(this);
         var m = Manager();
-        if (ControlClient == 0 && DamageState == kEnabled && IsActiveFlag())
+        if (ControlClient == 0 && DamageState == Enabled && IsActiveFlag())
         {
             var to = m != null && TurretBeamTarget != 0 ? m.FindById(TurretBeamTarget) : null;
             if (to is not GameBase target)
@@ -1128,7 +1128,7 @@ public partial class GameBase
     /// <remarks>Follows vtable +0x150.</remarks>
     public virtual void ApplyMoves(Move[] moves, int count)
     {
-        if (mShapeClass == ShapeKind.Turret)
+        if (_shapeClass == ShapeKind.Turret)
             TurretApplyMoves(moves, count);
     }
 
@@ -1138,7 +1138,7 @@ public partial class GameBase
     /// <remarks>Follows vtable +0x15c.</remarks>
     public virtual void WriteControlState(BitStream bs, ControlContext ctx)
     {
-        if (mShapeClass == ShapeKind.Turret)
+        if (_shapeClass == ShapeKind.Turret)
             TurretWriteControlState(bs);
     }
 }

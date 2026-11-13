@@ -11,7 +11,7 @@ using Xunit.Abstractions;
 // Builds persistent blocks the way docs/gui.md 1.2 and 1.3 describe them.
 internal sealed class GuiW : IDisposable
 {
-    public readonly MemoryStream M = new();
+    public MemoryStream M { get; } = new();
     public GuiW U8(int v) { M.WriteByte((byte)v); return this; }
     public GuiW U32(uint v) { M.Write(BitConverter.GetBytes(v)); return this; }
     public GuiW Pstr(string s) { M.WriteByte((byte)s.Length); M.Write(Encoding.Latin1.GetBytes(s)); return this; }
@@ -54,12 +54,12 @@ internal sealed class GuiW : IDisposable
 
 internal sealed class GuiFixture
 {
-    public readonly Interpreter Interp = new();
-    public readonly List<string> Output = [];
-    public readonly GuiHost Host;
-    public readonly GuiCanvas Canvas;
-    public readonly GuiRuntime Runtime;
-    public long Clock = 1000;
+    public Interpreter Interp { get; } = new();
+    public List<string> Output { get; } = [];
+    public GuiHost Host { get; }
+    public GuiCanvas Canvas { get; }
+    public GuiRuntime Runtime { get; }
+    public long Clock { get; set; } = 1000;
 
     public GuiFixture(int w = 640, int h = 480)
     {
@@ -138,8 +138,8 @@ internal sealed class GuiFixture
 
 public class GuiTests
 {
-    private readonly ITestOutputHelper mOut;
-    public GuiTests(ITestOutputHelper output) => mOut = output;
+    private readonly ITestOutputHelper _out;
+    public GuiTests(ITestOutputHelper output) => _out = output;
 
     // ---- docs/gui.md 1: loading ----
 
@@ -1022,7 +1022,7 @@ public class GuiTests
 
     private sealed class RecDev : IGfxDevice
     {
-        public readonly List<string> Calls = [];
+        public List<string> Calls { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -1159,7 +1159,7 @@ public class GuiTests
         }
         if (win == null)
         {
-            mOut.WriteLine("SKIPPED: no OpenGL 3.3 context could be made");
+            _out.WriteLine("SKIPPED: no OpenGL 3.3 context could be made");
             return;
         }
         using (win)

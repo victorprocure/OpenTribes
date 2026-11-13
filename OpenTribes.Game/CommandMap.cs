@@ -10,9 +10,9 @@ using static OpenTribes.Core.Fpu;
 public static class SoundRoute
 {
     /// <summary>Returns the ghost index of an object on a client's connection, or -1 when it is not ghosted.</summary>
-    public static Func<int, SimObject, int>? GhostIndex;
+    public static Func<int, SimObject, int>? GhostIndex { get; set; }
     /// <summary>Returns the scope object of a client. The default is the control object.</summary>
-    public static Func<int, SimObject?>? ScopeObject;
+    public static Func<int, SimObject?>? ScopeObject { get; set; }
 }
 
 /// <summary>The command map events and script commands.</summary>

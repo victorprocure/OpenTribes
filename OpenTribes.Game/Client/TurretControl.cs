@@ -23,29 +23,31 @@ public sealed class TurretControl
     private const float Pi = 3.1415927f;
 
     /// <summary>True while a turret is the control object.</summary>
-    public bool Active;
+    public bool Active { get; set; }
     /// <summary>The ghost index of the turret, -1 for none.</summary>
-    public int Ghost = -1;
+    public int Ghost { get; set; } = -1;
     /// <summary>The rotation.</summary>
-    public float Rotation;
+    public ref float Rotation => ref _rotation;
+    private float _rotation;
     /// <summary>The elevation.</summary>
-    public float Elevation;
+    public ref float Elevation => ref _elevation;
+    private float _elevation;
     /// <summary>The energy.</summary>
-    public float Energy;
+    public float Energy { get; set; }
     /// <summary>The turret mode.</summary>
-    public int Mode;
+    public int Mode { get; set; }
     /// <summary>The fire count.</summary>
-    public int FireCount;
+    public int FireCount { get; set; }
     /// <summary>True while the turret fires a beam.</summary>
-    public bool Beam;
+    public bool Beam { get; set; }
     /// <summary>The time of the first buffered move (+0x218).</summary>
-    public uint SimTime;
+    public uint SimTime { get; set; }
     /// <summary>The number of steps run.</summary>
-    public long Steps;
+    public long Steps { get; set; }
     /// <summary>The datablock and shape values of the control ghost.</summary>
-    public TurretAimParams Params;
+    public TurretAimParams Params { get; set; }
     /// <summary>Resolves the datablock and shape values of a control ghost. Returns null while they are not known, and the aim then stays at the server state.</summary>
-    public Func<ClientGhost, TurretAimParams?>? Resolve;
+    public Func<ClientGhost, TurretAimParams?>? Resolve { get; set; }
 
     /// <summary>Releases the control turret.</summary>
     public void Release()

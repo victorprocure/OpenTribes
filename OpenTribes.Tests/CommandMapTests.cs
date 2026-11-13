@@ -11,8 +11,8 @@ public class CommandMapTests
 {
     private sealed class StretchDev : IGfxDevice
     {
-        public readonly List<string> Calls = [];
-        public readonly List<GfxRect?> Clips = [];
+        public List<string> Calls { get; } = [];
+        public List<GfxRect?> Clips { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }

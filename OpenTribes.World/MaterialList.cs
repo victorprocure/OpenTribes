@@ -8,20 +8,21 @@ using OpenTribes.Core;
 public sealed class Material
 {
     /// <summary>The surface type, 0 to 14.</summary>
-    public int Type;
+    public int Type { get; set; }
     /// <summary>The elasticity (entry +0x3c).</summary>
-    public float Elasticity = 1.0f;
+    public float Elasticity { get; set; } = 1.0f;
     /// <summary>The friction (entry +0x40).</summary>
-    public float Friction = 1.0f;
+    public float Friction { get; set; } = 1.0f;
     /// <summary>Whether the surface type's table values apply instead of this material's own (entry +0x44).</summary>
-    public bool UseDefaults = true;
+    public bool UseDefaults { get; set; } = true;
 }
 
 /// <summary>The process-wide table of friction and elasticity per surface type, written by setMaterialProperty (006c1ff0).</summary>
 public sealed class MaterialTable
 {
     /// <summary>The friction and the elasticity of each of the 15 surface types, as two arrays.</summary>
-    public readonly float[] Friction = new float[15], Elasticity = new float[15];
+    public float[] Friction { get; } = new float[15];
+    public float[] Elasticity { get; } = new float[15];
 
     /// <summary>Creates a table with every entry 1.0.</summary>
     public MaterialTable() => Reset();
@@ -49,7 +50,7 @@ public sealed class MaterialTable
 public static class MaterialList
 {
     /// <summary>The 15 surface type names in order (00614b10).</summary>
-    public static readonly string[] kMaterialTypeNames =
+    public static readonly string[] MaterialTypeNames =
     [
         "Default", "Concrete", "Carpet", "Metal", "Glass", "Plastic", "Wood", "Marble", "Snow", "Ice",
         "Sand", "Mud", "Stone", "SoftEarth", "PackedEarth",
@@ -161,13 +162,13 @@ public static class MaterialList
 
     private sealed class Cached
     {
-        public bool Ok;
-        public readonly List<Material> List = [];
+        public bool Ok { get; set; }
+        public List<Material> List { get; } = [];
     }
-    private static readonly Dictionary<string, Cached> sCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, Cached> Cache = new(StringComparer.Ordinal);
 
     /// <summary>Empties the by-name cache, the start state of a C++ test process.</summary>
-    public static void ResetCache() => sCache.Clear();
+    public static void ResetCache() => Cache.Clear();
 
     /// <summary>Loads a material list through the resource manager.</summary>
     /// <param name="res">The resource manager.</param>
@@ -175,11 +176,11 @@ public static class MaterialList
     /// <returns>The materials, or null when missing or malformed. Cached by name for the process.</returns>
     public static List<Material>? Get(ResourceManager res, string name)
     {
-        if (!sCache.TryGetValue(name, out var c))
+        if (!Cache.TryGetValue(name, out var c))
         {
             c = new Cached();
             c.Ok = res.Read(name, out var data) && ParseMaterialList(data, c.List);
-            sCache.Add(name, c);
+            Cache.Add(name, c);
         }
         return c.Ok ? c.List : null;
     }

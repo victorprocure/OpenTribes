@@ -12,7 +12,7 @@ using static OpenTribes.Tests.Fixtures;
 
 public class ClientNetProjectileTests
 {
-    private readonly GhostManager gm = new(2049);
+    private readonly GhostManager _gm = new(2049);
 
     private (ClientGhost, uint) PackAndRead(SimObject obj, uint tag, uint mask, ClientGhost? prev = null)
     {
@@ -20,7 +20,7 @@ public class ClientNetProjectileTests
         Assert.True(cls != null && cls.Tag == tag);
         var buf = new byte[512];
         var w = new BitStream(buf, buf.Length);
-        cls!.Pack!(obj, new GhostContext(gm, 2049, mask == 0xffffffffu), w, mask);
+        cls!.Pack!(obj, new GhostContext(_gm, 2049, mask == 0xffffffffu), w, mask);
         Assert.False(w.Error());
         var g = Unpack(tag, buf, w.BitPosition(), mask == 0xffffffffu, WorldFor(tag, obj, 4), prev);
         return (g, w.BitPosition());

@@ -20,52 +20,52 @@ public sealed class WorldScene : IDisposable
     public const double BackgroundFar = 40000;
 
     /// <summary>The mission name.</summary>
-    public string MissionName = "";
+    public string MissionName { get; set; } = "";
     /// <summary>The terrain parameters.</summary>
-    public TerrainParams Terrain;
+    public TerrainParams Terrain { get; set; }
     /// <summary>The haze colour.</summary>
-    public (float r, float g, float b) HazeColor;
+    public (float r, float g, float b) HazeColor { get; set; }
     /// <summary>The terrain renderer, or null.</summary>
-    public TerrainRenderer? TerrainDraw;
+    public TerrainRenderer? TerrainDraw { get; set; }
     /// <summary>The interior renderer, or null.</summary>
-    public InteriorRenderer? Interiors;
+    public InteriorRenderer? Interiors { get; set; }
     /// <summary>The sky renderer, or null.</summary>
-    public SkyRenderer? Sky;
+    public SkyRenderer? Sky { get; set; }
     /// <summary>The stars.</summary>
-    public List<StarField.Star> Stars = [];
+    public List<StarField.Star> Stars { get; set; } = [];
     /// <summary>True to draw the stars after the sky, false before it.</summary>
-    public bool StarsInFront = true;
+    public bool StarsInFront { get; set; } = true;
     /// <summary>The colours of the star brightness classes.</summary>
-    public (float, float, float)[] StarColors = [(1, 1, 1), (.5f, .5f, .5f), (.25f, .25f, .25f)];
+    public (float, float, float)[] StarColors { get; set; } = [(1, 1, 1), (.5f, .5f, .5f), (.25f, .25f, .25f)];
     /// <summary>The planets.</summary>
-    public readonly List<PlanetRenderer> Planets = [];
+    public List<PlanetRenderer> Planets { get; } = [];
     /// <summary>The number of interiors loaded.</summary>
-    public int InteriorCount;
+    public int InteriorCount { get; set; }
     /// <summary>The number of interiors that failed to load.</summary>
-    public int InteriorFailed;
+    public int InteriorFailed { get; set; }
     /// <summary>The squares per side of the terrain block.</summary>
-    public int TerrainBlockSize;
+    public int TerrainBlockSize { get; set; }
     /// <summary>The x of the terrain origin.</summary>
-    public double TerrainOriginX;
+    public double TerrainOriginX { get; set; }
     /// <summary>The y of the terrain origin.</summary>
-    public double TerrainOriginY;
+    public double TerrainOriginY { get; set; }
     /// <summary>The clear colour of the frame.</summary>
-    public (float r, float g, float b) ClearColor = (0, 0, 0);
+    public (float r, float g, float b) ClearColor { get; set; } = (0, 0, 0);
     /// <summary>The azimuth in degrees of the light of the first Planet for shapes (world-render.md 4.3, 5).</summary>
-    public double SunAzimuth;
+    public double SunAzimuth { get; set; }
     /// <summary>The incidence in degrees of the light of the first Planet.</summary>
-    public double SunIncidence = 60;
+    public double SunIncidence { get; set; } = 60;
     /// <summary>The sun colour intensity.</summary>
-    public double[] SunIntensity = [0.55, 0.55, 0.55];
+    public double[] SunIntensity { get; set; } = [0.55, 0.55, 0.55];
     /// <summary>The ambient colour.</summary>
-    public double[] SunAmbient = [0.45, 0.45, 0.45];
+    public double[] SunAmbient { get; set; } = [0.45, 0.45, 0.45];
     /// <summary>The world assets.</summary>
-    public WorldAssets Assets = null!;
+    public WorldAssets Assets { get; set; } = null!;
     /// <summary>The terrain for ground queries of the effects (footprints, bullet holes).</summary>
-    public Terrain? TerrainModel;
-    private readonly IGfxDevice mDev;
+    public Terrain? TerrainModel { get; set; }
+    private readonly IGfxDevice _dev;
 
-    private WorldScene(IGfxDevice dev) => mDev = dev;
+    private WorldScene(IGfxDevice dev) => _dev = dev;
 
     /// <summary>Loads a mission: mounts the volumes of its <c>Volumes</c> group in file order (later volumes win) and builds every renderer.</summary>
     /// <param name="dev">The graphics device.</param>
@@ -272,7 +272,7 @@ public sealed class WorldScene : IDisposable
         firstPerson && !controlIsObserver ? FirstPersonNearPlane : NearPlane;
 
     /// <summary>The near plane of the next <see cref="Render"/> calls (camera +0x178). The caller sets it from the view state.</summary>
-    public double Near = NearPlane;
+    public double Near { get; set; } = NearPlane;
 
     /// <summary>Builds the camera of a render: near and far follow the visible distance of the terrain for the world, a long far for the background (open: world-render.md Q1).</summary>
     /// <param name="x">The x position.</param>
@@ -290,12 +290,12 @@ public sealed class WorldScene : IDisposable
         new(x, y, z, yaw, pitch, fov, w, h, Near, background ? BackgroundFar : Math.Max(Terrain.Visible, 10), roll);
 
     /// <summary>The point lights of the frame (explosions, projectiles, items). They add to the light map of terrain and interior surfaces within range (world-render.md 2.9, 3.7). The caller sets them before <see cref="Render"/>, and the nearest ones to the camera are used.</summary>
-    public IReadOnlyList<PointLight>? DynamicLights;
+    public IReadOnlyList<PointLight>? DynamicLights { get; set; }
 
     /// <summary>Called after the terrain with the world camera and before the interiors, so the caller builds its images there.</summary>
-    public Action<Camera3D>? Prepare;
+    public Action<Camera3D>? Prepare { get; set; }
     /// <summary>Called with the instance index before the interior of that instance draws, so the objects in its database come first (3.8).</summary>
-    public Action<int>? DrawContents;
+    public Action<int>? DrawContents { get; set; }
 
     private List<PointLight> NearLights(double cx, double cy, double cz)
     {
@@ -315,14 +315,14 @@ public sealed class WorldScene : IDisposable
         var near = NearLights(cx, cy, cz);
         if (near.Count == 0)
         {
-            mDev.SetDynamicLights([]);
+            _dev.SetDynamicLights([]);
             return;
         }
         var n = Math.Min(near.Count, IGfxDevice.MaxDynamicLights);
         var arr = new DynamicLight[n];
         for (var i = 0; i < n; ++i)
             arr[i] = new DynamicLight((float)near[i].X, (float)near[i].Y, (float)near[i].Z, (float)near[i].Range, near[i].R, near[i].G, near[i].B);
-        mDev.SetDynamicLights(arr);
+        _dev.SetDynamicLights(arr);
     }
 
     /// <summary>Renders one frame: background, terrain, interiors and the overlays.</summary>
@@ -341,30 +341,30 @@ public sealed class WorldScene : IDisposable
     {
         // `view`: a TSControl that draws the world inside its own rectangle in the middle of the GUI draw [code 00546dc4]: the frame was
         // started and cleared already, the scene goes into that rectangle only (camera size and depth clear), no 2D overlay, no present.
-        int w = view?.Width ?? mDev.Width, h = view?.Height ?? mDev.Height;
+        int w = view?.Width ?? _dev.Width, h = view?.Height ?? _dev.Height;
         if (view is GfxRect vr)
-            mDev.SetViewport3D(vr);
+            _dev.SetViewport3D(vr);
         else
         {
-            mDev.BeginFrame();
-            mDev.ClearRgb((byte)(ClearColor.r * 255), (byte)(ClearColor.g * 255), (byte)(ClearColor.b * 255));
+            _dev.BeginFrame();
+            _dev.ClearRgb((byte)(ClearColor.r * 255), (byte)(ClearColor.g * 255), (byte)(ClearColor.b * 255));
         }
         var bg = MakeCamera(x, y, z, yaw, pitch, fov, w, h, true, roll);
         var world = MakeCamera(x, y, z, yaw, pitch, fov, w, h, false, roll);
-        mDev.BeginScene3D(bg, HazeColor.r, HazeColor.g, HazeColor.b);
+        _dev.BeginScene3D(bg, HazeColor.r, HazeColor.g, HazeColor.b);
         using (FramePerf.Scope("sky"))
         {
             if (!StarsInFront && Stars.Count > 0)
-                StarField.Draw(mDev, bg, Stars, StarColors);
+                StarField.Draw(_dev, bg, Stars, StarColors);
             Sky?.Draw(bg);
             if (StarsInFront && Stars.Count > 0)
-                StarField.Draw(mDev, bg, Stars, StarColors);
+                StarField.Draw(_dev, bg, Stars, StarColors);
             foreach (var p in Planets)
                 p.Draw(bg);
         }
-        mDev.SetCamera3D(world);
+        _dev.SetCamera3D(world);
         // The terrain merges the lights per square on the CPU (TerrainLightSet), the interiors per fragment.
-        mDev.SetDynamicLights([]);
+        _dev.SetDynamicLights([]);
         TerrainDraw?.DynamicLights = NearLights(x, y, z);
         using (FramePerf.Scope("terrain"))
             if (Interiors?.TerrainReached(world) ?? true)
@@ -374,22 +374,22 @@ public sealed class WorldScene : IDisposable
         using (FramePerf.Scope("interiors"))
             Interiors?.Draw(world, Terrain, DrawContents == null ? null : i =>
             {
-                mDev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
+                _dev.SetDynamicLights(ReadOnlySpan<DynamicLight>.Empty);
                 DrawContents(i);
                 SendDynamicLights(x, y, z);
             });
-        mDev.SetDynamicLights([]);
+        _dev.SetDynamicLights([]);
         overlay?.Invoke(world);
-        mDev.EndScene3D();
+        _dev.EndScene3D();
         if (view != null)
         {
-            mDev.SetViewport3D(null);
+            _dev.SetViewport3D(null);
             return;
         }
         using (FramePerf.Scope("gui-draw"))
             overlay2D?.Invoke();
         using (FramePerf.Scope("present"))
-            mDev.EndFrame();
+            _dev.EndFrame();
     }
 
     /// <inheritdoc/>

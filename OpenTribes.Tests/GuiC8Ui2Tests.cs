@@ -8,34 +8,34 @@ using OpenTribes.Gui;
 
 public sealed class GuiC8Ui2Tests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-c8ui2-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-c8ui2-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public GuiC8Ui2Tests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
+        _app?.Dispose();
         try
-        { Directory.Delete(mRoot, true); }
+        { Directory.Delete(_root, true); }
         catch (IOException) { }
     }
 
     private ClientApp Boot(string consoleCs)
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
-        var opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
+        var opt = ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out var error), error);
-        return mApp;
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        return _app;
     }
 
     // ---- loading screen ----
@@ -57,17 +57,17 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void ConnectFromTheCommandLineIsAJoin() // client-net.md 1.1: onConnection loads Loading.gui only in JOIN mode, which +connect never set
     {
         Boot("$connectAddress = \"127.0.0.1:28001\";");
-        Assert.Equal("", mApp!.Interp.PeekVariable("$pref::PlayGameMode"));
-        mApp.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
-        Assert.Equal("JOIN", mApp.Interp.PeekVariable("$pref::PlayGameMode"));
+        Assert.Equal("", _app!.Interp.PeekVariable("$pref::PlayGameMode"));
+        _app.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
+        Assert.Equal("JOIN", _app.Interp.PeekVariable("$pref::PlayGameMode"));
     }
 
     [Fact]
     public void ConnectKeepsTheModeOfTheMenu()
     {
         Boot("$connectAddress = \"127.0.0.1:28001\"; $pref::PlayGameMode = \"HOST\";");
-        mApp!.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
-        Assert.Equal("HOST", mApp.Interp.PeekVariable("$pref::PlayGameMode"));
+        _app!.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
+        Assert.Equal("HOST", _app.Interp.PeekVariable("$pref::PlayGameMode"));
     }
 
     // ---- inventory lists ----
@@ -311,18 +311,18 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void ChatMenuOnDisplayFollowsSetCMModeAndDeletion() // remoteNewMenu / remoteCancelMenu of menu.cs
     {
         Boot("");
-        var game = (GameState)typeof(ClientApp).GetField("mGameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(mApp)!;
+        var game = (GameState)typeof(ClientApp).GetField("_gameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(_app)!;
         Eval("newObject(CurServerMenu, ChatMenu, \"Options\"); addCMCommand(CurServerMenu, \"1Change Teams\", clientMenuSelect, \"changeteams\"); setCMMode(CurServerMenu, 1);");
-        var view = mApp!.CurrentMenu();
+        var view = _app!.CurrentMenu();
         Assert.NotNull(view);
         Assert.Equal("Options", view!.Title);
         Assert.Equal(('1', "Change Teams"), view.Items[0]);
         Eval("deleteObject(CurServerMenu);");
-        Assert.Null(mApp.CurrentMenu());
+        Assert.Null(_app.CurrentMenu());
         Assert.NotNull(game);
     }
 
-    private string Eval(string text) => mApp!.Interp.Evaluate(text);
+    private string Eval(string text) => _app!.Interp.Evaluate(text);
 
     // ---- scroll policy ----
 

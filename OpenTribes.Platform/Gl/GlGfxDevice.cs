@@ -38,22 +38,23 @@ void main() {
 
     private sealed class CachedTexture
     {
-        public uint Name;
-        public int Width, Height;
+        public uint Name { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
     }
 
-    private readonly GlWindow mWin;
-    private uint mFbo, mColorRb, mDepthRb;
-    private readonly uint mProgram, mVao, mVbo, mSamplerNearest, mSamplerLinear;
-    private readonly int mUViewport, mUUseTex, mUTex;
-    private PaletteBank mBank = PaletteTables.Grayscale();
-    private float mGamma = 1f;
-    private byte[] mGammaTable = PaletteTables.GammaTable(1f);
-    private readonly Dictionary<PbmpBitmap, CachedTexture> mCache = [];
-    private GfxRect? mClip;
-    private float[] mVerts = new float[8 * 6 * 64];
-    private int mVertCount;
-    private bool mDisposed;
+    private readonly GlWindow _win;
+    private uint _fbo, _colorRb, _depthRb;
+    private readonly uint _program, _vao, _vbo, _samplerNearest, _samplerLinear;
+    private readonly int _uViewport, _uUseTex, _uTex;
+    private PaletteBank _bank = PaletteTables.Grayscale();
+    private float _gamma = 1f;
+    private byte[] _gammaTable = PaletteTables.GammaTable(1f);
+    private readonly Dictionary<PbmpBitmap, CachedTexture> _cache = [];
+    private GfxRect? _clip;
+    private float[] _verts = new float[8 * 6 * 64];
+    private int _vertCount;
+    private bool _disposed;
 
     /// <inheritdoc/>
     public int Width { get; private set; }
@@ -68,28 +69,28 @@ void main() {
     /// <param name="window">The window, with its GL context current.</param>
     public GlGfxDevice(GlWindow window)
     {
-        mWin = window;
+        _win = window;
         Api = window.Gl;
         (Width, Height) = window.PixelSize();
         if (Width <= 0 || Height <= 0)
             (Width, Height) = (1, 1);
 
-        mProgram = Api.BuildProgram(VertexSource, FragmentSource, (0, "aPos"), (1, "aUv"), (2, "aColor"));
-        mUViewport = Api.UniformLocation(mProgram, "uViewport");
-        mUUseTex = Api.UniformLocation(mProgram, "uUseTex");
-        mUTex = Api.UniformLocation(mProgram, "uTex");
-        mVao = Api.GenVertexArray();
-        mVbo = Api.GenBuffer();
-        Api.BindVertexArray_(mVao);
-        Api.BindBuffer_(GlApi.ArrayBuffer, mVbo);
+        _program = Api.BuildProgram(VertexSource, FragmentSource, (0, "aPos"), (1, "aUv"), (2, "aColor"));
+        _uViewport = Api.UniformLocation(_program, "uViewport");
+        _uUseTex = Api.UniformLocation(_program, "uUseTex");
+        _uTex = Api.UniformLocation(_program, "uTex");
+        _vao = Api.GenVertexArray();
+        _vbo = Api.GenBuffer();
+        Api.BindVertexArray_(_vao);
+        Api.BindBuffer_(GlApi.ArrayBuffer, _vbo);
         Api.VertexAttribPointer_(0, 2, GlApi.Float, 0, 32, (void*)0);
         Api.VertexAttribPointer_(1, 2, GlApi.Float, 0, 32, (void*)8);
         Api.VertexAttribPointer_(2, 4, GlApi.Float, 0, 32, (void*)16);
         Api.EnableVertexAttribArray_(0);
         Api.EnableVertexAttribArray_(1);
         Api.EnableVertexAttribArray_(2);
-        mSamplerNearest = MakeSampler(GlApi.Nearest);
-        mSamplerLinear = MakeSampler(GlApi.Linear);
+        _samplerNearest = MakeSampler(GlApi.Nearest);
+        _samplerLinear = MakeSampler(GlApi.Linear);
         CreateTarget();
     }
 
@@ -105,23 +106,23 @@ void main() {
 
     private void CreateTarget()
     {
-        if (mFbo != 0)
+        if (_fbo != 0)
         {
-            uint f = mFbo, c = mColorRb, d = mDepthRb;
+            uint f = _fbo, c = _colorRb, d = _depthRb;
             Api.DeleteFramebuffers_(1, &f);
             Api.DeleteRenderbuffers_(1, &c);
             Api.DeleteRenderbuffers_(1, &d);
         }
-        mFbo = Api.GenFramebuffer();
-        mColorRb = Api.GenRenderbuffer();
-        mDepthRb = Api.GenRenderbuffer();
-        Api.BindRenderbuffer_(GlApi.Renderbuffer, mColorRb);
+        _fbo = Api.GenFramebuffer();
+        _colorRb = Api.GenRenderbuffer();
+        _depthRb = Api.GenRenderbuffer();
+        Api.BindRenderbuffer_(GlApi.Renderbuffer, _colorRb);
         Api.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.Rgba8, Width, Height);
-        Api.BindRenderbuffer_(GlApi.Renderbuffer, mDepthRb);
+        Api.BindRenderbuffer_(GlApi.Renderbuffer, _depthRb);
         Api.RenderbufferStorage_(GlApi.Renderbuffer, GlApi.DepthComponent16, Width, Height);
-        Api.BindFramebuffer_(GlApi.Framebuffer, mFbo);
-        Api.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.ColorAttachment0, GlApi.Renderbuffer, mColorRb);
-        Api.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.DepthAttachment, GlApi.Renderbuffer, mDepthRb);
+        Api.BindFramebuffer_(GlApi.Framebuffer, _fbo);
+        Api.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.ColorAttachment0, GlApi.Renderbuffer, _colorRb);
+        Api.FramebufferRenderbuffer_(GlApi.Framebuffer, GlApi.DepthAttachment, GlApi.Renderbuffer, _depthRb);
         if (Api.CheckFramebufferStatus_(GlApi.Framebuffer) != GlApi.FramebufferComplete)
             throw new InvalidOperationException("offscreen framebuffer incomplete");
         Prepare2D();
@@ -130,23 +131,23 @@ void main() {
     // 1.8 item 2: 2D state. The depth test stays off for all 2D draws (5.4 endScene3d).
     private void Prepare2D()
     {
-        Api.BindFramebuffer_(GlApi.Framebuffer, mFbo);
+        Api.BindFramebuffer_(GlApi.Framebuffer, _fbo);
         Api.Viewport_(0, 0, Width, Height);
         Api.Disable_(GlApi.DepthTest);
         Api.Disable_(GlApi.CullFace);
-        Api.UseProgram_(mProgram);
-        Api.Uniform2f_(mUViewport, Width, Height);
-        Api.Uniform1i_(mUTex, 0);
-        Api.BindVertexArray_(mVao);
-        Api.BindBuffer_(GlApi.ArrayBuffer, mVbo);
+        Api.UseProgram_(_program);
+        Api.Uniform2f_(_uViewport, Width, Height);
+        Api.Uniform1i_(_uTex, 0);
+        Api.BindVertexArray_(_vao);
+        Api.BindBuffer_(GlApi.ArrayBuffer, _vbo);
     }
 
     /// <inheritdoc/>
     public void SetPalette(PaletteBank bank, float gamma = 1f)
     {
-        mBank = bank;
-        mGamma = Math.Clamp(gamma, PaletteTables.MinGamma, PaletteTables.MaxGamma);
-        mGammaTable = PaletteTables.GammaTable(mGamma);
+        _bank = bank;
+        _gamma = Math.Clamp(gamma, PaletteTables.MinGamma, PaletteTables.MaxGamma);
+        _gammaTable = PaletteTables.GammaTable(_gamma);
         FlushTextureCache();
     }
 
@@ -156,25 +157,25 @@ void main() {
     /// <inheritdoc/>
     public void FlushTextureCache()
     {
-        foreach (var t in mCache.Values)
+        foreach (var t in _cache.Values)
             Api.DeleteTexture(t.Name);
-        mCache.Clear();
+        _cache.Clear();
     }
 
     /// <inheritdoc/>
     public void FlushTexture(PbmpBitmap bitmap)
     {
-        if (mCache.Remove(bitmap, out var t))
+        if (_cache.Remove(bitmap, out var t))
             Api.DeleteTexture(t.Name);
     }
 
     /// <summary>Gets the number of cached textures.</summary>
-    public int CachedTextureCount => mCache.Count;
+    public int CachedTextureCount => _cache.Count;
 
     /// <inheritdoc/>
     public void BeginFrame()
     {
-        (var w, var h) = mWin.PixelSize();
+        (var w, var h) = _win.PixelSize();
         if (w > 0 && h > 0 && (w != Width || h != Height))
         {
             Width = w;
@@ -188,13 +189,13 @@ void main() {
     /// <inheritdoc/>
     public void EndFrame()
     {
-        Api.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
+        Api.BindFramebuffer_(GlApi.ReadFramebuffer, _fbo);
         Api.BindFramebuffer_(GlApi.DrawFramebuffer, 0);
         Api.Disable_(GlApi.ScissorTest);
-        if (mWin.Scaled)
+        if (_win.Scaled)
         {
             // No display mode was set: the canvas keeps the full screen resolution and is scaled into the window, aspect kept.
-            (var ww, var wh) = mWin.WindowPixels();
+            (var ww, var wh) = _win.WindowPixels();
             (var x, var y, var w, var h) = FullscreenPlan.Letterbox((Width, Height), (ww, wh));
             Api.ClearColor_(0f, 0f, 0f, 1f);
             Api.Clear_(GlApi.ColorBufferBit);
@@ -202,14 +203,14 @@ void main() {
         }
         else
             Api.BlitFramebuffer_(0, 0, Width, Height, 0, 0, Width, Height, GlApi.ColorBufferBit, GlApi.Nearest);
-        mWin.Swap();
+        _win.Swap();
         Prepare2D();
     }
 
     /// <inheritdoc/>
     public void Clear(int colorIndex)
     {
-        var sub = mBank.SubPalettes[0];
+        var sub = _bank.SubPalettes[0];
         colorIndex = Math.Clamp(colorIndex, 0, 255);
         ClearRgb(sub.Colors[colorIndex * 4], sub.Colors[(colorIndex * 4) + 1], sub.Colors[(colorIndex * 4) + 2]);
     }
@@ -223,23 +224,23 @@ void main() {
     }
 
     /// <inheritdoc/>
-    public void SetClip(GfxRect? clip) => mClip = clip;
+    public void SetClip(GfxRect? clip) => _clip = clip;
 
     // ---- vertex batching ----
 
     private void Vertex(float x, float y, float u, float v, float r, float g, float b, float a)
     {
-        if ((mVertCount + 1) * 8 > mVerts.Length)
-            Array.Resize(ref mVerts, mVerts.Length * 2);
-        var o = mVertCount++ * 8;
-        mVerts[o] = x;
-        mVerts[o + 1] = y;
-        mVerts[o + 2] = u;
-        mVerts[o + 3] = v;
-        mVerts[o + 4] = r;
-        mVerts[o + 5] = g;
-        mVerts[o + 6] = b;
-        mVerts[o + 7] = a;
+        if ((_vertCount + 1) * 8 > _verts.Length)
+            Array.Resize(ref _verts, _verts.Length * 2);
+        var o = _vertCount++ * 8;
+        _verts[o] = x;
+        _verts[o + 1] = y;
+        _verts[o + 2] = u;
+        _verts[o + 3] = v;
+        _verts[o + 4] = r;
+        _verts[o + 5] = g;
+        _verts[o + 6] = b;
+        _verts[o + 7] = a;
     }
 
     private void Quad(float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1,
@@ -255,7 +256,7 @@ void main() {
 
     private void ApplyClip()
     {
-        if (mClip is not GfxRect c)
+        if (_clip is not GfxRect c)
         {
             Api.Disable_(GlApi.ScissorTest);
             return;
@@ -292,23 +293,23 @@ void main() {
 
     private void Flush(uint mode, BlendMode blend, CachedTexture? tex, bool linear)
     {
-        if (mVertCount == 0)
+        if (_vertCount == 0)
             return;
         ApplyClip();
         SetBlend(blend);
-        Api.Uniform1i_(mUUseTex, tex != null ? 1 : 0);
+        Api.Uniform1i_(_uUseTex, tex != null ? 1 : 0);
         if (tex != null)
         {
             Api.ActiveTexture_(GlApi.Texture0);
             Api.BindTexture_(GlApi.Texture2D, tex.Name);
-            Api.BindSampler_(0, linear ? mSamplerLinear : mSamplerNearest);
+            Api.BindSampler_(0, linear ? _samplerLinear : _samplerNearest);
         }
-        fixed (float* p = mVerts)
-            Api.BufferData_(GlApi.ArrayBuffer, mVertCount * 32, p, GlApi.StreamDraw);
-        Api.DrawArrays_(mode, 0, mVertCount);
+        fixed (float* p = _verts)
+            Api.BufferData_(GlApi.ArrayBuffer, _vertCount * 32, p, GlApi.StreamDraw);
+        Api.DrawArrays_(mode, 0, _vertCount);
         ++DrawCalls;
-        Triangles += mVertCount / 3;
-        mVertCount = 0;
+        Triangles += _vertCount / 3;
+        _vertCount = 0;
     }
 
     // ---- flat colors ----
@@ -316,10 +317,10 @@ void main() {
     private (float r, float g, float b) FlatColor(int index)
     {
         index = Math.Clamp(index, 0, 255);
-        var sp = mBank.SubPalettes[0];
-        return (PaletteTables.GammaFloat(sp.IndexToRed![index], mGamma),
-                PaletteTables.GammaFloat(sp.IndexToGreen![index], mGamma),
-                PaletteTables.GammaFloat(sp.IndexToBlue![index], mGamma));
+        var sp = _bank.SubPalettes[0];
+        return (PaletteTables.GammaFloat(sp.IndexToRed![index], _gamma),
+                PaletteTables.GammaFloat(sp.IndexToGreen![index], _gamma),
+                PaletteTables.GammaFloat(sp.IndexToBlue![index], _gamma));
     }
 
     private void Pixels(int x0, int y0, int x1, int y1, int colorIndex, float alpha)
@@ -395,10 +396,10 @@ void main() {
 
     private CachedTexture Texture(PbmpBitmap bmp)
     {
-        if (mCache.TryGetValue(bmp, out var t))
+        if (_cache.TryGetValue(bmp, out var t))
             return t;
-        var sub = mBank.FindSubPalette(bmp.PaletteId);
-        var rgba = PaletteTables.ToRgba(bmp, sub, mGammaTable);
+        var sub = _bank.FindSubPalette(bmp.PaletteId);
+        var rgba = PaletteTables.ToRgba(bmp, sub, _gammaTable);
         // Stock blit 005d8290 uploads through 005d3ecc, which packs palette-indexed bitmaps by subpalette kind (005d7148) unless
         // $pref::OpenGL::NoPackedTextures or Use32BitTex is set; then it uploads the 8 bit tables unpacked (005d5164, 005d5e34, 005d5a3c).
         if (bmp.Depth == 8 && (PackedTextures?.Invoke() ?? true))
@@ -412,7 +413,7 @@ void main() {
             fixed (byte* p = rgba)
                 Api.TexImage2D_(GlApi.Texture2D, 0, (int)GlApi.Rgba8, bmp.Width, bmp.Height, 0, GlApi.Rgba,
                                GlApi.UnsignedByte, p);
-        mCache[bmp] = t;
+        _cache[bmp] = t;
         return t;
     }
 
@@ -442,7 +443,7 @@ void main() {
         var mode = bmp.Blend;
         // 4: translucent is a 50% blend [I]; a translucent (kind 2) subpalette carries its own alpha in the texture.
         var alpha = 1f;
-        if (mode == BlendMode.Translucent && mBank.FindSubPalette(bmp.PaletteId).Kind != 2)
+        if (mode == BlendMode.Translucent && _bank.FindSubPalette(bmp.PaletteId).Kind != 2)
             alpha = 0.5f;
         float u0 = (float)src.Left / tex.Width, u1 = (float)(src.Right + 1) / tex.Width;
         float v0 = (float)src.Top / tex.Height, v1 = (float)(src.Bottom + 1) / tex.Height;
@@ -457,7 +458,7 @@ void main() {
     /// <inheritdoc/>
     public byte[] ReadPixels()
     {
-        Api.BindFramebuffer_(GlApi.ReadFramebuffer, mFbo);
+        Api.BindFramebuffer_(GlApi.ReadFramebuffer, _fbo);
         Api.PixelStorei_(GlApi.PackAlignment, 1);
         var raw = new byte[Width * Height * 4];
         fixed (byte* p = raw)
@@ -476,11 +477,11 @@ void main() {
     /// <summary>Releases the GL objects of the device.</summary>
     public void Dispose()
     {
-        if (mDisposed)
+        if (_disposed)
             return;
-        mDisposed = true;
+        _disposed = true;
         FlushTextureCache();
-        uint f = mFbo, c = mColorRb, d = mDepthRb, vao = mVao, vbo = mVbo, s0 = mSamplerNearest, s1 = mSamplerLinear;
+        uint f = _fbo, c = _colorRb, d = _depthRb, vao = _vao, vbo = _vbo, s0 = _samplerNearest, s1 = _samplerLinear;
         Api.DeleteFramebuffers_(1, &f);
         Api.DeleteRenderbuffers_(1, &c);
         Api.DeleteRenderbuffers_(1, &d);
@@ -488,7 +489,7 @@ void main() {
         Api.DeleteBuffers_(1, &vbo);
         Api.DeleteSamplers_(1, &s0);
         Api.DeleteSamplers_(1, &s1);
-        Api.DeleteProgram_(mProgram);
+        Api.DeleteProgram_(_program);
         Dispose3D();
     }
 }

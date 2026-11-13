@@ -105,8 +105,8 @@ public sealed class GfxFormatException : Exception
 // Little-endian cursor over a byte span; every read is bounds checked and throws GfxFormatException.
 internal ref struct Cursor
 {
-    public readonly ReadOnlySpan<byte> Data;
-    public int Pos;
+    public ReadOnlySpan<byte> Data { get; }
+    public int Pos { get; set; }
 
     public Cursor(ReadOnlySpan<byte> data, int pos = 0)
     {

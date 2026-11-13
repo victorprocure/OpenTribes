@@ -84,29 +84,29 @@ public class ControlAimTests
 
     // ---- TargetMarkers ----
 
-    private const int kControl = 5, kBeacon = 6;
+    private const int Control = 5, Beacon = 6;
 
     private static (ClientWorld World, ClientHudSource Src) Scene(string controlClass, int controlTeam, float[]? muzzle)
     {
         var world = new ClientWorld { PlayerId = 0x800 };
         world.Players.TeamCount = 2;
         world.Players.Clients[0x800] = new ClientPlayerRecord { Id = 0x800, Name = "Me", Team = 0 };
-        var control = new ClientGhost { Index = kControl, Class = controlClass };
+        var control = new ClientGhost { Index = Control, Class = controlClass };
         control.State["team"] = (long)controlTeam;
         control.State["datablock"] = 0L;
         world.Ghosts.Insert(control);
-        var beacon = new ClientGhost { Index = kBeacon, Class = "StaticShape" };
+        var beacon = new ClientGhost { Index = Beacon, Class = "StaticShape" };
         beacon.State["isTarget"] = 1L;
         beacon.State["damageState"] = 1L;
         beacon.State["team"] = 0L;
         world.Ghosts.Insert(beacon);
-        world.Psc.ControlGhost = kControl;
+        world.Psc.ControlGhost = Control;
         world.Psc.ControlClass = controlClass;
         var src = new ClientHudSource(world)
         {
             ViewCamera = (w, h) => new Camera3D(0, 0, 0, 0, 0, 90, w, h, 0.1, 1000),
-            ObjectBox = g => g == kBeacon ? (-1, 19, -1, 1, 21, 1, 0, 20, 0) : null,
-            ControlAim = g => g == kControl ? new HudControlAim(new float[3], muzzle, [1f, 0, 0, 0, 1f, 0, 0, 0, 1f], [0f, 2f, 0f]) : null,
+            ObjectBox = g => g == Beacon ? (-1, 19, -1, 1, 21, 1, 0, 20, 0) : null,
+            ControlAim = g => g == Control ? new HudControlAim(new float[3], muzzle, [1f, 0, 0, 0, 1f, 0, 0, 0, 1f], [0f, 2f, 0f]) : null,
         };
         return (world, src);
     }
@@ -143,7 +143,7 @@ public class ControlAimTests
         src.ControlAim = _ => null;
         Assert.Empty(src.TargetMarkers(640, 480));
         var (world2, src2) = Scene("Flier", 0, new float[3]);
-        world2.Ghosts.Get(kControl)!.State.Remove("team");
+        world2.Ghosts.Get(Control)!.State.Remove("team");
         Assert.Empty(src2.TargetMarkers(640, 480));
         Assert.NotNull(world);
     }
@@ -176,15 +176,15 @@ public class ControlAimTests
     {
         var (world, src) = Scene("Turret", 0, new float[3]);
         var raw = new byte[8];
-        BitConverter.GetBytes(Projectile.kBulletGroup).CopyTo(raw, 0);
+        BitConverter.GetBytes(Projectile.BulletGroup).CopyTo(raw, 0);
         BitConverter.GetBytes(0).CopyTo(raw, 4);
         var turretData = new ClientDataBlock { Group = 19, Index = 0 };
         turretData.Fields.Add(new DecodedField("projectileType", Convert.ToHexString(raw)));
         world.DataBlocks.Blocks[(19, 0)] = turretData;
-        var bullet = new ClientDataBlock { Group = Projectile.kBulletGroup, Index = 0 };
+        var bullet = new ClientDataBlock { Group = Projectile.BulletGroup, Index = 0 };
         bullet.Fields.Add(new DecodedField("field@0x68", 1000.0));
         bullet.Fields.Add(new DecodedField("totalTime", 5.0));
-        world.DataBlocks.Blocks[(Projectile.kBulletGroup, 0)] = bullet;
+        world.DataBlocks.Blocks[(Projectile.BulletGroup, 0)] = bullet;
         var m = Assert.Single(src.TargetMarkers(640, 480));
         Assert.True(m.Low!.Value.Reaches);
     }

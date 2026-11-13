@@ -4,15 +4,15 @@ namespace OpenTribes.Client.Shapes;
 public sealed class RenderThread
 {
     /// <summary>The sequence index, -1 for none.</summary>
-    public int Sequence = -1;
+    public int Sequence { get; set; } = -1;
     /// <summary>The position in the sequence, 0 to 1.</summary>
-    public double Position;
+    public double Position { get; set; }
     /// <summary>The playback speed factor. A negative value plays backwards.</summary>
-    public double TimeScale = 1;
+    public double TimeScale { get; set; } = 1;
     /// <summary>The priority of the thread.</summary>
-    public int Priority;
+    public int Priority { get; set; }
     /// <summary>The position before the last advance.</summary>
-    public double LastPosition;
+    public double LastPosition { get; set; }
 
     /// <summary>Tells whether a one shot sequence reached its end.</summary>
     /// <param name="s">The shape that owns the sequence.</param>
@@ -25,11 +25,11 @@ public sealed class RenderThread
 public struct RsObjectState
 {
     /// <summary>The frame index.</summary>
-    public int Frame;
+    public int Frame { get; set; }
     /// <summary>The texture frame index.</summary>
-    public int TextureFrame;
+    public int TextureFrame { get; set; }
     /// <summary>True when the object draws.</summary>
-    public bool Visible;
+    public bool Visible { get; set; }
 }
 
 /// <summary>The render side instance of a shape: threads, sequence stepping, node transforms by interpolated keys, object frames, visibility and texture frames, the image list remap (1.5), frame triggers (3.7) and run time transitions (3.3).</summary>
@@ -37,33 +37,33 @@ public struct RsObjectState
 public sealed class RenderInstance
 {
     /// <summary>The shape.</summary>
-    public readonly RenderShape Shape;
+    public RenderShape Shape { get; }
     /// <summary>The playing threads.</summary>
-    public readonly List<RenderThread> Threads = [];
+    public List<RenderThread> Threads { get; } = [];
     /// <summary>The image list remap of the materials (1.5).</summary>
-    public readonly int[] Remap;
+    public int[] Remap { get; }
     /// <summary>The transform of each node to shape space.</summary>
-    public readonly Xf[] NodeWorld;
+    public Xf[] NodeWorld { get; }
     /// <summary>The state of each object.</summary>
-    public readonly RsObjectState[] Objects;
+    public RsObjectState[] Objects { get; }
     /// <summary>The local rotation of each node as x, y, z, w, as animated.</summary>
-    public readonly double[][] LocalQ;
+    public double[][] LocalQ { get; }
     /// <summary>The local translation of each node, as animated.</summary>
-    public readonly double[][] LocalT;
+    public double[][] LocalT { get; }
     /// <summary>True for each node that is visible.</summary>
-    public bool[] NodeVisible;
+    public bool[] NodeVisible { get; set; }
     /// <summary>The detail the nodes were last animated for, -2 for none.</summary>
-    public int DetailAnimated = -2;
+    public int DetailAnimated { get; set; } = -2;
 
     /// <summary>The player view mode (player-sim.md 5.2, byte +0x9e of the instance): 0 none, 1 chase or third person, 2 first person.</summary>
     /// <remarks>With a mode set, a <c>lowerback</c> node that a thread animates does not hang on its parent. Its parent frame is the fixed upright frame (yaw pi / 2) at the position of the parent (mode 1) or at (0, 0, height of <c>dummyalways root</c>) (mode 2), so the whole upper body, the eye and the hand follow the looks thread alone and never the leg cycle.</remarks>
-    public int ViewMode;
-    private readonly bool[] mLowerBack;
-    private readonly int mRootNode;
+    public int ViewMode { get; set; }
+    private readonly bool[] _lowerBack;
+    private readonly int _rootNode;
 
     // Transition (3.3): blend from the pose at the switch to the animated pose.
-    private double[][]? mFromQ, mFromT;
-    private double mBlendLeft, mBlendDuration;
+    private double[][]? _fromQ, _fromT;
+    private double _blendLeft, _blendDuration;
 
     /// <summary>Creates an instance of a shape with no threads.</summary>
     /// <param name="shape">The shape.</param>
@@ -86,14 +86,14 @@ public sealed class RenderInstance
             LocalQ[i] = new double[4];
             LocalT[i] = new double[3];
         }
-        mLowerBack = new bool[shape.Nodes.Length];
-        mRootNode = -1;
+        _lowerBack = new bool[shape.Nodes.Length];
+        _rootNode = -1;
         for (var i = 0; i < shape.Nodes.Length; ++i)
         {
             var name = shape.Names[shape.Nodes[i].Name];
-            mLowerBack[i] = name.StartsWith("lowerback", StringComparison.Ordinal);
-            if (mRootNode < 0 && name == "dummyalways root")
-                mRootNode = i;
+            _lowerBack[i] = name.StartsWith("lowerback", StringComparison.Ordinal);
+            if (_rootNode < 0 && name == "dummyalways root")
+                _rootNode = i;
         }
         Animate(0);
     }
@@ -176,11 +176,11 @@ public sealed class RenderInstance
     {
         foreach (var t in Threads)
             Advance(t, dt, triggers);
-        if (mBlendLeft > 0)
+        if (_blendLeft > 0)
         {
-            mBlendLeft -= dt;
-            if (mBlendLeft <= 0)
-                mFromQ = mFromT = null;
+            _blendLeft -= dt;
+            if (_blendLeft <= 0)
+                _fromQ = _fromT = null;
         }
     }
 
@@ -192,16 +192,16 @@ public sealed class RenderInstance
     public void StartTransition(RenderThread t, int sequence, double position, double duration)
     {
         Animate(Math.Max(DetailAnimated, 0));
-        mFromQ = [.. LocalQ.Select(a => (double[])a.Clone())];
-        mFromT = [.. LocalT.Select(a => (double[])a.Clone())];
-        mBlendLeft = mBlendDuration = duration;
+        _fromQ = [.. LocalQ.Select(a => (double[])a.Clone())];
+        _fromT = [.. LocalT.Select(a => (double[])a.Clone())];
+        _blendLeft = _blendDuration = duration;
         t.Sequence = sequence;
         t.Position = position;
         t.LastPosition = position;
     }
 
     /// <summary>True while a transition blend runs.</summary>
-    public bool Blending => mBlendLeft > 0;
+    public bool Blending => _blendLeft > 0;
 
     private int SubFor(int first, int count, int sequence)
     {
@@ -322,13 +322,13 @@ public sealed class RenderInstance
         q[3] = (s0 * a[3]) + (s1 * bw);
     }
 
-    private readonly List<RenderThread> mOrdered = [];
+    private readonly List<RenderThread> _ordered = [];
 
     private List<RenderThread> Ordered()
     {
         // Ascending priority: the first thread whose sequence drives a node wins (a lower number is a higher priority, the
         // looks thread uses -1). Stable insertion sort into a list kept between calls (no allocation per frame).
-        var l = mOrdered;
+        var l = _ordered;
         l.Clear();
         foreach (var t in Threads)
         {
@@ -352,7 +352,7 @@ public sealed class RenderInstance
         foreach (var t in order)
             StepIfl(t);
         var nodes = sh.NodesOfDetail(detail).Sorted;
-        var blend = mBlendLeft > 0 && mFromQ != null ? Math.Clamp(1 - (mBlendLeft / mBlendDuration), 0, 1) : 1;
+        var blend = _blendLeft > 0 && _fromQ != null ? Math.Clamp(1 - (_blendLeft / _blendDuration), 0, 1) : 1;
         var q = new double[4];
         foreach (var node in nodes)
         {
@@ -398,9 +398,9 @@ public sealed class RenderInstance
                     LocalT[node][1] = d.Ty;
                     LocalT[node][2] = d.Tz;
                 }
-                if (blend < 1 && mFromQ != null && mFromT != null)
+                if (blend < 1 && _fromQ != null && _fromT != null)
                 {
-                    double[] fq = mFromQ[node], cq = LocalQ[node];
+                    double[] fq = _fromQ[node], cq = LocalQ[node];
                     var dot = (fq[0] * cq[0]) + (fq[1] * cq[1]) + (fq[2] * cq[2]) + (fq[3] * cq[3]);
                     double sg = dot < 0 ? -1 : 1, len = 0;
                     for (var k = 0; k < 4; ++k)
@@ -413,19 +413,19 @@ public sealed class RenderInstance
                         for (var k = 0; k < 4; ++k)
                             cq[k] = q[k] / len;
                     for (var k = 0; k < 3; ++k)
-                        LocalT[node][k] = (mFromT[node][k] * (1 - blend)) + (LocalT[node][k] * blend);
+                        LocalT[node][k] = (_fromT[node][k] * (1 - blend)) + (LocalT[node][k] * blend);
                 }
                 Xf local = Xf.FromQuat(LocalQ[node][0], LocalQ[node][1], LocalQ[node][2], LocalQ[node][3]);
                 local.Px = LocalT[node][0];
                 local.Py = LocalT[node][1];
                 local.Pz = LocalT[node][2];
-                if (ViewMode != 0 && mLowerBack[node] && done && (ViewMode == 1 || mRootNode >= 0))
+                if (ViewMode != 0 && _lowerBack[node] && done && (ViewMode == 1 || _rootNode >= 0))
                 {
                     Xf frame = Xf.Euler(0, 0, Math.PI / 2);
                     if (ViewMode == 1)
                         (frame.Px, frame.Py, frame.Pz) = (NodeWorld[nd.Parent].Px, NodeWorld[nd.Parent].Py, NodeWorld[nd.Parent].Pz);
                     else
-                        frame.Pz = NodeWorld[mRootNode].Pz;
+                        frame.Pz = NodeWorld[_rootNode].Pz;
                     entry = local.Then(frame);
                 }
                 else

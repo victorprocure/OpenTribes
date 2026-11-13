@@ -9,26 +9,26 @@ using OpenTribes.Net;
 public sealed class ServerConfig
 {
     /// <summary>The UDP port.</summary>
-    public ushort Port = 28001;
+    public ushort Port { get; set; } = 28001;
     /// <summary>The host name shown in the server list.</summary>
-    public string Hostname = "TRIBES Server";
+    public string Hostname { get; set; } = "TRIBES Server";
     /// <summary>The join password, empty for none.</summary>
-    public string Password = "";
+    public string Password { get; set; } = "";
     /// <summary>The player limit as text.</summary>
-    public string MaxPlayers = "8";
+    public string MaxPlayers { get; set; } = "8";
     /// <summary>The server description text.</summary>
-    public string Info = "Default TRIBES server setup\nAdmin: Unknown\nEmail: Unknown";
+    public string Info { get; set; } = "Default TRIBES server setup\nAdmin: Unknown\nEmail: Unknown";
     /// <summary>The loaded mods.</summary>
-    public string ModList = "base";
+    public string ModList { get; set; } = "base";
     /// <summary>The mission type.</summary>
-    public string MissionType = "";
+    public string MissionType { get; set; } = "";
     /// <summary>The mission name.</summary>
-    public string MissionName = "";
+    public string MissionName { get; set; } = "";
     /// <summary>True for a dedicated server.</summary>
     /// <summary>True for a dedicated server.</summary>
-    public bool Dedicated = true;
+    public bool Dedicated { get; set; } = true;
     /// <summary>True to use the LastHope 1.30 version string, threshold and upgrade message.</summary>
-    public bool LastHope;
+    public bool LastHope { get; set; }
 
     /// <summary>Copies the settings.</summary>
     /// <returns>The copy.</returns>
@@ -40,26 +40,34 @@ public sealed class ServerConfig
 public sealed class GameInfo
 {
     /// <summary>The server variables the reply reports, as script text.</summary>
-    public string Hostname = "", Password = "", MaxPlayers = "", Info = "", ModList = "", MissionType = "", MissionName = "";
+    public string Hostname { get; set; } = "";
+    public string Password { get; set; } = "";
+    public string MaxPlayers { get; set; } = "";
+    public string Info { get; set; } = "";
+    public string ModList { get; set; } = "";
+    public string MissionType { get; set; } = "";
+    public string MissionName { get; set; } = "";
     /// <summary>True for a dedicated server.</summary>
-    public bool Dedicated = true;
+    public bool Dedicated { get; set; } = true;
     /// <summary>The CPU speed the info reply reports.</summary>
-    public int CpuSpeed;
+    public int CpuSpeed { get; set; }
     /// <summary>The text of <c>$CPU::estimatedSpeed</c>. Empty sends -1 in the 0x10 info.</summary>
-    public string CpuText = "0"; // $CPU::estimatedSpeed as text; empty sends -1 in the 0x10 info
+    public string CpuText { get; set; } = "0"; // $CPU::estimatedSpeed as text; empty sends -1 in the 0x10 info
     /// <summary>The number of teams.</summary>
-    public int TeamCount = -1;
+    public int TeamCount { get; set; } = -1;
     /// <summary>The headings of the team and client columns in the info reply.</summary>
-    public string TeamHeading = "", ClientHeading = "";
+    public string TeamHeading { get; set; } = "";
+    public string ClientHeading { get; set; } = "";
 
     /// <summary>One team row of the info reply. Port of src/server/net_server.hpp GameInfo::TeamRow.</summary>
     public sealed class TeamRow
     {
         /// <summary>The team name and the score text as set by <c>Team::setScore</c>.</summary>
-        public string Name, Score;
+        public string Name { get; set; }
+        public string Score { get; set; }
         /// <summary>The sort value. Rows sort by descending value.</summary>
         /// <summary>The sort value.</summary>
-        public int Sort;
+        public int Sort { get; set; }
         /// <summary>Creates a row.</summary>
         /// <param name="name">The team name.</param>
         /// <param name="score">The score text.</param>
@@ -72,7 +80,7 @@ public sealed class GameInfo
         }
     }
     /// <summary>The team rows, teams 0 to n-1.</summary>
-    public List<TeamRow> Teams = [];
+    public List<TeamRow> Teams { get; set; } = [];
 
     /// <summary>The client record details of one player by player id (docs/player-manager.md 2.1). Players without an entry report the values of a fresh record.</summary>
     /// <remarks>Port of src/server/net_server.hpp GameInfo::PlayerRow.</remarks>
@@ -80,81 +88,81 @@ public sealed class GameInfo
     {
         /// <summary>The player id.</summary>
         /// <summary>The player record id.</summary>
-        public uint Id;
+        public uint Id { get; set; }
         /// <summary>The team.</summary>
-        public int Team = -1;
+        public int Team { get; set; } = -1;
         /// <summary>The score text as set by <c>Client::setScore</c>.</summary>
-        public string Score = ""; // score text as set by Client::setScore
+        public string Score { get; set; } = ""; // score text as set by Client::setScore
         /// <summary>The sort value.</summary>
-        public int Sort;
+        public int Sort { get; set; }
         /// <summary>The ping in milliseconds, as stored by the 1.5 s update.</summary>
-        public uint Ping;
+        public uint Ping { get; set; }
         /// <summary>The packet loss.</summary>
-        public float Loss;
+        public float Loss { get; set; }
     }
     /// <summary>The player rows.</summary>
-    public List<PlayerRow> Players = [];
+    public List<PlayerRow> Players { get; set; } = [];
 }
 
 /// <summary>A connected player. Port of src/server/net_server.hpp Player.</summary>
 public sealed class Player
 {
     /// <summary>The player record id.</summary>
-    public uint Id;
+    public uint Id { get; set; }
     /// <summary>The player name.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The voice set.</summary>
-    public string Voice = "";
+    public string Voice { get; set; } = "";
     /// <summary>True for a male player.</summary>
-    public bool Male;
+    public bool Male { get; set; }
     /// <summary>The player's connection.</summary>
-    public Connection? Connection;
+    public Connection? Connection { get; set; }
 }
 
 /// <summary>The game-layer callbacks for accepted connections: type-0 data, notify, close and tick. Port of src/server/net_server.hpp NetHooks.</summary>
 public sealed class NetHooks
 {
     /// <summary>Called when a connection is established.</summary>
-    public Action<Player, Connection>? OnAccepted;
+    public Action<Player, Connection>? OnAccepted { get; set; }
     /// <summary>Called with the payload of a data packet.</summary>
-    public Action<Player, byte[]>? OnData;
+    public Action<Player, byte[]>? OnData { get; set; }
     /// <summary>Called with the cookie of a sent packet and whether it was delivered.</summary>
-    public Action<Player, uint, bool>? OnNotify;
+    public Action<Player, uint, bool>? OnNotify { get; set; }
     /// <summary>Called when a player's connection ends.</summary>
-    public Action<Player>? OnClosed;
+    public Action<Player>? OnClosed { get; set; }
     /// <summary>Called every network step with the clock in milliseconds.</summary>
-    public Action<uint>? OnTick;
+    public Action<uint>? OnTick { get; set; }
 }
 
 /// <summary>The server networking: the socket, connectionless queries and the connect handshake.</summary>
 /// <remarks>Port of src/server/net_server.cpp. The original has the query handler at 0042a4cc, the connect handler at 0042ad6c and the DNet info at 0054f608.</remarks>
 public sealed class NetServer : ConnectionEvents, IDisposable
 {
-    private const uint kFirstPlayerId = 2049;   // first player record id observed on the original
-    private const uint kServerManagerId = 2048; // server SimManager id sent in the accept
-    private const int kMaxNameLength = 16;
-    private const string kGameType = "Tribes";
+    private const uint FirstPlayerId = 2049;   // first player record id observed on the original
+    private const uint ServerManagerId = 2048; // server SimManager id sent in the accept
+    private const int MaxNameLength = 16;
+    private const string GameType = "Tribes";
 
-    private readonly ServerConfig mConfig;
-    private readonly string mVersion;
-    private readonly int mMinMinorVersion;
-    private readonly string mUpgradeMessage;
-    private readonly ushort mPacketVersion;
+    private readonly ServerConfig _config;
+    private readonly string _version;
+    private readonly int _minMinorVersion;
+    private readonly string _upgradeMessage;
+    private readonly ushort _packetVersion;
 
-    private Func<GameInfo>? mGameInfo;
-    private NetHooks mHooks = new();
-    private readonly UdpSocket mSocket = new();
-    private SendFn? mSendOverride;
-    private Action<string> mLog;
-    private Action<int, string>? mLeveledLog;
-    private readonly BanList mBans = new();
-    private readonly SortedDictionary<Address, Connection> mConnections = [];
-    private readonly List<Player> mPlayers = [];
+    private Func<GameInfo>? _gameInfo;
+    private NetHooks _hooks = new();
+    private readonly UdpSocket _socket = new();
+    private SendFn? _sendOverride;
+    private Action<string> _log;
+    private Action<int, string>? _leveledLog;
+    private readonly BanList _bans = new();
+    private readonly SortedDictionary<Address, Connection> _connections = [];
+    private readonly List<Player> _players = [];
     // Player record ids are reused last-freed-first; unused ids follow in order.
-    private readonly List<uint> mFreePlayerIds = [];
-    private uint mNextFreshPlayerId;
-    private uint mNextConnectionId;
-    private uint mNow;
+    private readonly List<uint> _freePlayerIds = [];
+    private uint _nextFreshPlayerId;
+    private uint _nextConnectionId;
+    private uint _now;
 
     private static string Str(int v) => v.ToString(CultureInfo.InvariantCulture);
 
@@ -198,34 +206,34 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <remarks>The packet version is the version string's part before the first <c>.</c> (0042b73c). Session connection ids are seeded from the clock (0058b890).</remarks>
     public NetServer(ServerConfig config)
     {
-        mConfig = config.Clone();
-        mNextFreshPlayerId = kFirstPlayerId;
+        _config = config.Clone();
+        _nextFreshPlayerId = FirstPlayerId;
         if (config.LastHope)
         {
-            mVersion = "1.30";
-            mMinMinorVersion = 30;
-            mUpgradeMessage =
+            _version = "1.30";
+            _minMinorVersion = 30;
+            _upgradeMessage =
                 "You must upgrade your executable to play on this server (requires version 1.30). " +
                 "Check www.lasthope.us for the most recent patches.";
         }
         else
         {
-            mVersion = "1.11";
-            mMinMinorVersion = 11;
-            mUpgradeMessage =
+            _version = "1.11";
+            _minMinorVersion = 11;
+            _upgradeMessage =
                 "You must upgrade your executable to play on this server (requires version 1.11 or higher).  " +
                 "Check www.tribesplayers.com for the most recent patches.";
         }
         // Packet version: the version string's part before the first '.' (0x0042b73c).
-        mPacketVersion = (ushort)CAtoi(mVersion);
+        _packetVersion = (ushort)CAtoi(_version);
         // Session connection ids are seeded from the tick count (0x0058b890).
-        mNextConnectionId = unchecked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        mLog = StdIo.Out;
+        _nextConnectionId = unchecked((uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        _log = StdIo.Out;
     }
 
     /// <summary>Opens the socket on the configured port.</summary>
     /// <returns>True on success.</returns>
-    public bool Open() => mSocket.Open(mConfig.Port);
+    public bool Open() => _socket.Open(_config.Port);
 
     /// <summary>True when the server is open on the in-process loopback transport only.</summary>
     public bool LoopbackOnly { get; private set; }
@@ -237,60 +245,60 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     public bool Open(ushort port, bool loopbackOnly = false)
     {
         LoopbackOnly = loopbackOnly;
-        mConfig.Port = port;
-        return loopbackOnly ? mSocket.OpenMemory(port) : mSocket.Open(port, false);
+        _config.Port = port;
+        return loopbackOnly ? _socket.OpenMemory(port) : _socket.Open(port, false);
     }
 
     /// <summary>Closes the socket.</summary>
-    public void Close() => mSocket.Close();
+    public void Close() => _socket.Close();
 
     /// <summary>Tells whether the socket is open.</summary>
     /// <returns>True when open.</returns>
-    public bool IsOpen() => mSocket.Port() != 0;
+    public bool IsOpen() => _socket.Port() != 0;
     /// <summary>Sets the source of live query reply values. Without one the static config answers.</summary>
     /// <param name="provider">The provider, or null.</param>
-    public void SetGameInfo(Func<GameInfo>? provider) => mGameInfo = provider;
+    public void SetGameInfo(Func<GameInfo>? provider) => _gameInfo = provider;
     /// <summary>Sets the game-layer callbacks.</summary>
     /// <param name="hooks">The callbacks.</param>
-    public void SetHooks(NetHooks hooks) => mHooks = hooks;
+    public void SetHooks(NetHooks hooks) => _hooks = hooks;
     /// <summary>Gets the ban list.</summary>
     /// <returns>The list.</returns>
-    public BanList Bans() => mBans;
+    public BanList Bans() => _bans;
     /// <summary>Sets a log with print levels, where 1 is <c>printf</c> and n is <c>dbprintf(n)</c>. It replaces <see cref="SetLog"/> when set.</summary>
     /// <param name="log">The log, or null.</param>
-    public void SetLeveledLog(Action<int, string>? log) => mLeveledLog = log;
+    public void SetLeveledLog(Action<int, string>? log) => _leveledLog = log;
     /// <summary>Replaces the socket for outgoing datagrams. A test seam.</summary>
     /// <param name="send">The send function.</param>
-    public void SetSendFunction(SendFn send) => mSendOverride = send;
+    public void SetSendFunction(SendFn send) => _sendOverride = send;
     /// <summary>Sets the console output. The default is stdout.</summary>
     /// <param name="log">The log.</param>
-    public void SetLog(Action<string> log) => mLog = log;
+    public void SetLog(Action<string> log) => _log = log;
     /// <summary>Sends one datagram outside any connection, for the master heartbeat.</summary>
     /// <param name="to">The destination.</param>
     /// <param name="data">The payload.</param>
     public void SendConnectionless(Address to, ReadOnlySpan<byte> data) => Send(to, data);
     /// <summary>Gets the connected players.</summary>
     /// <returns>The players.</returns>
-    public IReadOnlyList<Player> Players() => mPlayers;
+    public IReadOnlyList<Player> Players() => _players;
     /// <summary>Gets the bound port.</summary>
     /// <returns>The port.</returns>
-    public ushort Port() => mSocket.Port();
+    public ushort Port() => _socket.Port();
 
     // src/server/net_server.cpp NetServer::currentInfo.
     private GameInfo CurrentInfo()
     {
-        if (mGameInfo != null)
-            return mGameInfo();
+        if (_gameInfo != null)
+            return _gameInfo();
         return new GameInfo
         {
-            Hostname = mConfig.Hostname,
-            Password = mConfig.Password,
-            MaxPlayers = mConfig.MaxPlayers,
-            Info = mConfig.Info,
-            ModList = mConfig.ModList,
-            MissionType = mConfig.MissionType,
-            MissionName = mConfig.MissionName,
-            Dedicated = mConfig.Dedicated,
+            Hostname = _config.Hostname,
+            Password = _config.Password,
+            MaxPlayers = _config.MaxPlayers,
+            Info = _config.Info,
+            ModList = _config.ModList,
+            MissionType = _config.MissionType,
+            MissionName = _config.MissionName,
+            Dedicated = _config.Dedicated,
         };
     }
 
@@ -307,7 +315,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     public void Poll(uint nowMs)
     {
         Drain(nowMs);
-        mHooks.OnTick?.Invoke(nowMs);
+        _hooks.OnTick?.Invoke(nowMs);
         TickConnections(nowMs);
     }
 
@@ -325,31 +333,31 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <remarks>Follows 00550d2c.</remarks>
     public void SendPackets(uint nowMs)
     {
-        mNow = nowMs;
-        mHooks.OnTick?.Invoke(nowMs);
+        _now = nowMs;
+        _hooks.OnTick?.Invoke(nowMs);
     }
 
     // src/server/net_server.cpp NetServer::drain.
     private void Drain(uint nowMs)
     {
-        mNow = nowMs;
+        _now = nowMs;
         var buf = new byte[0x5f4];
         int n;
-        while ((n = mSocket.Receive(out var from, buf)) > 0)
+        while ((n = _socket.Receive(out var from, buf)) > 0)
             Receive(from, buf.AsSpan(0, n), nowMs);
     }
 
     // src/server/net_server.cpp NetServer::tickConnections.
     private void TickConnections(uint nowMs)
     {
-        foreach (var key in mConnections.Keys.ToList())
+        foreach (var key in _connections.Keys.ToList())
         {
-            if (!mConnections.TryGetValue(key, out var c))
+            if (!_connections.TryGetValue(key, out var c))
                 continue;
             if (!c.Dead() && c.State() != ConnectionState.Idle)
                 c.Tick(nowMs);
             if (c.Dead() || c.State() == ConnectionState.Idle)
-                mConnections.Remove(key);
+                _connections.Remove(key);
         }
     }
 
@@ -359,21 +367,21 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <param name="nowMs">The clock in milliseconds.</param>
     public void Receive(Address from, ReadOnlySpan<byte> data, uint nowMs)
     {
-        mNow = nowMs;
+        _now = nowMs;
         if (data.Length == 0)
             return;
         // Self-echo of our own broadcasts.
-        if (from.Ip == 0x7f000001 && from.Port == mSocket.Port())
+        if (from.Ip == 0x7f000001 && from.Port == _socket.Port())
             return;
         if ((data[0] & 1) == 0)
         {
             HandleConnectionless(from, data);
             return;
         }
-        if (!mConnections.TryGetValue(from, out var slot))
+        if (!_connections.TryGetValue(from, out var slot))
         {
-            slot = new Connection(from, mNextConnectionId++, this, Send, nowMs);
-            mConnections[from] = slot;
+            slot = new Connection(from, _nextConnectionId++, this, Send, nowMs);
+            _connections[from] = slot;
         }
         slot.Receive(data, nowMs);
     }
@@ -381,26 +389,26 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     // src/server/net_server.cpp NetServer::send.
     private void Send(Address to, ReadOnlySpan<byte> data)
     {
-        if (mSendOverride != null)
-            mSendOverride(to, data);
+        if (_sendOverride != null)
+            _sendOverride(to, data);
         else
-            mSocket.Send(to, data);
+            _socket.Send(to, data);
     }
 
     // src/server/net_server.cpp NetServer::log.
     private void Log(int level, string line)
     {
-        if (mLeveledLog != null)
-            mLeveledLog(level, line);
+        if (_leveledLog != null)
+            _leveledLog(level, line);
         else if (level <= 1)
-            mLog(line);
+            _log(line);
     }
 
     // src/server/net_server.cpp NetServer::handleConnectionless.
     private void HandleConnectionless(Address from, ReadOnlySpan<byte> data)
     {
         // 0x0042a4cc: nothing is answered to a banned address (docs/server-ops.md 4.4).
-        if (mBans.IsBanned(from.ToString()))
+        if (_bans.IsBanned(from.ToString()))
         {
             Log(2, "SimNET: ignoring GI from banned address " + from.ToString());
             return;
@@ -428,11 +436,11 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     private List<GameInfo.PlayerRow> PlayerRows(GameInfo g)
     {
         var rows = new List<GameInfo.PlayerRow>();
-        for (var k = mPlayers.Count - 1; k >= 0; --k)
+        for (var k = _players.Count - 1; k >= 0; --k)
         {
-            var row = new GameInfo.PlayerRow { Id = mPlayers[k].Id };
+            var row = new GameInfo.PlayerRow { Id = _players[k].Id };
             foreach (var r in g.Players)
-                if (r.Id == mPlayers[k].Id)
+                if (r.Id == _players[k].Id)
                     row = r;
             rows.Add(row);
         }
@@ -463,13 +471,13 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         Byte(data.Length > 1 ? data[1] : (byte)0);
         Byte(data.Length > 2 ? data[2] : (byte)0);
         Byte(0x62);
-        StrField(kGameType, 255);
-        StrField(mVersion, 255);
+        StrField(GameType, 255);
+        StrField(_version, 255);
         var g = CurrentInfo();
         StrField(g.Hostname, 32);
         Byte(g.Dedicated ? (byte)1 : (byte)0);
         Byte(g.Password.Length == 0 ? (byte)0 : (byte)1);
-        Byte((byte)mPlayers.Count);
+        Byte((byte)_players.Count);
         Byte(unchecked((byte)CAtoi(g.MaxPlayers)));
         if (info)
         {
@@ -494,7 +502,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
                 Byte(unchecked((byte)(rows[i].Ping >> 2)));
                 Byte(unchecked((byte)(int)(rows[i].Loss * 100.0f)));
                 Byte(unchecked((byte)rows[i].Team));
-                StrField(mPlayers[mPlayers.Count - 1 - i].Name, 18);
+                StrField(_players[_players.Count - 1 - i].Name, 18);
                 StrField(rows[i].Score, 32);
             }
         }
@@ -507,7 +515,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         // Key bytes missing from a short request read as zero.
         var output = new byte[40];
         byte[] head = [ 0x10, 0x04, 0xff, 0xf0, data.Length > 4 ? data[4] : (byte)0, data.Length > 5 ? data[5] : (byte)0,
-                        0x20, (byte)mPlayers.Count, (byte)mPacketVersion, (byte)(mPacketVersion >> 8) ];
+                        0x20, (byte)_players.Count, (byte)_packetVersion, (byte)(_packetVersion >> 8) ];
         head.CopyTo(output, 0);
         // strncpy of 29 characters, then the last byte is 0.
         var host = CurrentInfo().Hostname;
@@ -531,15 +539,15 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         var g = CurrentInfo();
         var players = PlayerRows(g);
         var names = new List<string>();
-        for (var k = mPlayers.Count - 1; k >= 0; --k)
-            names.Add(mPlayers[k].Name);
+        for (var k = _players.Count - 1; k >= 0; --k)
+            names.Add(_players[k].Name);
 
-        byte[] pv = [(byte)mPacketVersion, (byte)(mPacketVersion >> 8)];
+        byte[] pv = [(byte)_packetVersion, (byte)(_packetVersion >> 8)];
         bs.WriteBytes(pv);
-        bs.WriteString(kGameType);
-        bs.WriteString(mVersion);
+        bs.WriteString(GameType);
+        bs.WriteString(_version);
         bs.WriteString(g.Hostname.Length == 0 ? "N/A" : g.Hostname);
-        var b = (byte)mPlayers.Count;
+        var b = (byte)_players.Count;
         bs.WriteBytes([b]);
         // Decimal parse in a byte with no digit check.
         b = 0;
@@ -655,11 +663,11 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <returns>The lines.</returns>
     public List<string> PlayerList()
     {
-        var output = new List<string> { "Server: " + Str(mPlayers.Count) + " clients" };
+        var output = new List<string> { "Server: " + Str(_players.Count) + " clients" };
         var rows = PlayerRows(CurrentInfo());
         for (var i = 0; i < rows.Count; ++i)
         {
-            var p = mPlayers[mPlayers.Count - 1 - i];
+            var p = _players[_players.Count - 1 - i];
             output.Add(p.Id.ToString(CultureInfo.InvariantCulture) + " (" + (p.Connection != null ? p.Connection.Peer().ToString() : "") +
                        "): " + p.Name + " - " + rows[i].Score);
         }
@@ -671,7 +679,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <returns>The player, or null.</returns>
     public Player? PlayerById(uint id)
     {
-        foreach (var p in mPlayers)
+        foreach (var p in _players)
             if (p.Id == id)
                 return p;
         return null;
@@ -688,10 +696,10 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         if (p == null)
             return false;
         var c = p.Connection;
-        mHooks.OnClosed?.Invoke(p);
-        c?.Close(Connection.Disconnect, reason ?? "You were kicked from the game.", mNow);
-        mFreePlayerIds.Add(playerId);
-        mPlayers.RemoveAll(q => q.Id == playerId);
+        _hooks.OnClosed?.Invoke(p);
+        c?.Close(Connection.Disconnect, reason ?? "You were kicked from the game.", _now);
+        _freePlayerIds.Add(playerId);
+        _players.RemoveAll(q => q.Id == playerId);
         return true;
     }
 
@@ -705,10 +713,10 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         if (p == null)
             return false;
         var c = p.Connection;
-        mHooks.OnClosed?.Invoke(p);
-        c?.Close(Connection.Disconnect, null, mNow);
-        mFreePlayerIds.Add(playerId);
-        mPlayers.RemoveAll(q => q.Id == playerId);
+        _hooks.OnClosed?.Invoke(p);
+        c?.Close(Connection.Disconnect, null, _now);
+        _freePlayerIds.Add(playerId);
+        _players.RemoveAll(q => q.Id == playerId);
         return true;
     }
 
@@ -716,22 +724,22 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     /// <returns>The id.</returns>
     public uint AllocatePlayerId()
     {
-        if (mFreePlayerIds.Count == 0)
-            return mNextFreshPlayerId++;
-        var id = mFreePlayerIds[^1];
-        mFreePlayerIds.RemoveAt(mFreePlayerIds.Count - 1);
+        if (_freePlayerIds.Count == 0)
+            return _nextFreshPlayerId++;
+        var id = _freePlayerIds[^1];
+        _freePlayerIds.RemoveAt(_freePlayerIds.Count - 1);
         return id;
     }
 
     /// <summary>Returns a player record id to the pool.</summary>
     /// <param name="id">The id.</param>
-    public void ReleasePlayerId(uint id) => mFreePlayerIds.Add(id);
+    public void ReleasePlayerId(uint id) => _freePlayerIds.Add(id);
 
     // src/server/net_server.cpp NetServer::uniqueName.
     private string UniqueName(string name)
     {
-        if (name.Length > kMaxNameLength)
-            name = name[..kMaxNameLength];
+        if (name.Length > MaxNameLength)
+            name = name[..MaxNameLength];
         var chars = name.ToCharArray();
         for (var i = 0; i < chars.Length; ++i)
         {
@@ -740,7 +748,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
                 chars[i] = '*';
         }
         name = new string(chars);
-        bool Taken(string n) => mPlayers.Any(p => p.Name == n);
+        bool Taken(string n) => _players.Any(p => p.Name == n);
         var candidate = name;
         for (var i = 1; Taken(candidate); ++i)
             candidate = name + "." + Str(i);
@@ -775,7 +783,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     public override void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload)
     {
         // 0x0042ad6c: a banned address gets no answer; its VC is removed.
-        if (mBans.IsBanned(c.Peer().ToString()))
+        if (_bans.IsBanned(c.Peer().ToString()))
         {
             Log(2, "SimNET: ignoring connect from banned address " + c.Peer().ToString());
             c.Drop();
@@ -787,25 +795,25 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         input.ReadBytes(pv);
         var packetVersion = (ushort)(pv[0] | (pv[1] << 8));
 
-        if (packetVersion != mPacketVersion)
+        if (packetVersion != _packetVersion)
         {
-            c.Close(Connection.Reject, "Wrong packet version.", mNow);
+            c.Close(Connection.Reject, "Wrong packet version.", _now);
             return;
         }
-        if (input.ReadString() != kGameType)
+        if (input.ReadString() != GameType)
         {
-            c.Close(Connection.Reject, "Wrong game type.", mNow);
+            c.Close(Connection.Reject, "Wrong game type.", _now);
             return;
         }
 
         var clientVersion = input.ReadString();
-        var dot = mVersion.IndexOf('.');
+        var dot = _version.IndexOf('.');
         var majorLen = dot is < 0 or 0 ? 0 : dot - 1; // 0 for "1.11"
         var clientMajor = clientVersion[..Math.Min(majorLen, clientVersion.Length)];
-        var ourMajor = mVersion[..Math.Min(majorLen, mVersion.Length)];
+        var ourMajor = _version[..Math.Min(majorLen, _version.Length)];
         if (clientMajor != ourMajor)
         {
-            c.Close(Connection.Reject, "Wrong game version.", mNow);
+            c.Close(Connection.Reject, "Wrong game version.", _now);
             return;
         }
         var minor = 0;
@@ -815,9 +823,9 @@ public sealed class NetServer : ConnectionEvents, IDisposable
             var digits = clientVersion[(clientDot + 1)..];
             minor = CAtoi(CStr(digits.Length > 2 ? digits[..2] : digits));
         }
-        if (minor < mMinMinorVersion)
+        if (minor < _minMinorVersion)
         {
-            c.Close(Connection.Reject, mUpgradeMessage, mNow);
+            c.Close(Connection.Reject, _upgradeMessage, _now);
             return;
         }
 
@@ -825,12 +833,12 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         var serverPassword = CurrentInfo().Password;
         if (serverPassword.Length != 0 && password != serverPassword)
         {
-            c.Close(Connection.Reject, "Wrong password.", mNow);
+            c.Close(Connection.Reject, "Wrong password.", _now);
             return;
         }
-        if (mPlayers.Count >= MaxPlayers())
+        if (_players.Count >= MaxPlayers())
         {
-            c.Close(Connection.Reject, "Server is full.", mNow);
+            c.Close(Connection.Reject, "Server is full.", _now);
             return;
         }
 
@@ -843,23 +851,23 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         var accept = new byte[8];
         var output = new BitStream(accept, accept.Length);
         output.WriteInt(id, 32);
-        output.WriteInt(kServerManagerId, 32);
-        c.Send(Connection.Accept, accept, mNow);
-        mPlayers.Add(new Player { Id = id, Name = name, Voice = voice, Male = male, Connection = c });
+        output.WriteInt(ServerManagerId, 32);
+        c.Send(Connection.Accept, accept, _now);
+        _players.Add(new Player { Id = id, Name = name, Voice = voice, Male = male, Connection = c });
     }
 
     /// <summary>Logs the oversized ack-range list on 1.30 (docs/lasthope-1.30.md L2, DECISIONS D11).</summary>
     /// <param name="c">The connection.</param>
     public override void OnAckRangeOverflow(Connection c)
     {
-        if (mConfig.LastHope)
-            mLog("Crash Attempt: " + c.Peer().ToString());
+        if (_config.LastHope)
+            _log("Crash Attempt: " + c.Peer().ToString());
     }
 
     // src/server/net_server.cpp NetServer::playerFor.
     private Player? PlayerFor(Connection c)
     {
-        foreach (var p in mPlayers)
+        foreach (var p in _players)
             if (p.Connection == c)
                 return p;
         return null;
@@ -871,7 +879,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     {
         var p = PlayerFor(c);
         if (p != null)
-            mHooks.OnAccepted?.Invoke(p, c);
+            _hooks.OnAccepted?.Invoke(p, c);
     }
 
     /// <summary>Passes a data packet to the game layer.</summary>
@@ -881,7 +889,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     {
         var p = PlayerFor(c);
         if (p != null)
-            mHooks.OnData?.Invoke(p, payload.ToArray());
+            _hooks.OnData?.Invoke(p, payload.ToArray());
     }
 
     /// <summary>Passes a delivery notification to the game layer.</summary>
@@ -892,7 +900,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     {
         var p = PlayerFor(c);
         if (p != null)
-            mHooks.OnNotify?.Invoke(p, cookie, delivered);
+            _hooks.OnNotify?.Invoke(p, cookie, delivered);
     }
 
     /// <summary>Tells the game layer, frees the player id and removes the player when a connection ends.</summary>
@@ -903,13 +911,13 @@ public sealed class NetServer : ConnectionEvents, IDisposable
     {
         var p = PlayerFor(c);
         if (p != null)
-            mHooks.OnClosed?.Invoke(p);
-        foreach (var q in mPlayers)
+            _hooks.OnClosed?.Invoke(p);
+        foreach (var q in _players)
             if (q.Connection == c)
-                mFreePlayerIds.Add(q.Id);
-        mPlayers.RemoveAll(q => q.Connection == c);
+                _freePlayerIds.Add(q.Id);
+        _players.RemoveAll(q => q.Connection == c);
     }
 
     /// <inheritdoc/>
-    public void Dispose() => mSocket.Dispose();
+    public void Dispose() => _socket.Dispose();
 }

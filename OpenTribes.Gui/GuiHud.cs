@@ -22,12 +22,12 @@ public class GuiHud : GuiControl
     {
         if (oldW > 0 && oldH > 0)
         {
-            mFractions = true;
+            _fractions = true;
             Layout(newW, newH);
         }
     }
 
-    private bool mFractions;
+    private bool _fractions;
 
     /// <summary>Places the HUD from its fractions, or centres the crosshair.</summary>
     /// <param name="pw">The parent width, -1 for the current one.</param>
@@ -42,7 +42,7 @@ public class GuiHud : GuiControl
             Y = (Parent.H - H) / 2;
             return;
         }
-        if (!mFractions)
+        if (!_fractions)
             return;
         if (pw < 0)
         { pw = Parent.W; ph = Parent.H; }
@@ -56,7 +56,7 @@ public class GuiHud : GuiControl
     /// <summary>Applies the size switch of a HUD (004b0b64, 004e6ab4): after a resize of the parent the stock draw keeps the position the fractions gave (they are not applied again) and only pulls it back inside the parent.</summary>
     protected void KeepInside()
     {
-        if (mFractions)
+        if (_fractions)
             Clamp();
     }
 
@@ -91,7 +91,7 @@ public class GuiBarHud : GuiHud
 {
     /// <summary>The file name of the frame bitmap.</summary>
     public static readonly string FrameName = "hud_health.bmp";
-    private long mBlinkClock;
+    private long _blinkClock;
 
     /// <summary>Returns the bar length in pixels.</summary>
     /// <param name="value">The value, 0 to 1.</param>
@@ -165,9 +165,9 @@ public class GuiBarHud : GuiHud
             icon = Bmp(2, lr);
         else
         {
-            if (mBlinkClock == 0)
-                mBlinkClock = Host!.TickMs;
-            icon = (((Host!.TickMs - mBlinkClock) >> 9) & 1) == 0 ? Bmp(2, lr) : Bmp(1, lr);
+            if (_blinkClock == 0)
+                _blinkClock = Host!.TickMs;
+            icon = (((Host!.TickMs - _blinkClock) >> 9) & 1) == 0 ? Bmp(2, lr) : Bmp(1, lr);
         }
         if (lr)
             p.Bitmap(icon, x + 4, y + 4);
@@ -395,7 +395,7 @@ public sealed class GuiWeaponHud : GuiHud
 {
     private static readonly int[] Poly = [2, 8, 8, 2, 24, 2, 30, 8];
     private static readonly int[] PolyLow = [1, 6, 6, 1, 16, 1, 18, 4];
-    private int mRows = -1;
+    private int _rows = -1;
 
     /// <inheritdoc/>
     /// <remarks>Follows 004e8b8c and 004e8fb9 to 004e8fd4: after loading the icons it sets the extent to 1 x 1, the low resolution flag (+0x1f8) to 0 and the last row count (+0x204) to -1, then calls the clamp. A parent resize before the first draw therefore places the window with a height of 1 (the file's extent 62 x 76 is replaced), and the later row changes do not apply the fractions again.</remarks>
@@ -404,7 +404,7 @@ public sealed class GuiWeaponHud : GuiHud
         base.Wake();
         W = 1;
         H = 1;
-        mRows = -1;
+        _rows = -1;
     }
 
     /// <inheritdoc/>
@@ -419,13 +419,13 @@ public sealed class GuiWeaponHud : GuiHud
         if (rows.Count < 1)
         {
             // [code 004e90fc to 004e9112]: no weapon: count -1, height = the icon height, width and position untouched.
-            mRows = -1;
+            _rows = -1;
             H = iconH;
             return;
         }
-        if (rows.Count != mRows)
+        if (rows.Count != _rows)
         {
-            mRows = rows.Count;
+            _rows = rows.Count;
             W = iconW + (lr ? 27 : 38);
             H = ((iconH + (lr ? 2 : 4)) * rows.Count) + 10;
             KeepInside();
@@ -480,7 +480,7 @@ public sealed class GuiWeaponHud : GuiHud
 /// <remarks>The flags byte of the control object adds an overlay centred in the control: 2 the suppressed icon, 1 a cycle of the three ping icons. The cycle index is ftol((now - t0) * 10) % 6 (0x4ea8b8 to 0x4ea8d2, constant 10.0 at 0x4ea9b8): 0 Lo, 1 Med, else Hi, 100 ms each. t0 (+0x1f0) is latched on the first pinged frame and reset to -1 by any other state.</remarks>
 public sealed class GuiSensorHud : GuiHud
 {
-    private double mPingStart = -1;
+    private double _pingStart = -1;
 
     /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
@@ -495,16 +495,16 @@ public sealed class GuiSensorHud : GuiHud
         if (Source.SensorLocked)
         {
             overlay = "HP_Supressed";
-            mPingStart = -1;
+            _pingStart = -1;
         }
         else if (Source.SensorPing)
         {
-            if (mPingStart <= 0)
-                mPingStart = now;
-            overlay = ((int)((now - mPingStart) * 10.0) % 6) switch { 0 => "HP_PingedLo", 1 => "HP_PingedMed", _ => "HP_PingedHi" };
+            if (_pingStart <= 0)
+                _pingStart = now;
+            overlay = ((int)((now - _pingStart) * 10.0) % 6) switch { 0 => "HP_PingedLo", 1 => "HP_PingedMed", _ => "HP_PingedHi" };
         }
         else
-            mPingStart = -1;
+            _pingStart = -1;
         if (overlay == null)
             return;
         var b = Host.BitmapByName((lr ? "LR_" : "") + overlay + ".bmp") ?? Host.BitmapByName(overlay + ".bmp");
@@ -591,7 +591,7 @@ public sealed class GuiCrosshair : GuiHud
     }
 
     /// <summary>The sniper state of the control (+0x1f8): on while the view is zoomed to 30 degrees or less (and while the zoom-in animation heads there). The cross grows or shrinks with the animation.</summary>
-    private bool mSniper;
+    private bool _sniper;
 
     /// <summary>Draws the zoom branch of 004ab500 (004ab66d to 004ac48f).</summary>
     /// <returns>True when the reticle picture follows, false when the sniper cross was drawn instead.</returns>
@@ -604,8 +604,8 @@ public sealed class GuiCrosshair : GuiHud
         {
             var zoomingIn = z.Target < z.Cur;
             if (zoomingIn)
-                mSniper = mSniper || z.Target <= 30;
-            if (mSniper)
+                _sniper = _sniper || z.Target <= 30;
+            if (_sniper)
             {
                 double span = z.End - z.Start;
                 var num = zoomingIn ? z.Now - z.Start : z.End - z.Now;
@@ -614,15 +614,15 @@ public sealed class GuiCrosshair : GuiHud
             }
         }
         else if (z.Cur > 30)
-            mSniper = false;
+            _sniper = false;
         else
         {
-            mSniper = true;
+            _sniper = true;
             sw = halfW;
             sh = halfH;
         }
         var lr = LowRes;
-        if (!mSniper)
+        if (!_sniper)
         {
             // the box of the next zoom level with its text, for 2 s after a zoom step while the zoom is off
             var until = z.Target != z.Cur ? 0u : unchecked(z.StepStamp + 2000);
@@ -632,7 +632,7 @@ public sealed class GuiCrosshair : GuiHud
         }
         if (string.Equals(Host?.GetVar("$pref::SniperCrosshair"), "FALSE", StringComparison.OrdinalIgnoreCase))
         {
-            mSniper = false;
+            _sniper = false;
             return true;
         }
         // the cross over the whole view: two lines wide, with a gap in the middle of each arm
@@ -803,12 +803,12 @@ public static class HudFrame
 /// <remarks>The stock GuiLoadContentCtrl (00535c7c) looks the content up by name before it loads the file, so a size set with IDACTION_CHAT_DISP_SIZE survives the trip through the command and inventory screens. The port loads the file each time, so the count is kept here and applied when the content comes back.</remarks>
 public sealed class ChatSizeMemory
 {
-    private readonly Dictionary<uint, int> mLines = [];
+    private readonly Dictionary<uint, int> _lines = [];
 
     /// <summary>Stores the line count of a display.</summary>
     /// <param name="contentId">The content control id.</param>
     /// <param name="disp">The display.</param>
-    public void Remember(uint contentId, GuiChatDisplay disp) => mLines[contentId] = disp.Lines;
+    public void Remember(uint contentId, GuiChatDisplay disp) => _lines[contentId] = disp.Lines;
 
     /// <summary>Applies the stored line count to a display.</summary>
     /// <param name="contentId">The content control id.</param>
@@ -816,7 +816,7 @@ public sealed class ChatSizeMemory
     /// <returns>True when a size was stored for the content and the display took it.</returns>
     public bool Apply(uint contentId, GuiChatDisplay disp)
     {
-        if (!mLines.TryGetValue(contentId, out var n))
+        if (!_lines.TryGetValue(contentId, out var n))
             return false;
         disp.SetLines(n);
         return true;
@@ -858,7 +858,7 @@ public sealed class GuiChatDisplay : GuiHud
     /// <summary>Gets the number of message lines.</summary>
     public int Lines => (int)U("lines", 3);
 
-    private bool mLowMode;
+    private bool _lowMode;
 
     /// <inheritdoc/>
     /// <remarks>The loader (004a5b54) sets the lower-case-as-capitals flag (0x400) of the four low resolution message fonts, so the 6 point chat lines show capitals only.</remarks>
@@ -879,8 +879,8 @@ public sealed class GuiChatDisplay : GuiHud
         if (newW <= 0 || newH <= 0)
             return;
         var low = newW < 0x200 || newH < 0x180;
-        var changed = low != mLowMode;
-        mLowMode = low;
+        var changed = low != _lowMode;
+        _lowMode = low;
         var f = Host?.FontByName(FontName(0, low)) ?? Host?.FontByName("sf_white_10.pft");
         int lh = f == null ? 13 : GuiPaint.FontHeight(f), lines = (int)U("lines", 3), min = low ? 0xf0 : 0x172;
         if (changed)
@@ -1212,7 +1212,7 @@ public sealed class GuiPlayView : GuiControl
 
     /// <summary>True when the control has a camera object (+0x1ec, set by 005473ec).</summary>
     /// <remarks>The play view of play.gui is drawn by the host before the GUI and never sets it here. The observer panel's view (<see cref="GuiCmdObserve"/>) sets it to the client's control object, which makes the control draw the world itself, inside its rectangle.</remarks>
-    public bool CameraAttached;
+    public bool CameraAttached { get; set; }
 
     /// <inheritdoc/>
     /// <remarks>Follows the TSControl draw 00546dc4: when the camera set-up (00545f7c, the control object's camera query, vtable +0x24) fails, the control fills its rectangle with color 0 (surface vtable +0x10, alpha 1.0) and returns without drawing its children (the HUD). The view fills the control rectangle: the frustum comes from that rectangle, the field of view across its width.</remarks>

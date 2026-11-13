@@ -38,159 +38,159 @@ public sealed unsafe class GlApi
     /// <summary>The front face windings.</summary>
     public const uint CW = 0x900, CCW = 0x901;
 
-    private readonly Func<string, IntPtr> mLoader;
+    private readonly Func<string, IntPtr> _loader;
 
     private IntPtr Load(string name)
     {
-        var p = mLoader(name);
+        var p = _loader(name);
         if (p == IntPtr.Zero)
             throw new InvalidOperationException("OpenGL function missing: " + name);
         return p;
     }
 
     /// <summary>The glGetError entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint> GetError_;
+    public delegate* unmanaged[Cdecl]<uint> GetError_ { get; }
     /// <summary>The glGetString entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, byte*> GetString_;
+    public delegate* unmanaged[Cdecl]<uint, byte*> GetString_ { get; }
     /// <summary>The glClearColor entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<float, float, float, float, void> ClearColor_;
+    public delegate* unmanaged[Cdecl]<float, float, float, float, void> ClearColor_ { get; }
     /// <summary>The glClear entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> Clear_;
+    public delegate* unmanaged[Cdecl]<uint, void> Clear_ { get; }
     /// <summary>The glClearDepth entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<double, void> ClearDepth_;
+    public delegate* unmanaged[Cdecl]<double, void> ClearDepth_ { get; }
     /// <summary>The glViewport entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, int, int, void> Viewport_;
+    public delegate* unmanaged[Cdecl]<int, int, int, int, void> Viewport_ { get; }
     /// <summary>The glScissor entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, int, int, void> Scissor_;
+    public delegate* unmanaged[Cdecl]<int, int, int, int, void> Scissor_ { get; }
     /// <summary>The glEnable entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> Enable_;
+    public delegate* unmanaged[Cdecl]<uint, void> Enable_ { get; }
     /// <summary>The glDisable entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> Disable_;
+    public delegate* unmanaged[Cdecl]<uint, void> Disable_ { get; }
     /// <summary>The glBlendFunc entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, void> BlendFunc_;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> BlendFunc_ { get; }
     /// <summary>The glGenTextures entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> GenTextures_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> GenTextures_ { get; }
     /// <summary>The glDeleteTextures entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> DeleteTextures_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteTextures_ { get; }
     /// <summary>The glBindTexture entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, void> BindTexture_;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> BindTexture_ { get; }
     /// <summary>The glTexImage2D entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, int, int, int, int, int, uint, uint, void*, void> TexImage2D_;
+    public delegate* unmanaged[Cdecl]<uint, int, int, int, int, int, uint, uint, void*, void> TexImage2D_ { get; }
     /// <summary>The glTexParameteri entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, int, void> TexParameteri_;
+    public delegate* unmanaged[Cdecl]<uint, uint, int, void> TexParameteri_ { get; }
     /// <summary>The glActiveTexture entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> ActiveTexture_;
+    public delegate* unmanaged[Cdecl]<uint, void> ActiveTexture_ { get; }
     /// <summary>The glReadPixels entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, int, int, uint, uint, void*, void> ReadPixels_;
+    public delegate* unmanaged[Cdecl]<int, int, int, int, uint, uint, void*, void> ReadPixels_ { get; }
     /// <summary>The glPixelStorei entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, int, void> PixelStorei_;
+    public delegate* unmanaged[Cdecl]<uint, int, void> PixelStorei_ { get; }
     /// <summary>The glDrawArrays entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, int, int, void> DrawArrays_;
+    public delegate* unmanaged[Cdecl]<uint, int, int, void> DrawArrays_ { get; }
     /// <summary>The glGenBuffers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> GenBuffers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> GenBuffers_ { get; }
     /// <summary>The glDeleteBuffers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> DeleteBuffers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteBuffers_ { get; }
     /// <summary>The glBindBuffer entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, void> BindBuffer_;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> BindBuffer_ { get; }
     /// <summary>The glBufferData entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, nint, void*, uint, void> BufferData_;
+    public delegate* unmanaged[Cdecl]<uint, nint, void*, uint, void> BufferData_ { get; }
     /// <summary>The glGenVertexArrays entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> GenVertexArrays_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> GenVertexArrays_ { get; }
     /// <summary>The glDeleteVertexArrays entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> DeleteVertexArrays_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteVertexArrays_ { get; }
     /// <summary>The glBindVertexArray entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> BindVertexArray_;
+    public delegate* unmanaged[Cdecl]<uint, void> BindVertexArray_ { get; }
     /// <summary>The glVertexAttribPointer entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, int, uint, byte, int, void*, void> VertexAttribPointer_;
+    public delegate* unmanaged[Cdecl]<uint, int, uint, byte, int, void*, void> VertexAttribPointer_ { get; }
     /// <summary>The glEnableVertexAttribArray entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> EnableVertexAttribArray_;
+    public delegate* unmanaged[Cdecl]<uint, void> EnableVertexAttribArray_ { get; }
     /// <summary>The glCreateShader entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint> CreateShader_;
+    public delegate* unmanaged[Cdecl]<uint, uint> CreateShader_ { get; }
     /// <summary>The glShaderSource entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, int, byte**, int*, void> ShaderSource_;
+    public delegate* unmanaged[Cdecl]<uint, int, byte**, int*, void> ShaderSource_ { get; }
     /// <summary>The glCompileShader entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> CompileShader_;
+    public delegate* unmanaged[Cdecl]<uint, void> CompileShader_ { get; }
     /// <summary>The glGetShaderiv entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, int*, void> GetShaderiv_;
+    public delegate* unmanaged[Cdecl]<uint, uint, int*, void> GetShaderiv_ { get; }
     /// <summary>The glGetShaderInfoLog entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, int, int*, byte*, void> GetShaderInfoLog_;
+    public delegate* unmanaged[Cdecl]<uint, int, int*, byte*, void> GetShaderInfoLog_ { get; }
     /// <summary>The glDeleteShader entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> DeleteShader_;
+    public delegate* unmanaged[Cdecl]<uint, void> DeleteShader_ { get; }
     /// <summary>The glCreateProgram entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint> CreateProgram_;
+    public delegate* unmanaged[Cdecl]<uint> CreateProgram_ { get; }
     /// <summary>The glAttachShader entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, void> AttachShader_;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> AttachShader_ { get; }
     /// <summary>The glBindAttribLocation entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, byte*, void> BindAttribLocation_;
+    public delegate* unmanaged[Cdecl]<uint, uint, byte*, void> BindAttribLocation_ { get; }
     /// <summary>The glLinkProgram entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> LinkProgram_;
+    public delegate* unmanaged[Cdecl]<uint, void> LinkProgram_ { get; }
     /// <summary>The glGetProgramiv entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, int*, void> GetProgramiv_;
+    public delegate* unmanaged[Cdecl]<uint, uint, int*, void> GetProgramiv_ { get; }
     /// <summary>The glGetProgramInfoLog entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, int, int*, byte*, void> GetProgramInfoLog_;
+    public delegate* unmanaged[Cdecl]<uint, int, int*, byte*, void> GetProgramInfoLog_ { get; }
     /// <summary>The glUseProgram entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> UseProgram_;
+    public delegate* unmanaged[Cdecl]<uint, void> UseProgram_ { get; }
     /// <summary>The glDeleteProgram entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> DeleteProgram_;
+    public delegate* unmanaged[Cdecl]<uint, void> DeleteProgram_ { get; }
     /// <summary>The glGetUniformLocation entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, byte*, int> GetUniformLocation_;
+    public delegate* unmanaged[Cdecl]<uint, byte*, int> GetUniformLocation_ { get; }
     /// <summary>The glUniform1i entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, void> Uniform1i_;
+    public delegate* unmanaged[Cdecl]<int, int, void> Uniform1i_ { get; }
     /// <summary>The glUniform2f entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, float, float, void> Uniform2f_;
+    public delegate* unmanaged[Cdecl]<int, float, float, void> Uniform2f_ { get; }
     /// <summary>The glGenFramebuffers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> GenFramebuffers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> GenFramebuffers_ { get; }
     /// <summary>The glDeleteFramebuffers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> DeleteFramebuffers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteFramebuffers_ { get; }
     /// <summary>The glBindFramebuffer entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, void> BindFramebuffer_;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> BindFramebuffer_ { get; }
     /// <summary>The glFramebufferTexture2D entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, uint, uint, int, void> FramebufferTexture2D_;
+    public delegate* unmanaged[Cdecl]<uint, uint, uint, uint, int, void> FramebufferTexture2D_ { get; }
     /// <summary>The glCheckFramebufferStatus entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint> CheckFramebufferStatus_;
+    public delegate* unmanaged[Cdecl]<uint, uint> CheckFramebufferStatus_ { get; }
     /// <summary>The glGenRenderbuffers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> GenRenderbuffers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> GenRenderbuffers_ { get; }
     /// <summary>The glDeleteRenderbuffers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> DeleteRenderbuffers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteRenderbuffers_ { get; }
     /// <summary>The glBindRenderbuffer entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, void> BindRenderbuffer_;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> BindRenderbuffer_ { get; }
     /// <summary>The glRenderbufferStorage entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, int, int, void> RenderbufferStorage_;
+    public delegate* unmanaged[Cdecl]<uint, uint, int, int, void> RenderbufferStorage_ { get; }
     /// <summary>The glFramebufferRenderbuffer entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, uint, uint, void> FramebufferRenderbuffer_;
+    public delegate* unmanaged[Cdecl]<uint, uint, uint, uint, void> FramebufferRenderbuffer_ { get; }
     /// <summary>The glBlitFramebuffer entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, int, int, int, int, int, int, uint, uint, void> BlitFramebuffer_;
+    public delegate* unmanaged[Cdecl]<int, int, int, int, int, int, int, int, uint, uint, void> BlitFramebuffer_ { get; }
     /// <summary>The glGenSamplers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> GenSamplers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> GenSamplers_ { get; }
     /// <summary>The glDeleteSamplers entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, uint*, void> DeleteSamplers_;
+    public delegate* unmanaged[Cdecl]<int, uint*, void> DeleteSamplers_ { get; }
     /// <summary>The glBindSampler entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, void> BindSampler_;
+    public delegate* unmanaged[Cdecl]<uint, uint, void> BindSampler_ { get; }
     /// <summary>The glSamplerParameteri entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, uint, int, void> SamplerParameteri_;
+    public delegate* unmanaged[Cdecl]<uint, uint, int, void> SamplerParameteri_ { get; }
     /// <summary>The glGenerateMipmap entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> GenerateMipmap_;
+    public delegate* unmanaged[Cdecl]<uint, void> GenerateMipmap_ { get; }
     /// <summary>The glDepthFunc entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<uint, void> DepthFunc_;
+    public delegate* unmanaged[Cdecl]<uint, void> DepthFunc_ { get; }
     /// <summary>The glDepthMask entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<byte, void> DepthMask_;
+    public delegate* unmanaged[Cdecl]<byte, void> DepthMask_ { get; }
     /// <summary>The glUniform1f entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, float, void> Uniform1f_;
+    public delegate* unmanaged[Cdecl]<int, float, void> Uniform1f_ { get; }
     /// <summary>The glUniform3f entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, float, float, float, void> Uniform3f_;
+    public delegate* unmanaged[Cdecl]<int, float, float, float, void> Uniform3f_ { get; }
     /// <summary>The glUniformMatrix4fv entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, byte, float*, void> UniformMatrix4fv_;
+    public delegate* unmanaged[Cdecl]<int, int, byte, float*, void> UniformMatrix4fv_ { get; }
     /// <summary>The glUniform3fv entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, float*, void> Uniform3fv_;
+    public delegate* unmanaged[Cdecl]<int, int, float*, void> Uniform3fv_ { get; }
     /// <summary>The glUniform4fv entry point.</summary>
-    public readonly delegate* unmanaged[Cdecl]<int, int, float*, void> Uniform4fv_;
+    public delegate* unmanaged[Cdecl]<int, int, float*, void> Uniform4fv_ { get; }
 
     /// <summary>Loads every GL function the renderer uses.</summary>
     /// <param name="loader">Returns the address of a GL function, or zero (SDL_GL_GetProcAddress).</param>
     /// <exception cref="InvalidOperationException">A function is missing.</exception>
     public GlApi(Func<string, IntPtr> loader)
     {
-        mLoader = loader;
+        _loader = loader;
         GetError_ = (delegate* unmanaged[Cdecl]<uint>)Load("glGetError");
         GetString_ = (delegate* unmanaged[Cdecl]<uint, byte*>)Load("glGetString");
         ClearColor_ = (delegate* unmanaged[Cdecl]<float, float, float, float, void>)Load("glClearColor");

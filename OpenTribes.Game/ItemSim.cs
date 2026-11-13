@@ -7,7 +7,7 @@ using static OpenTribes.Core.Fpu;
 
 public partial class GameBase
 {
-    private const uint kItemMask = 0x20c00086u; // collision mask of an Item (docs/static-sim.md 5.2)
+    private const uint ItemMask = 0x20c00086u; // collision mask of an Item (docs/static-sim.md 5.2)
 
     // src/game/item_sim.cpp dot3: dot(a, b) = (a.x*b.x + a.y*b.y) + a.z*b.z, returned unrounded (0x005ece49).
     private static double Dot3(ReadOnlySpan<float> a, ReadOnlySpan<float> b) =>
@@ -16,9 +16,11 @@ public partial class GameBase
     // src/game/item_sim.cpp Contact: one contact surface of the terrain test (docs/collision.md 1.3).
     private struct TerrainContactRec
     {
-        public float N0, N1, N2;
-        public float Distance;
-        public int MaterialIndex;
+        public float N0 { get; set; }
+        public float N1 { get; set; }
+        public float N2 { get; set; }
+        public float Distance { get; set; }
+        public int MaterialIndex { get; set; }
     }
 
     // src/game/item_sim.cpp terrainContact: sphere against the terrain (docs/collision.md 5.1 steps 1-7 with the Item's
@@ -66,7 +68,7 @@ public partial class GameBase
     {
         if (s.Material < 0)
             return null;
-        if ((hit.Type & ObjectType.kTerrainType) != 0)
+        if ((hit.Type & ObjectType.TerrainType) != 0)
             return game.TerrainMaterial(s.Material);
         if (hit.Object is not GameBase gb || gb.InteriorGeo == null || gb.InteriorGeo.MaterialListName.Length == 0 ||
             game.GetResourceManager() == null)
@@ -79,7 +81,7 @@ public partial class GameBase
     // (m_mul_vector).
     private static void HitNormal(CollisionHit hit, in CollisionSurface s, Span<float> output)
     {
-        if ((hit.Type & ObjectType.kTerrainType) != 0)
+        if ((hit.Type & ObjectType.TerrainType) != 0)
         {
             output[0] = s.Normal[0];
             output[1] = s.Normal[1];
@@ -103,10 +105,10 @@ public partial class GameBase
                            List<SimObject>? triggered = null)
     {
         hits.Clear();
-        var game = mCtx.Game!;
+        var game = _ctx.Game!;
         if (TerrainContact(game, this, q, out var c))
         {
-            var h = new CollisionHit { Type = ObjectType.kTerrainType };
+            var h = new CollisionHit { Type = ObjectType.TerrainType };
             var s = new CollisionSurface
             {
                 Normal = Float3.Of(c.N0, c.N1, c.N2),
@@ -173,7 +175,7 @@ public partial class GameBase
     {
         Span<float> query = stackalloc float[6];
         Collision.SweptBox(ShapeQueryBox.AsSpan(0, 3), ShapeQueryBox.AsSpan(3, 3), target, Velocity, 0.032f, query);
-        mCtx.Game!.CollisionCandidates(this, mask, query, output);
+        _ctx.Game!.CollisionCandidates(this, mask, query, output);
     }
 
     /// <summary>Tests whether the collision shape at a position touches nothing.</summary>
@@ -182,14 +184,14 @@ public partial class GameBase
     /// <remarks>Follows GameBase::testPosition (0x0041fba4).</remarks>
     public bool TestPosition(ReadOnlySpan<float> p)
     {
-        if (mCtx.Game == null)
+        if (_ctx.Game == null)
             return true;
         using var chop = ChopScope();
         var candidates = new List<CollisionImage>();
         Span<float> query = stackalloc float[6];
         Span<float> zero = stackalloc float[3];
         Collision.SweptBox(ShapeQueryBox.AsSpan(0, 3), ShapeQueryBox.AsSpan(3, 3), p, zero, 0.032f, query);
-        mCtx.Game.CollisionCandidates(this, kItemMask, query, candidates);
+        _ctx.Game.CollisionCandidates(this, ItemMask, query, candidates);
         var hits = new List<CollisionHit>();
         return ItemTestAt(p, candidates, hits);
     }
@@ -210,7 +212,7 @@ public partial class GameBase
         // Thrower expiry (0x00451884).
         if (ItemThrower != null && Manager() != null && Store(Add(ItemThrowTime, 1.0f)) < Manager()!.Time())
             ItemThrower = null;
-        if (!ItemRotates && (DamageState != kDestroyed || VisibilityThread))
+        if (!ItemRotates && (DamageState != Destroyed || VisibilityThread))
         {
             var nowRest = AtRest;
             var changed = nowRest != ItemPrevAtRest;
@@ -230,7 +232,7 @@ public partial class GameBase
                 SetMaskBits(0x08);
             }
         }
-        if (mShapeClass == ShapeKind.Mine)
+        if (_shapeClass == ShapeKind.Mine)
             MineAlign();
     }
 
@@ -241,7 +243,7 @@ public partial class GameBase
     public bool ItemPhysics(float dt)
     {
         using var chop = ChopScope();
-        var game = mCtx.Game;
+        var game = _ctx.Game;
         if (game == null)
             return false;
         ItemContact = false;
@@ -273,9 +275,9 @@ public partial class GameBase
         MissionTransform.EulerToMatrix(Rotation, ref Transform);
         Transform.Flags |= 3;
         // 0x00505a3c with steps radius * 0.45 and radius * 0.45 * 0.3, three passes at most.
-        if (ItemSteppedMove(target, ItemSubStep, Store(Mul(ItemSubStep, 0.3f)), slice, kItemMask))
+        if (ItemSteppedMove(target, ItemSubStep, Store(Mul(ItemSubStep, 0.3f)), slice, ItemMask))
             return true;
-        ItemMoveFallback(kItemMask);
+        ItemMoveFallback(ItemMask);
         return false;
     }
 
@@ -286,7 +288,7 @@ public partial class GameBase
     /// <remarks>Follows Item_movementCollision (0x0045199c, vtable +0xb8) with the default response 0x00506d80.</remarks>
     public bool ItemProcessCollision(List<CollisionHit> hits, int iteration)
     {
-        var game = mCtx.Game!;
+        var game = _ctx.Game!;
         var flags = ItemFlags; // 0x181 | 0x1d (docs/static-sim.md 5.1)
         // No collision with the thrower.
         if (ItemThrower != null)
@@ -304,7 +306,7 @@ public partial class GameBase
             }
         // Every Moveable hit carries the Item from now on (0x0045199c, 0x005067d0).
         foreach (var h in hits)
-            if ((h.Type & ObjectType.kMoveableType) != 0 && h.Object is GameBase m)
+            if ((h.Type & ObjectType.MoveableType) != 0 && h.Object is GameBase m)
                 Attach(m);
         // 0x00506d80: every hit object joins the notify list, once per call and without a duplicate test.
         foreach (var h in hits)
@@ -312,9 +314,9 @@ public partial class GameBase
                 ItemNotify.Add(o);
         Span<float> wn = stackalloc float[3];
         // Mine (0x004589ec): the normals facing up of every terrain or interior hit.
-        if (mShapeClass == ShapeKind.Mine)
+        if (_shapeClass == ShapeKind.Mine)
             foreach (var h in hits)
-                if ((h.Type & (ObjectType.kTerrainType | ObjectType.kInteriorType)) != 0)
+                if ((h.Type & (ObjectType.TerrainType | ObjectType.InteriorType)) != 0)
                     foreach (var s in h.Surfaces)
                     {
                         HitNormal(h, s, wn);
@@ -367,12 +369,12 @@ public partial class GameBase
     {
         var notified = ItemNotify;
         ItemNotify = [];
-        if (mCtx.Game == null)
+        if (_ctx.Game == null)
             return;
         foreach (var other in notified)
         {
-            mCtx.Game.PostCollisionEvent(other, this);
-            mCtx.Game.PostCollisionEvent(this, other);
+            _ctx.Game.PostCollisionEvent(other, this);
+            _ctx.Game.PostCollisionEvent(this, other);
         }
     }
 
@@ -396,7 +398,7 @@ public partial class GameBase
     /// <remarks>Follows SimMovement_stepMove (0x00505a3c).</remarks>
     public bool ItemSteppedMove(float[] target, float step0, float step1, float slice, uint mask)
     {
-        var game = mCtx.Game!;
+        var game = _ctx.Game!;
         ItemContact = false;
         AtRest = false;
         // Candidate list (2.1), built once per move before the first iteration. A hidden Item is out of its container
@@ -540,7 +542,7 @@ public partial class GameBase
     /// <remarks>Follows SimMovement_collideSurface (0x00506f44).</remarks>
     public bool SurfaceResponse(ReadOnlySpan<float> n, Material? mat, int flags)
     {
-        var table = mCtx.Game?.GetMaterialTable();
+        var table = _ctx.Game?.GetMaterialTable();
         var vn = Store(Dot3(n, Velocity));
         if (!(vn < 0))
             return false;
@@ -588,7 +590,7 @@ public partial class GameBase
     /// <remarks>Follows 0x00451194.</remarks>
     public void ItemHide(bool hide)
     {
-        var game = mCtx.Game;
+        var game = _ctx.Game;
         if (game?.GetContainer() is Container c)
         {
             if (hide)
@@ -623,7 +625,7 @@ public partial class GameBase
         ItemThrowerClient = thrower.ControlClient != 0 ? thrower.ControlClient : thrower.OwnerClient;
         ItemThrowerJoin = -1;
         float[] pos = [thrower.Transform.P[0], thrower.Transform.P[1], thrower.Transform.P[2]];
-        if (mCtx.Game?.GetContainer()?.Find(thrower) is Container.Entry e)
+        if (_ctx.Game?.GetContainer()?.Find(thrower) is Container.Entry e)
             for (var i = 0; i < 3; ++i)
                 pos[i] = Store(Mul(Add(e.Box[i], e.Box[i + 3]), 0.5));
         Span<float> dir = stackalloc float[3];
@@ -660,7 +662,7 @@ public partial class GameBase
         SetMaskBits(0x38);
         AtRest = false;
         ItemThrowTime = Manager() != null ? Manager()!.Time() : 0.0f;
-        mCtx.Game?.ObjectMoved(this);
+        _ctx.Game?.ObjectMoved(this);
     }
 
     // ---- Mine (5.7) ----

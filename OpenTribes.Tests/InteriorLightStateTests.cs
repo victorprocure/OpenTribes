@@ -16,7 +16,7 @@ public class InteriorLightStateTests
 
     private sealed class RecDevice : IGfxDevice
     {
-        public readonly List<IGfxTexture?> LightMaps = [];
+        public List<IGfxTexture?> LightMaps { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }

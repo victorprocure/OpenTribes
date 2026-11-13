@@ -19,7 +19,7 @@ public class FuzzTests
 {
     private sealed class Rng
     {
-        public uint S;
+        public uint S { get; set; }
 
         public Rng(uint s) => S = s;
 
@@ -34,7 +34,7 @@ public class FuzzTests
         public uint Below(uint n) => n != 0 ? Next() % n : 0;
     }
 
-    private static readonly uint[] kEdges =
+    private static readonly uint[] Edges =
     [
         0, 1, 0x7f, 0x80, 0xff, 0x100, 0x7fff, 0xffff, 0x10000, 0x7fffffff, 0x80000000u, 0xffffffffu, 0xfffffff0u,
     ];
@@ -60,7 +60,7 @@ public class FuzzTests
                     if (b.Count != 0)
                     {
                         var at = (int)r.Below((uint)b.Count);
-                        b[at] = (byte)kEdges[r.Below(5)];
+                        b[at] = (byte)Edges[r.Below(5)];
                     }
                     break;
                 case 2:
@@ -77,7 +77,7 @@ public class FuzzTests
                 case 4:
                     if (b.Count >= 4)
                     {
-                        var v = kEdges[r.Below((uint)kEdges.Length)];
+                        var v = Edges[r.Below((uint)Edges.Length)];
                         var at = (int)r.Below((uint)b.Count - 3);
                         for (var k = 0; k < 4; ++k)
                             b[at + k] = (byte)(v >> (8 * k));
@@ -489,13 +489,13 @@ public class FuzzTests
         Assert.True(invalidReports > 100 && opened == invalidReports + 1); // the mutations reach every rejection
     }
 
-    private static readonly uint[] kTags =
+    private static readonly uint[] Tags =
     [
         0x408, 0x40b, 0x408, 0x40b, 0x408, 0x40b, 0x401, 0x40f, 0x421, 0x423, 0x425, 0x45c, 0x44b, 0x453, 0x462, 0x400, 0x402,
         0x40a, 0x40c, 0x47f,
     ];
-    private static readonly uint[] kIds = [0, 1, 8, 2048, 2049, 2050, 0x7fffffff, 0x80000000u, 0xffffffffu];
-    private static readonly uint[] kIndex = [0, 1, 511, 1022, 1023];
+    private static readonly uint[] Ids = [0, 1, 8, 2048, 2049, 2050, 0x7fffffff, 0x80000000u, 0xffffffffu];
+    private static readonly uint[] Index = [0, 1, 511, 1022, 1023];
 
     // Client events (docs/game-stream.md 2.6): random event lists with random class tags, delivery classes and bodies.
     private static void FuzzClientEvents()
@@ -535,7 +535,7 @@ public class FuzzTests
             var gap = r.Below(6) == 0;
             for (uint i = 0; i < count; ++i)
             {
-                var tag = r.Below(3) == 0 && i + 1 == count ? kTags[r.Below((uint)kTags.Length)] : kTags[r.Below(6)];
+                var tag = r.Below(3) == 0 && i + 1 == count ? Tags[r.Below((uint)Tags.Length)] : Tags[r.Below(6)];
                 var kind = r.Below(3); // 0 ordered, 1 unordered, 2 unguaranteed
                 bs.WriteFlag(true);
                 bs.WriteFlag(kind != 2);
@@ -581,9 +581,9 @@ public class FuzzTests
                 {
                     var form = r.Below(3);
                     if (bs.WriteFlag(form == 1) || bs.WriteFlag(form == 2))
-                        bs.WriteInt(kIndex[r.Below(5)], 10);
+                        bs.WriteInt(Index[r.Below(5)], 10);
                     else
-                        bs.WriteInt(kIds[r.Below(9)], 32);
+                        bs.WriteInt(Ids[r.Below(9)], 32);
                     wantActions += due ? 1 : 0;
                 }
             }
@@ -633,7 +633,7 @@ public class FuzzTests
             Prompt = () => "% ",
             Evaluate = line =>
                 {
-                    Assert.True(line.Length <= TelnetSession.kLineMax);
+                    Assert.True(line.Length <= TelnetSession.LineMax);
                     ++evaluated;
                 },
             Send = bytes => sent += bytes.Length
@@ -682,7 +682,7 @@ public class FuzzTests
                     break;
             }
             foreach (var e in bans.Entries())
-                Assert.True(e.Address.Length <= BanList.kMaxAddress);
+                Assert.True(e.Address.Length <= BanList.MaxAddress);
             if (bans.Entries().Count > 2000)
                 bans = new BanList(() => 1000);
             bans.ExportLines();

@@ -23,7 +23,18 @@ public readonly record struct TextureOptions(bool Mipmaps, bool Repeat, bool Lin
 public struct Vertex3D
 {
     /// <summary>The position, the texture coordinate, the light map coordinate, the shade colour and alpha, and the haze (0 clear, 1 fully the haze colour).</summary>
-    public float X, Y, Z, U, V, Lu, Lv, R, G, B, A, Haze;
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float Z { get; set; }
+    public float U { get; set; }
+    public float V { get; set; }
+    public float Lu { get; set; }
+    public float Lv { get; set; }
+    public float R { get; set; }
+    public float G { get; set; }
+    public float B { get; set; }
+    public float A { get; set; }
+    public float Haze { get; set; }
 
     /// <summary>Creates a vertex.</summary>
     /// <param name="x">The x position.</param>
@@ -83,13 +94,20 @@ public readonly record struct DrawState3D(IGfxTexture? Texture = null, IGfxTextu
 public struct Camera3D
 {
     /// <summary>The position, the yaw and pitch in radians, and the horizontal field of view in radians.</summary>
-    public double X, Y, Z, Yaw, Pitch, HorizontalFov;
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double Z { get; set; }
+    public double Yaw { get; set; }
+    public double Pitch { get; set; }
+    public double HorizontalFov { get; set; }
     /// <summary>The rotation about the view axis, the y word of the Euler transform. A positive roll turns the right vector toward -up.</summary>
-    public double Roll;
+    public double Roll { get; set; }
     /// <summary>The viewport size in pixels.</summary>
-    public int Width, Height;
+    public int Width { get; set; }
+    public int Height { get; set; }
     /// <summary>The near and far plane distances.</summary>
-    public double Near, Far;
+    public double Near { get; set; }
+    public double Far { get; set; }
 
     /// <summary>Creates a camera from angles in degrees.</summary>
     /// <param name="x">The x position.</param>

@@ -171,7 +171,7 @@ public sealed class GuiCommandItems : GuiCommandObjectList
 /// <remarks>A click selects that turret (004d27d0) after dropping the players and statics. A second click on the same row (click count above 1) while a turret is selected mounts it: `remoteEval(2048, CmdrMountObject, &lt;target&gt;);` (004aa4b4).</remarks>
 public sealed class GuiCommandTurrets : GuiCommandObjectList
 {
-    private int mPrevRow = -1;
+    private int _prevRow = -1;
 
     /// <inheritdoc/>
     protected override IReadOnlyList<CommandListRow> Source(IHudSource hud) => hud.CommandControllables;
@@ -195,9 +195,9 @@ public sealed class GuiCommandTurrets : GuiCommandObjectList
             return true;
         var handled = base.MsDown(e);
         // 004aa5d0: after the base press, a click count above 1 on the row the previous press left selected, with a turret selected on the map, mounts it.
-        if (e.ClickCount > 1 && Selected == mPrevRow && Map?.SelectedTurretTarget() is int target and >= 0)
+        if (e.ClickCount > 1 && Selected == _prevRow && Map?.SelectedTurretTarget() is int target and >= 0)
             Host?.Eval("remoteEval(2048, CmdrMountObject, " + target.ToString(CultureInfo.InvariantCulture) + ");");
-        mPrevRow = Selected;
+        _prevRow = Selected;
         return handled;
     }
 }

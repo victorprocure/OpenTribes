@@ -315,7 +315,7 @@ public static class PlayerCommands
                 return "0";
             var db = g.Sim.DataBlocks();
             var n = 0;
-            for (var t = 0; t < Player.kItemTypes && t < db.GroupSize(5); ++t)
+            for (var t = 0; t < Player.ItemTypes && t < db.GroupSize(5); ++t)
                 if (p.Counts[t] != 0 && db.GetField(db.At(5, t)!, "className", "", out var cls) &&
                     GameUtil.EqualsNoCase(cls, a[2]))
                     ++n;
@@ -331,7 +331,7 @@ public static class PlayerCommands
             if (!PlayerAndItem(inr, g, a, out var p, out var item))
                 return "False";
             var slot = Numbers.BorlandAtoi(a[3]);
-            if (slot is < 0 or >= Player.kImageSlots)
+            if (slot is < 0 or >= Player.ImageSlots)
             {
                 inr.Print(1, "mountItem: invalid imageSlot");
                 return "False";
@@ -361,7 +361,7 @@ public static class PlayerCommands
                 if (p == null)
                     return r;
                 var slot = Numbers.BorlandAtoi(a[2]);
-                if (slot is < 0 or >= Player.kImageSlots)
+                if (slot is < 0 or >= Player.ImageSlots)
                 {
                     inr.Print(1, label + ": invalid imageSlot");
                     return r;
@@ -401,7 +401,7 @@ public static class PlayerCommands
             if (p == null)
                 return "False";
             var slot = Numbers.BorlandAtoi(a[2]);
-            if (slot is < 0 or >= Player.kImageSlots)
+            if (slot is < 0 or >= Player.ImageSlots)
             {
                 inr.Print(1, "trigger: invalid imageSlot");
                 return "False";

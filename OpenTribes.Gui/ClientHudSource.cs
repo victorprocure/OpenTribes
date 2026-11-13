@@ -7,20 +7,20 @@ using X87 = OpenTribes.World.X87;
 /// <summary>The HUD data source of the live client, read from the PSC block and the control object ghost that the C3a unpack delivers (docs/gui.md 4.1, client-net.md 4.5).</summary>
 public sealed class ClientHudSource : IHudSource
 {
-    private readonly ClientWorld mWorld;
-    private readonly Func<double> mClock;
+    private readonly ClientWorld _world;
+    private readonly Func<double> _clock;
 
     /// <summary>Creates a source over a client world.</summary>
     /// <param name="world">The client world.</param>
     /// <param name="clock">The HUD timer clock in seconds, or null for 0.</param>
     public ClientHudSource(ClientWorld world, Func<double>? clock = null)
     {
-        mWorld = world;
-        mClock = clock ?? (() => 0);
+        _world = world;
+        _clock = clock ?? (() => 0);
     }
 
-    private ClientPsc Psc => mWorld.Psc;
-    private ClientGhost? Ghost => mWorld.Ghosts.Get(Psc.ControlGhost);
+    private ClientPsc Psc => _world.Psc;
+    private ClientGhost? Ghost => _world.Ghosts.Get(Psc.ControlGhost);
 
     private static double D(object? v, double def) => v switch
     {
@@ -42,11 +42,11 @@ public sealed class ClientHudSource : IHudSource
     /// <inheritdoc/>
     public bool ControlIsPlayer => HasPlayerState && Psc.ControlClass == "Player";
     /// <summary>Gets or sets the callback for the first person state: PSC +0xa0 on and +0x9c at 0 (MoveBuilder.FirstPersonNow). Set by the host.</summary>
-    public Func<bool>? FirstPersonSource;
+    public Func<bool>? FirstPersonSource { get; set; }
     /// <inheritdoc/>
     public bool FirstPersonView => FirstPersonSource?.Invoke() ?? true;
     /// <summary>Gets or sets the callback for the zoom state of the move builder. Set by the host.</summary>
-    public Func<HudZoom?>? ZoomSource;
+    public Func<HudZoom?>? ZoomSource { get; set; }
     /// <inheritdoc/>
     public HudZoom? Zoom => ZoomSource?.Invoke();
 
@@ -73,7 +73,7 @@ public sealed class ClientHudSource : IHudSource
     private ClientGhost? OrbitGhost =>
         Psc.ControlState.TryGetValue("camMode", out var m) && D(m, 0) == 3
         && Psc.ControlState.TryGetValue("orbitGhost", out var og) && D(og, -1) is double idx and >= 0
-            ? mWorld.Ghosts.Get((int)idx)
+            ? _world.Ghosts.Get((int)idx)
             : null;
 
     /// <inheritdoc/>
@@ -101,7 +101,7 @@ public sealed class ClientHudSource : IHudSource
         get
         {
             if (Ghost != null && Ghost.State.TryGetValue("datablock", out var idx) &&
-                mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out var b))
+                _world.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out var b))
                 foreach (var f in b.Fields)
                     if (f.Name == "maxEnergy" && D(f.Value, 0) > 0)
                         return D(f.Value, 0);
@@ -120,7 +120,7 @@ public sealed class ClientHudSource : IHudSource
 
     /// <summary>Gets or sets the callback for the drawn yaw of a ghost by index, null when it is not drawn. Set by the host.</summary>
     /// <remarks>A mounted Player (passenger) reads the Euler z of its mount transform through it.</remarks>
-    public Func<int, double?>? ObjectYaw;
+    public Func<int, double?>? ObjectYaw { get; set; }
     /// <inheritdoc/>
     /// <remarks>Follows vtable +0x178 of the control object (docs/gui.md 4.2 Compass): the third float of the Euler rotation of the object's transform (00413850, shared by Player, Vehicle and Flier). A piloted vehicle is the control object, so the dial turns with its drawn heading. Without the drawn value it reads the "rot" vector of a vehicle's control state, else the "rotZ" of a Player.</remarks>
     public double Yaw
@@ -148,13 +148,13 @@ public sealed class ClientHudSource : IHudSource
         return rotZ;
     }
     /// <inheritdoc/>
-    public double ClockSeconds => mClock();
+    public double ClockSeconds => _clock();
 
     /// <inheritdoc/>
     /// <remarks>Present while 006a83e4 is not -1: the waypoint position and the control object's x and y (+0x188, +0x18c of the transform) (004e7e5c).</remarks>
     public HudWaypoint? Waypoint =>
-        mWorld.Players.WaypointTarget != -1 && Psc.ControlState.GetValueOrDefault("pos") is double[] { Length: >= 2 } p
-            ? new HudWaypoint(mWorld.Players.WaypointX, mWorld.Players.WaypointY, p[0], p[1])
+        _world.Players.WaypointTarget != -1 && Psc.ControlState.GetValueOrDefault("pos") is double[] { Length: >= 2 } p
+            ? new HudWaypoint(_world.Players.WaypointX, _world.Players.WaypointY, p[0], p[1])
             : null;
 
     /// <inheritdoc/>
@@ -169,7 +169,7 @@ public sealed class ClientHudSource : IHudSource
             var slots = MountedImages(g);
             for (var i = 0; i < Psc.ItemCounts.Length; ++i)
             {
-                if (Psc.ItemCounts[i] <= 0 || !mWorld.DataBlocks.Blocks.TryGetValue((5, i), out var b))
+                if (Psc.ItemCounts[i] <= 0 || !_world.DataBlocks.Blocks.TryGetValue((5, i), out var b))
                     continue;
                 var icon = b.Fields.FirstOrDefault(f => f.Name == "hudIcon" && f.Value is string).Value as string ?? "";
                 if (icon.Length == 0 || !b.Fields.Any(f => f.Name == "showWeaponBar" && D(f.Value, 0) != 0))
@@ -184,7 +184,7 @@ public sealed class ClientHudSource : IHudSource
                         break;
                     }
                 var ammo = -1;
-                if (image >= 0 && mWorld.DataBlocks.Blocks.TryGetValue((6, image), out var ib))
+                if (image >= 0 && _world.DataBlocks.Blocks.TryGetValue((6, image), out var ib))
                 {
                     var type = (int)ib.Fields.Where(f => f.Name == "ammoType").Select(f => D(f.Value, -1)).FirstOrDefault(-1);
                     if (type >= 0 && type < Psc.ItemCounts.Length)
@@ -231,11 +231,11 @@ public sealed class ClientHudSource : IHudSource
         get
         {
             var list = new List<InventoryEntry>();
-            if (!mWorld.DataBlocks.Counts.TryGetValue(5, out var n))
+            if (!_world.DataBlocks.Counts.TryGetValue(5, out var n))
                 return list;
             for (var i = 0; i < n && i < Psc.ItemCounts.Length; ++i)
             {
-                if (!mWorld.DataBlocks.Blocks.TryGetValue((5, i), out var b) ||
+                if (!_world.DataBlocks.Blocks.TryGetValue((5, i), out var b) ||
                     !b.Fields.Any(f => f.Name == "showInventory" && D(f.Value, 0) != 0))
                     continue;
                 string S(string name) => b.Fields.FirstOrDefault(f => f.Name == name && f.Value is string).Value as string ?? "";
@@ -255,13 +255,13 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
-            var pm = mWorld.Players;
+            var pm = _world.Players;
             var teams = pm.Teams.Values.Where(t => t.Index >= 0).OrderByDescending(t => t.SortValue).ThenBy(t => t.Index)
                 .Select(t => new ScoreRow(t.Index, Expand(t.ScoreText, null, t.Name), t.SortValue)).ToList();
             var clients = pm.Clients.Values.Where(c => !c.Ai).OrderByDescending(c => c.SortValue).ThenBy(c => c.Id)
                 .Select(c => new ScoreRow(c.Id, Expand(c.ScoreText, c, c.Team >= 0 && pm.Teams.TryGetValue(c.Team, out var t) ? t.Name : ""),
                     c.SortValue)).ToList();
-            return new ScoreBoard(pm.TeamHeading, pm.ClientHeading, teams, clients, mWorld.PlayerId);
+            return new ScoreBoard(pm.TeamHeading, pm.ClientHeading, teams, clients, _world.PlayerId);
         }
     }
 
@@ -303,15 +303,15 @@ public sealed class ClientHudSource : IHudSource
     }
 
     /// <summary>Gets or sets the callback for the chat menu a script switched on (the server menu of the Tab key). Set by the host.</summary>
-    public Func<ServerMenuView?>? MenuSource;
+    public Func<ServerMenuView?>? MenuSource { get; set; }
     /// <inheritdoc/>
     public ServerMenuView? ServerMenu => MenuSource?.Invoke();
     /// <summary>Gets or sets the callback for the player chat menu. Set by the host.</summary>
-    public Func<PlayMenuView?>? PlayMenuSource;
+    public Func<PlayMenuView?>? PlayMenuSource { get; set; }
     /// <inheritdoc/>
     public PlayMenuView? PlayMenu => PlayMenuSource?.Invoke();
     /// <summary>Gets or sets the callback for the commander map picture, rendered on demand from the world. Set by the host.</summary>
-    public Func<CommandMapPicture?>? CommandMapSource;
+    public Func<CommandMapPicture?>? CommandMapSource { get; set; }
     /// <inheritdoc/>
     public CommandMapPicture? CommandMap => CommandMapSource?.Invoke();
     /// <inheritdoc/>
@@ -320,14 +320,14 @@ public sealed class ClientHudSource : IHudSource
     {
         get
         {
-            var pm = mWorld.Players;
-            if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
+            var pm = _world.Players;
+            if (pm.Get(_world.PlayerId) is not ClientPlayerRecord me)
                 return null;
             var slots = new List<CommandMapSlotMark>();
             for (var i = 0; i < Psc.CommandSlots.Length; ++i)
             {
                 var s = Psc.CommandSlots[i];
-                if (!s.Present || !mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out var b))
+                if (!s.Present || !_world.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out var b))
                     continue;
                 string Str(string name)
                 { foreach (var fld in b.Fields) if (fld.Name == name) return fld.Value as string ?? ""; return ""; }
@@ -344,25 +344,25 @@ public sealed class ClientHudSource : IHudSource
             var yaw = Psc.ControlState.TryGetValue("rotZ", out var zv) ? D(zv, 0)
                 : Psc.ControlState.TryGetValue("rot", out var rv) && rv is double[] { Length: >= 3 } rot ? rot[2] : 0;
             var heading = (int)(256.0 - (yaw * 256.0 * (1.0 / (2 * Math.PI))));
-            return new CommandMapMarks(mWorld.PlayerId, me.Team, heading, slots);
+            return new CommandMapMarks(_world.PlayerId, me.Team, heading, slots);
         }
     }
     /// <summary>Gets or sets the callback for the state of a named chat menu object. Set by the host.</summary>
-    public Func<string, ChatMenuState?>? NamedMenuSource;
+    public Func<string, ChatMenuState?>? NamedMenuSource { get; set; }
     /// <inheritdoc/>
     public ChatMenuState? NamedMenu(string name) => NamedMenuSource?.Invoke(name);
 
     /// <summary>Returns the parent of a record in the command tree.</summary>
     /// <param name="r">The record.</param>
     /// <returns>The commander record when it is a human, else null.</returns>
-    private ClientPlayerRecord? CommandParent(ClientPlayerRecord r) => r.Commander != -1 && mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null;
+    private ClientPlayerRecord? CommandParent(ClientPlayerRecord r) => r.Commander != -1 && _world.Players.Get(r.Commander) is { Ai: false } c ? c : null;
 
     /// <summary>Returns the records directly under a node of the command tree.</summary>
     /// <param name="parent">The node, or null for the top level of a team.</param>
     /// <param name="team">The team of the top level.</param>
     /// <returns>The records.</returns>
     private List<ClientPlayerRecord> CommandChildren(ClientPlayerRecord? parent, int team) =>
-        [.. mWorld.Players.Clients.Values.Where(r => parent == null ? CommandParent(r) == null && r.Team == team : CommandParent(r) == parent)];
+        [.. _world.Players.Clients.Values.Where(r => parent == null ? CommandParent(r) == null && r.Team == team : CommandParent(r) == parent)];
 
     /// <inheritdoc/>
     /// <remarks>
@@ -374,8 +374,8 @@ public sealed class ClientHudSource : IHudSource
         get
         {
             var rows = new List<CommandTeamRow>();
-            var pm = mWorld.Players;
-            if (pm.Get(mWorld.PlayerId) is not ClientPlayerRecord me)
+            var pm = _world.Players;
+            if (pm.Get(_world.PlayerId) is not ClientPlayerRecord me)
                 return rows;
             void Add(List<ClientPlayerRecord> siblings, int depth, List<(int Depth, bool HasNext)> above)
             {
@@ -423,10 +423,10 @@ public sealed class ClientHudSource : IHudSource
             var s = Psc.CommandSlots[i];
             if (!s.Present || s.Team != me.Team || !shows(s.Group))
                 continue;
-            var name = i >= 128 && mWorld.Players.TargetNames.TryGetValue(i - 128, out var label) && label.Length > 0 ? label : null;
+            var name = i >= 128 && _world.Players.TargetNames.TryGetValue(i - 128, out var label) && label.Length > 0 ? label : null;
             if (name == null)
             {
-                if (!mWorld.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out var b))
+                if (!_world.DataBlocks.Blocks.TryGetValue((s.Group, s.Index), out var b))
                     continue;
                 foreach (var f in b.Fields)
                     if (f.Name == "description" && f.Value is string d && d.Length > 0)
@@ -445,43 +445,43 @@ public sealed class ClientHudSource : IHudSource
 
     /// <inheritdoc/>
     /// <remarks>Follows 004b48bc: the walk over the client records takes the first with the selected byte (+0x68) set. The client table has no join order, so the id order stands for it.</remarks>
-    public int CommandFirstSelectedClient() => mWorld.Players.Clients.Values.OrderBy(r => r.Id).FirstOrDefault(r => r.Selected)?.Id ?? -1;
+    public int CommandFirstSelectedClient() => _world.Players.Clients.Values.OrderBy(r => r.Id).FirstOrDefault(r => r.Selected)?.Id ?? -1;
 
     /// <inheritdoc/>
     public CommandLocalClient? CommandLocal =>
-        mWorld.Players.Get(mWorld.PlayerId) is { Ai: false, Team: var team } ? new CommandLocalClient(mWorld.PlayerId, team) : null;
+        _world.Players.Get(_world.PlayerId) is { Ai: false, Team: var team } ? new CommandLocalClient(_world.PlayerId, team) : null;
 
     /// <inheritdoc/>
     public ClientCommandSlot[]? CommandSlotTable => Psc.CommandSlots;
 
     /// <inheritdoc/>
     public int? CommandBlockFilter(int group, int index) =>
-        mWorld.DataBlocks.Blocks.TryGetValue((group, index), out var b) ? (int)Fld(b, "mapFilter", -1) : null;
+        _world.DataBlocks.Blocks.TryGetValue((group, index), out var b) ? (int)Fld(b, "mapFilter", -1) : null;
 
     /// <inheritdoc/>
-    public string? CommandClientName(int clientId) => mWorld.Players.Get(clientId) is { Ai: false } r ? r.Name : null;
+    public string? CommandClientName(int clientId) => _world.Players.Get(clientId) is { Ai: false } r ? r.Name : null;
 
     /// <inheritdoc/>
-    public string? CommandTargetName(int slot) => slot >= 128 && mWorld.Players.TargetNames.TryGetValue(slot - 128, out var n) ? n : null;
+    public string? CommandTargetName(int slot) => slot >= 128 && _world.Players.TargetNames.TryGetValue(slot - 128, out var n) ? n : null;
 
     /// <inheritdoc/>
     public void CommandSetSelected(int clientId, bool on)
     {
-        if (mWorld.Players.Get(clientId) is { } r)
+        if (_world.Players.Get(clientId) is { } r)
             r.Selected = on;
     }
 
     /// <inheritdoc/>
     public void CommandToggleExpanded(int clientId)
     {
-        if (mWorld.Players.Get(clientId) is { } r)
+        if (_world.Players.Get(clientId) is { } r)
             r.Expanded = !r.Expanded;
     }
 
     /// <inheritdoc/>
     public bool CommandInChain(int clientId, int commander)
     {
-        for (var r = mWorld.Players.Get(clientId); r != null; r = mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null)
+        for (var r = _world.Players.Get(clientId); r != null; r = _world.Players.Get(r.Commander) is { Ai: false } c ? c : null)
             if (r.Commander == commander)
                 return true;
         return false;
@@ -491,8 +491,8 @@ public sealed class ClientHudSource : IHudSource
     /// <remarks>+0x74 is the first record under this one in the tree (the oldest, as for the rows), +0x78 the next one under the same commander.</remarks>
     public (int FirstChild, int NextSibling, bool Selected)? CommandLinks(int clientId)
     {
-        var pm = mWorld.Players;
-        if (pm.Get(clientId) is not { } r || pm.Get(mWorld.PlayerId) is not { } me)
+        var pm = _world.Players;
+        if (pm.Get(clientId) is not { } r || pm.Get(_world.PlayerId) is not { } me)
             return null;
         var first = CommandChildren(r, me.Team) is { Count: > 0 } kids ? kids[0].Id : -1;
         var siblings = CommandChildren(CommandParent(r), r.Team);
@@ -500,7 +500,7 @@ public sealed class ClientHudSource : IHudSource
         return (first, at >= 0 && at + 1 < siblings.Count ? siblings[at + 1].Id : -1, r.Selected);
     }
     /// <inheritdoc/>
-    public IReadOnlyList<string?> ObjectiveLines => mWorld.Players.ObjectiveLines;
+    public IReadOnlyList<string?> ObjectiveLines => _world.Players.ObjectiveLines;
 
     /// <summary>Gets the 2 sensor state bits of the control state (00413b90, Vehicle 00446830): 1 pinged, 2 jammed.</summary>
     private int SensorState => (int)D(Psc.ControlState.GetValueOrDefault("state2"), 0);
@@ -510,17 +510,17 @@ public sealed class ClientHudSource : IHudSource
     public bool SensorLocked => SensorState == 2;
 
     /// <summary>Gets or sets the callback for the view camera of the frame, given the view size. Set by the host.</summary>
-    public Func<int, int, Camera3D?>? ViewCamera;
+    public Func<int, int, Camera3D?>? ViewCamera { get; set; }
     /// <summary>Gets or sets the callback for the position of mount point 2 of a player ghost, null to use the body position plus 1.4. Set by the host.</summary>
-    public Func<int, (double X, double Y, double Z)?>? HeadMount;
+    public Func<int, (double X, double Y, double Z)?>? HeadMount { get; set; }
     /// <summary>Gets or sets the callback for the muzzle of the image in slot 0 of a Player ghost in world space, null to use the body position. Set by the host.</summary>
-    public Func<int, (double X, double Y, double Z)?>? MuzzleMount;
+    public Func<int, (double X, double Y, double Z)?>? MuzzleMount { get; set; }
     /// <summary>Gets or sets the callback for the eye and muzzle transforms of a Vehicle, Flier or Turret control ghost, null while it has no drawn object. Set by the host.</summary>
-    public Func<int, HudControlAim?>? ControlAim;
+    public Func<int, HudControlAim?>? ControlAim { get; set; }
     /// <summary>Gets or sets the line test from the eye to a point: true when nothing blocks it. Set by the host.</summary>
-    public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
+    public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear { get; set; }
     /// <summary>Gets or sets the callback for the world box (min, max) and the transform origin of a shape ghost, for the objects of the label pick. Set by the host.</summary>
-    public Func<int, (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)?>? ObjectBox;
+    public Func<int, (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)?>? ObjectBox { get; set; }
 
     /// <summary>Returns the fraction of a segment at which it enters a box.</summary>
     /// <param name="eye">The segment start.</param>
@@ -557,7 +557,7 @@ public sealed class ClientHudSource : IHudSource
     private string? BlockString(ClientGhost g, string field)
     {
         if (ObjectGroup(g.Class) is var grp && grp >= 0 && g.State.TryGetValue("datablock", out var idx)
-            && mWorld.DataBlocks.Blocks.TryGetValue((grp, (int)D(idx, -1)), out var b))
+            && _world.DataBlocks.Blocks.TryGetValue((grp, (int)D(idx, -1)), out var b))
             foreach (var f in b.Fields)
                 if (f.Name == field)
                     return f.Value as string;
@@ -572,15 +572,15 @@ public sealed class ClientHudSource : IHudSource
     /// <remarks>Follows Crosshair_findTarget (004aca84): the other players the local player's client may see (the visible mask of the PSC, +0x490), with their marks and the one under the view centre.</remarks>
     public HudTargetResult? CrosshairTarget(int width, int height)
     {
-        if (ViewCamera?.Invoke(width, height) is not Camera3D cam || Psc.ControlGhost < 0 || mWorld.PlayerId == 0)
+        if (ViewCamera?.Invoke(width, height) is not Camera3D cam || Psc.ControlGhost < 0 || _world.PlayerId == 0)
             return null;
-        var pm = mWorld.Players;
-        var me = pm.Get(mWorld.PlayerId);
+        var pm = _world.Players;
+        var me = pm.Get(_world.PlayerId);
         if (me == null)
             return null;
         var eye = (cam.X, cam.Y, cam.Z);
         var list = new List<HudTargetCandidate>();
-        foreach (var g in mWorld.Ghosts.All())
+        foreach (var g in _world.Ghosts.All())
         {
             // Crosshair_findTarget skips the control object and every Player whose mount object (+0x1028) is the control object: while
             // piloting, the pilot's own Player and the passengers of the vehicle get no mark and no label [code 004aca84].
@@ -593,7 +593,7 @@ public sealed class ClientHudSource : IHudSource
             var visible = ((owner - 0x800) >> 5) is int w && w < Psc.Visible.Length && ((Psc.Visible[w] >> (owner & 31)) & 1) != 0;
             var head = HeadMount?.Invoke(g.Index) ?? (pos[0], pos[1], pos[2] + 1.4);
             double bw = 1, bd = 1, bh = 2;
-            if (g.State.TryGetValue("datablock", out var idx) && mWorld.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out var b))
+            if (g.State.TryGetValue("datablock", out var idx) && _world.DataBlocks.Blocks.TryGetValue((3, (int)D(idx, -1)), out var b))
                 foreach (var f in b.Fields)
                     switch (f.Name)
                     {
@@ -615,7 +615,7 @@ public sealed class ClientHudSource : IHudSource
         }
         // Objects of the sensor set: the name is the target name of its slot, else the datablock description; the icon is the green
         // bitmap of the datablock's mapIcon [code GameBaseData_preload: "%s_green.bmp"].
-        foreach (var g in mWorld.Ghosts.All())
+        foreach (var g in _world.Ghosts.All())
         {
             // The loop of Crosshair_findTarget [code 004aca84, test at 004accdc..004accee] skips the control object before it sorts the object
             // into the Player or the sensor branch: a controlled Turret gets no label.
@@ -667,8 +667,8 @@ public sealed class ClientHudSource : IHudSource
         group = -1;
         var item = D(g.State.GetValueOrDefault("item0"), -1);
         if (item < 0
-            || !mWorld.DataBlocks.Blocks.TryGetValue((5, (int)item), out var ib)
-            || !mWorld.DataBlocks.Blocks.TryGetValue((6, (int)Fld(ib, "imageType", -1)), out var img))
+            || !_world.DataBlocks.Blocks.TryGetValue((5, (int)item), out var ib)
+            || !_world.DataBlocks.Blocks.TryGetValue((6, (int)Fld(ib, "imageType", -1)), out var img))
             return null;
         return ProjectileOf(img, out group);
     }
@@ -688,13 +688,13 @@ public sealed class ClientHudSource : IHudSource
         if (grp == -1)
             return null;
         group = grp;
-        return mWorld.DataBlocks.Blocks.TryGetValue((grp, idx), out var pb) ? pb : null;
+        return _world.DataBlocks.Blocks.TryGetValue((grp, idx), out var pb) ? pb : null;
     }
 
     /// <summary>Returns the gravity of the control player: force 1 of its SimMovement, the world gravity of the terrain ghost, minus its length (004adb98).</summary>
     private float Gravity()
     {
-        foreach (var t in mWorld.Ghosts.All())
+        foreach (var t in _world.Ghosts.All())
             if (t.State.GetValueOrDefault("contGravity") is double[] { Length: >= 3 } v)
                 return X87.F32(-X87.Len([(float)v[0], (float)v[1], (float)v[2]]));
         return 0f;
@@ -708,7 +708,7 @@ public sealed class ClientHudSource : IHudSource
     private ClientDataBlock? TurretProjectile(ClientGhost g, out int group)
     {
         group = -1;
-        if (!g.State.TryGetValue("datablock", out var di) || !mWorld.DataBlocks.Blocks.TryGetValue((19, (int)D(di, -1)), out var tb))
+        if (!g.State.TryGetValue("datablock", out var di) || !_world.DataBlocks.Blocks.TryGetValue((19, (int)D(di, -1)), out var tb))
             return null;
         return ProjectileOf(tb, out group);
     }
@@ -720,7 +720,7 @@ public sealed class ClientHudSource : IHudSource
         var result = new List<HudTargetMarker>();
         var cls = Psc.ControlClass;
         if (Ghost is not ClientGhost me || cls is not ("Player" or "Vehicle" or "Flier" or "Turret") || ViewCamera?.Invoke(width, height) is not Camera3D cam
-            || mWorld.PlayerId == 0 || mWorld.Players.Get(mWorld.PlayerId) is not ClientPlayerRecord rec)
+            || _world.PlayerId == 0 || _world.Players.Get(_world.PlayerId) is not ClientPlayerRecord rec)
             return result;
         ClientDataBlock? block;
         int group, ownTeam;
@@ -746,11 +746,11 @@ public sealed class ClientHudSource : IHudSource
             eye = aim.Eye;
             muzzle = aim.MuzzleLabelPoint();
         }
-        var speed = group == Projectile.kRocketGroup ? (float)Fld(block, "field@0x6c", 0) : group is Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup
+        var speed = group == Projectile.RocketGroup ? (float)Fld(block, "field@0x6c", 0) : group is Projectile.BulletGroup or Projectile.GrenadeGroup or Projectile.SeekerGroup
             ? (float)Fld(block, "field@0x68", 0) : 1.0e7f;
         var totalTime = (float)Fld(block, "totalTime", 10000);
         var g = Gravity();
-        foreach (var t in mWorld.Ghosts.All())
+        foreach (var t in _world.Ghosts.All())
         {
             double[]? pos = null;
             var team = int.MinValue;

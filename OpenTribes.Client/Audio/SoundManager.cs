@@ -8,35 +8,38 @@ using OpenTribes.Platform.Audio;
 public sealed class SoundVoice
 {
     /// <summary>The voice handle.</summary>
-    public int Handle;
+    public int Handle { get; set; }
     /// <summary>The profile of the voice.</summary>
-    public SoundProfile Profile;
+    public ref SoundProfile Profile => ref _profile;
+    private SoundProfile _profile;
     /// <summary>The explicit priority. 0 ranks by loudness.</summary>
-    public double Priority;
+    public double Priority { get; set; }
     /// <summary>The wave name.</summary>
-    public string Wave = "";
+    public string Wave { get; set; } = "";
     /// <summary>The wave data.</summary>
-    public WavData Data = null!;
+    public WavData Data { get; set; } = null!;
     /// <summary>True when the gain follows 2.7 each frame.</summary>
-    public bool Spatial;
+    public bool Spatial { get; set; }
     /// <summary>The source transform.</summary>
-    public SoundXf Xf;
+    public ref SoundXf Xf => ref _xf;
+    private SoundXf _xf;
     /// <summary>The attenuation, 0 full and 1 silent.</summary>
-    public double Attenuation;
+    public double Attenuation { get; set; }
     /// <summary>The pan.</summary>
-    public double Pan;
+    public ref double Pan => ref _pan;
+    private double _pan;
     /// <summary>The start time in milliseconds.</summary>
-    public long StartMs;
+    public long StartMs { get; set; }
     /// <summary>True while the voice plays.</summary>
-    public bool Playing;
+    public bool Playing { get; set; }
     /// <summary>True when the voice waits for a free buffer.</summary>
-    public bool WantsStart;
+    public bool WantsStart { get; set; }
     /// <summary>True once the voice was stopped.</summary>
-    public bool Dead;
+    public bool Dead { get; set; }
     /// <summary>True when the position changed since the last gain update.</summary>
-    public bool PosChanged = true;
+    public bool PosChanged { get; set; } = true;
     /// <summary>The mixer voice, or null.</summary>
-    public MixVoice? Mix;
+    public MixVoice? Mix { get; set; }
     /// <summary>True when the voice loops or streams.</summary>
     public bool Loops => Profile.Loops;
     /// <summary>The rank for the priority order: the explicit priority, else 1 - attenuation.</summary>
@@ -48,58 +51,58 @@ public sealed class SoundVoice
 public sealed class SoundManager
 {
     /// <summary>True when the output device is open.</summary>
-    public bool DeviceOpen;
+    public bool DeviceOpen { get; set; }
     /// <summary>True while muted: later plays return 0.</summary>
-    public bool Muted;
+    public bool Muted { get; set; }
     /// <summary>The number of mixer buffers (maxBuffers).</summary>
-    public int MaxBuffers = 16;
+    public int MaxBuffers { get; set; } = 16;
     /// <summary>The 2D volume preference.</summary>
-    public double Sfx2DVolume = 1;
+    public double Sfx2DVolume { get; set; } = 1;
     /// <summary>The 3D volume preference.</summary>
-    public double Sfx3DVolume = 1;
+    public double Sfx3DVolume { get; set; } = 1;
     /// <summary>The sample rate of the output format.</summary>
-    public int FormatRate = 11025;
+    public int FormatRate { get; set; } = 11025;
     /// <summary>The bits per sample of the output format.</summary>
-    public int FormatBits = 8;
+    public int FormatBits { get; set; } = 8;
     /// <summary>True for a stereo output format.</summary>
-    public bool FormatStereo = true;
+    public bool FormatStereo { get; set; } = true;
     /// <summary>The mixer, or null for bookkeeping only.</summary>
-    public SoundMixer? Mixer;
+    public SoundMixer? Mixer { get; set; }
     /// <summary>The datablocks of the client, for the datablock sounds.</summary>
-    public ClientDataBlocks? DataBlocks;
+    public ClientDataBlocks? DataBlocks { get; set; }
     /// <summary>Reads the bytes of a wave file by bare name, or null (resource manager lookup, 1.1).</summary>
-    public Func<string, byte[]?>? ReadWave;
+    public Func<string, byte[]?>? ReadWave { get; set; }
     /// <summary>The current time in milliseconds.</summary>
-    public long NowMs;
+    public long NowMs { get; set; }
 
     /// <summary>The sound profiles by id.</summary>
-    public readonly Dictionary<int, SoundProfile> Profiles = [];
+    public Dictionary<int, SoundProfile> Profiles { get; } = [];
     /// <summary>The sound pairs by id: the profile, the wave and the priority.</summary>
-    public readonly Dictionary<int, (int Profile, string Wave, double Priority)> Pairs = [];
-    private readonly List<SoundVoice> mVoices = [];
-    private readonly Dictionary<int, SoundVoice> mByHandle = [];
-    private readonly Dictionary<string, WavData?> mWaves = new(StringComparer.OrdinalIgnoreCase);
-    private int mNextHandle;
-    private Listener mListener = Listener.Identity;
-    private bool mListenerMoved;
+    public Dictionary<int, (int Profile, string Wave, double Priority)> Pairs { get; } = [];
+    private readonly List<SoundVoice> _voices = [];
+    private readonly Dictionary<int, SoundVoice> _byHandle = [];
+    private readonly Dictionary<string, WavData?> _waves = new(StringComparer.OrdinalIgnoreCase);
+    private int _nextHandle;
+    private Listener _listener = Listener.Identity;
+    private bool _listenerMoved;
 
     /// <summary>The number of waves loaded, for the census and the offline report.</summary>
-    public int WavesLoaded;
+    public int WavesLoaded { get; set; }
     /// <summary>The number of waves that failed to load.</summary>
-    public int WaveFailures;
+    public int WaveFailures { get; set; }
     /// <summary>The number of sounds played.</summary>
-    public int Played;
+    public int Played { get; set; }
     /// <summary>The number of sounds rejected.</summary>
-    public int Rejected;
+    public int Rejected { get; set; }
     /// <summary>The names of the waves that could not be found.</summary>
-    public readonly HashSet<string> MissingWaves = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> MissingWaves { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The voices in priority order.</summary>
-    public IReadOnlyList<SoundVoice> Voices => mVoices;
+    public IReadOnlyList<SoundVoice> Voices => _voices;
     /// <summary>The listener.</summary>
-    public Listener Listener => mListener;
+    public Listener Listener => _listener;
     /// <summary>The number of voices that play.</summary>
-    public int PlayingCount => mVoices.Count(v => v.Playing && !v.Dead);
+    public int PlayingCount => _voices.Count(v => v.Playing && !v.Dead);
 
     /// <summary>Answers the device query (2.2): the stock answers (D39).</summary>
     /// <param name="driver">The driver code.</param>
@@ -115,8 +118,8 @@ public sealed class SoundManager
     /// <param name="rz">The right axis z.</param>
     public void SetListener(double x, double y, double z, double rx, double ry, double rz)
     {
-        mListener = new Listener { X = x, Y = y, Z = z, RightX = rx, RightY = ry, RightZ = rz };
-        mListenerMoved = true;
+        _listener = new Listener { X = x, Y = y, Z = z, RightX = rx, RightY = ry, RightZ = rz };
+        _listenerMoved = true;
     }
 
 
@@ -125,11 +128,11 @@ public sealed class SoundManager
     /// <returns>The wave, or null when it is missing or invalid.</returns>
     public WavData? LoadWave(string name)
     {
-        if (mWaves.TryGetValue(name, out var w))
+        if (_waves.TryGetValue(name, out var w))
             return w;
         var bytes = ReadWave?.Invoke(name);
         w = bytes == null ? null : WavData.TryParse(bytes);
-        mWaves[name] = w;
+        _waves[name] = w;
         if (w == null)
         {
             ++WaveFailures;
@@ -143,15 +146,15 @@ public sealed class SoundManager
 
     private int NewHandle()
     {
-        if (++mNextHandle <= 0)
-            mNextHandle = 1;
-        return mNextHandle;
+        if (++_nextHandle <= 0)
+            _nextHandle = 1;
+        return _nextHandle;
     }
 
     /// <summary>Finds a voice.</summary>
     /// <param name="handle">The voice handle.</param>
     /// <returns>The voice, or null for an unknown handle.</returns>
-    public SoundVoice? Find(int handle) => handle > 0 && mByHandle.TryGetValue(handle, out var v) ? v : null;
+    public SoundVoice? Find(int handle) => handle > 0 && _byHandle.TryGetValue(handle, out var v) ? v : null;
 
     /// <summary>Tells whether a voice finished or does not exist.</summary>
     /// <param name="handle">The voice handle.</param>
@@ -173,7 +176,7 @@ public sealed class SoundManager
     /// <summary>Stops every voice.</summary>
     public void StopAll()
     {
-        foreach (var v in mVoices)
+        foreach (var v in _voices)
             Kill(v);
     }
 
@@ -355,7 +358,7 @@ public sealed class SoundManager
             return Reject();
         if (p.Is3D && !p.Loops)
         {
-            double dx = at.X - mListener.X, dy = at.Y - mListener.Y, dz = at.Z - mListener.Z;
+            double dx = at.X - _listener.X, dy = at.Y - _listener.Y, dz = at.Z - _listener.Z;
             if (Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)) > p.MaxDist)
                 return Reject();
         }
@@ -377,8 +380,8 @@ public sealed class SoundManager
         // 2.8: wave and pair plays fix the 2D attenuation at start; a datablock 2D sound is at full volume.
         if (!p.Is3D)
             v.Attenuation = datablock2D ? 0 : SoundGain.Attenuation2D(Sfx2DVolume, p.BaseVolume);
-        mVoices.Add(v);
-        mByHandle[v.Handle] = v;
+        _voices.Add(v);
+        _byHandle[v.Handle] = v;
         ++Played;
         StartVoice(v);
         return v.Handle;
@@ -408,7 +411,7 @@ public sealed class SoundManager
     {
         if (!v.Spatial)
             return;
-        v.Attenuation = SoundGain.Attenuation3D(v.Profile, v.Xf, mListener, Sfx3DVolume, out v.Pan);
+        v.Attenuation = SoundGain.Attenuation3D(v.Profile, v.Xf, _listener, Sfx3DVolume, out v.Pan);
         v.PosChanged = false;
     }
 
@@ -434,12 +437,12 @@ public sealed class SoundManager
     public void Tick(long nowMs)
     {
         NowMs = nowMs;
-        foreach (var v in mVoices)
+        foreach (var v in _voices)
             if (v.Playing && !v.Dead && !v.Loops && v.Mix != null && v.Mix.Done)
                 Kill(v);
-        Borland.BorlandQsort(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mVoices), Compare);
+        Borland.BorlandQsort(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_voices), Compare);
         var n = 0;
-        foreach (var v in mVoices)
+        foreach (var v in _voices)
         {
             if (v.Dead)
                 continue;
@@ -459,20 +462,20 @@ public sealed class SoundManager
             }
         }
         // 2.6 update: gain and pan of every voice when the listener moved or the voice moved.
-        foreach (var v in mVoices)
+        foreach (var v in _voices)
         {
-            if (v.Dead || !v.Spatial || !(mListenerMoved || v.PosChanged))
+            if (v.Dead || !v.Spatial || !(_listenerMoved || v.PosChanged))
                 continue;
             Recompute(v);
             if (v.Playing)
                 Apply(v);
         }
-        mListenerMoved = false;
-        for (var i = mVoices.Count - 1; i >= 0; --i)
-            if (mVoices[i].Dead)
+        _listenerMoved = false;
+        for (var i = _voices.Count - 1; i >= 0; --i)
+            if (_voices[i].Dead)
             {
-                mByHandle.Remove(mVoices[i].Handle);
-                mVoices.RemoveAt(i);
+                _byHandle.Remove(_voices[i].Handle);
+                _voices.RemoveAt(i);
             }
     }
 

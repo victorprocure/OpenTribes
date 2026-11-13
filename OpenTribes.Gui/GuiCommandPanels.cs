@@ -92,7 +92,7 @@ public sealed class GuiChatMenu : GuiControl
 /// </remarks>
 public sealed class GuiCommandTeam : GuiList
 {
-    private int mLastRow = -1;
+    private int _lastRow = -1;
     private const int CellWidth = 640;
     /// <summary>Gets the rows, rebuilt before each render.</summary>
     public IReadOnlyList<CommandTeamRow> Rows { get; private set; } = Array.Empty<CommandTeamRow>();
@@ -170,7 +170,7 @@ public sealed class GuiCommandTeam : GuiList
             }
             return true;
         }
-        if (row != mLastRow)
+        if (row != _lastRow)
             dbl = false;
         map.SelectTurret(-1);
         map.SelectStatic(-1);
@@ -199,7 +199,7 @@ public sealed class GuiCommandTeam : GuiList
             for (var i = Math.Min(Selected, row); i <= Math.Max(Selected, row) && i < Rows.Count; ++i)
                 map.SelectClient(Rows[i].Id, true);
         }
-        mLastRow = row;
+        _lastRow = row;
         return true;
     }
 
@@ -275,20 +275,20 @@ public sealed class GuiCmdObserve : GuiControl
     /// <summary>The id of the child view control.</summary>
     public const uint ViewId = 140208;
     /// <summary>The client id of the followed player, 0 for none.</summary>
-    public int Observed;
+    public int Observed { get; set; }
 
     // The child view and its rectangle as the file has it (+0x620, +0x610 to +0x61c), read at wake (004b47ac).
-    private GuiControl? mView;
-    private int mExtX, mExtY, mExtW, mExtH;
+    private GuiControl? _view;
+    private int _extX, _extY, _extW, _extH;
     // The rectangle the view has now (+0x600 to +0x60c): it opens from a thin line at the middle (004b48bc, 004b4ad8).
-    private int mCurX, mCurY, mCurW, mCurH;
-    private bool mBarsDone;     // +0x5fc
-    private double mNoiseInterval; // +0x5ec seconds
-    private int mDamageBar, mEnergyBar; // +0x5f4, +0x5f0: the drawn bar heights
-    private long mNoiseTimerMs;
-    private long? mBarTimerMs;      // the constructor starts it; the first step is long overdue
+    private int _curX, _curY, _curW, _curH;
+    private bool _barsDone;     // +0x5fc
+    private double _noiseInterval; // +0x5ec seconds
+    private int _damageBar, _energyBar; // +0x5f4, +0x5f0: the drawn bar heights
+    private long _noiseTimerMs;
+    private long? _barTimerMs;      // the constructor starts it; the first step is long overdue
     // R250 seeded 0x8377 (004b4718).
-    private readonly Script.RandomR250 mRandom = new(0x8377);
+    private readonly Script.RandomR250 _random = new(0x8377);
 
     // 004b4c9c: the noise grows by this each interval until it reaches the limit. 004b48bc: values 4, 0x50, 6.
     private const int NoiseStart = 4, NoiseLimit = 0x50, NoiseDecay = 6;
@@ -300,9 +300,9 @@ public sealed class GuiCmdObserve : GuiControl
     /// <summary>Gets a value that is true when the noise has settled.</summary>
     public bool NoiseDone { get; private set; }
     /// <summary>Gets the rectangle the view has now.</summary>
-    public (int X, int Y, int W, int H) ViewRect => (mCurX, mCurY, mCurW, mCurH);
+    public (int X, int Y, int W, int H) ViewRect => (_curX, _curY, _curW, _curH);
     /// <summary>Gets the heights of the damage and energy bars as drawn.</summary>
-    public (int Damage, int Energy) BarHeights => (mDamageBar, mEnergyBar);
+    public (int Damage, int Energy) BarHeights => (_damageBar, _energyBar);
     /// <summary>Gets the noise value: 1 in this many pixels (the middle value) is drawn white while the picture settles.</summary>
     public int NoiseValue { get; private set; } = 4;
 
@@ -313,9 +313,9 @@ public sealed class GuiCmdObserve : GuiControl
     /// <remarks>Follows 004b47ac (slot 0xb0): it finds the child view (the control with the id, anywhere below), keeps its rectangle, hides the panel and forgets the followed player.</remarks>
     public override void Wake()
     {
-        mView = FindById(ViewId);
-        if (mView != null)
-            (mExtX, mExtY, mExtW, mExtH) = (mView.X, mView.Y, mView.W, mView.H);
+        _view = FindById(ViewId);
+        if (_view != null)
+            (_extX, _extY, _extW, _extH) = (_view.X, _view.Y, _view.W, _view.H);
         SetVisible(false);
         Observed = 0;
     }
@@ -331,8 +331,8 @@ public sealed class GuiCmdObserve : GuiControl
         RemoteObserve(id);
         NoiseValue = NoiseStart;
         NoiseDone = false;
-        mDamageBar = mEnergyBar = 0;
-        mBarsDone = false;
+        _damageBar = _energyBar = 0;
+        _barsDone = false;
         IsActive = true;
         Observed = id;
         return true;
@@ -354,28 +354,28 @@ public sealed class GuiCmdObserve : GuiControl
         var id = Host?.Hud?.CommandFirstSelectedClient() ?? -1;
         if (id == -1)
             return;
-        if (mView != null)
+        if (_view != null)
         {
             RemoteObserve(id);
             IsActive = true;
             Observed = id;
-            mCurX = (mExtW >> 1) + mExtX;
-            mCurY = (mExtH >> 1) + mExtY;
-            mCurW = 0;
-            mCurH = 2;
+            _curX = (_extW >> 1) + _extX;
+            _curY = (_extH >> 1) + _extY;
+            _curW = 0;
+            _curH = 2;
             NoiseValue = NoiseStart;
-            mNoiseInterval = NextNoiseInterval();
-            mDamageBar = mEnergyBar = 0;
-            IsOpen = NoiseDone = mBarsDone = false;
-            if (mView is GuiPlayView tv)
+            _noiseInterval = NextNoiseInterval();
+            _damageBar = _energyBar = 0;
+            IsOpen = NoiseDone = _barsDone = false;
+            if (_view is GuiPlayView tv)
                 tv.CameraAttached = true;
-            mView.Resize(mCurX, mCurY, mCurW, mCurH);
+            _view.Resize(_curX, _curY, _curW, _curH);
         }
         SetVisible(true);
     }
 
     /// <summary>Returns the seconds until the next noise step: random * 2^-32 * 0.01 + 0.025 (floats) (004b4c9c, 004b48bc).</summary>
-    private double NextNoiseInterval() => (float)((mRandom.Next() * 2.3283064365386963e-10 * 0.009999999776482582) + 0.02500000037252903);
+    private double NextNoiseInterval() => (float)((_random.Next() * 2.3283064365386963e-10 * 0.009999999776482582) + 0.02500000037252903);
 
     private long Now => Host?.TickMs ?? 0;
 
@@ -383,47 +383,47 @@ public sealed class GuiCmdObserve : GuiControl
     /// <remarks>First the width (the rectangle moves 8 left and widens by 16 until it is the full width), then the height (10 up, 20 taller). Then it is open and the noise timer starts. The view gets the rectangle every step.</remarks>
     private void GrowStep()
     {
-        if (mExtX < mCurX || mCurW < mExtW)
+        if (_extX < _curX || _curW < _extW)
         {
-            mCurX = Math.Max(mCurX - 8, mExtX);
-            mCurW = Math.Min(mExtW, mCurW + 16);
+            _curX = Math.Max(_curX - 8, _extX);
+            _curW = Math.Min(_extW, _curW + 16);
         }
-        else if (mExtY < mCurY || mCurH < mExtH)
+        else if (_extY < _curY || _curH < _extH)
         {
-            mCurY = Math.Max(mCurY - 10, mExtY);
-            mCurH = Math.Min(mExtH, mCurH + 20);
+            _curY = Math.Max(_curY - 10, _extY);
+            _curH = Math.Min(_extH, _curH + 20);
         }
         else
         {
             IsOpen = true;
-            mNoiseTimerMs = Now;
+            _noiseTimerMs = Now;
         }
-        mView?.Resize(mCurX, mCurY, mCurW, mCurH);
+        _view?.Resize(_curX, _curY, _curW, _curH);
     }
 
     /// <summary>Grows both bars by 4 pixels towards their targets every 0.03 s, done when both have got there (004b4d60).</summary>
     private void BarStep(int damageTarget, int energyTarget)
     {
-        if (mBarTimerMs is long t && Now - t <= 30)
+        if (_barTimerMs is long t && Now - t <= 30)
             return;
-        mBarTimerMs = Now;
-        mEnergyBar += 4;
-        mDamageBar += 4;
-        if (damageTarget < mDamageBar && energyTarget < mEnergyBar)
-            mBarsDone = true;
-        if (damageTarget < mDamageBar)
-            mDamageBar = damageTarget;
-        if (energyTarget < mEnergyBar)
-            mEnergyBar = energyTarget;
+        _barTimerMs = Now;
+        _energyBar += 4;
+        _damageBar += 4;
+        if (damageTarget < _damageBar && energyTarget < _energyBar)
+            _barsDone = true;
+        if (damageTarget < _damageBar)
+            _damageBar = damageTarget;
+        if (energyTarget < _energyBar)
+            _energyBar = energyTarget;
     }
 
     /// <summary>Thins the noise by a step every interval once open, and stops it at the limit (004b4c9c).</summary>
     private void NoiseStep()
     {
-        if (!IsActive || !IsOpen || Now - mNoiseTimerMs <= mNoiseInterval * 1000.0)
+        if (!IsActive || !IsOpen || Now - _noiseTimerMs <= _noiseInterval * 1000.0)
             return;
-        mNoiseTimerMs = Now;
-        mNoiseInterval = NextNoiseInterval();
+        _noiseTimerMs = Now;
+        _noiseInterval = NextNoiseInterval();
         NoiseValue += NoiseDecay;
         if (NoiseLimit <= NoiseValue)
             NoiseDone = true;
@@ -437,7 +437,7 @@ public sealed class GuiCmdObserve : GuiControl
         var energy = 1f - (1f - (float)(Host?.Hud?.EnergyLevel ?? 1));
         int Bar(float v)
         {
-            var n = (int)((double)mExtH * v);
+            var n = (int)((double)_extH * v);
             return v > 0f ? Math.Max(n, 1) : n;
         }
         return (Bar(health), Bar(energy));
@@ -449,7 +449,7 @@ public sealed class GuiCmdObserve : GuiControl
     {
         int gx = ox + X, gy = oy + Y;
         p.Fill(gx, gy, W, H, 0xf4);
-        if (mView == null)
+        if (_view == null)
             return;
         if (!IsOpen)
             GrowStep();
@@ -458,16 +458,16 @@ public sealed class GuiCmdObserve : GuiControl
             if (IsOpen)
             {
                 (var hd, var he) = BarTargets();
-                if (!mBarsDone)
+                if (!_barsDone)
                     BarStep(hd, he);
                 else
-                    (mDamageBar, mEnergyBar) = (hd, he);
-                var right = gx + mExtX + mExtW;
-                var bottom = gy + mExtY + mExtH;
-                if (mDamageBar != 0)
-                    p.Fill(right + 4, bottom - mDamageBar, 2, mDamageBar, hd >= 0x39 ? 0xfc : hd >= 0x1c ? 0xf2 : 0xf3);
-                if (mEnergyBar != 0)
-                    p.Fill(right + 8, bottom - mEnergyBar, 2, mEnergyBar, 0xe7);
+                    (_damageBar, _energyBar) = (hd, he);
+                var right = gx + _extX + _extW;
+                var bottom = gy + _extY + _extH;
+                if (_damageBar != 0)
+                    p.Fill(right + 4, bottom - _damageBar, 2, _damageBar, hd >= 0x39 ? 0xfc : hd >= 0x1c ? 0xf2 : 0xf3);
+                if (_energyBar != 0)
+                    p.Fill(right + 8, bottom - _energyBar, 2, _energyBar, 0xe7);
             }
             RenderChildren(p, gx, gy);
         }
@@ -481,12 +481,12 @@ public sealed class GuiCmdObserve : GuiControl
     /// <summary>Draws white noise over the view rectangle: a pixel is white (palette 0xff) when a random number scaled to the noise value is its middle (004b4bdc).</summary>
     private void DrawNoise(GuiPaint p, int gx, int gy)
     {
-        for (var c = 0; c < mCurW; ++c)
-            for (var r = 0; r < mCurH; ++r)
+        for (var c = 0; c < _curW; ++c)
+            for (var r = 0; r < _curH; ++r)
             {
-                var v = (uint)((ulong)mRandom.Next() * (uint)NoiseValue / 0xffffffffUL);
+                var v = (uint)((ulong)_random.Next() * (uint)NoiseValue / 0xffffffffUL);
                 if (v == (uint)(NoiseValue >> 1))
-                    p.Fill(gx + mCurX + c, gy + mCurY + r, 1, 1, 0xff);
+                    p.Fill(gx + _curX + c, gy + _curY + r, 1, 1, 0xff);
             }
     }
 }

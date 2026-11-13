@@ -19,37 +19,37 @@ public sealed class DecalRing
     public struct Entry
     {
         /// <summary>The index in <see cref="Table"/>.</summary>
-        public int Bitmap;
+        public int Bitmap { get; set; }
         /// <summary>The centre x.</summary>
-        public double Cx;
+        public double Cx { get; set; }
         /// <summary>The centre y.</summary>
-        public double Cy;
+        public double Cy { get; set; }
         /// <summary>The centre z.</summary>
-        public double Cz;
+        public double Cz { get; set; }
         /// <summary>The four corners as x, y, z each.</summary>
-        public double[] Corners;
+        public double[] Corners { get; set; }
     }
 
-    private readonly Entry[] mRing;
-    private int mCursor;
+    private readonly Entry[] _ring;
+    private int _cursor;
     /// <summary>The size of the ring.</summary>
-    public int Capacity => mRing.Length;
+    public int Capacity => _ring.Length;
     /// <summary>The number of decals in the ring.</summary>
     public int Count { get; private set; }
 
     /// <summary>Creates a ring.</summary>
     /// <param name="capacity">The size of the ring, clamped to 0 to 200.</param>
-    public DecalRing(int capacity = 50) => mRing = new Entry[Math.Clamp(capacity, 0, 200)];
+    public DecalRing(int capacity = 50) => _ring = new Entry[Math.Clamp(capacity, 0, 200)];
 
     /// <summary>Inserts a decal at the cursor and wraps (FUN_00433a00).</summary>
     /// <param name="e">The decal.</param>
     public void Add(in Entry e)
     {
-        if (mRing.Length == 0)
+        if (_ring.Length == 0)
             return;
-        mRing[mCursor] = e;
-        mCursor = (mCursor + 1) % mRing.Length;
-        Count = Math.Min(Count + 1, mRing.Length);
+        _ring[_cursor] = e;
+        _cursor = (_cursor + 1) % _ring.Length;
+        Count = Math.Min(Count + 1, _ring.Length);
     }
 
     /// <summary>Builds the quad of a decal: centre plus or minus right times half plus or minus forward times half, lifted 0.05 along the surface normal.</summary>
@@ -100,7 +100,7 @@ public sealed class DecalRing
         var img = new RenderImage { Category = 1, SortKey = 0.0, Label = "decals" };
         for (var i = 0; i < Count; ++i)
         {
-            var e = mRing[i];
+            var e = _ring[i];
             var te = ctx.Assets.Texture(Table[e.Bitmap].File);
             if (te?.Texture == null)
                 continue;

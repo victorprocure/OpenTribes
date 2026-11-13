@@ -7,50 +7,50 @@ using OpenTribes.Core;
 
 public class LzhTests
 {
-    private const int kN = 4096;
-    private const int kF = 60;
-    private const int kThreshold = 2;
-    private const int kNumChars = 256 - kThreshold + kF; // 314
-    private const int kT = (kNumChars * 2) - 1;            // 627
-    private const int kR = kT - 1;
-    private const ushort kMaxFreq = 0x8000;
+    private const int N = 4096;
+    private const int F = 60;
+    private const int Threshold = 2;
+    private const int NumChars = 256 - Threshold + F; // 314
+    private const int T = (NumChars * 2) - 1;            // 627
+    private const int R = T - 1;
+    private const ushort MaxFreq = 0x8000;
 
     // Encoder-side copy of the adaptive Huffman tree (same update rules as the decoder).
     private sealed class Tree
     {
-        public readonly ushort[] Freq = new ushort[kT + 1];
-        public readonly ushort[] Parent = new ushort[kT + kNumChars];
-        public readonly ushort[] Son = new ushort[kT];
+        public ushort[] Freq { get; } = new ushort[T + 1];
+        public ushort[] Parent { get; } = new ushort[T + NumChars];
+        public ushort[] Son { get; } = new ushort[T];
 
         public Tree()
         {
-            for (var i = 0; i < kNumChars; ++i)
+            for (var i = 0; i < NumChars; ++i)
             {
                 Freq[i] = 1;
-                Son[i] = (ushort)(i + kT);
-                Parent[i + kT] = (ushort)i;
+                Son[i] = (ushort)(i + T);
+                Parent[i + T] = (ushort)i;
             }
-            for (int i = 0, j = kNumChars; j <= kR; i += 2, ++j)
+            for (int i = 0, j = NumChars; j <= R; i += 2, ++j)
             {
                 Freq[j] = (ushort)(Freq[i] + Freq[i + 1]);
                 Son[j] = (ushort)i;
                 Parent[i] = Parent[i + 1] = (ushort)j;
             }
-            Freq[kT] = 0xffff;
-            Parent[kR] = 0;
+            Freq[T] = 0xffff;
+            Parent[R] = 0;
         }
 
         private void Reconstruct()
         {
             var j = 0;
-            for (var i = 0; i < kT; ++i)
-                if (Son[i] >= kT)
+            for (var i = 0; i < T; ++i)
+                if (Son[i] >= T)
                 {
                     Freq[j] = (ushort)((Freq[i] + 1) / 2);
                     Son[j] = Son[i];
                     ++j;
                 }
-            for (int i = 0, k2 = kNumChars; k2 < kT; i += 2, ++k2)
+            for (int i = 0, k2 = NumChars; k2 < T; i += 2, ++k2)
             {
                 var f = (ushort)(Freq[i] + Freq[i + 1]);
                 Freq[k2] = f;
@@ -63,10 +63,10 @@ public class LzhTests
                 Array.Copy(Son, k, Son, k + 1, k2 - k);
                 Son[k] = (ushort)i;
             }
-            for (var i = 0; i < kT; ++i)
+            for (var i = 0; i < T; ++i)
             {
                 int k = Son[i];
-                if (k >= kT)
+                if (k >= T)
                     Parent[k] = (ushort)i;
                 else
                     Parent[k] = Parent[k + 1] = (ushort)i;
@@ -75,9 +75,9 @@ public class LzhTests
 
         public void Update(int c)
         {
-            if (Freq[kR] == kMaxFreq)
+            if (Freq[R] == MaxFreq)
                 Reconstruct();
-            c = Parent[c + kT];
+            c = Parent[c + T];
             do
             {
                 var k = ++Freq[c];
@@ -90,12 +90,12 @@ public class LzhTests
                     Freq[l] = k;
                     int i = Son[c];
                     Parent[i] = (ushort)l;
-                    if (i < kT)
+                    if (i < T)
                         Parent[i + 1] = (ushort)l;
                     int j = Son[l];
                     Son[l] = (ushort)i;
                     Parent[j] = (ushort)c;
-                    if (j < kT)
+                    if (j < T)
                         Parent[j + 1] = (ushort)c;
                     Son[c] = (ushort)j;
                     c = l;
@@ -107,30 +107,30 @@ public class LzhTests
 
     private sealed class BitWriter
     {
-        public readonly List<byte> Out = [];
-        private byte mCur;
-        private int mCount;
+        public List<byte> Out { get; } = [];
+        private byte _cur;
+        private int _count;
 
         public void Put(uint value, int bits) // MSB first
         {
             for (var i = bits - 1; i >= 0; --i)
             {
-                mCur = (byte)((mCur << 1) | (int)((value >> i) & 1));
-                if (++mCount == 8)
+                _cur = (byte)((_cur << 1) | (int)((value >> i) & 1));
+                if (++_count == 8)
                 {
-                    Out.Add(mCur);
-                    mCur = 0;
-                    mCount = 0;
+                    Out.Add(_cur);
+                    _cur = 0;
+                    _count = 0;
                 }
             }
         }
 
         public void Flush()
         {
-            if (mCount != 0)
-                Out.Add((byte)(mCur << (8 - mCount)));
-            mCur = 0;
-            mCount = 0;
+            if (_count != 0)
+                Out.Add((byte)(_cur << (8 - _count)));
+            _cur = 0;
+            _count = 0;
         }
     }
 
@@ -154,9 +154,9 @@ public class LzhTests
 
     private sealed class Encoded
     {
-        public byte[] Bytes = [];
-        public int Matches;
-        public int Symbols;
+        public byte[] Bytes { get; set; } = [];
+        public int Matches { get; set; }
+        public int Symbols { get; set; }
     }
 
     // Greedy LZSS over a virtual history of 4096 spaces, matches searched up to `window` back.
@@ -169,7 +169,7 @@ public class LzhTests
         {
             uint code = 0;
             var len = 0;
-            for (int k = tree.Parent[c + kT]; k != kR; k = tree.Parent[k])
+            for (int k = tree.Parent[c + T]; k != R; k = tree.Parent[k])
             {
                 code |= (uint)(k - tree.Son[tree.Parent[k]]) << len;
                 ++len;
@@ -183,10 +183,10 @@ public class LzhTests
         while (n < input.Length)
         {
             int bestLen = 0, bestDist = 0;
-            for (var d = 1; d <= window && d <= kN; ++d)
+            for (var d = 1; d <= window && d <= N; ++d)
             {
                 var len = 0;
-                while (len < kF && n + len < input.Length && ByteAt((long)n + len - d) == input[n + len])
+                while (len < F && n + len < input.Length && ByteAt((long)n + len - d) == input[n + len])
                     ++len;
                 if (len > bestLen)
                 {
@@ -194,9 +194,9 @@ public class LzhTests
                     bestDist = d;
                 }
             }
-            if (bestLen > kThreshold)
+            if (bestLen > Threshold)
             {
-                PutChar(bestLen + 255 - kThreshold);
+                PutChar(bestLen + 255 - Threshold);
                 var pos = bestDist - 1; // decoder: start = r - pos - 1
                 var upper = pos >> 6;
                 var i0 = 0;
@@ -227,12 +227,12 @@ public class LzhTests
         return output;
     }
 
-    private uint mSeed = 12345;
+    private uint _seed = 12345;
 
     private uint Rnd()
     {
-        mSeed = (mSeed * 1103515245u) + 12345u;
-        return mSeed >> 16;
+        _seed = (_seed * 1103515245u) + 12345u;
+        return _seed >> 16;
     }
 
     private static byte[] Bytes(string s) => ByteString.ToBytes(s);
@@ -260,7 +260,7 @@ public class LzhTests
                 text += "Starsiege Tribes LZH section " + (i % 7) + " ";
             text += new string('z', 200);
             var input = Bytes(text);
-            var e = Encode(input, kN);
+            var e = Encode(input, N);
             Assert.True(e.Matches > 10 && e.Bytes.Length < input.Length / 2);
             Assert.Equal(input, Decode(e.Bytes, input.Length));
             ++cases;
@@ -269,11 +269,11 @@ public class LzhTests
         // Maximum distance: a match exactly 4096 bytes back (position code 4095).
         {
             var input = new List<byte>();
-            for (var i = 0; i < kN; ++i)
+            for (var i = 0; i < N; ++i)
                 input.Add((byte)('a' + (Rnd() % 26)));
             input.AddRange(input.GetRange(0, 40));
             var inArr = input.ToArray();
-            var e = Encode(inArr, kN);
+            var e = Encode(inArr, N);
             Assert.Equal(inArr, Decode(e.Bytes, inArr.Length));
             ++cases;
         }
@@ -296,7 +296,7 @@ public class LzhTests
             for (var i = 0; i < 50; ++i)
                 text += "section " + i + ";";
             var input = Bytes(text);
-            var e = Encode(input, kN);
+            var e = Encode(input, N);
             var stream = new List<byte>(e.Bytes);
             stream.AddRange(Enumerable.Repeat((byte)0xee, 16)); // next section
             Assert.Equal(input, Decode([.. stream], input.Length, out var used));

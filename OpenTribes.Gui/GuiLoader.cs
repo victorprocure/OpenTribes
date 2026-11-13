@@ -14,7 +14,7 @@ public sealed record GuiClassRow(string Name, string Tag, string Parent, int Siz
 public sealed class GuiLoadException : Exception
 {
     /// <summary>The error code: 1 short block, 2 unknown or unusable class, 3 bad control body, 4 block not read to its end.</summary>
-    public int Code;
+    public int Code { get; set; }
     /// <summary>Creates an exception.</summary>
     /// <param name="code">The error code.</param>
     /// <param name="message">The message.</param>
@@ -24,15 +24,15 @@ public sealed class GuiLoadException : Exception
 /// <summary>Lookups over the table of all GUI classes (docs/gui.md 3.1).</summary>
 public static partial class GuiClassTable
 {
-    private static Dictionary<string, GuiClassRow>? sByTag, sByName;
+    private static Dictionary<string, GuiClassRow>? _byTag, _byName;
 
     /// <summary>Finds a class by its file tag.</summary>
     /// <param name="tag">The four character tag.</param>
     /// <returns>The row, or null.</returns>
     public static GuiClassRow? ByTag(string tag)
     {
-        sByTag ??= Rows.Where(r => r.Tag.Length > 0).ToDictionary(r => r.Tag, StringComparer.Ordinal);
-        return sByTag.GetValueOrDefault(tag);
+        _byTag ??= Rows.Where(r => r.Tag.Length > 0).ToDictionary(r => r.Tag, StringComparer.Ordinal);
+        return _byTag.GetValueOrDefault(tag);
     }
 
     /// <summary>Finds a class by name, case insensitive.</summary>
@@ -40,11 +40,11 @@ public static partial class GuiClassTable
     /// <returns>The row, or null.</returns>
     public static GuiClassRow? ByName(string name)
     {
-        sByName ??= Rows.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
-        if (sByName.TryGetValue(name, out var row))
+        _byName ??= Rows.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
+        if (_byName.TryGetValue(name, out var row))
             return row;
         foreach (var ns in new[] { "SimGui::", "FearGui::" })
-            if (sByName.TryGetValue(ns + name, out row))
+            if (_byName.TryGetValue(ns + name, out row))
                 return row;
         return null;
     }
@@ -59,11 +59,11 @@ public static partial class GuiClassTable
 public sealed class GuiBytes
 {
     /// <summary>The bytes of the file.</summary>
-    public readonly byte[] Data;
+    public byte[] Data { get; }
     /// <summary>The read position.</summary>
-    public int Pos;
+    public int Pos { get; set; }
     /// <summary>The end of the block body.</summary>
-    public int End;
+    public int End { get; set; }
     /// <summary>Creates a cursor.</summary>
     /// <param name="data">The bytes of the file.</param>
     /// <param name="pos">The start of the block body.</param>
@@ -178,7 +178,7 @@ public static class GuiLoader
     };
 
     // Load routine address (docs/gui.md 3.1) to the routine above.
-    private static readonly Dictionary<string, string> kByAddress = new()
+    private static readonly Dictionary<string, string> ByAddress = new()
     {
         ["539098"] = "Control",
         ["53c900"] = "Active",
@@ -233,7 +233,7 @@ public static class GuiLoader
     /// <summary>Returns the routine name of a class.</summary>
     /// <param name="row">The class row.</param>
     /// <returns>The routine, or null when its load address is unknown.</returns>
-    public static string? RoutineFor(GuiClassRow row) => kByAddress.GetValueOrDefault(row.Load);
+    public static string? RoutineFor(GuiClassRow row) => ByAddress.GetValueOrDefault(row.Load);
 
     /// <summary>Reads one object block (docs/gui.md 1.2).</summary>
     /// <param name="d">The file bytes.</param>
@@ -471,5 +471,5 @@ public static class GuiLoader
 public sealed class GuiLoadContext
 {
     /// <summary>The body version of the block being read.</summary>
-    public uint BodyVersion;
+    public uint BodyVersion { get; set; }
 }

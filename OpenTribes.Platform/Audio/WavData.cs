@@ -5,17 +5,17 @@ namespace OpenTribes.Platform.Audio;
 public sealed class WavData
 {
     /// <summary>The channel count.</summary>
-    public int Channels;
+    public int Channels { get; set; }
     /// <summary>The sample rate.</summary>
-    public int Rate;
+    public int Rate { get; set; }
     /// <summary>The bits per sample, 8 or 16.</summary>
-    public int Bits;
+    public int Bits { get; set; }
     /// <summary>The number of frames.</summary>
-    public int Frames;
+    public int Frames { get; set; }
     /// <summary>The interleaved samples, -1 to 1.</summary>
-    public float[] Samples = [];
+    public float[] Samples { get; set; } = [];
 
-    private readonly Dictionary<(int Rate, bool Loop), WavData> mRates = [];
+    private readonly Dictionary<(int Rate, bool Loop), WavData> _rates = [];
 
     /// <summary>Converts the wave to another sample rate with a band-limited filter.</summary>
     /// <param name="rate">The target rate.</param>
@@ -26,10 +26,10 @@ public sealed class WavData
     {
         if (rate == Rate || Frames == 0)
             return this;
-        lock (mRates)
+        lock (_rates)
         {
-            if (!mRates.TryGetValue((rate, loop), out var w))
-                mRates[(rate, loop)] = w = Resample(rate, loop);
+            if (!_rates.TryGetValue((rate, loop), out var w))
+                _rates[(rate, loop)] = w = Resample(rate, loop);
             return w;
         }
     }

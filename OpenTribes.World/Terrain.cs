@@ -8,11 +8,11 @@ using static OpenTribes.Core.Fpu;
 public sealed class GridBlock
 {
     /// <summary>The number of squares per side. Blocks are square in all data.</summary>
-    public int Size;
+    public int Size { get; set; }
     /// <summary>The corner heights, (Size + 1)^2 values in row-major order.</summary>
-    public float[] Heights = [];
+    public float[] Heights { get; set; } = [];
     /// <summary>The per-square data, Size^2 pairs of flags byte and material byte.</summary>
-    public byte[] Squares = [];
+    public byte[] Squares { get; set; } = [];
 
     /// <summary>Reads a corner height.</summary>
     /// <param name="x">The corner column, 0 to <see cref="Size"/>.</param>
@@ -115,31 +115,31 @@ public sealed class GridBlock
 /// <remarks>Follows docs/terrain.md. Double operations use the current <see cref="Fpu"/> rounding mode and float stores truncate in the script mode, as in the original. Port of src/world/terrain.cpp.</remarks>
 public sealed class Terrain
 {
-    private int mDetail, mScale, mWidth, mHeight;
-    private float mHmin, mHmax;
-    private int[] mMap = [];
-    private readonly Dictionary<int, GridBlock> mBlocks = [];
-    private readonly List<string> mBlockFiles = []; // block list order
-    private string mMaterialList = "";
+    private int _detail, _scale, _width, _height;
+    private float _hmin, _hmax;
+    private int[] _map = [];
+    private readonly Dictionary<int, GridBlock> _blocks = [];
+    private readonly List<string> _blockFiles = []; // block list order
+    private string _materialList = "";
     // Held while the terrain lives: the .dtf, the blocks and the .dml. Call ReleaseLocks when the owner is deleted.
-    private readonly ResourceLocks mLocks = new();
-    private Vec3 mPos;
+    private readonly ResourceLocks _locks = new();
+    private Vec3 _pos;
 
     /// <summary>Sets the world position of the terrain origin.</summary>
     /// <param name="p">The new position.</param>
-    public void SetPosition(Vec3 p) => mPos = p;
+    public void SetPosition(Vec3 p) => _pos = p;
     /// <summary>Gets the world position of the terrain origin.</summary>
     /// <returns>The position.</returns>
-    public Vec3 Position() => mPos;
+    public Vec3 Position() => _pos;
     /// <summary>Gets the name of the material list (.dml) file.</summary>
     /// <returns>The file name.</returns>
-    public string MaterialListName() => mMaterialList;
+    public string MaterialListName() => _materialList;
     /// <summary>Gets the lowest height in the terrain.</summary>
     /// <returns>The height.</returns>
-    public float Hmin() => mHmin;
+    public float Hmin() => _hmin;
     /// <summary>Gets the highest height in the terrain.</summary>
     /// <returns>The height.</returns>
-    public float Hmax() => mHmax;
+    public float Hmax() => _hmax;
 
     // Truncation as crt_ftol does. A value out of range gives 0x80000000 as cvttsd2si does.
     private static int Ftol(double v) => v is > (-2147483649.0) and < 2147483648.0 ? (int)v : int.MinValue;
@@ -247,25 +247,25 @@ public sealed class Terrain
             return null;
         var t = new Terrain
         {
-            mMaterialList = Reader.CString(d, pos, (uint)n)
+            _materialList = Reader.CString(d, pos, (uint)n)
         };
         pos += (uint)n;
         var nextId = 0;
         GetInto(d, ref pos, ref nextId);
-        GetInto(d, ref pos, ref t.mDetail);
-        GetInto(d, ref pos, ref t.mScale);
+        GetInto(d, ref pos, ref t._detail);
+        GetInto(d, ref pos, ref t._scale);
         pos += 24 + 8;
-        GetInto(d, ref pos, ref t.mHmin);
-        GetInto(d, ref pos, ref t.mHmax);
-        GetInto(d, ref pos, ref t.mWidth);
-        GetInto(d, ref pos, ref t.mHeight);
+        GetInto(d, ref pos, ref t._hmin);
+        GetInto(d, ref pos, ref t._hmax);
+        GetInto(d, ref pos, ref t._width);
+        GetInto(d, ref pos, ref t._height);
         if (version == 1)
             pos += 4;
-        if (t.mWidth <= 0 || t.mHeight <= 0 || t.mWidth > 64 || t.mHeight > 64)
+        if (t._width <= 0 || t._height <= 0 || t._width > 64 || t._height > 64)
             return null;
-        t.mMap = new int[t.mWidth * t.mHeight];
-        for (var i = 0; i < t.mMap.Length; ++i)
-            if (!Get(d, ref pos, out t.mMap[i]))
+        t._map = new int[t._width * t._height];
+        for (var i = 0; i < t._map.Length; ++i)
+            if (!Get(d, ref pos, out t._map[i]))
                 return null;
         var count = 0;
         GetInto(d, ref pos, ref count);
@@ -282,25 +282,25 @@ public sealed class Terrain
             var blk = new GridBlock();
             if (!res.Read(name, out var b) || !GridBlock.Parse(b, blk))
                 return null;
-            t.mBlocks[id] = blk;
-            t.mBlockFiles.Add(name);
+            t._blocks[id] = blk;
+            t._blockFiles.Add(name);
         }
         // Resource loads, held while the terrain lives and kept until purge after it (docs/resources.md
         // 8.7): the .dtf (SimTerrain_load 0051792c), the blocks (GridBlockList 00567270, every stock
         // terrain has one) and the material list with its extension replaced by .dml (00517e04), no textures.
-        t.mLocks.Load(res, dtfName);
-        foreach (var name in t.mBlockFiles)
-            t.mLocks.Load(res, name);
-        var dml = t.mMaterialList;
+        t._locks.Load(res, dtfName);
+        foreach (var name in t._blockFiles)
+            t._locks.Load(res, name);
+        var dml = t._materialList;
         var mdot = dml.LastIndexOf('.');
-        t.mLocks.Load(res, (mdot <= 0 ? dml : dml[..mdot]) + ".dml");
+        t._locks.Load(res, (mdot <= 0 ? dml : dml[..mdot]) + ".dml");
         return t;
     }
 
     /// <summary>Unlocks the resources the terrain holds.</summary>
-    public void ReleaseLocks() => mLocks.Release();
+    public void ReleaseLocks() => _locks.Release();
 
-    private static readonly uint[] sCrcTable = MakeCrcTable();
+    private static readonly uint[] CrcTable = MakeCrcTable();
 
     private static uint[] MakeCrcTable()
     {
@@ -319,7 +319,7 @@ public sealed class Terrain
     private static uint Crc32(byte[] data, uint crc)
     {
         foreach (var b in data)
-            crc = sCrcTable[(crc ^ b) & 0xff] ^ (crc >> 8);
+            crc = CrcTable[(crc ^ b) & 0xff] ^ (crc >> 8);
         return crc;
     }
 
@@ -333,20 +333,20 @@ public sealed class Terrain
     /// <remarks>Follows GridFile_getSurfaceInfo (0056c138, docs/collision.md 5.1 step 4).</remarks>
     public bool SurfaceInfo(float lx, float ly, ref float h, Span<float> n, ref byte material)
     {
-        var shift = mDetail + mScale - 1;
+        var shift = _detail + _scale - 1;
         if (!(lx > -2147483648.0f && lx < 2147483648.0f && ly > -2147483648.0f && ly < 2147483648.0f))
             return false;
         int bx = Ftol(lx) >> shift, by = Ftol(ly) >> shift;
-        if (bx < 0 || by < 0 || bx >= mWidth || by >= mHeight)
+        if (bx < 0 || by < 0 || bx >= _width || by >= _height)
             return false;
-        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out var b))
+        if (!_blocks.TryGetValue(_map[(by * _width) + bx], out var b))
             return false;
         float px = Store(Sub(lx, bx << shift)), py = Store(Sub(ly, by << shift));
-        int sx = Ftol(px) >> mScale, sy = Ftol(py) >> mScale;
+        int sx = Ftol(px) >> _scale, sy = Ftol(py) >> _scale;
         if (sx < 0 || sy < 0 || sx >= b.Size || sy >= b.Size || b.Empty(sx, sy))
             return false;
-        var s = Store(1 << mScale);
-        float u = Store(Sub(px, sx << mScale)), v = Store(Sub(py, sy << mScale));
+        var s = Store(1 << _scale);
+        float u = Store(Sub(px, sx << _scale)), v = Store(Sub(py, sy << _scale));
         h = Interp(b, sx, sy, s, u, v);
         Span<float> raw = stackalloc float[3];
         RawNormal(b, sx, sy, s, u, v, raw);
@@ -370,13 +370,13 @@ public sealed class Terrain
         if (!res.Read(dtfName, out var d))
             return false;
         c = Crc32(d, c);
-        foreach (var name in mBlockFiles)
+        foreach (var name in _blockFiles)
         {
             if (!res.Read(name, out d))
                 return false;
             c = Crc32(d, c);
         }
-        if (!res.Read(mMaterialList, out d))
+        if (!res.Read(_materialList, out d))
             return false;
         output = Crc32(d, c);
         return true;
@@ -387,13 +387,13 @@ public sealed class Terrain
     /// <remarks>Follows 005193cc. Used for container queries.</remarks>
     public void WorldBox(Span<float> box)
     {
-        var shift = mDetail + mScale - 1;
-        box[0] = mPos.X;
-        box[1] = mPos.Y;
-        box[2] = AddF(mHmin, mPos.Z);
-        box[3] = Store(Add(mWidth << shift, mPos.X));
-        box[4] = Store(Add(mHeight << shift, mPos.Y));
-        box[5] = AddF(mHmax, mPos.Z);
+        var shift = _detail + _scale - 1;
+        box[0] = _pos.X;
+        box[1] = _pos.Y;
+        box[2] = AddF(_hmin, _pos.Z);
+        box[3] = Store(Add(_width << shift, _pos.X));
+        box[4] = Store(Add(_height << shift, _pos.Y));
+        box[5] = AddF(_hmax, _pos.Z);
     }
 
     /// <summary>Reads the terrain height at a world point.</summary>
@@ -433,7 +433,7 @@ public sealed class Terrain
     /// <param name="material">Receives the material index.</param>
     /// <returns>False where there is no terrain.</returns>
     public bool Surface(float x, float y, ref float output, ref Vec3 normal, ref int material) =>
-        SurfaceLocal(Store(Sub(x, mPos.X)), Store(Sub(y, mPos.Y)), ref output, ref normal, ref material);
+        SurfaceLocal(Store(Sub(x, _pos.X)), Store(Sub(y, _pos.Y)), ref output, ref normal, ref material);
 
     /// <summary>Reads height, normal and material at a point relative to the terrain origin.</summary>
     /// <param name="lx">The x relative to the terrain origin.</param>
@@ -444,18 +444,18 @@ public sealed class Terrain
     /// <returns>False where there is no terrain.</returns>
     public bool SurfaceLocal(float lx, float ly, ref float output, ref Vec3 normal, ref int material)
     {
-        var shift = mDetail + mScale - 1;
+        var shift = _detail + _scale - 1;
         int bx = Ftol(lx) >> shift, by = Ftol(ly) >> shift;
-        if (bx < 0 || by < 0 || bx >= mWidth || by >= mHeight)
+        if (bx < 0 || by < 0 || bx >= _width || by >= _height)
             return false;
-        if (!mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out var b))
+        if (!_blocks.TryGetValue(_map[(by * _width) + bx], out var b))
             return false;
         float px = Store(Sub(lx, bx << shift)), py = Store(Sub(ly, by << shift));
-        int sx = Ftol(px) >> mScale, sy = Ftol(py) >> mScale;
+        int sx = Ftol(px) >> _scale, sy = Ftol(py) >> _scale;
         if (sx < 0 || sy < 0 || sx >= b.Size || sy >= b.Size || b.Empty(sx, sy))
             return false;
-        var s = Store(1 << mScale);
-        float u = Store(Sub(px, sx << mScale)), v = Store(Sub(py, sy << mScale));
+        var s = Store(1 << _scale);
+        float u = Store(Sub(px, sx << _scale)), v = Store(Sub(py, sy << _scale));
         output = Interp(b, sx, sy, s, u, v);
         Span<float> n = stackalloc float[3];
         RawNormal(b, sx, sy, s, u, v, n);
@@ -495,8 +495,9 @@ public sealed class Terrain
 
     private struct TriPlane
     {
-        public Float3 N;
-        public float D;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 N => ref _n;
+        private Float3 _n;
+        public float D { get; set; }
     }
 
     // Unit normal and distance of a triangle plane (0056cca0.., section 4.4 step 10).
@@ -536,7 +537,7 @@ public sealed class Terrain
     private bool BlockLine(GridBlock blk, ReadOnlySpan<float> a, ReadOnlySpan<float> b, Span<float> hit, Span<float> normal,
                            ref int material)
     {
-        int S = mScale, N = blk.Size;
+        int S = _scale, N = blk.Size;
         var sq = Store(1 << S);
         float inv = Store(Div(1.0, sq)), half = Store(Mul(0.5, inv));
         var row = N + 1;
@@ -835,7 +836,7 @@ public sealed class Terrain
     public bool CastLine(Vec3 start, Vec3 end, ref Vec3 hitOut, ref Vec3 normalOut, ref int material)
     {
         using var chop = ChopScope();
-        ReadOnlySpan<float> pos = [mPos.X, mPos.Y, mPos.Z];
+        ReadOnlySpan<float> pos = [_pos.X, _pos.Y, _pos.Z];
         ReadOnlySpan<float> ws = [start.X, start.Y, start.Z];
         ReadOnlySpan<float> we = [end.X, end.Y, end.Z];
         Span<float> s = stackalloc float[3], e = stackalloc float[3], d = stackalloc float[3], cur = stackalloc float[3];
@@ -846,7 +847,7 @@ public sealed class Terrain
             s[i] = Store(Sub(ws[i], pos[i]));
             e[i] = Store(Sub(we[i], pos[i]));
         }
-        var B = mScale + mDetail - 1;
+        var B = _scale + _detail - 1;
         var inv = Store(Div(1.0, 1 << B));
         for (var i = 0; i < 3; ++i)
         {
@@ -905,9 +906,9 @@ public sealed class Terrain
                 bx = FtolSafe(Math.Floor((double)gx));
                 by = FtolSafe(Math.Floor((double)gy));
             }
-            if (bx >= 0 && bx < mWidth && by >= 0 && by < mHeight)
+            if (bx >= 0 && bx < _width && by >= 0 && by < _height)
             {
-                mBlocks.TryGetValue(mMap[(by * mWidth) + bx], out var blk);
+                _blocks.TryGetValue(_map[(by * _width) + bx], out var blk);
                 o[0] = Store(bx << B);
                 o[1] = Store(by << B);
                 o[2] = 0.0f;

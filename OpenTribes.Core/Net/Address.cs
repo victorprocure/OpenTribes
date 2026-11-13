@@ -5,9 +5,9 @@ namespace OpenTribes.Net;
 public struct Address : IEquatable<Address>, IComparable<Address>
 {
     /// <summary>The IPv4 address in host byte order.</summary>
-    public uint Ip;
+    public uint Ip { get; set; }
     /// <summary>The UDP port.</summary>
-    public ushort Port;
+    public ushort Port { get; set; }
 
     /// <summary>Creates an endpoint.</summary>
     /// <param name="ip">The IPv4 address in host byte order.</param>

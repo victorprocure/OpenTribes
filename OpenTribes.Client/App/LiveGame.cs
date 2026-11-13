@@ -15,43 +15,43 @@ using OpenTribes.Script;
 /// <remarks>docs/client-net.md 1 to 5 and docs/client-app.md 2.2. The scripts do the talking (onConnection, dataFinished, remote evals). This class feeds them.</remarks>
 public sealed class LiveGame : IDisposable
 {
-    private readonly ClientApp mApp;
+    private readonly ClientApp _app;
     /// <summary>The network session, or null.</summary>
-    public NetClientSession? Net;
+    public NetClientSession? Net { get; set; }
     /// <summary>The demo that plays, or null.</summary>
-    public DemoPlayback? Demo;
+    public DemoPlayback? Demo { get; set; }
     /// <summary>The client world.</summary>
-    public ClientWorld World = new();
+    public ClientWorld World { get; set; } = new();
     /// <summary>The mission name.</summary>
-    public string Mission = "";
+    public string Mission { get; set; } = "";
     /// <summary>The name of the demo.</summary>
-    public string DemoName = "";
+    public string DemoName { get; set; } = "";
     /// <summary>True once the game is joined.</summary>
-    public bool Joined;
+    public bool Joined { get; set; }
 
     /// <summary>The scene, built once the environment ghosts exist (world-render.md 6.1).</summary>
-    public WorldScene? Scene;
+    public WorldScene? Scene { get; set; }
     /// <summary>The scene model.</summary>
-    public SceneModel? Model;
+    public SceneModel? Model { get; set; }
     /// <summary>The shape loader.</summary>
-    public ShapeAssets? Assets;
-    private ShapeRenderer? mRenderer;
-    private SceneAudio? mAudio;
-    private bool mSceneTried;
-    private uint mAlwaysSeenMs;
-    private double mTickCarry;
-    private int mChatSeen;
-    private int mGuiModeSeen = -1;
-    private uint mPrevMs;
-    private bool mPrevSet;
+    public ShapeAssets? Assets { get; set; }
+    private ShapeRenderer? _renderer;
+    private SceneAudio? _audio;
+    private bool _sceneTried;
+    private uint _alwaysSeenMs;
+    private double _tickCarry;
+    private int _chatSeen;
+    private int _guiModeSeen = -1;
+    private uint _prevMs;
+    private bool _prevSet;
     /// <summary>The error of the last scene build, or empty.</summary>
-    public string SceneError = "";
+    public string SceneError { get; set; } = "";
     /// <summary>The notes of the scene build.</summary>
-    public readonly List<string> Notes = [];
+    public List<string> Notes { get; } = [];
 
     /// <summary>Creates the game state.</summary>
     /// <param name="app">The client.</param>
-    public LiveGame(ClientApp app) => mApp = app;
+    public LiveGame(ClientApp app) => _app = app;
 
     /// <summary>True when a demo plays.</summary>
     public bool IsDemo => Demo != null;
@@ -65,15 +65,15 @@ public sealed class LiveGame : IDisposable
     private void Hook(ClientWorld w)
     {
         World = w;
-        w.DataBlocks.Resources = mApp.Res;
-        w.DataBlocks.Print = line => mApp.Interp.Print(0, line);
-        w.Players.OnScript = text => mApp.Interp.Evaluate(text);
+        w.DataBlocks.Resources = _app.Res;
+        w.DataBlocks.Print = line => _app.Interp.Print(0, line);
+        w.Players.OnScript = text => _app.Interp.Evaluate(text);
         // 0040940c: an empty $pref::playVoices is set to TRUE first, then read as a boolean.
         w.Players.PlayVoices = () =>
         {
-            if (mApp.Interp.PeekVariable("$pref::playVoices").Length == 0)
-                mApp.Interp.SetVariable("$pref::playVoices", "TRUE");
-            return Numbers.ParseBool(mApp.Interp.PeekVariable("$pref::playVoices"));
+            if (_app.Interp.PeekVariable("$pref::playVoices").Length == 0)
+                _app.Interp.SetVariable("$pref::playVoices", "TRUE");
+            return Numbers.ParseBool(_app.Interp.PeekVariable("$pref::playVoices"));
         };
         // client-net.md 2.5: remote<Name>(manager, args...).
         w.OnRemoteCall = (name, args) =>
@@ -83,18 +83,18 @@ public sealed class LiveGame : IDisposable
             var list = new List<string> { w.ServerId.ToString(CultureInfo.InvariantCulture) };
             list.AddRange(args);
             var fn = "remote" + name;
-            if (mApp.Interp.HasFunction(fn))
-                mApp.Interp.CallFunction(fn, list);
+            if (_app.Interp.HasFunction(fn))
+                _app.Interp.CallFunction(fn, list);
         };
         w.DataBlocks.OnProgress = (name, pct) =>
-            mApp.Interp.CallFunction("dataGotBlock", new[] { name, pct.ToString("0.######", CultureInfo.InvariantCulture) });
+            _app.Interp.CallFunction("dataGotBlock", new[] { name, pct.ToString("0.######", CultureInfo.InvariantCulture) });
         // The mode change runs while the packet is read, so a chat event of a later packet already finds playGui (PlayerManager_message).
         w.Psc.OnGuiMode = mode =>
         {
-            mGuiModeSeen = mode;
-            mApp.Play.SetGuiMode(mode);
+            _guiModeSeen = mode;
+            _app.Play.SetGuiMode(mode);
         };
-        w.Players.ChatDisplayExists = () => mApp.GuiRt.FindChildOf("playGui", PlayDelegate.ChatDisplayId) != null;
+        w.Players.ChatDisplayExists = () => _app.GuiRt.FindChildOf("playGui", PlayDelegate.ChatDisplayId) != null;
         w.Psc.OnScript = null;   // the play delegate evaluates loadPlayGui() on mode changes (PlayDelegate.SetGuiMode)
     }
 
@@ -110,8 +110,8 @@ public sealed class LiveGame : IDisposable
         {
             External = true,
             PrefReader = interp.PeekVariable,
-            ClockMs = () => mApp.NowMs,
-            Log = s => mApp.Log("net: " + s),
+            ClockMs = () => _app.NowMs,
+            Log = s => _app.Log("net: " + s),
             Password = interp.PeekVariable("$Server::JoinPassword"),
             Gender = Or(interp.PeekVariable("$PCFG::Gender"), "Male"),
             Voice = Or(interp.PeekVariable("$PCFG::Voice"), "Male1"),
@@ -145,15 +145,15 @@ public sealed class LiveGame : IDisposable
             interp.CallFunction("onClientGhostAlwaysDone", Array.Empty<string>());
         };
         Net.PacketHook = OnPacket;
-        if (!mApp.Opt.NoPredict)
+        if (!_app.Opt.NoPredict)
         {
-            var root = mApp.Opt.Root;
-            Net.PredictFactory = mission => new PredictionWorld(root, new[] { "-dedicated", mission }, s => mApp.Log("predict: " + s));
+            var root = _app.Opt.Root;
+            Net.PredictFactory = mission => new PredictionWorld(root, new[] { "-dedicated", mission }, s => _app.Log("predict: " + s));
         }
-        mApp.InitSecondaryHooks(this);
+        _app.InitSecondaryHooks(this);
         if (!Net.Connect(hostPort))
         {
-            mApp.Log("connect: cannot open a socket");
+            _app.Log("connect: cannot open a socket");
             return false;
         }
         return true;
@@ -189,7 +189,7 @@ public sealed class LiveGame : IDisposable
         Demo.World.PlayerId = (int)Demo.Demo.ClientId;
         interp.SetVariable("$playingDemo", "1");
         Joined = true;
-        mApp.InitSecondaryHooks(this);
+        _app.InitSecondaryHooks(this);
         interp.CallFunction("onConnection", new[] { "Accepted" });
         // The record reader runs from the first frame; the environment appears when the always phase ends.
         return true;
@@ -231,16 +231,16 @@ public sealed class LiveGame : IDisposable
     /// <param name="moves">The move builder.</param>
     public void Frame(uint now, MoveBuilder moves)
     {
-        var prev = mPrevSet ? mPrevMs : now;
-        mPrevMs = now;
-        mPrevSet = true;
+        var prev = _prevSet ? _prevMs : now;
+        _prevMs = now;
+        _prevSet = true;
         if (Demo != null)
         {
             if (Demo.Finished && Joined && HasScene)
             {
                 // onPlaybackFinished() runs once through schedule (client-net.md 5.4).
                 Joined = false;
-                mApp.Interp.Evaluate("schedule(\"onPlaybackFinished();\", 0);");
+                _app.Interp.Evaluate("schedule(\"onPlaybackFinished();\", 0);");
             }
             else if (!Demo.Finished)
                 Demo.StepTo(Demo.ClockMs + (now - prev));
@@ -250,22 +250,22 @@ public sealed class LiveGame : IDisposable
             if (Net.IsAccepted)
                 moves.Collect(World.Psc, prev, now);
             // GameConnection_loadPacketPrefs (00550c68): $pref::PacketFrame, default 32, clamped to 32..128 (1.11).
-            Net.Game.PacketFrame = Math.Clamp(unchecked((uint)Numbers.BorlandAtoi(mApp.Interp.PeekVariable("$pref::PacketFrame") ?? "")), 32u, 128u);
+            Net.Game.PacketFrame = Math.Clamp(unchecked((uint)Numbers.BorlandAtoi(_app.Interp.PeekVariable("$pref::PacketFrame") ?? "")), 32u, 128u);
             Net.Frame(now);
             // A script callback of the frame (onConnection, onConnectionError) may have stopped the session.
             if (Net != null && !Net.IsOpen && Joined && !Net.IsAccepted)
                 Joined = false;
         }
-        mApp.PumpChat(this, ref mChatSeen);
+        _app.PumpChat(this, ref _chatSeen);
         PollGuiMode();
-        mApp.Play.SetScoreVisible(World.Psc.ScoreFlag && World.Psc.GuiMode != 0);
+        _app.Play.SetScoreVisible(World.Psc.ScoreFlag && World.Psc.GuiMode != 0);
         // The stock client answers the end of the ghost-always phase with CGADone in its next packet (about 170 ms after the server
         // finished it, stock trace) and builds nothing first. The scene build takes about 0.6 s here, so it waits until that reply
         // has been written (at most 1 s), or the server sees CGADone late: the PSC mode change and the join event then arrive
         // in one packet and the join line is dropped (docs/gui.md 4.2).
-        if (World.AlwaysDone && mAlwaysSeenMs == 0)
-            mAlwaysSeenMs = now;
-        if (!HasScene && !mSceneTried && World.AlwaysDone && (Net == null || !Net.Game.OutgoingPending || now - mAlwaysSeenMs > 1000))
+        if (World.AlwaysDone && _alwaysSeenMs == 0)
+            _alwaysSeenMs = now;
+        if (!HasScene && !_sceneTried && World.AlwaysDone && (Net == null || !Net.Game.OutgoingPending || now - _alwaysSeenMs > 1000))
             BuildScene();
         if (HasScene)
         {
@@ -273,19 +273,19 @@ public sealed class LiveGame : IDisposable
             FeedControlVehicle();
             FeedControlTurret();
             FeedControlImages();
-            mTickCarry += (now - prev) / 1000.0;
-            while (mTickCarry >= 0.032)
+            _tickCarry += (now - prev) / 1000.0;
+            while (_tickCarry >= 0.032)
             {
-                mTickCarry -= 0.032;
+                _tickCarry -= 0.032;
                 FeedControlPlayer();
                 Model!.Tick(0.032);
-                if (mTickCarry > 1)
-                    mTickCarry = 0;
+                if (_tickCarry > 1)
+                    _tickCarry = 0;
             }
         }
     }
 
-    private readonly List<DecodedPacket> mQueued = [];
+    private readonly List<DecodedPacket> _queued = [];
 
     // Every decoded packet reaches the scene model; before the scene exists the packets wait (the ghosts they update live in
     // the world's table, so the replay builds the visuals from the latest state).
@@ -293,71 +293,71 @@ public sealed class LiveGame : IDisposable
     {
         if (Model != null)
             Model.OnPacket(pkt);
-        else if (pkt.Ghosts != null && mQueued.Count < 20000)
-            mQueued.Add(pkt);
+        else if (pkt.Ghosts != null && _queued.Count < 20000)
+            _queued.Add(pkt);
     }
 
     // The commander map picture (rebuildCommandMap [code 0041e3d4]): rendered from the terrain when the script asks, or at the first
     // draw of the map once the world exists, over the area of the MissionCenterPos ghost (the constructor values 1230 1230 1400 1400
     // without one [code 004ceb18]).
-    private CommandMapPicture? mCommandMap;
-    private bool mCommandMapDirty = true;
+    private CommandMapPicture? _commandMap;
+    private bool _commandMapDirty = true;
 
     /// <summary>Marks the command map picture as stale.</summary>
-    public void RebuildCommandMap() => mCommandMapDirty = true;
+    public void RebuildCommandMap() => _commandMapDirty = true;
 
     /// <summary>Builds the command map picture, or returns the last one while it is current.</summary>
     /// <returns>The picture, or null.</returns>
     public CommandMapPicture? CommandMapPicture()
     {
-        if (!mCommandMapDirty)
-            return mCommandMap;
+        if (!_commandMapDirty)
+            return _commandMap;
         var terrain = Scene?.TerrainDraw;
         if (terrain == null)
-            return mCommandMap;
+            return _commandMap;
         double[] area = [1230, 1230, 1400, 1400];
         if (World.Ghosts.All().FirstOrDefault(g => g.Class == "MissionCenterPos")?.State.GetValueOrDefault("rect") is double[] { Length: 4 } r)
             area = r;
         var bank = Scene!.Assets.Palette;
         var picture = terrain.RenderCommandMap(area[0], area[1], area[2], area[3], (r8, g8, b8) => bank.NearestColor(r8, g8, b8));
-        mCommandMap = new CommandMapPicture((float)area[0], (float)area[1], (float)area[2], (float)area[3], CommandMapBake.Tiles(picture));
-        mCommandMapDirty = false;
-        return mCommandMap;
+        _commandMap = new CommandMapPicture((float)area[0], (float)area[1], (float)area[2], (float)area[3], CommandMapBake.Tiles(picture));
+        _commandMapDirty = false;
+        return _commandMap;
     }
 
     private void PollGuiMode()
     {
         var mode = World.Psc.GuiMode;
-        if (mode != mGuiModeSeen && (World.Psc.GuiModeChanges > 0 || mGuiModeSeen >= 0))
+        if (mode != _guiModeSeen && (World.Psc.GuiModeChanges > 0 || _guiModeSeen >= 0))
         {
-            mGuiModeSeen = mode;
-            mApp.Play.SetGuiMode(mode);
+            _guiModeSeen = mode;
+            _app.Play.SetGuiMode(mode);
         }
     }
 
     // Builds the world renderer from the environment ghosts (volumes, palette, terrain, sky, interiors).
     private void BuildScene()
     {
-        mSceneTried = true;
-        if (mApp.Dev == null)
+        _sceneTried = true;
+        if (_app.Dev == null)
             return;
         var env = DemoRender.EnvironmentObjects(World);
         foreach (var o in env.Where(o => o.Class == "SimVolume"))
-            mApp.Res.AddVolume(o.Get("fileName"));
+            _app.Res.AddVolume(o.Get("fileName"));
         var name = IsDemo ? DemoName : Mission;
-        Scene = WorldScene.LoadFrom(mApp.Dev, mApp.Res, name, env, out var error, mApp.Gamma);
+        Scene = WorldScene.LoadFrom(_app.Dev, _app.Res, name, env, out var error, _app.Gamma);
         SceneError = error;
         if (error.Length > 0)
-            mApp.Log("scene: " + error);
-        if (Scene.TerrainDraw != null && !mApp.TerrainVarsBound)
+            _app.Log("scene: " + error);
+        if (Scene.TerrainDraw != null && !_app.TerrainVarsBound)
         {
             // The T2 renderer constructor registers its tuning variables (1.11; LastHope 1.30 stubbed this out, lasthope-1.30.md L7).
-            EngineVariables.RegisterTerrain(mApp.Interp);
-            mApp.TerrainVarsBound = true;
+            EngineVariables.RegisterTerrain(_app.Interp);
+            _app.TerrainVarsBound = true;
         }
-        Assets = new ShapeAssets(mApp.Dev, Scene.Assets);
-        mRenderer = new ShapeRenderer(Assets);
-        Model = new SceneModel(World, Assets, mRenderer, Scene.TerrainModel);
+        Assets = new ShapeAssets(_app.Dev, Scene.Assets);
+        _renderer = new ShapeRenderer(Assets);
+        Model = new SceneModel(World, Assets, _renderer, Scene.TerrainModel);
         Scene.Interiors?.TeamSkin = Model.TeamSkin;
         Model.Probe = new LightProbe
         {
@@ -395,22 +395,22 @@ public sealed class LiveGame : IDisposable
         Model.BaseLight.SunR = (float)Scene.SunIntensity[0];
         Model.BaseLight.SunG = (float)Scene.SunIntensity[1];
         Model.BaseLight.SunB = (float)Scene.SunIntensity[2];
-        if (mApp.Sound != null && mApp.Sound.DeviceOpen)
+        if (_app.Sound != null && _app.Sound.DeviceOpen)
         {
-            mApp.Sound.DataBlocks = World.DataBlocks;
-            mAudio = new SceneAudio(Model, mApp.Sound);
-            Model.Audio = mAudio;
-            mAudio.SurfaceType = (x, y, z) => Net?.PredictWorld is { } pw ? FootSurface.TypeAt(pw.Game.World, x, y, z) : -1;
+            _app.Sound.DataBlocks = World.DataBlocks;
+            _audio = new SceneAudio(Model, _app.Sound);
+            Model.Audio = _audio;
+            _audio.SurfaceType = (x, y, z) => Net?.PredictWorld is { } pw ? FootSurface.TypeAt(pw.Game.World, x, y, z) : -1;
         }
         // Packets already applied before the scene existed (the always phase) are replayed into the model: the
         // ghosts it would have built live in the world's table.
         // The mission palette waits for the play view (ClientApp.Frame): the loading screen before it keeps the shell palette.
-        if (mApp.PlayViewActive)
-            mApp.SetPalette(Scene.Assets.Palette);
-        mApp.Log($"scene: {name}, {env.Count} environment objects, terrain visible {Scene.Terrain.Visible}");
-        foreach (var q in mQueued)
+        if (_app.PlayViewActive)
+            _app.SetPalette(Scene.Assets.Palette);
+        _app.Log($"scene: {name}, {env.Count} environment objects, terrain visible {Scene.Terrain.Visible}");
+        foreach (var q in _queued)
             Model.OnPacket(q);
-        mQueued.Clear();
+        _queued.Clear();
     }
 
     /// <summary>Gets the camera of the view.</summary>
@@ -419,7 +419,7 @@ public sealed class LiveGame : IDisposable
     {
         if (Model == null)
             return null;
-        if (mApp.Opt.FixedCamera is { } fc)
+        if (_app.Opt.FixedCamera is { } fc)
             return new DemoRender.CameraPose(fc[0], fc[1], fc[2], fc[3], fc[4], false, -1);
         var pose = DemoRender.ControlCamera(Model, World);
         if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && pose is { FirstPerson: true } cp)
@@ -440,40 +440,40 @@ public sealed class LiveGame : IDisposable
         // 2.5 * distance through terrain and interiors (mask 0x20c00006) shortens the distance to 0.025 m in front of the hit
         // (docs/client-net.md 4.2). The control object is drawn as seen from outside. The footstep bob (z += sin(2 * +0xfc8) / 120)
         // is not tracked here.
-        if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && mApp.Play.Moves.ViewDist >= 0.01f)
+        if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && _app.Play.Moves.ViewDist >= 0.01f)
         {
             var predicted = Net.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active;
             var body = predicted ? (Player)Net.Prediction.Object! : null;
             var bp = World.Psc.ControlState.TryGetValue("pos", out var pv) ? Db.Vec(pv) : new double[3];
             var d = predicted ? Net.Prediction.DisplayPosition() : [(float)bp[0], (float)bp[1], (float)bp[2]];
             pose = DemoRender.ChaseCamera(Model, fp.ControlGhost, d[0], d[1], d[2], fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180,
-                                          mApp.Play.Moves.ViewDist, predicted ? Net.PredictWorld!.Game.World : null, body);
+                                          _app.Play.Moves.ViewDist, predicted ? Net.PredictWorld!.Game.World : null, body);
         }
         // Vehicle_getCameraTransform 00445d88 (Vehicle and Flier): the `dummy eye` node of the vehicle as drawn, moved back by twice the
         // view distance (placeBehind with the vehicle ignored) and with pitch and roll scaled while the distance is not 0.
         if (Model != null && World.Psc.ControlClass is "Vehicle" or "Flier" && World.Psc.ControlGhost >= 0 && Net != null)
         {
             var self = Net.PredictWorld != null && Net.Remote.Vehicles.TryGetValue(World.Psc.ControlGhost, out var rv) ? rv.V : null;
-            var dist = mApp.Play.Moves.ViewDist;
+            var dist = _app.Play.Moves.ViewDist;
             pose = DemoRender.VehicleCamera(Model, World.Psc.ControlGhost, dist, self != null ? Net.PredictWorld!.Game.World : null, self) ?? pose;
         }
         // Turret_getCameraTransform 004564fc: the aim is the ghost's, replayed with the buffered moves (Turret_clientUpdate 00456428).
         if (Model != null && World.Psc.ControlClass == "Turret" && World.Psc.ControlGhost >= 0 && Net is { Prediction.Turret.Active: true } tn)
         {
             var tc = tn.Prediction.Turret;
-            pose = DemoRender.TurretCamera(Model, World.Psc.ControlGhost, tc.Rotation, tc.Elevation, mApp.Play.Moves.ViewDist,
+            pose = DemoRender.TurretCamera(Model, World.Psc.ControlGhost, tc.Rotation, tc.Elevation, _app.Play.Moves.ViewDist,
                                            Net.PredictWorld?.Game.World, null) ?? pose;
         }
         // The camera query struct of the PSC (004077a8, call [vtable +0x170] at 00407877) keeps its previous contents when the control
         // object writes nothing: Turret_getCameraTransform 004564fc writes nothing while the turret has no shape instance. The view then
         // stays at the last pose instead of the turret origin or no frame.
         if (World.Psc.ControlClass == "Turret" && World.Psc.ControlGhost >= 0 && pose == null)
-            return mLastPose;
-        mLastPose = pose ?? mLastPose;
+            return _lastPose;
+        _lastPose = pose ?? _lastPose;
         return pose;
     }
 
-    private DemoRender.CameraPose? mLastPose;
+    private DemoRender.CameraPose? _lastPose;
 
     /// <summary>Gets the eye and muzzle transforms of the control Vehicle, Flier or Turret in world space for the aim markers.</summary>
     /// <param name="ghost">The control ghost index.</param>
@@ -522,15 +522,15 @@ public sealed class LiveGame : IDisposable
                                  ((ReadOnlySpan<float>)obj.M).ToArray(), ((ReadOnlySpan<float>)obj.P).ToArray());
     }
 
-    private long mImageSteps;
+    private long _imageSteps;
 
     // The image state of the control player runs once per prediction step, replays included (ImageStateMachine.Stepped).
     private void FeedControlImages()
     {
         var psc = World.Psc;
         var total = Net?.Prediction.Steps ?? 0;
-        var steps = (int)Math.Max(0, total - mImageSteps);
-        mImageSteps = total;
+        var steps = (int)Math.Max(0, total - _imageSteps);
+        _imageSteps = total;
         if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not PlayerVisual pv)
             return;
         var predicted = Net?.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active && psc.ControlClass == "Player";
@@ -696,17 +696,17 @@ public sealed class LiveGame : IDisposable
     /// <param name="now">The time in milliseconds.</param>
     public void UpdateSound(double dt, uint now)
     {
-        if (mAudio == null)
+        if (_audio == null)
             return;
         var c = Camera();
         if (c is { } pose)
-            mAudio.SetListener(pose.X, pose.Y, pose.Z, pose.YawDeg * Math.PI / 180);
-        mAudio.Frame(dt);
+            _audio.SetListener(pose.X, pose.Y, pose.Z, pose.YawDeg * Math.PI / 180);
+        _audio.Frame(dt);
     }
 
     /// <summary>Gets the near plane the PSC camera query answers for the current view (<c>WorldScene.ViewNear</c>, 004077a8).</summary>
     /// <returns>The near plane.</returns>
-    public double ViewNear() => WorldScene.ViewNear(mApp.Play.Moves.FirstPersonNow, World.Psc.ControlClass == "ObserverCamera");
+    public double ViewNear() => WorldScene.ViewNear(_app.Play.Moves.FirstPersonNow, World.Psc.ControlClass == "ObserverCamera");
 
     /// <summary>Draws the 3D view and then the GUI (step F16, the world part).</summary>
     /// <param name="dev">The graphics device.</param>
@@ -723,11 +723,11 @@ public sealed class LiveGame : IDisposable
             return false;
         var c = pose.Value;
         var ctx = new FrameContext { HazeStart = Scene.Terrain.HazeStart, Visible = Scene.Terrain.Visible, FirstPersonOfControl = c.FirstPerson, ControlGhost = c.ControlGhost };
-        var precip = mApp.Interp.PeekVariable("$pref::weatherPrecipitation");
+        var precip = _app.Interp.PeekVariable("$pref::weatherPrecipitation");
         Model.WeatherPrecipitation = precip.Length == 0 || Numbers.ParseBool(precip);
         Scene.Near = ViewNear();
         Scene.DynamicLights = Model.CollectLights().Points;
-        Scene.TerrainDraw?.Params = Scene.TerrainDraw.Params with { ScreenError = Numbers.BorlandAtof(mApp.Interp.PeekVariable("$screenError")) };
+        Scene.TerrainDraw?.Params = Scene.TerrainDraw.Params with { ScreenError = Numbers.BorlandAtof(_app.Interp.PeekVariable("$screenError")) };
         ctx.ContainerOf = Scene.Interiors == null ? null : box => Scene.Interiors.ContainerOf(box, ctx.Camera);
         Scene.Prepare = cam =>
         {

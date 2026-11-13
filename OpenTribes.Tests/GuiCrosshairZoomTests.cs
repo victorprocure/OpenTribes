@@ -9,10 +9,10 @@ public class GuiCrosshairZoomTests
 {
     internal sealed class ClipDev : IGfxDevice
     {
-        public readonly List<(GfxRect Rect, int Color)> Rects = [];
-        public readonly List<(int X0, int Y0, int X1, int Y1)> Lines = [];
-        public readonly List<string> Texts = [];
-        private GfxRect mClip = new(0, 0, 639, 479);
+        public List<(GfxRect Rect, int Color)> Rects { get; } = [];
+        public List<(int X0, int Y0, int X1, int Y1)> Lines { get; } = [];
+        public List<string> Texts { get; } = [];
+        private GfxRect _clip = new(0, 0, 639, 479);
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -23,19 +23,19 @@ public class GuiCrosshairZoomTests
         public void EndFrame() { }
         public void Clear(int colorIndex) { }
         public void ClearRgb(byte r, byte g, byte b) { }
-        public void SetClip(GfxRect? clip) => mClip = clip ?? new GfxRect(0, 0, 639, 479);
-        private bool In(int x, int y) => x >= mClip.Left && x <= mClip.Right && y >= mClip.Top && y <= mClip.Bottom;
+        public void SetClip(GfxRect? clip) => _clip = clip ?? new GfxRect(0, 0, 639, 479);
+        private bool In(int x, int y) => x >= _clip.Left && x <= _clip.Right && y >= _clip.Top && y <= _clip.Bottom;
         public void DrawLine(int x0, int y0, int x1, int y1, int colorIndex)
         {
             if (Clipped(x0, y0, x1, y1))
-                Lines.Add((Math.Clamp(x0, mClip.Left, mClip.Right), Math.Clamp(y0, mClip.Top, mClip.Bottom), Math.Clamp(x1, mClip.Left, mClip.Right), Math.Clamp(y1, mClip.Top, mClip.Bottom)));
+                Lines.Add((Math.Clamp(x0, _clip.Left, _clip.Right), Math.Clamp(y0, _clip.Top, _clip.Bottom), Math.Clamp(x1, _clip.Left, _clip.Right), Math.Clamp(y1, _clip.Top, _clip.Bottom)));
         }
         // a line is kept when it crosses the clip (the real device clips it)
         private bool Clipped(int x0, int y0, int x1, int y1) =>
-            Math.Max(x0, x1) >= mClip.Left && Math.Min(x0, x1) <= mClip.Right && Math.Max(y0, y1) >= mClip.Top && Math.Min(y0, y1) <= mClip.Bottom;
+            Math.Max(x0, x1) >= _clip.Left && Math.Min(x0, x1) <= _clip.Right && Math.Max(y0, y1) >= _clip.Top && Math.Min(y0, y1) <= _clip.Bottom;
         public void DrawRectOutline(GfxRect rect, int colorIndex) { }
         public void FillRect(GfxRect rect, int colorIndex, float alpha = 1f) => Rects.Add((rect, colorIndex));
-        public readonly List<(int X, int Y, string Text)> TextAt = [];
+        public List<(int X, int Y, string Text)> TextAt { get; } = [];
         public int DrawText(PftFont font, int x, int y, string text)
         {
             TextAt.Add((x, y, text));

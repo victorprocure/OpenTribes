@@ -13,15 +13,15 @@ public static class ShapeState
     // src/game/shape_state.cpp Slot.
     private sealed class Slot
     {
-        public int Id;
-        public ShapeModel? Model;
-        public ShapeInstance Inst = new();
-        public List<ShapeThread> Applied = [];
-        public byte ViewMode;
+        public int Id { get; set; }
+        public ShapeModel? Model { get; set; }
+        public ShapeInstance Inst { get; set; } = new();
+        public List<ShapeThread> Applied { get; set; } = [];
+        public byte ViewMode { get; set; }
     }
 
-    private static readonly Dictionary<GameBase, Slot> sSlots = [];
-    private static readonly Dictionary<string, ShapeInstance?> sStatic = new(StringComparer.Ordinal);
+    private static readonly Dictionary<GameBase, Slot> Slots = [];
+    private static readonly Dictionary<string, ShapeInstance?> Static = new(StringComparer.Ordinal);
 
     // src/game/shape_state.cpp shapeNameOf.
     private static string ShapeNameOf(GameState game, GameBase obj)
@@ -98,7 +98,7 @@ public static class ShapeState
         // StaticBase: the visibility thread (+0x7e0) sits at 0, and at 1 once the object is destroyed
         // (StaticBase_setDamageState 0x0044fae8).
         if (obj.VisibilityThread)
-            AddThread(model.FindSequence("visibility"), obj.DamageState == GameBase.kDestroyed ? 1.0f : 0.0f);
+            AddThread(model.FindSequence("visibility"), obj.DamageState == GameBase.Destroyed ? 1.0f : 0.0f);
         // The three script threads (docs/static-sim.md 1.7).
         foreach (var th in obj.Threads)
             if (th.Created)
@@ -138,14 +138,14 @@ public static class ShapeState
         var model = name.Length == 0 ? null : Shape.GetShapeModel(game.Resources, name);
         if (model == null)
             return null;
-        if (sSlots.Count > 4096)
+        if (Slots.Count > 4096)
         {
             // Entries of objects that left the container are stale.
-            foreach (var k in sSlots.Keys.ToList())
+            foreach (var k in Slots.Keys.ToList())
                 if (game.World.Find(k) == null)
-                    sSlots.Remove(k);
+                    Slots.Remove(k);
         }
-        if (!sSlots.TryGetValue(obj, out var slot) || slot.Id != obj.Id() || slot.Model != model)
+        if (!Slots.TryGetValue(obj, out var slot) || slot.Id != obj.Id() || slot.Model != model)
         {
             slot = new Slot { Id = obj.Id(), Model = model };
             slot.Inst.Build(model);
@@ -160,7 +160,7 @@ public static class ShapeState
             }
             slot.Applied.Clear();
             slot.ViewMode = 0xff;
-            sSlots[obj] = slot;
+            Slots[obj] = slot;
         }
         var threads = new List<ShapeThread>();
         CollectThreads(obj, model, threads, out var viewMode);
@@ -183,7 +183,7 @@ public static class ShapeState
     {
         if (game.Resources == null || shape.Length == 0)
             return null;
-        if (!sStatic.TryGetValue(shape, out var inst))
+        if (!Static.TryGetValue(shape, out var inst))
         {
             inst = null;
             if (Shape.GetShapeModel(game.Resources, shape) is ShapeModel model)
@@ -191,7 +191,7 @@ public static class ShapeState
                 inst = new ShapeInstance();
                 inst.Build(model);
             }
-            sStatic[shape] = inst;
+            Static[shape] = inst;
         }
         return inst;
     }
@@ -215,7 +215,7 @@ public static class ShapeState
         if (b == null)
             return false;
         var disabled = game.Sim.DataBlocks().GetField(b, "disableCollision", "", out var v) && Numbers.ParseBool(v);
-        if ((disabled || obj.DamageState == GameBase.kDestroyed) && !obj.VisibilityThread)
+        if ((disabled || obj.DamageState == GameBase.Destroyed) && !obj.VisibilityThread)
             return false;
         // Item_applyCollideable (0x00451574): rays skip a non-collideable Item, and an Item image is always in bounds
         // mode.
@@ -243,7 +243,7 @@ public static class ShapeState
     /// <summary>Clears the instance caches, as in a fresh process. For tests.</summary>
     public static void Reset()
     {
-        sSlots.Clear();
-        sStatic.Clear();
+        Slots.Clear();
+        Static.Clear();
     }
 }

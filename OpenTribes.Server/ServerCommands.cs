@@ -8,13 +8,13 @@ using OpenTribes.Script;
 public sealed class ServerCommandContext
 {
     /// <summary>The server network.</summary>
-    public NetServer? Net;
+    public NetServer? Net { get; set; }
     /// <summary>The game directory, a host path, for <c>BanList::export</c>.</summary>
-    public string RootDir = "";                 // game directory for BanList::export (host path)
+    public string RootDir { get; set; } = "";                 // game directory for BanList::export (host path)
     /// <summary>Tells whether an object exists and is a ChatMenu.</summary>
-    public Func<string, bool>? IsChatMenu;
+    public Func<string, bool>? IsChatMenu { get; set; }
     /// <summary>Leaves the main loop, for <c>quit()</c>.</summary>
-    public Action? Quit;
+    public Action? Quit { get; set; }
 }
 
 /// <summary>The console commands of server operations: ban list, kick, the master command surface, quit, and the client and GUI commands that exist on a dedicated server and only print their own errors there (docs/server-ops.md 4-7).</summary>

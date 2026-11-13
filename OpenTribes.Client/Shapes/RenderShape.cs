@@ -7,175 +7,175 @@ using System.Text;
 public struct RsNode
 {
     /// <summary>The index of the name in the name table.</summary>
-    public int Name;
+    public int Name { get; set; }
     /// <summary>The parent node, -1 for none.</summary>
-    public int Parent;
+    public int Parent { get; set; }
     /// <summary>The number of sub sequences of the node.</summary>
-    public int NumSub;
+    public int NumSub { get; set; }
     /// <summary>The index of the first sub sequence.</summary>
-    public int FirstSub;
+    public int FirstSub { get; set; }
     /// <summary>The index of the default transform.</summary>
-    public int DefaultTransform;
+    public int DefaultTransform { get; set; }
 }
 
 /// <summary>A sequence of the shape.</summary>
 public struct RsSequence
 {
     /// <summary>The index of the name in the name table.</summary>
-    public int Name;
+    public int Name { get; set; }
     /// <summary>True when the sequence loops.</summary>
-    public bool Cyclic;
+    public bool Cyclic { get; set; }
     /// <summary>The duration in seconds.</summary>
-    public float Duration;
+    public float Duration { get; set; }
     /// <summary>The priority.</summary>
-    public int Priority;
+    public int Priority { get; set; }
     /// <summary>The index of the first trigger.</summary>
-    public int FirstTrigger;
+    public int FirstTrigger { get; set; }
     /// <summary>The number of triggers.</summary>
-    public int NumTriggers;
+    public int NumTriggers { get; set; }
     /// <summary>The number of image lists.</summary>
-    public int NumIfl;
+    public int NumIfl { get; set; }
     /// <summary>The index of the first image list.</summary>
-    public int FirstIfl;
+    public int FirstIfl { get; set; }
 }
 
 /// <summary>The part of a sequence that animates one node or object.</summary>
 public struct RsSubSequence
 {
     /// <summary>The sequence index.</summary>
-    public int Sequence;
+    public int Sequence { get; set; }
     /// <summary>The number of keys.</summary>
-    public int NumKeys;
+    public int NumKeys { get; set; }
     /// <summary>The index of the first key.</summary>
-    public int FirstKey;
+    public int FirstKey { get; set; }
 }
 
 /// <summary>A key of a sub sequence.</summary>
 public struct RsKey
 {
     /// <summary>The position in the sequence, 0 to 1.</summary>
-    public float Position;
+    public float Position { get; set; }
     /// <summary>The index of the transform, frame or material the key selects.</summary>
-    public int Index;
+    public int Index { get; set; }
     /// <summary>The flags: 0x8000 visible, 0x4000 visibility valid, 0x2000 material valid, 0x1000 frame valid.</summary>
-    public int Flags;
+    public int Flags { get; set; }
 }
 
 /// <summary>A node transform: a rotation quaternion and a translation.</summary>
 public struct RsTransform
 {
     /// <summary>The quaternion x.</summary>
-    public double Qx;
+    public double Qx { get; set; }
     /// <summary>The quaternion y.</summary>
-    public double Qy;
+    public double Qy { get; set; }
     /// <summary>The quaternion z.</summary>
-    public double Qz;
+    public double Qz { get; set; }
     /// <summary>The quaternion w.</summary>
-    public double Qw;
+    public double Qw { get; set; }
     /// <summary>The translation x.</summary>
-    public double Tx;
+    public double Tx { get; set; }
     /// <summary>The translation y.</summary>
-    public double Ty;
+    public double Ty { get; set; }
     /// <summary>The translation z.</summary>
-    public double Tz;
+    public double Tz { get; set; }
 }
 
 /// <summary>An object of the shape: a mesh on a node.</summary>
 public struct RsObject
 {
     /// <summary>The index of the name in the name table.</summary>
-    public int Name;
+    public int Name { get; set; }
     /// <summary>The flags.</summary>
-    public int Flags;
+    public int Flags { get; set; }
     /// <summary>The mesh index.</summary>
-    public int Mesh;
+    public int Mesh { get; set; }
     /// <summary>The node the object hangs on.</summary>
-    public int Node;
+    public int Node { get; set; }
     /// <summary>The number of sub sequences of the object.</summary>
-    public int NumSub;
+    public int NumSub { get; set; }
     /// <summary>The index of the first sub sequence.</summary>
-    public int FirstSub;
+    public int FirstSub { get; set; }
     /// <summary>The offset x from the node.</summary>
-    public double Ox;
+    public double Ox { get; set; }
     /// <summary>The offset y from the node.</summary>
-    public double Oy;
+    public double Oy { get; set; }
     /// <summary>The offset z from the node.</summary>
-    public double Oz;
+    public double Oz { get; set; }
 }
 
 /// <summary>A detail level of the shape.</summary>
 public struct RsDetail
 {
     /// <summary>The root node of the detail.</summary>
-    public int RootNode;
+    public int RootNode { get; set; }
     /// <summary>The size the detail applies from.</summary>
-    public float Size;
+    public float Size { get; set; }
 }
 
 /// <summary>A trigger of a sequence.</summary>
 public struct RsTrigger
 {
     /// <summary>The position in the sequence, 0 to 1.</summary>
-    public float Position;
+    public float Position { get; set; }
     /// <summary>The trigger value.</summary>
-    public uint Value;
+    public uint Value { get; set; }
 }
 
 /// <summary>A face of a mesh.</summary>
 public struct RsFace
 {
     /// <summary>The first vertex index.</summary>
-    public int V0;
+    public int V0 { get; set; }
     /// <summary>The first texture vertex index.</summary>
-    public int T0;
+    public int T0 { get; set; }
     /// <summary>The second vertex index.</summary>
-    public int V1;
+    public int V1 { get; set; }
     /// <summary>The second texture vertex index.</summary>
-    public int T1;
+    public int T1 { get; set; }
     /// <summary>The third vertex index.</summary>
-    public int V2;
+    public int V2 { get; set; }
     /// <summary>The third texture vertex index.</summary>
-    public int T2;
+    public int T2 { get; set; }
     /// <summary>The material index.</summary>
-    public int Material;
+    public int Material { get; set; }
 }
 
 /// <summary>A frame of a mesh: where its vertices start and how its packed bytes decode.</summary>
 public struct RsFrame
 {
     /// <summary>The index of the first vertex of the frame.</summary>
-    public int FirstVert;
+    public int FirstVert { get; set; }
     /// <summary>The scale x of the packed vertices.</summary>
-    public float Sx;
+    public float Sx { get; set; }
     /// <summary>The scale y of the packed vertices.</summary>
-    public float Sy;
+    public float Sy { get; set; }
     /// <summary>The scale z of the packed vertices.</summary>
-    public float Sz;
+    public float Sz { get; set; }
     /// <summary>The origin x of the packed vertices.</summary>
-    public float Ox;
+    public float Ox { get; set; }
     /// <summary>The origin y of the packed vertices.</summary>
-    public float Oy;
+    public float Oy { get; set; }
     /// <summary>The origin z of the packed vertices.</summary>
-    public float Oz;
+    public float Oz { get; set; }
 }
 
 /// <summary>A mesh of the shape.</summary>
 public sealed class RsMesh
 {
     /// <summary>The packed vertices, 4 bytes each: x, y, z, normal index.</summary>
-    public byte[] Verts = [];
+    public byte[] Verts { get; set; } = [];
     /// <summary>The texture vertices as u, v pairs.</summary>
-    public float[] TexVerts = [];
+    public float[] TexVerts { get; set; } = [];
     /// <summary>The faces.</summary>
-    public RsFace[] Faces = [];
+    public RsFace[] Faces { get; set; } = [];
     /// <summary>The frames.</summary>
-    public RsFrame[] Frames = [];
+    public RsFrame[] Frames { get; set; } = [];
     /// <summary>The texture vertices per frame.</summary>
-    public int TexVertsPerFrame;
+    public int TexVertsPerFrame { get; set; }
     /// <summary>The vertices per frame.</summary>
-    public int VertsPerFrame;
+    public int VertsPerFrame { get; set; }
     /// <summary>The mesh version.</summary>
-    public int Version;
+    public int Version { get; set; }
 }
 
 /// <summary>One entry of the material list (shapes-render.md 1.3).</summary>
@@ -183,17 +183,17 @@ public sealed class RsMesh
 public struct RsMaterial
 {
     /// <summary>The flags.</summary>
-    public uint Flags;
+    public uint Flags { get; set; }
     /// <summary>The palette index.</summary>
-    public int PaletteIndex;
+    public int PaletteIndex { get; set; }
     /// <summary>The red.</summary>
-    public byte R;
+    public byte R { get; set; }
     /// <summary>The green.</summary>
-    public byte G;
+    public byte G { get; set; }
     /// <summary>The blue.</summary>
-    public byte B;
+    public byte B { get; set; }
     /// <summary>The bitmap name.</summary>
-    public string Name;
+    public string Name { get; set; }
     /// <summary>The material type, the low four flag bits. Type 3 names a bitmap.</summary>
     public readonly int Type => (int)(Flags & 0xf);
     /// <summary>The shading mode, flag bits 8 to 11.</summary>
@@ -209,51 +209,51 @@ public struct RsMaterial
 public sealed class RenderShape
 {
     /// <summary>The shape file name.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The file version.</summary>
-    public uint Version;
+    public uint Version { get; set; }
     /// <summary>The radius of the bounding sphere.</summary>
-    public float Radius;
+    public float Radius { get; set; }
     /// <summary>The centre of the bounding sphere.</summary>
-    public double Cx;
+    public double Cx { get; set; }
     /// <summary>The centre y.</summary>
-    public double Cy;
+    public double Cy { get; set; }
     /// <summary>The centre z.</summary>
-    public double Cz;
+    public double Cz { get; set; }
     /// <summary>The shape box, as the <c>ShapeBox</c> of the server.</summary>
-    public float[] Box = new float[6];
+    public float[] Box { get; set; } = new float[6];
     /// <summary>The always node, -1 for none.</summary>
-    public int AlwaysNode = -1;
+    public int AlwaysNode { get; set; } = -1;
     /// <summary>The size of the image list remap of an instance.</summary>
-    public int RemapSize;
+    public int RemapSize { get; set; }
     /// <summary>The nodes.</summary>
-    public RsNode[] Nodes = [];
+    public RsNode[] Nodes { get; set; } = [];
     /// <summary>The sequences.</summary>
-    public RsSequence[] Sequences = [];
+    public RsSequence[] Sequences { get; set; } = [];
     /// <summary>The sub sequences.</summary>
-    public RsSubSequence[] SubSequences = [];
+    public RsSubSequence[] SubSequences { get; set; } = [];
     /// <summary>The keys.</summary>
-    public RsKey[] Keys = [];
+    public RsKey[] Keys { get; set; } = [];
     /// <summary>The node transforms.</summary>
-    public RsTransform[] Transforms = [];
+    public RsTransform[] Transforms { get; set; } = [];
     /// <summary>The name table.</summary>
-    public string[] Names = [];
+    public string[] Names { get; set; } = [];
     /// <summary>The objects.</summary>
-    public RsObject[] Objects = [];
+    public RsObject[] Objects { get; set; } = [];
     /// <summary>The details.</summary>
-    public RsDetail[] Details = [];
+    public RsDetail[] Details { get; set; } = [];
     /// <summary>The triggers.</summary>
-    public RsTrigger[] Triggers = [];
+    public RsTrigger[] Triggers { get; set; } = [];
     /// <summary>The meshes.</summary>
-    public RsMesh[] Meshes = [];
+    public RsMesh[] Meshes { get; set; } = [];
     /// <summary>The material list.</summary>
-    public RsMaterial[] Materials = [];
+    public RsMaterial[] Materials { get; set; } = [];
     /// <summary>The number of material details. The list holds <c>MaterialDetails * MaterialCount</c> entries.</summary>
-    public int MaterialDetails = 1;
+    public int MaterialDetails { get; set; } = 1;
     /// <summary>The number of materials per detail.</summary>
-    public int MaterialCount;
+    public int MaterialCount { get; set; }
     /// <summary>The children of each node.</summary>
-    public List<int>[] Children = [];
+    public List<int>[] Children { get; set; } = [];
 
     /// <summary>Finds a name in the name table, ignoring case.</summary>
     /// <param name="name">The name.</param>
@@ -286,9 +286,9 @@ public sealed class RenderShape
     /// <returns>The node index, or -1 when none.</returns>
     public int FindNodeBase(string baseName, int detail)
     {
-        if (mNodeBase.TryGetValue((baseName, detail), out var cached))
+        if (_nodeBase.TryGetValue((baseName, detail), out var cached))
             return cached;
-        return mNodeBase[(baseName, detail)] = FindNodeBaseUncached(baseName, detail);
+        return _nodeBase[(baseName, detail)] = FindNodeBaseUncached(baseName, detail);
     }
 
     /// <summary>Gets the instance root transform (shapes-render.md 3.6): the default transform of node 0, which an instance keeps from its creation and puts in front of every node when it draws.</summary>
@@ -304,17 +304,17 @@ public sealed class RenderShape
         return r;
     }
 
-    private readonly Dictionary<(string, int), int> mNodeBase = [];
-    private float[]? mDetailSizes;
-    private readonly Dictionary<int, DetailNodeSet> mDetailNodes = [];
+    private readonly Dictionary<(string, int), int> _nodeBase = [];
+    private float[]? _detailSizes;
+    private readonly Dictionary<int, DetailNodeSet> _detailNodes = [];
 
     /// <summary>The nodes drawn and animated for one detail: the subtree of the always node and the subtree of the detail root, as a sorted list (the order of the node walk) and as a flag per node. Built once per detail.</summary>
     public sealed class DetailNodeSet
     {
         /// <summary>The node indices in walk order.</summary>
-        public int[] Sorted = [];
+        public int[] Sorted { get; set; } = [];
         /// <summary>The flag of each node.</summary>
-        public bool[] Mask = [];
+        public bool[] Mask { get; set; } = [];
     }
 
     /// <summary>Gets the nodes of a detail.</summary>
@@ -322,7 +322,7 @@ public sealed class RenderShape
     /// <returns>The node set.</returns>
     public DetailNodeSet NodesOfDetail(int detail)
     {
-        if (mDetailNodes.TryGetValue(detail, out var set))
+        if (_detailNodes.TryGetValue(detail, out var set))
             return set;
         var nodes = new List<int>();
         if (AlwaysNode >= 0 && AlwaysNode < Nodes.Length)
@@ -332,7 +332,7 @@ public sealed class RenderShape
         set = new DetailNodeSet { Sorted = [.. nodes], Mask = new bool[Nodes.Length] };
         foreach (var n in nodes)
             set.Mask[n] = true;
-        mDetailNodes[detail] = set;
+        _detailNodes[detail] = set;
         return set;
     }
 
@@ -440,7 +440,7 @@ public sealed class RenderShape
     /// <summary>Chooses the detail of this shape for a size.</summary>
     /// <param name="size">The size.</param>
     /// <returns>The detail index, or -1 when nothing draws.</returns>
-    public int ChooseDetail(double size) => ChooseDetail(mDetailSizes ??= [.. Details.Select(x => x.Size)], size);
+    public int ChooseDetail(double size) => ChooseDetail(_detailSizes ??= [.. Details.Select(x => x.Size)], size);
 
     private static long[] RecordSizes(uint v)
     {
@@ -455,9 +455,9 @@ public sealed class RenderShape
 
     private sealed class Cur
     {
-        public readonly byte[] D;
-        public int Pos;
-        public bool Ok = true;
+        public byte[] D { get; }
+        public int Pos { get; set; }
+        public bool Ok { get; set; } = true;
         public Cur(byte[] d) => D = d;
         public int I32() { if (Pos + 4 > D.Length) { Ok = false; return 0; } var v = BinaryPrimitives.ReadInt32LittleEndian(D.AsSpan(Pos)); Pos += 4; return v; }
         public float F32() { if (Pos + 4 > D.Length) { Ok = false; return 0; } var v = BinaryPrimitives.ReadSingleLittleEndian(D.AsSpan(Pos)); Pos += 4; return v; }

@@ -7,15 +7,15 @@ using OpenTribes.Platform.Gfx;
 public sealed class TexEntry
 {
     /// <summary>The GL texture, or null when the bitmap is missing.</summary>
-    public IGfxTexture? Texture;
+    public IGfxTexture? Texture { get; set; }
     /// <summary>The blend mode of the bitmap.</summary>
-    public BlendMode Blend;
+    public BlendMode Blend { get; set; }
     /// <summary>True for a translucent bitmap with a kind 2 subpalette: the alpha is in the texture.</summary>
-    public bool PaletteAlpha;
+    public bool PaletteAlpha { get; set; }
     /// <summary>The bitmap width in pixels.</summary>
-    public int Width;
+    public int Width { get; set; }
     /// <summary>The bitmap height in pixels.</summary>
-    public int Height;
+    public int Height { get; set; }
 }
 
 /// <summary>Loads shapes and shape textures for the renderer: the <c>.dts</c> through the resource manager, bitmaps through the world palette, skin variants with damage decals, and one GL texture per bitmap.</summary>
@@ -23,9 +23,9 @@ public sealed class TexEntry
 public sealed class ShapeAssets : IDisposable
 {
     /// <summary>The world assets the files load from.</summary>
-    public readonly WorldAssets World;
-    private readonly IGfxDevice? mDev;
-    private readonly Dictionary<string, RenderShape?> mShapes = new(StringComparer.OrdinalIgnoreCase);
+    public WorldAssets World { get; }
+    private readonly IGfxDevice? _dev;
+    private readonly Dictionary<string, RenderShape?> _shapes = new(StringComparer.OrdinalIgnoreCase);
     private readonly record struct TexKey(string Map, string Skin, int Level, bool Keyed);
 
     private sealed class TexKeyComparer : IEqualityComparer<TexKey>
@@ -36,22 +36,22 @@ public sealed class ShapeAssets : IDisposable
             StringComparer.OrdinalIgnoreCase.GetHashCode(k.Skin), k.Level, k.Keyed);
     }
 
-    private readonly Dictionary<TexKey, TexEntry?> mTextures = new(new TexKeyComparer());
+    private readonly Dictionary<TexKey, TexEntry?> _textures = new(new TexKeyComparer());
     /// <summary>The names of the files that could not be loaded.</summary>
-    public readonly HashSet<string> Missing = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> Missing { get; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The bitmaps of the damage skins (DamageSkinData bmpName).</summary>
-    public IReadOnlyList<PbmpBitmap> DamageDecals = Array.Empty<PbmpBitmap>();
+    public IReadOnlyList<PbmpBitmap> DamageDecals { get; set; } = Array.Empty<PbmpBitmap>();
     /// <summary>True to use the custom skins of a player.</summary>
-    public bool UseCustomSkins = true;
+    public bool UseCustomSkins { get; set; } = true;
     /// <summary>The detail of the damage skins.</summary>
-    public int DamageSkinDetail = 2;
+    public int DamageSkinDetail { get; set; } = 2;
 
     /// <summary>Creates the loader.</summary>
     /// <param name="dev">The graphics device, or null to load without textures.</param>
     /// <param name="world">The world assets.</param>
     public ShapeAssets(IGfxDevice? dev, WorldAssets world)
     {
-        mDev = dev;
+        _dev = dev;
         World = world;
     }
 
@@ -63,7 +63,7 @@ public sealed class ShapeAssets : IDisposable
     /// <summary>Installs a shape built in memory (tests and generated effects) under a name.</summary>
     /// <param name="name">The shape name.</param>
     /// <param name="shape">The shape.</param>
-    public void Register(string name, RenderShape shape) => mShapes[name] = shape;
+    public void Register(string name, RenderShape shape) => _shapes[name] = shape;
 
     /// <summary>Loads a shape once and caches it.</summary>
     /// <param name="name">The shape file name.</param>
@@ -72,13 +72,13 @@ public sealed class ShapeAssets : IDisposable
     {
         if (name.Length == 0)
             return null;
-        if (mShapes.TryGetValue(name, out var s))
+        if (_shapes.TryGetValue(name, out var s))
             return s;
         var file = name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase) ? name : name + ".dts";
         s = GfxAssets.Read(World.Res, file, out var data) ? RenderShape.Parse(data, name) : null;
         if (s == null)
             Missing.Add(file);
-        mShapes[name] = s;
+        _shapes[name] = s;
         return s;
     }
 
@@ -91,7 +91,7 @@ public sealed class ShapeAssets : IDisposable
     public TexEntry? Texture(string map, string skin = "", int damageLevel = 0, bool keyed = false)
     {
         var key = new TexKey(map, skin, damageLevel > 0 ? damageLevel : 0, keyed);
-        if (mTextures.TryGetValue(key, out var t))
+        if (_textures.TryGetValue(key, out var t))
             return t;
         var resolved = skin.Length > 0 ? Skins.Resolve(map, skin, Exists, UseCustomSkins) : map;
         t = null;
@@ -122,10 +122,10 @@ public sealed class ShapeAssets : IDisposable
                 Width = bmp.Width,
                 Height = bmp.Height,
                 PaletteAlpha = bmp.Blend == BlendMode.Translucent && sub.Kind == 2,
-                Texture = mDev != null ? World.CreateTexture(mDev, bmp, rgba, false, false, true, keyed) : null,
+                Texture = _dev != null ? World.CreateTexture(_dev, bmp, rgba, false, false, true, keyed) : null,
             };
         }
-        mTextures[key] = t;
+        _textures[key] = t;
         return t;
     }
 
@@ -153,8 +153,8 @@ public sealed class ShapeAssets : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (var t in mTextures.Values)
+        foreach (var t in _textures.Values)
             t?.Texture?.Dispose();
-        mTextures.Clear();
+        _textures.Clear();
     }
 }

@@ -15,27 +15,28 @@ public struct SoundProfile
     /// <summary>The flag of a hardware 3D sound.</summary>
     public const uint Hardware3D = 0x20;
     /// <summary>The profile id.</summary>
-    public int Id;
+    public int Id { get; set; }
     /// <summary>The flags.</summary>
-    public uint Flags;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref uint Flags => ref _flags;
+    private uint _flags;
     /// <summary>The base volume.</summary>
-    public double BaseVolume;
+    public double BaseVolume { get; set; }
     /// <summary>The inside cone angle.</summary>
-    public int ConeInside;
+    public int ConeInside { get; set; }
     /// <summary>The outside cone angle.</summary>
-    public int ConeOutside;
+    public int ConeOutside { get; set; }
     /// <summary>The cone axis x.</summary>
-    public double ConeX;
+    public double ConeX { get; set; }
     /// <summary>The cone axis y.</summary>
-    public double ConeY;
+    public double ConeY { get; set; }
     /// <summary>The cone axis z.</summary>
-    public double ConeZ;
+    public double ConeZ { get; set; }
     /// <summary>The volume outside the outside cone.</summary>
-    public double ConeOutsideVolume;
+    public double ConeOutsideVolume { get; set; }
     /// <summary>The distance within which the sound is at full volume.</summary>
-    public double MinDist;
+    public double MinDist { get; set; }
     /// <summary>The distance beyond which the sound is silent.</summary>
-    public double MaxDist;
+    public double MaxDist { get; set; }
 
     /// <summary>The profile of a sound without an explicit profile.</summary>
     public static SoundProfile Default => new()
@@ -60,17 +61,17 @@ public struct SoundProfile
 public struct Listener
 {
     /// <summary>The x position.</summary>
-    public double X;
+    public double X { get; set; }
     /// <summary>The y position.</summary>
-    public double Y;
+    public double Y { get; set; }
     /// <summary>The z position.</summary>
-    public double Z;
+    public double Z { get; set; }
     /// <summary>The right axis x.</summary>
-    public double RightX;
+    public double RightX { get; set; }
     /// <summary>The right axis y.</summary>
-    public double RightY;
+    public double RightY { get; set; }
     /// <summary>The right axis z.</summary>
-    public double RightZ;
+    public double RightZ { get; set; }
 
     /// <summary>A listener at the origin that looks along +Y.</summary>
     public static Listener Identity => new() { RightX = 1 };
@@ -80,13 +81,13 @@ public struct Listener
 public struct SoundXf
 {
     /// <summary>The x position.</summary>
-    public double X;
+    public double X { get; set; }
     /// <summary>The y position.</summary>
-    public double Y;
+    public double Y { get; set; }
     /// <summary>The z position.</summary>
-    public double Z;
+    public double Z { get; set; }
     /// <summary>The rotation, or null for the identity.</summary>
-    public double[]? Rot;
+    public double[]? Rot { get; set; }
     /// <summary>Creates a transform without rotation.</summary>
     /// <param name="x">The x position.</param>
     /// <param name="y">The y position.</param>

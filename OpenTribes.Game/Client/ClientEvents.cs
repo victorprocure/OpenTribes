@@ -9,42 +9,42 @@ using System.Text;
 public sealed class DecodedEvent
 {
     /// <summary>The class tag.</summary>
-    public int Tag;
+    public int Tag { get; set; }
     /// <summary>The class name.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The delivery mode.</summary>
-    public string Mode = "";
+    public string Mode { get; set; } = "";
     /// <summary>The one line text.</summary>
-    public string Text = "";
+    public string Text { get; set; } = "";
     /// <summary>The number of bits the event took.</summary>
-    public int Bits;
+    public int Bits { get; set; }
     /// <summary>The ordered sequence, -2 when dispatched at once.</summary>
-    public int Seq = -2;
+    public int Seq { get; set; } = -2;
     /// <summary>The decoded fields.</summary>
-    public List<DecodedField> Fields = [];
+    public List<DecodedField> Fields { get; set; } = [];
     /// <summary>The handler effect (docs/client-net.md 2.3), run on dispatch.</summary>
-    public Action? Apply;
+    public Action? Apply { get; set; }
 }
 
 /// <summary>The client EventManager: reads the event block, unpacks every event class and applies the effect of each handler to the client state.</summary>
 /// <remarks>See docs/client-net.md 2.3 and docs/game-stream.md 2. Layouts follow docs/game-stream.md 2.4 and 2.5.</remarks>
 public sealed class ClientEvents
 {
-    private readonly ClientWorld mWorld;
-    private int mExpectedSeq;                                   // ordered receive (+0x64)
-    private readonly SortedDictionary<int, DecodedEvent> mPending = [];
+    private readonly ClientWorld _world;
+    private int _expectedSeq;                                   // ordered receive (+0x64)
+    private readonly SortedDictionary<int, DecodedEvent> _pending = [];
     /// <summary>The events dispatched so far.</summary>
-    public readonly List<DecodedEvent> Dispatched = [];
+    public List<DecodedEvent> Dispatched { get; } = [];
 
     /// <summary>Creates an event manager for a client world.</summary>
     /// <param name="world">The client world.</param>
-    public ClientEvents(ClientWorld world) => mWorld = world;
+    public ClientEvents(ClientWorld world) => _world = world;
 
     /// <summary>Clears the pending events and the sequence state.</summary>
     public void Reset()
     {
-        mExpectedSeq = 0;
-        mPending.Clear();
+        _expectedSeq = 0;
+        _pending.Clear();
         Dispatched.Clear();
     }
 
@@ -131,8 +131,8 @@ public sealed class ClientEvents
                 r.Out = save;
             }
             e.Bits = r.Pos - start;
-            mWorld.Events++;
-            mWorld.EventCounts[e.Name] = mWorld.EventCounts.GetValueOrDefault(e.Name) + 1;
+            _world.Events++;
+            _world.EventCounts[e.Name] = _world.EventCounts.GetValueOrDefault(e.Name) + 1;
             into.Add(e);
             Deliver(e);
         }
@@ -147,13 +147,13 @@ public sealed class ClientEvents
             Dispatch(e);
             return;
         }
-        if (((e.Seq - mExpectedSeq) & 0x7f) >= 64)
+        if (((e.Seq - _expectedSeq) & 0x7f) >= 64)
             return; // behind the window
-        mPending[e.Seq] = e;
-        while (mPending.TryGetValue(mExpectedSeq, out var next))
+        _pending[e.Seq] = e;
+        while (_pending.TryGetValue(_expectedSeq, out var next))
         {
-            mPending.Remove(mExpectedSeq);
-            mExpectedSeq = (mExpectedSeq + 1) & 0x7f;
+            _pending.Remove(_expectedSeq);
+            _expectedSeq = (_expectedSeq + 1) & 0x7f;
             Dispatch(next);
         }
     }
@@ -166,7 +166,7 @@ public sealed class ClientEvents
 
     private void Unpack(ClientReader r, DecodedEvent e)
     {
-        var pm = mWorld.Players;
+        var pm = _world.Players;
         switch (e.Tag)
         {
             case 0x401: // SimMessageEvent
@@ -204,8 +204,8 @@ public sealed class ClientEvents
                     if (args.Length == 0)
                         return;
                     var rest = args.Skip(1).ToArray();
-                    mWorld.RemoteCalls.Add((args[0], rest));
-                    mWorld.OnRemoteCall?.Invoke(args[0], rest);
+                    _world.RemoteCalls.Add((args[0], rest));
+                    _world.OnRemoteCall?.Invoke(args[0], rest);
                 };
                 break;
             }
@@ -481,7 +481,7 @@ public sealed class ClientEvents
                 {
                     // 0040d3.. case 10: the voice plays and the shown text loses its ~w tag (0040940c), the line type is 3 (green)
                     // or 4 (red) with the name of the commander or of the commanded client.
-                    var local = mWorld.PlayerId;
+                    var local = _world.PlayerId;
                     var raw = "";
                     if (hasMsg)
                     {
@@ -553,9 +553,9 @@ public sealed class ClientEvents
             }
             case 0x458: // DataBlockEvent: registered at read time, the index widths of the ghosts that follow need it
                 e.Name = "DataBlockEvent";
-                mWorld.DataBlocks.ReadEvent(r, out var summary);
+                _world.DataBlocks.ReadEvent(r, out var summary);
                 e.Text = summary;
-                if (mWorld.DataBlocks.PreloadError is string preloadError)
+                if (_world.DataBlocks.PreloadError is string preloadError)
                     throw new PacketErrorException(preloadError);
                 break;
             case 0x459: // TeamObjectiveEvent

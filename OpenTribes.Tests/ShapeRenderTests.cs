@@ -14,9 +14,9 @@ using Xunit.Abstractions;
 
 public class ShapeRenderTests
 {
-    private readonly ITestOutputHelper mOut;
+    private readonly ITestOutputHelper _out;
 
-    public ShapeRenderTests(ITestOutputHelper output) => mOut = output;
+    public ShapeRenderTests(ITestOutputHelper output) => _out = output;
 
     private static RenderShape Shape(uint materialFlags = 0x402)
     {
@@ -789,10 +789,10 @@ public class ShapeRenderTests
         }
         if (win == null)
         {
-            mOut.WriteLine("SKIPPED: no OpenGL 3.3 context could be made (" + string.Join("; ", failures) + ")");
+            _out.WriteLine("SKIPPED: no OpenGL 3.3 context could be made (" + string.Join("; ", failures) + ")");
             return;
         }
-        mOut.WriteLine($"RAN: video driver {win.VideoDriver}, OpenGL {win.GlVersion}");
+        _out.WriteLine($"RAN: video driver {win.VideoDriver}, OpenGL {win.GlVersion}");
         using (win)
         using (var dev = new GlGfxDevice(win))
         {
@@ -821,7 +821,7 @@ public class ShapeRenderTests
             dev.EndFrame();
             var px = dev.ReadPixels();
             var o = ((24 * 64) + 32) * 4;
-            mOut.WriteLine($"centre pixel {px[o]},{px[o + 1]},{px[o + 2]}");
+            _out.WriteLine($"centre pixel {px[o]},{px[o + 1]},{px[o + 2]}");
             Assert.InRange(px[o], 197, 203);                          // the material colour (200, 50, 50) fully lit
             Assert.InRange(px[o + 1], 47, 53);
             Assert.InRange(px[o + 2], 47, 53);

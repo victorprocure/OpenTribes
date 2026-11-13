@@ -8,22 +8,22 @@ using OpenTribes.Platform.Gfx;
 /// <summary>Read access to the client datablocks: group and index to named fields (client-net.md 2.6).</summary>
 public sealed class Db
 {
-    private readonly ClientDataBlocks mBlocks;
+    private readonly ClientDataBlocks _blocks;
     /// <summary>Creates the reader.</summary>
     /// <param name="blocks">The datablocks of the client.</param>
-    public Db(ClientDataBlocks blocks) => mBlocks = blocks;
+    public Db(ClientDataBlocks blocks) => _blocks = blocks;
 
     /// <summary>Gets a datablock.</summary>
     /// <param name="group">The datablock group.</param>
     /// <param name="index">The index in the group.</param>
     /// <returns>The block, or null when it does not exist.</returns>
-    public ClientDataBlock? Block(int group, long index) => mBlocks.Blocks.TryGetValue((group, (int)index), out var b) ? b : null;
+    public ClientDataBlock? Block(int group, long index) => _blocks.Blocks.TryGetValue((group, (int)index), out var b) ? b : null;
 
     /// <summary>Lists the blocks of one group in index order (the order of the data block manager).</summary>
     /// <param name="group">The datablock group.</param>
     /// <returns>The index and block of each entry.</returns>
     public IEnumerable<(int Index, ClientDataBlock Block)> Group(int group) =>
-        mBlocks.Blocks.Where(kv => kv.Key.Group == group).OrderBy(kv => kv.Key.Index).Select(kv => (kv.Key.Index, kv.Value));
+        _blocks.Blocks.Where(kv => kv.Key.Group == group).OrderBy(kv => kv.Key.Index).Select(kv => (kv.Key.Index, kv.Value));
 
     /// <summary>Gets the value of a field.</summary>
     /// <param name="b">The block, or null.</param>
@@ -172,27 +172,28 @@ public readonly record struct ImageSlot(int Slot, int Image, int State, int Phas
 public sealed class FrameContext
 {
     /// <summary>The camera.</summary>
-    public Camera3D Camera;
+    public ref Camera3D Camera => ref _camera;
+    private Camera3D _camera;
     /// <summary>The shape image builder.</summary>
-    public ShapeRenderer Renderer = null!;
+    public ShapeRenderer Renderer { get; set; } = null!;
     /// <summary>The shape loader.</summary>
-    public ShapeAssets Assets = null!;
+    public ShapeAssets Assets { get; set; } = null!;
     /// <summary>The scene light.</summary>
-    public LightSet Light = LightSet.Default();
+    public LightSet Light { get; set; } = LightSet.Default();
     /// <summary>The render lists the images go to.</summary>
-    public RenderLists Lists = new();
+    public RenderLists Lists { get; set; } = new();
     /// <summary>Finds the container interior (instance index) that holds a point, -1 for none (<c>InteriorRenderer.ContainerOf</c>).</summary>
-    public Func<double[], int>? ContainerOf;
+    public Func<double[], int>? ContainerOf { get; set; }
     /// <summary>The demo time in seconds.</summary>
-    public double Time;
+    public double Time { get; set; }
     /// <summary>The distance where the haze starts.</summary>
-    public double HazeStart = 1e9;
+    public double HazeStart { get; set; } = 1e9;
     /// <summary>The visible distance.</summary>
-    public double Visible = 1e9;
+    public double Visible { get; set; } = 1e9;
     /// <summary>True when the view is the first person view of the control object.</summary>
-    public bool FirstPersonOfControl;
+    public bool FirstPersonOfControl { get; set; }
     /// <summary>The ghost index of the control object, -1 for none.</summary>
-    public int ControlGhost = -1;
+    public int ControlGhost { get; set; } = -1;
 
     /// <summary>Creates the draw parameters of a shape with the light and haze of the frame.</summary>
     /// <param name="toWorld">The transform of the shape to the world.</param>

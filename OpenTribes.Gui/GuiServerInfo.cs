@@ -7,11 +7,11 @@ using OpenTribes.Platform.Gfx;
 public sealed class GuiServerInfo : GuiList
 {
     /// <summary>The column starts of the team and player rows: the first column starts at 0 and the list ends at 0x280 (004c91f8).</summary>
-    private int[] mTeamColumns = [0, 0x280], mPlayerColumns = [0, 0x280];
-    private IReadOnlyList<string> mRows = Array.Empty<string>();
+    private int[] _teamColumns = [0, 0x280], _playerColumns = [0, 0x280];
+    private IReadOnlyList<string> _rows = Array.Empty<string>();
 
     /// <summary>Gets the number of rows.</summary>
-    public int RowCount => mRows.Count;
+    public int RowCount => _rows.Count;
 
     /// <summary>Sets the headings and rows of the server's reply.</summary>
     /// <param name="teamHeading">The team row heading. A heading carries its column starts as a tab followed by one byte (004c91f8).</param>
@@ -19,9 +19,9 @@ public sealed class GuiServerInfo : GuiList
     /// <param name="rows">The rows. A row starts with two characters: '0' for a team row (else a player row) and '1' for a heading line, then the cells split at tabs.</param>
     public void SetServer(string teamHeading, string playerHeading, IReadOnlyList<string> rows)
     {
-        mTeamColumns = Columns(teamHeading);
-        mPlayerColumns = Columns(playerHeading);
-        mRows = rows;
+        _teamColumns = Columns(teamHeading);
+        _playerColumns = Columns(playerHeading);
+        _rows = rows;
         Selected = -1;
     }
 
@@ -56,7 +56,7 @@ public sealed class GuiServerInfo : GuiList
         if (Parent is not GuiScrollContent pc)
             return;
         W = pc.W;
-        H = Math.Max(pc.H, mRows.Count * RowHeight);
+        H = Math.Max(pc.H, _rows.Count * RowHeight);
     }
 
     /// <inheritdoc/>
@@ -66,14 +66,14 @@ public sealed class GuiServerInfo : GuiList
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y, rh = RowHeight;
-        for (var r = 0; r < mRows.Count; ++r)
+        for (var r = 0; r < _rows.Count; ++r)
         {
             var y = gy + (r * rh);
             if (y > p.Clip.Bottom)
                 break;
             if (y + rh <= p.Clip.Top)
                 continue;
-            DrawRow(p, gx, y, rh, mRows[r]);
+            DrawRow(p, gx, y, rh, _rows[r]);
         }
     }
 
@@ -83,7 +83,7 @@ public sealed class GuiServerInfo : GuiList
     {
         if (row.Length < 2)
             return;
-        var cols = row[0] == '0' ? mTeamColumns : mPlayerColumns;
+        var cols = row[0] == '0' ? _teamColumns : _playerColumns;
         var heading = row[1] != '0';
         var font = heading ? HeadingFont : RowTextFont;
         int i = 2, col = 0;

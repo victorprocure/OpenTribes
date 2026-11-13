@@ -8,7 +8,7 @@ public sealed class JoystickTests
 {
     private sealed class Sink : IActionConsumer
     {
-        public readonly List<(int Action, int Kind, float Value)> Got = [];
+        public List<(int Action, int Kind, float Value)> Got { get; } = [];
         public bool Removing => false;
         public bool OnAction(int action, int kind, float value)
         {

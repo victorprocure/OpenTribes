@@ -7,19 +7,19 @@ using OpenTribes.Game;
 /// <summary>A JSON lines dump of decoded packets: one object per packet with the events, the PSC block and the ghost updates, each with its field list (name, value) in wire order.</summary>
 public sealed class PacketDump : IDisposable
 {
-    private readonly StreamWriter? mOut;
-    private long mIndex;
+    private readonly StreamWriter? _out;
+    private long _index;
 
     /// <summary>Creates the dump.</summary>
     /// <param name="path">The output file, or null to write nothing.</param>
     public PacketDump(string? path)
     {
         if (path != null)
-            mOut = new StreamWriter(path, false, new UTF8Encoding(false)) { AutoFlush = false };
+            _out = new StreamWriter(path, false, new UTF8Encoding(false)) { AutoFlush = false };
     }
 
     /// <summary>Closes the file.</summary>
-    public void Dispose() => mOut?.Dispose();
+    public void Dispose() => _out?.Dispose();
 
     /// <summary>Writes a decoded field value as JSON. Non-finite doubles are written as strings.</summary>
     /// <param name="w">The writer.</param>
@@ -85,7 +85,7 @@ public sealed class PacketDump : IDisposable
     /// <param name="t">The time in seconds.</param>
     public void WriteCorrection(CorrectionRecord c, double t)
     {
-        if (mOut == null)
+        if (_out == null)
             return;
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -134,7 +134,7 @@ public sealed class PacketDump : IDisposable
             }
             w.WriteEndObject();
         }
-        mOut.WriteLine(Encoding.UTF8.GetString(ms.ToArray()));
+        _out.WriteLine(Encoding.UTF8.GetString(ms.ToArray()));
     }
 
     private static void Value2(Utf8JsonWriter w, string name, double v)
@@ -150,13 +150,13 @@ public sealed class PacketDump : IDisposable
     /// <param name="seq">The VC sequence number, or null.</param>
     public void Write(DecodedPacket p, double t, string? client = null, long? seq = null)
     {
-        if (mOut == null)
+        if (_out == null)
             return;
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
         {
             w.WriteStartObject();
-            w.WriteNumber("n", mIndex++);
+            w.WriteNumber("n", _index++);
             w.WriteNumber("t", Math.Round(t, 4));
             w.WriteString("dir", p.Direction);
             if (client != null)
@@ -221,7 +221,7 @@ public sealed class PacketDump : IDisposable
             }
             w.WriteEndObject();
         }
-        mOut.Write(Encoding.UTF8.GetString(ms.ToArray()));
-        mOut.Write('\n');
+        _out.Write(Encoding.UTF8.GetString(ms.ToArray()));
+        _out.Write('\n');
     }
 }

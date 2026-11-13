@@ -11,13 +11,13 @@ using static OpenTribes.Tests.Fixtures;
 
 public class ClientPredictionTests
 {
-    private const float kFlat = 50.0f;
-    private const int kGhost = 5;
-    private const uint kT0 = 1000;   // first tick of the client clock
+    private const float Flat = 50.0f;
+    private const int Ghost = 5;
+    private const uint T0 = 1000;   // first tick of the client clock
 
     internal sealed class Side
     {
-        public readonly Fixtures.World W;
+        public Fixtures.World W { get; }
 
         public Side(string name)
         {
@@ -29,11 +29,11 @@ public class ClientPredictionTests
                 Scale = 5,
                 Width = 4,
                 Height = 4,
-                Heights = [.. Enumerable.Repeat(kFlat, 25)],
+                Heights = [.. Enumerable.Repeat(Flat, 25)],
                 Squares = [.. new byte[32]]
             }; // 4 x 4 repeats of the 128 m block, flat
-            PutFile(Path.Combine(root, "base/m.dtf"), DtfFile(t, kFlat, kFlat));
-            PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, kFlat, kFlat));
+            PutFile(Path.Combine(root, "base/m.dtf"), DtfFile(t, Flat, Flat));
+            PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, Flat, Flat));
             PutFile(Path.Combine(root, "base/t.dml"), "dml");
             float[] gen = [-1, -1.5f, 0, 1, 1.5f, 2];
             PutFile(Path.Combine(root, "base/gen.dts"), DtsCollisionFile(gen));
@@ -81,7 +81,7 @@ public class ClientPredictionTests
         bs.WriteInt(unchecked((uint)lastMove), 32);
         bs.WriteFlag(true);                      // control object
         bs.WriteInt(0, 8);                       // damage flash
-        bs.WriteInt(kGhost, 10);
+        bs.WriteInt(Ghost, 10);
         obj.WriteControlState(bs, new ControlContext());
         bs.WriteFlag(false);                     // inventory reset
         bs.WriteFlag(false);                     // no inventory delta
@@ -174,11 +174,12 @@ public class ClientPredictionTests
 
     private sealed class Run
     {
-        public readonly ClientWorld Cw = new();
-        public readonly ClientPrediction Pred = new();
-        public readonly List<Move> Moves = [];
-        public GameBase Server = null!, Client = null!;
-        public uint Tick = kT0;  // the client frame time is 32 * Tick
+        public ClientWorld Cw { get; } = new();
+        public ClientPrediction Pred { get; } = new();
+        public List<Move> Moves { get; } = [];
+        public GameBase Server { get; set; } = null!;
+        public GameBase Client { get; set; } = null!;
+        public uint Tick { get; set; } = T0;  // the client frame time is 32 * Tick
     }
 
     private static Run Setup(string name, bool flier, bool moving)
@@ -198,7 +199,7 @@ public class ClientPredictionTests
             run.Server = srv.Spawn("100 100 50");
             run.Client = cli.Spawn("100 100 50");
         }
-        run.Cw.Ghosts.Insert(new ClientGhost { Index = kGhost, Class = flier ? "Flier" : "Player" });
+        run.Cw.Ghosts.Insert(new ClientGhost { Index = Ghost, Class = flier ? "Flier" : "Player" });
         var copy = run.Client;
         run.Pred.CreateObject = (g, p) => copy;
         for (var k = 0; k < 120; ++k)
@@ -384,13 +385,13 @@ public class ClientPredictionTests
         f.SetPosition([100f, 100f, 70f]);
         var cw = new ClientWorld();
         var pred = new ClientPrediction { CreateObject = (g, c) => p };
-        cw.Ghosts.Insert(new ClientGhost { Index = kGhost, Class = "Player" });
+        cw.Ghosts.Insert(new ClientGhost { Index = Ghost, Class = "Player" });
         Correct(cw, p, 0);
-        Assert.NotNull(pred.OnServerBlock(cw, 32 * kT0));
+        Assert.NotNull(pred.OnServerBlock(cw, 32 * T0));
         var remote = new RemoteGhosts();
         pred.BindControlMount(cw, remote);
         Assert.Equal(0, p.MountId);                                   // no mount fields
-        cw.Ghosts.Get(kGhost)!.State["mount"] = "9/2";
+        cw.Ghosts.Get(Ghost)!.State["mount"] = "9/2";
         pred.BindControlMount(cw, remote);
         Assert.Equal(0, p.MountId);                                   // the mount ghost has no copy yet
         remote.Vehicles[9] = new RemoteVehicle(f);
@@ -403,7 +404,7 @@ public class ClientPredictionTests
         f.SetPosition([130f, 100f, 70f]);
         pred.PlaceControlRider();
         Assert.Equal(130f, p.Transform.P[0], 3);                      // follows the mount as it is now
-        cw.Ghosts.Get(kGhost)!.State["mount"] = "none";
+        cw.Ghosts.Get(Ghost)!.State["mount"] = "none";
         pred.BindControlMount(cw, remote);
         Assert.Equal(0, p.MountId);
     }

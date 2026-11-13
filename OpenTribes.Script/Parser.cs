@@ -4,13 +4,13 @@ namespace OpenTribes.Script;
 public sealed class ParseResult
 {
     /// <summary>The complete top-level statements, in order.</summary>
-    public readonly List<Node> Statements = [];
+    public List<Node> Statements { get; } = [];
     /// <summary>Whether a syntax error occurred.</summary>
-    public bool Error;
+    public bool Error { get; set; }
     /// <summary>The line of the syntax error.</summary>
-    public int ErrorLine;
+    public int ErrorLine { get; set; }
     /// <summary>The token at the syntax error.</summary>
-    public Token ErrorToken = new();
+    public Token ErrorToken { get; set; } = new();
 }
 
 /// <summary>The script parser. It accepts the same language as the original LALR parser (CMDparse, 005ee998), and top-level statements completed before a syntax error are kept.</summary>
@@ -36,29 +36,29 @@ public static class ScriptParser
     // src/script/parser.cpp class Parser. Errors unwind through mFailed checks, as in the C++.
     private sealed class Parser
     {
-        private readonly Lexer mLex;
-        private Token mTok, mNext;
-        private bool mFailed;
-        private Token mErrTok = new();
+        private readonly Lexer _lex;
+        private Token _tok, _next;
+        private bool _failed;
+        private Token _errTok = new();
 
         public Parser(string src)
         {
-            mLex = new Lexer(src);
-            mTok = mLex.Next();
-            mNext = mLex.Next();
+            _lex = new Lexer(src);
+            _tok = _lex.Next();
+            _next = _lex.Next();
         }
 
         public ParseResult Run()
         {
             var r = new ParseResult();
-            while (mTok.Kind != Tok.End)
+            while (_tok.Kind != Tok.End)
             {
                 var s = Statement();
-                if (mFailed)
+                if (_failed)
                 {
                     r.Error = true;
-                    r.ErrorToken = mErrTok;
-                    r.ErrorLine = mErrTok.Line;
+                    r.ErrorToken = _errTok;
+                    r.ErrorLine = _errTok.Line;
                     break;
                 }
                 r.Statements.Add(s!);
@@ -69,24 +69,24 @@ public static class ScriptParser
         // ---- token helpers ----
         private void Advance()
         {
-            mTok = mNext;
-            mNext = mLex.Next();
+            _tok = _next;
+            _next = _lex.Next();
         }
         private static bool IsChar(Token t, char c) => t.Kind == Tok.Char && t.Ch == c;
-        private bool At(char c) => IsChar(mTok, c);
-        private bool At(Tok k) => mTok.Kind == k;
+        private bool At(char c) => IsChar(_tok, c);
+        private bool At(Tok k) => _tok.Kind == k;
         private Node? Fail()
         {
-            if (!mFailed)
+            if (!_failed)
             {
-                mFailed = true;
-                mErrTok = mTok;
+                _failed = true;
+                _errTok = _tok;
             }
             return null;
         }
         private bool Expect(char c)
         {
-            if (mFailed)
+            if (_failed)
                 return false;
             if (!At(c))
             {
@@ -96,14 +96,14 @@ public static class ScriptParser
             Advance();
             return true;
         }
-        private Node MakeNode(NodeKind k) => new() { Kind = k, Line = mTok.Line };
+        private Node MakeNode(NodeKind k) => new() { Kind = k, Line = _tok.Line };
 
         // ---- statements ----
         private Node? Statement()
         {
-            if (mFailed)
+            if (_failed)
                 return null;
-            switch (mTok.Kind)
+            switch (_tok.Kind)
             {
                 case Tok.If:
                     return IfStatement();
@@ -132,7 +132,7 @@ public static class ScriptParser
                     return n;
                 }
                 case Tok.Break:
-                    if (IsChar(mNext, ';'))
+                    if (IsChar(_next, ';'))
                     {
                         var n = MakeNode(NodeKind.BreakStmt);
                         Advance();
@@ -141,11 +141,11 @@ public static class ScriptParser
                     }
                     break;
                 case Tok.Tag:
-                    if (IsChar(mNext, '='))
+                    if (IsChar(_next, '='))
                         return TagDecl();
                     break;
                 case Tok.Ident:
-                    if (mNext.Kind == Tok.Ident || IsChar(mNext, '{'))
+                    if (_next.Kind == Tok.Ident || IsChar(_next, '{'))
                         return DatablockDecl();
                     break;
                 default:
@@ -158,7 +158,7 @@ public static class ScriptParser
         {
             var n = MakeNode(NodeKind.ExprStmt);
             n.A = Expression();
-            if (mFailed)
+            if (_failed)
                 return null;
             if (!IsStatementExpression(n.A!))
                 return Fail();
@@ -182,7 +182,7 @@ public static class ScriptParser
             if (At('{'))
             {
                 Advance();
-                while (!mFailed && !At('}'))
+                while (!_failed && !At('}'))
                 {
                     if (At(Tok.End))
                     {
@@ -206,10 +206,10 @@ public static class ScriptParser
             Expect('(');
             n.A = Expression();
             Expect(')');
-            if (mFailed)
+            if (_failed)
                 return null;
             Block(n.Body);
-            if (!mFailed && At(Tok.Else))
+            if (!_failed && At(Tok.Else))
             {
                 Advance();
                 n.HasElse = true;
@@ -225,7 +225,7 @@ public static class ScriptParser
             Expect('(');
             n.A = Expression();
             Expect(')');
-            if (mFailed)
+            if (_failed)
                 return null;
             Block(n.Body);
             return n;
@@ -242,7 +242,7 @@ public static class ScriptParser
             Expect(';');
             n.C = Expression();
             Expect(')');
-            if (mFailed)
+            if (_failed)
                 return null;
             Block(n.Body);
             return n;
@@ -254,14 +254,14 @@ public static class ScriptParser
             Advance();
             if (!At(Tok.Ident))
                 return Fail();
-            n.Name = mTok.Text;
+            n.Name = _tok.Text;
             Advance();
             Expect('(');
-            if (!mFailed && At(Tok.Var))
+            if (!_failed && At(Tok.Var))
             {
                 for (; ; )
                 {
-                    n.Params.Add(mTok.Text);
+                    n.Params.Add(_tok.Text);
                     Advance();
                     if (!At(','))
                         break;
@@ -272,7 +272,7 @@ public static class ScriptParser
             }
             Expect(')');
             Expect('{');
-            while (!mFailed && !At('}'))
+            while (!_failed && !At('}'))
             {
                 if (At(Tok.End))
                     return Fail();
@@ -285,11 +285,11 @@ public static class ScriptParser
         private Node TagDecl()
         {
             var n = MakeNode(NodeKind.TagDecl);
-            n.Name = mTok.Text;
+            n.Name = _tok.Text;
             Advance(); // TAG
             Advance(); // =
             n.A = Expression();
-            if (!mFailed && At(','))
+            if (!_failed && At(','))
             {
                 Advance();
                 n.B = Expression();
@@ -301,11 +301,11 @@ public static class ScriptParser
         private Node? DatablockDecl()
         {
             var n = MakeNode(NodeKind.Datablock);
-            n.ClassName = mTok.Text;
+            n.ClassName = _tok.Text;
             Advance();
             if (At(Tok.Ident))
             {
-                n.Name = mTok.Text;
+                n.Name = _tok.Text;
                 Advance();
                 if (At(';'))
                 {
@@ -314,12 +314,12 @@ public static class ScriptParser
                 }
             }
             Expect('{');
-            if (mFailed)
+            if (_failed)
                 return null;
             do
             {
                 n.Slots.Add(Slot()!);
-            } while (!mFailed && !At('}'));
+            } while (!_failed && !At('}'));
             Expect('}');
             Expect(';');
             return n;
@@ -330,14 +330,14 @@ public static class ScriptParser
             if (!At(Tok.Ident))
                 return Fail();
             var n = MakeNode(NodeKind.Slot);
-            n.Name = mTok.Text;
+            n.Name = _tok.Text;
             Advance();
             if (At('['))
             {
                 Advance();
                 IndexList(n.Index);
                 Expect(']');
-                if (!mFailed && At('['))
+                if (!_failed && At('['))
                 {
                     Advance();
                     n.B = Expression();
@@ -349,14 +349,14 @@ public static class ScriptParser
                 }
             }
             Expect('=');
-            if (!mFailed && At('{'))
+            if (!_failed && At('{'))
             {
                 Advance();
                 n.IsList = true;
                 ExprList(n.List);
                 Expect('}');
             }
-            else if (!mFailed)
+            else if (!_failed)
             {
                 n.A = Expression();
             }
@@ -370,18 +370,18 @@ public static class ScriptParser
             Advance();
             if (!At(Tok.Ident))
                 return Fail();
-            n.ClassName = mTok.Text;
+            n.ClassName = _tok.Text;
             Advance();
             if (!At('{') && !At(';'))
                 n.A = Expression();
-            if (!mFailed && At('{'))
+            if (!_failed && At('{'))
             {
                 Advance();
-                while (!mFailed && At(Tok.Ident))
+                while (!_failed && At(Tok.Ident))
                     n.Slots.Add(Slot()!);
-                while (!mFailed && At(Tok.Instant))
+                while (!_failed && At(Tok.Instant))
                     n.Children.Add(InstantDecl()!);
-                if (!mFailed && n.Slots.Count == 0 && n.Children.Count == 0)
+                if (!_failed && n.Slots.Count == 0 && n.Children.Count == 0)
                     return Fail();
                 Expect('}');
             }
@@ -393,7 +393,7 @@ public static class ScriptParser
         private void IndexList(List<Node> output)
         {
             output.Add(Expression()!);
-            while (!mFailed && At(','))
+            while (!_failed && At(','))
             {
                 Advance();
                 output.Add(Expression()!);
@@ -426,63 +426,63 @@ public static class ScriptParser
         private Node? Expression(int minPrec = 1)
         {
             var left = Unary();
-            while (!mFailed)
+            while (!_failed)
             {
-                var prec = Precedence(mTok);
+                var prec = Precedence(_tok);
                 if (prec < minPrec || prec == 0)
                     break;
                 var n = MakeNode(NodeKind.Binary);
-                n.Op = mTok.Kind;
-                n.OpChar = mTok.Ch;
+                n.Op = _tok.Kind;
+                n.OpChar = _tok.Ch;
                 Advance();
                 n.A = left;
                 n.B = Expression(prec + 1); // left-associative
                 left = n;
             }
-            return mFailed ? null : left;
+            return _failed ? null : left;
         }
 
         private Node? Unary()
         {
-            if (mFailed)
+            if (_failed)
                 return null;
             if (At('-') || At('!') || At('~') || At('*'))
             {
                 var n = MakeNode(NodeKind.Unary);
                 n.Op = Tok.Char;
-                n.OpChar = mTok.Ch;
+                n.OpChar = _tok.Ch;
                 Advance();
                 n.A = Unary();
-                return mFailed ? null : n;
+                return _failed ? null : n;
             }
             return Postfix(Primary());
         }
 
         private Node? Primary()
         {
-            if (mFailed)
+            if (_failed)
                 return null;
             Node n;
-            switch (mTok.Kind)
+            switch (_tok.Kind)
             {
                 case Tok.Int:
                     n = MakeNode(NodeKind.Int);
-                    n.Name = mTok.Text;
+                    n.Name = _tok.Text;
                     Advance();
                     return n;
                 case Tok.Float:
                     n = MakeNode(NodeKind.Float);
-                    n.Name = mTok.Text;
+                    n.Name = _tok.Text;
                     Advance();
                     return n;
                 case Tok.String:
                     n = MakeNode(NodeKind.String);
-                    n.Name = mTok.Text;
+                    n.Name = _tok.Text;
                     Advance();
                     return n;
                 case Tok.Tag:
                     n = MakeNode(NodeKind.TagRef);
-                    n.Name = mTok.Text;
+                    n.Name = _tok.Text;
                     Advance();
                     return n;
                 case Tok.Break:
@@ -491,24 +491,24 @@ public static class ScriptParser
                     Advance();
                     return n;
                 case Tok.Ident:
-                    if (IsChar(mNext, '('))
+                    if (IsChar(_next, '('))
                     {
                         n = MakeNode(NodeKind.Call);
-                        n.Name = mTok.Text;
+                        n.Name = _tok.Text;
                         Advance();
                         Advance();
                         if (!At(')'))
                             ExprList(n.List);
                         Expect(')');
-                        return mFailed ? null : n;
+                        return _failed ? null : n;
                     }
                     n = MakeNode(NodeKind.Ident);
-                    n.Name = mTok.Text;
+                    n.Name = _tok.Text;
                     Advance();
                     return n;
                 case Tok.Var:
                     n = MakeNode(NodeKind.Var);
-                    n.Name = mTok.Text;
+                    n.Name = _tok.Text;
                     Advance();
                     if (At('['))
                     {
@@ -516,14 +516,14 @@ public static class ScriptParser
                         IndexList(n.Index);
                         Expect(']');
                     }
-                    return mFailed ? null : n;
+                    return _failed ? null : n;
                 case Tok.Char:
-                    if (mTok.Ch == '(')
+                    if (_tok.Ch == '(')
                     {
                         Advance();
                         var e = Expression();
                         Expect(')');
-                        if (mFailed)
+                        if (_failed)
                             return null;
                         e!.Parenthesized = true;
                         return e;
@@ -544,15 +544,15 @@ public static class ScriptParser
 
         private Node? Postfix(Node? e)
         {
-            while (e != null && !mFailed)
+            while (e != null && !_failed)
             {
                 if (At('.'))
                 {
                     Advance();
                     if (!At(Tok.Ident))
                         return Fail();
-                    var name = mTok.Text;
-                    var line = mTok.Line;
+                    var name = _tok.Text;
+                    var line = _tok.Line;
                     Advance();
                     if (At('('))
                     {
@@ -576,7 +576,7 @@ public static class ScriptParser
                         Advance();
                         IndexList(f.Index);
                         Expect(']');
-                        if (!mFailed && At('['))
+                        if (!_failed && At('['))
                         {
                             Advance();
                             f.B = Expression();
@@ -607,10 +607,10 @@ public static class ScriptParser
                         e = s;
                         continue;
                     }
-                    if (IsCompound(mTok.Kind))
+                    if (IsCompound(_tok.Kind))
                     {
                         var s = MakeNode(NodeKind.CompoundAssign);
-                        s.Op = mTok.Kind;
+                        s.Op = _tok.Kind;
                         Advance();
                         s.A = e;
                         s.B = Expression();
@@ -629,7 +629,7 @@ public static class ScriptParser
                 }
                 break;
             }
-            return mFailed ? null : e;
+            return _failed ? null : e;
         }
     }
 }

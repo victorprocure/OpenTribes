@@ -72,22 +72,22 @@ public class TurretTests
         return Pers("TS::Shape", 8, body);
     }
 
-    private Fixtures.World gw = null!;
-    private readonly DefMap<int, uint> masks = [];
-    private bool mStarted;
+    private Fixtures.World _gw = null!;
+    private readonly DefMap<int, uint> _masks = [];
+    private bool _started;
 
     private void Tick(int n = 1)
     {
         for (var i = 0; i < n; ++i)
         {
-            gw.Sim.AdvanceRealTime(mStarted ? 32u : 33u);
-            mStarted = true;
+            _gw.Sim.AdvanceRealTime(_started ? 32u : 33u);
+            _started = true;
         }
     }
 
     private GameBase GbOf(string id)
     {
-        var o = gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
+        var o = _gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
         Assert.True(o is GameBase);
         return (GameBase)o!;
     }
@@ -97,7 +97,7 @@ public class TurretTests
     private int ProjectileCount()
     {
         var n = 0;
-        if (gw.Sim.Server()!.Find("MissionCleanup")?.AsSet() is SimSet cleanup)
+        if (_gw.Sim.Server()!.Find("MissionCleanup")?.AsSet() is SimSet cleanup)
             n = cleanup.Members().Count;
         return n;
     }
@@ -109,7 +109,7 @@ public class TurretTests
     // docs/portable-float.md 5 item 3: crt_cos (0x00606890) is the runtime's routine, the reference cosl the x87 fcos;
     // the double form of both differs by one or two units of 1e-16, above the 1e-17 tolerance of the check, at these
     // points (the C++ truncating build, with glibc cos, fails nine: these and 0.3, 0.8, 2.0, -0.3).
-    private static readonly double[] kCrtCosDouble = [1.0, 3.0, 4.0, 5.0, 6.0];
+    private static readonly double[] CrtCosDouble = [1.0, 3.0, 4.0, 5.0, 6.0];
 
     [Fact]
     public void Main()
@@ -129,9 +129,9 @@ public class TurretTests
         PutFile(Path.Combine(root, "base/t.dml"), "dml");
         PutFile(Path.Combine(root, "base/gun.dts"), ShapeFile([new("fire", false, 1.0f), new("power", false, 0.06f)]));
         var w = new Fixtures.World(root);
-        gw = w;
+        _gw = w;
         Numbers.EnterScriptFpuMode();
-        w.Game.MaskBits = (o, bits) => masks[o.Id()] |= bits;
+        w.Game.MaskBits = (o, bits) => _masks[o.Id()] |= bits;
         w.Run("$Server::teamName0 = \"A\"; $Server::teamName1 = \"B\"; resetPlayerManager();");
         w.Game.AddTeam(0);
         w.Game.AddTeam(1);
@@ -219,17 +219,17 @@ public class TurretTests
             ++ticksTo3;
         }
         Assert.True(tu.TurretMode == 3 && ticksTo3 <= 40);
-        Assert.NotEqual(0u, (masks[tu.Id()] & 0x10000));
+        Assert.NotEqual(0u, (_masks[tu.Id()] & 0x10000));
         Assert.Equal(1, tu.TurretInRange);
         Assert.True(tu.TurretSleep > 2.9f); // simTime + 3.0
         var firstSteps = new float[2];
-        masks[tu.Id()] = 0;
+        _masks[tu.Id()] = 0;
         Tick();
         firstSteps[0] = tu.TurretRotation;
         Tick();
         firstSteps[1] = tu.TurretRotation;
         Assert.True(Near(firstSteps[0] - firstSteps[1], 0.064f, 2e-6f));
-        Assert.NotEqual(0u, (masks[tu.Id()] & 0x2000));
+        Assert.NotEqual(0u, (_masks[tu.Id()] & 0x2000));
         Assert.True(firstSteps[1] is < 6.2832f and > 6.0f);
         var shots = 0;
         var before = ProjectileCount();
@@ -250,7 +250,7 @@ public class TurretTests
         Assert.True(shotTicks[1] - shotTicks[0] is >= 25 and <= 26);
         Assert.True(ProjectileCount() >= before + 2);
         Assert.True(Near(tu.Energy, 100.0f - (6.0f * tu.TurretFireState), 0.01f));
-        Assert.NotEqual(0u, (masks[tu.Id()] & 0x8000));
+        Assert.NotEqual(0u, (_masks[tu.Id()] & 0x8000));
 
         // The 3 s sleep (4.4 step 4).
         w.Run("GameBase::setPosition(" + Itoa(enemy.Id()) + ", \"500 100 52\");");
@@ -400,7 +400,7 @@ public class TurretTests
             foreach (var x in new[] { 0.0, 0.0049, 0.3, 0.8, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, -0.3 })
             {
                 var diff = Math.Abs(Shape.CrtCos(x) - Math.Cos(x));
-                if (diff >= 1e-17 && kCrtCosDouble.Contains(x))
+                if (diff >= 1e-17 && CrtCosDouble.Contains(x))
                 {
                     Console.Error.WriteLine($"crtCos({x}) = {Shape.CrtCos(x):R}, cosl = {Math.Cos(x):R}: |difference| {diff:R} >= 1e-17 " +
                                             "(double form, docs/portable-float.md 5 item 3)");

@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 [InlineArray(3)]
 public struct Float3
 {
-    private float mElement;
+    private float _element;
 
     /// <summary>Creates a vector from three components.</summary>
     /// <param name="x">The first component.</param>
@@ -37,14 +37,14 @@ public struct Float3
 [InlineArray(4)]
 public struct Float4
 {
-    private float mElement;
+    private float _element;
 }
 /// <summary>A float[6] stored inline, used for boxes (min xyz then max xyz).</summary>
 
 [InlineArray(6)]
 public struct Float6
 {
-    private float mElement;
+    private float _element;
     /// <summary>Creates a box from the first six elements of a span.</summary>
     /// <param name="v">The source values, at least six.</param>
     /// <returns>The new array.</returns>
@@ -81,7 +81,7 @@ public struct Float6
 [InlineArray(9)]
 public struct Float9
 {
-    private float mElement;
+    private float _element;
 
     /// <summary>Creates the identity matrix.</summary>
     /// <returns>The new matrix.</returns>

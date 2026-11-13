@@ -19,15 +19,15 @@ public sealed class ResourceManager
     public sealed class Volume : IDisposable
     {
         /// <summary>The directory part of the volume's lookup name, or null.</summary>
-        public string? Path;
+        public string? Path { get; set; }
         /// <summary>The file name part of the volume's lookup name.</summary>
-        public string Name = "";
+        public string Name { get; set; } = "";
         /// <summary>The backslash separated directory that holds the .vol file.</summary>
-        public string Dir = ""; // backslash directory of the .vol
+        public string Dir { get; set; } = ""; // backslash directory of the .vol
         /// <summary>The number of mounts. The volume unmounts when it drops to 0.</summary>
-        public int RefCount = 1;
+        public int RefCount { get; set; } = 1;
         /// <summary>The open archive.</summary>
-        public readonly VolArchive Archive = new();
+        public VolArchive Archive { get; } = new();
 
         /// <inheritdoc/>
         public void Dispose() => Archive.Dispose();
@@ -37,40 +37,40 @@ public sealed class ResourceManager
     public sealed class Entry
     {
         /// <summary>The directory part of the lookup name, or null.</summary>
-        public string? Path;
+        public string? Path { get; set; }
         /// <summary>The file name part of the lookup name.</summary>
-        public string Name = "";      // file name part
+        public string Name { get; set; } = "";      // file name part
         /// <summary>The real directory, backslash separated and relative to the root.</summary>
-        public string FilePath = "";  // real directory (backslash separated, relative to root)
+        public string FilePath { get; set; } = "";  // real directory (backslash separated, relative to root)
         /// <summary>The real file name. For volume entries this is the .vol file.</summary>
-        public string FileName = "";  // real file name (the .vol for volume entries)
+        public string FileName { get; set; } = "";  // real file name (the .vol for volume entries)
         /// <summary>The entry flags: <see cref="InVolume"/>, <see cref="LooseFile"/>, <see cref="Stale"/>, <see cref="Rle"/> and <see cref="Lzh"/>.</summary>
-        public uint Flags;
+        public uint Flags { get; set; }
         /// <summary>The volume that holds the entry, or null.</summary>
-        public Volume? Volume;
+        public Volume? Volume { get; set; }
         /// <summary>The index of the entry in the volume's directory.</summary>
-        public int VolumeIndex;
+        public int VolumeIndex { get; set; }
         /// <summary>The data size in bytes.</summary>
-        public uint Size;
+        public uint Size { get; set; }
         /// <summary>True once a load built an instance (stock +0x14). The instance keeps a stale entry alive.</summary>
-        public bool HasInstance;
+        public bool HasInstance { get; set; }
         /// <summary>The number of holders of the instance (stock +0x44). A purge keeps a locked entry.</summary>
-        public uint Locks;
+        public uint Locks { get; set; }
     }
 
-    private readonly string mRoot;
-    private readonly StringTable mStrings;
-    private readonly List<Entry> mList = []; // creation order; iteration walks it from the back
-    private readonly Dictionary<(string?, string), List<Entry>> mChains = [];
-    private readonly List<Volume> mVolumes = [];
+    private readonly string _root;
+    private readonly StringTable _strings;
+    private readonly List<Entry> _list = []; // creation order; iteration walks it from the back
+    private readonly Dictionary<(string?, string), List<Entry>> _chains = [];
+    private readonly List<Volume> _volumes = [];
 
     /// <summary>Creates a manager over a root directory.</summary>
     /// <param name="rootDir">The root, a host path.</param>
     /// <param name="strings">The string table for interned names. Defaults to <see cref="StringTable.Global"/>.</param>
     public ResourceManager(string rootDir, StringTable? strings = null)
     {
-        mRoot = rootDir;
-        mStrings = strings ?? StringTable.Global();
+        _root = rootDir;
+        _strings = strings ?? StringTable.Global();
     }
 
     // src/core/resource_manager.cpp upperAscii.
@@ -204,15 +204,15 @@ public sealed class ResourceManager
     // src/core/resource_manager.cpp ResourceManager::hostPath.
     private string HostPath(string backslashPath)
     {
-        if (ResolveCase(mRoot, ToHost(backslashPath), out var resolved))
+        if (ResolveCase(_root, ToHost(backslashPath), out var resolved))
             return resolved;
-        return mRoot + "/" + ToHost(backslashPath);
+        return _root + "/" + ToHost(backslashPath);
     }
 
     // src/core/resource_manager.cpp ResourceManager::split.
     private (string? path, string? name) Split(string name, bool create)
     {
-        string? Get(string s) => create ? mStrings.Intern(s) : mStrings.Lookup(s);
+        string? Get(string s) => create ? _strings.Intern(s) : _strings.Lookup(s);
         var slash = name.LastIndexOf('\\');
         if (slash < 0)
             return (null, Get(name));
@@ -221,10 +221,10 @@ public sealed class ResourceManager
 
     private List<Entry> Chain(string? path, string name)
     {
-        if (!mChains.TryGetValue((path, name), out var chain))
+        if (!_chains.TryGetValue((path, name), out var chain))
         {
             chain = [];
-            mChains.Add((path, name), chain);
+            _chains.Add((path, name), chain);
         }
         return chain;
     }
@@ -237,7 +237,7 @@ public sealed class ResourceManager
             if (existing.FileName == fileName && existing.FilePath == filePath)
                 return existing; // reused entries keep their list position
         var e = new Entry { Path = path, Name = name, FileName = fileName, FilePath = filePath };
-        mList.Add(e); // the original prepends; mList is read from the back
+        _list.Add(e); // the original prepends; mList is read from the back
         chain.Add(e);
         return e;
     }
@@ -266,14 +266,14 @@ public sealed class ResourceManager
     {
         var chain = Chain(e.Path, e.Name);
         chain.Remove(e);
-        mList.Remove(e);
+        _list.Remove(e);
     }
 
     // src/core/resource_manager.cpp ResourceManager::scanDirectory.
     private void ScanDirectory(string dir, string rel)
     {
         var backslashDir = rel.Length == 0 ? dir : dir + "\\" + rel;
-        if (!ResolveCase(mRoot, ToHost(backslashDir), out var host))
+        if (!ResolveCase(_root, ToHost(backslashDir), out var host))
             return;
         if (!Directory.Exists(host))
             return;
@@ -304,9 +304,9 @@ public sealed class ResourceManager
                     ScanDirectory(dir, rel.Length == 0 ? n : rel + "\\" + n);
                 continue;
             }
-            var name = mStrings.Intern(n);
-            var e = CreateResource(rel.Length == 0 ? null : mStrings.Intern(rel), name, name,
-                                     mStrings.Intern(backslashDir));
+            var name = _strings.Intern(n);
+            var e = CreateResource(rel.Length == 0 ? null : _strings.Intern(rel), name, name,
+                                     _strings.Intern(backslashDir));
             InsertBehind(e, LooseFile);
             e.Flags = LooseFile;
             e.Volume = null;
@@ -318,7 +318,7 @@ public sealed class ResourceManager
     /// <param name="searchPath">Directories separated by <c>;</c>, backslash separated and relative to the root. Directories that are absolute or contain <c>.</c> or <c>:</c> are skipped, as the original does once start-up is over.</param>
     public void SetSearchPath(string searchPath)
     {
-        foreach (var e in mList.ToArray())
+        foreach (var e in _list.ToArray())
             if ((e.Flags & LooseFile) != 0)
             {
                 e.Flags = Stale;
@@ -336,7 +336,7 @@ public sealed class ResourceManager
             ScanDirectory(dir, "");
         }
 
-        foreach (var e in mList.ToArray())
+        foreach (var e in _list.ToArray())
             if (e.Flags == Stale && !e.HasInstance)
                 Unlink(e);
     }
@@ -347,12 +347,12 @@ public sealed class ResourceManager
     public bool AddGenerated(string resName)
     {
         var (path, name) = Split(resName, true);
-        var e = mChains.TryGetValue((path, name!), out var chain) && chain.Count != 0 ? chain[0] : null;
+        var e = _chains.TryGetValue((path, name!), out var chain) && chain.Count != 0 ? chain[0] : null;
         if (e != null && e.HasInstance)
             return false;
         if (e == null)
         {
-            var none = mStrings.Intern(""); // no backing file
+            var none = _strings.Intern(""); // no backing file
             e = CreateResource(path, name!, none, none);
             e.Flags = Stale;
         }
@@ -369,7 +369,7 @@ public sealed class ResourceManager
     public Entry? Load(string resName)
     {
         var (path, name) = Split(resName, true);
-        var e = mChains.TryGetValue((path, name!), out var chain) && chain.Count != 0 ? chain[0] : null;
+        var e = _chains.TryGetValue((path, name!), out var chain) && chain.Count != 0 ? chain[0] : null;
         if (e == null || (!e.HasInstance && (e.Flags & (InVolume | LooseFile)) == 0))
             return null;
         ++e.Locks;
@@ -386,7 +386,7 @@ public sealed class ResourceManager
     /// <remarks>Follows purge(force) (00588074), the console command <c>purgeResources</c>.</remarks>
     public void Purge()
     {
-        foreach (var e in mList.ToArray())
+        foreach (var e in _list.ToArray())
         {
             if (!e.HasInstance || e.Locks != 0)
                 continue;
@@ -402,7 +402,7 @@ public sealed class ResourceManager
     public bool AddVolume(string volName)
     {
         var (path, name) = Split(volName, true);
-        foreach (var v in mVolumes)
+        foreach (var v in _volumes)
             if (v.Path == path && v.Name == name)
             {
                 ++v.RefCount;
@@ -433,7 +433,7 @@ public sealed class ResourceManager
             e.Size = ve.Size;
             InsertBehind(e, LooseFile);
         }
-        mVolumes.Add(vol);
+        _volumes.Add(vol);
         return true;
     }
 
@@ -442,11 +442,11 @@ public sealed class ResourceManager
     public void RemoveVolume(string volName)
     {
         var (path, name) = Split(volName, false);
-        var it = mVolumes.FindIndex(v => v.Path == path && v.Name == name);
-        if (it < 0 || --mVolumes[it].RefCount > 0)
+        var it = _volumes.FindIndex(v => v.Path == path && v.Name == name);
+        if (it < 0 || --_volumes[it].RefCount > 0)
             return;
-        var vol = mVolumes[it];
-        foreach (var e in mList.ToArray())
+        var vol = _volumes[it];
+        foreach (var e in _list.ToArray())
         {
             if (e.Volume != vol)
                 continue;
@@ -462,7 +462,7 @@ public sealed class ResourceManager
             }
         }
         vol.Archive.Close();
-        mVolumes.RemoveAt(it);
+        _volumes.RemoveAt(it);
     }
 
     /// <summary>Finds the first entry of a name.</summary>
@@ -472,7 +472,7 @@ public sealed class ResourceManager
     public Entry? Find(string name)
     {
         var (path, n) = Split(name, true);
-        return mChains.TryGetValue((path, n!), out var chain) && chain.Count != 0 ? chain[0] : null;
+        return _chains.TryGetValue((path, n!), out var chain) && chain.Count != 0 ? chain[0] : null;
     }
 
     /// <summary>Reads the bytes of an entry from its volume or loose file.</summary>
@@ -522,19 +522,19 @@ public sealed class ResourceManager
     public Entry? FindNext(string pattern, Entry? after, out string name)
     {
         name = "";
-        var i = mList.Count;
+        var i = _list.Count;
         if (after != null)
         {
-            var it = mList.IndexOf(after);
+            var it = _list.IndexOf(after);
             if (it < 0)
                 return null;
             i = it;
         }
         while (i-- > 0)
         {
-            name = DisplayName(mList[i]);
+            name = DisplayName(_list[i]);
             if (WildcardMatch(pattern, name))
-                return mList[i];
+                return _list[i];
         }
         return null;
     }
@@ -543,7 +543,7 @@ public sealed class ResourceManager
 /// <summary>The resources an object loaded, unlocked when the object goes. These are the resource handles the original objects hold.</summary>
 public sealed class ResourceLocks
 {
-    private readonly List<ResourceManager.Entry> mEntries = [];
+    private readonly List<ResourceManager.Entry> _entries = [];
 
     /// <summary>Loads a resource with <see cref="ResourceManager.Load"/> and keeps the lock.</summary>
     /// <param name="res">The resource manager.</param>
@@ -553,19 +553,19 @@ public sealed class ResourceLocks
     {
         var e = res.Load(name);
         if (e != null)
-            mEntries.Add(e);
+            _entries.Add(e);
         return e != null;
     }
 
     /// <summary>Keeps a lock taken with <see cref="ResourceManager.Load"/>.</summary>
     /// <param name="e">The locked entry.</param>
-    public void Adopt(ResourceManager.Entry e) => mEntries.Add(e);
+    public void Adopt(ResourceManager.Entry e) => _entries.Add(e);
 
     /// <summary>Unlocks every kept resource. This is the C++ destructor.</summary>
     public void Release()
     {
-        foreach (var e in mEntries)
+        foreach (var e in _entries)
             ResourceManager.Unlock(e);
-        mEntries.Clear();
+        _entries.Clear();
     }
 }

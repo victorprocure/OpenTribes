@@ -125,11 +125,11 @@ public sealed partial class Player
             // MT4 (server only, 0x00415304): the vehicle's passengerJump(vehicle, player, "up row"); the map name takes part in the lookup.
             if (Vehicle.From(m) is Vehicle v)
             {
-                var fn = Vehicle.FindVehicleMethod(mGame, v, "passengerJump", true);
-                if (fn.Length != 0 && mGame.Console != null)
+                var fn = Vehicle.FindVehicleMethod(_game, v, "passengerJump", true);
+                if (fn.Length != 0 && _game.Console != null)
                 {
                     static string G(float f) => Numbers.FormatFloat(f);
-                    mGame.Console.CallFunction(fn, new[]
+                    _game.Console.CallFunction(fn, new[]
                     {
                         Numbers.FormatInt(v.Id()), Numbers.FormatInt(Id()),
                         G(Transform.M[6]) + " " + G(Transform.M[7]) + " " + G(Transform.M[8]),

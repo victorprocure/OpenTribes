@@ -13,14 +13,14 @@ using static OpenTribes.Tests.Fixtures;
 
 public class BacklogTests
 {
-    private static int sFailures;
+    private static int _failures;
 
     private static void Expect(bool ok, string what)
     {
         if (!ok)
         {
             Console.Error.WriteLine("FAIL " + what);
-            ++sFailures;
+            ++_failures;
         }
     }
 
@@ -29,7 +29,7 @@ public class BacklogTests
         if (got != want)
         {
             Console.Error.WriteLine("FAIL " + what + "\n  want: " + want + "\n  got:  " + got);
-            ++sFailures;
+            ++_failures;
         }
     }
 
@@ -237,7 +237,7 @@ public class BacklogTests
         c.Check(w, "echo(newInputManager());", "False");
         c.Check(w, "echo(ircConnect());", "ircConnect( ircServerAddress, {port} );\nFalse");
         c.Check(w, "echo(ircConnect(x));", "true");
-        sFailures += c.Failures;
+        _failures += c.Failures;
         // loadObject from the search path: a PERS file of a non-SimObject class.
         w.Res.SetSearchPath(".");
         ExpectEq(w.Run("echo(loadObject(x, \"" + Path.Combine(root, "shape.dts") + "\"));"),
@@ -262,7 +262,7 @@ public class BacklogTests
         c.Check(w, "echo(Client::getMouseYAxisFlip(\"otm3.sae\"));", "TRUE");
         c.Check(w, "bind(keyboard0, make, a, TO, \"echo(2);\");", "");
         c.Check(w, "echo(Client::getMouseSensitivity(\"otm3.sae\"));", "0.25");
-        sFailures += c.Failures;
+        _failures += c.Failures;
 
         // ---- commander commands with two clients (tools/cmddiff.py: events identical to the reference) ----
         sent.Clear();
@@ -427,13 +427,13 @@ public class BacklogTests
     [Fact]
     public void Main()
     {
-        sFailures = 0;
+        _failures = 0;
         Numbers.EnterScriptFpuMode(); // round toward zero, as the script engine leaves it
         Helpers();
         Commands();
         InteriorLightsTest();
-        if (sFailures != 0)
-            Console.Error.WriteLine(sFailures + " failures");
-        Assert.Equal(0, sFailures);
+        if (_failures != 0)
+            Console.Error.WriteLine(_failures + " failures");
+        Assert.Equal(0, _failures);
     }
 }

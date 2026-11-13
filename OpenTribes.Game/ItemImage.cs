@@ -7,7 +7,7 @@ using static OpenTribes.Core.Fpu;
 
 public sealed partial class Player
 {
-    private static readonly string[] kStateNames =
+    private static readonly string[] StateNames =
     [
         "Reset", "Fire", "NoAmmo", "Idle", "Ready", "Reload", "SpinUp", "SpinDown", "Activate", "Deactivate",
     ];
@@ -42,7 +42,7 @@ public sealed partial class Player
     /// <summary>Returns the name of an image state.</summary>
     /// <param name="state">The state index, 0 to 9.</param>
     /// <returns>The state name, or "Reset" for an index out of range.</returns>
-    public static string ImageStateName(int state) => state is >= 0 and < 10 ? kStateNames[state] : "Reset";
+    public static string ImageStateName(int state) => state is >= 0 and < 10 ? StateNames[state] : "Reset";
 
     // ---- script callbacks (7.5, Player_findImageCallback 0x0041a00c) ----
 
@@ -52,19 +52,19 @@ public sealed partial class Player
     public void ImageCallback(int slot, string ev)
     {
         var s = Images[slot];
-        if (mGame.Console == null || mGame.Sim == null)
+        if (_game.Console == null || _game.Sim == null)
             return;
         var names = new List<string>();
         if (s.Info.Name != null)
             names.Add(s.Info.Name + "::" + ev);
-        var item = mGame.Sim.DataBlocks().At(5, s.Item);
-        if (item != null && mGame.Sim.DataBlocks().GetField(item, "className", "", out var cls) && cls.Length != 0)
+        var item = _game.Sim.DataBlocks().At(5, s.Item);
+        if (item != null && _game.Sim.DataBlocks().GetField(item, "className", "", out var cls) && cls.Length != 0)
             names.Add(cls + "::" + ev);
         names.Add("ItemImage::" + ev);
         foreach (var fn in names)
-            if (mGame.Console.HasFunction(fn))
+            if (_game.Console.HasFunction(fn))
             {
-                mGame.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot) });
+                _game.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot) });
                 return;
             }
     }
@@ -78,9 +78,9 @@ public sealed partial class Player
     /// <returns>True when the image was mounted.</returns>
     public bool MountItem(int type, int slot, int team)
     {
-        if (slot < 0 || slot >= kImageSlots || type < 0 || type >= kItemTypes)
+        if (slot < 0 || slot >= ImageSlots || type < 0 || type >= ItemTypes)
             return false;
-        var item = mGame.Sim?.DataBlocks().At(5, type);
+        var item = _game.Sim?.DataBlocks().At(5, type);
         var f = item?.Find("imageType");
         if (f == null || f.Elems.Count == 0 || !f.Elems[0].Set || f.Elems[0].I < 0)
             return false; // imageType -1
@@ -105,10 +105,10 @@ public sealed partial class Player
     /// <returns>True when an image was mounted.</returns>
     public bool UnmountItem(int slot)
     {
-        if (slot < 0 || slot >= kImageSlots || Images[slot].Item == -1)
+        if (slot < 0 || slot >= ImageSlots || Images[slot].Item == -1)
             return false;
         var type = Images[slot].Item;
-        if (type is >= 0 and < kItemTypes)
+        if (type is >= 0 and < ItemTypes)
             SlotOf[type] = -1;
         SetMaskBits(0x20000u | (0x100000u << slot));
         SetImage(slot, -1, -1);
@@ -129,7 +129,7 @@ public sealed partial class Player
             s.NextItem = -2;
             return;
         }
-        if (item != -1 && (s.State == kFire || s.State == kReload))
+        if (item != -1 && (s.State == Fire || s.State == Reload))
         {
             s.NextItem = item;
             s.NextTeam = team;
@@ -141,14 +141,14 @@ public sealed partial class Player
         var n = Images[slot];
         n.Item = item;
         n.Team = team;
-        var it = mGame.Sim?.DataBlocks().At(5, item);
+        var it = _game.Sim?.DataBlocks().At(5, item);
         var f = it?.Find("imageType");
-        var img = f != null && f.Elems.Count != 0 && f.Elems[0].Set ? mGame.Sim!.DataBlocks().At(6, f.Elems[0].I) : null;
+        var img = f != null && f.Elems.Count != 0 && f.Elems[0].Set ? _game.Sim!.DataBlocks().At(6, f.Elems[0].I) : null;
         // The image shape resource: a missing shape keeps the item and clears the image type.
         var shape = false;
         if (img != null)
             if (FieldOf(img, "shapeFile") is DataBlockManager.Field sf && !string.IsNullOrEmpty(sf.Elems[0].Str))
-                shape = mGame.ResourceExists(sf.Elems[0].Str + ".dts");
+                shape = _game.ResourceExists(sf.Elems[0].Str + ".dts");
         if (img == null || !shape)
         {
             n.Image = -1;
@@ -185,7 +185,7 @@ public sealed partial class Player
         }
         if (Manager() != null)
         {
-            SetImageState(slot, kActivate);
+            SetImageState(slot, Activate);
             RecomputeMass();
         }
     }
@@ -196,7 +196,7 @@ public sealed partial class Player
     public void ResetImage(int slot)
     {
         var s = Images[slot];
-        if (s.Image != -1 && s.Info.WeaponType == 2 && s.State == kFire)
+        if (s.Image != -1 && s.Info.WeaponType == 2 && s.State == Fire)
             StopSustained(slot);
         var item = Images[slot].Item;
         Images[slot].Reset();
@@ -211,7 +211,7 @@ public sealed partial class Player
     /// <param name="down">True when the trigger is down.</param>
     public void TriggerImage(int slot, bool down)
     {
-        if (slot is < 0 or >= kImageSlots)
+        if (slot is < 0 or >= ImageSlots)
             return;
         var s = Images[slot];
         if (s.Image == -1 || s.Triggered == down)
@@ -222,7 +222,7 @@ public sealed partial class Player
                 return;
             s.Triggered = true;
             SetMaskBits(0x20000u | (0x100000u << slot));
-            if (s.State == kFire && (s.Info.WeaponType == 1 || s.Info.WeaponType == 2))
+            if (s.State == Fire && (s.Info.WeaponType == 1 || s.Info.WeaponType == 2))
                 s.FireCount = (s.FireCount + 1) & 7;
         }
         else
@@ -242,7 +242,7 @@ public sealed partial class Player
     public void UpdateImageState(int slot, float dt)
     {
         using var chop = X87.Chop();
-        if (slot < 0 || slot >= kImageSlots || Images[slot].Image == -1)
+        if (slot < 0 || slot >= ImageSlots || Images[slot].Image == -1)
             return;
         var self = Id();
         var mgr = Manager();
@@ -260,12 +260,12 @@ public sealed partial class Player
         var expired = !(s.Timer > 0.0f);
         switch (s.State)
         {
-            case kReset:
-            case kActivate:
+            case Reset:
+            case Activate:
                 if (expired)
-                    SetImageState(slot, wt == 1 ? kIdle : !A ? kNoAmmo : wt == 3 ? kReload : kReady);
+                    SetImageState(slot, wt == 1 ? Idle : !A ? NoAmmo : wt == 3 ? Reload : Ready);
                 break;
-            case kFire:
+            case Fire:
             {
                 if (wt == 2)
                 {
@@ -288,7 +288,7 @@ public sealed partial class Player
                     {
                         if (!T || !A)
                         {
-                            SetImageState(slot, kSpinDown);
+                            SetImageState(slot, SpinDown);
                         }
                         else
                         {
@@ -299,53 +299,53 @@ public sealed partial class Player
                     else if (wt == 2)
                     {
                         if (!T || !A)
-                            SetImageState(slot, kReload);
+                            SetImageState(slot, Reload);
                     }
                     else
                     {
-                        SetImageState(slot, kReload);
+                        SetImageState(slot, Reload);
                     }
                 }
                 break;
             }
-            case kNoAmmo:
+            case NoAmmo:
                 if (A)
-                    SetImageState(slot, wt == 1 ? (T ? kSpinUp : kIdle) : kReload);
+                    SetImageState(slot, wt == 1 ? (T ? SpinUp : Idle) : Reload);
                 break;
-            case kIdle:
+            case Idle:
                 if (!A)
-                    SetImageState(slot, kNoAmmo);
+                    SetImageState(slot, NoAmmo);
                 else if (T)
-                    SetImageState(slot, wt == 1 ? kSpinUp : kReady);
+                    SetImageState(slot, wt == 1 ? SpinUp : Ready);
                 break;
-            case kReady:
+            case Ready:
                 if (wt == 1)
                 {
                     if (!T || !A)
-                        SetImageState(slot, kSpinDown);
+                        SetImageState(slot, SpinDown);
                 }
                 else if (T)
                 {
-                    SetImageState(slot, kFire);
+                    SetImageState(slot, Fire);
                 }
                 break;
-            case kReload:
+            case Reload:
                 if (expired)
-                    SetImageState(slot, wt == 3 ? kSpinUp : kReady);
+                    SetImageState(slot, wt == 3 ? SpinUp : Ready);
                 break;
-            case kSpinUp:
+            case SpinUp:
                 if (wt == 3 && !A)
-                    SetImageState(slot, kNoAmmo);
+                    SetImageState(slot, NoAmmo);
                 else if (wt != 3 && (!T || !A))
-                    SetImageState(slot, kSpinDown);
+                    SetImageState(slot, SpinDown);
                 else if (expired)
-                    SetImageState(slot, kReady);
+                    SetImageState(slot, Ready);
                 break;
-            case kSpinDown:
+            case SpinDown:
                 if (T && A)
-                    SetImageState(slot, kSpinUp);
+                    SetImageState(slot, SpinUp);
                 else if (expired)
-                    SetImageState(slot, kIdle);
+                    SetImageState(slot, Idle);
                 break;
             default:
                 break;
@@ -365,12 +365,12 @@ public sealed partial class Player
         var old = s.State;
         var oldTimer = s.Timer;
         s.State = state;
-        if (old == kFire && s.Info.WeaponType == 2)
+        if (old == Fire && s.Info.WeaponType == 2)
             StopSustained(slot);
         if (Images[slot].Image == -1)
             return;
         // A pending swap completes when Fire or Reload is left.
-        if (s.NextItem >= -1 && (old == kFire || old == kReload))
+        if (s.NextItem >= -1 && (old == Fire || old == Reload))
         {
             SetImage(slot, s.NextItem, s.NextTeam);
             return;
@@ -378,7 +378,7 @@ public sealed partial class Player
         var wt = s.Info.WeaponType;
         switch (state)
         {
-            case kFire:
+            case Fire:
                 s.Timer = s.Info.FireTime;
                 SetMaskBits(0x20000u | (0x100000u << slot));
                 s.FireCount = (s.FireCount + 1) & 7;
@@ -387,40 +387,40 @@ public sealed partial class Player
                 else
                     FireImage(slot);
                 break;
-            case kNoAmmo:
-                if (s.Info.AmmoType != -1 && mGame.Console != null)
+            case NoAmmo:
+                if (s.Info.AmmoType != -1 && _game.Console != null)
                 {
-                    var fn = mGame.VirtualFunction(this, "onNoAmmo");
-                    var item = mGame.Sim?.DataBlocks().At(5, s.Item);
+                    var fn = _game.VirtualFunction(this, "onNoAmmo");
+                    var item = _game.Sim?.DataBlocks().At(5, s.Item);
                     if (fn.Length != 0 && item != null)
-                        mGame.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot), item.Name });
+                        _game.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot), item.Name });
                 }
                 break;
-            case kReady:
+            case Ready:
                 if (s.Triggered)
-                    SetImageState(slot, kFire);
+                    SetImageState(slot, Fire);
                 break;
-            case kReload:
+            case Reload:
                 if (s.Info.AmmoType == -1 || s.Ammo)
                 {
                     s.Timer = s.Info.ReloadTime;
                     if (s.Info.ReloadTime == 0.0f)
-                        SetImageState(slot, kReady);
+                        SetImageState(slot, Ready);
                 }
                 else
                 {
-                    SetImageState(slot, kNoAmmo);
+                    SetImageState(slot, NoAmmo);
                 }
                 break;
-            case kSpinUp:
-                s.Timer = old == kSpinDown ? X87.F32(Mul(s.Info.SpinUpTime, X87.F32(Sub(1.0, Div(oldTimer, s.Info.SpinDownTime)))))
+            case SpinUp:
+                s.Timer = old == SpinDown ? X87.F32(Mul(s.Info.SpinUpTime, X87.F32(Sub(1.0, Div(oldTimer, s.Info.SpinDownTime)))))
                                            : s.Info.SpinUpTime;
                 break;
-            case kSpinDown:
-                s.Timer = old == kSpinUp ? X87.F32(Mul(s.Info.SpinDownTime, X87.F32(Sub(1.0, Div(oldTimer, s.Info.SpinUpTime)))))
+            case SpinDown:
+                s.Timer = old == SpinUp ? X87.F32(Mul(s.Info.SpinDownTime, X87.F32(Sub(1.0, Div(oldTimer, s.Info.SpinUpTime)))))
                                          : s.Info.SpinDownTime;
                 break;
-            case kActivate:
+            case Activate:
                 s.Timer = s.Info.ActivateTime;
                 break;
             default:

@@ -12,112 +12,113 @@ using static OpenTribes.Core.Fpu;
 public class Vehicle : GameBase
 {
     /// <summary>The step length of one vehicle tick in seconds (0x3d03126f).</summary>
-    protected const float kDt = 0.032f;
+    protected const float Dt = 0.032f;
 
     /// <summary>The Flier_update tick constant, just below 31.25 (0x0042f764). The tbytes of Flier_update (docs/vehicle-sim.md 3.2) are the 64-bit mantissas rounded to 53 bits.</summary>
-    protected static readonly double kTick = 0xf9fffffffffffe89UL * Math.ScaleB(1.0, -59);
+    protected static readonly double Tick = 0xf9fffffffffffe89UL * Math.ScaleB(1.0, -59);
     /// <summary>The yaw per bank constant, 1/30 (0x0042f7ac).</summary>
-    protected static readonly double kYawPerBank = 0x8888888888888889UL * Math.ScaleB(1.0, -67);
+    protected static readonly double YawPerBank = 0x8888888888888889UL * Math.ScaleB(1.0, -67);
     /// <summary>One third (0x0042e8e8 and 0x00430768).</summary>
-    protected static readonly double kThird = 0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -65);
+    protected static readonly double Third = 0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -65);
     /// <summary>Two thirds (0x00430780).</summary>
-    protected static readonly double kTwoThirds = 0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -64);
+    protected static readonly double TwoThirds = 0xaaaaaaaaaaaaaaabUL * Math.ScaleB(1.0, -64);
     /// <summary>The constant 0.09817477 (0x0042f774).</summary>
-    protected const double kPi32 = 0.09817477042468103;
+    protected const double Pi32 = 0.09817477042468103;
     /// <summary>The floor value 0.33 (0x0042f780).</summary>
-    protected const double kFloor033 = 0.33;
+    protected const double Floor033 = 0.33;
     /// <summary>The level rate 0.0125 (0x0042f7b8).</summary>
-    protected const double kLevelRate = 0.0125;
+    protected const double LevelRate = 0.0125;
     /// <summary>A tiny value, 1e-12 (0x0042f7c0).</summary>
-    protected const float kTiny = 1e-12f;
+    protected const float Tiny = 1e-12f;
 
     /// <summary>The VehicleData and FlierData values the simulation reads (docs/vehicle-sim.md 1.4).</summary>
     public sealed class VData
     {
         /// <summary>The mass (+0x100).</summary>
-        public float Mass = 1;
+        public float Mass { get; set; } = 1;
         /// <summary>The drag (+0x104).</summary>
-        public float Drag = 1;
+        public float Drag { get; set; } = 1;
         /// <summary>The density (+0x108).</summary>
-        public float Density = 1;
+        public float Density { get; set; } = 1;
         /// <summary>The minimum speed (+0x10c).</summary>
-        public float MinSpeed;
+        public float MinSpeed { get; set; }
         /// <summary>The maximum speed (+0x110).</summary>
-        public float MaxSpeed;
+        public float MaxSpeed { get; set; }
         /// <summary>The reload delay (+0x134).</summary>
-        public float ReloadDelay;
+        public float ReloadDelay { get; set; }
         /// <summary>The damage of ramming (+0x138).</summary>
-        public float RamDamage;
+        public float RamDamage { get; set; }
         /// <summary>The damage type of ramming (+0x13c).</summary>
-        public int RamDamageType;
+        public int RamDamageType { get; set; }
         /// <summary>True when the driver is visible (+0x170).</summary>
-        public bool VisibleDriver;
+        public bool VisibleDriver { get; set; }
         /// <summary>The driver pose (+0x174).</summary>
-        public int DriverPose;
+        public int DriverPose { get; set; }
         /// <summary>The projectile datablock group (projectileType, +0x114), -1 for none.</summary>
-        public int ProjGroup = -1;
+        public int ProjGroup { get; set; } = -1;
         /// <summary>The projectile datablock index, -1 for none.</summary>
-        public int ProjIndex = -1;
+        public int ProjIndex { get; set; } = -1;
         /// <summary>The FlierData maximum bank (+0x178).</summary>
-        public float MaxBank;
+        public float MaxBank { get; set; }
         /// <summary>The FlierData maximum pitch (+0x17c).</summary>
-        public float MaxPitch;
+        public float MaxPitch { get; set; }
         /// <summary>The FlierData lift (+0x180).</summary>
-        public float Lift;
+        public float Lift { get; set; }
         /// <summary>The FlierData maximum altitude (+0x184).</summary>
-        public float MaxAlt;
+        public float MaxAlt { get; set; }
         /// <summary>The FlierData maximum vertical speed (+0x188).</summary>
-        public float MaxVertical;
+        public float MaxVertical { get; set; }
         /// <summary>The FlierData acceleration (+0x18c).</summary>
-        public float Accel;
+        public float Accel { get; set; }
         /// <summary>The FlierData scale of damage from ground contact (+0x190).</summary>
-        public float GroundDamageScale;
+        public float GroundDamageScale { get; set; }
     }
 
     /// <summary>The datablock values.</summary>
-    public VData Data = new();
+    public VData Data { get; set; } = new();
     /// <summary>True while a pilot flies the vehicle (+0x8a1).</summary>
-    public bool Piloted;
+    public bool Piloted { get; set; }
     /// <summary>The move credit (+0x8dc).</summary>
-    public int Credit;
+    public int Credit { get; set; }
     /// <summary>The ticks without a move (+0x8d8).</summary>
-    public int TicksWithoutMove;
+    public int TicksWithoutMove { get; set; }
     /// <summary>The last move (+0x8e4).</summary>
-    public Move LastMove = new();
+    public ref Move LastMove => ref _lastMove;
+    private Move _lastMove = new();
     /// <summary>The sound state (+0x8c4).</summary>
-    public int SoundState;
+    public int SoundState { get; set; }
     /// <summary>The number of shots fired (+0x948). It picks the muzzle node.</summary>
-    public int FireCount;
+    public int FireCount { get; set; }
     /// <summary>The time of the next allowed shot (+0x94c).</summary>
-    public float NextFireTime;
+    public float NextFireTime { get; set; }
     /// <summary>The forward speed (+0x940).</summary>
-    public float SpeedF;
+    public float SpeedF { get; set; }
     /// <summary>The desired speed (+0x8c8).</summary>
-    public float SpeedT;
+    public float SpeedT { get; set; }
     /// <summary>The target rotation (+0x8cc).</summary>
-    public readonly float[] TargetRot = new float[3];
+    public float[] TargetRot { get; } = new float[3];
     /// <summary>The lift speed (+0x898).</summary>
-    public float SpeedL;
+    public float SpeedL { get; set; }
     /// <summary>The side speed (+0x89c).</summary>
-    public float SpeedS;
+    public float SpeedS { get; set; }
     /// <summary>True while landed (+0x8a0).</summary>
-    public bool Landed;
+    public bool Landed { get; set; }
     /// <summary>The number of passengers (+0x8ac).</summary>
-    public int Passengers;
+    public int Passengers { get; set; }
     /// <summary>The shape node index of <c>dummy exit</c>, -1 for none.</summary>
-    public int NodeExit = -1;
+    public int NodeExit { get; set; } = -1;
     /// <summary>The shape node index of <c>dummy pilot</c> (plus the detail size), -1 for none.</summary>
-    public int NodePilot = -1;
+    public int NodePilot { get; set; } = -1;
     /// <summary>The shape node index of <c>dummy muzzle</c>, -1 for none.</summary>
-    public int NodeMuzzle = -1;
+    public int NodeMuzzle { get; set; } = -1;
     /// <summary>The shape node index of <c>dummy eye</c>, -1 for none.</summary>
-    public int NodeEye = -1;
+    public int NodeEye { get; set; } = -1;
     /// <summary>The shape node indices of the <c>dummy muzzle%d</c> nodes.</summary>
-    public readonly List<int> MuzzleNodes = [];
+    public List<int> MuzzleNodes { get; } = [];
     /// <summary>The shape node indices of the passenger mount nodes.</summary>
-    public readonly List<int> PassengerNodes = [];
+    public List<int> PassengerNodes { get; } = [];
     /// <summary>The object types a collision rams (+0x8b0).</summary>
-    public uint TypeMask = 0x24c00080u;
+    public uint TypeMask { get; set; } = 0x24c00080u;
 
     /// <summary>Creates a vehicle.</summary>
     /// <param name="ctx">The class context.</param>
@@ -341,12 +342,12 @@ public class Vehicle : GameBase
             SoundState = 0;
             SetMaskBits(0x10000);
         }
-        RepairStep(kDt);
+        RepairStep(Dt);
         ExpireCollisions();
         if (!Piloted || Credit < -25)
         {
             var zero = new Move();
-            Update(ref zero, kDt);
+            Update(ref zero, Dt);
             TicksWithoutMove = 0;
         }
         else
@@ -363,7 +364,7 @@ public class Vehicle : GameBase
         for (var i = 0; i < count && Credit < 6; ++i)
         {
             ++Credit;
-            Update(ref LastMove, kDt);
+            Update(ref LastMove, Dt);
             LastMove = moves[i];
         }
         TicksWithoutMove = 0;
@@ -547,25 +548,25 @@ public class Vehicle : GameBase
     public sealed class ClientControl
     {
         /// <summary>The rotation.</summary>
-        public readonly float[] Rot = new float[3];
+        public float[] Rot { get; } = new float[3];
         /// <summary>The target rotation.</summary>
-        public readonly float[] TargetRot = new float[3];
+        public float[] TargetRot { get; } = new float[3];
         /// <summary>The position.</summary>
-        public readonly float[] Position = new float[3];
+        public float[] Position { get; } = new float[3];
         /// <summary>The raw 16-bit unit forward speed.</summary>
-        public uint SpeedF16;
+        public uint SpeedF16 { get; set; }
         /// <summary>The raw 16-bit unit desired speed.</summary>
-        public uint SpeedT16;
+        public uint SpeedT16 { get; set; }
         /// <summary>The raw 16-bit unit energy.</summary>
-        public uint Energy16;
+        public uint Energy16 { get; set; }
         /// <summary>True when the state carries the Flier part.</summary>
-        public bool HasFlier;
+        public bool HasFlier { get; set; }
         /// <summary>The Flier lift speed.</summary>
-        public float L;
+        public float L { get; set; }
         /// <summary>The Flier side speed.</summary>
-        public float S;
+        public float S { get; set; }
         /// <summary>The Flier landed flag.</summary>
-        public bool Landed;
+        public bool Landed { get; set; }
     }
 
     /// <summary>Applies a control state read from the stream to the client copy.</summary>
@@ -706,23 +707,23 @@ public class Vehicle : GameBase
 public sealed class Flier : Vehicle
 {
     /// <summary>The hull collision mask (+0x1ec, Flier_onNewDataBlock).</summary>
-    public const uint kHullMask = 0x34c00086u;
+    public const uint HullMask = 0x34c00086u;
 
     /// <summary>The ceiling (+0x958).</summary>
-    public float Ceiling;
+    public float Ceiling { get; set; }
     /// <summary>The ground height (+0x95c).</summary>
-    public float Ground;
+    public float Ground { get; set; }
     /// <summary>The thrust (+0x884).</summary>
-    public readonly float[] Thrust = new float[3];
+    public float[] Thrust { get; } = new float[3];
     /// <summary>The margin (+0x964).</summary>
-    public float Margin;
+    public float Margin { get; set; }
     /// <summary>True while braking (+0x960).</summary>
-    public bool Braking;
+    public bool Braking { get; set; }
     /// <summary>The active flag (+0x961).</summary>
-    public bool ActiveFlag;
+    public bool ActiveFlag { get; set; }
 
-    private readonly List<SimObject> mNotify = []; // objects hit by the current move (info +0x3c)
-    private Float9 mImageRot = Float9.Identity();     // rotation of the move's image transform
+    private readonly List<SimObject> _notify = []; // objects hit by the current move (info +0x3c)
+    private Float9 _imageRot = Float9.Identity();     // rotation of the move's image transform
 
     /// <summary>Creates a Flier.</summary>
     /// <param name="ctx">The class context.</param>
@@ -823,7 +824,7 @@ public sealed class Flier : Vehicle
         var gnd = h;
         if (counted && h < hr)
             gnd = hr;
-        if ((!Piloted || SpeedF < Mul(kThird, Data.MaxSpeed)) && Damage < MaxDamage)
+        if ((!Piloted || SpeedF < Mul(Third, Data.MaxSpeed)) && Damage < MaxDamage)
             gnd = X87.F32(Add(gnd, 2.0f));
         if (gnd < pz || SpeedF != 0.0f)
         {
@@ -913,7 +914,7 @@ public sealed class Flier : Vehicle
         // (onDamage, onDestroyed) reads the rotation of the previous update.
         var image = new Transform();
         MissionTransform.EulerToMatrix(Rotation, ref image);
-        mImageRot = image.M;
+        _imageRot = image.M;
         // The matrix flags of the object are untouched until a sub-step is free: a Flier that has just landed
         // (setPosition with a zero rotation: identity flags) reads "0 0 0" in a callback of its first contact.
         if (SteppedMove(target, ItemSubStep, X87.F32(Mul(ItemSubStep, 0.3f)), slice))
@@ -934,8 +935,8 @@ public sealed class Flier : Vehicle
             p[2] = Transform.P[2];
             rest = !TestAt(p, candidates, hits) && ProcessCollision(hits, round);
         }
-        var notified = new List<SimObject>(mNotify);
-        mNotify.Clear();
+        var notified = new List<SimObject>(_notify);
+        _notify.Clear();
         foreach (var other in notified)
         {
             PostCollision(other, this);
@@ -956,13 +957,13 @@ public sealed class Flier : Vehicle
             return false;
         using var chop = X87.Chop();
         var d = Data;
-        var k = X87.F32(Mul(kTick, dt));
+        var k = X87.F32(Mul(Tick, dt));
         float oldT = SpeedT, oldF = SpeedF;
         var hv = Mul(d.MaxVertical, 0.5f);
-        var roll0 = X87.F32(Sub(Rotation[1], Mul(Div(SpeedS, hv), kPi32)));
+        var roll0 = X87.F32(Sub(Rotation[1], Mul(Div(SpeedS, hv), Pi32)));
         Braking = ActiveFlag = false;
         var a = X87.F32(Sub(1.0, Div(SpeedF, d.MaxSpeed)));
-        if (a < kFloor033)
+        if (a < Floor033)
             a = BitConverter.UInt32BitsToSingle(0x3ea8f5c3u); // f32 0.33 at the compare
         var pitchIn = X87.F32(Mul(Mul(Mul(-(double)move.Pitch, a), 0.25f), k));
         var yawIn = X87.F32(Mul(Mul(Mul(move.Turn, a), 0.25f), k));
@@ -1084,8 +1085,8 @@ public sealed class Flier : Vehicle
         }
         Soft(ref ry, d.MaxBank);
         Soft(ref rx, d.MaxPitch);
-        rz = X87.F32(Sub(rz, Mul(Mul(kYawPerBank, ry), k)));
-        ry = X87.F32(Add(Mul(Div(SpeedS, hv), kPi32), ry));
+        rz = X87.F32(Sub(rz, Mul(Mul(YawPerBank, ry), k)));
+        ry = X87.F32(Add(Mul(Div(SpeedS, hv), Pi32), ry));
         if (Piloted)
         {
             TargetRot[0] = rx;
@@ -1096,7 +1097,7 @@ public sealed class Flier : Vehicle
             TargetRot[0] = TargetRot[1] = 0;
         if (Ceiling < p0[2])
             TargetRot[0] = 0;
-        var rate = Mul(k, kLevelRate);
+        var rate = Mul(k, LevelRate);
         void Level(ref float v, float t)
         {
             if (t <= v)
@@ -1134,7 +1135,7 @@ public sealed class Flier : Vehicle
             for (var i = 0; i < 3; ++i)
             {
                 var dlt = X87.F32(Sub(a3[i], b3[i]));
-                if (kTiny <= Mul(dlt, dlt))
+                if (Tiny <= Mul(dlt, dlt))
                     return true;
             }
             return false;
@@ -1152,7 +1153,7 @@ public sealed class Flier : Vehicle
     // are world space).
     private static void ContactNormal(CollisionHit hit, in CollisionSurface s, Span<float> output)
     {
-        if ((hit.Type & ObjectType.kTerrainType) != 0)
+        if ((hit.Type & ObjectType.TerrainType) != 0)
         {
             output[0] = s.Normal[0];
             output[1] = s.Normal[1];
@@ -1174,7 +1175,7 @@ public sealed class Flier : Vehicle
     {
         var m = new Mat
         {
-            M = mImageRot,
+            M = _imageRot,
             P = new Vec3(target[0], target[1], target[2])
         };
         Span<float> box = stackalloc float[6], query = stackalloc float[6];
@@ -1197,7 +1198,7 @@ public sealed class Flier : Vehicle
         {
             // The image transform of the running move in place of the object matrix, for one test.
             var saved = Transform.M;
-            Transform.M = mImageRot;
+            Transform.M = _imageRot;
             try
             {
                 free = ItemTestAt(q, candidates, hits, triggered);
@@ -1249,7 +1250,7 @@ public sealed class Flier : Vehicle
     {
         using var chop = X87.Chop();
         ItemFlags &= ~5;
-        mImageRot = Transform.M;
+        _imageRot = Transform.M;
         return Displace.PushBy(delta, mover, ShapeQueryBox, Velocity, ref AtRest, i => Transform.P[i],
                                (target, step0, step1) => SteppedMove(target, step0, step1, 0.032f, 6));
     }
@@ -1262,7 +1263,7 @@ public sealed class Flier : Vehicle
     /// <param name="mask">The object type mask of the objects to collide with.</param>
     /// <returns>True when the move was not blocked in every iteration.</returns>
     /// <remarks>Follows SimMovement_stepMove (0x00505a3c) with the Flier collision callback (vtable +0xb8). The image is the ShapeCollisionImage in mesh mode: its bounding sphere (radius * 0.25) against terrain and other shapes, its box against interiors, and its mesh against the sphere of a Player (docs/collision.md T3).</remarks>
-    public bool SteppedMove(float[] target, float step0, float step1, float slice, uint mask = kHullMask)
+    public bool SteppedMove(float[] target, float step0, float step1, float slice, uint mask = HullMask)
     {
         var gs = Game();
         ItemContact = false;
@@ -1284,13 +1285,13 @@ public sealed class Flier : Vehicle
         // object's transform over it: the sub-step that was being tried is lost, and a move that ends in that pass leaves
         // the object where it was, with the rotation and matrix flags it had.
         var self = gs.World.Find(this);
-        var targetRot = mImageRot;
+        var targetRot = _imageRot;
         var imageReset = false;
         uint resetFlags = 0;
         var blocked = true;
         for (var iteration = 0; iteration < 3; ++iteration)
         {
-            mImageRot = targetRot;
+            _imageRot = targetRot;
             imageReset = false;
             float[] delta = new float[3], dd = new float[3];
             for (var i = 0; i < 3; ++i)
@@ -1328,7 +1329,7 @@ public sealed class Flier : Vehicle
                     {
                         imageReset = true;
                         resetFlags = Transform.Flags;
-                        mImageRot = Transform.M;
+                        _imageRot = Transform.M;
                         for (var j = 0; j < 3; ++j)
                             qpos[j] = Transform.P[j];
                     }
@@ -1359,15 +1360,15 @@ public sealed class Flier : Vehicle
         }
         _ = step;
         // Collision events to both sides for every notified object (0x00507180).
-        var notified = new List<SimObject>(mNotify);
-        mNotify.Clear();
+        var notified = new List<SimObject>(_notify);
+        _notify.Clear();
         foreach (var other in notified)
         {
             PostCollision(other, this);
             PostCollision(this, other);
         }
         // SimObject_setTransformRaw 0x005054a4 with the image transform: the new rotation becomes the object's.
-        Transform.M = mImageRot;
+        Transform.M = _imageRot;
         if (!blocked && imageReset)
             Transform.Flags = resetFlags;
         if (blocked)
@@ -1424,8 +1425,8 @@ public sealed class Flier : Vehicle
                 ++i;
         }
         foreach (var h in hits)
-            if (h.Object is SimObject so && !mNotify.Contains(so))
-                mNotify.Add(so);
+            if (h.Object is SimObject so && !_notify.Contains(so))
+                _notify.Add(so);
         float[] n = [0, 0, 0];
         var groundHit = false;
         foreach (var h in hits)
@@ -1439,7 +1440,7 @@ public sealed class Flier : Vehicle
                 var s = X87.Lenf(dv);
                 if (maxSpeed < s)
                     s = maxSpeed;
-                if ((h.Type & ObjectType.kPlayerType) == 0)
+                if ((h.Type & ObjectType.PlayerType) == 0)
                     SpeedF = SpeedT = SpeedL = 0;
                 if (s < X87.F32(Mul(maxSpeed, 0.25f)))
                     s = 0;
@@ -1451,7 +1452,7 @@ public sealed class Flier : Vehicle
                     other.ApplyDamage(Data.RamDamageType, value, pos, vel, zero, Id());
                 ApplyDamage(-1, X87.F32(Mul(value, 0.5f)), pos, vel, zero, Id());
             }
-            else if ((h.Type & (ObjectType.kTerrainType | ObjectType.kInteriorType)) != 0)
+            else if ((h.Type & (ObjectType.TerrainType | ObjectType.InteriorType)) != 0)
             {
                 // C3: contact normals of terrain and interior hits.
                 groundHit = true;
@@ -1478,7 +1479,7 @@ public sealed class Flier : Vehicle
             if (dd < 0.0f)
             {
                 // C5
-                if (sp < Mul(kThird, maxSpeed))
+                if (sp < Mul(Third, maxSpeed))
                     sp = 0;
                 var D = X87.F32(Mul(Mul(Div(sp, maxSpeed), MaxDamage), Data.GroundDamageScale));
                 if (dd <= -0.25f || SpeedF <= X87.F32(Mul(maxSpeed, 0.25f)))
@@ -1528,7 +1529,7 @@ public sealed class Flier : Vehicle
                     TargetRot[0] = e[0];
                     TargetRot[1] = e[1];
                     TargetRot[2] = e[2];
-                    TargetRot[0] = X87.F32(Add(Mul(kTwoThirds, Sub(TargetRot[0], before)), before));
+                    TargetRot[0] = X87.F32(Add(Mul(TwoThirds, Sub(TargetRot[0], before)), before));
                     SetRotation(TargetRot);
                     SpeedF = X87.F32(Mul(SpeedF, 0.8f));
                     SpeedT = X87.F32(Mul(SpeedT, 0.8f));
@@ -1559,7 +1560,7 @@ public sealed class Flier : Vehicle
                 var wn = new float[3];
                 ContactNormal(h, s2, wn);
                 Material? mat = null;
-                if (s2.Material >= 0 && (h.Type & ObjectType.kTerrainType) != 0)
+                if (s2.Material >= 0 && (h.Type & ObjectType.TerrainType) != 0)
                     mat = gs.TerrainMaterial(s2.Material);
                 if (SurfaceResponse(wn, mat, flags))
                     handledAny = true;

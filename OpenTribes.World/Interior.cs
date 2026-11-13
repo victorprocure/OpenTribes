@@ -9,7 +9,9 @@ using static OpenTribes.Core.Fpu;
 public struct Vec3
 {
     /// <summary>The components.</summary>
-    public float X, Y, Z;
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float Z { get; set; }
 
     /// <summary>Creates a vector.</summary>
     /// <param name="x">The x component.</param>
@@ -43,32 +45,36 @@ public struct Vec3
 public struct Plane
 {
     /// <summary>The normal components and the distance.</summary>
-    public float Nx, Ny, Nz, D;
+    public float Nx { get; set; }
+    public float Ny { get; set; }
+    public float Nz { get; set; }
+    public float D { get; set; }
 }
 
 /// <summary>A BSP node. A child index of 0 or more is a node, below 0 it is the leaf -(c + 1).</summary>
 public struct BspNode
 {
     /// <summary>The index of the node's plane.</summary>
-    public ushort PlaneIndex;
+    public ushort PlaneIndex { get; set; }
     /// <summary>The front and back child indices.</summary>
-    public short Front, Back;
+    public short Front { get; set; }
+    public short Back { get; set; }
 }
 
 /// <summary>Four unsigned 16-bit values stored inline.</summary>
 [InlineArray(4)]
 public struct UShort4
 {
-    private ushort mElement;
+    private ushort _element;
 }
 
 // The Reader of the anonymous namespaces of src/world/interior.cpp and src/world/shape.cpp: little-endian reads that
 // fail (ok = false, value 0, position kept) past the end; skip moves past the end and fails.
 internal sealed class Reader
 {
-    public readonly byte[] D;
-    public long Pos;
-    public bool Ok = true;
+    public byte[] D { get; }
+    public long Pos { get; set; }
+    public bool Ok { get; set; } = true;
 
     public Reader(byte[] d) => D = d;
 
@@ -139,59 +145,71 @@ internal sealed class Reader
 /// <remarks>Port of src/world/interior.cpp (docs/interiors.md). All arithmetic follows the current rounding mode of <c>Fpu</c> (ldouble is double in the portable build, docs/portable-float.md 1) and a float store is <c>Fpu.Store</c>.</remarks>
 public sealed class InteriorGeometry
 {
-    private const float kPlaneEps = 1e-5f; // DAT_0063f9a0
+    private const float PlaneEps = 1e-5f; // DAT_0063f9a0
 
     /// <summary>The result of a line cast.</summary>
     public struct Hit
     {
         /// <summary>The hit point and the surface normal, in geometry space.</summary>
-        public Vec3 Point, Normal;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Vec3 Point => ref _point;
+        private Vec3 _point;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Vec3 Normal => ref _normal;
+        private Vec3 _normal;
         /// <summary>The leaf that was entered and the index of the plane that was crossed.</summary>
-        public int Leaf, PlaneIndex;
+        public int Leaf { get; set; }
+        public int PlaneIndex { get; set; }
     }
 
     /// <summary>The geometry box, min xyz then max xyz.</summary>
-    public Float6 Box;
+    public ref Float6 Box => ref _box;
+    private Float6 _box;
     /// <summary>The .dml of the .dis (docs/collision.md 4.3), empty when unknown.</summary>
-    public string MaterialListName = "";
+    public string MaterialListName { get; set; } = "";
     /// <summary>The linkedInterior byte of the .dis (docs/interiors.md 3), state 0, LOD 0.</summary>
-    public bool LinkedInterior;
+    public bool LinkedInterior { get; set; }
     /// <summary>The linkableFaces mask of the .dis (docs/interiors.md 3), state 0, LOD 0.</summary>
-    public uint LinkableFaces = 0xfc;
+    public uint LinkableFaces { get; set; } = 0xfc;
 
     private struct Surface
     {
-        public byte Flags, Material;
-        public ushort PlaneIndex;
-        public uint FirstVertex;
-        public byte VertexCount;
+        public byte Flags { get; set; }
+        public byte Material { get; set; }
+        public ushort PlaneIndex { get; set; }
+        public uint FirstVertex { get; set; }
+        public byte VertexCount { get; set; }
     }
     private struct SolidLeaf
     {
-        public uint Offset;
-        public ushort Count;
-        public uint PlaneOffset;
-        public ushort PlaneCount;
+        public uint Offset { get; set; }
+        public ushort Count { get; set; }
+        public uint PlaneOffset { get; set; }
+        public ushort PlaneCount { get; set; }
     }
     private struct EmptyLeaf
     {
-        public ushort PvsCount; // byte count << 1
-        public uint PvsOffset;
-        public ushort SurfaceCount;
-        public uint SurfaceOffset, PlaneOffset;
-        public float MinX, MinY, MinZ, MaxX, MaxY, MaxZ;
-        public ushort PlaneCount;
+        public ushort PvsCount { get; set; } // byte count << 1
+        public uint PvsOffset { get; set; }
+        public ushort SurfaceCount { get; set; }
+        public uint SurfaceOffset { get; set; }
+        public uint PlaneOffset { get; set; }
+        public float MinX { get; set; }
+        public float MinY { get; set; }
+        public float MinZ { get; set; }
+        public float MaxX { get; set; }
+        public float MaxY { get; set; }
+        public float MaxZ { get; set; }
+        public ushort PlaneCount { get; set; }
     }
 
-    private readonly List<Surface> mSurfaces = [];
-    private readonly List<SolidLeaf> mSolidLeaves = [];
-    private readonly List<ushort> mVertices = []; // point3 index of each polygon vertex
-    private readonly List<Vec3> mPoints = [];     // point3 after the read-time adjustment (4.3)
-    private readonly List<BspNode> mNodes = [];
-    private readonly List<Plane> mPlanes = [];
-    private readonly List<EmptyLeaf> mEmptyLeaves = [];
-    private byte[] mBits = [];
-    private uint mSolidCount;
+    private readonly List<Surface> _surfaces = [];
+    private readonly List<SolidLeaf> _solidLeaves = [];
+    private readonly List<ushort> _vertices = []; // point3 index of each polygon vertex
+    private readonly List<Vec3> _points = [];     // point3 after the read-time adjustment (4.3)
+    private readonly List<BspNode> _nodes = [];
+    private readonly List<Plane> _planes = [];
+    private readonly List<EmptyLeaf> _emptyLeaves = [];
+    private byte[] _bits = [];
+    private uint _solidCount;
 
     /// <summary>Tests whether a leaf number is a solid leaf.</summary>
     /// <param name="leaf">The leaf number.</param>
@@ -199,30 +217,30 @@ public sealed class InteriorGeometry
     public bool IsSolid(int leaf) => IsSolidLeaf(leaf);
     /// <summary>Gets the number of solid leaves.</summary>
     /// <returns>The count.</returns>
-    public uint SolidCount() => mSolidCount;
+    public uint SolidCount() => _solidCount;
     /// <summary>Gets the number of empty leaves.</summary>
     /// <returns>The count.</returns>
-    public int EmptyCount() => mEmptyLeaves.Count;
+    public int EmptyCount() => _emptyLeaves.Count;
     /// <summary>Gets the BSP nodes.</summary>
     /// <returns>The nodes.</returns>
-    public IReadOnlyList<BspNode> Nodes() => mNodes;
+    public IReadOnlyList<BspNode> Nodes() => _nodes;
     /// <summary>Gets the BSP planes.</summary>
     /// <returns>The planes.</returns>
-    public IReadOnlyList<Plane> Planes() => mPlanes;
-    private bool IsSolidLeaf(int leaf) => leaf >= 43 && leaf < 43 + (int)mSolidCount;
+    public IReadOnlyList<Plane> Planes() => _planes;
+    private bool IsSolidLeaf(int leaf) => leaf >= 43 && leaf < 43 + (int)_solidCount;
 
     /// <summary>Gets the material byte of a surface.</summary>
     /// <param name="surface">The surface index.</param>
     /// <returns>The material byte, 0xff for none.</returns>
     public byte SurfaceMaterial(int surface) =>
-        surface >= 0 && surface < mSurfaces.Count ? mSurfaces[surface].Material : (byte)0xff;
+        surface >= 0 && surface < _surfaces.Count ? _surfaces[surface].Material : (byte)0xff;
 
     // src/world/interior.cpp side.
     private static int Side(in Plane pl, Vec3 p)
     {
         var s = Store(Add(Add(Mul(pl.Nx, p.X), Mul(pl.Ny, p.Y)), Mul(pl.Nz, p.Z)));
-        if (Sub(s, kPlaneEps) <= -(double)pl.D)
-            return -(double)pl.D <= Add(s, kPlaneEps) ? 0 : -1;
+        if (Sub(s, PlaneEps) <= -(double)pl.D)
+            return -(double)pl.D <= Add(s, PlaneEps) ? 0 : -1;
         return 1;
     }
 
@@ -285,7 +303,7 @@ public sealed class InteriorGeometry
                     s.VertexCount = r.GetU8();
                     r.Pos = start;
                     r.Skip(20);
-                    g.mSurfaces.Add(s);
+                    g._surfaces.Add(s);
                 }
             }
             else if (i == 2)
@@ -303,7 +321,7 @@ public sealed class InteriorGeometry
                     };
                     r.Pos = start;
                     r.Skip(12);
-                    g.mSolidLeaves.Add(l);
+                    g._solidLeaves.Add(l);
                 }
             }
             else if (i == 1)
@@ -317,7 +335,7 @@ public sealed class InteriorGeometry
                         Back = r.GetI16()
                     };
                     r.Skip(2);
-                    g.mNodes.Add(n);
+                    g._nodes.Add(n);
                 }
             }
             else if (i == 3)
@@ -343,7 +361,7 @@ public sealed class InteriorGeometry
                     };
                     r.Pos = start;
                     r.Skip(44);
-                    g.mEmptyLeaves.Add(l);
+                    g._emptyLeaves.Add(l);
                 }
             }
             else if (i == 4)
@@ -351,14 +369,14 @@ public sealed class InteriorGeometry
                 var start = r.Pos;
                 r.Skip(counts[4]);
                 if (r.Ok)
-                    g.mBits = data.AsSpan((int)start, (int)counts[4]).ToArray();
+                    g._bits = data.AsSpan((int)start, (int)counts[4]).ToArray();
             }
             else if (i == 5)
             {
                 // Vertex (4 bytes): +0 u16 point3 index.
                 for (uint k = 0; k < counts[5]; ++k)
                 {
-                    g.mVertices.Add(r.GetU16());
+                    g._vertices.Add(r.GetU16());
                     r.Skip(2);
                 }
             }
@@ -377,7 +395,7 @@ public sealed class InteriorGeometry
                         else if (v[a] == g.Box[a + 3])
                             v[a] = Store(Add(v[a], 0.0125f));
                     }
-                    g.mPoints.Add(v);
+                    g._points.Add(v);
                 }
             }
             else if (i == 8)
@@ -391,7 +409,7 @@ public sealed class InteriorGeometry
                         Nz = r.GetF32(),
                         D = r.GetF32()
                     };
-                    g.mPlanes.Add(p);
+                    g._planes.Add(p);
                 }
             }
             else
@@ -399,8 +417,8 @@ public sealed class InteriorGeometry
                 r.Skip(counts[i] * kSizes[i]);
             }
         }
-        g.mSolidCount = counts[2];
-        if (!r.Ok || g.mNodes.Count == 0)
+        g._solidCount = counts[2];
+        if (!r.Ok || g._nodes.Count == 0)
             return null;
         return g;
     }
@@ -433,8 +451,8 @@ public sealed class InteriorGeometry
         var node = 0;
         while (node >= 0)
         {
-            var n = mNodes[node];
-            node = Side(mPlanes[n.PlaneIndex], p) == 1 ? n.Front : n.Back;
+            var n = _nodes[node];
+            node = Side(_planes[n.PlaneIndex], p) == 1 ? n.Front : n.Back;
         }
         return -(node + 1);
     }
@@ -444,8 +462,8 @@ public sealed class InteriorGeometry
     {
         if (leaf < 0 || IsSolidLeaf(leaf))
             return -1;
-        var i = leaf < 43 ? leaf : leaf - mSolidCount;
-        return i < mEmptyLeaves.Count ? (int)i : -1;
+        var i = leaf < 43 ? leaf : leaf - _solidCount;
+        return i < _emptyLeaves.Count ? (int)i : -1;
     }
 
     /// <summary>Lists the leaves visible from an empty leaf (0056234c).</summary>
@@ -458,22 +476,22 @@ public sealed class InteriorGeometry
         var li = EmptyLeafIndex(leaf);
         if (li < 0)
             return output;
-        var l = mEmptyLeaves[li];
+        var l = _emptyLeaves[li];
         long pos = l.PvsOffset, end = pos + (l.PvsCount >> 1);
-        if (end > mBits.Length)
+        if (end > _bits.Length)
             return output;
         var bas = -8;
         while (true)
         {
-            while (pos < end && mBits[pos] == 0)
+            while (pos < end && _bits[pos] == 0)
             {
-                bas += (pos + 1 < mBits.Length ? mBits[pos + 1] : 0) * 8;
+                bas += (pos + 1 < _bits.Length ? _bits[pos + 1] : 0) * 8;
                 pos += 2;
             }
             if (pos >= end)
                 break;
             bas += 8;
-            var bt = mBits[pos++];
+            var bt = _bits[pos++];
             for (var bit = 0; bit < 8; ++bit)
                 if ((bt & (0x80 >> bit)) != 0)
                     output.Add(bas + bit);
@@ -485,17 +503,17 @@ public sealed class InteriorGeometry
     private void OrList(byte[] set, long offset, int count)
     {
         long pos = offset, end = offset + count, at = 0;
-        while (pos < end && pos < mBits.Length)
+        while (pos < end && pos < _bits.Length)
         {
-            if (mBits[pos] == 0)
+            if (_bits[pos] == 0)
             {
-                at += pos + 1 < mBits.Length ? mBits[pos + 1] : 0;
+                at += pos + 1 < _bits.Length ? _bits[pos + 1] : 0;
                 pos += 2;
             }
             else
             {
                 if (at < set.Length)
-                    set[at] |= mBits[pos];
+                    set[at] |= _bits[pos];
                 ++at;
                 ++pos;
             }
@@ -503,7 +521,7 @@ public sealed class InteriorGeometry
     }
 
     /// <summary>Gets the total number of surfaces.</summary>
-    public int SurfaceCountTotal => mSurfaces.Count;
+    public int SurfaceCountTotal => _surfaces.Count;
 
     /// <summary>Selects the surfaces the stock renderer draws for a camera (code 0055db5c, 0055e1a4, 0055e2d8, 0055e4b0, 0055e578).</summary>
     /// <param name="cam">The camera point in interior space.</param>
@@ -513,12 +531,12 @@ public sealed class InteriorGeometry
     public bool[] SelectSurfaces(Vec3 cam, Func<float, float, float, float, bool> sphereVisible)
     {
         var leaf = LeafAt(cam);
-        var surfaceSet = new byte[(mSurfaces.Count >> 3) + 1];
-        var planeSet = new byte[(mPlanes.Count >> 3) + 1];
+        var surfaceSet = new byte[(_surfaces.Count >> 3) + 1];
+        var planeSet = new byte[(_planes.Count >> 3) + 1];
         var ei = EmptyLeafIndex(leaf);
         if (ei >= 0)
         {
-            AddLeaf(surfaceSet, planeSet, mEmptyLeaves[ei]);
+            AddLeaf(surfaceSet, planeSet, _emptyLeaves[ei]);
             foreach (var n in VisibleLeaves(leaf))
             {
                 if (n < 6 || IsSolidLeaf(n))
@@ -526,30 +544,30 @@ public sealed class InteriorGeometry
                 var vi = EmptyLeafIndex(n);
                 if (vi < 0)
                     continue;
-                var l = mEmptyLeaves[vi];
+                var l = _emptyLeaves[vi];
                 float dx = l.MaxX - l.MinX, dy = l.MaxY - l.MinY, dz = l.MaxZ - l.MinZ;
                 var radius = (float)Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
                 if (sphereVisible((l.MinX + l.MaxX) * 0.5f, (l.MinY + l.MaxY) * 0.5f, (l.MinZ + l.MaxZ) * 0.5f, radius))
                     AddLeaf(surfaceSet, planeSet, l);
             }
         }
-        else if (IsSolidLeaf(leaf) && leaf - 43 < mSolidLeaves.Count)
+        else if (IsSolidLeaf(leaf) && leaf - 43 < _solidLeaves.Count)
         {
-            var sl = mSolidLeaves[leaf - 43];
+            var sl = _solidLeaves[leaf - 43];
             OrList(surfaceSet, sl.Offset, sl.Count);
             OrList(planeSet, sl.PlaneOffset, sl.PlaneCount);
         }
-        for (var i = 0; i < mPlanes.Count; ++i)
+        for (var i = 0; i < _planes.Count; ++i)
         {
-            if ((planeSet[i >> 3] & (0x80 >> (i & 7))) != 0 && Side(mPlanes[i], cam) != 1)
+            if ((planeSet[i >> 3] & (0x80 >> (i & 7))) != 0 && Side(_planes[i], cam) != 1)
                 planeSet[i >> 3] &= (byte)~(0x80 >> (i & 7));
         }
-        var result = new bool[mSurfaces.Count];
-        for (var s = 0; s < mSurfaces.Count; ++s)
+        var result = new bool[_surfaces.Count];
+        for (var s = 0; s < _surfaces.Count; ++s)
         {
             if ((surfaceSet[s >> 3] & (0x80 >> (s & 7))) == 0)
                 continue;
-            var sf = mSurfaces[s];
+            var sf = _surfaces[s];
             int pi = sf.PlaneIndex;
             var inSet = (pi >> 3) < planeSet.Length && (planeSet[pi >> 3] & (0x80 >> (pi & 7))) != 0;
             result[s] = inSet != ((sf.Flags & 0x80) == 0);
@@ -576,10 +594,10 @@ public sealed class InteriorGeometry
         var li = EmptyLeafIndex(leaf);
         if (li < 0)
             return 0;
-        var l = mEmptyLeaves[li];
-        if ((l.PvsCount >> 1) == 0 || l.PvsOffset >= mBits.Length)
+        var l = _emptyLeaves[li];
+        if ((l.PvsCount >> 1) == 0 || l.PvsOffset >= _bits.Length)
             return 0;
-        return (byte)(mBits[l.PvsOffset] & 0xfc);
+        return (byte)(_bits[l.PvsOffset] & 0xfc);
     }
 
     // src/world/interior.cpp InteriorGeometry::rec.
@@ -610,7 +628,7 @@ public sealed class InteriorGeometry
             }
             else
             {
-                var pl = mPlanes[lastPlane];
+                var pl = _planes[lastPlane];
                 n = new Vec3(pl.Nx, pl.Ny, pl.Nz);
                 if (Side(pl, b) != -1)
                     n = new Vec3(-n.X, -n.Y, -n.Z);
@@ -618,12 +636,12 @@ public sealed class InteriorGeometry
             hit = new Hit { Point = a, Normal = n, Leaf = leaf, PlaneIndex = lastPlane };
             return true;
         }
-        if (node >= mNodes.Count)
+        if (node >= _nodes.Count)
             return false;
-        var nd = mNodes[node];
-        if (nd.PlaneIndex >= mPlanes.Count)
+        var nd = _nodes[node];
+        if (nd.PlaneIndex >= _planes.Count)
             return false;
-        var plane = mPlanes[nd.PlaneIndex];
+        var plane = _planes[nd.PlaneIndex];
         var k = Side(plane, b) + (3 * Side(plane, a));
         switch (k)
         {
@@ -754,35 +772,35 @@ public sealed class InteriorGeometry
     /// <returns>The surface index, or -1.</returns>
     public int SurfaceAt(int leaf, int plane, Vec3 point)
     {
-        if (!IsSolidLeaf(leaf) || leaf - 43 >= mSolidLeaves.Count || plane < 0 || plane >= mPlanes.Count)
+        if (!IsSolidLeaf(leaf) || leaf - 43 >= _solidLeaves.Count || plane < 0 || plane >= _planes.Count)
             return -1;
-        var l = mSolidLeaves[leaf - 43];
+        var l = _solidLeaves[leaf - 43];
         long p = l.Offset, end = (long)l.Offset + l.Count;
-        if (end > mBits.Length)
-            end = mBits.Length;
+        if (end > _bits.Length)
+            end = _bits.Length;
         ReadOnlySpan<float> P = [point.X, point.Y, point.Z];
         Span<float> N = stackalloc float[3];
         long bas = -8;
         for (; ; )
         {
-            while (p + 1 < end && mBits[p] == 0)
+            while (p + 1 < end && _bits[p] == 0)
             {
-                bas += (long)mBits[p + 1] * 8;
+                bas += (long)_bits[p + 1] * 8;
                 p += 2;
             }
-            if (p >= end || mBits[p] == 0)
+            if (p >= end || _bits[p] == 0)
                 break;
             bas += 8;
-            var bt = mBits[p++];
+            var bt = _bits[p++];
             for (var bit = 0; bit < 8; ++bit)
             {
                 if ((bt & (0x80 >> bit)) == 0)
                     continue;
                 var si = bas + bit;
-                if (si < 0 || si >= mSurfaces.Count || mSurfaces[(int)si].PlaneIndex != plane)
+                if (si < 0 || si >= _surfaces.Count || _surfaces[(int)si].PlaneIndex != plane)
                     continue;
-                var sf = mSurfaces[(int)si];
-                var pl = mPlanes[plane];
+                var sf = _surfaces[(int)si];
+                var pl = _planes[plane];
                 // N = plane normal, negated when planeFront (flags bit 7) is clear.
                 var front = (sf.Flags & 0x80) != 0;
                 N[0] = front ? pl.Nx : -pl.Nx;
@@ -793,9 +811,9 @@ public sealed class InteriorGeometry
                 for (uint k = 0; k < sf.VertexCount && ok; ++k)
                 {
                     var vi = (long)sf.FirstVertex + k;
-                    ok = vi < mVertices.Count && mVertices[(int)vi] < mPoints.Count;
+                    ok = vi < _vertices.Count && _vertices[(int)vi] < _points.Count;
                     if (ok)
-                        pts.Add(mPoints[mVertices[(int)vi]]);
+                        pts.Add(_points[_vertices[(int)vi]]);
                 }
                 if (ok && PolyTest(pts, N, P))
                     return (int)si;
@@ -810,31 +828,31 @@ public sealed class InteriorGeometry
     /// <returns>The surface index, or -1.</returns>
     public int FindSurface(int leaf, int plane)
     {
-        if (!IsSolidLeaf(leaf) || leaf - 43 >= mSolidLeaves.Count)
+        if (!IsSolidLeaf(leaf) || leaf - 43 >= _solidLeaves.Count)
             return -1;
-        var l = mSolidLeaves[leaf - 43];
+        var l = _solidLeaves[leaf - 43];
         long p = l.Offset, end = (long)l.Offset + l.Count;
-        if (end > mBits.Length)
-            end = mBits.Length;
+        if (end > _bits.Length)
+            end = _bits.Length;
         long bas = -8;
         for (; ; )
         {
             // Zero runs: {0, n} skips n bytes of surfaces. The original does not test the end inside this loop; here
             // the list bounds it.
-            while (p + 1 < end && mBits[p] == 0)
+            while (p + 1 < end && _bits[p] == 0)
             {
-                bas += (long)mBits[p + 1] * 8;
+                bas += (long)_bits[p + 1] * 8;
                 p += 2;
             }
-            if (p >= end || mBits[p] == 0)
+            if (p >= end || _bits[p] == 0)
                 break;
             bas += 8;
-            var bt = mBits[p++];
+            var bt = _bits[p++];
             for (var bit = 0; bit < 8; ++bit)
                 if ((bt & (0x80 >> bit)) != 0)
                 {
                     var s = bas + bit;
-                    if (s >= 0 && s < mSurfaces.Count && mSurfaces[(int)s].PlaneIndex == plane)
+                    if (s >= 0 && s < _surfaces.Count && _surfaces[(int)s].PlaneIndex == plane)
                         return (int)s;
                 }
         }
@@ -849,26 +867,26 @@ public sealed class InteriorShapeFile
     public sealed class Lod
     {
         /// <summary>The .dig name.</summary>
-        public string Geometry = "";
+        public string Geometry { get; set; } = "";
         /// <summary>The index of the first lodLightStates entry of this LOD.</summary>
-        public uint LightStateIndex;
+        public uint LightStateIndex { get; set; }
         /// <summary>The linkable faces mask.</summary>
-        public uint LinkableFaces;
+        public uint LinkableFaces { get; set; }
         /// <summary>The projected size below which the LOD is used when rendering (world-render.md 3.2).</summary>
-        public uint MinPixels;
+        public uint MinPixels { get; set; }
     }
     /// <summary>The .dig name of state 0, LOD 0.</summary>
-    public string CollisionGeometry = "";
+    public string CollisionGeometry { get; set; } = "";
     /// <summary>The .dml name, stored after the name buffer.</summary>
-    public string MaterialList = "";
+    public string MaterialList { get; set; } = "";
     /// <summary>The linkedInterior byte after the material list name (+0x48).</summary>
-    public bool LinkedInterior;
+    public bool LinkedInterior { get; set; }
     /// <summary>The index in <see cref="Lods"/> of state 0, LOD 0.</summary>
-    public uint State0Lod;
+    public uint State0Lod { get; set; }
     /// <summary>Every LOD of every state.</summary>
-    public readonly List<Lod> Lods = [];
+    public List<Lod> Lods { get; } = [];
     /// <summary>The lodLightStates entries as .dil names.</summary>
-    public readonly List<string> LodLights = [];
+    public List<string> LodLights { get; } = [];
 
     /// <summary>Parses a .dis file.</summary>
     /// <param name="data">The file bytes.</param>
@@ -962,65 +980,66 @@ public sealed class InteriorLights
     public sealed class Light
     {
         /// <summary>The light id (record +0x00).</summary>
-        public int Id;
+        public int Id { get; set; }
         /// <summary>Whether the light has a name, that is the name offset is not -1.</summary>
-        public bool Named;
+        public bool Named { get; set; }
         /// <summary>The name from the name buffer (record +0x04).</summary>
-        public string Name = "";
+        public string Name { get; set; } = "";
         /// <summary>The number of states (+0x08).</summary>
-        public int NumStates;
+        public int NumStates { get; set; }
         /// <summary>The index of the first state record (+0x0c).</summary>
-        public int FirstState;
+        public int FirstState { get; set; }
         /// <summary>The duration (+0x10).</summary>
-        public float Duration;
+        public float Duration { get; set; }
         /// <summary>The flags (+0x14). Bit 2 loops to the last state and bit 4 is random.</summary>
-        public uint Flags;
+        public uint Flags { get; set; }
     }
     /// <summary>One 16-byte state record of the lighting (+0x30).</summary>
     public struct StateRecord // 16 bytes of the lighting (+0x30)
     {
         /// <summary>The state color.</summary>
-        public UShort4 Color;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref UShort4 Color => ref _color;
+        private UShort4 _color;
         /// <summary>The state end time (+8).</summary>
-        public float Time;
+        public float Time { get; set; }
     }
     /// <summary>The run state of one light.</summary>
     public struct Run
     {
         /// <summary>The current state.</summary>
-        public int State;
+        public int State { get; set; }
         /// <summary>The time within the current state.</summary>
-        public float Time;
+        public float Time { get; set; }
         /// <summary>Extra run data.</summary>
-        public int Aux;
+        public int Aux { get; set; }
         /// <summary>The current color.</summary>
-        public uint Color;
+        public uint Color { get; set; }
     }
 
-    private readonly List<Light> mLights = [];
-    private StateRecord[] mStates = [];
-    private Run[] mRun = [];
+    private readonly List<Light> _lights = [];
+    private StateRecord[] _states = [];
+    private Run[] _run = [];
 
     /// <summary>Gets the number of lights.</summary>
     /// <returns>The count.</returns>
-    public int Size() => mLights.Count;
+    public int Size() => _lights.Count;
     /// <summary>Gets a light record.</summary>
     /// <param name="i">The light index.</param>
     /// <returns>The light.</returns>
-    public Light GetLight(int i) => mLights[i];
+    public Light GetLight(int i) => _lights[i];
     /// <summary>Gets the run state of a light.</summary>
     /// <param name="i">The light index.</param>
     /// <returns>The run state.</returns>
-    public Run GetRun(int i) => mRun[i];
+    public Run GetRun(int i) => _run[i];
 
     /// <summary>Parses the light records of an ITRLighting block.</summary>
     /// <param name="d">The file bytes.</param>
     /// <returns>True on success.</returns>
     public bool Parse(byte[] d)
     {
-        mLights.Clear();
-        mStates = [];
-        mRun = [];
+        _lights.Clear();
+        _states = [];
+        _run = [];
         var r = new Reader(d);
         if (!Interior.PersBody(d, r))
             return false;
@@ -1036,13 +1055,13 @@ public sealed class InteriorLights
         r.Skip(nameSize);
         if (!r.Ok)
             return false;
-        mStates = new StateRecord[nState];
+        _states = new StateRecord[nState];
         for (uint i = 0; i < nState; ++i)
         {
             var p = statePos + ((long)i * 16);
             for (var k = 0; k < 4; ++k)
-                mStates[i].Color[k] = Reader.U16At(d, p + (2 * k));
-            mStates[i].Time = Reader.F32At(d, p + 8);
+                _states[i].Color[k] = Reader.U16At(d, p + (2 * k));
+            _states[i].Time = Reader.F32At(d, p + 8);
         }
         for (uint i = 0; i < nLights; ++i)
         {
@@ -1061,9 +1080,9 @@ public sealed class InteriorLights
                 l.Named = true;
                 l.Name = Reader.CString(d, namePos + nameOff, nameSize - nameOff);
             }
-            mLights.Add(l);
+            _lights.Add(l);
         }
-        mRun = new Run[nLights]; // the instance constructor zeroes the array (0x00555f48)
+        _run = new Run[nLights]; // the instance constructor zeroes the array (0x00555f48)
         return true;
     }
 
@@ -1072,7 +1091,7 @@ public sealed class InteriorLights
     /// <returns>The id of the first light with this name, -1 when none.</returns>
     public int FindByName(string name)
     {
-        foreach (var l in mLights)
+        foreach (var l in _lights)
             if (l.Named && l.Name == name)
                 return l.Id;
         return -1;
@@ -1083,11 +1102,11 @@ public sealed class InteriorLights
     /// <returns>The light index, -1 past the end.</returns>
     public int FindIndex(int id)
     {
-        int first = 0, len = mLights.Count;
+        int first = 0, len = _lights.Count;
         while (len > 0)
         {
             var half = len / 2;
-            if (mLights[first + half].Id < id)
+            if (_lights[first + half].Id < id)
             {
                 first += half + 1;
                 len -= half + 1;
@@ -1097,7 +1116,7 @@ public sealed class InteriorLights
                 len = half;
             }
         }
-        return first == mLights.Count ? -1 : first;
+        return first == _lights.Count ? -1 : first;
     }
 
     /// <summary>Gets the current state of a light (00556e4c).</summary>
@@ -1106,7 +1125,7 @@ public sealed class InteriorLights
     public int StateOf(int id)
     {
         var i = FindIndex(id);
-        return i < 0 ? -1 : mRun[i].State;
+        return i < 0 ? -1 : _run[i].State;
     }
 
     /// <summary>Sets the state of a light (00556898).</summary>
@@ -1115,10 +1134,10 @@ public sealed class InteriorLights
     public void SetState(int id, int state)
     {
         var idx = FindIndex(id);
-        if (idx < 0 || state == mRun[idx].State)
+        if (idx < 0 || state == _run[idx].State)
             return;
-        var l = mLights[idx];
-        ref var run = ref mRun[idx];
+        var l = _lights[idx];
+        ref var run = ref _run[idx];
         if (state < 0)
             state = 0;
         if (state > l.NumStates)
@@ -1127,9 +1146,9 @@ public sealed class InteriorLights
         // The original reads record firstState + state, which for state == numStates is the first record of the next
         // light and past the array for the last one (read as 0 here).
         var at = (long)l.FirstState + state;
-        if (at < 0 || at >= mStates.Length)
+        if (at < 0 || at >= _states.Length)
             return;
-        var rec = mStates[at];
+        var rec = _states[at];
         run.Time = rec.Time;
         run.Color = ((uint)((rec.Color[3] + 0x80) >> 8) << 24) | ((uint)((rec.Color[0] + 0x80) >> 8) << 16) |
                     ((uint)((rec.Color[1] + 0x80) >> 8) << 8) | (uint)((rec.Color[2] + 0x80) >> 8);
@@ -1143,27 +1162,27 @@ public sealed class InteriorLights
         var idx = FindIndex(id);
         if (idx < 0)
             return;
-        var l = mLights[idx];
+        var l = _lights[idx];
         if (!(time >= 0)) // fcomp/sahf: below zero and NaN
             time = 0;
         if (time > l.Duration)
             time = l.Duration;
-        mRun[idx].Time = time;
+        _run[idx].Time = time;
         Animate(idx);
     }
 
     // src/world/interior.cpp InteriorLights::animate: 0x00556b28.
     private void Animate(int index)
     {
-        var l = mLights[index];
-        ref var run = ref mRun[index];
+        var l = _lights[index];
+        ref var run = ref _run[index];
         if ((l.Flags & 4) == 0)
         {
             // The state is the number of following records whose end time lies below the time.
             var i = 0;
             for (long at = l.FirstState; i < l.NumStates - 1; ++at, ++i)
             {
-                if (at + 1 < 0 || at + 1 >= mStates.Length || !(mStates[at + 1].Time < run.Time))
+                if (at + 1 < 0 || at + 1 >= _states.Length || !(_states[at + 1].Time < run.Time))
                     break;
             }
             run.State = i;
@@ -1173,9 +1192,9 @@ public sealed class InteriorLights
         // generator private to this code (0x006aeef0), which nothing else reads. The state stays as it was. A record
         // time of 0 would loop forever in the original.
         var at1 = (long)l.FirstState + 1;
-        if (at1 < 0 || at1 >= mStates.Length)
+        if (at1 < 0 || at1 >= _states.Length)
             return;
-        var period = mStates[at1].Time;
+        var period = _states[at1].Time;
         if (period > 0 && float.IsFinite(period) && float.IsFinite(run.Time))
             for (var n = 0; n < (1 << 20) && period <= run.Time; ++n) // bounded: a tiny period is slow
                 run.Time = SubF(run.Time, period);
@@ -1189,25 +1208,27 @@ public sealed class InteriorNetInfo
     public struct Light
     {
         /// <summary>The intensity (.dil light record +0x10).</summary>
-        public float Intensity;
+        public float Intensity { get; set; }
         /// <summary>Whether the light is on (.dil light record +0x14 bit 0).</summary>
-        public bool On;
+        public bool On { get; set; }
     }
     /// <summary>The buildId of the .dig of every LOD, then the checksum of the base .dil of every LOD in light state 0 (00484428).</summary>
-    public List<uint> StateWords = [];
+    public List<uint> StateWords { get; set; } = [];
     /// <summary>The base .dil lights of state 0, LOD 0 (0047f00c).</summary>
-    public List<Light> Lights = [];
+    public List<Light> Lights { get; set; } = [];
     /// <summary>The same lighting with its run state (instance +0x98, +0x34).</summary>
-    public InteriorLights Lighting = new();
+    public InteriorLights Lighting { get; set; } = new();
 }
 
 /// <summary>A row-vector transform: world = local * M + p (docs/interiors.md 5.2).</summary>
 public struct Mat
 {
     /// <summary>The 3x3 rotation.</summary>
-    public Float9 M;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float9 M => ref _m;
+    private Float9 _m;
     /// <summary>The translation.</summary>
-    public Vec3 P;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Vec3 P => ref _p;
+    private Vec3 _p;
 
     /// <summary>Creates the identity transform.</summary>
     public Mat()

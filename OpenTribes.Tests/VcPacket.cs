@@ -7,15 +7,15 @@ using OpenTribes.Net;
 
 internal sealed class VcPacket
 {
-    public uint IdBit;
-    public uint Seq;      // 9 bits
-    public uint AckAck;   // 5 bits
-    public List<(uint count, uint start)> Ranges = [];
-    public uint Type;     // 5 bits including flags 0x08 / 0x10
-    public bool HasId;
-    public uint Id;
-    public byte[] Payload = [];
-    public int HeaderBytes;
+    public uint IdBit { get; set; }
+    public uint Seq { get; set; }      // 9 bits
+    public uint AckAck { get; set; }   // 5 bits
+    public List<(uint count, uint start)> Ranges { get; set; } = [];
+    public uint Type { get; set; }     // 5 bits including flags 0x08 / 0x10
+    public bool HasId { get; set; }
+    public uint Id { get; set; }
+    public byte[] Payload { get; set; } = [];
+    public int HeaderBytes { get; set; }
 
     // tests/vc_packet.hpp carriesId.
     public static bool CarriesId(uint type)

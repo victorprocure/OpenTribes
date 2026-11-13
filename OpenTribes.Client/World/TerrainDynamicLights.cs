@@ -11,7 +11,14 @@ public sealed class TerrainLightSet
 
     private readonly struct Entry
     {
-        public readonly float X, Y, Z, Radius, Radius2, R, G, B;
+        public float X { get; }
+        public float Y { get; }
+        public float Z { get; }
+        public float Radius { get; }
+        public float Radius2 { get; }
+        public float R { get; }
+        public float G { get; }
+        public float B { get; }
 
         public Entry(PointLight l, double ox, double oy, double oz)
         {
@@ -24,9 +31,9 @@ public sealed class TerrainLightSet
         }
     }
 
-    private readonly Entry[] mLights;
+    private readonly Entry[] _lights;
     /// <summary>The number of lights in the set.</summary>
-    public int Count => mLights.Length;
+    public int Count => _lights.Length;
 
     /// <summary>Creates the set with the light positions moved to the terrain origin.</summary>
     /// <param name="lights">The lights of the frame.</param>
@@ -36,9 +43,9 @@ public sealed class TerrainLightSet
     public TerrainLightSet(IReadOnlyList<PointLight> lights, double ox, double oy, double oz)
     {
         var n = Math.Min(lights.Count, MaxLights);
-        mLights = new Entry[n];
+        _lights = new Entry[n];
         for (var i = 0; i < n; ++i)
-            mLights[i] = new Entry(lights[i], ox, oy, oz);
+            _lights[i] = new Entry(lights[i], ox, oy, oz);
     }
 
     /// <summary>Finds the lights that reach a square.</summary>
@@ -54,9 +61,9 @@ public sealed class TerrainLightSet
         float x0 = x * cs, y0 = y * cs, side = (1 << level) * cs;
         float z0 = t.MinHeight(level, x, y), zr = t.MaxHeight(level, x, y) - z0;
         uint mask = 0;
-        for (var i = 0; i < mLights.Length; ++i)
+        for (var i = 0; i < _lights.Length; ++i)
         {
-            var l = mLights[i];
+            var l = _lights[i];
             var dz = l.Z < z0 ? z0 - l.Z : l.Z > z0 + zr ? l.Z - (z0 + zr) : 0;
             var dx = l.X < x0 ? x0 - l.X : l.X > x0 + side ? l.X - (x0 + side) : 0;
             var dy = l.Y < y0 ? y0 - l.Y : l.Y > y0 + side ? l.Y - (y0 + side) : 0;
@@ -82,13 +89,13 @@ public sealed class TerrainLightSet
             StaticLarge(t, level, x, y, e);
         else
             StaticSmall(t, level, x, y, e);
-        for (var i = 0; i < mLights.Length; ++i)
+        for (var i = 0; i < _lights.Length; ++i)
             if ((mask & (1u << i)) != 0)
             {
                 if (level >= 3)
-                    LightLarge(t, level, x, y, mLights[i], e);
+                    LightLarge(t, level, x, y, _lights[i], e);
                 else
-                    LightSmall(t, level, x, y, mLights[i], e, h);
+                    LightSmall(t, level, x, y, _lights[i], e, h);
             }
         for (var i = 0; i < 81 * 3; ++i)
             nibbles[i] = (byte)(e[i] < 0x100 ? e[i] >> 4 : 15);

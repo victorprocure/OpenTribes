@@ -23,13 +23,13 @@ public sealed class TerrainData
     /// <summary>The number of materials of the terrain.</summary>
     public int MaterialCount { get; }
 
-    private readonly float[] mHeights;     // 257 x 257, 11.5 fixed point already applied
-    private readonly byte[] mFlags;        // 256 x 256
-    private readonly ushort[] mMaterial;   // 256 x 256
-    private readonly ushort[] mLight;      // 256 x 256 raw light map words
-    private readonly float[][] mMin = new float[Levels][];
-    private readonly float[][] mMax = new float[Levels][];
-    private readonly bool[][] mEmpty = new bool[Levels][];
+    private readonly float[] _heights;     // 257 x 257, 11.5 fixed point already applied
+    private readonly byte[] _flags;        // 256 x 256
+    private readonly ushort[] _material;   // 256 x 256
+    private readonly ushort[] _light;      // 256 x 256 raw light map words
+    private readonly float[][] _min = new float[Levels][];
+    private readonly float[][] _max = new float[Levels][];
+    private readonly bool[][] _empty = new bool[Levels][];
 
     /// <summary>Builds the render block.</summary>
     /// <param name="block">The heights (N+1)^2 and squares as parsed by GridBlock.</param>
@@ -40,10 +40,10 @@ public sealed class TerrainData
         var n = block.Size;
         SourceSize = n;
         MaterialCount = materialCount;
-        mHeights = new float[(Cells + 1) * (Cells + 1)];
-        mFlags = new byte[Cells * Cells];
-        mMaterial = new ushort[Cells * Cells];
-        mLight = new ushort[Cells * Cells];
+        _heights = new float[(Cells + 1) * (Cells + 1)];
+        _flags = new byte[Cells * Cells];
+        _material = new ushort[Cells * Cells];
+        _light = new ushort[Cells * Cells];
         var tiled = n != Cells;
         for (var y = 0; y <= Cells; ++y)
             for (var x = 0; x <= Cells; ++x)
@@ -51,7 +51,7 @@ public sealed class TerrainData
                 int sx = tiled ? x % n : x, sy = tiled ? y % n : y;
                 // 2.3 heights: clamp to 0 .. 2047, 11.5 fixed point: u16 = int(h * 32).
                 var h = Math.Clamp((double)block.H(sx, sy), 0.0, 2047.0);
-                mHeights[x + (y * (Cells + 1))] = (int)(h * 32) * 0.03125f;
+                _heights[x + (y * (Cells + 1))] = (int)(h * 32) * 0.03125f;
             }
         var lw = n + 1;
         for (var y = 0; y < Cells; ++y)
@@ -59,13 +59,13 @@ public sealed class TerrainData
             {
                 int sx = x % n, sy = y % n;
                 var si = ((sy * n) + sx) * 2;
-                mFlags[(y * Cells) + x] = block.Squares[si];
+                _flags[(y * Cells) + x] = block.Squares[si];
                 int m = block.Squares[si + 1];
-                mMaterial[(y * Cells) + x] = (ushort)(m >= materialCount ? 0 : m); // 2.3 materials
+                _material[(y * Cells) + x] = (ushort)(m >= materialCount ? 0 : m); // 2.3 materials
                 if (lightMap.Length >= lw * lw)
-                    mLight[(y * Cells) + x] = lightMap[(sy * lw) + sx];
+                    _light[(y * Cells) + x] = lightMap[(sy * lw) + sx];
                 else
-                    mLight[(y * Cells) + x] = 0xffff;
+                    _light[(y * Cells) + x] = 0xffff;
             }
         BuildHierarchy();
     }
@@ -74,7 +74,7 @@ public sealed class TerrainData
     /// <param name="lx">The corner x, 0 to 256.</param>
     /// <param name="ly">The corner y, 0 to 256.</param>
     /// <returns>The height.</returns>
-    public float LocalHeight(int lx, int ly) => mHeights[lx + (ly * (Cells + 1))];
+    public float LocalHeight(int lx, int ly) => _heights[lx + (ly * (Cells + 1))];
 
     // Domain index 0 .. 768 to a render block coordinate 0 .. 256: block b covers [256 b, 256 b + 256], the file is
     // one block repeated, and the last corner is the end of the last block.
@@ -84,18 +84,18 @@ public sealed class TerrainData
     /// <param name="gx">The corner x in cells, 0 to 768.</param>
     /// <param name="gy">The corner y in cells, 0 to 768.</param>
     /// <returns>The height.</returns>
-    public float Height(int gx, int gy) => mHeights[Local(gx) + (Local(gy) * (Cells + 1))];
+    public float Height(int gx, int gy) => _heights[Local(gx) + (Local(gy) * (Cells + 1))];
 
     /// <summary>Reads the flags of a cell.</summary>
     /// <param name="cx">The cell x.</param>
     /// <param name="cy">The cell y.</param>
     /// <returns>The flag byte.</returns>
-    public byte Flags(int cx, int cy) => mFlags[((cy & (Cells - 1)) * Cells) + (cx & (Cells - 1))];
+    public byte Flags(int cx, int cy) => _flags[((cy & (Cells - 1)) * Cells) + (cx & (Cells - 1))];
     /// <summary>Reads the material index of a cell.</summary>
     /// <param name="cx">The cell x.</param>
     /// <param name="cy">The cell y.</param>
     /// <returns>The material index.</returns>
-    public int Material(int cx, int cy) => mMaterial[((cy & (Cells - 1)) * Cells) + (cx & (Cells - 1))];
+    public int Material(int cx, int cy) => _material[((cy & (Cells - 1)) * Cells) + (cx & (Cells - 1))];
     /// <summary>Tells whether a cell is flagged empty.</summary>
     /// <param name="cx">The cell x.</param>
     /// <param name="cy">The cell y.</param>
@@ -105,28 +105,28 @@ public sealed class TerrainData
     /// <param name="cx">The cell x.</param>
     /// <param name="cy">The cell y.</param>
     /// <returns>The word.</returns>
-    public ushort LightWord(int cx, int cy) => mLight[((cy & (Cells - 1)) * Cells) + (cx & (Cells - 1))];
+    public ushort LightWord(int cx, int cy) => _light[((cy & (Cells - 1)) * Cells) + (cx & (Cells - 1))];
 
     /// <summary>Reads the lowest height in a square.</summary>
     /// <param name="level">The level of the square.</param>
     /// <param name="cx">A cell x inside the square.</param>
     /// <param name="cy">A cell y inside the square.</param>
     /// <returns>The height.</returns>
-    public float MinHeight(int level, int cx, int cy) => mMin[level][(((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level)) + ((cx >> level) & ((Cells >> level) - 1))];
+    public float MinHeight(int level, int cx, int cy) => _min[level][(((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level)) + ((cx >> level) & ((Cells >> level) - 1))];
     /// <summary>Reads the highest height in a square.</summary>
     /// <param name="level">The level of the square.</param>
     /// <param name="cx">A cell x inside the square.</param>
     /// <param name="cy">A cell y inside the square.</param>
     /// <returns>The height.</returns>
-    public float MaxHeight(int level, int cx, int cy) => mMax[level][(((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level)) + ((cx >> level) & ((Cells >> level) - 1))];
+    public float MaxHeight(int level, int cx, int cy) => _max[level][(((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level)) + ((cx >> level) & ((Cells >> level) - 1))];
     /// <summary>Tells whether every cell of a square is empty.</summary>
     /// <param name="level">The level of the square.</param>
     /// <param name="cx">A cell x inside the square.</param>
     /// <param name="cy">A cell y inside the square.</param>
     /// <returns>True when the square is empty.</returns>
-    public bool IsEmpty(int level, int cx, int cy) => mEmpty[level][(((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level)) + ((cx >> level) & ((Cells >> level) - 1))];
+    public bool IsEmpty(int level, int cx, int cy) => _empty[level][(((cy >> level) & ((Cells >> level) - 1)) * (Cells >> level)) + ((cx >> level) & ((Cells >> level) - 1))];
 
-    private readonly Dictionary<int, bool> mSplit = [];
+    private readonly Dictionary<int, bool> _split = [];
 
     /// <summary>Tells the split diagonal of a square.</summary>
     /// <param name="level">The level of the square.</param>
@@ -139,7 +139,7 @@ public sealed class TerrainData
         var dim = Cells >> level;
         int ix = (cx >> level) & (dim - 1), iy = (cy >> level) & (dim - 1);
         var key = (level << 20) | (iy << 10) | ix;
-        if (mSplit.TryGetValue(key, out var known))
+        if (_split.TryGetValue(key, out var known))
             return known;
         var checker = ((ix ^ iy) & 1) == 0;
         var result = checker;
@@ -152,7 +152,7 @@ public sealed class TerrainData
                 result = dMain < dAnti;
             }
         }
-        mSplit[key] = result;
+        _split[key] = result;
         return result;
     }
 
@@ -186,9 +186,9 @@ public sealed class TerrainData
         for (var l = 0; l < Levels; ++l)
         {
             int dim = Cells >> l, s = 1 << l;
-            mMin[l] = new float[dim * dim];
-            mMax[l] = new float[dim * dim];
-            mEmpty[l] = new bool[dim * dim];
+            _min[l] = new float[dim * dim];
+            _max[l] = new float[dim * dim];
+            _empty[l] = new bool[dim * dim];
             for (var y = 0; y < dim; ++y)
                 for (var x = 0; x < dim; ++x)
                 {
@@ -196,9 +196,9 @@ public sealed class TerrainData
                     if (l == 0)
                     {
                         float a = LocalHeight(x, y), b = LocalHeight(x + 1, y), c = LocalHeight(x, y + 1), d = LocalHeight(x + 1, y + 1);
-                        mMin[0][i] = Math.Min(Math.Min(a, b), Math.Min(c, d));
-                        mMax[0][i] = Math.Max(Math.Max(a, b), Math.Max(c, d));
-                        mEmpty[0][i] = IsEmptySquare(x, y);
+                        _min[0][i] = Math.Min(Math.Min(a, b), Math.Min(c, d));
+                        _max[0][i] = Math.Max(Math.Max(a, b), Math.Max(c, d));
+                        _empty[0][i] = IsEmptySquare(x, y);
                     }
                     else
                     {
@@ -208,13 +208,13 @@ public sealed class TerrainData
                         for (var k = 0; k < 4; ++k)
                         {
                             var j = (((y * 2) + (k >> 1)) * pd) + (x * 2) + (k & 1);
-                            mn = Math.Min(mn, mMin[l - 1][j]);
-                            mx = Math.Max(mx, mMax[l - 1][j]);
-                            em &= mEmpty[l - 1][j];
+                            mn = Math.Min(mn, _min[l - 1][j]);
+                            mx = Math.Max(mx, _max[l - 1][j]);
+                            em &= _empty[l - 1][j];
                         }
-                        mMin[l][i] = mn;
-                        mMax[l][i] = mx;
-                        mEmpty[l][i] = em;
+                        _min[l][i] = mn;
+                        _max[l][i] = mx;
+                        _empty[l][i] = em;
                     }
                 }
             _ = s;
@@ -267,7 +267,7 @@ public sealed class TerrainData
         var rgba = new byte[Cells * Cells * 4];
         for (var i = 0; i < Cells * Cells; ++i)
         {
-            var (r, g, b) = ExpandLightPacked(mLight[i]);
+            var (r, g, b) = ExpandLightPacked(_light[i]);
             rgba[i * 4] = r;
             rgba[(i * 4) + 1] = g;
             rgba[(i * 4) + 2] = b;

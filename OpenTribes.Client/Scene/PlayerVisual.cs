@@ -7,40 +7,40 @@ using OpenTribes.Game;
 public sealed class ImageMount
 {
     /// <summary>The image slot.</summary>
-    public int Slot;
+    public int Slot { get; set; }
     /// <summary>The image datablock index.</summary>
-    public int Image;
+    public int Image { get; set; }
     /// <summary>The image datablock.</summary>
-    public ClientDataBlock? Db;
+    public ClientDataBlock? Db { get; set; }
     /// <summary>The image shape.</summary>
-    public RenderShape? Shape;
+    public RenderShape? Shape { get; set; }
     /// <summary>The image shape instance.</summary>
-    public RenderInstance? Inst;
+    public RenderInstance? Inst { get; set; }
     /// <summary>The state machine of the image.</summary>
-    public ImageStateMachine? Sm;
+    public ImageStateMachine? Sm { get; set; }
     /// <summary>The scene time of the last Fire entry.</summary>
-    public double FireTime = -1000;
+    public double FireTime { get; set; } = -1000;
     /// <summary>The mount point of the image.</summary>
-    public int MountPoint;
+    public int MountPoint { get; set; }
     /// <summary>True when the image shows in the first person view.</summary>
-    public bool FirstPerson;
+    public bool FirstPerson { get; set; }
     /// <summary>The team of the mount (Player_setImage param_4, 0041a168), -1 for none.</summary>
-    public int Team = -1;
+    public int Team { get; set; } = -1;
 }
 
 /// <summary>The visual of a Player ghost: the armor shape with the animation and looks threads, mounted item images, the jet flame, footprints, the death pose and the burst into debris.</summary>
 /// <remarks>docs/shapes-render.md 3.4, 3.6 and 5.</remarks>
 public sealed class PlayerVisual : ShapeVisual
 {
-    private RenderThread? mAnim, mLooks;
-    private double mVx, mVy, mVz, mUpdateTime;
-    private bool mDead, mContact, mJet, mJump, mCrouch;
-    private double mSignalUntil, mNextChoice;
-    private readonly ImageMount?[] mImages = new ImageMount?[8];
-    private RenderShape? mFlameShape;
-    private RenderInstance? mFlame;
-    private RenderThread? mFlameThread;
-    private readonly List<uint> mTriggers = [];
+    private RenderThread? _anim, _looks;
+    private double _vx, _vy, _vz, _updateTime;
+    private bool _dead, _contact, _jet, _jump, _crouch;
+    private double _signalUntil, _nextChoice;
+    private readonly ImageMount?[] _images = new ImageMount?[8];
+    private RenderShape? _flameShape;
+    private RenderInstance? _flame;
+    private RenderThread? _flameThread;
+    private readonly List<uint> _triggers = [];
     /// <summary>True once the player burst into debris.</summary>
     public bool Exploded { get; private set; }
     /// <summary>True while the jets fire.</summary>
@@ -50,7 +50,7 @@ public sealed class PlayerVisual : ShapeVisual
     /// <summary>The skin name.</summary>
     public string SkinName => Skin;
     /// <summary>The mounted images by slot.</summary>
-    public IReadOnlyList<ImageMount?> Images => mImages;
+    public IReadOnlyList<ImageMount?> Images => _images;
 
     /// <inheritdoc/>
     public override void Init(SceneModel m, ClientGhost g)
@@ -75,24 +75,24 @@ public sealed class PlayerVisual : ShapeVisual
         base.OnUpdate(u, isNew);
         if (Inst == null || Shape == null)
             return;
-        if (mAnim == null)
+        if (_anim == null)
         {
-            mAnim = Inst.AddThread(Shape.FindSequence("root"), 0, 0);
+            _anim = Inst.AddThread(Shape.FindSequence("root"), 0, 0);
             var looks = Shape.FindSequence("looks");
             if (looks >= 0)
             {
-                mLooks = Inst.AddThread(looks, 0.5, -1);
-                mLooks.TimeScale = 0;
+                _looks = Inst.AddThread(looks, 0.5, -1);
+                _looks.TimeScale = 0;
             }
             var flame = Db.Str(Block, "flameShapeName");
             if (flame.Length > 0)
             {
-                mFlameShape = M.Assets.Shape(flame);
-                if (mFlameShape != null)
+                _flameShape = M.Assets.Shape(flame);
+                if (_flameShape != null)
                 {
-                    mFlame = new RenderInstance(mFlameShape);
-                    var amb = mFlameShape.FindSequence("ambient");
-                    mFlameThread = mFlame.AddThread(amb >= 0 ? amb : 0, 0, 0);
+                    _flame = new RenderInstance(_flameShape);
+                    var amb = _flameShape.FindSequence("ambient");
+                    _flameThread = _flame.AddThread(amb >= 0 ? amb : 0, 0, 0);
                 }
             }
         }
@@ -106,10 +106,10 @@ public sealed class PlayerVisual : ShapeVisual
         {
             double[] p = Vec("pos"), v = Vec("vel");
             (X, Y, Z) = (p[0], p[1], p[2]);
-            (mVx, mVy, mVz) = (v[0], v[1], v[2]);
+            (_vx, _vy, _vz) = (v[0], v[1], v[2]);
             if (!has("vel"))
-                (mVx, mVy, mVz) = (0, 0, 0);
-            mUpdateTime = M.Time;
+                (_vx, _vy, _vz) = (0, 0, 0);
+            _updateTime = M.Time;
             HavePos = true;
         }
         if (has("rotZ") && !Driven)
@@ -117,30 +117,30 @@ public sealed class PlayerVisual : ShapeVisual
         if (has("pitch") && !Driven)
             ViewPitch = Num("pitch");
         if (has("flag1f4"))
-            mContact = Num("flag1f4") != 0;
+            _contact = Num("flag1f4") != 0;
         if (has("mount") && Ghost.State.TryGetValue("mountGhost", out var mg) && has("mount"))
             MountGhost = (int)Db.ToDouble(mg);
         if (has("move") && Ghost.State["move"] is string mv)
         {
-            mJet = mv.Contains("jet=1", StringComparison.Ordinal);
-            mJump = mv.Contains("jump=1", StringComparison.Ordinal);
+            _jet = mv.Contains("jet=1", StringComparison.Ordinal);
+            _jump = mv.Contains("jump=1", StringComparison.Ordinal);
         }
         if (has("flagfee"))
-            mCrouch = Num("flagfee") != 0;
-        if (has("f98") && !mDead)
+            _crouch = Num("flagfee") != 0;
+        if (has("f98") && !_dead)
         {
             var a = (int)Num("f98");
             SetAnimation(a);
             // signal animations (38 to 50) play once, then the movement choice takes over again
             if (a >= 38 && Shape != null && Shape.FindSequence(AnimData(a)?.Name ?? "") is int sq && sq >= 0)
-                mSignalUntil = M.Time + Shape.Sequences[sq].Duration;
+                _signalUntil = M.Time + Shape.Sequences[sq].Duration;
         }
         if (has("dead"))
         {
             var exploded = !has("deathAnim");
-            if (!mDead)
+            if (!_dead)
             {
-                mDead = true;
+                _dead = true;
                 if (exploded)
                     Explode();
                 else
@@ -149,7 +149,7 @@ public sealed class PlayerVisual : ShapeVisual
         }
         else if (has("damage"))
         {
-            if (mDead && !Exploded)
+            if (_dead && !Exploded)
             {
                 // respawn on the same ghost: a living update after a death
             }
@@ -162,9 +162,9 @@ public sealed class PlayerVisual : ShapeVisual
     }
 
     /// <summary>The ghost index of the vehicle or turret the player sits in, -1 for none.</summary>
-    public int MountGhost = -1;
+    public int MountGhost { get; set; } = -1;
     /// <summary>The view pitch in radians.</summary>
-    public double ViewPitch;
+    public double ViewPitch { get; set; }
 
     private void Explode()
     {
@@ -177,13 +177,13 @@ public sealed class PlayerVisual : ShapeVisual
         if (expl >= 0)
             M.SpawnExplosion(expl, cx, cy, cz, 0, 0, 1);
         if (debris >= 0)
-            M.Effects.Add(M.NewDebris(Inst, PoseXf(), mVx, mVy, mVz, debris));
+            M.Effects.Add(M.NewDebris(Inst, PoseXf(), _vx, _vy, _vz, debris));
         Hidden = true;
     }
 
     private void SetAnimation(int index)
     {
-        if (Inst == null || Shape == null || mAnim == null || index == AnimIndex)
+        if (Inst == null || Shape == null || _anim == null || index == AnimIndex)
             return;
         var ad = AnimData(index);
         if (ad == null)
@@ -194,16 +194,16 @@ public sealed class PlayerVisual : ShapeVisual
         if (seq < 0)
             return;
         AnimIndex = index;
-        mAnim.Priority = ad.Value.Prio;
+        _anim.Priority = ad.Value.Prio;
         double dir = ad.Value.Fwd ? 1 : -1;
-        mAnim.TimeScale = dir;
+        _anim.TimeScale = dir;
         var start = ad.Value.Fwd ? 0 : 0.99;
         if (M.AnimateWithTransitions)
-            Inst.StartTransition(mAnim, seq, start, 0.12);
+            Inst.StartTransition(_anim, seq, start, 0.12);
         else
         {
-            mAnim.Sequence = seq;
-            mAnim.Position = start;
+            _anim.Sequence = seq;
+            _anim.Position = start;
         }
     }
 
@@ -223,16 +223,16 @@ public sealed class PlayerVisual : ShapeVisual
             // player-sim.md 5.4 rows 3 and 4, Player_pickMoveAnimation 004106fc: mount point 1 takes the vehicle's driverPose (Vehicle_getDriverPose, vtable +0x168), any other point 23
             return MountAnimation(IsMountSlot1(), M.Visuals.TryGetValue(MountGhost, out var mv) && mv is ShapeVisual sv ? sv.DriverPose : 0);
         }
-        if (mJet || (mJump && !mContact))
+        if (_jet || (_jump && !_contact))
             return 19;
-        if (!mContact && mVz < -3)
+        if (!_contact && _vz < -3)
             return 14;
         double c = Math.Cos(Yaw), s = Math.Sin(Yaw);
-        double right = (mVx * c) + (mVy * s), fwd = (-mVx * s) + (mVy * c);
-        (int Index, double Dir)[] cand = mCrouch
+        double right = (_vx * c) + (_vy * s), fwd = (-_vx * s) + (_vy * c);
+        (int Index, double Dir)[] cand = _crouch
             ? new[] { (10, fwd), (11, -fwd), (12, -right), (13, right) }
             : [(1, fwd), (2, -fwd), (3, -right), (4, right)];
-        var pick = mCrouch ? 8 : 0;
+        var pick = _crouch ? 8 : 0;
         var best = 0.35;
         foreach (var (idx, d) in cand)
             if (d > best)
@@ -248,29 +248,29 @@ public sealed class PlayerVisual : ShapeVisual
     public void ApplyControl(in ControlSample c)
     {
         (X, Y, Z) = (c.X, c.Y, c.Z);
-        (mVx, mVy, mVz) = (c.Vx, c.Vy, c.Vz);
-        mContact = c.Contact;
-        mJet = c.Jetting;
-        mCrouch = c.Crouch;
+        (_vx, _vy, _vz) = (c.Vx, c.Vy, c.Vz);
+        _contact = c.Contact;
+        _jet = c.Jetting;
+        _crouch = c.Crouch;
         Yaw = c.Yaw;
-        mUpdateTime = M.Time;
+        _updateTime = M.Time;
         HavePos = true;
     }
 
     /// <summary>The rotation about x. Only a corpse has it: the ground slope of <c>Player.ClientCorpseStep</c>.</summary>
-    public double TiltX;
+    public double TiltX { get; set; }
     /// <summary>The rotation about y. Only a corpse has it.</summary>
-    public double TiltY;
+    public double TiltY { get; set; }
     /// <inheritdoc/>
-    protected override Xf PoseXf() => Xf.Euler(TiltX, TiltY, Yaw).Then(Xf.Translate(X + mExtrapX, Y + mExtrapY, Z + mExtrapZ));
-    private double mExtrapX, mExtrapY, mExtrapZ;
+    protected override Xf PoseXf() => Xf.Euler(TiltX, TiltY, Yaw).Then(Xf.Translate(X + _extrapX, Y + _extrapY, Z + _extrapZ));
+    private double _extrapX, _extrapY, _extrapZ;
 
     // 3.4: ground motion animations (indices 1 to 4 and 10 to 13) run at a rate that follows the speed along the animation direction.
     private double SpeedScale()
     {
         if (AnimIndex is not ((>= 1 and <= 4) or (>= 10 and <= 13)))
             return 1;
-        var speed = Math.Sqrt((mVx * mVx) + (mVy * mVy));
+        var speed = Math.Sqrt((_vx * _vx) + (_vy * _vy));
         var measured = Math.Max(Db.Num(Block, "maxForwardSpeed", 10.9), 1);
         return Math.Clamp(speed / measured, 0.66, 1.5);
     }
@@ -279,12 +279,12 @@ public sealed class PlayerVisual : ShapeVisual
     {
         if (s.Slot is < 0 or >= 8)
             return;
-        var im = mImages[s.Slot];
+        var im = _images[s.Slot];
         if (s.Image < 0)
         {
             if (im != null)
                 M.Audio?.ImageReset(this, s.Slot);
-            mImages[s.Slot] = null;
+            _images[s.Slot] = null;
             return;
         }
         if (im == null || im.Image != s.Image)
@@ -322,7 +322,7 @@ public sealed class PlayerVisual : ShapeVisual
                 if (!isNew)
                     im.Sm.Mount();
             }
-            mImages[s.Slot] = im;
+            _images[s.Slot] = im;
         }
         im.Sm?.Unpack(s.Triggered, s.Ammo, s.Phase, !isNew, s.Initial);
     }
@@ -332,7 +332,7 @@ public sealed class PlayerVisual : ShapeVisual
     /// <param name="steps">The number of prediction steps.</param>
     public void SetImageSteps(bool predicted, int steps)
     {
-        foreach (var im in mImages)
+        foreach (var im in _images)
             if (im?.Sm is { } sm)
             {
                 sm.Stepped = predicted;
@@ -345,34 +345,34 @@ public sealed class PlayerVisual : ShapeVisual
     public override void Tick(double dt)
     {
         base.Tick(dt);
-        if (Inst == null || mAnim == null)
+        if (Inst == null || _anim == null)
             return;
         // extrapolate the last update by its velocity, at most 0.3 s
-        if (!mDead && M.Time >= mNextChoice && M.Time >= mSignalUntil)
+        if (!_dead && M.Time >= _nextChoice && M.Time >= _signalUntil)
         {
-            mNextChoice = M.Time + 0.065;
+            _nextChoice = M.Time + 0.065;
             SetAnimation(ChooseAnimation());
         }
-        var age = Driven ? 0 : Math.Clamp(M.Time - mUpdateTime, 0, 0.3);
-        (mExtrapX, mExtrapY, mExtrapZ) = (mVx * age, mVy * age, mVz * age);
-        mAnim.TimeScale = (mAnim.TimeScale < 0 ? -1 : 1) * (mDead ? 1 : SpeedScale());
-        mTriggers.Clear();
-        Inst.Advance(mAnim, dt, mTriggers);
-        mLooks?.Position = LooksPosition(ViewPitch);
-        foreach (var t in mTriggers)
+        var age = Driven ? 0 : Math.Clamp(M.Time - _updateTime, 0, 0.3);
+        (_extrapX, _extrapY, _extrapZ) = (_vx * age, _vy * age, _vz * age);
+        _anim.TimeScale = (_anim.TimeScale < 0 ? -1 : 1) * (_dead ? 1 : SpeedScale());
+        _triggers.Clear();
+        Inst.Advance(_anim, dt, _triggers);
+        _looks?.Position = LooksPosition(ViewPitch);
+        foreach (var t in _triggers)
         {
             ++M.TriggerCount;
-            if (mContact)
+            if (_contact)
                 ++M.ContactTriggers;
-            if (t is 1 or 2 && mContact && !mDead)
+            if (t is 1 or 2 && _contact && !_dead)
                 M.AddFootprint(this, t == 1 ? 1 : -1);
-            if (t is 1 or 2 && mContact && !mDead && MountGhost < 0)
-                M.Audio?.Footstep(this, t == 1, X + mExtrapX, Y + mExtrapY, Z + mExtrapZ);
+            if (t is 1 or 2 && _contact && !_dead && MountGhost < 0)
+                M.Audio?.Footstep(this, t == 1, X + _extrapX, Y + _extrapY, Z + _extrapZ);
         }
-        Jetting = AnimIndex == 19 && !mDead;
-        if (mFlame != null && mFlameThread != null)
-            mFlame.Advance(mFlameThread, dt);
-        foreach (var im in mImages)
+        Jetting = AnimIndex == 19 && !_dead;
+        if (_flame != null && _flameThread != null)
+            _flame.Advance(_flameThread, dt);
+        foreach (var im in _images)
             im?.Sm?.Advance(dt);
     }
 
@@ -386,7 +386,7 @@ public sealed class PlayerVisual : ShapeVisual
     {
         // 4.6: +-0.25 along the player's yaw frame x axis
         double cx = Math.Cos(Yaw), cy = Math.Sin(Yaw);
-        return (X + mExtrapX + (cx * 0.25 * side), Y + mExtrapY + (cy * 0.25 * side), Z + mExtrapZ);
+        return (X + _extrapX + (cx * 0.25 * side), Y + _extrapY + (cy * 0.25 * side), Z + _extrapZ);
     }
 
     /// <summary>The heading of the player.</summary>
@@ -410,13 +410,13 @@ public sealed class PlayerVisual : ShapeVisual
     public bool TryEyeLocal(double pitch, out double x, out double y, out double z)
     {
         x = y = z = 0;
-        if (Inst == null || Shape == null || mDead)
+        if (Inst == null || Shape == null || _dead)
             return false;
         var n = Shape.FindNodeBase("dummy eye", 0);
         if (n < 0)
             return false;
         ViewModeSet(true);
-        mLooks?.Position = LooksPosition(pitch);
+        _looks?.Position = LooksPosition(pitch);
         Inst.Animate(0);
         var e = Inst.NodeWorld[n];
         (x, y, z) = (e.Px, e.Py, e.Pz);
@@ -430,7 +430,7 @@ public sealed class PlayerVisual : ShapeVisual
     public bool TryChaseZ(out double z)
     {
         z = 0;
-        if (Inst == null || Shape == null || mDead)
+        if (Inst == null || Shape == null || _dead)
             return false;
         var n = Shape.FindNodeBase("dummyalways chasecam", 0);
         if (n < 0)
@@ -448,7 +448,7 @@ public sealed class PlayerVisual : ShapeVisual
         var ad = AnimData(AnimIndex);
         var on = ad == null || (ad.Value.ViewFlags & (firstPerson ? 1 : control ? 2 : 4)) != 0;
         Inst?.ViewMode = on ? (firstPerson ? 2 : 1) : 0;
-        mLooks?.Priority = on ? -1 : 5000;
+        _looks?.Priority = on ? -1 : 5000;
         return on;
     }
 
@@ -494,7 +494,7 @@ public sealed class PlayerVisual : ShapeVisual
         var node = im.MountPoint is >= 0 and < 4 ? sh.FindNodeBase(names[im.MountPoint], detail) : -1;
         found = node >= 0;
         var mount = node >= 0 ? Inst.NodeWorld[node] : Xf.Identity;
-        if (node >= 0 && pitch is double pv && !mDead && im.MountPoint is 0 or 1)
+        if (node >= 0 && pitch is double pv && !_dead && im.MountPoint is 0 or 1)
         {
             Xf r = Xf.Euler(pv, 0, 0);
             (r.Px, r.Py, r.Pz) = (mount.Px, mount.Py, mount.Pz);
@@ -513,7 +513,7 @@ public sealed class PlayerVisual : ShapeVisual
     {
         if (Ray == null || Inst == null)
             return 0;
-        foreach (var im in mImages)
+        foreach (var im in _images)
         {
             if (im?.Inst == null || im.MountPoint != 0)
                 continue;
@@ -570,15 +570,15 @@ public sealed class PlayerVisual : ShapeVisual
     /// <returns>The position.</returns>
     public (double x, double y, double z) Muzzle()
     {
-        var body = mFpBody ?? PoseXf();
-        foreach (var im in mImages)
+        var body = _fpBody ?? PoseXf();
+        foreach (var im in _images)
         {
             if (im?.Inst == null || im.MountPoint != 0)
                 continue;
             // First person draws detail 0 with the camera pitch (Build); the muzzle is taken from that same pose.
-            var d = mFpBody != null ? 0 : Math.Max(M.Renderer.LastDetail, 0);
+            var d = _fpBody != null ? 0 : Math.Max(M.Renderer.LastDetail, 0);
             var dd = Math.Min(d, Math.Max(Inst!.Shape.Details.Length - 1, 0));
-            var pt = mFpBody != null ? mFpPitch : ViewModeSet(false) ? ViewPitch : null;
+            var pt = _fpBody != null ? _fpPitch : ViewModeSet(false) ? ViewPitch : null;
             var t = ImageTransform(im, dd, body, pt, WeaponPullback(dd, body, pt));
             var mn = im.Shape!.FindNodeBase("dummyalways muzzle", 0);
             if (mn < 0)
@@ -637,19 +637,19 @@ public sealed class PlayerVisual : ShapeVisual
     /// <remarks>A beam that starts at the muzzle of this player then sees the first person pose of this frame. The stock beam reads the muzzle transform of the shooter every frame (LaserProjectile 004632a8 to Player_getMuzzleTransform 00419d88), whose mount transform 00419ba0 uses the own pitch of the control object (Player +0xfc4) and its transform, here the camera's.</remarks>
     public void PrepareFrame(FrameContext ctx)
     {
-        mFpBody = null;
+        _fpBody = null;
         if (Inst == null || Shape == null || !HavePos || Hidden || !(ctx.FirstPersonOfControl && ctx.ControlGhost == Index))
             return;
         var body = PoseXf();
         double? pitch = ViewModeSet(true, true) ? ViewPitch : null;
         (body, pitch) = FirstPersonFrame(ctx, body, pitch);
-        mFpBody = body;
-        mFpPitch = pitch;
+        _fpBody = body;
+        _fpPitch = pitch;
         Inst.Animate(0);
     }
 
-    private Xf? mFpBody;
-    private double? mFpPitch;
+    private Xf? _fpBody;
+    private double? _fpPitch;
 
     /// <inheritdoc/>
     public override void Build(FrameContext ctx)
@@ -688,7 +688,7 @@ public sealed class PlayerVisual : ShapeVisual
             return;
         // Mounted images (3.6, 5.2): first person draws only the weapons, with the fixed sort key 0.999.
         double? pulled = null;
-        foreach (var im in mImages)
+        foreach (var im in _images)
         {
             if (im?.Inst == null || im.Shape == null)
                 continue;
@@ -708,15 +708,15 @@ public sealed class PlayerVisual : ShapeVisual
             if (img != null)
                 ctx.Lists.Add(img);
         }
-        if (Jetting && mFlame != null && !firstPerson)
+        if (Jetting && _flame != null && !firstPerson)
         {
             Inst.Animate(Math.Min(detail, Shape.Details.Length - 1));
             var n = Shape.FindNodeBase("dummy lowback", Math.Min(detail, Math.Max(Shape.Details.Length - 1, 0)));
             var mount = n >= 0 ? Inst.NodeWorld[n] : Xf.Identity;
-            var d = ctx.Draw(mount.Then(body), mFlameShape!.Name);
+            var d = ctx.Draw(mount.Then(body), _flameShape!.Name);
             d.ForceTranslucent = true;
             d.SortBias = 0.01;
-            var img = ctx.Renderer.Build(mFlame, ctx.Camera, d);
+            var img = ctx.Renderer.Build(_flame, ctx.Camera, d);
             if (img != null)
                 ctx.Lists.Add(img);
         }
@@ -726,7 +726,7 @@ public sealed class PlayerVisual : ShapeVisual
     /// <param name="set">The light set.</param>
     public void CollectLights(LightSet set)
     {
-        foreach (var im in mImages)
+        foreach (var im in _images)
         {
             if (im == null || im.Db == null)
                 continue;

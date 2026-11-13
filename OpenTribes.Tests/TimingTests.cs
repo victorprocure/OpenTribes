@@ -11,10 +11,10 @@ public class TimingTests
 {
     private sealed class Ticker : SimObject
     {
-        public readonly string TickerName;
-        public List<string>? Log;
-        public Action? OnTick;
-        public readonly List<float> Timers = [];
+        public string TickerName { get; }
+        public List<string>? Log { get; set; }
+        public Action? OnTick { get; set; }
+        public List<float> Timers { get; } = [];
 
         public Ticker(string n) => TickerName = n;
         public override string ClassName() => "Ticker";
@@ -34,13 +34,13 @@ public class TimingTests
 
     private sealed class Fx
     {
-        public readonly StringTable Strings = new();
-        public readonly Interpreter In;
-        public readonly ClassContext Ctx = new();
-        public readonly SimConsole Sim;
-        public string Out = "";
-        public double Clock; // seconds
-        public readonly List<string> Ticks = [];
+        public StringTable Strings { get; } = new();
+        public Interpreter In { get; }
+        public ClassContext Ctx { get; } = new();
+        public SimConsole Sim { get; }
+        public string Out { get; set; } = "";
+        public double Clock { get; set; } // seconds
+        public List<string> Ticks { get; } = [];
 
         public Fx()
         {

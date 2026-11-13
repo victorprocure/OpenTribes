@@ -11,21 +11,21 @@ using OpenTribes.Script;
 public sealed class GuiSession
 {
     /// <summary>The script interpreter.</summary>
-    public Interpreter Interp = null!;
+    public Interpreter Interp { get; set; } = null!;
     /// <summary>The mounted resources.</summary>
-    public ResourceManager Res = null!;
+    public ResourceManager Res { get; set; } = null!;
     /// <summary>The GUI host.</summary>
-    public GuiHost Host = null!;
+    public GuiHost Host { get; set; } = null!;
     /// <summary>The canvas.</summary>
-    public GuiCanvas Canvas = null!;
+    public GuiCanvas Canvas { get; set; } = null!;
     /// <summary>The GUI runtime.</summary>
-    public GuiRuntime Runtime = null!;
+    public GuiRuntime Runtime { get; set; } = null!;
     /// <summary>The clock in milliseconds.</summary>
-    public long Clock;
+    public long Clock { get; set; }
     /// <summary>The graphics device, or null before rendering.</summary>
-    public IGfxDevice? Dev;
+    public IGfxDevice? Dev { get; set; }
     /// <summary>Receives the output lines.</summary>
-    public Action<string> Log = Console.WriteLine;
+    public Action<string> Log { get; set; } = Console.WriteLine;
 
     /// <summary>Creates a session with the built in commands and the tag dictionary.</summary>
     /// <param name="root">The game root directory.</param>
@@ -98,7 +98,7 @@ public sealed class GuiSession
     /// <param name="down">True to press.</param>
     public void Button(int index, bool down) => Mouse(RawInput.ObjButton, (byte)index, (byte)(down ? 1 : 0));
 
-    private byte mMods;
+    private byte _mods;
 
     /// <summary>Sends a key event.</summary>
     /// <param name="name">The key name.</param>
@@ -107,7 +107,7 @@ public sealed class GuiSession
     public void Key(string name, bool make, bool brk)
     {
         var scan = GuiCanvas.ScanForName(name);
-        var mods = mMods;
+        var mods = _mods;
         if (scan == 0 && name.Length == 1 && "!@#$%^&*()_+".IndexOf(name[0]) is int si and >= 0)
         {
             scan = GuiCanvas.ScanForName("1234567890-="[si == 10 ? 10 : si == 11 ? 11 : si].ToString());
@@ -121,7 +121,7 @@ public sealed class GuiSession
             return;
         }
         var ascii = name.Length == 1 ? name[0] : name.ToLowerInvariant() switch { "space" => ' ', _ => '\0' };
-        if ((mMods & 3) != 0 && char.IsLetter(ascii))
+        if ((_mods & 3) != 0 && char.IsLetter(ascii))
             ascii = char.ToUpperInvariant(ascii);
         var ev = new RawInput { Device = RawInput.DevKeyboard, Index = (byte)scan, Ascii = ascii, Mod = mods };
         if (make)
@@ -176,11 +176,11 @@ public sealed class GuiSession
                     Button(0, false);
                     break;
                 case "key":
-                    mMods = 0;
+                    _mods = 0;
                     foreach (var m in a.Skip(1))
-                        mMods |= m switch { "shift" => (byte)3, "ctrl" => (byte)0x0c, "alt" => (byte)0x30, _ => (byte)0 };
+                        _mods |= m switch { "shift" => (byte)3, "ctrl" => (byte)0x0c, "alt" => (byte)0x30, _ => (byte)0 };
                     Key(a[0], true, true);
-                    mMods = 0;
+                    _mods = 0;
                     Advance(16);
                     break;
                 case "keydown":

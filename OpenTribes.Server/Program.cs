@@ -11,9 +11,9 @@ using OpenTribes.Sim;
 // Port convention (no C++ file): fgets on a byte file, the C++ console line readers.
 internal sealed class CFile : IDisposable
 {
-    private readonly Stream mStream;
+    private readonly Stream _stream;
 
-    private CFile(Stream s) => mStream = s;
+    private CFile(Stream s) => _stream = s;
 
     // fopen(path, "rb"): null when the file cannot be opened.
     public static CFile? Open(string path)
@@ -34,7 +34,7 @@ internal sealed class CFile : IDisposable
         var line = new System.Text.StringBuilder();
         while (line.Length < size - 1)
         {
-            var b = mStream.ReadByte();
+            var b = _stream.ReadByte();
             if (b < 0)
                 break;
             line.Append((char)b);
@@ -44,14 +44,14 @@ internal sealed class CFile : IDisposable
         return line.Length == 0 ? null : line.ToString();
     }
 
-    public void Dispose() => mStream.Dispose();
+    public void Dispose() => _stream.Dispose();
 }
 
 /// <summary>The dedicated server executable.</summary>
 /// <remarks>Port of src/server/main.cpp.</remarks>
 public static class Program
 {
-    private static volatile bool sStop;
+    private static volatile bool _stop;
 
     // src/server/main.cpp usage.
     private static void Usage() => StdIo.Err(
@@ -233,7 +233,7 @@ public static class Program
                         var obj = simOps.Server()?.Find(name);
                         return obj != null && obj.ClassName() == "ChatMenu";
                     },
-                    Quit = () => sStop = true,
+                    Quit = () => _stop = true,
                 };
                 ServerCommands.RegisterServerCommands(console, ops);
                 master = new MasterHeartbeat(console, server, allowMasters);
@@ -333,12 +333,12 @@ public static class Program
         using var sigInt = PosixSignalRegistration.Create(PosixSignal.SIGINT, ctx =>
         {
             ctx.Cancel = true;
-            sStop = true;
+            _stop = true;
         });
         using var sigTerm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, ctx =>
         {
             ctx.Cancel = true;
-            sStop = true;
+            _stop = true;
         });
         // Frame loop (docs/sim.md 8.3, TK1-TK9). The connection layer runs on the unscaled
         // millisecond clock (GetTickCount in the original), the simulation on the scaled one.
@@ -359,7 +359,7 @@ public static class Program
             return 1;
         }
         uint waitUntil = 0;
-        while (!sStop)
+        while (!_stop)
         {
             var ms = ClockMs();
             sim?.UpdateClock();        // step 2

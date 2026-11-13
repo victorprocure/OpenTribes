@@ -10,21 +10,21 @@ using OpenTribes.Script;
 public sealed class AudioSession : IDisposable
 {
     /// <summary>The mounted resources.</summary>
-    public ResourceManager Res = null!;
+    public ResourceManager Res { get; set; } = null!;
     /// <summary>The script interpreter that runs the sound scripts.</summary>
-    public Interpreter Interp = null!;
+    public Interpreter Interp { get; set; } = null!;
     /// <summary>The sound manager.</summary>
-    public SoundManager Sound = null!;
+    public SoundManager Sound { get; set; } = null!;
     /// <summary>The sfx* console commands.</summary>
-    public SfxCommands Commands = null!;
+    public SfxCommands Commands { get; set; } = null!;
     /// <summary>The mixer the sound manager plays on.</summary>
-    public SoundMixer? Mixer;
+    public SoundMixer? Mixer { get; set; }
     /// <summary>The SDL3 output, or null for an offline session.</summary>
-    public AudioOutput? Device;
+    public AudioOutput? Device { get; set; }
     /// <summary>The lines the commands printed.</summary>
-    public readonly List<string> Log = [];
+    public List<string> Log { get; } = [];
     /// <summary>The sample rate of an offline mixer.</summary>
-    public int OfflineRate = 48000;
+    public int OfflineRate { get; set; } = 48000;
 
     /// <summary>Reads a wave resource.</summary>
     /// <param name="res">The mounted resources.</param>

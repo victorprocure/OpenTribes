@@ -239,7 +239,7 @@ public static partial class ProjectileFire
         pr?.ShutOff();
     }
 
-    private static readonly int[] kProjectileGroups = [14, 15, 16, 17, 24, 25, 28, 29];
+    private static readonly int[] ProjectileGroups = [14, 15, 16, 17, 24, 25, 28, 29];
 
     /// <summary>Registers the projectile commands.</summary>
     /// <param name="interp">The script interpreter.</param>
@@ -280,7 +280,7 @@ public static partial class ProjectileFire
             var b = game.Sim!.DataBlocks().Find(a[1]);
             var isProjectile = false;
             if (b != null)
-                foreach (var grp in kProjectileGroups)
+                foreach (var grp in ProjectileGroups)
                     isProjectile = isProjectile || b.Group == grp;
             if (!isProjectile)
             {
@@ -322,7 +322,7 @@ public static partial class ProjectileFire
 
 public sealed partial class Player
 {
-    private static readonly string[] kMountNodeNames = ["dummy hand", "dummy unused", "dummy midback", "dummy lowback"];
+    private static readonly string[] MountNodeNames = ["dummy hand", "dummy unused", "dummy midback", "dummy lowback"];
 
     /// <summary>Computes the transform of an image mount point in object space.</summary>
     /// <param name="slot">The image slot.</param>
@@ -332,7 +332,7 @@ public sealed partial class Player
     public bool ImageMountTransform(int slot, out TMat3 output)
     {
         output = new TMat3();
-        if (slot < 0 || slot >= kImageSlots || Images[slot].Image == -1)
+        if (slot < 0 || slot >= ImageSlots || Images[slot].Image == -1)
             return false;
         using var chop = X87.Chop();
         var img = Images[slot].Info;
@@ -346,9 +346,9 @@ public sealed partial class Player
         m.Flags |= 2u;
         // Node table +0x7c4: names with the detail size appended (0x0040fcdc). A mount point outside the table has no node
         // (the original reads past it, D11).
-        var inst = ShapeState.ShapeInstanceOf(mGame, this);
+        var inst = ShapeState.ShapeInstanceOf(_game, this);
         var node = inst != null && img.MountPoint >= 0 && img.MountPoint < 4
-                       ? ProjectileFire.DetailNode(inst.ShapeData!, kMountNodeNames[img.MountPoint])
+                       ? ProjectileFire.DetailNode(inst.ShapeData!, MountNodeNames[img.MountPoint])
                        : -1;
         if (node < 0)
             return false;
@@ -373,11 +373,11 @@ public sealed partial class Player
     public bool MuzzleObjectTransform(int slot, out TMat3 output)
     {
         output = new TMat3();
-        if (slot < 0 || slot >= kImageSlots || Images[slot].Item == -1)
+        if (slot < 0 || slot >= ImageSlots || Images[slot].Item == -1)
             return false;
         using var chop = X87.Chop();
         var img = Images[slot].Info;
-        var image = Images[slot].Image != -1 && img.ShapeFile != null ? ShapeState.StaticShapeInstance(mGame, img.ShapeFile) : null;
+        var image = Images[slot].Image != -1 && img.ShapeFile != null ? ShapeState.StaticShapeInstance(_game, img.ShapeFile) : null;
         var n = image != null ? image.ShapeData!.FindNode("dummyalways muzzle") : -1;
         if (n < 0)
         {
@@ -394,7 +394,7 @@ public sealed partial class Player
     public override Transform EyeTransform()
     {
         using var chop = X87.Chop();
-        var inst = ShapeState.ShapeInstanceOf(mGame, this);
+        var inst = ShapeState.ShapeInstanceOf(_game, this);
         var n = inst != null ? ProjectileFire.DetailNode(inst.ShapeData!, "dummy eye") : -1;
         var l = new TMat3();
         if (n >= 0)
@@ -425,7 +425,7 @@ public sealed partial class Player
     {
         Pullback = 0.0f;
         var slot = -1;
-        for (var i = 0; i < kImageSlots && slot < 0; ++i)
+        for (var i = 0; i < ImageSlots && slot < 0; ++i)
             if (Images[i].Image != -1 && Images[i].Info.MountPoint == 0)
                 slot = i;
         if (slot < 0)
@@ -443,7 +443,7 @@ public sealed partial class Player
         }
         object? obj = null;
         Vec3 hp = default, n = default;
-        if (!mGame.World.CastRay(new Vec3(start[0], start[1], start[2]), new Vec3(end[0], end[1], end[2]), 0xbfffffffu, this,
+        if (!_game.World.CastRay(new Vec3(start[0], start[1], start[2]), new Vec3(end[0], end[1], end[2]), 0xbfffffffu, this,
                                  ref obj, ref hp, ref n))
             return;
         float[] h = [hp.X, hp.Y, hp.Z];

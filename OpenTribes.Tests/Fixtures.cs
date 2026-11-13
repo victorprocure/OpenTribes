@@ -143,10 +143,14 @@ internal static class Fixtures
     // fixtures::TerrainSpec: one block of n x n squares (detail = log2(n) + 1), raw heights (version 0 block).
     public sealed class TerrainSpec
     {
-        public int N = 4, Detail = 3, Scale = 3, Width = 2, Height = 1;
-        public List<float> Heights = [];  // (n+1)^2, row major
-        public List<byte> Squares = [];   // n^2 x {flags, material}
-        public string MaterialList = "t.dml";
+        public int N { get; set; } = 4;
+        public int Detail { get; set; } = 3;
+        public int Scale { get; set; } = 3;
+        public int Width { get; set; } = 2;
+        public int Height { get; set; } = 1;
+        public List<float> Heights { get; set; } = [];  // (n+1)^2, row major
+        public List<byte> Squares { get; set; } = [];   // n^2 x {flags, material}
+        public string MaterialList { get; set; } = "t.dml";
     }
 
     // fixtures::dtfFile.
@@ -395,18 +399,18 @@ internal static class Fixtures
         public readonly record struct Obj(short Name, ushort Flags, int Mesh, short NodeIndex, float[] Offset, short NumSub, short FirstSub);
         public readonly record struct Detail(int Root, float Size);
 
-        public List<NodeRec> Nodes = [];
-        public List<Seq> Sequences = [];
-        public List<Sub> Subs = [];
-        public List<Key> Keys = [];
-        public List<Xform> Transforms = [];
-        public List<string> Names = [];
-        public List<Obj> Objects = [];
-        public List<Detail> Details = [];
-        public List<List<byte>> Meshes = []; // PERS TS::CelAnimMesh blocks
-        public float Radius = 3.0f;
-        public float[] Box = [-1, -1, -1, 1, 1, 1];
-        public int AlwaysNode = -1;
+        public List<NodeRec> Nodes { get; set; } = [];
+        public List<Seq> Sequences { get; set; } = [];
+        public List<Sub> Subs { get; set; } = [];
+        public List<Key> Keys { get; set; } = [];
+        public List<Xform> Transforms { get; set; } = [];
+        public List<string> Names { get; set; } = [];
+        public List<Obj> Objects { get; set; } = [];
+        public List<Detail> Details { get; set; } = [];
+        public List<List<byte>> Meshes { get; set; } = []; // PERS TS::CelAnimMesh blocks
+        public float Radius { get; set; } = 3.0f;
+        public float[] Box { get; set; } = [-1, -1, -1, 1, 1, 1];
+        public int AlwaysNode { get; set; } = -1;
     }
 
     // fixtures::dtsBoxMesh: CelAnimMesh v3, one frame, a box min..max. Vertices 0 and 1 are the frame box corners, 2..9
@@ -531,14 +535,14 @@ internal static class Fixtures
     // `root` with search path "base". Mission classes are registered once.
     public sealed class World
     {
-        public readonly Interpreter In = new();
-        public readonly ResourceManager Res;
-        public readonly ClassContext Ctx = new();
-        public readonly SimConsole Sim;
-        public readonly GameState Game = new();
-        private static bool sClasses;
-        public string Out = "";
-        public int Lines;
+        public Interpreter In { get; } = new();
+        public ResourceManager Res { get; }
+        public ClassContext Ctx { get; } = new();
+        public SimConsole Sim { get; }
+        public GameState Game { get; } = new();
+        private static bool _classes;
+        public string Out { get; set; } = "";
+        public int Lines { get; set; }
 
         public World(string root)
         {
@@ -554,10 +558,10 @@ internal static class Fixtures
             Game.Console = In;
             Game.Resources = Res;
             Ctx.Game = Game;
-            if (!sClasses)
+            if (!_classes)
             {
                 MissionClasses.Register();
-                sClasses = true;
+                _classes = true;
             }
             GameCommands.Register(In, Game);
             In.SetOutput(l => Out += (Lines++ != 0 ? "\n" : "") + l);
@@ -578,7 +582,7 @@ internal static class Fixtures
     // fixtures::Cases: runs (script, expected output) pairs and reports every mismatch.
     public sealed class Cases
     {
-        public int Failures;
+        public int Failures { get; set; }
 
         public void Check(World w, string src, string want)
         {

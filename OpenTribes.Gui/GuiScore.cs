@@ -20,7 +20,7 @@ public sealed class GuiScoreList : GuiList
     public readonly record struct Line(string Text, int[] Columns, bool Heading, bool Local);
 
     /// <summary>The lines shown, rebuilt before each render.</summary>
-    public readonly List<Line> Lines = [];
+    public List<Line> Lines { get; } = [];
 
     private bool LowRes => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
     private PftFont? HeadingFont => Host?.FontByName(LowRes ? "sf_white_6.pft" : "sf_white_10b.pft");

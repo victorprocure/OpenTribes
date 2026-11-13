@@ -6,25 +6,25 @@ using OpenTribes.Platform.Gfx;
 public sealed class DrawBatch
 {
     /// <summary>The vertices.</summary>
-    public Vertex3D[] Vertices = [];
+    public Vertex3D[] Vertices { get; set; } = [];
     /// <summary>The draw state.</summary>
-    public DrawState3D State;
+    public DrawState3D State { get; set; }
 }
 
 /// <summary>The drawing of one object: batches in a category with a sort key.</summary>
 public sealed class RenderImage
 {
     /// <summary>The category: 0 opaque, 1 translucent, 2 foreground, 3 first.</summary>
-    public int Category;
+    public int Category { get; set; }
     /// <summary>The sort key inside the category.</summary>
-    public double SortKey;
+    public double SortKey { get; set; }
     /// <summary>The batches to draw.</summary>
-    public readonly List<DrawBatch> Batches = [];
+    public List<DrawBatch> Batches { get; } = [];
     /// <summary>The label, for traces.</summary>
-    public string Label = "";
+    public string Label { get; set; } = "";
     /// <summary>The interior (instance index) whose database holds the object, -1 for none.</summary>
-    public int Container = -1;
-    internal bool Drawn;
+    public int Container { get; set; } = -1;
+    internal bool Drawn { get; set; }
 }
 
 /// <summary>The render context lists: category 3 first list sorted ascending, category 0 opaque in query order, category 1 translucent sorted ascending by key (far to near), category 2 foreground after the scene.</summary>
@@ -32,15 +32,15 @@ public sealed class RenderImage
 public sealed class RenderLists
 {
     /// <summary>The first list (category 3).</summary>
-    public readonly List<RenderImage> First = [];
+    public List<RenderImage> First { get; } = [];
     /// <summary>The opaque list (category 0).</summary>
-    public readonly List<RenderImage> Opaque = [];
+    public List<RenderImage> Opaque { get; } = [];
     /// <summary>The translucent list (category 1).</summary>
-    public readonly List<RenderImage> Translucent = [];
+    public List<RenderImage> Translucent { get; } = [];
     /// <summary>The foreground list (category 2).</summary>
-    public readonly List<RenderImage> Foreground = [];
+    public List<RenderImage> Foreground { get; } = [];
     /// <summary>The interior container of the images added now. The builder sets it while it adds the images of one object (<c>SceneModel.Build</c>).</summary>
-    public int CurrentContainer = -1;
+    public int CurrentContainer { get; set; } = -1;
     /// <summary>The number of images in all lists.</summary>
     public int ImageCount => First.Count + Opaque.Count + Translucent.Count + Foreground.Count;
 

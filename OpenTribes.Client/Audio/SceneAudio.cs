@@ -11,50 +11,59 @@ using OpenTribes.World;
 public sealed class SceneAudio
 {
     /// <summary>The sound manager the sounds play on.</summary>
-    public readonly SoundManager Sound;
-    private readonly SceneModel M;
-    private Db Db => M.Db;
+    public SoundManager Sound { get; }
+    private readonly SceneModel _m;
+    private Db Db => _m.Db;
 
     /// <summary>True when voices play: <c>$pref::playVoices</c> (1.5), which is true when unset.</summary>
-    public bool PlayVoices => M.World.Players.PlayVoices();
+    public bool PlayVoices => _m.World.Players.PlayVoices();
     /// <summary>The materials of the terrain, to pick the footstep surface type of a terrain material byte (3.2). Empty means type 0.</summary>
-    public List<Material>? TerrainMaterials;
+    public List<Material>? TerrainMaterials { get; set; }
     /// <summary>Reads the surface type (0 to 14) under a foot from the prediction container (terrain and interiors, <see cref="FootSurface"/>), -1 for none. Null offline.</summary>
-    public Func<double, double, double, int>? SurfaceType;
+    public Func<double, double, double, int>? SurfaceType { get; set; }
 
     /// <summary>The number of sounds started per source, for the offline report.</summary>
-    public readonly Dictionary<string, int> Started = [];
+    public Dictionary<string, int> Started { get; } = [];
 
     private sealed class GhostSounds
     {
-        public int Looper;                         // jet, vehicle idle, static ambient, projectile
-        public int Move, Whir, Run, Sustained;
-        public readonly int[] SeqSound = new int[3];     // sequence sound handle per thread slot (3.3)
-        public readonly int[] SeqPlaying = [.. Enumerable.Repeat(-1, 3)];   // sequence the sound was started for
-        public readonly ImageVoiceSlots Image = new();
-        public readonly int[] Channel = new int[4];
-        public int LastMode = -1, LastFire = -1, LastDamage = -1, LastSound = -1, LastState = -1;
-        public double JetOffSince = -1;
-        public double LastRotation = double.NaN, LastElevation = double.NaN, WhirUntil;
-        public int DatablockStarted = -1;
-        public bool Stopped;
+        public int Looper { get; set; }                         // jet, vehicle idle, static ambient, projectile
+        public int Move { get; set; }
+        public int Whir { get; set; }
+        public int Run { get; set; }
+        public int Sustained { get; set; }
+        public int[] SeqSound { get; } = new int[3];     // sequence sound handle per thread slot (3.3)
+        public int[] SeqPlaying { get; } = [.. Enumerable.Repeat(-1, 3)];   // sequence the sound was started for
+        public ImageVoiceSlots Image { get; } = new();
+        public int[] Channel { get; } = new int[4];
+        public int LastMode { get; set; } = -1;
+        public int LastFire { get; set; } = -1;
+        public int LastDamage { get; set; } = -1;
+        public int LastSound { get; set; } = -1;
+        public int LastState { get; set; } = -1;
+        public double JetOffSince { get; set; } = -1;
+        public double LastRotation { get; set; } = double.NaN;
+        public double LastElevation { get; set; } = double.NaN;
+        public double WhirUntil { get; set; }
+        public int DatablockStarted { get; set; } = -1;
+        public bool Stopped { get; set; }
     }
 
-    private readonly Dictionary<int, GhostSounds> mGhosts = [];
-    private readonly Dictionary<int, int> mVoiceByClient = [];
-    private int mPrecip;
+    private readonly Dictionary<int, GhostSounds> _ghosts = [];
+    private readonly Dictionary<int, int> _voiceByClient = [];
+    private int _precip;
     /// <summary>The queue of sounds that play one after another.</summary>
-    public readonly SoundSequencer Sequencer;
+    public SoundSequencer Sequencer { get; }
 
     /// <summary>Creates the scene audio.</summary>
     /// <param name="m">The scene model.</param>
     /// <param name="sound">The sound manager.</param>
     public SceneAudio(SceneModel m, SoundManager sound)
     {
-        M = m;
+        _m = m;
         Sound = sound;
         Sequencer = new SoundSequencer(sound);
-        M.World.Players.ChatVoice = ChatWave;
+        _m.World.Players.ChatVoice = ChatWave;
     }
 
     private void Count(string what, int handle)
@@ -65,8 +74,8 @@ public sealed class SceneAudio
 
     private GhostSounds Gs(int ghost)
     {
-        if (!mGhosts.TryGetValue(ghost, out var g))
-            mGhosts[ghost] = g = new GhostSounds();
+        if (!_ghosts.TryGetValue(ghost, out var g))
+            _ghosts[ghost] = g = new GhostSounds();
         return g;
     }
 
@@ -152,7 +161,7 @@ public sealed class SceneAudio
     // SoundEvent: stop the channel's voice, play at the object, remember the handle (0..3).
     private void ShapeSound(int ghost, int channel, long sound)
     {
-        if (!M.Visuals.TryGetValue(ghost, out var v) || channel is < 0 or > 3)
+        if (!_m.Visuals.TryGetValue(ghost, out var v) || channel is < 0 or > 3)
             return;
         var g = Gs(ghost);
         Sound.Stop(g.Channel[channel]);
@@ -164,7 +173,7 @@ public sealed class SceneAudio
     // 1.5 name building: `<voiceBase>.w<name>.wav`, else `w<name>.wav`.
     private string? VoiceWave(int client, string text)
     {
-        var a = $"{M.World.Players.Get(client)?.Voice}.w{text}.wav";
+        var a = $"{_m.World.Players.Get(client)?.Voice}.w{text}.wav";
         if (HasWave(a))
             return a;
         var b = $"w{text}.wav";
@@ -175,16 +184,16 @@ public sealed class SceneAudio
     {
         if (!PlayVoices)
             return;
-        var rec = M.World.Players.Get(client);
-        if (rec == null || rec.OwnedGhost < 0 || !M.Visuals.TryGetValue(rec.OwnedGhost, out var v) || v.Position == null)
+        var rec = _m.World.Players.Get(client);
+        if (rec == null || rec.OwnedGhost < 0 || !_m.Visuals.TryGetValue(rec.OwnedGhost, out var v) || v.Position == null)
             return;
         var wave = VoiceWave(client, text);
         if (wave == null || !ProfileZero(out var p))
             return;
-        if (mVoiceByClient.TryGetValue(client, out var old))
+        if (_voiceByClient.TryGetValue(client, out var old))
             Sound.Stop(old);
         var h = Sound.PlayWave(wave, p, 0, At(v.Position));
-        mVoiceByClient[client] = h;
+        _voiceByClient[client] = h;
         Count("VoiceEvent", h);
     }
 
@@ -204,13 +213,13 @@ public sealed class SceneAudio
         if (i < 0 || !PlayVoices)
             return;
         var text = msg[(i + 2)..];
-        var wave = M.World.Players.Get(from) != null ? VoiceWave(from, text) : text;
+        var wave = _m.World.Players.Get(from) != null ? VoiceWave(from, text) : text;
         if (wave == null)
             return;
-        if (mVoiceByClient.TryGetValue(from, out var old))
+        if (_voiceByClient.TryGetValue(from, out var old))
             Sound.Stop(old);
         var h = Sound.PlayWave(wave);
-        mVoiceByClient[from] = h;
+        _voiceByClient[from] = h;
         Count("ChatWave", h);
     }
 
@@ -259,7 +268,7 @@ public sealed class SceneAudio
     /// <param name="ghost">The ghost index.</param>
     public void OnDelete(int ghost)
     {
-        if (!mGhosts.Remove(ghost, out var g))
+        if (!_ghosts.Remove(ghost, out var g))
             return;
         StopAll(g);
     }
@@ -394,13 +403,13 @@ public sealed class SceneAudio
     {
         var pd = Db.Block(3, (int)Db.ToDouble(p.Ghost.State.GetValueOrDefault("datablock"), -1));
         var m = SurfaceType?.Invoke(x, y, z) ?? -1;
-        if (m < 0 && M.Terrain != null)
+        if (m < 0 && _m.Terrain != null)
         {
             m = 0;
             float h = 0;
             var n = new Vec3(0, 0, 1);
             var mat = 0;
-            if (M.Terrain.Surface((float)x, (float)y, ref h, ref n, ref mat) && TerrainMaterials != null && mat >= 0 && mat < TerrainMaterials.Count)
+            if (_m.Terrain.Surface((float)x, (float)y, ref h, ref n, ref mat) && TerrainMaterials != null && mat >= 0 && mat < TerrainMaterials.Count)
                 m = Math.Clamp(TerrainMaterials[mat].Type, 0, 14);
         }
         if (m < 0)
@@ -486,7 +495,7 @@ public sealed class SceneAudio
                     double r = Num("rotation"), e = Num("elevation");
                     if (!double.IsNaN(g.LastRotation) && (r != g.LastRotation || e != g.LastElevation))
                     {
-                        g.WhirUntil = M.Time + 0.3;
+                        g.WhirUntil = _m.Time + 0.3;
                         if (g.Whir == 0)
                             g.Whir = Play("TurretWhir", Idx(b, "whirSound"), pos);
                     }
@@ -569,9 +578,9 @@ public sealed class SceneAudio
     /// <param name="dt">The frame time in seconds.</param>
     public void Frame(double dt)
     {
-        foreach (var (index, g) in mGhosts)
+        foreach (var (index, g) in _ghosts)
         {
-            if (!M.Visuals.TryGetValue(index, out var v))
+            if (!_m.Visuals.TryGetValue(index, out var v))
                 continue;
             var pos = v.Position;
             switch (v)
@@ -591,8 +600,8 @@ public sealed class SceneAudio
                     {
                         // The animation based jetting flag flickers between movement choices (65 ms); stop after 0.2 s without it.
                         if (g.JetOffSince < 0)
-                            g.JetOffSince = M.Time;
-                        if (M.Time - g.JetOffSince >= 0.2)
+                            g.JetOffSince = _m.Time;
+                        if (_m.Time - g.JetOffSince >= 0.2)
                         {
                             Sound.Stop(g.Looper);
                             g.Looper = 0;
@@ -610,7 +619,7 @@ public sealed class SceneAudio
                     Follow(g.Run, pos);
                     Follow(g.Sustained, pos);
                     Follow(g.Whir, pos);
-                    if (g.Whir != 0 && M.Time > g.WhirUntil)
+                    if (g.Whir != 0 && _m.Time > g.WhirUntil)
                     {
                         Sound.Stop(g.Whir);
                         g.Whir = 0;
@@ -619,16 +628,16 @@ public sealed class SceneAudio
             }
         }
         // Snow and rain (3.4): a 2D looping pair sound while precipitation is on.
-        var precip = M.HasWeather && WeatherEffect.Draws(M.WeatherPrecipitation, M.Weather.Suspended, M.Weather.Intensity);
-        if (precip && mPrecip == 0)
+        var precip = _m.HasWeather && WeatherEffect.Draws(_m.WeatherPrecipitation, _m.Weather.Suspended, _m.Weather.Intensity);
+        if (precip && _precip == 0)
         {
-            mPrecip = Sound.PlayPair(M.Weather.Rain ? 450046 : 450045);
-            Count("Precipitation", mPrecip);
+            _precip = Sound.PlayPair(_m.Weather.Rain ? 450046 : 450045);
+            Count("Precipitation", _precip);
         }
-        else if (!precip && mPrecip != 0)
+        else if (!precip && _precip != 0)
         {
-            Sound.Stop(mPrecip);
-            mPrecip = 0;
+            Sound.Stop(_precip);
+            _precip = 0;
         }
         Sequencer.Tick();
     }

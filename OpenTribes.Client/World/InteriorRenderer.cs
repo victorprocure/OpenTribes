@@ -178,59 +178,59 @@ public static class InteriorLightMaps
 public sealed class InteriorLodModel
 {
     /// <summary>The geometry.</summary>
-    public InteriorGeometryData Geo = null!;
+    public InteriorGeometryData Geo { get; set; } = null!;
     /// <summary>The geometry with its leaves, for the visible surface selection of the stock renderer (world-render.md 3.3).</summary>
-    public InteriorGeometry? Leaves;
+    public InteriorGeometry? Leaves { get; set; }
     /// <summary>The bitmap name of each material.</summary>
-    public List<string?> Materials = [];
+    public List<string?> Materials { get; set; } = [];
     /// <summary>The base lighting.</summary>
-    public InteriorLighting? Base;
+    public InteriorLighting? Base { get; set; }
     /// <summary>The mission lighting.</summary>
-    public InteriorLighting? Mission;
+    public InteriorLighting? Mission { get; set; }
     /// <summary>The position of each surface map in the atlas.</summary>
-    public (int x, int y)[] LmPos = [];
+    public (int x, int y)[] LmPos { get; set; } = [];
     /// <summary>The atlas width.</summary>
-    public int AtlasW;
+    public int AtlasW { get; set; }
     /// <summary>The atlas height.</summary>
-    public int AtlasH;
+    public int AtlasH { get; set; }
     /// <summary>The minimum projected size in pixels for this detail level.</summary>
-    public int MinPixels;
+    public int MinPixels { get; set; }
     /// <summary>The centre of the geometry box.</summary>
-    public float[] Center = new float[3];
+    public float[] Center { get; set; } = new float[3];
     /// <summary>The radius of the bounding sphere.</summary>
-    public float Radius;
+    public float Radius { get; set; }
     /// <summary>The animated lights that run on the client (auto start flag, world-render.md 3.7 Timing).</summary>
-    public int[] Running = [];
+    public int[] Running { get; set; } = [];
     /// <summary>The surfaces the running lights touch.</summary>
-    public HashSet<int> RunSurfaces = [];
+    public HashSet<int> RunSurfaces { get; set; } = [];
     /// <summary>The maps those surfaces start from.</summary>
-    public ushort[]?[] BaseMaps = [];
+    public ushort[]?[] BaseMaps { get; set; } = [];
     /// <summary>The light atlases built so far, one per light state seen (the first is the state at light time 0). The stock instance holds its own light state and maps. Here instances whose lights are in the same state share one atlas.</summary>
-    public readonly List<LightAtlas> Atlases = [];
+    public List<LightAtlas> Atlases { get; } = [];
 }
 
 /// <summary>One light atlas of a detail level: the packed surface maps for one state of its running lights.</summary>
 public sealed class LightAtlas
 {
     /// <summary>The state of each running light.</summary>
-    public int[] Key = [];
+    public int[] Key { get; set; } = [];
     /// <summary>The atlas pixels.</summary>
-    public byte[] Rgba = [];
+    public byte[] Rgba { get; set; } = [];
     /// <summary>The atlas texture.</summary>
-    public IGfxTexture? Texture;
+    public IGfxTexture? Texture { get; set; }
     /// <summary>The frame this atlas was last used.</summary>
-    public long UsedFrame;
+    public long UsedFrame { get; set; }
 }
 
 /// <summary>A loaded interior shape file with its detail levels.</summary>
 public sealed class InteriorModel
 {
     /// <summary>The resolved file name.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The shape file.</summary>
-    public InteriorShapeFile Shape = new();
+    public InteriorShapeFile Shape { get; set; } = new();
     /// <summary>The detail levels, null while not loaded.</summary>
-    public InteriorLodModel?[] Lods = [];
+    public InteriorLodModel?[] Lods { get; set; } = [];
 }
 
 /// <summary>Draws the interior instances of a mission (world-render.md 3).</summary>
@@ -240,80 +240,83 @@ public sealed class InteriorRenderer : IDisposable
     public sealed class Instance
     {
         /// <summary>The model.</summary>
-        public InteriorModel Model = null!;
+        public InteriorModel Model { get; set; } = null!;
         /// <summary>The position x.</summary>
-        public double X;
+        public double X { get; set; }
         /// <summary>The position y.</summary>
-        public double Y;
+        public double Y { get; set; }
         /// <summary>The position z.</summary>
-        public double Z;
+        public double Z { get; set; }
         /// <summary>The rotation about x.</summary>
-        public double Rx;
+        public double Rx { get; set; }
         /// <summary>The rotation about y.</summary>
-        public double Ry;
+        public double Ry { get; set; }
         /// <summary>The rotation about z.</summary>
-        public double Rz;
+        public double Rz { get; set; }
         /// <summary>The team of the GameBase part, -1 for none.</summary>
-        public int Team = -1;
+        public int Team { get; set; } = -1;
         /// <summary>The skin its textures were built with, empty for none.</summary>
-        public string Skin = "";
+        public string Skin { get; set; } = "";
         /// <summary>The rotation matrix, row major.</summary>
-        public float[] M = new float[9];
+        public float[] M { get; set; } = new float[9];
         // World box of the geometry padded by 3 on every side (docs/game-stream-ghosts.md 6.2), null until first needed; IsContainer: some extent >= 6.
-        internal double[]? Box;
-        internal bool IsContainer;
+        internal double[]? Box { get; set; }
+        internal bool IsContainer { get; set; }
         // The scope of the camera in this interior (6.2 PVS database): the camera leaf, its visible leaves, whether it sees outside.
-        internal double ScopeX = double.NaN, ScopeY, ScopeZ;
-        internal bool ScopeNothing, ScopeOutside;
-        internal HashSet<int>? ScopeLeaves;
+        internal double ScopeX { get; set; } = double.NaN;
+        internal double ScopeY { get; set; }
+        internal double ScopeZ { get; set; }
+        internal bool ScopeNothing { get; set; }
+        internal bool ScopeOutside { get; set; }
+        internal HashSet<int>? ScopeLeaves { get; set; }
         // World-space triangles of each surface per detail level, built on first draw (the instance never moves).
-        internal readonly Dictionary<InteriorLodModel, SurfaceMesh[]> Meshes = [];
+        internal Dictionary<InteriorLodModel, SurfaceMesh[]> Meshes { get; } = [];
         // The light state of the instance (the run state array of the stock instance, 3.7): the sim time of its first light tick, the
         // step last processed and, per light, the private state of a random light. Detail changes reset the random states.
-        internal double? LightOrigin;
-        internal long LightStep;
-        internal InteriorLodModel? DrawnLod;
-        internal int LodIndex; // the detail level in use (ITRInstance +0xb4), 0 at the start
-        internal LightAtlas? DrawnAtlas;
-        internal InteriorLodModel? LightLod;
-        internal float[] RandomTime = [];
-        internal int[] RandomState = [];
-        internal (int mono, int r, int g, int b)[] RandomColor = [];
+        internal double? LightOrigin { get; set; }
+        internal long LightStep { get; set; }
+        internal InteriorLodModel? DrawnLod { get; set; }
+        internal int LodIndex { get; set; } // the detail level in use (ITRInstance +0xb4), 0 at the start
+        internal LightAtlas? DrawnAtlas { get; set; }
+        internal InteriorLodModel? LightLod { get; set; }
+        internal float[] RandomTime { get; set; } = [];
+        internal int[] RandomState { get; set; } = [];
+        internal (int mono, int r, int g, int b)[] RandomColor { get; set; } = [];
     }
 
     // One surface of one instance, already in world space with haze 0: the fan triangles and the batch key (material index).
     internal readonly record struct SurfaceMesh(Vertex3D[] Triangles, int Key, IGfxTexture? Texture);
 
     // Draw scratch kept between frames: the vertices of the current run of surfaces with one material.
-    private readonly List<Vertex3D> mBatch = [];
+    private readonly List<Vertex3D> _batch = [];
 
-    private readonly IGfxDevice mDev;
-    private readonly WorldAssets mAssets;
-    private readonly Dictionary<string, InteriorModel?> mModels = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, IGfxTexture?> mTextures = new(StringComparer.OrdinalIgnoreCase);
-    private IGfxTexture? mWhite;
+    private readonly IGfxDevice _dev;
+    private readonly WorldAssets _assets;
+    private readonly Dictionary<string, InteriorModel?> _models = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IGfxTexture?> _textures = new(StringComparer.OrdinalIgnoreCase);
+    private IGfxTexture? _white;
     /// <summary>The placed interiors.</summary>
-    public readonly List<Instance> Instances = [];
+    public List<Instance> Instances { get; } = [];
     /// <summary>The length of a light step in seconds: the lights advance in steps of <c>$pref::interiorLightUpdateMS</c> (67 ms, 0047f3f4).</summary>
     public const float LightStep = 0.067f;
-    private readonly System.Diagnostics.Stopwatch mClock = System.Diagnostics.Stopwatch.StartNew();
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
     /// <summary>The simulation time in seconds, set by the host before each frame. Without a sim time (tools) the wall clock stands in.</summary>
     /// <remarks>The stock instance keeps an accumulator that its first tick sets to the sim time and then adds 67 ms to while the tick time is above it (0047f3f4), so the light time of an instance is a whole number of steps counted from its own first tick (<c>Instance.LightOrigin</c>, the first frame that sees it).</remarks>
-    public double? SimSeconds;
-    private long mFrame;
-    private readonly Random mRandom = new(0x5eed);
+    public double? SimSeconds { get; set; }
+    private long _frame;
+    private readonly Random _random = new(0x5eed);
     /// <summary>The number of surfaces drawn in the last frame.</summary>
-    public int DrawnSurfaces;
+    public int DrawnSurfaces { get; set; }
     /// <summary>The number of instances drawn in the last frame.</summary>
-    public int DrawnInstances;
+    public int DrawnInstances { get; set; }
 
     /// <summary>Creates the renderer.</summary>
     /// <param name="dev">The graphics device.</param>
     /// <param name="assets">The world assets.</param>
     public InteriorRenderer(IGfxDevice dev, WorldAssets assets)
     {
-        mDev = dev;
-        mAssets = assets;
+        _dev = dev;
+        _assets = assets;
     }
 
     /// <summary>Builds the Euler transform (interiors.md 5.2): row vector convention, world = local * M + p.</summary>
@@ -349,10 +352,10 @@ public sealed class InteriorRenderer : IDisposable
     }
 
     /// <summary>Gets the skin base of a team (the team table of the client). Materials named <c>base.&lt;name&gt;</c> take <c>&lt;skin&gt;.&lt;name&gt;</c> when that exists.</summary>
-    public Func<int, string>? TeamSkin;
+    public Func<int, string>? TeamSkin { get; set; }
 
     /// <summary>The scene light of the planet (ambient, sun colour and direction) for 3.7 step 5, or null for no sun term.</summary>
-    public LightSet? Sun;
+    public LightSet? Sun { get; set; }
 
     /// <summary>Adds an interior instance, loading the model on first use.</summary>
     /// <param name="fileName">The interior file name.</param>
@@ -366,16 +369,16 @@ public sealed class InteriorRenderer : IDisposable
     /// <returns>False when the interior did not load.</returns>
     public bool AddInstance(string fileName, double x, double y, double z, double rx, double ry, double rz, int team = -1)
     {
-        var resolved = Interior.ResolveInteriorName(mAssets.Res, fileName);
+        var resolved = Interior.ResolveInteriorName(_assets.Res, fileName);
         if (resolved.Length == 0)
             return false;
-        if (!mModels.TryGetValue(resolved, out var model))
+        if (!_models.TryGetValue(resolved, out var model))
         {
             model = null;
             var shape = new InteriorShapeFile();
-            if (mAssets.Res.Read(resolved, out var dis) && InteriorShapeFile.Parse(dis, shape) && shape.Lods.Count > 0)
+            if (_assets.Res.Read(resolved, out var dis) && InteriorShapeFile.Parse(dis, shape) && shape.Lods.Count > 0)
                 model = new InteriorModel { Name = resolved, Shape = shape, Lods = new InteriorLodModel?[shape.Lods.Count] };
-            mModels[resolved] = model;
+            _models[resolved] = model;
             if (model == null)
                 Console.Error.WriteLine($"interior: {fileName} ({resolved}) did not load");
         }
@@ -412,7 +415,7 @@ public sealed class InteriorRenderer : IDisposable
         if (model.Lods[index] != null)
             return model.Lods[index];
         var l = model.Shape.Lods[index];
-        if (!mAssets.Res.Read(l.Geometry, out var dig))
+        if (!_assets.Res.Read(l.Geometry, out var dig))
         {
             Console.Error.WriteLine($"interior: {model.Name} lod {index}: geometry {l.Geometry} not found");
             return null;
@@ -428,7 +431,7 @@ public sealed class InteriorRenderer : IDisposable
             Geo = geo,
             Leaves = InteriorGeometry.Parse(dig),
             MinPixels = (int)LodMinPixels(model.Shape, index),
-            Materials = mAssets.MaterialList(model.Shape.MaterialList) ?? []
+            Materials = _assets.MaterialList(model.Shape.MaterialList) ?? []
         };
         if (lod.Materials.Count == 0)
             Console.Error.WriteLine($"interior: {model.Name}: material list {model.Shape.MaterialList} empty or missing");
@@ -436,14 +439,14 @@ public sealed class InteriorRenderer : IDisposable
         if (li < model.Shape.LodLights.Count)
         {
             var lightName = model.Shape.LodLights[li];
-            if (mAssets.Res.Read(lightName, out var lb))
+            if (_assets.Res.Read(lightName, out var lb))
             {
                 InteriorLighting? first = InteriorLighting.Parse(lb);
                 if (first != null && first.IsMission && first.BuildId == geo.BuildId)
                 {
                     lod.Mission = first;
                     var baseName = BaseLightingName(lightName);
-                    if (mAssets.Res.Read(baseName, out var bb))
+                    if (_assets.Res.Read(baseName, out var bb))
                         lod.Base = InteriorLighting.Parse(bb);
                 }
                 else if (first != null && !first.IsMission)
@@ -453,7 +456,7 @@ public sealed class InteriorRenderer : IDisposable
                 else if (first != null && first.IsMission)
                 {
                     // 3.7: a mismatched mission file falls back to the base lighting.
-                    if (mAssets.Res.Read(BaseLightingName(lightName), out var bb))
+                    if (_assets.Res.Read(BaseLightingName(lightName), out var bb))
                         lod.Base = InteriorLighting.Parse(bb);
                 }
             }
@@ -473,7 +476,7 @@ public sealed class InteriorRenderer : IDisposable
     /// <summary>Loads every detail level of every model in use (geometry, lighting, light atlas, material bitmaps), so the first frame that sees an interior from a new distance does not stall on file reads and texture uploads.</summary>
     public void Preload()
     {
-        foreach (var model in mModels.Values)
+        foreach (var model in _models.Values)
             if (model != null)
                 for (var i = 0; i < model.Lods.Length; ++i)
                 {
@@ -532,7 +535,7 @@ public sealed class InteriorRenderer : IDisposable
         for (var i = 0; i < maps.Length; ++i)
             if (maps[i] != null)
                 WriteSurface(lod, first.Rgba, i, maps[i]!);
-        first.Texture = mDev.CreateTexture3D(first.Rgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
+        first.Texture = _dev.CreateTexture3D(first.Rgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
         lod.Atlases.Clear();
         lod.Atlases.Add(first);
     }
@@ -622,7 +625,7 @@ public sealed class InteriorRenderer : IDisposable
             inst.LightOrigin ??= sim;
             return (long)Math.Ceiling(((sim - inst.LightOrigin.Value) / LightStep) - 1e-9);
         }
-        return (long)(mClock.Elapsed.TotalSeconds / LightStep);
+        return (long)(_clock.Elapsed.TotalSeconds / LightStep);
     }
 
     // The light atlas of an instance at this frame (ITRInstance light advance, once per light step): advances the random lights of the
@@ -661,7 +664,7 @@ public sealed class InteriorRenderer : IDisposable
                 {
                     while (inst.RandomTime[i] >= period)
                         inst.RandomTime[i] -= period;
-                    var roll = l.Duration * (float)mRandom.NextDouble();
+                    var roll = l.Duration * (float)_random.NextDouble();
                     var pick = l.StateCount - 1;
                     for (var j = 0; j < l.StateCount - 1; ++j)
                         if (roll < records[j + 1].EndTime)
@@ -693,17 +696,17 @@ public sealed class InteriorRenderer : IDisposable
             foreach (var s in lod.RunSurfaces)
                 if (maps[s] != null)
                     WriteSurface(lod, found.Rgba, s, maps[s]!);
-            found.Texture = mDev.CreateTexture3D(found.Rgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
+            found.Texture = _dev.CreateTexture3D(found.Rgba, lod.AtlasW, lod.AtlasH, new TextureOptions(false, false, true));
             // drop the atlases no instance used for a while (never the first)
             for (var i = lod.Atlases.Count - 1; i > 0 && lod.Atlases.Count > 12; --i)
-                if (lod.Atlases[i].UsedFrame < mFrame - 1)
+                if (lod.Atlases[i].UsedFrame < _frame - 1)
                 {
                     lod.Atlases[i].Texture?.Dispose();
                     lod.Atlases.RemoveAt(i);
                 }
             lod.Atlases.Add(found);
         }
-        found.UsedFrame = mFrame;
+        found.UsedFrame = _frame;
         return found;
     }
 
@@ -711,16 +714,16 @@ public sealed class InteriorRenderer : IDisposable
     {
         if (name == null)
         {
-            mWhite ??= mDev.CreateTexture3D([255, 255, 255, 255], 1, 1, new TextureOptions(false, true, false));
-            return mWhite;
+            _white ??= _dev.CreateTexture3D([255, 255, 255, 255], 1, 1, new TextureOptions(false, true, false));
+            return _white;
         }
-        if (mTextures.TryGetValue(name, out var t))
+        if (_textures.TryGetValue(name, out var t))
             return t;
-        var bmp = mAssets.Bitmap(name);
+        var bmp = _assets.Bitmap(name);
         t = bmp != null && bmp.Width > 0 && bmp.Height > 0
-            ? mAssets.CreateTexture(mDev, bmp, mAssets.PackedRgba(bmp, true), true, true, true)
+            ? _assets.CreateTexture(_dev, bmp, _assets.PackedRgba(bmp, true), true, true, true)
             : null;
-        mTextures[name] = t;
+        _textures[name] = t;
         if (t == null)
             Console.Error.WriteLine($"interior: material bitmap {name} not found");
         return t;
@@ -869,13 +872,13 @@ public sealed class InteriorRenderer : IDisposable
     }
 
     /// <summary>The SimTerrain world box (min xyz, max xyz, z plus or minus contHeight) for the render scope gate of <see cref="TerrainReached"/>, or null for no gate.</summary>
-    public float[]? TerrainBox;
-    private Container? mGate;
-    private int mGateCount = -1;
-    private double mGateX = double.NaN, mGateY, mGateZ;
-    private bool mGateResult = true;
+    public float[]? TerrainBox { get; set; }
+    private Container? _gate;
+    private int _gateCount = -1;
+    private double _gateX = double.NaN, _gateY, _gateZ;
+    private bool _gateResult = true;
     // The interiors the render walk of the camera point reached through a link record (image link flag, see ChooseDetail).
-    private readonly HashSet<object> mGateLinked = [];
+    private readonly HashSet<object> _gateLinked = [];
 
     /// <summary>Tells whether the render walk reaches the terrain from the camera.</summary>
     /// <param name="cam">The camera.</param>
@@ -885,25 +888,25 @@ public sealed class InteriorRenderer : IDisposable
     {
         if (TerrainBox == null)
             return true;
-        if (mGate == null || mGateCount != Instances.Count)
+        if (_gate == null || _gateCount != Instances.Count)
         {
-            mGate = BuildGate();
-            mGateCount = Instances.Count;
-            mGateX = double.NaN;
+            _gate = BuildGate();
+            _gateCount = Instances.Count;
+            _gateX = double.NaN;
         }
-        if (mGateX != cam.X || mGateY != cam.Y || mGateZ != cam.Z)
+        if (_gateX != cam.X || _gateY != cam.Y || _gateZ != cam.Z)
         {
-            (mGateX, mGateY, mGateZ) = (cam.X, cam.Y, cam.Z);
-            mGateLinked.Clear();
-            mGateResult = mGate.RenderReaches(new Vec3((float)cam.X, (float)cam.Y, (float)cam.Z), o => mGateLinked.Add(o));
+            (_gateX, _gateY, _gateZ) = (cam.X, cam.Y, cam.Z);
+            _gateLinked.Clear();
+            _gateResult = _gate.RenderReaches(new Vec3((float)cam.X, (float)cam.Y, (float)cam.Z), o => _gateLinked.Add(o));
         }
-        return mGateResult;
+        return _gateResult;
     }
 
     private Container BuildGate()
     {
         var c = new Container();
-        var terrain = new Container.Entry(this, ObjectType.kTerrainType, Float6.Of(TerrainBox!), false, null)
+        var terrain = new Container.Entry(this, ObjectType.TerrainType, Float6.Of(TerrainBox!), false, null)
         {
             DatabaseKind = Container.Database.Terrain,
             ContainerMask = 0xffffffffu,
@@ -933,7 +936,7 @@ public sealed class InteriorRenderer : IDisposable
                 }
             }
             Container.PadInteriorBox(box);
-            var e = new Container.Entry(inst, ObjectType.kInteriorType, Float6.Of(box), false, null);
+            var e = new Container.Entry(inst, ObjectType.InteriorType, Float6.Of(box), false, null);
             // isContainer -1 (the mission default): some extent >= 6 (docs/interiors.md 5.1)
             if (gb[3] - gb[0] >= 6 || gb[4] - gb[1] >= 6 || gb[5] - gb[2] >= 6)
             {
@@ -973,7 +976,7 @@ public sealed class InteriorRenderer : IDisposable
     {
         var cam = camera;
         DrawnSurfaces = DrawnInstances = 0;
-        ++mFrame;
+        ++_frame;
         // the first tick of an instance comes whether or not it is seen: the first frame that finds it here
         if (SimSeconds is double sim)
             foreach (var inst in Instances)
@@ -1036,7 +1039,7 @@ public sealed class InteriorRenderer : IDisposable
             var computed = ModelLod(model, pixels, false);
             var cand = Lod(model, computed);
             var loaded = cand != null && cand.Base != null && cand.Atlases.Count > 0;
-            var lodIndex = ChooseDetail(inside, mGateLinked.Contains(inst), loaded, inst.LodIndex, computed);
+            var lodIndex = ChooseDetail(inside, _gateLinked.Contains(inst), loaded, inst.LodIndex, computed);
             var lod = Lod(model, lodIndex);
             if (lod == null || lod.Base == null || lod.Atlases.Count == 0)
                 return;
@@ -1096,7 +1099,7 @@ public sealed class InteriorRenderer : IDisposable
             var mat = surf.Material == 255 ? -1 : surf.Material;
             var matName = mat >= 0 && mat < lod.Materials.Count ? lod.Materials[mat] : null;
             if (matName != null && inst.Skin.Length > 0)
-                matName = Skins.Resolve(matName, inst.Skin, n => GfxAssets.Read(mAssets.Res, n, out _), false);
+                matName = Skins.Resolve(matName, inst.Skin, n => GfxAssets.Read(_assets.Res, n, out _), false);
             var tex = MaterialTexture(matName);
             double bw = tex?.Width ?? 1, bh = tex?.Height ?? 1;
             var (ax, ay) = lod.LmPos[s];
@@ -1163,7 +1166,7 @@ public sealed class InteriorRenderer : IDisposable
         }
         if (!inst.Meshes.TryGetValue(lod, out var meshes))
             inst.Meshes[lod] = meshes = BuildMeshes(inst, lod);
-        var list = mBatch;
+        var list = _batch;
         list.Clear();
         var curKey = int.MinValue;
         IGfxTexture? curTex = null;
@@ -1188,7 +1191,7 @@ public sealed class InteriorRenderer : IDisposable
             }
             if (list.Count > 0 && meshes[s].Key != curKey)
             {
-                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, atlas));
+                _dev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, atlas));
                 list.Clear();
             }
             curKey = meshes[s].Key;
@@ -1214,7 +1217,7 @@ public sealed class InteriorRenderer : IDisposable
             ++DrawnSurfaces;
         }
         if (list.Count > 0)
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, atlas));
+            _dev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(curTex, atlas));
         list.Clear();
     }
 
@@ -1306,10 +1309,10 @@ public sealed class InteriorRenderer : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (var t in mTextures.Values)
+        foreach (var t in _textures.Values)
             t?.Dispose();
-        mWhite?.Dispose();
-        foreach (var m in mModels.Values)
+        _white?.Dispose();
+        foreach (var m in _models.Values)
             if (m != null)
                 foreach (var l in m.Lods)
                     if (l != null)

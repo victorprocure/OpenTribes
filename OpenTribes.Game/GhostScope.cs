@@ -9,48 +9,48 @@ using static OpenTribes.Core.Fpu;
 public sealed class PriorityWeights
 {
     /// <summary>The weight of the field of view term.</summary>
-    public float Fov = 1.0f;
+    public float Fov { get; set; } = 1.0f;
     /// <summary>The weight of the distance term.</summary>
-    public float Distance = 0.4f;
+    public float Distance { get; set; } = 0.4f;
     /// <summary>The weight of the velocity term.</summary>
-    public float Velocity = 0.4f;
+    public float Velocity { get; set; } = 0.4f;
     /// <summary>The weight of the skip count term.</summary>
-    public float Skips = 0.2f;
+    public float Skips { get; set; } = 0.2f;
     /// <summary>The weight of the ownership term.</summary>
-    public float Ownership = 0.2f;
+    public float Ownership { get; set; } = 0.2f;
     /// <summary>The weight of the interest term.</summary>
-    public float Interest = 0.2f;
+    public float Interest { get; set; } = 0.2f;
 }
 
 /// <summary>The inputs of the GameBase priority (004488e8) that live on the object.</summary>
 public sealed class PriorityInputs
 {
     /// <summary>The world box (+0x70 to +0x84).</summary>
-    public readonly float[] Box = new float[6];
+    public float[] Box { get; } = new float[6];
     /// <summary>The velocity (+0x194).</summary>
-    public readonly float[] Velocity = new float[3];
+    public float[] Velocity { get; } = new float[3];
     /// <summary>The id of the shooter or thrower (+0x210).</summary>
-    public int OwnerId;
+    public int OwnerId { get; set; }
     /// <summary>The object type bits (+0x48).</summary>
-    public uint Type;
+    public uint Type { get; set; }
     /// <summary>True for a LaserProjectile.</summary>
-    public bool Laser;
+    public bool Laser { get; set; }
 }
 
 /// <summary>The scope query and update priority of ghosted objects.</summary>
 public static class GhostScope
 {
     /// <summary>The net flag of a ghostable object (+0x4c, set by the class constructors; docs/game-stream-ghosts.md 6.1, 1.1).</summary>
-    public const uint kNetGhostable = 0x100;
+    public const uint NetGhostable = 0x100;
     /// <summary>The net flag of an object that is always in scope.</summary>
-    public const uint kNetScopeAlways = 0x40;
+    public const uint NetScopeAlways = 0x40;
     /// <summary>The net flag of an object ghosted only to client 2049.</summary>
-    public const uint kNetLocalOnly = 0x80;
+    public const uint NetLocalOnly = 0x80;
 
     private sealed record ClassFlags(string Cls, uint Flags, uint Tag, bool GameBase);
 
     // src/game/ghost_scope.cpp kClasses: constructors (docs/game-stream-ghosts.md 6.1).
-    private static readonly ClassFlags[] kClasses =
+    private static readonly ClassFlags[] Classes =
     [
         new("SimVolume", 0x140, 0x001, false), new("SimTerrain", 0x140, 0x002, false),
         new("SimPalette", 0x140, 0x003, false), new("SimLight", 0x140, 0x006, false),
@@ -72,13 +72,13 @@ public static class GhostScope
     // src/game/ghost_scope.cpp classOf.
     private static ClassFlags? ClassOf(SimObject obj)
     {
-        foreach (var c in kClasses)
+        foreach (var c in Classes)
             if (GameUtil.EqualsNoCase(c.Cls, obj.ClassName()))
                 return c;
         return null;
     }
 
-    private static Container? sContainer;
+    private static Container? _container;
     private static readonly PriorityWeights sWeights = new();
 
     // src/game/ghost_scope.cpp lenApprox: m_Point3F_lenf (005ed031): squared length stored as f32, then the bit-level
@@ -101,7 +101,7 @@ public static class GhostScope
     private static float GameBaseClassPriority(SimObject obj, GhostManager gm, uint mask, uint skipCount)
     {
         var input = new PriorityInputs();
-        if (sContainer?.Find(obj) is Container.Entry e)
+        if (_container?.Find(obj) is Container.Entry e)
         {
             for (var i = 0; i < 6; ++i)
                 input.Box[i] = e.Box[i];
@@ -280,9 +280,9 @@ public static class GhostScope
         void Mark(SimObject obj)
         {
             var f = NetFlags(obj);
-            if ((f & kNetLocalOnly) != 0 && gm.ClientId() != 2049)
+            if ((f & NetLocalOnly) != 0 && gm.ClientId() != 2049)
                 return;
-            gm.MarkInScope(obj, (f & kNetScopeAlways) != 0);
+            gm.MarkInScope(obj, (f & NetScopeAlways) != 0);
         }
         var vis = 1500.0f; // no container (004351d8, 004498ec)
         float inContainer = 0;
@@ -292,7 +292,7 @@ public static class GhostScope
         {
             var cam = (ObserverCamera)so;
             ObserverCameraRecord(cam.Position, cam.CamRotation, rec);
-            if (cam.Mode is ObserverCamera.kOrbitObject or ObserverCamera.kOrbitPoint)
+            if (cam.Mode is ObserverCamera.kOrbitObject or ObserverCamera.OrbitPoint)
                 for (var i = 0; i < 3; ++i)
                 {
                     // Orbiting: the transform (+0x188, row 1) differs from the orbit centre.
@@ -336,7 +336,7 @@ public static class GhostScope
             Markable = o =>
             {
                 var f = NetFlags((SimObject)o!);
-                return (f & kNetGhostable) != 0 && (f & kNetScopeAlways) == 0; // rule M
+                return (f & NetGhostable) != 0 && (f & NetScopeAlways) == 0; // rule M
             },
             Mark = o => Mark((SimObject)o!),
         };
@@ -345,7 +345,7 @@ public static class GhostScope
 
     /// <summary>Sets the container the priority functions query.</summary>
     /// <param name="container">The container.</param>
-    public static void SetPriorityContainer(Container? container) => sContainer = container;
+    public static void SetPriorityContainer(Container? container) => _container = container;
 
     /// <summary>Dispatches the priority for <see cref="GhostManager.DefaultPriority"/>.</summary>
     /// <param name="obj">The object.</param>
@@ -365,7 +365,7 @@ public static class GhostScope
     /// <remarks>GameBase classes are registered by tag when no packer exists yet (docs/game-stream-ghosts.md 4.1).</remarks>
     public static void RegisterGhostPriorities()
     {
-        foreach (var c in kClasses)
+        foreach (var c in Classes)
         {
             GhostClass.PriorityFn prio = c.GameBase ? GameBaseClassPriority : NetObjectPriority;
             if (GhostManager.FindGhostClass(c.Cls) is GhostClass g)

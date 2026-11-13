@@ -7,40 +7,41 @@ using OpenTribes.Platform.Gfx;
 public sealed class ShapeDraw
 {
     /// <summary>The transform of the shape to the world.</summary>
-    public Xf ToWorld = Xf.Identity;
+    public ref Xf ToWorld => ref _toWorld;
+    private Xf _toWorld = Xf.Identity;
     /// <summary>True for the Player armor only: ShapeBase_resetRootTransform clears the instance root transform (3.6 step 4).</summary>
-    public bool NoRootTransform;
+    public bool NoRootTransform { get; set; }
     /// <summary>The lights.</summary>
-    public LightSet Light = LightSet.Default();
+    public LightSet Light { get; set; } = LightSet.Default();
     /// <summary>The fade f of 2.2 step 3: 0 fully visible, 1 gone. The alpha is 1 - f.</summary>
-    public double Fade;
+    public double Fade { get; set; }
     /// <summary>The skin name.</summary>
-    public string Skin = "";
+    public string Skin { get; set; } = "";
     /// <summary>The damage level of the skin.</summary>
-    public int DamageLevel;
+    public int DamageLevel { get; set; }
     /// <summary>The scale of the detail choice, the shape detail preference (instance +0x90).</summary>
-    public double DetailScale = 1;
+    public double DetailScale { get; set; } = 1;
     /// <summary>The detail to draw, or -2 to choose by size.</summary>
-    public int ForceDetail = -2;
+    public int ForceDetail { get; set; } = -2;
     /// <summary>True to draw in category 1 whatever the materials say.</summary>
-    public bool ForceTranslucent;
+    public bool ForceTranslucent { get; set; }
     /// <summary>True to cull a face that crosses a clip plane by its winding too, set for the explosion shapes (a camera inside a cone sees only back faces).</summary>
     /// <remarks>The device culls the back faces of every polygon (beginScene3d 005daa30: cull on, front face CW), so a face that goes through the clipper 005b1f68 is culled by its winding too.</remarks>
-    public bool CullClipped;
+    public bool CullClipped { get; set; }
     /// <summary>A sort key that replaces the computed one, or null.</summary>
-    public double? FixedSortKey;
+    public double? FixedSortKey { get; set; }
     /// <summary>The distance where the haze starts.</summary>
-    public double HazeStart = 1e9;
+    public double HazeStart { get; set; } = 1e9;
     /// <summary>The visible distance.</summary>
-    public double Visible = 1e9;
+    public double Visible { get; set; } = 1e9;
     /// <summary>True to keep the fog amount of the image at 0 (projectile images never set it): no haze.</summary>
-    public bool NoHaze;
+    public bool NoHaze { get; set; }
     /// <summary>A bias added to the sort key (the flame draws just in front of the body).</summary>
-    public double SortBias;
+    public double SortBias { get; set; }
     /// <summary>The label of the render image.</summary>
-    public string Label = "";
+    public string Label { get; set; } = "";
     /// <summary>The objects to draw, or null for all (debris parts).</summary>
-    public HashSet<int>? ObjectFilter;
+    public HashSet<int>? ObjectFilter { get; set; }
 }
 
 /// <summary>The shape image builder: detail choice, frame vertices, face culling, material states (shading, keyed and translucent blends, fade) and vertex lighting.</summary>
@@ -49,50 +50,50 @@ public sealed class ShapeRenderer
 {
     private sealed class FrameData
     {
-        public float[] P = [];
-        public float[] N = [];
+        public float[] P { get; set; } = [];
+        public float[] N { get; set; } = [];
     }
 
     private struct MatState
     {
-        public DrawState3D Ds;
-        public bool PaletteAlpha;
+        public DrawState3D Ds { get; set; }
+        public bool PaletteAlpha { get; set; }
     }
 
     // Scratch kept between builds (the renderer is used by one thread): per-material vertex lists, material states of the
     // current build in order of first use, and the world-space vertex, normal and colour arrays of one object.
-    private readonly Dictionary<int, MatState> mStates = [];
-    private readonly Dictionary<int, List<Vertex3D>> mBatches = [];
-    private readonly List<int> mUsed = [];
-    private (double x, double y, double z)[] mWp = [], mWn = [];
-    private (float r, float g, float b)?[] mCol = [];
-    private byte[] mOut = [];
+    private readonly Dictionary<int, MatState> _states = [];
+    private readonly Dictionary<int, List<Vertex3D>> _batches = [];
+    private readonly List<int> _used = [];
+    private (double x, double y, double z)[] _wp = [], _wn = [];
+    private (float r, float g, float b)?[] _col = [];
+    private byte[] _out = [];
 
-    private readonly ShapeAssets mAssets;
-    private readonly Dictionary<(RsMesh, int), FrameData> mFrames = [];
+    private readonly ShapeAssets _assets;
+    private readonly Dictionary<(RsMesh, int), FrameData> _frames = [];
     /// <summary>True to flip the winding, set by tests that check the cull rule.</summary>
-    public bool FlipWinding;
+    public bool FlipWinding { get; set; }
     /// <summary>The detail of the last build.</summary>
-    public int LastDetail = -1;
+    public int LastDetail { get; set; } = -1;
     /// <summary>The faces of the last build.</summary>
-    public int LastFaces;
+    public int LastFaces { get; set; }
     /// <summary>The culled faces of the last build.</summary>
-    public int LastCulled;
+    public int LastCulled { get; set; }
     /// <summary>The names of the files already logged.</summary>
-    public readonly HashSet<string> Logged = [];
+    public HashSet<string> Logged { get; } = [];
     /// <summary>The number of draws skipped for a missing texture.</summary>
-    public int SkippedMissingTexture;
+    public int SkippedMissingTexture { get; set; }
 
     /// <summary>Creates the builder.</summary>
     /// <param name="assets">The shape assets.</param>
-    public ShapeRenderer(ShapeAssets assets) => mAssets = assets;
+    public ShapeRenderer(ShapeAssets assets) => _assets = assets;
 
     // 1.2: vertex k of a frame is packed[firstVert + k].xyz * scale + origin, in mesh space; the normals are the area
     // weighted average of the adjacent faces of the frame, pointing out of the clockwise faces (the exe normal table of 1.4 is
     // not available to the port; its vectors point out of the faces, as checked on the disc launcher).
     private FrameData Frame(RsMesh mesh, int frame)
     {
-        if (mFrames.TryGetValue((mesh, frame), out var fd))
+        if (_frames.TryGetValue((mesh, frame), out var fd))
             return fd;
         var f = mesh.Frames[frame];
         var count = mesh.VertsPerFrame > 0 ? mesh.VertsPerFrame : (frame + 1 < mesh.Frames.Length ? mesh.Frames[frame + 1].FirstVert - f.FirstVert : (mesh.Verts.Length / 4) - f.FirstVert);
@@ -131,7 +132,7 @@ public sealed class ShapeRenderer
             else
                 fd.N[(k * 3) + 2] = 1;
         }
-        mFrames[(mesh, frame)] = fd;
+        _frames[(mesh, frame)] = fd;
         return fd;
     }
 
@@ -185,9 +186,9 @@ public sealed class ShapeRenderer
         }
         var haze = p.NoHaze ? 0 : (float)TerrainLod.ObjectHaze(dist, p.HazeStart, p.Visible);
         var img = new RenderImage { Label = p.Label.Length > 0 ? p.Label : sh.Name };
-        var states = mStates;
+        var states = _states;
         states.Clear();
-        mUsed.Clear();
+        _used.Clear();
         var translucent = p.ForceTranslucent || p.Fade > 0;
         var matBase = sh.MaterialDetails > 1 ? Math.Min(detail, sh.MaterialDetails - 1) * sh.MaterialCount : 0;
         var alphaFade = 1 - p.Fade;
@@ -204,21 +205,21 @@ public sealed class ShapeRenderer
             var ox = inst.ObjectTransform(oi).Then(toWorld);
             var fd = Frame(mesh, Math.Clamp(st.Frame, 0, mesh.Frames.Length - 1));
             var nv = fd.P.Length / 3;
-            if (mWp.Length < nv)
+            if (_wp.Length < nv)
             {
-                mWp = new (double x, double y, double z)[nv * 2];
-                mWn = new (double x, double y, double z)[nv * 2];
-                mCol = new (float r, float g, float b)?[nv * 2];
-                mOut = new byte[nv * 2];
+                _wp = new (double x, double y, double z)[nv * 2];
+                _wn = new (double x, double y, double z)[nv * 2];
+                _col = new (float r, float g, float b)?[nv * 2];
+                _out = new byte[nv * 2];
             }
-            (double x, double y, double z)[] wp = mWp, wn = mWn;
-            var col = mCol;
+            (double x, double y, double z)[] wp = _wp, wn = _wn;
+            var col = _col;
             Array.Clear(col, 0, nv);
             for (var k = 0; k < nv; ++k)
             {
                 wp[k] = ox.Apply(fd.P[k * 3], fd.P[(k * 3) + 1], fd.P[(k * 3) + 2]);
                 wn[k] = ox.Rotate(fd.N[k * 3], fd.N[(k * 3) + 1], fd.N[(k * 3) + 2]);
-                mOut[k] = ClipCode(cam, wp[k]);
+                _out[k] = ClipCode(cam, wp[k]);
             }
             var tvOffset = mesh.TexVertsPerFrame > 0 && mesh.TexVerts.Length / 2 >= (st.TextureFrame + 1) * mesh.TexVertsPerFrame ? st.TextureFrame * mesh.TexVertsPerFrame : 0;
             foreach (var f in mesh.Faces)
@@ -235,8 +236,8 @@ public sealed class ShapeRenderer
                 // 2.4 step 6: the stock faces are clockwise seen from outside and the cull drops the counter-clockwise ones, but
                 // only for a face wholly inside every clip plane. One that crosses a plane goes to the clipper, which draws it
                 // whatever its winding. A face outside one shared plane is dropped.
-                var oc = mOut[f.V0] | mOut[f.V1] | mOut[f.V2];
-                if (oc != 0 && (mOut[f.V0] & mOut[f.V1] & mOut[f.V2]) != 0)
+                var oc = _out[f.V0] | _out[f.V1] | _out[f.V2];
+                if (oc != 0 && (_out[f.V0] & _out[f.V1] & _out[f.V2]) != 0)
                     continue;
                 if ((oc == 0 || p.CullClipped) && (FlipWinding ? facing < 0 : facing > 0))
                 {
@@ -251,18 +252,18 @@ public sealed class ShapeRenderer
                 if (!states.TryGetValue(mi, out var ms))
                 {
                     DrawState3D made = default;
-                    mUsed.Add(mi);
+                    _used.Add(mi);
                     if (!MakeState(sh, m, p, ref made, out var blended))
                     {
                         ++SkippedMissingTexture;
                         states[mi] = default;
                         continue;
                     }
-                    var pa = m.Type == 3 && mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed) is TexEntry te && te.PaletteAlpha;
+                    var pa = m.Type == 3 && _assets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed) is TexEntry te && te.PaletteAlpha;
                     ms = new MatState { Ds = made, PaletteAlpha = pa };
                     states[mi] = ms;
-                    if (!mBatches.ContainsKey(mi))
-                        mBatches[mi] = [];
+                    if (!_batches.ContainsKey(mi))
+                        _batches[mi] = [];
                     if (blended)
                         translucent = true;
                 }
@@ -281,7 +282,7 @@ public sealed class ShapeRenderer
                 {
                     if (m.Type == 1)
                     {
-                        mAssets.World.Palette.SubPalettes[0].Rgb(Math.Clamp(m.PaletteIndex, 0, 255), out var pr, out var pg, out var pb);
+                        _assets.World.Palette.SubPalettes[0].Rgb(Math.Clamp(m.PaletteIndex, 0, 255), out var pr, out var pg, out var pb);
                         (fr, fg, fb) = (pr / 255f, pg / 255f, pb / 255f);
                     }
                     else
@@ -295,7 +296,7 @@ public sealed class ShapeRenderer
                     var l = Math.Sqrt((nx * nx) + (ny * ny) + (nz * nz));
                     faceCol = lights.At((x + b.x + c.x) / 3, (y + b.y + c.y) / 3, (z + b.z + c.z) / 3, l > 0 ? -nx / l : 0, l > 0 ? -ny / l : 0, l > 0 ? -nz / l : 1);
                 }
-                var list = mBatches[mi];
+                var list = _batches[mi];
                 for (var k = 0; k < 3; ++k)
                 {
                     var vi = k == 0 ? f.V0 : k == 1 ? f.V1 : f.V2;
@@ -317,9 +318,9 @@ public sealed class ShapeRenderer
                 }
             }
         }
-        foreach (var mi in mUsed)
+        foreach (var mi in _used)
         {
-            if (!mBatches.TryGetValue(mi, out var list))
+            if (!_batches.TryGetValue(mi, out var list))
                 continue;
             if (list.Count > 0)
                 img.Batches.Add(new DrawBatch { Vertices = [.. list], State = states[mi].Ds });
@@ -364,7 +365,7 @@ public sealed class ShapeRenderer
         var group = (m.Flags & 0x2000) != 0;
         if (m.Type == 3)
         {
-            var te = mAssets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed);
+            var te = _assets.Texture(m.Name, p.Skin, p.DamageLevel, m.Keyed);
             if (te?.Texture == null)
             {
                 if (Logged.Add(sh.Name + ":" + m.Name))

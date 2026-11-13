@@ -7,7 +7,7 @@ public class ResourcesTests
 {
     private static void Put(string p, string text)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(p)!);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(p)!);
         File.WriteAllBytes(p, ByteString.ToBytes(text));
     }
 
@@ -78,12 +78,12 @@ public class ResourcesTests
         return output;
     }
 
-    private const string kPath = "config;base;base\\missions;temp";
+    private const string Path = "config;base;base\\missions;temp";
 
     [Fact]
     public void TestResources()
     {
-        var root = Path.Combine(TestPaths.TmpDir("resources"), "res_root");
+        var root = System.IO.Path.Combine(TestPaths.TmpDir("resources"), "res_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
         Put(root + "/config/dup.cs", "config");
@@ -98,7 +98,7 @@ public class ResourcesTests
 
         var strings = new StringTable();
         var res = new ResourceManager(root, strings);
-        res.SetSearchPath(kPath);
+        res.SetSearchPath(Path);
 
         // RL2: earlier search directories win.
         Assert.Equal("config", Text(res, "dup.cs"));
@@ -126,7 +126,7 @@ public class ResourcesTests
         // RS3: a new volume file cannot be mounted before a rescan.
         PutVol(root + "/base/three.vol", [("t.cs", "t")]);
         Assert.False(res.AddVolume("three.vol"));
-        res.SetSearchPath(kPath);
+        res.SetSearchPath(Path);
         Assert.Equal("later", Text(res, "later.cs"));
         Assert.True(res.AddVolume("three.vol"));
         // RL3 still holds after rescans: loose entries go back in front of volume entries.
@@ -161,13 +161,13 @@ public class ResourcesTests
         // RS2: deleted files disappear on the next rescan.
         File.Delete(root + "/base/later.cs");
         Assert.NotNull(res.Find("later.cs"));
-        res.SetSearchPath(kPath);
+        res.SetSearchPath(Path);
         Assert.Null(res.Find("later.cs"));
 
         // 8.7 (G42): an unmounted volume keeps the entries that hold an instance until purge.
         PutVol(root + "/base/mis.vol", [("kept.dis", "k"), ("held.dig", "h"), ("never.bmp", "n"), ("early.dil", "e")]);
         PutVol(root + "/base/other.vol", [("o.cs", "o")]);
-        res.SetSearchPath(kPath);
+        res.SetSearchPath(Path);
         Assert.True(res.AddVolume("mis.vol") && res.AddVolume("other.vol"));
         Assert.Null(res.Load("missing.dis"));
         var early = res.Load("early.dil");
@@ -208,10 +208,10 @@ public class ResourcesTests
         Assert.NotNull(res.Find("gen.sae"));
         // A loaded loose file deleted from disk keeps its entry after a rescan until purge.
         Put(root + "/base/gone.cs", "gone");
-        res.SetSearchPath(kPath);
+        res.SetSearchPath(Path);
         ResourceManager.Unlock(res.Load("gone.cs")!);
         File.Delete(root + "/base/gone.cs");
-        res.SetSearchPath(kPath);
+        res.SetSearchPath(Path);
         Assert.True(res.Find("gone.cs") != null && res.Find("gone.cs")!.Flags == ResourceManager.Stale);
         res.Purge();
         Assert.Null(res.Find("gone.cs"));

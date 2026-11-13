@@ -8,13 +8,13 @@ using System.Text;
 public sealed class MissionObject
 {
     /// <summary>The class name.</summary>
-    public string Class = "";
+    public string Class { get; set; } = "";
     /// <summary>The object name.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The fields by name, ignoring case.</summary>
-    public readonly Dictionary<string, string> Fields = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> Fields { get; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The child objects in file order.</summary>
-    public readonly List<MissionObject> Children = [];
+    public List<MissionObject> Children { get; } = [];
 
     /// <summary>Reads a field as text.</summary>
     /// <param name="key">The field name.</param>

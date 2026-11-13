@@ -80,7 +80,7 @@ public static class GameCommands
             if (a.Length != 4)
                 return "False";
             for (var i = 0; i < 15; ++i)
-                if (GameUtil.EqualsNoCase(MaterialList.kMaterialTypeNames[i], a[1]))
+                if (GameUtil.EqualsNoCase(MaterialList.MaterialTypeNames[i], a[1]))
                 {
                     game.Materials.Friction[i] = Store(Numbers.BorlandAtof(a[2]));
                     game.Materials.Elasticity[i] = Store(Numbers.BorlandAtof(a[3]));

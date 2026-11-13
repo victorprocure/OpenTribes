@@ -10,7 +10,7 @@ using static OpenTribes.Tests.Fixtures;
 
 public class GhostClassesTests
 {
-    private readonly GhostManager gm = new(2049);
+    private readonly GhostManager _gm = new(2049);
 
     // Packs obj with mask and returns a reader positioned at the start.
     private BitStream Pack(SimObject? obj, uint mask, uint tag)
@@ -20,18 +20,18 @@ public class GhostClassesTests
         Assert.True(cls != null && cls.Tag == tag); // 2.3 tags
         var buf = new byte[4096];
         var w = new BitStream(buf, buf.Length);
-        var ctx = new GhostContext(gm, 2049, mask == 0xffffffffu);
+        var ctx = new GhostContext(_gm, 2049, mask == 0xffffffffu);
         Assert.Equal(0u, cls!.Pack!(obj!, ctx, w, mask));
         Assert.False(w.Error());
         // Client round trip (docs/client-net.md 3): the unpack of the same class consumes exactly the packed bits.
         var isNew = mask == 0xffffffffu;
-        mClients.TryGetValue(obj!, out var prev);
-        Client = mClients[obj!] = ClientRoundTrip.Unpack(tag, buf, w.BitPosition(), isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
+        _clients.TryGetValue(obj!, out var prev);
+        _client = _clients[obj!] = ClientRoundTrip.Unpack(tag, buf, w.BitPosition(), isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
         return new BitStream(buf, (int)((w.BitPosition() + 7) / 8));
     }
 
-    private readonly Dictionary<SimObject, ClientGhost> mClients = new(ReferenceEqualityComparer.Instance);
-    private ClientGhost? Client;
+    private readonly Dictionary<SimObject, ClientGhost> _clients = new(ReferenceEqualityComparer.Instance);
+    private ClientGhost? _client;
 
     private static uint U32(BitStream r) => r.ReadInt(32);
     private static float F32(BitStream r) => r.ReadF32();
@@ -102,7 +102,7 @@ public class GhostClassesTests
         // 3.1 SimVolume: file name with the first spelling interned (the volume scan's).
         {
             var r = Pack(Obj("vol"), 0xffffffffu, 0x001);
-            Assert.Equal("data.vol", (string)Client!.State["file"]!); // client-net.md 3.3 SimVolume
+            Assert.Equal("data.vol", (string)_client!.State["file"]!); // client-net.md 3.3 SimVolume
             Assert.Equal("data.vol", r.ReadString());
         }
         // 3.1 SimPalette.
@@ -113,7 +113,7 @@ public class GhostClassesTests
         // 3.1 MissionCenterPos: x y w h, ctor 1230 1230 1400 1400; floats parsed toward zero.
         {
             var r = Pack(Obj("MC"), 0xffffffffu, 0x2cc);
-            var rect = (double[])Client!.State["rect"]!;
+            var rect = (double[])_client!.State["rect"]!;
             Assert.True(rect.Length == 4 && rect[1] == 1230 && rect[2] == 1400 && rect[3] == -700); // 3.1 MissionCenterPos
             Assert.Equal(0x3dccccccu, U32(r)); // "0.1" truncated (nearest would be 0x3dcccccd)
             Assert.True(F32(r) == 1230 && F32(r) == 1400 && F32(r) == -700);
@@ -124,9 +124,9 @@ public class GhostClassesTests
             var terrain = Obj("Terrain") as TerrainObject;
             Assert.True(terrain != null && w.Sim.Server()!.FindById(8) == terrain); // fixed id 8 (mission.md 3.1)
             var r = Pack(terrain, 0xffffffffu, 0x002);
-            Assert.True((string)Client!.State["ted"]! == "m.dtf" && ClientRoundTrip.VecIs(Client.State["position"], -8, -8, 0)); // 3.2
-            Assert.True(ClientRoundTrip.VecIs(Client.State["contGravity"], 0, 0, -20) && Client.State.ContainsKey("crc"));
-            Assert.Equal(1500, ((double[])Client.State["visible/haze/hazeVMin/hazeVMax"]!)[1]);
+            Assert.True((string)_client!.State["ted"]! == "m.dtf" && ClientRoundTrip.VecIs(_client.State["position"], -8, -8, 0)); // 3.2
+            Assert.True(ClientRoundTrip.VecIs(_client.State["contGravity"], 0, 0, -20) && _client.State.ContainsKey("crc"));
+            Assert.Equal(1500, ((double[])_client.State["visible/haze/hazeVMin/hazeVMax"]!)[1]);
             Assert.True(r.ReadFlag() && r.ReadString() == "m.dtf");
             Assert.True(r.ReadFlag() && F32(r) == 3000 && F32(r) == 1500 && F32(r) == 1000 && F32(r) == 2000);
             Assert.True(r.ReadFlag() && F32(r) == 500 && F32(r) == 120);
@@ -156,8 +156,8 @@ public class GhostClassesTests
         // 3.3 SimLight: isStatic first (0x40), then 0x01..0x20; unset fields 0 (D12).
         {
             var r = Pack(Obj("L"), 0xffffffffu, 0x006);
-            Assert.True((long)Client!.State["type"]! == 5 && (long)Client.State["isStatic"]! == 1 && (double)Client.State["range"]! == 12.5); // 3.3
-            Assert.True(ClientRoundTrip.VecIs(Client.State["color"], 1, 0.5, 0.25));
+            Assert.True((long)_client!.State["type"]! == 5 && (long)_client.State["isStatic"]! == 1 && (double)_client.State["range"]! == 12.5); // 3.3
+            Assert.True(ClientRoundTrip.VecIs(_client.State["color"], 1, 0.5, 0.25));
             Assert.True(r.ReadFlag() && r.ReadFlag());
             Assert.True(r.ReadFlag() && r.ReadInt(3) == 5);
             Assert.True(r.ReadFlag() && F32(r) == 12.5f);
@@ -178,7 +178,7 @@ public class GhostClassesTests
         {
             Assert.True(w.Sim.Server()!.FindById(714) == Obj("Snow"));
             var r = Pack(Obj("Snow"), 0xffffffffu, 0x216);
-            Assert.True((double)Client!.State["intensity"]! == 0.5 && ClientRoundTrip.VecIs(Client.State["wind"], 3, 4, -75) && (long)Client.State["flagf1"]! == 1); // 3.5
+            Assert.True((double)_client!.State["intensity"]! == 0.5 && ClientRoundTrip.VecIs(_client.State["wind"], 3, 4, -75) && (long)_client.State["flagf1"]! == 1); // 3.5
             Assert.True(r.ReadFlag() && F32(r) == 0.5f);
             Assert.True(r.ReadFlag());
             Vec(r, 3, 4, -75);
@@ -188,8 +188,8 @@ public class GhostClassesTests
         {
             Assert.True(w.Sim.Server()!.FindById(729) == Obj("Sky"));
             var r = Pack(Obj("Sky"), 0xffffffffu, 0x230);
-            Assert.True((string)Client!.State["dml"]! == "sky.dml" && ClientRoundTrip.VecIs(Client.State["vecB8"], 0.25, 0.5, 1)); // 3.6
-            Assert.True(((List<object?>)Client.State["textures"]!)[3] is long t3 && t3 == 7);
+            Assert.True((string)_client!.State["dml"]! == "sky.dml" && ClientRoundTrip.VecIs(_client.State["vecB8"], 0.25, 0.5, 1)); // 3.6
+            Assert.True(((List<object?>)_client.State["textures"]!)[3] is long t3 && t3 == 7);
             Assert.Equal("sky.dml", r.ReadString());
             Vec(r, 0.25f, 0.5f, 1);
             Vec(r, 0, 0, 0); // hazeColor unset (D12)
@@ -200,7 +200,7 @@ public class GhostClassesTests
         // 3.6 Planet: incidence clamped to [-89, 89], azimuth as given, ctor size and distance.
         {
             var r = Pack(Obj("Planet1"), 0xffffffffu, 0x22f);
-            Assert.True((string)Client!.State["file"]! == "sun" && (double)Client.State["f6c"]! == 400 && (double)Client.State["f70"]! == 89); // 3.6
+            Assert.True((string)_client!.State["file"]! == "sun" && (double)_client.State["f6c"]! == 400 && (double)_client.State["f70"]! == 89); // 3.6
             Assert.Equal("sun", r.ReadString());
             Assert.True(F32(r) == 400 && F32(r) == 89);
             Assert.True(r.ReadInt(8) == 1 && r.ReadInt(8) == 0);
@@ -213,7 +213,7 @@ public class GhostClassesTests
         // 3.6 StarField: ctor flags 1 and 0, colors (1, 0.5, 0.25 grey) per element, inFrontOfSky.
         {
             var r = Pack(Obj("Stars"), 0xffffffffu, 0x232);
-            Assert.True((long)Client!.State["flagAF"]! == 1 && (long)Client.State["flagB0"]! == 0 && ((double[])Client.State["data7c"]!)[3] == 0.75); // 3.6
+            Assert.True((long)_client!.State["flagAF"]! == 1 && (long)_client.State["flagB0"]! == 0 && ((double[])_client.State["data7c"]!)[3] == 0.75); // 3.6
             Assert.True(r.ReadFlag() && !r.ReadFlag());
             Vec(r, 1, 1, 1);
             Vec(r, 0.75f, 0.75f, 0.75f);
@@ -226,8 +226,8 @@ public class GhostClassesTests
             Assert.Null(hut); // the TeamGroup was renamed team0 (mission.md TM6)
             hut = Obj("team0/Hut");
             var r = Pack(hut, 0xffffffffu, 0x20a);
-            Assert.True((string)Client!.State["file"]! == "hut.dis" && (long)Client.State["isContainer"]! == 1 && ClientRoundTrip.VecIs(Client.State["pos"], 1, 2, 3)); // 3.4
-            Assert.True((long)Client.State["lightCount"]! == 2 && ((List<object?>)Client.State["states"]!).Count == 2);
+            Assert.True((string)_client!.State["file"]! == "hut.dis" && (long)_client.State["isContainer"]! == 1 && ClientRoundTrip.VecIs(_client.State["pos"], 1, 2, 3)); // 3.4
+            Assert.True((long)_client.State["lightCount"]! == 2 && ((List<object?>)_client.State["states"]!).Count == 2);
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 0 && !r.ReadFlag() && !r.ReadFlag()); // team 0
             Assert.True(r.ReadFlag()); // initial
             Assert.Equal("hut.dis", r.ReadString());
@@ -248,7 +248,7 @@ public class GhostClassesTests
             Assert.False(r.ReadFlag());                // +0x41c
             // Update: position/rotation, one flag per light, then +0x418.
             var u = Pack(hut, 0x07, 0x20a);
-            Assert.True(ClientRoundTrip.Has(Client!, "pos") && ClientRoundTrip.Has(Client!, "lightOn") && ((List<object?>)ClientRoundTrip.Field(Client!, "lightOn")!).Count == 2);
+            Assert.True(ClientRoundTrip.Has(_client!, "pos") && ClientRoundTrip.Has(_client!, "lightOn") && ((List<object?>)ClientRoundTrip.Field(_client!, "lightOn")!).Count == 2);
             Assert.True(u.ReadFlag() && u.ReadInt(4) == 0 && !u.ReadFlag() && !u.ReadFlag());
             Assert.False(u.ReadFlag());
             Assert.True(u.ReadFlag());
@@ -274,7 +274,7 @@ public class GhostClassesTests
                 object? o = null;
                 Vec3 hit = default, nrm = default;
                 bool Ray(float x0, float x1) =>
-                    c.CastRay(new Vec3(x0, 8, 9), new Vec3(x1, 8, 9), ObjectType.kInteriorType, null, ref o, ref hit, ref nrm);
+                    c.CastRay(new Vec3(x0, 8, 9), new Vec3(x1, 8, 9), ObjectType.InteriorType, null, ref o, ref hit, ref nrm);
                 float[] at = [1, 8, 9], to = [3, 8, 9];
                 ((GameBase)hut!).SetInteriorPosition(at);
                 Assert.True(Ray(2, 2.5f) && o == hut);

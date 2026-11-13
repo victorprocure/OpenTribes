@@ -144,13 +144,13 @@ public abstract class GameServices
 public sealed class ClassContext
 {
     /// <summary>The resource manager.</summary>
-    public ResourceManager? Resources;
+    public ResourceManager? Resources { get; set; }
     /// <summary>The game-layer services.</summary>
-    public GameServices? Game;
+    public GameServices? Game { get; set; }
     /// <summary>Starts networking from the arguments of FearCSDelegate processArguments: the server flag and the transports.</summary>
-    public Func<IReadOnlyList<string>, bool>? StartNetwork;
+    public Func<IReadOnlyList<string>, bool>? StartNetwork { get; set; }
     /// <summary>Runs when <c>newServer</c> has created the fixed objects. The game layer posts its periodic events here (docs/sim.md TK7).</summary>
-    public Action<SimManager>? ServerCreated;
+    public Action<SimManager>? ServerCreated { get; set; }
 }
 
 /// <summary>Creates a script object of a registered class.</summary>
@@ -161,22 +161,22 @@ public delegate SimObject ClassFactory(ClassContext ctx);
 /// <summary>A generic object of a fixed class name with an optional constructor-fixed id.</summary>
 public class NamedClassObject : SimObject
 {
-    private readonly string mClass;
-    private readonly int mFixed;
+    private readonly string _class;
+    private readonly int _fixed;
 
     /// <summary>Creates the object.</summary>
     /// <param name="cls">The class name.</param>
     /// <param name="id">The fixed id, or 0 for a pool id.</param>
     public NamedClassObject(string cls, int id = 0)
     {
-        mClass = cls;
-        mFixed = id;
+        _class = cls;
+        _fixed = id;
     }
 
     /// <inheritdoc/>
-    public override string ClassName() => mClass;
+    public override string ClassName() => _class;
     /// <inheritdoc/>
-    public override int FixedId() => mFixed;
+    public override int FixedId() => _fixed;
     /// <summary>Accepts any arguments.</summary>
     /// <param name="args">The arguments.</param>
     /// <returns>Always true.</returns>
@@ -186,47 +186,47 @@ public class NamedClassObject : SimObject
 /// <summary>A set of a fixed class name with an optional constructor-fixed id.</summary>
 public class NamedClassSet : SimSet
 {
-    private readonly string mClass;
-    private readonly int mFixed;
+    private readonly string _class;
+    private readonly int _fixed;
 
     /// <summary>Creates the set.</summary>
     /// <param name="cls">The class name.</param>
     /// <param name="id">The fixed id, or 0 for a pool id.</param>
     public NamedClassSet(string cls, int id = 0)
     {
-        mClass = cls;
-        mFixed = id;
+        _class = cls;
+        _fixed = id;
     }
 
     /// <inheritdoc/>
-    public override string ClassName() => mClass;
+    public override string ClassName() => _class;
     /// <inheritdoc/>
-    public override int FixedId() => mFixed;
+    public override int FixedId() => _fixed;
 }
 
 /// <summary>A set that posts itself an event every <c>interval</c> seconds of sim time and notifies its members when it runs.</summary>
 /// <remarks>Follows the SimTimerSet constructor (00507778), docs/sim.md TK6.</remarks>
 public sealed class SimTimerSet : SimSet
 {
-    private readonly int mFixed;
-    private readonly float mInterval;
+    private readonly int _fixed;
+    private readonly float _interval;
 
     /// <summary>Creates the set.</summary>
     /// <param name="id">The fixed id.</param>
     /// <param name="interval">The notification interval in seconds.</param>
     public SimTimerSet(int id, float interval)
     {
-        mFixed = id;
-        mInterval = interval;
+        _fixed = id;
+        _interval = interval;
     }
 
     /// <inheritdoc/>
     public override string ClassName() => "SimTimerSet";
     /// <inheritdoc/>
-    public override int FixedId() => mFixed;
+    public override int FixedId() => _fixed;
     /// <summary>Gets the notification interval.</summary>
     /// <returns>The interval in seconds.</returns>
-    public float Interval() => mInterval;
+    public float Interval() => _interval;
 
     /// <summary>Starts the timer when the set is registered (005077a4).</summary>
     /// <returns>Always true.</returns>
@@ -240,7 +240,7 @@ public sealed class SimTimerSet : SimSet
     private void Post()
     {
         var m = Manager()!;
-        m.PostEvent(this, Fpu.AddF(m.Time(), mInterval), Fire);
+        m.PostEvent(this, Fpu.AddF(m.Time(), _interval), Fire);
     }
 
     // src/sim/sim_classes.cpp SimTimerSet::fire: 0050782c. Index loop over the live member list: members added by a
@@ -249,7 +249,7 @@ public sealed class SimTimerSet : SimSet
     {
         var now = Manager()!.Time();
         for (var i = 0; i < Members().Count; ++i)
-            Members()[i].OnTimerEvent(now, mFixed, mInterval);
+            Members()[i].OnTimerEvent(now, _fixed, _interval);
         Post();
     }
 }
@@ -257,22 +257,22 @@ public sealed class SimTimerSet : SimSet
 /// <summary>A group of a fixed class name with an optional constructor-fixed id.</summary>
 public class NamedClassGroup : SimGroup
 {
-    private readonly string mClass;
-    private readonly int mFixed;
+    private readonly string _class;
+    private readonly int _fixed;
 
     /// <summary>Creates the group.</summary>
     /// <param name="cls">The class name.</param>
     /// <param name="id">The fixed id, or 0 for a pool id.</param>
     public NamedClassGroup(string cls, int id = 0)
     {
-        mClass = cls;
-        mFixed = id;
+        _class = cls;
+        _fixed = id;
     }
 
     /// <inheritdoc/>
-    public override string ClassName() => mClass;
+    public override string ClassName() => _class;
     /// <inheritdoc/>
-    public override int FixedId() => mFixed;
+    public override int FixedId() => _fixed;
 }
 
 /// <summary>The class registry (docs/sim.md 6) and the object classes known to the sim layer.</summary>
@@ -301,11 +301,11 @@ public static class SimClasses
     // docs/resources.md 8.3).
     private sealed class SimVolume : SimObject
     {
-        private readonly ResourceManager? mRes;
-        private string mFile = "", mPending = "";
-        private bool mScopeAlways = true; // ctor 00508148 sets 0x140; mission volumes keep it
+        private readonly ResourceManager? _res;
+        private string _file = "", _pending = "";
+        private bool _scopeAlways = true; // ctor 00508148 sets 0x140; mission volumes keep it
 
-        public SimVolume(ResourceManager? res) => mRes = res;
+        public SimVolume(ResourceManager? res) => _res = res;
         /// <inheritdoc/>
         public override string ClassName() => "SimVolume";
 
@@ -313,17 +313,17 @@ public static class SimClasses
         /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args)
         {
-            mScopeAlways = args.Count == 2 && args[1].Length != 0 && (args[1][0] == 't' || args[1][0] == 'T' || args[1][0] == '1');
-            if (args.Count == 0 || args.Count > 2 || mRes == null)
+            _scopeAlways = args.Count == 2 && args[1].Length != 0 && (args[1][0] == 't' || args[1][0] == 'T' || args[1][0] == '1');
+            if (args.Count == 0 || args.Count > 2 || _res == null)
                 return false;
-            if (!mRes.AddVolume(args[0]))
+            if (!_res.AddVolume(args[0]))
                 return false;
-            mFile = StringTable.Global().Intern(args[0]);
+            _file = StringTable.Global().Intern(args[0]);
             return true;
         }
 
         /// <inheritdoc/>
-        public override uint NetFlags(uint constructed) => mScopeAlways ? constructed | 0x140u : constructed & ~0x140u;
+        public override uint NetFlags(uint constructed) => _scopeAlways ? constructed | 0x140u : constructed & ~0x140u;
 
         // Missions set the file through the fileName persist slot and mount in onAdd.
         /// <inheritdoc/>
@@ -332,31 +332,31 @@ public static class SimClasses
             if (!EqualsNoCase(field, "fileName"))
                 return false;
             // Interned (0x00508200): case variants share the first spelling.
-            mPending = values.Count == 0 ? "" : StringTable.Global().Intern(values[0]);
+            _pending = values.Count == 0 ? "" : StringTable.Global().Intern(values[0]);
             return true;
         }
 
         /// <inheritdoc/>
         public override bool OnAdd()
         {
-            if (mPending.Length == 0)
+            if (_pending.Length == 0)
                 return true;
-            if (mRes == null || !mRes.AddVolume(mPending))
+            if (_res == null || !_res.AddVolume(_pending))
                 return false;
-            mFile = mPending;
+            _file = _pending;
             return true;
         }
 
         /// <inheritdoc/>
         public override void OnRemove()
         {
-            if (mRes != null && mFile.Length != 0)
-                mRes.RemoveVolume(mFile);
-            mFile = "";
+            if (_res != null && _file.Length != 0)
+                _res.RemoveVolume(_file);
+            _file = "";
         }
 
-        public string File() => mFile.Length == 0 ? mPending : mFile;
-        public bool GhostAlways() => mScopeAlways;
+        public string File() => _file.Length == 0 ? _pending : _file;
+        public bool GhostAlways() => _scopeAlways;
     }
 
     /// <summary>Reads the SimVolume state the ghost code needs.</summary>
@@ -379,7 +379,7 @@ public static class SimClasses
     public sealed class ChatMenu : SimObject
     {
         /// <summary>The first argument of <c>newObject(name, ChatMenu, title)</c>, the heading the menu display shows.</summary>
-        public string Title = "";
+        public string Title { get; set; } = "";
         /// <inheritdoc/>
         public override string ClassName() => "ChatMenu";
 
@@ -407,36 +407,36 @@ public static class SimClasses
     private sealed class FailingClass : SimObject
     {
         public enum Mode { Args, Register, AnyArgs }
-        private readonly string mClass;
-        private readonly Mode mMode;
-        private readonly int mFixed;
+        private readonly string _class;
+        private readonly Mode _mode;
+        private readonly int _fixed;
 
         public FailingClass(string cls, Mode mode, int id = 0)
         {
-            mClass = cls;
-            mMode = mode;
-            mFixed = id;
+            _class = cls;
+            _mode = mode;
+            _fixed = id;
         }
 
         /// <inheritdoc/>
-        public override string ClassName() => mClass;
+        public override string ClassName() => _class;
         /// <inheritdoc/>
-        public override int FixedId() => mFixed;
+        public override int FixedId() => _fixed;
         /// <inheritdoc/>
-        public override bool OnAdd() => mMode != Mode.Register;
+        public override bool OnAdd() => _mode != Mode.Register;
         /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args) =>
-            mMode == Mode.AnyArgs ? args.Count == 0 : mMode == Mode.Register;
+            _mode == Mode.AnyArgs ? args.Count == 0 : _mode == Mode.Register;
     }
 
     // src/sim/sim_classes.cpp class GuiGroup: GUI and editor controls, SimGroup based, any arguments (docs/sim.md Q5).
     private class GuiGroup : SimGroup
     {
-        private readonly string mClass;
+        private readonly string _class;
 
-        public GuiGroup(string cls) => mClass = cls;
+        public GuiGroup(string cls) => _class = cls;
         /// <inheritdoc/>
-        public override string ClassName() => mClass;
+        public override string ClassName() => _class;
     }
 
     // src/sim/sim_classes.cpp class GuiScrollGroup: creates its content control when registered.
@@ -468,11 +468,11 @@ public static class SimClasses
     // src/sim/sim_classes.cpp class GuiDelegate: plain object, no arguments (D28).
     private sealed class GuiDelegate : SimObject
     {
-        private readonly string mClass;
+        private readonly string _class;
 
-        public GuiDelegate(string cls) => mClass = cls;
+        public GuiDelegate(string cls) => _class = cls;
         /// <inheritdoc/>
-        public override string ClassName() => mClass;
+        public override string ClassName() => _class;
         /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args) => args.Count == 0;
     }
@@ -496,9 +496,9 @@ public static class SimClasses
     // src/sim/sim_classes.cpp class FearCSDelegate.
     private sealed class FearCSDelegate : SimObject
     {
-        private readonly ClassContext mCtx;
+        private readonly ClassContext _ctx;
 
-        public FearCSDelegate(ClassContext ctx) => mCtx = ctx;
+        public FearCSDelegate(ClassContext ctx) => _ctx = ctx;
         /// <inheritdoc/>
         public override string ClassName() => "FearCSDelegate";
         /// <inheritdoc/>
@@ -513,22 +513,22 @@ public static class SimClasses
             // Activating the server SimNet gives the manager the first id of net block 2 (MG6).
             if (Manager() is SimManager m && m.ManagerId() == 0)
                 m.SetManagerId(2048);
-            return mCtx.StartNetwork == null || mCtx.StartNetwork(args);
+            return _ctx.StartNetwork == null || _ctx.StartNetwork(args);
         }
     }
 
     // src/sim/sim_classes.cpp struct ClassEntry.
     private sealed class ClassEntry
     {
-        public string Name = "";
-        public ClassFactory Make = _ => throw new InvalidOperationException();
+        public string Name { get; set; } = "";
+        public ClassFactory Make { get; set; } = _ => throw new InvalidOperationException();
     }
 
     private static ClassFactory Plain(Func<SimObject> make) => _ => make();
 
     // src/sim/sim_classes.cpp registry: script-creatable classes implemented so far. Mission object classes are
     // registered by the game layer (MissionClasses.Register in OpenTribes.Game).
-    private static readonly List<ClassEntry> sRegistry =
+    private static readonly List<ClassEntry> Registry =
     [
         new() { Name = "SimSet", Make = Plain(() => new SimSet()) },
         new() { Name = "SimGroup", Make = Plain(() => new SimGroup()) },
@@ -549,7 +549,7 @@ public static class SimClasses
     ];
 
     // src/sim/gui_classes.inc: the GUI and editor classes a dedicated server can create (docs/sim.md 6.2, Q5).
-    private static readonly string[] sGuiControls =
+    private static readonly string[] GuiControls =
     [
         "CenterPrint", "FearGui::CFGButton", "FearGui::CMDObserve",
         "FearGui::ClockHud", "FearGui::ColumnListCtrl", "FearGui::CommandItemCtrl",
@@ -594,13 +594,13 @@ public static class SimClasses
         "SimGui::TextList", "SimGui::TextWrap", "SimGui::TimerCtrl",
     ];
 
-    private static readonly string[] sGuiScrollControls =
+    private static readonly string[] GuiScrollControls =
     [
         "FearGui::FearGuiScrollCtrl", "FearGui::FGHudMatrix", "SimGui::MatrixCtrl",
         "SimGui::ScrollCtrl",
     ];
 
-    private static readonly string[] sGuiDelegates =
+    private static readonly string[] GuiDelegates =
     [
         "SimGui::ConnectDelegate", "SimGui::CreateServerDelegate", "SimGui::IRCChatDelegate",
         "SimGui::JoinGameDelegate", "SimGui::MainMenuDelegate", "SimGui::OptionsDelegate",
@@ -610,12 +610,12 @@ public static class SimClasses
 
     static SimClasses()
     {
-        foreach (var name in sGuiControls)
-            sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiGroup(name)) });
-        foreach (var name in sGuiScrollControls)
-            sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiScrollGroup(name)) });
-        foreach (var name in sGuiDelegates)
-            sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiDelegate(name)) });
+        foreach (var name in GuiControls)
+            Registry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiGroup(name)) });
+        foreach (var name in GuiScrollControls)
+            Registry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiScrollGroup(name)) });
+        foreach (var name in GuiDelegates)
+            Registry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiDelegate(name)) });
     }
 
     /// <summary>Adds or replaces a class. The game layer registers the mission classes this way.</summary>
@@ -623,13 +623,13 @@ public static class SimClasses
     /// <param name="factory">The factory.</param>
     public static void RegisterClass(string name, ClassFactory factory)
     {
-        foreach (var c in sRegistry)
+        foreach (var c in Registry)
             if (EqualsNoCase(c.Name, name))
             {
                 c.Make = factory;
                 return;
             }
-        sRegistry.Add(new ClassEntry { Name = name, Make = factory });
+        Registry.Add(new ClassEntry { Name = name, Make = factory });
     }
 
     /// <summary>Creates an object by class name, matching ASCII case-insensitively (CL2).</summary>
@@ -638,7 +638,7 @@ public static class SimClasses
     /// <returns>The object, or null when the class is unknown.</returns>
     public static SimObject? CreateObject(string className, ClassContext ctx)
     {
-        foreach (var c in sRegistry)
+        foreach (var c in Registry)
             if (EqualsNoCase(c.Name, className))
                 return c.Make(ctx);
         return null;

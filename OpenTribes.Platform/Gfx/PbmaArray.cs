@@ -7,15 +7,15 @@ using System.Buffers.Binary;
 public sealed class PbmaArray
 {
     /// <summary>The number of chunks.</summary>
-    public uint ChunkCount;
+    public uint ChunkCount { get; set; }
     /// <summary>The bitmapCount of the head. <c>Bitmaps.Count</c> is the number of PBMP chunks actually read.</summary>
-    public uint BitmapCount;
+    public uint BitmapCount { get; set; }
     /// <summary>The bitmaps.</summary>
-    public List<PbmpBitmap> Bitmaps = [];
+    public List<PbmpBitmap> Bitmaps { get; set; } = [];
     /// <summary>The <c>user</c> data, BitmapCount * userSize bytes, or null.</summary>
-    public byte[]? User;
+    public byte[]? User { get; set; }
     /// <summary>The <c>rmap</c> sorted sparse ids, one per bitmap, or null. Then the id is the slot.</summary>
-    public uint[]? Rmap;
+    public uint[]? Rmap { get; set; }
 
     /// <summary>Gets the size of the user data of each bitmap.</summary>
     public int UserSize => User != null && BitmapCount != 0 ? User.Length / (int)BitmapCount : 0;

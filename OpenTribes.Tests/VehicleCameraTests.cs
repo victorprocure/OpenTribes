@@ -77,7 +77,7 @@ public sealed class VehicleCameraTests
     {
         Numbers.EnterScriptFpuMode();
         var c = new Container();
-        c.Add(new Container.Entry(new Wall(), ObjectType.kInteriorType, Float6.Of(-50, -50, -50, 50, 50, 50), false, null)
+        c.Add(new Container.Entry(new Wall(), ObjectType.InteriorType, Float6.Of(-50, -50, -50, 50, 50, 50), false, null)
         {
             Cast = (s, end, ref hit, ref n) =>
             {

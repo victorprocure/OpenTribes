@@ -8,24 +8,24 @@ using static OpenTribes.Core.Fpu;
 /// <remarks>Plugin 0x0043f684 and 0x0043f8fc (docs/ai-sim.md 6). A C++ handler sets its result through a reference and returns true. Here it returns the result.</remarks>
 public static class AICommands
 {
-    private static readonly string[] kSpawnUsage =
+    private static readonly string[] SpawnUsage =
     [
         "AI::spawn: <AI name> <armor type> <position> [rotation] [display name] [voice]",
         "Create an AI of the given name and armor type at position.",
         "If not given, display name is the same as the AI name.",
         "Voice defaults to male1 if not supplied here.",
     ];
-    private static readonly string[] kGetIdUsage =
+    private static readonly string[] GetIdUsage =
     [
         "AI::getId(<ai name>);", "Returns the rep Id of the given AI.  The rep Id can in many",
         "cases be used like a client Id (in those console functions that", "take a client Id).",
     ];
-    private static readonly string[] kGetTargetUsage =
+    private static readonly string[] GetTargetUsage =
     [
         "AI::GetTarget(<ai name>);", "If the given AI is currently attacking one of its targets, the rep",
         "id of that target is returned, else -1 is returned.",
     ];
-    private static readonly string[] kAttackUsage =
+    private static readonly string[] AttackUsage =
     [
         "AI::Attack( aiWildcard, clientId )",
         "Attack the player having the specified clientId.  No other",
@@ -34,9 +34,9 @@ public static class AICommands
         "For implementing a list of targets, see AI::DirectiveTarget()",
         "and AI::setAutomaticTargets()",
     ];
-    private static readonly string[] kDeleteUsage =
+    private static readonly string[] DeleteUsage =
         ["AI::Delete( <AI wildcard> )", "Delete any AI which matches the given wildcard specification."];
-    private static readonly string[] kFollowUsage =
+    private static readonly string[] FollowUsage =
     [
         "AI::DirectiveFollow <ai wildcard> <playerID> [Pt/Rad] [Ord]",
         "Instructs the given AI(s) to follow the specified player.",
@@ -44,7 +44,7 @@ public static class AICommands
         "(and note that the point can be given alone) tells the AI when",
         "to stop or move on to his or her next directive.",
     ];
-    private static readonly string[] kWaypointUsage =
+    private static readonly string[] WaypointUsage =
     [
         "AI::DirectiveWaypoint: <ai wildcard> <pt3F [Rad]> [ord]",
         "Adds the given waypoint to the directive list of any AI that",
@@ -53,8 +53,8 @@ public static class AICommands
         "sorting of the directives.  If not given, the waypoint will be",
         "put at the end of the directive list(s).",
     ];
-    private static readonly string[] kTargetUsage = ["AI::DirectiveTarget: <ai wildcard> <player ID> [ord]"];
-    private static readonly string[] kLaserUsage =
+    private static readonly string[] TargetUsage = ["AI::DirectiveTarget: <ai wildcard> <player ID> [ord]"];
+    private static readonly string[] LaserUsage =
     [
         "AI::DirectiveTargetLaser: <ai wildcard> <owner Id> [ord] [point+R]",
         "Aim at the point targeted by the given Id.  If the owner Id is",
@@ -62,15 +62,15 @@ public static class AICommands
         "The optional point+radius gives a sphere inside that the paint",
         "must be inside of for the AI to fire (cf. weapons training).",
     ];
-    private static readonly string[] kPointUsage =
+    private static readonly string[] PointUsage =
     [
         "AI::DirectiveTargetPoint: <ai wildcard> <point> [ord]",
         "Assign the given point as a target.  The AI will fire at this",
         "point as long as the target current and LOS exists. First",
         "intended use: painting a target with the target laser.",
     ];
-    private static readonly string[] kRemoveUsage = ["AI::DirectiveRemove( <ai wildcard> <order # key> )"];
-    private static readonly string[] kListUsage =
+    private static readonly string[] RemoveUsage = ["AI::DirectiveRemove( <ai wildcard> <order # key> )"];
+    private static readonly string[] ListUsage =
     [
         "AI::DirectiveList( <ai wildcard> [,directive bitset mask] );",
         "For each AI matching the given wildcard, this lists its",
@@ -78,9 +78,9 @@ public static class AICommands
         "the given types will be listed. See AI::DirectiveCallback1()",
         "for mask definitions.",
     ];
-    private static readonly string[] kDiedUsage =
+    private static readonly string[] DiedUsage =
         ["AI::CallbackDied: <ai wildcard> <script function name>", "Install the given death callback on the specified AI objects."];
-    private static readonly string[] kPeriodicUsage =
+    private static readonly string[] PeriodicUsage =
     [
         "AI::CallbackPeriodic: <ai wildcard> <freqDelay> [,function name]",
         "Set up a periodic callback with the given frequency (delay between",
@@ -90,22 +90,22 @@ public static class AICommands
         "one.  Smaller values will disable periodic callbacks for the AIs",
         "specified (they are disabled by default).",
     ];
-    private static readonly string[] kSetVarUsage =
+    private static readonly string[] SetVarUsage =
     [
         "AI::setVar( <ai wildcard>, <variable name> [, <value>] )",
         "Command to set the given AI variable to <value> in all AIs that match",
         "the wild card spec.  e.g. ai::setVar( \"a*\", iq, 20 ); ",
         "If no value is provided, the current value is printed.",
     ];
-    private static readonly string[] kCallWithIdUsage =
+    private static readonly string[] CallWithIdUsage =
     [
         "AI::CallWithId( <ai wildcard>, <Console command with ID arg> [,arg 1] [...] );",
         "AI::CallWithId() can be used to invoke a console command for every AI object",
         "that matches the wildcard spec.  The console command must be one which takes",
         "a rep Id as its first argument.",
     ];
-    private static readonly string[] kAutoUsage = ["AI::SetAutomaticTargets( <ai wildcard> );"];
-    private static readonly string[] kScriptedUsage =
+    private static readonly string[] AutoUsage = ["AI::SetAutomaticTargets( <ai wildcard> );"];
+    private static readonly string[] ScriptedUsage =
     [
         "AI::SetScriptedTargets( <ai wildcard> );",
         "Causes the specified AI objects to only attack those targets which they",
@@ -188,7 +188,7 @@ public static class AICommands
         {
             if (a.Length < 4)
             {
-                Usage(inr, kSpawnUsage);
+                Usage(inr, SpawnUsage);
                 return "False";
             }
             var m = g.Sim?.Server();
@@ -266,14 +266,14 @@ public static class AICommands
         {
             if (a.Length < 2)
             {
-                Usage(inr, kGetIdUsage);
+                Usage(inr, GetIdUsage);
                 return "False";
             }
             var ai = g.Ai!.FindByName(a[1]);
             if (ai == null)
             {
                 inr.Print(1, " Could not find drone " + a[1] + ".");
-                Usage(inr, kGetIdUsage);
+                Usage(inr, GetIdUsage);
                 return "False";
             }
             return Numbers.FormatInt(ai.RepId);
@@ -282,14 +282,14 @@ public static class AICommands
         {
             if (a.Length < 2)
             {
-                Usage(inr, kGetTargetUsage);
+                Usage(inr, GetTargetUsage);
                 return "False";
             }
             var ai = g.Ai!.FindByName(a[1]);
             if (ai == null)
             {
                 inr.Print(1, " Could not find drone " + a[1] + ".");
-                Usage(inr, kGetTargetUsage);
+                Usage(inr, GetTargetUsage);
                 return "False";
             }
             return Numbers.FormatInt(ai.TargetId);
@@ -337,7 +337,7 @@ public static class AICommands
         {
             if (ai == null || a.Length != 3)
             {
-                Usage(inr, kAttackUsage);
+                Usage(inr, AttackUsage);
                 return "False";
             }
             ai.AttackId = Numbers.BorlandAtoi(a[2]);
@@ -347,7 +347,7 @@ public static class AICommands
         {
             if (ai == null)
             {
-                Usage(inr, kDeleteUsage);
+                Usage(inr, DeleteUsage);
                 return "False";
             }
             if (ai.Player() is Player p && g.Sim?.Server() is SimManager m)
@@ -361,10 +361,10 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kWaypointUsage);
+                Usage(inr, WaypointUsage);
                 return "False";
             }
-            var d = new AIDirective { Type = AIDirective.kWaypoint };
+            var d = new AIDirective { Type = AIDirective.Waypoint };
             var v = Scan4(a[2]);
             Array.Copy(v, d.Point, 3);
             d.Radius = v[3];
@@ -375,7 +375,7 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kFollowUsage);
+                Usage(inr, FollowUsage);
                 return "False";
             }
             var id = Numbers.BorlandAtoi(a[2]);
@@ -392,7 +392,7 @@ public static class AICommands
                 inr.Print(1, "Error: the order# supplied to a directive must be a postive integer. Directive not installed.");
                 return "False";
             }
-            var d = new AIDirective { Type = AIDirective.kFollow, Client = id };
+            var d = new AIDirective { Type = AIDirective.Follow, Client = id };
             if (a.Length > 3)
             {
                 var v = Scan4(a[3]);
@@ -406,7 +406,7 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kTargetUsage);
+                Usage(inr, TargetUsage);
                 return "False";
             }
             var id = Numbers.BorlandAtoi(a[2]);
@@ -415,7 +415,7 @@ public static class AICommands
                 inr.Print(1, "An AI may not have itself as a target, directive not added.");
                 return "False";
             }
-            var d = new AIDirective { Type = AIDirective.kTarget, Sub = AIDirective.kPlayer, Client = id };
+            var d = new AIDirective { Type = AIDirective.Target, Sub = AIDirective.Player, Client = id };
             ai.AddDirective(d, OrderArg(a, 3));
             return "True";
         });
@@ -423,7 +423,7 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kLaserUsage);
+                Usage(inr, LaserUsage);
                 return "False";
             }
             var id = Numbers.BorlandAtoi(a[2]);
@@ -432,7 +432,7 @@ public static class AICommands
                 inr.Print(1, "OwnerId " + Numbers.FormatInt(id) + " refers to SELF. Not installed.");
                 return "False";
             }
-            var d = new AIDirective { Type = AIDirective.kTarget, Sub = AIDirective.kLaser, Client = id };
+            var d = new AIDirective { Type = AIDirective.Target, Sub = AIDirective.Laser, Client = id };
             if (a.Length > 4)
             {
                 var v = Scan4(a[4]);
@@ -446,10 +446,10 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kPointUsage);
+                Usage(inr, PointUsage);
                 return "False";
             }
-            var d = new AIDirective { Type = AIDirective.kTarget, Sub = AIDirective.kPoint };
+            var d = new AIDirective { Type = AIDirective.Target, Sub = AIDirective.kPoint };
             var v = Scan4(a[2]);
             Array.Copy(v, d.Point, 3);
             d.Radius = v[3];
@@ -460,7 +460,7 @@ public static class AICommands
         {
             if (ai == null || a.Length != 3)
             {
-                Usage(inr, kRemoveUsage);
+                Usage(inr, RemoveUsage);
                 return "False";
             }
             var any = false;
@@ -484,7 +484,7 @@ public static class AICommands
         {
             if (ai == null)
             {
-                Usage(inr, kListUsage);
+                Usage(inr, ListUsage);
                 return "False";
             }
             var mask = a.Length > 2 ? Numbers.BorlandAtoi(a[2]) : 0xfffffff;
@@ -496,11 +496,11 @@ public static class AICommands
             {
                 if ((d.Type & mask) == 0)
                     continue;
-                var type = d.Type == AIDirective.kWaypoint ? "Waypoint" : d.Type == AIDirective.kFollow ? "Follow"
-                              : d.Type == AIDirective.kTarget ? "Target" : d.Type == AIDirective.kGuard ? "Guard" : "unknown";
+                var type = d.Type == AIDirective.Waypoint ? "Waypoint" : d.Type == AIDirective.Follow ? "Follow"
+                              : d.Type == AIDirective.Target ? "Target" : d.Type == AIDirective.Guard ? "Guard" : "unknown";
                 var sub = "";
-                if (d.Type == AIDirective.kTarget)
-                    sub = d.Sub == AIDirective.kPlayer ? "(player)" : d.Sub == AIDirective.kLaser ? "(laser)"
+                if (d.Type == AIDirective.Target)
+                    sub = d.Sub == AIDirective.Player ? "(player)" : d.Sub == AIDirective.Laser ? "(laser)"
                           : d.Sub == AIDirective.kPoint ? "(point)" : "(what?)";
                 inr.Print(1, "Ord=" + Numbers.FormatInt(d.Order) + "  Type=" + type + sub);
             }
@@ -510,7 +510,7 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kDiedUsage);
+                Usage(inr, DiedUsage);
                 return "False";
             }
             ai.CbDied = StringTable.Global().Intern(a[2]);
@@ -520,7 +520,7 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kPeriodicUsage);
+                Usage(inr, PeriodicUsage);
                 return "False";
             }
             using (X87.Chop())
@@ -569,7 +569,7 @@ public static class AICommands
             var n = a.Length >= 2 ? a.Length - 2 : 0;
             if (ai == null || n < 1)
             {
-                Usage(inr, kCallWithIdUsage);
+                Usage(inr, CallWithIdUsage);
                 return "False";
             }
             if (n > 100)
@@ -587,7 +587,7 @@ public static class AICommands
         {
             if (ai == null || a.Length < 3)
             {
-                Usage(inr, kSetVarUsage);
+                Usage(inr, SetVarUsage);
                 return "False";
             }
             if (a.Length == 3)
@@ -607,7 +607,7 @@ public static class AICommands
         {
             if (ai == null)
             {
-                Usage(inr, kAutoUsage);
+                Usage(inr, AutoUsage);
                 return "False";
             }
             ai.SetAutomaticTargets();
@@ -617,7 +617,7 @@ public static class AICommands
         {
             if (ai == null)
             {
-                Usage(inr, kScriptedUsage);
+                Usage(inr, ScriptedUsage);
                 return "False";
             }
             ai.SetScriptedTargets();

@@ -18,44 +18,44 @@ public struct RawInput
     /// <summary>The object type of the y axis.</summary>
     public const byte ObjYAxis = 0x0c;
     /// <summary>The device byte.</summary>
-    public byte Device;
+    public byte Device { get; set; }
     /// <summary>The object type.</summary>
-    public byte ObjType;
+    public byte ObjType { get; set; }
     /// <summary>The object index: the button or key scan code.</summary>
-    public byte Index;
+    public byte Index { get; set; }
     /// <summary>The action: 1 make, 0 break.</summary>
-    public byte Action;
+    public byte Action { get; set; }
     /// <summary>The character of a key press.</summary>
-    public char Ascii;
+    public char Ascii { get; set; }
     /// <summary>The modifier bits.</summary>
-    public byte Mod;
+    public byte Mod { get; set; }
     /// <summary>The axis movement.</summary>
-    public float Value;
+    public float Value { get; set; }
 }
 
 /// <summary>The responder a canvas puts below the content control of a screen: it forwards to the canvas root and calls the screen's hooks.</summary>
 public sealed class GuiDelegate : IGuiResponder
 {
     /// <summary>The delegate name, the file name of its screen.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The class name.</summary>
-    public string ClassName = "";
+    public string ClassName { get; set; } = "";
     /// <summary>The canvas the delegate is installed on.</summary>
-    public GuiCanvas? Canvas;
+    public GuiCanvas? Canvas { get; set; }
     /// <summary>Called when a dialog is about to pop with a message (slot 0x70). Returns -1 to keep it open.</summary>
-    public Func<GuiControl, int, int>? OnPop;
+    public Func<GuiControl, int, int>? OnPop { get; set; }
     /// <summary>Called once per frame.</summary>
-    public Action? OnFrame;
+    public Action? OnFrame { get; set; }
     /// <summary>True when the screen's delegate installs a help pop-up (FGHelpCtrl) on its content (004d749c and its siblings).</summary>
-    public bool HelpPopups;
+    public bool HelpPopups { get; set; }
     /// <summary>Called when the canvas installed this delegate for a new content control (slot 0x64).</summary>
-    public Action? OnOpen;
+    public Action? OnOpen { get; set; }
     /// <summary>Called with the new content control when it is installed (slot 0x64). The main menu sets its version text there (004dbc00).</summary>
-    public Action<GuiControl>? OnOpenContent;
+    public Action<GuiControl>? OnOpenContent { get; set; }
     /// <summary>Called once the new content has been woken. The Connect screen activates the radio of the game mode there (004dbea8).</summary>
-    public Action<GuiControl>? OnContentReady;
+    public Action<GuiControl>? OnContentReady { get; set; }
     /// <summary>Called when the canvas is removing the delegate's content (slot 0x60). JoinGame saves its server list there (004d7630).</summary>
-    public Action<GuiControl>? OnRemove;
+    public Action<GuiControl>? OnRemove { get; set; }
     private IGuiResponder? Up => Canvas?.Root;
     /// <inheritdoc/>
     public bool MsDown(GuiEvent e) => Up?.MsDown(e) ?? false;
@@ -84,7 +84,7 @@ public sealed class GuiDelegate : IGuiResponder
     /// <inheritdoc/>
     public bool KeyDown(GuiEvent e) => Up?.KeyDown(e) ?? false;
     /// <summary>Handles the delegate's own messages (docs/gui.md 2.2 slot 0x74). The client installs it.</summary>
-    public Func<GuiControl?, int, bool>? OnMessage;
+    public Func<GuiControl?, int, bool>? OnMessage { get; set; }
     /// <inheritdoc/>
     public bool Message(GuiControl? sender, int tag) => OnMessage?.Invoke(sender, tag) == true || (Up?.Message(sender, tag) ?? false);
     /// <inheritdoc/>
@@ -96,10 +96,10 @@ public sealed class GuiDelegate : IGuiResponder
 /// <summary>The canvas root responder (+0x1a0): tab and arrow movement and the message table of docs/gui.md 2.8.</summary>
 public sealed class CanvasRoot : IGuiResponder
 {
-    private readonly GuiCanvas mCanvas;
+    private readonly GuiCanvas _canvas;
     /// <summary>Creates the root responder.</summary>
     /// <param name="c">The canvas.</param>
-    public CanvasRoot(GuiCanvas c) => mCanvas = c;
+    public CanvasRoot(GuiCanvas c) => _canvas = c;
     /// <inheritdoc/>
     public bool MsDown(GuiEvent e) => false;
     /// <inheritdoc/>
@@ -137,20 +137,20 @@ public sealed class CanvasRoot : IGuiResponder
         {
             case 0x0f:
                 if (e.Shift)
-                    mCanvas.FocusPrevious();
+                    _canvas.FocusPrevious();
                 else
-                    mCanvas.FocusNext();
+                    _canvas.FocusNext();
                 return true;
             case 0xcd:
             case 0xd0:
             case 0xcb:
             case 0xc8:
-                if (mCanvas.Top != null && (mCanvas.Top.Flags & 4) == 0)
+                if (_canvas.Top != null && (_canvas.Top.Flags & 4) == 0)
                 {
                     if (e.Scan is 0xcd or 0xd0)
-                        mCanvas.FocusNext();
+                        _canvas.FocusNext();
                     else
-                        mCanvas.FocusPrevious();
+                        _canvas.FocusPrevious();
                     return true;
                 }
                 return false;
@@ -162,25 +162,25 @@ public sealed class CanvasRoot : IGuiResponder
     /// <remarks>Follows 00535b7c (docs/gui.md 2.8): tags 100002 to 109998 load a content file, 110001 and 110002 pop the dialog, 110003 to 119998 push a dialog, 120001 to 129998 run a command. The text of the tag is the file or command.</remarks>
     public bool Message(GuiControl? sender, int tag)
     {
-        var host = mCanvas.Host;
+        var host = _canvas.Host;
         var text = host.TagText((uint)tag);
         if (tag is > 100001 and < 109999)
         {
             if (text == null)
                 return false;
-            mCanvas.LoadContent(text);
+            _canvas.LoadContent(text);
             return true;
         }
         if (tag is 110001 or 110002)
         {
-            mCanvas.PopDialog(tag);
+            _canvas.PopDialog(tag);
             return true;
         }
         if (tag is > 110000 and < 119999)
         {
             if (text == null)
                 return false;
-            mCanvas.PushDialog(text);
+            _canvas.PushDialog(text);
             return true;
         }
         if (tag is > 120000 and < 129999)
@@ -199,95 +199,95 @@ public sealed class CanvasRoot : IGuiResponder
 public sealed class GuiCanvas
 {
     /// <summary>The GUI host.</summary>
-    public readonly GuiHost Host;
+    public GuiHost Host { get; }
     /// <summary>The canvas name scripts use.</summary>
-    public string Name = "MainWindow";
+    public string Name { get; set; } = "MainWindow";
     /// <summary>The canvas width in pixels.</summary>
-    public int Width = 640;
+    public int Width { get; set; } = 640;
     /// <summary>The canvas height in pixels.</summary>
-    public int Height = 480;
+    public int Height { get; set; } = 480;
     /// <summary>The content control at index 0 and the dialogs above it.</summary>
-    public readonly List<GuiControl> Stack = [];
+    public List<GuiControl> Stack { get; } = [];
     /// <summary>The replaced content controls that are not deleted on replacement, by name.</summary>
-    public readonly Dictionary<string, GuiControl> Retained = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, GuiControl> Retained { get; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>The delegates by screen name.</summary>
-    public readonly Dictionary<string, GuiDelegate> Delegates = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<GuiControl, GuiDelegate> mDelegateOf = [];
+    public Dictionary<string, GuiDelegate> Delegates { get; } = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<GuiControl, GuiDelegate> _delegateOf = [];
     /// <summary>The canvas root responder.</summary>
-    public readonly CanvasRoot Root;
+    public CanvasRoot Root { get; }
     /// <summary>The responder that gets the keys.</summary>
-    public IGuiResponder FirstResponder;
+    public IGuiResponder FirstResponder { get; set; }
     /// <summary>The control that has locked the mouse, or null.</summary>
-    public GuiControl? Lock;
+    public GuiControl? Lock { get; set; }
     /// <summary>The control under the cursor, or null.</summary>
-    public GuiControl? Hover;
+    public GuiControl? Hover { get; set; }
     /// <summary>True while the cursor is shown and the mouse is read.</summary>
-    public bool CursorOn = true;
+    public bool CursorOn { get; set; } = true;
     /// <summary>True while the window is active. Input is ignored otherwise.</summary>
-    public bool WindowActive = true;
+    public bool WindowActive { get; set; } = true;
     /// <summary>True when the canvas consumes every input event, also the ones no control took.</summary>
-    public bool CaptureAll;
+    public bool CaptureAll { get; set; }
     /// <summary>The cursor x in canvas pixels.</summary>
-    public float CursorX;
+    public float CursorX { get; set; }
     /// <summary>The cursor y in canvas pixels.</summary>
-    public float CursorY;
+    public float CursorY { get; set; }
     /// <summary>The mouse speed factor.</summary>
-    public float MouseSpeed = 1f;
+    public float MouseSpeed { get; set; } = 1f;
     /// <summary>True while the left button is down.</summary>
-    public bool LeftDown;
+    public bool LeftDown { get; set; }
     /// <summary>True while the right button is down.</summary>
-    public bool RightDown;
+    public bool RightDown { get; set; }
     /// <summary>The key repeat delay in milliseconds.</summary>
-    public int KeyRepeatDelay = 300;
+    public int KeyRepeatDelay { get; set; } = 300;
     /// <summary>The mouse repeat delay in milliseconds.</summary>
-    public int MouseRepeatDelay = 300;
+    public int MouseRepeatDelay { get; set; } = 300;
     /// <summary>The key repeat interval in milliseconds.</summary>
-    public int KeyRepeatInterval = 50;
+    public int KeyRepeatInterval { get; set; } = 50;
     /// <summary>The maximum time between the clicks of a double click in milliseconds.</summary>
-    public int DoubleClickMs = 500;
+    public int DoubleClickMs { get; set; } = 500;
     /// <summary>The cursor string last set.</summary>
-    public string CursorName = "";
+    public string CursorName { get; set; } = "";
     /// <summary>The default cursor bitmap.</summary>
-    public PbmpBitmap? CursorBitmap;
+    public PbmpBitmap? CursorBitmap { get; set; }
     /// <summary>The hot spot of the default cursor.</summary>
-    public (int x, int y) CursorHot;
+    public (int x, int y) CursorHot { get; set; }
     /// <summary>The tag of the cursor the locked or hovered control asked for (+0x22c), shown instead of the default (+0x210). 0 for none.</summary>
-    public uint CursorOverrideTag;
+    public uint CursorOverrideTag { get; set; }
     /// <summary>The bitmap of the override cursor.</summary>
-    public PbmpBitmap? OverrideBitmap;
+    public PbmpBitmap? OverrideBitmap { get; set; }
     /// <summary>The hot spot of the override cursor.</summary>
-    public (int x, int y) OverrideHot;
+    public (int x, int y) OverrideHot { get; set; }
     /// <summary>Gets the cursor bitmap that is shown: the override, else the default.</summary>
     public PbmpBitmap? ShownCursor => OverrideBitmap ?? CursorBitmap;
 
     // The help pop-up (FGHelpCtrl 004af248 shows it, 004af6d8 draws it). The tick of the last hover change is +0x26c.
-    private long mHoverTick;
+    private long _hoverTick;
     // +0x268: a button went down while this control was hovered; the pop-up stays away until the hover changes.
-    private bool mPressedOnHover;
-    private (int X, int Y, int W, int H) mHelpBox;
-    private GuiTextFormat? mHelpLayout;
+    private bool _pressedOnHover;
+    private (int X, int Y, int W, int H) _helpBox;
+    private GuiTextFormat? _helpLayout;
     /// <summary>The time the cursor rests on a control before its help pop-up shows, in milliseconds.</summary>
     public const int HelpDelayMs = 1069;
     /// <summary>True once a screen's delegate installed the help pop-up control. It stays on the canvas for every later screen.</summary>
     /// <remarks>The first screen of the main menu, Connect, JoinGame, Options and IRCChat delegates creates it (00534308).</remarks>
-    public bool HelpInstalled;
+    public bool HelpInstalled { get; set; }
     /// <summary>Gets a value that is true while the help pop-up is shown.</summary>
-    public bool HelpVisible => HelpShownTag != 0 && mHelpLayout != null;
+    public bool HelpVisible => HelpShownTag != 0 && _helpLayout != null;
     /// <summary>Gets the rectangle of the help pop-up.</summary>
-    public (int X, int Y, int W, int H) HelpBox => mHelpBox;
+    public (int X, int Y, int W, int H) HelpBox => _helpBox;
     /// <summary>Gets the tag of the help text shown.</summary>
     public uint HelpShownTag { get; private set; }
     /// <summary>The controls the Tab key moves between, in tree order.</summary>
-    public readonly List<GuiControl> TabList = [];
+    public List<GuiControl> TabList { get; } = [];
     /// <summary>The load and stack events, for tests and tools.</summary>
-    public readonly List<string> Trace = [];
+    public List<string> Trace { get; } = [];
     /// <summary>True when the canvas needs a redraw.</summary>
-    public bool Dirty = true;
-    private GuiEvent mLastKey;
-    private int mClickCount;
-    private long mLastClickAt;
-    private bool mLastClickLeft;
-    private readonly Dictionary<GuiControl, string> mVarSeen = [];
+    public bool Dirty { get; set; } = true;
+    private GuiEvent _lastKey;
+    private int _clickCount;
+    private long _lastClickAt;
+    private bool _lastClickLeft;
+    private readonly Dictionary<GuiControl, string> _varSeen = [];
 
     /// <summary>Creates a canvas.</summary>
     /// <param name="host">The GUI host.</param>
@@ -328,7 +328,7 @@ public sealed class GuiCanvas
         var i = Stack.IndexOf(top);
         if (i > 0)
             return Stack[i - 1];
-        return mDelegateOf.TryGetValue(top, out var d) ? d : Root;
+        return _delegateOf.TryGetValue(top, out var d) ? d : Root;
     }
 
     /// <summary>Returns whether a dialog dims a control (docs/gui.md 2.5).</summary>
@@ -419,11 +419,11 @@ public sealed class GuiCanvas
         {
             var old = Stack[0];
             Stack.RemoveAt(0);
-            if (mDelegateOf.TryGetValue(old, out var oldDel))
+            if (_delegateOf.TryGetValue(old, out var oldDel))
                 oldDel.OnRemove?.Invoke(old);
             old.CloseTree();
             old.SetCanvas(null);
-            mDelegateOf.Remove(old);
+            _delegateOf.Remove(old);
             // A control whose flag bit 1 is clear is not deleted when replaced (play.gui and CmdInventory.gui have flags 1): it
             // stays in the object manager and a lookup by name still finds it [code 00533fdc, 0040dbfc].
             if (!old.DeleteOnLose && !string.IsNullOrEmpty(old.Name))
@@ -432,7 +432,7 @@ public sealed class GuiCanvas
         if (del != null)
         {
             del.Canvas = this;
-            mDelegateOf[c] = del;
+            _delegateOf[c] = del;
             if (del.HelpPopups)
                 HelpInstalled = true;
             del.OnOpen?.Invoke();
@@ -480,7 +480,7 @@ public sealed class GuiCanvas
         var dlg = Stack[^1];
         if (!force)
         {
-            var d = mDelegateOf.GetValueOrDefault(Stack[0]);
+            var d = _delegateOf.GetValueOrDefault(Stack[0]);
             if (d?.OnPop != null && d.OnPop(dlg, message) == -1)
                 return;
         }
@@ -505,9 +505,9 @@ public sealed class GuiCanvas
         if (FirstResponder.CanRelease())
             FirstResponder = Root;
         Hover = null;
-        mClickCount = 0;
+        _clickCount = 0;
         LeftDown = RightDown = false;
-        mPressedOnHover = false;
+        _pressedOnHover = false;
         SendMove();
     }
 
@@ -591,9 +591,9 @@ public sealed class GuiCanvas
     }
 
     // The modifier byte of the raw mouse event reaches the GUI event (+0x2e) [code 0053349c].
-    private byte mMods;
+    private byte _mods;
 
-    private GuiEvent MouseEvent() => new() { X = (int)CursorX, Y = (int)CursorY, ClickCount = mClickCount, Mod = mMods };
+    private GuiEvent MouseEvent() => new() { X = (int)CursorX, Y = (int)CursorY, ClickCount = _clickCount, Mod = _mods };
 
     private GuiControl? Target()
     {
@@ -618,8 +618,8 @@ public sealed class GuiCanvas
             var old = Hover;
             old?.MsLeave(e);
             Hover = target;
-            mHoverTick = Now;
-            mPressedOnHover = false;
+            _hoverTick = Now;
+            _pressedOnHover = false;
             target?.MsEnter(e);
         }
         if (drag)
@@ -719,7 +719,7 @@ public sealed class GuiCanvas
         var entry = FirstResponder;
         if (make)
         {
-            mLastKey = ge;
+            _lastKey = ge;
             if (ev.Index != 0x0f)
                 KeyRepeatAt = now + KeyRepeatDelay;
             entry.KeyDown(ge);
@@ -738,7 +738,7 @@ public sealed class GuiCanvas
     {
         if (!CursorOn)
             return false;
-        mMods = ev.Mod;
+        _mods = ev.Mod;
         if (ev.ObjType is RawInput.ObjXAxis or RawInput.ObjYAxis)
         {
             var top = Top;
@@ -767,12 +767,12 @@ public sealed class GuiCanvas
         {
             if (make)
             {
-                mClickCount = mLastClickLeft && now - mLastClickAt <= DoubleClickMs ? mClickCount + 1 : 1;
-                mLastClickAt = now;
-                mLastClickLeft = true;
+                _clickCount = _lastClickLeft && now - _lastClickAt <= DoubleClickMs ? _clickCount + 1 : 1;
+                _lastClickAt = now;
+                _lastClickLeft = true;
                 MouseRepeatAt = now + MouseRepeatDelay;
                 LeftDown = true;
-                mPressedOnHover = true;
+                _pressedOnHover = true;
                 Target()?.MsDown(MouseEvent());
             }
             else
@@ -786,9 +786,9 @@ public sealed class GuiCanvas
         {
             if (make)
             {
-                mLastClickLeft = false;
+                _lastClickLeft = false;
                 RightDown = true;
-                mPressedOnHover = true;
+                _pressedOnHover = true;
                 Target()?.MsRightDown(MouseEvent());
             }
             else
@@ -807,12 +807,12 @@ public sealed class GuiCanvas
     public void Frame()
     {
         var now = Now;
-        foreach (var d in mDelegateOf.Values.Distinct())
+        foreach (var d in _delegateOf.Values.Distinct())
             d.OnFrame?.Invoke();
         if (KeyRepeatAt >= 0 && now > KeyRepeatAt && FirstResponder != Root)
         {
-            FirstResponder.KeyRepeat(mLastKey);
-            KeyRepeatAt = mLastKey.Scan == 0x0f ? -1 : now + KeyRepeatInterval;
+            FirstResponder.KeyRepeat(_lastKey);
+            KeyRepeatAt = _lastKey.Scan == 0x0f ? -1 : now + KeyRepeatInterval;
         }
         if (MouseRepeatAt >= 0 && now > MouseRepeatAt && LeftDown && Lock != null)
             Lock.MsRepeat(MouseEvent());
@@ -833,9 +833,9 @@ public sealed class GuiCanvas
                 if (c.ConsoleVar.Length > 0)
                 {
                     var v = Host.GetVar(c.ConsoleVar);
-                    if (!mVarSeen.TryGetValue(c, out var seen) || seen != v)
+                    if (!_varSeen.TryGetValue(c, out var seen) || seen != v)
                     {
-                        mVarSeen[c] = v;
+                        _varSeen[c] = v;
                         c.VariableChanged(v);
                     }
                 }
@@ -847,11 +847,11 @@ public sealed class GuiCanvas
     public long MouseRepeatAt { get; private set; } = -1;
 
     /// <summary>False while the play view has no camera (no control object): its TSControl draws no HUD (<see cref="GuiPlayView"/>).</summary>
-    public bool ViewHasCamera = true;
+    public bool ViewHasCamera { get; set; } = true;
 
     /// <summary>Draws the 3D world into one rectangle of the frame, in the middle of the GUI draw: the host's world renderer, which answers false when it has no camera. Null in tests and without a game.</summary>
     /// <remarks>A TSControl other than the play view's that has a camera object (<c>GuiPlayView.CameraAttached</c>) draws its view through it. The stock scene render runs inside the control's own draw (00546dc4).</remarks>
-    public Func<GfxRect, bool>? ViewRenderer;
+    public Func<GfxRect, bool>? ViewRenderer { get; set; }
 
     /// <summary>Draws the stack, the help pop-up and the cursor.</summary>
     /// <param name="dev">The graphics device.</param>
@@ -885,17 +885,17 @@ public sealed class GuiCanvas
     private void UpdateHelp(long now)
     {
         uint tag = 0;
-        if (HelpInstalled && Hover != null && CursorOn && Lock == null && !LeftDown && !RightDown && !mPressedOnHover
+        if (HelpInstalled && Hover != null && CursorOn && Lock == null && !LeftDown && !RightDown && !_pressedOnHover
             && !string.Equals(Host.GetVar("$pref::HelpPopups"), "FALSE", StringComparison.OrdinalIgnoreCase))
         {
-            var ms = now - mHoverTick;
+            var ms = now - _hoverTick;
             var (lx, ly) = Hover.GlobalToLocal((int)CursorX, (int)CursorY);
             tag = ms >= HelpDelayMs ? Hover.HelpTagAt(lx, ly, ms) : 0;
         }
         if (tag == HelpShownTag)
             return;
         HelpShownTag = 0;
-        mHelpLayout = null;
+        _helpLayout = null;
         if (tag == 0 || Host.TagText(tag) is not string text)
             return;
         // "width,text": the width is atoi of what stands before the first comma (at most 7 characters), -1 or less is 200, at most 256.
@@ -918,18 +918,18 @@ public sealed class GuiCanvas
             x -= x + w - (Width - 3);
         if (y + h > Height - 3)
             y -= y + h - (Height - 3);
-        mHelpBox = (x, y, w, h);
-        mHelpLayout = layout;
+        _helpBox = (x, y, w, h);
+        _helpLayout = layout;
         HelpShownTag = tag;
     }
 
     /// <summary>Draws the help pop-up: the box in color 0xf7 with an outline of 0xf1, the text three pixels in (004af6d8).</summary>
     private void DrawHelp(GuiPaint p)
     {
-        var (x, y, w, h) = mHelpBox;
+        var (x, y, w, h) = _helpBox;
         p.Fill(x, y, w, h, 0xf7);
         p.Outline(x, y, w, h, 0xf1);
-        mHelpLayout?.Draw(p, x + 3, y + 3);
+        _helpLayout?.Draw(p, x + 3, y + 3);
     }
 
     /// <summary>Splits a cursor string "name, x, y" into the bitmap name and the hot spot, which default to 0, 0 (00533138).</summary>

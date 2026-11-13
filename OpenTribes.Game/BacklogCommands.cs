@@ -10,9 +10,9 @@ using static OpenTribes.Core.Fpu;
 public static class BacklogHooks
 {
     /// <summary>The eye transform of a class that overrides ShapeBase vtable +0x1a4 (Player 0x00412f5c).</summary>
-    public static Func<GameBase, Transform, (bool, Transform)>? EyeTransform;
+    public static Func<GameBase, Transform, (bool, Transform)>? EyeTransform { get; set; }
     /// <summary>The muzzle transform of mounted image 0 (ShapeBase vtable +0x10c). The first result item is false when none is mounted.</summary>
-    public static Func<GameBase, Transform, (bool, Transform)>? MuzzleTransform;
+    public static Func<GameBase, Transform, (bool, Transform)>? MuzzleTransform { get; set; }
 }
 
 /// <summary>The backlog script commands: waypoints, shopping masks, item types and the commands that depend on the Player.</summary>

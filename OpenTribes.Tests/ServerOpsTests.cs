@@ -10,14 +10,14 @@ using OpenTribes.Server;
 
 public class ServerOpsTests
 {
-    private static readonly string sTmp = TestPaths.TmpDir("server_ops");
+    private static readonly string Tmp = TestPaths.TmpDir("server_ops");
 
     private sealed class Harness
     {
-        public readonly NetServer Server;
-        public readonly List<(Address to, byte[] data)> Sent = [];
-        public readonly List<(int level, string line)> Log = [];
-        public uint NextId = 0x2000;
+        public NetServer Server { get; }
+        public List<(Address to, byte[] data)> Sent { get; } = [];
+        public List<(int level, string line)> Log { get; } = [];
+        public uint NextId { get; set; } = 0x2000;
 
         public Harness(ServerConfig? cfg = null)
         {
@@ -67,12 +67,22 @@ public class ServerOpsTests
 
     private sealed class GameInfoReply
     {
-        public ushort PacketVersion;
-        public string Game = "", Version = "", Hostname = "", Mission = "", ModList = "", MissionType = "", Info = "",
-                      TeamHeading = "", ClientHeading = "";
-        public byte Players, MaxPlayers, Dedicated, Password;
-        public uint Cpu;
-        public List<string> Rows = [];
+        public ushort PacketVersion { get; set; }
+        public string Game { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string Hostname { get; set; } = "";
+        public string Mission { get; set; } = "";
+        public string ModList { get; set; } = "";
+        public string MissionType { get; set; } = "";
+        public string Info { get; set; } = "";
+        public string TeamHeading { get; set; } = "";
+        public string ClientHeading { get; set; } = "";
+        public byte Players { get; set; }
+        public byte MaxPlayers { get; set; }
+        public byte Dedicated { get; set; }
+        public byte Password { get; set; }
+        public uint Cpu { get; set; }
+        public List<string> Rows { get; set; } = [];
     }
 
     private static GameInfoReply DecodeGameInfo(byte[] d)
@@ -259,10 +269,12 @@ public class ServerOpsTests
     // ---- 3: remote console ----
     private sealed class TelnetHarness
     {
-        public readonly TelnetSession Session = new();
-        public string Out = "", Password = "pw", Prompt = "% ";
-        public readonly List<string> Evaluated = [];
-        public readonly TelnetSession.Host Host;
+        public TelnetSession Session { get; } = new();
+        public string Out { get; set; } = "";
+        public string Password { get; set; } = "pw";
+        public string Prompt { get; set; } = "% ";
+        public List<string> Evaluated { get; } = [];
+        public TelnetSession.Host Host { get; }
 
         public TelnetHarness() => Host = new TelnetSession.Host
         {
@@ -355,7 +367,7 @@ public class ServerOpsTests
             var t = new TelnetHarness();
             t.Feed("pw\n");
             string longLine = new('x', 2000);
-            string kept = new('x', TelnetSession.kLineMax);
+            string kept = new('x', TelnetSession.LineMax);
             Assert.Equal(kept, t.Feed(longLine));
             Assert.Equal("\r\n<" + kept + ">% ", t.Feed("yyy\n"));
             Assert.Equal("ok\r\n<ok>% ", t.Feed("ok\n"));
@@ -466,7 +478,7 @@ public class ServerOpsTests
             b.Add("IP:" + new string('1', 200) + ":5", -1);
             b.Add("IP:" + new string('1', 123) + ":5", -1);
             foreach (var e in b.Entries())
-                Assert.True(e.Address.Length <= BanList.kMaxAddress);
+                Assert.True(e.Address.Length <= BanList.MaxAddress);
             Assert.Equal(':', b.Entries()[2].Address[^1]); // no room left for the '*'
             ++cases;
         }
@@ -578,7 +590,7 @@ public class ServerOpsTests
     private static int TestConsoleLog()
     {
         var cases = 0;
-        var path = Path.Combine(sTmp, "test_server_ops_console.log");
+        var path = Path.Combine(Tmp, "test_server_ops_console.log");
         File.Delete(path);
         static DateTime When() => new(2026, 10, 9, 7, 5, 3);
         const string header = "-------------------------- 10/9/2026 -- 07:05:03 -----\r\n";
@@ -611,7 +623,7 @@ public class ServerOpsTests
         }
         Assert.Equal(header + "one\r\ntwo\r\nthree\r\n" + header + "four\r\nfive\r\n" + header + "next run\r\n", Slurp(path));
         // An unwritable path is ignored.
-        using (var log = new ConsoleLog(Path.Combine(sTmp, "no-such-dir", "x", "console.log"), When))
+        using (var log = new ConsoleLog(Path.Combine(Tmp, "no-such-dir", "x", "console.log"), When))
         {
             log.SetMode(1);
             log.Write("x");
@@ -626,10 +638,10 @@ public class ServerOpsTests
     // ---- 7: commands ----
     private sealed class ConsoleFixture
     {
-        public readonly Harness Net = new();
-        public readonly Interpreter In = new();
-        public readonly List<string> Out = [];
-        public bool Quit;
+        public Harness Net { get; } = new();
+        public Interpreter In { get; } = new();
+        public List<string> Out { get; } = [];
+        public bool Quit { get; set; }
 
         public ConsoleFixture()
         {
@@ -637,7 +649,7 @@ public class ServerOpsTests
             var ctx = new ServerCommandContext
             {
                 Net = Net.Server,
-                RootDir = sTmp,
+                RootDir = Tmp,
                 IsChatMenu = name => name == "Menu",
                 Quit = () => Quit = true,
             };
@@ -669,7 +681,7 @@ public class ServerOpsTests
         Assert.Equal(Lines("r=true"), c.Run("BanList::addAbsolute(\"IP:10.9.8.7:99\", 2000000000)"));
         Assert.Equal(Lines("r=true"), c.Run("BanList::add(\"IP:10.9.8.6\", -1)"));
         Assert.Equal(2, c.Net.Server.Bans().Entries().Count);
-        var file = Path.Combine(sTmp, "test_server_ops_ban.cs");
+        var file = Path.Combine(Tmp, "test_server_ops_ban.cs");
         File.Delete(file);
         Assert.Equal(Lines("r=true"), c.Run("BanList::export(\"test_server_ops_ban.cs\")"));
         Assert.Equal("BanList::addAbsolute(\"IP:10.9.8.7:*\", 2000000000);\r\n" +
@@ -686,7 +698,7 @@ public class ServerOpsTests
         Assert.Equal(Lines("r=true"), c.Run("BanList::export(\"/tmp/test_server_ops_escape.cs\")"));
         Assert.Equal(Lines("r=true"), c.Run("BanList::export(\"c:\\\\x.cs\")"));
         Assert.Equal(Lines("r=true"), c.Run("BanList::export(\"nodir\\\\x.cs\")"));
-        Assert.Empty(Slurp(sTmp + "/../test_server_ops_escape.cs"));
+        Assert.Empty(Slurp(Tmp + "/../test_server_ops_escape.cs"));
         Assert.Empty(Slurp("/tmp/test_server_ops_escape.cs"));
         ++cases;
 

@@ -334,8 +334,9 @@ public class SmackerTests
 
     private sealed class NullDevice : IGfxDevice
     {
-        public int Stretches;
-        public readonly List<PbmpBitmap> Flushed = [], Drawn = [];
+        public int Stretches { get; set; }
+        public List<PbmpBitmap> Flushed { get; } = [];
+        public List<PbmpBitmap> Drawn { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }

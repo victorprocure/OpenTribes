@@ -7,20 +7,20 @@ using OpenTribes.Game;
 public sealed class DemoPlayback
 {
     /// <summary>The parsed demo file.</summary>
-    public readonly DemoFile Demo;
+    public DemoFile Demo { get; }
     /// <summary>The client world the packets feed.</summary>
-    public readonly ClientWorld World = new();
+    public ClientWorld World { get; } = new();
     /// <summary>The connection that decodes the packets.</summary>
-    public readonly ClientGameConnection Conn;
+    public ClientGameConnection Conn { get; }
     /// <summary>Called with every decoded packet.</summary>
-    public Action<DecodedPacket>? OnPacket;
+    public Action<DecodedPacket>? OnPacket { get; set; }
     /// <summary>Called with the client clock after each frame.</summary>
-    public Action<double>? OnFrame;
-    private int mNext;
+    public Action<double>? OnFrame { get; set; }
+    private int _next;
     /// <summary>The client clock in milliseconds.</summary>
     public double ClockMs { get; private set; }
     /// <summary>The number of packets applied so far.</summary>
-    public long PacketsApplied;
+    public long PacketsApplied { get; set; }
 
     /// <summary>Parses a demo and prepares the client world.</summary>
     /// <param name="data">The bytes of the <c>.rec</c> file.</param>
@@ -33,7 +33,7 @@ public sealed class DemoPlayback
     }
 
     /// <summary>True when every record has played.</summary>
-    public bool Finished => mNext >= Demo.Records.Count;
+    public bool Finished => _next >= Demo.Records.Count;
 
     /// <summary>Advances the client clock in frames of 32 ms.</summary>
     /// <param name="ms">The clock to reach, in milliseconds.</param>
@@ -42,9 +42,9 @@ public sealed class DemoPlayback
         while (ClockMs < ms)
         {
             ClockMs += 32;
-            while (mNext < Demo.Records.Count && Demo.Records[mNext].Time <= ClockMs)
+            while (_next < Demo.Records.Count && Demo.Records[_next].Time <= ClockMs)
             {
-                var rec = Demo.Records[mNext++];
+                var rec = Demo.Records[_next++];
                 switch (rec.Kind)
                 {
                     case DemoRecordKind.Packet:

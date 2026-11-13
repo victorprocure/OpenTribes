@@ -7,19 +7,22 @@ public sealed class SubPalette
     public const uint NoId = 0xFFFFFFFF;
 
     /// <summary>The 256 entries of 4 bytes: red, green, blue and flags. The flags byte is the alpha of kind 2 palettes.</summary>
-    public byte[] Colors = new byte[1024];
+    public byte[] Colors { get; set; } = new byte[1024];
     /// <summary>The palette id.</summary>
-    public uint Id = NoId;
+    public uint Id { get; set; } = NoId;
     /// <summary>The kind: 0 no remap, 1 shade and haze, 2 translucent, 3 color quant, 4 alpha quant, 5 additive quant, 6 additive, 7 subtractive quant, 8 subtractive.</summary>
-    public uint Kind;
+    public uint Kind { get; set; }
     /// <summary>The shade and haze table of kind 1: (hazeSteps + 1) * shadeSteps * 256 bytes, indexed (haze * shadeSteps + shade) * 256 + color.</summary>
-    public byte[]? ShadeHazeTable;
+    public byte[]? ShadeHazeTable { get; set; }
     /// <summary>The blend table of kinds 2, 6 and 8: 256 x 256 bytes.</summary>
-    public byte[]? BlendTable;
+    public byte[]? BlendTable { get; set; }
     /// <summary>The 256 identity-map bytes of kinds 1, 2, 6 and 8.</summary>
-    public byte[]? IdentityMap;
+    public byte[]? IdentityMap { get; set; }
     /// <summary>The red, green, blue and alpha float maps of kinds 1, 2, 6 and 8.</summary>
-    public float[]? IndexToRed, IndexToGreen, IndexToBlue, IndexToAlpha;
+    public float[]? IndexToRed { get; set; }
+    public float[]? IndexToGreen { get; set; }
+    public float[]? IndexToBlue { get; set; }
+    public float[]? IndexToAlpha { get; set; }
 
     /// <summary>Reads the colour of an entry.</summary>
     /// <param name="index">The palette index.</param>
@@ -43,19 +46,20 @@ public sealed class SubPalette
 public sealed class PaletteBank
 {
     /// <summary>The number of shade bits.</summary>
-    public uint ShadeBits;
+    public uint ShadeBits { get; set; }
     /// <summary>The number of haze steps.</summary>
-    public uint HazeSteps;
+    public uint HazeSteps { get; set; }
     /// <summary>The haze colour.</summary>
-    public uint HazeColor;
+    public uint HazeColor { get; set; }
     /// <summary>The bit set of allowed colours, 256 bits, most significant bit first.</summary>
-    public uint[] AllowedColors = new uint[8];
+    public uint[] AllowedColors { get; set; } = new uint[8];
     /// <summary>The subpalettes.</summary>
-    public List<SubPalette> SubPalettes = [];
+    public List<SubPalette> SubPalettes { get; set; } = [];
     /// <summary>The colour weights, or null.</summary>
-    public float[]? ColorWeights;
+    public float[]? ColorWeights { get; set; }
     /// <summary>The first and last used palette index.</summary>
-    public uint UsedStart, UsedEnd;
+    public uint UsedStart { get; set; }
+    public uint UsedEnd { get; set; }
 
     /// <summary>Gets the number of shade steps.</summary>
     public uint ShadeSteps => 1u << (int)ShadeBits;

@@ -11,54 +11,54 @@ using OpenTribes.World;
 public sealed class SceneModel
 {
     /// <summary>The client world the packets feed.</summary>
-    public readonly ClientWorld World;
+    public ClientWorld World { get; }
     /// <summary>The datablock reader.</summary>
-    public readonly Db Db;
+    public Db Db { get; }
     /// <summary>The shape loader.</summary>
-    public readonly ShapeAssets Assets;
+    public ShapeAssets Assets { get; }
     /// <summary>The shape image builder.</summary>
-    public readonly ShapeRenderer Renderer;
+    public ShapeRenderer Renderer { get; }
     /// <summary>The terrain for ground queries, or null.</summary>
-    public readonly Terrain? Terrain;
+    public Terrain? Terrain { get; }
     /// <summary>The visual of each ghost by ghost index.</summary>
-    public readonly Dictionary<int, Visual> Visuals = [];
+    public Dictionary<int, Visual> Visuals { get; } = [];
     /// <summary>The transient effects.</summary>
-    public readonly List<IEffect> Effects = [];
+    public List<IEffect> Effects { get; } = [];
     /// <summary>The smoke pool.</summary>
-    public SmokePool Smoke;
+    public SmokePool Smoke { get; set; }
     /// <summary>The decal ring.</summary>
-    public DecalRing Decals;
+    public DecalRing Decals { get; set; }
     /// <summary>The rain or snow effect.</summary>
-    public readonly WeatherEffect Weather = new();
+    public WeatherEffect Weather { get; } = new();
     /// <summary>True when the mission has weather.</summary>
-    public bool HasWeather;
+    public bool HasWeather { get; set; }
     /// <summary>The <c>$pref::weatherPrecipitation</c> switch, default 1 (shapes-render.md 4.8).</summary>
-    public bool WeatherPrecipitation = true;
+    public bool WeatherPrecipitation { get; set; } = true;
     /// <summary>The random source of the effects.</summary>
-    public Random Rng = new(0x8377);
+    public Random Rng { get; set; } = new(0x8377);
     /// <summary>The scene time in seconds.</summary>
-    public double Time;
+    public double Time { get; set; }
     /// <summary>The sound starts, or null without audio.</summary>
-    public Audio.SceneAudio? Audio;
+    public Audio.SceneAudio? Audio { get; set; }
     /// <summary>The <c>$pref::animateWithTransitions</c> switch, default off (3.3).</summary>
-    public bool AnimateWithTransitions;
+    public bool AnimateWithTransitions { get; set; }
     /// <summary>The <c>$pref::playerShapeDetail</c> value.</summary>
-    public double PlayerShapeDetail = 1;
+    public double PlayerShapeDetail { get; set; } = 1;
     /// <summary>The scene light.</summary>
-    public LightSet BaseLight = LightSet.Default();
+    public LightSet BaseLight { get; set; } = LightSet.Default();
     /// <summary>The shape light probe. Null means shapes keep the scene light as it is. The host that has the interiors and the terrain renderer sets it.</summary>
-    public LightProbe? Probe;
+    public LightProbe? Probe { get; set; }
     /// <summary>The number of shape triggers fired.</summary>
-    public int TriggerCount;
+    public int TriggerCount { get; set; }
     /// <summary>The number of contact triggers fired.</summary>
-    public int ContactTriggers;
+    public int ContactTriggers { get; set; }
     /// <summary>The number of explosions spawned.</summary>
-    public int ExplosionsSpawned;
+    public int ExplosionsSpawned { get; set; }
     /// <summary>The number of footprints added.</summary>
-    public int FootprintsAdded;
+    public int FootprintsAdded { get; set; }
     /// <summary>The number of bullet holes added.</summary>
-    public int BulletHolesAdded;
-    private bool mDecalsLoaded;
+    public int BulletHolesAdded { get; set; }
+    private bool _decalsLoaded;
 
     /// <summary>Creates the model.</summary>
     /// <param name="world">The client world.</param>
@@ -97,9 +97,9 @@ public sealed class SceneModel
     public void OnPacket(DecodedPacket pkt)
     {
         Audio?.OnPacket(pkt);
-        if (!mDecalsLoaded && World.DataBlocks.Blocks.ContainsKey((2, 0)))
+        if (!_decalsLoaded && World.DataBlocks.Blocks.ContainsKey((2, 0)))
         {
-            mDecalsLoaded = true;
+            _decalsLoaded = true;
             var ds = Db.Block(2, 0);
             Assets.SetDamageDecals(Enumerable.Range(0, 10).Select(i => Db.Str(ds, $"bmpName[{i}]")).Where(s => s.Length > 0)
                 .Select(s => s.Contains('.') ? s : s + ".bmp"));
@@ -160,10 +160,10 @@ public sealed class SceneModel
     }
 
     /// <summary>Finds the nearest interior surface along a ray, with its normal (<c>InteriorRenderer.Probe</c>). The live game sets it.</summary>
-    public DebrisRay? DebrisWorld;
+    public DebrisRay? DebrisWorld { get; set; }
 
     /// <summary>Casts the container ray of the prediction world for Player +0xfd0 (Player_updateWeaponPullback 004198d4). Takes the ghost index of the player, which the cast leaves out, the start and the end, and returns the hit point or null. The live game sets it.</summary>
-    public Func<int, (double, double, double), (double, double, double), (double, double, double)?>? PullbackRay;
+    public Func<int, (double, double, double), (double, double, double), (double, double, double)?>? PullbackRay { get; set; }
 
     /// <summary>Creates the DebrisEffect of a dying shape (PartDebrisCloud 00476434).</summary>
     /// <param name="inst">The shape instance of the dying shape.</param>

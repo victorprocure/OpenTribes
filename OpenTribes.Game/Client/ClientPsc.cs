@@ -9,13 +9,13 @@ using System.Globalization;
 public sealed class DecodedPsc
 {
     /// <summary>The direction of the block.</summary>
-    public string Direction = "";
+    public string Direction { get; set; } = "";
     /// <summary>The one line text.</summary>
-    public string Text = "";
+    public string Text { get; set; } = "";
     /// <summary>The number of bits the block took.</summary>
-    public int Bits;
+    public int Bits { get; set; }
     /// <summary>The decoded fields.</summary>
-    public List<DecodedField> Fields = [];
+    public List<DecodedField> Fields { get; set; } = [];
 }
 
 /// <summary>One entry of the command map slot table (<c>DAT_006a83d8</c> + 0x340, 0x28 bytes a slot, docs/client-net.md 4.5 mode 2).</summary>
@@ -23,25 +23,25 @@ public sealed class DecodedPsc
 public struct ClientCommandSlot
 {
     /// <summary>True when the datablock index is not -1.</summary>
-    public bool Present;
+    public bool Present { get; set; }
     /// <summary>The x position.</summary>
-    public int X;
+    public int X { get; set; }
     /// <summary>The y position.</summary>
-    public int Y;
+    public int Y { get; set; }
     /// <summary>The team.</summary>
-    public int Team;
+    public int Team { get; set; }
     /// <summary>The status.</summary>
-    public int Status;
+    public int Status { get; set; }
     /// <summary>The command status of a client slot.</summary>
-    public int CommandStatus;
+    public int CommandStatus { get; set; }
     /// <summary>The datablock group.</summary>
-    public int Group;
+    public int Group { get; set; }
     /// <summary>The datablock index.</summary>
-    public int Index;
+    public int Index { get; set; }
     /// <summary>The controllable flag of a target slot.</summary>
-    public bool Controllable;
+    public bool Controllable { get; set; }
     /// <summary>The active flag of a target slot.</summary>
-    public bool Active;
+    public bool Active { get; set; }
 }
 
 /// <summary>The client PlayerPSC: reads the server block and applies its effects, and writes the client block that carries the moves.</summary>
@@ -49,54 +49,54 @@ public struct ClientCommandSlot
 public sealed class ClientPsc
 {
     /// <summary>The command map slot table, 256 entries.</summary>
-    public readonly ClientCommandSlot[] CommandSlots = new ClientCommandSlot[256];
+    public ClientCommandSlot[] CommandSlots { get; } = new ClientCommandSlot[256];
 
     /// <summary>The GUI mode (psc +0x3d8). Server block state is in docs/client-net.md 4.5.</summary>
-    public int GuiMode;
+    public int GuiMode { get; set; }
     /// <summary>True when the score dialog is visible.</summary>
-    public bool ScoreFlag;
+    public bool ScoreFlag { get; set; }
     /// <summary>The last move number in the block.</summary>
-    public int LastMove = -1;
+    public int LastMove { get; set; } = -1;
     /// <summary>True when the block carries a control object.</summary>
-    public bool HasControl;
+    public bool HasControl { get; set; }
     /// <summary>The damage flash (psc +0x3e0).</summary>
-    public double DamageFlash;
+    public double DamageFlash { get; set; }
     /// <summary>The ghost index of the control object (psc +0xa4), -1 for none (0x3ff on the wire).</summary>
-    public int ControlGhost = -1;
+    public int ControlGhost { get; set; } = -1;
     /// <summary>The class name of the control object.</summary>
-    public string ControlClass = "";
+    public string ControlClass { get; set; } = "";
     /// <summary>The decoded control state.</summary>
-    public Dictionary<string, object?> ControlState = [];
+    public Dictionary<string, object?> ControlState { get; set; } = [];
     /// <summary>The item counts (+0xac).</summary>
-    public readonly int[] ItemCounts = new int[200];
+    public int[] ItemCounts { get; } = new int[200];
     /// <summary>The shopping item mask.</summary>
-    public readonly uint[] Shopping = new uint[7];
+    public uint[] Shopping { get; } = new uint[7];
     /// <summary>The buying item mask.</summary>
-    public readonly uint[] Buying = new uint[7];
+    public uint[] Buying { get; } = new uint[7];
     /// <summary>The visibility mask.</summary>
-    public readonly uint[] Visible = new uint[8];
+    public uint[] Visible { get; } = new uint[8];
     /// <summary>The command map entries by slot.</summary>
-    public readonly Dictionary<int, string> CommandMap = [];
+    public Dictionary<int, string> CommandMap { get; } = [];
     /// <summary>The waypoint, or null.</summary>
-    public (long X, long Y)? Waypoint;
+    public (long X, long Y)? Waypoint { get; set; }
     /// <summary>Called when the waypoint changes. 006a83e8 and 006a83ec are set from the play block pair.</summary>
-    public Action<long, long>? OnWaypoint;
+    public Action<long, long>? OnWaypoint { get; set; }
     /// <summary>The number of GUI mode changes.</summary>
-    public int GuiModeChanges;
+    public int GuiModeChanges { get; set; }
     /// <summary>True once loadPlayGui() was evaluated on the first change away from 0.</summary>
-    public bool PlayGuiLoaded;
+    public bool PlayGuiLoaded { get; set; }
 
     /// <summary>The moves not yet acknowledged (docs/client-net.md 4.2, 4.3).</summary>
-    public readonly List<Move> Moves = [];
+    public List<Move> Moves { get; } = [];
     /// <summary>The global index of the first buffered move (+0x3d0).</summary>
-    public uint FirstMove;
+    public uint FirstMove { get; set; }
     /// <summary>The fov byte, unit(8) of currentFov / 135. 90 degrees sends 169.</summary>
-    public uint FovByte = 169;
+    public uint FovByte { get; set; } = 169;
 
     /// <summary>Called to run a script line.</summary>
-    public Action<string>? OnScript;
+    public Action<string>? OnScript { get; set; }
     /// <summary>Called as PlayDelegate_setGuiMode while the packet is read (004060f6), after the mode is stored.</summary>
-    public Action<int>? OnGuiMode;
+    public Action<int>? OnGuiMode { get; set; }
 
     /// <summary>Clears the PSC state.</summary>
     public void Reset()

@@ -11,10 +11,10 @@ public class NetServerTests
 {
     private sealed class Harness
     {
-        public readonly NetServer Server;
-        public readonly List<(Address to, byte[] data)> Sent = [];
-        public readonly List<string> Log = [];
-        public uint NextId = 0x1000; // client connection ids; low bit varies
+        public NetServer Server { get; }
+        public List<(Address to, byte[] data)> Sent { get; } = [];
+        public List<string> Log { get; } = [];
+        public uint NextId { get; set; } = 0x1000; // client connection ids; low bit varies
 
         public Harness(ServerConfig cfg)
         {
@@ -34,9 +34,14 @@ public class NetServerTests
 
     private sealed class Request
     {
-        public ushort PacketVersion = 1;
-        public string Game = "Tribes", Version = "1.11", Password = "", Name = "Player", Gender = "Male", Voice = "male1",
-                      Skin = "base";
+        public ushort PacketVersion { get; set; } = 1;
+        public string Game { get; set; } = "Tribes";
+        public string Version { get; set; } = "1.11";
+        public string Password { get; set; } = "";
+        public string Name { get; set; } = "Player";
+        public string Gender { get; set; } = "Male";
+        public string Voice { get; set; } = "male1";
+        public string Skin { get; set; } = "base";
     }
 
     private static byte[] RequestPayload(Request r)
@@ -51,10 +56,11 @@ public class NetServerTests
 
     private sealed class Reply
     {
-        public bool Accepted;
-        public string Reason = ""; // reject text without the NUL
-        public uint PlayerId, ManagerId;
-        public uint ConnectionId;
+        public bool Accepted { get; set; }
+        public string Reason { get; set; } = ""; // reject text without the NUL
+        public uint PlayerId { get; set; }
+        public uint ManagerId { get; set; }
+        public uint ConnectionId { get; set; }
     }
 
     private static Address Client(uint n) => new(0x0a000000u + n, (ushort)(2000 + n));
@@ -111,10 +117,10 @@ public class NetServerTests
         return v;
     }
 
-    private const string kStockUpgrade =
+    private const string StockUpgrade =
         "You must upgrade your executable to play on this server (requires version 1.11 or higher).  " +
         "Check www.tribesplayers.com for the most recent patches.";
-    private const string kLastHopeUpgrade =
+    private const string LastHopeUpgrade =
         "You must upgrade your executable to play on this server (requires version 1.30). " +
         "Check www.lasthope.us for the most recent patches.";
 
@@ -237,9 +243,9 @@ public class NetServerTests
         {
             var h = new Harness(cfg);
             Reply Version(string v, uint n) => Connect(h, Client(n), new Request { Version = v });
-            Assert.Equal(kStockUpgrade, Version("1.10", 1).Reason);
-            Assert.Equal(kStockUpgrade, Version("1.9", 2).Reason);
-            Assert.Equal(kStockUpgrade, Version("111", 3).Reason); // no dot: minor 0
+            Assert.Equal(StockUpgrade, Version("1.10", 1).Reason);
+            Assert.Equal(StockUpgrade, Version("1.9", 2).Reason);
+            Assert.Equal(StockUpgrade, Version("111", 3).Reason); // no dot: minor 0
             Assert.True(Version("1.11", 4).Accepted);
             Assert.True(Version("1.119", 5).Accepted); // "11" only
             Assert.True(Version("9.30", 6).Accepted);  // major ignored
@@ -253,9 +259,9 @@ public class NetServerTests
             c.LastHope = true;
             var h = new Harness(c);
             var r = new Request();
-            Assert.Equal(kLastHopeUpgrade, Connect(h, Client(1), r).Reason);
+            Assert.Equal(LastHopeUpgrade, Connect(h, Client(1), r).Reason);
             r.Version = "1.29";
-            Assert.Equal(kLastHopeUpgrade, Connect(h, Client(2), r).Reason);
+            Assert.Equal(LastHopeUpgrade, Connect(h, Client(2), r).Reason);
             r.Version = "1.30";
             Assert.True(Connect(h, Client(3), r).Accepted);
             ++cases;

@@ -9,7 +9,7 @@ using OpenTribes.Script;
 
 public class ScriptEvalTests
 {
-    private static readonly (string src, string want)[] kCases =
+    private static readonly (string src, string want)[] Cases =
     [
         // Float environment (3.2)
         ("echo(0.1);", "0.0999999"),
@@ -67,7 +67,7 @@ public class ScriptEvalTests
     ];
 
     // Outputs of the double form where the reference output needs the 80-bit unit.
-    private static readonly Dictionary<string, string> kDouble = new()
+    private static readonly Dictionary<string, string> Double = new()
     {
         ["echo(0.1 == 1/10, 1/10 == 0.1, 0.1 == \"0.1\", \"0.1\" == 0.1);"] = "1111", // reference "0101"
     };
@@ -86,9 +86,9 @@ public class ScriptEvalTests
         }
 
         var failures = new List<string>();
-        foreach (var (src, reference) in kCases)
+        foreach (var (src, reference) in Cases)
         {
-            var want = kDouble.TryGetValue(src, out var d) ? d : reference;
+            var want = Double.TryGetValue(src, out var d) ? d : reference;
             var got = Run(src);
             if (got != want)
                 failures.Add("FAIL " + src + "\n  want: " + want + "\n  got:  " + got);

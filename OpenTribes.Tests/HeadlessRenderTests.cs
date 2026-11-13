@@ -12,11 +12,11 @@ using static OpenTribes.Tests.GfxFixtures;
 public class HeadlessRenderTests
 {
     private const int W = 64, H = 48;
-    private static readonly byte[] sBackground = [40, 80, 120];
+    private static readonly byte[] Background = [40, 80, 120];
 
-    private readonly ITestOutputHelper mOut;
+    private readonly ITestOutputHelper _out;
 
-    public HeadlessRenderTests(ITestOutputHelper output) => mOut = output;
+    public HeadlessRenderTests(ITestOutputHelper output) => _out = output;
 
     // Palette: index i has color (r, g, b) from the table below; everything else is black.
     private static PaletteBank TestPalette()
@@ -54,12 +54,12 @@ public class HeadlessRenderTests
             GlWindow? w = GlWindow.TryCreate("test", W, H, hidden: true, driver, out var err);
             if (w != null)
             {
-                mOut.WriteLine($"RAN: video driver {w.VideoDriver}, OpenGL {w.GlVersion}");
+                _out.WriteLine($"RAN: video driver {w.VideoDriver}, OpenGL {w.GlVersion}");
                 return w;
             }
             failures.Add($"{driver ?? "default"}: {err}");
         }
-        mOut.WriteLine("SKIPPED: no OpenGL 3.3 context could be made (" + string.Join("; ", failures) + ")");
+        _out.WriteLine("SKIPPED: no OpenGL 3.3 context could be made (" + string.Join("; ", failures) + ")");
         return null;
     }
 
@@ -88,7 +88,7 @@ public class HeadlessRenderTests
         dev.SetPalette(TestPalette(), 1f);
         dev.BeginFrame();
         Assert.Equal((W, H), (dev.Width, dev.Height));
-        dev.ClearRgb(sBackground[0], sBackground[1], sBackground[2]);
+        dev.ClearRgb(Background[0], Background[1], Background[2]);
         // Five 4 x 4 bitmaps side by side at y = 2: opaque, transparent, translucent, additive, subtractive.
         uint[] attrs = [0, 1, 4, 0x10, 0x20];
         for (var i = 0; i < attrs.Length; ++i)

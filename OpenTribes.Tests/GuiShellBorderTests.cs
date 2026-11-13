@@ -8,7 +8,7 @@ public class GuiShellBorderTests
 {
     private sealed class BlitDev : IGfxDevice
     {
-        public readonly List<string> Calls = [];
+        public List<string> Calls { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }

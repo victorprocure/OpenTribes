@@ -8,9 +8,9 @@ namespace OpenTribes.Game;
 /// <remarks>Port of src/game/r250.hpp. Constructor 0x005eb5a0, seed fill 0x005eb5d4, draw 0x005eb660 (docs/static-sim.md 1.7, 5.4, 11.3).</remarks>
 public sealed class R250
 {
-    private readonly uint[] mTable = new uint[250];
-    private uint mIndex;
-    private uint mState;
+    private readonly uint[] _table = new uint[250];
+    private uint _index;
+    private uint _state;
 
     /// <summary>Creates a generator and seeds it.</summary>
     /// <param name="seed">The seed, 0x8377 by default as the engine's static instances use.</param>
@@ -21,17 +21,17 @@ public sealed class R250
     /// <remarks>Follows the stock seed fill (0x005eb5d4).</remarks>
     public void Reseed(uint seed)
     {
-        mIndex = 0;
-        mState = seed;
+        _index = 0;
+        _state = seed;
         for (var i = 0; i < 250; ++i)
-            mTable[i] = Lcg();
+            _table[i] = Lcg();
         for (var i = 0; i < 250; ++i)
             if (Lcg() > 0x40000000u)
-                mTable[i] |= 0x80000000u;
+                _table[i] |= 0x80000000u;
         uint keep = 0xffffffffu, set = 0x80000000u;
         for (var i = 0; i < 32; ++i)
         {
-            ref var w = ref mTable[(i * 7) + 3];
+            ref var w = ref _table[(i * 7) + 3];
             w = (w & keep) | set;
             keep >>= 1;
             set >>= 1;
@@ -43,19 +43,19 @@ public sealed class R250
     /// <remarks>Follows the stock draw (0x005eb660).</remarks>
     public uint Next()
     {
-        var tap = mIndex < 0x93 ? mIndex + 0x67 : mIndex - 0x93;
-        var v = mTable[mIndex] ^ mTable[tap];
-        mTable[mIndex] = v;
-        mIndex = mIndex < 0xf9 ? mIndex + 1 : 0;
+        var tap = _index < 0x93 ? _index + 0x67 : _index - 0x93;
+        var v = _table[_index] ^ _table[tap];
+        _table[_index] = v;
+        _index = _index < 0xf9 ? _index + 1 : 0;
         return v;
     }
 
     /// <summary>Returns the 250-word state table.</summary>
     /// <returns>The live table, not a copy.</returns>
-    public uint[] Table() => mTable;
+    public uint[] Table() => _table;
     /// <summary>Returns the current table index.</summary>
     /// <returns>The index of the next word to update.</returns>
-    public uint Index() => mIndex;
+    public uint Index() => _index;
 
     /// <summary>Draws a value scaled to [0, 1) as the engine computes it (<c>u * 2^-32</c>).</summary>
     /// <returns>The scaled draw.</returns>
@@ -63,8 +63,8 @@ public sealed class R250
 
     private uint Lcg()
     {
-        mState = unchecked((mState * 0x19660du) + 0x3c6ef35fu);
-        return mState;
+        _state = unchecked((_state * 0x19660du) + 0x3c6ef35fu);
+        return _state;
     }
 }
 

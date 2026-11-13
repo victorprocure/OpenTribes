@@ -11,8 +11,8 @@ public class GameStreamTests
 
     private sealed class Fake
     {
-        public bool Connected = true;
-        public readonly List<(byte[] Data, uint Cookie)> Sent = [];
+        public bool Connected { get; set; } = true;
+        public List<(byte[] Data, uint Cookie)> Sent { get; } = [];
 
         public GameConnection.Transport Transport() => new()
         {
@@ -27,19 +27,31 @@ public class GameStreamTests
 
     private sealed class Ev
     {
-        public bool Guaranteed, Ordered, Next;
-        public int Seq = -2;
-        public uint HeaderBits, Tag, Body;
+        public bool Guaranteed { get; set; }
+        public bool Ordered { get; set; }
+        public bool Next { get; set; }
+        public int Seq { get; set; } = -2;
+        public uint HeaderBits { get; set; }
+        public uint Tag { get; set; }
+        public uint Body { get; set; }
     }
 
     private sealed class Packet
     {
-        public bool RateSet, RateReq, HasEvents, HasPsc, Control, Ghosts;
-        public readonly List<Ev> Events = [];
-        public uint Mode, LastMove, BitsCount;
-        public bool Flag6a;
-        public int Bytes;
-        public uint SetBits, ReqBits; // the 10 + 10 bits of the rate sections: interval | size << 10
+        public bool RateSet { get; set; }
+        public bool RateReq { get; set; }
+        public bool HasEvents { get; set; }
+        public bool HasPsc { get; set; }
+        public bool Control { get; set; }
+        public bool Ghosts { get; set; }
+        public List<Ev> Events { get; } = [];
+        public uint Mode { get; set; }
+        public uint LastMove { get; set; }
+        public uint BitsCount { get; set; }
+        public bool Flag6a { get; set; }
+        public int Bytes { get; set; }
+        public uint SetBits { get; set; } // the 10 + 10 bits of the rate sections: interval | size << 10
+        public uint ReqBits { get; set; } // the 10 + 10 bits of the rate sections: interval | size << 10
     }
 
     // Decodes a server packet whose events all carry an 8-bit body (2.1, 1.2, 6.3).
@@ -107,60 +119,60 @@ public class GameStreamTests
     {
         public enum Kind { Ordered, Unordered, Unguaranteed }
 
-        private readonly byte[] mBuf = new byte[1500];
-        private readonly BitStream mBs;
+        private readonly byte[] _buf = new byte[1500];
+        private readonly BitStream _bs;
 
         public ClientPacket(bool rates = false)
         {
-            mBs = new BitStream(mBuf, mBuf.Length);
-            mBs.WriteFlag(rates); // rateSet: 10 + 10 bits
+            _bs = new BitStream(_buf, _buf.Length);
+            _bs.WriteFlag(rates); // rateSet: 10 + 10 bits
             if (rates)
-                mBs.WriteInt(0x12345, 20);
-            mBs.WriteFlag(rates); // rateReq
+                _bs.WriteInt(0x12345, 20);
+            _bs.WriteFlag(rates); // rateReq
             if (rates)
-                mBs.WriteInt(0xabcde, 20);
-            mBs.WriteFlag(true);
+                _bs.WriteInt(0xabcde, 20);
+            _bs.WriteFlag(true);
         }
 
         // Event header (2.1): entry flag, delivery class, sequence, class tag.
         public ClientPacket Header(uint tag, Kind kind, int seq = -1, bool next = false)
         {
-            mBs.WriteFlag(true);
-            mBs.WriteFlag(kind != Kind.Unguaranteed);
+            _bs.WriteFlag(true);
+            _bs.WriteFlag(kind != Kind.Unguaranteed);
             if (kind == Kind.Ordered)
             {
-                mBs.WriteFlag(next);
+                _bs.WriteFlag(next);
                 if (!next)
                 {
-                    mBs.WriteFlag(true);
-                    mBs.WriteInt((uint)seq, 7);
+                    _bs.WriteFlag(true);
+                    _bs.WriteInt((uint)seq, 7);
                 }
             }
             else if (kind == Kind.Unordered)
             {
-                mBs.WriteFlag(false);
-                mBs.WriteFlag(false);
+                _bs.WriteFlag(false);
+                _bs.WriteFlag(false);
             }
-            mBs.WriteInt(tag - 0x400, 7);
+            _bs.WriteInt(tag - 0x400, 7);
             return this;
         }
 
         public ClientPacket Console(string[] argv, Kind kind, int seq = -1, bool next = false, uint tag = 0x408)
         {
             Header(tag, kind, seq, next);
-            mBs.WriteInt((uint)argv.Length, 5);
+            _bs.WriteInt((uint)argv.Length, 5);
             foreach (var s in argv)
-                mBs.WriteString(s);
+                _bs.WriteString(s);
             return this;
         }
 
         // Destination prefix of a Sim event (2.4): form 0 object id (32 bits), 1 server ghost, 2 client ghost (10 bits).
         public ClientPacket Dest(int form, uint value)
         {
-            if (!mBs.WriteFlag(form == 1) && !mBs.WriteFlag(form == 2))
-                mBs.WriteInt(value, 32);
+            if (!_bs.WriteFlag(form == 1) && !_bs.WriteFlag(form == 2))
+                _bs.WriteInt(value, 32);
             else
-                mBs.WriteInt(value, 10);
+                _bs.WriteInt(value, 10);
             return this;
         }
 
@@ -170,50 +182,50 @@ public class GameStreamTests
 
         public ClientPacket BitsOf(uint value, uint count)
         {
-            mBs.WriteInt(value, count);
+            _bs.WriteInt(value, count);
             return this;
         }
 
         public ClientPacket String(string s)
         {
-            mBs.WriteString(s);
+            _bs.WriteString(s);
             return this;
         }
 
         // The packet ends here: no end flag, no other members; the last byte is padded with 0 bits.
-        public byte[] Cut() => mBuf.AsSpan(0, mBs.BytePosition()).ToArray();
+        public byte[] Cut() => _buf.AsSpan(0, _bs.BytePosition()).ToArray();
 
         // Ends the events, then the PSC (6.2) with `moves` moves, then no ghosts.
         public byte[] Finish(int moves = -1)
         {
-            mBs.WriteFlag(false);
-            mBs.WriteFlag(moves >= 0);
+            _bs.WriteFlag(false);
+            _bs.WriteFlag(moves >= 0);
             if (moves >= 0)
             {
-                mBs.WriteInt(169, 8);
-                mBs.WriteInt(0, 32);
+                _bs.WriteInt(169, 8);
+                _bs.WriteInt(0, 32);
                 for (var i = 0; i < moves; ++i)
                 {
-                    mBs.WriteFlag(true);
+                    _bs.WriteFlag(true);
                     if (i > 0)
                     {
-                        mBs.WriteFlag(true); // same as previous
+                        _bs.WriteFlag(true); // same as previous
                     }
                     else
                     {
-                        mBs.WriteInt(0, 16);
-                        mBs.WriteInt(0, 3);
+                        _bs.WriteInt(0, 16);
+                        _bs.WriteInt(0, 3);
                     }
-                    mBs.WriteFlag(false); // fire
-                    mBs.WriteFlag(false); // useItem
-                    mBs.WriteFlag(false); // pitch
-                    mBs.WriteFlag(false); // turn
+                    _bs.WriteFlag(false); // fire
+                    _bs.WriteFlag(false); // useItem
+                    _bs.WriteFlag(false); // pitch
+                    _bs.WriteFlag(false); // turn
                 }
-                mBs.WriteFlag(false);
+                _bs.WriteFlag(false);
             }
-            mBs.WriteFlag(false);
-            Assert.False(mBs.Error());
-            return mBuf.AsSpan(0, mBs.BytePosition()).ToArray();
+            _bs.WriteFlag(false);
+            Assert.False(_bs.Error());
+            return _buf.AsSpan(0, _bs.BytePosition()).ToArray();
         }
     }
 
@@ -689,9 +701,9 @@ public class GameStreamTests
 
     private sealed class ActionLog
     {
-        public readonly List<EventDest> Dests = [];
-        public readonly Calls CallsOf = new();
-        public int Invalid;
+        public List<EventDest> Dests { get; } = [];
+        public Calls CallsOf { get; } = new();
+        public int Invalid { get; set; }
 
         public GameConnection.Hooks Hooks()
         {

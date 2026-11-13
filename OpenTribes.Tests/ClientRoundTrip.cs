@@ -8,7 +8,7 @@ using OpenTribes.Sim;
 public static class ClientRoundTrip
 {
     // Datablock group of each ghost class tag that carries a datablock index (game-stream-ghosts.md 2.3, 4).
-    private static readonly Dictionary<uint, int> sGroups = new()
+    private static readonly Dictionary<uint, int> Groups = new()
     {
         [0x202] = 19,
         [0x21b] = 21,
@@ -35,7 +35,7 @@ public static class ClientRoundTrip
     public static ClientWorld WorldFor(uint tag, SimObject? obj, int explosionCount = 3)
     {
         var w = new ClientWorld();
-        if (obj is GameBase gb && sGroups.TryGetValue(tag, out var group))
+        if (obj is GameBase gb && Groups.TryGetValue(tag, out var group))
             w.DataBlocks.Counts[group] = gb.DataBlockCount();
         w.DataBlocks.Counts[20] = explosionCount;
         return w;

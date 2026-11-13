@@ -398,7 +398,7 @@ public class GfxFormatTests
 
     private sealed class Recorder : IGfxDevice
     {
-        public readonly List<string> Calls = [];
+        public List<string> Calls { get; } = [];
         public int Width => 100;
         public int Height => 100;
         public void SetPalette(PaletteBank bank, float gamma = 1f) { }

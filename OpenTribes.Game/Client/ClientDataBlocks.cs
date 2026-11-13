@@ -6,13 +6,13 @@ namespace OpenTribes.Game;
 public sealed class ClientDataBlock
 {
     /// <summary>The datablock group.</summary>
-    public int Group;
+    public int Group { get; set; }
     /// <summary>The index in the group.</summary>
-    public int Index;
+    public int Index { get; set; }
     /// <summary>The class name.</summary>
-    public string Class = "";
+    public string Class { get; set; } = "";
     /// <summary>The decoded fields.</summary>
-    public List<DecodedField> Fields = [];
+    public List<DecodedField> Fields { get; set; } = [];
 }
 
 /// <summary>The client DataBlockManager (00402b74): the block counts and the blocks received, per group.</summary>
@@ -20,22 +20,22 @@ public sealed class ClientDataBlock
 public sealed class ClientDataBlocks
 {
     /// <summary>The number of blocks of each group.</summary>
-    public readonly Dictionary<int, int> Counts = [];
+    public Dictionary<int, int> Counts { get; } = [];
     /// <summary>The blocks received, by group and index.</summary>
-    public readonly Dictionary<(int Group, int Index), ClientDataBlock> Blocks = [];
+    public Dictionary<(int Group, int Index), ClientDataBlock> Blocks { get; } = [];
     /// <summary>True once dataFinished() was evaluated (docs/client-net.md 2.6 step 3).</summary>
-    public bool Finished;
+    public bool Finished { get; set; }
     /// <summary>The number of blocks received.</summary>
-    public int Received;
+    public int Received { get; set; }
     /// <summary>Called as dataGotBlock(label, progress).</summary>
-    public Action<string, double>? OnProgress;
+    public Action<string, double>? OnProgress { get; set; }
 
     /// <summary>The local models of the model check (docs/client-net.md 7.1). Null disables the check, as in a headless session without game files.</summary>
-    public ResourceManager? Resources;
+    public ResourceManager? Resources { get; set; }
     /// <summary>The text of the "Invalid packet" error set by the check that failed (docs/client-net.md 1.4). The session leaves the server.</summary>
-    public string? PreloadError;
+    public string? PreloadError { get; set; }
     /// <summary>Prints a console line "Validated file: &lt;name&gt;" for a passed check.</summary>
-    public Action<string>? Print;                  // console line "Validated file: <name>" of a passed check
+    public Action<string>? Print { get; set; }                  // console line "Validated file: <name>" of a passed check
 
     /// <summary>Clears the counts and the received blocks.</summary>
     public void Clear()
@@ -362,12 +362,12 @@ public sealed class ClientDataBlocks
     }
 
     /// <summary>The format of the error text of a model that does not match the server's.</summary>
-    public const string kMismatchFormat = "Client side model {0} or its textures do not match the server's and the server requires validation of this model or textures.";
+    public const string MismatchFormat = "Client side model {0} or its textures do not match the server's and the server requires validation of this model or textures.";
 
     /// <summary>Checks the local model of a block whose shape name came with a CRC (validateShape).</summary>
     /// <param name="b">The block.</param>
     /// <returns>The error text, or null when the check passed.</returns>
-    /// <remarks>ShapeBase 0x0044a204 (shapeFile + ".dts"), Projectile 0x00459804 (bulletShapeName) and Explosion 0x0046de5c (shapeName) all go through 0x0044a078. The CRC of the local model (and its textures when the name came with 0xfe) must equal the server's, else the preload fails with <see cref="kMismatchFormat"/>. The server side of the same call stores the CRC instead (DataBlockManager.Preload).</remarks>
+    /// <remarks>ShapeBase 0x0044a204 (shapeFile + ".dts"), Projectile 0x00459804 (bulletShapeName) and Explosion 0x0046de5c (shapeName) all go through 0x0044a078. The CRC of the local model (and its textures when the name came with 0xfe) must equal the server's, else the preload fails with <see cref="MismatchFormat"/>. The server side of the same call stores the CRC instead (DataBlockManager.Preload).</remarks>
     public string? CheckModel(ClientDataBlock b)
     {
         if (Resources == null)
@@ -384,7 +384,7 @@ public sealed class ClientDataBlocks
             if (field == "shapeFile")
                 name += ".dts";
             if (DataBlockManager.ValidationCrc(Resources, name, materials) != (uint)wire)
-                return string.Format(kMismatchFormat, name);
+                return string.Format(MismatchFormat, name);
             Print?.Invoke("Validated file: " + name);
         }
         return null;

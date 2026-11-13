@@ -26,39 +26,39 @@ public sealed class PftFont
         JustBottom = 0x20, JustFit = 0x40;
 
     /// <summary>The file version.</summary>
-    public uint Version;
+    public uint Version { get; set; }
     /// <summary>The flag bits, see <see cref="FlagProportional"/>.</summary>
-    public uint Flags;
+    public uint Flags { get; set; }
     /// <summary>The default justification bits.</summary>
-    public uint Justification;
+    public uint Justification { get; set; }
     /// <summary>The number of glyphs.</summary>
-    public uint GlyphCount;
+    public uint GlyphCount { get; set; }
     /// <summary>The cell height.</summary>
-    public int CellHeight;
+    public int CellHeight { get; set; }
     /// <summary>The glyph cell width.</summary>
-    public int GlyphCellWidth;
+    public int GlyphCellWidth { get; set; }
     /// <summary>The ink colour.</summary>
-    public uint InkColor;
+    public uint InkColor { get; set; }
     /// <summary>The background colour.</summary>
-    public uint BgColor;
+    public uint BgColor { get; set; }
     /// <summary>The baseline.</summary>
-    public int Baseline;
+    public int Baseline { get; set; }
     /// <summary>The horizontal scale in 16.16 fixed point.</summary>
-    public int ScaleX = 65536;
+    public int ScaleX { get; set; } = 65536;
     /// <summary>The vertical scale in 16.16 fixed point.</summary>
-    public int ScaleY = 65536;
+    public int ScaleY { get; set; } = 65536;
     /// <summary>The spacing between characters.</summary>
-    public int Spacing;
+    public int Spacing { get; set; }
     /// <summary>The offset of the first character in the lookup table.</summary>
-    public ushort LookupOffset;
+    public ushort LookupOffset { get; set; }
     /// <summary>The lookup table from character to glyph index.</summary>
-    public short[] Lookup = [];
+    public short[] Lookup { get; set; } = [];
     /// <summary>The glyphs.</summary>
-    public GlyphEntry[] Glyphs = [];
+    public GlyphEntry[] Glyphs { get; set; } = [];
     /// <summary>The glyph sheets.</summary>
-    public PbmaArray Sheets = new();
+    public PbmaArray Sheets { get; set; } = new();
     /// <summary>The attached palette, or null. No stock font has one.</summary>
-    public PaletteBank? Palette;
+    public PaletteBank? Palette { get; set; }
 
     /// <summary>Parses a <c>.pft</c> file.</summary>
     /// <param name="data">The file bytes.</param>

@@ -9,7 +9,7 @@ using OpenTribes.Sim;
 
 public sealed class TurretControlTests
 {
-    private const int kGhost = 5;
+    private const int Ghost = 5;
 
     // A server PSC block (game-stream.md 6.3, mode 1) whose control state is Turret_writeControlState 004572f8.
     private static void Block(ClientWorld cw, float rot, float elev, uint fire, bool beam, uint state, float energy)
@@ -21,7 +21,7 @@ public sealed class TurretControlTests
         bs.WriteInt(0, 32);
         bs.WriteFlag(true);
         bs.WriteInt(0, 8);
-        bs.WriteInt(kGhost, 10);
+        bs.WriteInt(Ghost, 10);
         bs.WriteF32(rot);
         bs.WriteF32(elev);
         bs.WriteInt(fire, 2);
@@ -39,7 +39,7 @@ public sealed class TurretControlTests
     private static ClientWorld World()
     {
         var cw = new ClientWorld();
-        cw.Ghosts.Insert(new ClientGhost { Index = kGhost, Class = "Turret" });
+        cw.Ghosts.Insert(new ClientGhost { Index = Ghost, Class = "Turret" });
         return cw;
     }
 
@@ -51,7 +51,7 @@ public sealed class TurretControlTests
         Block(cw, 1.5f, -0.25f, 2, true, 3, 77.5f);
         var psc = cw.Psc;
         Assert.Equal("Turret", psc.ControlClass);
-        Assert.Equal(kGhost, psc.ControlGhost);
+        Assert.Equal(Ghost, psc.ControlGhost);
         Assert.Equal(1.5, Convert.ToDouble(psc.ControlState["aimRot"]));
         Assert.Equal(-0.25, Convert.ToDouble(psc.ControlState["aimElev"]));
         Assert.Equal(2L, psc.ControlState["fire2"]);

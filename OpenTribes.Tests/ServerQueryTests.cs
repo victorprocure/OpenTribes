@@ -7,8 +7,8 @@ public class ServerQueryTests
 {
     private sealed class FakeNet : IQueryTransport
     {
-        public readonly List<(Address To, byte[] Data)> Sent = [];
-        public readonly Queue<(Address From, byte[] Data)> Inbox = new();
+        public List<(Address To, byte[] Data)> Sent { get; } = [];
+        public Queue<(Address From, byte[] Data)> Inbox { get; } = new();
 
         public bool Send(Address to, byte[] data)
         {

@@ -224,8 +224,8 @@ public static class StaticCommands
             MoveableOf(a[1]) is GameBase gb && gb.MoveToWaypoint(Numbers.BorlandAtoi(a[2])) ? "True" : r);
         foreach ((var name, var state) in new[]
                  {
-                     ("Moveable::moveForward", GameBase.kMoveForward), ("Moveable::moveBackward", GameBase.kMoveBackward),
-                     ("Moveable::stop", GameBase.kMoveStopped),
+                     ("Moveable::moveForward", GameBase.kMoveForward), ("Moveable::moveBackward", GameBase.MoveBackward),
+                     ("Moveable::stop", GameBase.MoveStopped),
                  })
             Def(name, 2, "wrong argcount to %s(object)", "False", "False", (_, a, r) =>
             {

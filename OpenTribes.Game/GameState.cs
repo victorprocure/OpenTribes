@@ -12,19 +12,20 @@ using static OpenTribes.Core.Fpu;
 public sealed class TeamRecord
 {
     /// <summary>The team name.</summary>
-    public string Name;
+    public string Name { get; set; }
     /// <summary>The team skin.</summary>
-    public string Skin;
+    public string Skin { get; set; }
     /// <summary>The score text.</summary>
-    public string Score = "";
+    public string Score { get; set; } = "";
     /// <summary>The sort value of the team.</summary>
-    public int SortValue;
+    public int SortValue { get; set; }
     /// <summary>The stamp of the last score change.</summary>
-    public uint ScoreStamp;
+    public ref uint ScoreStamp => ref _scoreStamp;
+    private uint _scoreStamp;
     /// <summary>The stamp of each objective. Stamps start at 1 (docs/player-manager.md 2.2).</summary>
-    public readonly uint[] ObjectiveStamp = new uint[32];
+    public uint[] ObjectiveStamp { get; } = new uint[32];
     /// <summary>The text of each objective.</summary>
-    public readonly string[] Objectives = new string[32];
+    public string[] Objectives { get; } = new string[32];
 
     /// <summary>Creates a team record with empty objectives.</summary>
     /// <param name="n">The team name.</param>
@@ -46,40 +47,40 @@ public sealed class TeamRecord
 public sealed partial class GameState : GameServices
 {
     /// <summary>The script interpreter.</summary>
-    public Interpreter? Console;
+    public Interpreter? Console { get; set; }
     /// <summary>The simulation console, or null.</summary>
-    public SimConsole? Sim;
+    public SimConsole? Sim { get; set; }
     /// <summary>The resource manager, or null.</summary>
-    public ResourceManager? Resources;
+    public ResourceManager? Resources { get; set; }
     /// <summary>The player manager.</summary>
-    public readonly PlayerManager Players;
+    public PlayerManager Players { get; }
     /// <summary>Allocates a record id for an AI player from the connection layer's pool. Set by the server.</summary>
-    public Func<int>? AllocateRecordId;
+    public Func<int>? AllocateRecordId { get; set; }
     /// <summary>Releases a record id of an AI player.</summary>
-    public Action<int>? ReleaseRecordId;
+    public Action<int>? ReleaseRecordId { get; set; }
     /// <summary>The AI manager (object 726) while the mission has one (docs/ai-sim.md 1.2).</summary>
-    public AIManager? Ai;
+    public AIManager? Ai { get; set; }
 
     /// <summary>The team count, or -1 until the first resetPlayerManager (docs/mission.md 2.2).</summary>
-    public int TeamCount = -1;
+    public int TeamCount { get; set; } = -1;
     /// <summary>The team records. The record of team t is at index t + 1.</summary>
-    public readonly List<TeamRecord> Teams = [];
+    public List<TeamRecord> Teams { get; } = [];
     /// <summary>The team score heading.</summary>
-    public string TeamScoreHeading = "";
+    public string TeamScoreHeading { get; set; } = "";
     /// <summary>The client score heading.</summary>
-    public string ClientScoreHeading = "";
+    public string ClientScoreHeading { get; set; } = "";
     /// <summary>The sensor target names in registration order (GB4).</summary>
-    public readonly List<string> TargetNames = [];
+    public List<string> TargetNames { get; } = [];
     /// <summary>The target objects, at the same index as the names. An entry is null once removed.</summary>
-    public readonly List<GameBase?> Targets = [];
+    public List<GameBase?> Targets { get; } = [];
     /// <summary>The material table (setMaterialProperty, 0x006c1ff0).</summary>
-    public readonly MaterialTable Materials = new();
+    public MaterialTable Materials { get; } = new();
     /// <summary>ORs bits into the object's entry of every ghost manager. Set by the game server.</summary>
-    public Action<SimObject, uint>? MaskBits;
+    public Action<SimObject, uint>? MaskBits { get; set; }
     /// <summary>Container 7, which holds the objects of the world.</summary>
-    public readonly Container World = new();
+    public Container World { get; } = new();
     /// <summary>The movers of the running displaces (object type 0).</summary>
-    public readonly List<GameBase> mDisplaceHidden = [];
+    public List<GameBase> DisplaceHidden { get; } = [];
 
     /// <summary>Creates the game state and its player manager.</summary>
     public GameState() => Players = new PlayerManager(this);
@@ -528,9 +529,9 @@ public sealed partial class GameState : GameServices
     {
         (string, uint)[] kTypes =
         [
-            ("StaticShape", ObjectType.kStaticType), ("Sensor", ObjectType.kStaticType), ("Turret", ObjectType.kStaticType),
-            ("Moveable", ObjectType.kMoveableType), ("Item", ObjectType.kItemType), ("Mine", ObjectType.kMineType),
-            ("Flier", ObjectType.kVehicleType), ("Trigger", ObjectType.kTriggerType),
+            ("StaticShape", ObjectType.StaticType), ("Sensor", ObjectType.StaticType), ("Turret", ObjectType.StaticType),
+            ("Moveable", ObjectType.MoveableType), ("Item", ObjectType.ItemType), ("Mine", ObjectType.MineType),
+            ("Flier", ObjectType.VehicleType), ("Trigger", ObjectType.TriggerType),
         ];
         foreach ((var cls, var type) in kTypes)
             if (GameUtil.EqualsNoCase(cls, obj.ClassName()))

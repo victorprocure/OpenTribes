@@ -8,11 +8,13 @@ using static OpenTribes.Core.Fpu;
 public struct Transform
 {
     /// <summary>The flags: bit 0 means rotation is set, bit 1 means translation is set.</summary>
-    public uint Flags;
+    public uint Flags { get; set; }
     /// <summary>The rotation matrix.</summary>
-    public Float9 M;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float9 M => ref _m;
+    private Float9 _m;
     /// <summary>The position.</summary>
-    public Float3 P;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 P => ref _p;
+    private Float3 _p;
 
     /// <summary>Creates an identity transform with no flags set.</summary>
     public Transform()

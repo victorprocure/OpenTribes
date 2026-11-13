@@ -156,35 +156,35 @@ public class ServerListFlagsTests
 
 public sealed class ServerBrowserFlagsTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-sb-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-sb-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public ServerBrowserFlagsTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
+        _app?.Dispose();
         try
-        { Directory.Delete(mRoot, true); }
+        { Directory.Delete(_root, true); }
         catch (IOException) { }
     }
 
     // A join screen of synthetic controls: the server list (140016) in the content, the delegate of the real client.
     private (ClientApp App, GuiServerList List) Boot()
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function onConnection(%m) { $conn = %m; }\nfunction Game::EndFrame() {}\n" +
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n");
-        var opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
+        var opt = ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out var error), error);
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
         var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
@@ -193,8 +193,8 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
-        mApp.Canvas.SetContent(root, mApp.Canvas.Delegates["JoinGame"]);
-        return (mApp, (GuiServerList)list);
+        _app.Canvas.SetContent(root, _app.Canvas.Delegates["JoinGame"]);
+        return (_app, (GuiServerList)list);
     }
 
     private static GuiControl Box(int id)
@@ -209,7 +209,7 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         var dlg = GuiFixture.Make("SimGui::Control", 100, 100, 300, 200);
         dlg.AddChild(Box(ServerBrowser.InfoFavoriteBoxId));
         dlg.AddChild(Box(ServerBrowser.InfoNeverPingBoxId));
-        mApp!.Canvas.PushDialog(dlg);
+        _app!.Canvas.PushDialog(dlg);
         return dlg;
     }
 
@@ -316,7 +316,7 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         Assert.Single(l.Servers);
         Assert.True(l.Servers[0].Favorite && l.Servers[0].NeverPing);
         app.Canvas.SetContent(new GuiControl { Name = "Other" });
-        var file = Path.Combine(mRoot, "config", "GameServerList.cs");
+        var file = Path.Combine(_root, "config", "GameServerList.cs");
         Assert.True(File.Exists(file));
         Assert.Contains("addGameServer(\"IP:127.0.0.1:28001\", \"A\", \"1.11\", \"30\", \"TRUE\", \"base\", \"Raindance\", \"CTF\", \"7\", \"TRUE\");\n", File.ReadAllText(file));
     }

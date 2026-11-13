@@ -7,7 +7,7 @@ public static class StdIo
 {
     private static readonly Stream sOut = Console.OpenStandardOutput();
     private static readonly Stream sErr = Console.OpenStandardError();
-    private static readonly Lock sLock = new();
+    private static readonly Lock Lock = new();
 
     private static string CStr(string s)
     {
@@ -23,7 +23,7 @@ public static class StdIo
     /// <param name="text">The text.</param>
     public static void Write(string text)
     {
-        lock (sLock)
+        lock (Lock)
         {
             sOut.Write(ByteString.ToBytes(text));
             if (text.Contains('\n'))
@@ -34,7 +34,7 @@ public static class StdIo
     /// <summary>Flushes stdout.</summary>
     public static void Flush()
     {
-        lock (sLock)
+        lock (Lock)
             sOut.Flush();
     }
 

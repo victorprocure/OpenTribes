@@ -18,7 +18,7 @@ public partial class GameBase
         const float dt = 0.032f;
         if (!TurretData.Sustained)
         {
-            if (ControlClient == 0 && DamageState == kEnabled && Active)
+            if (ControlClient == 0 && DamageState == Enabled && Active)
                 TurretSearchStep();
             if (ControlClient == 0)
                 TurretUpdateAim(null, dt);
@@ -42,7 +42,7 @@ public partial class GameBase
                 }
                 case 1: // 0x00457cc0: the common tick runs a second time, then the search
                     StaticTick(0.03f);
-                    if (ControlClient == 0 && DamageState == kEnabled && Active)
+                    if (ControlClient == 0 && DamageState == Enabled && Active)
                         TurretSearchStep();
                     if (ControlClient == 0)
                         TurretUpdateAim(null, dt);
@@ -75,19 +75,19 @@ public partial class GameBase
     /// <returns>The type bits.</returns>
     public uint TypeBits()
     {
-        return mShapeClass switch
+        return _shapeClass switch
         {
-            ShapeKind.StaticShape or ShapeKind.Sensor or ShapeKind.Turret => ObjectType.kStaticType,
-            ShapeKind.Moveable => ObjectType.kMoveableType,
-            ShapeKind.Item => ObjectType.kItemType,
-            ShapeKind.Mine => ObjectType.kMineType,
-            ShapeKind.Vehicle => ObjectType.kVehicleType,
-            _ => mKind switch
+            ShapeKind.StaticShape or ShapeKind.Sensor or ShapeKind.Turret => ObjectType.StaticType,
+            ShapeKind.Moveable => ObjectType.MoveableType,
+            ShapeKind.Item => ObjectType.ItemType,
+            ShapeKind.Mine => ObjectType.MineType,
+            ShapeKind.Vehicle => ObjectType.VehicleType,
+            _ => _kind switch
             {
-                Kind.Trigger => ObjectType.kTriggerType,
-                Kind.Marker => ObjectType.kMarkerType,
-                Kind.Interior => ObjectType.kInteriorType,
-                _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.kPlayerType : 0u,
+                Kind.Trigger => ObjectType.TriggerType,
+                Kind.Marker => ObjectType.MarkerType,
+                Kind.Interior => ObjectType.InteriorType,
+                _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.PlayerType : 0u,
             },
         };
     }
@@ -110,16 +110,16 @@ public partial class GameBase
             }
         using var chop = ChopScope();
         Occupants.Add(new Occupant { Object = source.Id(), Expiry = Store(Add(now, 0.25f)), NextContact = Store(Add(now, TriggerInterval)) });
-        mCtx.Game?.ScriptCallback(this, "onEnter", new[] { Numbers.FormatInt(source.Id()) });
-        if (Occupants.Count == 1 && mCtx.Game != null)
-            mCtx.Game.JoinSet(this, 12); // SimTimerSet: event 0x40a every tick
+        _ctx.Game?.ScriptCallback(this, "onEnter", new[] { Numbers.FormatInt(source.Id()) });
+        if (Occupants.Count == 1 && _ctx.Game != null)
+            _ctx.Game.JoinSet(this, 12); // SimTimerSet: event 0x40a every tick
     }
 
     // src/game/turret_sim.cpp GameBase::triggerTimer: 0x0048762c, per occupant in list order. An occupant that was
     // deleted leaves without a callback, and an emptied list leaves set 12 (0x004872e0).
     private void TriggerTimer()
     {
-        if (Manager() == null || mCtx.Game == null)
+        if (Manager() == null || _ctx.Game == null)
             return;
         var now = Manager()!.Time();
         using var chop = ChopScope();
@@ -130,7 +130,7 @@ public partial class GameBase
             {
                 Occupants.RemoveAt(i);
                 if (Occupants.Count == 0)
-                    mCtx.Game.LeaveSet(this, 12);
+                    _ctx.Game.LeaveSet(this, 12);
                 continue;
             }
             if (now < o.Expiry)
@@ -139,14 +139,14 @@ public partial class GameBase
                 {
                     o.NextContact = Store(Add(now, TriggerInterval));
                     Occupants[i] = o;
-                    mCtx.Game.ScriptCallback(this, "onContact", new[] { Numbers.FormatInt(o.Object) });
+                    _ctx.Game.ScriptCallback(this, "onContact", new[] { Numbers.FormatInt(o.Object) });
                 }
                 ++i;
             }
             else
             {
                 Occupants.RemoveAt(i);
-                mCtx.Game.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(o.Object) });
+                _ctx.Game.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(o.Object) });
             }
         }
     }
@@ -169,18 +169,18 @@ public partial class GameBase
             {
                 var obj = Occupants[^1].Object;
                 Occupants.RemoveAt(Occupants.Count - 1);
-                mCtx.Game?.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(obj) });
+                _ctx.Game?.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(obj) });
             }
-            mCtx.Game?.LeaveSet(this, 12);
+            _ctx.Game?.LeaveSet(this, 12);
         }
-        mCtx.Game?.ScriptCallback(this, on ? "onActivate" : "onDeactivate", Array.Empty<string>());
+        _ctx.Game?.ScriptCallback(this, on ? "onActivate" : "onDeactivate", Array.Empty<string>());
         return true;
     }
 
     /// <inheritdoc/>
     public override void OnTimerEvent(float time, int timerId, float interval)
     {
-        if (mKind == Kind.Trigger)
+        if (_kind == Kind.Trigger)
             TriggerTimer();
     }
 }

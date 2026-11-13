@@ -7,49 +7,52 @@ using System.Globalization;
 public sealed class ClientOptions
 {
     /// <summary>The game root directory (<c>--root</c>).</summary>
-    public string Root = ".";
+    public string Root { get; set; } = ".";
     /// <summary>The console log file (<c>--log FILE</c>): what the original writes to console.log when <c>$Console::logMode</c> is set.</summary>
-    public string? LogFile;
+    public string? LogFile { get; set; }
     /// <summary>True when console lines also go to stdout (<c>--echo</c>).</summary>
-    public bool Echo;
+    public bool Echo { get; set; }
     /// <summary>A timed script that drives the session (<c>--input FILE</c>, see <see cref="ClientScript"/>).</summary>
-    public string? InputScript;
+    public string? InputScript { get; set; }
     /// <summary>The seconds of app time at which to write a screenshot (<c>--screenshot-at T,T,...</c>). The PNGs go to <see cref="ShotDir"/>.</summary>
-    public List<double> ScreenshotAt = [];
+    public List<double> ScreenshotAt { get; set; } = [];
     /// <summary>The directory of the screenshots (<c>--shots DIR</c>).</summary>
-    public string ShotDir = ".";
+    public string ShotDir { get; set; } = ".";
     /// <summary>The window width (<c>--size WxH</c>).</summary>
-    public int Width = 640;
+    public ref int Width => ref _width;
+    private int _width = 640;
     /// <summary>The window height.</summary>
-    public int Height = 480;
+    public ref int Height => ref _height;
+    private int _height = 480;
     /// <summary>The video driver name (<c>--video-driver</c>), or null for the default.</summary>
-    public string? VideoDriver;
+    public string? VideoDriver { get; set; }
     /// <summary>True to run without audio output (<c>--no-audio</c>).</summary>
-    public bool NoAudio;
+    public bool NoAudio { get; set; }
     /// <summary>A fixed camera for the live world (<c>--camera X,Y,Z,YAW,PITCH</c>): degrees, yaw 0 looks along +Y, positive turns left.</summary>
-    public double[]? FixedCamera;
+    public double[]? FixedCamera { get; set; }
     /// <summary>True to disable the vertical sync.</summary>
-    public bool NoVsync;
+    public bool NoVsync { get; set; }
     /// <summary>True for no window, no input and no audio output (<c>--headless</c>). The frame loop runs on the virtual clock (client-app.md 1.2).</summary>
-    public bool Headless;
+    public bool Headless { get; set; }
     /// <summary>True to ignore <c>setFullscreenMode(true)</c>, because the stock prefs ask for full screen (<c>--windowed</c>).</summary>
-    public bool Windowed;
+    public bool Windowed { get; set; }
     /// <summary>True when full screen is the borderless desktop mode (canvas at the desktop size) and not a display mode change (<c>--fullscreen-windowed</c>).</summary>
-    public bool FullscreenWindowed;
+    public bool FullscreenWindowed { get; set; }
     /// <summary>The seconds of app time after which to leave, for tests (<c>--seconds S</c>).</summary>
-    public double Seconds;
+    public ref double Seconds => ref _seconds;
+    private double _seconds;
     /// <summary>True when the user opted in to remote addresses. Otherwise the client talks to 127.0.0.0/8 only (R6).</summary>
-    public bool AllowRemote;
+    public bool AllowRemote { get; set; }
     /// <summary>True when <c>HTMLOpen</c> and <c>Notepad</c> may hand a URL or file to the system.</summary>
-    public bool AllowBrowser;
+    public bool AllowBrowser { get; set; }
     /// <summary>True to draw the control object from the server state, with client-net.md 4.4 off (<c>--no-predict</c>).</summary>
-    public bool NoPredict;
+    public bool NoPredict { get; set; }
     /// <summary>The milliseconds the clock advances per frame, with a loop that never sleeps (<c>--virtual-time[=MS]</c>, default 16). Zero for the real clock.</summary>
-    public uint VirtualStep;
+    public uint VirtualStep { get; set; }
     /// <summary>True to print the unknown commands at exit, for tests (<c>--list-unknown</c>).</summary>
-    public bool ReportUnknown;
+    public bool ReportUnknown { get; set; }
     /// <summary>The tokens for <c>$cargv1</c> and up.</summary>
-    public readonly List<string> GameArgs = [];
+    public List<string> GameArgs { get; } = [];
 
     private static readonly string[] ValueOptions =
         ["--root", "--log", "--input", "--screenshot-at", "--shots", "--size", "--video-driver", "--seconds", "--camera"];

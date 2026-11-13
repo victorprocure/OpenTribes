@@ -6,17 +6,17 @@ using OpenTribes.Platform.Gfx;
 public struct GuiEvent
 {
     /// <summary>The x position in canvas pixels.</summary>
-    public int X;
+    public int X { get; set; }
     /// <summary>The y position in canvas pixels.</summary>
-    public int Y;
+    public int Y { get; set; }
     /// <summary>The DirectInput scan code.</summary>
-    public int Scan;       // DirectInput scan code
+    public int Scan { get; set; }       // DirectInput scan code
     /// <summary>The character of a key press.</summary>
-    public char Ascii;
+    public char Ascii { get; set; }
     /// <summary>The modifier bits: 0x03 shift, 0x0c ctrl, 0x30 alt.</summary>
-    public byte Mod;       // 0x03 shift, 0x0c ctrl, 0x30 alt
+    public byte Mod { get; set; }       // 0x03 shift, 0x0c ctrl, 0x30 alt
     /// <summary>The click count of a mouse press: 2 or more for a double click.</summary>
-    public int ClickCount;
+    public int ClickCount { get; set; }
     /// <summary>Gets a value that is true when a shift key is held.</summary>
     public readonly bool Shift => (Mod & 0x03) != 0;
     /// <summary>Gets a value that is true when a ctrl key is held.</summary>
@@ -96,66 +96,66 @@ public interface IGuiResponder
 public class GuiControl : IGuiResponder
 {
     /// <summary>The class name of the table in <see cref="GuiClassTable"/>.</summary>
-    public string ClassName = "SimGui::Control";
+    public string ClassName { get; set; } = "SimGui::Control";
     /// <summary>The name the parent gave the control, or null.</summary>
-    public string? Name;
+    public string? Name { get; set; }
     /// <summary>The version of the persisted block.</summary>
-    public uint PersistVersion;
+    public uint PersistVersion { get; set; }
     /// <summary>The version of the SimGui::Control body.</summary>
-    public byte BodyVersion = 4;
+    public byte BodyVersion { get; set; } = 4;
     /// <summary>The parent control, or null for a root.</summary>
-    public GuiControl? Parent;
+    public GuiControl? Parent { get; set; }
     /// <summary>The canvas the control belongs to, or null.</summary>
-    public GuiCanvas? Canvas;
+    public GuiCanvas? Canvas { get; set; }
     /// <summary>The child controls in member order.</summary>
-    public readonly List<GuiControl> Children = [];
+    public List<GuiControl> Children { get; } = [];
     /// <summary>The persistent fields of docs/gui.md 1.4 by the names of <see cref="GuiLoader.Routines"/>.</summary>
-    public readonly Dictionary<string, object> F = new(StringComparer.Ordinal);
+    public Dictionary<string, object> F { get; } = new(StringComparer.Ordinal);
 
     /// <summary>The x position in the parent.</summary>
-    public int X;
+    public int X { get; set; }
     /// <summary>The y position in the parent.</summary>
-    public int Y;
+    public int Y { get; set; }
     /// <summary>The width.</summary>
-    public int W = 50;
+    public int W { get; set; } = 50;
     /// <summary>The height.</summary>
-    public int H = 50;
+    public int H { get; set; } = 50;
     /// <summary>The flag bits: bit 0 visible, bit 1 delete on lose.</summary>
-    public uint Flags = 3;
+    public uint Flags { get; set; } = 3;
     /// <summary>The control id.</summary>
-    public uint Id;
+    public uint Id { get; set; }
     /// <summary>The horizontal sizing mode: 0 fixed, 1 grows with the parent, 2 follows the right edge, 3 centred.</summary>
-    public uint HSizing;
+    public uint HSizing { get; set; }
     /// <summary>The vertical sizing mode, as for <see cref="HSizing"/>.</summary>
-    public uint VSizing;
+    public uint VSizing { get; set; }
     /// <summary>The tag of the help text.</summary>
-    public uint HelpTag;
+    public uint HelpTag { get; set; }
     /// <summary>The fill mode: not 0 fills the control.</summary>
-    public byte Opaque;
+    public byte Opaque { get; set; }
     /// <summary>The palette index of the fill.</summary>
-    public byte FillColor;
+    public byte FillColor { get; set; }
     /// <summary>The palette index of the fill while selected.</summary>
-    public byte SelectedFill;
+    public byte SelectedFill { get; set; }
     /// <summary>The palette index of the fill while dimmed or disabled.</summary>
-    public byte DisabledFill;
+    public byte DisabledFill { get; set; }
     /// <summary>The border mode: not 0 draws the border.</summary>
-    public byte Border;
+    public byte Border { get; set; }
     /// <summary>The palette index of the border.</summary>
-    public byte BorderColor;
+    public byte BorderColor { get; set; }
     /// <summary>The palette index of the border while selected.</summary>
-    public byte SelectedBorder;
+    public byte SelectedBorder { get; set; }
     /// <summary>The palette index of the border while dimmed or disabled.</summary>
-    public byte DisabledBorder;
+    public byte DisabledBorder { get; set; }
     /// <summary>The console command the control runs.</summary>
-    public string Command = "";
+    public string Command { get; set; } = "";
     /// <summary>The alternate console command.</summary>
-    public string AltCommand = "";
+    public string AltCommand { get; set; } = "";
     /// <summary>The name of the console variable the control mirrors.</summary>
-    public string ConsoleVar = "";
+    public string ConsoleVar { get; set; } = "";
     /// <summary>The horizontal scroll step of a line.</summary>
-    public int ScrollLineX = 5;
+    public int ScrollLineX { get; set; } = 5;
     /// <summary>The vertical scroll step of a line.</summary>
-    public int ScrollLineY = 5;
+    public int ScrollLineY { get; set; } = 5;
 
     /// <summary>Gets or sets whether the control is visible (flag bit 0).</summary>
     public bool Visible
@@ -591,11 +591,11 @@ public class GuiControl : IGuiResponder
 public sealed class GuiPaint
 {
     /// <summary>The graphics device.</summary>
-    public readonly IGfxDevice Dev;
+    public IGfxDevice Dev { get; }
     /// <summary>The GUI host.</summary>
-    public readonly GuiHost Host;
+    public GuiHost Host { get; }
     /// <summary>The current clip rectangle.</summary>
-    public GfxRect Clip;
+    public GfxRect Clip { get; set; }
 
     /// <summary>Creates a painter that clips to the whole device.</summary>
     /// <param name="dev">The graphics device.</param>

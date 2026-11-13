@@ -19,33 +19,34 @@ public sealed class InputDispatcher
 {
     private sealed class Held
     {
-        public InputEvent Event;
+        public ref InputEvent Event => ref _event;
+        private InputEvent _event;
     }
 
     /// <summary>The client state that holds the action maps.</summary>
-    public readonly ClientState State;
-    private readonly List<(ActionMap Map, IActionConsumer Consumer)> mStack = [];
-    private readonly List<Held> mHeld = [];
+    public ClientState State { get; }
+    private readonly List<(ActionMap Map, IActionConsumer Consumer)> _stack = [];
+    private readonly List<Held> _held = [];
 
     /// <summary>Gets the manager's modifier byte (3.6 step 1).</summary>
     public byte Modifiers { get; private set; }
     /// <summary>Evaluates the console text of a command binding.</summary>
-    public Func<string, string> Eval = _ => "";
+    public Func<string, string> Eval { get; set; } = _ => "";
     /// <summary>The GUI side, offered every event before the maps. It is given the event with modifiers and key character filled in, and the value, and returns true when the canvas consumed the event.</summary>
-    public Func<InputEvent, float, char, bool>? OfferToGui;
+    public Func<InputEvent, float, char, bool>? OfferToGui { get; set; }
 
     /// <summary>Creates a dispatcher.</summary>
     /// <param name="state">The client state.</param>
     public InputDispatcher(ClientState state) => State = state;
 
     /// <summary>Gets the number of pushed maps.</summary>
-    public int StackDepth => mStack.Count;
+    public int StackDepth => _stack.Count;
     /// <summary>Gets the number of held keys.</summary>
-    public int HeldCount => mHeld.Count;
+    public int HeldCount => _held.Count;
     /// <summary>Tests whether a map is pushed.</summary>
     /// <param name="mapName">The map name.</param>
     /// <returns>True when the map is on the stack.</returns>
-    public bool IsPushed(string mapName) => mStack.Any(p => ClientCommands.EqualNoCase(p.Map.Name, ClientCommands.ActionMapName(mapName)));
+    public bool IsPushed(string mapName) => _stack.Any(p => ClientCommands.EqualNoCase(p.Map.Name, ClientCommands.ActionMapName(mapName)));
 
     /// <summary>Maps a modifier scan code to its modifier bit (3.6 step 1, 3.5).</summary>
     /// <param name="scan">The scan code: 0x2a and 0x36 shift, 0x1d and 0x9d control, 0x38 and 0xb8 alt.</param>
@@ -184,10 +185,10 @@ public sealed class InputDispatcher
     {
         Pop(map, consumer, silent: true);
         // Held keys that the new map binds get a break first, so a movement key held from the old map stops.
-        foreach (var h in mHeld.ToArray())
+        foreach (var h in _held.ToArray())
             if (map.Bindings.Any(b => (b.Event.Action == 1 && Matches(b.Event, h.Event)) || (b.Event.Action == 2 && Matches(b.Event, BreakOf(h.Event)))))
                 DispatchStack(BreakOf(h.Event), 0f);
-        mStack.Insert(0, (map, consumer));
+        _stack.Insert(0, (map, consumer));
     }
 
     /// <summary>Pops an action map (docs/client-scripts.md 3.8).</summary>
@@ -197,18 +198,18 @@ public sealed class InputDispatcher
     /// <remarks>Held keys the popped map was handling and no remaining map binds are released through the popped map.</remarks>
     public void Pop(ActionMap map, IActionConsumer consumer, bool silent = false)
     {
-        var removed = mStack.Where(p => p.Map == map && p.Consumer == consumer).ToList();
+        var removed = _stack.Where(p => p.Map == map && p.Consumer == consumer).ToList();
         if (removed.Count == 0)
             return;
-        mStack.RemoveAll(p => p.Map == map && p.Consumer == consumer);
+        _stack.RemoveAll(p => p.Map == map && p.Consumer == consumer);
         if (silent)
             return;
         // Held keys the popped map was handling and no remaining map binds are released through the popped map.
-        foreach (var h in mHeld.ToArray())
+        foreach (var h in _held.ToArray())
         {
             var br = BreakOf(h.Event);
             var handled = FindBinding(map, br) ?? FindBinding(map, h.Event);
-            if (handled == null || mStack.Any(p => FindBinding(p.Map, br) != null))
+            if (handled == null || _stack.Any(p => FindBinding(p.Map, br) != null))
                 continue;
             var bb = FindBinding(map, br);
             if (bb != null && !bb.IsCommand)
@@ -219,8 +220,8 @@ public sealed class InputDispatcher
     /// <summary>Clears the map stack.</summary>
     public void Clear()
     {
-        mStack.Clear();
-        mHeld.Clear();
+        _stack.Clear();
+        _held.Clear();
         Modifiers = 0;
     }
 
@@ -268,7 +269,7 @@ public sealed class InputDispatcher
         if (ev.Action == 1)
         {
             if (FindHeld(ev) == null)
-                mHeld.Add(new Held { Event = ev });
+                _held.Add(new Held { Event = ev });
         }
         else if (ev.Action == 2)
         {
@@ -276,7 +277,7 @@ public sealed class InputDispatcher
             if (h == null)
                 return false;
             ev.Modifiers = h.Event.Modifiers;
-            mHeld.Remove(h);
+            _held.Remove(h);
         }
 
         // 5 and 6: the stack, then once more without modifiers.
@@ -292,7 +293,7 @@ public sealed class InputDispatcher
 
     private Held? FindHeld(in InputEvent ev)
     {
-        foreach (var h in mHeld)
+        foreach (var h in _held)
             if (h.Event.DeviceType == ev.DeviceType && h.Event.DeviceInst == ev.DeviceInst &&
                 h.Event.ObjType == ev.ObjType && h.Event.ObjInst == ev.ObjInst)
                 return h;
@@ -305,7 +306,7 @@ public sealed class InputDispatcher
 
     private bool DispatchStack(in InputEvent ev, float value)
     {
-        foreach (var (map, consumer) in mStack.ToArray())
+        foreach (var (map, consumer) in _stack.ToArray())
         {
             var b = FindBinding(map, ev);
             if (b == null)
@@ -338,7 +339,7 @@ public static class ScanCodeMap
     public static int FromSdl(int sdl)
     {
         if (sdl is >= 4 and <= 29)          // A..Z
-            return kLetters[sdl - 4];
+            return Letters[sdl - 4];
         if (sdl is >= 30 and <= 38)         // 1..9
             return 2 + (sdl - 30);
         if (sdl == 39)
@@ -413,7 +414,7 @@ public static class ScanCodeMap
     }
 
     // A..Z in SDL order to the key codes: Q W E R T Y U I O P = 0x10.., A S D F G H J K L = 0x1e.., Z X C V B N M = 0x2c..
-    private static readonly int[] kLetters =
+    private static readonly int[] Letters =
     [
         0x1e, 0x30, 0x2e, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,   // A B C D E F G H I J K L M
         0x31, 0x18, 0x19, 0x10, 0x13, 0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c,   // N O P Q R S T U V W X Y Z

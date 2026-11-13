@@ -9,19 +9,19 @@ using static OpenTribes.Tests.Fixtures;
 
 public class SensorTests
 {
-    private Fixtures.World gw = null!;
-    private bool mStarted; // the virtual clock starts 1 ms ahead, clear of a tick boundary
+    private Fixtures.World _gw = null!;
+    private bool _started; // the virtual clock starts 1 ms ahead, clear of a tick boundary
 
     private void Tick(int n = 1)
     {
         for (var i = 0; i < n; ++i)
         {
-            gw.Sim.AdvanceRealTime(mStarted ? 32u : 33u);
-            mStarted = true;
+            _gw.Sim.AdvanceRealTime(_started ? 32u : 33u);
+            _started = true;
         }
     }
 
-    private GameBase? GbOf(string id) => gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)) as GameBase;
+    private GameBase? GbOf(string id) => _gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)) as GameBase;
 
     private static string IdOf(GameBase g) => g.Id().ToString(CultureInfo.InvariantCulture);
 
@@ -45,7 +45,7 @@ public class SensorTests
         PutFile(Path.Combine(root, "base/plain.dts"), DtsCollisionFile(box));
 
         var w = new Fixtures.World(root);
-        gw = w;
+        _gw = w;
         Numbers.EnterScriptFpuMode();
         w.Run("$Server::teamName0 = \"A\"; $Server::teamName1 = \"B\"; resetPlayerManager();");
         w.Game.AddTeam(0);

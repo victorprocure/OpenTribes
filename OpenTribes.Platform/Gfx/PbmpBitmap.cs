@@ -9,25 +9,25 @@ using System.Buffers.Binary;
 public sealed class PbmpBitmap
 {
     /// <summary>The width in pixels.</summary>
-    public int Width;
+    public int Width { get; set; }
     /// <summary>The height in pixels.</summary>
-    public int Height;
+    public int Height { get; set; }
     /// <summary>The bits per pixel.</summary>
-    public int Depth = 8;
+    public int Depth { get; set; } = 8;
     /// <summary>The attribute bits.</summary>
-    public BitmapAttributes Attributes;
+    public BitmapAttributes Attributes { get; set; }
     /// <summary>The number of chunks after the head chunk (low 24 bits of the first head dword).</summary>
-    public uint ChunkCount;
+    public uint ChunkCount { get; set; }
     /// <summary>Level 0, Stride * Height bytes. The guard rows of the original are not kept.</summary>
-    public byte[] Pixels = [];
+    public byte[] Pixels { get; set; } = [];
     /// <summary>The number of levels from DETL, 1 when the chunk is absent.</summary>
-    public int MipCount = 1;
+    public int MipCount { get; set; } = 1;
     /// <summary>The levels 1 to MipCount - 1 that fit in the data chunk, (w &gt;&gt; k) * (h &gt;&gt; k) bytes each with unpadded rows (docs/renderer.md 2.2.2).</summary>
-    public List<byte[]> MipLevels = [];
+    public List<byte[]> MipLevels { get; set; } = [];
     /// <summary>The PiDX palette id. 0xffffffff selects the first subpalette (docs/renderer.md 2.2.3).</summary>
-    public uint PaletteId = SubPalette.NoId;
+    public uint PaletteId { get; set; } = SubPalette.NoId;
     /// <summary>The embedded RIFF palette. It is read only when the caller asked for it (docs/renderer.md 2.2.1).</summary>
-    public PaletteBank? Palette;
+    public PaletteBank? Palette { get; set; }
 
     /// <summary>Gets the row stride in bytes, padded to 4 (docs/renderer.md 2.2.2).</summary>
     public int Stride => ((Width * Depth / 8) + 3) & ~3;

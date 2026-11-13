@@ -7,7 +7,7 @@ using static OpenTribes.Core.Fpu;
 
 public static partial class GhostClasses
 {
-    private const uint kInitialMask = 0x80000000u;
+    private const uint InitialMask = 0x80000000u;
 
     private static PersistFields FieldsOf(SimObject obj) => ((PersistObject)obj).Fields();
 
@@ -129,7 +129,7 @@ public static partial class GhostClasses
         var f = gb.Fields();
         PackGameBase(gb, bs, mask);
         var net = gb.InteriorNet;
-        if (bs.WriteFlag((mask & kInitialMask) != 0))
+        if (bs.WriteFlag((mask & InitialMask) != 0))
         {
             // 0x0047ff04
             bs.WriteString(f.Str("filename"));
@@ -233,9 +233,9 @@ public static partial class GhostClasses
                 if (bs.WriteFlag(t.Sequence != -1 && (mask & (0x800u << i)) != 0))
                 {
                     bs.WriteInt((uint)t.Sequence, 4);
-                    bs.WriteInt((uint)(t.Flags & GameBase.kThreadState), 2);
-                    bs.WriteFlag((t.Flags & GameBase.kThreadForward) != 0);
-                    bs.WriteFlag((t.Flags & GameBase.kThreadAtEnd) != 0);
+                    bs.WriteInt((uint)(t.Flags & GameBase.ThreadState), 2);
+                    bs.WriteFlag((t.Flags & GameBase.ThreadForward) != 0);
+                    bs.WriteFlag((t.Flags & GameBase.ThreadAtEnd) != 0);
                 }
             }
         // +0x280: a fade in (2) reverts to 0 once 2500 ms have passed since +0x284 (0x0044cff8).
@@ -255,8 +255,8 @@ public static partial class GhostClasses
         }
         if (bs.WriteFlag((mask & 0x100) != 0))
         {
-            if (!bs.WriteFlag(gb.DamageState == GameBase.kEnabled))
-                bs.WriteFlag(gb.DamageState == GameBase.kDisabled);
+            if (!bs.WriteFlag(gb.DamageState == GameBase.Enabled))
+                bs.WriteFlag(gb.DamageState == GameBase.Disabled);
             WriteUnit(bs, StoreF32(Div(gb.Damage, gb.MaxDamage)), 6);
         }
         if (bs.WriteFlag((mask & 0x02) != 0))

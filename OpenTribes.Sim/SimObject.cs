@@ -4,15 +4,15 @@ namespace OpenTribes.Sim;
 /// <remarks>Port of src/sim/sim_object.cpp. Names are interned strings (<see cref="Core.StringTable"/>) compared by reference, as the C++ compares the pointers. The C++ <c>delete</c> of an object is <see cref="Destroy"/>, and the destructors of <see cref="SimSet"/> and <see cref="SimGroup"/> delete their members.</remarks>
 public abstract class SimObject
 {
-    internal int mId;
-    internal string? mName;
-    internal SimGroup? mGroup;
-    internal SimManager? mManager;
-    internal uint mSequence;
-    internal bool mOwnsPoolId;
-    internal bool mRemoved;
-    private readonly List<KeyValuePair<string, string>> mFields = [];
-    internal readonly List<SimSet> mInSets = []; // sets that hold this object (delete notification)
+    internal int mId { get; set; }
+    internal string? mName { get; set; }
+    internal SimGroup? mGroup { get; set; }
+    internal SimManager? mManager { get; set; }
+    internal uint mSequence { get; set; }
+    internal bool OwnsPoolId { get; set; }
+    internal bool Removed { get; set; }
+    private readonly List<KeyValuePair<string, string>> _fields = [];
+    internal List<SimSet> InSets { get; } = []; // sets that hold this object (delete notification)
 
     /// <summary>Gets the C++ RTTI-style class name that <c>listObjects</c> shows, for example <c>SimSet</c>.</summary>
     /// <returns>The class name.</returns>
@@ -100,9 +100,9 @@ public abstract class SimObject
     /// <returns>The value, or null when unset.</returns>
     public string? DataField(string name)
     {
-        for (var i = mFields.Count - 1; i >= 0; --i)
-            if (ReferenceEquals(mFields[i].Key, name))
-                return mFields[i].Value;
+        for (var i = _fields.Count - 1; i >= 0; --i)
+            if (ReferenceEquals(_fields[i].Key, name))
+                return _fields[i].Value;
         return null;
     }
 
@@ -111,17 +111,17 @@ public abstract class SimObject
     /// <param name="value">The value.</param>
     public void SetDataField(string name, string value)
     {
-        var it = mFields.FindIndex(f => ReferenceEquals(f.Key, name));
+        var it = _fields.FindIndex(f => ReferenceEquals(f.Key, name));
         if (value.Length == 0)
         {
             if (it >= 0)
-                mFields.RemoveAt(it);
+                _fields.RemoveAt(it);
             return;
         }
         if (it >= 0)
-            mFields[it] = new KeyValuePair<string, string>(name, value);
+            _fields[it] = new KeyValuePair<string, string>(name, value);
         else
-            mFields.Add(new KeyValuePair<string, string>(name, value));
+            _fields.Add(new KeyValuePair<string, string>(name, value));
     }
 }
 
@@ -130,16 +130,16 @@ public abstract class SimObject
 public class SimSet : SimObject
 {
     /// <summary>The members in order.</summary>
-    protected readonly List<SimObject> mMembers = [];
+    protected List<SimObject> mMembers { get; } = [];
     /// <summary>True when the set deletes its members with itself.</summary>
-    protected bool mOwnsMembers;
+    protected bool OwnsMembers { get; set; }
     /// <summary>True when removal keeps the member order.</summary>
-    protected bool mOrdered;
+    protected bool Ordered { get; set; }
 
     /// <summary>Deletes the members when the set owns them.</summary>
     public override void Destroy()
     {
-        if (mOwnsMembers)
+        if (OwnsMembers)
             foreach (var m in mMembers)
                 m.Destroy();
     }
@@ -153,7 +153,7 @@ public class SimSet : SimObject
     public override bool ProcessArguments(IReadOnlyList<string> args)
     {
         if (args.Count == 1)
-            mOwnsMembers = SimConsole.CAtoi(args[0]) != 0;
+            OwnsMembers = SimConsole.CAtoi(args[0]) != 0;
         return true;
     }
 
@@ -166,7 +166,7 @@ public class SimSet : SimObject
 
     /// <summary>Sets the ordered-removal flag (+0x5d). Removal then keeps the member order (docs/sim.md GS4).</summary>
     /// <param name="ordered">True to keep the order.</param>
-    public void SetOrdered(bool ordered) => mOrdered = ordered;
+    public void SetOrdered(bool ordered) => Ordered = ordered;
 
     /// <summary>Adds an object unless it is already a member (GS2).</summary>
     /// <param name="obj">The object.</param>
@@ -175,7 +175,7 @@ public class SimSet : SimObject
         if (mMembers.Contains(obj))
             return;
         mMembers.Add(obj);
-        obj.mInSets.Add(this);
+        obj.InSets.Add(this);
     }
 
     /// <summary>Removes an object. Unless the set is ordered, the last member takes its place (GS4 swap-remove).</summary>
@@ -186,7 +186,7 @@ public class SimSet : SimObject
         var it = mMembers.IndexOf(obj);
         if (it < 0)
             return;
-        if (mOrdered)
+        if (Ordered)
         {
             mMembers.RemoveAt(it); // ordered flag +0x5d [code 004fe430]
         }
@@ -195,7 +195,7 @@ public class SimSet : SimObject
             mMembers[it] = mMembers[^1]; // swap-remove (GS4)
             mMembers.RemoveAt(mMembers.Count - 1);
         }
-        obj.mInSets.RemoveAll(s => s == this);
+        obj.InSets.RemoveAll(s => s == this);
     }
 
     /// <summary>Finds a member by name.</summary>
@@ -213,7 +213,7 @@ public class SimSet : SimObject
     public override void OnRemove()
     {
         var members = new List<SimObject>(mMembers);
-        if (mOwnsMembers)
+        if (OwnsMembers)
         {
             foreach (var m in members)
                 if (m.Manager() != null)
@@ -221,7 +221,7 @@ public class SimSet : SimObject
             return; // the destructor deletes them
         }
         foreach (var m in members)
-            m.mInSets.RemoveAll(s => s == this);
+            m.InSets.RemoveAll(s => s == this);
         mMembers.Clear();
     }
 
@@ -249,7 +249,7 @@ public class SimSet : SimObject
 /// <remarks>Port of src/sim/sim_object.cpp SimGroup.</remarks>
 public class SimGroup : SimSet
 {
-    private readonly List<SimObject> mNamed = []; // newest at the back
+    private readonly List<SimObject> _named = []; // newest at the back
 
     /// <summary>Deletes all members.</summary>
     public override void Destroy()
@@ -307,7 +307,7 @@ public class SimGroup : SimSet
         if (it < 0)
             return;
         NameErase(obj);
-        if (mOrdered)
+        if (Ordered)
         {
             mMembers.RemoveAt(it);
         }
@@ -325,9 +325,9 @@ public class SimGroup : SimSet
     /// <returns>The child, or null.</returns>
     public SimObject? FindChild(string interned)
     {
-        for (var i = mNamed.Count - 1; i >= 0; --i)
-            if (ReferenceEquals(mNamed[i].mName, interned))
-                return mNamed[i];
+        for (var i = _named.Count - 1; i >= 0; --i)
+            if (ReferenceEquals(_named[i].mName, interned))
+                return _named[i];
         return null;
     }
 
@@ -347,9 +347,9 @@ public class SimGroup : SimSet
     private void NameInsert(SimObject obj)
     {
         if (obj.mName != null)
-            mNamed.Add(obj);
+            _named.Add(obj);
     }
 
     // src/sim/sim_object.cpp SimGroup::nameErase.
-    private void NameErase(SimObject obj) => mNamed.RemoveAll(o => o == obj);
+    private void NameErase(SimObject obj) => _named.RemoveAll(o => o == obj);
 }

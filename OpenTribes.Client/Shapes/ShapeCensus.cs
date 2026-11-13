@@ -11,39 +11,39 @@ public static class ShapeCensus
     public sealed class Result
     {
         /// <summary>The sequences that use an IFL.</summary>
-        public int IflSequences;
+        public int IflSequences { get; set; }
         /// <summary>The triggers of all shapes.</summary>
-        public int Triggers;
+        public int Triggers { get; set; }
         /// <summary>The keys that carry a texture frame (flag 0x2000).</summary>
-        public int TexKeys;
+        public int TexKeys { get; set; }
         /// <summary>The shapes with more than one material detail.</summary>
-        public int MultiDetailLists;
+        public int MultiDetailLists { get; set; }
         /// <summary>The files found.</summary>
-        public int Files;
+        public int Files { get; set; }
         /// <summary>The shapes that loaded.</summary>
-        public int Loaded;
+        public int Loaded { get; set; }
         /// <summary>The files that did not load.</summary>
-        public int Failed;
+        public int Failed { get; set; }
         /// <summary>The sequences found.</summary>
-        public int Sequences;
+        public int Sequences { get; set; }
         /// <summary>The sequences stepped without an exception.</summary>
-        public int Stepped;
+        public int Stepped { get; set; }
         /// <summary>The exceptions thrown.</summary>
-        public int Exceptions;
+        public int Exceptions { get; set; }
         /// <summary>The meshes of version 3.</summary>
-        public int MeshesV3;
+        public int MeshesV3 { get; set; }
         /// <summary>The meshes of another version.</summary>
-        public int MeshesOther;
+        public int MeshesOther { get; set; }
         /// <summary>The type 3 materials whose bitmap is missing.</summary>
-        public int MissingTextures;
+        public int MissingTextures { get; set; }
         /// <summary>The shapes with a missing bitmap.</summary>
-        public int ShapesWithMissing;
+        public int ShapesWithMissing { get; set; }
         /// <summary>The count of materials by flag value.</summary>
-        public readonly SortedDictionary<uint, int> Flags = [];
+        public SortedDictionary<uint, int> Flags { get; } = [];
         /// <summary>The failure messages, one per file.</summary>
-        public readonly List<string> Failures = [];
+        public List<string> Failures { get; } = [];
         /// <summary>The names of the missing bitmaps.</summary>
-        public readonly SortedSet<string> MissingNames = new(StringComparer.OrdinalIgnoreCase);
+        public SortedSet<string> MissingNames { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>Loads every shape and steps every sequence.</summary>

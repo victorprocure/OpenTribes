@@ -14,28 +14,28 @@ public sealed class DataBlockManager
     public sealed class Value
     {
         /// <summary>True once a script wrote the element.</summary>
-        public bool Set;
+        public bool Set { get; set; }
         /// <summary>The text of string types and the animData sequence name. Null reads as an empty string.</summary>
-        public string? Str;                     // string types, animData/sequence name (null reads "")
+        public string? Str { get; set; }                     // string types, animData/sequence name (null reads "")
         /// <summary>The components of float, point3F, colorF, normal, damageLevel and sqrtScaled fields.</summary>
-        public readonly float[] F = new float[3];
+        public float[] F { get; } = new float[3];
         /// <summary>The value of int, bool, sfxFlags, reference index and sound index fields.</summary>
-        public int I;
+        public int I { get; set; }
         /// <summary>The index of a projectile reference, where <see cref="I"/> is the group, or the animData direction.</summary>
-        public int I2;
+        public int I2 { get; set; }
         /// <summary>The animData view flags (bits 0-3).</summary>
-        public int I3;
+        public int I3 { get; set; }
         /// <summary>The animData priority.</summary>
-        public int I4;
+        public int I4 { get; set; }
     }
 
     /// <summary>One field of a block: its definition and its elements.</summary>
     public sealed class Field
     {
         /// <summary>The field definition.</summary>
-        public FieldDef Def;
+        public FieldDef Def { get; set; }
         /// <summary>The elements, one per array entry.</summary>
-        public List<Value> Elems;
+        public List<Value> Elems { get; set; }
 
         /// <summary>Creates a field with unset elements.</summary>
         /// <param name="def">The field definition.</param>
@@ -53,17 +53,17 @@ public sealed class DataBlockManager
     public sealed class Block
     {
         /// <summary>The class of the block.</summary>
-        public ClassDef Cls = null!;
+        public ClassDef Cls { get; set; } = null!;
         /// <summary>The block name.</summary>
-        public string Name = "";
+        public string Name { get; set; } = "";
         /// <summary>The group the block belongs to, 0 to 30.</summary>
-        public int Group;
+        public int Group { get; set; }
         /// <summary>The index of the block in its group.</summary>
-        public int Index;
+        public int Index { get; set; }
         /// <summary>The fields, inherited first and then own, in registration order.</summary>
-        public readonly List<Field> Fields = [];
+        public List<Field> Fields { get; } = [];
         /// <summary>The shape validation CRC. <see cref="Preload"/> sets it when <c>validateShape</c> is set (section 7.1).</summary>
-        public uint ValidationCrc;
+        public uint ValidationCrc { get; set; }
 
         /// <summary>Finds a field by name.</summary>
         /// <param name="name">The field name.</param>
@@ -77,13 +77,13 @@ public sealed class DataBlockManager
         }
     }
 
-    private readonly StringTable mStrings;
-    private readonly Action<string> mPrint;
-    private readonly List<Block>[] mGroups = new List<Block>[31];
-    private readonly Dictionary<string, Block> mNames = new(ReferenceEqualityComparer.Instance);
+    private readonly StringTable _strings;
+    private readonly Action<string> _print;
+    private readonly List<Block>[] _groups = new List<Block>[31];
+    private readonly Dictionary<string, Block> _names = new(ReferenceEqualityComparer.Instance);
 
     // Projectile reference groups in search order (PR1, table 0x00614b50).
-    private static readonly int[] kProjectileGroups = [14, 15, 16, 17, 24, 25, 28, 29];
+    private static readonly int[] ProjectileGroups = [14, 15, 16, 17, 24, 25, 28, 29];
 
     // src/game/datablocks.cpp RefMessages.
     private sealed record RefMessages(int Group, string UndefinedFmt, string Multi);
@@ -132,12 +132,12 @@ public sealed class DataBlockManager
         _ => "",
     };
 
-    private static uint[]? sCrcTable;
+    private static uint[]? _crcTable;
 
     // src/game/datablocks.cpp crc32: CRC-32 (reflected, polynomial 0xedb88320) without final inversion (0x00588324).
     private static uint Crc32(byte[] data, uint crc)
     {
-        if (sCrcTable == null)
+        if (_crcTable == null)
         {
             var table = new uint[256];
             for (uint n = 0; n < 256; ++n)
@@ -147,10 +147,10 @@ public sealed class DataBlockManager
                     c = (c & 1) != 0 ? (c >> 1) ^ 0xedb88320u : c >> 1;
                 table[n] = c;
             }
-            sCrcTable = table;
+            _crcTable = table;
         }
         foreach (var b in data)
-            crc = sCrcTable[(b ^ crc) & 0xff] ^ (crc >> 8);
+            crc = _crcTable[(b ^ crc) & 0xff] ^ (crc >> 8);
         return crc;
     }
 
@@ -235,7 +235,7 @@ public sealed class DataBlockManager
             output.Insert(0, c);
             ClassDef? parent = null;
             if (c.Parent != null)
-                foreach (var k in DataBlockTables.kClasses)
+                foreach (var k in DataBlockTables.Classes)
                     if (SimClasses.EqualsNoCase(k.Name, c.Parent))
                         parent = k;
             c = parent;
@@ -248,10 +248,10 @@ public sealed class DataBlockManager
     /// <param name="print">Receives console messages.</param>
     public DataBlockManager(StringTable strings, Action<string> print)
     {
-        mStrings = strings;
-        mPrint = print;
+        _strings = strings;
+        _print = print;
         for (var i = 0; i < 31; ++i)
-            mGroups[i] = [];
+            _groups[i] = [];
     }
 
     /// <summary>Finds a datablock class by name, ignoring case.</summary>
@@ -259,7 +259,7 @@ public sealed class DataBlockManager
     /// <returns>The class, or null.</returns>
     public static ClassDef? FindClass(string name)
     {
-        foreach (var c in DataBlockTables.kClasses)
+        foreach (var c in DataBlockTables.Classes)
             if (SimClasses.EqualsNoCase(c.Name, name))
                 return c;
         return null;
@@ -272,8 +272,8 @@ public sealed class DataBlockManager
     {
         if (name == null)
             return null;
-        var key = mStrings.Lookup(name);
-        return key != null && mNames.TryGetValue(key, out var b) ? b : null;
+        var key = _strings.Lookup(name);
+        return key != null && _names.TryGetValue(key, out var b) ? b : null;
     }
 
     /// <summary>Gets a block by group and index.</summary>
@@ -282,21 +282,21 @@ public sealed class DataBlockManager
     /// <returns>The block, or null when out of range.</returns>
     public Block? At(int group, int index)
     {
-        if (group < 0 || group > 30 || index < 0 || index >= mGroups[group].Count)
+        if (group < 0 || group > 30 || index < 0 || index >= _groups[group].Count)
             return null;
-        return mGroups[group][index];
+        return _groups[group][index];
     }
 
     /// <summary>Gets the number of blocks in a group.</summary>
     /// <param name="group">The group, 0 to 30.</param>
     /// <returns>The count.</returns>
-    public int GroupSize(int group) => mGroups[group].Count;
+    public int GroupSize(int group) => _groups[group].Count;
 
     /// <summary>Visits every block, groups 0 to 30, each in index order.</summary>
     /// <param name="f">The visitor.</param>
     public void ForEach(Action<Block> f)
     {
-        foreach (var g in mGroups)
+        foreach (var g in _groups)
             foreach (var b in g)
                 f(b);
     }
@@ -309,17 +309,17 @@ public sealed class DataBlockManager
     {
         if (Find(name) != null)
         {
-            mPrint("warning: data block " + mStrings.Intern(name) + " already declared");
+            _print("warning: data block " + _strings.Intern(name) + " already declared");
             return false;
         }
         var cls = FindClass(className);
         if (cls == null || !cls.Creatable || cls.Group < 0)
         {
             // Abstract classes and those without a factory crash the original (D11).
-            mPrint("Unknown class " + className);
+            _print("Unknown class " + className);
             return false;
         }
-        var b = new Block { Cls = cls, Name = mStrings.Intern(name), Group = cls.Group, Index = mGroups[cls.Group].Count };
+        var b = new Block { Cls = cls, Name = _strings.Intern(name), Group = cls.Group, Index = _groups[cls.Group].Count };
         foreach (var c in Chain(cls))
             foreach (var f in c.Fields)
                 b.Fields.Add(new Field(f, f.Count));
@@ -328,17 +328,17 @@ public sealed class DataBlockManager
             if (b.Find("description") is Field d)
             {
                 d.Elems[0].Set = true;
-                d.Elems[0].Str = mStrings.Intern("Item"); // stringCS keeps this spelling
+                d.Elems[0].Str = _strings.Intern("Item"); // stringCS keeps this spelling
             }
-        mNames[b.Name] = b;
-        mGroups[cls.Group].Add(b);
+        _names[b.Name] = b;
+        _groups[cls.Group].Add(b);
         return true;
     }
 
     // src/game/datablocks.cpp DataBlockManager::lookupInGroup.
     private int LookupInGroup(int group, string name)
     {
-        var g = mGroups[group];
+        var g = _groups[group];
         for (var i = 0; i < g.Count; ++i)
             if (SimClasses.EqualsNoCase(g[i].Name, name))
                 return i;
@@ -386,7 +386,7 @@ public sealed class DataBlockManager
         {
             if (vals.Count == 1)
                 return true;
-            mPrint("Cannot set multiple args to a single " + what + ".");
+            _print("Cannot set multiple args to a single " + what + ".");
             return false;
         }
         void StartFromCurrent()
@@ -401,7 +401,7 @@ public sealed class DataBlockManager
             case 1:
                 if (!Single("string"))
                     return;
-                v.Str = type == 0 ? mStrings.Intern(vals[0]) : vals[0];
+                v.Str = type == 0 ? _strings.Intern(vals[0]) : vals[0];
                 break;
             case 2:
                 if (!Single("int"))
@@ -432,7 +432,7 @@ public sealed class DataBlockManager
                 }
                 else
                 {
-                    mPrint(type == 5 ? "Point3F must be set as { x, y, z } or \"x y z\""
+                    _print(type == 5 ? "Point3F must be set as { x, y, z } or \"x y z\""
                                      : "Normal Vector must be set as { x, y, z } or \"x y z\"");
                     return;
                 }
@@ -447,7 +447,7 @@ public sealed class DataBlockManager
             case 6:
                 if (vals.Count != 3)
                 {
-                    mPrint("ColorF must be set as { red, green, blue }");
+                    _print("ColorF must be set as { red, green, blue }");
                     return;
                 }
                 for (var k = 0; k < 3; ++k)
@@ -456,10 +456,10 @@ public sealed class DataBlockManager
             case 9:
                 if (vals.Count != 8)
                 {
-                    mPrint("Animdata set as { Name, soundTag, direction, viewFlags, priority }");
+                    _print("Animdata set as { Name, soundTag, direction, viewFlags, priority }");
                     return;
                 }
-                v.Str = mStrings.Intern(vals[0]);
+                v.Str = _strings.Intern(vals[0]);
                 v.I = SimClasses.EqualsNoCase(vals[1], "none") ? -1 : LookupInGroup(1, vals[1]);
                 v.I2 = Numbers.BorlandAtoi(vals[2]);
                 v.I3 = 0;
@@ -479,22 +479,22 @@ public sealed class DataBlockManager
                 var m = RefMessagesOf(type)!;
                 if (vals.Count != 1)
                 {
-                    mPrint(m.Multi);
+                    _print(m.Multi);
                     return;
                 }
                 v.I = LookupInGroup(m.Group, vals[0]);
                 if (v.I < 0)
-                    mPrint(Fmt(m.UndefinedFmt, vals[0]));
+                    _print(Fmt(m.UndefinedFmt, vals[0]));
                 break;
             }
             case 12:
                 if (vals.Count != 1)
                 {
-                    mPrint("Cannot set multiple args to a Projectile data block name.");
+                    _print("Cannot set multiple args to a Projectile data block name.");
                     return;
                 }
                 v.I = v.I2 = -1;
-                foreach (var g in kProjectileGroups)
+                foreach (var g in ProjectileGroups)
                 {
                     var idx = LookupInGroup(g, vals[0]);
                     if (idx >= 0)
@@ -505,18 +505,18 @@ public sealed class DataBlockManager
                     }
                 }
                 if (v.I < 0)
-                    mPrint("Projectile data block \"" + vals[0] + "\" is undefined");
+                    _print("Projectile data block \"" + vals[0] + "\" is undefined");
                 break;
             case 13:
                 if (vals.Count != 2)
                 {
-                    mPrint("Sequence sound is set as { sequenceName, soundTag }");
+                    _print("Sequence sound is set as { sequenceName, soundTag }");
                     return;
                 }
                 v.I = LookupInGroup(1, vals[1]);
-                v.Str = v.I < 0 ? null : mStrings.Intern(vals[0]);
+                v.Str = v.I < 0 ? null : _strings.Intern(vals[0]);
                 if (v.I < 0)
-                    mPrint("Sound data block \"" + vals[0] + "\" is undefined"); // prints the sequence name (sic)
+                    _print("Sound data block \"" + vals[0] + "\" is undefined"); // prints the sequence name (sic)
                 break;
             case 14:
             {
@@ -544,7 +544,7 @@ public sealed class DataBlockManager
             case 20:
                 if (vals.Count != 2)
                 {
-                    mPrint("Damage level must be set as { disable, destroyed }");
+                    _print("Damage level must be set as { disable, destroyed }");
                     return;
                 }
                 v.F[0] = ToFloat(vals[0]);
@@ -627,7 +627,7 @@ public sealed class DataBlockManager
         var f = b.Find(field);
         if (f == null)
         {
-            mPrint("No such field: " + field + " in block type " + b.Name);
+            _print("No such field: " + field + " in block type " + b.Name);
             return false;
         }
         var count = f.Def.Count;
@@ -669,7 +669,7 @@ public sealed class DataBlockManager
                     Write(f, i, new[] { values[i] });
                 return;
             }
-            mPrint("setDataField: array set access out of range.");
+            _print("setDataField: array set access out of range.");
             return;
         }
         var at = Numbers.BorlandAtoi(index);
@@ -678,7 +678,7 @@ public sealed class DataBlockManager
             Write(f, at, values);
             return;
         }
-        mPrint("setDataField: array set access out of range.");
+        _print("setDataField: array set access out of range.");
     }
 
     /// <summary>Checks that the shapes the blocks name exist and computes the validation CRCs.</summary>
@@ -701,7 +701,7 @@ public sealed class DataBlockManager
         const string kMissing = ".dts.  The server has new art data you are missing.  Check server info for possible download locations.";
         for (var g = 0; g <= 30; ++g)
         {
-            foreach (var b in mGroups[g])
+            foreach (var b in _groups[g])
             {
                 var cls = b.Cls.Name;
                 var shapeBase = b.Find("shapeFile") != null && b.Find("maxDamage") != null;
@@ -710,7 +710,7 @@ public sealed class DataBlockManager
                     var shield = Text(b, "shieldShapeName");
                     if (shield.Length != 0 && res.Find(shield + ".dts") == null)
                     {
-                        mPrint("Unable to model: " + shield + kMissing);
+                        _print("Unable to model: " + shield + kMissing);
                         ok = false;
                         continue;
                     }
@@ -719,14 +719,14 @@ public sealed class DataBlockManager
                     {
                         if (res.Find(shape + ".dts") == null)
                         {
-                            mPrint("Unable to model: " + shape + kMissing);
+                            _print("Unable to model: " + shape + kMissing);
                             ok = false;
                             continue;
                         }
                         if (Flag(b, "validateShape"))
                         {
                             b.ValidationCrc = ValidationCrc(res, shape + ".dts", Flag(b, "validateMaterials"));
-                            mPrint("Server: Validation required for " + shape + ".dts");
+                            _print("Server: Validation required for " + shape + ".dts");
                         }
                     }
                 }
@@ -735,7 +735,7 @@ public sealed class DataBlockManager
                     var shape = Text(b, "shapeFile"); // NULL crashes the original (D11)
                     if (shape.Length != 0 && res.Find(shape + ".dts") == null)
                     {
-                        mPrint("Unable to load ItemImageData shape: " + shape + ".dts");
+                        _print("Unable to load ItemImageData shape: " + shape + ".dts");
                         ok = false;
                     }
                 }
@@ -747,14 +747,14 @@ public sealed class DataBlockManager
                     {
                         if (res.Find(shape) == null)
                         {
-                            mPrint((explosion ? "Unable to load ExplosionData shape: " : "Unable to load ProjectileData shape: ") + shape);
+                            _print((explosion ? "Unable to load ExplosionData shape: " : "Unable to load ProjectileData shape: ") + shape);
                             ok = false;
                             continue;
                         }
                         if (Flag(b, "validateShape"))
                         {
                             b.ValidationCrc = ValidationCrc(res, shape, Flag(b, "validateMaterials"));
-                            mPrint("Server: Validation required for " + shape);
+                            _print("Server: Validation required for " + shape);
                         }
                     }
                 }

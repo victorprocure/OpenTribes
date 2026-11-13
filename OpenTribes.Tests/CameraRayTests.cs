@@ -15,7 +15,7 @@ public sealed class CameraRayTests
     }
 
     // A wall whose ray test reports a hit at y = wallY with the given normal, whatever the segment.
-    private static Container WallAt(float wallY, Vec3 normal, uint type = ObjectType.kInteriorType)
+    private static Container WallAt(float wallY, Vec3 normal, uint type = ObjectType.InteriorType)
     {
         var c = new Container();
         var e = new Container.Entry(new Wall(), type, Float6.Of(-50, -50, -50, 50, 50, 50), false, null)
@@ -84,7 +84,7 @@ public sealed class CameraRayTests
     public void ObjectTypesOutsideTheMaskAreNotHit()
     {
         // 0x20c00006 = terrain, interior, 0x400000, 0x800000 (static), vehicle; a player (0x10000) is not
-        var p = Place(WallAt(-2f, new Vec3(0, 1, 0), ObjectType.kPlayerType), 4f);
+        var p = Place(WallAt(-2f, new Vec3(0, 1, 0), ObjectType.PlayerType), 4f);
         Assert.Equal(-4f, p[1]);
     }
 

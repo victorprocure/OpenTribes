@@ -9,13 +9,13 @@ using OpenTribes.World;
 public sealed class RandomR250
 {
     /// <summary>The seed the original uses on the first getRandom call.</summary>
-    public const uint kOriginalSeed = 0x8377;
-    private readonly uint[] mWord = new uint[250];
-    private uint mIndex;
+    public const uint OriginalSeed = 0x8377;
+    private readonly uint[] _word = new uint[250];
+    private uint _index;
 
     /// <summary>Creates a generator.</summary>
     /// <param name="seed">The seed.</param>
-    public RandomR250(uint seed = kOriginalSeed) => Reseed(seed);
+    public RandomR250(uint seed = OriginalSeed) => Reseed(seed);
 
     /// <summary>Seeds the generator.</summary>
     /// <param name="seed">The seed.</param>
@@ -23,16 +23,16 @@ public sealed class RandomR250
     {
         var state = seed;
         uint Lcg() => state = unchecked((state * 0x19660dU) + 0x3c6ef35fU);
-        mIndex = 0;
+        _index = 0;
         for (var i = 0; i < 250; ++i)
-            mWord[i] = Lcg();
+            _word[i] = Lcg();
         for (var i = 0; i < 250; ++i)
             if (Lcg() > 0x40000000U)
-                mWord[i] |= 0x80000000U;
+                _word[i] |= 0x80000000U;
         uint mask = 0xffffffffU, bit = 0x80000000U;
         for (uint i = 0; i < 32; ++i)
         {
-            mWord[(7 * i) + 3] = (mWord[(7 * i) + 3] & mask) | bit;
+            _word[(7 * i) + 3] = (_word[(7 * i) + 3] & mask) | bit;
             mask >>= 1;
             bit >>= 1;
         }
@@ -42,9 +42,9 @@ public sealed class RandomR250
     /// <returns>The number.</returns>
     public uint Next()
     {
-        var other = mIndex >= 0x93 ? mIndex - 0x93 : mIndex + 0x67;
-        var v = mWord[mIndex] ^= mWord[other];
-        mIndex = mIndex >= 249 ? 0 : mIndex + 1;
+        var other = _index >= 0x93 ? _index - 0x93 : _index + 0x67;
+        var v = _word[_index] ^= _word[other];
+        _index = _index >= 249 ? 0 : _index + 1;
         return v;
     }
 }
@@ -97,12 +97,12 @@ public static class MathCommands
         return Math.ScaleB(kept, exp2 + shift);
     }
     // Constants the library loads from its data segment (0x0065c5c0.. in the exe): pi/2, pi/4, pi and sqrt(2).
-    private static readonly double kHalfPi = LdConstant(0xc90fdaa22168c235UL, -63);
-    private static readonly double kQuarterPi = LdConstant(0xc90fdaa22168c235UL, -64);
-    private static readonly double kSqrt2 = LdConstant(0xb504f333f9de6485UL, -63);
+    private static readonly double HalfPi = LdConstant(0xc90fdaa22168c235UL, -63);
+    private static readonly double QuarterPi = LdConstant(0xc90fdaa22168c235UL, -64);
+    private static readonly double Sqrt2 = LdConstant(0xb504f333f9de6485UL, -63);
 
-    private static readonly double kTwo128 = Math.ScaleB(1.0, 128);  // 0x1p128
-    private static readonly double kTwoMinus32 = Math.ScaleB(1.0, -32); // 0x1p-32
+    private static readonly double Two128 = Math.ScaleB(1.0, 128);  // 0x1p128
+    private static readonly double TwoMinus32 = Math.ScaleB(1.0, -32); // 0x1p-32
 
     private static ulong BitsOf(double v) => (ulong)BitConverter.DoubleToInt64Bits(v);
 
@@ -176,9 +176,9 @@ public static class MathCommands
     // the rest convert toward zero (the script FPU mode).
     private static float StoreScanned(double v)
     {
-        if (v > kTwo128)
+        if (v > Two128)
             return float.PositiveInfinity;
-        if (v < -kTwo128)
+        if (v < -Two128)
             return float.NegativeInfinity;
         return Fpu.Store(v);
     }
@@ -193,7 +193,7 @@ public static class MathCommands
     private static double Length3(float[] v) => Fpu.Sqrt(SumOfThree((double)v[0] * v[0], (double)v[1] * v[1], (double)v[2] * v[2]));
 
     // src/script/math_commands.cpp kUninitialized: the stack residue the original prints for an unset z: 1.12949e-38.
-    private static readonly float kUninitialized = BitConverter.Int32BitsToSingle(0x007afd96);
+    private static readonly float Uninitialized = BitConverter.Int32BitsToSingle(0x007afd96);
 
     // src/script/math_commands.cpp rotationMatrix: Euler rotation matrix (0x005ed42e), world::eulerMatrix in the
     // portable form.
@@ -213,14 +213,14 @@ public static class MathCommands
             return r;
         var negative = double.IsNegative(r);
         if (double.IsInfinity(r))
-            return negative ? -kHalfPi : kHalfPi;
+            return negative ? -HalfPi : HalfPi;
         if (r == 0)
             return r;
         var a = Math.Abs(r);
         double v;
         if (a == 1)
         {
-            v = kQuarterPi;
+            v = QuarterPi;
             return negative ? -v : v;
         }
         if (a < 1)
@@ -228,7 +228,7 @@ public static class MathCommands
             v = X87Fpatan(a, 1.0);
             return negative ? -v : v;
         }
-        v = Fpu.Sub(X87Fpatan(1.0, a), kHalfPi);
+        v = Fpu.Sub(X87Fpatan(1.0, a), HalfPi);
         return negative ? v : -v;
     }
 
@@ -248,7 +248,7 @@ public static class MathCommands
             return a;
         }
         if (bExp == 0)
-            return aNeg ? -kHalfPi : kHalfPi;
+            return aNeg ? -HalfPi : HalfPi;
         if (bExp == 0x7ff0)
         {
             if (aExp == 0x7ff0)
@@ -259,7 +259,7 @@ public static class MathCommands
             return w;
         }
         if (aExp == 0x7ff0)
-            return aNeg ? -kHalfPi : kHalfPi;
+            return aNeg ? -HalfPi : HalfPi;
         var v = BorlandAtan(Fpu.Div(a, b));
         if (bNeg)
             v = aNeg ? Fpu.Sub(v, pi) : Fpu.Add(v, pi);
@@ -463,7 +463,7 @@ public static class MathCommands
                 var frac = Fpu.Sub(scaled, half);
                 result = Fpu.Add(X87F2xm1(frac), 1.0);
                 if ((i & 1) != 0)
-                    result = Fpu.Mul(result, kSqrt2);
+                    result = Fpu.Mul(result, Sqrt2);
                 result = X87Fscale(result, unchecked((short)((ushort)i >> 1)));
             }
             if (tNegative)
@@ -589,7 +589,7 @@ public static class MathCommands
             {
                 // x + y is zero (or NaN): straight up or down; the yaw slot is never written.
                 pitch = F32(v[2] < 0 || float.IsNaN(v[2]) ? 3.14159265358979311600 : 0.0);
-                yaw = kUninitialized;
+                yaw = Uninitialized;
             }
             else
             {
@@ -606,7 +606,7 @@ public static class MathCommands
     /// <param name="interp">The interpreter.</param>
     /// <param name="res">The resource manager, or null.</param>
     /// <param name="seed">The seed of getRandom. Tests fix it. The default is the original's.</param>
-    public static void RegisterMathCommands(Interpreter interp, ResourceManager? res, uint seed = RandomR250.kOriginalSeed)
+    public static void RegisterMathCommands(Interpreter interp, ResourceManager? res, uint seed = RandomR250.OriginalSeed)
     {
         RegisterVectors(interp);
 
@@ -624,7 +624,7 @@ public static class MathCommands
 
         // getRandom: seeded with the same constant on first use, like the original.
         var rng = new RandomR250(seed);
-        interp.AddCommand("getRandom", (i, a) => FormatF32(F32(rng.Next() * kTwoMinus32)));
+        interp.AddCommand("getRandom", (i, a) => FormatF32(F32(rng.Next() * TwoMinus32)));
 
         interp.AddCommand("sprintf", (i, a) =>
         {

@@ -7,17 +7,17 @@ using System.Globalization;
 public sealed class ServerQueryPrefs
 {
     /// <summary>The most pings in flight at once.</summary>
-    public int MaxPings = 20;
+    public int MaxPings { get; set; } = 20;
     /// <summary>The time in milliseconds before a ping is sent again.</summary>
-    public int PingTimeoutMs = 1500;
+    public int PingTimeoutMs { get; set; } = 1500;
     /// <summary>The number of resends before a ping fails.</summary>
-    public int PingRetries = 2;
+    public int PingRetries { get; set; } = 2;
     /// <summary>The most info requests in flight at once.</summary>
-    public int MaxRequests = 10;
+    public int MaxRequests { get; set; } = 10;
     /// <summary>The time in milliseconds before an info request is sent again.</summary>
-    public int RequestTimeoutMs = 2000;
+    public int RequestTimeoutMs { get; set; } = 2000;
     /// <summary>The number of resends before an info request fails.</summary>
-    public int RequestRetries = 2;
+    public int RequestRetries { get; set; } = 2;
 }
 
 /// <summary>The record of a type 8 info reply.</summary>
@@ -25,41 +25,41 @@ public sealed class ServerQueryPrefs
 public sealed class ServerInfoRecord
 {
     /// <summary>The key of the request this reply answers.</summary>
-    public ushort Key;
+    public ushort Key { get; set; }
     /// <summary>The canonical address text of the server.</summary>
-    public string Address = "";
+    public string Address { get; set; } = "";
     /// <summary>The game name, which the caller checks.</summary>
-    public string GameName = "";
+    public string GameName { get; set; } = "";
     /// <summary>The game version text.</summary>
-    public string Version = "";
+    public string Version { get; set; } = "";
     /// <summary>The server's host name.</summary>
-    public string Hostname = "";
+    public string Hostname { get; set; } = "";
     /// <summary>The current mission name.</summary>
-    public string Mission = "";
+    public string Mission { get; set; } = "";
     /// <summary>The loaded mods.</summary>
-    public string ModList = "";
+    public string ModList { get; set; } = "";
     /// <summary>The mission type.</summary>
-    public string MissionType = "";
+    public string MissionType { get; set; } = "";
     /// <summary>The server description text.</summary>
-    public string Info = "";
+    public string Info { get; set; } = "";
     /// <summary>The heading of the team columns in <see cref="Rows"/>.</summary>
-    public string TeamHeading = "";
+    public string TeamHeading { get; set; } = "";
     /// <summary>The heading of the client columns in <see cref="Rows"/>.</summary>
-    public string ClientHeading = "";
+    public string ClientHeading { get; set; } = "";
     /// <summary>The current player count.</summary>
-    public byte Players;
+    public byte Players { get; set; }
     /// <summary>The player limit.</summary>
-    public byte MaxPlayers;
+    public byte MaxPlayers { get; set; }
     /// <summary>True for a dedicated server.</summary>
-    public bool Dedicated;
+    public bool Dedicated { get; set; }
     /// <summary>True when the server needs a password.</summary>
-    public bool Password;
+    public bool Password { get; set; }
     /// <summary>The server's CPU speed.</summary>
-    public int Cpu;
+    public int Cpu { get; set; }
     /// <summary>The packet version the server reports.</summary>
-    public ushort PacketVersion;
+    public ushort PacketVersion { get; set; }
     /// <summary>The status rows that follow the fixed part of the reply.</summary>
-    public readonly List<string> Rows = [];
+    public List<string> Rows { get; } = [];
 }
 
 /// <summary>A parsed type 4 ping reply.</summary>
@@ -155,17 +155,17 @@ public static class QueryPackets
 /// <remarks>The client's own socket (0058bfac) binds port 0.</remarks>
 public sealed class UdpQueryTransport : IQueryTransport, IDisposable
 {
-    private readonly UdpSocket mSock = new();
-    private readonly Func<long> mNow;
-    private readonly Queue<(Address From, byte[] Data, long AtMs)> mQueue = new();
-    private Thread? mThread;
-    private volatile bool mStop;
-    private bool mOpen;
+    private readonly UdpSocket _sock = new();
+    private readonly Func<long> _now;
+    private readonly Queue<(Address From, byte[] Data, long AtMs)> _queue = new();
+    private Thread? _thread;
+    private volatile bool _stop;
+    private bool _open;
 
     /// <summary>Creates the transport.</summary>
     /// <param name="now">The query clock. The receive thread stamps each datagram with it on arrival. Defaults to the system tick count.</param>
     /// <remarks>The stock exe takes the time of a ping reply when the packet comes in (0054f608 case 4), not when the screen next looks.</remarks>
-    public UdpQueryTransport(Func<long>? now = null) => mNow = now ?? (() => Environment.TickCount64);
+    public UdpQueryTransport(Func<long>? now = null) => _now = now ?? (() => Environment.TickCount64);
 
     /// <summary>The arrival time of the datagram <see cref="Receive"/> gave last, or -1 before any.</summary>
     public long LastReceiveMs { get; private set; } = -1;
@@ -176,31 +176,31 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
     /// <returns>False when the socket cannot open or the send fails.</returns>
     public bool Send(Address to, byte[] data)
     {
-        if (!mOpen)
+        if (!_open)
         {
-            mOpen = mSock.Open(0);
-            if (mOpen)
+            _open = _sock.Open(0);
+            if (_open)
             {
-                mThread = new Thread(ReceiveLoop) { IsBackground = true, Name = "query-recv" };
-                mThread.Start();
+                _thread = new Thread(ReceiveLoop) { IsBackground = true, Name = "query-recv" };
+                _thread.Start();
             }
         }
-        return mOpen && mSock.Send(to, data);
+        return _open && _sock.Send(to, data);
     }
 
     private void ReceiveLoop()
     {
         var buf = new byte[0x800];
-        while (!mStop)
+        while (!_stop)
         {
-            if (!mSock.WaitRead(20))
+            if (!_sock.WaitRead(20))
                 continue;
-            var n = mSock.Receive(out var from, buf);
-            var at = mNow();
+            var n = _sock.Receive(out var from, buf);
+            var at = _now();
             if (n <= 0)
                 continue;
-            lock (mQueue)
-                mQueue.Enqueue((from, buf.AsSpan(0, n).ToArray(), at));
+            lock (_queue)
+                _queue.Enqueue((from, buf.AsSpan(0, n).ToArray(), at));
         }
     }
 
@@ -212,12 +212,12 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
     {
         from = default;
         data = [];
-        lock (mQueue)
+        lock (_queue)
         {
-            if (mQueue.Count == 0)
+            if (_queue.Count == 0)
                 return false;
             long at;
-            (from, data, at) = mQueue.Dequeue();
+            (from, data, at) = _queue.Dequeue();
             LastReceiveMs = at;
         }
         return true;
@@ -226,9 +226,9 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
     /// <summary>Stops the receive thread and closes the socket.</summary>
     public void Dispose()
     {
-        mStop = true;
-        mThread?.Join(200);
-        mSock.Dispose();
+        _stop = true;
+        _thread?.Join(200);
+        _sock.Dispose();
     }
 }
 
@@ -310,82 +310,85 @@ public sealed class ServerQuery
 {
     private sealed class PingEntry
     {
-        public ushort Key;
-        public byte Index;
-        public int Count;
-        public long SentMs;
-        public string Address = "";
-        public Address Target;
-        public bool Broadcast, Ipx;
+        public ushort Key { get; set; }
+        public byte Index { get; set; }
+        public int Count { get; set; }
+        public long SentMs { get; set; }
+        public string Address { get; set; } = "";
+        public ref Address Target => ref _target;
+        private Address _target;
+        public bool Broadcast { get; set; }
+        public bool Ipx { get; set; }
     }
 
     private sealed class RequestEntry
     {
-        public int Ping;
-        public int Count;
-        public long SentMs;
-        public string Address = "";
-        public Address Target;
+        public int Ping { get; set; }
+        public int Count { get; set; }
+        public long SentMs { get; set; }
+        public string Address { get; set; } = "";
+        public ref Address Target => ref _target;
+        private Address _target;
     }
 
-    private readonly IQueryTransport mNet;
-    private readonly Func<long> mNow;
-    private readonly List<PingEntry> mPings = [];
-    private readonly List<RequestEntry> mRequests = [];
-    private readonly List<string> mSeen = [];
-    private int mActivePings, mActiveRequests;
-    private ushort mNextKey;
+    private readonly IQueryTransport _net;
+    private readonly Func<long> _now;
+    private readonly List<PingEntry> _pings = [];
+    private readonly List<RequestEntry> _requests = [];
+    private readonly List<string> _seen = [];
+    private int _activePings, _activeRequests;
+    private ushort _nextKey;
 
     /// <summary>The pacing preferences.</summary>
-    public ServerQueryPrefs Prefs = new();
+    public ServerQueryPrefs Prefs { get; set; } = new();
     /// <summary>The target of a broadcast query: 255.255.255.255 on a LAN. The client sends the loopback broadcast (127.255.255.255) unless remote hosts are allowed (R6).</summary>
-    public uint BroadcastIp = 0xffffffff;
+    public uint BroadcastIp { get; set; } = 0xffffffff;
     /// <summary>The packet version replies must carry, the one of this build.</summary>
     /// <remarks>0054f608 compares it with net + 0xd8.</remarks>
-    public ushort PacketVersion = 1;
+    public ushort PacketVersion { get; set; } = 1;
     /// <summary>The game name replies must carry.</summary>
-    public string GameName = "Tribes";
+    public string GameName { get; set; } = "Tribes";
     /// <summary>The R6 gate. A target outside 127.0.0.0/8 is dropped when this returns false.</summary>
-    public Func<Address, bool> MayContact = _ => true;
+    public Func<Address, bool> MayContact { get; set; } = _ => true;
 
     /// <summary>Raised when a ping is answered, with the address, the host name, the round trip in ms and the packet version it reported (0042caf0).</summary>
-    public Action<string, string, int, ushort>? OnPing;
+    public Action<string, string, int, ushort>? OnPing { get; set; }
     /// <summary>Raised with the info of one server (0042c4cc).</summary>
-    public Action<ServerInfoRecord>? OnInfo;
+    public Action<ServerInfoRecord>? OnInfo { get; set; }
     /// <summary>Raised when a part of a master list arrived, with the master address, its name, whether this is part 1 and its message of the day. The name and message are set only for part 1 (vtable +0xac, 0042ca00).</summary>
-    public Action<string, string, bool, string>? OnMaster;
+    public Action<string, string, bool, string>? OnMaster { get; set; }
     /// <summary>Raised with the address when a ping or request gave up or the server speaks another version (vtable +0xb0, 0042cb88).</summary>
-    public Action<string>? OnFail;
+    public Action<string>? OnFail { get; set; }
     /// <summary>Raised when the queues shrank or grew, so the screen refreshes.</summary>
-    public Action? OnChange;
+    public Action? OnChange { get; set; }
 
     /// <summary>Creates a query.</summary>
     /// <param name="net">The wire.</param>
     /// <param name="now">The query clock in milliseconds.</param>
     public ServerQuery(IQueryTransport net, Func<long> now)
     {
-        mNet = net;
-        mNow = now;
+        _net = net;
+        _now = now;
     }
 
     /// <summary>The number of queued pings.</summary>
-    public int PendingPings => mPings.Count;
+    public int PendingPings => _pings.Count;
     /// <summary>The number of queued info requests.</summary>
-    public int PendingRequests => mRequests.Count;
+    public int PendingRequests => _requests.Count;
     /// <summary>The number of pings and requests in flight.</summary>
-    public int Active => mActivePings + mActiveRequests;
+    public int Active => _activePings + _activeRequests;
     /// <summary>The addresses that already answered or failed.</summary>
-    public IReadOnlyList<string> Seen => mSeen;
+    public IReadOnlyList<string> Seen => _seen;
     /// <summary>The addresses of the queued pings.</summary>
-    public IEnumerable<string> PendingPingAddresses => mPings.Select(e => e.Address);
+    public IEnumerable<string> PendingPingAddresses => _pings.Select(e => e.Address);
 
     /// <summary>Empties the list of addresses already answered. The queues stay, as the stock code leaves them.</summary>
     /// <remarks>Follows the clearing part of TribesNet_queryServers (0042bb50): DAT_006aad58 = 0.</remarks>
-    public void ClearSeen() => mSeen.Clear();
+    public void ClearSeen() => _seen.Clear();
 
     /// <summary>Counts an address as answered (0042cd68).</summary>
     /// <param name="canonical">The canonical address text.</param>
-    public void AddSeen(string canonical) => mSeen.Add(canonical);
+    public void AddSeen(string canonical) => _seen.Add(canonical);
 
     /// <summary>Queues a ping for an address text that is not queued yet, then runs the queue.</summary>
     /// <param name="address">The address text.</param>
@@ -395,10 +398,10 @@ public sealed class ServerQuery
     {
         if (!QueryAddress.TryResolve(address, BroadcastIp, out var canon, out var target, out var bc, out var ipx))
             return;
-        foreach (var e in mPings)
+        foreach (var e in _pings)
             if (string.Equals(e.Address, canon, StringComparison.Ordinal) && e.Index == index)
                 return;
-        mPings.Add(new PingEntry { Index = (byte)index, Address = canon, Target = target, Broadcast = bc, Ipx = ipx });
+        _pings.Add(new PingEntry { Index = (byte)index, Address = canon, Target = target, Broadcast = bc, Ipx = ipx });
         Process();
     }
 
@@ -409,35 +412,35 @@ public sealed class ServerQuery
     {
         if (!QueryAddress.TryResolve(address, BroadcastIp, out var canon, out var target, out _, out _))
             return;
-        mRequests.Add(new RequestEntry { Ping = ping, Address = canon, Target = target });
+        _requests.Add(new RequestEntry { Ping = ping, Address = canon, Target = target });
         Process();
     }
 
     /// <summary>Empties both queues (stock cancel 0055017c, 00550190).</summary>
     public void CancelAll()
     {
-        mPings.Clear();
-        mRequests.Clear();
-        mActivePings = mActiveRequests = 0;
+        _pings.Clear();
+        _requests.Clear();
+        _activePings = _activeRequests = 0;
     }
 
-    private bool Send(Address to, byte[] data) => MayContact(to) && mNet.Send(to, data);
+    private bool Send(Address to, byte[] data) => MayContact(to) && _net.Send(to, data);
 
     /// <summary>Sends or resends the pings and requests that are due and drops the ones that ran out of retries.</summary>
     /// <remarks>Follows SimNet_processQueryQueue (0054ee8c). Requests run only while no ping is in flight. A broadcast ping is sent once and leaves the queue (0054e438), and whoever answers is queried by its own address.</remarks>
     public void Process()
     {
-        var now = mNow();
+        var now = _now();
         int i = 0, n = 0;
-        while (i < mPings.Count)
+        while (i < _pings.Count)
         {
-            var e = mPings[i];
+            var e = _pings[i];
             var send = false;
             if (e.Count == 0)
             {
-                if (mActivePings < Prefs.MaxPings)
+                if (_activePings < Prefs.MaxPings)
                 {
-                    ++mActivePings;
+                    ++_activePings;
                     send = true;
                     ++n;
                 }
@@ -446,9 +449,9 @@ public sealed class ServerQuery
             {
                 if (Prefs.PingRetries < e.Count)
                 {
-                    mPings.RemoveAt(i);
-                    --mActivePings;
-                    mSeen.Add(e.Address);
+                    _pings.RemoveAt(i);
+                    --_activePings;
+                    _seen.Add(e.Address);
                     OnFail?.Invoke(e.Address);
                     continue;
                 }
@@ -459,16 +462,16 @@ public sealed class ServerQuery
                 ++n;
             if (send)
             {
-                e.Key = mNextKey++;
+                e.Key = _nextKey++;
                 if (!e.Ipx)
                     Send(e.Target, QueryPackets.BuildPing(e.Key, e.Index));
-                e.SentMs = mNow();
+                e.SentMs = _now();
                 ++e.Count;
                 // 0054e438: a broadcast is sent once and leaves the queue, whoever answers is queried by its own address.
                 if (e.Broadcast)
                 {
-                    mPings.RemoveAt(i);
-                    --mActivePings;
+                    _pings.RemoveAt(i);
+                    --_activePings;
                     --n;
                     continue;
                 }
@@ -477,19 +480,19 @@ public sealed class ServerQuery
             if (n == Prefs.MaxPings)
                 break;
         }
-        if (mActivePings == 0)
+        if (_activePings == 0)
         {
             i = 0;
             n = 0;
-            while (i < mRequests.Count)
+            while (i < _requests.Count)
             {
-                var r = mRequests[i];
+                var r = _requests[i];
                 var send = false;
                 if (r.Count == 0)
                 {
-                    if (mActiveRequests < Prefs.MaxRequests)
+                    if (_activeRequests < Prefs.MaxRequests)
                     {
-                        ++mActiveRequests;
+                        ++_activeRequests;
                         send = true;
                         ++n;
                     }
@@ -498,8 +501,8 @@ public sealed class ServerQuery
                 {
                     if (Prefs.RequestRetries < r.Count)
                     {
-                        mRequests.RemoveAt(i);
-                        --mActiveRequests;
+                        _requests.RemoveAt(i);
+                        --_activeRequests;
                         OnFail?.Invoke(r.Address);
                         continue;
                     }
@@ -510,8 +513,8 @@ public sealed class ServerQuery
                     ++n;
                 if (send)
                 {
-                    Send(r.Target, QueryPackets.BuildInfoRequest(mNextKey++));
-                    r.SentMs = mNow();
+                    Send(r.Target, QueryPackets.BuildInfoRequest(_nextKey++));
+                    r.SentMs = _now();
                     ++r.Count;
                 }
                 ++i;
@@ -525,15 +528,15 @@ public sealed class ServerQuery
     /// <remarks>The exe runs the queue from a 30 ms sim event while anything is in flight.</remarks>
     public void Tick()
     {
-        while (mNet.Receive(out var from, out var data))
-            OnDatagram(from, data, mNet.LastReceiveMs);
-        if (mActivePings > 0 || mActiveRequests > 0 || mPings.Count > 0 || mRequests.Count > 0)
+        while (_net.Receive(out var from, out var data))
+            OnDatagram(from, data, _net.LastReceiveMs);
+        if (_activePings > 0 || _activeRequests > 0 || _pings.Count > 0 || _requests.Count > 0)
             Process();
     }
 
     private PingEntry? FindPing(string address, int index)
     {
-        foreach (var e in mPings)
+        foreach (var e in _pings)
             if (string.Equals(e.Address, address, StringComparison.Ordinal) && e.Index == index)
                 return e;
         return null;
@@ -554,24 +557,24 @@ public sealed class ServerQuery
             var part = FindPing(addr, d[2]);
             if (part == null || part.Key != key)
                 return;
-            mPings.Remove(part);
-            if (mActivePings > 0)
-                --mActivePings;
+            _pings.Remove(part);
+            if (_activePings > 0)
+                --_activePings;
         }
         else
         {
             if (e.Key != key)
                 return;
-            mPings.Remove(e);
-            if (mActivePings > 0)
-                --mActivePings;
+            _pings.Remove(e);
+            if (_activePings > 0)
+                --_activePings;
             if (QueryAddress.TryResolve(addr, BroadcastIp, out var canon, out var target, out _, out _))
                 for (var n = 1; n <= d[3]; ++n)
                 {
                     if (n == d[2])
                         continue;
-                    ++mActivePings;
-                    mPings.Add(new PingEntry { Key = key, Index = (byte)n, Count = 1, SentMs = mNow(), Address = canon, Target = target });
+                    ++_activePings;
+                    _pings.Add(new PingEntry { Key = key, Index = (byte)n, Count = 1, SentMs = _now(), Address = canon, Target = target });
                 }
         }
         string name = "(no name)", motd = "(no motd)";
@@ -604,7 +607,7 @@ public sealed class ServerQuery
                 text = System.Text.Encoding.Latin1.GetString(d, p, (end < 0 ? d.Length : end) - p);
             }
             p += len + 1;
-            if (QueryAddress.TryResolve(text, BroadcastIp, out var c, out _, out _, out _) && !mSeen.Contains(c))
+            if (QueryAddress.TryResolve(text, BroadcastIp, out var c, out _, out _, out _) && !_seen.Contains(c))
                 Queue(text);
         }
         OnMaster?.Invoke(addr, name, d[2] == 1, motd);
@@ -627,21 +630,21 @@ public sealed class ServerQuery
             {
                 // A ping reply counts only while a ping is queued: with the broadcast gone from the queue and nothing else
                 // pending (a LAN-only query), the answer is dropped.
-                if (mPings.Count == 0 || !QueryPackets.TryParsePingReply(data, out var pr))
+                if (_pings.Count == 0 || !QueryPackets.TryParsePingReply(data, out var pr))
                     return;
                 var e = FindPing(addr, 0);
                 if (e == null)
                 {
-                    if (mSeen.Contains(addr))
+                    if (_seen.Contains(addr))
                         return;
                     Queue(addr);
                 }
                 else if (e.Key == pr.Key)
                 {
-                    var ping = (int)((arrivedMs >= 0 ? arrivedMs : mNow()) - e.SentMs);
-                    mPings.Remove(e);
-                    mSeen.Add(addr);
-                    --mActivePings;
+                    var ping = (int)((arrivedMs >= 0 ? arrivedMs : _now()) - e.SentMs);
+                    _pings.Remove(e);
+                    _seen.Add(addr);
+                    --_activePings;
                     OnPing?.Invoke(addr, pr.Hostname, ping, pr.PacketVersion);
                     OnChange?.Invoke();
                 }
@@ -652,11 +655,11 @@ public sealed class ServerQuery
                 break;
             case 8:
             {
-                var at = mRequests.FindIndex(r => string.Equals(r.Address, addr, StringComparison.Ordinal));
+                var at = _requests.FindIndex(r => string.Equals(r.Address, addr, StringComparison.Ordinal));
                 if (at >= 0)
                 {
-                    mRequests.RemoveAt(at);
-                    --mActiveRequests;
+                    _requests.RemoveAt(at);
+                    --_activeRequests;
                 }
                 if (!QueryPackets.TryParseInfoReply(data, out var rec))
                 {

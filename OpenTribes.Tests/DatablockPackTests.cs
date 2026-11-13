@@ -9,9 +9,9 @@ public class DatablockPackTests
 {
     private sealed class Fx
     {
-        public readonly StringTable Strings = new();
-        public string Log = "";
-        public readonly DataBlockManager Db;
+        public StringTable Strings { get; } = new();
+        public string Log { get; set; } = "";
+        public DataBlockManager Db { get; }
 
         public Fx() => Db = new DataBlockManager(Strings, l => Log += l + "\n");
 

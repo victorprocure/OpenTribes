@@ -12,85 +12,85 @@ using static OpenTribes.Core.Fpu;
 public sealed partial class Player : GameBase
 {
     /// <summary>The number of inventory entries (+0x1038).</summary>
-    public const int kItemTypes = 200;
+    public const int ItemTypes = 200;
     /// <summary>The number of image slots.</summary>
-    public const int kImageSlots = 8;
+    public const int ImageSlots = 8;
     /// <summary>The collision mask of a live Player (0x0060fb5c).</summary>
-    public const uint kLiveMask = 0x74e00086u;
+    public const uint LiveMask = 0x74e00086u;
     /// <summary>The collision mask of a dead Player (0x0060fb64).</summary>
-    public const uint kDeadMask = 0x20c00086u;
+    public const uint DeadMask = 0x20c00086u;
     /// <summary>The object type of a corpse.</summary>
-    public const uint kCorpseType = 0x40000000u;
+    public const uint CorpseType = 0x40000000u;
 
-    private const float kDt = 0.032f;          // time slice 0x3d03126f
-    private const float kSeparation = 0.0001f; // 0x0060ff58
-    private const uint kGravityForce = 1, kJetForce = 0x100;
-    private const uint kNonBlockingTypes = 0x44200000u; // 0x0060ff64: Item, Mine, corpse
-    private const uint kStepUpTypes = 0x00400006u;      // 0x0060ff68: terrain, interior, moveable
+    private const float Dt = 0.032f;          // time slice 0x3d03126f
+    private const float Separation = 0.0001f; // 0x0060ff58
+    private const uint GravityForce = 1, JetForce = 0x100;
+    private const uint NonBlockingTypes = 0x44200000u; // 0x0060ff64: Item, Mine, corpse
+    private const uint StepUpTypes = 0x00400006u;      // 0x0060ff68: terrain, interior, moveable
 
     /// <summary>The PlayerData values the step reads, as the f32 the script path stored (docs/player-sim.md 2.2).</summary>
     public sealed class Data
     {
         /// <summary>The maximum forward speed.</summary>
-        public float MaxForwardSpeed;
+        public float MaxForwardSpeed { get; set; }
         /// <summary>The maximum backward speed.</summary>
-        public float MaxBackwardSpeed;
+        public float MaxBackwardSpeed { get; set; }
         /// <summary>The maximum side speed.</summary>
-        public float MaxSideSpeed;
+        public float MaxSideSpeed { get; set; }
         /// <summary>The mass.</summary>
-        public float Mass = 1;
+        public float Mass { get; set; } = 1;
         /// <summary>The drag.</summary>
-        public float Drag = 1;
+        public float Drag { get; set; } = 1;
         /// <summary>The horizontal velocity clamp.</summary>
-        public float HorzVelClamp;
+        public float HorzVelClamp { get; set; }
         /// <summary>The jet force.</summary>
-        public float JetForce;
+        public float JetForce { get; set; }
         /// <summary>The ground force.</summary>
-        public float GroundForce = 20;
+        public float GroundForce { get; set; } = 20;
         /// <summary>The ground traction.</summary>
-        public float GroundTraction = 1;
+        public float GroundTraction { get; set; } = 1;
         /// <summary>The jump impulse.</summary>
-        public float JumpImpulse = 100;
+        public float JumpImpulse { get; set; } = 100;
         /// <summary>The minimum dot product of the surface normal for a jump.</summary>
-        public float JumpSurfaceMinDot = 0.2f;
+        public float JumpSurfaceMinDot { get; set; } = 0.2f;
         /// <summary>The jet side force factor.</summary>
-        public float MaxJetSideForceFactor = 1;
+        public float MaxJetSideForceFactor { get; set; } = 1;
         /// <summary>The maximum forward velocity while jetting.</summary>
-        public float MaxJetForwardVelocity = 20;
+        public float MaxJetForwardVelocity { get; set; } = 20;
         /// <summary>The minimum energy to jet.</summary>
-        public float MinJetEnergy = 1;
+        public float MinJetEnergy { get; set; } = 1;
         /// <summary>The energy drain of jetting.</summary>
-        public float JetEnergyDrain = 1;
+        public float JetEnergyDrain { get; set; } = 1;
         /// <summary>The box width.</summary>
-        public float BoxWidth;
+        public float BoxWidth { get; set; }
         /// <summary>The box depth.</summary>
-        public float BoxDepth;
+        public float BoxDepth { get; set; }
         /// <summary>The box height when standing.</summary>
-        public float BoxNormalHeight;
+        public float BoxNormalHeight { get; set; }
         /// <summary>The box height when crouching.</summary>
-        public float BoxCrouchHeight;
+        public float BoxCrouchHeight { get; set; }
         /// <summary>The minimum speed that causes landing damage.</summary>
-        public float MinDamageSpeed = 13;
+        public float MinDamageSpeed { get; set; } = 13;
         /// <summary>The scale of landing damage.</summary>
-        public float DamageScale = 0.00899999f;
+        public float DamageScale { get; set; } = 0.00899999f;
         /// <summary>The maximum energy.</summary>
-        public float MaxEnergy;
+        public float MaxEnergy { get; set; }
         /// <summary>The maximum damage.</summary>
-        public float MaxDamage = 1;
+        public float MaxDamage { get; set; } = 1;
         /// <summary>True when the Player can crouch.</summary>
-        public bool CanCrouch;
+        public bool CanCrouch { get; set; }
         /// <summary>The priority of each animation.</summary>
-        public int[] AnimPriority = new int[51];
+        public int[] AnimPriority { get; set; } = new int[51];
         /// <summary>The direction of each animation.</summary>
-        public int[] AnimDirection = new int[51];
+        public int[] AnimDirection { get; set; } = new int[51];
         /// <summary>The duration of each animation.</summary>
-        public float[] AnimDuration = new float[51];
+        public float[] AnimDuration { get; set; } = new float[51];
         /// <summary>True for each cyclic sequence (sequence +4): the position wraps instead of stopping.</summary>
-        public bool[] AnimCyclic = new bool[51];
+        public bool[] AnimCyclic { get; set; } = new bool[51];
         /// <summary>The sequence handle of each animation in the armor shape (+0x88c).</summary>
-        public int[] AnimSequence = new int[51];
+        public int[] AnimSequence { get; set; } = new int[51];
         /// <summary>The view flags of each animation. Bit 0 is first person.</summary>
-        public int[] AnimViewFlags = new int[51];
+        public int[] AnimViewFlags { get; set; } = new int[51];
 
         /// <summary>Copies the values.</summary>
         /// <returns>The copy.</returns>
@@ -111,71 +111,71 @@ public sealed partial class Player : GameBase
     public sealed class Force
     {
         /// <summary>The force type: 1 gravity, 0x100 jet.</summary>
-        public uint Type;
+        public uint Type { get; set; }
         /// <summary>True when the force is an acceleration.</summary>
-        public bool Acceleration;
+        public bool Acceleration { get; set; }
         /// <summary>The stored acceleration. Entries that are not accelerations are multiplied by the inverse mass.</summary>
-        public float[] V = new float[3];
+        public float[] V { get; set; } = new float[3];
     }
 
     /// <summary>The image state: reset.</summary>
-    public const int kReset = 0;
+    public const int Reset = 0;
     /// <summary>The image state: fire.</summary>
-    public const int kFire = 1;
+    public const int Fire = 1;
     /// <summary>The image state: no ammo.</summary>
-    public const int kNoAmmo = 2;
+    public const int NoAmmo = 2;
     /// <summary>The image state: idle.</summary>
-    public const int kIdle = 3;
+    public const int Idle = 3;
     /// <summary>The image state: ready.</summary>
-    public const int kReady = 4;
+    public const int Ready = 4;
     /// <summary>The image state: reload.</summary>
-    public const int kReload = 5;
+    public const int Reload = 5;
     /// <summary>The image state: spin up.</summary>
-    public const int kSpinUp = 6;
+    public const int SpinUp = 6;
     /// <summary>The image state: spin down.</summary>
-    public const int kSpinDown = 7;
+    public const int SpinDown = 7;
     /// <summary>The image state: activate.</summary>
-    public const int kActivate = 8;
+    public const int Activate = 8;
     /// <summary>The image state: deactivate (the state names are the table at 0x0060ffec).</summary>
-    public const int kDeactivate = 9;
+    public const int Deactivate = 9;
 
     /// <summary>The ItemImageData values the state machine reads (docs/datablocks.md 5.15), cached when the image is set.</summary>
     public sealed class ImageInfo
     {
         /// <summary>The weapon type (+0x54), -1 for none.</summary>
-        public int WeaponType = -1;
+        public int WeaponType { get; set; } = -1;
         /// <summary>The ItemData index of the ammo (+0x58), -1 for none.</summary>
-        public int AmmoType = -1;
+        public int AmmoType { get; set; } = -1;
         /// <summary>The activate time (+0x5c).</summary>
-        public float ActivateTime = 0.5f;
+        public float ActivateTime { get; set; } = 0.5f;
         /// <summary>The fire time (+0x60).</summary>
-        public float FireTime = 0.2f;
+        public float FireTime { get; set; } = 0.2f;
         /// <summary>The reload time (+0x64).</summary>
-        public float ReloadTime = 1.0f;
+        public float ReloadTime { get; set; } = 1.0f;
         /// <summary>The spin up time (+0x68).</summary>
-        public float SpinUpTime = 2.0f;
+        public float SpinUpTime { get; set; } = 2.0f;
         /// <summary>The spin down time (+0x6c).</summary>
-        public float SpinDownTime = 2.0f;
+        public float SpinDownTime { get; set; } = 2.0f;
         /// <summary>The projectile datablock group (projectileType, +0x70), -1 for none.</summary>
-        public int ProjGroup = -1;
+        public int ProjGroup { get; set; } = -1;
         /// <summary>The projectile datablock index, -1 for none.</summary>
-        public int ProjIndex = -1;
+        public int ProjIndex { get; set; } = -1;
         /// <summary>The minimum energy to fire (+0x78).</summary>
-        public float MinEnergy = 2.0f;
+        public float MinEnergy { get; set; } = 2.0f;
         /// <summary>The maximum energy of a shot (+0x7c).</summary>
-        public float MaxEnergy = 10.0f;
+        public float MaxEnergy { get; set; } = 10.0f;
         /// <summary>True for accumulating fire (+0xb5).</summary>
-        public bool AccuFire;
+        public bool AccuFire { get; set; }
         /// <summary>The mount point (+0x38).</summary>
-        public int MountPoint = 2;
+        public int MountPoint { get; set; } = 2;
         /// <summary>The mount offset (+0x3c).</summary>
-        public readonly float[] MountOffset = new float[3];
+        public float[] MountOffset { get; } = new float[3];
         /// <summary>The mount rotation (+0x48).</summary>
-        public readonly float[] MountRotation = new float[3];
+        public float[] MountRotation { get; } = new float[3];
         /// <summary>The image shape file (+0xb8).</summary>
-        public string? ShapeFile;
+        public string? ShapeFile { get; set; }
         /// <summary>The ItemImageData block name.</summary>
-        public string? Name;
+        public string? Name { get; set; }
 
         /// <summary>Resets the values, as <c>info = ImageInfo{}</c> does.</summary>
         public void Reset()
@@ -204,29 +204,29 @@ public sealed partial class Player : GameBase
     public sealed class ImageSlot
     {
         /// <summary>The image state (+0x00).</summary>
-        public int State;
+        public int State { get; set; }
         /// <summary>The ItemData index (+0x04), -1 for none.</summary>
-        public int Item = -1;
+        public int Item { get; set; } = -1;
         /// <summary>The ItemImageData index (+0x08), -1 for none.</summary>
-        public int Image = -1;
+        public int Image { get; set; } = -1;
         /// <summary>The team (+0x0c).</summary>
-        public int Team = -1;
+        public int Team { get; set; } = -1;
         /// <summary>The next item (+0x10), -2 for none.</summary>
-        public int NextItem = -2;
+        public int NextItem { get; set; } = -2;
         /// <summary>The next team (+0x14).</summary>
-        public int NextTeam = -1;
+        public int NextTeam { get; set; } = -1;
         /// <summary>The state timer (+0x18).</summary>
-        public float Timer;
+        public float Timer { get; set; }
         /// <summary>The fire count (+0x1c).</summary>
-        public int FireCount;
+        public int FireCount { get; set; }
         /// <summary>True while the trigger is down.</summary>
-        public bool Triggered;
+        public bool Triggered { get; set; }
         /// <summary>True when ammo is available.</summary>
-        public bool Ammo;
+        public bool Ammo { get; set; }
         /// <summary>The object id of a live sustained projectile (+0x28).</summary>
-        public int Projectile;
+        public int Projectile { get; set; }
         /// <summary>The cached image values.</summary>
-        public readonly ImageInfo Info = new();
+        public ImageInfo Info { get; } = new();
 
         /// <summary>Resets the slot in place.</summary>
         public void Reset()
@@ -249,135 +249,138 @@ public sealed partial class Player : GameBase
     public sealed class ShapePose
     {
         /// <summary>The animation of the animation thread, -1 for sequence 0.</summary>
-        public int AnimIndex = -1;
+        public int AnimIndex { get; set; } = -1;
         /// <summary>The animation thread position.</summary>
-        public float AnimPosition;
+        public float AnimPosition { get; set; }
         /// <summary>True when the look thread is on <c>crouch looks</c>.</summary>
-        public bool CrouchLooks;
+        public bool CrouchLooks { get; set; }
         /// <summary>False until the first update: the look thread is on sequence 0.</summary>
-        public bool LookSet;
+        public bool LookSet { get; set; }
         /// <summary>The look thread position before the sequence normalises it.</summary>
-        public float LookPosition;
+        public float LookPosition { get; set; }
         /// <summary>True for first person (instance +0x9e = 2, look thread priority -1).</summary>
-        public bool FirstPerson = true;
+        public bool FirstPerson { get; set; } = true;
     }
 
     // src/game/player.hpp Player::Contact.
     private struct Contact
     {
-        public Float3 N;
-        public float UpDot;
-        public float StepHeight;
-        public CollisionSurface Surface;
-        public object? Object;
-        public uint Type;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 N => ref _n;
+        private Float3 _n;
+        public float UpDot { get; set; }
+        public float StepHeight { get; set; }
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref CollisionSurface Surface => ref _surface;
+        private CollisionSurface _surface;
+        public object? Object { get; set; }
+        public uint Type { get; set; }
     }
 
     /// <summary>True when the Player is dead (+0x1019).</summary>
-    public bool Dead;
+    public bool Dead { get; set; }
     /// <summary>True when the Player was blown up (+0xf94).</summary>
-    public bool BlownUp;
+    public bool BlownUp { get; set; }
     /// <summary>The value of the last applyDamage call.</summary>
-    public float LastDamage;
+    public float LastDamage { get; set; }
     /// <summary>The weapon pullback (+0xfd0).</summary>
-    public float Pullback;
+    public float Pullback { get; set; }
     /// <summary>True when rays skip the Player (image +0xd). Set by Player_kill (0x004111e8) and never cleared (+0x7f9).</summary>
-    public bool RaySkip;
+    public bool RaySkip { get; set; }
     /// <summary>The shape pose.</summary>
-    public readonly ShapePose Pose = new();
+    public ShapePose Pose { get; } = new();
     /// <summary>The item counts.</summary>
-    public readonly int[] Counts = new int[kItemTypes];
+    public int[] Counts { get; } = new int[ItemTypes];
     /// <summary>The inventory slot of each item type.</summary>
-    public readonly int[] SlotOf = new int[kItemTypes];
+    public int[] SlotOf { get; } = new int[ItemTypes];
     /// <summary>The image slots.</summary>
-    public readonly ImageSlot[] Images = new ImageSlot[kImageSlots];
+    public ImageSlot[] Images { get; } = new ImageSlot[ImageSlots];
 
     /// <summary>The PlayerData values the step reads.</summary>
-    public Data PData = new();
+    public Data PData { get; set; } = new();
     /// <summary>The pitch (+0xfc4).</summary>
-    public float Pitch;
+    public float Pitch { get; set; }
     /// <summary>The mass (+0x170).</summary>
-    public float Mass = 9;
+    public float Mass { get; set; } = 9;
     /// <summary>The inverse mass (+0x174).</summary>
-    public float InvMass;
+    public float InvMass { get; set; }
     /// <summary>True when a contact surface was hit this step (+0x1f4).</summary>
-    public bool ContactFlag;
+    public bool ContactFlag { get; set; }
     /// <summary>The rest flag (+0x164 bit 0).</summary>
-    public bool RestFlag = true;
+    public bool RestFlag { get; set; } = true;
     /// <summary>The ground traction (+0xfcc).</summary>
-    public float Traction;
+    public float Traction { get; set; }
     /// <summary>The normal of the jump contact (+0xfb0).</summary>
-    public readonly float[] JumpNormal = [0, 0, 1];
+    public float[] JumpNormal { get; } = [0, 0, 1];
     /// <summary>The ticks since the jump contact (+0xfac).</summary>
-    public int TicksSinceJumpContact = 100;
+    public int TicksSinceJumpContact { get; set; } = 100;
     /// <summary>The ticks since a contact (+0xfc0).</summary>
-    public int TicksSinceContact;
+    public int TicksSinceContact { get; set; }
     /// <summary>True while jetting (+0xfe4).</summary>
-    public bool Jetting;
+    public bool Jetting { get; set; }
     /// <summary>The time of the last jet (+0xfe8).</summary>
-    public uint LastJetTime;
+    public uint LastJetTime { get; set; }
     /// <summary>True while falling (+0xfec).</summary>
-    public bool Falling;
+    public bool Falling { get; set; }
     /// <summary>The PDA flag (+0xfed).</summary>
-    public bool PdaFlag;
+    public bool PdaFlag { get; set; }
     /// <summary>True while crouching (+0xfee).</summary>
-    public bool Crouching;
+    public bool Crouching { get; set; }
     /// <summary>The damage flash (+0xfbc).</summary>
-    public float Flash;
+    public float Flash { get; set; }
     /// <summary>The ticks without a move (+0xf8c).</summary>
-    public int TicksWithoutMove;
+    public int TicksWithoutMove { get; set; }
     /// <summary>The move credit (+0xf90).</summary>
-    public int Credit;
+    public int Credit { get; set; }
     /// <summary>The last move (+0xff0).</summary>
-    public Move LastMove = new();
+    public ref Move LastMove => ref _lastMove;
+    private Move _lastMove = new();
     /// <summary>True when an AI controls the Player (+0x101b).</summary>
-    public bool AiControlled;
+    public bool AiControlled { get; set; }
     /// <summary>True for the client's own control object (+0x1018, vtable +0x144; docs/client-net.md 4.4).</summary>
-    public bool LocallyControlled;
+    public bool LocallyControlled { get; set; }
     /// <summary>True while inside the mission area (+0x101a).</summary>
-    public bool InMissionArea = true;
+    public bool InMissionArea { get; set; } = true;
     /// <summary>The <c>$pref::freeLook</c> value (0060fb50) as of onAdd and the last tick (+0x7dc).</summary>
-    public bool FreeLookCopy = true;
+    public bool FreeLookCopy { get; set; } = true;
     /// <summary>The pending animation (+0xf98).</summary>
-    public int PendingAnim;
+    public int PendingAnim { get; set; }
     /// <summary>The current animation (+0xf9c), -1 for none.</summary>
-    public int CurrentAnim = -1;
+    public int CurrentAnim { get; set; } = -1;
     /// <summary>The animation thread position.</summary>
-    public float AnimPosition;
+    public float AnimPosition { get; set; }
     /// <summary>The detect haze factor (+0xfd8).</summary>
-    public float DetectHazeFactor = 0.0287f;
+    public float DetectHazeFactor { get; set; } = 0.0287f;
     /// <summary>The detect minimum visibility (+0xfdc).</summary>
-    public float DetectMinVisibility = 1.0f;
+    public float DetectMinVisibility { get; set; } = 1.0f;
     /// <summary>The sensor suppression (+0xfe0).</summary>
-    public float SensorSuppression;
+    public float SensorSuppression { get; set; }
     /// <summary>The minimum of the movement box (+0x1d4).</summary>
-    public readonly float[] BoxMin = new float[3];
+    public float[] BoxMin { get; } = new float[3];
     /// <summary>The maximum of the movement box (+0x1e0).</summary>
-    public readonly float[] BoxMax = new float[3];
+    public float[] BoxMax { get; } = new float[3];
     /// <summary>The maximum z of box B, which follows the crouch (+0x864).</summary>
-    public float BoxHeight;
+    public float BoxHeight { get; set; }
     /// <summary>The radius (+0x874).</summary>
-    public float Radius;
+    public float Radius { get; set; }
     /// <summary>The object type bits (+0x48).</summary>
-    public uint ObjectTypeBits = ObjectType.kPlayerType;
+    public uint ObjectTypeBits { get; set; } = ObjectType.PlayerType;
     /// <summary>The collision mask (+0x1ec).</summary>
-    public uint CollisionMask = kLiveMask;
+    public uint CollisionMask { get; set; } = LiveMask;
     /// <summary>The time of death (+0x1024).</summary>
-    public float DeathTime;
+    public float DeathTime { get; set; }
 
     /// <summary>The id of the mount object, 0 for none (+0x1028). Mounting is in docs/vehicle-sim.md 2 and docs/player-sim.md 2.7.</summary>
-    public int MountId;
+    public int MountId { get; set; }
     /// <summary>The mount point (+0x102c).</summary>
-    public int MountPoint;
+    public int MountPoint { get; set; }
 
-    private readonly GameState mGame;
-    private readonly List<Force> mForces = [];
-    private readonly SteppedMove mMove = new();
-    private object? mTerrainContainer;  // terrain entry the gravity came from
-    private float mContainerDrag;       // SimMovement +0x124, set on container entry
-    private object? mParent;            // container object holding the player
-    private bool mInContainer;
-    private bool mAdded;
+    private readonly GameState _game;
+    private readonly List<Force> _forces = [];
+    private readonly SteppedMove _move = new();
+    private object? _terrainContainer;  // terrain entry the gravity came from
+    private float _containerDrag;       // SimMovement +0x124, set on container entry
+    private object? _parent;            // container object holding the player
+    private bool _inContainer;
+    private bool _added;
 
     private static ClassContext OwnContext(GameState game) => new() { Game = game, Resources = game.Resources };
 
@@ -385,19 +388,19 @@ public sealed partial class Player : GameBase
     /// <param name="game">The game state.</param>
     public Player(GameState game) : base("Player", Kind.ShapeBase, 3, Array.Empty<PersistDef>(), OwnContext(game))
     {
-        mGame = game;
-        for (var i = 0; i < kImageSlots; ++i)
+        _game = game;
+        for (var i = 0; i < ImageSlots; ++i)
             Images[i] = new ImageSlot();
-        for (var i = 0; i < kItemTypes; ++i)
+        for (var i = 0; i < ItemTypes; ++i)
             SlotOf[i] = -1;
-        DamageState = kEnabled; // ShapeBase getDamageState: always Enabled
-        mMove.OnCollision = ProcessCollision;
-        mMove.OnTouch = owner => PostCollision(owner as SimObject, this);
+        DamageState = Enabled; // ShapeBase getDamageState: always Enabled
+        _move.OnCollision = ProcessCollision;
+        _move.OnTouch = owner => PostCollision(owner as SimObject, this);
     }
 
     /// <summary>Returns the game state.</summary>
     /// <returns>The game state.</returns>
-    public GameState Game() => mGame;
+    public GameState Game() => _game;
 
     /// <summary>Returns the Player behind a sim object.</summary>
     /// <param name="obj">The object, or null.</param>
@@ -406,7 +409,7 @@ public sealed partial class Player : GameBase
 
     /// <summary>Returns the force list.</summary>
     /// <returns>The forces.</returns>
-    public IReadOnlyList<Force> Forces() => mForces;
+    public IReadOnlyList<Force> Forces() => _forces;
 
     // src/game/player.cpp fieldFloat.
     private static float FieldFloat(DataBlockManager.Block b, string name, float def)
@@ -425,9 +428,9 @@ public sealed partial class Player : GameBase
     // src/game/player.cpp Player::block.
     private DataBlockManager.Block? Block()
     {
-        if (mGame.Sim == null || DataBlockName == null)
+        if (_game.Sim == null || DataBlockName == null)
             return null;
-        var b = mGame.Sim.DataBlocks().Find(DataBlockName);
+        var b = _game.Sim.DataBlocks().Find(DataBlockName);
         return b != null && b.Group == 3 ? b : null;
     }
 
@@ -439,13 +442,13 @@ public sealed partial class Player : GameBase
     {
         // GameBase_onAdd (0x00448108): the player has no group, so the team stays -1; the datablock resolves
         // (Player_onNewDataBlock, then the script onInit), then onAdd.
-        if (DataBlockName == null || !mGame.ResolveDataBlock(this) || !BindDataBlock())
+        if (DataBlockName == null || !_game.ResolveDataBlock(this) || !BindDataBlock())
             return false;
-        mAdded = true;
-        mGame.ScriptCallback(this, "onInit", Array.Empty<string>());
-        mGame.ScriptCallback(this, "onAdd", Array.Empty<string>());
-        mGame.JoinSet(this, 719);
-        CollisionMask = kLiveMask;
+        _added = true;
+        _game.ScriptCallback(this, "onInit", Array.Empty<string>());
+        _game.ScriptCallback(this, "onAdd", Array.Empty<string>());
+        _game.JoinSet(this, 719);
+        CollisionMask = LiveMask;
         float[] p = [Transform.P[0], Transform.P[1], Transform.P[2]];
         SetPosition(p);
         FreeLookCopy = FreeLookPref();
@@ -455,9 +458,9 @@ public sealed partial class Player : GameBase
     // Global 0060fb50 ($pref::freeLook, default TRUE; an unset variable keeps the default).
     private bool FreeLookPref()
     {
-        if (mGame.Console == null)
+        if (_game.Console == null)
             return true;
-        var v = mGame.Console.GetVariable("$pref::freeLook", out var found);
+        var v = _game.Console.GetVariable("$pref::freeLook", out var found);
         return !found || Numbers.ParseBool(v);
     }
 
@@ -465,20 +468,20 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows 0x0040fb30.</remarks>
     public override void OnRemove()
     {
-        mGame.SensorJam(this, false); // Player_onRemove 0x0040fb30 unlinks, the radius stays (docs/static-sim.md 3.8)
-        for (var slot = 0; slot < kImageSlots; ++slot)
+        _game.SensorJam(this, false); // Player_onRemove 0x0040fb30 unlinks, the radius stays (docs/static-sim.md 3.8)
+        for (var slot = 0; slot < ImageSlots; ++slot)
             ResetImage(slot);
         // GameBase_onRemove (0x00448180): the script onRemove, then the container.
-        if (mAdded && DataBlockName != null)
-            mGame.ScriptCallback(this, "onRemove", Array.Empty<string>());
-        if (mInContainer)
-            mGame.World.Remove(this);
-        mInContainer = false;
-        mAdded = false;
+        if (_added && DataBlockName != null)
+            _game.ScriptCallback(this, "onRemove", Array.Empty<string>());
+        if (_inContainer)
+            _game.World.Remove(this);
+        _inContainer = false;
+        _added = false;
         // SimMovement dtor (0x0050471e): a deleted Player leaves the carry list of the Moveable it stood on. The lists
         // hold ids here, and the next Player gets the freed id.
         DetachAll();
-        mGame.DropTriggerOccupant(this);
+        _game.DropTriggerOccupant(this);
     }
 
     /// <summary>Reads the PlayerData values that the step and the contact response read through the datablock pointer.</summary>
@@ -525,8 +528,8 @@ public sealed partial class Player : GameBase
         d.MaxEnergy = FieldFloat(b, "maxEnergy", 0);
         d.MaxDamage = FieldFloat(b, "maxDamage", 1);
         ShapeAnim? shapeAnim = null;
-        if (mGame.Resources != null && mGame.Sim!.DataBlocks().GetField(b, "shapeFile", "", out var shape) && shape.Length != 0)
-            shapeAnim = Shape.GetShapeAnim(mGame.Resources, shape);
+        if (_game.Resources != null && _game.Sim!.DataBlocks().GetField(b, "shapeFile", "", out var shape) && shape.Length != 0)
+            shapeAnim = Shape.GetShapeAnim(_game.Resources, shape);
         if (b.Find("animData") is DataBlockManager.Field af)
             for (var i = 0; i < af.Elems.Count && i < 51; ++i)
             {
@@ -559,11 +562,11 @@ public sealed partial class Player : GameBase
         Radius = X87.F32(Mul(Sub(BoxMax[2], BoxMin[2]), 0.5f));
         UpdateBoxHeight();
         RecomputeMass();
-        if (mGame.World.Find(this) is Container.Entry e)
+        if (_game.World.Find(this) is Container.Entry e)
         {
             Span<float> box = stackalloc float[6];
             WorldBox(box);
-            mGame.World.SetBox(this, box);
+            _game.World.SetBox(this, box);
             e.Type = ObjectTypeBits;
         }
         else
@@ -599,8 +602,8 @@ public sealed partial class Player : GameBase
                 n = new Vec3(0, 0, 1);
                 return true;
             };
-            mGame.World.Add(entry);
-            mInContainer = true;
+            _game.World.Add(entry);
+            _inContainer = true;
         }
         UpdateContainer();
         SetMaskBits(0x100);
@@ -616,17 +619,17 @@ public sealed partial class Player : GameBase
         // GameBase_setDataBlockName (0x00447d20): a failed resolve restores the old block.
         var old = DataBlockName;
         DataBlockName = StringTable.Global().Intern(name);
-        if (!mAdded)
+        if (!_added)
             return true;
-        if (mGame.ResolveDataBlock(this) && BindDataBlock())
+        if (_game.ResolveDataBlock(this) && BindDataBlock())
         {
-            mGame.ScriptCallback(this, "onInit", Array.Empty<string>());
+            _game.ScriptCallback(this, "onInit", Array.Empty<string>());
             SetMaskBits(0x04);
             return true;
         }
         DataBlockName = old;
-        if (mGame.ResolveDataBlock(this) && BindDataBlock())
-            mGame.ScriptCallback(this, "onInit", Array.Empty<string>());
+        if (_game.ResolveDataBlock(this) && BindDataBlock())
+            _game.ScriptCallback(this, "onInit", Array.Empty<string>());
         return false;
     }
 
@@ -636,16 +639,16 @@ public sealed partial class Player : GameBase
     {
         using var chop = X87.Chop();
         float sum = 0;
-        if (mGame.Sim != null)
+        if (_game.Sim != null)
             foreach (var s in Images)
             {
                 if (s.Item < 0)
                     continue;
-                var item = mGame.Sim.DataBlocks().At(5, s.Item);
+                var item = _game.Sim.DataBlocks().At(5, s.Item);
                 var f = item?.Find("imageType");
                 if (f == null || f.Elems.Count == 0 || !f.Elems[0].Set)
                     continue;
-                if (mGame.Sim.DataBlocks().At(6, f.Elems[0].I) is DataBlockManager.Block image)
+                if (_game.Sim.DataBlocks().At(6, f.Elems[0].I) is DataBlockManager.Block image)
                     sum = X87.F32(Add(sum, FieldFloat(image, "mass", 0)));
             }
         var newMass = X87.F32(Add(PData.Mass, sum));
@@ -655,7 +658,7 @@ public sealed partial class Player : GameBase
         Mass = newMass;
         InvMass = X87.F32(Div(1.0, Mass));
         if (oldMass != 0)
-            foreach (var fc in mForces)
+            foreach (var fc in _forces)
                 if (!fc.Acceleration)
                     for (var i = 0; i < 3; ++i)
                         fc.V[i] = X87.F32(Div(Mul(fc.V[i], oldMass), Mass));
@@ -666,7 +669,7 @@ public sealed partial class Player : GameBase
     /// <remarks>The mass of the prediction is then the server's. The image state machine stays idle (docs/client-net.md 4.4).</remarks>
     public void SetClientItems(ReadOnlySpan<int> items)
     {
-        for (var slot = 0; slot < kImageSlots && slot < items.Length; ++slot)
+        for (var slot = 0; slot < ImageSlots && slot < items.Length; ++slot)
             Images[slot].Item = items[slot];
         RecomputeMass();
     }
@@ -700,13 +703,13 @@ public sealed partial class Player : GameBase
         if (!acceleration)
             for (var i = 0; i < 3; ++i)
                 f.V[i] = X87.F32(Mul(InvMass, f.V[i]));
-        for (var i = 0; i < mForces.Count; ++i)
-            if (mForces[i].Type == type)
+        for (var i = 0; i < _forces.Count; ++i)
+            if (_forces[i].Type == type)
             {
-                mForces[i] = f;
+                _forces[i] = f;
                 return;
             }
-        mForces.Add(f);
+        _forces.Add(f);
     }
 
     /// <summary>Removes a force from the force list.</summary>
@@ -714,10 +717,10 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows 0x005048f4.</remarks>
     public void RemoveForce(uint type)
     {
-        for (var i = 0; i < mForces.Count; ++i)
-            if (mForces[i].Type == type)
+        for (var i = 0; i < _forces.Count; ++i)
+            if (_forces[i].Type == type)
             {
-                mForces.RemoveAt(i);
+                _forces.RemoveAt(i);
                 return;
             }
     }
@@ -726,15 +729,15 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows SimObject::setTransform (0x005054a4). The container change (gravity force) is seen by the next step's updateContainer.</remarks>
     public void RefileBox()
     {
-        if (!mInContainer)
+        if (!_inContainer)
             return;
         Span<float> box = stackalloc float[6];
         WorldBox(box);
         // SimObject_setTransformRaw (0x005054a4) -> SimContainer_setBox (0x004f9a38) runs the database update for an
         // unchanged box too: in the terrain database the object's box ends then move in front of equal ends (the
         // findObjects order of objects with the same max x).
-        if (mGame.World.Find(this) != null)
-            mGame.World.SetBox(this, box);
+        if (_game.World.Find(this) != null)
+            _game.World.SetBox(this, box);
     }
 
     /// <summary>Places the Player on the client ghost without a collision query: the transform is rebuilt from the Euler angles and the position.</summary>
@@ -756,31 +759,31 @@ public sealed partial class Player : GameBase
     /// <summary>Updates the container entry and the gravity of the terrain container (docs/player-sim.md FC2 to FC5).</summary>
     public void UpdateContainer()
     {
-        if (!mInContainer)
+        if (!_inContainer)
             return;
         Span<float> box = stackalloc float[6];
         WorldBox(box);
-        var own = mGame.World.Find(this);
+        var own = _game.World.Find(this);
         if (own == null)
             return;
-        mGame.World.SetBox(this, box);
+        _game.World.SetBox(this, box);
         // FC2/FC3: entering a container inside the terrain adds its gravity, leaving removes it; a move between nested
         // containers does both, which re-appends the entry (FC5).
-        var terrain = mGame.World.TerrainOf(this);
-        var parent = mGame.World.ParentOf(this);
-        if (parent == mParent && terrain == mTerrainContainer)
+        var terrain = _game.World.TerrainOf(this);
+        var parent = _game.World.ParentOf(this);
+        if (parent == _parent && terrain == _terrainContainer)
             return;
-        if (mTerrainContainer != null)
-            RemoveForce(kGravityForce);
+        if (_terrainContainer != null)
+            RemoveForce(GravityForce);
         // SimTerrain_enterContainer (0x005195b4): the gravity force and the container drag (+0x124) are taken on entry.
         // Leaving (0x0051963c) removes the force only, the drag stays.
         if (terrain != null)
         {
-            SetForce(kGravityForce, terrain.Gravity, true);
-            mContainerDrag = terrain.Drag;
+            SetForce(GravityForce, terrain.Gravity, true);
+            _containerDrag = terrain.Drag;
         }
-        mParent = parent;
-        mTerrainContainer = terrain;
+        _parent = parent;
+        _terrainContainer = terrain;
     }
 
     /// <summary>Returns the item counts of a Player control object, or of the Player an ObserverCamera orbits.</summary>
@@ -811,8 +814,8 @@ public sealed partial class Player : GameBase
                 break;
             ++Credit;
             var mv = moves[i];
-            if (mv.UseItem != -1 && mGame.Console != null)
-                mGame.Console.CallFunction("remoteUseItem", new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(mv.UseItem) });
+            if (mv.UseItem != -1 && _game.Console != null)
+                _game.Console.CallFunction("remoteUseItem", new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(mv.UseItem) });
             // The script may have deleted the player (the original would run on freed memory).
             if (m == null || m.FindById(self) != this)
                 return;
@@ -824,9 +827,9 @@ public sealed partial class Player : GameBase
                 TriggerImage(0, false);
             if (AiControlled)
                 LastMove = mv;
-            RepairStep(kDt); // ShapeBase_repairTick (0x0044b610) before every processed move (6.3)
+            RepairStep(Dt); // ShapeBase_repairTick (0x0044b610) before every processed move (6.3)
             UpdateMove(LastMove);
-            UpdateAnimation(kDt);
+            UpdateAnimation(Dt);
             if (!AiControlled)
                 LastMove = mv;
         }
@@ -839,15 +842,15 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows 0x00415108.</remarks>
     public override void ServerTick(uint tickMs)
     {
-        if (!mAdded)
+        if (!_added)
             return;
         if (Credit < -25 || Dead || (!AiControlled && ControlClient == 0))
         {
             LastMove = new Move();
             TicksWithoutMove = 0;
-            RepairStep(kDt); // before the server tick's null move (0x0041514a)
+            RepairStep(Dt); // before the server tick's null move (0x0041514a)
             UpdateMove(LastMove);
-            UpdateAnimation(kDt);
+            UpdateAnimation(Dt);
             if (!(MountId != 0 && MountPoint == 1))
                 SetMaskBits(0x2000); // TK4: not for a pilot (the mounted step sets it, vehicle-sim VQ5)
         }
@@ -874,20 +877,20 @@ public sealed partial class Player : GameBase
         }
         else
         {
-            var r = mGame.Players.FindHuman(ControlClient);
+            var r = _game.Players.FindHuman(ControlClient);
             PdaFlag = !(r != null && r.GuiMirror == 1);
         }
         // Mission area (6.6).
         float[] area = [0, 0, 0, 0];
-        mGame.Players.MissionArea(area);
+        _game.Players.MissionArea(area);
         using var chop = X87.Chop();
         var inside = Transform.P[0] >= area[0] && X87.F32(Add(area[0], area[2])) >= Transform.P[0] && Transform.P[1] >= area[1] &&
                       X87.F32(Add(area[1], area[3])) >= Transform.P[1];
-        if (inside != InMissionArea && mGame.Console != null)
+        if (inside != InMissionArea && _game.Console != null)
         {
             var line = "Player::" + (inside ? "enter" : "leave") + "MissionArea(" + Numbers.FormatInt(Id()) + ");";
             InMissionArea = inside;
-            mGame.Console.Evaluate(line);
+            _game.Console.Evaluate(line);
         }
     }
 
@@ -904,7 +907,7 @@ public sealed partial class Player : GameBase
         if (Block() is DataBlockManager.Block blk)
             ReadLiveData(blk, PData);
         var d = PData;
-        const float dt = kDt;
+        const float dt = Dt;
         var v = Velocity;
         UpdateContainer(); // a script setPosition since the last step (RA7, FC5)
         float[] r0 = [Transform.M[0], Transform.M[1], Transform.M[2]];
@@ -915,7 +918,7 @@ public sealed partial class Player : GameBase
         {
             var mgr = Manager();
             var self = Id();
-            for (var slot = 0; slot < kImageSlots; ++slot)
+            for (var slot = 0; slot < ImageSlots; ++slot)
             {
                 UpdateImageState(slot, dt);
                 if (mgr == null || mgr.FindById(self) != this)
@@ -1012,13 +1015,13 @@ public sealed partial class Player : GameBase
                 for (var i = 0; i < 3; ++i)
                     force[i] = X87.F32(Add(Mul(upForce, r2[i]), X87.F32(Mul(sideForce, dir[i]))));
             }
-            SetForce(kJetForce, force, false);
+            SetForce(JetForce, force, false);
         }
         else
         {
             Jetting = false;
             float[] zero = [0, 0, 0];
-            SetForce(kJetForce, zero, false);
+            SetForce(JetForce, zero, false);
         }
 
         // S5 yaw and pitch (section 4).
@@ -1083,12 +1086,12 @@ public sealed partial class Player : GameBase
         for (var i = 0; i < 3; ++i)
             desired[i] = X87.F32(Add(Add(Mul(side, r0[i]), Mul(fwd, r1[i])), Mul(0.0, r2[i])));
         float[] vOld = [v[0], v[1], v[2]];
-        foreach (var fc in mForces)
+        foreach (var fc in _forces)
             for (var i = 0; i < 3; ++i)
                 v[i] = X87.F32(Add(Mul(fc.V[i], dt), v[i]));
-        if (mContainerDrag != 0.0f)
+        if (_containerDrag != 0.0f)
         {
-            var c = X87.F32(Mul(Mul(d.Drag, mContainerDrag), dt));
+            var c = X87.F32(Mul(Mul(d.Drag, _containerDrag), dt));
             for (var i = 0; i < 3; ++i)
                 v[i] = X87.F32(Sub(v[i], Mul(v[i], c)));
         }
@@ -1174,15 +1177,15 @@ public sealed partial class Player : GameBase
         }
         ContactFlag = false;
         AtRest = false;
-        mMove.Image.Rot = rot.M;
-        mMove.Image.BoxMin = Float3.Of(BoxMin);
-        mMove.Image.BoxMax = Float3.Of(BoxMax);
-        mMove.Image.Radius = Radius;
-        mMove.Dt = kDt;
+        _move.Image.Rot = rot.M;
+        _move.Image.BoxMin = Float3.Of(BoxMin);
+        _move.Image.BoxMax = Float3.Of(BoxMax);
+        _move.Image.Radius = Radius;
+        _move.Dt = Dt;
         BuildCandidates(target);
         float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
         float[] goal = [target[0], target[1], target[2]];
-        var moved = mMove.Run(pos, goal, step0, step1);
+        var moved = _move.Run(pos, goal, step0, step1);
         if (!moved)
         {
             // Three blocked iterations: at rest, v = 0, and the fallback 0x00505720 clears the contact flag
@@ -1193,12 +1196,12 @@ public sealed partial class Player : GameBase
             // SimMovement_moveTo -> SimObject_setTransform (0x00505814): the image is tested at p with a fresh candidate
             // list (v = 0). A hit runs the callback with used = 0 and endTime = 1.0, which sets the contact flag again
             // when the player still touches something; the position stays p.
-            var notified = new List<object>(mMove.Notify);
+            var notified = new List<object>(_move.Notify);
             BuildCandidates(pos);
             var hits = new List<CollisionHit>();
-            for (var it = 0; it < mMove.MaxIterations; ++it)
+            for (var it = 0; it < _move.MaxIterations; ++it)
             {
-                if (mMove.TestAt(pos, hits))
+                if (_move.TestAt(pos, hits))
                     break;
                 var info = new MoveInfo
                 {
@@ -1208,14 +1211,14 @@ public sealed partial class Player : GameBase
                     Current = [pos[0], pos[1], pos[2]],
                     Attempted = [pos[0], pos[1], pos[2]],
                     Target = [pos[0], pos[1], pos[2]],
-                    Candidates = mMove.Candidates,
+                    Candidates = _move.Candidates,
                     Hits = hits,
                     Notify = notified
                 };
                 if (!ProcessCollision(info))
                     break;
             }
-            mMove.Notify = notified;
+            _move.Notify = notified;
         }
         Transform.M = rot.M;
         Transform.Flags = rot.Flags | 3;
@@ -1224,7 +1227,7 @@ public sealed partial class Player : GameBase
         // Collision events to both sides for every notified object (0x00507180).
         // The client prediction posts no events: they run server scripts in the prediction world (client-net.md 4.4).
         if (!ClientSide)
-            foreach (var other in mMove.Notify)
+            foreach (var other in _move.Notify)
             {
                 PostCollision(other as SimObject, this);
                 PostCollision(this, other as SimObject);
@@ -1242,16 +1245,16 @@ public sealed partial class Player : GameBase
         var rot = new Transform();
         float[] euler = [Rotation[0], Rotation[1], Rotation[2]];
         MissionTransform.EulerToMatrix(euler, ref rot);
-        mMove.Image.Rot = rot.M;
-        mMove.Image.BoxMin = Float3.Of(BoxMin);
-        mMove.Image.BoxMax = Float3.Of(BoxMax);
-        mMove.Image.Radius = Radius;
+        _move.Image.Rot = rot.M;
+        _move.Image.BoxMin = Float3.Of(BoxMin);
+        _move.Image.BoxMax = Float3.Of(BoxMax);
+        _move.Image.Radius = Radius;
         BuildCandidates(q);
-        var touch = mMove.OnTouch; // a test posts no collision events
-        mMove.OnTouch = null;
+        var touch = _move.OnTouch; // a test posts no collision events
+        _move.OnTouch = null;
         var hits = new List<CollisionHit>();
-        var free = mMove.TestAt(q, hits);
-        mMove.OnTouch = touch;
+        var free = _move.TestAt(q, hits);
+        _move.OnTouch = touch;
         return free;
     }
 
@@ -1309,19 +1312,19 @@ public sealed partial class Player : GameBase
     // src/game/player.cpp Player::buildCandidates.
     private void BuildCandidates(ReadOnlySpan<float> target)
     {
-        mMove.Candidates.Clear();
+        _move.Candidates.Clear();
         Span<float> query = stackalloc float[6];
-        Collision.SweptBox(BoxMin, BoxMax, target, Velocity, kDt, query);
-        mGame.CollisionCandidates(this, CollisionMask, query, mMove.Candidates);
+        Collision.SweptBox(BoxMin, BoxMax, target, Velocity, Dt, query);
+        _game.CollisionCandidates(this, CollisionMask, query, _move.Candidates);
         // Player bind (0x00410f..: image +0x48 = the shape instance, +0x8c = detail 0, mesh mode): sphere and box images
         // are tested against the Player's own shape in its current pose.
-        mMove.Image.Instance = null;
-        mMove.Image.Detail = 0;
-        mMove.Image.MeshMode = true;
-        foreach (var image in mMove.Candidates)
+        _move.Image.Instance = null;
+        _move.Image.Detail = 0;
+        _move.Image.MeshMode = true;
+        foreach (var image in _move.Candidates)
             if (image.ImageKind is CollisionImage.Kind.TriggerSphere or CollisionImage.Kind.Trigger)
             {
-                mMove.Image.Instance = ShapeState.ShapeInstanceOf(mGame, this);
+                _move.Image.Instance = ShapeState.ShapeInstanceOf(_game, this);
                 break;
             }
     }
@@ -1334,7 +1337,7 @@ public sealed partial class Player : GameBase
         // Step 1: Items, Mines and corpses are notified and never block.
         for (var i = 0; i < hits.Count;)
         {
-            if ((hits[i].Type & kNonBlockingTypes) != 0)
+            if ((hits[i].Type & NonBlockingTypes) != 0)
             {
                 notify.Add(hits[i].Object!);
                 hits.RemoveAt(i);
@@ -1346,8 +1349,8 @@ public sealed partial class Player : GameBase
         }
         // Step 2: up = -normalize(gravity).
         float[] up = [0, 0, 1];
-        foreach (var f in mForces)
-            if (f.Type == kGravityForce)
+        foreach (var f in _forces)
+            if (f.Type == GravityForce)
             {
                 var l = X87.F32(X87.Len(f.V));
                 var k = X87.F32(Div(1.0, l));
@@ -1383,7 +1386,7 @@ public sealed partial class Player : GameBase
             any = ContactResponse(c) || any;
         if (!any)
             return false;
-        var rem = X87.F32(Sub(mMove.Dt, info.Used));
+        var rem = X87.F32(Sub(_move.Dt, info.Used));
         for (var i = 0; i < 3; ++i)
             info.Target![i] = X87.F32(Add(X87.F32(Mul(Velocity[i], rem)), info.Current![i]));
         return true;
@@ -1395,7 +1398,7 @@ public sealed partial class Player : GameBase
         const double kWall = 0.707; // double at 0x00416de4
         var wall = false;
         foreach (var c in contacts)
-            if ((c.Type & kStepUpTypes) != 0 && c.UpDot <= kWall)
+            if ((c.Type & StepUpTypes) != 0 && c.UpDot <= kWall)
                 wall = true;
         if (!wall)
             return false;
@@ -1404,7 +1407,7 @@ public sealed partial class Player : GameBase
         for (var i = 0; i < contacts.Count; ++i)
         {
             var c = contacts[i];
-            if ((c.Type & kStepUpTypes) == 0 || !(c.UpDot >= kWall))
+            if ((c.Type & StepUpTypes) == 0 || !(c.UpDot >= kWall))
                 continue;
             var h = c.StepHeight;
             if (h < 0.0f)
@@ -1422,14 +1425,14 @@ public sealed partial class Player : GameBase
         var response = contacts[best];
         var probe = new SteppedMove
         {
-            Image = mMove.Image,
-            Candidates = [.. mMove.Candidates],
-            OnTouch = mMove.OnTouch
+            Image = _move.Image,
+            Candidates = [.. _move.Candidates],
+            OnTouch = _move.OnTouch
         };
         if (!probe.TestAt(raised, scratch))
             return false;
         ContactResponse(response);
-        var rem = X87.F32(Sub(mMove.Dt, info.EndTime));
+        var rem = X87.F32(Sub(_move.Dt, info.EndTime));
         for (var i = 0; i < 3; ++i)
         {
             info.Current![i] = raised[i];
@@ -1467,7 +1470,7 @@ public sealed partial class Player : GameBase
             if (wasAlive && !Dead && anim != 15)
                 StartAnimation(15);
         }
-        var k = X87.F32(Add(-(double)vn, kSeparation));
+        var k = X87.F32(Add(-(double)vn, Separation));
         for (var i = 0; i < 3; ++i)
             v[i] = X87.F32(Add(X87.F32(Mul(n[i], k)), v[i]));
         if (c.UpDot > 0.0f)
@@ -1478,13 +1481,13 @@ public sealed partial class Player : GameBase
                 v[0] = v[1] = v[2] = 0.0f;
         }
         // CR6: standing on a Moveable (upDot > 0.985) puts the Player on its carry list (0x005067d0).
-        if (c.UpDot > (double)0.985f && (c.Type & ObjectType.kMoveableType) != 0 && c.Object is GameBase m)
+        if (c.UpDot > (double)0.985f && (c.Type & ObjectType.MoveableType) != 0 && c.Object is GameBase m)
             Attach(m);
         return true;
     }
 
     // src/game/player.cpp Player::postCollision.
-    private void PostCollision(SimObject? target, SimObject? sender) => mGame.PostCollisionEvent(target, sender);
+    private void PostCollision(SimObject? target, SimObject? sender) => _game.PostCollisionEvent(target, sender);
 
     // ---- animation (5.3, 5.5 server branch) ----
 
@@ -1522,7 +1525,7 @@ public sealed partial class Player : GameBase
     }
 
     // The 80-bit constant at 0x00411160 rounded to 53 bits (portable build).
-    private static readonly double kLookScale = 0xa6adbac815dcea70UL * Math.ScaleB(1.0, -64);
+    private static readonly double LookScale = 0xa6adbac815dcea70UL * Math.ScaleB(1.0, -64);
 
     /// <summary>Advances the animation, server branch.</summary>
     /// <param name="dt">The step length in seconds.</param>
@@ -1533,7 +1536,7 @@ public sealed partial class Player : GameBase
         // Look thread (0x004108e7..0x00410947): set-sequence resets the position to 0 every call, then the position is
         // set from the pitch unless it is exactly 0.
         {
-            var target = X87.F32(Add(Mul(Mul(-(double)Pitch, kLookScale), 0.5f), 0.5f));
+            var target = X87.F32(Add(Mul(Mul(-(double)Pitch, LookScale), 0.5f), 0.5f));
             Pose.CrouchLooks = Crouching;
             Pose.LookSet = true;
             Pose.LookPosition = target != 0.0f ? X87.F32(Add(X87.F32(Sub(target, 0.0f)), 0.0f)) : 0.0f;
@@ -1619,8 +1622,8 @@ public sealed partial class Player : GameBase
                                      ReadOnlySpan<float> mom, int source)
     {
         LastDamage = value;
-        var fn = mGame.VirtualFunction(this, "onDamage");
-        if (fn.Length == 0 || mGame.Console == null)
+        var fn = _game.VirtualFunction(this, "onDamage");
+        if (fn.Length == 0 || _game.Console == null)
             return;
         using var chop = X87.Chop();
         // Hit location (0x00413074): pos in object space.
@@ -1661,7 +1664,7 @@ public sealed partial class Player : GameBase
                       " " + G(pos[1]) + " " + G(pos[2]) + "\",\"" + G(vec[0]) + " " + G(vec[1]) + " " + G(vec[2]) +
                       "\",\"" + G(mom[0]) + " " + G(mom[1]) + " " + G(mom[2]) + "\"," + vert + "," + quad + "," +
                       Numbers.FormatInt(source) + ");";
-        mGame.Console.Evaluate(line);
+        _game.Console.Evaluate(line);
     }
 
     /// <summary>Sets the damage level.</summary>
@@ -1685,9 +1688,9 @@ public sealed partial class Player : GameBase
         {
             Dead = false;
             SetMaskBits(0x100);
-            ObjectTypeBits = ObjectType.kPlayerType;
-            CollisionMask = kLiveMask;
-            if (mGame.World.Find(this) is Container.Entry e)
+            ObjectTypeBits = ObjectType.PlayerType;
+            CollisionMask = LiveMask;
+            if (_game.World.Find(this) is Container.Entry e)
                 e.Type = ObjectTypeBits;
         }
     }
@@ -1724,7 +1727,7 @@ public sealed partial class Player : GameBase
         {
             object? hit = null;
             Vec3 hp = default, n = default;
-            if (!mGame.World.CastRay(new Vec3(pos[0], pos[1], pos[2]), new Vec3(e[0], e[1], e[2]), 0x800086u, this, ref hit, ref hp, ref n))
+            if (!_game.World.CastRay(new Vec3(pos[0], pos[1], pos[2]), new Vec3(e[0], e[1], e[2]), 0x800086u, this, ref hit, ref hp, ref n))
                 cover = AddF(cover, 0.25f);
         }
         return cover;
@@ -1744,21 +1747,21 @@ public sealed partial class Player : GameBase
         RaySkip = true;
         Damage = MaxDamage;
         SetMaskBits(0x100);
-        mGame.SensorJam(this, false); // Player_kill 0x004112ac unlinks; the radius stays
+        _game.SensorJam(this, false); // Player_kill 0x004112ac unlinks; the radius stays
         DeathTime = Manager() != null ? Manager()!.Time() : 0;
         var self = Id();
         var m = Manager();
-        mGame.ScriptCallback(this, "onKilled", Array.Empty<string>());
+        _game.ScriptCallback(this, "onKilled", Array.Empty<string>());
         if (m == null || m.FindById(self) != this)
             return; // the script deleted the player
-        ObjectTypeBits = kCorpseType;
-        CollisionMask = kDeadMask;
-        if (mGame.World.Find(this) is Container.Entry e)
+        ObjectTypeBits = CorpseType;
+        CollisionMask = DeadMask;
+        if (_game.World.Find(this) is Container.Entry e)
             e.Type = ObjectTypeBits;
         // Timer event 0x401 value 200 at time + 4.0: releases every image trigger.
         m.PostEvent(this, Store(Add(m.Time(), 4.0)), () =>
         {
-            for (var slot = 0; slot < kImageSlots; ++slot)
+            for (var slot = 0; slot < ImageSlots; ++slot)
                 TriggerImage(slot, false);
         });
         Jetting = false;
@@ -1769,7 +1772,7 @@ public sealed partial class Player : GameBase
     /// <summary>Returns the count of an item type.</summary>
     /// <param name="type">The item type.</param>
     /// <returns>The count, 0 for a type out of range.</returns>
-    public int ItemCountOf(int type) => type is < 0 or >= kItemTypes ? 0 : Counts[type];
+    public int ItemCountOf(int type) => type is < 0 or >= ItemTypes ? 0 : Counts[type];
 
     /// <summary>Sets the count of an item type.</summary>
     /// <param name="type">The item type.</param>
@@ -1778,7 +1781,7 @@ public sealed partial class Player : GameBase
     public int SetItemCount(int type, int count)
     {
         // The original has no upper bound on the type (7.1 F2); out-of-table types are refused.
-        if (type is < 0 or >= kItemTypes)
+        if (type is < 0 or >= ItemTypes)
             return 0;
         Counts[type] = Math.Max(count, 0);
         if (Counts[type] == 0 && SlotOf[type] >= 0)
@@ -1793,20 +1796,20 @@ public sealed partial class Player : GameBase
     /// <remarks>Follows Player_findItemCallback (0x004191a0): <c>&lt;item&gt;::event</c>, <c>&lt;className&gt;::event</c>, <c>item::event</c>.</remarks>
     public void ItemCallback(int type, string ev, string? extra = null)
     {
-        var item = mGame.Sim?.DataBlocks().At(5, type);
-        if (item == null || mGame.Console == null)
+        var item = _game.Sim?.DataBlocks().At(5, type);
+        if (item == null || _game.Console == null)
             return;
         var names = new List<string> { item.Name + "::" + ev };
-        if (mGame.Sim!.DataBlocks().GetField(item, "className", "", out var cls) && cls.Length != 0)
+        if (_game.Sim!.DataBlocks().GetField(item, "className", "", out var cls) && cls.Length != 0)
             names.Add(cls + "::" + ev);
         names.Add("item::" + ev);
         foreach (var fn in names)
-            if (mGame.Console.HasFunction(fn))
+            if (_game.Console.HasFunction(fn))
             {
                 var args = new List<string> { Numbers.FormatInt(Id()), item.Name };
                 if (extra != null)
                     args.Add(extra);
-                mGame.Console.CallFunction(fn, args);
+                _game.Console.CallFunction(fn, args);
                 return;
             }
     }
@@ -1817,27 +1820,27 @@ public sealed partial class Player : GameBase
     public sealed class ClientControl
     {
         /// <summary>The yaw.</summary>
-        public float Yaw;
+        public float Yaw { get; set; }
         /// <summary>True when the state carries a position, which a mounted Player does not.</summary>
-        public bool HasPosition;
+        public bool HasPosition { get; set; }
         /// <summary>The position.</summary>
-        public readonly float[] Position = new float[3];
+        public float[] Position { get; } = new float[3];
         /// <summary>The velocity.</summary>
-        public readonly float[] Vel = new float[3];
+        public float[] Vel { get; } = new float[3];
         /// <summary>The pitch.</summary>
-        public float Pitch;
+        public float Pitch { get; set; }
         /// <summary>The energy.</summary>
-        public float Energy;
+        public float Energy { get; set; }
         /// <summary>True on contact.</summary>
-        public bool Contact;
+        public bool Contact { get; set; }
         /// <summary>True while jetting.</summary>
-        public bool Jetting;
+        public bool Jetting { get; set; }
         /// <summary>True while crouching.</summary>
-        public bool Crouch;
+        public bool Crouch { get; set; }
         /// <summary>The raw unit(7) traction.</summary>
-        public uint Traction7;
+        public uint Traction7 { get; set; }
         /// <summary>The jump contact, int(4).</summary>
-        public int JumpContact;
+        public int JumpContact { get; set; }
     }
 
     /// <summary>Applies a control state read from the stream to the client copy.</summary>

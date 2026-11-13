@@ -128,7 +128,7 @@ public static class VideoOptions
 public sealed class FullscreenWindowedLabel : GuiSimpleText
 {
     /// <summary>The check box this label belongs to.</summary>
-    public GuiUniversalButton? Box;
+    public GuiUniversalButton? Box { get; set; }
     /// <inheritdoc/>
     public override bool WantsTab => false;
     /// <inheritdoc/>

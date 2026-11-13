@@ -54,7 +54,7 @@ public sealed class WorldAssets
     public ResourceManager Res { get; }
     /// <summary>The world palette.</summary>
     public PaletteBank Palette { get; set; }
-    private byte[] mGammaTable = PaletteTables.GammaTable(1f);
+    private byte[] _gammaTable = PaletteTables.GammaTable(1f);
 
     /// <summary>The display gamma (<c>$pref::Display::gammaValue</c>).</summary>
     /// <remarks>The table 005d4880 builds serves every texture upload of the surface (005d3ecc), world and GUI alike. The upload routines 005d5164, 005d5784, 005d5a3c, 005d5e34, 005d7148 and 005d7674 read the same per palette tables.</remarks>
@@ -66,10 +66,10 @@ public sealed class WorldAssets
             if (value == field)
                 return;
             field = value;
-            mGammaTable = PaletteTables.GammaTable(value);
+            _gammaTable = PaletteTables.GammaTable(value);
         }
     } = 1f;
-    private readonly Dictionary<string, PbmpBitmap?> mBitmaps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PbmpBitmap?> _bitmaps = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Creates the loader.</summary>
     /// <param name="res">The resources to load from.</param>
@@ -85,8 +85,8 @@ public sealed class WorldAssets
     /// <returns>The bitmap, or null when it is missing.</returns>
     public PbmpBitmap? Bitmap(string name)
     {
-        if (!mBitmaps.TryGetValue(name, out var b))
-            mBitmaps[name] = b = GfxAssets.LoadBitmap(Res, name);
+        if (!_bitmaps.TryGetValue(name, out var b))
+            _bitmaps[name] = b = GfxAssets.LoadBitmap(Res, name);
         return b;
     }
 
@@ -103,7 +103,7 @@ public sealed class WorldAssets
     /// <remarks>renderer.md 3.4. For opaque, world-render.md 2.4 and 3.3.</remarks>
     public byte[] Rgba(PbmpBitmap bmp, bool opaque)
     {
-        var rgba = PaletteTables.ToRgba(bmp, Palette.FindSubPalette(bmp.PaletteId), mGammaTable);
+        var rgba = PaletteTables.ToRgba(bmp, Palette.FindSubPalette(bmp.PaletteId), _gammaTable);
         if (opaque)
             for (var i = 3; i < rgba.Length; i += 4)
                 rgba[i] = 255;
@@ -141,7 +141,7 @@ public sealed class WorldAssets
             level.Pixels = new byte[stride * h];
             for (var y = 0; y < h; ++y)
                 Array.Copy(bmp.MipLevels[k - 1], y * w, level.Pixels, y * stride, w);
-            var rgba = PaletteTables.ToRgba(level, sub, mGammaTable);
+            var rgba = PaletteTables.ToRgba(level, sub, _gammaTable);
             if (opaque)
                 for (var i = 3; i < rgba.Length; i += 4)
                     rgba[i] = 255;

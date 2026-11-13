@@ -9,29 +9,38 @@ public sealed class SmokePool
 {
     private sealed class Puff
     {
-        public RenderInstance Inst = null!;
-        public RenderThread Thread = null!;
-        public double X, Y, Z, Scale, Vx, Vy, Vz, Age, Life, Roll;
-        public bool Active;
+        public RenderInstance Inst { get; set; } = null!;
+        public RenderThread Thread { get; set; } = null!;
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+        public double Scale { get; set; }
+        public double Vx { get; set; }
+        public double Vy { get; set; }
+        public double Vz { get; set; }
+        public double Age { get; set; }
+        public double Life { get; set; }
+        public double Roll { get; set; }
+        public bool Active { get; set; }
     }
 
-    private readonly Puff[] mRing;
-    private int mNext;
-    private readonly Random mRoll = new(0x8377);
+    private readonly Puff[] _ring;
+    private int _next;
+    private readonly Random _roll = new(0x8377);
     /// <summary>The size of the ring.</summary>
-    public int Capacity => mRing.Length;
+    public int Capacity => _ring.Length;
 
     /// <summary>Creates the pool.</summary>
     /// <param name="capacity">The size of the ring.</param>
     public SmokePool(int capacity = 100)
     {
-        mRing = new Puff[Math.Max(capacity, 1)];
-        for (var i = 0; i < mRing.Length; ++i)
-            mRing[i] = new Puff();
+        _ring = new Puff[Math.Max(capacity, 1)];
+        for (var i = 0; i < _ring.Length; ++i)
+            _ring[i] = new Puff();
     }
 
     /// <summary>The number of live puffs.</summary>
-    public int Live => mRing.Count(p => p.Active);
+    public int Live => _ring.Count(p => p.Active);
 
     /// <summary>Starts a puff in the next ring slot, evicting the oldest live puff.</summary>
     /// <param name="shape">The puff shape.</param>
@@ -45,15 +54,15 @@ public sealed class SmokePool
     /// <remarks>Follows FUN_0045b4a4: takes the next ring slot and plays Sequence01 once. The puff keeps drifting with the velocity and is removed <paramref name="scale"/> seconds after the spawn (+0x04 deadline = ftol(scale * 1000) + now, FUN_0045b070 reads it), whichever of that and the sequence end comes first. The roll about the view axis is random (+0x98, 0 to 2 pi).</remarks>
     public void Spawn(RenderShape shape, double x, double y, double z, double scale = 1, double vx = 0, double vy = 0, double vz = 0)
     {
-        var p = mRing[mNext];
-        mNext = (mNext + 1) % mRing.Length;
+        var p = _ring[_next];
+        _next = (_next + 1) % _ring.Length;
         var seq = shape.FindSequence("Sequence01");
         if (seq < 0)
             seq = shape.Sequences.Length > 0 ? 0 : -1;
         p.Inst = new RenderInstance(shape);
         p.Thread = p.Inst.AddThread(seq, 0, 0);
         (p.X, p.Y, p.Z, p.Scale, p.Active) = (x, y, z, scale, true);
-        (p.Vx, p.Vy, p.Vz, p.Age, p.Life, p.Roll) = (vx, vy, vz, 0, scale, mRoll.NextDouble() * 2 * Math.PI);
+        (p.Vx, p.Vy, p.Vz, p.Age, p.Life, p.Roll) = (vx, vy, vz, 0, scale, _roll.NextDouble() * 2 * Math.PI);
     }
 
     /// <summary>Removes every puff inside a radius, because a projectile exploded (FUN_0045b6d4).</summary>
@@ -65,7 +74,7 @@ public sealed class SmokePool
     public int RemoveInside(double x, double y, double z, double radius)
     {
         var n = 0;
-        foreach (var p in mRing)
+        foreach (var p in _ring)
         {
             if (!p.Active)
                 continue;
@@ -83,7 +92,7 @@ public sealed class SmokePool
     /// <param name="dt">The time step in seconds.</param>
     public void Tick(double dt)
     {
-        foreach (var p in mRing)
+        foreach (var p in _ring)
         {
             if (!p.Active)
                 continue;
@@ -104,7 +113,7 @@ public sealed class SmokePool
     /// <param name="ctx">The frame context.</param>
     public void Build(FrameContext ctx)
     {
-        foreach (var p in mRing)
+        foreach (var p in _ring)
         {
             if (!p.Active)
                 continue;

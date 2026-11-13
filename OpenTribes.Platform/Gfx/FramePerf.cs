@@ -18,30 +18,33 @@ public static class FramePerf
 {
     private sealed class Acc
     {
-        public double Ms;
-        public long Draws, Tris, Count, Bytes;
+        public double Ms { get; set; }
+        public long Draws { get; set; }
+        public long Tris { get; set; }
+        public long Count { get; set; }
+        public long Bytes { get; set; }
     }
 
-    private static readonly Dictionary<string, Acc> sSections = [];
-    private static readonly List<string> sOrder = [];
-    private static readonly List<double> sFrameMs = [];
-    private static readonly StringBuilder sFrameDetail = new();
-    private static int sGcAtFrame;
-    private static TimeSpan sPauseAtFrame, sPauseStart;
+    private static readonly Dictionary<string, Acc> Sections = [];
+    private static readonly List<string> Order = [];
+    private static readonly List<double> FrameMs = [];
+    private static readonly StringBuilder FrameDetail = new();
+    private static int _gcAtFrame;
+    private static TimeSpan _pauseAtFrame, _pauseStart;
     private const double SpikeMs = 30;
-    private static long sFrameStart, sAllocStart;
-    private static int sGc0, sGc1, sGc2;
-    private static int sFrames;
-    private static readonly double sTickMs = 1000.0 / Stopwatch.Frequency;
+    private static long _frameStart, _allocStart;
+    private static int _gc0, _gc1, _gc2;
+    private static int _frames;
+    private static readonly double TickMs = 1000.0 / Stopwatch.Frequency;
 
     /// <summary>Gets the number of frames per report, 0 when off.</summary>
     public static int ReportEvery { get; private set; } = ParseEvery();
     /// <summary>Gets whether the log is on.</summary>
     public static bool On => ReportEvery > 0;
     /// <summary>The device whose draw counters the sections record.</summary>
-    public static IGfxStats? Device;
+    public static IGfxStats? Device { get; set; }
     /// <summary>The writer the reports go to.</summary>
-    public static TextWriter Out = Console.Error;
+    public static TextWriter Out { get; set; } = Console.Error;
 
     private static int ParseEvery() => int.TryParse(Environment.GetEnvironmentVariable("OT_PERF"), out var n) && n > 0 ? n : 0;
 
@@ -52,36 +55,36 @@ public static class FramePerf
     /// <summary>A timed section. Dispose it to record the time.</summary>
     public readonly struct Section : IDisposable
     {
-        private readonly string? mName;
-        private readonly long mStart, mDraws, mTris, mBytes;
+        private readonly string? _name;
+        private readonly long _start, _draws, _tris, _bytes;
 
         /// <summary>Starts a section.</summary>
         /// <param name="name">The section name.</param>
         public Section(string name)
         {
-            mName = name;
-            mStart = Stopwatch.GetTimestamp();
-            mDraws = Device?.DrawCalls ?? 0;
-            mTris = Device?.Triangles ?? 0;
-            mBytes = GC.GetAllocatedBytesForCurrentThread();
+            _name = name;
+            _start = Stopwatch.GetTimestamp();
+            _draws = Device?.DrawCalls ?? 0;
+            _tris = Device?.Triangles ?? 0;
+            _bytes = GC.GetAllocatedBytesForCurrentThread();
         }
 
         /// <summary>Records the section.</summary>
         public void Dispose()
         {
-            if (mName == null)
+            if (_name == null)
                 return;
             var end = Stopwatch.GetTimestamp();
-            if (!sSections.TryGetValue(mName, out var a))
+            if (!Sections.TryGetValue(_name, out var a))
             {
-                sSections[mName] = a = new Acc();
-                sOrder.Add(mName);
+                Sections[_name] = a = new Acc();
+                Order.Add(_name);
             }
-            a.Ms += (end - mStart) * sTickMs;
-            a.Draws += (Device?.DrawCalls ?? 0) - mDraws;
-            a.Tris += (Device?.Triangles ?? 0) - mTris;
-            a.Bytes += GC.GetAllocatedBytesForCurrentThread() - mBytes;
-            sFrameDetail.Append($" {mName} {(end - mStart) * sTickMs:F1}");
+            a.Ms += (end - _start) * TickMs;
+            a.Draws += (Device?.DrawCalls ?? 0) - _draws;
+            a.Tris += (Device?.Triangles ?? 0) - _tris;
+            a.Bytes += GC.GetAllocatedBytesForCurrentThread() - _bytes;
+            FrameDetail.Append($" {_name} {(end - _start) * TickMs:F1}");
             ++a.Count;
         }
     }
@@ -97,42 +100,42 @@ public static class FramePerf
         if (!On)
             return;
         var now = Stopwatch.GetTimestamp();
-        if (sFrameStart != 0)
+        if (_frameStart != 0)
         {
-            var ms = (now - sFrameStart) * sTickMs;
-            sFrameMs.Add(ms);
+            var ms = (now - _frameStart) * TickMs;
+            FrameMs.Add(ms);
             if (ms > SpikeMs)
-                Out.WriteLine($"perf spike {ms:F1} ms (gc2 +{GC.CollectionCount(2) - sGcAtFrame}, gc pause {(GC.GetTotalPauseDuration() - sPauseAtFrame).TotalMilliseconds:F1} ms):{sFrameDetail}");
+                Out.WriteLine($"perf spike {ms:F1} ms (gc2 +{GC.CollectionCount(2) - _gcAtFrame}, gc pause {(GC.GetTotalPauseDuration() - _pauseAtFrame).TotalMilliseconds:F1} ms):{FrameDetail}");
         }
-        sFrameDetail.Clear();
-        sGcAtFrame = GC.CollectionCount(2);
-        sPauseAtFrame = GC.GetTotalPauseDuration();
-        sFrameStart = now;
-        if (sFrameMs.Count >= ReportEvery)
+        FrameDetail.Clear();
+        _gcAtFrame = GC.CollectionCount(2);
+        _pauseAtFrame = GC.GetTotalPauseDuration();
+        _frameStart = now;
+        if (FrameMs.Count >= ReportEvery)
             Report();
-        if (sFrameMs.Count == 0 && sFrames == 0)
+        if (FrameMs.Count == 0 && _frames == 0)
         {
-            sAllocStart = GC.GetAllocatedBytesForCurrentThread();
-            (sGc0, sGc1, sGc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
-            sPauseStart = GC.GetTotalPauseDuration();
+            _allocStart = GC.GetAllocatedBytesForCurrentThread();
+            (_gc0, _gc1, _gc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
+            _pauseStart = GC.GetTotalPauseDuration();
         }
-        ++sFrames;
+        ++_frames;
     }
 
     private static void Report()
     {
-        var n = sFrameMs.Count;
+        var n = FrameMs.Count;
         double sum = 0;
-        foreach (var d in sFrameMs)
+        foreach (var d in FrameMs)
             sum += d;
-        sFrameMs.Sort();
-        double avg = sum / n, p95 = sFrameMs[Math.Min(n - 1, (int)(n * 0.95))], max = sFrameMs[n - 1];
-        var alloc = GC.GetAllocatedBytesForCurrentThread() - sAllocStart;
+        FrameMs.Sort();
+        double avg = sum / n, p95 = FrameMs[Math.Min(n - 1, (int)(n * 0.95))], max = FrameMs[n - 1];
+        var alloc = GC.GetAllocatedBytesForCurrentThread() - _allocStart;
         var sb = new StringBuilder();
-        sb.Append($"perf {n} frames: {avg:F2} ms avg ({1000 / avg:F0} fps) p95 {p95:F2} max {max:F2} | alloc {alloc / (double)n / 1024:F0} KB/frame gc {GC.CollectionCount(0) - sGc0}/{GC.CollectionCount(1) - sGc1}/{GC.CollectionCount(2) - sGc2} pause {(GC.GetTotalPauseDuration() - sPauseStart).TotalMilliseconds / n:F2} ms/frame");
-        foreach (var name in sOrder)
+        sb.Append($"perf {n} frames: {avg:F2} ms avg ({1000 / avg:F0} fps) p95 {p95:F2} max {max:F2} | alloc {alloc / (double)n / 1024:F0} KB/frame gc {GC.CollectionCount(0) - _gc0}/{GC.CollectionCount(1) - _gc1}/{GC.CollectionCount(2) - _gc2} pause {(GC.GetTotalPauseDuration() - _pauseStart).TotalMilliseconds / n:F2} ms/frame");
+        foreach (var name in Order)
         {
-            var a = sSections[name];
+            var a = Sections[name];
             sb.Append($" | {name} {a.Ms / n:F2}ms");
             if (a.Draws > 0 || a.Tris > 0)
                 sb.Append($" {a.Draws / (double)n:F0}dc {a.Tris / (double)n:F0}tri");
@@ -142,9 +145,9 @@ public static class FramePerf
             a.Draws = a.Tris = a.Count = a.Bytes = 0;
         }
         Out.WriteLine(sb.ToString());
-        sFrameMs.Clear();
-        sAllocStart = GC.GetAllocatedBytesForCurrentThread();
-        (sGc0, sGc1, sGc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
-        sPauseStart = GC.GetTotalPauseDuration();
+        FrameMs.Clear();
+        _allocStart = GC.GetAllocatedBytesForCurrentThread();
+        (_gc0, _gc1, _gc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
+        _pauseStart = GC.GetTotalPauseDuration();
     }
 }

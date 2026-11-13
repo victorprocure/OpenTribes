@@ -8,14 +8,14 @@ using static OpenTribes.Core.Fpu;
 [InlineArray(3)]
 public struct Int3
 {
-    private int mElement;
+    private int _element;
 }
 
 /// <summary>Four shorts stored inline.</summary>
 [InlineArray(4)]
 public struct Short4
 {
-    private short mElement;
+    private short _element;
 }
 
 /// <summary>A node transform (TMat3F, docs/collision.md T1.1).</summary>
@@ -23,11 +23,13 @@ public struct Short4
 public struct TMat3
 {
     /// <summary>The flag bits.</summary>
-    public uint Flags;
+    public uint Flags { get; set; }
     /// <summary>The 3x3 matrix.</summary>
-    public Float9 M;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float9 M => ref _m;
+    private Float9 _m;
     /// <summary>The translation.</summary>
-    public Float3 P;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 P => ref _p;
+    private Float3 _p;
 
     /// <summary>Creates an identity transform.</summary>
     public TMat3()
@@ -42,11 +44,11 @@ public struct TMat3
 public sealed class ShapeSequence
 {
     /// <summary>The sequence name.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>Whether the sequence loops.</summary>
-    public bool Cyclic;
+    public bool Cyclic { get; set; }
     /// <summary>The duration in seconds.</summary>
-    public float Duration;
+    public float Duration { get; set; }
 }
 
 /// <summary>The animation data the server uses (docs/interiors.md 8.2, docs/game-stream-ghosts.md 4.2): sequence names, cyclic flags and durations for the ShapeBase threads, and the node rotations a turret reads for its elevation limits.</summary>
@@ -56,43 +58,52 @@ public sealed class ShapeAnim
     public struct Node
     {
         /// <summary>The name index, the parent node, the number of sub-sequences, the first sub-sequence and the default transform.</summary>
-        public int Name, Parent, NumSub, FirstSub, DefaultTransform;
+        public int Name { get; set; }
+        public int Parent { get; set; }
+        public int NumSub { get; set; }
+        public int FirstSub { get; set; }
+        public int DefaultTransform { get; set; }
     }
     /// <summary>The sub-sequence of a node or object within one sequence.</summary>
     public struct SubSequence
     {
         /// <summary>The sequence index, the number of keys and the first key.</summary>
-        public int Sequence, NumKeys, FirstKey;
+        public int Sequence { get; set; }
+        public int NumKeys { get; set; }
+        public int FirstKey { get; set; }
     }
     /// <summary>A keyframe.</summary>
     public struct Key
     {
         /// <summary>The position within the sequence.</summary>
-        public float Position;
+        public float Position { get; set; }
         /// <summary>The index of the key's rotation.</summary>
-        public uint Transform;
+        public uint Transform { get; set; }
     }
     /// <summary>A rotation quaternion.</summary>
     public struct Quat
     {
         /// <summary>The quaternion components.</summary>
-        public float X, Y, Z, W;
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float Z { get; set; }
+        public float W { get; set; }
     }
 
     /// <summary>The sequences.</summary>
-    public List<ShapeSequence> Sequences = [];
+    public List<ShapeSequence> Sequences { get; set; } = [];
     /// <summary>The name table.</summary>
-    public List<string> Names = [];
+    public List<string> Names { get; set; } = [];
     /// <summary>The name index of each sequence.</summary>
-    public List<int> SequenceNames = [];
+    public List<int> SequenceNames { get; set; } = [];
     /// <summary>The nodes.</summary>
-    public List<Node> Nodes = [];
+    public List<Node> Nodes { get; set; } = [];
     /// <summary>The sub-sequences.</summary>
-    public List<SubSequence> SubSequences = [];
+    public List<SubSequence> SubSequences { get; set; } = [];
     /// <summary>The keyframes.</summary>
-    public List<Key> Keys = [];
+    public List<Key> Keys { get; set; } = [];
     /// <summary>The key rotations.</summary>
-    public List<Quat> Rotations = [];
+    public List<Quat> Rotations { get; set; } = [];
 
     /// <summary>Finds a sequence by name (005b9798).</summary>
     /// <param name="name">The sequence name, matched ASCII case-insensitively.</param>
@@ -175,43 +186,51 @@ public sealed class ShapeModel
     public struct Node
     {
         /// <summary>The name index, the parent node, the number of sub-sequences, the first sub-sequence and the default transform.</summary>
-        public short Name, Parent, NumSub, FirstSub, DefaultTransform;
+        public short Name { get; set; }
+        public short Parent { get; set; }
+        public short NumSub { get; set; }
+        public short FirstSub { get; set; }
+        public short DefaultTransform { get; set; }
     }
     /// <summary>An animation sequence.</summary>
     public struct Sequence
     {
         /// <summary>The name index.</summary>
-        public int Name;
+        public int Name { get; set; }
         /// <summary>Whether the sequence loops.</summary>
-        public bool Cyclic;
+        public bool Cyclic { get; set; }
         /// <summary>The duration in seconds.</summary>
-        public float Duration;
+        public float Duration { get; set; }
         /// <summary>The priority.</summary>
-        public int Priority;
+        public int Priority { get; set; }
     }
     /// <summary>The sub-sequence of a node or object within one sequence.</summary>
     public struct SubSequence
     {
         /// <summary>The sequence index, the number of keys and the first key.</summary>
-        public short Sequence, NumKeys, FirstKey;
+        public short Sequence { get; set; }
+        public short NumKeys { get; set; }
+        public short FirstKey { get; set; }
     }
     /// <summary>A keyframe.</summary>
     public struct Key
     {
         /// <summary>The position within the sequence.</summary>
-        public float Position;
+        public float Position { get; set; }
         /// <summary>The transform index for node keys, or the frame index for object keys.</summary>
-        public ushort Index;
+        public ushort Index { get; set; }
         /// <summary>The key flags: 0x8000 visible, 0x4000 visibility valid, 0x2000 material valid, 0x1000 frame valid.</summary>
-        public ushort Flags;
+        public ushort Flags { get; set; }
     }
     /// <summary>A stored node transform.</summary>
     public struct Transform
     {
         /// <summary>The packed rotation quaternion.</summary>
-        public Short4 Q;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Short4 Q => ref _q;
+        private Short4 _q;
         /// <summary>The translation.</summary>
-        public Float3 T;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 T => ref _t;
+        private Float3 _t;
 
         /// <summary>Creates a default transform.</summary>
         public Transform()
@@ -225,61 +244,71 @@ public sealed class ShapeModel
     public struct Object
     {
         /// <summary>The name index.</summary>
-        public short Name;
+        public short Name { get; set; }
         /// <summary>The object flags.</summary>
-        public ushort Flags;
+        public ushort Flags { get; set; }
         /// <summary>The mesh index.</summary>
-        public int Mesh;
+        public int Mesh { get; set; }
         /// <summary>The node the object hangs on.</summary>
-        public short Node;
+        public short Node { get; set; }
         /// <summary>The offset from the node.</summary>
-        public Float3 Offset;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Offset => ref _offset;
+        private Float3 _offset;
         /// <summary>The number of sub-sequences and the first sub-sequence.</summary>
-        public short NumSub, FirstSub;
+        public short NumSub { get; set; }
+        public short FirstSub { get; set; }
     }
     /// <summary>A level of detail.</summary>
     public struct Detail
     {
         /// <summary>The root node of the detail subtree.</summary>
-        public int RootNode;
+        public int RootNode { get; set; }
         /// <summary>The detail size.</summary>
-        public float Size;
+        public float Size { get; set; }
     }
     /// <summary>A transition between two sequences.</summary>
     public struct Transition
     {
         /// <summary>The start and end sequences.</summary>
-        public int StartSequence, EndSequence;
+        public int StartSequence { get; set; }
+        public int EndSequence { get; set; }
         /// <summary>The start and end positions and the duration.</summary>
-        public float StartPosition, EndPosition, Duration;
+        public float StartPosition { get; set; }
+        public float EndPosition { get; set; }
+        public float Duration { get; set; }
         /// <summary>The transform of the transition.</summary>
-        public Transform Transform;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Transform Transform => ref _transform;
+        private Transform _transform;
     }
     /// <summary>A mesh face.</summary>
     public struct Face
     {
         /// <summary>The vertex indices.</summary>
-        public Int3 V;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Int3 V => ref _v;
+        private Int3 _v;
         /// <summary>The material index.</summary>
-        public int Material;
+        public int Material { get; set; }
     }
     /// <summary>A mesh frame.</summary>
     public struct Frame
     {
         /// <summary>The index of the frame's first vertex.</summary>
-        public int FirstVert;
+        public int FirstVert { get; set; }
         /// <summary>The scale and origin that decode the packed vertices.</summary>
-        public Float3 Scale, Origin;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Scale => ref _scale;
+        private Float3 _scale;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Origin => ref _origin;
+        private Float3 _origin;
     }
     /// <summary>A cel animation mesh.</summary>
     public sealed class Mesh
     {
         /// <summary>The packed vertices, 4 bytes each: x, y, z and the normal index.</summary>
-        public byte[] Verts = [];
+        public byte[] Verts { get; set; } = [];
         /// <summary>The faces.</summary>
-        public Face[] Faces = [];
+        public Face[] Faces { get; set; } = [];
         /// <summary>The frames.</summary>
-        public Frame[] Frames = [];
+        public Frame[] Frames { get; set; } = [];
 
         /// <summary>Decodes one vertex of a frame (docs/collision.md T2.7).</summary>
         /// <param name="f">The frame.</param>
@@ -298,35 +327,37 @@ public sealed class ShapeModel
     }
 
     /// <summary>The file version.</summary>
-    public uint Version;
+    public uint Version { get; set; }
     /// <summary>The bounding sphere radius.</summary>
-    public float Radius;
+    public float Radius { get; set; }
     /// <summary>The bounding sphere centre.</summary>
-    public Float3 Center;
+    public ref Float3 Center => ref _center;
+    private Float3 _center;
     /// <summary>The shape box, min xyz then max xyz.</summary>
-    public Float6 Box;
+    public ref Float6 Box => ref _box;
+    private Float6 _box;
     /// <summary>The "always" node (TS::Shape +0xe4, version 6 and up), -1 when none.</summary>
-    public int AlwaysNode = -1;
+    public int AlwaysNode { get; set; } = -1;
     /// <summary>The nodes.</summary>
-    public Node[] Nodes = [];
+    public Node[] Nodes { get; set; } = [];
     /// <summary>The sequences.</summary>
-    public Sequence[] Sequences = [];
+    public Sequence[] Sequences { get; set; } = [];
     /// <summary>The sub-sequences.</summary>
-    public SubSequence[] SubSequences = [];
+    public SubSequence[] SubSequences { get; set; } = [];
     /// <summary>The keyframes.</summary>
-    public Key[] Keys = [];
+    public Key[] Keys { get; set; } = [];
     /// <summary>The transforms.</summary>
-    public Transform[] Transforms = [];
+    public Transform[] Transforms { get; set; } = [];
     /// <summary>The name table.</summary>
-    public string[] Names = [];
+    public string[] Names { get; set; } = [];
     /// <summary>The objects.</summary>
-    public Object[] Objects = [];
+    public Object[] Objects { get; set; } = [];
     /// <summary>The details.</summary>
-    public Detail[] Details = [];
+    public Detail[] Details { get; set; } = [];
     /// <summary>The transitions.</summary>
-    public Transition[] Transitions = [];
+    public Transition[] Transitions { get; set; } = [];
     /// <summary>The meshes.</summary>
-    public Mesh[] Meshes = [];
+    public Mesh[] Meshes { get; set; } = [];
 
     /// <summary>Finds a name in the name table (005b96d8).</summary>
     /// <param name="name">The name, matched ASCII case-insensitively.</param>
@@ -664,11 +695,11 @@ public sealed class ShapeModel
 public struct ShapeThread
 {
     /// <summary>The sequence index.</summary>
-    public int Sequence;
+    public int Sequence { get; set; }
     /// <summary>The position within the sequence.</summary>
-    public float Position;
+    public float Position { get; set; }
     /// <summary>The priority.</summary>
-    public int Priority;
+    public int Priority { get; set; }
 
     /// <summary>Creates a thread with no sequence.</summary>
     public ShapeThread()
@@ -694,17 +725,19 @@ public struct ShapeThread
 public struct ShapeSurface
 {
     /// <summary>The hit parameter along the segment.</summary>
-    public float T;
+    public float T { get; set; }
     /// <summary>The hit position.</summary>
-    public Float3 Position;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Position => ref _position;
+    private Float3 _position;
     /// <summary>The surface normal.</summary>
-    public Float3 Normal;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Normal => ref _normal;
+    private Float3 _normal;
     /// <summary>The face material index, -1 in bounds mode.</summary>
-    public int Material;
+    public int Material { get; set; }
     /// <summary>The face index.</summary>
-    public int Face;
+    public int Face { get; set; }
     /// <summary>The object index.</summary>
-    public int Part;
+    public int Part { get; set; }
 
     /// <summary>Creates an empty result.</summary>
     public ShapeSurface()
@@ -722,17 +755,19 @@ public struct ShapeSurface
 public struct ShapeContact
 {
     /// <summary>The contact position.</summary>
-    public Float3 Position;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Position => ref _position;
+    private Float3 _position;
     /// <summary>The contact normal.</summary>
-    public Float3 Normal;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Normal => ref _normal;
+    private Float3 _normal;
     /// <summary>The contact distance (+0x1c).</summary>
-    public float Distance;
+    public float Distance { get; set; }
     /// <summary>The face material index, -1 in bounds mode (+0x20 is 0).</summary>
-    public int Material;
+    public int Material { get; set; }
     /// <summary>The face index.</summary>
-    public int Face;
+    public int Face { get; set; }
     /// <summary>The object index.</summary>
-    public int Part;
+    public int Part { get; set; }
 
     /// <summary>Creates an empty record.</summary>
     public ShapeContact()
@@ -753,9 +788,9 @@ public sealed class ShapeInstance
     public struct ObjectState
     {
         /// <summary>The frame index.</summary>
-        public int Frame;
+        public int Frame { get; set; }
         /// <summary>Whether the object is visible.</summary>
-        public bool Visible;
+        public bool Visible { get; set; }
 
         /// <summary>Creates a visible state at frame 0.</summary>
         public ObjectState()
@@ -766,26 +801,28 @@ public sealed class ShapeInstance
     }
 
     /// <summary>The shape model.</summary>
-    public ShapeModel? ShapeData;
+    public ShapeModel? ShapeData { get; set; }
     /// <summary>The node transforms to root space, identity until animated.</summary>
-    public TMat3[] Entries = [];
+    public TMat3[] Entries { get; set; } = [];
     /// <summary>The active flag of each node (node instance +0x08).</summary>
-    public byte[] NodeActive = [];
+    public byte[] NodeActive { get; set; } = [];
     /// <summary>The object states.</summary>
-    public ObjectState[] Objects = [];
+    public ObjectState[] Objects { get; set; } = [];
     /// <summary>The animation threads.</summary>
-    public List<ShapeThread> Threads = [];
+    public List<ShapeThread> Threads { get; set; } = [];
     /// <summary>The view mode (instance +0x9e). The player sets 2 for first person animations.</summary>
-    public byte ViewMode;
+    public byte ViewMode { get; set; }
     /// <summary>The default transform of node 0 (instance +0xa0), flags 3.</summary>
-    public TMat3 Root = new();
+    public ref TMat3 Root => ref _root;
+    private TMat3 _root = new();
     /// <summary>The node overrides (docs/collision.md T2.5a, 005c2f54): a thread-driven node marked here takes, in view mode 2, the override matrix with the height of the source node as its parent.</summary>
-    public byte[] OverrideNode = [];
+    public byte[] OverrideNode { get; set; } = [];
     /// <summary>The source node of the override, -1 when none.</summary>
-    public int OverrideSource = -1;
+    public int OverrideSource { get; set; } = -1;
     /// <summary>The override matrix.</summary>
-    public TMat3 OverrideMatrix = new();
-    private readonly List<KeyValuePair<int, List<int>>> mDetailNodes = [];
+    public ref TMat3 OverrideMatrix => ref _overrideMatrix;
+    private TMat3 _overrideMatrix = new();
+    private readonly List<KeyValuePair<int, List<int>>> _detailNodes = [];
 
     /// <summary>Gets the root node of a detail (docs/collision.md T2.2).</summary>
     /// <param name="detail">The detail index.</param>
@@ -809,7 +846,7 @@ public sealed class ShapeInstance
     public void Build(ShapeModel model)
     {
         ShapeData = model;
-        mDetailNodes.Clear();
+        _detailNodes.Clear();
         Entries = new TMat3[model.Nodes.Length];
         for (var i = 0; i < Entries.Length; ++i)
             Entries[i] = new TMat3();
@@ -829,7 +866,7 @@ public sealed class ShapeInstance
                 ref var tr = ref model.Transforms[t];
                 Span<float> q = stackalloc float[4];
                 for (var k = 0; k < 4; ++k)
-                    q[k] = F32Chop(Mul(Shape.kQuatScale, tr.Q[k]));
+                    q[k] = F32Chop(Mul(Shape.QuatScale, tr.Q[k]));
                 Shape.QuatToMatrix(q, ref Root);
                 Root.P = tr.T;
             }
@@ -916,12 +953,16 @@ public sealed class ShapeInstance
 
     private struct Candidate
     {
-        public int Obj;
-        public ShapeModel.Mesh Mesh;
-        public int Frame;
-        public TMat3 T;
-        public Float3 Sm, Em;
-        public float Tval;
+        public int Obj { get; set; }
+        public ShapeModel.Mesh Mesh { get; set; }
+        public int Frame { get; set; }
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref TMat3 T => ref _t;
+        private TMat3 _t;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Sm => ref _sm;
+        private Float3 _sm;
+        [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Em => ref _em;
+        private Float3 _em;
+        public float Tval { get; set; }
     }
 
     /// <summary>Casts a line against detail 0 (TSShapeInstance_castRay, 005c1300, docs/collision.md T7).</summary>
@@ -981,7 +1022,10 @@ public sealed class ShapeInstance
                 X87.MulPoint(E, Ti.M, Ti.P, c.Em);
                 if (!mesh.Vertex(mesh.Frames[frame], 0, lo) || !mesh.Vertex(mesh.Frames[frame], 1, hi))
                     continue;
-                if (!Shape.SlabTest(c.Sm, c.Em, lo, hi, ref c.Tval))
+                var tval = c.Tval;
+                var slabHit = Shape.SlabTest(c.Sm, c.Em, lo, hi, ref tval);
+                c.Tval = tval;
+                if (!slabHit)
                     continue;
                 cands.Add(c);
             }
@@ -1080,13 +1124,13 @@ public sealed class ShapeInstance
     /// <returns>The node indices.</returns>
     public List<int> DetailNodes(int detail)
     {
-        foreach (var e in mDetailNodes)
+        foreach (var e in _detailNodes)
             if (e.Key == detail)
                 return e.Value;
         var order = new List<int>();
         if (ShapeData != null)
             Shape.Subtree(Shape.ChildLists(ShapeData), DetailRoot(detail), order);
-        mDetailNodes.Add(new KeyValuePair<int, List<int>>(detail, order));
+        _detailNodes.Add(new KeyValuePair<int, List<int>>(detail, order));
         return order;
     }
 
@@ -1263,11 +1307,11 @@ public static class Shape
     /// <summary>Empties the by-name caches, the start state of a C++ test process.</summary>
     public static void ResetCaches()
     {
-        sSphereCache.Clear();
-        sBoxCache.Clear();
-        sAnimCache.Clear();
-        sCollisionCache.Clear();
-        sModelCache.Clear();
+        SphereCache.Clear();
+        BoxCache.Clear();
+        AnimCache.Clear();
+        CollisionCache.Clear();
+        ModelCache.Clear();
     }
 
     // src/world/shape.cpp recordSizes: array record sizes of shape versions 1-7 (docs/interiors.md 8.2): nodes,
@@ -1399,11 +1443,11 @@ public static class Shape
 
     private sealed class CachedSphere
     {
-        public bool Ok;
-        public float Radius;
-        public readonly float[] Center = new float[3];
+        public bool Ok { get; set; }
+        public float Radius { get; set; }
+        public float[] Center { get; } = new float[3];
     }
-    private static readonly Dictionary<string, CachedSphere> sSphereCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, CachedSphere> SphereCache = new(StringComparer.Ordinal);
 
     /// <summary>Gets the bounding sphere of a named shape, cached by name.</summary>
     /// <param name="res">The resource manager.</param>
@@ -1413,12 +1457,16 @@ public static class Shape
     /// <returns>False when the shape is missing or malformed.</returns>
     public static bool ShapeSphere(ResourceManager res, string name, ref float radius, Span<float> center)
     {
-        if (!sSphereCache.TryGetValue(name, out var c))
+        if (!SphereCache.TryGetValue(name, out var c))
         {
             c = new CachedSphere();
             if (res.Read(name + ".dts", out var data))
-                c.Ok = ReadShapeSphere(data, ref c.Radius, c.Center);
-            sSphereCache.Add(name, c);
+            {
+                var cachedRadius = c.Radius;
+                c.Ok = ReadShapeSphere(data, ref cachedRadius, c.Center);
+                c.Radius = cachedRadius;
+            }
+            SphereCache.Add(name, c);
         }
         if (c.Ok)
         {
@@ -1430,10 +1478,10 @@ public static class Shape
 
     private sealed class CachedBox
     {
-        public bool Ok;
-        public readonly float[] Box = new float[6];
+        public bool Ok { get; set; }
+        public float[] Box { get; } = new float[6];
     }
-    private static readonly Dictionary<string, CachedBox> sBoxCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, CachedBox> BoxCache = new(StringComparer.Ordinal);
 
     /// <summary>Gets the box of a shape by loading "&lt;name&gt;.dts" through the resource manager. Results are cached by name.</summary>
     /// <param name="res">The resource manager.</param>
@@ -1442,12 +1490,12 @@ public static class Shape
     /// <returns>False when the shape is missing or malformed.</returns>
     public static bool ShapeBox(ResourceManager res, string name, Span<float> box)
     {
-        if (!sBoxCache.TryGetValue(name, out var c))
+        if (!BoxCache.TryGetValue(name, out var c))
         {
             c = new CachedBox();
             if (res.Read(name + ".dts", out var data))
                 c.Ok = ReadShapeBox(data, c.Box);
-            sBoxCache.Add(name, c);
+            BoxCache.Add(name, c);
         }
         if (c.Ok)
             c.Box.CopyTo(box);
@@ -1636,7 +1684,7 @@ public static class Shape
         return true;
     }
 
-    private static readonly Dictionary<string, (bool ok, ShapeAnim anim)> sAnimCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, (bool ok, ShapeAnim anim)> AnimCache = new(StringComparer.Ordinal);
 
     /// <summary>Gets the animation data of a named shape, cached by name.</summary>
     /// <param name="res">The resource manager.</param>
@@ -1644,12 +1692,12 @@ public static class Shape
     /// <returns>The animation data, null when the shape is missing or malformed.</returns>
     public static ShapeAnim? GetShapeAnim(ResourceManager res, string name)
     {
-        if (!sAnimCache.TryGetValue(name, out var c))
+        if (!AnimCache.TryGetValue(name, out var c))
         {
             var anim = new ShapeAnim();
             var ok = res.Read(name + ".dts", out var data) && ReadShapeAnim(data, anim);
             c = (ok, anim);
-            sAnimCache.Add(name, c);
+            AnimCache.Add(name, c);
         }
         return c.ok ? c.anim : null;
     }
@@ -1822,7 +1870,7 @@ public static class Shape
         return output.Count != 0;
     }
 
-    private static readonly Dictionary<string, List<Float6>> sCollisionCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, List<Float6>> CollisionCache = new(StringComparer.Ordinal);
 
     /// <summary>Gets the collision boxes of a named shape, cached by name.</summary>
     /// <param name="res">The resource manager.</param>
@@ -1830,12 +1878,12 @@ public static class Shape
     /// <returns>The boxes, null without a collision detail.</returns>
     public static List<Float6>? ShapeCollisionBoxes(ResourceManager res, string name)
     {
-        if (!sCollisionCache.TryGetValue(name, out var boxes))
+        if (!CollisionCache.TryGetValue(name, out var boxes))
         {
             boxes = [];
             if (res.Read(name + ".dts", out var data))
                 ReadShapeCollisionBoxes(data, boxes);
-            sCollisionCache.Add(name, boxes);
+            CollisionCache.Add(name, boxes);
         }
         return boxes.Count == 0 ? null : boxes;
     }
@@ -1857,7 +1905,7 @@ public static class Shape
 
     // src/world/shape.cpp kQuatScale: 1/32767 as the engine holds it, the 80-bit constant at 0x005bdd2c
     // (3ff0 8001000200040008).
-    internal static readonly double kQuatScale = LdConstant(0x8001000200040008UL, -78);
+    internal static readonly double QuatScale = LdConstant(0x8001000200040008UL, -78);
 
     // src/world/shape.cpp pointInTriangle: 0x005eb898, T2.8.
     internal static bool PointInTriangle(ReadOnlySpan<float> q, ReadOnlySpan<float> n, ReadOnlySpan<float> a,
@@ -2084,7 +2132,7 @@ public static class Shape
         output.Flags = (output.Flags | 1u) & ~4u;
     }
 
-    private static readonly Dictionary<string, (bool ok, ShapeModel model)> sModelCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, (bool ok, ShapeModel model)> ModelCache = new(StringComparer.Ordinal);
 
     /// <summary>Gets the model of a named shape ("&lt;name&gt;.dts"), cached by name.</summary>
     /// <param name="res">The resource manager.</param>
@@ -2092,12 +2140,12 @@ public static class Shape
     /// <returns>The model, null when the shape is missing or malformed.</returns>
     public static ShapeModel? GetShapeModel(ResourceManager res, string name)
     {
-        if (!sModelCache.TryGetValue(name, out var c))
+        if (!ModelCache.TryGetValue(name, out var c))
         {
             var model = new ShapeModel();
             var ok = res.Read(name + ".dts", out var data) && ShapeModel.Parse(data, model);
             c = (ok, model);
-            sModelCache.Add(name, c);
+            ModelCache.Add(name, c);
         }
         return c.ok ? c.model : null;
     }
@@ -2231,14 +2279,14 @@ public static class Shape
         return neg ? -r : r;
     }
 
-    private static readonly double kQuarterPi = LdConstant(0xc90fdaa22168c235UL, -64);
+    private static readonly double QuarterPi = LdConstant(0xc90fdaa22168c235UL, -64);
 
     // src/world/shape.cpp crtSin: sin for 0 <= x < pi: reduction by pi / 4 (80-bit constant at 0x0065c624), fptan.
     private static double CrtSin(double x)
     {
         if (x == 0.0)
             return x;
-        var quarter = kQuarterPi;
+        var quarter = QuarterPi;
         var r = x;
         var k = 0;
         while (r >= quarter && k < 8)
@@ -2262,7 +2310,7 @@ public static class Shape
         var ax = Math.Abs(x);
         if (ax == 0.0)
             return 1.0;
-        var quarter = kQuarterPi;
+        var quarter = QuarterPi;
         if (!(ax < Mul(8.0, quarter)))
             return Math.Cos(ax); // more than one turn: the fprem loop of the original, not needed by any caller
         var r = ax;
@@ -2320,8 +2368,8 @@ public static class Shape
             trans[i] = F32Chop(Add(Mul(ta.T[i], omt), Mul(tb.T[i], t)));
         for (var i = 0; i < 4; ++i)
         {
-            qb[i] = F32Chop(Mul(kQuatScale, tb.Q[i]));
-            qa[i] = F32Chop(Mul(kQuatScale, ta.Q[i]));
+            qb[i] = F32Chop(Mul(QuatScale, tb.Q[i]));
+            qa[i] = F32Chop(Mul(QuatScale, ta.Q[i]));
         }
         QuatInterpolate(qa, qb, t, q);
         output.Flags = 0;
@@ -2530,7 +2578,7 @@ public static class Shape
     {
         Span<float> q = stackalloc float[4];
         for (var k = 0; k < 4; ++k)
-            q[k] = F32Chop(Mul(kQuatScale, tr.Q[k]));
+            q[k] = F32Chop(Mul(QuatScale, tr.Q[k]));
         local.Flags = 0;
         QuatToMatrix(q, ref local);
         local.P = tr.T;
@@ -2650,9 +2698,22 @@ public static class Shape
 
     private struct Edge
     {
-        public int Ta, Ma, Tb, Mb;          // p = |t[ta] * m[ma] - t[tb] * m[mb]|
-        public int A0, C0r, C0c, A1, C1r, C1c; // a[a0] * C[c0] + a[a1] * C[c1]
-        public int B0, D0r, D0c, B1, D1r, D1c; // + b[b0] * C[d0] + b[b1] * C[d1]
+        public int Ta { get; set; }          // p = |t[ta] * m[ma] - t[tb] * m[mb]|
+        public int Ma { get; set; }          // p = |t[ta] * m[ma] - t[tb] * m[mb]|
+        public int Tb { get; set; }          // p = |t[ta] * m[ma] - t[tb] * m[mb]|
+        public int Mb { get; set; }          // p = |t[ta] * m[ma] - t[tb] * m[mb]|
+        public int A0 { get; set; } // a[a0] * C[c0] + a[a1] * C[c1]
+        public int C0r { get; set; } // a[a0] * C[c0] + a[a1] * C[c1]
+        public int C0c { get; set; } // a[a0] * C[c0] + a[a1] * C[c1]
+        public int A1 { get; set; } // a[a0] * C[c0] + a[a1] * C[c1]
+        public int C1r { get; set; } // a[a0] * C[c0] + a[a1] * C[c1]
+        public int C1c { get; set; } // a[a0] * C[c0] + a[a1] * C[c1]
+        public int B0 { get; set; } // + b[b0] * C[d0] + b[b1] * C[d1]
+        public int D0r { get; set; } // + b[b0] * C[d0] + b[b1] * C[d1]
+        public int D0c { get; set; } // + b[b0] * C[d0] + b[b1] * C[d1]
+        public int B1 { get; set; } // + b[b0] * C[d0] + b[b1] * C[d1]
+        public int D1r { get; set; } // + b[b0] * C[d0] + b[b1] * C[d1]
+        public int D1c { get; set; } // + b[b0] * C[d0] + b[b1] * C[d1]
 
         public Edge(params int[] v)
         {
@@ -2675,7 +2736,7 @@ public static class Shape
         }
     }
 
-    private static readonly Edge[] sEdges =
+    private static readonly Edge[] Edges =
     [
         new(2, 1, 1, 2, 1, 0, 2, 2, 0, 1, 1, 2, 0, 2, 1, 0), new(2, 4, 1, 5, 1, 1, 2, 2, 1, 1, 0, 2, 0, 2, 0, 0),
         new(2, 7, 1, 8, 1, 2, 2, 2, 2, 1, 0, 1, 0, 1, 0, 0), new(0, 2, 2, 0, 0, 0, 2, 2, 0, 0, 1, 2, 1, 2, 1, 1),
@@ -2714,7 +2775,7 @@ public static class Shape
                 return false;
         }
         // 7 to 15: the edge pairs, frame axis i against box axis r (extended sums, pass on >=).
-        foreach (var e in sEdges)
+        foreach (var e in Edges)
         {
             var p = Mag(Sub(Mul(t[e.Ta], m[e.Ma]), Mul(t[e.Tb], m[e.Mb])));
             var reach = Add(Add(Add(Mul(a[e.A0], C[(3 * e.C0r) + e.C0c]), Mul(a[e.A1], C[(3 * e.C1r) + e.C1c])),

@@ -70,9 +70,9 @@ public static partial class PlayerGhost
                 if (bs.WriteFlag(t.Sequence != -1 && (mask & (0x800u << i)) != 0))
                 {
                     bs.WriteInt((uint)t.Sequence, 4);
-                    bs.WriteInt((uint)(t.Flags & GameBase.kThreadState), 2);
-                    bs.WriteFlag((t.Flags & GameBase.kThreadForward) != 0);
-                    bs.WriteFlag((t.Flags & GameBase.kThreadAtEnd) != 0);
+                    bs.WriteInt((uint)(t.Flags & GameBase.ThreadState), 2);
+                    bs.WriteFlag((t.Flags & GameBase.ThreadForward) != 0);
+                    bs.WriteFlag((t.Flags & GameBase.ThreadAtEnd) != 0);
                 }
             }
         gb.UpdateFade(); // a fade in reverts 2.5 s after its start (0x0044cff8)
@@ -167,7 +167,7 @@ public static partial class PlayerGhost
         bs.WriteFlag(p.Crouching);
         // Player_packImages (0x00419414).
         if (bs.WriteFlag((mask & 0x20000) != 0))
-            for (var i = 0; i < Player.kImageSlots; ++i)
+            for (var i = 0; i < Player.ImageSlots; ++i)
             {
                 var s = p.Images[i];
                 if (!bs.WriteFlag((mask & (0x100000u << i)) != 0))

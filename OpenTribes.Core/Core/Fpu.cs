@@ -8,7 +8,7 @@ using System.Numerics;
 public static class Fpu
 {
     /// <summary>The current rounding mode of the C++ process: true for FE_TOWARDZERO, false for FE_TONEAREST (the start-up mode).</summary>
-    public static bool TowardZero;
+    public static bool TowardZero { get; set; }
 
     /// <summary>Switches to toward-zero rounding, as <c>fesetround(kChopMode)</c> does in the script start-up and float-to-int paths.</summary>
     public static void EnterChop() => TowardZero = true;
@@ -16,16 +16,16 @@ public static class Fpu
     /// <summary>Scope that rounds toward zero and restores the previous mode when disposed. Port of <c>x87::Chop</c>.</summary>
     public readonly struct Chop : IDisposable
     {
-        private readonly bool mOld;
+        private readonly bool _old;
         /// <summary>Starts the scope in toward-zero mode.</summary>
         /// <param name="old">The mode to restore on dispose.</param>
         public Chop(bool old)
         {
-            mOld = old;
+            _old = old;
             TowardZero = true;
         }
         /// <summary>Restores the mode saved at construction.</summary>
-        public void Dispose() => TowardZero = mOld;
+        public void Dispose() => TowardZero = _old;
     }
 
     /// <summary>Starts a toward-zero scope that restores the current mode when disposed.</summary>

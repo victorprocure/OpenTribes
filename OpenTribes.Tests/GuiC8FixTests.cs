@@ -12,7 +12,7 @@ public class GuiC8FixTests
     // A device that records fills, lines and text with the width of the font it was drawn in.
     private sealed class TextDev : IGfxDevice
     {
-        public readonly List<string> Calls = [];
+        public List<string> Calls { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }

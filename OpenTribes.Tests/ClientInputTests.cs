@@ -8,9 +8,9 @@ public sealed class ClientInputTests
 {
     private sealed class Sink : IActionConsumer
     {
-        public readonly List<(int Action, int Kind, float Value)> Got = [];
+        public List<(int Action, int Kind, float Value)> Got { get; } = [];
         public bool Removing { get; set; }
-        public bool Result = true;
+        public bool Result { get; set; } = true;
         public bool OnAction(int action, int kind, float value)
         {
             Got.Add((action, kind, value));

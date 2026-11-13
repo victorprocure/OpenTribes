@@ -13,43 +13,43 @@ using static OpenTribes.Core.Fpu;
 public sealed class AIDirective
 {
     /// <summary>The directive type: waypoint.</summary>
-    public const int kWaypoint = 1;
+    public const int Waypoint = 1;
     /// <summary>The directive type: follow.</summary>
-    public const int kFollow = 2;
+    public const int Follow = 2;
     /// <summary>The directive type: target.</summary>
-    public const int kTarget = 4;
+    public const int Target = 4;
     /// <summary>The directive type: guard.</summary>
-    public const int kGuard = 8;
+    public const int Guard = 8;
     /// <summary>The target sub type: a player.</summary>
-    public const int kPlayer = 1;
+    public const int Player = 1;
     /// <summary>The target sub type: a laser.</summary>
-    public const int kLaser = 2;
+    public const int Laser = 2;
     /// <summary>The target sub type: a point.</summary>
     public const int kPoint = 4;
     /// <summary>The directive flag: the target is in line of sight.</summary>
-    public const ushort kLOS = 1;
+    public const ushort LOS = 1;
     /// <summary>The directive flag: the target was in line of sight.</summary>
-    public const ushort kHadLOS = 2;
+    public const ushort HadLOS = 2;
     /// <summary>The directive flag: the death of the target was reported.</summary>
-    public const ushort kDeathReported = 4;
+    public const ushort DeathReported = 4;
     /// <summary>The directive flag: the target is in range.</summary>
-    public const ushort kInRange = 8;
+    public const ushort InRange = 8;
     /// <summary>The directive type (one of the k constants for type).</summary>
-    public int Type;
+    public int Type { get; set; }
     /// <summary>The sub type of a target directive.</summary>
-    public int Sub;
+    public int Sub { get; set; }
     /// <summary>The four callback names, interned. Type 4 defaults in addDirective.</summary>
-    public readonly string?[] Callback = new string?[4];
+    public string?[] Callback { get; } = new string?[4];
     /// <summary>The directive flags.</summary>
-    public ushort Flags;
+    public ushort Flags { get; set; }
     /// <summary>The directive order. Directives run in ascending order.</summary>
-    public int Order;
+    public int Order { get; set; }
     /// <summary>The target client id.</summary>
-    public int Client;
+    public int Client { get; set; }
     /// <summary>The target point.</summary>
-    public readonly float[] Point = new float[3];
+    public float[] Point { get; } = new float[3];
     /// <summary>The radius of the directive.</summary>
-    public float Radius;
+    public float Radius { get; set; }
 
     /// <summary>Copies the directive, as the C++ struct copy does.</summary>
     /// <returns>The copy.</returns>
@@ -66,33 +66,33 @@ public sealed class AIDirective
 public sealed class AISkill
 {
     /// <summary>The spot distance variable <c>spotDist</c>, negative for the derived value (+0x00).</summary>
-    public float SpotDist = -1;
+    public float SpotDist { get; set; } = -1;
     /// <summary>The derived spot distance (+0x04).</summary>
-    public float Spot = 50;
+    public float Spot { get; set; } = 50;
     /// <summary>The think period (+0x08).</summary>
-    public int Think = 50;
+    public int Think { get; set; } = 50;
     /// <summary>The maximum speed (+0x0c).</summary>
-    public float MaxSpeed = 0.4f;
+    public float MaxSpeed { get; set; } = 0.4f;
     /// <summary>An unused value (+0x10).</summary>
-    public float UnusedA = 1.3f;
+    public float UnusedA { get; set; } = 1.3f;
     /// <summary>An unused value (+0x14).</summary>
-    public float UnusedB = 4.0f;
+    public float UnusedB { get; set; } = 4.0f;
     /// <summary>The unused yaw rates (+0x20).</summary>
-    public readonly float[] RateUnused = new float[3];
+    public float[] RateUnused { get; } = new float[3];
     /// <summary>The yaw rates r, 2r and 0.1r (+0x2c).</summary>
-    public readonly float[] Rate = new float[3];
+    public float[] Rate { get; } = new float[3];
     /// <summary>The range of a smart AI, a variable (+0x38).</summary>
-    public float SmartRange = 145;
+    public float SmartRange { get; set; } = 145;
     /// <summary>The range of a dumb AI, a variable (+0x3c).</summary>
-    public float DumbRange = 55;
+    public float DumbRange { get; set; } = 55;
     /// <summary>The minimum accuracy of a smart AI, a variable (+0x40).</summary>
-    public float SmartMinAccuracy = 0.2f;
+    public float SmartMinAccuracy { get; set; } = 0.2f;
     /// <summary>The range in use (+0x44).</summary>
-    public float Range;
+    public float Range { get; set; }
     /// <summary>The minimum accuracy in use (+0x48).</summary>
-    public float MinAccuracy;
+    public float MinAccuracy { get; set; }
     /// <summary>The skill in use (+0x4c).</summary>
-    public float Skill;
+    public float Skill { get; set; }
 
     // src/game/ai_object.cpp bitsFloat.
     private static float BitsFloat(uint b) => BitConverter.UInt32BitsToSingle(b);
@@ -176,10 +176,10 @@ public sealed class AISkill
 // The file-local helpers of src/game/ai_object.cpp (anonymous namespace).
 internal static class AIMath
 {
-    public const double kPiD = 3.14159265358979323846;
-    public const double kHalfPiD = 1.5707963267948966;
-    public const double kTwoPiD = 6.283185307179586;
-    public const float kTwoPiF = 6.2831855f; // 0x40c90fdb
+    public const double PiD = 3.14159265358979323846;
+    public const double HalfPiD = 1.5707963267948966;
+    public const double TwoPiD = 6.283185307179586;
+    public const float TwoPiF = 6.2831855f; // 0x40c90fdb
 
     // src/game/ai_object.cpp x87Fpatan, x87Fptan, x87Pi: fpatanLD, fptanLD, fldpiLD in their portable form.
     public static double X87Fpatan(double y, double x) => Math.Atan2(y, x);
@@ -203,7 +203,7 @@ internal static class AIMath
             var v2 = X87Fpatan(a, 1.0);
             return negative ? -v2 : v2;
         }
-        var v = Sub(X87Fpatan(1.0, a), kHalfPiD);
+        var v = Sub(X87Fpatan(1.0, a), HalfPiD);
         return negative ? v : -v;
     }
 
@@ -220,7 +220,7 @@ internal static class AIMath
             return a;
         }
         if (b == 0.0)
-            return double.IsNegative(a) ? -kHalfPiD : kHalfPiD;
+            return double.IsNegative(a) ? -HalfPiD : HalfPiD;
         var v = BorlandAtan(Div(a, b));
         if (double.IsNegative(b))
             v = double.IsNegative(a) ? Sub(v, pi) : Add(v, pi);
@@ -237,7 +237,7 @@ internal static class AIMath
     }
 
     // The 80-bit pi / 4 of crtTrig, rounded to 53 bits.
-    private static readonly double kQuarter = Math.ScaleB(0xc90fdaa22168c235UL, -64);
+    private static readonly double Quarter = Math.ScaleB(0xc90fdaa22168c235UL, -64);
 
     // src/core/ldouble.hpp fpremLD (portable): the remainder by `quarter`, and the low three bits of the quotient.
     private static double FpremLD(double ax, double quarter, out uint octant)
@@ -256,7 +256,7 @@ internal static class AIMath
         if (!(Math.Abs(x) < 9007199254740992.0))
             return 0; // the original reports a range error
         var negative = double.IsNegative(x);
-        var quarter = kQuarter;
+        var quarter = Quarter;
         var ax = Math.Abs(x);
         var rem = FpremLD(ax, quarter, out var n); // n: the octant, quotient mod 8
         var sign = negative ? 1u : 0u;
@@ -279,10 +279,10 @@ internal static class AIMath
     // src/game/ai_object.cpp wrapAngle: 0x0043c55c: puts b into [a, a + 2 pi].
     public static float WrapAngle(float a, float b)
     {
-        while (Sub(b, a) > kTwoPiD)
-            b = X87.F32(Sub(b, kTwoPiF));
+        while (Sub(b, a) > TwoPiD)
+            b = X87.F32(Sub(b, TwoPiF));
         while (Sub(b, a) < 0.0f)
-            b = X87.F32(Add(kTwoPiF, b));
+            b = X87.F32(Add(TwoPiF, b));
         return b;
     }
 
@@ -356,127 +356,128 @@ internal static class AIMath
 public sealed partial class AIObject : SimObject
 {
     /// <summary>The game state.</summary>
-    public readonly GameState Game;
+    public GameState Game { get; }
     /// <summary>The AI flags: 1 death handled, 2 display name differs, 4 laser aim, 8 variables registered.</summary>
-    public uint Flags;
+    public uint Flags { get; set; }
     /// <summary>True while the AI is active.</summary>
-    public bool Active;
+    public bool Active { get; set; }
     /// <summary>The aim error phase.</summary>
-    public byte ErrorPhase;
+    public byte ErrorPhase { get; set; }
     /// <summary>The think counter.</summary>
-    public ushort ThinkCounter;
+    public ushort ThinkCounter { get; set; }
     /// <summary>True once the home position was captured.</summary>
-    public bool HomeCaptured;
+    public bool HomeCaptured { get; set; }
     /// <summary>The name of the died callback.</summary>
-    public string? CbDied;
+    public string? CbDied { get; set; }
     /// <summary>The name of the bored callback.</summary>
-    public string? CbBored;
+    public string? CbBored { get; set; }
     /// <summary>The name of the periodic callback.</summary>
-    public string? CbPeriodic;
+    public string? CbPeriodic { get; set; }
     /// <summary>The speed of the current projectile.</summary>
-    public float ProjectileSpeed;
+    public float ProjectileSpeed { get; set; }
     /// <summary>The skill.</summary>
-    public float Skill;
+    public float Skill { get; set; }
     /// <summary>The IQ.</summary>
-    public float Iq;
+    public float Iq { get; set; }
     /// <summary>True once the waypoints are done.</summary>
-    public bool WaypointsDone;
+    public bool WaypointsDone { get; set; }
     /// <summary>The order of the current waypoint.</summary>
-    public int WaypointOrder;
+    public int WaypointOrder { get; set; }
     /// <summary>The waypoint direction, 1 forward.</summary>
-    public int Direction = 1;
+    public int Direction { get; set; } = 1;
     /// <summary>The path type.</summary>
-    public int PathType;
+    public int PathType { get; set; }
     /// <summary>The client id of the last line of sight check.</summary>
-    public int LastLosClient;
+    public int LastLosClient { get; set; }
     /// <summary>The line of sight counter.</summary>
-    public int LosCounter = 5;
+    public int LosCounter { get; set; } = 5;
     /// <summary>The line of sight period.</summary>
-    public int LosPeriod = 5;
+    public int LosPeriod { get; set; } = 5;
     /// <summary>The seek offset.</summary>
-    public readonly float[] SeekOff = [3, 3, 0];
+    public float[] SeekOff { get; } = [3, 3, 0];
     /// <summary>The previous waypoint point.</summary>
-    public readonly float[] PreviousPoint = new float[3];
+    public float[] PreviousPoint { get; } = new float[3];
     /// <summary>The attack mode.</summary>
-    public int AttackMode;
+    public int AttackMode { get; set; }
     /// <summary>The id of the target (+0xb4).</summary>
-    public int TargetId = -1;
+    public int TargetId { get; set; } = -1;
     /// <summary>The current target as an index into the directives, -1 for none (+0xb8).</summary>
-    public int CurrentTarget = -1;
+    public int CurrentTarget { get; set; } = -1;
     /// <summary>The automatic target bits.</summary>
-    public readonly byte[] AutoBits = new byte[18];
+    public byte[] AutoBits { get; } = new byte[18];
     /// <summary>The periodic callback counter.</summary>
-    public int PeriodicCounter;
+    public int PeriodicCounter { get; set; }
     /// <summary>The periodic callback period.</summary>
-    public int PeriodicPeriod;
+    public int PeriodicPeriod { get; set; }
     /// <summary>The team id, -1 for none.</summary>
-    public int Team = -1;
+    public int Team { get; set; } = -1;
     /// <summary>The move the AI issues.</summary>
-    public Move Move = new();
+    public ref Move Move => ref _move;
+    private Move _move = new();
     /// <summary>The AI state.</summary>
-    public int State;
+    public int State { get; set; }
 
     /// <summary>The trigger state of the AI weapon.</summary>
     public sealed class TriggerState
     {
         /// <summary>The trigger count.</summary>
-        public int Count;
+        public int Count { get; set; }
         /// <summary>The trigger cooldown.</summary>
-        public int Cooldown;
+        public int Cooldown { get; set; }
         /// <summary>The trigger probability per roll.</summary>
-        public float Pct = 0.17f;
+        public float Pct { get; set; } = 0.17f;
         /// <summary>The trigger windup.</summary>
-        public int Windup = 6;
+        public int Windup { get; set; } = 6;
     }
     /// <summary>The trigger state.</summary>
-    public readonly TriggerState Trigger = new();
+    public TriggerState Trigger { get; } = new();
     /// <summary>The skill block.</summary>
-    public readonly AISkill Sk = new();
+    public AISkill Sk { get; } = new();
     /// <summary>True when the targets are scripted (+0x164).</summary>
-    public bool ScriptedTargets = true;
+    public bool ScriptedTargets { get; set; } = true;
     /// <summary>The attack id (+0x198).</summary>
-    public int AttackId;
+    public int AttackId { get; set; }
     /// <summary>The id of the representative.</summary>
-    public int RepId;
+    public int RepId { get; set; }
     /// <summary>True once a client record was taken.</summary>
-    public bool RecordTaken;
+    public bool RecordTaken { get; set; }
     /// <summary>The AI name (+0x1a0, 31 characters at most). <c>SimObject.Name()</c> is the object name.</summary>
-    public string AiName = "";  // name (+0x1a0, 31 characters at most); SimObject.Name() is the object name
+    public string AiName { get; set; } = "";  // name (+0x1a0, 31 characters at most); SimObject.Name() is the object name
     /// <summary>The voice set.</summary>
-    public string Voice = "";
+    public string Voice { get; set; } = "";
     /// <summary>The result text of the last command.</summary>
-    public string Result = "Done";
+    public string Result { get; set; } = "Done";
     /// <summary>The client id of the AI player.</summary>
-    public int PlayerId;
+    public int PlayerId { get; set; }
     /// <summary>The Player object of the AI.</summary>
-    public Player? PlayerPtr;
+    public Player? PlayerPtr { get; set; }
     /// <summary>The directives in order.</summary>
-    public List<AIDirective> Directives = [];
+    public List<AIDirective> Directives { get; set; } = [];
 
     /// <summary>The per-tick frame state (docs/ai-sim.md 1.6).</summary>
     public sealed class FrameState
     {
         /// <summary>True when the frame has a move target.</summary>
-        public bool HasMoveTarget;
+        public bool HasMoveTarget { get; set; }
         /// <summary>The move target.</summary>
-        public readonly float[] MoveTarget = [-1e6f, -1e6f, -1e6f];
+        public float[] MoveTarget { get; } = [-1e6f, -1e6f, -1e6f];
         /// <summary>The own position.</summary>
-        public readonly float[] Own = new float[3];
+        public float[] Own { get; } = new float[3];
     }
     /// <summary>The frame state of the current tick.</summary>
-    public FrameState Frame = new();
+    public FrameState Frame { get; set; } = new();
 
     /// <summary>The yaw error of a steering step.</summary>
     public struct YawError
     {
         /// <summary>The absolute error.</summary>
-        public float Abs;
+        public float Abs { get; set; }
         /// <summary>The desired angle.</summary>
-        public float Desired;
+        public float Desired { get; set; }
         /// <summary>The current angle.</summary>
-        public float Cur;
+        public float Cur { get; set; }
         /// <summary>The signed difference.</summary>
-        public float Diff;
+        public float Diff { get; set; }
     }
 
     /// <summary>Creates an AI object.</summary>
@@ -596,7 +597,7 @@ public sealed partial class AIObject : SimObject
     // src/game/ai_object.cpp VarType, VarDef, kVars.
     private enum VarType { FloatG, Int, Point, FloatF }
     private readonly record struct VarDef(string Name, VarType Type, bool Recompute);
-    private static readonly VarDef[] kVars =
+    private static readonly VarDef[] Vars =
     [
         new("iq", VarType.FloatG, true),
         new("pathType", VarType.Int, false),
@@ -616,7 +617,7 @@ public sealed partial class AIObject : SimObject
     public string VarName(string var) => "$AI::" + AiName + "::" + var;
 
     // src/game/ai_object.cpp variableChanged: the function-static flag: the stored text is not parsed again.
-    private static bool sCanonicalizing;
+    private static bool _canonicalizing;
 
     /// <summary>Applies a changed AI console variable.</summary>
     /// <param name="var">The variable name.</param>
@@ -649,7 +650,7 @@ public sealed partial class AIObject : SimObject
         { which = 9; type = VarType.FloatG; }
         else
             return;
-        if (sCanonicalizing)
+        if (_canonicalizing)
             return;
         string canon;
         if (type == VarType.Point)
@@ -710,9 +711,9 @@ public sealed partial class AIObject : SimObject
         }
         if (Game.Console != null && canon != value)
         {
-            sCanonicalizing = true;
+            _canonicalizing = true;
             Game.Console.SetVariable(VarName(var), canon); // reads back in the typed form
-            sCanonicalizing = false;
+            _canonicalizing = false;
         }
         if (notify && Game.Ai != null && (eq("iq") || eq("smartGuyWeaponRange") || eq("dumbGuyWeaponRange") ||
                                           eq("smartGuyMinAccuracy")))
@@ -728,7 +729,7 @@ public sealed partial class AIObject : SimObject
         var inr = Game.Console;
         var g = Game;
         var aiName = AiName;
-        foreach (var d in kVars)
+        foreach (var d in Vars)
         {
             var full = VarName(d.Name);
             var var = d.Name;
@@ -778,7 +779,7 @@ public sealed partial class AIObject : SimObject
     {
         if ((Flags & 8) == 0 || Game.Console == null)
             return;
-        foreach (var d in kVars)
+        foreach (var d in Vars)
             Game.Console.EraseGlobal(VarName(d.Name));
         Flags &= ~8u;
     }
@@ -786,13 +787,13 @@ public sealed partial class AIObject : SimObject
     // 0x0043b104 holds 0.01 as an 80-bit constant, which is below 0.01. Rounded toward zero to 53 bits, not to the
     // nearest double (above 0.01): with the nearest double f32(100 x 0.01) is 1, where the original gets 0.99999994 and
     // think period 4 (tests/test_ai.cpp testBehavior iq 100; aidiff motion c_rates, d_follow, target e_target_iq100).
-    private static readonly double kHundredth = Math.ScaleB(0xa3d70a3d70a3d70aUL & ~0x7ffUL, -70);
+    private static readonly double Hundredth = Math.ScaleB(0xa3d70a3d70a3d70aUL & ~0x7ffUL, -70);
 
     /// <summary>Recomputes the skill block from the IQ and the variables.</summary>
     /// <remarks>Follows 0x0043b0ac.</remarks>
     public void RecomputeSkill()
     {
-        var v = Mul(kHundredth, Iq);
+        var v = Mul(Hundredth, Iq);
         var s = X87.F32(v);
         if (!(v >= 0.0f))
             s = 0;
@@ -810,7 +811,7 @@ public sealed partial class AIObject : SimObject
     {
         for (var i = 0; i < 4; ++i)
             d.Callback[i] = null;
-        if (d.Type == AIDirective.kTarget)
+        if (d.Type == AIDirective.Target)
         {
             d.Callback[0] = AIMath.Intern("AI::onTargetLOSAcquired");
             d.Callback[1] = AIMath.Intern("AI::onTargetDied");
@@ -935,7 +936,7 @@ public sealed partial class AIObject : SimObject
         if (string.IsNullOrEmpty(fn) || Game.Console == null)
             return;
         var args = new List<string> { AiName };
-        if (d != null && d.Type == AIDirective.kTarget)
+        if (d != null && d.Type == AIDirective.Target)
             args.Add(Numbers.FormatInt(d.Client));
         Game.Console.CallFunction(fn, args);
     }
@@ -945,7 +946,7 @@ public sealed partial class AIObject : SimObject
     // src/game/ai_object.cpp AIObject::directivePoint: 0x0043b484.
     private void DirectivePoint(AIDirective d, Span<float> output)
     {
-        if ((d.Type & AIDirective.kWaypoint) != 0)
+        if ((d.Type & AIDirective.Waypoint) != 0)
         {
             d.Point.CopyTo(output);
             return;
@@ -1068,7 +1069,7 @@ public sealed partial class AIObject : SimObject
     // src/game/ai_object.cpp AIObject::targetInRange: 0x0043b590.
     private bool TargetInRange(AIDirective d)
     {
-        if (d.Sub != AIDirective.kPlayer)
+        if (d.Sub != AIDirective.Player)
             return true;
         var p = AIMath.PlayerOfRep(Game, d.Client);
         if (p == null || p.Dead)
@@ -1087,7 +1088,7 @@ public sealed partial class AIObject : SimObject
     {
         var list = new List<int>();
         for (var i = 0; i < Directives.Count; ++i)
-            if ((Directives[i].Type & AIDirective.kTarget) != 0)
+            if ((Directives[i].Type & AIDirective.Target) != 0)
                 list.Add(i);
         var n = list.Count;
         if (n == 0)
@@ -1096,9 +1097,9 @@ public sealed partial class AIObject : SimObject
         {
             var d = Directives[i];
             if (TargetInRange(d))
-                d.Flags |= AIDirective.kInRange;
+                d.Flags |= AIDirective.InRange;
             else
-                d.Flags &= unchecked((ushort)~(AIDirective.kLOS | AIDirective.kHadLOS | AIDirective.kInRange));
+                d.Flags &= unchecked((ushort)~(AIDirective.LOS | AIDirective.HadLOS | AIDirective.InRange));
         }
         if (++LosCounter >= LosPeriod)
             LosCounter = 0;
@@ -1118,33 +1119,33 @@ public sealed partial class AIObject : SimObject
             do
             {
                 var d = Directives[list[k]];
-                if ((d.Flags & AIDirective.kInRange) != 0)
+                if ((d.Flags & AIDirective.InRange) != 0)
                 {
-                    if (d.Sub == AIDirective.kPlayer)
+                    if (d.Sub == AIDirective.Player)
                     {
                         var tp = AIMath.PlayerOfRep(Game, d.Client);
                         var self = Player();
                         var seen = tp != null && self != null && Los(self, tp);
                         if (seen)
                         {
-                            if ((d.Flags & AIDirective.kLOS) == 0)
+                            if ((d.Flags & AIDirective.LOS) == 0)
                             {
                                 var copy = d.Clone();
-                                Callback(copy, (d.Flags & AIDirective.kHadLOS) != 0 ? 3 : 0);
+                                Callback(copy, (d.Flags & AIDirective.HadLOS) != 0 ? 3 : 0);
                             }
                             if (list[k] < Directives.Count)
-                                Directives[list[k]].Flags |= AIDirective.kLOS | AIDirective.kHadLOS;
+                                Directives[list[k]].Flags |= AIDirective.LOS | AIDirective.HadLOS;
                         }
-                        else if ((d.Flags & AIDirective.kLOS) != 0)
+                        else if ((d.Flags & AIDirective.LOS) != 0)
                         {
-                            d.Flags &= unchecked((ushort)~AIDirective.kLOS);
+                            d.Flags &= unchecked((ushort)~AIDirective.LOS);
                             var copy = d.Clone();
                             Callback(copy, 2);
                         }
                     }
                     else
                     {
-                        d.Flags |= AIDirective.kLOS | AIDirective.kHadLOS;
+                        d.Flags |= AIDirective.LOS | AIDirective.HadLOS;
                     }
                     if (list[k] < Directives.Count)
                         LastLosClient = Directives[list[k]].Client;
@@ -1160,7 +1161,7 @@ public sealed partial class AIObject : SimObject
             if (list[k] >= Directives.Count)
                 break;
             var d = Directives[list[k]];
-            if (d.Sub != AIDirective.kPlayer)
+            if (d.Sub != AIDirective.Player)
             {
                 CurrentTarget = list[k];
                 continue;
@@ -1170,15 +1171,15 @@ public sealed partial class AIObject : SimObject
             {
                 if (tp.Dead)
                 {
-                    if ((d.Flags & AIDirective.kDeathReported) == 0)
+                    if ((d.Flags & AIDirective.DeathReported) == 0)
                     {
                         var copy = d.Clone();
                         Callback(copy, 1);
                         if (list[k] < Directives.Count)
-                            Directives[list[k]].Flags |= AIDirective.kDeathReported;
+                            Directives[list[k]].Flags |= AIDirective.DeathReported;
                     }
                 }
-                else if ((d.Flags & AIDirective.kLOS) != 0)
+                else if ((d.Flags & AIDirective.LOS) != 0)
                 {
                     var p = new float[3];
                     AIMath.TargetPoint(Game, tp, p);
@@ -1193,12 +1194,12 @@ public sealed partial class AIObject : SimObject
                     }
                 }
             }
-            else if ((d.Flags & AIDirective.kDeathReported) == 0)
+            else if ((d.Flags & AIDirective.DeathReported) == 0)
             {
                 var copy = d.Clone();
                 Callback(copy, 1);
                 if (list[k] < Directives.Count)
-                    Directives[list[k]].Flags |= AIDirective.kDeathReported;
+                    Directives[list[k]].Flags |= AIDirective.DeathReported;
             }
         }
     }
@@ -1236,7 +1237,7 @@ public sealed partial class AIObject : SimObject
             var d = Directives[di].Clone();
             var p = new float[3];
             DirectivePoint(d, p);
-            if (d.Type == AIDirective.kFollow || !AtWaypoint(p))
+            if (d.Type == AIDirective.Follow || !AtWaypoint(p))
             {
                 Frame.HasMoveTarget = true;
                 p.CopyTo(Frame.MoveTarget, 0);
@@ -1251,7 +1252,7 @@ public sealed partial class AIObject : SimObject
 
     // ---- automatic targets (2.5) ----
 
-    private const uint kAutoBase = 0x5d658000u;
+    private const uint AutoBase = 0x5d658000u;
 
     /// <summary>Refreshes the automatic targets.</summary>
     /// <remarks>Follows 0x00440118.</remarks>
@@ -1270,7 +1271,7 @@ public sealed partial class AIObject : SimObject
         var kept = new List<AIDirective>(Directives.Count);
         foreach (var d in Directives)
         {
-            if (d.Type == AIDirective.kTarget && ((uint)d.Order & 0x7fff8000u) == kAutoBase)
+            if (d.Type == AIDirective.Target && ((uint)d.Order & 0x7fff8000u) == AutoBase)
             {
                 var r = Game.Players.Find(d.Client);
                 if (r != null && Enemy(r))
@@ -1299,10 +1300,10 @@ public sealed partial class AIObject : SimObject
                 continue;
             var d = new AIDirective
             {
-                Type = AIDirective.kTarget,
-                Sub = AIDirective.kPlayer,
+                Type = AIDirective.Target,
+                Sub = AIDirective.Player,
                 Client = r.Id,
-                Order = unchecked((int)(kAutoBase | (uint)r.Id)),
+                Order = unchecked((int)(AutoBase | (uint)r.Id)),
             };
             DefaultCallbacks(d);
             Directives.Add(d);
@@ -1333,7 +1334,7 @@ public sealed partial class AIObject : SimObject
             ScriptedTargets = true;
             var kept = new List<AIDirective>();
             foreach (var d in Directives)
-                if (!(d.Type == AIDirective.kTarget && ((uint)d.Order & 0x7fff8000u) == kAutoBase))
+                if (!(d.Type == AIDirective.Target && ((uint)d.Order & 0x7fff8000u) == AutoBase))
                     kept.Add(d);
             Directives = kept;
         }
@@ -1438,11 +1439,11 @@ public sealed partial class AIObject : SimObject
             var d = Directives[CurrentTarget].Clone();
             switch (d.Sub)
             {
-                case AIDirective.kPlayer:
+                case AIDirective.Player:
                     if (AIMath.PlayerOfRep(Game, d.Client) is Player p)
                         EngagePlayer(p);
                     break;
-                case AIDirective.kLaser:
+                case AIDirective.Laser:
                     EngageLaser(d);
                     break;
                 case AIDirective.kPoint:
@@ -1503,10 +1504,10 @@ public sealed partial class AIObject : SimObject
         var dx = X87.F32(Sub(point[0], Frame.Own[0]));
         var dy = X87.F32(Sub(point[1], Frame.Own[1]));
         var t = AIMath.Atan2Safe(dy, dx);
-        var desired0 = X87.F32(Sub(t, AIMath.kHalfPiD));
+        var desired0 = X87.F32(Sub(t, AIMath.HalfPiD));
         var desired = AIMath.WrapAngle(0.0f, desired0);
-        var cur = AIMath.WrapAngle(AIMath.kTwoPiF, self.Rotation[2]);
-        YawError e;
+        var cur = AIMath.WrapAngle(AIMath.TwoPiF, self.Rotation[2]);
+        var e = default(YawError);
         float diff;
         float abs;
         for (; ; )
@@ -1516,7 +1517,7 @@ public sealed partial class AIObject : SimObject
             var a = Math.Abs(d);
             abs = X87.F32(a);
             if (a > 3.1415937f)
-                desired = X87.F32(Add(desired, AIMath.kTwoPiD));
+                desired = X87.F32(Add(desired, AIMath.TwoPiD));
             else
                 break;
         }
@@ -1581,8 +1582,8 @@ public sealed partial class AIObject : SimObject
     }
 
     // 2/3 and 1/3 as the 80-bit constants of 0x0043d0e4, rounded to 53 bits.
-    private static readonly double kTwoThirds = Math.ScaleB(0xaaaaaaaaaaaaaaabUL, -64);
-    private static readonly double kOneThird = Math.ScaleB(0xaaaaaaaaaaaaaaabUL, -65);
+    private static readonly double TwoThirds = Math.ScaleB(0xaaaaaaaaaaaaaaabUL, -64);
+    private static readonly double OneThird = Math.ScaleB(0xaaaaaaaaaaaaaaabUL, -65);
 
     /// <summary>Computes the speed for a distance to the goal.</summary>
     /// <param name="dist">The distance.</param>
@@ -1594,8 +1595,8 @@ public sealed partial class AIObject : SimObject
             return Sk.MaxSpeed;
         if (!(dist > 0.2))
             return 0.0f;
-        var t = X87.F32(Mul(Sub(dist, 0.2), kTwoThirds));
-        var lo = X87.F32(Mul(kOneThird, Sk.MaxSpeed));
+        var t = X87.F32(Mul(Sub(dist, 0.2), TwoThirds));
+        var lo = X87.F32(Mul(OneThird, Sk.MaxSpeed));
         if (lo > 0.25f)
             lo = 0.25f;
         return X87.F32(AIMath.LerpF(t, Sk.MaxSpeed, lo));
@@ -1704,8 +1705,8 @@ public sealed partial class AIObject : SimObject
             return false;
         var speed = group switch
         {
-            Projectile.kRocketGroup => Pj.Real(b, "terminalVelocity", 0.0f),
-            Projectile.kBulletGroup or Projectile.kGrenadeGroup or Projectile.kSeekerGroup => Pj.Real(b, "muzzleVelocity", Pj.Real(b, "maxLevelFlightDist", 0.0f)),
+            Projectile.RocketGroup => Pj.Real(b, "terminalVelocity", 0.0f),
+            Projectile.BulletGroup or Projectile.GrenadeGroup or Projectile.SeekerGroup => Pj.Real(b, "muzzleVelocity", Pj.Real(b, "maxLevelFlightDist", 0.0f)),
             _ => 1.0e7f,
         };
         ProjectileSpeed = speed;
@@ -1756,7 +1757,7 @@ public sealed partial class AIObject : SimObject
             var u = AIMath.AiRandom().Next();
             scale = X87.F32(Add(Mul(Mul(u, 2.3283064365386963e-10), @base), @base));
         }
-        var phase = X87.F32(Mul(Mul(ErrorPhase, AIMath.kTwoPiD), 0.00390625f));
+        var phase = X87.F32(Mul(Mul(ErrorPhase, AIMath.TwoPiD), 0.00390625f));
         {
             var u = AIMath.AiRandom().Next();
             phase = X87.F32(Add(Add(Mul(Mul(u, 2.3283064365386963e-10), 0.6f), -0.3f), phase));

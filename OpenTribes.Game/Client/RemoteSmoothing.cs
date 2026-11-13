@@ -62,25 +62,25 @@ public sealed class RemotePlayer
     private const double Pi = 3.141592653589793, TwoPi = 6.283185307179586;
 
     /// <summary>The simulated Player copy.</summary>
-    public readonly Player P;
+    public Player P { get; }
     /// <summary>The time the copy is simulated up to (+0x218).</summary>
-    public uint SimTime;
+    public uint SimTime { get; set; }
     /// <summary>The end of the smoothing window (+0x1020).</summary>
-    public uint End;
+    public uint End { get; set; }
     /// <summary>The time of the last frame (+0x21c).</summary>
-    public uint LastTime;
+    public uint LastTime { get; set; }
     /// <summary>The position rate (+0x788): per ms in a window, per tick after a step.</summary>
-    public readonly float[] PosRate = new float[3];
+    public float[] PosRate { get; } = new float[3];
     /// <summary>The yaw rate (+0x794).</summary>
-    public float YawRate;
+    public float YawRate { get; set; }
     /// <summary>The pitch rate (+0x798).</summary>
-    public float PitchRate;
+    public float PitchRate { get; set; }
     /// <summary>The number of steps run.</summary>
-    public long Steps;
+    public long Steps { get; set; }
     /// <summary>The ghost index of the mount object (+0x1028), -1 for none.</summary>
-    public int MountGhost = -1;
+    public int MountGhost { get; set; } = -1;
     /// <summary>The mount point (+0x102c).</summary>
-    public int MountPoint;
+    public int MountPoint { get; set; }
 
     /// <summary>Creates the smoothing state of a Player copy.</summary>
     /// <param name="p">The Player copy.</param>
@@ -272,17 +272,17 @@ public sealed class RemoteVehicle
     private const double Pi = 3.141592653589793, TwoPi = 6.283185307179586;
 
     /// <summary>The simulated Vehicle copy.</summary>
-    public readonly Vehicle V;
+    public Vehicle V { get; }
     /// <summary>The time the copy is simulated up to (+0x218).</summary>
-    public uint SimTime;
+    public uint SimTime { get; set; }
     /// <summary>The end of the smoothing window (+0x8e0).</summary>
-    public uint End;
+    public uint End { get; set; }
     /// <summary>The position rate per ms (+0x914).</summary>
-    public readonly float[] PosRate = new float[3];
+    public float[] PosRate { get; } = new float[3];
     /// <summary>The rotation rate per ms (+0x908).</summary>
-    public readonly float[] RotRate = new float[3];
+    public float[] RotRate { get; } = new float[3];
     /// <summary>The number of steps run.</summary>
-    public long Steps;
+    public long Steps { get; set; }
 
     /// <summary>Creates the smoothing state of a Vehicle copy.</summary>
     /// <param name="v">The Vehicle copy.</param>

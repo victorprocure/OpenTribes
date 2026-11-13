@@ -17,7 +17,7 @@ public interface IGuiAudio
 public sealed class RecordingAudio : IGuiAudio
 {
     /// <summary>The names played, in order.</summary>
-    public readonly List<string> Played = [];
+    public List<string> Played { get; } = [];
     /// <inheritdoc/>
     public void Play(string name) => Played.Add(name);
 }
@@ -27,43 +27,43 @@ public sealed class RecordingAudio : IGuiAudio
 public sealed class GuiHost
 {
     /// <summary>The script interpreter that runs the console.</summary>
-    public readonly Interpreter Interp;
+    public Interpreter Interp { get; }
     /// <summary>The resource manager that loads fonts, bitmaps and `.gui` files, or null.</summary>
-    public ResourceManager? Res;
+    public ResourceManager? Res { get; set; }
     /// <summary>The directory searched first for `.gui` files.</summary>
-    public string Root = "";
+    public string Root { get; set; } = "";
     /// <summary>The audio the controls play through.</summary>
-    public IGuiAudio Audio = new RecordingAudio();
+    public IGuiAudio Audio { get; set; } = new RecordingAudio();
     /// <summary>The clock in milliseconds.</summary>
-    public Func<long> Now = () => Environment.TickCount64;
+    public Func<long> Now { get; set; } = () => Environment.TickCount64;
     /// <summary>Receives log lines.</summary>
-    public Action<string> Log = Console.WriteLine;
+    public Action<string> Log { get; set; } = Console.WriteLine;
     /// <summary>The clipboard text.</summary>
-    public string Clipboard = "";
+    public string Clipboard { get; set; } = "";
     /// <summary>The HUD data source (docs/gui.md 4.1), null for no client player state.</summary>
-    public IHudSource? Hud;
+    public IHudSource? Hud { get; set; }
     /// <summary>The action maps the controls screen rows look their keys up in.</summary>
-    public ClientState? Actions;
+    public ClientState? Actions { get; set; }
     /// <summary>The item indices marked as favorites (CmdInventory::setFavorites). The inventory lists draw a star beside them.</summary>
-    public readonly HashSet<int> Favorites = [];
+    public HashSet<int> Favorites { get; } = [];
     /// <summary>Called when a PaletteCtrl wakes, with the palette file name.</summary>
-    public Action<string>? OnPalette;
+    public Action<string>? OnPalette { get; set; }
     /// <summary>Called with a movie palette (768 RGB bytes) to merge into the active palette at palStart for palColors entries.</summary>
-    public Action<byte[], int, int>? OnMoviePalette;
+    public Action<byte[], int, int>? OnMoviePalette { get; set; }
     /// <summary>Called at the end of a movie: the active palette comes back.</summary>
-    public Action? OnMovieEnd;
+    public Action? OnMovieEnd { get; set; }
     /// <summary>Called at the start of the movie sound. Returns the call that stops it.</summary>
-    public Func<Platform.Audio.WavData, Action?>? StartMovieAudio;
+    public Func<Platform.Audio.WavData, Action?>? StartMovieAudio { get; set; }
     /// <summary>Returns whether a chat menu object of that name exists (`CommandChatMenu`, TSCommander 004d2a98).</summary>
-    public Func<string, bool>? ChatMenuExists;
+    public Func<string, bool>? ChatMenuExists { get; set; }
     /// <summary>Calls setCMMode on the chat menu object of that name (TSCommander 004d2a98).</summary>
-    public Action<string, int>? SetChatMenuMode;
+    public Action<string, int>? SetChatMenuMode { get; set; }
     /// <summary>The renderer the model views (FearGui::ShapeView, SkinView) draw through: the client owns the shape renderer.</summary>
-    public IModelViewRenderer? ModelViews;
+    public IModelViewRenderer? ModelViews { get; set; }
 
-    private readonly Dictionary<string, PftFont?> mFonts = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, PbmpBitmap?> mBitmaps = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, PbmaArray?> mArrays = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PftFont?> _fonts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PbmpBitmap?> _bitmaps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PbmaArray?> _arrays = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Creates a host.</summary>
     /// <param name="interp">The script interpreter.</param>
@@ -78,7 +78,7 @@ public sealed class GuiHost
     public long TickMs => Now();
 
     /// <summary>The chat lines (text, font tag) the HUD classes draw.</summary>
-    public readonly List<(string Text, uint FontTag)> Chat = [];
+    public List<(string Text, uint FontTag)> Chat { get; } = [];
     /// <summary>Adds a chat line.</summary>
     /// <param name="text">The line text.</param>
     /// <param name="fontTag">The font tag.</param>
@@ -91,16 +91,16 @@ public sealed class GuiHost
     public static bool ChatLineShown(string text) => text.Length > 0;
 
     /// <summary>The current command line of the chat display (message type 4).</summary>
-    public string CommandText = "";
+    public string CommandText { get; set; } = "";
     /// <summary>True while the command line is active, which decides whether it is drawn.</summary>
-    public bool CommandActive;
+    public bool CommandActive { get; set; }
     /// <summary>True when the command line was accepted, which decides how it is drawn.</summary>
-    public bool CommandAccepted;
+    public bool CommandAccepted { get; set; }
 
     /// <summary>The message buffer of Client::centerPrint (0042276c). The scripts clear it with an empty text after their own timeout.</summary>
-    public string CenterText = "";
+    public string CenterText { get; set; } = "";
     /// <summary>The type of the center print: 0 centred, 1 near the bottom, 2 near the top.</summary>
-    public int CenterType;
+    public int CenterType { get; set; }
     /// <summary>Sets the center print message.</summary>
     /// <param name="text">The message.</param>
     /// <param name="type">The type: 0 centred, 1 near the bottom, 2 near the top.</param>
@@ -170,15 +170,15 @@ public sealed class GuiHost
     /// <summary>Puts a font into the cache under a file name, so that the loaders of <see cref="Res"/> are not needed (tests and tools).</summary>
     /// <param name="name">The file name.</param>
     /// <param name="font">The font.</param>
-    public void SetFont(string name, PftFont font) => mFonts[name] = font;
+    public void SetFont(string name, PftFont font) => _fonts[name] = font;
     /// <summary>Puts a bitmap array into the cache under a file name.</summary>
     /// <param name="name">The file name.</param>
     /// <param name="array">The bitmap array.</param>
-    public void SetArray(string name, PbmaArray array) => mArrays[name] = array;
+    public void SetArray(string name, PbmaArray array) => _arrays[name] = array;
     /// <summary>Puts a bitmap into the cache under a file name.</summary>
     /// <param name="name">The file name.</param>
     /// <param name="bitmap">The bitmap.</param>
-    public void SetBitmap(string name, PbmpBitmap bitmap) => mBitmaps[name] = bitmap;
+    public void SetBitmap(string name, PbmpBitmap bitmap) => _bitmaps[name] = bitmap;
 
     /// <summary>Returns a font, loading it on first use.</summary>
     /// <param name="name">The file name.</param>
@@ -187,10 +187,10 @@ public sealed class GuiHost
     {
         if (name.Length == 0)
             return null;
-        if (!mFonts.TryGetValue(name, out var f))
+        if (!_fonts.TryGetValue(name, out var f))
         {
             f = Res == null ? null : GfxAssets.LoadFont(Res, name);
-            mFonts[name] = f;
+            _fonts[name] = f;
         }
         return f;
     }
@@ -207,10 +207,10 @@ public sealed class GuiHost
     {
         if (name.Length == 0)
             return null;
-        if (!mBitmaps.TryGetValue(name, out var b))
+        if (!_bitmaps.TryGetValue(name, out var b))
         {
             b = Res == null ? null : GfxAssets.LoadBitmap(Res, name);
-            mBitmaps[name] = b;
+            _bitmaps[name] = b;
         }
         return b;
     }
@@ -227,10 +227,10 @@ public sealed class GuiHost
     {
         if (name.Length == 0)
             return null;
-        if (!mArrays.TryGetValue(name, out var a))
+        if (!_arrays.TryGetValue(name, out var a))
         {
             a = Res == null ? null : GfxAssets.LoadBitmapArray(Res, name);
-            mArrays[name] = a;
+            _arrays[name] = a;
         }
         return a;
     }

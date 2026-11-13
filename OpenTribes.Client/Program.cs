@@ -39,16 +39,38 @@ public static class Program
 
     private sealed class Options
     {
-        public string Root = "";
-        public string? Gui, Exec, Input, Show, Palette, Font, Screenshot, VideoDriver, Mission, Camera, Cameras, Demo, At, Shape, Seq;
-        public double Pos;
-        public string Skin = "";
-        public string? AudioOut, Cat, AudioLive;
-        public double Seconds = 20;
-        public double Fov = World.WorldScene.DefaultFov;
-        public string Text = "The quick brown fox jumps over the lazy dog 0123456789";
-        public int Frames = 3;
-        public int Width = 640, Height = 480;
+        public string Root { get; set; } = "";
+        public string? Gui { get; set; }
+        public string? Exec { get; set; }
+        public string? Input { get; set; }
+        public string? Show { get; set; }
+        public string? Palette { get; set; }
+        public string? Font { get; set; }
+        public string? Screenshot { get; set; }
+        public string? VideoDriver { get; set; }
+        public string? Mission { get; set; }
+        public string? Camera { get; set; }
+        public string? Cameras { get; set; }
+        public string? Demo { get; set; }
+        public string? At { get; set; }
+        public string? Shape { get; set; }
+        public string? Seq { get; set; }
+        public double Pos { get; set; }
+        public string Skin { get; set; } = "";
+        public string? AudioOut { get; set; }
+        public string? Cat { get; set; }
+        public string? AudioLive { get; set; }
+        public ref double Seconds => ref _seconds;
+        private double _seconds = 20;
+        public ref double Fov => ref _fov;
+        private double _fov = World.WorldScene.DefaultFov;
+        public string Text { get; set; } = "The quick brown fox jumps over the lazy dog 0123456789";
+        public ref int Frames => ref _frames;
+        private int _frames = 3;
+        public ref int Width => ref _width;
+        private int _width = 640;
+        public ref int Height => ref _height;
+        private int _height = 480;
     }
 
     /// <summary>Starts the client, or runs the tool that the arguments select.</summary>

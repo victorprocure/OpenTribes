@@ -7,34 +7,34 @@ using OpenTribes.Core;
 /// <remarks>Port of src/server/console_log.cpp. The original write is at 005f43f8 and the <c>$Console::logMode</c> setter at 005f4544.</remarks>
 public sealed class ConsoleLog : IDisposable
 {
-    private readonly string mPath;
-    private readonly Func<DateTime> mLocalTime;
-    private int mMode;
-    private bool mHeaderDue = true;
-    private bool mLastHope;
-    private FileStream? mFile;
+    private readonly string _path;
+    private readonly Func<DateTime> _localTime;
+    private int _mode;
+    private bool _headerDue = true;
+    private bool _lastHope;
+    private FileStream? _file;
 
     /// <summary>Creates a log.</summary>
     /// <param name="path">The log file. The original uses <c>console.log</c> in the working directory.</param>
     /// <param name="localTime">Returns the local time. Defaults to the system clock (<c>std::tm</c> in the C++).</param>
     public ConsoleLog(string path, Func<DateTime>? localTime = null)
     {
-        mPath = path;
-        mLocalTime = localTime ?? (() => DateTime.Now);
+        _path = path;
+        _localTime = localTime ?? (() => DateTime.Now);
     }
 
     /// <summary>Closes the file.</summary>
     public void Dispose()
     {
-        mFile?.Dispose();
-        mFile = null;
+        _file?.Dispose();
+        _file = null;
     }
 
     private FileStream? OpenAppend()
     {
         try
         {
-            return new FileStream(mPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+            return new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
         }
         catch (Exception)
         {
@@ -46,60 +46,60 @@ public sealed class ConsoleLog : IDisposable
     /// <param name="mode">0 is off, 1 opens, appends and closes per line, 2 keeps the file open. Any other non-zero value logs nothing but counts as on.</param>
     public void SetMode(int mode)
     {
-        if (mode == mMode)
+        if (mode == _mode)
             return;
-        if (mode != 0 && mMode == 0)
-            mHeaderDue = true;
-        if (mMode == 2)
+        if (mode != 0 && _mode == 0)
+            _headerDue = true;
+        if (_mode == 2)
         {
-            mFile?.Dispose();
-            mFile = null;
+            _file?.Dispose();
+            _file = null;
         }
         else if (mode == 2)
         {
-            mFile = OpenAppend();
+            _file = OpenAppend();
         }
-        mMode = mode;
+        _mode = mode;
     }
 
     /// <summary>Gets the log mode.</summary>
     /// <returns>The mode.</returns>
-    public int Mode() => mMode;
+    public int Mode() => _mode;
 
     /// <summary>Selects the LastHope 1.30 header format (docs/lasthope-1.30.md L15).</summary>
     /// <param name="on">True for the LastHope format.</param>
-    public void SetLastHope(bool on) => mLastHope = on;
+    public void SetLastHope(bool on) => _lastHope = on;
 
     /// <summary>Writes one console line, followed by <c>\r\n</c>. The first line after the log was switched on, and the first line of the process, is preceded by a date header.</summary>
     /// <param name="line">The line.</param>
     public void Write(string line)
     {
-        if (mMode == 0)
+        if (_mode == 0)
             return;
-        if (mMode == 1)
-            mFile = OpenAppend();
-        if (mFile != null)
+        if (_mode == 1)
+            _file = OpenAppend();
+        if (_file != null)
         {
-            if (mHeaderDue)
+            if (_headerDue)
             {
-                var tm = mLocalTime();
-                var header = mLastHope
+                var tm = _localTime();
+                var header = _lastHope
                     ? string.Format(CultureInfo.InvariantCulture, "--- {0}/{1}/{2} -- {3}:{4}:{5} ---\n\r",
                                     tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second)
                     : string.Format(CultureInfo.InvariantCulture, "-------------------------- {0}/{1}/{2} -- {3:D2}:{4:D2}:{5:D2} -----\r\n",
                                     tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second);
-                mFile.Write(ByteString.ToBytes(header));
-                mHeaderDue = false;
+                _file.Write(ByteString.ToBytes(header));
+                _headerDue = false;
             }
-            mFile.Write(ByteString.ToBytes(line));
-            mFile.Write("\r\n"u8);
-            if (mMode == 2)
-                mFile.Flush();
+            _file.Write(ByteString.ToBytes(line));
+            _file.Write("\r\n"u8);
+            if (_mode == 2)
+                _file.Flush();
         }
-        if (mMode == 1 && mFile != null)
+        if (_mode == 1 && _file != null)
         {
-            mFile.Dispose();
-            mFile = null;
+            _file.Dispose();
+            _file = null;
         }
     }
 }

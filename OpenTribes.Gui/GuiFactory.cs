@@ -75,14 +75,14 @@ public interface IModelViewRenderer
 public sealed class GuiShapeView : GuiActive
 {
     /// <summary>The angle of the view around the model (+0x418), pi at the start (the model faces the viewer).</summary>
-    public double Yaw = Math.PI;
-    private int mLastX, mLastY;
+    public double Yaw { get; set; } = Math.PI;
+    private int _lastX, _lastY;
     /// <summary>The camera distance (+0x1e8), NaN until the renderer has fitted the model.</summary>
-    public double Zoom = double.NaN;
+    public double Zoom { get; set; } = double.NaN;
     /// <summary>The fitted distance, the lowest (+0x1ec), NaN until the renderer has fitted the model.</summary>
-    public double ZoomMin = double.NaN;
+    public double ZoomMin { get; set; } = double.NaN;
     /// <summary>The highest distance (+0x1f4), set with the fitted one by the renderer (SkinViewRenderer.MaxDistance, camera call 005aa65c).</summary>
-    public double ZoomMax = double.NaN;
+    public double ZoomMax { get; set; } = double.NaN;
     /// <inheritdoc/>
     public override bool WantsTab => false;
     /// <inheritdoc/>
@@ -97,8 +97,8 @@ public sealed class GuiShapeView : GuiActive
     /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
-        mLastX = e.X;
-        mLastY = e.Y;
+        _lastX = e.X;
+        _lastY = e.Y;
         return base.MsDown(e);
     }
 
@@ -106,16 +106,16 @@ public sealed class GuiShapeView : GuiActive
     /// <remarks>Follows 0049ae84: a drag of dx pixels turns the model by dx / 100 radians and keeps the angle in (0, 2 pi].</remarks>
     public override bool MsDrag(GuiEvent e)
     {
-        if (e.X != mLastX)
+        if (e.X != _lastX)
         {
-            Yaw += (e.X - mLastX) * 0.01;
+            Yaw += (e.X - _lastX) * 0.01;
             if (Yaw >= 2 * Math.PI)
                 Yaw -= 2 * Math.PI;
             else if (Yaw <= 0)
                 Yaw = 2 * Math.PI;
         }
-        mLastX = e.X;
-        mLastY = e.Y;
+        _lastX = e.X;
+        _lastY = e.Y;
         return base.MsDrag(e);
     }
 
@@ -123,8 +123,8 @@ public sealed class GuiShapeView : GuiActive
     public override bool MsRightDown(GuiEvent e)
     {
         Canvas?.LockMouse(this);
-        mLastX = e.X;
-        mLastY = e.Y;
+        _lastX = e.X;
+        _lastY = e.Y;
         return true;
     }
 
@@ -141,11 +141,11 @@ public sealed class GuiShapeView : GuiActive
     {
         if (!double.IsNaN(Zoom) && H > 0)
         {
-            Zoom += (mLastY - e.Y) * (10.0 / H);
+            Zoom += (_lastY - e.Y) * (10.0 / H);
             Zoom = Zoom < ZoomMin ? ZoomMin : Zoom >= ZoomMax ? ZoomMax : Zoom;
         }
-        mLastX = e.X;
-        mLastY = e.Y;
+        _lastX = e.X;
+        _lastY = e.Y;
         return true;
     }
 

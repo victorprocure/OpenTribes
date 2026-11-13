@@ -17,15 +17,15 @@ using OpenTribes.Script;
 /// </remarks>
 public sealed class ClientScript
 {
-    private readonly ClientApp mApp;
-    private readonly List<(double At, string Line)> mLines = [];
-    private readonly List<(double At, Action Do)> mQueued = [];
-    private int mNext;
-    private string? mWaitFor;
-    private double mWaitStart, mWaitLimit, mShift, mBusyUntil;
-    private bool mYield;
+    private readonly ClientApp _app;
+    private readonly List<(double At, string Line)> _lines = [];
+    private readonly List<(double At, Action Do)> _queued = [];
+    private int _next;
+    private string? _waitFor;
+    private double _waitStart, _waitLimit, _shift, _busyUntil;
+    private bool _yield;
 
-    private ClientScript(ClientApp app) => mApp = app;
+    private ClientScript(ClientApp app) => _app = app;
 
     private bool Check(string what)
     {
@@ -33,17 +33,17 @@ public sealed class ClientScript
         switch (w[0].ToLowerInvariant())
         {
             case "play":
-                return mApp.Game != null && mApp.Game.HasScene && mApp.Canvas.Content?.Id == PlayDelegate.PlayGuiId;
+                return _app.Game != null && _app.Game.HasScene && _app.Canvas.Content?.Id == PlayDelegate.PlayGuiId;
             case "player":
-                return mApp.Game?.World.Psc.ControlClass == "Player";
+                return _app.Game?.World.Psc.ControlClass == "Player";
             case "connected":
-                return mApp.Game != null && mApp.Game.Joined;
+                return _app.Game != null && _app.Game.Joined;
             case "content":
-                return w.Length > 1 && mApp.Canvas.Content?.Id.ToString(CultureInfo.InvariantCulture) == w[1];
+                return w.Length > 1 && _app.Canvas.Content?.Id.ToString(CultureInfo.InvariantCulture) == w[1];
         }
         var r = what.StartsWith('$') && !what.Contains(' ') && !what.Contains('(')
-            ? mApp.Interp.PeekVariable(what)
-            : mApp.Interp.Evaluate(what.EndsWith(';') ? what : what + ";");
+            ? _app.Interp.PeekVariable(what)
+            : _app.Interp.Evaluate(what.EndsWith(';') ? what : what + ";");
         return r.Equals("true", StringComparison.OrdinalIgnoreCase) || r == "1";
     }
 
@@ -75,54 +75,54 @@ public sealed class ClientScript
                 t += w;
                 continue;
             }
-            s.mLines.Add((t, line));
+            s._lines.Add((t, line));
         }
         return s;
     }
 
     /// <summary>True when every line has run and no queued action is left.</summary>
-    public bool Finished => mNext >= mLines.Count && mQueued.Count == 0;
+    public bool Finished => _next >= _lines.Count && _queued.Count == 0;
 
     /// <summary>Runs every command that is due.</summary>
     /// <param name="nowMs">The app time in milliseconds.</param>
     public void Run(uint nowMs)
     {
         var sec = nowMs / 1000.0;
-        for (var i = 0; i < mQueued.Count;)
+        for (var i = 0; i < _queued.Count;)
         {
-            if (mQueued[i].At <= sec)
+            if (_queued[i].At <= sec)
             {
-                var a = mQueued[i].Do;
-                mQueued.RemoveAt(i);
+                var a = _queued[i].Do;
+                _queued.RemoveAt(i);
                 a();
             }
             else
                 ++i;
         }
-        if (mWaitFor != null)
+        if (_waitFor != null)
         {
-            var done = Check(mWaitFor);
-            if (!done && sec - mWaitStart < mWaitLimit)
+            var done = Check(_waitFor);
+            if (!done && sec - _waitStart < _waitLimit)
                 return;
             if (!done)
-                Echo("waitfor " + mWaitFor + ": timed out");
+                Echo("waitfor " + _waitFor + ": timed out");
             else
-                Echo("waitfor " + mWaitFor + ": true after " + (sec - mWaitStart).ToString("0.0", CultureInfo.InvariantCulture) + " s");
-            mShift += sec - mWaitStart;
-            mWaitFor = null;
+                Echo("waitfor " + _waitFor + ": true after " + (sec - _waitStart).ToString("0.0", CultureInfo.InvariantCulture) + " s");
+            _shift += sec - _waitStart;
+            _waitFor = null;
         }
-        mYield = false;
+        _yield = false;
         // `type`, `click` and `shot` hold the next line back until their own actions are done (a click is 0.1 s, a typed
         // character 0.03 s, a shot one frame), so a script reads top to bottom.
-        while (sec >= mBusyUntil && mNext < mLines.Count && mLines[mNext].At + mShift <= sec)
+        while (sec >= _busyUntil && _next < _lines.Count && _lines[_next].At + _shift <= sec)
         {
-            Exec(mLines[mNext++].Line, sec);
-            if (mWaitFor != null || mYield)
+            Exec(_lines[_next++].Line, sec);
+            if (_waitFor != null || _yield)
                 break;
         }
     }
 
-    private void Echo(string s) => mApp.Interp.Print(1, s);
+    private void Echo(string s) => _app.Interp.Print(1, s);
 
     /// <summary>Finds the scan code of a key name or character, using the table of client-scripts.md 3.4.</summary>
     /// <param name="name">The key name or a single character.</param>
@@ -164,19 +164,19 @@ public sealed class ClientScript
         if (shift && !all.Contains(0x2a))
             all.Add(0x2a);
         foreach (var m in all)
-            mApp.InjectKey(m, true);
-        mApp.InjectKey(scan, true);
-        mApp.InjectKey(scan, false);
+            _app.InjectKey(m, true);
+        _app.InjectKey(scan, true);
+        _app.InjectKey(scan, false);
         for (var i = all.Count - 1; i >= 0; --i)
-            mApp.InjectKey(all[i], false);
+            _app.InjectKey(all[i], false);
     }
 
     private void MoveTo(int x, int y)
     {
-        var c = mApp.Canvas;
+        var c = _app.Canvas;
         int dx = x - (int)c.CursorX, dy = y - (int)c.CursorY;
-        mApp.InjectAxis(0, dx);
-        mApp.InjectAxis(1, dy);
+        _app.InjectAxis(0, dx);
+        _app.InjectAxis(1, dy);
     }
 
     private void Exec(string line, double now)
@@ -186,15 +186,15 @@ public sealed class ClientScript
         var cmd = w[0].ToLowerInvariant();
         var rest = w.Length > 1 ? w[1] : "";
         var a = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        void After(double dt, Action act) => mQueued.Add((now + dt, act));
+        void After(double dt, Action act) => _queued.Add((now + dt, act));
         switch (cmd)
         {
             case "move":
                 MoveTo(int.Parse(a[0], CultureInfo.InvariantCulture), int.Parse(a[1], CultureInfo.InvariantCulture));
                 break;
             case "mouse":
-                mApp.InjectAxis(0, float.Parse(a[0], CultureInfo.InvariantCulture));
-                mApp.InjectAxis(1, float.Parse(a[1], CultureInfo.InvariantCulture));
+                _app.InjectAxis(0, float.Parse(a[0], CultureInfo.InvariantCulture));
+                _app.InjectAxis(1, float.Parse(a[1], CultureInfo.InvariantCulture));
                 break;
             case "click":
             case "rclick":
@@ -204,29 +204,29 @@ public sealed class ClientScript
                     MoveTo(int.Parse(a[0], CultureInfo.InvariantCulture), int.Parse(a[1], CultureInfo.InvariantCulture));
                 var b = cmd == "rclick" ? 1 : 0;
                 var times = cmd == "dblclick" ? 2 : 1;
-                mBusyUntil = now + (0.1 * times);
+                _busyUntil = now + (0.1 * times);
                 for (var i = 0; i < times; ++i)
                 {
                     var t0 = i * 0.06;
-                    After(t0, () => mApp.InjectButton(b, true));
-                    After(t0 + 0.03, () => mApp.InjectButton(b, false));
+                    After(t0, () => _app.InjectButton(b, true));
+                    After(t0 + 0.03, () => _app.InjectButton(b, false));
                 }
                 break;
             }
             case "down":
-                mApp.InjectButton(0, true);
+                _app.InjectButton(0, true);
                 break;
             case "up":
-                mApp.InjectButton(0, false);
+                _app.InjectButton(0, false);
                 break;
             case "rdown":
-                mApp.InjectButton(1, true);
+                _app.InjectButton(1, true);
                 break;
             case "rup":
-                mApp.InjectButton(1, false);
+                _app.InjectButton(1, false);
                 break;
             case "wheel":
-                mApp.InjectAxis(2, float.Parse(a[0], CultureInfo.InvariantCulture) * 120f);
+                _app.InjectAxis(2, float.Parse(a[0], CultureInfo.InvariantCulture) * 120f);
                 break;
             case "key":
             {
@@ -249,21 +249,21 @@ public sealed class ClientScript
                     Echo("input: unknown key " + a[0]);
                     break;
                 }
-                mApp.InjectKey(scan, cmd == "keydown");
+                _app.InjectKey(scan, cmd == "keydown");
                 break;
             }
             case "hold":
             {
                 (var scan, _) = Lookup(a[0]);
                 var secs = double.Parse(a[1], CultureInfo.InvariantCulture);
-                mApp.InjectKey(scan, true);
-                After(secs, () => mApp.InjectKey(scan, false));
+                _app.InjectKey(scan, true);
+                After(secs, () => _app.InjectKey(scan, false));
                 break;
             }
             case "type":
             {
                 double t0 = 0;
-                mBusyUntil = now + (0.03 * rest.Length) + 0.06;
+                _busyUntil = now + (0.03 * rest.Length) + 0.06;
                 foreach (var ch in rest)
                 {
                     (var scan, var shift) = ch == ' ' ? (0x39, false) : Lookup(ch.ToString());
@@ -275,18 +275,18 @@ public sealed class ClientScript
                 break;
             }
             case "eval":
-                Echo("= " + mApp.Interp.Evaluate(rest));
+                Echo("= " + _app.Interp.Evaluate(rest));
                 break;
             case "echo":
                 Echo(rest);
                 break;
             case "var":
-                Echo($"{a[0]} = {mApp.Interp.PeekVariable(a[0])}");
+                Echo($"{a[0]} = {_app.Interp.PeekVariable(a[0])}");
                 break;
             case "where":
             case "clickctl":
             {
-                var c = mApp.GuiRt.FindControl(a[0]);
+                var c = _app.GuiRt.FindControl(a[0]);
                 if (c == null)
                 {
                     Echo("input: no control " + a[0]);
@@ -299,26 +299,26 @@ public sealed class ClientScript
                     break;
                 }
                 MoveTo(gx + (c.W / 2), gy + (c.H / 2));
-                After(0.02, () => mApp.InjectButton(0, true));
-                After(0.06, () => mApp.InjectButton(0, false));
+                After(0.02, () => _app.InjectButton(0, true));
+                After(0.06, () => _app.InjectButton(0, false));
                 break;
             }
             case "focus":
-                Echo("focus: " + ((mApp.Canvas.FirstResponder as GuiControl)?.ToString() ?? "root"));
+                Echo("focus: " + ((_app.Canvas.FirstResponder as GuiControl)?.ToString() ?? "root"));
                 break;
             case "shot":
-                mApp.QueueScreenshot(Path.Combine(mApp.Opt.ShotDir, rest.EndsWith(".png") ? rest : rest + ".png"));
-                mYield = true;
+                _app.QueueScreenshot(Path.Combine(_app.Opt.ShotDir, rest.EndsWith(".png") ? rest : rest + ".png"));
+                _yield = true;
                 break;
             case "quit":
-                mApp.RequestQuit();
+                _app.RequestQuit();
                 break;
             case "waitfor":
             {
                 var last = a.Length > 1 && double.TryParse(a[^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var lim) && !a[0].Equals("content", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-                mWaitLimit = last == 1 ? double.Parse(a[^1], CultureInfo.InvariantCulture) : 60;
-                mWaitFor = last == 1 ? string.Join(' ', a[..^1]) : rest;
-                mWaitStart = now;
+                _waitLimit = last == 1 ? double.Parse(a[^1], CultureInfo.InvariantCulture) : 60;
+                _waitFor = last == 1 ? string.Join(' ', a[..^1]) : rest;
+                _waitStart = now;
                 break;
             }
             default:

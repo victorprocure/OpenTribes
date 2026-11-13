@@ -10,8 +10,8 @@ using OpenTribes.Platform.Gfx;
 /// <remarks>Follows FearGui::SkinView draw (0049af20), the armor choice (0049a9bc) and FGSkin::set (0049a798), with the camera of 004998e0 and 0049a9bc. The stock fits the camera from the bounds of the shape and lights it with an ambient and a headlight.</remarks>
 public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
 {
-    private static readonly string[] sMale = ["larmor.dts", "marmor.dts", "harmor.dts"];
-    private static readonly string[] sFemale = ["lfemale.dts", "mfemale.dts", "harmor.dts"];
+    private static readonly string[] Male = ["larmor.dts", "marmor.dts", "harmor.dts"];
+    private static readonly string[] Female = ["lfemale.dts", "mfemale.dts", "harmor.dts"];
 
     // 004998e0: the horizontal half angle is 0.3 radians; the fit is 0.85 (male, 0.75 female) wide and 1.325 (1.25) high around the
     // centre of the bounds, 0.3 below it for the male armor.
@@ -23,31 +23,31 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
     // 004998e0, 0049a9bc, 0049af20, the camera set up 005a94a4 and the radius projection near 005aa5c0.
     private const double Fit = 1.06, ZShift = -0.07;
 
-    private readonly ClientApp mApp;
-    private ShapeAssets? mAssets;
-    private ShapeRenderer? mRenderer;
-    private RenderInstance? mInst;
-    private RenderThread? mThread;
-    private RenderShape? mShape;
-    private string mKey = "";
-    private long mLastMs = -1;
+    private readonly ClientApp _app;
+    private ShapeAssets? _assets;
+    private ShapeRenderer? _renderer;
+    private RenderInstance? _inst;
+    private RenderThread? _thread;
+    private RenderShape? _shape;
+    private string _key = "";
+    private long _lastMs = -1;
 
     /// <summary>Creates the renderer.</summary>
     /// <param name="app">The client that owns the device and resources.</param>
-    public SkinViewRenderer(ClientApp app) => mApp = app;
+    public SkinViewRenderer(ClientApp app) => _app = app;
 
     /// <summary>Releases the shape assets.</summary>
-    public void Dispose() => mAssets?.Dispose();
+    public void Dispose() => _assets?.Dispose();
 
     private bool Ensure()
     {
-        if (mAssets != null)
+        if (_assets != null)
             return true;
-        if (mApp.Dev == null)
+        if (_app.Dev == null)
             return false;
-        var bank = mApp.CurrentPalette ?? GfxAssets.LoadPalette(mApp.Res, "lush.day.ppl") ?? PaletteTables.Grayscale();
-        mAssets = new ShapeAssets(mApp.Dev, new WorldAssets(mApp.Res, bank));
-        mRenderer = new ShapeRenderer(mAssets);
+        var bank = _app.CurrentPalette ?? GfxAssets.LoadPalette(_app.Res, "lush.day.ppl") ?? PaletteTables.Grayscale();
+        _assets = new ShapeAssets(_app.Dev, new WorldAssets(_app.Res, bank));
+        _renderer = new ShapeRenderer(_assets);
         return true;
     }
 
@@ -113,36 +113,36 @@ public sealed class SkinViewRenderer : IModelViewRenderer, IDisposable
     {
         if (view.ClassName != "FearGui::SkinView" || w <= 0 || h <= 0 || !Ensure() || view.SkinBase.Length == 0)
             return;
-        IGfxDevice dev = mApp.Dev!;
-        var name = (view.Male ? sMale : sFemale)[view.Armor];
+        IGfxDevice dev = _app.Dev!;
+        var name = (view.Male ? Male : Female)[view.Armor];
         var key = name + "|" + view.SkinBase;
-        if (key != mKey || mInst == null)
+        if (key != _key || _inst == null)
         {
-            mKey = key;
-            mShape = mAssets!.Shape(name);
-            mInst = mShape == null ? null : new RenderInstance(mShape);
-            mThread = mInst?.AddThread("run", 0, 0);
-            mLastMs = -1;
+            _key = key;
+            _shape = _assets!.Shape(name);
+            _inst = _shape == null ? null : new RenderInstance(_shape);
+            _thread = _inst?.AddThread("run", 0, 0);
+            _lastMs = -1;
             view.Zoom = double.NaN;
         }
-        if (mInst == null || mShape == null || mRenderer == null)
+        if (_inst == null || _shape == null || _renderer == null)
             return;
-        var now = mApp.Host.TickMs;
-        if (mThread != null && mLastMs >= 0)
-            mInst.Advance(mThread, Math.Min(now - mLastMs, 200) / 1000.0);
-        mLastMs = now;
+        var now = _app.Host.TickMs;
+        if (_thread != null && _lastMs >= 0)
+            _inst.Advance(_thread, Math.Min(now - _lastMs, 200) / 1000.0);
+        _lastMs = now;
         // +0x1ec, +0x1e8: the fitted distance is the lowest and the first one; the right button moves it.
         var fit = FitDistance(view.Male, w, h);
         if (double.IsNaN(view.Zoom) || Math.Abs(view.ZoomMin - fit) > 1e-9)
             view.Zoom = fit;
         view.ZoomMin = fit;
         view.ZoomMax = MaxDistance(w, h);
-        var cam = CameraFor(mShape.Cx, mShape.Cy, mShape.Cz, view.Male, view.Yaw, w, h, view.Zoom);
-        var ctx = new FrameContext { Camera = cam, Assets = mAssets!, Renderer = mRenderer, Light = Light(cam, mShape.Cx, mShape.Cy, mShape.Cz) };
+        var cam = CameraFor(_shape.Cx, _shape.Cy, _shape.Cz, view.Male, view.Yaw, w, h, view.Zoom);
+        var ctx = new FrameContext { Camera = cam, Assets = _assets!, Renderer = _renderer, Light = Light(cam, _shape.Cx, _shape.Cy, _shape.Cz) };
         var d = ctx.Draw(Xf.Identity, name);
         d.Skin = view.SkinBase;
         d.ForceDetail = 0;
-        var img = mRenderer.Build(mInst, cam, d);
+        var img = _renderer.Build(_inst, cam, d);
         if (img == null)
             return;
         ctx.Lists.Add(img);

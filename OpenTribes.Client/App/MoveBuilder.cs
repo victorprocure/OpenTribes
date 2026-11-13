@@ -66,77 +66,77 @@ public sealed class MoveBuilder
     public const int MaxMoves = 30;
 
     /// <summary>The forward key rate (+0x3f0 to +0x404).</summary>
-    public float Forward;
+    public float Forward { get; set; }
     /// <summary>The backward key rate.</summary>
-    public float Backward;
+    public float Backward { get; set; }
     /// <summary>The left key rate.</summary>
-    public float Left;
+    public float Left { get; set; }
     /// <summary>The right key rate.</summary>
-    public float Right;
+    public float Right { get; set; }
     /// <summary>True while the jet key is held.</summary>
-    public bool JetOn;
+    public bool JetOn { get; set; }
     /// <summary>True while the crouch key is held.</summary>
-    public bool CrouchOn;
+    public bool CrouchOn { get; set; }
     /// <summary>True while the jump key is held.</summary>
-    public bool JumpOn;
+    public bool JumpOn { get; set; }
     /// <summary>The item type of the use item action, -1 for none.</summary>
-    public int UseItemType = -1;
+    public int UseItemType { get; set; } = -1;
     /// <summary>The accumulated turn of the move being built.</summary>
-    public float TurnAcc;
+    public float TurnAcc { get; set; }
     /// <summary>The accumulated pitch of the move being built.</summary>
-    public float PitchAcc;
+    public float PitchAcc { get; set; }
     /// <summary>The yaw speed key rate.</summary>
-    public float YawSpeedKey;
+    public float YawSpeedKey { get; set; }
     /// <summary>The pitch speed key rate.</summary>
-    public float PitchSpeedKey;
+    public float PitchSpeedKey { get; set; }
     /// <summary>The turn left key rate.</summary>
-    public float TurnLeftKey;
+    public float TurnLeftKey { get; set; }
     /// <summary>The turn right key rate.</summary>
-    public float TurnRightKey;
+    public float TurnRightKey { get; set; }
     /// <summary>The look up key rate.</summary>
-    public float LookUpKey;
+    public float LookUpKey { get; set; }
     /// <summary>The look down key rate.</summary>
-    public float LookDownKey;
+    public float LookDownKey { get; set; }
     /// <summary>The fire counter.</summary>
-    public uint FireCounter;
+    public uint FireCounter { get; set; }
     /// <summary>The fire counter of the last sampled move.</summary>
-    public uint SampledFire;
+    public uint SampledFire { get; set; }
     /// <summary>True for the third person view: not +0xa0 (first person), the VIEW toggle (0040706c, PlayerPSC_onActionDefault).</summary>
-    public bool ThirdPerson;
+    public bool ThirdPerson { get; set; }
     /// <summary>The current field of view.</summary>
-    public double CurrentFov = 90;
+    public double CurrentFov { get; set; } = 90;
     /// <summary>The third person distance (+0x9c): 0 in first person and up to 4 m, eased at 15 m/s (4.2 step 1).</summary>
-    public float ViewDist;
+    public float ViewDist { get; set; }
     /// <summary>The largest third person distance.</summary>
     public const float MaxViewDist = 4f;
     /// <summary>True while the zoom is on (0060f0b0).</summary>
-    public bool ZoomOn;
+    public bool ZoomOn { get; set; }
     /// <summary>The field of view of the zoom (0060f0a4). It is 22.5 at start: the PlayerFov callback (004040b0) stores 90 * 0.25 in 0060f078 and the PSC constructor copies it. INC_SNIPER_FOV only changes this value and the view only follows it while the zoom is on.</summary>
-    public double ZoomTarget = 22.5;
+    public double ZoomTarget { get; set; } = 22.5;
     /// <summary>The field of view the animation starts from (+0x408).</summary>
-    public double FovFrom = 90;
+    public double FovFrom { get; set; } = 90;
     /// <summary>The field of view the animation ends at (+0x40c).</summary>
-    public double FovTo = 90;
+    public double FovTo { get; set; } = 90;
     /// <summary>The start time of the FOV animation in milliseconds (+0x414).</summary>
-    public uint FovStart;
+    public uint FovStart { get; set; }
     /// <summary>The end time of the FOV animation in milliseconds (+0x418).</summary>
-    public uint FovEnd;
+    public uint FovEnd { get; set; }
     /// <summary>The time of the last INC_SNIPER_FOV while the zoom was off (0060f0b4). The crosshair shows the zoom box for 2 s after it.</summary>
-    public uint ZoomStepStamp;
+    public uint ZoomStepStamp { get; set; }
     /// <summary>The client time (006a83a0) of the last frame.</summary>
-    public uint LastNow;
+    public uint LastNow { get; set; }
     /// <summary>Reads <c>$pref::PlayerZoomSpeed</c> (0060f0a8, clamped 0 to 1). The FOV animation lasts that value times 1000 ms (00406f47, 00406e06, 004077cd), and <see cref="CurrentFov"/> (0060f0a0) follows it at every frame.</summary>
-    public Func<double> ZoomSpeed = () => 0;
+    public Func<double> ZoomSpeed { get; set; } = () => 0;
     /// <summary>True for the first person view.</summary>
     public bool FirstPersonNow => !ThirdPerson && ViewDist == 0;
     /// <summary>Tells whether the control object may look (vtable +0x11c).</summary>
-    public Func<bool> CanLook = () => true;
+    public Func<bool> CanLook { get; set; } = () => true;
     /// <summary>Tells whether PITCH is reversed (flier with <c>$pref::flipFlierY</c>).</summary>
-    public Func<bool> ReversePitch = () => false;
+    public Func<bool> ReversePitch { get; set; } = () => false;
     /// <summary>Takes the pitch of the owned control Player (+0xfc4) and sets it to 0, for CENTERVIEW (PlayerPSC_onActionDefault 00406ce8, action 0x35c46). Returns null when there is no owned object.</summary>
-    public Func<float?> TakeControlPitch = () => null;
+    public Func<float?> TakeControlPitch { get; set; } = () => null;
     /// <summary>Reads <c>$pref::PlayerFov</c>.</summary>
-    public Func<double> PrefFov = () => 90;
+    public Func<double> PrefFov { get; set; } = () => 90;
 
     private static float Clamp(float v, float lo, float hi) => Math.Min(Math.Max(v, lo), hi);
 

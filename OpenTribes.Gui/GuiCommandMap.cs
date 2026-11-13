@@ -49,16 +49,16 @@ public sealed record CommandMapMarks(int LocalId, int LocalTeam, int Heading, IR
 /// </remarks>
 public sealed class GuiCommandMap : GuiControl
 {
-    private CommandMapPicture? mFitted;
+    private CommandMapPicture? _fitted;
 
     /// <summary>True in zoom mode (+0x28c): a left click zooms in, a right click out.</summary>
-    public bool ZoomMode;
+    public bool ZoomMode { get; set; }
     /// <summary>The number of zoom steps (+0x290), 0 to 4.</summary>
-    public int ZoomSteps;
-    private bool mPanning, mButtonTaken;
-    private long mAnimStart;
-    private (int X, int Y, int W, int H) mFrom, mTo;
-    private int mPanMouseX, mPanMouseY, mPanX, mPanY;
+    public int ZoomSteps { get; set; }
+    private bool _panning, _buttonTaken;
+    private long _animStart;
+    private (int X, int Y, int W, int H) _from, _to;
+    private int _panMouseX, _panMouseY, _panX, _panY;
 
     /// <summary>Gets a value that is true while the zoom animation runs.</summary>
     public bool Animating { get; private set; }
@@ -80,20 +80,20 @@ public sealed class GuiCommandMap : GuiControl
     /// <summary>Gets the order mode (+0x280): 0 select, 1 the next click gives the order.</summary>
     public int OrderMode { get; private set; }
     /// <summary>The kind the map selects (+0x28f): 3 players, 4 statics and sensors, 0x13 turrets. The three list tabs of the screen set it.</summary>
-    public int Group = 3;
+    public int Group { get; set; } = 3;
     /// <summary>The selected byte of each of the 256 slots (+0x360).</summary>
-    public readonly bool[] Selected = new bool[256];
+    public bool[] Selected { get; } = new bool[256];
     /// <summary>The order the menu chose (+0x284).</summary>
-    public int OrderAction;
+    public int OrderAction { get; set; }
     /// <summary>The text of the order the menu chose (+0x288).</summary>
-    public string? OrderText;
-    private bool mClearOnAdd, mScriptGuard, mDragging;
-    private int mDragX0, mDragY0, mDragX1, mDragY1;
+    public string? OrderText { get; set; }
+    private bool _clearOnAdd, _scriptGuard, _dragging;
+    private int _dragX0, _dragY0, _dragX1, _dragY1;
 
     // The centre mode (+0x28d) and its animation (+0x2dc start position, +0x2e4 target, +0x2ec start tick).
-    private bool mCenterMode;
-    private long mCenterTick;
-    private (int X, int Y) mCenterFrom, mCenterTo;
+    private bool _centerMode;
+    private long _centerTick;
+    private (int X, int Y) _centerFrom, _centerTo;
 
     private int ZoomTime => int.TryParse(Host?.GetVar("$pref::CommanderZoomTime"), out var t) ? Math.Clamp(t, 1, 2000) : 250;
 
@@ -121,9 +121,9 @@ public sealed class GuiCommandMap : GuiControl
     private void StartAnimation((int X, int Y, int W, int H) to)
     {
         Animating = true;
-        mAnimStart = Host?.TickMs ?? 0;
-        mFrom = (X, Y, W, H);
-        mTo = to;
+        _animStart = Host?.TickMs ?? 0;
+        _from = (X, Y, W, H);
+        _to = to;
     }
 
     /// <summary>Zooms in one step.</summary>
@@ -135,11 +135,11 @@ public sealed class GuiCommandMap : GuiControl
     {
         if (ZoomSteps >= MaxZoomSteps || Parent == null)
             return;
-        var cur = Animating ? mTo : (X, Y, W, H);
+        var cur = Animating ? _to : (X, Y, W, H);
         ++ZoomSteps;
         int nw = cur.W << 1, nh = cur.H << 1;
         int px, py;
-        if (!mCenterMode)
+        if (!_centerMode)
         {
             var (cx, cy) = ZoomCentre(cursorX, cursorY, overControl);
             int dx = cx - cur.X, dy = cy - cur.Y;
@@ -168,10 +168,10 @@ public sealed class GuiCommandMap : GuiControl
             return;
         }
         --ZoomSteps;
-        var cur = Animating ? mTo : (X, Y, W, H);
+        var cur = Animating ? _to : (X, Y, W, H);
         int nw = cur.W >> 1, nh = cur.H >> 1;
         int px, py;
-        if (!mCenterMode)
+        if (!_centerMode)
         {
             var (cx, cy) = ZoomCentre(cursorX, cursorY, overControl);
             int dx = cx - cur.X, dy = cy - cur.Y;
@@ -213,27 +213,27 @@ public sealed class GuiCommandMap : GuiControl
     /// <summary>Gets or sets the centre mode (+0x28d). Turning it on starts the centring from the current place, turning it off only clears the flag (004d3220).</summary>
     public bool CenterMode
     {
-        get => mCenterMode;
+        get => _centerMode;
         set
         {
             if (!value)
             {
-                mCenterMode = false;
+                _centerMode = false;
                 return;
             }
-            mCenterMode = true;
-            mCenterTick = Host?.TickMs ?? 0;
-            mCenterFrom = (X, Y);
-            mCenterTo = CenterPos(W, H);
+            _centerMode = true;
+            _centerTick = Host?.TickMs ?? 0;
+            _centerFrom = (X, Y);
+            _centerTo = CenterPos(W, H);
         }
     }
 
     // 004d3284
     private void RestartCenter(int x, int y)
     {
-        mCenterTick = Host?.TickMs ?? 0;
-        mCenterFrom = (X, Y);
-        mCenterTo = (x, y);
+        _centerTick = Host?.TickMs ?? 0;
+        _centerFrom = (X, Y);
+        _centerTo = (x, y);
     }
 
     private int PrefFilter => int.TryParse(Host?.GetVar("$pref::mapFilter"), out var f) ? f : 0;
@@ -271,18 +271,18 @@ public sealed class GuiCommandMap : GuiControl
     private void CenterStep()
     {
         var target = CenterPos(W, H);
-        if (target != mCenterTo)
+        if (target != _centerTo)
             RestartCenter(target.X, target.Y);
         var now = Host?.TickMs ?? 0;
         var time = ZoomTime;
-        if (now < mCenterTick + time)
+        if (now < _centerTick + time)
         {
-            var f = (float)(now - mCenterTick) / time;
-            X = (int)(f * (mCenterTo.X - mCenterFrom.X)) + mCenterFrom.X;
-            Y = (int)(f * (mCenterTo.Y - mCenterFrom.Y)) + mCenterFrom.Y;
+            var f = (float)(now - _centerTick) / time;
+            X = (int)(f * (_centerTo.X - _centerFrom.X)) + _centerFrom.X;
+            Y = (int)(f * (_centerTo.Y - _centerFrom.Y)) + _centerFrom.Y;
         }
         else
-            (X, Y) = mCenterTo;
+            (X, Y) = _centerTo;
     }
 
     /// <inheritdoc/>
@@ -290,24 +290,24 @@ public sealed class GuiCommandMap : GuiControl
     public override void PreRender()
     {
         if (Canvas?.Lock != this)
-            mPanning = mDragging = false;
+            _panning = _dragging = false;
         if (Animating)
         {
             var now = Host?.TickMs ?? 0;
             var time = ZoomTime;
-            if (now < mAnimStart + time)
+            if (now < _animStart + time)
             {
-                var f = (float)(now - mAnimStart) / time;
-                (X, Y, W, H) = ((int)(f * (mTo.X - mFrom.X)) + mFrom.X, (int)(f * (mTo.Y - mFrom.Y)) + mFrom.Y, (int)(f * (mTo.W - mFrom.W)) + mFrom.W,
-                    (int)(f * (mTo.H - mFrom.H)) + mFrom.H);
+                var f = (float)(now - _animStart) / time;
+                (X, Y, W, H) = ((int)(f * (_to.X - _from.X)) + _from.X, (int)(f * (_to.Y - _from.Y)) + _from.Y, (int)(f * (_to.W - _from.W)) + _from.W,
+                    (int)(f * (_to.H - _from.H)) + _from.H);
             }
             else
             {
-                (X, Y, W, H) = mTo;
+                (X, Y, W, H) = _to;
                 Animating = false;
             }
         }
-        if (mCenterMode)
+        if (_centerMode)
             CenterStep();
     }
 
@@ -462,7 +462,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>While an order runs its script this only stores it. Else the current command line shows the text up to its voice tag. An action of -1 or no selected player of the team ends the order cursor, anything else starts it and keeps the order for the next click.</remarks>
     public void SetIssueCommand(int action, string? text)
     {
-        if (mScriptGuard)
+        if (_scriptGuard)
         {
             OrderAction = action;
             OrderText = text;
@@ -516,9 +516,9 @@ public sealed class GuiCommandMap : GuiControl
         var savedText = OrderText;
         if (!string.IsNullOrEmpty(OrderText) && OrderText[0] == '*')
         {
-            mScriptGuard = true;
+            _scriptGuard = true;
             Host.Call("Commander::StarCommand", OrderText);
-            mScriptGuard = false;
+            _scriptGuard = false;
         }
         var args = new List<string> { "2048", targetSlot == -1 ? "IssueCommand" : "IssueTargCommand", Inv(OrderAction), OrderText ?? "" };
         if (targetSlot == -1)
@@ -551,8 +551,8 @@ public sealed class GuiCommandMap : GuiControl
     {
         if (ZoomMode)
             return TagZoom;
-        if (mPanning)
-            return X == mPanX && Y == mPanY ? TagOpenHand : TagGrab;
+        if (_panning)
+            return X == _panX && Y == _panY ? TagOpenHand : TagGrab;
         return OrderMode == 1 ? TagWaypoint : 0;
     }
 
@@ -560,11 +560,11 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>Follows the left button 004d1bf0. Centre mode ends. In zoom mode a click zooms in. Else, unless the picture is animating, the click picks slots (order mode 0) or gives the order (order mode 1), and the mouse stays with the control until the button comes up.</remarks>
     public override bool MsDown(GuiEvent e)
     {
-        if (mPanning)
+        if (_panning)
             return true;
-        if (mCenterMode)
+        if (_centerMode)
         {
-            mCenterMode = false;
+            _centerMode = false;
             UnlightCenterButton();
         }
         if (ZoomMode)
@@ -580,9 +580,9 @@ public sealed class GuiCommandMap : GuiControl
         if (OrderMode == 0)
         {
             PickSlots(e, lx, ly, me);
-            mDragX0 = mDragX1 = lx;
-            mDragY0 = mDragY1 = ly;
-            mDragging = true;
+            _dragX0 = _dragX1 = lx;
+            _dragY0 = _dragY1 = ly;
+            _dragging = true;
             FindInView(CurrentCommandId)?.SetText("");
         }
         else
@@ -601,7 +601,7 @@ public sealed class GuiCommandMap : GuiControl
     {
         var shift = (e.Mod & 3) != 0;
         if (!shift)
-            mClearOnAdd = true;
+            _clearOnAdd = true;
         var single = Group != 3;
         var singleHeld = Group == 4 ? SelectedStaticTarget() >= 0 : Group == 0x13 && SelectedTurretTarget() >= 0;
         var hud = Host!.Hud!;
@@ -630,7 +630,7 @@ public sealed class GuiCommandMap : GuiControl
             for (var j = 0; j < slots.Length; ++j)
                 if (Group == 4 ? slots[j].Group is 4 or 8 : slots[j].Group == Group)
                     SelectSlot(j, false);
-            mClearOnAdd = false;
+            _clearOnAdd = false;
             SelectSlot(i, true);
             return;
         }
@@ -690,7 +690,7 @@ public sealed class GuiCommandMap : GuiControl
     public override bool MsDrag(GuiEvent e)
     {
         if (!ZoomMode && !Animating)
-            (mDragX1, mDragY1) = GlobalToLocal(e.X, e.Y);
+            (_dragX1, _dragY1) = GlobalToLocal(e.X, e.Y);
         return true;
     }
 
@@ -698,7 +698,7 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>Follows 004d2b1c: the button comes up. The mouse is let go. In order mode 0 the slots of the shown kind and team inside the rectangle are selected (the first selection after a plain click clears the old one, a kind of one slot takes the first), then the order cursor ends.</remarks>
     public override bool MsUp(GuiEvent e)
     {
-        mDragging = false;
+        _dragging = false;
         Canvas?.UnlockMouse(this);
         if (ZoomMode || Animating)
             return true;
@@ -706,8 +706,8 @@ public sealed class GuiCommandMap : GuiControl
         {
             if (Host?.Hud?.CommandLocal is not CommandLocalClient me)
                 return true;
-            int left = Math.Min(mDragX0, mDragX1), top = Math.Min(mDragY0, mDragY1);
-            int right = Math.Max(mDragX1, mDragX0), bottom = Math.Max(mDragY1, mDragY0);
+            int left = Math.Min(_dragX0, _dragX1), top = Math.Min(_dragY0, _dragY1);
+            int right = Math.Max(_dragX1, _dragX0), bottom = Math.Max(_dragY1, _dragY0);
             var single = Group != 3;
             var singleHeld = Group == 4 ? SelectedStaticTarget() >= 0 : Group == 0x13 && SelectedTurretTarget() >= 0;
             var slots = Slots;
@@ -719,11 +719,11 @@ public sealed class GuiCommandMap : GuiControl
                 int sx = SlotX(s), sy = SlotY(s);
                 if (sx < left || right <= sx || sy < top || bottom <= sy)
                     continue;
-                if (mClearOnAdd)
+                if (_clearOnAdd)
                 {
                     for (var j = 0; j < slots.Length; ++j)
                         SelectSlot(j, false);
-                    mClearOnAdd = false;
+                    _clearOnAdd = false;
                     singleHeld = false;
                 }
                 if (!single || !singleHeld)
@@ -733,7 +733,7 @@ public sealed class GuiCommandMap : GuiControl
             }
         }
         SetOrderMode(0);
-        mClearOnAdd = false;
+        _clearOnAdd = false;
         return true;
     }
 
@@ -741,21 +741,21 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>Follows the right button 004d2d78: in zoom mode a click zooms out, else it starts the pan unless an animation runs. It does nothing while the left button drags.</remarks>
     public override bool MsRightDown(GuiEvent e)
     {
-        if (mDragging)
+        if (_dragging)
             return true;
         if (ZoomMode || Animating)
-            mButtonTaken = true;
-        if (mCenterMode)
+            _buttonTaken = true;
+        if (_centerMode)
         {
-            mCenterMode = false;
+            _centerMode = false;
             UnlightCenterButton();
         }
         if (ZoomMode)
             ZoomOut(e.X, e.Y, true);
         else if (!Animating)
         {
-            mPanning = true;
-            (mPanMouseX, mPanMouseY, mPanX, mPanY) = (e.X, e.Y, X, Y);
+            _panning = true;
+            (_panMouseX, _panMouseY, _panX, _panY) = (e.X, e.Y, X, Y);
             Canvas?.LockMouse(this);
         }
         return true;
@@ -765,9 +765,9 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>Follows 004d2e5c: the pan follows the mouse and keeps the picture over the parent.</remarks>
     public override bool MsRightDrag(GuiEvent e)
     {
-        if (ZoomMode || mCenterMode || mButtonTaken || Parent == null)
+        if (ZoomMode || _centerMode || _buttonTaken || Parent == null)
             return true;
-        (X, Y, _, _) = Clamp(e.X - mPanMouseX + mPanX, e.Y - mPanMouseY + mPanY, W, H);
+        (X, Y, _, _) = Clamp(e.X - _panMouseX + _panX, e.Y - _panMouseY + _panY, W, H);
         return true;
     }
 
@@ -775,9 +775,9 @@ public sealed class GuiCommandMap : GuiControl
     /// <remarks>Follows 004d2fe0.</remarks>
     public override bool MsRightUp(GuiEvent e)
     {
-        mButtonTaken = false;
+        _buttonTaken = false;
         Canvas?.UnlockMouse(this);
-        mPanning = false;
+        _panning = false;
         return true;
     }
 
@@ -820,9 +820,9 @@ public sealed class GuiCommandMap : GuiControl
         var pic = Host?.Hud?.CommandMap;
         if (pic == null)
             return;
-        if (!ReferenceEquals(pic, mFitted) && Parent != null)
+        if (!ReferenceEquals(pic, _fitted) && Parent != null)
         {
-            mFitted = pic;
+            _fitted = pic;
             (X, Y, W, H) = Fit(X, Y, W, H, Parent.W, Parent.H);
         }
         if (Parent != null)
@@ -835,9 +835,9 @@ public sealed class GuiCommandMap : GuiControl
         if (Host?.Hud?.CommandMapMarks is { } marks)
             RenderMarks(p, marks, pic, gx, gy);
         // 004d04e8: the drag rectangle while the button is down, outline 0xff, from the corners as dragged.
-        if (mDragging)
-            p.Dev.DrawRectOutline(new GfxRect(Math.Min(mDragX0, mDragX1) + gx, Math.Min(mDragY0, mDragY1) + gy, Math.Max(mDragX1, mDragX0) + gx,
-                Math.Max(mDragY1, mDragY0) + gy), 0xff);
+        if (_dragging)
+            p.Dev.DrawRectOutline(new GfxRect(Math.Min(_dragX0, _dragX1) + gx, Math.Min(_dragY0, _dragY1) + gy, Math.Max(_dragX1, _dragX0) + gx,
+                Math.Max(_dragY1, _dragY0) + gy), 0xff);
     }
 
     /// <summary>Draws the sensor circles and the marks over the picture.</summary>

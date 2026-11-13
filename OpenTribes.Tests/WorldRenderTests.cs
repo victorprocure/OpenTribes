@@ -11,9 +11,9 @@ using Xunit.Abstractions;
 // docs/world-render.md (WR) or docs/renderer.md (R) it follows (R9).
 public class WorldRenderTests
 {
-    private readonly ITestOutputHelper mOut;
+    private readonly ITestOutputHelper _out;
 
-    public WorldRenderTests(ITestOutputHelper output) => mOut = output;
+    public WorldRenderTests(ITestOutputHelper output) => _out = output;
 
     private static Camera3D Cam(double x = 0, double y = 0, double z = 0, double yaw = 0, double pitch = 0, double fov = 90,
                                 int w = 640, int h = 480, double near = 0.5, double far = 1000) =>
@@ -743,10 +743,10 @@ public class WorldRenderTests
             win = GlWindow.TryCreate("test", 128, 96, true, driver, out var err);
             if (win != null)
             {
-                mOut.WriteLine($"RAN: video driver {win.VideoDriver}, OpenGL {win.GlVersion}");
+                _out.WriteLine($"RAN: video driver {win.VideoDriver}, OpenGL {win.GlVersion}");
                 break;
             }
-            mOut.WriteLine($"SKIPPED {driver ?? "default"}: {err}");
+            _out.WriteLine($"SKIPPED {driver ?? "default"}: {err}");
         }
         if (win == null)
             return;
@@ -815,7 +815,7 @@ public class WorldRenderTests
         var wall = At(d.Width / 2, d.Height / 2);
         Assert.InRange(wall.r, 250, 255);
         Assert.InRange(wall.g, 250, 255);
-        mOut.WriteLine($"squares {terrain.LastSquares} triangles {terrain.LastTriangles} near {near} wall {wall}");
+        _out.WriteLine($"squares {terrain.LastSquares} triangles {terrain.LastTriangles} near {near} wall {wall}");
     }
 
     [Fact]

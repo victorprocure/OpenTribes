@@ -13,15 +13,15 @@ using static OpenTribes.Tests.Fixtures;
 // std::map with operator[] (missing keys read the default and are inserted).
 public sealed class DefMap<TK, TV> : Dictionary<TK, TV> where TK : notnull
 {
-    private readonly Func<TV> mMake;
-    public DefMap(Func<TV>? make = null) => mMake = make ?? (() => default!);
+    private readonly Func<TV> _make;
+    public DefMap(Func<TV>? make = null) => _make = make ?? (() => default!);
     public new TV this[TK key]
     {
         get
         {
             if (!TryGetValue(key, out var v))
             {
-                v = mMake();
+                v = _make();
                 base[key] = v;
             }
             return v;
@@ -102,11 +102,11 @@ public class StaticSimTests
         return Pers("TS::MaterialList", 4, body);
     }
 
-    private Fixtures.World? gw;
-    private readonly DefMap<int, uint> masks = [];
-    private readonly DefMap<int, int> maskCount08 = [];
-    private readonly DefMap<int, List<float>> maskTimes08 = new(() => []);
-    private bool mStarted;
+    private Fixtures.World? _gw;
+    private readonly DefMap<int, uint> _masks = [];
+    private readonly DefMap<int, int> _maskCount08 = [];
+    private readonly DefMap<int, List<float>> _maskTimes08 = new(() => []);
+    private bool _started;
 
     // One 32 ms tick per call. The virtual clock starts 1 ms ahead so that the floating point clock stays clear of a tick
     // boundary (an exact boundary may fall a tick late).
@@ -114,14 +114,14 @@ public class StaticSimTests
     {
         for (var i = 0; i < n; ++i)
         {
-            gw!.Sim.AdvanceRealTime(mStarted ? 32u : 33u);
-            mStarted = true;
+            _gw!.Sim.AdvanceRealTime(_started ? 32u : 33u);
+            _started = true;
         }
     }
 
     private GameBase Gb(string path)
     {
-        var o = gw!.Object(path);
+        var o = _gw!.Object(path);
         Assert.True(o is GameBase);
         return (GameBase)o!;
     }
@@ -129,9 +129,9 @@ public class StaticSimTests
     // Runs a script statement of the form `$v = newObject(...)` and returns the object in $v.
     private GameBase Obj(string statement)
     {
-        gw!.Run(statement);
-        var id = gw.Run("echo(" + statement[..statement.IndexOf(' ')] + ");");
-        var o = gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
+        _gw!.Run(statement);
+        var id = _gw.Run("echo(" + statement[..statement.IndexOf(' ')] + ");");
+        var o = _gw.Sim.Server()!.FindById(Numbers.BorlandAtoi(id));
         Assert.True(o is GameBase);
         return (GameBase)o!;
     }
@@ -187,15 +187,15 @@ public class StaticSimTests
         PutFile(Path.Combine(root, "base/t.dml"), MaterialListFile(0));
 
         var w = new Fixtures.World(root);
-        gw = w;
+        _gw = w;
         StaticRandom.Reset();
         w.Game.MaskBits = (o, bits) =>
         {
-            masks[o.Id()] |= bits;
+            _masks[o.Id()] |= bits;
             if ((bits & 0x08) != 0)
             {
-                ++maskCount08[o.Id()];
-                maskTimes08[o.Id()].Add(w.Sim.Server()!.Time());
+                ++_maskCount08[o.Id()];
+                _maskTimes08[o.Id()].Add(w.Sim.Server()!.Time());
             }
         };
         var c = new Cases();
@@ -267,9 +267,9 @@ public class StaticSimTests
         c.Check(w, "echo(GameBase::setEnergy(\"MissionGroup/P\", 50), GameBase::getEnergy(\"MissionGroup/P\")," +
                    " GameBase::setEnergy(\"MissionGroup/P\", -3), GameBase::getEnergy(\"MissionGroup/P\"));",
                 "True10True0");  // clamped to [0, maxEnergy]
-        masks.Clear();
+        _masks.Clear();
         w.Run("GameBase::setRechargeRate(\"MissionGroup/P\", 2);");
-        Assert.Equal(0x02u, masks[p.Id()]);
+        Assert.Equal(0x02u, _masks[p.Id()]);
         Tick();
         Assert.True(Near(p.Energy, 0.06f));  // rate x 0.03 per tick, not 0.032
         Tick(1000);
@@ -361,7 +361,7 @@ public class StaticSimTests
         }
         Assert.Equal(35, ticks);  // 34 ticks reach position 1.02 (clamped to 1), the 35th reports
         c.Check(w, "echo($ended);", "1");
-        Assert.NotEqual(0, (p.Threads[1].Flags & GameBase.kThreadAtEnd));
+        Assert.NotEqual(0, (p.Threads[1].Flags & GameBase.ThreadAtEnd));
         // Each apply draws once and sets a speed in [0.9, 1.1).
         var speeds = new DefMap<float, int>();
         for (var i = 0; i < 20; ++i)
@@ -377,8 +377,8 @@ public class StaticSimTests
         // ---- 2 Moveable ----
         var el = Gb("MissionGroup/lift/El");
         c.Check(w, "echo($newPath, \" \", $count);", "1 3");  // the point count is known inside onNewPath
-        Assert.True(el.PathId == 0 && el.WaypointCount == 3 && el.MoveState == GameBase.kMoveStopped);
-        Assert.Equal(0x6018u, masks[el.Id()]);  // 0x08 setWaypoint, 0x10 and 0x08 snap, 0x4008 state, 0x2000 path
+        Assert.True(el.PathId == 0 && el.WaypointCount == 3 && el.MoveState == GameBase.MoveStopped);
+        Assert.Equal(0x6018u, _masks[el.Id()]);  // 0x08 setWaypoint, 0x10 and 0x08 snap, 0x4008 state, 0x2000 path
         Assert.True(Gb("MissionGroup/gate/Dr").PathId == 1 && Gb("MissionGroup/kgrp/K").PathId == 2);  // 2.2 path ids
         var lonely = Gb("MissionGroup/Lonely");
         Assert.Equal(0xff, lonely.PathId);  // no SimPath in its group: unbound
@@ -389,11 +389,11 @@ public class StaticSimTests
         c.Check(w, "echo(Moveable::getState(\"MissionGroup/P\"), Moveable::stop(\"MissionGroup/P\"));", "FalseFalse");
         // The Moveable is not active: moveForward is ignored, moveToWaypoint is not.
         c.Check(w, "echo(Moveable::moveForward(\"MissionGroup/lift/El\"), Moveable::getState(\"MissionGroup/lift/El\"));", "TrueStop");
-        masks.Clear();
+        _masks.Clear();
         c.Check(w, "echo(Moveable::moveToWaypoint(\"MissionGroup/lift/El\", 5), Moveable::moveToWaypoint(\"MissionGroup/lift/El\", -1)," +
                    " Moveable::moveToWaypoint(\"MissionGroup/lift/El\", \"2abc\"), Moveable::getState(\"MissionGroup/lift/El\"));",
                 "FalseFalseTrueMoveForward");
-        Assert.True(masks[el.Id()] == 0x4008 && el.MoveTarget == 2);
+        Assert.True(_masks[el.Id()] == 0x4008 && el.MoveTarget == 2);
         w.Run("$log = \"\";");
         Tick(8);  // t = 8 x 0.032 s on a 0.5 s segment (length 5, speed 10)
         c.Check(w, Q("Moveable::getPosition(\"MissionGroup/lift/El\")"), "0.511999");  // 8 x 0.032 / 0.5, printed truncated
@@ -430,15 +430,15 @@ public class StaticSimTests
         var dr = Gb("MissionGroup/gate/Dr");
         var free = false;
         dr.MoveableTestOverride = _ => free;
-        masks.Clear();
+        _masks.Clear();
         w.Run("Moveable::moveToWaypoint(\"MissionGroup/gate/Dr\", 1);");
-        masks.Clear();
+        _masks.Clear();
         Tick(3);
         Assert.True(dr.MoveBlocked && dr.Waypoint == 0 && dr.WaypointTime == 0 && dr.MoveState == GameBase.kMoveForward);
-        Assert.True(masks[dr.Id()] == 0x4000 && dr.Transform.P[2] == 0);
+        Assert.True(_masks[dr.Id()] == 0x4000 && dr.Transform.P[2] == 0);
         free = true;
         Tick();
-        Assert.True(!dr.MoveBlocked && (masks[dr.Id()] & 0x4008) == 0x4008 && dr.Transform.P[2] > 0);
+        Assert.True(!dr.MoveBlocked && (_masks[dr.Id()] & 0x4008) == 0x4008 && dr.Transform.P[2] > 0);
         // D11 / K1: an onWaypoint method with four parameters is not called.
         var kk = Gb("MissionGroup/kgrp/K");
         w.Run("Moveable::moveToWaypoint(\"MissionGroup/kgrp/K\", 1);");
@@ -453,11 +453,11 @@ public class StaticSimTests
         Assert.True(Near(b1.Transform.P[2], 19.90784f, 2e-4f) && Near(b1.Velocity[2], -1.92f, 1e-4f) && !b1.AtRest);
         // A moving Item resends its position once per second (mask 0x08).
         w.Run("GameBase::setPosition($b, \"16 16 1000\"); Item::setVelocity($b, \"0 0 0\");");
-        maskCount08.Clear();
-        maskTimes08.Clear();
+        _maskCount08.Clear();
+        _maskTimes08.Clear();
         Tick(100);
         {
-            var times = maskTimes08[b1.Id()];
+            var times = _maskTimes08[b1.Id()];
             Assert.True(times.Count is >= 3 and <= 4);
             for (var i = 1; i < times.Count; ++i)
                 Assert.True(times[i] - times[i - 1] is > 1.0f and < 1.07f);  // 33 ticks of 0.032 s
@@ -482,15 +482,15 @@ public class StaticSimTests
         // 0.5 x 0.6401 = 0.32005, and the item moves 0.32005 x 0.032 up and rests.
         var b2 = Obj("$b2 = newObject(\"\", Item, Ball, 1, false);");
         w.Run("GameBase::setPosition($b2, \"24 24 10.6\"); Item::setVelocity($b2, \"0 0 0\");");
-        masks.Clear();
-        maskCount08.Clear();
+        _masks.Clear();
+        _maskCount08.Clear();
         Tick();
         Assert.True(Near(b2.Transform.P[2], 10.61024f, 1e-4f) && b2.AtRest && Near(b2.Velocity[2], 0.32005f, 1e-4f));
-        Assert.Equal(1, maskCount08[b2.Id()]);  // the periodic position resend
+        Assert.Equal(1, _maskCount08[b2.Id()]);  // the periodic position resend
         Tick();
-        Assert.Equal(2, maskCount08[b2.Id()]);  // once more when the at-rest flag changes
+        Assert.Equal(2, _maskCount08[b2.Id()]);  // once more when the at-rest flag changes
         Tick(10);
-        Assert.True(maskCount08[b2.Id()] == 2 && b2.AtRest);
+        Assert.True(_maskCount08[b2.Id()] == 2 && b2.AtRest);
         // The rest velocity is kept (5.3): isAtRest is True with a velocity.
         c.Check(w, "echo(GameBase::isAtRest($b2), \" \", Item::getVelocity($b2));", "True 0 0 0.320049");
         // The matrix is rebuilt every step: a zero rotation reads back as 0 -0 -0 (X1/Q4).
@@ -515,11 +515,11 @@ public class StaticSimTests
         w.Run("Item::hide($b2, false); Item::setVelocity($b2, \"0 0 0\");");
         // Throw (5.4): velocity = thrower velocity + direction x speed / mass, rotation z from the
         // generator, position at the thrower's box centre, masks 0x38.
-        masks.Clear();
+        _masks.Clear();
         c.Check(w, "echo(GameBase::throw($b2, \"MissionGroup/P\", 10, false));", "True");
         Assert.True(b2.Velocity[0] == 0 && b2.Velocity[1] == 40 && b2.Velocity[2] == 0);  // (0,8,0) x 10 / 2
         Assert.True(b2.Transform.P[0] == 100 && b2.Transform.P[2] == 100 && !b2.AtRest && b2.ItemThrower == p);
-        Assert.True((masks[b2.Id()] & 0x38) == 0x38 && b2.Rotation[2] >= 0 && b2.Rotation[2] < 6.2832f);
+        Assert.True((_masks[b2.Id()] & 0x38) == 0x38 && b2.Rotation[2] >= 0 && b2.Rotation[2] < 6.2832f);
         c.Check(w, "echo(GameBase::throw($b2, \"MissionGroup/P\", 10, true));", "True");
         Assert.True(b2.Velocity[0] >= -3.67f && b2.Velocity[0] <= 3.67f && b2.Velocity[2] >= 2.5f && b2.Velocity[2] <= 5.0f);
         c.Check(w, "echo(GameBase::throw(nosuch, $b2, 1, false));", "GameBase::throw: could not find item to throw\nFalse");
@@ -653,27 +653,27 @@ public class StaticSimTests
         // ---- 4 Turret idle ----
         var tu = Gb("MissionGroup/Tu");
         w.Run("GameBase::setActive(\"MissionGroup/Tu\", true);"); // the search step needs an active, enabled turret
-        masks.Clear();
+        _masks.Clear();
         Tick(5);
-        Assert.True(tu.TurretMode == 0 && (masks[tu.Id()] & 0x1e000) == 0); // nothing to do without a target
+        Assert.True(tu.TurretMode == 0 && (_masks[tu.Id()] & 0x1e000) == 0); // nothing to do without a target
         tu.TurretMode = 3;
         tu.TurretSleep = 0;
         Tick(); // sleep time passed, state != off: deactivate; a shape without power sequences is off at once
-        Assert.True(tu.TurretMode == 0 && (masks[tu.Id()] & 0x10000) != 0);
+        Assert.True(tu.TurretMode == 0 && (_masks[tu.Id()] & 0x10000) != 0);
         // Activation with the power/fire sequences takes the power sequence length (0.06 s at dt 0.032: two steps), then
         // state 3; deactivation runs the thread back (4.8).
         var tu2 = Gb("MissionGroup/Tu2");
         Assert.True(tu2.TurretHasPower && Near(tu2.TurretPowerDuration, 0.06f));
-        masks.Clear();
+        _masks.Clear();
         tu2.TurretActivate(0.032f);
-        Assert.True(tu2.TurretMode == 2 && (masks[tu2.Id()] & 0x10000) != 0);
+        Assert.True(tu2.TurretMode == 2 && (_masks[tu2.Id()] & 0x10000) != 0);
         tu2.TurretActivate(0.032f);
         Assert.Equal(2, tu2.TurretMode);
         tu2.TurretActivate(0.032f);
         Assert.True(tu2.TurretMode == 3 && tu2.TurretPowerPos == 1.0f);
-        masks.Clear();
+        _masks.Clear();
         tu2.TurretDeactivate(0.032f); // 3 -> 1: thread from 1 backwards
-        Assert.True(tu2.TurretMode == 1 && (masks[tu2.Id()] & 0x12000) == 0x12000);
+        Assert.True(tu2.TurretMode == 1 && (_masks[tu2.Id()] & 0x12000) == 0x12000);
         tu2.TurretDeactivate(0.032f);
         Assert.True(tu2.TurretMode == 0 && tu2.TurretPowerPos == 0);
         // Deactivation first rotates home by speed x dt along the short way, snapping at 0.

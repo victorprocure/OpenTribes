@@ -13,12 +13,12 @@ using static OpenTribes.Tests.Fixtures;
 
 public class AITests
 {
-    private const float kFlat = 50.0f;
+    private const float Flat = 50.0f;
 
     private sealed class Fixture
     {
-        public readonly string Root;
-        public readonly Fixtures.World W;
+        public string Root { get; }
+        public Fixtures.World W { get; }
 
         public Fixture(string name)
         {
@@ -29,11 +29,11 @@ public class AITests
             {
                 Scale = 5,
                 Height = 2,
-                Heights = [.. Enumerable.Repeat(kFlat, 25)],
+                Heights = [.. Enumerable.Repeat(Flat, 25)],
                 Squares = [.. new byte[32]]
             }; // 2 x 2 blocks of 4 x 4 squares of 32 m: 256 m x 256 m, flat
-            PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, kFlat, kFlat));
-            PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, kFlat, kFlat));
+            PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, Flat, Flat));
+            PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, Flat, Flat));
             PutFile(Path.Combine(Root, "base/t.dml"), "dml");
             W = new Fixtures.World(Root);
             Numbers.EnterScriptFpuMode();
@@ -415,19 +415,19 @@ public class AITests
         var ok = false;
         // Bullet and Rocket: the straight line; ok when speed x totalTime is above the distance; no high arc.
         float[] far = [300, 400, 0];
-        Assert.True(AIAim.AiSolveAim(Projectile.kBulletGroup, 100.0f, 10.0f, s, far, false, -20.0f, ref ok, dir) && ok);
+        Assert.True(AIAim.AiSolveAim(Projectile.BulletGroup, 100.0f, 10.0f, s, far, false, -20.0f, ref ok, dir) && ok);
         Assert.True(Math.Abs(SubF(dir[0], 0.6f)) < 1e-6f && Math.Abs(SubF(dir[1], 0.8f)) < 1e-6f && dir[2] == 0.0f);
-        Assert.True(AIAim.AiSolveAim(Projectile.kBulletGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && !ok); // 400 < 500
-        Assert.False(AIAim.AiSolveAim(Projectile.kBulletGroup, 100.0f, 10.0f, s, far, true, -20.0f, ref ok, dir));
-        Assert.True(AIAim.AiSolveAim(Projectile.kRocketGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && !ok);
-        Assert.True(AIAim.AiSolveAim(Projectile.kSeekerGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && ok); // the base solver
-        Assert.False(AIAim.AiSolveAim(Projectile.kSeekerGroup, 100.0f, 4.0f, s, far, true, -20.0f, ref ok, dir));
+        Assert.True(AIAim.AiSolveAim(Projectile.BulletGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && !ok); // 400 < 500
+        Assert.False(AIAim.AiSolveAim(Projectile.BulletGroup, 100.0f, 10.0f, s, far, true, -20.0f, ref ok, dir));
+        Assert.True(AIAim.AiSolveAim(Projectile.RocketGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && !ok);
+        Assert.True(AIAim.AiSolveAim(Projectile.SeekerGroup, 100.0f, 4.0f, s, far, false, -20.0f, ref ok, dir) && ok); // the base solver
+        Assert.False(AIAim.AiSolveAim(Projectile.SeekerGroup, 100.0f, 4.0f, s, far, true, -20.0f, ref ok, dir));
         // Grenade: both arcs land on the target under the gravity -20 (the low arc is flatter).
         float[] tgt = [150, 200, 12];
         float[] lo = new float[3], hi = new float[3];
         bool okLo = false, okHi = false;
-        Assert.True(AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, tgt, false, -20.0f, ref okLo, lo) && okLo);
-        Assert.True(AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, tgt, true, -20.0f, ref okHi, hi) && okHi);
+        Assert.True(AIAim.AiSolveAim(Projectile.GrenadeGroup, 100.0f, 10.0f, s, tgt, false, -20.0f, ref okLo, lo) && okLo);
+        Assert.True(AIAim.AiSolveAim(Projectile.GrenadeGroup, 100.0f, 10.0f, s, tgt, true, -20.0f, ref okHi, hi) && okHi);
         Assert.True(lo[2] < hi[2]);
         foreach (var d in new[] { lo, hi })
         {
@@ -440,9 +440,9 @@ public class AITests
         }
         // Out of reach: the straight line with ok false, and no high arc when the discriminant is under 1.
         float[] distant = [5000, 0, 0];
-        Assert.True(AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, distant, false, -20.0f, ref ok, dir) && !ok);
+        Assert.True(AIAim.AiSolveAim(Projectile.GrenadeGroup, 100.0f, 10.0f, s, distant, false, -20.0f, ref ok, dir) && !ok);
         Assert.True(Math.Abs(SubF(dir[0], 1.0f)) < 1e-6f && dir[1] == 0.0f && dir[2] == 0.0f);
-        Assert.True(!AIAim.AiSolveAim(Projectile.kGrenadeGroup, 100.0f, 10.0f, s, distant, true, -20.0f, ref ok, dir) || !ok);
+        Assert.True(!AIAim.AiSolveAim(Projectile.GrenadeGroup, 100.0f, 10.0f, s, distant, true, -20.0f, ref ok, dir) || !ok);
     }
 
     // The aim point of DirectiveTargetLaser (docs/ai-sim.md 12.5, 0x0043cec0): dir x 50 is rounded to f32 before the eye is

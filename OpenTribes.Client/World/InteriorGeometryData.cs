@@ -10,27 +10,27 @@ public sealed class InteriorGeometryData
     public struct Surface
     {
         /// <summary>The flags: bit 0 type, bits 1 to 4 texture scale shift, 5 applyAmbient, 6 visibleToOutside, 7 planeFront.</summary>
-        public byte Flags;
+        public byte Flags { get; set; }
         /// <summary>The material index, 255 for none.</summary>
-        public byte Material;
+        public byte Material { get; set; }
         /// <summary>The texture width. The file stores the value + 1.</summary>
-        public byte TexSizeX;
+        public byte TexSizeX { get; set; }
         /// <summary>The texture height. The file stores the value + 1.</summary>
-        public byte TexSizeY;
+        public byte TexSizeY { get; set; }
         /// <summary>The texture offset x.</summary>
-        public byte TexOffsetX;
+        public byte TexOffsetX { get; set; }
         /// <summary>The texture offset y.</summary>
-        public byte TexOffsetY;
+        public byte TexOffsetY { get; set; }
         /// <summary>The plane index.</summary>
-        public ushort Plane;
+        public ushort Plane { get; set; }
         /// <summary>The index of the first vertex record.</summary>
-        public uint FirstVertex;
+        public uint FirstVertex { get; set; }
         /// <summary>The index of the first point bit.</summary>
-        public uint FirstPointBit;
+        public uint FirstPointBit { get; set; }
         /// <summary>The number of vertices.</summary>
-        public byte VertexCount;
+        public byte VertexCount { get; set; }
         /// <summary>The number of point bits.</summary>
-        public byte PointBitCount;
+        public byte PointBitCount { get; set; }
         /// <summary>The texture scale shift.</summary>
         public readonly int ScaleShift => (Flags >> 1) & 0xf;
         /// <summary>True when the surface faces the front of its plane.</summary>
@@ -40,27 +40,27 @@ public sealed class InteriorGeometryData
     }
 
     /// <summary>The build id of the file.</summary>
-    public uint BuildId;
+    public uint BuildId { get; set; }
     /// <summary>The texture scale.</summary>
-    public float TextureScale;
+    public float TextureScale { get; set; }
     /// <summary>The box as minimum x, y, z then maximum x, y, z.</summary>
-    public float[] Box = new float[6];
+    public float[] Box { get; set; } = new float[6];
     /// <summary>The highest mip level.</summary>
-    public uint HighestMipLevel;
+    public uint HighestMipLevel { get; set; }
     /// <summary>The geometry flags.</summary>
-    public uint GeometryFlags;
+    public uint GeometryFlags { get; set; }
     /// <summary>The surfaces.</summary>
-    public Surface[] Surfaces = [];
+    public Surface[] Surfaces { get; set; } = [];
     /// <summary>The index of the 3D point of each vertex record.</summary>
-    public ushort[] VertexPoint3 = [];
+    public ushort[] VertexPoint3 { get; set; } = [];
     /// <summary>The index of the texture coordinate of each vertex record.</summary>
-    public ushort[] VertexPoint2 = [];
+    public ushort[] VertexPoint2 { get; set; } = [];
     /// <summary>The 3D points: x, y, z per point.</summary>
-    public float[] Point3 = [];
+    public float[] Point3 { get; set; } = [];
     /// <summary>The texture coordinates: u, v per point.</summary>
-    public float[] Point2 = [];
+    public float[] Point2 { get; set; } = [];
     /// <summary>The planes: nx, ny, nz, d.</summary>
-    public float[] Planes = [];
+    public float[] Planes { get; set; } = [];
 
     /// <summary>Reads the arrays of a <c>.dig</c> file.</summary>
     /// <param name="d">The file bytes.</param>

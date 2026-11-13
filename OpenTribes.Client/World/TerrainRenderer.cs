@@ -9,27 +9,27 @@ public sealed class TerrainRenderer : IDisposable
     /// <summary>The side of one cell of the atlas in pixels.</summary>
     public const int AtlasCell = 16;
 
-    private readonly TerrainData mData;
-    private readonly IGfxDevice mDev;
-    private readonly WorldAssets mAssets;
-    private readonly List<string?> mMaterials;
-    private readonly Dictionary<int, IGfxTexture?> mMaterialTextures = [];
-    private IGfxTexture? mAtlas, mLight;
+    private readonly TerrainData _data;
+    private readonly IGfxDevice _dev;
+    private readonly WorldAssets _assets;
+    private readonly List<string?> _materials;
+    private readonly Dictionary<int, IGfxTexture?> _materialTextures = [];
+    private IGfxTexture? _atlas, _light;
     /// <summary>The x of the terrain origin.</summary>
-    public double OriginX;
+    public double OriginX { get; set; }
     /// <summary>The y of the terrain origin.</summary>
-    public double OriginY;
+    public double OriginY { get; set; }
     /// <summary>The z of the terrain origin.</summary>
-    public double OriginZ;
+    public double OriginZ { get; set; }
     /// <summary>The terrain parameters.</summary>
-    public TerrainParams Params;
+    public TerrainParams Params { get; set; }
     /// <summary>The number of squares the last draw rendered.</summary>
-    public int LastSquares;
+    public int LastSquares { get; set; }
     /// <summary>The number of triangles the last draw rendered.</summary>
-    public int LastTriangles;
+    public int LastTriangles { get; set; }
     /// <summary>The point lights of the frame, nearest first. The squares they touch get their own light map (<see cref="TerrainLightSet"/>).</summary>
-    public IReadOnlyList<Shapes.PointLight>? DynamicLights;
-    private readonly TerrainMesh mMesh = new();
+    public IReadOnlyList<Shapes.PointLight>? DynamicLights { get; set; }
+    private readonly TerrainMesh _mesh = new();
 
     /// <summary>Creates the renderer.</summary>
     /// <param name="dev">The graphics device.</param>
@@ -43,24 +43,24 @@ public sealed class TerrainRenderer : IDisposable
     public TerrainRenderer(IGfxDevice dev, WorldAssets assets, TerrainData data, List<string?> materials, double ox, double oy,
                            double oz, TerrainParams p)
     {
-        mDev = dev;
-        mAssets = assets;
-        mData = data;
-        mMaterials = materials;
+        _dev = dev;
+        _assets = assets;
+        _data = data;
+        _materials = materials;
         (OriginX, OriginY, OriginZ) = (ox, oy, oz);
         Params = p;
     }
 
     private IGfxTexture? MaterialTexture(int index)
     {
-        if (mMaterialTextures.TryGetValue(index, out var t))
+        if (_materialTextures.TryGetValue(index, out var t))
             return t;
         t = null;
-        var name = index >= 0 && index < mMaterials.Count ? mMaterials[index] : null;
-        var bmp = name != null ? mAssets.Bitmap(name) : null;
+        var name = index >= 0 && index < _materials.Count ? _materials[index] : null;
+        var bmp = name != null ? _assets.Bitmap(name) : null;
         if (bmp != null && bmp.Width > 0 && bmp.Height > 0)
-            t = mAssets.CreateTexture(mDev, bmp, mAssets.PackedRgba(bmp, true), false, true, true);
-        mMaterialTextures[index] = t;
+            t = _assets.CreateTexture(_dev, bmp, _assets.PackedRgba(bmp, true), false, true, true);
+        _materialTextures[index] = t;
         return t;
     }
 
@@ -141,28 +141,28 @@ public sealed class TerrainRenderer : IDisposable
 
     private void EnsureTextures()
     {
-        mLight ??= mDev.CreateTexture3D(mData.LightRgba(), TerrainData.Cells, TerrainData.Cells, new TextureOptions(false, true, true));
-        if (mAtlas == null)
+        _light ??= _dev.CreateTexture3D(_data.LightRgba(), TerrainData.Cells, TerrainData.Cells, new TextureOptions(false, true, true));
+        if (_atlas == null)
         {
             var rgbaCache = new Dictionary<int, byte[]?>();
             byte[]? Rgba(int m)
             {
                 if (!rgbaCache.TryGetValue(m, out var r))
                 {
-                    var name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
-                    var b = name != null ? mAssets.Bitmap(name) : null;
-                    rgbaCache[m] = r = b != null ? mAssets.PackedRgba(b, true) : null;
+                    var name = m >= 0 && m < _materials.Count ? _materials[m] : null;
+                    var b = name != null ? _assets.Bitmap(name) : null;
+                    rgbaCache[m] = r = b != null ? _assets.PackedRgba(b, true) : null;
                 }
                 return r;
             }
             (int, int) Size(int m)
             {
-                var name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
-                var b = name != null ? mAssets.Bitmap(name) : null;
+                var name = m >= 0 && m < _materials.Count ? _materials[m] : null;
+                var b = name != null ? _assets.Bitmap(name) : null;
                 return b == null ? (0, 0) : (b.Width, b.Height);
             }
             var dim = TerrainData.Cells * AtlasCell;
-            mAtlas = mDev.CreateTexture3D(BuildAtlas(mData, Rgba, Size), dim, dim, new TextureOptions(true, true, true));
+            _atlas = _dev.CreateTexture3D(BuildAtlas(_data, Rgba, Size), dim, dim, new TextureOptions(true, true, true));
         }
     }
 
@@ -170,7 +170,7 @@ public sealed class TerrainRenderer : IDisposable
     public void Warm()
     {
         EnsureTextures();
-        for (var i = 0; i < mMaterials.Count; ++i)
+        for (var i = 0; i < _materials.Count; ++i)
             MaterialTexture(i);
     }
 
@@ -188,16 +188,16 @@ public sealed class TerrainRenderer : IDisposable
         {
             if (!rgbaCache.TryGetValue(m, out var r))
             {
-                var name = m >= 0 && m < mMaterials.Count ? mMaterials[m] : null;
-                var b = name != null ? mAssets.Bitmap(name) : null;
-                rgbaCache[m] = r = b != null ? (mAssets.PackedRgba(b, true), b.Width, b.Height) : (null, 0, 0);
+                var name = m >= 0 && m < _materials.Count ? _materials[m] : null;
+                var b = name != null ? _assets.Bitmap(name) : null;
+                rgbaCache[m] = r = b != null ? (_assets.PackedRgba(b, true), b.Width, b.Height) : (null, 0, 0);
             }
             return r;
         }
-        return CommandMapBake.Render(mData, OriginX, OriginY, areaX, areaY, areaW, areaH, m => Material(m).Rgba, m => (Material(m).W, Material(m).H), nearest);
+        return CommandMapBake.Render(_data, OriginX, OriginY, areaX, areaY, areaW, areaH, m => Material(m).Rgba, m => (Material(m).W, Material(m).H), nearest);
     }
 
-    private readonly Dictionary<long, float> mGrow = [];
+    private readonly Dictionary<long, float> _grow = [];
 
     /// <summary>Draws the terrain for a camera.</summary>
     /// <param name="cam">The camera.</param>
@@ -206,10 +206,10 @@ public sealed class TerrainRenderer : IDisposable
         EnsureTextures();
         List<TerrainSquare> squares;
         using (FramePerf.Scope("terrain-select"))
-            squares = TerrainLod.Select(mData, cam, OriginX, OriginY, OriginZ, Params, mGrow);
+            squares = TerrainLod.Select(_data, cam, OriginX, OriginY, OriginZ, Params, _grow);
         TerrainMesh mesh;
         using (FramePerf.Scope("terrain-mesh"))
-            mesh = TerrainMesher.Build(mData, squares, cam, OriginX, OriginY, OriginZ, Params, mMesh, mGrow,
+            mesh = TerrainMesher.Build(_data, squares, cam, OriginX, OriginY, OriginZ, Params, _mesh, _grow,
                                        DynamicLights is { Count: > 0 } ? new TerrainLightSet(DynamicLights, OriginX, OriginY, OriginZ) : null);
         LastSquares = squares.Count;
         LastTriangles = mesh.TriangleCount;
@@ -219,14 +219,14 @@ public sealed class TerrainRenderer : IDisposable
         foreach (var mat in mesh.ByMaterial.Keys.Union(mesh.DynByMaterial.Keys).OrderBy(k => k))
         {
             if (mesh.ByMaterial.TryGetValue(mat, out var list) && list.Count > 0)
-                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(mat), mLight));
+                _dev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), new DrawState3D(MaterialTexture(mat), _light));
             if (tiles != null && mesh.DynByMaterial.TryGetValue(mat, out var lit) && lit.Count > 0)
-                mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(lit), new DrawState3D(MaterialTexture(mat), tiles));
+                _dev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(lit), new DrawState3D(MaterialTexture(mat), tiles));
         }
         if (mesh.Atlas.Count > 0)
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.Atlas), new DrawState3D(mAtlas, mLight));
+            _dev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.Atlas), new DrawState3D(_atlas, _light));
         if (tiles != null && mesh.DynAtlas.Count > 0)
-            mDev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.DynAtlas), new DrawState3D(mAtlas, tiles));
+            _dev.Draw3D(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(mesh.DynAtlas), new DrawState3D(_atlas, tiles));
         tiles?.Dispose();
     }
 
@@ -260,7 +260,7 @@ public sealed class TerrainRenderer : IDisposable
         Normalise(mesh.DynAtlas);
         foreach (var l in mesh.DynByMaterial.Values)
             Normalise(l);
-        return mDev.CreateTexture3D(rgba, w, h, new TextureOptions(false, false, true));
+        return _dev.CreateTexture3D(rgba, w, h, new TextureOptions(false, false, true));
     }
 
     /// <summary>Reads the static light map value under a world point.</summary>
@@ -269,16 +269,16 @@ public sealed class TerrainRenderer : IDisposable
     /// <returns>The red, green and blue values, 0 to 1 (the nibbles over 15, ShapeBase_lightProbe 0044e6f4).</returns>
     public (float r, float g, float b) LightAt(double x, double y)
     {
-        var w = mData.LightWord((int)Math.Floor((x - OriginX) / TerrainData.CellSize), (int)Math.Floor((y - OriginY) / TerrainData.CellSize));
+        var w = _data.LightWord((int)Math.Floor((x - OriginX) / TerrainData.CellSize), (int)Math.Floor((y - OriginY) / TerrainData.CellSize));
         return (((w >> 8) & 0xf) / 15f, ((w >> 4) & 0xf) / 15f, (w & 0xf) / 15f);
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (var t in mMaterialTextures.Values)
+        foreach (var t in _materialTextures.Values)
             t?.Dispose();
-        mAtlas?.Dispose();
-        mLight?.Dispose();
+        _atlas?.Dispose();
+        _light?.Dispose();
     }
 }

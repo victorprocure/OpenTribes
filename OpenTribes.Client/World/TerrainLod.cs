@@ -268,15 +268,15 @@ public static class TerrainLod
 public sealed class TerrainMesh
 {
     /// <summary>The vertices of the squares that use the atlas.</summary>
-    public readonly List<Vertex3D> Atlas = [];
+    public List<Vertex3D> Atlas { get; } = [];
     /// <summary>The vertices of the level 0 squares by material index.</summary>
-    public readonly Dictionary<int, List<Vertex3D>> ByMaterial = [];
+    public Dictionary<int, List<Vertex3D>> ByMaterial { get; } = [];
     /// <summary>The atlas vertices of the squares a dynamic light touches (<see cref="TerrainLightSet"/>). Their own light map is one 9 x 9 tile of nibbles each in <see cref="Tiles"/>. The vertices carry the light coordinate in texels of the tile atlas (<see cref="TileAtlasWidth"/> wide) until the renderer normalises it.</summary>
-    public readonly List<Vertex3D> DynAtlas = [];
+    public List<Vertex3D> DynAtlas { get; } = [];
     /// <summary>The level 0 vertices of the lit squares by material index.</summary>
-    public readonly Dictionary<int, List<Vertex3D>> DynByMaterial = [];
+    public Dictionary<int, List<Vertex3D>> DynByMaterial { get; } = [];
     /// <summary>The light map tiles of the lit squares.</summary>
-    public readonly List<byte[]> Tiles = [];
+    public List<byte[]> Tiles { get; } = [];
     /// <summary>The side of one light tile in nibbles.</summary>
     public const int TileSize = 9;
     /// <summary>The number of tiles per row of the tile atlas.</summary>
@@ -287,9 +287,9 @@ public sealed class TerrainMesh
     public int TriangleCount => (Atlas.Count / 3) + ByMaterial.Values.Sum(v => v.Count / 3) + (DynAtlas.Count / 3) + DynByMaterial.Values.Sum(v => v.Count / 3);
 
     // Scratch the mesher refills every frame when the same mesh object is passed back in.
-    internal readonly HashSet<long> Points = [];
-    internal readonly Dictionary<long, float> Heights = [];
-    internal readonly List<(int, int)> Ring = [];
+    internal HashSet<long> Points { get; } = [];
+    internal Dictionary<long, float> Heights { get; } = [];
+    internal List<(int, int)> Ring { get; } = [];
 
     /// <summary>Empties the mesh and its scratch.</summary>
     public void Reset()

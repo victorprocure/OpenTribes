@@ -11,12 +11,12 @@ public class MasterTests
 {
     private sealed class World
     {
-        public readonly Interpreter In = new();
-        public readonly ServerConfig Cfg = new();
-        public readonly NetServer Net;
-        public readonly List<(Address to, byte[] data)> Sent = [];
-        public string Out = "";
-        public readonly List<(float delay, Action action)> Scheduled = [];
+        public Interpreter In { get; } = new();
+        public ServerConfig Cfg { get; } = new();
+        public NetServer Net { get; }
+        public List<(Address to, byte[] data)> Sent { get; } = [];
+        public string Out { get; set; } = "";
+        public List<(float delay, Action action)> Scheduled { get; } = [];
 
         public World()
         {
@@ -35,7 +35,7 @@ public class MasterTests
         }
     }
 
-    private static readonly byte[] kBeat = [0x10, 0x05, 0xff, 0, 0, 0, 0, 0];
+    private static readonly byte[] Beat = [0x10, 0x05, 0xff, 0, 0, 0, 0, 0];
 
     [Fact]
     public void NetworkStartAnnouncesOnlyAnIpServerThatIsNotSinglePlayer() // SimNet_activate 0x0054e86c tail
@@ -77,7 +77,7 @@ public class MasterTests
             hb.Start(w.Schedule());
             Assert.Equal("TRUE", w.In.GetVariable("$Server::HostPublicGame"));
             Assert.Equal("1", w.In.GetVariable("$calls"));
-            Assert.True(w.Sent.Count == 2 && w.Sent[0].data.SequenceEqual(kBeat) && w.Sent[1].data.SequenceEqual(kBeat));
+            Assert.True(w.Sent.Count == 2 && w.Sent[0].data.SequenceEqual(Beat) && w.Sent[1].data.SequenceEqual(Beat));
             Assert.True(w.Sent[0].to.ToString() == "IP:127.0.0.1:29000" && w.Sent[1].to.ToString() == "IP:127.9.9.9:29001");
             Assert.True(w.Scheduled.Count == 1 && w.Scheduled[0].delay == 120.0f);
             w.Scheduled[0].action(); // the next round

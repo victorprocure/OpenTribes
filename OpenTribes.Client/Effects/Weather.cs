@@ -9,15 +9,15 @@ using OpenTribes.Platform.Gfx;
 public sealed class WeatherEffect
 {
     /// <summary>The precipitation intensity, 0 to 1.</summary>
-    public double Intensity = 0.5;
+    public double Intensity { get; set; } = 0.5;
     /// <summary>The wind x.</summary>
-    public double WindX;
+    public double WindX { get; set; }
     /// <summary>The wind y.</summary>
-    public double WindY;
+    public double WindY { get; set; }
     /// <summary>True for rain, false for snow.</summary>
-    public bool Rain;
+    public bool Rain { get; set; }
     /// <summary>True while the ghost suspends its rendering.</summary>
-    public bool Suspended;
+    public bool Suspended { get; set; }
     /// <summary>The most rain particles (004419b8).</summary>
     public const int MaxRain = 2048;
     /// <summary>The most snow particles (004419b8).</summary>

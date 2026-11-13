@@ -17,9 +17,9 @@ public partial class GameBase
     public virtual void ApplyDamage(int type, float value, ReadOnlySpan<float> pos, ReadOnlySpan<float> vec,
                                     ReadOnlySpan<float> mom, int source)
     {
-        if (mCtx.Game == null)
+        if (_ctx.Game == null)
             return;
-        mCtx.Game.ScriptCallback(this, "onDamage", new[]
+        _ctx.Game.ScriptCallback(this, "onDamage", new[]
         {
             Numbers.FormatInt(type), DamageCommands.Literal(GameUtil.G(value)), GameUtil.Fmt3(pos), GameUtil.Fmt3(vec), GameUtil.Fmt3(mom),
             Numbers.FormatInt(source),
@@ -32,7 +32,7 @@ public partial class GameBase
     /// <remarks>Follows the ShapeBase coverage (0x0044e324, vtable +0x180): the ray from the explosion to the box centre reaches the object itself, or nothing.</remarks>
     public virtual float DamageCoverage(ReadOnlySpan<float> pos)
     {
-        var c = mCtx.Game?.GetContainer();
+        var c = _ctx.Game?.GetContainer();
         var e = c?.Find(this);
         if (e == null)
             return 1.0f;

@@ -9,9 +9,9 @@ public sealed class GuiObjectivePage : GuiActive
     /// <summary>The number of objective lines.</summary>
     public const int LineCount = 32;
 
-    private readonly GuiTextFormat?[] mLayouts = new GuiTextFormat?[LineCount];
-    private readonly string?[] mTexts = new string?[LineCount];
-    private int mLaidWidth = -1;
+    private readonly GuiTextFormat?[] _layouts = new GuiTextFormat?[LineCount];
+    private readonly string?[] _texts = new string?[LineCount];
+    private int _laidWidth = -1;
 
     /// <inheritdoc/>
     public override bool WantsTab => false;
@@ -36,19 +36,19 @@ public sealed class GuiObjectivePage : GuiActive
             var text = i < lines.Count ? lines[i] : null;
             if (text == null)
             {
-                mLayouts[i] = null;
-                mTexts[i] = null;
+                _layouts[i] = null;
+                _texts[i] = null;
                 continue;
             }
-            if (mLayouts[i] == null || mTexts[i] != text || mLaidWidth != W)
+            if (_layouts[i] == null || _texts[i] != text || _laidWidth != W)
             {
                 fonts ??= Fonts();
-                mLayouts[i] = GuiTextFormat.Layout(text, W, fonts, n => Host?.BitmapByName(n), n => Host?.GetVar("$" + n) ?? "");
-                mTexts[i] = text;
+                _layouts[i] = GuiTextFormat.Layout(text, W, fonts, n => Host?.BitmapByName(n), n => Host?.GetVar("$" + n) ?? "");
+                _texts[i] = text;
             }
-            total += mLayouts[i]!.Height;
+            total += _layouts[i]!.Height;
         }
-        mLaidWidth = W;
+        _laidWidth = W;
         return total;
     }
 
@@ -71,7 +71,7 @@ public sealed class GuiObjectivePage : GuiActive
         {
             Update();
             var y = gy;
-            foreach (var l in mLayouts)
+            foreach (var l in _layouts)
                 if (l != null)
                 {
                     l.Draw(p, gx, y);

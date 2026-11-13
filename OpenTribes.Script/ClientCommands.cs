@@ -7,17 +7,17 @@ using OpenTribes.Core;
 public struct InputEvent : IEquatable<InputEvent>
 {
     /// <summary>The device type: 1 device, 2 mouse, 3 keyboard, 4 joystick.</summary>
-    public byte DeviceType;
+    public byte DeviceType { get; set; }
     /// <summary>The trailing number of the device word.</summary>
-    public byte DeviceInst;
+    public byte DeviceInst { get; set; }
     /// <summary>The object type: 2 button, 3 to 9 POV, 10 key, 11 to 16 axes, 17 slider.</summary>
-    public byte ObjType;
+    public byte ObjType { get; set; }
     /// <summary>The key code for keys, the trailing number otherwise.</summary>
-    public byte ObjInst;
+    public byte ObjInst { get; set; }
     /// <summary>The action: 1 make, 2 break, 3 move.</summary>
-    public byte Action;
+    public byte Action { get; set; }
     /// <summary>The modifier bits: 1 and 2 shift, 4 and 8 control, 16 and 32 alt, for left and right.</summary>
-    public byte Modifiers;
+    public byte Modifiers { get; set; }
 
     /// <summary>Tests two events for equality.</summary>
     /// <param name="o">The other event.</param>
@@ -50,35 +50,38 @@ public sealed class ActionBinding
     /// <summary>The binding flag bits: None, Value, Flip, Center, Square, Cube, DeadZone and Scale.</summary>
     public const uint None = 1, Value = 2, Flip = 4, Center = 8, Square = 16, Cube = 32, DeadZone = 64, Scale = 128;
     /// <summary>The bound input event.</summary>
-    public InputEvent Event;
+    public ref InputEvent Event => ref _event;
+    private InputEvent _event;
     /// <summary>Whether the binding runs a command instead of an action.</summary>
-    public bool IsCommand;
+    public bool IsCommand { get; set; }
     /// <summary>The command text (bindCommand and bind).</summary>
-    public string Command = "";
+    public string Command { get; set; } = "";
     /// <summary>The action tag id (bindAction).</summary>
-    public int Action;
+    public int Action { get; set; }
     /// <summary>The flag bits.</summary>
-    public uint Flags;
+    public uint Flags { get; set; }
     /// <summary>The value, the dead zone and the scale.</summary>
-    public float ValueF, DeadZoneF, ScaleF = 1;
+    public float ValueF { get; set; }
+    public float DeadZoneF { get; set; }
+    public float ScaleF { get; set; } = 1;
 }
 
 /// <summary>An action map, a list of bindings.</summary>
 public sealed class ActionMap
 {
     /// <summary>The resource name, ending in ".sae".</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The bindings.</summary>
-    public readonly List<ActionBinding> Bindings = [];
+    public List<ActionBinding> Bindings { get; } = [];
 }
 
 /// <summary>The state of the client-side commands: the action maps and the current map.</summary>
 public sealed class ClientState
 {
     /// <summary>The name of the map set by editActionMap or newActionMap, empty when unset.</summary>
-    public string CurrentMap = "";
+    public string CurrentMap { get; set; } = "";
     /// <summary>The action maps.</summary>
-    public readonly List<ActionMap> Maps = [];
+    public List<ActionMap> Maps { get; } = [];
 
     /// <summary>Finds an action map by name.</summary>
     /// <param name="name">The map name, matched ASCII case-insensitively.</param>
@@ -114,20 +117,20 @@ public static class ClientCommands
     private readonly record struct NameValue(string Name, byte Value);
 
     // Name tables of the input plugin (0x00637860, 0x00637888, 0x006378a8, 0x00637930, 0x00637980).
-    private static readonly NameValue[] kDevices = [new("keyboard", 3), new("mouse", 2), new("joystick", 4), new("device", 1)];
-    private static readonly NameValue[] kEventActions = [new("make", 1), new("break", 2), new("move", 3)];
-    private static readonly NameValue[] kObjects =
+    private static readonly NameValue[] Devices = [new("keyboard", 3), new("mouse", 2), new("joystick", 4), new("device", 1)];
+    private static readonly NameValue[] EventActions = [new("make", 1), new("break", 2), new("move", 3)];
+    private static readonly NameValue[] Objects =
     [
         new("xaxis", 11), new("yaxis", 12), new("zaxis", 13), new("rxaxis", 14), new("ryaxis", 15), new("rzaxis", 16),
         new("slider", 17), new("pov", 3), new("xpov", 4), new("ypov", 5), new("upov", 6), new("dpov", 7),
         new("lpov", 8), new("rpov", 9), new("button", 2), new("key", 10),
     ];
-    private static readonly NameValue[] kModifiers =
+    private static readonly NameValue[] Modifiers =
     [
         new("shift", 3), new("control", 12), new("alt", 48), new("l_shift", 1), new("r_shift", 2),
         new("l_control", 4), new("r_control", 8), new("l_alt", 16), new("r_alt", 32),
     ];
-    private static readonly NameValue[] kFlags =
+    private static readonly NameValue[] Flags =
     [
         new("None", 1), new("Value", 2), new("Flip", 4), new("Center", 8),
         new("Square", 16), new("Cube", 32), new("DeadZone", 64), new("Scale", 128),
@@ -268,12 +271,12 @@ public static class ClientCommands
         int i = 0, n = w.Count;
         if (n == 0)
             return false;
-        ev.DeviceType = LookupPrefix(kDevices, w[0]);
+        ev.DeviceType = LookupPrefix(Devices, w[0]);
         ev.DeviceInst = TrailingNumber(w[0]);
         ++i;
         if (i == n || ev.DeviceType == 0)
             return false;
-        ev.Action = LookupPrefix(kEventActions, w[i]);
+        ev.Action = LookupPrefix(EventActions, w[i]);
         var button = ev.Action is 1 or 2;
         if (button)
             ++i;
@@ -282,7 +285,7 @@ public static class ClientCommands
         ev.Modifiers = 0;
         for (; i < n; ++i)
         {
-            var m = LookupPrefix(kModifiers, w[i]);
+            var m = LookupPrefix(Modifiers, w[i]);
             if (m == 0)
                 break;
             ev.Modifiers |= m;
@@ -315,14 +318,14 @@ public static class ClientCommands
             }
             else
             {
-                ev.ObjType = LookupPrefix(kObjects, o);
+                ev.ObjType = LookupPrefix(Objects, o);
                 ev.ObjInst = TrailingNumber(o);
             }
         }
         else
         {
             ev.Action = 3;
-            ev.ObjType = LookupPrefix(kObjects, o);
+            ev.ObjType = LookupPrefix(Objects, o);
             ev.ObjInst = TrailingNumber(o);
             if (ev.ObjType == 0)
                 return false;
@@ -356,7 +359,7 @@ public static class ClientCommands
         for (; i < n; ++i)
         {
             NameValue? flag = null;
-            foreach (var f in kFlags)
+            foreach (var f in Flags)
                 if (EqualNoCase(w[i], f.Name))
                 {
                     flag = f;
@@ -492,12 +495,12 @@ public static class ClientCommands
     {
         var ev = b.Event;
         var line = new StringBuilder(b.IsCommand ? "bindCommand(" : "bindAction(");
-        line.Append(NameOf(kDevices, ev.DeviceType) + Numbers.FormatInt(ev.DeviceInst) + ", ");
+        line.Append(NameOf(Devices, ev.DeviceType) + Numbers.FormatInt(ev.DeviceInst) + ", ");
         if (ev.Action is 1 or 2)
         {
-            line.Append(NameOf(kEventActions, ev.Action) + ", ");
+            line.Append(NameOf(EventActions, ev.Action) + ", ");
             var mod = ev.Modifiers;
-            foreach (var m in kModifiers)
+            foreach (var m in Modifiers)
                 if ((mod & m.Value) == m.Value)
                 {
                     line.Append(m.Name + ", ");
@@ -518,12 +521,12 @@ public static class ClientCommands
             }
             else
             {
-                line.Append(NameOf(kObjects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
+                line.Append(NameOf(Objects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
             }
         }
         else
         {
-            line.Append(NameOf(kObjects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
+            line.Append(NameOf(Objects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
         }
         line.Append("TO, ");
         if (b.IsCommand)
@@ -535,7 +538,7 @@ public static class ClientCommands
             line.Append(tagName != null ? tagName(b.Action) : "");
             if ((b.Flags & ActionBinding.Value) != 0)
                 line.Append(", " + FloatText(b.ValueF));
-            foreach (var f in kFlags)
+            foreach (var f in Flags)
                 if ((b.Flags & f.Value) != 0 && (b.Flags & ActionBinding.Value) == 0)
                 {
                     line.Append(", " + f.Name);
@@ -642,7 +645,10 @@ public static class ClientCommands
             }
             var before = CountBeforeTo(argv);
             var b = new ActionBinding();
-            if (!ParseInputEvent(Slice(argv, 1, 1 + before), ref b.Event))
+            var bindEvent = b.Event;
+            var parsed = ParseInputEvent(Slice(argv, 1, 1 + before), ref bindEvent);
+            b.Event = bindEvent;
+            if (!parsed)
                 return Fail("Device section");
             var after = before + 2; // first word behind "TO"
             if (!ParseActionTarget(after < argv.Length ? Slice(argv, after, argv.Length) : [], b))
@@ -671,7 +677,10 @@ public static class ClientCommands
             var before = CountBeforeTo(argv);
             var b = new ActionBinding();
             // Without a word behind "TO" the original reads past argv (rejected, D11).
-            if (!ParseInputEvent(Slice(argv, 1, 1 + before), ref b.Event) || before + 2 >= argv.Length)
+            var bindEvent = b.Event;
+            var parsed = ParseInputEvent(Slice(argv, 1, 1 + before), ref bindEvent);
+            b.Event = bindEvent;
+            if (!parsed || before + 2 >= argv.Length)
             {
                 i.Print(1, name + " event TO command - error: malformed 'Device section'.");
                 return "False";

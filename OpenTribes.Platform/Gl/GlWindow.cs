@@ -5,9 +5,9 @@ using OpenTribes.Platform.Sdl;
 /// <summary>One SDL window with an OpenGL 3.3 core context, made current on the creating thread, and the loaded GL functions.</summary>
 public sealed unsafe class GlWindow : IDisposable
 {
-    private static readonly Lock sLock = new();
-    private static int sUsers;
-    private IntPtr mContext;
+    private static readonly Lock Lock = new();
+    private static int _users;
+    private IntPtr _context;
 
     /// <summary>Gets the GL function table.</summary>
     public GlApi Gl { get; }
@@ -21,7 +21,7 @@ public sealed unsafe class GlWindow : IDisposable
     private GlWindow(IntPtr window, IntPtr context, GlApi gl, string driver)
     {
         Handle = window;
-        mContext = context;
+        _context = context;
         Gl = gl;
         VideoDriver = driver;
         GlVersion = gl.GetString(GlApi.Version);
@@ -42,9 +42,9 @@ public sealed unsafe class GlWindow : IDisposable
         error = "";
         try
         {
-            lock (sLock)
+            lock (Lock)
             {
-                if (sUsers == 0)
+                if (_users == 0)
                 {
                     videoDriver ??= PlatformPaths.DefaultVideoDriver(PlatformPaths.CurrentOs, PlatformPaths.Env);
                     if (videoDriver != null)
@@ -58,7 +58,7 @@ public sealed unsafe class GlWindow : IDisposable
                         return null;
                     }
                 }
-                ++sUsers;
+                ++_users;
             }
         }
         catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
@@ -116,9 +116,9 @@ public sealed unsafe class GlWindow : IDisposable
 
     private static void Release()
     {
-        lock (sLock)
+        lock (Lock)
         {
-            if (--sUsers == 0)
+            if (--_users == 0)
                 Sdl3.Quit();
         }
     }
@@ -144,8 +144,8 @@ public sealed unsafe class GlWindow : IDisposable
 
     // Full screen state. mExclusive is the display mode that was set; mScaled is the requested size rendered scaled into
     // the window when no mode could be set. Neither is set windowed.
-    private (int W, int H)? mExclusive, mScaled;
-    private (int W, int H) mWindowedSize;
+    private (int W, int H)? _exclusive, _scaled;
+    private (int W, int H) _windowedSize;
 
     /// <summary>Switches full screen on or off.</summary>
     /// <param name="on">Whether the window is full screen.</param>
@@ -160,33 +160,33 @@ public sealed unsafe class GlWindow : IDisposable
             if (!IsFullscreen())
             {
                 Sdl3.GetWindowSize(Handle, out var ww, out var wh);
-                mWindowedSize = (ww, wh);
+                _windowedSize = (ww, wh);
             }
-            mExclusive = mScaled = null;
+            _exclusive = _scaled = null;
             if (!desktopMode)
-                mExclusive = Sdl3.EnterExclusiveFullscreen(Handle, w, h);
-            if (mExclusive == null)
+                _exclusive = Sdl3.EnterExclusiveFullscreen(Handle, w, h);
+            if (_exclusive == null)
             {
                 Sdl3.EnterDesktopFullscreen(Handle);
                 if (!desktopMode)
-                    mScaled = (w, h);
+                    _scaled = (w, h);
             }
         }
         else
         {
             var was = IsFullscreen();
-            mExclusive = mScaled = null;
+            _exclusive = _scaled = null;
             Sdl3.LeaveFullscreen(Handle);
-            if (was && mWindowedSize.W > 0)
-                Sdl3.SetWindowSize(Handle, mWindowedSize.W, mWindowedSize.H);
+            if (was && _windowedSize.W > 0)
+                Sdl3.SetWindowSize(Handle, _windowedSize.W, _windowedSize.H);
         }
     }
 
     /// <summary>Gets the full screen resolution the canvas uses, or null windowed.</summary>
-    public (int W, int H)? FullscreenCanvas => IsFullscreen() ? mExclusive ?? mScaled : null;
+    public (int W, int H)? FullscreenCanvas => IsFullscreen() ? _exclusive ?? _scaled : null;
 
     /// <summary>Gets whether the canvas is scaled into a larger window because no display mode could be set.</summary>
-    public bool Scaled => mScaled != null && IsFullscreen();
+    public bool Scaled => _scaled != null && IsFullscreen();
 
     /// <summary>Lists the full screen modes of the display the window is on, ascending.</summary>
     /// <returns>The (width, height) pairs.</returns>
@@ -216,7 +216,7 @@ public sealed unsafe class GlWindow : IDisposable
     public (int w, int h) PixelSize()
     {
         (var w, var h) = WindowPixels();
-        var fs = IsFullscreen() ? mExclusive ?? mScaled : null;
+        var fs = IsFullscreen() ? _exclusive ?? _scaled : null;
         (var cw, var ch) = FullscreenPlan.CanvasSize(fs != null, fs, fs ?? (w, h), (w, h));
         return (cw, ch);
     }
@@ -226,10 +226,10 @@ public sealed unsafe class GlWindow : IDisposable
     {
         if (Handle == IntPtr.Zero)
             return;
-        Sdl3.GlDestroyContext(mContext);
+        Sdl3.GlDestroyContext(_context);
         Sdl3.DestroyWindow(Handle);
         Handle = IntPtr.Zero;
-        mContext = IntPtr.Zero;
+        _context = IntPtr.Zero;
         Release();
     }
 }

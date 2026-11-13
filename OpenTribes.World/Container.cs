@@ -8,25 +8,25 @@ using static OpenTribes.Core.Fpu;
 public static class ObjectType
 {
     /// <summary>The terrain type bit.</summary>
-    public const uint kTerrainType = 0x2;
+    public const uint TerrainType = 0x2;
     /// <summary>The interior type bit.</summary>
-    public const uint kInteriorType = 0x4;
+    public const uint InteriorType = 0x4;
     /// <summary>The player type bit.</summary>
-    public const uint kPlayerType = 0x80;
+    public const uint PlayerType = 0x80;
     /// <summary>The marker type bit.</summary>
-    public const uint kMarkerType = 0x100000;
+    public const uint MarkerType = 0x100000;
     /// <summary>The item type bit.</summary>
-    public const uint kItemType = 0x200000;
+    public const uint ItemType = 0x200000;
     /// <summary>The moveable type bit.</summary>
-    public const uint kMoveableType = 0x400000;
+    public const uint MoveableType = 0x400000;
     /// <summary>The static type bit.</summary>
-    public const uint kStaticType = 0x800000;
+    public const uint StaticType = 0x800000;
     /// <summary>The mine type bit.</summary>
-    public const uint kMineType = 0x4000000;
+    public const uint MineType = 0x4000000;
     /// <summary>The trigger type bits.</summary>
-    public const uint kTriggerType = 0x10000010;
+    public const uint TriggerType = 0x10000010;
     /// <summary>The vehicle type bit.</summary>
-    public const uint kVehicleType = 0x20000000;
+    public const uint VehicleType = 0x20000000;
 }
 
 /// <summary>The container hierarchy (docs/interiors.md 6, docs/game-stream-ghosts.md 6.2): finds objects by box, casts rays and walks the scope.</summary>
@@ -56,35 +56,38 @@ public sealed class Container
     public sealed class Entry
     {
         /// <summary>The sim object.</summary>
-        public object? Object;
+        public object? Object { get; set; }
         /// <summary>The object type bits.</summary>
-        public uint Type;
+        public uint Type { get; set; }
         /// <summary>The world box (+0x70 to +0x84).</summary>
-        public Float6 Box;
+        public ref Float6 Box => ref _box;
+        private Float6 _box;
         /// <summary>Unused: every line test gets the unclipped segment (docs/collision.md 9 F4).</summary>
-        public bool ClipSegment;
+        public bool ClipSegment { get; set; }
         /// <summary>The line test of the object, or null.</summary>
-        public CastFn? Cast;
+        public CastFn? Cast { get; set; }
         /// <summary>The material of the surface the last successful <see cref="Cast"/> hit (record +0x20), null when it has none. Set by the cast function of terrain and interior entries.</summary>
-        public StrongBox<Material?>? HitMaterial;
+        public StrongBox<Material?>? HitMaterial { get; set; }
         /// <summary>The kind of the object's own database.</summary>
-        public Database DatabaseKind = Database.None;
+        public Database DatabaseKind { get; set; } = Database.None;
         /// <summary>The object types the database accepts (+0x90).</summary>
-        public uint ContainerMask;
+        public uint ContainerMask { get; set; }
         /// <summary>The visible distance of a SimTerrain (+0x2e0, container vtable +0xac).</summary>
-        public float VisibleDistance;
+        public float VisibleDistance { get; set; }
         /// <summary>The collision geometry of an interior database (instance +0xa0).</summary>
-        public InteriorGeometry? Geometry;
+        public InteriorGeometry? Geometry { get; set; }
         /// <summary>The object transform of an interior database.</summary>
-        public Mat Transform = new();
+        public ref Mat Transform => ref _transform;
+        private Mat _transform = new();
         /// <summary>The surface data of a SimTerrain, for collision.</summary>
-        public Terrain? TerrainData;
+        public Terrain? TerrainData { get; set; }
         /// <summary>The gravity the container gives the moving objects inside it (docs/player-sim.md FC2, contGravity).</summary>
-        public Float3 Gravity;
+        public ref Float3 Gravity => ref _gravity;
+        private Float3 _gravity;
         /// <summary>The drag the container gives the moving objects inside it (docs/player-sim.md FC2, contDrag).</summary>
-        public float Drag;
+        public float Drag { get; set; }
         /// <summary>The number of collision image queries (0x407) other code has made on the object: a ray whose segment crosses the box (castRay step 3) and the candidate list of another mover (SimMovement_stepMove 00505a3c, docs/vehicle-sim.md 15).</summary>
-        public uint ImageQueries;
+        public uint ImageQueries { get; set; }
 
         /// <summary>Creates an empty entry.</summary>
         public Entry()
@@ -115,15 +118,16 @@ public sealed class Container
     public sealed class ScopeQuery
     {
         /// <summary>The camera point (camera record +0x04).</summary>
-        public Vec3 Point;
+        public ref Vec3 Point => ref _point;
+        private Vec3 _point;
         /// <summary>The visible distance (camera record +0x28).</summary>
-        public float VisibleDistance;
+        public float VisibleDistance { get; set; }
         /// <summary>Tests whether an object may be marked: net flag 0x100 set and 0x40 clear (rule M).</summary>
-        public Func<object?, bool> Markable = _ => false;
+        public Func<object?, bool> Markable { get; set; } = _ => false;
         /// <summary>Marks an object in scope (markInScope).</summary>
-        public Action<object?> Mark = _ => { };
+        public Action<object?> Mark { get; set; } = _ => { };
         /// <summary>Called with the interior object that the walk reaches through a link record (InteriorShape +0x418 = 2), where the stock walk builds its render image (0047f794 copies bit 2 to the image link flag, 004804bc).</summary>
-        public Action<object>? OnViaLink;
+        public Action<object>? OnViaLink { get; set; }
     }
 
     private enum Kind { None, Vector, Slots }
@@ -133,56 +137,58 @@ public sealed class Container
     // order of the objects' max ends.
     private struct SweepEnd
     {
-        public Node NodeRef;
-        public bool IsMax;
-        public float Value;
+        public Node NodeRef { get; set; }
+        public bool IsMax { get; set; }
+        public float Value { get; set; }
     }
 
     // src/world/container.cpp Container::Node.
     private sealed class Node
     {
-        public Entry E = new();
-        public Node? Parent;             // +0x68
-        public Kind NodeKind = Kind.None;
-        public bool Terrain;
-        public bool Interior;
-        public readonly List<Node?> Items = [];       // vector order, or slots (null = empty slot)
-        public readonly List<Node> Subs = [];         // terrain database: sub-containers (+0x14 list)
-        public readonly List<SweepEnd> XEnds = [];    // terrain database: x end list (+0x40)
+        public Entry E { get; set; } = new();
+        public Node? Parent { get; set; }             // +0x68
+        public Kind NodeKind { get; set; } = Kind.None;
+        public bool Terrain { get; set; }
+        public bool Interior { get; set; }
+        public List<Node?> Items { get; } = [];       // vector order, or slots (null = empty slot)
+        public List<Node> Subs { get; } = [];         // terrain database: sub-containers (+0x14 list)
+        public List<SweepEnd> XEnds { get; } = [];    // terrain database: x end list (+0x40)
         // InteriorShapeDatabase (PVS, 00483548): one list per leaf number + 1 (0 for objects in solid leaves), newest
         // first; the object's list in its parent's database.
-        public readonly List<List<Node>> Buckets = [];
-        public int Bucket;
-        public int Leaf = -1;              // leaf number stored with the entry (the update test compares it)
-        public Mat Inverse = new();        // InteriorShape +0xc8
-        public uint Tag = 0xffffffffu;     // +0x8c
-        public uint VisitTag;              // InteriorShape +0x420 (ctor 0)
+        public List<List<Node>> Buckets { get; } = [];
+        public int Bucket { get; set; }
+        public int Leaf { get; set; } = -1;              // leaf number stored with the entry (the update test compares it)
+        public ref Mat Inverse => ref _inverse;        // InteriorShape +0xc8
+        private Mat _inverse = new();        // InteriorShape +0xc8
+        public uint Tag { get; set; } = 0xffffffffu;     // +0x8c
+        public uint VisitTag { get; set; }              // InteriorShape +0x420 (ctor 0)
         // Link records (+0x408 count, +0x414 records): neighbour interior and the face bit of the link on this side.
         public struct Link
         {
-            public Node NodeRef;
-            public uint Bits;
+            public Node NodeRef { get; set; }
+            public uint Bits { get; set; }
         }
-        public readonly List<Link> Links = [];
-        public bool ViaLink;               // InteriorShape +0x418: 2 while scoped through a link record, else 0
-        public ulong Seq;                  // add order (castRay tie rule)
+        public List<Link> Links { get; } = [];
+        public bool ViaLink { get; set; }               // InteriorShape +0x418: 2 while scoped through a link record, else 0
+        public ulong Seq { get; set; }                  // add order (castRay tie rule)
         public bool HasDb() => NodeKind != Kind.None;
     }
 
     // src/world/container.cpp Container::Query.
     private sealed class Query
     {
-        public object? Exclude;
-        public uint Mask;
-        public Float6 Box;
+        public object? Exclude { get; set; }
+        public uint Mask { get; set; }
+        public ref Float6 Box => ref _box;
+        private Float6 _box;
     }
 
-    private readonly Node mRoot;
-    private readonly List<Node> mNodes = [];
-    private readonly Dictionary<object, Node> mByObject = new(ReferenceEqualityComparer.Instance);
-    private Node? mNullObject; // the map entry of a null object pointer
-    private ulong mSeq;
-    private uint mTag; // DAT_006a8cec, post-incremented per query, starts at 0
+    private readonly Node _root;
+    private readonly List<Node> _nodes = [];
+    private readonly Dictionary<object, Node> _byObject = new(ReferenceEqualityComparer.Instance);
+    private Node? _nullObject; // the map entry of a null object pointer
+    private ulong _seq;
+    private uint _tag; // DAT_006a8cec, post-incremented per query, starts at 0
 
     // src/world/container.cpp overlaps: SimContainer_boxOverlap (004f9ae8), inclusive.
     private static bool Overlaps(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
@@ -417,7 +423,7 @@ public sealed class Container
     /// <summary>Creates container 7 (004fb754): box +-1e30, every type, default database.</summary>
     public Container()
     {
-        mRoot = new Node
+        _root = new Node
         {
             E = new Entry(null, 0, Float6.Of(-1e30f, -1e30f, -1e30f, 1e30f, 1e30f, 1e30f), false, null)
             {
@@ -431,8 +437,8 @@ public sealed class Container
     private Node? NodeOf(object? obj)
     {
         if (obj == null)
-            return mNullObject;
-        return mByObject.TryGetValue(obj, out var n) ? n : null;
+            return _nullObject;
+        return _byObject.TryGetValue(obj, out var n) ? n : null;
     }
 
     /// <summary>Finds the entry of an object.</summary>
@@ -498,13 +504,13 @@ public sealed class Container
                 node.Buckets.Add([]);
         }
         var n = node;
-        n.Seq = ++mSeq;
+        n.Seq = ++_seq;
         if (n.E.Object == null)
-            mNullObject = n;
+            _nullObject = n;
         else
-            mByObject[n.E.Object] = n;
-        mNodes.Add(node);
-        AddTo(mRoot, n);
+            _byObject[n.E.Object] = n;
+        _nodes.Add(node);
+        AddTo(_root, n);
         // InteriorShape_onAdd (0047f2bc): after the container add, unlinkAll and linkNeighbours.
         if (n.Interior && n.E.Geometry != null)
             LinkNeighbours(n);
@@ -530,19 +536,19 @@ public sealed class Container
     private void LinkNeighbours(Node n)
     {
         UnlinkAll(n);
-        var q = new Query { Exclude = n.E.Object, Mask = ObjectType.kInteriorType };
+        var q = new Query { Exclude = n.E.Object, Mask = ObjectType.InteriorType };
         for (var i = 0; i < 3; ++i)
         {
             q.Box[i] = Store(Sub(n.E.Box[i], 1.0f));
             q.Box[i + 3] = Store(Fpu.Add(n.E.Box[i + 3], 1.0f));
         }
         var found = new List<Node>();
-        FindIn(mRoot, q, found);
+        FindIn(_root, q, found);
         var g = n.E.Geometry!;
         Span<float> b = stackalloc float[6];
         foreach (var m in found)
         {
-            if (m == n || !m.Interior || m.E.Geometry == null || (m.E.Type & ObjectType.kInteriorType) == 0)
+            if (m == n || !m.Interior || m.E.Geometry == null || (m.E.Type & ObjectType.InteriorType) == 0)
                 continue;
             BoxIn(m.E.Geometry.Box, m.E.Transform, n.Inverse, b);
             var bits = InteriorLinkFace(g.Box, b);
@@ -579,7 +585,7 @@ public sealed class Container
         var n = NodeOf(obj);
         if (n == null)
             return;
-        var parent = n.Parent ?? mRoot;
+        var parent = n.Parent ?? _root;
         UnlinkAll(n);
         RemoveFrom(n);
         // The objects it held go to its former container (database destructors 004fbf78, 00483bc0, called by 004f99e0
@@ -594,10 +600,10 @@ public sealed class Container
             AddTo(parent, m);
         }
         if (obj == null)
-            mNullObject = null;
+            _nullObject = null;
         else
-            mByObject.Remove(obj);
-        mNodes.Remove(n);
+            _byObject.Remove(obj);
+        _nodes.Remove(n);
     }
 
     // src/world/container.cpp Container::findOpen: findOpenContainer (+0x18), the first open sub-container whose mask
@@ -801,7 +807,7 @@ public sealed class Container
         var p = c.Parent;
         while (p != null && !Inside(p.E.Box, n.E.Box))
             p = p.Parent;
-        AddTo(p ?? mRoot, n);
+        AddTo(p ?? _root, n);
     }
 
     /// <summary>Gets the container object that directly holds an object.</summary>
@@ -818,7 +824,7 @@ public sealed class Container
     /// <returns>The objects in database order: vector order, or terrain slot order with empty slots skipped.</returns>
     public List<object?> Contents(object? obj)
     {
-        var c = obj != null ? NodeOf(obj) : mRoot;
+        var c = obj != null ? NodeOf(obj) : _root;
         var output = new List<object?>();
         if (c != null)
             foreach (var m in c.Items)
@@ -920,7 +926,7 @@ public sealed class Container
     {
         var q = new Query { Exclude = exclude, Mask = mask, Box = Float6.Of(box) };
         var nodes = new List<Node>();
-        FindIn(mRoot, q, nodes);
+        FindIn(_root, q, nodes);
         var output = new List<object?>();
         foreach (var n in nodes)
             output.Add(n.E.Object);
@@ -964,7 +970,7 @@ public sealed class Container
                             s.X < eIn.X ? eIn.X : s.X, s.Y < eIn.Y ? eIn.Y : s.Y, s.Z < eIn.Z ? eIn.Z : s.Z),
         };
         var found = new List<Node>();
-        FindIn(mRoot, q, found);
+        FindIn(_root, q, found);
         // Candidates are tested in findObjects order (docs/interiors.md 6.3): container 7 in vector order, then the
         // SimTerrain database in the order of the x-max ends, then the contents of nested containers. Every hit shortens
         // the segment for the candidates after it, and the nearer test is strict, so the order decides exact ties and the
@@ -1013,8 +1019,8 @@ public sealed class Container
     public void Scope(ScopeQuery q)
     {
         var stack = new List<bool> { true }; // the initial entry is the start container
-        ScopeContainer(mRoot, q, stack);
-        ++mTag;
+        ScopeContainer(_root, q, stack);
+        ++_tag;
     }
 
     /// <summary>Tests whether the render walk reaches the terrain image for a camera point.</summary>
@@ -1024,12 +1030,12 @@ public sealed class Container
     /// <remarks>The render walk of container 7 (vtable +0x98, 004fa9c8 for the root and the terrain, 004804bc for an interior) reaches the terrain only when the container the camera point lies in accepts the scope. 004fa9c8 calls the scope of the open container of the point (database +0x18) first and returns 0 when it returns 0, before the terrain query. Same walk and result as <see cref="Scope"/>, but no object is marked (Tribes.exe 1.11).</remarks>
     public bool RenderReaches(Vec3 point, Action<object>? onViaLink = null)
     {
-        if (mTag == 0)
-            ++mTag; // the interior visit tag (+0x420) starts at 0 and skips the first query
+        if (_tag == 0)
+            ++_tag; // the interior visit tag (+0x420) starts at 0 and skips the first query
         var q = new ScopeQuery { Point = point, VisibleDistance = float.MaxValue, OnViaLink = onViaLink };
         var stack = new List<bool> { true };
-        var reached = ScopeContainer(mRoot, q, stack);
-        ++mTag;
+        var reached = ScopeContainer(_root, q, stack);
+        ++_tag;
         return reached;
     }
 
@@ -1052,11 +1058,11 @@ public sealed class Container
     {
         if (!c.HasDb())
             return true;
-        c.Tag = mTag;
+        c.Tag = _tag;
         if (stack[^1])
         {
             var s = StartContainer(c, q);
-            if (s != null && s.Tag != mTag && !ScopeNode(s, q, stack))
+            if (s != null && s.Tag != _tag && !ScopeNode(s, q, stack))
                 return false;
         }
         if (c.E.Object != null && q.Markable(c.E.Object))
@@ -1093,15 +1099,15 @@ public sealed class Container
         var start = stack[^1];
         if (g.LinkedInterior && !c.ViaLink && !start)
             return false;
-        if (c.VisitTag == mTag)
+        if (c.VisitTag == _tag)
             return false; // +0x420 starts at 0, so the very first query (tag 0) skips interiors
-        c.VisitTag = mTag;
+        c.VisitTag = _tag;
         if (!c.HasDb())
             return true;
         if (stack[^1])
         {
             var s = StartContainer(c, q);
-            if (s != null && s.Tag != mTag && !ScopeNode(s, q, stack))
+            if (s != null && s.Tag != _tag && !ScopeNode(s, q, stack))
                 return false;
         }
         if (c.ViaLink && c.E.Object != null)
@@ -1157,7 +1163,7 @@ public sealed class Container
             for (var i = 0; i < c.Links.Count; ++i)
             {
                 var m = c.Links[i].NodeRef;
-                if ((c.Links[i].Bits & mask) == 0 || m.VisitTag == mTag)
+                if ((c.Links[i].Bits & mask) == 0 || m.VisitTag == _tag)
                     continue;
                 var saved = m.ViaLink;
                 m.ViaLink = true;
@@ -1179,7 +1185,7 @@ public sealed class Container
             if (q.Markable(n.E.Object))
                 q.Mark(n.E.Object);
         }
-        else if (n.Tag != mTag)
+        else if (n.Tag != _tag)
         {
             ScopeNode(n, q, stack);
         }

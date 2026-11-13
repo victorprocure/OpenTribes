@@ -95,7 +95,7 @@ public class ControlObjectTests
 
     private sealed class Calls
     {
-        public readonly List<string> Lines = [];
+        public List<string> Lines { get; } = [];
         public ObserverCamera.CameraServices Services() => new() { Evaluate = Lines.Add };
     }
 
@@ -107,7 +107,7 @@ public class ControlObjectTests
         var calls = new Calls();
         var cam = new ObserverCamera(ctx, 2049, calls.Services());
         // Constructor state (004348a4): fly mode, in the mission area, no targets.
-        Assert.True(cam.Mode == ObserverCamera.kFly && cam.InMissionArea && cam.OrbitObject == null && cam.DamageObject == null);
+        Assert.True(cam.Mode == ObserverCamera.Fly && cam.InMissionArea && cam.OrbitObject == null && cam.DamageObject == null);
         Assert.True(cam.ClassName() == "ObserverCamera" && cam as SimObject is GameBase g && g == cam);
         Assert.True(cam.ControlClient == 0 && cam.OwnerClient == 0 && cam.Team == -1 && cam.ClientId == 2049);
 
@@ -171,17 +171,17 @@ public class ControlObjectTests
 
         // Mode 1 (fly flag off): looks around but does not move. Mode 0: nothing changes.
         cam.SetFlyMode(false, true, rot, pos);
-        Assert.True(cam.Mode == ObserverCamera.kLook);
+        Assert.True(cam.Mode == ObserverCamera.Look);
         var both = fwd;
         both.Turn = 0.5f;
         cam.Step(both);
         Assert.True(cam.Position[1] == 200.0f && cam.CamRotation[2] == 0.5f);
         cam.SetFlyMode(true, false, rot, pos);
-        Assert.True(cam.Mode == ObserverCamera.kFixed);
+        Assert.True(cam.Mode == ObserverCamera.Fixed);
         cam.Step(both);
         Assert.True(cam.Position[1] == 200.0f && cam.CamRotation[2] == 0.0f);
         cam.SetFlyMode(false, false, rot, pos);
-        Assert.True(cam.Mode == ObserverCamera.kFixed);
+        Assert.True(cam.Mode == ObserverCamera.Fixed);
     }
 
     private static void CameraCallbacks()
@@ -246,7 +246,7 @@ public class ControlObjectTests
         float[] point = [1, 2, 3], rot = [0, 0, 0];
         cam.SetDamageObject(other);
         cam.SetOrbit(null, point, 5, 2, 8, rot);
-        Assert.True(cam.Mode == ObserverCamera.kOrbitPoint && cam.Position[0] == 1 && cam.Position[2] == 3);
+        Assert.True(cam.Mode == ObserverCamera.OrbitPoint && cam.Position[0] == 1 && cam.Position[2] == 3);
         Assert.True(cam.Distance == 5 && cam.MinDistance == 2 && cam.MaxDistance == 8 && cam.DamageObject == null);
         // A step puts the transform `distance` behind the point along the view direction (+y).
         var idle = new Move();
@@ -303,13 +303,13 @@ public class ControlObjectTests
         cam.ObjectDeleted(other);
         Assert.True(cam.DamageObject == null && calls.Lines.Count == 0);
         cam.ObjectDeleted(target);
-        Assert.True(cam.OrbitObject == null && cam.Mode == ObserverCamera.kOrbitPoint);
+        Assert.True(cam.OrbitObject == null && cam.Mode == ObserverCamera.OrbitPoint);
         Assert.True(calls.Lines.SequenceEqual(new[] { "Observer::orbitObjectDeleted(2049);" }));
         // setFlyMode drops both targets.
         cam.SetOrbit(target, point, 4, 4, 4, rot);
         cam.SetDamageObject(other);
         cam.SetFlyMode(true, true, rot, point);
-        Assert.True(cam.OrbitObject == null && cam.DamageObject == null && cam.Mode == ObserverCamera.kFly);
+        Assert.True(cam.OrbitObject == null && cam.DamageObject == null && cam.Mode == ObserverCamera.Fly);
     }
 
     private static void CameraControlState()
@@ -361,7 +361,7 @@ public class ControlObjectTests
 
     private sealed class Fake
     {
-        public readonly List<(byte[] Data, uint Cookie)> Sent = [];
+        public List<(byte[] Data, uint Cookie)> Sent { get; } = [];
 
         public GameConnection.Transport Transport() => new()
         {
@@ -386,9 +386,9 @@ public class ControlObjectTests
         }
         public override void WriteControlState(BitStream bs, ControlContext ctx) => bs.WriteInt(0x5a, 8);
         public override float DamageFlash() => Flash;
-        public readonly List<int> Calls = [];
-        public readonly List<Move> All = [];
-        public float Flash;
+        public List<int> Calls { get; } = [];
+        public List<Move> All { get; } = [];
+        public float Flash { get; set; }
     }
 
     // Client packet: no rates, no events, PSC with fov, first move index and moves, no ghosts.
@@ -428,7 +428,7 @@ public class ControlObjectTests
         var ctx = new ClassContext();
         var world = new Container();
         ScopeThing terrain = new(), atDrop = new(), atPlayer = new();
-        var te = new Container.Entry(terrain, ObjectType.kTerrainType, Float6.Of(-9000, -9000, 0, 9000, 9000, 9000), false, null)
+        var te = new Container.Entry(terrain, ObjectType.TerrainType, Float6.Of(-9000, -9000, 0, 9000, 9000, 9000), false, null)
         {
             DatabaseKind = Container.Database.Terrain,
             ContainerMask = 0xffffffffu,
@@ -436,8 +436,8 @@ public class ControlObjectTests
         };
         world.Add(te);
         // 4000 m apart: an observer camera sees 1500 m (it is in no container).
-        world.Add(new Container.Entry(atDrop, ObjectType.kStaticType, Float6.Of(-1, -1, 49, 1, 1, 51), false, null));
-        world.Add(new Container.Entry(atPlayer, ObjectType.kStaticType, Float6.Of(3999, -1, 49, 4001, 1, 51), false, null));
+        world.Add(new Container.Entry(atDrop, ObjectType.StaticType, Float6.Of(-1, -1, 49, 1, 1, 51), false, null));
+        world.Add(new Container.Entry(atPlayer, ObjectType.StaticType, Float6.Of(3999, -1, 49, 4001, 1, 51), false, null));
 
         var body = new Probe(ctx); // the player: its eye transform is its transform
         body.Transform.P[0] = 4000;
@@ -635,14 +635,22 @@ public class ControlObjectTests
 
     private sealed class ServerPsc
     {
-        public uint Mode, LastMove, Flash, Ghost, State;
-        public bool Flag6a, Control, InvReset;
-        public readonly List<(uint Index, uint Shop, uint Buy)> Items = []; // mode 4 rows
-        public readonly List<(uint, uint)> Visible = [];                    // mode 1 words
-        public bool Waypoint;
-        public uint WaypointX, WaypointY;
-        public uint CmdFirst, CmdRows;
-        public readonly List<uint> CmdSlots = [];
+        public uint Mode { get; set; }
+        public uint LastMove { get; set; }
+        public uint Flash { get; set; }
+        public uint Ghost { get; set; }
+        public uint State { get; set; }
+        public bool Flag6a { get; set; }
+        public bool Control { get; set; }
+        public bool InvReset { get; set; }
+        public List<(uint Index, uint Shop, uint Buy)> Items { get; } = []; // mode 4 rows
+        public List<(uint, uint)> Visible { get; } = [];                    // mode 1 words
+        public bool Waypoint { get; set; }
+        public uint WaypointX { get; set; }
+        public uint WaypointY { get; set; }
+        public uint CmdFirst { get; set; }
+        public uint CmdRows { get; set; }
+        public List<uint> CmdSlots { get; } = [];
     }
 
     // Decodes the PSC of a server packet that has no events. hasState: the Probe's 8-bit state.
@@ -1048,7 +1056,7 @@ public class ControlObjectTests
         Assert.True(cam.DamageObject == b);
         Assert.Equal("falsefalse", w.Run("echo(Observer::setDamageObject(2049, nothing), Observer::setDamageObject(2060, b));"));
         Assert.Equal("True", w.Run("echo(Observer::setOrbitPoint(2049, \"1 2 3\", -3, -3, -3));"));
-        Assert.True(cam.Mode == ObserverCamera.kOrbitPoint && cam.OrbitObject == null && cam.DamageObject == null);
+        Assert.True(cam.Mode == ObserverCamera.OrbitPoint && cam.OrbitObject == null && cam.DamageObject == null);
         Assert.True(cam.Position[0] == 1 && cam.Distance == -3 && cam.CamRotation[0] == 0);
         Assert.Equal("false", w.Run("echo(Observer::setOrbitPoint(2049, \"1 2 3\", 1, 1));"));
         Assert.Equal("FalseFalse", w.Run("echo(Client::toggleCMDObserver(true), Client::toggleCMDObserver());"));
@@ -1063,7 +1071,7 @@ public class ControlObjectTests
         var bid = b.Id();
         w.Sim.Server()!.DeleteObject(b);
         Assert.True(c1.ControlObject == 0 && c2.OwnedObject == 0 && bid != 0);
-        Assert.True(cam2o.OrbitObject == null && cam2o.Mode == ObserverCamera.kOrbitPoint);
+        Assert.True(cam2o.OrbitObject == null && cam2o.Mode == ObserverCamera.OrbitPoint);
 
         // Disconnect: the owned object is deleted with the client, the camera too (4.2).
         w.Run("Client::setOwnedObject(2050, a);");
@@ -1144,11 +1152,11 @@ public class ControlObjectTests
         // controllable; Marker (GameBase) sends 0 and no flags.
         Assert.True(pm.CommandSlot(c, 129, t) && t.Status == 0 && !t.Active && !t.Controllable);
         t1.Active = true;
-        t1.DamageState = GameBase.kDestroyed;
+        t1.DamageState = GameBase.Destroyed;
         Assert.True(pm.CommandSlot(c, 129, t) && t.Status == 2 && t.Active && !t.Controllable);
-        t1.DamageState = GameBase.kNone;
+        t1.DamageState = GameBase.None;
         Assert.True(pm.CommandSlot(c, 129, t) && t.Status == 3);
-        t1.DamageState = GameBase.kEnabled;
+        t1.DamageState = GameBase.Enabled;
         t1.Active = false;
         Assert.True(pm.CommandSlot(c, 131, t) && t.Status == 0 && !t.Active && !t.Controllable);
         // An ObserverCamera as owned object: status 2 (00434a5c).
@@ -1223,10 +1231,10 @@ public class ControlObjectTests
     // The connection object a client id names (Net::PacketStream, a group with the client id).
     private sealed class TestConnection : SimGroup
     {
-        private readonly int mId;
-        public TestConnection(int id) => mId = id;
+        private readonly int _id;
+        public TestConnection(int id) => _id = id;
         public override string ClassName() => "Net::PacketStream";
-        public override int FixedId() => mId;
+        public override int FixedId() => _id;
     }
 
     private static void ConnectionObjects()

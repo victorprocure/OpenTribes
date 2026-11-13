@@ -11,18 +11,18 @@ public class ContainerTests
 {
     private sealed class Obj : SimObject
     {
-        public readonly string Label;
+        public string Label { get; }
         public Obj(string n) => Label = n;
         public override string ClassName() => "Obj";
     }
 
     private static Container.Entry Entry(Obj o, float x0, float y0, float z0, float x1, float y1, float z1,
-                                         uint type = ObjectType.kStaticType) =>
+                                         uint type = ObjectType.StaticType) =>
         new(o, type, Float6.Of(x0, y0, z0, x1, y1, z1), false, null);
 
     private static Container.Entry TerrainEntry(Obj o)
     {
-        var e = Entry(o, 0, 0, 0, 100, 100, 50, ObjectType.kTerrainType);
+        var e = Entry(o, 0, 0, 0, 100, 100, 50, ObjectType.TerrainType);
         e.DatabaseKind = Container.Database.Terrain;
         e.ContainerMask = 0xffffffffu;
         e.VisibleDistance = 600;
@@ -83,7 +83,7 @@ public class ContainerTests
         c.Add(Entry(p, 10, 30, 10, 12, 32, 12));
         c.Add(Entry(q, 14, 10, 10, 16, 12, 12));
         c.Add(Entry(r, 80, 80, 10, 82, 82, 12)); // outside the new container
-        var e = Entry(box, 5, 5, 5, 40, 40, 30, ObjectType.kInteriorType);
+        var e = Entry(box, 5, 5, 5, 40, 40, 30, ObjectType.InteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         c.Add(e);
@@ -103,9 +103,9 @@ public class ContainerTests
         c.Add(Entry(high, 10, 10, 45, 12, 12, 60));
         float[] q = [0, 0, 0, 100, 100, 100];
         // Container 7 order (terrain removed by the type mask), then the terrain's contents.
-        Assert.Equal("ha", Labels(c.FindObjects(q, ObjectType.kStaticType, null)));
-        Assert.Equal("Tha", Labels(c.FindObjects(q, ObjectType.kStaticType | ObjectType.kTerrainType, null)));
-        Assert.Equal("h", Labels(c.FindObjects(q, ObjectType.kStaticType, a)));
+        Assert.Equal("ha", Labels(c.FindObjects(q, ObjectType.StaticType, null)));
+        Assert.Equal("Tha", Labels(c.FindObjects(q, ObjectType.StaticType | ObjectType.TerrainType, null)));
+        Assert.Equal("h", Labels(c.FindObjects(q, ObjectType.StaticType, a)));
     }
 
     // SimTerrain database box query (0x004fc3fc, docs/interiors.md 6.2): result order is the order of the x-max ends; an
@@ -124,24 +124,24 @@ public class ContainerTests
         c.Add(Entry(e, 35, 10, 10, 40, 12, 12)); // same x-max as d, added later
         Assert.Equal("abde", Labels(c.Contents(t))); // slot order is unchanged
         float[] all = [1, 1, 1, 99, 99, 49];
-        Assert.Equal("beda", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
+        Assert.Equal("beda", Labels(c.FindObjects(all, ObjectType.StaticType, null)));
         // x: an object starting exactly at q.max is left out, one ending exactly at q.min is in.
         float[] qx = [20, 1, 1, 30, 99, 49];
-        Assert.Equal("b", Labels(c.FindObjects(qx, ObjectType.kStaticType, null)));
+        Assert.Equal("b", Labels(c.FindObjects(qx, ObjectType.StaticType, null)));
         // z: q.max equal to the object's min rejects, q.min equal to its max does not.
         float[] below = [1, 1, 1, 99, 99, 10], above = [1, 1, 12, 99, 99, 49];
-        Assert.Equal(0, Labels(c.FindObjects(below, ObjectType.kStaticType, null)).Length);
-        Assert.Equal("beda", Labels(c.FindObjects(above, ObjectType.kStaticType, null)));
+        Assert.Equal(0, Labels(c.FindObjects(below, ObjectType.StaticType, null)).Length);
+        Assert.Equal("beda", Labels(c.FindObjects(above, ObjectType.StaticType, null)));
         // b moves past a: its max end now sorts last.
         float[] moved = [80, 10, 10, 90, 12, 12];
         c.SetBox(b, moved);
-        Assert.Equal("edab", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
+        Assert.Equal("edab", Labels(c.FindObjects(all, ObjectType.StaticType, null)));
         // Moving back down to the x-max of d and e: the end is placed in front of the equal ones.
         float[] back = [10, 10, 10, 40, 12, 12];
         c.SetBox(b, back);
-        Assert.Equal("beda", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
+        Assert.Equal("beda", Labels(c.FindObjects(all, ObjectType.StaticType, null)));
         c.Remove(e);
-        Assert.Equal("bda", Labels(c.FindObjects(all, ObjectType.kStaticType, null)));
+        Assert.Equal("bda", Labels(c.FindObjects(all, ObjectType.StaticType, null)));
     }
 
     // castRay tests the candidates in findObjects order and shortens the segment at every hit (docs/interiors.md 6.3).
@@ -169,7 +169,7 @@ public class ContainerTests
         c.Add(eb);
         object? obj = null;
         Vec3 hitp = default, nn = default;
-        Assert.True(c.CastRay(new Vec3(5, 11, 11), new Vec3(90, 11, 11), ObjectType.kStaticType, null, ref obj, ref hitp, ref nn));
+        Assert.True(c.CastRay(new Vec3(5, 11, 11), new Vec3(90, 11, 11), ObjectType.StaticType, null, ref obj, ref hitp, ref nn));
         Assert.True(seen.Count == 2 && seen[0] == "b:full" && seen[1] == "a:short");
         Assert.True(obj == b && hitp.X == 30);
     }
@@ -276,7 +276,7 @@ public class ContainerTests
         var c = new Container();
         Obj t = new("T"), box = new("B"), front = new("f"), behind = new("b"), s = new("s");
         c.Add(TerrainEntry(t));
-        var e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
+        var e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.InteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         e.Geometry = geo;
@@ -340,7 +340,7 @@ public class ContainerTests
             Assert.NotNull(geo);
             var c = new Container();
             c.Add(TerrainEntry(new Obj("T")));
-            var e = Entry(new Obj("B"), 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
+            var e = Entry(new Obj("B"), 10, 10, 5, 30, 30, 25, ObjectType.InteriorType);
             e.DatabaseKind = Container.Database.Interior;
             e.ContainerMask = 0xffffffffu;
             e.Geometry = geo;
@@ -364,7 +364,7 @@ public class ContainerTests
         var c = new Container();
         Obj terrain = new("t"), inside = new("i"), roof = new("r");
         c.Add(TerrainEntry(terrain));
-        var e = Entry(inside, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.kInteriorType);
+        var e = Entry(inside, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.InteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         c.Add(e);
@@ -427,10 +427,15 @@ public class ContainerTests
     // (local x 4), b in B (local x 4), o outside both.
     private sealed class LinkFixture
     {
-        public readonly Container C = new();
-        public readonly Obj T = new("T"), Ia = new("A"), Ib = new("B"), A = new("a"), B = new("b"), O = new("o");
-        public string Marked = "";
-        public readonly Container.ScopeQuery Q = new();
+        public Container C { get; } = new();
+        public Obj T { get; } = new("T");
+        public Obj Ia { get; } = new("A");
+        public Obj Ib { get; } = new("B");
+        public Obj A { get; } = new("a");
+        public Obj B { get; } = new("b");
+        public Obj O { get; } = new("o");
+        public string Marked { get; set; } = "";
+        public Container.ScopeQuery Q { get; } = new();
 
         public LinkFixture(InteriorGeometry ga, InteriorGeometry gb, bool turnB = false)
         {
@@ -439,7 +444,7 @@ public class ContainerTests
             {
                 float[] box = [Fpu.SubF(cx, 10), 40, 15, Fpu.AddF(cx, 10), 60, 35];
                 Container.PadInteriorBox(box);
-                var e = Entry(obj, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.kInteriorType);
+                var e = Entry(obj, box[0], box[1], box[2], box[3], box[4], box[5], ObjectType.InteriorType);
                 e.DatabaseKind = Container.Database.Interior;
                 e.ContainerMask = 0xffffffffu;
                 e.Geometry = g;
@@ -643,7 +648,7 @@ public class ContainerTests
         var c = new Container();
         Obj t = new("T"), box = new("B"), a = new("a"), b = new("b"), d = new("d");
         c.Add(TerrainEntry(t));
-        var e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.kInteriorType);
+        var e = Entry(box, 10, 10, 5, 30, 30, 25, ObjectType.InteriorType);
         e.DatabaseKind = Container.Database.Interior;
         e.ContainerMask = 0xffffffffu;
         e.Geometry = geo;
@@ -669,11 +674,11 @@ public class ContainerTests
         Assert.True(c.ParentOf(a) == box && c.ParentOf(b) == box && c.ParentOf(d) == box);
         object? obj = null;
         Vec3 hitp = default, nn = default;
-        Assert.True(c.CastRay(new Vec3(5, 21, 11), new Vec3(40, 21, 11), ObjectType.kStaticType, null, ref obj, ref hitp, ref nn));
+        Assert.True(c.CastRay(new Vec3(5, 21, 11), new Vec3(40, 21, 11), ObjectType.StaticType, null, ref obj, ref hitp, ref nn));
         Assert.True(seen == "abd" && obj == a);
         seen = "";
         c.Remove(a);
-        Assert.True(c.CastRay(new Vec3(5, 21, 11), new Vec3(40, 21, 11), ObjectType.kStaticType, null, ref obj, ref hitp, ref nn));
+        Assert.True(c.CastRay(new Vec3(5, 21, 11), new Vec3(40, 21, 11), ObjectType.StaticType, null, ref obj, ref hitp, ref nn));
         Assert.True(seen == "bd" && obj == b);
     }
 }

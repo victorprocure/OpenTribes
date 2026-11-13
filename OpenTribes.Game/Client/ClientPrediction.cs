@@ -12,21 +12,21 @@ using static OpenTribes.Core.Fpu;
 public sealed class PredictedState
 {
     /// <summary>The global move index.</summary>
-    public long Move;
+    public long Move { get; set; }
     /// <summary>True when the control state carries a position.</summary>
-    public bool HasPosition = true;
+    public bool HasPosition { get; set; } = true;
     /// <summary>True when the control state carries a velocity. A Flier sends none.</summary>
-    public bool HasVelocity = true;
+    public bool HasVelocity { get; set; } = true;
     /// <summary>The position.</summary>
-    public readonly float[] Position = new float[3];
+    public float[] Position { get; } = new float[3];
     /// <summary>The velocity.</summary>
-    public readonly float[] Velocity = new float[3];
+    public float[] Velocity { get; } = new float[3];
     /// <summary>The rotation.</summary>
-    public readonly float[] Rotation = new float[3];
+    public float[] Rotation { get; } = new float[3];
     /// <summary>The pitch.</summary>
-    public float Pitch;
+    public float Pitch { get; set; }
     /// <summary>The energy.</summary>
-    public float Energy;
+    public float Energy { get; set; }
 
     /// <summary>Captures the state of an object.</summary>
     /// <param name="o">The object.</param>
@@ -51,29 +51,30 @@ public sealed class PredictedState
 public sealed class CorrectionRecord
 {
     /// <summary>The receive time (net time, ms).</summary>
-    public uint Time;
+    public uint Time { get; set; }
     /// <summary>The lastMove of the block. The server state follows move LastMove - 1.</summary>
-    public long LastMove;
+    public long LastMove { get; set; }
     /// <summary>The class name.</summary>
-    public string Class = "";
+    public string Class { get; set; } = "";
     /// <summary>The prediction for move LastMove - 1, or null when none was made.</summary>
-    public PredictedState? Predicted;
+    public ref PredictedState? Predicted => ref _predicted;
+    private PredictedState? _predicted;
     /// <summary>The server state.</summary>
-    public PredictedState Server = new();
+    public PredictedState Server { get; set; } = new();
     /// <summary>The unacknowledged moves left in the buffer.</summary>
-    public int Pending;
+    public int Pending { get; set; }
     /// <summary>The steps the replay ran, filled by the next Advance.</summary>
-    public int Replayed = -1;
+    public int Replayed { get; set; } = -1;
     /// <summary>The position error.</summary>
-    public double PosError;
+    public double PosError { get; set; }
     /// <summary>The velocity error.</summary>
-    public double VelError;
+    public double VelError { get; set; }
     /// <summary>The rotation error.</summary>
-    public double RotError;
+    public double RotError { get; set; }
     /// <summary>The pitch error.</summary>
-    public double PitchError;
+    public double PitchError { get; set; }
     /// <summary>The energy error.</summary>
-    public double EnergyError;
+    public double EnergyError { get; set; }
 
     /// <summary>Measures the distances between the prediction and the server state: Euclidean for vectors, the shortest angle for the yaw.</summary>
     public void Measure()
@@ -107,33 +108,33 @@ public sealed class CorrectionRecord
 public sealed class ClientPrediction
 {
     /// <summary>Makes the client copy of a control ghost in the prediction world. Returns null for no prediction.</summary>
-    public Func<ClientGhost, ClientPsc, GameBase?>? CreateObject;
+    public Func<ClientGhost, ClientPsc, GameBase?>? CreateObject { get; set; }
     /// <summary>Deletes a client copy.</summary>
-    public Action<GameBase>? DeleteObject;
+    public Action<GameBase>? DeleteObject { get; set; }
 
     /// <summary>Gets the client copy of the control object.</summary>
     public GameBase? Object { get; private set; }
     /// <summary>Gets the ghost index of the control object, -1 for none.</summary>
     public int Ghost { get; private set; } = -1;
     /// <summary>The time the copy is simulated up to, in ms (object +0x218).</summary>
-    public uint SimTime;
+    public uint SimTime { get; set; }
     /// <summary>The last frame time (object +0x21c).</summary>
-    public uint LastFrame;
+    public uint LastFrame { get; set; }
     /// <summary>True once a server state was applied, so the replay runs.</summary>
-    public bool Active;
+    public bool Active { get; set; }
     /// <summary>The Player_interpolate factor of the drawn state (docs/client-net.md 4.4.1). Display only.</summary>
-    public float DisplayFraction;
+    public float DisplayFraction { get; set; }
     /// <summary>The per-tick position delta (+0x788, docs/client-net.md 4.4.1).</summary>
-    public readonly float[] TickDelta = new float[3];
+    public float[] TickDelta { get; } = new float[3];
     /// <summary>The corrections made so far.</summary>
-    public readonly List<CorrectionRecord> Corrections = [];
+    public List<CorrectionRecord> Corrections { get; } = [];
     /// <summary>The number of steps run in all.</summary>
-    public long Steps;
+    public long Steps { get; set; }
     /// <summary>Called for every correction.</summary>
-    public Action<CorrectionRecord>? OnCorrection;
+    public Action<CorrectionRecord>? OnCorrection { get; set; }
 
-    private readonly Dictionary<long, PredictedState> mHistory = [];
-    private CorrectionRecord? mPending;
+    private readonly Dictionary<long, PredictedState> _history = [];
+    private CorrectionRecord? _pending;
 
     /// <summary>Clears the prediction state.</summary>
     public void Reset()
@@ -144,7 +145,7 @@ public sealed class ClientPrediction
     }
 
     /// <summary>The aim of a Turret that is the control object. It has no copy.</summary>
-    public readonly TurretControl Turret = new();
+    public TurretControl Turret { get; } = new();
 
     /// <summary>Reads the control state block of a Turret and replays its moves per frame, without a prediction world.</summary>
     /// <param name="world">The client world.</param>
@@ -177,8 +178,8 @@ public sealed class ClientPrediction
         Object = null;
         Ghost = -1;
         Active = false;
-        mHistory.Clear();
-        mPending = null;
+        _history.Clear();
+        _pending = null;
     }
 
     /// <summary>Packs a move in the full form and unpacks it again (docs/client-net.md 4.2 step 4).</summary>
@@ -266,22 +267,22 @@ public sealed class ClientPrediction
         }
         SyncGhost(g);
         var rec = new CorrectionRecord { Time = receiveTime, LastMove = psc.LastMove, Class = g.Class, Pending = psc.Moves.Count };
-        mHistory.TryGetValue(psc.LastMove - 1L, out rec.Predicted);
+        _history.TryGetValue(psc.LastMove - 1L, out rec.Predicted);
         Apply(psc.ControlState);
         rec.Server = PredictedState.Of(Object, psc.LastMove - 1L);
         rec.Server.HasPosition = psc.ControlState.ContainsKey("pos");
         rec.Server.HasVelocity = psc.ControlState.ContainsKey("vel");
         rec.Measure();
         // Older predictions are acknowledged.
-        foreach (var k in mHistory.Keys.Where(k => k < psc.LastMove).ToList())
-            mHistory.Remove(k);
+        foreach (var k in _history.Keys.Where(k => k < psc.LastMove).ToList())
+            _history.Remove(k);
         // 4.4 step 3: buffer entry i is the move of the tick at +0x218 + 32 i.
         SimTime = unchecked((uint)((int)((receiveTime - 1) & ~31u) - ((psc.Moves.Count - 1) * 32)));
         if (!Active)
             LastFrame = receiveTime;
         Active = true;
         Corrections.Add(rec);
-        mPending = rec;
+        _pending = rec;
         OnCorrection?.Invoke(rec);
         return rec;
     }
@@ -379,8 +380,8 @@ public sealed class ClientPrediction
         else if (Object is Flier f)
             steps = AdvanceFlier(f, psc, now);
         LastFrame = now;
-        mPending?.Replayed = steps;
-        mPending = null;
+        _pending?.Replayed = steps;
+        _pending = null;
         Steps += steps;
         return steps;
     }
@@ -388,7 +389,7 @@ public sealed class ClientPrediction
     private void Record(GameBase o, ClientPsc psc, int index)
     {
         var move = psc.FirstMove + index;
-        mHistory[move] = PredictedState.Of(o, move);
+        _history[move] = PredictedState.Of(o, move);
     }
 
     private int AdvancePlayer(Player p, ClientPsc psc, uint now)

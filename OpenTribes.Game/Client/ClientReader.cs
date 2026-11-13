@@ -40,13 +40,13 @@ public sealed class PacketErrorException : Exception
 public sealed class ClientReader
 {
     /// <summary>The bit stream.</summary>
-    public readonly BitStream Bs;
+    public BitStream Bs { get; }
     /// <summary>The size of the data in bits.</summary>
-    public readonly int SizeBits;
+    public int SizeBits { get; }
     /// <summary>The client world.</summary>
-    public readonly ClientWorld World;
+    public ClientWorld World { get; }
     /// <summary>The fields of the current update.</summary>
-    public List<DecodedField> Out = [];
+    public List<DecodedField> Out { get; set; } = [];
 
     /// <summary>Creates a reader.</summary>
     /// <param name="data">The packet bytes.</param>

@@ -98,25 +98,25 @@ public enum Tok : byte
 public sealed class Token
 {
     /// <summary>The token kind.</summary>
-    public Tok Kind = Tok.End;
+    public Tok Kind { get; set; } = Tok.End;
     /// <summary>The character of a <c>Tok.Char</c> token.</summary>
-    public char Ch;
+    public char Ch { get; set; }
     /// <summary>The identifier, variable or tag name, the string value, or the number text.</summary>
-    public string Text = "";
+    public string Text { get; set; } = "";
     /// <summary>The source line.</summary>
-    public int Line = 1;
+    public int Line { get; set; } = 1;
 }
 
 /// <summary>The console script lexer. Rules and priorities are in docs/script.md section 1 (original CMDlex, 005f7808).</summary>
 public sealed class Lexer
 {
-    private readonly string mSrc;
-    private int mPos;
-    private int mLine = 1;
+    private readonly string _src;
+    private int _pos;
+    private int _line = 1;
 
-    private const int kTokenBuffer = 4096;
+    private const int TokenBuffer = 4096;
 
-    private static readonly (string text, Tok tok)[] kKeywords =
+    private static readonly (string text, Tok tok)[] Keywords =
     [
         ("break", Tok.Break), ("nil", Tok.Nil), ("class", Tok.Class), ("return", Tok.Return),
         ("else", Tok.Else), ("global", Tok.Global), ("while", Tok.While), ("if", Tok.If),
@@ -124,7 +124,7 @@ public sealed class Lexer
     ];
 
     // Longest first.
-    private static readonly (string text, Tok tok)[] kOps =
+    private static readonly (string text, Tok tok)[] Ops =
     [
         ("<<=", Tok.ShlAssign), (">>=", Tok.ShrAssign), ("==", Tok.Eq), ("!=", Tok.Ne),
         (">=", Tok.Ge), ("<=", Tok.Le), ("&&", Tok.AndAnd), ("||", Tok.OrOr),
@@ -133,15 +133,15 @@ public sealed class Lexer
         ("*=", Tok.MulAssign), ("/=", Tok.DivAssign), ("%=", Tok.ModAssign), ("&=", Tok.AndAssign),
         ("^=", Tok.XorAssign), ("|=", Tok.OrAssign),
     ];
-    private const string kSingles = "@[]()+-*/<>|.!:;{},&%^~=";
+    private const string Singles = "@[]()+-*/<>|.!:;{},&%^~=";
 
     /// <summary>Creates a lexer.</summary>
     /// <param name="source">The script text.</param>
-    public Lexer(string source) => mSrc = source;
+    public Lexer(string source) => _src = source;
 
     /// <summary>Gets the current source line.</summary>
     /// <returns>The line number.</returns>
-    public int Line() => mLine;
+    public int Line() => _line;
 
     private static bool IsAlpha(char c) => c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or '_';
     private static bool IsDigit(char c) => c is >= '0' and <= '9';
@@ -149,13 +149,13 @@ public sealed class Lexer
     private static bool IsHex(char c) => IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     private static int HexValue(char c) => IsDigit(c) ? c - '0' : (c | 0x20) - 'a' + 10;
 
-    private char Peek(int ahead = 0) => mPos + ahead < mSrc.Length ? mSrc[mPos + ahead] : '\0';
+    private char Peek(int ahead = 0) => _pos + ahead < _src.Length ? _src[_pos + ahead] : '\0';
 
     // src/script/lexer.cpp Lexer::make.
     private Token Make(Tok kind, string text = "")
     {
-        var t = new Token { Kind = kind, Text = text, Line = mLine };
-        if (t.Text.Length >= kTokenBuffer)
+        var t = new Token { Kind = kind, Text = text, Line = _line };
+        if (t.Text.Length >= TokenBuffer)
             t.Kind = Tok.Illegal; // the original exits on "Token buffer overflow" (D11)
         // Identifier, variable and tag text is interned while lexing (0x005f75c0): the first
         // spelling ever lexed, executed or not, is the one every later use prints.
@@ -175,19 +175,19 @@ public sealed class Lexer
                 return Make(Tok.End);
             if (ch is ' ' or '\t' or '\v' or '\f' or '\r')
             {
-                ++mPos;
+                ++_pos;
                 continue;
             }
             if (ch == '\n')
             {
-                ++mPos;
-                ++mLine;
+                ++_pos;
+                ++_line;
                 continue;
             }
             if ((ch == '/' && Peek(1) == '/') || ch == '#')
             {
                 while (Peek() != '\0' && Peek() != '\n' && Peek() != '\r')
-                    ++mPos;
+                    ++_pos;
                 continue;
             }
             break;
@@ -205,10 +205,10 @@ public sealed class Lexer
         {
             if (IsAlpha(Peek(1)))
             {
-                var start = mPos++;
+                var start = _pos++;
                 while (IsIdentChar(Peek()))
-                    ++mPos;
-                return Make(Tok.Var, mSrc[start..mPos]);
+                    ++_pos;
+                return Make(Tok.Var, _src[start.._pos]);
             }
             if (IsDigit(Peek(1)))
             {
@@ -217,22 +217,22 @@ public sealed class Lexer
                     ++i;
                 if (IsAlpha(Peek(i)))
                 { // rule 71
-                    var start = mPos;
-                    mPos += i;
+                    var start = _pos;
+                    _pos += i;
                     while (IsIdentChar(Peek()))
-                        ++mPos;
-                    return Make(Tok.Illegal, mSrc[start..mPos]);
+                        ++_pos;
+                    return Make(Tok.Illegal, _src[start.._pos]);
                 }
             }
         }
 
         if (IsAlpha(c))
         {
-            var start = mPos;
+            var start = _pos;
             while (IsIdentChar(Peek()))
-                ++mPos;
-            var word = mSrc[start..mPos];
-            foreach (var (text, tok) in kKeywords)
+                ++_pos;
+            var word = _src[start.._pos];
+            foreach (var (text, tok) in Keywords)
                 if (word == text)
                     return Make(tok, word);
             if (word.Length > 2 && word[0] == 'I' && word[1] == 'D')
@@ -240,16 +240,16 @@ public sealed class Lexer
             return Make(Tok.Ident, word);
         }
 
-        foreach (var (text, tok) in kOps)
+        foreach (var (text, tok) in Ops)
         {
-            if (string.CompareOrdinal(mSrc, mPos, text, 0, text.Length) == 0 && mPos + text.Length <= mSrc.Length)
+            if (string.CompareOrdinal(_src, _pos, text, 0, text.Length) == 0 && _pos + text.Length <= _src.Length)
             {
-                mPos += text.Length;
+                _pos += text.Length;
                 return Make(tok, text);
             }
         }
-        ++mPos;
-        if (kSingles.Contains(c))
+        ++_pos;
+        if (Singles.Contains(c))
         {
             var t = Make(Tok.Char, c.ToString());
             t.Ch = c;
@@ -261,16 +261,16 @@ public sealed class Lexer
     // src/script/lexer.cpp Lexer::lexNumber.
     private Token LexNumber()
     {
-        var start = mPos;
+        var start = _pos;
         if (Peek() == '0' && (Peek(1) == 'x' || Peek(1) == 'X') && IsHex(Peek(2)))
         {
-            mPos += 2;
+            _pos += 2;
             while (IsHex(Peek()))
-                ++mPos;
-            return Make(Tok.Int, mSrc[start..mPos]);
+                ++_pos;
+            return Make(Tok.Int, _src[start.._pos]);
         }
         while (IsDigit(Peek()))
-            ++mPos;
+            ++_pos;
         int ExponentLength(int at)
         {
             var i = at;
@@ -288,10 +288,10 @@ public sealed class Lexer
         var isFloat = false;
         if (Peek() == '.' && IsDigit(Peek(1)))
         {
-            ++mPos;
+            ++_pos;
             while (IsDigit(Peek()))
-                ++mPos;
-            mPos += ExponentLength(0);
+                ++_pos;
+            _pos += ExponentLength(0);
             isFloat = true;
         }
         else
@@ -299,11 +299,11 @@ public sealed class Lexer
             var n = ExponentLength(0);
             if (n != 0)
             {
-                mPos += n;
+                _pos += n;
                 isFloat = true;
             }
         }
-        return Make(isFloat ? Tok.Float : Tok.Int, mSrc[start..mPos]);
+        return Make(isFloat ? Tok.Float : Tok.Int, _src[start.._pos]);
     }
 
     // src/script/lexer.cpp Lexer::lexDoubleQuoted.
@@ -318,14 +318,14 @@ public sealed class Lexer
                 break;
             if (c is '\0' or '\n' or '\r')
             {
-                ++mPos; // no match: the quote alone is an ILLEGAL token
+                ++_pos; // no match: the quote alone is an ILLEGAL token
                 return Make(Tok.Illegal, "\"");
             }
             if (c == '\\')
             {
                 if (Peek(i + 1) == '\n' || Peek(i + 1) == '\0')
                 {
-                    ++mPos;
+                    ++_pos;
                     return Make(Tok.Illegal, "\"");
                 }
                 i += 2;
@@ -333,8 +333,8 @@ public sealed class Lexer
             }
             ++i;
         }
-        var raw = mSrc.Substring(mPos + 1, i - 1);
-        mPos += i + 1;
+        var raw = _src.Substring(_pos + 1, i - 1);
+        _pos += i + 1;
 
         // Escapes (0x005f7644).
         var value = new System.Text.StringBuilder();
@@ -381,13 +381,13 @@ public sealed class Lexer
                 break;
             if (c == '\0' || c == '\n' || (c == '\\' && (Peek(i + 1) == '\n' || Peek(i + 1) == '\0')))
             {
-                ++mPos;
+                ++_pos;
                 return Make(Tok.Illegal, "'");
             }
             i += c == '\\' ? 2 : 1;
         }
-        var raw = mSrc.Substring(mPos + 1, i - 1);
-        mPos += i + 1;
+        var raw = _src.Substring(_pos + 1, i - 1);
+        _pos += i + 1;
         return Make(Tok.String, raw);
     }
 }

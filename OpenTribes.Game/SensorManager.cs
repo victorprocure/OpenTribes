@@ -10,23 +10,23 @@ using static OpenTribes.Core.Fpu;
 /// <remarks>Port of class SensorManager in src/game/sensor_manager.hpp.</remarks>
 public sealed class SensorManager : SimObject
 {
-    private readonly ClassContext mCtx;
-    private int mJamHead, mJamHeadPrev; // head.next (+0x7d4), head.prev (+0x7d8, unused)
-    private readonly List<GameBase>[] mTeams = new List<GameBase>[8];
-    private readonly List<GameBase> mSuppressors = [];
-    private readonly List<GameBase> mDummy = []; // team -1: a list the sweep never reads
-    private int mTargetCursor = -1, mClientCursor = -1;
+    private readonly ClassContext _ctx;
+    private int _jamHead, _jamHeadPrev; // head.next (+0x7d4), head.prev (+0x7d8, unused)
+    private readonly List<GameBase>[] _teams = new List<GameBase>[8];
+    private readonly List<GameBase> _suppressors = [];
+    private readonly List<GameBase> _dummy = []; // team -1: a list the sweep never reads
+    private int _targetCursor = -1, _clientCursor = -1;
 
     /// <summary>The game state. Set by the game layer.</summary>
-    public GameState? State;
+    public GameState? State { get; set; }
 
     /// <summary>Creates the manager.</summary>
     /// <param name="ctx">The class context.</param>
     public SensorManager(ClassContext ctx)
     {
-        mCtx = ctx;
+        _ctx = ctx;
         for (var i = 0; i < 8; ++i)
-            mTeams[i] = [];
+            _teams[i] = [];
     }
 
     /// <inheritdoc/>
@@ -37,20 +37,20 @@ public sealed class SensorManager : SimObject
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
     /// <summary>Returns the head of the jamming list (head.next, +0x7d4).</summary>
     /// <returns>The object id, or -1 for the head itself.</returns>
-    public int JamFirst() => mJamHead;
+    public int JamFirst() => _jamHead;
     /// <summary>Returns the sensor list of a team.</summary>
     /// <param name="team">The team id.</param>
     /// <returns>The sensors.</returns>
-    public IReadOnlyList<GameBase> TeamList(int team) => mTeams[team];
+    public IReadOnlyList<GameBase> TeamList(int team) => _teams[team];
     /// <summary>Returns the list of suppressor objects.</summary>
     /// <returns>The suppressors.</returns>
-    public IReadOnlyList<GameBase> Suppressors() => mSuppressors;
+    public IReadOnlyList<GameBase> Suppressors() => _suppressors;
     /// <summary>Returns the target slot the timer visits next.</summary>
     /// <returns>The slot, or -1.</returns>
-    public int TargetCursor() => mTargetCursor;
+    public int TargetCursor() => _targetCursor;
     /// <summary>Returns the client slot the timer visits next.</summary>
     /// <returns>The slot, or -1.</returns>
-    public int ClientCursor() => mClientCursor;
+    public int ClientCursor() => _clientCursor;
 
     // src/game/sensor_manager.cpp lenf: s = f32((x*x + y*y) + z*z); the float with bits (bits(s) >> 1) + 0x1fc00000
     // (0x005ed031), s stored in the current mode.
@@ -87,10 +87,10 @@ public sealed class SensorManager : SimObject
     private List<GameBase> ListFor(int team)
     {
         if (team is >= 0 and < 8)
-            return mTeams[team];
+            return _teams[team];
         if (team == 8)
-            return mSuppressors; // team 8 resolves to the suppressor head (3.2)
-        return mDummy;
+            return _suppressors; // team 8 resolves to the suppressor head (3.2)
+        return _dummy;
     }
 
     // src/game/sensor_manager.cpp SensorManager::place: new entries first within their class; classes in the order of
@@ -109,7 +109,7 @@ public sealed class SensorManager : SimObject
     public void Insert(GameBase sensor)
     {
         Remove(sensor);
-        Place(sensor.SensorData.Supression ? mSuppressors : ListFor(sensor.Team), sensor);
+        Place(sensor.SensorData.Supression ? _suppressors : ListFor(sensor.Team), sensor);
         sensor.SensorListed = true;
     }
 
@@ -117,9 +117,9 @@ public sealed class SensorManager : SimObject
     /// <param name="sensor">The object.</param>
     public void Remove(GameBase sensor)
     {
-        mSuppressors.RemoveAll(s => s == sensor);
-        mDummy.RemoveAll(s => s == sensor);
-        foreach (var l in mTeams)
+        _suppressors.RemoveAll(s => s == sensor);
+        _dummy.RemoveAll(s => s == sensor);
+        foreach (var l in _teams)
             l.RemoveAll(s => s == sensor);
         sensor.SensorListed = false;
     }
@@ -203,14 +203,14 @@ public sealed class SensorManager : SimObject
         if (p.JamNext != 0)
         {
             if (p.JamNext == -1)
-                mJamHeadPrev = p.JamPrev;
+                _jamHeadPrev = p.JamPrev;
             else if (JamNode(p.JamNext) is GameBase g)
                 g.JamPrev = p.JamPrev;
         }
         if (p.JamPrev != 0)
         {
             if (p.JamPrev == -1)
-                mJamHead = p.JamNext;
+                _jamHead = p.JamNext;
             else if (JamNode(p.JamPrev) is GameBase g)
                 g.JamNext = p.JamNext;
         }
@@ -221,16 +221,16 @@ public sealed class SensorManager : SimObject
     /// <remarks>Follows 0x004398c8.</remarks>
     public void JamLink(GameBase p)
     {
-        p.JamNext = mJamHead;
+        p.JamNext = _jamHead;
         p.JamPrev = -1;
         if (p.JamNext != 0)
         {
             if (p.JamNext == -1)
-                mJamHeadPrev = p.Id();
+                _jamHeadPrev = p.Id();
             else if (JamNode(p.JamNext) is GameBase g)
                 g.JamPrev = p.Id();
         }
-        mJamHead = p.Id();
+        _jamHead = p.Id();
     }
 
     /// <summary>Refreshes the sensor state of one object (docs/static-sim.md 3.5).</summary>
@@ -261,7 +261,7 @@ public sealed class SensorManager : SimObject
                 t.SensorWord &= ~(1u << i);
         }
         var jammed = false;
-        foreach (var s in mSuppressors)
+        foreach (var s in _suppressors)
             if (Detects(s, t))
             {
                 t.SensorWord = (t.SensorWord & 0x00ffffffu) | (2u << 24);
@@ -272,7 +272,7 @@ public sealed class SensorManager : SimObject
         // list that loops (stale links) would hang the original; the walk is bounded (D11).
         {
             using var chop = ChopScope();
-            var id = mJamHead;
+            var id = _jamHead;
             for (var guard = 0; id != 0 && guard < 4096; ++guard)
             {
                 var jp = JamNode(id);
@@ -294,7 +294,7 @@ public sealed class SensorManager : SimObject
             if (i == t.Team)
                 continue;
             var detected = false;
-            foreach (var s in mTeams[i])
+            foreach (var s in _teams[i])
             {
                 if (jammed && s.SensorData.Supressable)
                     break;
@@ -425,10 +425,10 @@ public sealed class SensorManager : SimObject
         {
             for (var step = 0; step < 128; ++step)
             {
-                mTargetCursor = (mTargetCursor + 1) & 127;
-                if (mTargetCursor < targets.Count && targets[mTargetCursor] != null)
+                _targetCursor = (_targetCursor + 1) & 127;
+                if (_targetCursor < targets.Count && targets[_targetCursor] != null)
                 {
-                    Update(targets[mTargetCursor]!);
+                    Update(targets[_targetCursor]!);
                     break;
                 }
             }
@@ -441,8 +441,8 @@ public sealed class SensorManager : SimObject
             {
                 for (var step = 0; step < 128; ++step)
                 {
-                    mClientCursor = (mClientCursor + 1) & 127;
-                    var r = State.Players.Find(2048 + mClientCursor);
+                    _clientCursor = (_clientCursor + 1) & 127;
+                    var r = State.Players.Find(2048 + _clientCursor);
                     if (r == null || !r.Used)
                         continue;
                     if (r.OwnedObject != 0 && State.Sim?.Server()?.FindById(r.OwnedObject) is GameBase o)

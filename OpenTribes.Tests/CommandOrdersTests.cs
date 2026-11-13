@@ -11,7 +11,7 @@ public class CommandOrdersTests
 {
     internal sealed class RectDev : IGfxDevice
     {
-        public readonly List<string> Calls = [];
+        public List<string> Calls { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -45,12 +45,13 @@ public class CommandOrdersTests
     // The map is 408 x 408 at (31, 36) on the canvas. A slot at (x, y) in 1/1024 stands at (31 + x * 408 >> 10, 36 + 408 - (y * 408 >> 10)).
     internal sealed class Rig
     {
-        public readonly GuiFixture Fx = new();
-        public readonly ClientWorld World = new() { PlayerId = 2049 };
-        public readonly GuiCommandMap Map;
-        public readonly GuiControl Current;
-        public readonly List<string> Remote = [], Menu = [];
-        public bool MenuExists = true;
+        public GuiFixture Fx { get; } = new();
+        public ClientWorld World { get; } = new() { PlayerId = 2049 };
+        public GuiCommandMap Map { get; }
+        public GuiControl Current { get; }
+        public List<string> Remote { get; } = [];
+        public List<string> Menu { get; } = [];
+        public bool MenuExists { get; set; } = true;
 
         public Rig(bool withTeamList = false)
         {
@@ -91,8 +92,8 @@ public class CommandOrdersTests
             Fx.Content(root);
         }
 
-        public GuiCommandTeam? Team;
-        public GuiControl Root = null!;
+        public GuiCommandTeam? Team { get; set; }
+        public GuiControl Root { get; set; } = null!;
 
         public void Slot(int i, int x, int y, int team, int group) =>
             World.Psc.CommandSlots[i] = new ClientCommandSlot { Present = true, X = x, Y = y, Team = team, Group = group, Index = 0, Active = true };
@@ -554,36 +555,36 @@ public class CommandOrdersTests
 // The client wiring: the console function, the command chat menu and the buttons of the command screen [00421e14, 00401fe0, 00402068, 004dd280].
 public sealed class CommandOrdersClientTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-cmdord-" + Guid.NewGuid().ToString("N"));
-    private Client.App.ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-cmdord-" + Guid.NewGuid().ToString("N"));
+    private Client.App.ClientApp? _app;
 
     public CommandOrdersClientTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
+        _app?.Dispose();
         try
-        { Directory.Delete(mRoot, true); }
+        { Directory.Delete(_root, true); }
         catch (IOException) { }
     }
 
     private Client.App.ClientApp Boot()
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" +
             "newObject(CommandChatMenu, ChatMenu, \"Command Menu\");\n" +
             "addCMCommand(CommandChatMenu, \"aAttack\", setIssueCommand, 1, \"Attack enemy forces~wattway\");\n");
-        var opt = Client.App.ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
+        var opt = Client.App.ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new Client.App.ClientApp(opt);
-        Assert.True(mApp.Start(out var error), error);
-        return mApp;
+        _app = new Client.App.ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        return _app;
     }
 
     private static (GuiCommandMap Map, ClientWorld World, List<string> Remote) Screen(Client.App.ClientApp app)
@@ -624,7 +625,7 @@ public sealed class CommandOrdersClientTests : IDisposable
     {
         var app = Boot();
         var (map, world, _) = Screen(app);
-        var game = (GameState)typeof(Client.App.ClientApp).GetField("mGameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(app)!;
+        var game = (GameState)typeof(Client.App.ClientApp).GetField("_gameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(app)!;
         map.SelectSlot(2, true);
         Assert.True(world.Players.Clients[2050].Selected);
         Assert.NotNull(game.ChatMenus.Showing(game, "CommandChatMenu"));

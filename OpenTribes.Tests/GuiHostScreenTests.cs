@@ -8,20 +8,20 @@ using OpenTribes.Platform.Gfx;
 
 public sealed class GuiHostScreenTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-hostscreen-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-hostscreen-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public GuiHostScreenTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
+        _app?.Dispose();
         try
-        { Directory.Delete(mRoot, true); }
+        { Directory.Delete(_root, true); }
         catch (IOException) { }
     }
 
@@ -97,17 +97,17 @@ public sealed class GuiHostScreenTests : IDisposable
     [Fact]
     public void ConnectScreenActivatesTheRadioOfTheGameMode() // 004dbea8: HOST 100105, TRAIN 100998, anything else 100103
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n$pref::PlayGameMode = \"HOST\";\n");
-        var opt = ClientOptions.Parse(["--root", mRoot, "--headless"], out var err)!;
+        var opt = ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out var error), error);
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
         foreach (var (mode, id) in new[] { ("HOST", 100105u), ("TRAIN", 100998u), ("JOIN", 100103u), ("", 100103u) })
         {
-            mApp.Interp.SetVariable("$pref::PlayGameMode", mode);
+            _app.Interp.SetVariable("$pref::PlayGameMode", mode);
             var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
             var radios = new Dictionary<uint, GuiUniversalButton>();
             foreach (var (rid, name) in new[] { (100103u, "JOIN"), (100105u, "HOST"), (100998u, "TRAIN") })
@@ -119,7 +119,7 @@ public sealed class GuiHostScreenTests : IDisposable
                 root.AddChild(b);
                 radios[rid] = b;
             }
-            mApp.Canvas.SetContent(root, mApp.Canvas.Delegates["Connect"]);
+            _app.Canvas.SetContent(root, _app.Canvas.Delegates["Connect"]);
             Assert.True(radios[id].On);
             Assert.Single(radios.Values, r => r.On);
         }

@@ -7,23 +7,23 @@ using OpenTribes.Game;
 public sealed class CaptureTotals
 {
     /// <summary>The packets decoded.</summary>
-    public long Packets;
+    public long Packets { get; set; }
     /// <summary>The payload bits seen.</summary>
-    public long Bits;
+    public long Bits { get; set; }
     /// <summary>The bits the decoder understood.</summary>
-    public long Known;
+    public long Known { get; set; }
     /// <summary>The bits the decoder could not interpret.</summary>
-    public long Unknown;
+    public long Unknown { get; set; }
     /// <summary>The padding bits.</summary>
-    public long Pad;
+    public long Pad { get; set; }
     /// <summary>The duplicate packets skipped.</summary>
-    public long Duplicates;
+    public long Duplicates { get; set; }
     /// <summary>The packets that overran their payload.</summary>
-    public long Overruns;
+    public long Overruns { get; set; }
     /// <summary>The event counts by name.</summary>
-    public readonly SortedDictionary<string, long> Events = [];
+    public SortedDictionary<string, long> Events { get; } = [];
     /// <summary>The ghost update counts by class, deletes excluded.</summary>
-    public readonly SortedDictionary<string, long> Ghosts = [];
+    public SortedDictionary<string, long> Ghosts { get; } = [];
 }
 
 /// <summary>Decodes a capture file in the format <c>tools/stream_decode.py</c> reads: JSON lines <c>{t, dir: c2s|s2c, client, hex}</c>.</summary>
@@ -34,11 +34,11 @@ public static class CaptureDecoder
     public sealed class VcHeader
     {
         /// <summary>The 9 bit sequence number.</summary>
-        public int Seq;
+        public int Seq { get; set; }
         /// <summary>The packet type with its flags.</summary>
-        public int Type;
+        public int Type { get; set; }
         /// <summary>The bytes after the header.</summary>
-        public byte[] Payload = [];
+        public byte[] Payload { get; set; } = [];
     }
 
     /// <summary>Parses the VC header (net-protocol.md 3.2). The payload starts at the next byte.</summary>
@@ -69,10 +69,11 @@ public static class CaptureDecoder
 
     private sealed class ClientCtx
     {
-        public readonly ClientWorld World = new();
-        public readonly ClientGameConnection S2c;
-        public readonly ClientGameConnection C2s;
-        public readonly List<int> SeenS2c = [], SeenC2s = [];
+        public ClientWorld World { get; } = new();
+        public ClientGameConnection S2c { get; }
+        public ClientGameConnection C2s { get; }
+        public List<int> SeenS2c { get; } = [];
+        public List<int> SeenC2s { get; } = [];
 
         public ClientCtx()
         {

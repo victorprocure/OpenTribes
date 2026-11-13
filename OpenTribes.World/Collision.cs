@@ -72,17 +72,19 @@ public static class X87
 public struct CollisionSurface
 {
     /// <summary>The contact position.</summary>
-    public Float3 Position;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Position => ref _position;
+    private Float3 _position;
     /// <summary>The surface normal, in the space of <see cref="CollisionHit.Rot"/>.</summary>
-    public Float3 Normal;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Normal => ref _normal;
+    private Float3 _normal;
     /// <summary>The contact distance (+0x1c). A negative value makes the player ignore the contact.</summary>
-    public float Distance;
+    public float Distance { get; set; }
     /// <summary>Whether the surface has a material entry (+0x20 is nonzero).</summary>
-    public bool HasMaterial;
+    public bool HasMaterial { get; set; }
     /// <summary>The friction of the material entry (+0x40).</summary>
-    public float Friction;
+    public float Friction { get; set; }
     /// <summary>The material index in the .dml of the .dis for an interior surface, -1 for none.</summary>
-    public int Material;
+    public int Material { get; set; }
 
     /// <summary>Creates a surface with no material.</summary>
     public CollisionSurface()
@@ -100,15 +102,16 @@ public struct CollisionSurface
 public sealed class CollisionHit
 {
     /// <summary>The sim object that was hit.</summary>
-    public object? Object;
+    public object? Object { get; set; }
     /// <summary>The object type bits (+0x48).</summary>
-    public uint Type;
+    public uint Type { get; set; }
     /// <summary>The 3x3 that maps surface space to world space (R+0x10).</summary>
-    public Float9 Rot = Float9.Identity();
+    public ref Float9 Rot => ref _rot;
+    private Float9 _rot = Float9.Identity();
     /// <summary>The step height (R+0x80), -1 when unset.</summary>
-    public float StepHeight = -1.0f;
+    public float StepHeight { get; set; } = -1.0f;
     /// <summary>The surfaces hit.</summary>
-    public List<CollisionSurface> Surfaces = [];
+    public List<CollisionSurface> Surfaces { get; set; } = [];
 }
 
 /// <summary>The collision image of a candidate object (docs/collision.md 2.1 step 3).</summary>
@@ -132,35 +135,39 @@ public sealed class CollisionImage
         TriggerSphere,
     }
     /// <summary>The kind of this image.</summary>
-    public Kind ImageKind = Kind.Terrain;
+    public Kind ImageKind { get; set; } = Kind.Terrain;
     /// <summary>The sim object that owns the image.</summary>
-    public object? Object;
+    public object? Object { get; set; }
     /// <summary>The object type bits.</summary>
-    public uint Type;
+    public uint Type { get; set; }
     /// <summary>Whether the image only posts an event and never blocks (image byte +0xd).</summary>
-    public bool NonBlocking;
+    public bool NonBlocking { get; set; }
     /// <summary>The terrain, for a terrain image.</summary>
-    public Terrain? TerrainData;
+    public Terrain? TerrainData { get; set; }
     /// <summary>The interior geometry, for an interior image.</summary>
-    public InteriorGeometry? Geometry;
+    public InteriorGeometry? Geometry { get; set; }
     /// <summary>The image transform, the object transform.</summary>
-    public Float9 Rot = Float9.Identity();
+    public ref Float9 Rot => ref _rot;
+    private Float9 _rot = Float9.Identity();
     /// <summary>The image position.</summary>
-    public Float3 Pos;
+    public ref Float3 Pos => ref _pos;
+    private Float3 _pos;
     /// <summary>The object-space box of a shape or trigger image.</summary>
-    public Float6 Box;
+    public ref Float6 Box => ref _box;
+    private Float6 _box;
     /// <summary>The box meshes of the shape's collision detail, when it has one.</summary>
-    public List<Float6>? Boxes;
+    public List<Float6>? Boxes { get; set; }
     /// <summary>The sphere centre in image space, for a sphere or trigger sphere image.</summary>
-    public Float3 Centre;
+    public ref Float3 Centre => ref _centre;
+    private Float3 _centre;
     /// <summary>The sphere radius.</summary>
-    public float Radius;
+    public float Radius { get; set; }
     /// <summary>The shape instance with its thread state, for a shape image (docs/collision.md T1.2). Without one the box stand-ins are used, as in synthetic unit-test images.</summary>
-    public ShapeInstance? Instance;
+    public ShapeInstance? Instance { get; set; }
     /// <summary>The detail the sphere test runs on (image +0x74).</summary>
-    public int Detail;
+    public int Detail { get; set; }
     /// <summary>The image mode (+0x44): true for faces, false for the bounds mode of items.</summary>
-    public bool MeshMode = true;
+    public bool MeshMode { get; set; } = true;
 }
 
 /// <summary>The mover's image, a player image (docs/player-sim.md 3.1).</summary>
@@ -168,65 +175,71 @@ public sealed class CollisionImage
 public sealed class MoverImage
 {
     /// <summary>The mover position.</summary>
-    public Float3 Pos;
+    public ref Float3 Pos => ref _pos;
+    private Float3 _pos;
     /// <summary>The mover rotation.</summary>
-    public Float9 Rot = Float9.Identity();
+    public ref Float9 Rot => ref _rot;
+    private Float9 _rot = Float9.Identity();
     /// <summary>The corners of box A.</summary>
-    public Float3 BoxMin, BoxMax;
+    public ref Float3 BoxMin => ref _boxMin;
+    private Float3 _boxMin;
+    public ref Float3 BoxMax => ref _boxMax;
+    private Float3 _boxMax;
     /// <summary>The sphere radius. The sphere centre is (0, 0, radius).</summary>
-    public float Radius;
+    public float Radius { get; set; }
     /// <summary>Whether the mover is a ShapeBase such as an item (docs/collision.md T3). The shape image rotates and the terrain case is not covered, since item code keeps its own (00437b50).</summary>
-    public bool ShapeMover;
+    public bool ShapeMover { get; set; }
     /// <summary>The bounding sphere centre in shape space, rotated into the world through the image rotation.</summary>
-    public Float3 CentreLocal;
+    public ref Float3 CentreLocal => ref _centreLocal;
+    private Float3 _centreLocal;
     /// <summary>The shape image of a ShapeBase mover. A player candidate tests its own sphere against it, since the image with the higher type runs the test (005036a4).</summary>
-    public ShapeInstance? Instance;
+    public ShapeInstance? Instance { get; set; }
     /// <summary>The detail the shape image is tested on.</summary>
-    public int Detail;
+    public int Detail { get; set; }
     /// <summary>The image mode of the shape image, true for faces.</summary>
-    public bool MeshMode = true;
+    public bool MeshMode { get; set; } = true;
 }
 
 /// <summary>The state of a stepped move (docs/collision.md section 3, 00505a3c).</summary>
 public sealed class MoveInfo
 {
     /// <summary>The current iteration.</summary>
-    public int Iteration;
+    public int Iteration { get; set; }
     /// <summary>The time used so far (+0x04).</summary>
-    public float Used;
+    public float Used { get; set; }
     /// <summary>The end time (+0x0c).</summary>
-    public float EndTime;
+    public float EndTime { get; set; }
     /// <summary>The object position.</summary>
-    public float[]? Current;
+    public float[]? Current { get; set; }
     /// <summary>The image position of the blocked substep.</summary>
-    public float[]? Attempted;
+    public float[]? Attempted { get; set; }
     /// <summary>The target position. The collision callback rewrites it.</summary>
-    public float[]? Target;
+    public float[]? Target { get; set; }
     /// <summary>The candidate images.</summary>
-    public List<CollisionImage>? Candidates;
+    public List<CollisionImage>? Candidates { get; set; }
     /// <summary>The hits of the blocked substep.</summary>
-    public List<CollisionHit>? Hits;
+    public List<CollisionHit>? Hits { get; set; }
     /// <summary>The sim objects to notify.</summary>
-    public List<object>? Notify;
+    public List<object>? Notify { get; set; }
 }
 
 /// <summary>A stepped move of a mover through a list of candidate images.</summary>
 public sealed class SteppedMove
 {
     /// <summary>The time slice in seconds (+0x168).</summary>
-    public float Dt = 0.032f;
+    public float Dt { get; set; } = 0.032f;
     /// <summary>The most blocked iterations a move runs (+0x1f0).</summary>
-    public int MaxIterations = 3;
+    public int MaxIterations { get; set; } = 3;
     /// <summary>The mover's image.</summary>
-    public MoverImage Image = new();
+    public MoverImage Image { get; set; } = new();
     /// <summary>The candidate images.</summary>
-    public List<CollisionImage> Candidates = [];
+    public List<CollisionImage> Candidates { get; set; } = [];
     /// <summary>The collision callback (vtable +0xb8). Returning true restarts the move toward the rewritten target.</summary>
-    public Func<MoveInfo, bool>? OnCollision;
+    public Func<MoveInfo, bool>? OnCollision { get; set; }
     /// <summary>Called when a non-blocking image was hit (event 0x41f to its owner, 005070fc).</summary>
-    public Action<object?>? OnTouch;
+    public Action<object?>? OnTouch { get; set; }
     /// <summary>The notify list of the last move (info +0x3c).</summary>
-    public List<object> Notify = [];
+    public List<object> Notify { get; set; } = [];
 
     /// <summary>Tests the mover image at a position against every candidate (00506bfc).</summary>
     /// <param name="q">The image position to test.</param>
@@ -340,7 +353,7 @@ public sealed class SteppedMove
 /// <remarks>Port of src/world/collision.cpp (docs/collision.md). Uses the truncating form of docs/portable-float.md 1: x87::Chop is <c>Fpu.ChopScope</c>, x87::f32 stores toward zero whatever the mode, and every other double operation follows the mode of <c>Fpu</c>. Sim objects are <c>object</c> here because this project does not reference the Sim layer.</remarks>
 public static class Collision
 {
-    private const float kClipEps = 1e-5f; // 0x0063f9a0 (0x3727c5ac)
+    private const float ClipEps = 1e-5f; // 0x0063f9a0 (0x3727c5ac)
 
     private static void Transpose(ReadOnlySpan<float> m, Span<float> output)
     {
@@ -375,9 +388,10 @@ public static class Collision
 
     private struct Record
     {
-        public int PlaneIndex; // -1: solid leaf
-        public int Front, Back;
-        public int Leaf;
+        public int PlaneIndex { get; set; } // -1: solid leaf
+        public int Front { get; set; }
+        public int Back { get; set; }
+        public int Leaf { get; set; }
 
         public Record()
         {
@@ -390,21 +404,25 @@ public static class Collision
 
     private sealed class ClipVertex
     {
-        public Float3 P;
-        public int Mark;
-        public bool Seen;
+        public ref Float3 P => ref _p;
+        private Float3 _p;
+        public int Mark { get; set; }
+        public bool Seen { get; set; }
     }
 
     private sealed class ClipFace
     {
-        public int PlaneIndex = -1;
-        public int LastVert;
-        public bool Side;
+        public int PlaneIndex { get; set; } = -1;
+        public int LastVert { get; set; }
+        public bool Side { get; set; }
     }
 
     private struct ClipEdge
     {
-        public int V0, V1, F0, F1;
+        public int V0 { get; set; }
+        public int V1 { get; set; }
+        public int F0 { get; set; }
+        public int F1 { get; set; }
 
         public ClipEdge(int v0, int v1, int f0, int f1)
         {
@@ -417,18 +435,21 @@ public static class Collision
 
     private sealed class BoxClip
     {
-        public readonly InteriorGeometry Geo;
-        public Float3 C;
-        public float R;
-        public Float3 T; // T.t
-        public Float3 Up;
-        public readonly List<Record> Records = [];
-        public readonly List<ClipVertex> Verts = [];
-        public readonly List<ClipFace> Faces = [];
-        public int Counter;
-        public bool Touched;
-        public float MaxHeight;
-        public readonly CollisionHit Hit;
+        public InteriorGeometry Geo { get; }
+        public ref Float3 C => ref _c;
+        private Float3 _c;
+        public float R { get; set; }
+        public ref Float3 T => ref _t; // T.t
+        private Float3 _t; // T.t
+        public ref Float3 Up => ref _up;
+        private Float3 _up;
+        public List<Record> Records { get; } = [];
+        public List<ClipVertex> Verts { get; } = [];
+        public List<ClipFace> Faces { get; } = [];
+        public int Counter { get; set; }
+        public bool Touched { get; set; }
+        public float MaxHeight { get; set; }
+        public CollisionHit Hit { get; }
 
         public BoxClip(InteriorGeometry geo, CollisionHit hit)
         {
@@ -548,7 +569,7 @@ public static class Collision
                     if (v.Mark < mark)
                     {
                         var s = X87.F32(X87.Dot(n, v.P));
-                        var isBack = !(Sub(s, kClipEps) > -(double)pl.D) && (-(double)pl.D > Add(s, kClipEps));
+                        var isBack = !(Sub(s, ClipEps) > -(double)pl.D) && (-(double)pl.D > Add(s, ClipEps));
                         v.Mark = mark + (isBack ? 1 : 0);
                     }
                 }
@@ -618,7 +639,10 @@ public static class Collision
                                    ReadOnlySpan<float> c, List<CollisionSurface> output)
     {
         var s = new CollisionSurface();
-        if (!Shape.SphereTriangle(pm, r, a, b, c, s.Position, s.Normal, ref s.Distance))
+        var distance = s.Distance;
+        var hit = Shape.SphereTriangle(pm, r, a, b, c, s.Position, s.Normal, ref distance);
+        s.Distance = distance;
+        if (!hit)
             return;
         s.HasMaterial = true;
         s.Friction = 1.0f;

@@ -8,15 +8,15 @@ using OpenTribes.Script;
 public sealed class GuiRuntime
 {
     /// <summary>The script interpreter the commands are registered in.</summary>
-    public readonly Interpreter Interp;
+    public Interpreter Interp { get; }
     /// <summary>The GUI host.</summary>
-    public readonly GuiHost Host;
+    public GuiHost Host { get; }
     /// <summary>The canvas the commands act on.</summary>
-    public readonly GuiCanvas Canvas;
+    public GuiCanvas Canvas { get; }
     /// <summary>The objects made by loadObject(name, file) (playGui, commandGui, ...).</summary>
-    public readonly Dictionary<string, GuiControl> Named = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, GuiControl> Named { get; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Called when a script asks for a render of the canvas.</summary>
-    public Action? RenderRequested;
+    public Action? RenderRequested { get; set; }
 
     /// <summary>Creates the runtime and registers the commands.</summary>
     /// <param name="interp">The script interpreter.</param>
@@ -366,9 +366,9 @@ public sealed class GuiRuntime
     }
 
     /// <summary>The HUD timer value set by setHudTimer, in seconds.</summary>
-    public double HudTimer;
+    public double HudTimer { get; set; }
     /// <summary>The host time in milliseconds when the timer was set.</summary>
-    public long HudTimerSetAt;
+    public long HudTimerSetAt { get; set; }
     /// <summary>Gets the HUD timer: the value set, advanced with the host clock.</summary>
     public double ClockSeconds => HudTimer + ((Host.TickMs - HudTimerSetAt) / 1000.0);
 
@@ -439,42 +439,42 @@ public sealed class GuiRuntime
 /// <summary>The HUD data source of the live client: it forwards to the source with the control object state the stream decoded, and answers the clock itself (docs/gui.md 4.1, client-net.md 4.5).</summary>
 public sealed class ClockedHudSource : IHudSource
 {
-    private readonly IHudSource mInner;
-    private readonly Func<double> mClock;
+    private readonly IHudSource _inner;
+    private readonly Func<double> _clock;
     /// <summary>Creates a source that forwards to another one.</summary>
     /// <param name="inner">The source that holds the state.</param>
     /// <param name="clock">The clock in seconds.</param>
-    public ClockedHudSource(IHudSource inner, Func<double> clock) { mInner = inner; mClock = clock; }
+    public ClockedHudSource(IHudSource inner, Func<double> clock) { _inner = inner; _clock = clock; }
     /// <inheritdoc/>
-    public bool HasPlayerState => mInner.HasPlayerState;
+    public bool HasPlayerState => _inner.HasPlayerState;
     /// <inheritdoc/>
-    public bool InPlayerView => mInner.InPlayerView;
+    public bool InPlayerView => _inner.InPlayerView;
     /// <inheritdoc/>
-    public bool SensorHudShown => mInner.SensorHudShown;
+    public bool SensorHudShown => _inner.SensorHudShown;
     /// <inheritdoc/>
-    public bool ControlIsPlayer => mInner.ControlIsPlayer;
+    public bool ControlIsPlayer => _inner.ControlIsPlayer;
     /// <inheritdoc/>
-    public bool FirstPersonView => mInner.FirstPersonView;
+    public bool FirstPersonView => _inner.FirstPersonView;
     /// <inheritdoc/>
-    public HudZoom? Zoom => mInner.Zoom;
+    public HudZoom? Zoom => _inner.Zoom;
     /// <inheritdoc/>
-    public double DamageLevel => mInner.DamageLevel;
+    public double DamageLevel => _inner.DamageLevel;
     /// <inheritdoc/>
-    public double EnergyLevel => mInner.EnergyLevel;
+    public double EnergyLevel => _inner.EnergyLevel;
     /// <inheritdoc/>
-    public double Yaw => mInner.Yaw;
+    public double Yaw => _inner.Yaw;
     /// <inheritdoc/>
-    public HudWaypoint? Waypoint => mInner.Waypoint;
+    public HudWaypoint? Waypoint => _inner.Waypoint;
     /// <inheritdoc/>
-    public double ClockSeconds => mClock();
+    public double ClockSeconds => _clock();
     /// <inheritdoc/>
-    public IReadOnlyList<WeaponRow> Weapons => mInner.Weapons;
+    public IReadOnlyList<WeaponRow> Weapons => _inner.Weapons;
     /// <inheritdoc/>
-    public bool SensorPing => mInner.SensorPing;
+    public bool SensorPing => _inner.SensorPing;
     /// <inheritdoc/>
-    public bool SensorLocked => mInner.SensorLocked;
+    public bool SensorLocked => _inner.SensorLocked;
     /// <inheritdoc/>
-    public HudTargetResult? CrosshairTarget(int width, int height) => mInner.CrosshairTarget(width, height);
+    public HudTargetResult? CrosshairTarget(int width, int height) => _inner.CrosshairTarget(width, height);
     /// <inheritdoc/>
-    public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => mInner.TargetMarkers(width, height);
+    public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => _inner.TargetMarkers(width, height);
 }

@@ -10,42 +10,42 @@ using OpenTribes.Script;
 
 public sealed class ClientAppTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-c8-" + Guid.NewGuid().ToString("N"));
-    private readonly List<string> mLines = [];
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-c8-" + Guid.NewGuid().ToString("N"));
+    private readonly List<string> _lines = [];
+    private ClientApp? _app;
 
     public ClientAppTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
+        _app?.Dispose();
         try
-        { Directory.Delete(mRoot, true); }
+        { Directory.Delete(_root, true); }
         catch (IOException) { }
     }
 
     private ClientApp Boot(string consoleCs = "", params string[] args)
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function onConnection(%m) { $conn = %m; }\nfunction Game::EndFrame() {}\n" +
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
-        var all = new List<string> { "--root", mRoot, "--headless" };
+        var all = new List<string> { "--root", _root, "--headless" };
         all.AddRange(args);
         var opt = ClientOptions.Parse([.. all], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out var error), error);
-        mApp.Interp.SetOutput(mLines.Add);
-        return mApp;
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        _app.Interp.SetOutput(_lines.Add);
+        return _app;
     }
 
-    private string Eval(string text) => mApp!.Interp.Evaluate(text);
+    private string Eval(string text) => _app!.Interp.Evaluate(text);
 
     // ---- quit ----
 
@@ -53,17 +53,17 @@ public sealed class ClientAppTests : IDisposable
     public void LoadingTheQuitScreenEndsTheProcess() // client-app.md 6.1: the exit dialog loads quit.gui, whose delegate quits when installed
     {
         Boot();
-        Assert.False(mApp!.QuitRequested);
-        mApp.Canvas.SetContent(new GuiControl { Name = "BlankQuitGui" }, mApp.Canvas.Delegates["quit"]);
-        Assert.True(mApp.QuitRequested);
+        Assert.False(_app!.QuitRequested);
+        _app.Canvas.SetContent(new GuiControl { Name = "BlankQuitGui" }, _app.Canvas.Delegates["quit"]);
+        Assert.True(_app.QuitRequested);
     }
 
     [Fact]
     public void OtherDelegatesDoNotQuit()
     {
         Boot();
-        mApp!.Canvas.SetContent(new GuiControl { Name = "x" }, mApp.Canvas.Delegates["MainMenu"]);
-        Assert.False(mApp.QuitRequested);
+        _app!.Canvas.SetContent(new GuiControl { Name = "x" }, _app.Canvas.Delegates["MainMenu"]);
+        Assert.False(_app.QuitRequested);
     }
 
     // ---- HUD energy ----
@@ -98,13 +98,13 @@ public sealed class ClientAppTests : IDisposable
         // client-scripts.md 2.3 setGamma.
         Boot();
         Eval("setGamma(MainWindow, 50);");
-        Assert.Contains("Out of bounds gamma, must be between 0.05 and 20, value clamped", mLines);
-        Assert.Equal("20", mApp!.Interp.PeekVariable("$pref::Display::gammaValue"));
-        Assert.Equal(20f, mApp.Gamma);
-        mLines.Clear();
+        Assert.Contains("Out of bounds gamma, must be between 0.05 and 20, value clamped", _lines);
+        Assert.Equal("20", _app!.Interp.PeekVariable("$pref::Display::gammaValue"));
+        Assert.Equal(20f, _app.Gamma);
+        _lines.Clear();
         Eval("setGamma(MainWindow, 1.5);");
-        Assert.Empty(mLines);
-        Assert.Equal("1.5", mApp.Interp.PeekVariable("$pref::Display::gammaValue"));
+        Assert.Empty(_lines);
+        Assert.Equal("1.5", _app.Interp.PeekVariable("$pref::Display::gammaValue"));
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class ClientAppTests : IDisposable
         // 2.3: a wrong canvas name prints `Could not find simCanvas: <name>` and returns False.
         Boot();
         Assert.Equal("False", Eval("setGamma(NoWindow, 1);"));
-        Assert.Contains("Could not find simCanvas: NoWindow", mLines);
+        Assert.Contains("Could not find simCanvas: NoWindow", _lines);
     }
 
     [Fact]
@@ -124,15 +124,15 @@ public sealed class ClientAppTests : IDisposable
         Assert.Equal("True", Eval("setFullscreenDevice(MainWindow, \"Software\");"));
         Assert.Equal("True", Eval("setWindowedDevice(MainWindow, \"Glide\");"));
         Assert.Equal("False", Eval("setFullscreenDevice(MainWindow, \"Direct3D\");"));
-        Assert.Contains("Failed to set Fullscreen Device to Direct3D", mLines);
+        Assert.Contains("Failed to set Fullscreen Device to Direct3D", _lines);
         Assert.Equal("", Eval("testDevice(OpenGL);"));
         Assert.Equal("False", Eval("testDevice(Voodoo);"));
         Assert.Equal("true", Eval("isGfxDriver(MainWindow, \"OpenGL\");"));
         Assert.Equal("False", Eval("isGfxDriver(MainWindow, \"Glide\");"));
-        mLines.Clear();
+        _lines.Clear();
         Eval("listDevices();");
-        Assert.Equal("Number of devices: 1", mLines[0]);
-        Assert.StartsWith("OpenGL", mLines[1]);
+        Assert.Equal("Number of devices: 1", _lines[0]);
+        Assert.StartsWith("OpenGL", _lines[1]);
         Assert.Equal("false", Eval("isVirtualFS(MainWindow);"));
     }
 
@@ -152,11 +152,11 @@ public sealed class ClientAppTests : IDisposable
         // 2.3 nextRes / prevRes print `Mode: W x H`.
         Boot();
         Eval("nextRes(MainWindow);");
-        Assert.Equal("Mode: 800 x 600", mLines[^1]);
+        Assert.Equal("Mode: 800 x 600", _lines[^1]);
         Eval("prevRes(MainWindow);");
-        Assert.Equal("Mode: 640 x 480", mLines[^1]);
+        Assert.Equal("Mode: 640 x 480", _lines[^1]);
         Eval("prevRes(MainWindow);");
-        Assert.Equal("Mode: 1600 x 1200", mLines[^1]);
+        Assert.Equal("Mode: 1600 x 1200", _lines[^1]);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public sealed class ClientAppTests : IDisposable
         // 2.3 screenShot and the writeable path rule (client-app.md 5.2).
         Boot();
         Assert.Equal("False", Eval("screenShot(MainWindow, \"base\\\\x.bmp\");"));
-        Assert.Contains("Error creating file 'base\\x.bmp'", mLines);
+        Assert.Contains("Error creating file 'base\\x.bmp'", _lines);
         Assert.Equal("", Eval("screenShot(MainWindow, \"temp\\\\x.bmp\");"));
     }
 
@@ -177,10 +177,10 @@ public sealed class ClientAppTests : IDisposable
         // 2.2: prefix check; R6: the system opens nothing unless the user passed --allow-browser.
         Boot();
         Assert.Equal("False", Eval("HTMLOpen(\"www.example.com\");"));
-        Assert.Contains("HTMLOpen: can only open properly prefixed HTML URLs.", mLines);
+        Assert.Contains("HTMLOpen: can only open properly prefixed HTML URLs.", _lines);
         Assert.Equal("True", Eval("HTMLOpen(\"http://127.0.0.1/\");"));
         Assert.Equal("False", Eval("Notepad(\"a.doc\");"));
-        Assert.Contains("Notepad: can only open .txt files", mLines);
+        Assert.Contains("Notepad: can only open .txt files", _lines);
     }
 
     [Fact]
@@ -189,10 +189,10 @@ public sealed class ClientAppTests : IDisposable
         // 2.5 and D36: newRedbook fails, every later call finds no object (the install's console.log line).
         Boot();
         Assert.Equal("False", Eval("newRedbook(CD, MainWindow);"));
-        mLines.Clear();
+        _lines.Clear();
         Eval("rbSetVolume(CD, 0.5);");
         Eval("rbPlay(CD, 2);");
-        Assert.Equal(new[] { "unable to find Redbook Obj CD", "unable to find Redbook Obj CD" }, mLines);
+        Assert.Equal(new[] { "unable to find Redbook Obj CD", "unable to find Redbook Obj CD" }, _lines);
     }
 
     // ---- 2.4 net and R6 ----
@@ -203,9 +203,9 @@ public sealed class ClientAppTests : IDisposable
         // R6: nothing but 127.0.0.0/8 is contacted; the join screen sees onConnection("Rejected") and the error text.
         Boot();
         Eval("connect(\"IP:203.0.113.9:28001\");");
-        Assert.Equal("Rejected", mApp!.Interp.PeekVariable("$conn"));
-        Assert.Contains("127.0.0.0/8", mApp.Interp.PeekVariable("$errorString"));
-        Assert.Null(mApp.Game);
+        Assert.Equal("Rejected", _app!.Interp.PeekVariable("$conn"));
+        Assert.Contains("127.0.0.0/8", _app.Interp.PeekVariable("$errorString"));
+        Assert.Null(_app.Game);
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public sealed class ClientAppTests : IDisposable
     {
         Boot();
         Eval("disconnect();");
-        Assert.Contains("Disconnect: no CSDelegate.", mLines);
+        Assert.Contains("Disconnect: no CSDelegate.", _lines);
     }
 
     // ---- 2.6 and 2.7 input ----
@@ -254,15 +254,15 @@ public sealed class ClientAppTests : IDisposable
         // 2.6: inputActivate(keyboard0), an unknown device prints; a deactivated device delivers nothing.
         Boot("newActionMap(\"t.sae\"); bindCommand(mouse0, make, button0, TO, \"$Click = 1;\"); pushActionMap(\"t.sae\");");
         Assert.Equal("False", Eval("inputActivate(gamepad9);"));
-        Assert.Contains("inputActivate: unknown device gamepad9", mLines);
+        Assert.Contains("inputActivate: unknown device gamepad9", _lines);
         Eval("cursorOff(MainWindow);");   // the GUI takes the mouse while the cursor is on (client-app.md 3.8)
         Eval("inputDeactivate(mouse0);");
-        mApp!.InjectButton(0, true);
-        Assert.Equal("", mApp.Interp.PeekVariable("$Click"));
-        mApp.InjectButton(0, false);
+        _app!.InjectButton(0, true);
+        Assert.Equal("", _app.Interp.PeekVariable("$Click"));
+        _app.InjectButton(0, false);
         Eval("inputActivate(mouse0);");
-        mApp.InjectButton(0, true);
-        Assert.Equal("1", mApp.Interp.PeekVariable("$Click"));
+        _app.InjectButton(0, true);
+        Assert.Equal("1", _app.Interp.PeekVariable("$Click"));
     }
 
     [Fact]
@@ -272,23 +272,23 @@ public sealed class ClientAppTests : IDisposable
         // device attached the name is unknown.
         Boot("newActionMap(\"t.sae\"); bindCommand(joystick0, make, button2, TO, \"$Fire = $Fire @ 1;\"); pushActionMap(\"t.sae\");");
         Assert.Equal("False", Eval("inputActivate(joystick0);"));
-        Assert.Contains("inputActivate: unknown device joystick0", mLines);
-        mApp!.Joysticks = Platform.Sdl.JoystickSet.Simulated("Test stick");
-        mApp.InjectJoyButton(0, 2, true);
-        Assert.Equal("", mApp.Interp.PeekVariable("$Fire"));
-        mApp.InjectJoyButton(0, 2, false);
+        Assert.Contains("inputActivate: unknown device joystick0", _lines);
+        _app!.Joysticks = Platform.Sdl.JoystickSet.Simulated("Test stick");
+        _app.InjectJoyButton(0, 2, true);
+        Assert.Equal("", _app.Interp.PeekVariable("$Fire"));
+        _app.InjectJoyButton(0, 2, false);
         Assert.Equal("True", Eval("inputActivate(joystick0);"));
-        mApp.InjectJoyButton(0, 2, true);
-        Assert.Equal("1", mApp.Interp.PeekVariable("$Fire"));
-        mApp.InjectJoyButton(0, 2, false);
+        _app.InjectJoyButton(0, 2, true);
+        Assert.Equal("1", _app.Interp.PeekVariable("$Fire"));
+        _app.InjectJoyButton(0, 2, false);
         Eval("inputDeactivate(joystick0);");
-        mApp.InjectJoyButton(0, 2, true);
-        Assert.Equal("1", mApp.Interp.PeekVariable("$Fire"));
+        _app.InjectJoyButton(0, 2, true);
+        Assert.Equal("1", _app.Interp.PeekVariable("$Fire"));
         // inputActivate(all) activates every device (0050e220 with 0xff, 0xff).
         Eval("inputActivate(all);");
-        mApp.InjectJoyButton(0, 2, false);
-        mApp.InjectJoyButton(0, 2, true);
-        Assert.Equal("11", mApp.Interp.PeekVariable("$Fire"));
+        _app.InjectJoyButton(0, 2, false);
+        _app.InjectJoyButton(0, 2, true);
+        Assert.Equal("11", _app.Interp.PeekVariable("$Fire"));
     }
 
     [Fact]
@@ -296,16 +296,16 @@ public sealed class ClientAppTests : IDisposable
     {
         // 2.6 and 3.8: pushActionMap puts the map on the stack, popActionMap takes it off; a map binding a command works.
         Boot("newActionMap(\"t.sae\"); bindCommand(keyboard, make, q, TO, \"$Q = $Q @ 1;\");");
-        mApp!.InjectKey(0x10, true);
-        mApp.InjectKey(0x10, false);
-        Assert.Equal("", mApp.Interp.PeekVariable("$Q"));
+        _app!.InjectKey(0x10, true);
+        _app.InjectKey(0x10, false);
+        Assert.Equal("", _app.Interp.PeekVariable("$Q"));
         Assert.Equal("True", Eval("pushActionMap(\"t.sae\");"));
-        Assert.Equal(1, mApp.Input.StackDepth);
-        mApp.InjectKey(0x10, true);
-        mApp.InjectKey(0x10, false);
-        Assert.Equal("1", mApp.Interp.PeekVariable("$Q"));
+        Assert.Equal(1, _app.Input.StackDepth);
+        _app.InjectKey(0x10, true);
+        _app.InjectKey(0x10, false);
+        Assert.Equal("1", _app.Interp.PeekVariable("$Q"));
         Eval("popActionMap(\"t.sae\");");
-        Assert.Equal(0, mApp.Input.StackDepth);
+        Assert.Equal(0, _app.Input.StackDepth);
     }
 
     // ---- 5 variables and prefs ----
@@ -329,13 +329,13 @@ public sealed class ClientAppTests : IDisposable
     public void EngineVariablesStartAtTheirImageDefaultAndNormalise()
     {
         Boot();
-        Assert.Equal("50", mApp!.Interp.PeekVariable("$pref::NumDecals"));
-        Assert.Equal("1.000000", mApp.Interp.PeekVariable("$pref::TerrainDetail"));
-        Assert.Equal("False", mApp.Interp.PeekVariable("$pref::IgnoreTargets"));
+        Assert.Equal("50", _app!.Interp.PeekVariable("$pref::NumDecals"));
+        Assert.Equal("1.000000", _app.Interp.PeekVariable("$pref::TerrainDetail"));
+        Assert.Equal("False", _app.Interp.PeekVariable("$pref::IgnoreTargets"));
         Eval("$pref::TerrainDetail = 3; $pref::NumDecals = \"12abc\"; $pref::IgnoreTargets = true;");
-        Assert.Equal("1.000000", mApp.Interp.PeekVariable("$pref::TerrainDetail"));
-        Assert.Equal("12", mApp.Interp.PeekVariable("$pref::NumDecals"));
-        Assert.Equal("True", mApp.Interp.PeekVariable("$pref::IgnoreTargets"));
+        Assert.Equal("1.000000", _app.Interp.PeekVariable("$pref::TerrainDetail"));
+        Assert.Equal("12", _app.Interp.PeekVariable("$pref::NumDecals"));
+        Assert.Equal("True", _app.Interp.PeekVariable("$pref::IgnoreTargets"));
     }
 
     [Fact]
@@ -343,11 +343,11 @@ public sealed class ClientAppTests : IDisposable
     {
         // 004eaec0 and 004eaec8; LastHope 1.30 ignores them (L3) and re-points interpolateTime into a string.
         Boot();
-        Assert.Equal("0", mApp!.Interp.PeekVariable("$net::predictForwardTime"));
-        Assert.Equal("64", mApp.Interp.PeekVariable("$net::interpolateTime"));
+        Assert.Equal("0", _app!.Interp.PeekVariable("$net::predictForwardTime"));
+        Assert.Equal("64", _app.Interp.PeekVariable("$net::interpolateTime"));
         Eval("$net::interpolateTime = 0; $net::predictForwardTime = \"12abc\";");
-        Assert.Equal("0", mApp.Interp.PeekVariable("$net::interpolateTime"));
-        Assert.Equal("12", mApp.Interp.PeekVariable("$net::predictForwardTime"));
+        Assert.Equal("0", _app.Interp.PeekVariable("$net::interpolateTime"));
+        Assert.Equal("12", _app.Interp.PeekVariable("$net::predictForwardTime"));
     }
 
     [Fact]
@@ -356,16 +356,16 @@ public sealed class ClientAppTests : IDisposable
         // 1.11 registers $screenError, $screenSize, $minSquareSize, $farDistance, $renderSimTerrain and the T2 statistics when the
         // terrain renderer is created (0x005768e4); LastHope 1.30 stubbed that out (lasthope-1.30.md L7).
         Boot();
-        Assert.Equal("0", mApp!.Interp.PeekVariable("$screenError"));
-        EngineVariables.RegisterTerrain(mApp.Interp);
-        Assert.Equal("9", mApp.Interp.PeekVariable("$screenError"));
-        Assert.Equal("45", mApp.Interp.PeekVariable("$screenSize"));
-        Assert.Equal("4", mApp.Interp.PeekVariable("$minSquareSize"));
-        Assert.Equal("500", mApp.Interp.PeekVariable("$farDistance"));
-        Assert.Equal("True", mApp.Interp.PeekVariable("$renderSimTerrain"));
-        Assert.Equal("0", mApp.Interp.PeekVariable("$T2::staticTSU"));
+        Assert.Equal("0", _app!.Interp.PeekVariable("$screenError"));
+        EngineVariables.RegisterTerrain(_app.Interp);
+        Assert.Equal("9", _app.Interp.PeekVariable("$screenError"));
+        Assert.Equal("45", _app.Interp.PeekVariable("$screenSize"));
+        Assert.Equal("4", _app.Interp.PeekVariable("$minSquareSize"));
+        Assert.Equal("500", _app.Interp.PeekVariable("$farDistance"));
+        Assert.Equal("True", _app.Interp.PeekVariable("$renderSimTerrain"));
+        Assert.Equal("0", _app.Interp.PeekVariable("$T2::staticTSU"));
         Eval("$screenError = 3.5;");
-        Assert.Equal("3.5", mApp.Interp.PeekVariable("$screenError"));
+        Assert.Equal("3.5", _app.Interp.PeekVariable("$screenError"));
     }
 
     [Fact]
@@ -374,17 +374,17 @@ public sealed class ClientAppTests : IDisposable
         // 5.4: export writes sorted `$name = "value";` lines to config\ClientPrefs.cs; exec of that file restores them.
         Boot();
         Eval("$pref::zeta = \"last\"; $pref::alpha = \"first\"; $pref::TerrainDetail = 0.5; export(\"pref::*\", \"config\\\\ClientPrefs.cs\", False);");
-        var text = File.ReadAllText(Path.Combine(mRoot, "config", "ClientPrefs.cs"));
+        var text = File.ReadAllText(Path.Combine(_root, "config", "ClientPrefs.cs"));
         var lines = text.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
         Assert.Contains("$pref::alpha = \"first\";", lines);
         Assert.Contains("$pref::TerrainDetail = \"0.500000\";", lines);
         Assert.True(Array.IndexOf(lines, "$pref::alpha = \"first\";") < Array.IndexOf(lines, "$pref::zeta = \"last\";"));
         // A second client run reads the same file (client-scripts.md 6.1 step 11).
-        mApp!.Dispose();
-        mApp = null;
+        _app!.Dispose();
+        _app = null;
         Boot("exec(\"clientPrefs.cs\");");
-        Assert.Equal("first", mApp!.Interp.PeekVariable("$pref::alpha"));
-        Assert.Equal("0.500000", mApp.Interp.PeekVariable("$pref::TerrainDetail"));
+        Assert.Equal("first", _app!.Interp.PeekVariable("$pref::alpha"));
+        Assert.Equal("0.500000", _app.Interp.PeekVariable("$pref::TerrainDetail"));
     }
 
     [Fact]
@@ -393,9 +393,9 @@ public sealed class ClientAppTests : IDisposable
         // client-app.md 5.2: only recordings, temp, config, base\missions, base\recordings and base\gui accept writes.
         Boot();
         Eval("export(\"pref::*\", \"scripts\\\\x.cs\", False);");
-        Assert.False(File.Exists(Path.Combine(mRoot, "scripts", "x.cs")));
+        Assert.False(File.Exists(Path.Combine(_root, "scripts", "x.cs")));
         Eval("export(\"pref::*\", \"temp\\\\x.cs\", False);");
-        Assert.True(File.Exists(Path.Combine(mRoot, "temp", "x.cs")));
+        Assert.True(File.Exists(Path.Combine(_root, "temp", "x.cs")));
     }
 
     [Fact]
@@ -408,14 +408,14 @@ public sealed class ClientAppTests : IDisposable
              "bindAction(keyboard0, make, \"w\", TO, IDACTION_MOVEFORWARD, 1.0);" +
              "bindCommand(keyboard0, make, control, \"p\", TO, \"drop(BackPack);\");" +
              "saveActionMap(\"config\\\\config.cs\", \"playMap.sae\");");
-        var text = File.ReadAllText(Path.Combine(mRoot, "config", "config.cs"));
+        var text = File.ReadAllText(Path.Combine(_root, "config", "config.cs"));
         Assert.StartsWith("NewActionMap(\"playMap.sae\");\n", text);
         Assert.Contains("bindAction(mouse0, xaxis0, TO, IDACTION_YAW, Flip, Scale, 0.00099", text);
         Assert.Contains("bindAction(keyboard0, make, \"w\", TO, IDACTION_MOVEFORWARD, 1.000000);", text);
-        mApp!.Dispose();
-        mApp = null;
+        _app!.Dispose();
+        _app = null;
         Boot("IDACTION_YAW = 00220004; IDACTION_MOVEFORWARD = 00220010; exec(\"config.cs\");");
-        var m = mApp!.Maps.FindMap("playMap.sae")!;
+        var m = _app!.Maps.FindMap("playMap.sae")!;
         Assert.Equal(3, m.Bindings.Count);
         Assert.InRange(m.Bindings[0].ScaleF, 0.00098f, 0.00100f);
         Assert.Equal("drop(BackPack);", m.Bindings[2].Command);
@@ -428,10 +428,10 @@ public sealed class ClientAppTests : IDisposable
 
     private void EnterPlay()
     {
-        mApp!.Game = new LiveGame(mApp);
+        _app!.Game = new LiveGame(_app);
         var play = new GuiControl { Id = PlayDelegate.PlayGuiId };
-        mApp.Canvas.SetContent(play);
-        mApp.Play.UpdateContent(play.Id);
+        _app.Canvas.SetContent(play);
+        _app.Play.UpdateContent(play.Id);
     }
 
     [Fact]
@@ -440,14 +440,14 @@ public sealed class ClientAppTests : IDisposable
         // client-scripts.md 3.8: playGui pushes playMap then actionMap; leaving pops them; the play view owns the mouse.
         Boot("newActionMap(\"actionMap.sae\"); newActionMap(\"playMap.sae\"); newActionMap(\"pdaMap.sae\");");
         EnterPlay();
-        Assert.Equal(2, mApp!.Input.StackDepth);
-        Assert.False(mApp.Canvas.CursorOn);
-        Assert.Equal("True", mApp.Interp.PeekVariable("$ConnectedToServer"));
+        Assert.Equal(2, _app!.Input.StackDepth);
+        Assert.False(_app.Canvas.CursorOn);
+        Assert.Equal("True", _app.Interp.PeekVariable("$ConnectedToServer"));
         var menu = new GuiControl { Id = 100100 };
-        mApp.Canvas.SetContent(menu);
-        mApp.Play.UpdateContent(menu.Id);
-        Assert.Equal(0, mApp.Input.StackDepth);
-        Assert.True(mApp.Canvas.CursorOn);
+        _app.Canvas.SetContent(menu);
+        _app.Play.UpdateContent(menu.Id);
+        Assert.Equal(0, _app.Input.StackDepth);
+        Assert.True(_app.Canvas.CursorOn);
     }
 
     [Fact]
@@ -461,15 +461,15 @@ public sealed class ClientAppTests : IDisposable
              "bindAction(mouse0, xaxis0, TO, 220004, Flip, Scale, 0.001);" +
              "newActionMap(\"pdaMap.sae\");");
         EnterPlay();
-        mApp!.InjectKey(0x11, true);
-        Assert.Equal(1f, mApp.Play.Moves.Forward);
-        mApp.InjectKey(0x11, false);
-        Assert.Equal(0f, mApp.Play.Moves.Forward);
-        mApp.InjectButton(1, true);
-        Assert.True(mApp.Play.Moves.JetOn);
-        mApp.InjectAxis(0, 100f);
+        _app!.InjectKey(0x11, true);
+        Assert.Equal(1f, _app.Play.Moves.Forward);
+        _app.InjectKey(0x11, false);
+        Assert.Equal(0f, _app.Play.Moves.Forward);
+        _app.InjectButton(1, true);
+        Assert.True(_app.Play.Moves.JetOn);
+        _app.InjectAxis(0, 100f);
         // Flip makes the value 1 - 100, scale 0.001, then * pi (scaled(v) with fov 90): a turn to the right.
-        Assert.True(mApp.Play.Moves.TurnAcc < 0);
+        Assert.True(_app.Play.Moves.TurnAcc < 0);
     }
 
     [Fact]
@@ -543,27 +543,27 @@ public sealed class ClientAppTests : IDisposable
     public void TimedScriptRunsLinesInOrderAndWaitsForCondition()
     {
         Boot();
-        var path = Path.Combine(mRoot, "run.txt");
+        var path = Path.Combine(_root, "run.txt");
         File.WriteAllText(path, "@0.5 eval $A = 1;\n@1.0 eval $B = 1;\nwaitfor $Gate 5\neval $C = 1;\n");
         // Load through a second app so the script object is built by the public path (--input).
-        mApp!.Dispose();
-        mApp = null;
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"), "newClient(); focusClient(); newObject(MainWindow, SimGui::Canvas, \"T\", 640, 480, True, \"512 384\", \"1024 768\");");
-        var opt = ClientOptions.Parse(["--root", mRoot, "--headless", "--input", path], out _)!;
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out _));
+        _app!.Dispose();
+        _app = null;
+        File.WriteAllText(Path.Combine(_root, "console.cs"), "newClient(); focusClient(); newObject(MainWindow, SimGui::Canvas, \"T\", 640, 480, True, \"512 384\", \"1024 768\");");
+        var opt = ClientOptions.Parse(["--root", _root, "--headless", "--input", path], out _)!;
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out _));
         for (var i = 0; i < 40; ++i)
-            mApp.Step();   // 16 ms of virtual time each: 0.64 s
-        Assert.Equal("1", mApp.Interp.PeekVariable("$A"));
-        Assert.Equal("", mApp.Interp.PeekVariable("$B"));
+            _app.Step();   // 16 ms of virtual time each: 0.64 s
+        Assert.Equal("1", _app.Interp.PeekVariable("$A"));
+        Assert.Equal("", _app.Interp.PeekVariable("$B"));
         for (var i = 0; i < 40; ++i)
-            mApp.Step();   // 1.28 s
-        Assert.Equal("1", mApp.Interp.PeekVariable("$B"));
-        Assert.Equal("", mApp.Interp.PeekVariable("$C"));      // held back by waitfor
-        mApp.Interp.SetVariable("$Gate", "1");
+            _app.Step();   // 1.28 s
+        Assert.Equal("1", _app.Interp.PeekVariable("$B"));
+        Assert.Equal("", _app.Interp.PeekVariable("$C"));      // held back by waitfor
+        _app.Interp.SetVariable("$Gate", "1");
         for (var i = 0; i < 5; ++i)
-            mApp.Step();
-        Assert.Equal("1", mApp.Interp.PeekVariable("$C"));
+            _app.Step();
+        Assert.Equal("1", _app.Interp.PeekVariable("$C"));
     }
 
     // ---- command line (client-app.md 1.2) ----

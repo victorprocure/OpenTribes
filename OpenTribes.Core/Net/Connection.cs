@@ -79,43 +79,43 @@ public sealed class Connection
     public const uint FlagAckReply = 0x10;
 
     /// <summary>The largest datagram in bytes.</summary>
-    public const int kMaxPacket = 1500;
+    public const int MaxPacket = 1500;
     /// <summary>The number of silent retries before the connection times out.</summary>
-    public const uint kMaxRetries = 15;
+    public const uint MaxRetries = 15;
 
-    private const uint kFree = 6;
+    private const uint Free = 6;
 
     // src/net/connection.hpp Connection::Slot.
     private struct Slot
     {
-        public uint SendTick;
-        public uint Type;
-        public bool Acked;
-        public uint Cookie;
+        public uint SendTick { get; set; }
+        public uint Type { get; set; }
+        public bool Acked { get; set; }
+        public uint Cookie { get; set; }
     }
 
-    private Address mPeer;
-    private uint mId;
-    private readonly ConnectionEvents mEvents;
-    private readonly SendFn mSend;
+    private Address _peer;
+    private uint _id;
+    private readonly ConnectionEvents _events;
+    private readonly SendFn _send;
 
-    private ConnectionState mState = ConnectionState.Idle;
-    private bool mDead;
-    private uint mRtt = 100;
-    private float mLoss;
+    private ConnectionState _state = ConnectionState.Idle;
+    private bool _dead;
+    private uint _rtt = 100;
+    private float _loss;
 
-    private readonly bool[] mReceived = new bool[32];
-    private uint mLastRecvSeq;
-    private uint mAckedByPeer;  // highest of my sequences the peer acked, mod 32
-    private uint mLastSentSeq;
-    private uint mOldestUnacked;
-    private uint mLastRecvTick;
-    private uint mRetries;
-    private readonly Slot[] mSlots = new Slot[32];
-    private byte[] mLastPayload = []; // resent by retransmits
+    private readonly bool[] _received = new bool[32];
+    private uint _lastRecvSeq;
+    private uint _ackedByPeer;  // highest of my sequences the peer acked, mod 32
+    private uint _lastSentSeq;
+    private uint _oldestUnacked;
+    private uint _lastRecvTick;
+    private uint _retries;
+    private readonly Slot[] _slots = new Slot[32];
+    private byte[] _lastPayload = []; // resent by retransmits
 
     /// <summary>Caller data attached to the connection.</summary>
-    public object? UserData;
+    public object? UserData { get; set; }
 
     // src/net/connection.cpp carriesId.
     private static bool CarriesId(uint type)
@@ -132,13 +132,13 @@ public sealed class Connection
     /// <param name="nowMs">The current time in milliseconds.</param>
     public Connection(Address peer, uint id, ConnectionEvents events, SendFn send, uint nowMs)
     {
-        mPeer = peer;
-        mId = id;
-        mEvents = events;
-        mSend = send;
-        mLastRecvTick = nowMs;
+        _peer = peer;
+        _id = id;
+        _events = events;
+        _send = send;
+        _lastRecvTick = nowMs;
         for (var i = 0; i < 32; ++i)
-            mSlots[i].Type = kFree;
+            _slots[i].Type = Free;
     }
 
     /// <summary>Sends a sequenced packet.</summary>
@@ -149,7 +149,7 @@ public sealed class Connection
     /// <returns>False when 31 packets are already in flight.</returns>
     public bool Send(uint type, ReadOnlySpan<byte> payload, uint nowMs, uint cookie = 0)
     {
-        if (((mLastSentSeq + 1) & 31) == mOldestUnacked)
+        if (((_lastSentSeq + 1) & 31) == _oldestUnacked)
             return false;
         Transmit(type, payload, nowMs, cookie);
         return true;
@@ -172,69 +172,69 @@ public sealed class Connection
                 payload[i] = (byte)text[i];
         }
         Transmit(type, payload, nowMs, 0);
-        mDead = true;
+        _dead = true;
     }
 
     /// <summary>Removes the connection without sending anything, for a banned peer.</summary>
-    public void Drop() => mDead = true;
+    public void Drop() => _dead = true;
 
     /// <summary>Builds and sends one packet. A packet with <see cref="FlagAckRequest"/> resends the newest slot. Keep alives and replies are unsequenced.</summary>
     private void Transmit(uint type, ReadOnlySpan<byte> payload, uint nowMs, uint cookie)
     {
-        if (type == ConnectRequest && mState == ConnectionState.Idle)
-            mState = ConnectionState.RequestSent;
-        else if (type == Accept && mState == ConnectionState.Requested)
-            mState = ConnectionState.AcceptSent;
+        if (type == ConnectRequest && _state == ConnectionState.Idle)
+            _state = ConnectionState.RequestSent;
+        else if (type == Accept && _state == ConnectionState.Requested)
+            _state = ConnectionState.AcceptSent;
 
-        var buf = new byte[kMaxPacket];
+        var buf = new byte[MaxPacket];
         var bs = new BitStream(buf, buf.Length);
         var wireType = type;
-        var seq = mLastSentSeq;
+        var seq = _lastSentSeq;
         var withId = false;
 
         if ((type & FlagAckRequest) != 0)
         {
             // Retransmit the newest slot with its original type plus flags.
-            ref var slot = ref mSlots[mLastSentSeq & 31];
+            ref var slot = ref _slots[_lastSentSeq & 31];
             slot.Type |= FlagAckRequest;
             wireType = slot.Type | type;
             withId = CarriesId(slot.Type);
-            payload = mLastPayload;
+            payload = _lastPayload;
         }
         else if (type is KeepAlive or FlagAckReply)
         {
             // Unsequenced. The original also resets the stored payload length here.
-            mLastPayload = [];
+            _lastPayload = [];
             payload = [];
         }
         else
         {
             if (type == Accept)
                 wireType = Accept | FlagAckRequest;
-            seq = ++mLastSentSeq;
-            mSlots[seq & 31] = new Slot { SendTick = nowMs, Type = type, Acked = false, Cookie = cookie };
+            seq = ++_lastSentSeq;
+            _slots[seq & 31] = new Slot { SendTick = nowMs, Type = type, Acked = false, Cookie = cookie };
             withId = CarriesId(type);
-            mLastPayload = payload.ToArray();
+            _lastPayload = payload.ToArray();
         }
 
         bs.WriteFlag(true);
-        bs.WriteInt(mId & 1, 1);
+        bs.WriteInt(_id & 1, 1);
         bs.WriteInt(seq, 9);
-        bs.WriteInt(mAckedByPeer, 5);
+        bs.WriteInt(_ackedByPeer, 5);
 
         // One range per run of received sequences, scanning from lastRecv + 2 around the ring.
-        var stop = (mLastRecvSeq + 1) & 31;
+        var stop = (_lastRecvSeq + 1) & 31;
         var i = stop;
         while (true)
         {
             i = (i + 1) & 31;
             if (i == stop)
                 break;
-            if (!mReceived[i])
+            if (!_received[i])
                 continue;
             var start = i;
             uint count = 0;
-            while (i != stop && mReceived[i])
+            while (i != stop && _received[i])
             {
                 ++count;
                 i = (i + 1) & 31;
@@ -254,27 +254,27 @@ public sealed class Connection
         bs.WriteInt(0, 3);
         bs.WriteInt(wireType, 5);
         if (withId)
-            bs.WriteInt(mId, 32);
+            bs.WriteInt(_id, 32);
 
         var header = bs.BytePosition();
         if (header + payload.Length > buf.Length)
             return;
         payload.CopyTo(buf.AsSpan(header));
-        mSend(mPeer, buf.AsSpan(0, header + payload.Length));
+        _send(_peer, buf.AsSpan(0, header + payload.Length));
     }
 
     // src/net/connection.cpp Connection::flush.
     private void Flush()
     {
-        for (var i = (mLastSentSeq + 1) & 31; i != (mLastSentSeq & 31); i = (i + 1) & 31)
+        for (var i = (_lastSentSeq + 1) & 31; i != (_lastSentSeq & 31); i = (i + 1) & 31)
         {
-            if (mSlots[i].Type == kFree)
+            if (_slots[i].Type == Free)
                 continue;
-            if (mSlots[i].Cookie != 0)
-                mEvents.OnNotify(this, mSlots[i].Cookie, false);
-            mSlots[i].Type = kFree;
+            if (_slots[i].Cookie != 0)
+                _events.OnNotify(this, _slots[i].Cookie, false);
+            _slots[i].Type = Free;
         }
-        mState = ConnectionState.Idle;
+        _state = ConnectionState.Idle;
     }
 
     /// <summary>Handles one datagram from the peer: the sequence and ack ranges, the handshake and the payload.</summary>
@@ -301,7 +301,7 @@ public sealed class Connection
                 return;
             if (rangeCount == 20)
             {
-                mEvents.OnAckRangeOverflow(this); // the original's stack array holds 20 ranges
+                _events.OnAckRangeOverflow(this); // the original's stack array holds 20 ranges
                 return;
             }
             rangeStart[(int)rangeCount] = bs.ReadInt(5);
@@ -327,36 +327,36 @@ public sealed class Connection
         {
             var id = bs.ReadInt(32);
             TakePayload(data, ref payload);
-            if (mState != ConnectionState.Idle && id != mId)
+            if (_state != ConnectionState.Idle && id != _id)
             {
                 // A new connection id from the same address replaces the old connection.
                 Flush();
-                mEvents.OnClosed(this, [], true);
-                mDead = true;
+                _events.OnClosed(this, [], true);
+                _dead = true;
                 return;
             }
-            if (mState == ConnectionState.Idle)
-                mId = id;
+            if (_state == ConnectionState.Idle)
+                _id = id;
         }
-        if ((mId & 1) != idBit)
+        if ((_id & 1) != idBit)
             return; // "packet ordering incorrect"
 
         // Extend the 9-bit sequence into the window [lastRecv, lastRecv + 30].
-        var full = seq | (mLastRecvSeq & ~0x1ffu);
-        var windowEnd = mLastRecvSeq + 30;
-        if (full < mLastRecvSeq || full > windowEnd)
+        var full = seq | (_lastRecvSeq & ~0x1ffu);
+        var windowEnd = _lastRecvSeq + 30;
+        if (full < _lastRecvSeq || full > windowEnd)
         {
             full = seq | (windowEnd & ~0x1ffu);
-            if (full < mLastRecvSeq || full > windowEnd)
+            if (full < _lastRecvSeq || full > windowEnd)
                 return; // "bad seqNum"
         }
 
-        for (var s = mLastRecvSeq + 1; s < full; ++s)
-            mReceived[s & 31] = false;
+        for (var s = _lastRecvSeq + 1; s < full; ++s)
+            _received[s & 31] = false;
         if (type != KeepAlive)
-            mReceived[full & 31] = true;
+            _received[full & 31] = true;
         for (var i = (full + 1) & 31; i != ((peerAckAck + 1) & 31); i = (i + 1) & 31)
-            mReceived[i] = false;
+            _received[i] = false;
         var gap = (int)(full & 31) - (int)peerAckAck;
         if (gap < 0)
             gap += 32;
@@ -370,51 +370,51 @@ public sealed class Connection
             {
                 var s = rangeStart[(int)r];
                 for (uint c = 0; c < rangeCountOf[(int)r]; ++c, s = (s + 1) & 31)
-                    if (mSlots[s].Type != kFree)
-                        mSlots[s].Acked = true;
+                    if (_slots[s].Type != Free)
+                        _slots[s].Acked = true;
                 end = s;
             }
-            mOldestUnacked = rangeStart[0];
-            var i = (mLastSentSeq + 1) & 31;
+            _oldestUnacked = rangeStart[0];
+            var i = (_lastSentSeq + 1) & 31;
             do
             {
-                ref var slot = ref mSlots[i];
-                if (slot.Type != kFree)
+                ref var slot = ref _slots[i];
+                if (slot.Type != Free)
                 {
                     if (!slot.Acked)
                     {
-                        mLoss = 0.01f * ((mLoss * 99.0f) + 1.0f);
+                        _loss = 0.01f * ((_loss * 99.0f) + 1.0f);
                         if (slot.Cookie != 0)
-                            mEvents.OnNotify(this, slot.Cookie, false);
-                        slot.Type = kFree;
+                            _events.OnNotify(this, slot.Cookie, false);
+                        slot.Type = Free;
                     }
                     else
                     {
-                        mLoss = 0.01f * mLoss * 99.0f;
+                        _loss = 0.01f * _loss * 99.0f;
                         if (slot.Cookie != 0)
-                            mEvents.OnNotify(this, slot.Cookie, true);
-                        if ((slot.Type & ~FlagAckRequest) == Accept && mState == ConnectionState.AcceptSent)
+                            _events.OnNotify(this, slot.Cookie, true);
+                        if ((slot.Type & ~FlagAckRequest) == Accept && _state == ConnectionState.AcceptSent)
                         {
-                            mState = ConnectionState.Connected;
-                            mEvents.OnEstablished(this);
+                            _state = ConnectionState.Connected;
+                            _events.OnEstablished(this);
                         }
-                        slot.Type = kFree;
-                        mRtt = (nowMs - slot.SendTick + (mRtt * 31)) >> 5;
+                        slot.Type = Free;
+                        _rtt = (nowMs - slot.SendTick + (_rtt * 31)) >> 5;
                     }
                 }
                 i = (i + 1) & 31;
             } while (i != end);
-            mAckedByPeer = (end - 1) & 31;
+            _ackedByPeer = (end - 1) & 31;
         }
 
-        mLastRecvTick = nowMs;
-        mRetries = 0;
-        var isNew = mLastRecvSeq != full;
-        mLastRecvSeq = full;
+        _lastRecvTick = nowMs;
+        _retries = 0;
+        var isNew = _lastRecvSeq != full;
+        _lastRecvSeq = full;
 
         if (needAck)
         {
-            if (mSlots[mLastSentSeq & 31].Type == kFree)
+            if (_slots[_lastSentSeq & 31].Type == Free)
                 Transmit(FlagAckReply, [], nowMs, 0);
             else
                 Transmit(FlagAckRequest | FlagAckReply, [], nowMs, 0);
@@ -422,35 +422,35 @@ public sealed class Connection
         if (!isNew)
             return;
 
-        if (type == ConnectRequest && mState == ConnectionState.Idle)
+        if (type == ConnectRequest && _state == ConnectionState.Idle)
         {
-            mState = ConnectionState.Requested;
-            mEvents.OnConnectRequest(this, payload);
+            _state = ConnectionState.Requested;
+            _events.OnConnectRequest(this, payload);
         }
-        else if ((type == Disconnect && mState == ConnectionState.Connected) ||
-                 ((type == Accept || type == Reject) && mState == ConnectionState.RequestSent))
+        else if ((type == Disconnect && _state == ConnectionState.Connected) ||
+                 ((type == Accept || type == Reject) && _state == ConnectionState.RequestSent))
         {
             var id = bs.ReadInt(32);
             TakePayload(data, ref payload);
-            if (id != mId)
+            if (id != _id)
                 return;
             if (type == Accept)
             {
-                mEvents.OnAccepted(this, payload);
-                mState = ConnectionState.Connected;
+                _events.OnAccepted(this, payload);
+                _state = ConnectionState.Connected;
                 return;
             }
             Flush();
             if (type == Reject)
-                mEvents.OnRejected(this, payload);
+                _events.OnRejected(this, payload);
             else
-                mEvents.OnClosed(this, payload, false);
-            mDead = true;
+                _events.OnClosed(this, payload, false);
+            _dead = true;
         }
-        else if (type == Data && mState == ConnectionState.Connected)
+        else if (type == Data && _state == ConnectionState.Connected)
         {
             TakePayload(data, ref payload);
-            mEvents.OnData(this, payload);
+            _events.OnData(this, payload);
         }
     }
 
@@ -458,36 +458,36 @@ public sealed class Connection
     /// <param name="nowMs">The current time in milliseconds.</param>
     public void Tick(uint nowMs)
     {
-        if (mDead || nowMs <= mLastRecvTick + (3000 * (mRetries + 1)))
+        if (_dead || nowMs <= _lastRecvTick + (3000 * (_retries + 1)))
             return;
-        if (mSlots[mLastSentSeq & 31].Type == kFree)
+        if (_slots[_lastSentSeq & 31].Type == Free)
             Transmit(KeepAlive, [], nowMs, 0);
         else
             Transmit(FlagAckRequest, [], nowMs, 0);
-        if (++mRetries > kMaxRetries)
+        if (++_retries > MaxRetries)
         {
             Flush();
-            mEvents.OnClosed(this, [], true);
-            mDead = true;
+            _events.OnClosed(this, [], true);
+            _dead = true;
         }
     }
 
     /// <summary>Gets the peer address.</summary>
     /// <returns>The address.</returns>
-    public Address Peer() => mPeer;
+    public Address Peer() => _peer;
     /// <summary>Gets the handshake state.</summary>
     /// <returns>The state.</returns>
-    public ConnectionState State() => mState;
+    public ConnectionState State() => _state;
     /// <summary>Tells whether the connection ended and can be removed.</summary>
     /// <returns>True when dead.</returns>
-    public bool Dead() => mDead;
+    public bool Dead() => _dead;
     /// <summary>Gets the connection id.</summary>
     /// <returns>The id.</returns>
-    public uint Id() => mId;
+    public uint Id() => _id;
     /// <summary>Gets the smoothed round trip time.</summary>
     /// <returns>The time in milliseconds.</returns>
-    public uint RttMs() => mRtt;
+    public uint RttMs() => _rtt;
     /// <summary>Gets the smoothed packet loss.</summary>
     /// <returns>The loss as a fraction.</returns>
-    public float PacketLoss() => mLoss;
+    public float PacketLoss() => _loss;
 }

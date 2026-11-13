@@ -8,7 +8,7 @@ using OpenTribes.Platform.Gfx;
 
 public class GuiVehicleHudTests
 {
-    internal const int kVehicle = 5, kPilot = 6, kPassenger = 7, kOther = 8;
+    internal const int Vehicle = 5, Pilot = 6, Passenger = 7, Other = 8;
 
     internal static (ClientWorld World, ClientHudSource Src) Scene(string controlClass, int control)
     {
@@ -19,10 +19,10 @@ public class GuiVehicleHudTests
         world.Players.Clients[0x802] = new ClientPlayerRecord { Id = 0x802, Name = "Rider", Team = 1 };
         for (var i = 0; i < world.Psc.Visible.Length; ++i)
             world.Psc.Visible[i] = uint.MaxValue;
-        world.Ghosts.Insert(new ClientGhost { Index = kVehicle, Class = "Flier" });
-        world.Ghosts.Insert(Body(kPilot, 0x800, 6, "5/1"));
-        world.Ghosts.Insert(Body(kPassenger, 0x801, 6, "5/2"));
-        world.Ghosts.Insert(Body(kOther, 0x802, 6, "none"));
+        world.Ghosts.Insert(new ClientGhost { Index = Vehicle, Class = "Flier" });
+        world.Ghosts.Insert(Body(Pilot, 0x800, 6, "5/1"));
+        world.Ghosts.Insert(Body(Passenger, 0x801, 6, "5/2"));
+        world.Ghosts.Insert(Body(Other, 0x802, 6, "none"));
         world.Psc.ControlGhost = control;
         world.Psc.ControlClass = controlClass;
         var src = new ClientHudSource(world) { ViewCamera = (w, h) => new Camera3D(0, 0, 0, 0, 0, 90, w, h, 0.1, 1000) };
@@ -41,8 +41,8 @@ public class GuiVehicleHudTests
     [Fact]
     public void PilotHealthBarReadsTheControlStateDamageOfTheVehicle()
     {
-        var (world, src) = Scene("Flier", kVehicle);
-        world.Ghosts.Get(kVehicle)!.State["damage"] = 0.9;
+        var (world, src) = Scene("Flier", Vehicle);
+        world.Ghosts.Get(Vehicle)!.State["damage"] = 0.9;
         world.Psc.ControlState = new Dictionary<string, object?> { ["dmg6"] = 21L };
         Assert.Equal((float)(21 / 63.0), (float)src.DamageLevel);
         world.Psc.ControlState = new Dictionary<string, object?> { ["dmg6"] = 63L };
@@ -52,7 +52,7 @@ public class GuiVehicleHudTests
     [Fact]
     public void PilotEnergyBarReadsTheControlStateEnergyOfTheVehicle()
     {
-        var (world, src) = Scene("Flier", kVehicle);
+        var (world, src) = Scene("Flier", Vehicle);
         world.Psc.ControlState = new Dictionary<string, object?> { ["E16"] = 65535L };
         Assert.Equal(1.0, src.EnergyLevel);
         world.Psc.ControlState = new Dictionary<string, object?> { ["E16"] = 32768L };
@@ -64,8 +64,8 @@ public class GuiVehicleHudTests
     [Fact]
     public void PassengerBarsStayThoseOfThePlayer()
     {
-        var (world, src) = Scene("Player", kPilot);
-        world.Ghosts.Get(kPilot)!.State["damage"] = 0.25;
+        var (world, src) = Scene("Player", Pilot);
+        world.Ghosts.Get(Pilot)!.State["damage"] = 0.25;
         world.Psc.ControlState = new Dictionary<string, object?> { ["dmg6"] = 63L, ["E16"] = 0L };
         Assert.Equal(0.25, src.DamageLevel);
     }

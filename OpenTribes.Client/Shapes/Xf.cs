@@ -5,29 +5,29 @@ namespace OpenTribes.Client.Shapes;
 public struct Xf
 {
     /// <summary>Matrix element 0 (row 0, column 0).</summary>
-    public double M0;
+    public double M0 { get; set; }
     /// <summary>Matrix element 1 (row 0, column 1).</summary>
-    public double M1;
+    public double M1 { get; set; }
     /// <summary>Matrix element 2 (row 0, column 2).</summary>
-    public double M2;
+    public double M2 { get; set; }
     /// <summary>Matrix element 3 (row 1, column 0).</summary>
-    public double M3;
+    public double M3 { get; set; }
     /// <summary>Matrix element 4 (row 1, column 1).</summary>
-    public double M4;
+    public double M4 { get; set; }
     /// <summary>Matrix element 5 (row 1, column 2).</summary>
-    public double M5;
+    public double M5 { get; set; }
     /// <summary>Matrix element 6 (row 2, column 0).</summary>
-    public double M6;
+    public double M6 { get; set; }
     /// <summary>Matrix element 7 (row 2, column 1).</summary>
-    public double M7;
+    public double M7 { get; set; }
     /// <summary>Matrix element 8 (row 2, column 2).</summary>
-    public double M8;
+    public double M8 { get; set; }
     /// <summary>The translation x.</summary>
-    public double Px;
+    public double Px { get; set; }
     /// <summary>The translation y.</summary>
-    public double Py;
+    public double Py { get; set; }
     /// <summary>The translation z.</summary>
-    public double Pz;
+    public double Pz { get; set; }
 
     /// <summary>The transform that changes nothing.</summary>
     public static Xf Identity => new() { M0 = 1, M4 = 1, M8 = 1 };

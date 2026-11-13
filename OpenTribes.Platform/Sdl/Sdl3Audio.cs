@@ -18,11 +18,11 @@ public static partial class Sdl3
     public struct AudioSpec
     {
         /// <summary>The sample format.</summary>
-        public uint Format;
+        public uint Format { get; set; }
         /// <summary>The channel count.</summary>
-        public int Channels;
+        public int Channels { get; set; }
         /// <summary>The sample rate.</summary>
-        public int Freq;
+        public int Freq { get; set; }
     }
 
     /// <summary>Initialises a subsystem (SDL_InitSubSystem).</summary>

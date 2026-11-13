@@ -67,41 +67,41 @@ public enum NodeKind
 public sealed class Node
 {
     /// <summary>The node kind.</summary>
-    public NodeKind Kind;
+    public NodeKind Kind { get; set; }
     /// <summary>The source line.</summary>
-    public int Line;
+    public int Line { get; set; }
     /// <summary>The operator token kind.</summary>
-    public Tok Op = Tok.End;
+    public Tok Op { get; set; } = Tok.End;
     /// <summary>The operator character for <c>Tok.Char</c> operators.</summary>
-    public char OpChar;
+    public char OpChar { get; set; }
     /// <summary>The identifier, variable, field, function or class name, or the literal text.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The class name of a datablock or instant.</summary>
-    public string ClassName = "";
+    public string ClassName { get; set; } = "";
     /// <summary>Whether the expression was written in parentheses.</summary>
-    public bool Parenthesized;
+    public bool Parenthesized { get; set; }
     /// <summary>Whether an if statement has an else branch.</summary>
-    public bool HasElse;
+    public bool HasElse { get; set; }
     /// <summary>Whether a slot has a <c>{a, b}</c> value.</summary>
-    public bool IsList;
+    public bool IsList { get; set; }
     /// <summary>The first child.</summary>
-    public Node? A;
+    public Node? A { get; set; }
     /// <summary>The second child.</summary>
-    public Node? B;
+    public Node? B { get; set; }
     /// <summary>The third child.</summary>
-    public Node? C;
+    public Node? C { get; set; }
     /// <summary>The subscript expressions.</summary>
-    public readonly List<Node> Index = [];
+    public List<Node> Index { get; } = [];
     /// <summary>The arguments or values.</summary>
-    public readonly List<Node> List = [];
+    public List<Node> List { get; } = [];
     /// <summary>The statements of the body.</summary>
-    public readonly List<Node> Body = [];
+    public List<Node> Body { get; } = [];
     /// <summary>The statements of the else body.</summary>
-    public readonly List<Node> ElseBody = [];
+    public List<Node> ElseBody { get; } = [];
     /// <summary>The slots of a datablock or instant.</summary>
-    public readonly List<Node> Slots = [];
+    public List<Node> Slots { get; } = [];
     /// <summary>The child instants of an instant.</summary>
-    public readonly List<Node> Children = [];
+    public List<Node> Children { get; } = [];
     /// <summary>The parameter names of a function.</summary>
-    public readonly List<string> Params = [];
+    public List<string> Params { get; } = [];
 }

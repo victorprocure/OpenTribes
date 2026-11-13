@@ -20,7 +20,7 @@ public sealed class GuiFGControl : GuiControl
 public sealed class GuiBox : GuiControl
 {
     /// <summary>True to draw the box dimmed: the byte at +0x1b0 of the original (004966c4), set by the screen's own code (the filter list is dimmed with no filter).</summary>
-    public bool ForceDim;
+    public bool ForceDim { get; set; }
 
     /// <summary>Draws the double line frame.</summary>
     /// <param name="p">The painter.</param>
@@ -150,7 +150,7 @@ public sealed class GuiMenuPanel : GuiControl
 /// <summary>The modal dialog frame (FearGui::FGDlgBox, 004a31c8, 004a2f2c, 004a30fc).</summary>
 public sealed class GuiDlgBox : GuiActive
 {
-    private static readonly string[] kGrab =
+    private static readonly string[] Grab =
     [
         "ExitGameDialog", "RemoveDemoDialog", "RemovePlayerDialog", "MOTDDialog", "MessageDialog", "ServerInfoDialog",
         "HostWarnDialog", "DNSWarningDialog",
@@ -164,7 +164,7 @@ public sealed class GuiDlgBox : GuiActive
     /// <inheritdoc/>
     public override void PreRender()
     {
-        if (Name == null || Canvas == null || !kGrab.Contains(Name, StringComparer.OrdinalIgnoreCase))
+        if (Name == null || Canvas == null || !Grab.Contains(Name, StringComparer.OrdinalIgnoreCase))
             return;
         if (Canvas.FirstResponder is GuiControl fr && IsAncestorOf(fr))
             return;
@@ -330,12 +330,12 @@ public sealed class GuiUniversalButton : GuiActive
     /// <remarks>Follows 0049f1cc: the hand while the button is active.</remarks>
     public override uint CursorTagAt(int lx, int ly) => Active ? CursorHand : 0;
 
-    private static readonly string[] kSuffixes = ["_DF", "_HI", "_MD", "_MH", "_ON", "_NA", "_BD", "_BO"];
-    private long mFlashClock;
+    private static readonly string[] Suffixes = ["_DF", "_HI", "_MD", "_MH", "_ON", "_NA", "_BD", "_BO"];
+    private long _flashClock;
     /// <summary>True while the button is on.</summary>
-    public bool On;
+    public bool On { get; set; }
     /// <summary>True while the button flashes.</summary>
-    public bool Flash;
+    public bool Flash { get; set; }
 
     /// <inheritdoc/>
     public override bool WantsTab => false;
@@ -470,9 +470,9 @@ public sealed class GuiUniversalButton : GuiActive
             pic = on;
         else if (Flash)
         {
-            if (mFlashClock == 0)
-                mFlashClock = Host?.TickMs ?? 0;
-            pic = (((Host?.TickMs ?? 0) - mFlashClock) >> 9) % 2 == 1 ? on : df;
+            if (_flashClock == 0)
+                _flashClock = Host?.TickMs ?? 0;
+            pic = (((Host?.TickMs ?? 0) - _flashClock) >> 9) % 2 == 1 ? on : df;
         }
         else
             pic = df;
@@ -499,9 +499,9 @@ public sealed class GuiCFGButton : GuiSimpleText
     /// <inheritdoc/>
     public override bool CanTake() => false;
     /// <summary>True while the row waits for a key to bind.</summary>
-    public bool WaitingForKey;
+    public bool WaitingForKey { get; set; }
     /// <summary>The binding text (+0x367): modifier codes 1 to 3 then the key name, empty when the map has no such binding.</summary>
-    public string Binding = "";
+    public string Binding { get; set; } = "";
 
     // The fonts of 0049e460: +0x1cc, +0x1d0, +0x1d4 and the shadow +0x2e0 (tags 150114, 150124, 150134, 150172).
     private PftFont? FontA => Host?.FontByTag(150114);
@@ -592,7 +592,7 @@ public sealed class GuiCFGButton : GuiSimpleText
 public sealed class GuiSwitch : GuiActive
 {
     /// <summary>True while the target is shown.</summary>
-    public bool On = true;
+    public bool On { get; set; } = true;
     /// <inheritdoc/>
     public override bool WantsTab => false;
 
@@ -704,11 +704,11 @@ public sealed class GuiSlider : GuiActive
     /// <remarks>Follows 004cb150 (FGSlider): the hand while active.</remarks>
     public override uint CursorTagAt(int lx, int ly) => ClassName == "FearGui::FGSlider" && Active ? CursorHand : 0;
 
-    private int mPos;      // pixels
-    private bool mDragging;
-    private int mGrab;
+    private int _pos;      // pixels
+    private bool _dragging;
+    private int _grab;
     /// <summary>The step count, 0 or 1 for a continuous slider.</summary>
-    public int Discrete;   // step count, 0 or 1 = continuous
+    public int Discrete { get; set; }   // step count, 0 or 1 = continuous
 
     /// <summary>Gets the thumb width: 30 pixels (the disassembly at 004ca1ee stores 0x1e at +0x1d0).</summary>
     /// <remarks>The right end of its travel is the extent less the width of piece 5 of ShellSliderCtrl.pba less the thumb (004ca760).</remarks>
@@ -726,7 +726,7 @@ public sealed class GuiSlider : GuiActive
         var frac = BitConverter.UInt32BitsToSingle(U("value"));
         var max = U("sliderVersion") >= 2 ? MaxValue : 1f;
         if (max != 0)
-            mPos = (int)(Math.Clamp(frac / max, 0, 1) * RightEnd);
+            _pos = (int)(Math.Clamp(frac / max, 0, 1) * RightEnd);
         if (ConsoleVar.Length > 0 && Host != null)
             VariableChanged(Host.GetVar(ConsoleVar));
     }
@@ -737,7 +737,7 @@ public sealed class GuiSlider : GuiActive
     {
         Discrete = count <= 1 ? 0 : count;
         if (Discrete > 0)
-            mPos = Snap(mPos);
+            _pos = Snap(_pos);
     }
 
     private int Snap(int pos)
@@ -752,9 +752,9 @@ public sealed class GuiSlider : GuiActive
     public override string GetValue()
     {
         if (Discrete > 1)
-            return ((int)Math.Round((double)mPos / RightEnd * (Discrete - 1))).ToString(CultureInfo.InvariantCulture);
+            return ((int)Math.Round((double)_pos / RightEnd * (Discrete - 1))).ToString(CultureInfo.InvariantCulture);
         var max = U("sliderVersion") >= 2 ? MaxValue : 1f;
-        return ((double)mPos / RightEnd * max).ToString("F6", CultureInfo.InvariantCulture);
+        return ((double)_pos / RightEnd * max).ToString("F6", CultureInfo.InvariantCulture);
     }
 
     /// <inheritdoc/>
@@ -763,13 +763,13 @@ public sealed class GuiSlider : GuiActive
         if (!double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
             return;
         if (Discrete > 1)
-            mPos = (int)Math.Round(d / (Discrete - 1) * RightEnd);
+            _pos = (int)Math.Round(d / (Discrete - 1) * RightEnd);
         else
         {
             var max = U("sliderVersion") >= 2 ? MaxValue : 1f;
-            mPos = max != 0 ? (int)(d / max * RightEnd) : 0;
+            _pos = max != 0 ? (int)(d / max * RightEnd) : 0;
         }
-        mPos = Math.Clamp(mPos, 0, RightEnd);
+        _pos = Math.Clamp(_pos, 0, RightEnd);
     }
 
     private void Changed()
@@ -785,28 +785,28 @@ public sealed class GuiSlider : GuiActive
             return base.MsDown(e);
         var (lx, _) = GlobalToLocal(e.X, 0);
         Canvas?.LockMouse(this);
-        mDragging = true;
+        _dragging = true;
         var unit = Discrete > 1 ? Math.Max(1, RightEnd / (Discrete - 1)) : 1;
         if (lx < 8)
-            mPos = Snap(Math.Max(0, mPos - unit));
+            _pos = Snap(Math.Max(0, _pos - unit));
         else if (lx > W - 8)
-            mPos = Snap(Math.Min(RightEnd, mPos + unit));
-        else if (lx < LeftCap + mPos)
-            mPos = Snap(Math.Max(0, mPos - (Discrete > 1 ? unit : RightEnd / 8)));
-        else if (lx >= LeftCap + mPos + Thumb)
-            mPos = Snap(Math.Min(RightEnd, mPos + (Discrete > 1 ? unit : RightEnd / 8)));
+            _pos = Snap(Math.Min(RightEnd, _pos + unit));
+        else if (lx < LeftCap + _pos)
+            _pos = Snap(Math.Max(0, _pos - (Discrete > 1 ? unit : RightEnd / 8)));
+        else if (lx >= LeftCap + _pos + Thumb)
+            _pos = Snap(Math.Min(RightEnd, _pos + (Discrete > 1 ? unit : RightEnd / 8)));
         else
-            mGrab = lx - LeftCap - mPos;
+            _grab = lx - LeftCap - _pos;
         return base.MsDown(e);
     }
 
     /// <inheritdoc/>
     public override bool MsDrag(GuiEvent e)
     {
-        if (mDragging)
+        if (_dragging)
         {
             var (lx, _) = GlobalToLocal(e.X, 0);
-            mPos = Math.Clamp(lx - mGrab - LeftCap, 0, RightEnd);
+            _pos = Math.Clamp(lx - _grab - LeftCap, 0, RightEnd);
             Changed();
         }
         return base.MsDrag(e);
@@ -816,13 +816,13 @@ public sealed class GuiSlider : GuiActive
     /// <remarks>Follows 004ca5ec: the release unlocks the mouse, snaps a discrete slider and evaluates the command. It runs no action.</remarks>
     public override bool MsUp(GuiEvent e)
     {
-        if (mDragging)
+        if (_dragging)
         {
             // [disassembly 004ca5ec] up releases the lock, snaps a discrete slider and evaluates the command; no action.
-            mDragging = false;
+            _dragging = false;
             Pressed = false;
             Canvas?.UnlockMouse(this);
-            mPos = Snap(mPos);
+            _pos = Snap(_pos);
             Changed();
             return true;
         }
@@ -848,8 +848,8 @@ public sealed class GuiSlider : GuiActive
             p.Bitmap(rc, gx + lc.Width + fill, gy);
             if (!dim)
             {
-                PbmpBitmap tl = B(mDragging ? 13 : 7), tm = B(mDragging ? 12 : 6), tr = B(mDragging ? 14 : 8);
-                var x = gx + LeftCap + mPos;
+                PbmpBitmap tl = B(_dragging ? 13 : 7), tm = B(_dragging ? 12 : 6), tr = B(_dragging ? 14 : 8);
+                var x = gx + LeftCap + _pos;
                 p.Bitmap(tl, x, gy);
                 x += tl.Width;
                 var mid = Thumb - tl.Width - B(8).Width;
@@ -865,7 +865,7 @@ public sealed class GuiSlider : GuiActive
 public sealed class GuiProgress : GuiActive
 {
     /// <summary>The value, 0 to 1.</summary>
-    public double Value;
+    public double Value { get; set; }
     /// <inheritdoc/>
     public override bool WantsTab => false;
     /// <inheritdoc/>
@@ -889,25 +889,25 @@ public sealed class GuiProgress : GuiActive
 /// <summary>The timer (SimGui::TimerCtrl): after the initial alarm, then every repeat interval, it posts its message tag.</summary>
 public sealed class GuiTimer : GuiControl
 {
-    private long mNext = -1;
+    private long _next = -1;
     /// <summary>The number of times the timer fired.</summary>
-    public int Fired;
+    public int Fired { get; set; }
 
     /// <inheritdoc/>
     public override void Wake()
     {
         var init = BitConverter.UInt32BitsToSingle(U("initialAlarm"));
-        mNext = (Host?.TickMs ?? 0) + (long)(init * 1000);
+        _next = (Host?.TickMs ?? 0) + (long)(init * 1000);
     }
 
     /// <inheritdoc/>
     public override void PreRender()
     {
-        if (mNext < 0 || Host == null || Host.TickMs < mNext)
+        if (_next < 0 || Host == null || Host.TickMs < _next)
             return;
         ++Fired;
         var rep = BitConverter.UInt32BitsToSingle(U("repeatAlarm"));
-        mNext = rep > 0 ? Host.TickMs + (long)(rep * 1000) : -1;
+        _next = rep > 0 ? Host.TickMs + (long)(rep * 1000) : -1;
         if (U("messageTag") != 0)
             Next?.Message(this, (int)U("messageTag"));
     }
@@ -928,9 +928,9 @@ public sealed class GuiPalette : GuiControl
 public sealed class GuiTextWrap : GuiActive
 {
     /// <summary>The text.</summary>
-    public string Text = "";
+    public string Text { get; set; } = "";
     /// <summary>True for TextFormat, FGTextFormat and FearGuiFormattedText, which lay their text out with <see cref="GuiTextFormat"/>. TextWrap draws its text as is.</summary>
-    public bool Formatted;
+    public bool Formatted { get; set; }
     /// <inheritdoc/>
     public override bool WantsTab => false;
 
@@ -962,28 +962,28 @@ public sealed class GuiTextWrap : GuiActive
     /// <remarks>FearGuiFormattedText sets them from its prepare handler (00489738), with the dimmed table under another dialog. FGTextFormat sets them from its set value handler (004ce3f8): tags 150111, 150121, 150161, never dimmed. FGTextFormat sets its height to the layout height + 4, the FearGuiFormattedText parent size handler (0048983c) to the layout height.</remarks>
     private bool UsesLayout => Formatted;
     private bool Dim => Dimmed && ClassName == "FearGuiFormattedText";
-    private GuiTextFormat? mLayout;
-    private string? mLaidText;
-    private int mLaidWidth = -1;
-    private bool mLaidDimmed;
+    private GuiTextFormat? _layout;
+    private string? _laidText;
+    private int _laidWidth = -1;
+    private bool _laidDimmed;
 
     private GuiTextFormat? Layout()
     {
         if (Host == null)
             return null;
         var text = Text;
-        if (mLayout == null || mLaidText != text || mLaidWidth != W || mLaidDimmed != Dim)
+        if (_layout == null || _laidText != text || _laidWidth != W || _laidDimmed != Dim)
         {
             var fonts = new PftFont?[GuiTextFormat.FontCount];
             fonts[0] = BaseFont;
             fonts[1] = Host.FontByTag(Dim ? 150131u : 150121u);
             fonts[2] = Host.FontByTag(Dim ? 150131u : 150161u);
-            mLayout = GuiTextFormat.Layout(text, W, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
-            mLaidText = text;
-            mLaidWidth = W;
-            mLaidDimmed = Dim;
+            _layout = GuiTextFormat.Layout(text, W, fonts, Host.BitmapByName, n => Host.GetVar("$" + n));
+            _laidText = text;
+            _laidWidth = W;
+            _laidDimmed = Dim;
         }
-        return mLayout;
+        return _layout;
     }
 
     /// <summary>Fits the height to the wrapped text at the control's width.</summary>

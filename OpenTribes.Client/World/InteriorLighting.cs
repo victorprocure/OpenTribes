@@ -10,49 +10,49 @@ public sealed class InteriorLighting
     public struct State
     {
         /// <summary>The red word.</summary>
-        public ushort R;
+        public ushort R { get; set; }
         /// <summary>The green word.</summary>
-        public ushort G;
+        public ushort G { get; set; }
         /// <summary>The blue word.</summary>
-        public ushort B;
+        public ushort B { get; set; }
         /// <summary>The mono word.</summary>
-        public ushort Mono;
+        public ushort Mono { get; set; }
         /// <summary>The time the state ends.</summary>
-        public float EndTime;
+        public float EndTime { get; set; }
         /// <summary>The number of state data records.</summary>
-        public short DataCount;
+        public short DataCount { get; set; }
         /// <summary>The index of the first state data record.</summary>
-        public short DataIndex;
+        public short DataIndex { get; set; }
     }
 
     /// <summary>A surface and light map slot a state touches.</summary>
     public struct StateData
     {
         /// <summary>The surface index.</summary>
-        public short Surface;
+        public short Surface { get; set; }
         /// <summary>The light slot of the surface.</summary>
-        public short Slot;
+        public short Slot { get; set; }
         /// <summary>The source map index.</summary>
-        public int MapIndex;
+        public int MapIndex { get; set; }
     }
 
     /// <summary>A light.</summary>
     public struct Light
     {
         /// <summary>The light id.</summary>
-        public int Id;
+        public int Id { get; set; }
         /// <summary>The offset of the name.</summary>
-        public int NameOffset;
+        public int NameOffset { get; set; }
         /// <summary>The number of states.</summary>
-        public int StateCount;
+        public int StateCount { get; set; }
         /// <summary>The index of the first state.</summary>
-        public int FirstState;
+        public int FirstState { get; set; }
         /// <summary>The duration of one cycle.</summary>
-        public float Duration;
+        public float Duration { get; set; }
         /// <summary>The flags: 1 auto start, 2 loop, 4 random.</summary>
-        public uint Flags;
+        public uint Flags { get; set; }
         /// <summary>The light name.</summary>
-        public string Name;
+        public string Name { get; set; }
         /// <summary>True when the light starts by itself.</summary>
         public readonly bool AutoStart => (Flags & 1) != 0;
         /// <summary>True when the light loops.</summary>
@@ -65,53 +65,53 @@ public sealed class InteriorLighting
     public struct Surface
     {
         /// <summary>The map word: bit 31 constant colour, bit 30 compressed, else a raw offset.</summary>
-        public uint Word;
+        public uint Word { get; set; }
         /// <summary>The number of lights that touch the surface.</summary>
-        public short LightCount;
+        public short LightCount { get; set; }
         /// <summary>The index of the first slot.</summary>
-        public short FirstSlot;
+        public short FirstSlot { get; set; }
         /// <summary>The map width.</summary>
-        public byte SizeX;
+        public byte SizeX { get; set; }
         /// <summary>The map height.</summary>
-        public byte SizeY;
+        public byte SizeY { get; set; }
         /// <summary>The map offset x.</summary>
-        public byte OffsetX;
+        public byte OffsetX { get; set; }
         /// <summary>The map offset y.</summary>
-        public byte OffsetY;
+        public byte OffsetY { get; set; }
     }
 
     /// <summary>True for a mission lighting file.</summary>
-    public bool IsMission;
+    public bool IsMission { get; set; }
     /// <summary>The build id of the file.</summary>
-    public uint BuildId;
+    public uint BuildId { get; set; }
     /// <summary>The light scale shift.</summary>
-    public uint LightScaleShift;
+    public uint LightScaleShift { get; set; }
     /// <summary>The size of the map list.</summary>
-    public uint MapListSize;
+    public uint MapListSize { get; set; }
     /// <summary>The states.</summary>
-    public State[] States = [];
+    public State[] States { get; set; } = [];
     /// <summary>The state data records.</summary>
-    public StateData[] StateDatas = [];
+    public StateData[] StateDatas { get; set; } = [];
     /// <summary>The lights.</summary>
-    public Light[] Lights = [];
+    public Light[] Lights { get; set; } = [];
     /// <summary>The surfaces.</summary>
-    public Surface[] Surfaces = [];
+    public Surface[] Surfaces { get; set; } = [];
     /// <summary>The packed map data.</summary>
-    public byte[] MapData = [];
+    public byte[] MapData { get; set; } = [];
     /// <summary>The Huffman table nodes: the child for bit 1 and the child for bit 0.</summary>
-    public int[,] Nodes = new int[0, 2];
+    public int[,] Nodes { get; set; } = new int[0, 2];
     /// <summary>The Huffman table leaves, the low 16 bits.</summary>
-    public uint[] Leaves = [];
+    public uint[] Leaves { get; set; } = [];
     /// <summary>True when the file has a Huffman table.</summary>
-    public bool HasHuffman;
+    public bool HasHuffman { get; set; }
     /// <summary>The offset of the tail of the file.</summary>
-    public int TailOffset;
+    public int TailOffset { get; set; }
     /// <summary>The length of the file.</summary>
-    public int FileLength;
+    public int FileLength { get; set; }
     /// <summary>The ITRMissionLighting index: the sorted source map indices.</summary>
-    public uint[] MissionSource = [];
+    public uint[] MissionSource { get; set; } = [];
     /// <summary>The destination offsets in <see cref="MapData"/> of the source maps.</summary>
-    public uint[] MissionDest = [];
+    public uint[] MissionDest { get; set; } = [];
 
     /// <summary>Parses a <c>.dil</c> file.</summary>
     /// <param name="d">The file bytes.</param>

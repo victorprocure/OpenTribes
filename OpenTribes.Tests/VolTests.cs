@@ -5,7 +5,7 @@ using OpenTribes.Core;
 
 public class VolTests
 {
-    private static readonly string sTmp = TestPaths.TmpDir("vol");
+    private static readonly string Tmp = TestPaths.TmpDir("vol");
 
     private static void PutU32(List<byte> b, uint v)
     {
@@ -17,10 +17,10 @@ public class VolTests
 
     private sealed class Spec
     {
-        public string? Name;     // null writes name offset -1
-        public string Data = ""; // byte string
-        public byte Compression;
-        public uint BlockSize;   // VBLK size field: the uncompressed length of a compressed entry (0: data.size())
+        public string? Name { get; set; }     // null writes name offset -1
+        public string Data { get; set; } = ""; // byte string
+        public byte Compression { get; set; }
+        public uint BlockSize { get; set; }   // VBLK size field: the uncompressed length of a compressed entry (0: data.size())
 
         public Spec(string? name, string data, byte compression, uint blockSize = 0)
         {
@@ -80,7 +80,7 @@ public class VolTests
 
     private static string WriteTemp(byte[] bytes, string name)
     {
-        var path = Path.Combine(sTmp, name);
+        var path = Path.Combine(Tmp, name);
         bool ok;
         try
         {

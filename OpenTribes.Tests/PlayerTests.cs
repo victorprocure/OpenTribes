@@ -71,12 +71,12 @@ public class PlayerTests
     private static float Scaled(float a, float b) => X87.F32(Mul(a, b));
     private static float Sum(float a, double b) => X87.F32(Add(a, b));
 
-    private const float kFlat = 50.0f;
+    private const float Flat = 50.0f;
 
     private sealed class Fixture
     {
-        public readonly string Root;
-        public readonly Fixtures.World W;
+        public string Root { get; }
+        public Fixtures.World W { get; }
 
         public Fixture(string name)
         {
@@ -87,11 +87,11 @@ public class PlayerTests
             {
                 Scale = 5,
                 Height = 2,
-                Heights = [.. Enumerable.Repeat(kFlat, 25)],
+                Heights = [.. Enumerable.Repeat(Flat, 25)],
                 Squares = [.. new byte[32]]
             }; // 2 x 2 blocks of 4 x 4 squares of 32 m: 256 m x 256 m, flat
-            PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, kFlat, kFlat));
-            PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, kFlat, kFlat));
+            PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, Flat, Flat));
+            PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, Flat, Flat));
             PutFile(Path.Combine(Root, "base/t.dml"), "dml");
             float[] low = [-2, -1, 0, 2, 1, 0.4f], high = [-2, -1, 0, 2, 1, 0.8f];
             PutFile(Path.Combine(Root, "base/low.dis"), DisFile("low-00.dig", "low-000.dil"));
@@ -504,21 +504,21 @@ public class PlayerTests
             if (e.Box[0] == 1000.0f)
                 Assert.True(e.Box[2] == -35.0f && e.Box[5] == 45.0f);
             else
-                Assert.True(e.Box[0] == 3000.0f && e.Box[2] == 5.0f - kFlat && e.Box[5] == 5.0f + kFlat);
+                Assert.True(e.Box[0] == 3000.0f && e.Box[2] == 5.0f - Flat && e.Box[5] == 5.0f + Flat);
         }
         Assert.Equal(2, extra);
         // 5.1: the sphere centre (0, 0, r) against the plane under it.
         var hit = new CollisionHit();
         const float r = 1.125f;
-        float[] above = [10, 10, kFlat - 0.5f];
+        float[] above = [10, 10, Flat - 0.5f];
         Assert.True(Collision.CollideTerrain(te.TerrainData!, above, r, hit));
         Assert.True(hit.Surfaces.Count == 1 && hit.Surfaces[0].Distance == 0.625f && hit.Surfaces[0].Normal[2] == 1.0f);
         Assert.True(hit.StepHeight == -1.0f);
-        float[] below = [10, 10, kFlat - 1.5f]; // centre 0.375 under the plane: d < 0 still collides
+        float[] below = [10, 10, Flat - 1.5f]; // centre 0.375 under the plane: d < 0 still collides
         Assert.True(Collision.CollideTerrain(te.TerrainData!, below, r, hit) && hit.Surfaces[0].Distance == -0.375f);
-        float[] high = [10, 10, kFlat + 0.01f];
+        float[] high = [10, 10, Flat + 0.01f];
         Assert.False(Collision.CollideTerrain(te.TerrainData!, high, r, hit));
-        float[] off = [-10, 10, kFlat];
+        float[] off = [-10, 10, Flat];
         Assert.False(Collision.CollideTerrain(te.TerrainData!, off, r, hit));
 
         // 5.2: box against a solid box interior (x -2..2, y -1..1, z 0..0.8) at the origin.
@@ -718,7 +718,7 @@ public class PlayerTests
     }
 
     private static DtsSpec.Xform X(short[] q, float[] t) => new(q, t);
-    private static readonly short[] kQ0 = [0, 0, 0, 32767];
+    private static readonly short[] Q0 = [0, 0, 0, 32767];
 
     // ---- requested animations on the server (docs/player-sim.md 5.5) ----
 
@@ -730,7 +730,7 @@ public class PlayerTests
         {
             Names = ["bounds", "root", "torso", "run", "wave"],
             Nodes = [new(0, -1, 0, 0, 0), new(1, 0, 0, 0, 0)],
-            Transforms = [X(kQ0, [0, 0, 0])],
+            Transforms = [X(Q0, [0, 0, 0])],
             Objects = [new(2, 0, 0, 1, [0, 0, 0], 0, 0)],
             Details = [new(1, 10.0f)],
             Sequences = [new(1, 1, 0.03125f, 0), new(3, 1, 0.5f, 0), new(4, 0, 0.5f, 0)]
@@ -819,7 +819,7 @@ public class PlayerTests
         {
             Names = ["bounds", "root", "torso"],
             Nodes = [new(0, -1, 0, 0, 0), new(1, 0, 0, 0, 1)],
-            Transforms = [X(kQ0, [0.25f, 0, 0]), X(kQ0, [0, 0, 0])],
+            Transforms = [X(Q0, [0.25f, 0, 0]), X(Q0, [0, 0, 0])],
             Objects = [new(2, 0, 0, 1, [0, 0, 0], 0, 0)],
             Details = [new(1, 10.0f)]
         };
@@ -926,7 +926,7 @@ public class PlayerTests
         {
             Names = ["bounds", "root", "torso"],
             Nodes = [new(0, -1, 0, 0, 0), new(1, 0, 0, 0, 0)],
-            Transforms = [X(kQ0, [0, 0, 0])],
+            Transforms = [X(Q0, [0, 0, 0])],
             Objects = [new(2, 0, 0, 1, [0, 0, 0], 0, 0)],
             Details = [new(1, 10.0f)]
         };
@@ -936,7 +936,7 @@ public class PlayerTests
         {
             Names = ["bounds", "root", "foot", "top"],
             Nodes = [new(0, -1, 0, 0, 0), new(1, 0, 0, 0, 0)],
-            Transforms = [X(kQ0, [0, 0, 0])],
+            Transforms = [X(Q0, [0, 0, 0])],
             Objects = [new(2, 0, 0, 1, [0, 0, 0], 0, 0), new(3, 0, 1, 1, [0, 0, 0], 0, 0)],
             Details = [new(1, 10.0f)],
             Radius = 1.0f
@@ -1191,9 +1191,9 @@ public class PlayerTests
         w.Run("function Player::onKilled(%this) { $killed = %this; }");
         c.Check(w, "echo(Player::isDead(" + id + "));", "False");
         c.Check(w, "echo(GameBase::setDamageLevel(" + id + ", 9), Player::isDead(" + id + "), $killed == " + id + ");", "TrueTrue1");
-        Assert.True(p.Damage == 0.5f && p.ObjectTypeBits == Player.kCorpseType && p.CollisionMask == Player.kDeadMask);
+        Assert.True(p.Damage == 0.5f && p.ObjectTypeBits == Player.CorpseType && p.CollisionMask == Player.DeadMask);
         c.Check(w, "echo(GameBase::setDamageLevel(" + id + ", 0.1), Player::isDead(" + id + "));", "TrueFalse");
-        Assert.True(p.ObjectTypeBits == 0x80 && p.CollisionMask == Player.kLiveMask);
+        Assert.True(p.ObjectTypeBits == 0x80 && p.CollisionMask == Player.LiveMask);
         c.Check(w, "echo(Player::kill(" + id + "), Player::kill(" + id + "), Player::isDead(" + id + "));", "TrueTrueTrue");
         c.Check(w, "echo(Player::kill());", "wrong argcount to kill(player)\nFalse");
         c.Check(w, "echo(Player::isDead(8), Player::blowUp(8), Player::isCrouching(8), Player::getLastContactCount(8));",
@@ -1553,8 +1553,8 @@ public class PlayerTests
             Keys = [new(0.0f, 2, 0x8000), new(1.0f, 3, 0x8000)],
             Transforms =
             [
-                X(kQ0, [0, 0, 0]), X(kQ0, [0, 0.25f, 2.0f]), X(kQ0, [0.5f, 0, 1.25f]),
-                X(kQ0, [0.5f, 0, 1.75f]),
+                X(Q0, [0, 0, 0]), X(Q0, [0, 0.25f, 2.0f]), X(Q0, [0.5f, 0, 1.25f]),
+                X(Q0, [0.5f, 0, 1.75f]),
             ],
             Details = [new(1, 10.0f)]
         };
@@ -1562,7 +1562,7 @@ public class PlayerTests
         {
             Names = ["bounds", "always", "dummyalways muzzle", "root"],
             Nodes = [new(0, -1, 0, 0, 0), new(1, 0, 0, 0, 0), new(2, 1, 0, 0, 1), new(3, 0, 0, 0, 0)],
-            Transforms = [X(kQ0, [0, 0, 0]), X(kQ0, [0, 0.75f, 0.0625f])],
+            Transforms = [X(Q0, [0, 0, 0]), X(Q0, [0, 0.75f, 0.0625f])],
             Details = [new(3, 10.0f)],
             AlwaysNode = 1
         };
@@ -2081,7 +2081,7 @@ public class PlayerTests
                   y.ToString("F6", CultureInfo.InvariantCulture) + " 800\");");
             var gb = w.Object(w.Run("echo($" + name + ");")) as GameBase;
             Assert.True(gb != null && gb.ShapeClass() == GameBase.ShapeKind.Mine);
-            var e = new Container.Entry(gb, ObjectType.kMineType,
+            var e = new Container.Entry(gb, ObjectType.MineType,
                                         Float6.Of(-2.5f, SubF(y, 2.5f), 797.5f, 2.5f, AddF(y, 2.5f), 802.5f), false, null);
             w.Game.World.Add(e);
             return gb!;
@@ -2201,9 +2201,10 @@ public class PlayerTests
 
     private sealed class Psc
     {
-        public List<(uint, int)> Items = [];
-        public bool RateSet;
-        public uint Interval, Bytes;
+        public List<(uint, int)> Items { get; set; } = [];
+        public bool RateSet { get; set; }
+        public uint Interval { get; set; }
+        public uint Bytes { get; set; }
     }
 
     private static void TestPscInventory()

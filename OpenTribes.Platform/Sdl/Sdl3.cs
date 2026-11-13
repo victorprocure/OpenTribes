@@ -351,41 +351,60 @@ public static partial class Sdl3
 public struct SdlEvent
 {
     /// <summary>The event type.</summary>
-    [FieldOffset(0)] public uint Type;
+    public uint Type => _type;
+    [FieldOffset(0)] private uint _type;
     /// <summary>The window id, for window and keyboard events.</summary>
-    [FieldOffset(16)] public uint WindowId;
+    public uint WindowId => _windowId;
+    [FieldOffset(16)] private uint _windowId;
     /// <summary>The new width, for window events.</summary>
-    [FieldOffset(20)] public int Data1;
+    public int Data1 => _data1;
+    [FieldOffset(20)] private int _data1;
     /// <summary>The new height, for window events.</summary>
-    [FieldOffset(24)] public int Data2;
+    public int Data2 => _data2;
+    [FieldOffset(24)] private int _data2;
     /// <summary>The scancode, for keyboard events.</summary>
-    [FieldOffset(24)] public uint Scancode;
+    public uint Scancode => _scancode;
+    [FieldOffset(24)] private uint _scancode;
     /// <summary>The SDL_Keycode, for keyboard events.</summary>
-    [FieldOffset(28)] public uint Key;
+    public uint Key => _key;
+    [FieldOffset(28)] private uint _key;
     /// <summary>Whether the key is down, for keyboard events.</summary>
-    [FieldOffset(36)] public byte Down;
+    public byte Down => _down;
+    [FieldOffset(36)] private byte _down;
     /// <summary>Whether the key is a repeat, for keyboard events.</summary>
-    [FieldOffset(37)] public byte Repeat;
+    public byte Repeat => _repeat;
+    [FieldOffset(37)] private byte _repeat;
     /// <summary>The SDL_Keymod, for keyboard events.</summary>
-    [FieldOffset(32)] public ushort Mod;
+    public ushort Mod => _mod;
+    [FieldOffset(32)] private ushort _mod;
     /// <summary>The x movement, for mouse motion.</summary>
-    [FieldOffset(36)] public float XRel;
+    public float XRel => _xRel;
+    [FieldOffset(36)] private float _xRel;
     /// <summary>The y movement, for mouse motion.</summary>
-    [FieldOffset(40)] public float YRel;
+    public float YRel => _yRel;
+    [FieldOffset(40)] private float _yRel;
     /// <summary>The button, for mouse button events: 1 left, 2 middle, 3 right.</summary>
-    [FieldOffset(24)] public byte Button;
+    public byte Button => _button;
+    [FieldOffset(24)] private byte _button;
     /// <summary>Whether the button is down, for mouse button events.</summary>
-    [FieldOffset(25)] public byte ButtonDown;
+    public byte ButtonDown => _buttonDown;
+    [FieldOffset(25)] private byte _buttonDown;
     /// <summary>The vertical wheel movement, for mouse wheel events.</summary>
-    [FieldOffset(28)] public float WheelY;
+    public float WheelY => _wheelY;
+    [FieldOffset(28)] private float _wheelY;
     /// <summary>The instance id, for joystick events.</summary>
-    [FieldOffset(16)] public uint JoyWhich;
+    public uint JoyWhich => _joyWhich;
+    [FieldOffset(16)] private uint _joyWhich;
     /// <summary>The axis, hat or button index, for joystick events.</summary>
-    [FieldOffset(20)] public byte JoyIndex;
+    public byte JoyIndex => _joyIndex;
+    [FieldOffset(20)] private byte _joyIndex;
     /// <summary>The SDL_HAT_* bits, for joystick hat events.</summary>
-    [FieldOffset(21)] public byte JoyHat;
+    public byte JoyHat => _joyHat;
+    [FieldOffset(21)] private byte _joyHat;
     /// <summary>Whether the button is down, for joystick button events.</summary>
-    [FieldOffset(21)] public byte JoyDown;
+    public byte JoyDown => _joyDown;
+    [FieldOffset(21)] private byte _joyDown;
     /// <summary>The axis value, -32768 to 32767, for joystick axis events.</summary>
-    [FieldOffset(24)] public short JoyAxisValue;
+    public short JoyAxisValue => _joyAxisValue;
+    [FieldOffset(24)] private short _joyAxisValue;
 }

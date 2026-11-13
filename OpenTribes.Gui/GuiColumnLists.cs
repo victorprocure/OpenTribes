@@ -76,7 +76,7 @@ public abstract class GuiColumnList : GuiList
     protected bool Disabled => !Active || Dimmed;
 
     /// <summary>The row under the cursor, -1 for none.</summary>
-    public int HoverRow = -1;
+    public int HoverRow { get; set; } = -1;
 
     /// <inheritdoc/>
     /// <remarks>Follows 004b36e4, which gives the scroll around the list a one pixel border in 0xf0 (0xec disabled).</remarks>
@@ -294,7 +294,7 @@ public sealed class GuiMasterList : GuiColumnList
         new(131306, 1, 122), // IDSTR_SI_ADDRESS
     ];
 
-    private readonly List<string> mAddresses = [];
+    private readonly List<string> _addresses = [];
 
     /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
@@ -303,12 +303,12 @@ public sealed class GuiMasterList : GuiColumnList
 
     /// <inheritdoc/>
     protected override string? Cell(int dataIndex, int row) =>
-        row >= 0 && row < Entries.Count ? dataIndex == 0 ? Entries[row].Text : dataIndex == 1 ? mAddresses[row] : null : null;
+        row >= 0 && row < Entries.Count ? dataIndex == 0 ? Entries[row].Text : dataIndex == 1 ? _addresses[row] : null : null;
 
     /// <summary>Returns the address of a row.</summary>
     /// <param name="row">The row index.</param>
     /// <returns>The address.</returns>
-    public string AddressOf(int row) => mAddresses[row];
+    public string AddressOf(int row) => _addresses[row];
 
     /// <summary>Adds a master server.</summary>
     /// <param name="name">The name, cut to 255 characters.</param>
@@ -324,15 +324,15 @@ public sealed class GuiMasterList : GuiColumnList
         var selId = Selected >= 0 ? Entries[Selected].Id : int.MinValue;
         var all = new List<(string Name, string Addr, int Id)>();
         for (var i = 0; i < Entries.Count; ++i)
-            all.Add((Entries[i].Text, mAddresses[i], Entries[i].Id));
+            all.Add((Entries[i].Text, _addresses[i], Entries[i].Id));
         all.Add((name, address, id));
         var sorted = all.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
         Entries.Clear();
-        mAddresses.Clear();
+        _addresses.Clear();
         foreach (var e in sorted)
         {
             Entries.Add((e.Name, e.Id));
-            mAddresses.Add(e.Addr);
+            _addresses.Add(e.Addr);
         }
         Selected = selId == int.MinValue ? -1 : Entries.FindIndex(e => e.Id == selId);
     }
@@ -345,7 +345,7 @@ public sealed class GuiMasterList : GuiColumnList
             if (Entries[i].Id != id)
                 continue;
             Entries.RemoveAt(i);
-            mAddresses.RemoveAt(i);
+            _addresses.RemoveAt(i);
             if (Selected == i)
                 Selected = -1;
             else if (Selected > i)
@@ -357,7 +357,7 @@ public sealed class GuiMasterList : GuiColumnList
     public override void Clear()
     {
         Entries.Clear();
-        mAddresses.Clear();
+        _addresses.Clear();
         Selected = -1;
     }
 
@@ -368,7 +368,7 @@ public sealed class GuiMasterList : GuiColumnList
         if (row < 0 || row >= Entries.Count || Host == null)
             return;
         Host.SetVar("$Server::CurrentMaster", Entries[row].Id.ToString(CultureInfo.InvariantCulture));
-        Host.SetVar("$Server::Master1", mAddresses[row]);
+        Host.SetVar("$Server::Master1", _addresses[row]);
     }
 }
 
@@ -382,7 +382,7 @@ public sealed class GuiFilterCtrl : GuiColumnList
     ];
 
     /// <summary>The chosen filter, 0 or less for none (DAT_00628370 of the original).</summary>
-    public int ChosenFilter;
+    public int ChosenFilter { get; set; }
 
     /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
@@ -415,19 +415,19 @@ public sealed class ServerColumns
     public sealed class Entry
     {
         /// <summary>The tag of the column name.</summary>
-        public int NameTag;
+        public int NameTag { get; set; }
         /// <summary>The tag of the column description.</summary>
-        public int DescTag;
+        public int DescTag { get; set; }
         /// <summary>The position in the browser.</summary>
-        public int Order;
+        public int Order { get; set; }
         /// <summary>The width in pixels.</summary>
-        public int Width;
+        public int Width { get; set; }
         /// <summary>True when the column shows.</summary>
-        public bool Display = true;
+        public bool Display { get; set; } = true;
     }
 
     // Name tag, description tag, width: the default order is the table order and every column shows.
-    private static readonly (int Name, int Desc, int Width)[] sTable =
+    private static readonly (int Name, int Desc, int Width)[] Table =
     [
         (131309, 131519, 52), (131308, 131517, 52), (131307, 131516, 54), (131301, 131510, 105), (131303, 131512, 43),
         (131311, 131520, 100), (131302, 131511, 90), (132054, 131513, 59), (131305, 131514, 33), (131306, 131515, 102),
@@ -437,13 +437,13 @@ public sealed class ServerColumns
     /// <summary>The number of columns.</summary>
     public const int Count = 12;
     /// <summary>The columns in table order.</summary>
-    public readonly Entry[] Entries = new Entry[Count];
+    public Entry[] Entries { get; } = new Entry[Count];
 
     /// <summary>Creates the default state: the table order and every column shows.</summary>
     public ServerColumns()
     {
         for (var i = 0; i < Count; ++i)
-            Entries[i] = new Entry { NameTag = sTable[i].Name, DescTag = sTable[i].Desc, Order = i, Width = sTable[i].Width };
+            Entries[i] = new Entry { NameTag = Table[i].Name, DescTag = Table[i].Desc, Order = i, Width = Table[i].Width };
     }
 
     /// <summary>Loads the state from the console variables.</summary>
@@ -533,9 +533,9 @@ public sealed class GuiOptionColumns : GuiColumnList
     private static readonly ListColumn[] sColumns = [new(131501, 0, 70), new(131502, 1, 161), new(131503, 2, 36)];
 
     /// <summary>The state of the columns.</summary>
-    public readonly ServerColumns Data = new();
-    private ServerColumns.Entry? mDrag, mToggle;
-    private int mDragRow = -1;
+    public ServerColumns Data { get; } = new();
+    private ServerColumns.Entry? _drag, _toggle;
+    private int _dragRow = -1;
 
     /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
@@ -570,9 +570,9 @@ public sealed class GuiOptionColumns : GuiColumnList
     protected override void DrawRow(GuiPaint p, int ox, int gx, int y, int row, int rh, bool off)
     {
         var e = Data.AtOrder(row);
-        var held = !off && mDrag != null && e == mDrag;
-        var font = off ? RowFontOff : held ? RowFontSelected : mDrag == null && HoverRow == row ? RowFontHover : RowFontNormal;
-        var dispFont = !off && mToggle != null && e == mToggle ? RowFontSelected : font;
+        var held = !off && _drag != null && e == _drag;
+        var font = off ? RowFontOff : held ? RowFontSelected : _drag == null && HoverRow == row ? RowFontHover : RowFontNormal;
+        var dispFont = !off && _toggle != null && e == _toggle ? RowFontSelected : font;
         var pw = Parent?.W ?? W;
         var line = RowLine(off);
         var x = gx;
@@ -600,7 +600,7 @@ public sealed class GuiOptionColumns : GuiColumnList
         if (!Active)
             return base.MsDown(e);
         var r = base.MsDown(e);
-        mDrag = mToggle = null;
+        _drag = _toggle = null;
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
         if (ly < HeaderH || Selected < 0)
             return r;
@@ -609,12 +609,12 @@ public sealed class GuiOptionColumns : GuiColumnList
             return r;
         if (lx >= 0 && lx <= sColumns[0].Width)
         {
-            mDrag = hit;
-            mDragRow = Selected;
+            _drag = hit;
+            _dragRow = Selected;
         }
         else if (lx >= sColumns[0].Width + sColumns[1].Width && lx <= sColumns[0].Width + sColumns[1].Width + sColumns[2].Width)
         {
-            mToggle = hit;
+            _toggle = hit;
             hit.Display = !hit.Display;
         }
         return r;
@@ -623,14 +623,14 @@ public sealed class GuiOptionColumns : GuiColumnList
     /// <inheritdoc/>
     public override bool MsDrag(GuiEvent e)
     {
-        if (mDrag != null)
+        if (_drag != null)
         {
             var (_, ly) = GlobalToLocal(e.X, e.Y);
-            var target = ly < 0 || (HeaderH * 2) + (RowHeight * ServerColumns.Count) < ly ? mDragRow : Math.Clamp((ly - HeaderH) / RowHeight, 0, ServerColumns.Count - 1);
-            if (target != mDrag.Order)
+            var target = ly < 0 || (HeaderH * 2) + (RowHeight * ServerColumns.Count) < ly ? _dragRow : Math.Clamp((ly - HeaderH) / RowHeight, 0, ServerColumns.Count - 1);
+            if (target != _drag.Order)
             {
-                Data.MoveTo(mDrag, target);
-                mDragRow = target;
+                Data.MoveTo(_drag, target);
+                _dragRow = target;
                 Selected = target;
             }
         }
@@ -642,8 +642,8 @@ public sealed class GuiOptionColumns : GuiColumnList
     {
         if (Host != null)
             Data.Save(Host);
-        mDrag = mToggle = null;
-        mDragRow = -1;
+        _drag = _toggle = null;
+        _dragRow = -1;
         return base.MsUp(e);
     }
 }
@@ -657,45 +657,45 @@ public sealed class GuiServerList : GuiColumnList
     public sealed class Server
     {
         /// <summary>The row id.</summary>
-        public int Id;
+        public int Id { get; set; }
         /// <summary>The server name.</summary>
-        public string Name;
+        public string Name { get; set; }
         /// <summary>The server address.</summary>
-        public string Address;
+        public string Address { get; set; }
         /// <summary>The game version.</summary>
-        public string Version;
+        public string Version { get; set; }
         /// <summary>The ping in milliseconds.</summary>
-        public int Ping;
+        public int Ping { get; set; }
         /// <summary>True for a favorite (+0x241): the star, kept through failed queries and saved.</summary>
-        public bool Favorite;
+        public bool Favorite { get; set; }
         /// <summary>True when the row is never pinged (+0x244): the broadcast and master replies for it are ignored (004c525c) and the row shows the I_Timeout icon (004c8278 column 0).</summary>
-        public bool NeverPing;
+        public bool NeverPing { get; set; }
         /// <summary>The query state, one of the State constants.</summary>
-        public int State = 3;
+        public int State { get; set; } = 3;
         /// <summary>The player count.</summary>
-        public int Players;
+        public int Players { get; set; }
         /// <summary>The player limit.</summary>
-        public int MaxPlayers;
+        public int MaxPlayers { get; set; }
         /// <summary>The cpu speed.</summary>
-        public int Cpu;
+        public int Cpu { get; set; }
         /// <summary>True when the server has a password.</summary>
-        public bool Password;
+        public bool Password { get; set; }
         /// <summary>True when the server is dedicated.</summary>
-        public bool Dedicated;
+        public bool Dedicated { get; set; }
         /// <summary>The mission name.</summary>
-        public string Mission = "";
+        public string Mission { get; set; } = "";
         /// <summary>The mission type.</summary>
-        public string MissionType = "";
+        public string MissionType { get; set; } = "";
         /// <summary>The mod list.</summary>
-        public string ModList = "";
+        public string ModList { get; set; } = "";
         /// <summary>The info text.</summary>
-        public string Info = "";
+        public string Info { get; set; } = "";
         /// <summary>The team heading of the score table of the info reply (0042c4cc).</summary>
-        public string TeamHeading = "";
+        public string TeamHeading { get; set; } = "";
         /// <summary>The player heading of the score table.</summary>
-        public string ClientHeading = "";
+        public string ClientHeading { get; set; } = "";
         /// <summary>The rows of the score table (ServerInfoCtrl).</summary>
-        public IReadOnlyList<string> Rows = Array.Empty<string>();
+        public IReadOnlyList<string> Rows { get; set; } = Array.Empty<string>();
 
         /// <summary>Creates a record.</summary>
         /// <param name="id">The row id.</param>
@@ -727,35 +727,35 @@ public sealed class GuiServerList : GuiColumnList
     public const int StateTimeout = 4;
 
     // The widths of the browser's column records [table at 00628cf4]; the third number of the preference is not the width.
-    private static readonly int[] sWidths = [52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90];
+    private static readonly int[] Widths = [52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90];
 
     /// <summary>The state of the browser columns.</summary>
-    public readonly ServerColumns Data = new();
-    private readonly List<Server> mServers = [];
-    private List<ListColumn> mColumns = [];
+    public ServerColumns Data { get; } = new();
+    private readonly List<Server> _servers = [];
+    private List<ListColumn> _columns = [];
 
     /// <summary>True when rows that failed stay in the list (+0x3b0). The stock refresh of visible servers and the cancel set it.</summary>
-    public bool KeepFailed;
+    public bool KeepFailed { get; set; }
     /// <summary>True when a REFRESH ALL has run since the list woke (+0x3b1).</summary>
-    public bool RefreshedAll;
+    public bool RefreshedAll { get; set; }
     /// <summary>True when the favorites that did not answer are asked directly when the search ends (+0x3b2).</summary>
-    public bool Requery;
+    public bool Requery { get; set; }
     /// <summary>The ping below which the ping icon is green (pref::ConnectionGoodPing; the exe default is 200).</summary>
-    public int GoodPing = 200;
+    public int GoodPing { get; set; } = 200;
     /// <summary>The ping below which the ping icon is yellow (pref::ConnectionPoorPing; the exe default is 350).</summary>
-    public int PoorPing = 350;
+    public int PoorPing { get; set; } = 350;
 
     /// <inheritdoc/>
-    protected override IReadOnlyList<ListColumn> Columns => mColumns;
+    protected override IReadOnlyList<ListColumn> Columns => _columns;
     /// <inheritdoc/>
-    protected override int RowCount => mServers.Count;
+    protected override int RowCount => _servers.Count;
     /// <summary>Gets the known servers.</summary>
-    public IReadOnlyList<Server> Servers => mServers;
+    public IReadOnlyList<Server> Servers => _servers;
 
     /// <summary>Marks every row as not answered yet and makes failures drop rows again (REFRESH ALL, 004c774c).</summary>
     public void MarkAllUnknown()
     {
-        foreach (var s in mServers)
+        foreach (var s in _servers)
         {
             s.Ping = 9999;
             s.State = StateUnknown;
@@ -782,7 +782,7 @@ public sealed class GuiServerList : GuiColumnList
         KeepFailed = masterError;
         var ask = new List<Server>();
         var drop = new List<Server>();
-        foreach (var s in mServers)
+        foreach (var s in _servers)
         {
             if (s.State is not StateUnknown and not StateQuerying)
                 continue;
@@ -835,7 +835,7 @@ public sealed class GuiServerList : GuiColumnList
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("//-----------------------------------\n//\n// Database of GAME servers\n//\n//-----------------------------------\n\n");
-        foreach (var s in mServers)
+        foreach (var s in _servers)
             sb.Append("addGameServer(\"").Append(s.Address).Append("\", \"").Append(s.Name).Append("\", \"").Append(s.Version)
               .Append("\", \"").Append(s.Ping.ToString(CultureInfo.InvariantCulture)).Append("\", \"")
               .Append(s.Favorite ? "TRUE" : "FALSE").Append("\", \"").Append(s.ModList).Append("\", \"").Append(s.Mission)
@@ -884,7 +884,7 @@ public sealed class GuiServerList : GuiColumnList
     }
 
     /// <summary>The help tags of the columns, the IDHELP_SERVER_* entries: 220603 favorite, 220604 connection, 220605 status, 220606 name, 220608 ping, 220614 mission type, 220607 mission, 220609 players, 220610 cpu, 220611 address, 220612 version, 220613 mod.</summary>
-    private static readonly uint[] sHelp = [220603, 220604, 220605, 220606, 220608, 220614, 220607, 220609, 220610, 220611, 220612, 220613];
+    private static readonly uint[] Help = [220603, 220604, 220605, 220606, 220608, 220614, 220607, 220609, 220610, 220611, 220612, 220613];
 
     /// <inheritdoc/>
     /// <remarks>Follows 004c6940: after 500 ms the header shows the description tag of the column under the cursor (a column border shows none).</remarks>
@@ -902,7 +902,7 @@ public sealed class GuiServerList : GuiColumnList
             if (lx >= edge - 2 && lx <= edge + 2)
                 return 0;
             if (lx < edge)
-                return sHelp[c.DataIndex];
+                return Help[c.DataIndex];
         }
         return 0;
     }
@@ -910,13 +910,13 @@ public sealed class GuiServerList : GuiColumnList
     /// <summary>Finds a row by address, ignoring case.</summary>
     /// <param name="address">The address.</param>
     /// <returns>The row, or null.</returns>
-    public Server? Find(string address) => mServers.Find(s => string.Equals(s.Address, address, StringComparison.OrdinalIgnoreCase));
+    public Server? Find(string address) => _servers.Find(s => string.Equals(s.Address, address, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Adds a server row.</summary>
     /// <param name="s">The row.</param>
     public void AddServer(Server s)
     {
-        mServers.Add(s);
+        _servers.Add(s);
         AddEntry(s.Name, s.Id);
     }
 
@@ -925,10 +925,10 @@ public sealed class GuiServerList : GuiColumnList
     /// <param name="row">The new row.</param>
     public void ReplaceServer(Server old, Server row)
     {
-        var i = mServers.IndexOf(old);
+        var i = _servers.IndexOf(old);
         if (i < 0)
             return;
-        mServers[i] = row;
+        _servers[i] = row;
         if (i < Entries.Count)
             Entries[i] = (row.Name, row.Id);
     }
@@ -937,10 +937,10 @@ public sealed class GuiServerList : GuiColumnList
     /// <param name="s">The row.</param>
     public void RemoveServer(Server s)
     {
-        var i = mServers.IndexOf(s);
+        var i = _servers.IndexOf(s);
         if (i < 0)
             return;
-        mServers.RemoveAt(i);
+        _servers.RemoveAt(i);
         if (i < Entries.Count)
             Entries.RemoveAt(i);
         if (Selected == i)
@@ -953,7 +953,7 @@ public sealed class GuiServerList : GuiColumnList
     public override void Clear()
     {
         base.Clear();
-        mServers.Clear();
+        _servers.Clear();
     }
 
     /// <inheritdoc/>
@@ -972,15 +972,15 @@ public sealed class GuiServerList : GuiColumnList
     private static int ParsePref(string v, int d) => int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : d;
 
     /// <summary>Builds the visible columns in browser order. The data index is the entry index (0 favorites to 11 server type).</summary>
-    private void Rebuild() => mColumns = [.. Data.Entries.Select((e, i) => (e, i)).OrderBy(t => t.e.Order).Select(t => new ListColumn(t.e.NameTag, t.i, sWidths[t.i], t.e.Display))];
+    private void Rebuild() => _columns = [.. Data.Entries.Select((e, i) => (e, i)).OrderBy(t => t.e.Order).Select(t => new ListColumn(t.e.NameTag, t.i, Widths[t.i], t.e.Display))];
 
     /// <inheritdoc/>
     /// <remarks>Follows 004c8278: the numbers use "%d", the players "%d / %d", an empty mission or a cpu speed of zero shows N/A. Columns 0 to 2 are icons (<see cref="DrawIcons"/>).</remarks>
     protected override string? Cell(int dataIndex, int row)
     {
-        if (row < 0 || row >= mServers.Count)
+        if (row < 0 || row >= _servers.Count)
             return null;
-        var s = mServers[row];
+        var s = _servers[row];
         var inv = CultureInfo.InvariantCulture;
         return dataIndex switch
         {
@@ -1006,7 +1006,7 @@ public sealed class GuiServerList : GuiColumnList
         // A disabled or dimmed list (a modal dialog above it) shows no icons.
         if (Disabled)
             return true;
-        var s = mServers[row];
+        var s = _servers[row];
         void Put(string name, ref int px)
         {
             var b = Host.BitmapByName(name);

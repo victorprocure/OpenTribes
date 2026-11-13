@@ -11,14 +11,14 @@ public class GhostScopeTests
 {
     private sealed class Named : SimObject
     {
-        private readonly string mClass;
-        public readonly string Label;
+        private readonly string _class;
+        public string Label { get; }
         public Named(string cls, string l)
         {
-            mClass = cls;
+            _class = cls;
             Label = l;
         }
-        public override string ClassName() => mClass;
+        public override string ClassName() => _class;
     }
 
     private sealed class ArgsVolume : SimObject
@@ -55,7 +55,7 @@ public class GhostScopeTests
     private static float Prio(PriorityInputs input, CameraRecord rec, uint skip = 0, int recId = 100, uint mask = 0xffffffffu) =>
         GhostScope.GameBasePriority(input, rec, recId, false, mask, skip, new PriorityWeights());
 
-    private static PriorityInputs At(float x, float y, float z, uint type = ObjectType.kStaticType)
+    private static PriorityInputs At(float x, float y, float z, uint type = ObjectType.StaticType)
     {
         var input = new PriorityInputs();
         float[] c = [x, y, z];
@@ -86,12 +86,12 @@ public class GhostScopeTests
         // Beyond the visible distance only the fov term remains.
         Assert.True(Near(Prio(At(0, 2000, 0), rec), 1.0));
         // Item interest, skips, ownership, Player interest.
-        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kItemType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.05));
+        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.ItemType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.05));
         Assert.True(Near(Prio(At(0, 100, 0), rec, 3), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.3));
         var owned = At(0, 100, 0);
         owned.OwnerId = 100;
         Assert.True(Near(Prio(owned, rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.2));
-        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.kPlayerType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.15));
+        Assert.True(Near(Prio(At(0, 100, 0, ObjectType.PlayerType), rec), 1.0 + (0.4 * (1 - (100.0 / 1500))) + 0.15));
         // Velocity term: |dir x v| through the bit-level square root, (0,0,-10) -> 10.25.
         var moving = At(0, 100, 0);
         moving.Velocity[0] = 10;
@@ -122,15 +122,15 @@ public class GhostScopeTests
         var c = new Container();
         Named t = new("SimTerrain", "T"), a = new("StaticShape", "a"), m = new("Marker", "m"), b = new("Sensor", "b"),
               itr = new("InteriorShape", "I");
-        var te = E(t, ObjectType.kTerrainType, -500, -500, 0, 500, 500, 300);
+        var te = E(t, ObjectType.TerrainType, -500, -500, 0, 500, 500, 300);
         te.DatabaseKind = Container.Database.Terrain;
         te.ContainerMask = 0xffffffffu;
         te.VisibleDistance = 600;
         c.Add(te);
-        c.Add(E(a, ObjectType.kStaticType, 10, 10, 10, 12, 12, 12));
-        c.Add(E(m, ObjectType.kMarkerType, 20, 10, 10, 22, 12, 12));
-        c.Add(E(b, ObjectType.kStaticType, 30, 10, 10, 32, 12, 12));
-        c.Add(E(itr, ObjectType.kInteriorType, 40, 10, 10, 42, 12, 12));
+        c.Add(E(a, ObjectType.StaticType, 10, 10, 10, 12, 12, 12));
+        c.Add(E(m, ObjectType.MarkerType, 20, 10, 10, 22, 12, 12));
+        c.Add(E(b, ObjectType.StaticType, 30, 10, 10, 32, 12, 12));
+        c.Add(E(itr, ObjectType.InteriorType, 40, 10, 10, 42, 12, 12));
         foreach (var client in new[] { 2050, 2049 })
         {
             var gm = new GhostManager(client);
@@ -156,7 +156,7 @@ public class GhostScopeTests
     // floor.
     private sealed class EyeBase : GameBase
     {
-        public float EyeHeight;
+        public float EyeHeight { get; set; }
         public EyeBase(ClassContext ctx) : base("Player", Kind.ShapeBase, -1, Array.Empty<PersistDef>(), ctx) { }
         public override Transform EyeTransform()
         {
@@ -172,12 +172,12 @@ public class GhostScopeTests
     {
         var c = new Container();
         Named t = new("SimTerrain", "T"), far = new("StaticShape", "f");
-        var te = E(t, ObjectType.kTerrainType, -5000, -5000, 0, 5000, 5000, 5000);
+        var te = E(t, ObjectType.TerrainType, -5000, -5000, 0, 5000, 5000, 5000);
         te.DatabaseKind = Container.Database.Terrain;
         te.ContainerMask = 0xffffffffu;
         te.VisibleDistance = 600;
         c.Add(te);
-        c.Add(E(far, ObjectType.kStaticType, 0, 0, 1699, 2, 2, 1701));
+        c.Add(E(far, ObjectType.StaticType, 0, 0, 1699, 2, 2, 1701));
         var ctx = new ClassContext();
         var body = new EyeBase(ctx);
         body.Transform.P[0] = 1;

@@ -11,7 +11,7 @@ using static OpenTribes.Tests.Fixtures;
 
 public class MathCommandsTests
 {
-    private static readonly (string script, string want)[] kRows =
+    private static readonly (string script, string want)[] Rows =
     [
         ("echo(Vector::add(\"1 2 3\",\"4 5 6\"));", "5 7 9"),
         ("echo(Vector::add(\"0.1 0.1 0.1\",\"0.0999999 0.0999999 0.0999999\"));", "0.199999 0.199999 0.199999"),
@@ -230,7 +230,7 @@ public class MathCommandsTests
     ];
 
     // Outputs of the double form where the reference output needs the x87 unit.
-    private static readonly Dictionary<string, string> kDouble = new()
+    private static readonly Dictionary<string, string> Double = new()
     {
         ["echo(Vector::sub(\"-NAN 1 1\",\"+NAN 1 1\"));"] = "-NAN 0 0", // reference "+NAN 0 0"
         ["echo(Vector::dot(\"+INF -INF +NAN\",\"1 1 1\"));"] = "-NAN", // reference "+NAN"
@@ -264,7 +264,7 @@ public class MathCommandsTests
         new("-196.409 -208.433 196.082", "-196.409 -208.433 196.082", "0.001 0 0", 1, "0 0 0"),
     ];
 
-    private static readonly float[] kRadius = [2.679856777191162f, 1.2074273824691772f];
+    private static readonly float[] Radius = [2.679856777191162f, 1.2074273824691772f];
 
     // tests/test_math_commands.cpp parse3.
     private static float[] Parse3(string text)
@@ -294,9 +294,9 @@ public class MathCommandsTests
 
         // Reference outputs, one console line each.
         var failures = new List<string>();
-        foreach (var (script, reference) in kRows)
+        foreach (var (script, reference) in Rows)
         {
-            var want = kDouble.TryGetValue(script, out var d) ? d : reference;
+            var want = Double.TryGetValue(script, out var d) ? d : reference;
             var got = Run(w, script);
             if (got != want)
                 failures.Add("FAIL " + script + "\n  want: " + want + "\n  got:  " + got);
@@ -385,7 +385,7 @@ public class MathCommandsTests
         {
             float[] from = Parse3(sp.From), to = Parse3(sp.To), dir = Parse3(sp.Dir), o = new float[3];
             var got = "0 0 0";
-            if (UtilCommands.FindPointOnSphere(from, to, dir, kRadius[sp.Shape], o))
+            if (UtilCommands.FindPointOnSphere(from, to, dir, Radius[sp.Shape], o))
                 got = MathCommands.FormatF32(o[0]) + " " + MathCommands.FormatF32(o[1]) + " " + MathCommands.FormatF32(o[2]);
             if (got != sp.Want)
                 failures.Add("FAIL sphere " + sp.From + " " + sp.To + " " + sp.Dir + "\n  want: " + sp.Want + "\n  got:  " + got);

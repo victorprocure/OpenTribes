@@ -63,34 +63,34 @@ public sealed class ServerBrowser : IDisposable
     /// <summary>The control id of the text of the M.O.T.D. dialog.</summary>
     public const int MotdId = 140900;
 
-    private readonly ClientApp mApp;
-    private readonly ClientDelegates mOwner;
-    private UdpQueryTransport? mNet;
-    private ServerQuery? mQuery;
+    private readonly ClientApp _app;
+    private readonly ClientDelegates _owner;
+    private UdpQueryTransport? _net;
+    private ServerQuery? _query;
     // 0062b210: the automatic refresh runs once per process.
-    private bool mAutoRefreshed;
+    private bool _autoRefreshed;
     // net +0xe0: the servers whose info arrived in this query.
-    private int mInfoCount;
+    private int _infoCount;
     // DAT_0061682c / DAT_00616828: the master being asked and how many there are.
-    private int mMasterIndex, mMasterCount;
+    private int _masterIndex, _masterCount;
     // Delegate +0x60: no master answered (004d7864); REFRESH ALL clears it (004d7c1e).
-    private bool mMasterError;
+    private bool _masterError;
 
     /// <summary>Creates the browser.</summary>
     /// <param name="app">The client.</param>
     /// <param name="owner">The delegates that own the server list.</param>
     public ServerBrowser(ClientApp app, ClientDelegates owner)
     {
-        mApp = app;
-        mOwner = owner;
+        _app = app;
+        _owner = owner;
     }
 
     /// <inheritdoc/>
-    public void Dispose() => mNet?.Dispose();
+    public void Dispose() => _net?.Dispose();
 
-    private GuiServerList? List => mApp.GuiRt.FindControl(ListId.ToString(CultureInfo.InvariantCulture)) as GuiServerList;
-    private GuiControl? Find(int id) => mApp.GuiRt.FindControl(id.ToString(CultureInfo.InvariantCulture));
-    private string Var(string name) => mApp.Interp.PeekVariable(name);
+    private GuiServerList? List => _app.GuiRt.FindControl(ListId.ToString(CultureInfo.InvariantCulture)) as GuiServerList;
+    private GuiControl? Find(int id) => _app.GuiRt.FindControl(id.ToString(CultureInfo.InvariantCulture));
+    private string Var(string name) => _app.Interp.PeekVariable(name);
     private int IntVar(string name, int fallback)
     {
         var v = Var(name);
@@ -101,14 +101,14 @@ public sealed class ServerBrowser : IDisposable
     // The queue and its socket, made on first use with the preferences of that moment (SimNet_loadQueryPrefs reads them once).
     private ServerQuery Query()
     {
-        if (mQuery != null)
-            return mQuery;
-        mNet = new UdpQueryTransport(() => mApp.Host.TickMs);
-        mQuery = new ServerQuery(mNet, () => mApp.Host.TickMs)
+        if (_query != null)
+            return _query;
+        _net = new UdpQueryTransport(() => _app.Host.TickMs);
+        _query = new ServerQuery(_net, () => _app.Host.TickMs)
         {
-            BroadcastIp = mApp.Opt.AllowRemote ? 0xffffffffu : 0x7fffffffu,
+            BroadcastIp = _app.Opt.AllowRemote ? 0xffffffffu : 0x7fffffffu,
             PacketVersion = (ushort)Numbers.BorlandAtoi(ClientDelegates.GameVersion),
-            MayContact = a => mApp.Opt.AllowRemote || (a.Ip >> 24) == 127,
+            MayContact = a => _app.Opt.AllowRemote || (a.Ip >> 24) == 127,
             Prefs = new ServerQueryPrefs
             {
                 MaxPings = IntVar("$pref::maxConcurrentPings", 20),
@@ -123,11 +123,11 @@ public sealed class ServerBrowser : IDisposable
             OnFail = OnFail,
             OnMaster = OnMaster
         };
-        return mQuery;
+        return _query;
     }
 
     /// <summary>Handles the replies and the timers. Runs once per frame.</summary>
-    public void Tick() => mQuery?.Tick();
+    public void Tick() => _query?.Tick();
 
     /// <summary>Starts the screen state after the screen opened (004d749c, after the list ran <c>config\GameServerList.cs</c>).</summary>
     public void OnOpen()
@@ -137,13 +137,13 @@ public sealed class ServerBrowser : IDisposable
         UpdateButtons();
         UpdateMotd();
         if (Var("$pref::AutoRefresh").Length == 0)
-            mApp.Interp.SetVariable("$pref::AutoRefresh", "TRUE");
+            _app.Interp.SetVariable("$pref::AutoRefresh", "TRUE");
         if (string.Equals(Var("$pref::AutoRefresh"), "FALSE", StringComparison.OrdinalIgnoreCase))
-            mAutoRefreshed = true;
-        else if (!mAutoRefreshed)
+            _autoRefreshed = true;
+        else if (!_autoRefreshed)
         {
             RefreshAll();
-            mAutoRefreshed = true;
+            _autoRefreshed = true;
         }
     }
 
@@ -183,7 +183,7 @@ public sealed class ServerBrowser : IDisposable
     /// <summary>Runs REFRESH ALL (0x222f1): the console function <c>rebuildServerList()</c> (queryServers), every row marked unknown, the buttons off, the box on.</summary>
     public void RefreshAll()
     {
-        mMasterError = false;
+        _masterError = false;
         QueryServers();
         List?.MarkAllUnknown();
         StartUi(IsTrue(Var("$pref::lanOnly")) || IntVar("$Server::numMasters", 0) == 0 ? "Searching for LAN servers" : "Querying master servers");
@@ -221,9 +221,9 @@ public sealed class ServerBrowser : IDisposable
     {
         var name = Var("$pref::MSName");
         var motd = Var("$pref::MSMOTD");
-        mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\MasterMOTD.gui\");");
-        mApp.GuiRt.Canvas.Top?.FindById(MotdId)?.SetText(MotdText(name, motd));
-        mApp.Interp.SetVariable("$pref::MSprevMOTD", motd);
+        _app.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\MasterMOTD.gui\");");
+        _app.GuiRt.Canvas.Top?.FindById(MotdId)?.SetText(MotdText(name, motd));
+        _app.Interp.SetVariable("$pref::MSprevMOTD", motd);
         UpdateMotd();
         return true;
     }
@@ -235,7 +235,7 @@ public sealed class ServerBrowser : IDisposable
         if (list == null || list.Selected < 0 || list.Selected >= list.Servers.Count || list.Servers[list.Selected].State != GuiServerList.StateInfo)
             return true;
         var row = list.Servers[list.Selected];
-        mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\ServerInfo.gui\");");
+        _app.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\ServerInfo.gui\");");
         FillInfoDialog(row);
         ShowFlags(row);
         return true;
@@ -245,16 +245,16 @@ public sealed class ServerBrowser : IDisposable
     /// <param name="row">The server row.</param>
     public void ShowFlags(GuiServerList.Server row)
     {
-        if (mApp.GuiRt.FindControl(InfoFavoriteBoxId.ToString(CultureInfo.InvariantCulture)) is GuiUniversalButton fav)
+        if (_app.GuiRt.FindControl(InfoFavoriteBoxId.ToString(CultureInfo.InvariantCulture)) is GuiUniversalButton fav)
             fav.On = row.Favorite;
-        if (mApp.GuiRt.FindControl(InfoNeverPingBoxId.ToString(CultureInfo.InvariantCulture)) is GuiUniversalButton never)
+        if (_app.GuiRt.FindControl(InfoNeverPingBoxId.ToString(CultureInfo.InvariantCulture)) is GuiUniversalButton never)
             never.On = row.NeverPing;
     }
 
     /// <summary>The number of pings not answered yet.</summary>
-    public int PendingPings => mQuery?.PendingPings ?? 0;
+    public int PendingPings => _query?.PendingPings ?? 0;
     /// <summary>The addresses seen by the query.</summary>
-    public IReadOnlyList<string> SeenAddresses => mQuery?.Seen ?? Array.Empty<string>();
+    public IReadOnlyList<string> SeenAddresses => _query?.Seen ?? Array.Empty<string>();
 
     // 004d8754: the dialog's REFRESH asks the selected server again (SimNet_queueServerQuery 0054fff0); it needs a selected row that has its
     // info and a query queue. The row keeps its state and flags until the answers come.
@@ -289,7 +289,7 @@ public sealed class ServerBrowser : IDisposable
         var list = content?.FindById(ListId) as GuiServerList ?? List;
         if (list == null)
             return;
-        var path = Builtins.ResolveGamePath(mApp.Opt.Root, "config\\GameServerList.cs");
+        var path = Builtins.ResolveGamePath(_app.Opt.Root, "config\\GameServerList.cs");
         if (path.Length == 0)
             return;
         try
@@ -314,14 +314,14 @@ public sealed class ServerBrowser : IDisposable
         Find(InfoMissionId)?.SetText(row.Mission);
         Find(InfoPasswordId)?.SetText(row.Password ? "YES" : "NO");
         Find(InfoDedicatedId)?.SetText(row.Dedicated ? "YES" : "NO");
-        mApp.GuiRt.FindControl("ServerInfoText")?.SetValue(row.Info);
+        _app.GuiRt.FindControl("ServerInfoText")?.SetValue(row.Info);
         (Find(InfoTableId) as GuiServerInfo)?.SetServer(row.TeamHeading, row.ClientHeading, row.Rows);
     }
 
     // 0x222fa: both queues emptied, the rows still being queried become unknown, the search is over.
     private void Cancel()
     {
-        mQuery?.CancelAll();
+        _query?.CancelAll();
         var list = List;
         if (list != null)
         {
@@ -349,7 +349,7 @@ public sealed class ServerBrowser : IDisposable
     public void QueryServers()
     {
         var q = Query();
-        mInfoCount = 0;
+        _infoCount = 0;
         q.ClearSeen();
         // 004c525c: the never-ping rows count as answered, a broadcast or master reply for one is not queried.
         if (List is { } list)
@@ -361,11 +361,11 @@ public sealed class ServerBrowser : IDisposable
         q.Queue("IPX:BROADCAST:" + port);
         if (!IsTrue(Var("$pref::lanOnly")))
         {
-            if (mApp.Interp.HasFunction("checkMasterTranslation"))
-                mApp.Interp.CallFunction("checkMasterTranslation", Array.Empty<string>());
-            mMasterCount = IntVar("$Server::numMasters", 0);
-            mMasterIndex = 0;
-            if (mMasterCount != 0 && Var("$Server::XLMasterN0") is { Length: > 0 } m)
+            if (_app.Interp.HasFunction("checkMasterTranslation"))
+                _app.Interp.CallFunction("checkMasterTranslation", Array.Empty<string>());
+            _masterCount = IntVar("$Server::numMasters", 0);
+            _masterIndex = 0;
+            if (_masterCount != 0 && Var("$Server::XLMasterN0") is { Length: > 0 } m)
                 q.Queue(m);
         }
     }
@@ -379,8 +379,8 @@ public sealed class ServerBrowser : IDisposable
             var row = list.Find(address);
             if (row == null)
             {
-                row = new GuiServerList.Server(mOwner.NextRow(), name, address, packetVersion.ToString(CultureInfo.InvariantCulture), ping, false);
-                mOwner.Servers[row.Id] = (ToJoinAddress(address), name);
+                row = new GuiServerList.Server(_owner.NextRow(), name, address, packetVersion.ToString(CultureInfo.InvariantCulture), ping, false);
+                _owner.Servers[row.Id] = (ToJoinAddress(address), name);
                 list.AddServer(row);
             }
             else
@@ -400,7 +400,7 @@ public sealed class ServerBrowser : IDisposable
     // 0042c4cc: the info of a server. Its row takes the fields and shows the final state.
     private void OnInfo(ServerInfoRecord r)
     {
-        ++mInfoCount;
+        ++_infoCount;
         if (List?.Find(r.Address) is { } row)
         {
             row.Name = r.Hostname;
@@ -418,14 +418,14 @@ public sealed class ServerBrowser : IDisposable
             row.Password = r.Password;
             row.Dedicated = r.Dedicated;
             row.State = GuiServerList.StateInfo;
-            mOwner.Servers[row.Id] = (ToJoinAddress(row.Address), r.Hostname);
+            _owner.Servers[row.Id] = (ToJoinAddress(row.Address), r.Hostname);
             // 004c5f24: the open info dialog shows this server: its fields follow the reply.
             if (Find(InfoAddressId) is { } shown && string.Equals(shown.GetText(), row.Address, StringComparison.OrdinalIgnoreCase))
                 FillInfoDialog(row);
         }
         var requests = Query().PendingRequests;
         if (requests > 0)
-            UpdateProgress(requests, mInfoCount, false);
+            UpdateProgress(requests, _infoCount, false);
         else
             End();
         UpdateButtons();
@@ -439,8 +439,8 @@ public sealed class ServerBrowser : IDisposable
         {
             if (name.Length == 0 || motd.Length == 0)
                 return;
-            mApp.Interp.SetVariable("$pref::MSName", name);
-            mApp.Interp.SetVariable("$pref::MSMOTD", motd);
+            _app.Interp.SetVariable("$pref::MSName", name);
+            _app.Interp.SetVariable("$pref::MSMOTD", motd);
             UpdateMotd();
         }
         UpdateProgress(Query().PendingPings, Query().PendingRequests, true);
@@ -461,16 +461,16 @@ public sealed class ServerBrowser : IDisposable
             if (!list.KeepFailed && !row.Favorite && !row.NeverPing)
             {
                 list.RemoveServer(row);
-                mOwner.Servers.Remove(row.Id);
+                _owner.Servers.Remove(row.Id);
             }
         }
         // 0042cb88: the current master failed, the next one is asked, with none left the error dialog opens.
-        if (mMasterIndex < mMasterCount && string.Equals(NormalAddress(Var("$Server::XLMasterN" + mMasterIndex.ToString(CultureInfo.InvariantCulture))), address, StringComparison.OrdinalIgnoreCase))
+        if (_masterIndex < _masterCount && string.Equals(NormalAddress(Var("$Server::XLMasterN" + _masterIndex.ToString(CultureInfo.InvariantCulture))), address, StringComparison.OrdinalIgnoreCase))
         {
             var queued = false;
-            while (++mMasterIndex < mMasterCount)
+            while (++_masterIndex < _masterCount)
             {
-                var next = Var("$Server::XLMasterN" + mMasterIndex.ToString(CultureInfo.InvariantCulture));
+                var next = Var("$Server::XLMasterN" + _masterIndex.ToString(CultureInfo.InvariantCulture));
                 if (next.Length == 0)
                     continue;
                 Query().Queue(next);
@@ -486,7 +486,7 @@ public sealed class ServerBrowser : IDisposable
             if (q.PendingRequests < 2)
                 End();
             else
-                UpdateProgress(q.PendingRequests - 1, mInfoCount, false);
+                UpdateProgress(q.PendingRequests - 1, _infoCount, false);
         }
         else
             UpdateProgress(q.PendingPings, q.PendingRequests, true);
@@ -495,8 +495,8 @@ public sealed class ServerBrowser : IDisposable
     // 004d7864: no master answered.
     private void MasterError()
     {
-        mMasterError = true;
-        mApp.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\MessageDialog.gui\"); Control::setValue(MessageDialogTextFormat, \"Internet Connection Error\\nCould not contact any master server.  Please verify your internet connection.\");");
+        _masterError = true;
+        _app.Interp.Evaluate("GuiPushDialog(MainWindow, \"gui\\\\MessageDialog.gui\"); Control::setValue(MessageDialogTextFormat, \"Internet Connection Error\\nCould not contact any master server.  Please verify your internet connection.\");");
     }
 
     private static string NormalAddress(string text) =>
@@ -526,7 +526,7 @@ public sealed class ServerBrowser : IDisposable
         // 004d7ac4 -> 004c7820: rows that never answered go, favorites are asked directly, then the file is written.
         if (List is { } list)
         {
-            foreach (var s in list.EndSearch(mMasterError))
+            foreach (var s in list.EndSearch(_masterError))
                 Query().Queue(s.Address);
             SaveList();
         }

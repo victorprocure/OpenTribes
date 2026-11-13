@@ -13,7 +13,7 @@ public class FootSurfaceTests
         Numbers.EnterScriptFpuMode();
         var c = new Container();
         var slot = new StrongBox<Material?>(null);
-        var e = new Container.Entry(new object(), ObjectType.kInteriorType, Float6.Of(-10, -10, z - 1, 10, 10, z + 1), false,
+        var e = new Container.Entry(new object(), ObjectType.InteriorType, Float6.Of(-10, -10, z - 1, 10, 10, z + 1), false,
             null)
         {
             HitMaterial = slot,

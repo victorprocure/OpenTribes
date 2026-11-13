@@ -7,50 +7,50 @@ using System.Net.Sockets;
 /// <remarks>Follows the LOOPBACK transport (LOOPTransport 0058d744). Its connect (0058d7d4) pairs two virtual connections that hand each other packets by memory copy, with no socket.</remarks>
 internal static class MemoryNet
 {
-    private static readonly Lock sLock = new();
-    private static readonly Dictionary<ushort, Queue<(Address From, byte[] Data)>> sQueues = [];
-    private static ushort sNext = 40000;
+    private static readonly Lock Lock = new();
+    private static readonly Dictionary<ushort, Queue<(Address From, byte[] Data)>> Queues = [];
+    private static ushort _next = 40000;
 
     public static bool Has(ushort port)
     {
-        lock (sLock)
-            return sQueues.ContainsKey(port);
+        lock (Lock)
+            return Queues.ContainsKey(port);
     }
 
     /// <summary>Claims a port. Port 0 picks a free one.</summary>
     public static bool Register(ref ushort port)
     {
-        lock (sLock)
+        lock (Lock)
         {
             if (port == 0)
             {
                 for (var i = 0; i < 0x10000 && port == 0; ++i)
                 {
-                    var c = sNext == 0xffff ? (ushort)40000 : ++sNext;
-                    if (!sQueues.ContainsKey(c))
+                    var c = _next == 0xffff ? (ushort)40000 : ++_next;
+                    if (!Queues.ContainsKey(c))
                         port = c;
                 }
                 if (port == 0)
                     return false;
             }
-            else if (sQueues.ContainsKey(port))
+            else if (Queues.ContainsKey(port))
                 return false;
-            sQueues[port] = new Queue<(Address, byte[])>();
+            Queues[port] = new Queue<(Address, byte[])>();
             return true;
         }
     }
 
     public static void Unregister(ushort port)
     {
-        lock (sLock)
-            sQueues.Remove(port);
+        lock (Lock)
+            Queues.Remove(port);
     }
 
     public static bool Deliver(Address from, ushort to, ReadOnlySpan<byte> data)
     {
-        lock (sLock)
+        lock (Lock)
         {
-            if (!sQueues.TryGetValue(to, out var q))
+            if (!Queues.TryGetValue(to, out var q))
                 return false;
             q.Enqueue((from, data.ToArray()));
             return true;
@@ -59,15 +59,15 @@ internal static class MemoryNet
 
     public static bool HasPending(ushort port)
     {
-        lock (sLock)
-            return sQueues.TryGetValue(port, out var q) && q.Count > 0;
+        lock (Lock)
+            return Queues.TryGetValue(port, out var q) && q.Count > 0;
     }
 
     public static bool TryTake(ushort port, out Address from, out byte[] data)
     {
-        lock (sLock)
+        lock (Lock)
         {
-            if (sQueues.TryGetValue(port, out var q) && q.Count > 0)
+            if (Queues.TryGetValue(port, out var q) && q.Count > 0)
             {
                 (from, data) = q.Dequeue();
                 return true;
@@ -84,12 +84,12 @@ internal static class MemoryNet
 public sealed class UdpSocket : IDisposable
 {
     private const uint LoopbackIp = 0x7f000001;
-    private Socket? mFd;
-    private bool mMemory;
-    private ushort mPort;
+    private Socket? _fd;
+    private bool _memory;
+    private ushort _port;
     // recvfrom hands the caller the first `capacity` bytes of a larger datagram and drops the rest; .NET reports
     // that as an error, so the datagram is taken whole here and cut to the caller's buffer.
-    private readonly byte[] mScratch = new byte[0x10000];
+    private readonly byte[] _scratch = new byte[0x10000];
 
     /// <summary>Closes the socket.</summary>
     public void Dispose() => Close();
@@ -97,11 +97,11 @@ public sealed class UdpSocket : IDisposable
     /// <summary>Closes the socket and releases a memory port.</summary>
     public void Close()
     {
-        mFd?.Dispose();
-        mFd = null;
-        if (mMemory)
-            MemoryNet.Unregister(mPort);
-        mMemory = false;
+        _fd?.Dispose();
+        _fd = null;
+        if (_memory)
+            MemoryNet.Unregister(_port);
+        _memory = false;
     }
 
     /// <summary>Opens a memory socket that only other sockets of this process reach (LOOPTransport 0058d744).</summary>
@@ -112,8 +112,8 @@ public sealed class UdpSocket : IDisposable
         Close();
         if (!MemoryNet.Register(ref port))
             return false;
-        mMemory = true;
-        mPort = port;
+        _memory = true;
+        _port = port;
         return true;
     }
 
@@ -141,7 +141,7 @@ public sealed class UdpSocket : IDisposable
         Close();
         try
         {
-            mFd = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _fd = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         }
         catch (SocketException)
         {
@@ -149,9 +149,9 @@ public sealed class UdpSocket : IDisposable
         }
         try
         {
-            mFd.ReceiveBufferSize = 0x8000;
-            mFd.SendBufferSize = 0x8000;
-            mFd.EnableBroadcast = true;
+            _fd.ReceiveBufferSize = 0x8000;
+            _fd.SendBufferSize = 0x8000;
+            _fd.EnableBroadcast = true;
         }
         catch (SocketException)
         {
@@ -159,15 +159,15 @@ public sealed class UdpSocket : IDisposable
         }
         try
         {
-            mFd.Bind(new IPEndPoint(loopbackOnly ? IPAddress.Loopback : IPAddress.Any, port));
-            mFd.Blocking = false;
+            _fd.Bind(new IPEndPoint(loopbackOnly ? IPAddress.Loopback : IPAddress.Any, port));
+            _fd.Blocking = false;
         }
         catch (SocketException)
         {
             Close();
             return false;
         }
-        mPort = (ushort)((IPEndPoint)mFd.LocalEndPoint!).Port;
+        _port = (ushort)((IPEndPoint)_fd.LocalEndPoint!).Port;
         return true;
     }
 
@@ -177,13 +177,13 @@ public sealed class UdpSocket : IDisposable
     /// <returns>True when the whole datagram was sent.</returns>
     public bool Send(Address to, ReadOnlySpan<byte> data)
     {
-        if (mMemory)
-            return to.Ip == LoopbackIp && MemoryNet.Deliver(new Address(LoopbackIp, mPort), to.Port, data);
-        if (mFd == null)
+        if (_memory)
+            return to.Ip == LoopbackIp && MemoryNet.Deliver(new Address(LoopbackIp, _port), to.Port, data);
+        if (_fd == null)
             return false;
         try
         {
-            return mFd.SendTo(data, SocketFlags.None, new IPEndPoint(ToIp(to.Ip), to.Port)) == data.Length;
+            return _fd.SendTo(data, SocketFlags.None, new IPEndPoint(ToIp(to.Ip), to.Port)) == data.Length;
         }
         catch (SocketException)
         {
@@ -198,24 +198,24 @@ public sealed class UdpSocket : IDisposable
     public int Receive(out Address from, Span<byte> buffer)
     {
         from = default;
-        if (mMemory)
+        if (_memory)
         {
-            if (!MemoryNet.TryTake(mPort, out from, out var packet))
+            if (!MemoryNet.TryTake(_port, out from, out var packet))
                 return 0;
             var len = Math.Min(packet.Length, buffer.Length);
             packet.AsSpan(0, len).CopyTo(buffer);
             return len;
         }
-        if (mFd == null)
+        if (_fd == null)
             return -1;
         EndPoint ep = new IPEndPoint(IPAddress.Any, 0);
         int n;
         try
         {
             // Avoids a WouldBlock exception per empty poll.
-            if (!mFd.Poll(0, SelectMode.SelectRead))
+            if (!_fd.Poll(0, SelectMode.SelectRead))
                 return 0;
-            n = mFd.ReceiveFrom(mScratch, SocketFlags.None, ref ep);
+            n = _fd.ReceiveFrom(_scratch, SocketFlags.None, ref ep);
         }
         catch (SocketException e)
         {
@@ -224,7 +224,7 @@ public sealed class UdpSocket : IDisposable
         var ipep = (IPEndPoint)ep;
         from = new Address(FromIp(ipep.Address), (ushort)ipep.Port);
         n = Math.Min(n, buffer.Length);
-        mScratch.AsSpan(0, n).CopyTo(buffer);
+        _scratch.AsSpan(0, n).CopyTo(buffer);
         return n;
     }
 
@@ -233,18 +233,18 @@ public sealed class UdpSocket : IDisposable
     /// <returns>False on timeout or when the socket is closed.</returns>
     public bool WaitRead(int ms)
     {
-        if (mMemory)
+        if (_memory)
         {
             for (var waited = 0; waited <= ms; ++waited)
             {
-                if (MemoryNet.HasPending(mPort))
+                if (MemoryNet.HasPending(_port))
                     return true;
                 if (waited < ms)
                     Thread.Sleep(1);
             }
             return false;
         }
-        var fd = mFd;
+        var fd = _fd;
         try
         {
             return fd != null && fd.Poll(ms * 1000, SelectMode.SelectRead);
@@ -257,5 +257,5 @@ public sealed class UdpSocket : IDisposable
 
     /// <summary>Gets the bound port.</summary>
     /// <returns>The port.</returns>
-    public ushort Port() => mPort;
+    public ushort Port() => _port;
 }

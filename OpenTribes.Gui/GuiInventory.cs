@@ -8,7 +8,7 @@ using OpenTribes.Platform.Gfx;
 public sealed class GuiInventoryList : GuiList
 {
     /// <summary>The list kind: false lists the carried items with their count, true lists the items for sale with their price.</summary>
-    public bool Purchase;
+    public bool Purchase { get; set; }
 
     /// <summary>Gets a value that is always false: both classes answer no to the tab stop query (0048a6c4), so the inventory key reaches the action maps while the screen is up.</summary>
     public override bool WantsTab => false;
@@ -49,9 +49,9 @@ public sealed class GuiInventoryList : GuiList
     }
 
     /// <summary>The rows shown, rebuilt before each render.</summary>
-    public readonly List<Row> Rows = [];
+    public List<Row> Rows { get; } = [];
     /// <summary>The item index of the selected row, -1 for none.</summary>
-    public int SelectedItem = -1;
+    public int SelectedItem { get; set; } = -1;
 
     private PftFont? NormalFont => Host?.FontByTag(NormalFontTag) ?? Host?.FontByName("sf_white_10.pft");
     /// <summary>Gets the pixel height of one row.</summary>

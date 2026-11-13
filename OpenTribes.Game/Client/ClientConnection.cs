@@ -7,31 +7,31 @@ namespace OpenTribes.Game;
 public sealed class DecodedPacket
 {
     /// <summary>The direction of the packet, "s2c" or "c2s".</summary>
-    public string Direction = "s2c";
+    public string Direction { get; set; } = "s2c";
     /// <summary>The packet length in bytes.</summary>
-    public int Bytes;
+    public int Bytes { get; set; }
     /// <summary>The bits attributed to known fields.</summary>
-    public int BitsRead;
+    public int BitsRead { get; set; }
     /// <summary>The bits that no layout explains. They are counted, never skipped silently.</summary>
-    public int UnknownBits;
+    public int UnknownBits { get; set; }
     /// <summary>The 0 to 7 padding bits after the last member.</summary>
-    public int PaddingBits;
+    public int PaddingBits { get; set; }
     /// <summary>The reason for the unknown bits, or null.</summary>
-    public string? UnknownReason;
+    public string? UnknownReason { get; set; }
     /// <summary>True when the reader went past the end ("Invalid packet").</summary>
-    public bool Overrun;                  // read past the end: "Invalid packet"
+    public bool Overrun { get; set; }                  // read past the end: "Invalid packet"
     /// <summary>The Net_invalidPacket text of a member reader. The session drops the connection.</summary>
-    public string? Error;
+    public string? Error { get; set; }
     /// <summary>The rate set section: interval and size, or null.</summary>
-    public (int Interval, int Size)? RateSet;
+    public (int Interval, int Size)? RateSet { get; set; }
     /// <summary>The rate request section: interval and size, or null.</summary>
-    public (int Interval, int Size)? RateReq;
+    public (int Interval, int Size)? RateReq { get; set; }
     /// <summary>The decoded events.</summary>
-    public readonly List<DecodedEvent> Events = [];
+    public List<DecodedEvent> Events { get; } = [];
     /// <summary>The decoded PlayerPSC block, or null.</summary>
-    public DecodedPsc? Psc;
+    public DecodedPsc? Psc { get; set; }
     /// <summary>The decoded ghost block, or null.</summary>
-    public DecodedGhostBlock? Ghosts;
+    public DecodedGhostBlock? Ghosts { get; set; }
 }
 
 /// <summary>The client side GameConnection: the receive path of one packet payload and the packet writer.</summary>
@@ -40,28 +40,28 @@ public sealed class ClientGameConnection
 {
 
     /// <summary>The client world.</summary>
-    public readonly ClientWorld World;
+    public ClientWorld World { get; }
     /// <summary>The event manager.</summary>
-    public readonly ClientEvents Events;
+    public ClientEvents Events { get; }
 
     /// <summary>The active packet interval in milliseconds (+0x9bc).</summary>
-    public uint IntervalMs = 100;
+    public uint IntervalMs { get; set; } = 100;
     /// <summary>The active packet size in bytes (+0x9c0).</summary>
-    public uint PacketBytes = 200;
+    public uint PacketBytes { get; set; } = 200;
     /// <summary>The own requested packet interval in milliseconds (+0x9c8).</summary>
-    public uint OwnIntervalMs = 100;
+    public uint OwnIntervalMs { get; set; } = 100;
     /// <summary>The own requested packet size in bytes (+0x9cc).</summary>
-    public uint OwnPacketBytes = 200;
-    private bool mRateSetDirty, mRateReqDirty;
+    public uint OwnPacketBytes { get; set; } = 200;
+    private bool _rateSetDirty, _rateReqDirty;
 
     // Send side.
-    private readonly LinkedList<OutEvent> mQueue = new();
-    private readonly Dictionary<uint, List<OutEvent>> mInFlight = [];
-    private readonly Dictionary<uint, (uint Number, bool Set, bool Req)> mMarks = [];
-    private readonly bool[] mSeqInFlight = new bool[128];
-    private int mNextSeq, mLowSeq, mMaxSeq;
-    private uint mNextCookie = 1, mPacketCount = 1, mDeliveredNo, mLastSend;
-    private bool mSentAny;
+    private readonly LinkedList<OutEvent> _queue = new();
+    private readonly Dictionary<uint, List<OutEvent>> _inFlight = [];
+    private readonly Dictionary<uint, (uint Number, bool Set, bool Req)> _marks = [];
+    private readonly bool[] _seqInFlight = new bool[128];
+    private int _nextSeq, _lowSeq, _maxSeq;
+    private uint _nextCookie = 1, _packetCount = 1, _deliveredNo, _lastSend;
+    private bool _sentAny;
 
     /// <summary>Loads the own rate request from the packet prefs.</summary>
     /// <param name="rateText">The value of <c>$pref::PacketRate</c>, 1 to 30, default 10. The interval is 1000 / rate.</param>
@@ -78,7 +78,7 @@ public sealed class ClientGameConnection
         {
             OwnIntervalMs = interval;
             OwnPacketBytes = (uint)size;
-            mRateReqDirty = true;
+            _rateReqDirty = true;
         }
     }
 
@@ -120,7 +120,7 @@ public sealed class ClientGameConnection
                 {
                     IntervalMs = i2;
                     PacketBytes = s2;
-                    mRateSetDirty = true;
+                    _rateSetDirty = true;
                 }
             }
             if (r.Flag())
@@ -171,15 +171,15 @@ public sealed class ClientGameConnection
     // ---- send (4.3, game-stream.md 1.3) ----
 
     /// <summary>Gets whether events wait for the next packet, such as the CGADone remote eval after the ghost-always phase.</summary>
-    public bool OutgoingPending => mQueue.Count != 0;
+    public bool OutgoingPending => _queue.Count != 0;
 
     /// <summary>Queues an event.</summary>
     /// <param name="e">The event.</param>
     public void Post(OutEvent e)
     {
         if (e.Ordered)
-            e.Seq = mNextSeq++;
-        mQueue.AddLast(e);
+            e.Seq = _nextSeq++;
+        _queue.AddLast(e);
     }
 
     /// <summary>Queues a remote eval.</summary>
@@ -190,12 +190,12 @@ public sealed class ClientGameConnection
     {
         var any = false;
         var prev = -4;
-        while (mQueue.Count != 0 && bs.BitPosition() <= PacketBytes * 8)
+        while (_queue.Count != 0 && bs.BitPosition() <= PacketBytes * 8)
         {
-            var e = mQueue.First!.Value;
-            while (!mSeqInFlight[mLowSeq & 127] && mLowSeq < mMaxSeq)
-                ++mLowSeq;
-            if (e.Ordered && e.Seq > mLowSeq + 126)
+            var e = _queue.First!.Value;
+            while (!_seqInFlight[_lowSeq & 127] && _lowSeq < _maxSeq)
+                ++_lowSeq;
+            if (e.Ordered && e.Seq > _lowSeq + 126)
                 break;
             bs.WriteFlag(true);
             bs.WriteFlag(e.Guaranteed);
@@ -211,9 +211,9 @@ public sealed class ClientGameConnection
                         bs.WriteInt((uint)(e.Seq & 127), 7);
                     }
                     prev = e.Seq;
-                    mSeqInFlight[e.Seq & 127] = true;
-                    if (e.Seq > mMaxSeq)
-                        mMaxSeq = e.Seq;
+                    _seqInFlight[e.Seq & 127] = true;
+                    if (e.Seq > _maxSeq)
+                        _maxSeq = e.Seq;
                 }
                 else
                 {
@@ -227,7 +227,7 @@ public sealed class ClientGameConnection
             any = true;
             if (e.Guaranteed)
                 sent.Add(e);
-            mQueue.RemoveFirst();
+            _queue.RemoveFirst();
         }
         bs.WriteFlag(false);
         return any;
@@ -235,7 +235,7 @@ public sealed class ClientGameConnection
 
     /// <summary>The <c>$pref::PacketFrame</c> value (DAT_0063efb4, 32 to 96 in 1.30), 0 when not set.</summary>
     /// <remarks>A running client has a net time, and GameConnection_writePacket (00550d2c) then paces by it: a packet is due when net time is at least last send + PacketFrame, and 1000 / PacketFrame is not below the packets written since the last delivered one. The negotiated interval only paces a connection without a net time.</remarks>
-    public uint PacketFrame;
+    public uint PacketFrame { get; set; }
 
     /// <summary>Tells whether a packet is due (docs/game-stream.md 1.3 Pacing).</summary>
     /// <param name="nowMs">The current time in milliseconds.</param>
@@ -243,7 +243,7 @@ public sealed class ClientGameConnection
     public bool Due(uint nowMs)
     {
         var interval = PacketFrame != 0 ? PacketFrame : Math.Max(IntervalMs, 1u);
-        return !mSentAny || (unchecked(nowMs - mLastSend) >= interval && 1000u / interval >= unchecked(mPacketCount - mDeliveredNo));
+        return !_sentAny || (unchecked(nowMs - _lastSend) >= interval && 1000u / interval >= unchecked(_packetCount - _deliveredNo));
     }
 
     /// <summary>Builds the payload of the next packet.</summary>
@@ -252,20 +252,20 @@ public sealed class ClientGameConnection
     /// <returns>True when the packet was sent. On false the contents are put back.</returns>
     public bool WritePacket(uint nowMs, Func<byte[], int, uint, bool> send)
     {
-        var buf = new byte[Connection.kMaxPacket - 32];
+        var buf = new byte[Connection.MaxPacket - 32];
         var bs = new BitStream(buf, buf.Length);
-        bool setWas = mRateSetDirty, reqWas = mRateReqDirty;
-        if (bs.WriteFlag(mRateSetDirty))
+        bool setWas = _rateSetDirty, reqWas = _rateReqDirty;
+        if (bs.WriteFlag(_rateSetDirty))
         {
             bs.WriteInt(IntervalMs, 10);
             bs.WriteInt(PacketBytes, 10);
-            mRateSetDirty = false;
+            _rateSetDirty = false;
         }
-        if (bs.WriteFlag(mRateReqDirty))
+        if (bs.WriteFlag(_rateReqDirty))
         {
             bs.WriteInt(OwnIntervalMs, 10);
             bs.WriteInt(OwnPacketBytes, 10);
-            mRateReqDirty = false;
+            _rateReqDirty = false;
         }
         var sent = new List<OutEvent>();
         var flagPos = bs.BitPosition();
@@ -282,21 +282,21 @@ public sealed class ClientGameConnection
         bs.WriteFlag(false);
         bs.WriteInt(1, 3);
         bs.WriteFlag(false);
-        var cookie = mNextCookie++;
+        var cookie = _nextCookie++;
         if (!send(buf, bs.BytePosition(), cookie))
         {
             for (var i = sent.Count - 1; i >= 0; --i)
-                mQueue.AddFirst(sent[i]);
-            mRateSetDirty |= setWas;
-            mRateReqDirty |= reqWas;
+                _queue.AddFirst(sent[i]);
+            _rateSetDirty |= setWas;
+            _rateReqDirty |= reqWas;
             return false;
         }
-        mMarks[cookie] = (mPacketCount, setWas, reqWas);
-        ++mPacketCount;
+        _marks[cookie] = (_packetCount, setWas, reqWas);
+        ++_packetCount;
         if (sent.Count != 0)
-            mInFlight[cookie] = sent;
-        mLastSend = nowMs;
-        mSentAny = true;
+            _inFlight[cookie] = sent;
+        _lastSend = nowMs;
+        _sentAny = true;
         return true;
     }
 
@@ -306,33 +306,33 @@ public sealed class ClientGameConnection
     /// <remarks>A lost packet re-arms its rate sections and requeues its guaranteed events.</remarks>
     public void Notify(uint cookie, bool delivered)
     {
-        if (mMarks.TryGetValue(cookie, out var mk))
+        if (_marks.TryGetValue(cookie, out var mk))
         {
             if (delivered)
-                mDeliveredNo = mk.Number;
+                _deliveredNo = mk.Number;
             else
             {
-                mRateSetDirty |= mk.Set;
-                mRateReqDirty |= mk.Req;
+                _rateSetDirty |= mk.Set;
+                _rateReqDirty |= mk.Req;
             }
-            mMarks.Remove(cookie);
+            _marks.Remove(cookie);
         }
-        if (!mInFlight.TryGetValue(cookie, out var events))
+        if (!_inFlight.TryGetValue(cookie, out var events))
             return;
         if (delivered)
         {
             foreach (var e in events)
                 if (e.Ordered)
-                    mSeqInFlight[e.Seq & 127] = false;
+                    _seqInFlight[e.Seq & 127] = false;
         }
         else
         {
             for (var i = events.Count - 1; i >= 0; --i)
-                mQueue.AddFirst(events[i]);
+                _queue.AddFirst(events[i]);
         }
-        mInFlight.Remove(cookie);
+        _inFlight.Remove(cookie);
     }
 
     /// <summary>Gets the number of queued events.</summary>
-    public int Queued => mQueue.Count;
+    public int Queued => _queue.Count;
 }

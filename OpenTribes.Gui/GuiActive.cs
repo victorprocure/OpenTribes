@@ -7,9 +7,9 @@ using OpenTribes.Platform.Gfx;
 public class GuiActive : GuiControl
 {
     /// <summary>True while the mouse button is held on the control.</summary>
-    public bool Pressed;
+    public bool Pressed { get; set; }
     /// <summary>True while the mouse is over the control's hit area.</summary>
-    public bool Over;
+    public bool Over { get; set; }
 
     /// <inheritdoc/>
     public override bool IsActiveCtrl => true;
@@ -242,7 +242,7 @@ public class GuiSimpleText : GuiActive
 /// <summary>The simple text label (FearGui::FGSimpleText, 004c9c70): orange when inactive, white active, grey dimmed, with a black shadow.</summary>
 public sealed class GuiFGSimpleText : GuiSimpleText
 {
-    private bool mLowRes;
+    private bool _lowRes;
     /// <inheritdoc/>
     public override bool WantsTab => false;
     /// <inheritdoc/>
@@ -265,14 +265,14 @@ public sealed class GuiFGSimpleText : GuiSimpleText
             return;
         var small = Canvas.Width < 512 || Canvas.Height < 384;
         PftFont? big = Host?.FontByName("sf_orange255_10.pft"), sm = Host?.FontByName("sf_white_6.pft");
-        if (small && !mLowRes)
+        if (small && !_lowRes)
         {
-            mLowRes = true;
+            _lowRes = true;
             H = GuiPaint.FontHeight(sm) + 2;
         }
-        else if (!small && (mLowRes || H != GuiPaint.FontHeight(big) + 4) && big != null)
+        else if (!small && (_lowRes || H != GuiPaint.FontHeight(big) + 4) && big != null)
         {
-            mLowRes = false;
+            _lowRes = false;
             H = GuiPaint.FontHeight(big) + 4;
         }
     }
@@ -285,7 +285,7 @@ public sealed class GuiFGSimpleText : GuiSimpleText
             return;
         var main = Dimmed ? "sf_grey100_10b.pft" : Active ? "sf_white_10.pft" : "sf_orange255_10.pft";
         var shadow = "sf_black_10.pft";
-        if (mLowRes)
+        if (_lowRes)
         {
             main = Dimmed ? "sf_grey_6.pft" : Active ? "sf_white_6.pft" : "sf_yellow_6.pft";
             shadow = "sf_black_6.pft";
@@ -304,24 +304,24 @@ public class GuiTextEdit : GuiSimpleText
         ClassName is "FearGui::FGIRCActiveTextEdit" or "FearGui::FGIRCTextEdit" or "FearGui::TestEdit" ? CursorIBeam : 0;
 
     /// <summary>The cursor position as a character index.</summary>
-    public int Cursor;
+    public int Cursor { get; set; }
     /// <summary>The start of the selection.</summary>
-    public int SelStart;
+    public int SelStart { get; set; }
     /// <summary>The end of the selection.</summary>
-    public int SelEnd;
+    public int SelEnd { get; set; }
     /// <summary>The fixed end of the selection while it is extended.</summary>
-    public int Anchor;
+    public int Anchor { get; set; }
     /// <summary>True when typing overwrites instead of inserting.</summary>
-    public bool Overwrite;
+    public bool Overwrite { get; set; }
     /// <summary>True while a mouse drag selects text.</summary>
-    public bool Dragging;
-    private string mUndoText = "";
-    private int mUndoCursor, mUndoSelStart, mUndoSelEnd;
+    public bool Dragging { get; set; }
+    private string _undoText = "";
+    private int _undoCursor, _undoSelStart, _undoSelEnd;
     /// <summary>The blink state: +0x2f4 shown, +0x2ec the sim time of the last change, +0x2e8 the frames since (0053f028, 0053e0d0).</summary>
-    private long mBlinkBase;
-    private int mBlinkFrames;
-    private bool mCursorShown;
-    private int mTextLeft = 3;
+    private long _blinkBase;
+    private int _blinkFrames;
+    private bool _cursorShown;
+    private int _textLeft = 3;
 
     /// <summary>Gets the maximum text length, 255 when the file gives none.</summary>
     public int MaxLength => (int)U("maxLength", 255) is var m && m > 0 ? m : 255;
@@ -356,9 +356,9 @@ public class GuiTextEdit : GuiSimpleText
         if (!base.CanTake())
             return false;
         Cursor = 0;
-        mBlinkBase = Host?.TickMs ?? 0;
-        mBlinkFrames = 0;
-        mCursorShown = true;
+        _blinkBase = Host?.TickMs ?? 0;
+        _blinkFrames = 0;
+        _cursorShown = true;
         return true;
     }
 
@@ -369,12 +369,12 @@ public class GuiTextEdit : GuiSimpleText
         if (!ReferenceEquals(Canvas?.FirstResponder, this))
             return;
         var now = Host?.TickMs ?? 0;
-        ++mBlinkFrames;
-        if (now - mBlinkBase > 500 && mBlinkFrames > 3)
+        ++_blinkFrames;
+        if (now - _blinkBase > 500 && _blinkFrames > 3)
         {
-            mCursorShown = !mCursorShown;
-            mBlinkBase = now;
-            mBlinkFrames = 0;
+            _cursorShown = !_cursorShown;
+            _blinkBase = now;
+            _blinkFrames = 0;
             Canvas?.Invalidate();
         }
     }
@@ -383,7 +383,7 @@ public class GuiTextEdit : GuiSimpleText
     {
         var f = Font;
         var (lx, _) = GlobalToLocal(gx, 0);
-        var x = lx - mTextLeft;
+        var x = lx - _textLeft;
         if (x <= 0 || f == null)
             return 0;
         var sum = 0;
@@ -450,10 +450,10 @@ public class GuiTextEdit : GuiSimpleText
 
     private void SaveUndo()
     {
-        mUndoText = Text;
-        mUndoCursor = Cursor;
-        mUndoSelStart = SelStart;
-        mUndoSelEnd = SelEnd;
+        _undoText = Text;
+        _undoCursor = Cursor;
+        _undoSelStart = SelStart;
+        _undoSelEnd = SelEnd;
     }
 
     private void DeleteSelection()
@@ -477,10 +477,10 @@ public class GuiTextEdit : GuiSimpleText
             {
                 case 0x0e:
                 case 0x16:
-                    (Text, mUndoText) = (mUndoText, Text);
-                    (Cursor, mUndoCursor) = (mUndoCursor, Cursor);
-                    (SelStart, mUndoSelStart) = (mUndoSelStart, SelStart);
-                    (SelEnd, mUndoSelEnd) = (mUndoSelEnd, SelEnd);
+                    (Text, _undoText) = (_undoText, Text);
+                    (Cursor, _undoCursor) = (_undoCursor, Cursor);
+                    (SelStart, _undoSelStart) = (_undoSelStart, SelStart);
+                    (SelEnd, _undoSelEnd) = (_undoSelEnd, SelEnd);
                     return true;
                 case 0x2e:
                 case 0x2d:
@@ -595,7 +595,7 @@ public class GuiTextEdit : GuiSimpleText
     protected virtual void DrawField(GuiPaint p, int gx, int gy)
     {
         p.Fill(gx, gy, W, H, 0xff);
-        DrawLine(p, gx + mTextLeft - 3, gy, gy + H - 1);
+        DrawLine(p, gx + _textLeft - 3, gy, gy + H - 1);
     }
 
     /// <summary>Gets the color of the selection box (+0x2e4): 0 from the constructor (0053e006), and a box of color 0 is not drawn (0053f42f).</summary>
@@ -644,7 +644,7 @@ public class GuiTextEdit : GuiSimpleText
             end = SelEnd;
         }
         p.Text(f, x, y, Text[end..]);
-        if (focus && mCursorShown)
+        if (focus && _cursorShown)
         {
             var cx = x0 + GuiPaint.TextWidth(f, Text[..Math.Min(Cursor, Text.Length)]);
             p.Line(cx, top, cx, bottom, CursorColor);
@@ -653,7 +653,7 @@ public class GuiTextEdit : GuiSimpleText
 
     /// <summary>Sets the left edge of the text for mouse hit testing.</summary>
     /// <param name="left">The offset of the text from the control's left edge.</param>
-    protected void SetTextLeft(int left) => mTextLeft = left;
+    protected void SetTextLeft(int left) => _textLeft = left;
 }
 
 /// <summary>The shell text field (FearGui::TestEdit, 004cd840, 004cd974, 004cd814).</summary>

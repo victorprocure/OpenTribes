@@ -4,9 +4,9 @@ namespace OpenTribes.Net;
 public readonly struct HuffmanCode
 {
     /// <summary>The code bits, LSB first. Bit i is the i-th bit written.</summary>
-    public readonly ulong Bits;
+    public ulong Bits { get; }
     /// <summary>The code length in bits.</summary>
-    public readonly byte Length;
+    public byte Length { get; }
 
     /// <summary>Creates a code.</summary>
     /// <param name="bits">The code bits, LSB first.</param>
@@ -25,13 +25,13 @@ public static class Huffman
     // src/net/huffman.hpp detail::HuffNode.
     private struct HuffNode
     {
-        public short Child0; // < 0 encodes leaf -(index + 1)
-        public short Child1;
+        public short Child0 { get; set; } // < 0 encodes leaf -(index + 1)
+        public short Child1 { get; set; }
     }
 
     // src/net/huffman.cpp kCharFreqs: character frequencies. Identical to csm_charFreqs in Torque3D
     // (Engine/source/core/stream/bitStream.cpp), Copyright (c) 2012 GarageGames, LLC, MIT license.
-    private static readonly uint[] kCharFreqs =
+    private static readonly uint[] CharFreqs =
     [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 329, 21, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -58,14 +58,14 @@ c is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'z');
     // src/net/huffman.cpp struct Tables.
     private sealed class Tables
     {
-        public readonly HuffNode[] Nodes = new HuffNode[256];
-        public readonly HuffmanCode[] Codes = new HuffmanCode[256];
+        public HuffNode[] Nodes { get; } = new HuffNode[256];
+        public HuffmanCode[] Codes { get; } = new HuffmanCode[256];
 
         // A wrap is either a leaf (< 0, encoded like a child index) or a node index.
         private struct Wrap
         {
-            public short Index;
-            public uint Weight;
+            public short Index { get; set; }
+            public uint Weight { get; set; }
         }
 
         // src/net/huffman.cpp Tables::Tables.
@@ -74,7 +74,7 @@ c is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'z');
             var wraps = new Wrap[256];
             for (var i = 0; i < 256; ++i)
                 // Tribes adds 1 for alphanumerics on top of Torque's +1.
-                wraps[i] = new Wrap { Index = (short)-(i + 1), Weight = kCharFreqs[i] + 1 + (IsAsciiAlnum(i) ? 1u : 0u) };
+                wraps[i] = new Wrap { Index = (short)-(i + 1), Weight = CharFreqs[i] + 1 + (IsAsciiAlnum(i) ? 1u : 0u) };
 
             var nodeCount = 1; // slot 0 is reserved for the root
             var count = 256;

@@ -14,11 +14,11 @@ public class PlayerManagerTests
     // Teams -1 (unnamed), 0 (Blood Eagle / beagle), 1 (Diamond Sword / dsword). No sim, no network.
     private sealed class Fx
     {
-        public readonly StringTable Strings = new();
-        public readonly Interpreter In;
-        public string Out = "";
-        public readonly GameState Game = new();
-        public readonly List<Sent> SentEvents = [];
+        public StringTable Strings { get; } = new();
+        public Interpreter In { get; }
+        public string Out { get; set; } = "";
+        public GameState Game { get; } = new();
+        public List<Sent> SentEvents { get; } = [];
 
         public Fx()
         {

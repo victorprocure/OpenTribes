@@ -17,9 +17,9 @@ public class VehicleTests
     private static uint Bits(float f) => BitConverter.SingleToUInt32Bits(f);
     private static string Itoa(int v) => v.ToString(CultureInfo.InvariantCulture);
 
-    private const float kFlat = 50.0f;
+    private const float Flat = 50.0f;
 
-    private const string kBlocks =
+    private const string Blocks =
         "FlierData Scout { shapeFile = \"gen\"; className = \"Vehicle\"; mass = 9.0; drag = 1.0; density = 1.2;" +
         " maxBank = 0.5; maxPitch = 0.5; maxSpeed = 50; minSpeed = -2; lift = 0.75; maxAlt = 25; maxVertical = 10;" +
         " maxDamage = 0.6; damageLevel = {1.0, 1.0}; maxEnergy = 100; accel = 0.4; groundDamageScale = 1.0;" +
@@ -35,8 +35,8 @@ public class VehicleTests
 
     private sealed class Fixture
     {
-        public readonly string Root;
-        public readonly Fixtures.World W;
+        public string Root { get; }
+        public Fixtures.World W { get; }
 
         public Fixture(string name)
         {
@@ -48,11 +48,11 @@ public class VehicleTests
                 Scale = 5,
                 Width = 16, // 16 x 16 repeats of the one 128 m block: 2048 m, the flights stay inside
                 Height = 16,
-                Heights = [.. Enumerable.Repeat(kFlat, 25)],
+                Heights = [.. Enumerable.Repeat(Flat, 25)],
                 Squares = [.. new byte[32]]
             }; // 256 m x 256 m, flat
-            PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, kFlat, kFlat));
-            PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, kFlat, kFlat));
+            PutFile(Path.Combine(Root, "base/m.dtf"), DtfFile(t, Flat, Flat));
+            PutFile(Path.Combine(Root, "base/m#0.dtb"), DtbFile(t, Flat, Flat));
             PutFile(Path.Combine(Root, "base/t.dml"), "dml");
             float[] gen = [-1, -1.5f, 0, 1, 1.5f, 2];
             PutFile(Path.Combine(Root, "base/gen.dts"), DtsCollisionFile(gen));
@@ -65,7 +65,7 @@ public class VehicleTests
                   " maxJetSideForceFactor = 0.75; maxJetForwardVelocity = 22; maxEnergy = 60; maxDamage = 0.5;" +
                   " boxWidth = 0.5; boxDepth = 0.5; boxNormalHeight = 2.25; boxCrouchHeight = 1.75; canCrouch = true;" +
                   " minDamageSpeed = 25; damageScale = 0.0078125; };");
-            W.Run(kBlocks);
+            W.Run(Blocks);
             W.Run("instant SimGroup \"MissionGroup\" {" +
                   " instant SimTerrain \"Terrain\" { tedFileName = \"m.dtf\"; position = \"-1024 -1024 0\";" +
                   "   contGravity = \"0 0 -20\"; }; };" +
@@ -110,7 +110,7 @@ public class VehicleTests
     // bit-identical up to the first move with a turn (490); from there on the port differs in the low bits like the C++
     // truncating build (1207, 1205, 1205 of 1720 steps). The assertion of the loop holds bit-exactly before that step;
     // the differing steps from it on are counted and reported with both values of the first one.
-    private const int kFirstTurn = 490;
+    private const int FirstTurn = 490;
 
     // The flight step against the exact model: every field of every step is bit-identical.
     private static void RunVectors(Fixture f, string data)
@@ -136,7 +136,7 @@ public class VehicleTests
                 ok = ok && Bits(fl.Transform.P[k]) == s[k] && Bits(fl.Rotation[k]) == s[3 + k] && Bits(fl.TargetRot[k]) == s[6 + k];
             ok = ok && Bits(fl.SpeedL) == s[9] && Bits(fl.SpeedS) == s[10] && Bits(fl.SpeedF) == s[11] && Bits(fl.SpeedT) == s[12] &&
                  (fl.Landed ? 1 : 0) == landed;
-            if (!ok && i >= kFirstTurn)
+            if (!ok && i >= FirstTurn)
             {
                 if (diverged++ == 0)
                     firstDiff = $"{data} step {i}: pos {Bits(fl.Transform.P[0]):x8} {Bits(fl.Transform.P[1]):x8} {Bits(fl.Transform.P[2]):x8}" +
@@ -155,7 +155,7 @@ public class VehicleTests
             }
         }
         if (diverged != 0)
-            Console.Error.WriteLine($"{data}: {diverged} of {moves.Count} steps differ from the exact model from step {kFirstTurn} " +
+            Console.Error.WriteLine($"{data}: {diverged} of {moves.Count} steps differ from the exact model from step {FirstTurn} " +
                                     $"(80-bit yaw constant, docs/portable-float.md 5 item 2); first: {firstDiff}");
         f.W.Run("deleteObject(" + Itoa(fl.Id()) + ");");
     }
@@ -333,10 +333,10 @@ public class VehicleTests
         v.SpeedF = 50;
         v.SpeedT = 50;
         c.Check(w, "echo(GameBase::applyDamage(" + vid + ", -1, 0.3, \"0 0 0\", \"0 0 1\", \"0 0 0\", 8));", "True");
-        Assert.True(v.Damage > 0.29f && v.DamageState == GameBase.kEnabled && v.SpeedF == 50);
+        Assert.True(v.Damage > 0.29f && v.DamageState == GameBase.Enabled && v.SpeedF == 50);
         c.Check(w, "echo($dmg);", "-1|0.299997|0 0 1|0 0 0|8");
         w.Run("GameBase::applyDamage(" + vid + ", -1, 0.4, \"0 0 0\", \"0 0 1\", \"0 0 0\", 8);");
-        Assert.True(v.DamageState == GameBase.kDestroyed && v.SpeedF == 0 && v.SpeedT == 0);
+        Assert.True(v.DamageState == GameBase.Destroyed && v.SpeedF == 0 && v.SpeedT == 0);
         c.Check(w, "echo($destroyed == " + vid + ");", "1");
         v.Velocity[0] = 5;
         var none = new Move();
@@ -362,7 +362,7 @@ public class VehicleTests
     {
         var h = new CollisionHit
         {
-            Type = ObjectType.kInteriorType
+            Type = ObjectType.InteriorType
         };
         var sf = new CollisionSurface
         {
@@ -489,7 +489,7 @@ public class VehicleTests
             Assert.True((parked.ItemFlags & 5) == 0 && (v.ItemFlags & 5) == 1 && (away.ItemFlags & 5) == 1);
             Assert.True(parked.Transform.P[0] == at[0] && parked.Transform.P[1] == at[1] && parked.Transform.P[2] == at[2]);
             Assert.True(parked.Velocity[0] == 0.0f && parked.Velocity[1] == 0.0f && parked.Velocity[2] == -0.64f);
-            Assert.Equal(0, w.Game.mDisplaceHidden.Count);
+            Assert.Equal(0, w.Game.DisplaceHidden.Count);
             foreach (var hull in new[] { parked, away })
             {
                 hull.Velocity[0] = 3.0f;
@@ -503,7 +503,7 @@ public class VehicleTests
             var qz = q.Transform.P[2];
             float[] again = [700, 699.98f, 120];
             Assert.True(w.Game.MoveableDisplace(v, again));
-            Assert.True(q.Transform.P[2] == qz && w.Game.mDisplaceHidden.Count == 0);
+            Assert.True(q.Transform.P[2] == qz && w.Game.DisplaceHidden.Count == 0);
         }
         {
             w.Run("ItemData Ball { shapeFile = \"gen\"; mass = 2; friction = 0.5; elasticity = 0.5; };" +
@@ -530,7 +530,7 @@ public class VehicleTests
                 y = SubF(y, 0.01f);
                 var py = p.Transform.P[1];
                 Assert.True(w.Game.MoveableDisplace(v, before));
-                Assert.True(p.Transform.P[1] > py && w.Game.mDisplaceHidden.Count == 0);
+                Assert.True(p.Transform.P[1] > py && w.Game.DisplaceHidden.Count == 0);
                 p.Transform.P[1] = py; // the same overlap for the next object
                 p.UpdateContainer();
             }
@@ -564,7 +564,7 @@ public class VehicleTests
                 var cands = new List<CollisionImage>();
                 var hits = new List<CollisionHit>();
                 float[] hp = [hull.Transform.P[0], hull.Transform.P[1], hull.Transform.P[2]];
-                hull.HullCandidates(hp, cands, Flier.kHullMask);
+                hull.HullCandidates(hp, cands, Flier.HullMask);
                 int spheres = 0, shapes = 0;
                 foreach (var im in cands)
                     if (im.Object == mine)
@@ -586,7 +586,7 @@ public class VehicleTests
                 hull = f.Make("Scout", "900 906.5 120");
                 cands.Clear();
                 hp = [hull.Transform.P[0], hull.Transform.P[1], hull.Transform.P[2]];
-                hull.HullCandidates(hp, cands, Flier.kHullMask);
+                hull.HullCandidates(hp, cands, Flier.HullMask);
                 hull.TestAt(hp, cands, hits);
                 w.Sim.AdvanceRealTime(32);
                 Assert.StartsWith("0Flier", w.Run("echo($mc);"), StringComparison.Ordinal);

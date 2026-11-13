@@ -60,11 +60,11 @@ public sealed partial class AIObject
     }
 
     // src/game/ai_manager.cpp corpseCounter: 0x006640f4, never reset.
-    private static uint sCorpseCounter;
+    private static uint _corpseCounter;
 
     /// <summary>Returns the next corpse counter value and advances it.</summary>
     /// <returns>The counter value.</returns>
-    public static uint CorpseCounterNext() => sCorpseCounter++;
+    public static uint CorpseCounterNext() => _corpseCounter++;
 
     // ---- engage (3.4, 3.7, 3.8) ----
 
@@ -250,7 +250,7 @@ public static class AIAim
     public static bool AiSolveAim(int group, float speed, float totalTime, ReadOnlySpan<float> s, ReadOnlySpan<float> t,
                                   bool high, float g, ref bool ok, Span<float> dir)
     {
-        if (high && group != Projectile.kGrenadeGroup)
+        if (high && group != Projectile.GrenadeGroup)
             return false;
         static float Straight(ReadOnlySpan<float> s, ReadOnlySpan<float> t, Span<float> dir)
         {
@@ -263,10 +263,10 @@ public static class AIAim
             return len;
         }
         float len;
-        if (group != Projectile.kGrenadeGroup)
+        if (group != Projectile.GrenadeGroup)
         {
             len = Straight(s, t, dir);
-            ok = group is not Projectile.kBulletGroup and not Projectile.kRocketGroup || Mul(speed, totalTime) > len;
+            ok = group is not Projectile.BulletGroup and not Projectile.RocketGroup || Mul(speed, totalTime) > len;
             return true;
         }
         // 0x0045ed40 (fastcall: datablock, start, target; arc, ok, dir, force on the stack).
@@ -335,15 +335,15 @@ public static class AIAim
 public sealed class AIManager : SimObject
 {
     /// <summary>The game state.</summary>
-    public readonly GameState Game;
+    public GameState Game { get; }
     /// <summary>The AI objects in spawn order.</summary>
-    public readonly List<AIObject> Ais = [];
+    public List<AIObject> Ais { get; } = [];
     /// <summary>True when the AI must recompute (0x00617ddc).</summary>
-    public bool Recompute = true;
+    public bool Recompute { get; set; } = true;
     /// <summary>The tick count (+0x4c).</summary>
-    public int TickCount;
+    public int TickCount { get; set; }
     /// <summary>The counter (+0x50).</summary>
-    public int Counter;
+    public int Counter { get; set; }
 
     /// <summary>Creates the manager.</summary>
     /// <param name="g">The game state.</param>

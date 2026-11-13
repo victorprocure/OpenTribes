@@ -8,27 +8,27 @@ using static OpenTribes.Core.Fpu;
 public struct Move
 {
     /// <summary>The forward input, 0 to 1 in 1/15 steps (+0x00).</summary>
-    public float Forward;
+    public float Forward { get; set; }
     /// <summary>The backward input (+0x04).</summary>
-    public float Backward;
+    public float Backward { get; set; }
     /// <summary>The left input (+0x08).</summary>
-    public float Left;
+    public float Left { get; set; }
     /// <summary>The right input (+0x0c).</summary>
-    public float Right;
+    public float Right { get; set; }
     /// <summary>True while the jet key is down (+0x10).</summary>
-    public bool Jet;
+    public bool Jet { get; set; }
     /// <summary>True while the crouch key is down (+0x11).</summary>
-    public bool Crouch;
+    public bool Crouch { get; set; }
     /// <summary>True while the jump key is down (+0x12).</summary>
-    public bool Jump;
+    public bool Jump { get; set; }
     /// <summary>True while the fire key is down (+0x13).</summary>
-    public bool Fire;
+    public bool Fire { get; set; }
     /// <summary>The item to use, or -1 (+0x14).</summary>
-    public int UseItem;
+    public int UseItem { get; set; }
     /// <summary>The yaw delta (+0x18).</summary>
-    public float Turn;
+    public float Turn { get; set; }
     /// <summary>The pitch delta (+0x1c).</summary>
-    public float Pitch;
+    public float Pitch { get; set; }
 
     /// <summary>Creates an empty move: no input, no item.</summary>
     public Move()
@@ -44,7 +44,7 @@ public struct Move
 public sealed class ControlContext
 {
     /// <summary>The ghost manager of the receiving connection, or null.</summary>
-    public GhostManager? Ghosts;
+    public GhostManager? Ghosts { get; set; }
 }
 
 /// <summary>BitStream extensions for the raw float writes of the game files (<c>bs.writeBytes(&amp;f, 4)</c>).</summary>
@@ -85,7 +85,7 @@ public static class BitStreamF
 public static class Moves
 {
     /// <summary>The largest turn or pitch delta of one move (float at 0060f084).</summary>
-    public const float kMoveMaxTurn = 1.0f;
+    public const float MoveMaxTurn = 1.0f;
 
     /// <summary>Clamps a move angle.</summary>
     /// <param name="v">The angle delta.</param>
@@ -96,9 +96,9 @@ public static class Moves
         var bits = BitConverter.SingleToUInt32Bits(v);
         if (((bits >> 23) & 0xff) == 0xff)
             return 0; // NaN and infinity
-        if (!(-kMoveMaxTurn < v))
-            return -kMoveMaxTurn;
-        return kMoveMaxTurn <= v ? kMoveMaxTurn : v;
+        if (!(-MoveMaxTurn < v))
+            return -MoveMaxTurn;
+        return MoveMaxTurn <= v ? MoveMaxTurn : v;
     }
 
     /// <summary>Writes a move to a stream.</summary>
@@ -216,49 +216,50 @@ public static class Moves
 public sealed class ObserverCamera : GameBase
 {
     /// <summary>The camera mode values: fixed, look, fly, orbit object and orbit point.</summary>
-    public const int kFixed = 0, kLook = 1, kFly = 2, kOrbitObject = 3, kOrbitPoint = 4;
+    public const int Fixed = 0, Look = 1, Fly = 2, kOrbitObject = 3, OrbitPoint = 4;
 
     /// <summary>What the camera needs from the game. Every member is optional.</summary>
     public sealed class CameraServices
     {
         /// <summary>Evaluates a console line (005f4280).</summary>
-        public Action<string>? Evaluate;
+        public Action<string>? Evaluate { get; set; }
         /// <summary>Reads the mission area as x, y, w, h (006a8478).</summary>
-        public Func<float[], bool>? MissionArea;
+        public Func<float[], bool>? MissionArea { get; set; }
         /// <summary>Container 7, used for the orbit collision.</summary>
-        public Container? Container;
+        public Container? Container { get; set; }
     }
 
-    private static readonly ClassContext sNullContext = new();
+    private static readonly ClassContext NullContext = new();
 
     /// <summary>The last move (+0x240).</summary>
-    public Move LastMove = new();
+    public ref Move LastMove => ref _lastMove;
+    private Move _lastMove = new();
     /// <summary>True while the camera is inside the mission area (+0x260).</summary>
-    public bool InMissionArea = true;
+    public bool InMissionArea { get; set; } = true;
     /// <summary>The camera rotation (+0x264).</summary>
-    public readonly float[] CamRotation = new float[3];
+    public float[] CamRotation { get; } = new float[3];
     /// <summary>The camera position (+0x270).</summary>
-    public readonly float[] Position = new float[3];
+    public float[] Position { get; } = new float[3];
     /// <summary>The object the camera orbits (+0x288).</summary>
-    public GameBase? OrbitObject;
+    public GameBase? OrbitObject { get; set; }
     /// <summary>The object whose damage the camera shows (+0x28c).</summary>
-    public GameBase? DamageObject;
+    public GameBase? DamageObject { get; set; }
     /// <summary>The minimum orbit distance (+0x290).</summary>
-    public float MinDistance;
+    public float MinDistance { get; set; }
     /// <summary>The maximum orbit distance (+0x294).</summary>
-    public float MaxDistance;
+    public float MaxDistance { get; set; }
     /// <summary>The current orbit distance (+0x298).</summary>
-    public float Distance;
+    public float Distance { get; set; }
     /// <summary>The camera mode (+0x29c).</summary>
-    public int Mode = kFly;
+    public int Mode { get; set; } = Fly;
     /// <summary>The id of the owning client (+0x2a0).</summary>
-    public int ClientId;
+    public int ClientId { get; set; }
 
-    private readonly CameraServices mServices;
+    private readonly CameraServices _services;
 
     /// <summary>Creates a camera with no game services, for tests.</summary>
     /// <param name="clientId">The id of the owning client.</param>
-    public ObserverCamera(int clientId = 0) : this(sNullContext, clientId, new CameraServices()) { }
+    public ObserverCamera(int clientId = 0) : this(NullContext, clientId, new CameraServices()) { }
 
     /// <summary>Creates a camera.</summary>
     /// <param name="ctx">The class context.</param>
@@ -268,11 +269,11 @@ public sealed class ObserverCamera : GameBase
         : base("ObserverCamera", Kind.Marker, -1, Array.Empty<PersistDef>(), ctx)
     {
         ClientId = clientId;
-        mServices = services;
+        _services = services;
     }
 
     // src/game/control_object.cpp ObserverCamera::call.
-    private void Call(string function, int arg) => mServices.Evaluate?.Invoke(function + "(" + Numbers.FormatInt(arg) + ");");
+    private void Call(string function, int arg) => _services.Evaluate?.Invoke(function + "(" + Numbers.FormatInt(arg) + ");");
 
     // src/game/control_object.cpp ObserverCamera::setTransform.
     private void SetTransform(ReadOnlySpan<float> rot, ReadOnlySpan<float> pos)
@@ -287,7 +288,7 @@ public sealed class ObserverCamera : GameBase
     // (max + min) stored, then halved.
     private bool ObjectCentre(GameBase obj, Span<float> output)
     {
-        var e = mServices.Container?.Find(obj);
+        var e = _services.Container?.Find(obj);
         for (var i = 0; i < 3; ++i)
         {
             if (e != null)
@@ -319,7 +320,7 @@ public sealed class ObserverCamera : GameBase
             CamRotation[i] = rot[i];
         }
         SetTransform(CamRotation, Position);
-        Mode = !on ? kFixed : fly ? kFly : kLook;
+        Mode = !on ? Fixed : fly ? Fly : Look;
     }
 
     /// <summary>Starts orbiting an object or a point.</summary>
@@ -341,7 +342,7 @@ public sealed class ObserverCamera : GameBase
         }
         else
         {
-            Mode = kOrbitPoint;
+            Mode = OrbitPoint;
             for (var i = 0; i < 3; ++i)
                 Position[i] = point[i];
         }
@@ -369,22 +370,22 @@ public sealed class ObserverCamera : GameBase
         if (obj == OrbitObject)
         {
             OrbitObject = null;
-            Mode = kOrbitPoint;
+            Mode = OrbitPoint;
             Call("Observer::orbitObjectDeleted", ClientId);
         }
     }
 
-    private static int sFlashDepth;
+    private static int _flashDepth;
 
     /// <inheritdoc/>
     /// <remarks>Follows 00434a24. The original follows the chain of damage objects without a limit, so a camera that is its own damage object overflows its stack. Here such a chain reads 0 (D13).</remarks>
     public override float DamageFlash()
     {
-        if (sFlashDepth >= 4)
+        if (_flashDepth >= 4)
             return 0.0f;
-        ++sFlashDepth;
+        ++_flashDepth;
         var flash = DamageObject != null ? DamageObject.DamageFlash() : OrbitObject != null ? OrbitObject.DamageFlash() : 0.0f;
-        --sFlashDepth;
+        --_flashDepth;
         return flash;
     }
 
@@ -394,7 +395,7 @@ public sealed class ObserverCamera : GameBase
     private void OrbitPlace(ref Transform t, float dist)
     {
         var p = new float[] { t.P[0], t.P[1], t.P[2] };
-        PlaceBehind(mServices.Container, this, p, t.M[3], t.M[4], t.M[5], dist);
+        PlaceBehind(_services.Container, this, p, t.M[3], t.M[4], t.M[5], dist);
         for (var i = 0; i < 3; ++i)
             t.P[i] = p[i];
     }
@@ -457,7 +458,7 @@ public sealed class ObserverCamera : GameBase
         var fwd = Store(Mul(Sub(mv.Forward, mv.Backward), speed));
         var side = Store(Mul(Sub(mv.Right, mv.Left), speed));
 
-        if (Mode == kFly)
+        if (Mode == Fly)
         {
             for (var i = 0; i < 3; ++i)
             {
@@ -466,7 +467,7 @@ public sealed class ObserverCamera : GameBase
                 pos[i] = Store(Add(v, pos[i]));
             }
         }
-        else if (Mode is kOrbitObject or kOrbitPoint)
+        else if (Mode is kOrbitObject or OrbitPoint)
         {
             dist = Store(Sub(dist, Mul(fwd, dt)));
             if (dist < MinDistance)
@@ -474,7 +475,7 @@ public sealed class ObserverCamera : GameBase
             else if (dist > MaxDistance)
                 dist = MaxDistance;
         }
-        if (Mode != kFixed)
+        if (Mode != Fixed)
         {
             const double twoPi = 6.283185307179586;
             rot[2] = Store(Add(Mul(mv.Turn, scale), rot[2]));
@@ -488,10 +489,10 @@ public sealed class ObserverCamera : GameBase
             else if (rot[0] < -1.3962)
                 rot[0] = -1.3962f;
         }
-        if (Mode is kOrbitObject or kOrbitPoint)
+        if (Mode is kOrbitObject or OrbitPoint)
         {
             if (Mode == kOrbitObject && OrbitObject == null)
-                Mode = kOrbitPoint; // not reachable through setOrbit / objectDeleted
+                Mode = OrbitPoint; // not reachable through setOrbit / objectDeleted
             if (Mode == kOrbitObject && Distance < 0.0f)
             {
                 // -1: the object's own transform (first person). Other negative values ask the object for a transform at
@@ -517,7 +518,7 @@ public sealed class ObserverCamera : GameBase
         }
         for (var i = 0; i < 3; ++i)
             CamRotation[i] = rot[i];
-        if (Mode is not kOrbitObject and not kOrbitPoint)
+        if (Mode is not kOrbitObject and not OrbitPoint)
             for (var i = 0; i < 3; ++i)
                 Position[i] = pos[i];
         Distance = dist;
@@ -540,7 +541,7 @@ public sealed class ObserverCamera : GameBase
             LastMove = mv;
         }
         float[] area = [0, 0, 0, 0];
-        mServices.MissionArea?.Invoke(area);
+        _services.MissionArea?.Invoke(area);
         var inside = Position[0] >= area[0] && Add(area[0], area[2]) >= Position[0] && Position[1] >= area[1] &&
                       Add(area[1], area[3]) >= Position[1];
         if (InMissionArea && !inside)
@@ -563,7 +564,7 @@ public sealed class ObserverCamera : GameBase
             if (g >= 0)
                 index = (uint)g;
             if (index == 0x3ff)
-                m = kOrbitPoint;
+                m = OrbitPoint;
         }
         bs.WriteInt(m, 3);
         if (m < 3)
@@ -577,7 +578,7 @@ public sealed class ObserverCamera : GameBase
             bs.WriteF32(MaxDistance);
             bs.WriteF32(Distance);
         }
-        else if (m == kOrbitPoint)
+        else if (m == OrbitPoint)
         {
             bs.WriteF32s(Position);
             bs.WriteF32(MinDistance);

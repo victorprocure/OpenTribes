@@ -69,10 +69,10 @@ void main() {
 
     private sealed class Texture3D : IGfxTexture
     {
-        public uint Name;
+        public uint Name { get; set; }
         public int Width { get; init; }
         public int Height { get; init; }
-        public GlApi? Gl;
+        public GlApi? Gl { get; set; }
 
         public void Dispose()
         {
@@ -82,35 +82,35 @@ void main() {
         }
     }
 
-    private uint mProgram3D, mVao3D, mVbo3D;
-    private int mU3DynCount, mU3DynPos, mU3DynCol;
-    private int mDynCount;
-    private readonly float[] mDynPos = new float[16 * 4], mDynCol = new float[16 * 3];
-    private int mU3ViewProj, mU3Tex, mU3Light, mU3UseTex, mU3UseLight, mU3AlphaTest, mU3Haze;
-    private float mHazeR, mHazeG, mHazeB;
-    private bool mIn3D;
+    private uint _program3D, _vao3D, _vbo3D;
+    private int _u3DynCount, _u3DynPos, _u3DynCol;
+    private int _dynCount;
+    private readonly float[] _dynPos = new float[16 * 4], _dynCol = new float[16 * 3];
+    private int _u3ViewProj, _u3Tex, _u3Light, _u3UseTex, _u3UseLight, _u3AlphaTest, _u3Haze;
+    private float _hazeR, _hazeG, _hazeB;
+    private bool _in3D;
 
     /// <summary>Gets the draw calls issued since the last <see cref="BeginScene3D"/>, a statistic for tests and the console.</summary>
     public int Draws3D { get; private set; }
 
     private void Init3D()
     {
-        mProgram3D = Api.BuildProgram(Vertex3DSource, Fragment3DSource, (0, "aPos"), (1, "aUv"), (2, "aLm"), (3, "aColor"),
+        _program3D = Api.BuildProgram(Vertex3DSource, Fragment3DSource, (0, "aPos"), (1, "aUv"), (2, "aLm"), (3, "aColor"),
                                      (4, "aHaze"));
-        mU3ViewProj = Api.UniformLocation(mProgram3D, "uViewProj");
-        mU3Tex = Api.UniformLocation(mProgram3D, "uTex");
-        mU3Light = Api.UniformLocation(mProgram3D, "uLight");
-        mU3UseTex = Api.UniformLocation(mProgram3D, "uUseTex");
-        mU3UseLight = Api.UniformLocation(mProgram3D, "uUseLight");
-        mU3AlphaTest = Api.UniformLocation(mProgram3D, "uAlphaTest");
-        mU3Haze = Api.UniformLocation(mProgram3D, "uHaze");
-        mU3DynCount = Api.UniformLocation(mProgram3D, "uDynCount");
-        mU3DynPos = Api.UniformLocation(mProgram3D, "uDynPos[0]");
-        mU3DynCol = Api.UniformLocation(mProgram3D, "uDynCol[0]");
-        mVao3D = Api.GenVertexArray();
-        mVbo3D = Api.GenBuffer();
-        Api.BindVertexArray_(mVao3D);
-        Api.BindBuffer_(GlApi.ArrayBuffer, mVbo3D);
+        _u3ViewProj = Api.UniformLocation(_program3D, "uViewProj");
+        _u3Tex = Api.UniformLocation(_program3D, "uTex");
+        _u3Light = Api.UniformLocation(_program3D, "uLight");
+        _u3UseTex = Api.UniformLocation(_program3D, "uUseTex");
+        _u3UseLight = Api.UniformLocation(_program3D, "uUseLight");
+        _u3AlphaTest = Api.UniformLocation(_program3D, "uAlphaTest");
+        _u3Haze = Api.UniformLocation(_program3D, "uHaze");
+        _u3DynCount = Api.UniformLocation(_program3D, "uDynCount");
+        _u3DynPos = Api.UniformLocation(_program3D, "uDynPos[0]");
+        _u3DynCol = Api.UniformLocation(_program3D, "uDynCol[0]");
+        _vao3D = Api.GenVertexArray();
+        _vbo3D = Api.GenBuffer();
+        Api.BindVertexArray_(_vao3D);
+        Api.BindBuffer_(GlApi.ArrayBuffer, _vbo3D);
         var stride = Marshal.SizeOf<Vertex3D>();
         Api.VertexAttribPointer_(0, 3, GlApi.Float, 0, stride, (void*)0);
         Api.VertexAttribPointer_(1, 2, GlApi.Float, 0, stride, (void*)12);
@@ -119,18 +119,18 @@ void main() {
         Api.VertexAttribPointer_(4, 1, GlApi.Float, 0, stride, (void*)44);
         for (uint i = 0; i < 5; ++i)
             Api.EnableVertexAttribArray_(i);
-        Api.BindVertexArray_(mVao);
+        Api.BindVertexArray_(_vao);
     }
 
     private void Dispose3D()
     {
-        if (mProgram3D == 0)
+        if (_program3D == 0)
             return;
-        uint vao = mVao3D, vbo = mVbo3D;
+        uint vao = _vao3D, vbo = _vbo3D;
         Api.DeleteVertexArrays_(1, &vao);
         Api.DeleteBuffers_(1, &vbo);
-        Api.DeleteProgram_(mProgram3D);
-        mProgram3D = 0;
+        Api.DeleteProgram_(_program3D);
+        _program3D = 0;
     }
 
     /// <inheritdoc/>
@@ -185,21 +185,21 @@ void main() {
         return new Texture3D { Name = name, Width = width, Height = height, Gl = Api };
     }
 
-    private GfxRect? mViewport3D;
+    private GfxRect? _viewport3D;
 
     /// <inheritdoc/>
-    public void SetViewport3D(GfxRect? rect) => mViewport3D = rect;
+    public void SetViewport3D(GfxRect? rect) => _viewport3D = rect;
 
     /// <inheritdoc/>
     public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB)
     {
-        if (mProgram3D == 0)
+        if (_program3D == 0)
             Init3D();
-        mIn3D = true;
+        _in3D = true;
         Draws3D = 0;
-        (mHazeR, mHazeG, mHazeB) = (hazeR, hazeG, hazeB);
-        Api.BindFramebuffer_(GlApi.Framebuffer, mFbo);
-        if (mViewport3D is GfxRect vr && !vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1)).IsEmpty)
+        (_hazeR, _hazeG, _hazeB) = (hazeR, hazeG, hazeB);
+        Api.BindFramebuffer_(GlApi.Framebuffer, _fbo);
+        if (_viewport3D is GfxRect vr && !vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1)).IsEmpty)
         {
             var r = vr.Intersect(new GfxRect(0, 0, Width - 1, Height - 1));
             // GL counts rows from the bottom
@@ -213,14 +213,14 @@ void main() {
             Api.Disable_(GlApi.ScissorTest);
         }
         Api.Disable_(GlApi.CullFace);
-        Api.UseProgram_(mProgram3D);
-        Api.BindVertexArray_(mVao3D);
-        Api.BindBuffer_(GlApi.ArrayBuffer, mVbo3D);
+        Api.UseProgram_(_program3D);
+        Api.BindVertexArray_(_vao3D);
+        Api.BindBuffer_(GlApi.ArrayBuffer, _vbo3D);
         Api.BindSampler_(0, 0);
         Api.BindSampler_(1, 0);
-        Api.Uniform1i_(mU3Tex, 0);
-        Api.Uniform1i_(mU3Light, 1);
-        Api.Uniform3f_(mU3Haze, hazeR, hazeG, hazeB);
+        Api.Uniform1i_(_u3Tex, 0);
+        Api.Uniform1i_(_u3Light, 1);
+        Api.Uniform3f_(_u3Haze, hazeR, hazeG, hazeB);
         Api.Enable_(GlApi.DepthTest);
         Api.DepthFunc_(GlApi.GEqual);
         Api.DepthMask_(1);
@@ -232,24 +232,24 @@ void main() {
     /// <inheritdoc/>
     public void SetDynamicLights(ReadOnlySpan<DynamicLight> lights)
     {
-        if (mProgram3D == 0)
+        if (_program3D == 0)
             Init3D();
         var n = Math.Min(lights.Length, IGfxDevice.MaxDynamicLights);
         for (var i = 0; i < n; ++i)
         {
             var l = lights[i];
-            (mDynPos[i * 4], mDynPos[(i * 4) + 1], mDynPos[(i * 4) + 2], mDynPos[(i * 4) + 3]) = (l.X, l.Y, l.Z, Math.Max(l.Range, 1e-3f));
-            (mDynCol[i * 3], mDynCol[(i * 3) + 1], mDynCol[(i * 3) + 2]) = (l.R, l.G, l.B);
+            (_dynPos[i * 4], _dynPos[(i * 4) + 1], _dynPos[(i * 4) + 2], _dynPos[(i * 4) + 3]) = (l.X, l.Y, l.Z, Math.Max(l.Range, 1e-3f));
+            (_dynCol[i * 3], _dynCol[(i * 3) + 1], _dynCol[(i * 3) + 2]) = (l.R, l.G, l.B);
         }
-        mDynCount = n;
-        Api.UseProgram_(mProgram3D);
-        Api.Uniform1i_(mU3DynCount, n);
+        _dynCount = n;
+        Api.UseProgram_(_program3D);
+        Api.Uniform1i_(_u3DynCount, n);
         if (n > 0)
         {
-            fixed (float* p = mDynPos)
-                Api.Uniform4fv_(mU3DynPos, n, p);
-            fixed (float* p = mDynCol)
-                Api.Uniform3fv_(mU3DynCol, n, p);
+            fixed (float* p = _dynPos)
+                Api.Uniform4fv_(_u3DynPos, n, p);
+            fixed (float* p = _dynCol)
+                Api.Uniform3fv_(_u3DynCol, n, p);
         }
     }
 
@@ -259,21 +259,21 @@ void main() {
         Span<float> m = stackalloc float[16];
         camera.ViewProjection(m);
         fixed (float* p = m)
-            Api.UniformMatrix4fv_(mU3ViewProj, 1, 0, p);
+            Api.UniformMatrix4fv_(_u3ViewProj, 1, 0, p);
     }
 
     /// <inheritdoc/>
     public void Draw3D(ReadOnlySpan<Vertex3D> triangles, in DrawState3D state)
     {
-        if (!mIn3D)
+        if (!_in3D)
             throw new InvalidOperationException("Draw3D outside BeginScene3D");
         if (triangles.Length < 3)
             return;
         var tex = state.Texture as Texture3D;
         var light = state.LightMap as Texture3D;
-        Api.Uniform1i_(mU3UseTex, tex != null ? 1 : 0);
-        Api.Uniform1i_(mU3UseLight, light != null ? 1 : 0);
-        Api.Uniform1f_(mU3AlphaTest, state.AlphaTest);
+        Api.Uniform1i_(_u3UseTex, tex != null ? 1 : 0);
+        Api.Uniform1i_(_u3UseLight, light != null ? 1 : 0);
+        Api.Uniform1f_(_u3AlphaTest, state.AlphaTest);
         if (tex != null)
         {
             Api.ActiveTexture_(GlApi.Texture0);
@@ -321,7 +321,7 @@ void main() {
     /// <inheritdoc/>
     public void EndScene3D()
     {
-        mIn3D = false;
+        _in3D = false;
         Api.DepthMask_(1);
         Api.Disable_(GlApi.Blend);
         Prepare2D();

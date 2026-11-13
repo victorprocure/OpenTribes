@@ -8,16 +8,16 @@ public sealed class SkyRenderer : IDisposable
     /// <summary>The number of panels of the band.</summary>
     public const int Panels = 16;
 
-    private readonly IGfxDevice mDev;
-    private readonly IGfxTexture?[] mPanelTextures;
-    private readonly int[] mPanelIndex = new int[Panels];
-    private readonly (float r, float g, float b) mBottom;
+    private readonly IGfxDevice _dev;
+    private readonly IGfxTexture?[] _panelTextures;
+    private readonly int[] _panelIndex = new int[Panels];
+    private readonly (float r, float g, float b) _bottom;
     /// <summary>The size of the band.</summary>
-    public double Size = 600;
+    public double Size { get; set; } = 600;
     /// <summary>The feature position, the azimuth offset of the panels in degrees.</summary>
-    public double FeaturePosition;
+    public double FeaturePosition { get; set; }
     /// <summary>The visible distance.</summary>
-    public double Visible = 600;
+    public double Visible { get; set; } = 600;
     /// <summary>True when the sky has a material list with textures. Otherwise the sky is solid.</summary>
     public bool Textured { get; }
 
@@ -43,13 +43,13 @@ public sealed class SkyRenderer : IDisposable
     public SkyRenderer(IGfxDevice dev, WorldAssets assets, List<string?>? materials, int[] textures, double size,
                        double featurePosition, double visible, (float, float, float) skyColor, (float, float, float) hazeColor)
     {
-        mDev = dev;
+        _dev = dev;
         Size = size;
         FeaturePosition = featurePosition;
         Visible = visible;
         SolidColor = skyColor;
-        mBottom = hazeColor;
-        mPanelTextures = new IGfxTexture?[Panels];
+        _bottom = hazeColor;
+        _panelTextures = new IGfxTexture?[Panels];
         var cache = new Dictionary<int, IGfxTexture?>();
         PbmpBitmap? first = null;
         if (materials != null && materials.Count > 0)
@@ -57,7 +57,7 @@ public sealed class SkyRenderer : IDisposable
             for (var i = 0; i < Panels; ++i)
             {
                 var t = textures[i];
-                mPanelIndex[i] = t;
+                _panelIndex[i] = t;
                 if (t < 0)
                     continue;
                 var m = t % materials.Count;
@@ -66,8 +66,8 @@ public sealed class SkyRenderer : IDisposable
                     continue;
                 first ??= bmp;
                 if (!cache.TryGetValue(m, out var tex))
-                    cache[m] = tex = assets.CreateTexture(mDev, bmp, assets.PackedRgba(bmp, true), false, true, true);
-                mPanelTextures[i] = tex;
+                    cache[m] = tex = assets.CreateTexture(_dev, bmp, assets.PackedRgba(bmp, true), false, true, true);
+                _panelTextures[i] = tex;
             }
         }
         if (first != null)
@@ -77,7 +77,7 @@ public sealed class SkyRenderer : IDisposable
             var rgba = assets.PackedRgba(first, true);
             SolidColor = (rgba[0] / 255f, rgba[1] / 255f, rgba[2] / 255f);
             var o = (first.Height - 1) * first.Width * 4;
-            mBottom = (rgba[o] / 255f, rgba[o + 1] / 255f, rgba[o + 2] / 255f);
+            _bottom = (rgba[o] / 255f, rgba[o + 1] / 255f, rgba[o + 2] / 255f);
             Textured = true;
         }
     }
@@ -116,30 +116,30 @@ public sealed class SkyRenderer : IDisposable
         {
             var bottom = ((lower[i].x * 0) + (float)cam.X, (float)cam.Y, bz);
             var top = ((float)cam.X, (float)cam.Y, tz);
-            tris.Add(P(lower[i], 0, 0, mBottom));
-            tris.Add(P(lower[i + 1], 0, 0, mBottom));
-            tris.Add(P(bottom, 0, 0, mBottom));
+            tris.Add(P(lower[i], 0, 0, _bottom));
+            tris.Add(P(lower[i + 1], 0, 0, _bottom));
+            tris.Add(P(bottom, 0, 0, _bottom));
             tris.Add(P(upper[i], 0, 0, SolidColor));
             tris.Add(P(top, 0, 0, SolidColor));
             tris.Add(P(upper[i + 1], 0, 0, SolidColor));
         }
-        mDev.Draw3D(tris.ToArray(), state);
+        _dev.Draw3D(tris.ToArray(), state);
         for (var i = 0; i < Panels; ++i)
         {
-            var tex = mPanelTextures[i];
+            var tex = _panelTextures[i];
             if (tex == null)
                 continue;
             var white = (1f, 1f, 1f);
             // quad (lower i, upper i, upper i+1, lower i+1) with coordinates (0,1) (0,0) (1,0) (1,1)
             Vertex3D a = P(lower[i], 0, 1, white), b = P(upper[i], 0, 0, white), c = P(upper[i + 1], 1, 0, white), d = P(lower[i + 1], 1, 1, white);
-            mDev.Draw3D([a, b, c, a, c, d], new DrawState3D(tex, null, false, 0f, false, false));
+            _dev.Draw3D([a, b, c, a, c, d], new DrawState3D(tex, null, false, 0f, false, false));
         }
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (var t in mPanelTextures.Distinct())
+        foreach (var t in _panelTextures.Distinct())
             t?.Dispose();
     }
 }
@@ -153,16 +153,16 @@ public static class StarField
     /// <summary>The C runtime random generator of the exe (00607408): x = x * 0x15a4e35 + 1, result bits 16 to 30.</summary>
     public sealed class Lcg
     {
-        private uint mState;
+        private uint _state;
         /// <summary>Creates the generator.</summary>
         /// <param name="seed">The seed.</param>
-        public Lcg(uint seed) => mState = seed;
+        public Lcg(uint seed) => _state = seed;
         /// <summary>Gets the next value.</summary>
         /// <returns>The value, 0 to 32767.</returns>
         public int Next()
         {
-            mState = unchecked((mState * 0x15a4e35u) + 1);
-            return (int)((mState >> 16) & 0x7fff);
+            _state = unchecked((_state * 0x15a4e35u) + 1);
+            return (int)((_state >> 16) & 0x7fff);
         }
     }
 
@@ -237,16 +237,16 @@ public static class StarField
 /// <summary>The sun or moon billboard (world-render.md 4.3).</summary>
 public sealed class PlanetRenderer : IDisposable
 {
-    private readonly IGfxDevice mDev;
-    private readonly IGfxTexture? mTexture;
+    private readonly IGfxDevice _dev;
+    private readonly IGfxTexture? _texture;
     /// <summary>The azimuth in degrees.</summary>
-    public readonly double Azimuth;
+    public double Azimuth { get; }
     /// <summary>The incidence in degrees.</summary>
-    public readonly double Incidence;
+    public double Incidence { get; }
     /// <summary>The size of the billboard.</summary>
-    public readonly double Size;
+    public double Size { get; }
     /// <summary>The distance of the billboard.</summary>
-    public readonly double Distance;
+    public double Distance { get; }
 
     /// <summary>Creates the planet.</summary>
     /// <param name="dev">The graphics device.</param>
@@ -259,18 +259,18 @@ public sealed class PlanetRenderer : IDisposable
     public PlanetRenderer(IGfxDevice dev, WorldAssets assets, string fileName, double azimuth, double incidence, double size,
                           double distance)
     {
-        mDev = dev;
+        _dev = dev;
         Azimuth = azimuth;
         Incidence = Math.Clamp(incidence, -89, 89); // 4.3: clamped to [-89, 89]
         Size = size;
         Distance = distance;
         var bmp = fileName.Length > 0 ? assets.Bitmap(fileName) : null;
         if (bmp != null)
-            mTexture = assets.CreateTexture(dev, bmp, assets.PackedRgba(bmp, false), false, false, true);
+            _texture = assets.CreateTexture(dev, bmp, assets.PackedRgba(bmp, false), false, false, true);
     }
 
     /// <summary>True when the bitmap loaded.</summary>
-    public bool HasBitmap => mTexture != null;
+    public bool HasBitmap => _texture != null;
 
     /// <summary>Computes the direction of a planet (4.3 Planet_setup): v = distance * (cos inc cos(az + 90), cos inc sin(az + 90), sin inc).</summary>
     /// <param name="azimuth">The azimuth in degrees.</param>
@@ -287,7 +287,7 @@ public sealed class PlanetRenderer : IDisposable
     /// <param name="cam">The background camera.</param>
     public void Draw(in Camera3D cam)
     {
-        if (mTexture == null)
+        if (_texture == null)
             return;
         var (vx, vy, vz) = Direction(Azimuth, Incidence, Distance);
         var len = Math.Sqrt((vx * vx) + (vy * vy) + (vz * vz));
@@ -303,9 +303,9 @@ public sealed class PlanetRenderer : IDisposable
             new((float)(cx + (rx * a * Size) + (ux * b * Size)), (float)(cy + (ry * a * Size) + (uy * b * Size)),
                 (float)(cz + (rz * a * Size) + (uz * b * Size)), u, v, 0, 0, 0);
         Vertex3D p0 = V(-1, -1, 0, 1), p1 = V(1, -1, 1, 1), p2 = V(1, 1, 1, 0), p3 = V(-1, 1, 0, 0);
-        mDev.Draw3D([p0, p1, p2, p0, p2, p3], new DrawState3D(mTexture, null, false, 0.5f, false, false));
+        _dev.Draw3D([p0, p1, p2, p0, p2, p3], new DrawState3D(_texture, null, false, 0.5f, false, false));
     }
 
     /// <inheritdoc/>
-    public void Dispose() => mTexture?.Dispose();
+    public void Dispose() => _texture?.Dispose();
 }

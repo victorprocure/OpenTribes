@@ -12,13 +12,13 @@ using OpenTribes.Sim;
 public sealed class PredictionWorld
 {
     /// <summary>The script interpreter of the world.</summary>
-    public readonly Interpreter Console = new();
+    public Interpreter Console { get; } = new();
     /// <summary>The sim console of the world.</summary>
-    public readonly SimConsole Sim;
+    public SimConsole Sim { get; }
     /// <summary>The game state of the world.</summary>
-    public readonly GameState Game = new();
+    public GameState Game { get; } = new();
     /// <summary>The console output, at most 2000 lines.</summary>
-    public readonly List<string> Output = [];
+    public List<string> Output { get; } = [];
 
     /// <summary>Builds the world and runs the stock start-up until the mission is loaded. The mission load runs from scheduled script, so frames run on the virtual clock until the terrain exists, then two more seconds for objects the mission scripts add after the load.</summary>
     /// <param name="root">The game directory.</param>

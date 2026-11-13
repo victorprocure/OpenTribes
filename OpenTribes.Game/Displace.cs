@@ -11,7 +11,7 @@ using static OpenTribes.Core.Fpu;
 public static class Displace
 {
     // 1/3 as the 80-bit constant at 0x005067b4 (mantissa 0xAAAAAAAAAAAAAAAB), a double here.
-    private const double kThird = 1.0 / 3.0;
+    private const double Third = 1.0 / 3.0;
 
     /// <summary>Moves an object by a delta through up to three stepped moves.</summary>
     /// <param name="deltaIn">The displacement.</param>
@@ -31,7 +31,7 @@ public static class Displace
         var extent = Sub(box[3], box[0]);
         extent = Add(extent, Sub(box[4], box[1]));
         extent = Add(extent, Sub(box[5], box[2]));
-        var step0 = X87.F32(Mul(kThird, extent));
+        var step0 = X87.F32(Mul(Third, extent));
         var step1 = X87.F32(Mul(step0, 0.5f));
         float[] target = new float[3], goal = new float[3], moved = new float[3];
         for (var attempt = 0; attempt < 3; ++attempt)
@@ -78,11 +78,12 @@ public sealed partial class GameState
     // src/game/displace.cpp Record.
     private sealed class DisplaceRecord
     {
-        public GameBase Object = null!;
-        public Transform Xf;
-        public float[] Velocity = new float[3];
-        public uint Mask;
-        public int Flags;
+        public GameBase Object { get; set; } = null!;
+        public ref Transform Xf => ref _xf;
+        private Transform _xf;
+        public float[] Velocity { get; set; } = new float[3];
+        public uint Mask { get; set; }
+        public int Flags { get; set; }
     }
 
     // src/game/displace.cpp typeOf.
@@ -195,7 +196,7 @@ public sealed partial class GameState
     }
 
     // Recursion limit of a displace (D11).
-    private const int kMaxDisplaceDepth = 32;
+    private const int MaxDisplaceDepth = 32;
 
     /// <inheritdoc/>
     /// <remarks>Builds the shape image of a ShapeBase object at its current transform (docs/collision.md T1.2).</remarks>
@@ -255,7 +256,7 @@ public sealed partial class GameState
                 (!vehicleMover && !IsItemClass(mover) && !StaticHasImage(mover)))
                 return true;
         }
-        if (mDisplaceHidden.Count >= kMaxDisplaceDepth)
+        if (DisplaceHidden.Count >= MaxDisplaceDepth)
             return true;
         var manager = mover.Manager();
         var records = new List<DisplaceRecord>();
@@ -275,18 +276,18 @@ public sealed partial class GameState
         }
         // The object type of the mover is 0 while its two lists are walked: no query of a pushed object or of a nested
         // displace finds it. The type is back before a blocker callback and stays.
-        mDisplaceHidden.Add(mover);
+        DisplaceHidden.Add(mover);
         var hiddenHere = true;
         void Unhide()
         {
             if (!hiddenHere)
                 return;
             hiddenHere = false;
-            var it = mDisplaceHidden.LastIndexOf(mover);
+            var it = DisplaceHidden.LastIndexOf(mover);
             if (it >= 0)
-                mDisplaceHidden.RemoveAt(it);
+                DisplaceHidden.RemoveAt(it);
         }
-        bool Hidden(GameBase o) => mDisplaceHidden.Contains(o);
+        bool Hidden(GameBase o) => DisplaceHidden.Contains(o);
         bool Overlaps(GameBase o) => ImagesOverlap(mover, o);
         float[] zero = [0, 0, 0];
         // Moveable::onBlocker (0x004449f0, vtable +0xbc): Items and corpses are never blockers.
@@ -390,7 +391,7 @@ public sealed partial class GameState
             {
                 // A Vehicle moves with the collision mask 0x80 during its own displace (Flier_update U16). Its object box
                 // is turned by its matrix (bit 0x40 of +0x164, HF6).
-                overlapMask = top ? 0x80u : (Flier.kHullMask & ~0x46u);
+                overlapMask = top ? 0x80u : (Flier.HullMask & ~0x46u);
                 var m = mover.WorldMat();
                 Span<float> box = stackalloc float[6];
                 Shape.RotatedWorldBox(mover.ShapeQueryBox, m, box);
@@ -483,7 +484,7 @@ public sealed partial class GameState
     {
         var b = gb.DataBlockName != null ? Sim!.DataBlocks().Find(gb.DataBlockName) : null;
         var disabled = b != null && Sim!.DataBlocks().GetField(b, "disableCollision", "", out var v) && Numbers.ParseBool(v);
-        return !((disabled || gb.DamageState == GameBase.kDestroyed) && !gb.VisibilityThread);
+        return !((disabled || gb.DamageState == GameBase.Destroyed) && !gb.VisibilityThread);
     }
 
     /// <inheritdoc/>
@@ -612,7 +613,7 @@ public sealed partial class GameState
         if (Player.From(gb) is Player p)
             return p.ObjectTypeBits;
         if (gb.IsInterior())
-            return ObjectType.kInteriorType;
+            return ObjectType.InteriorType;
         return ContainerType(gb);
     }
 
@@ -663,7 +664,7 @@ public sealed partial class GameState
                 case GameBase.ShapeKind.Mine:
                     if (target.ItemThrower == sender)
                         return;
-                    if (target.ShapeClass() == GameBase.ShapeKind.Mine && target.DamageState == GameBase.kDestroyed)
+                    if (target.ShapeClass() == GameBase.ShapeKind.Mine && target.DamageState == GameBase.Destroyed)
                         return;
                     mask = 0x24800080u; // 0x0061acb0
                     break;

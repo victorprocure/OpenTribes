@@ -10,18 +10,18 @@ public sealed class RemoteGhosts
     public const string MoveKey = "moveEcho";
 
     /// <summary>Makes the copy of a ghost at a position. Returns null when there is none, and the ghost is then drawn from its stream state.</summary>
-    public Func<ClientGhost, float[], GameBase?>? CreateObject;
+    public Func<ClientGhost, float[], GameBase?>? CreateObject { get; set; }
     /// <summary>Deletes a copy.</summary>
-    public Action<GameBase>? DeleteObject;
+    public Action<GameBase>? DeleteObject { get; set; }
     /// <summary>Reads <c>$net::interpolateTime</c>.</summary>
-    public Func<int> Interpolate = () => SmoothWindow.DefaultInterpolate;
+    public Func<int> Interpolate { get; set; } = () => SmoothWindow.DefaultInterpolate;
     /// <summary>Reads <c>$net::predictForwardTime</c>.</summary>
-    public Func<int> Predict = () => SmoothWindow.DefaultPredict;
+    public Func<int> Predict { get; set; } = () => SmoothWindow.DefaultPredict;
 
     /// <summary>The remote Players by ghost index.</summary>
-    public readonly Dictionary<int, RemotePlayer> Players = [];
+    public Dictionary<int, RemotePlayer> Players { get; } = [];
     /// <summary>The remote Vehicles and Fliers by ghost index.</summary>
-    public readonly Dictionary<int, RemoteVehicle> Vehicles = [];
+    public Dictionary<int, RemoteVehicle> Vehicles { get; } = [];
 
     /// <summary>Deletes every copy.</summary>
     public void Reset()
@@ -53,7 +53,7 @@ public sealed class RemoteGhosts
     /// <param name="controlGhost">The ghost index of the control object, -1 for none. It follows the prediction.</param>
     public void OnBlock(DecodedGhostBlock block, ClientWorld world, uint now, int controlGhost)
     {
-        mControlGhost = controlGhost;
+        _controlGhost = controlGhost;
         foreach (var u in block.Updates)
         {
             if (u.Op == "delete")
@@ -96,8 +96,8 @@ public sealed class RemoteGhosts
     }
 
     /// <summary>Returns the mount object of a ghost: the copy of a remote Vehicle or Flier, or the control object (the predicted copy) when the Player rides the vehicle of this client. Null when there is none yet.</summary>
-    public Func<GameBase?>? ControlObject;
-    private int mControlGhost = -1;
+    public Func<GameBase?>? ControlObject { get; set; }
+    private int _controlGhost = -1;
 
     /// <summary>Returns the mount object of a rider that is not the control Player: the copy of a remote Vehicle or Flier ghost.</summary>
     /// <param name="ghostIndex">The ghost index of the mount.</param>
@@ -108,7 +108,7 @@ public sealed class RemoteGhosts
     {
         if (Vehicles.TryGetValue(index, out var rv))
             return rv.V;
-        return index == mControlGhost ? ControlObject?.Invoke() : null;
+        return index == _controlGhost ? ControlObject?.Invoke() : null;
     }
 
     /// <summary>Parses the mount fields of the Player unpack.</summary>

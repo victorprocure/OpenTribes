@@ -10,22 +10,22 @@ using OpenTribes.Script;
 public sealed class MasterHeartbeat
 {
     /// <summary>The sim time in seconds between heartbeats.</summary>
-    public const float kPeriod = 120.0f;
+    public const float Period = 120.0f;
 
     /// <summary>Runs an action after a delay of sim time.</summary>
     /// <param name="delay">The delay in seconds.</param>
     /// <param name="action">The action.</param>
     public delegate void Schedule(float delay, Action action);
 
-    private static readonly byte[] kHeartbeat = [0x10, 0x05, 0xff, 0, 0, 0, 0, 0];
+    private static readonly byte[] Heartbeat = [0x10, 0x05, 0xff, 0, 0, 0, 0, 0];
 
-    private readonly Interpreter mIn;
-    private readonly NetServer mNet;
-    private readonly bool mAllowRemote;
-    private Schedule? mSchedule;
-    private readonly List<string> mNames = [];    // resolveMasters arguments
-    private readonly List<string> mResolved = []; // "IP:a.b.c.d:port" or ""
-    private bool mResolveDone;
+    private readonly Interpreter _in;
+    private readonly NetServer _net;
+    private readonly bool _allowRemote;
+    private Schedule? _schedule;
+    private readonly List<string> _names = [];    // resolveMasters arguments
+    private readonly List<string> _resolved = []; // "IP:a.b.c.d:port" or ""
+    private bool _resolveDone;
 
     /// <summary>Creates the heartbeat.</summary>
     /// <param name="interp">The script interpreter.</param>
@@ -33,9 +33,9 @@ public sealed class MasterHeartbeat
     /// <param name="allowRemote">True when the operator allows masters outside loopback (R6).</param>
     public MasterHeartbeat(Interpreter interp, NetServer net, bool allowRemote)
     {
-        mIn = interp;
-        mNet = net;
-        mAllowRemote = allowRemote;
+        _in = interp;
+        _net = net;
+        _allowRemote = allowRemote;
     }
 
     /// <summary>Parses <c>IP:a.b.c.d:port</c>. The prefix is optional and matched without case.</summary>
@@ -152,31 +152,31 @@ public sealed class MasterHeartbeat
         // 0x00422ad8: up to 10 names, stopping at the first empty one; the original resolves them on a thread and
         // returns the count at once. Here names resolve during the call, and only with --allow-masters (dotted
         // addresses always translate).
-        mIn.AddCommand("DNet::resolveMasters", (i, a) =>
+        _in.AddCommand("DNet::resolveMasters", (i, a) =>
         {
-            mNames.Clear();
-            mResolved.Clear();
-            mResolveDone = false;
+            _names.Clear();
+            _resolved.Clear();
+            _resolveDone = false;
             if (a.Length < 2)
                 return null; // the original returns a null result
-            while (mNames.Count < 10 && mNames.Count + 1 < a.Length && a[mNames.Count + 1].Length != 0)
+            while (_names.Count < 10 && _names.Count + 1 < a.Length && a[_names.Count + 1].Length != 0)
             {
-                var name = a[mNames.Count + 1];
-                mNames.Add(name.Length > 255 ? name[..255] : name);
+                var name = a[_names.Count + 1];
+                _names.Add(name.Length > 255 ? name[..255] : name);
             }
-            foreach (var name in mNames)
-                mResolved.Add(ParseMasterAddress(name, out var addr, mAllowRemote) ? addr.ToString() : "");
-            mResolveDone = true;
-            return Numbers.FormatInt(mNames.Count);
+            foreach (var name in _names)
+                _resolved.Add(ParseMasterAddress(name, out var addr, _allowRemote) ? addr.ToString() : "");
+            _resolveDone = true;
+            return Numbers.FormatInt(_names.Count);
         });
         // 0x00422a74: "" until the resolve finished, for a wrong argument count and for an index outside 0..9.
-        mIn.AddCommand("DNet::getResolvedMaster", (i, a) =>
+        _in.AddCommand("DNet::getResolvedMaster", (i, a) =>
         {
-            if (!mResolveDone || a.Length != 2)
+            if (!_resolveDone || a.Length != 2)
                 return "";
             var idx = Numbers.BorlandAtoi(a[1]);
-            if (idx >= 0 && idx < mResolved.Count)
-                return mResolved[idx];
+            if (idx >= 0 && idx < _resolved.Count)
+                return _resolved[idx];
             return "";
         });
     }
@@ -193,7 +193,7 @@ public sealed class MasterHeartbeat
         var ip = false;
         for (var i = 1; i + 1 < args.Count; i += 2)
             ip |= string.Equals(args[i], "IP", StringComparison.Ordinal);
-        if (!isServer || !transportStarted || !ip || Numbers.ParseBool(mIn.PeekVariable("$SinglePlayer")))
+        if (!isServer || !transportStarted || !ip || Numbers.ParseBool(_in.PeekVariable("$SinglePlayer")))
             return false;
         Start(schedule);
         return true;
@@ -203,7 +203,7 @@ public sealed class MasterHeartbeat
     /// <param name="schedule">Schedules the later heartbeats.</param>
     public void Start(Schedule schedule)
     {
-        mSchedule = schedule;
+        _schedule = schedule;
         Beat();
     }
 
@@ -212,21 +212,21 @@ public sealed class MasterHeartbeat
     public void Beat()
     {
         // An unset $Server::HostPublicGame becomes TRUE: a server is public unless told otherwise.
-        if (mIn.GetVariable("$Server::HostPublicGame").Length == 0)
-            mIn.SetVariable("$Server::HostPublicGame", "TRUE");
-        mSchedule?.Invoke(kPeriod, Beat);
-        if (!Numbers.ParseBool(mIn.GetVariable("$Server::HostPublicGame")))
+        if (_in.GetVariable("$Server::HostPublicGame").Length == 0)
+            _in.SetVariable("$Server::HostPublicGame", "TRUE");
+        _schedule?.Invoke(Period, Beat);
+        if (!Numbers.ParseBool(_in.GetVariable("$Server::HostPublicGame")))
             return;
-        mIn.Evaluate("checkMasterTranslation();");
+        _in.Evaluate("checkMasterTranslation();");
         for (var i = 1; i <= 64; ++i) // the original has no bound; the list ends at the first unset entry
         {
-            var master = mIn.GetVariable("$inet::Master" + Numbers.FormatInt(i));
+            var master = _in.GetVariable("$inet::Master" + Numbers.FormatInt(i));
             if (master.Length == 0)
                 break;
             // R6: only loopback masters without the operator's opt-in. Names resolve with it.
-            if (ParseMasterAddress(master, out var addr, mAllowRemote) && (mAllowRemote || (addr.Ip >> 24) == 127))
-                mNet.SendConnectionless(addr, kHeartbeat);
-            mIn.Print(2, "SimNET: Sending heartbeat to master " + master + ".");
+            if (ParseMasterAddress(master, out var addr, _allowRemote) && (_allowRemote || (addr.Ip >> 24) == 127))
+                _net.SendConnectionless(addr, Heartbeat);
+            _in.Print(2, "SimNET: Sending heartbeat to master " + master + ".");
         }
     }
 }

@@ -33,21 +33,21 @@ public static class DatablockPack
     // value given as `absent`.
     private sealed class Reader
     {
-        private readonly Block mBlock;
+        private readonly Block _block;
 
-        public Reader(Block b) => mBlock = b;
-        public Block BlockOf() => mBlock;
-        public bool Has(string name) => mBlock.Find(name) != null;
+        public Reader(Block b) => _block = b;
+        public Block BlockOf() => _block;
+        public bool Has(string name) => _block.Find(name) != null;
 
         public Value? ValueOf(string name, int k = 0)
         {
-            var f = mBlock.Find(name);
+            var f = _block.Find(name);
             return f != null && f.Elems[k].Set ? f.Elems[k] : null;
         }
 
         public int I(string name, int absent, int k = 0)
         {
-            var f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -57,7 +57,7 @@ public static class DatablockPack
 
         public bool B(string name, bool absent)
         {
-            var f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[0].Set)
@@ -67,7 +67,7 @@ public static class DatablockPack
 
         public float F(string name, float absent, int k = 0)
         {
-            var f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -78,7 +78,7 @@ public static class DatablockPack
         // Component c of a point3F, colorF or normal.
         public float V3(string name, int c, float absent)
         {
-            var f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[0].Set)
@@ -99,7 +99,7 @@ public static class DatablockPack
         // Single-group reference index: unset is -1, or 0 for explosionTag (RF4).
         public int Ref(string name, int absent, int k = 0)
         {
-            var f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -110,7 +110,7 @@ public static class DatablockPack
         // String as stored; a null pointer is sent as "".
         public string S(string name, string? absent)
         {
-            var f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent ?? "";
             if (f.Elems[0].Set)
@@ -262,7 +262,7 @@ public static class DatablockPack
 
     // ---- groups ----
 
-    private static readonly double kInv360 = Math.ScaleB(0xb60bb60bb60bb60bUL, -72);
+    private static readonly double Inv360 = Math.ScaleB(0xb60bb60bb60bb60bUL, -72);
 
     // src/game/datablock_pack.cpp packSoundProfile: SoundProfileData 0x00485124: the optional fields are sent when they
     // differ from a default-constructed profile (0x004850ac).
@@ -280,7 +280,7 @@ public static class DatablockPack
             var raw = v != null ? BitConverter.SingleToUInt32Bits(v.F[0]) : angleDefaults[k];
             w.PutFlag(raw != angleDefaults[k]);
             if (raw != angleDefaults[k])
-                PutUnit(w, Store(Mul(raw, kInv360)), 10);
+                PutUnit(w, Store(Mul(raw, Inv360)), 10);
         }
         float[] cone = [r.V3("coneVector", 0, 0), r.V3("coneVector", 1, -1), r.V3("coneVector", 2, 0)];
         var coneSet = Differs(cone[0], 0) || Differs(cone[1], -1) || Differs(cone[2], 0);

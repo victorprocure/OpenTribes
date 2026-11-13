@@ -93,7 +93,10 @@ public static class Builtins
     // src/script/builtins.cpp struct PathParts: path split used by File::getExt/getBase/getTitle/getPath (0x00583aac).
     private sealed class PathParts
     {
-        public string Path = "", Title = "", Base = "", Ext = "";
+        public string Path { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Base { get; set; } = "";
+        public string Ext { get; set; } = "";
     }
     private static PathParts SplitPath(string s)
     {
