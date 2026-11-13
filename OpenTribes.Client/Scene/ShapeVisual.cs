@@ -369,12 +369,28 @@ public class ShapeVisual : Visual
         int n = Inst != null && Shape != null ? Shape.FindNodeBase("dummy muzzle", 0) : -1;
         if (n < 0 || Elevate == null || Inst == null)
             return false;
-        double keep = Elevate.Position;
+        (min, max) = ElevationLimitsOf(Inst, n, Elevate, Turn, TurretPower);
+        (mMinElevation, mMaxElevation, mHaveLimits) = (min, max, true);
+        return true;
+    }
+
+    // Turret_onNewDataBlock 00452970 (limits at +0x8bc and +0x8c0): the Euler x of the `dummy muzzle` node entry (Mat3_toEuler 005eceb4)
+    // with the `elevate` thread at position 0 and at 1. The routine runs before the power / fire thread (+0x8a4) is created and with the
+    // turn thread at 0, so the nodes carry neither the power pose (it folds the barrels) nor the current turn.
+    public static (float Min, float Max) ElevationLimitsOf(RenderInstance inst, int node, RenderThread elevate, RenderThread? turn, RenderThread? power)
+    {
+        double keep = elevate.Position;
+        double keepTurn = turn?.Position ?? 0;
+        int powerAt = power != null ? inst.Threads.IndexOf(power) : -1;
+        if (powerAt >= 0)
+            inst.Threads.RemoveAt(powerAt);
+        if (turn != null)
+            turn.Position = 0;
         float EulerX(double position)
         {
-            Elevate.Position = position;
-            Inst.Animate(0);
-            Xf e = Inst.NodeWorld[n];
+            elevate.Position = position;
+            inst.Animate(0);
+            Xf e = inst.NodeWorld[node];
             var t = new OpenTribes.Sim.Transform { Flags = 3u };
             double[] m = { e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8 };
             for (int i = 0; i < 9; ++i)
@@ -384,12 +400,14 @@ public class ShapeVisual : Visual
             return eu[0];
         }
         float lo = EulerX(0), hi = EulerX(1);
-        Elevate.Position = keep;
+        elevate.Position = keep;
+        if (turn != null)
+            turn.Position = keepTurn;
+        if (powerAt >= 0)
+            inst.Threads.Insert(powerAt, power!);
         if (lo > (float)Math.PI)
-            lo -= 2.0f * (float)Math.PI;
-        (mMinElevation, mMaxElevation, mHaveLimits) = (lo, hi, true);
-        (min, max) = (lo, hi);
-        return true;
+            lo -= 2.0f * (float)Math.PI;      // a minimum above pi loses 2 pi (the exe compares with pi and subtracts 2 pi)
+        return (lo, hi);
     }
 
     private void ApplyTurret(DecodedGhost u)
