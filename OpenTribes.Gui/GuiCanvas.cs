@@ -30,6 +30,8 @@ public sealed class GuiDelegate : IGuiResponder
     public Action? OnOpen;
     // Slot 0x64 with the new content control (the main menu sets its version text, 004dbc00).
     public Action<GuiControl>? OnOpenContent;
+    // Runs once the new content has been woken (the Connect screen activates the radio of the game mode, 004dbea8).
+    public Action<GuiControl>? OnContentReady;
     // Slot 0x60: the canvas is removing the delegate's content (JoinGame saves its server list there, 004d7630).
     public Action<GuiControl>? OnRemove;
     private IGuiResponder? Up => Canvas?.Root;
@@ -309,6 +311,8 @@ public sealed class GuiCanvas
         Stack.Add(c);
         c.SetCanvas(this);
         c.WakeTree();
+        if (del != null)
+            del.OnContentReady?.Invoke(c);
         AfterStackChange();
         CallContentHook(c, "onOpen");
         Trace.Add($"content control {c.ClassName} {c.Name} ({c.Children.Count} children)");

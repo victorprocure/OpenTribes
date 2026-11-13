@@ -53,6 +53,9 @@ public sealed class ClientDelegates
                 // The exit dialog loads quit.gui; the quit delegate ends the process when it is installed (client-app.md 6.1).
                 // 004dbc00: the main menu formats "Version %s" with the game version into its text control 140503.
                 case "MainMenu": d.OnOpenContent = c => c.FindById(140503)?.SetText("Version " + GameVersion); break;
+                // 004dbea8: the Connect screen reads $pref::PlayGameMode (stricmp, 0062c475 "HOST", 0062c47a "TRAIN") and activates the radio of
+                // that mode: id 100105 for HOST, 100998 for TRAIN, 100103 for anything else.
+                case "Connect": d.OnContentReady = ActivateGameMode; break;
                 case "quit": d.OnOpen = mApp.RequestQuit; break;
                 // 004d9228: the Video options lists are filled when the options screen opens, before its script runs.
                 case "Options": d.OnOpenContent = FillVideoOptions; break;
@@ -104,6 +107,14 @@ public sealed class ClientDelegates
             Browser.QueryServers();
             return "";
         });
+    }
+
+    private void ActivateGameMode(GuiControl root)
+    {
+        string mode = mApp.Interp.PeekVariable("$pref::PlayGameMode");
+        int id = mode.Equals("HOST", StringComparison.OrdinalIgnoreCase) ? 100105
+            : mode.Equals("TRAIN", StringComparison.OrdinalIgnoreCase) ? 100998 : 100103;
+        (root.FindById((uint)id) as GuiUniversalButton)?.Activate();
     }
 
     private void FillVideoOptions(GuiControl root)
