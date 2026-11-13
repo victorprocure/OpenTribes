@@ -40,8 +40,6 @@ public sealed class PriorityInputs
 /// <summary>The scope query and update priority of ghosted objects.</summary>
 public static class GhostScope
 {
-    // src/game/ghost_scope.hpp NetFlag: net flags (+0x4c) set by the class constructors (6.1, 1.1): 0x100 ghostable, 0x40
-    // scope-always, 0x80 ghosted only to client 2049.
     /// <summary>The net flag of a ghostable object (+0x4c, set by the class constructors; docs/game-stream-ghosts.md 6.1, 1.1).</summary>
     public const uint kNetGhostable = 0x100;
     /// <summary>The net flag of an object that is always in scope.</summary>

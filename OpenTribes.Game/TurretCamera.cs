@@ -12,7 +12,6 @@ public static class TurretCamera
     /// <summary>The factor of the view distance (double at 0x004565d8). The camera argument is the PSC +0x9c timer.</summary>
     public const double DistanceFactor = 1.3;
 
-    // `obj` is the object transform (+0x94), `eyeNode` the translation of the `dummy eye` node of the animated shape (the +0x30 table, 0x34
     /// <summary>Computes the camera transform of a turret.</summary>
     /// <param name="obj">The object transform (+0x94).</param>
     /// <param name="eyeNode">The translation of the <c>dummy eye</c> node of the animated shape, or null when the shape has none. Without it the camera is the object transform and the distance is ignored.</param>

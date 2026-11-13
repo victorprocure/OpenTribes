@@ -850,7 +850,6 @@ public sealed class GameConnection
     }
 }
 
-// The event builders of src/game/game_connection.cpp (docs/game-stream.md 2.5) and inventoryCounts of src/game/player.cpp.
 /// <summary>The builders of the game events (docs/game-stream.md 2.5).</summary>
 public static class GameEvents
 {
