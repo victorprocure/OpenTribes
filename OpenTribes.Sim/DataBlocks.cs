@@ -1,6 +1,3 @@
-// Port of src/game/datablocks.hpp and src/game/datablocks.cpp: the DataBlockManager (docs/datablocks.md). It lives in
-// OpenTribes.Sim because the C++ SimConsole holds it (see DataBlockTables.cs). The script parse and the float products
-// and stores follow the mode of Fpu (the script FPU mode while the console runs).
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Script;
@@ -9,26 +6,40 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>Holds the datablocks (docs/datablocks.md): 31 groups, declaration, typed field access, preload and network identity.</summary>
+/// <remarks>Port of src/game/datablocks.cpp. It lives in OpenTribes.Sim because the C++ SimConsole holds it. The script parse and the float products and stores follow the mode of <see cref="OpenTribes.Core.Fpu"/>, the script FPU mode while the console runs.</remarks>
 public sealed class DataBlockManager
 {
-    // src/game/datablocks.hpp DataBlockManager::Value: one element of a field. Unset elements read the class default text.
+    /// <summary>One element of a field. Unset elements read the class default text.</summary>
     public sealed class Value
     {
+        /// <summary>True once a script wrote the element.</summary>
         public bool Set;
+        /// <summary>The text of string types and the animData sequence name. Null reads as an empty string.</summary>
         public string? Str;                     // string types, animData/sequence name (null reads "")
-        public readonly float[] F = new float[3]; // float, point3F, colorF, normal, damageLevel, sqrtScaled
-        public int I;                           // int, bool, sfxFlags, reference index, sound index
-        public int I2;                          // projectile reference: index (I is the group); animData direction
-        public int I3;                          // animData viewFlags (bits 0-3)
-        public int I4;                          // animData priority
+        /// <summary>The components of float, point3F, colorF, normal, damageLevel and sqrtScaled fields.</summary>
+        public readonly float[] F = new float[3];
+        /// <summary>The value of int, bool, sfxFlags, reference index and sound index fields.</summary>
+        public int I;
+        /// <summary>The index of a projectile reference, where <see cref="I"/> is the group, or the animData direction.</summary>
+        public int I2;
+        /// <summary>The animData view flags (bits 0-3).</summary>
+        public int I3;
+        /// <summary>The animData priority.</summary>
+        public int I4;
     }
 
-    // src/game/datablocks.hpp DataBlockManager::Field.
+    /// <summary>One field of a block: its definition and its elements.</summary>
     public sealed class Field
     {
+        /// <summary>The field definition.</summary>
         public FieldDef Def;
+        /// <summary>The elements, one per array entry.</summary>
         public List<Value> Elems;
 
+        /// <summary>Creates a field with unset elements.</summary>
+        /// <param name="def">The field definition.</param>
+        /// <param name="count">The number of elements.</param>
         public Field(FieldDef def, int count)
         {
             Def = def;
@@ -38,17 +49,25 @@ public sealed class DataBlockManager
         }
     }
 
-    // src/game/datablocks.hpp DataBlockManager::Block.
+    /// <summary>One declared datablock.</summary>
     public sealed class Block
     {
+        /// <summary>The class of the block.</summary>
         public ClassDef Cls = null!;
+        /// <summary>The block name.</summary>
         public string Name = "";
+        /// <summary>The group the block belongs to, 0 to 30.</summary>
         public int Group;
+        /// <summary>The index of the block in its group.</summary>
         public int Index;
-        public readonly List<Field> Fields = new(); // inherited first, then own, in registration order
-        public uint ValidationCrc;                  // set by preload when validateShape (section 7.1)
+        /// <summary>The fields, inherited first and then own, in registration order.</summary>
+        public readonly List<Field> Fields = new();
+        /// <summary>The shape validation CRC. <see cref="DataBlockManager.Preload"/> sets it when <c>validateShape</c> is set (section 7.1).</summary>
+        public uint ValidationCrc;
 
-        // src/game/datablocks.cpp DataBlockManager::Block::find.
+        /// <summary>Finds a field by name.</summary>
+        /// <param name="name">The field name.</param>
+        /// <returns>The field, or null.</returns>
         public Field? Find(string name)
         {
             foreach (Field f in Fields)
@@ -188,8 +207,11 @@ public sealed class DataBlockManager
         return output;
     }
 
-    // src/game/datablocks.cpp validationCrc (section 7.1, 0x0044a078): the shape file, then each texture of its material
-    // list when validateMaterials is set. Missing files leave the CRC unchanged.
+    /// <summary>Computes the validation CRC of a shape file, then of each texture of its material list when <paramref name="materials"/> is set. Missing files leave the CRC unchanged (section 7.1, 0044a078).</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="shape">The shape resource name.</param>
+    /// <param name="materials">True to include the textures.</param>
+    /// <returns>The CRC.</returns>
     public static uint ValidationCrc(ResourceManager res, string shape, bool materials)
     {
         uint crc = 0xffffffff;
@@ -221,7 +243,9 @@ public sealed class DataBlockManager
         return output;
     }
 
-    // src/game/datablocks.cpp DataBlockManager::DataBlockManager.
+    /// <summary>Creates an empty manager.</summary>
+    /// <param name="strings">The string table for block names.</param>
+    /// <param name="print">Receives console messages.</param>
     public DataBlockManager(StringTable strings, Action<string> print)
     {
         mStrings = strings;
@@ -230,7 +254,9 @@ public sealed class DataBlockManager
             mGroups[i] = new List<Block>();
     }
 
-    // src/game/datablocks.cpp DataBlockManager::findClass.
+    /// <summary>Finds a datablock class by name, ignoring case.</summary>
+    /// <param name="name">The class name.</param>
+    /// <returns>The class, or null.</returns>
     public ClassDef? FindClass(string name)
     {
         foreach (ClassDef c in DataBlockTables.kClasses)
@@ -239,7 +265,9 @@ public sealed class DataBlockManager
         return null;
     }
 
-    // src/game/datablocks.cpp DataBlockManager::find.
+    /// <summary>Finds a block by name.</summary>
+    /// <param name="name">The block name, ignoring case.</param>
+    /// <returns>The block, or null.</returns>
     public Block? Find(string? name)
     {
         if (name == null)
@@ -248,7 +276,10 @@ public sealed class DataBlockManager
         return key != null && mNames.TryGetValue(key, out Block? b) ? b : null;
     }
 
-    // src/game/datablocks.cpp DataBlockManager::at.
+    /// <summary>Gets a block by group and index.</summary>
+    /// <param name="group">The group, 0 to 30.</param>
+    /// <param name="index">The index in the group.</param>
+    /// <returns>The block, or null when out of range.</returns>
     public Block? At(int group, int index)
     {
         if (group < 0 || group > 30 || index < 0 || index >= mGroups[group].Count)
@@ -256,9 +287,13 @@ public sealed class DataBlockManager
         return mGroups[group][index];
     }
 
+    /// <summary>Gets the number of blocks in a group.</summary>
+    /// <param name="group">The group, 0 to 30.</param>
+    /// <returns>The count.</returns>
     public int GroupSize(int group) => mGroups[group].Count;
 
-    // src/game/datablocks.hpp DataBlockManager::forEach: groups 0..30, each in index order.
+    /// <summary>Visits every block, groups 0 to 30, each in index order.</summary>
+    /// <param name="f">The visitor.</param>
     public void ForEach(Action<Block> f)
     {
         foreach (List<Block> g in mGroups)
@@ -266,7 +301,10 @@ public sealed class DataBlockManager
                 f(b);
     }
 
-    // src/game/datablocks.cpp DataBlockManager::declare: declareDataBlock (DD1-DD5). False when nothing was created.
+    /// <summary>Declares a block, as <c>declareDataBlock</c> does (DD1-DD5).</summary>
+    /// <param name="className">The class name.</param>
+    /// <param name="name">The block name.</param>
+    /// <returns>False when nothing was created: the name exists, or the class is unknown or has no factory.</returns>
     public bool Declare(string className, string name)
     {
         if (Find(name) != null)
@@ -546,9 +584,11 @@ public sealed class DataBlockManager
         v.Set = true;
     }
 
-    // src/game/datablocks.cpp ctorFloat: default of an unset float field: the constant its datablock constructor stores,
-    // the nearest float to the default text (docs/datablocks.md 3.1), whatever the current rounding mode. `end` is the
-    // index after the number in `text` from `start` (start when none).
+    /// <summary>Parses the default of an unset float field: the constant its datablock constructor stores, which is the nearest float to the default text (docs/datablocks.md 3.1), whatever the current rounding mode.</summary>
+    /// <param name="text">The default text.</param>
+    /// <param name="start">The index to start at.</param>
+    /// <param name="end">Receives the index after the number, or <paramref name="start"/> when there is none.</param>
+    /// <returns>The value, 0 when there is no number.</returns>
     public static float CtorFloat(string text, int start, out int end)
     {
         int i = start;
@@ -593,9 +633,17 @@ public sealed class DataBlockManager
         return float.Parse(text[s..i], NumberStyles.Float, CultureInfo.InvariantCulture);
     }
 
+    /// <summary>Parses the number at the start of <paramref name="text"/> like <see cref="CtorFloat(string,int,out int)"/>.</summary>
+    /// <param name="text">The default text.</param>
+    /// <returns>The value.</returns>
     public static float CtorFloat(string text) => CtorFloat(text, 0, out _);
 
-    // src/game/datablocks.cpp DataBlockManager::getField.
+    /// <summary>Reads a field as the text a script read prints.</summary>
+    /// <param name="b">The block.</param>
+    /// <param name="field">The field name.</param>
+    /// <param name="index">The array index, or empty or -1 for a single value.</param>
+    /// <param name="output">Receives the text.</param>
+    /// <returns>False for an unknown field or an index out of range.</returns>
     public bool GetField(Block b, string field, string index, out string output)
     {
         output = "";
@@ -620,7 +668,11 @@ public sealed class DataBlockManager
         return true;
     }
 
-    // src/game/datablocks.cpp DataBlockManager::setField.
+    /// <summary>Writes a field from script values. Unknown fields are ignored (FA5).</summary>
+    /// <param name="b">The block.</param>
+    /// <param name="field">The field name.</param>
+    /// <param name="values">The values to parse.</param>
+    /// <param name="index">The array index, or empty or -1 for the whole field.</param>
     public void SetField(Block b, string field, IReadOnlyList<string> values, string index)
     {
         Field? f = b.Find(field);
@@ -652,7 +704,10 @@ public sealed class DataBlockManager
         mPrint("setDataField: array set access out of range.");
     }
 
-    // src/game/datablocks.cpp DataBlockManager::preload: preloadServerDataBlocks (section 7). False if any preload failed.
+    /// <summary>Checks that the shapes the blocks name exist and computes the validation CRCs.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <returns>False if any preload failed.</returns>
+    /// <remarks>Follows preloadServerDataBlocks (section 7).</remarks>
     public bool Preload(ResourceManager res)
     {
         bool ok = true;

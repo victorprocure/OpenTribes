@@ -34,7 +34,7 @@ public sealed class ResourceManager
     public sealed class Entry
     {
         /// <summary>The directory part of the lookup name, or null.</summary>
-        public string? Path;          // directory part of the lookup name, or null
+        public string? Path;
         /// <summary>The file name part of the lookup name.</summary>
         public string Name = "";      // file name part
         /// <summary>The real directory, backslash separated and relative to the root.</summary>
@@ -46,13 +46,13 @@ public sealed class ResourceManager
         /// <summary>The volume that holds the entry, or null.</summary>
         public Volume? Volume;
         /// <summary>The index of the entry in the volume's directory.</summary>
-        public int VolumeIndex;       // index into the volume's directory
+        public int VolumeIndex;
         /// <summary>The data size in bytes.</summary>
         public uint Size;
         /// <summary>True once a load built an instance (stock +0x14). The instance keeps a stale entry alive.</summary>
-        public bool HasInstance;      // +0x14: load built an instance; it keeps a stale entry alive
+        public bool HasInstance;
         /// <summary>The number of holders of the instance (stock +0x44). A purge keeps a locked entry.</summary>
-        public uint Locks;            // +0x44: holders of the instance; purge keeps a locked entry
+        public uint Locks;
     }
 
     private readonly string mRoot;

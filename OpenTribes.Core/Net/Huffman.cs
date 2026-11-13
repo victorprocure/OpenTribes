@@ -4,7 +4,7 @@ namespace OpenTribes.Net;
 public readonly struct HuffmanCode
 {
     /// <summary>The code bits, LSB first. Bit i is the i-th bit written.</summary>
-    public readonly ulong Bits;   // LSB first, bit i is the i-th bit written
+    public readonly ulong Bits;
     /// <summary>The code length in bits.</summary>
     public readonly byte Length;
 

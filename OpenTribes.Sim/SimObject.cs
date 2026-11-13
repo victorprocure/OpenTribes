@@ -1,9 +1,7 @@
-// Port of src/sim/sim_object.hpp and src/sim/sim_object.cpp: simulation objects (docs/sim.md 4): SimObject, SimSet,
-// SimGroup. Names are interned strings (StringTable) compared by reference, as the C++ compares the pointers. The C++
-// `delete` of an object is Destroy(): the destructors of SimSet and SimGroup delete their members.
 namespace OpenTribes.Sim;
 
-// src/sim/sim_object.hpp class SimObject.
+/// <summary>The base of all simulation objects (docs/sim.md 4).</summary>
+/// <remarks>Port of src/sim/sim_object.cpp. Names are interned strings (<see cref="OpenTribes.Core.StringTable"/>) compared by reference, as the C++ compares the pointers. The C++ <c>delete</c> of an object is <see cref="Destroy"/>, and the destructors of <see cref="SimSet"/> and <see cref="SimGroup"/> delete their members.</remarks>
 public abstract class SimObject
 {
     internal int mId;
@@ -16,50 +14,90 @@ public abstract class SimObject
     private readonly List<KeyValuePair<string, string>> mFields = new();
     internal readonly List<SimSet> mInSets = new(); // sets that hold this object (delete notification)
 
-    // C++ RTTI-style class name shown by listObjects (e.g. "SimSet").
+    /// <summary>Gets the C++ RTTI-style class name that <c>listObjects</c> shows, for example <c>SimSet</c>.</summary>
+    /// <returns>The class name.</returns>
     public abstract string ClassName();
-    // Creation arguments after the class name (OB3). Base SimObject accepts none.
+    /// <summary>Takes the creation arguments after the class name (OB3). The base object accepts none.</summary>
+    /// <param name="args">The arguments.</param>
+    /// <returns>False when the arguments are not accepted.</returns>
     public virtual bool ProcessArguments(IReadOnlyList<string> args) => args.Count == 0;
+    /// <summary>Called when the object is registered.</summary>
+    /// <returns>False to refuse the registration.</returns>
     public virtual bool OnAdd() => true;
+    /// <summary>Called when the object is unregistered.</summary>
     public virtual void OnRemove() { }
-    // SimGroup::addObject / removeObject notifications (vtable +0x3c, +0x40).
+    /// <summary>Called when a <see cref="SimGroup"/> adds the object (vtable +0x3c).</summary>
     public virtual void OnGroupAdd() { }
+    /// <summary>Called when a <see cref="SimGroup"/> removes the object (vtable +0x40).</summary>
     public virtual void OnGroupRemove() { }
-    // Typed (persist) field assignment from instant slots. False: not a persist field.
+    /// <summary>Assigns a typed (persist) field from instant slots.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="values">The values.</param>
+    /// <returns>False when the field is not a persist field.</returns>
     public virtual bool SetPersistField(string field, IReadOnlyList<string> values) => false;
-    // Stored persist value, for engine code that reads mission fields (scripts cannot).
+    /// <summary>Gets the stored persist value, for engine code that reads mission fields. Scripts cannot read it.</summary>
+    /// <param name="field">The field name.</param>
+    /// <returns>The values, or null.</returns>
     public virtual IReadOnlyList<string>? PersistValue(string field) => null;
-    // Element of an array persist field (`textures[3] = ...`). False: not one.
+    /// <summary>Assigns one element of an array persist field, for example <c>textures[3] = ...</c>.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="index">The element index.</param>
+    /// <param name="values">The values.</param>
+    /// <returns>False when the field is not an array persist field.</returns>
     public virtual bool SetPersistElement(string field, int index, IReadOnlyList<string> values) => false;
-    // Id fixed by the constructor (ID1), or 0 for a pool id.
+    /// <summary>Gets the id the constructor fixes (ID1).</summary>
+    /// <returns>The id, or 0 for a pool id.</returns>
     public virtual int FixedId() => 0;
-    // Net flags (+0x4c) given the class constructor's; objects that change them after construction override this
-    // (docs/game-stream-ghosts.md 6.1).
+    /// <summary>Gets the net flags (+0x4c). Objects that change them after construction override this (docs/game-stream-ghosts.md 6.1).</summary>
+    /// <param name="constructed">The flags the class constructor sets.</param>
+    /// <returns>The flags.</returns>
     public virtual uint NetFlags(uint constructed) => constructed;
 
-    // Per-tick server update (GameBase vtable +0x158): once per 32 ms tick for every member of sets 718, 719 and 727,
-    // with the tick clock in ms (docs/sim.md TK3).
+    /// <summary>Runs the per-tick server update, once per 32 ms tick for every member of sets 718, 719 and 727 (docs/sim.md TK3).</summary>
+    /// <param name="tickMs">The tick clock in milliseconds.</param>
+    /// <remarks>Follows the GameBase vtable +0x158 entry.</remarks>
     public virtual void ServerTick(uint tickMs) { }
-    // SimTimerSet notification (event 0x40a) for members of set 12 (docs/sim.md TK6).
+    /// <summary>Handles the SimTimerSet notification (event 0x40a) for members of set 12 (docs/sim.md TK6).</summary>
+    /// <param name="time">The event time.</param>
+    /// <param name="timerId">The timer id.</param>
+    /// <param name="interval">The timer interval.</param>
     public virtual void OnTimerEvent(float time, int timerId, float interval) { }
 
-    // Event 0x420 (the console `activateGroup`) with its value; SimLight sets its colour (0x0052d290).
+    /// <summary>Handles event 0x420 (the console <c>activateGroup</c>). SimLight sets its colour (0052d290).</summary>
+    /// <param name="value">The event value.</param>
     public virtual void OnActivateEvent(float value) { }
 
+    /// <summary>Casts to <see cref="SimSet"/>.</summary>
+    /// <returns>The object as a set, or null.</returns>
     public virtual SimSet? AsSet() => null;
+    /// <summary>Casts to <see cref="SimGroup"/>.</summary>
+    /// <returns>The object as a group, or null.</returns>
+    /// <remarks>The stock <c>asGameBase</c> has no member here: GameBase is a class of src/game and the port casts with <c>as GameBase</c> (OpenTribes.Game).</remarks>
     public virtual SimGroup? AsGroup() => null;
     // asGameBase: GameBase is a class of src/game; the port casts with `as GameBase` (OpenTribes.Game).
 
-    // The C++ destructor, run by delete (SimManager::deleteObject, the SimSet and SimGroup destructors).
+    /// <summary>Runs the C++ destructor, called by <c>delete</c> (SimManager::deleteObject and the <see cref="SimSet"/> and <see cref="SimGroup"/> destructors).</summary>
     public virtual void Destroy() { }
 
+    /// <summary>Gets the object id.</summary>
+    /// <returns>The id.</returns>
     public int Id() => mId;
-    public string? Name() => mName; // interned, null when unnamed
+    /// <summary>Gets the object name.</summary>
+    /// <returns>The interned name, or null when unnamed.</returns>
+    public string? Name() => mName;
+    /// <summary>Gets the group that holds the object.</summary>
+    /// <returns>The group, or null.</returns>
     public SimGroup? Group() => mGroup;
+    /// <summary>Gets the manager the object is registered with.</summary>
+    /// <returns>The manager, or null.</returns>
     public SimManager? Manager() => mManager;
+    /// <summary>Gets the registration sequence number. Groups unregister members newest first by it.</summary>
+    /// <returns>The sequence number.</returns>
     public uint Sequence() => mSequence;
 
-    // src/sim/sim_object.cpp SimObject::dataField: dynamic data fields (OB4), interned name -> value, newest first.
+    /// <summary>Reads a dynamic data field (OB4). Fields are keyed by interned name and the newest wins.</summary>
+    /// <param name="name">The interned field name.</param>
+    /// <returns>The value, or null when unset.</returns>
     public string? DataField(string name)
     {
         for (int i = mFields.Count - 1; i >= 0; --i)
@@ -68,7 +106,9 @@ public abstract class SimObject
         return null;
     }
 
-    // src/sim/sim_object.cpp SimObject::setDataField.
+    /// <summary>Writes a dynamic data field. An empty value removes it.</summary>
+    /// <param name="name">The interned field name.</param>
+    /// <param name="value">The value.</param>
     public void SetDataField(string name, string value)
     {
         int it = mFields.FindIndex(f => ReferenceEquals(f.Key, name));
@@ -85,14 +125,18 @@ public abstract class SimObject
     }
 }
 
-// src/sim/sim_object.hpp class SimSet.
+/// <summary>A set of objects.</summary>
+/// <remarks>Port of src/sim/sim_object.cpp SimSet.</remarks>
 public class SimSet : SimObject
 {
+    /// <summary>The members in order.</summary>
     protected readonly List<SimObject> mMembers = new();
+    /// <summary>True when the set deletes its members with itself.</summary>
     protected bool mOwnsMembers;
+    /// <summary>True when removal keeps the member order.</summary>
     protected bool mOrdered;
 
-    // src/sim/sim_object.cpp SimSet::~SimSet.
+    /// <summary>Deletes the members when the set owns them.</summary>
     public override void Destroy()
     {
         if (mOwnsMembers)
@@ -100,9 +144,12 @@ public class SimSet : SimObject
                 m.Destroy();
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => "SimSet";
 
-    // src/sim/sim_object.cpp SimSet::processArguments.
+    /// <summary>Takes the optional argument that says whether the set owns its members.</summary>
+    /// <param name="args">The arguments.</param>
+    /// <returns>Always true.</returns>
     public override bool ProcessArguments(IReadOnlyList<string> args)
     {
         if (args.Count == 1)
@@ -110,14 +157,19 @@ public class SimSet : SimObject
         return true;
     }
 
+    /// <inheritdoc/>
     public override SimSet? AsSet() => this;
 
+    /// <summary>Gets the members in order.</summary>
+    /// <returns>The members.</returns>
     public IReadOnlyList<SimObject> Members() => mMembers;
 
-    // The ordered-removal flag (+0x5d): removal keeps the member order (docs/sim.md GS4).
+    /// <summary>Sets the ordered-removal flag (+0x5d). Removal then keeps the member order (docs/sim.md GS4).</summary>
+    /// <param name="ordered">True to keep the order.</param>
     public void SetOrdered(bool ordered) => mOrdered = ordered;
 
-    // src/sim/sim_object.cpp SimSet::addObject (GS2).
+    /// <summary>Adds an object unless it is already a member (GS2).</summary>
+    /// <param name="obj">The object.</param>
     public virtual void AddObject(SimObject obj)
     {
         if (mMembers.Contains(obj))
@@ -126,7 +178,9 @@ public class SimSet : SimObject
         obj.mInSets.Add(this);
     }
 
-    // src/sim/sim_object.cpp SimSet::removeObject (GS4 swap-remove).
+    /// <summary>Removes an object. Unless the set is ordered, the last member takes its place (GS4 swap-remove).</summary>
+    /// <param name="obj">The object.</param>
+    /// <remarks>The ordered flag is checked at 004fe430.</remarks>
     public virtual void RemoveObject(SimObject obj)
     {
         int it = mMembers.IndexOf(obj);
@@ -144,7 +198,9 @@ public class SimSet : SimObject
         obj.mInSets.RemoveAll(s => s == this);
     }
 
-    // src/sim/sim_object.cpp SimSet::findMemberByName.
+    /// <summary>Finds a member by name.</summary>
+    /// <param name="interned">The interned name.</param>
+    /// <returns>The member, or null.</returns>
     public SimObject? FindMemberByName(string interned)
     {
         foreach (SimObject m in mMembers)
@@ -153,7 +209,7 @@ public class SimSet : SimObject
         return null;
     }
 
-    // src/sim/sim_object.cpp SimSet::onRemove.
+    /// <summary>Unregisters the members when the set owns them, otherwise releases them.</summary>
     public override void OnRemove()
     {
         var members = new List<SimObject>(mMembers);
@@ -169,8 +225,9 @@ public class SimSet : SimObject
         mMembers.Clear();
     }
 
-    // src/sim/sim_object.cpp SimSet::onAdd: registers members added before this group was registered, in order (IN4). A
-    // member whose onAdd fails is reported and deleted after the loop (0x004fed68, mission.md 1.2).
+    /// <summary>Registers members added before the set was registered, in order (IN4). A member whose <see cref="SimObject.OnAdd"/> fails is reported and deleted after the loop.</summary>
+    /// <returns>Always true.</returns>
+    /// <remarks>Follows 004fed68, docs/mission.md 1.2.</remarks>
     public override bool OnAdd()
     {
         var failed = new List<SimObject>();
@@ -188,12 +245,13 @@ public class SimSet : SimObject
     }
 }
 
-// src/sim/sim_object.hpp class SimGroup.
+/// <summary>A set that owns its members and keeps a name dictionary of its direct children.</summary>
+/// <remarks>Port of src/sim/sim_object.cpp SimGroup.</remarks>
 public class SimGroup : SimSet
 {
     private readonly List<SimObject> mNamed = new(); // newest at the back
 
-    // src/sim/sim_object.cpp SimGroup::~SimGroup.
+    /// <summary>Deletes all members.</summary>
     public override void Destroy()
     {
         foreach (SimObject m in mMembers)
@@ -201,14 +259,18 @@ public class SimGroup : SimSet
         mMembers.Clear();
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => "SimGroup";
+    /// <inheritdoc/>
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
+    /// <inheritdoc/>
     public override SimGroup? AsGroup() => this;
-    // TeamGroup answers with its team (docs/mission.md GB2).
+    /// <summary>Gets the team of the group. A TeamGroup answers (docs/mission.md GB2).</summary>
+    /// <param name="team">Receives the team.</param>
+    /// <returns>True when the group has a team.</returns>
     public virtual bool TeamOf(ref int team) => false;
 
-    // src/sim/sim_object.cpp SimGroup::onRemove: members are unregistered newest first; they stay in the group for the
-    // destructor (RD2).
+    /// <summary>Unregisters the members newest first. They stay in the group for the destructor (RD2).</summary>
     public override void OnRemove()
     {
         var members = new List<SimObject>(mMembers);
@@ -224,7 +286,8 @@ public class SimGroup : SimSet
         }
     }
 
-    // src/sim/sim_object.cpp SimGroup::addObject (GS3).
+    /// <summary>Moves an object into this group, leaving its old group (GS3).</summary>
+    /// <param name="obj">The object.</param>
     public override void AddObject(SimObject obj)
     {
         if (obj.mGroup == this)
@@ -236,7 +299,8 @@ public class SimGroup : SimSet
         obj.OnGroupAdd();
     }
 
-    // src/sim/sim_object.cpp SimGroup::removeObject.
+    /// <summary>Removes an object from the group and its name dictionary.</summary>
+    /// <param name="obj">The object.</param>
     public override void RemoveObject(SimObject obj)
     {
         int it = mMembers.IndexOf(obj);
@@ -256,7 +320,9 @@ public class SimGroup : SimSet
         obj.mGroup = null;
     }
 
-    // src/sim/sim_object.cpp SimGroup::findChild: name dictionary of direct children; newest insertion wins (NM3).
+    /// <summary>Finds a direct child by name. The newest insertion wins (NM3).</summary>
+    /// <param name="interned">The interned name.</param>
+    /// <returns>The child, or null.</returns>
     public SimObject? FindChild(string interned)
     {
         for (int i = mNamed.Count - 1; i >= 0; --i)
@@ -265,7 +331,9 @@ public class SimGroup : SimSet
         return null;
     }
 
-    // src/sim/sim_object.cpp SimGroup::assignName.
+    /// <summary>Renames an object and updates the name dictionary when the group holds it.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="interned">The new interned name, or null.</param>
     public void AssignName(SimObject obj, string? interned)
     {
         if (obj.mGroup == this)

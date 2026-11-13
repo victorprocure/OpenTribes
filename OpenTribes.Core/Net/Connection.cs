@@ -6,18 +6,18 @@ public abstract class ConnectionEvents
     /// <summary>Called when a connect request arrives (status 0).</summary>
     /// <param name="c">The connection.</param>
     /// <param name="payload">The request payload.</param>
-    public abstract void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload);       // status 0
+    public abstract void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload);
     /// <summary>Called when the peer accepts our request (status 1).</summary>
     /// <param name="c">The connection.</param>
     /// <param name="payload">The accept payload.</param>
-    public virtual void OnAccepted(Connection c, ReadOnlySpan<byte> payload) { }           // status 1
+    public virtual void OnAccepted(Connection c, ReadOnlySpan<byte> payload) { }
     /// <summary>Called when the peer rejects our request (status 2).</summary>
     /// <param name="c">The connection.</param>
     /// <param name="payload">The reject reason bytes.</param>
-    public virtual void OnRejected(Connection c, ReadOnlySpan<byte> payload) { }           // status 2
+    public virtual void OnRejected(Connection c, ReadOnlySpan<byte> payload) { }
     /// <summary>Called when the peer acknowledged our accept and the connection is up (status 3).</summary>
     /// <param name="c">The connection.</param>
-    public virtual void OnEstablished(Connection c) { }                                    // status 3
+    public virtual void OnEstablished(Connection c) { }
     /// <summary>Called when the connection ends (status 4 and 5).</summary>
     /// <param name="c">The connection.</param>
     /// <param name="reason">The disconnect reason bytes. The C++ passes a null reason on a timeout or replacement, which is an empty span here.</param>

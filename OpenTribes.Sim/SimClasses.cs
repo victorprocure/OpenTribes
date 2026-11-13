@@ -1,148 +1,235 @@
-// Port of src/sim/sim_classes.hpp and src/sim/sim_classes.cpp: the class registry (docs/sim.md 6) and the object
-// classes known to the sim layer. GameBase and SimPathObject are classes of src/game (project OpenTribes.Game);
-// the GameServices members that take them take their SimObject base here.
 using OpenTribes.Core;
 using OpenTribes.World;
 
 namespace OpenTribes.Sim;
 
-// src/sim/sim_classes.hpp struct GameServices: game-layer services used by GameBase objects while they register
-// (docs/mission.md 3.2).
+/// <summary>The game-layer services that GameBase objects use while they register (docs/mission.md 3.2).</summary>
+/// <remarks>Port of src/sim/sim_classes.hpp GameServices. GameBase and SimPathObject are classes of src/game (project OpenTribes.Game), so the members that take them take their <see cref="SimObject"/> base here.</remarks>
 public abstract class GameServices
 {
-    // GB3: resolve the datablock name for the object's class; false fails onAdd.
+    /// <summary>Resolves the datablock name for the class of an object (GB3).</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>False to fail <see cref="SimObject.OnAdd"/>.</returns>
     public abstract bool ResolveDataBlock(SimObject obj);
-    // Console print at level 1 (usage lines of newObject).
+    /// <summary>Prints a console line at level 1, for example the usage lines of <c>newObject</c>.</summary>
+    /// <param name="line">The text.</param>
     public virtual void PrintLine(string line) { }
-    // GB5: script method through the GameBase::virtual lookup (no-op when undefined).
+    /// <summary>Calls a script method through the GameBase virtual lookup (GB5). Does nothing when the method is undefined.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="method">The method name.</param>
+    /// <param name="extra">The arguments after the object.</param>
     public abstract void ScriptCallback(SimObject obj, string method, IReadOnlyList<string> extra);
-    // TM6: create the next team; returns its id.
+    /// <summary>Creates the next team (TM6).</summary>
+    /// <returns>The team id.</returns>
     public abstract int AddTeamFromGroup();
-    // Sets the game layer keeps by fixed id (718, 719, ...), joined in onAdd.
+    /// <summary>Adds an object to a set the game layer keeps by fixed id (718, 719, ...), called from <see cref="SimObject.OnAdd"/>.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="setId">The set id.</param>
     public abstract void JoinSet(SimObject obj, int setId);
+    /// <summary>Removes an object from a set the game layer keeps by fixed id.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="setId">The set id.</param>
     public abstract void LeaveSet(SimObject obj, int setId);
-    // Delete notify of the Triggers a removed object occupies (0x004872e0).
+    /// <summary>Sends the delete notification to the triggers a removed object occupies (004872e0).</summary>
+    /// <param name="obj">The removed object.</param>
     public virtual void DropTriggerOccupant(SimObject obj) { }
+    /// <summary>Tells whether a resource exists.</summary>
+    /// <param name="name">The resource name.</param>
+    /// <returns>True when it exists.</returns>
     public abstract bool ResourceExists(string name);
+    /// <summary>Gets the resource manager.</summary>
+    /// <returns>The manager, or null.</returns>
     public abstract ResourceManager? GetResourceManager();
+    /// <summary>Gets the world container.</summary>
+    /// <returns>The container, or null.</returns>
     public abstract Container? GetContainer();
-    // Sensor targets (GB4/GB7): the map name of a visible object; renamed with setMapName.
+    /// <summary>Renames a sensor target (GB4, GB7): the map name of a visible object, changed with <c>setMapName</c>.</summary>
+    /// <param name="index">The target index.</param>
+    /// <param name="name">The new name.</param>
     public abstract void RenameTarget(int index, string name);
-    // Console variable value (name without the '$'), for <vNAME> in map names (GB7).
+    /// <summary>Reads a console variable for <c>&lt;vNAME&gt;</c> in map names (GB7).</summary>
+    /// <param name="name">The variable name without the <c>$</c>.</param>
+    /// <returns>The value.</returns>
     public abstract string Variable(string name);
-    // NetObject::setMaskBits (0x0050a3e8): ORs bits into the object's ghost entries.
+    /// <summary>ORs bits into the ghost entries of an object (NetObject::setMaskBits, 0050a3e8).</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="bits">The mask bits.</param>
     public virtual void SetMaskBits(SimObject obj, uint bits) { }
-    // The object's transform changed: refresh its container entry.
+    /// <summary>Refreshes the container entry of an object whose transform changed.</summary>
+    /// <param name="obj">The object.</param>
     public virtual void ObjectMoved(SimObject obj) { }
-    // Number of datablocks in a group (ghost index width, 0x00402b60).
+    /// <summary>Gets the number of datablocks in a group, which sets the ghost index width (00402b60).</summary>
+    /// <param name="group">The group.</param>
+    /// <returns>The count.</returns>
     public virtual int DataBlockCount(int group) => 0;
-    // Index of the SimPath in SimPathManager order (registration order), or -1.
+    /// <summary>Gets the index of a SimPath in SimPathManager order, which is registration order.</summary>
+    /// <param name="path">The path object.</param>
+    /// <returns>The index, or -1.</returns>
     public virtual int PathIndex(SimObject path) => -1;
-    // The terrain object's grid (docs/collision.md 5.1), null without a SimTerrain, and the material of a square (index
-    // into the terrain's material list), null when unknown.
+    /// <summary>Gets the grid of the terrain object (docs/collision.md 5.1).</summary>
+    /// <returns>The terrain, or null without a SimTerrain.</returns>
     public virtual Terrain? GetTerrain() => null;
+    /// <summary>Gets the material of a terrain square.</summary>
+    /// <param name="index">The index into the terrain's material list.</param>
+    /// <returns>The material, or null when unknown.</returns>
     public virtual Material? TerrainMaterial(int index) => null;
-    // Gravity and drag the terrain container applies to an object it holds (docs/player-sim.md 2.6).
+    /// <summary>Gets the gravity and drag the terrain container applies to an object it holds (docs/player-sim.md 2.6).</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="gravity">Receives the gravity vector.</param>
+    /// <param name="drag">The drag, updated when the container applies one.</param>
+    /// <returns>True when the container applies forces.</returns>
     public virtual bool TerrainForces(SimObject obj, Span<float> gravity, ref float drag) => false;
-    // The same values as a SimMovement holds them (docs/player-sim.md FC2): taken when the object enters a container
-    // inside the terrain, kept while it stays. Call after every container refile of the object; false outside the
-    // terrain (the drag stays as taken).
+    /// <summary>Gets the same values as a SimMovement holds them (docs/player-sim.md FC2): taken when the object enters a container inside the terrain and kept while it stays. Call it after every container refile of the object.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="gravity">Receives the gravity vector.</param>
+    /// <param name="drag">The drag, updated when the object is inside the terrain.</param>
+    /// <returns>False outside the terrain, where the drag stays as taken.</returns>
     public virtual bool EnteredForces(SimObject obj, Span<float> gravity, ref float drag) => false;
+    /// <summary>Gets the material table.</summary>
+    /// <returns>The table, or null.</returns>
     public virtual MaterialTable? GetMaterialTable() => null;
-    // Candidate list of a stepped move (docs/collision.md 2.1): the images of the objects of `mask` whose world box
-    // meets `query`, in container order, `mover` excluded.
+    /// <summary>Collects the candidate list of a stepped move (docs/collision.md 2.1): the images of the objects of <paramref name="mask"/> whose world box meets <paramref name="query"/>, in container order.</summary>
+    /// <param name="mover">The moving object, excluded.</param>
+    /// <param name="mask">The container type mask.</param>
+    /// <param name="query">The query box.</param>
+    /// <param name="output">Receives the images.</param>
     public virtual void CollisionCandidates(SimObject mover, uint mask, ReadOnlySpan<float> query, List<CollisionImage> output) { }
-    // Event 0x41f to `target` with `sender` (docs/collision.md 8 E1): handled at the start of the next tick, dropped
-    // when the sender is gone by then.
+    /// <summary>Posts event 0x41f to the target (docs/collision.md 8 E1). It is handled at the start of the next tick and dropped when the sender is gone by then.</summary>
+    /// <param name="target">The destination.</param>
+    /// <param name="sender">The sender.</param>
     public virtual void PostCollisionEvent(SimObject? target, SimObject? sender) { }
-    // The ShapeCollisionImage of a ShapeBase object (docs/collision.md T1.2): transform, shape instance, collision
-    // detail and mode. False when the object has no shape.
+    /// <summary>Fills the ShapeCollisionImage of a ShapeBase object: transform, shape instance, collision detail and mode (docs/collision.md T1.2).</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="image">The image to fill.</param>
+    /// <returns>False when the object has no shape.</returns>
     public virtual bool ShapeImage(SimObject obj, CollisionImage image) => false;
-    // Moveable motion that touches other objects (docs/static-sim.md 2.5): an elevator has already moved from `oldPos`;
-    // displace what it carries or overlaps, true when that worked (SimMovement_displace 0x00505ed4). A door tests
-    // whether its shape fits at the new transform (0x00505790).
+    /// <summary>Displaces what an elevator carries or overlaps after it moved from <paramref name="oldPos"/> (docs/static-sim.md 2.5, SimMovement_displace 00505ed4).</summary>
+    /// <param name="mover">The moved object.</param>
+    /// <param name="oldPos">The position before the move.</param>
+    /// <returns>True when that worked.</returns>
     public virtual bool MoveableDisplace(SimObject mover, ReadOnlySpan<float> oldPos) => true;
+    /// <summary>Tests whether the shape of a door fits at a new transform (00505790).</summary>
+    /// <param name="mover">The door.</param>
+    /// <param name="rotation">The new rotation.</param>
+    /// <param name="position">The new position.</param>
+    /// <returns>True when it fits.</returns>
     public virtual bool MoveableTest(SimObject mover, ReadOnlySpan<float> rotation, ReadOnlySpan<float> position) => true;
-    // Sensor network (docs/static-sim.md 3.2, 3.3).
+    /// <summary>Adds a sensor to the sensor network (docs/static-sim.md 3.2, 3.3).</summary>
+    /// <param name="sensor">The sensor.</param>
     public virtual void SensorInsert(SimObject sensor) { }
+    /// <summary>Removes a sensor from the sensor network.</summary>
+    /// <param name="sensor">The sensor.</param>
     public virtual void SensorRemove(SimObject sensor) { }
+    /// <summary>Tells the sensor network that a sensor changed team.</summary>
+    /// <param name="sensor">The sensor.</param>
     public virtual void SensorTeam(SimObject sensor) { }
-    // GameBase::setTeam of an object with an owning client moves that client (0040b394, player-manager.md 5).
+    /// <summary>Moves a client to a team when <c>GameBase::setTeam</c> changes the team of an object it owns (0040b394, player-manager.md 5).</summary>
+    /// <param name="client">The client id.</param>
+    /// <param name="team">The team.</param>
     public virtual void ClientTeam(int client, int team) { }
+    /// <summary>Tells the game layer that the target of an object was removed.</summary>
+    /// <param name="obj">The object.</param>
     public virtual void TargetRemoved(SimObject obj) { }
-    // A Mine entered the Destroyed state on the server: radius damage at its box centre (0x00458be4).
+    /// <summary>Applies radius damage at the box centre of a Mine that entered the Destroyed state on the server (00458be4).</summary>
+    /// <param name="mine">The mine.</param>
     public virtual void MineDestroyed(SimObject mine) { }
-    // The SimPath behind a path id (SimPathManager slot), or null.
+    /// <summary>Gets the SimPath behind a path id (SimPathManager slot).</summary>
+    /// <param name="id">The path id.</param>
+    /// <returns>The path, or null.</returns>
     public virtual SimObject? PathById(int id) => null;
 }
 
-// src/sim/sim_classes.hpp struct ClassContext: services some classes need when they are created or added.
+/// <summary>The services some classes need when they are created or added.</summary>
+/// <remarks>Port of src/sim/sim_classes.hpp ClassContext.</remarks>
 public sealed class ClassContext
 {
+    /// <summary>The resource manager.</summary>
     public ResourceManager? Resources;
+    /// <summary>The game-layer services.</summary>
     public GameServices? Game;
-    // FearCSDelegate processArguments: (isServer, transports...) starts networking.
+    /// <summary>Starts networking from the arguments of FearCSDelegate processArguments: the server flag and the transports.</summary>
     public Func<IReadOnlyList<string>, bool>? StartNetwork;
-    // Runs when newServer has created the fixed objects (the game layer posts its periodic events here, docs/sim.md
-    // TK7).
+    /// <summary>Runs when <c>newServer</c> has created the fixed objects. The game layer posts its periodic events here (docs/sim.md TK7).</summary>
     public Action<SimManager>? ServerCreated;
 }
 
-// src/sim/sim_classes.hpp ClassFactory.
+/// <summary>Creates a script object of a registered class.</summary>
+/// <param name="ctx">The creation context.</param>
+/// <returns>The new object.</returns>
 public delegate SimObject ClassFactory(ClassContext ctx);
 
-// src/sim/sim_classes.hpp class NamedClassObject: generic object of a fixed class name, optionally with a
-// constructor-fixed id.
+/// <summary>A generic object of a fixed class name with an optional constructor-fixed id.</summary>
 public class NamedClassObject : SimObject
 {
     private readonly string mClass;
     private readonly int mFixed;
 
+    /// <summary>Creates the object.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <param name="id">The fixed id, or 0 for a pool id.</param>
     public NamedClassObject(string cls, int id = 0)
     {
         mClass = cls;
         mFixed = id;
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => mClass;
+    /// <inheritdoc/>
     public override int FixedId() => mFixed;
+    /// <summary>Accepts any arguments.</summary>
+    /// <param name="args">The arguments.</param>
+    /// <returns>Always true.</returns>
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
 }
 
-// src/sim/sim_classes.hpp class NamedClassSet.
+/// <summary>A set of a fixed class name with an optional constructor-fixed id.</summary>
 public class NamedClassSet : SimSet
 {
     private readonly string mClass;
     private readonly int mFixed;
 
+    /// <summary>Creates the set.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <param name="id">The fixed id, or 0 for a pool id.</param>
     public NamedClassSet(string cls, int id = 0)
     {
         mClass = cls;
         mFixed = id;
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => mClass;
+    /// <inheritdoc/>
     public override int FixedId() => mFixed;
 }
 
-// src/sim/sim_classes.hpp class SimTimerSet: SimTimerSet (ctor 00507778, docs/sim.md TK6), posts itself an event every
-// `interval` seconds of sim time and notifies its members when it runs.
+/// <summary>A set that posts itself an event every <c>interval</c> seconds of sim time and notifies its members when it runs.</summary>
+/// <remarks>Follows the SimTimerSet constructor (00507778), docs/sim.md TK6.</remarks>
 public sealed class SimTimerSet : SimSet
 {
     private readonly int mFixed;
     private readonly float mInterval;
 
+    /// <summary>Creates the set.</summary>
+    /// <param name="id">The fixed id.</param>
+    /// <param name="interval">The notification interval in seconds.</param>
     public SimTimerSet(int id, float interval)
     {
         mFixed = id;
         mInterval = interval;
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => "SimTimerSet";
+    /// <inheritdoc/>
     public override int FixedId() => mFixed;
+    /// <summary>Gets the notification interval.</summary>
+    /// <returns>The interval in seconds.</returns>
     public float Interval() => mInterval;
 
-    // src/sim/sim_classes.cpp SimTimerSet::onAdd: 005077a4.
+    /// <summary>Starts the timer when the set is registered (005077a4).</summary>
+    /// <returns>Always true.</returns>
     public override bool OnAdd()
     {
         Post();
@@ -167,23 +254,29 @@ public sealed class SimTimerSet : SimSet
     }
 }
 
-// src/sim/sim_classes.hpp class NamedClassGroup.
+/// <summary>A group of a fixed class name with an optional constructor-fixed id.</summary>
 public class NamedClassGroup : SimGroup
 {
     private readonly string mClass;
     private readonly int mFixed;
 
+    /// <summary>Creates the group.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <param name="id">The fixed id, or 0 for a pool id.</param>
     public NamedClassGroup(string cls, int id = 0)
     {
         mClass = cls;
         mFixed = id;
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => mClass;
+    /// <inheritdoc/>
     public override int FixedId() => mFixed;
 }
 
-// The registry and the classes of src/sim/sim_classes.cpp.
+/// <summary>The class registry (docs/sim.md 6) and the object classes known to the sim layer.</summary>
+/// <remarks>Port of src/sim/sim_classes.cpp.</remarks>
 public static class SimClasses
 {
     // strcasecmp == 0 (ASCII).
@@ -213,9 +306,11 @@ public static class SimClasses
         private bool mScopeAlways = true; // ctor 00508148 sets 0x140; mission volumes keep it
 
         public SimVolume(ResourceManager? res) => mRes = res;
+        /// <inheritdoc/>
         public override string ClassName() => "SimVolume";
 
         // SimVolume_processArguments: net flags 0x140 only with a true second argument.
+        /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args)
         {
             mScopeAlways = args.Count == 2 && args[1].Length != 0 && (args[1][0] == 't' || args[1][0] == 'T' || args[1][0] == '1');
@@ -227,9 +322,11 @@ public static class SimClasses
             return true;
         }
 
+        /// <inheritdoc/>
         public override uint NetFlags(uint constructed) => mScopeAlways ? constructed | 0x140u : constructed & ~0x140u;
 
         // Missions set the file through the fileName persist slot and mount in onAdd.
+        /// <inheritdoc/>
         public override bool SetPersistField(string field, IReadOnlyList<string> values)
         {
             if (!EqualsNoCase(field, "fileName"))
@@ -239,6 +336,7 @@ public static class SimClasses
             return true;
         }
 
+        /// <inheritdoc/>
         public override bool OnAdd()
         {
             if (mPending.Length == 0)
@@ -249,6 +347,7 @@ public static class SimClasses
             return true;
         }
 
+        /// <inheritdoc/>
         public override void OnRemove()
         {
             if (mRes != null && mFile.Length != 0)
@@ -260,8 +359,11 @@ public static class SimClasses
         public bool GhostAlways() => mScopeAlways;
     }
 
-    // src/sim/sim_classes.cpp simVolumeInfo: SimVolume state the ghost code needs: file name (+0x68) and whether the
-    // volume is ghost-always. False when obj is not a SimVolume.
+    /// <summary>Reads the SimVolume state the ghost code needs.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="file">Receives the file name (+0x68).</param>
+    /// <param name="ghostAlways">Receives whether the volume is ghost-always.</param>
+    /// <returns>False when <paramref name="obj"/> is not a SimVolume.</returns>
     public static bool SimVolumeInfo(SimObject obj, out string file, out bool ghostAlways)
     {
         file = "";
@@ -273,13 +375,15 @@ public static class SimClasses
         return true;
     }
 
-    // src/sim/sim_classes.cpp class ChatMenu.
+    /// <summary>The ChatMenu class. It is a member of the input consumer set (object 25) until it is deleted.</summary>
     public sealed class ChatMenu : SimObject
     {
-        // The first argument of newObject(name, ChatMenu, title): the heading the menu display shows.
+        /// <summary>The first argument of <c>newObject(name, ChatMenu, title)</c>, the heading the menu display shows.</summary>
         public string Title = "";
+        /// <inheritdoc/>
         public override string ClassName() => "ChatMenu";
 
+        /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args)
         {
             if (args.Count == 0)
@@ -288,7 +392,8 @@ public static class SimClasses
             return true;
         }
 
-        // [live] a created ChatMenu is a member of the input consumer set (object 25) until it is deleted.
+        // a created ChatMenu is a member of the input consumer set (object 25) until it is deleted.
+        /// <inheritdoc/>
         public override bool OnAdd()
         {
             Manager()?.FindById(25)?.AsSet()?.AddObject(this);
@@ -313,9 +418,13 @@ public static class SimClasses
             mFixed = id;
         }
 
+        /// <inheritdoc/>
         public override string ClassName() => mClass;
+        /// <inheritdoc/>
         public override int FixedId() => mFixed;
+        /// <inheritdoc/>
         public override bool OnAdd() => mMode != Mode.Register;
+        /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args) =>
             mMode == Mode.AnyArgs ? args.Count == 0 : mMode == Mode.Register;
     }
@@ -326,6 +435,7 @@ public static class SimClasses
         private readonly string mClass;
 
         public GuiGroup(string cls) => mClass = cls;
+        /// <inheritdoc/>
         public override string ClassName() => mClass;
     }
 
@@ -334,6 +444,7 @@ public static class SimClasses
     {
         public GuiScrollGroup(string cls) : base(cls) { }
 
+        /// <inheritdoc/>
         public override bool OnAdd()
         {
             AddObject(new GuiGroup("SimGui::ScrollContentCtrl"));
@@ -346,6 +457,7 @@ public static class SimClasses
     {
         public GuiServerList(string cls) : base(cls) { }
 
+        /// <inheritdoc/>
         public override bool OnAdd()
         {
             Manager()?.Print?.Invoke("ServerListCtrl::onAdd() mbQueryMoreServers: FALSE");
@@ -359,15 +471,19 @@ public static class SimClasses
         private readonly string mClass;
 
         public GuiDelegate(string cls) => mClass = cls;
+        /// <inheritdoc/>
         public override string ClassName() => mClass;
+        /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args) => args.Count == 0;
     }
 
     // src/sim/sim_classes.cpp class GuiCanvas: no argument prints the usage and fails.
     private sealed class GuiCanvas : SimObject
     {
+        /// <inheritdoc/>
         public override string ClassName() => "SimGui::Canvas";
 
+        /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args)
         {
             if (args.Count != 0)
@@ -383,9 +499,12 @@ public static class SimClasses
         private readonly ClassContext mCtx;
 
         public FearCSDelegate(ClassContext ctx) => mCtx = ctx;
+        /// <inheritdoc/>
         public override string ClassName() => "FearCSDelegate";
+        /// <inheritdoc/>
         public override int FixedId() => 35; // Net::CSDelegate ctor (0054e6b8)
 
+        /// <inheritdoc/>
         public override bool ProcessArguments(IReadOnlyList<string> args)
         {
             // The reference fails an empty list and lists of one or two arguments (docs/sim.md 6.5).
@@ -499,8 +618,9 @@ public static class SimClasses
             sRegistry.Add(new ClassEntry { Name = name, Make = Plain(() => new GuiDelegate(name)) });
     }
 
-    // src/sim/sim_classes.cpp registerClass: adds or replaces a class (the game layer registers mission classes this
-    // way).
+    /// <summary>Adds or replaces a class. The game layer registers the mission classes this way.</summary>
+    /// <param name="name">The class name.</param>
+    /// <param name="factory">The factory.</param>
     public static void RegisterClass(string name, ClassFactory factory)
     {
         foreach (ClassEntry c in sRegistry)
@@ -512,8 +632,10 @@ public static class SimClasses
         sRegistry.Add(new ClassEntry { Name = name, Make = factory });
     }
 
-    // src/sim/sim_classes.cpp createObject: creates an object by class name, ASCII case-insensitive (CL2). Null when
-    // unknown.
+    /// <summary>Creates an object by class name, matching ASCII case-insensitively (CL2).</summary>
+    /// <param name="className">The class name.</param>
+    /// <param name="ctx">The creation context.</param>
+    /// <returns>The object, or null when the class is unknown.</returns>
     public static SimObject? CreateObject(string className, ClassContext ctx)
     {
         foreach (ClassEntry c in sRegistry)

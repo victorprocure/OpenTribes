@@ -15,13 +15,13 @@ public enum VolCompression : byte
 public sealed class VolEntry
 {
     /// <summary>The numeric resource id, 0 when unused.</summary>
-    public uint Id;               // numeric resource id, 0 when unused
+    public uint Id;
     /// <summary>The entry name. Empty when the entry has no name (name offset -1).</summary>
     public string Name = "";      // empty when the entry has no name (name offset -1)
     /// <summary>The file offset of the entry's VBLK header.</summary>
-    public uint BlockOffset;      // file offset of the entry's VBLK header
+    public uint BlockOffset;
     /// <summary>The size from the directory record.</summary>
-    public uint Size;             // size from the directory record
+    public uint Size;
     /// <summary>The compression type, a <see cref="VolCompression"/> value.</summary>
     public byte Compression;
 }
