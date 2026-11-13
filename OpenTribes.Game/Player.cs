@@ -11,10 +11,15 @@ namespace OpenTribes.Game;
 /// <remarks>See docs/player-sim.md. This part holds creation, the datablock binding, move credit and the 32 ms step. The other parts are in the files named after the Player features.</remarks>
 public sealed partial class Player : GameBase
 {
-    public const int kItemTypes = 200; // inventory entries (+0x1038)
+    /// <summary>The number of inventory entries (+0x1038).</summary>
+    public const int kItemTypes = 200;
+    /// <summary>The number of image slots.</summary>
     public const int kImageSlots = 8;
-    public const uint kLiveMask = 0x74e00086u; // 0x0060fb5c
-    public const uint kDeadMask = 0x20c00086u; // 0x0060fb64
+    /// <summary>The collision mask of a live Player (0x0060fb5c).</summary>
+    public const uint kLiveMask = 0x74e00086u;
+    /// <summary>The collision mask of a dead Player (0x0060fb64).</summary>
+    public const uint kDeadMask = 0x20c00086u;
+    /// <summary>The object type of a corpse.</summary>
     public const uint kCorpseType = 0x40000000u;
 
     private const float kDt = 0.032f;          // time slice 0x3d03126f
@@ -23,24 +28,72 @@ public sealed partial class Player : GameBase
     private const uint kNonBlockingTypes = 0x44200000u; // 0x0060ff64: Item, Mine, corpse
     private const uint kStepUpTypes = 0x00400006u;      // 0x0060ff68: terrain, interior, moveable
 
-    // src/game/player.hpp Player::Data: PlayerData values read by the step (the f32 the script path stored, 2.2).
+    /// <summary>The PlayerData values the step reads, as the f32 the script path stored (docs/player-sim.md 2.2).</summary>
     public sealed class Data
     {
-        public float MaxForwardSpeed, MaxBackwardSpeed, MaxSideSpeed;
-        public float Mass = 1, Drag = 1, HorzVelClamp, JetForce;
-        public float GroundForce = 20, GroundTraction = 1, JumpImpulse = 100, JumpSurfaceMinDot = 0.2f;
-        public float MaxJetSideForceFactor = 1, MaxJetForwardVelocity = 20, MinJetEnergy = 1, JetEnergyDrain = 1;
-        public float BoxWidth, BoxDepth, BoxNormalHeight, BoxCrouchHeight;
-        public float MinDamageSpeed = 13, DamageScale = 0.00899999f;
-        public float MaxEnergy, MaxDamage = 1;
+        /// <summary>The maximum forward speed.</summary>
+        public float MaxForwardSpeed;
+        /// <summary>The maximum backward speed.</summary>
+        public float MaxBackwardSpeed;
+        /// <summary>The maximum side speed.</summary>
+        public float MaxSideSpeed;
+        /// <summary>The mass.</summary>
+        public float Mass = 1;
+        /// <summary>The drag.</summary>
+        public float Drag = 1;
+        /// <summary>The horizontal velocity clamp.</summary>
+        public float HorzVelClamp;
+        /// <summary>The jet force.</summary>
+        public float JetForce;
+        /// <summary>The ground force.</summary>
+        public float GroundForce = 20;
+        /// <summary>The ground traction.</summary>
+        public float GroundTraction = 1;
+        /// <summary>The jump impulse.</summary>
+        public float JumpImpulse = 100;
+        /// <summary>The minimum dot product of the surface normal for a jump.</summary>
+        public float JumpSurfaceMinDot = 0.2f;
+        /// <summary>The jet side force factor.</summary>
+        public float MaxJetSideForceFactor = 1;
+        /// <summary>The maximum forward velocity while jetting.</summary>
+        public float MaxJetForwardVelocity = 20;
+        /// <summary>The minimum energy to jet.</summary>
+        public float MinJetEnergy = 1;
+        /// <summary>The energy drain of jetting.</summary>
+        public float JetEnergyDrain = 1;
+        /// <summary>The box width.</summary>
+        public float BoxWidth;
+        /// <summary>The box depth.</summary>
+        public float BoxDepth;
+        /// <summary>The box height when standing.</summary>
+        public float BoxNormalHeight;
+        /// <summary>The box height when crouching.</summary>
+        public float BoxCrouchHeight;
+        /// <summary>The minimum speed that causes landing damage.</summary>
+        public float MinDamageSpeed = 13;
+        /// <summary>The scale of landing damage.</summary>
+        public float DamageScale = 0.00899999f;
+        /// <summary>The maximum energy.</summary>
+        public float MaxEnergy;
+        /// <summary>The maximum damage.</summary>
+        public float MaxDamage = 1;
+        /// <summary>True when the Player can crouch.</summary>
         public bool CanCrouch;
+        /// <summary>The priority of each animation.</summary>
         public int[] AnimPriority = new int[51];
+        /// <summary>The direction of each animation.</summary>
         public int[] AnimDirection = new int[51];
+        /// <summary>The duration of each animation.</summary>
         public float[] AnimDuration = new float[51];
-        public bool[] AnimCyclic = new bool[51];  // sequence +4: the position wraps instead of stopping
-        public int[] AnimSequence = new int[51];  // sequence handle in the armor shape (+0x88c)
-        public int[] AnimViewFlags = new int[51]; // bit 0 first person
+        /// <summary>True for each cyclic sequence (sequence +4): the position wraps instead of stopping.</summary>
+        public bool[] AnimCyclic = new bool[51];
+        /// <summary>The sequence handle of each animation in the armor shape (+0x88c).</summary>
+        public int[] AnimSequence = new int[51];
+        /// <summary>The view flags of each animation. Bit 0 is first person.</summary>
+        public int[] AnimViewFlags = new int[51];
 
+        /// <summary>Copies the values.</summary>
+        /// <returns>The copy.</returns>
         public Data Clone()
         {
             var d = (Data)MemberwiseClone();
@@ -54,35 +107,77 @@ public sealed partial class Player : GameBase
         }
     }
 
-    // src/game/player.hpp Player::Force.
+    /// <summary>A force of the SimMovement force list.</summary>
     public sealed class Force
     {
-        public uint Type;  // 1 gravity, 0x100 jet
+        /// <summary>The force type: 1 gravity, 0x100 jet.</summary>
+        public uint Type;
+        /// <summary>True when the force is an acceleration.</summary>
         public bool Acceleration;
-        public float[] V = new float[3]; // stored acceleration (non-acceleration entries times invMass)
+        /// <summary>The stored acceleration. Entries that are not accelerations are multiplied by the inverse mass.</summary>
+        public float[] V = new float[3];
     }
 
-    // src/game/player.hpp Player::ImageState: image state names, indexed by state (table 0x0060ffec).
-    public const int kReset = 0, kFire = 1, kNoAmmo = 2, kIdle = 3, kReady = 4, kReload = 5, kSpinUp = 6, kSpinDown = 7,
-                     kActivate = 8, kDeactivate = 9;
+    /// <summary>The image state: reset.</summary>
+    public const int kReset = 0;
+    /// <summary>The image state: fire.</summary>
+    public const int kFire = 1;
+    /// <summary>The image state: no ammo.</summary>
+    public const int kNoAmmo = 2;
+    /// <summary>The image state: idle.</summary>
+    public const int kIdle = 3;
+    /// <summary>The image state: ready.</summary>
+    public const int kReady = 4;
+    /// <summary>The image state: reload.</summary>
+    public const int kReload = 5;
+    /// <summary>The image state: spin up.</summary>
+    public const int kSpinUp = 6;
+    /// <summary>The image state: spin down.</summary>
+    public const int kSpinDown = 7;
+    /// <summary>The image state: activate.</summary>
+    public const int kActivate = 8;
+    /// <summary>The image state: deactivate (the state names are the table at 0x0060ffec).</summary>
+    public const int kDeactivate = 9;
 
-    // src/game/player.hpp Player::ImageInfo: ItemImageData values the state machine reads (docs/datablocks.md 5.15),
-    // cached when the image is set.
+    /// <summary>The ItemImageData values the state machine reads (docs/datablocks.md 5.15), cached when the image is set.</summary>
     public sealed class ImageInfo
     {
-        public int WeaponType = -1; // +0x54
-        public int AmmoType = -1;   // +0x58 ItemData index
-        public float ActivateTime = 0.5f, FireTime = 0.2f, ReloadTime = 1.0f; // +0x5c, +0x60, +0x64
-        public float SpinUpTime = 2.0f, SpinDownTime = 2.0f;                 // +0x68, +0x6c
-        public int ProjGroup = -1, ProjIndex = -1;                           // +0x70 projectileType
-        public float MinEnergy = 2.0f, MaxEnergy = 10.0f;                    // +0x78, +0x7c
-        public bool AccuFire;                                                // +0xb5
-        public int MountPoint = 2;                                           // +0x38
-        public readonly float[] MountOffset = new float[3], MountRotation = new float[3]; // +0x3c, +0x48
-        public string? ShapeFile;                                            // +0xb8 image shape
-        public string? Name;                                                 // ItemImageData block name
+        /// <summary>The weapon type (+0x54), -1 for none.</summary>
+        public int WeaponType = -1;
+        /// <summary>The ItemData index of the ammo (+0x58), -1 for none.</summary>
+        public int AmmoType = -1;
+        /// <summary>The activate time (+0x5c).</summary>
+        public float ActivateTime = 0.5f;
+        /// <summary>The fire time (+0x60).</summary>
+        public float FireTime = 0.2f;
+        /// <summary>The reload time (+0x64).</summary>
+        public float ReloadTime = 1.0f;
+        /// <summary>The spin up time (+0x68).</summary>
+        public float SpinUpTime = 2.0f;
+        /// <summary>The spin down time (+0x6c).</summary>
+        public float SpinDownTime = 2.0f;
+        /// <summary>The projectile datablock group (projectileType, +0x70), -1 for none.</summary>
+        public int ProjGroup = -1;
+        /// <summary>The projectile datablock index, -1 for none.</summary>
+        public int ProjIndex = -1;
+        /// <summary>The minimum energy to fire (+0x78).</summary>
+        public float MinEnergy = 2.0f;
+        /// <summary>The maximum energy of a shot (+0x7c).</summary>
+        public float MaxEnergy = 10.0f;
+        /// <summary>True for accumulating fire (+0xb5).</summary>
+        public bool AccuFire;
+        /// <summary>The mount point (+0x38).</summary>
+        public int MountPoint = 2;
+        /// <summary>The mount offset (+0x3c).</summary>
+        public readonly float[] MountOffset = new float[3];
+        /// <summary>The mount rotation (+0x48).</summary>
+        public readonly float[] MountRotation = new float[3];
+        /// <summary>The image shape file (+0xb8).</summary>
+        public string? ShapeFile;
+        /// <summary>The ItemImageData block name.</summary>
+        public string? Name;
 
-        // `info = ImageInfo{}` in place.
+        /// <summary>Resets the values, as <c>info = ImageInfo{}</c> does.</summary>
         public void Reset()
         {
             WeaponType = -1;
@@ -104,22 +199,36 @@ public sealed partial class Player : GameBase
         }
     }
 
-    // src/game/player.hpp Player::ImageSlot. A class reset in place (`images[slot] = ImageSlot{}`), so that a reference
-    // held across a reset sees the reset slot as the C++ reference does.
+    /// <summary>The state of one image slot (Player::ImageSlot).</summary>
+    /// <remarks>It is reset in place (<c>images[slot] = ImageSlot{}</c>), so that a reference held across a reset sees the reset slot as the C++ reference does.</remarks>
     public sealed class ImageSlot
     {
-        public int State;          // +0x00
-        public int Item = -1;      // +0x04 ItemData index
-        public int Image = -1;     // +0x08 ItemImageData index
-        public int Team = -1;      // +0x0c
-        public int NextItem = -2;  // +0x10
-        public int NextTeam = -1;  // +0x14
-        public float Timer;        // +0x18
-        public int FireCount;      // +0x1c
-        public bool Triggered, Ammo;
-        public int Projectile;     // +0x28: object id of a live sustained projectile
+        /// <summary>The image state (+0x00).</summary>
+        public int State;
+        /// <summary>The ItemData index (+0x04), -1 for none.</summary>
+        public int Item = -1;
+        /// <summary>The ItemImageData index (+0x08), -1 for none.</summary>
+        public int Image = -1;
+        /// <summary>The team (+0x0c).</summary>
+        public int Team = -1;
+        /// <summary>The next item (+0x10), -2 for none.</summary>
+        public int NextItem = -2;
+        /// <summary>The next team (+0x14).</summary>
+        public int NextTeam = -1;
+        /// <summary>The state timer (+0x18).</summary>
+        public float Timer;
+        /// <summary>The fire count (+0x1c).</summary>
+        public int FireCount;
+        /// <summary>True while the trigger is down.</summary>
+        public bool Triggered;
+        /// <summary>True when ammo is available.</summary>
+        public bool Ammo;
+        /// <summary>The object id of a live sustained projectile (+0x28).</summary>
+        public int Projectile;
+        /// <summary>The cached image values.</summary>
         public readonly ImageInfo Info = new();
 
+        /// <summary>Resets the slot in place.</summary>
         public void Reset()
         {
             State = 0;
@@ -136,16 +245,21 @@ public sealed partial class Player : GameBase
         }
     }
 
-    // src/game/player.hpp Player::ShapePose: shape pose of the last Player_updateAnimation (docs/player-sim.md 5.5): the
-    // thread state behind the node entries until the next animate.
+    /// <summary>The shape pose of the last Player_updateAnimation: the thread state behind the node entries until the next animate (docs/player-sim.md 5.5).</summary>
     public sealed class ShapePose
     {
-        public int AnimIndex = -1;    // animation of the animation thread (-1: sequence 0)
+        /// <summary>The animation of the animation thread, -1 for sequence 0.</summary>
+        public int AnimIndex = -1;
+        /// <summary>The animation thread position.</summary>
         public float AnimPosition;
-        public bool CrouchLooks;      // look thread on `crouch looks`
-        public bool LookSet;          // false until the first update: the look thread is on sequence 0
-        public float LookPosition;    // before the sequence normalises it
-        public bool FirstPerson = true; // instance +0x9e = 2, look thread priority -1
+        /// <summary>True when the look thread is on <c>crouch looks</c>.</summary>
+        public bool CrouchLooks;
+        /// <summary>False until the first update: the look thread is on sequence 0.</summary>
+        public bool LookSet;
+        /// <summary>The look thread position before the sequence normalises it.</summary>
+        public float LookPosition;
+        /// <summary>True for first person (instance +0x9e = 2, look thread priority -1).</summary>
+        public bool FirstPerson = true;
     }
 
     // src/game/player.hpp Player::Contact.
@@ -159,54 +273,102 @@ public sealed partial class Player : GameBase
         public uint Type;
     }
 
-    public bool Dead;             // +0x1019
-    public bool BlownUp;          // +0xf94
-    public float LastDamage;      // value of the last applyDamage call
-    public float Pullback;        // +0xfd0
-    public bool RaySkip;          // +0x7f9 (image +0xd): set by Player_kill (0x004111e8), never cleared
+    /// <summary>True when the Player is dead (+0x1019).</summary>
+    public bool Dead;
+    /// <summary>True when the Player was blown up (+0xf94).</summary>
+    public bool BlownUp;
+    /// <summary>The value of the last applyDamage call.</summary>
+    public float LastDamage;
+    /// <summary>The weapon pullback (+0xfd0).</summary>
+    public float Pullback;
+    /// <summary>True when rays skip the Player (image +0xd). Set by Player_kill (0x004111e8) and never cleared (+0x7f9).</summary>
+    public bool RaySkip;
+    /// <summary>The shape pose.</summary>
     public readonly ShapePose Pose = new();
+    /// <summary>The item counts.</summary>
     public readonly int[] Counts = new int[kItemTypes];
+    /// <summary>The inventory slot of each item type.</summary>
     public readonly int[] SlotOf = new int[kItemTypes];
+    /// <summary>The image slots.</summary>
     public readonly ImageSlot[] Images = new ImageSlot[kImageSlots];
 
-    // State (offsets of the original object).
+    /// <summary>The PlayerData values the step reads.</summary>
     public Data PData = new();
-    public float Pitch;                   // +0xfc4
-    public float Mass = 9, InvMass;       // +0x170, +0x174
-    public bool ContactFlag;              // +0x1f4
-    public bool RestFlag = true;          // +0x164 bit 0
-    public float Traction;                // +0xfcc
-    public readonly float[] JumpNormal = { 0, 0, 1 }; // +0xfb0
-    public int TicksSinceJumpContact = 100; // +0xfac
-    public int TicksSinceContact;         // +0xfc0
-    public bool Jetting;                  // +0xfe4
-    public uint LastJetTime;              // +0xfe8
-    public bool Falling;                  // +0xfec
-    public bool PdaFlag;                  // +0xfed
-    public bool Crouching;                // +0xfee
-    public float Flash;                   // +0xfbc
-    public int TicksWithoutMove;          // +0xf8c
-    public int Credit;                    // +0xf90
-    public Move LastMove = new();         // +0xff0
-    public bool AiControlled;             // +0x101b
-    public bool LocallyControlled;        // +0x1018: the client's own control object (client-net.md 4.4, vtable +0x144)
-    public bool InMissionArea = true;     // +0x101a
-    public bool FreeLookCopy = true;      // +0x7dc: $pref::freeLook (0060fb50) as of onAdd and the last tick
-    public int PendingAnim;               // +0xf98
-    public int CurrentAnim = -1;          // +0xf9c
-    public float AnimPosition;            // animation thread position
-    public float DetectHazeFactor = 0.0287f, DetectMinVisibility = 1.0f; // +0xfd8, +0xfdc
-    public float SensorSuppression;       // +0xfe0
-    public readonly float[] BoxMin = new float[3], BoxMax = new float[3]; // movement box (+0x1d4, +0x1e0)
-    public float BoxHeight;               // box B max z (+0x864): follows crouch
-    public float Radius;                  // +0x874
-    public uint ObjectTypeBits = ObjectType.kPlayerType; // +0x48
-    public uint CollisionMask = kLiveMask; // +0x1ec
-    public float DeathTime;               // +0x1024
+    /// <summary>The pitch (+0xfc4).</summary>
+    public float Pitch;
+    /// <summary>The mass (+0x170).</summary>
+    public float Mass = 9;
+    /// <summary>The inverse mass (+0x174).</summary>
+    public float InvMass;
+    /// <summary>True when a contact surface was hit this step (+0x1f4).</summary>
+    public bool ContactFlag;
+    /// <summary>The rest flag (+0x164 bit 0).</summary>
+    public bool RestFlag = true;
+    /// <summary>The ground traction (+0xfcc).</summary>
+    public float Traction;
+    /// <summary>The normal of the jump contact (+0xfb0).</summary>
+    public readonly float[] JumpNormal = { 0, 0, 1 };
+    /// <summary>The ticks since the jump contact (+0xfac).</summary>
+    public int TicksSinceJumpContact = 100;
+    /// <summary>The ticks since a contact (+0xfc0).</summary>
+    public int TicksSinceContact;
+    /// <summary>True while jetting (+0xfe4).</summary>
+    public bool Jetting;
+    /// <summary>The time of the last jet (+0xfe8).</summary>
+    public uint LastJetTime;
+    /// <summary>True while falling (+0xfec).</summary>
+    public bool Falling;
+    /// <summary>The PDA flag (+0xfed).</summary>
+    public bool PdaFlag;
+    /// <summary>True while crouching (+0xfee).</summary>
+    public bool Crouching;
+    /// <summary>The damage flash (+0xfbc).</summary>
+    public float Flash;
+    /// <summary>The ticks without a move (+0xf8c).</summary>
+    public int TicksWithoutMove;
+    /// <summary>The move credit (+0xf90).</summary>
+    public int Credit;
+    /// <summary>The last move (+0xff0).</summary>
+    public Move LastMove = new();
+    /// <summary>True when an AI controls the Player (+0x101b).</summary>
+    public bool AiControlled;
+    /// <summary>True for the client's own control object (+0x1018, vtable +0x144; docs/client-net.md 4.4).</summary>
+    public bool LocallyControlled;
+    /// <summary>True while inside the mission area (+0x101a).</summary>
+    public bool InMissionArea = true;
+    /// <summary>The <c>$pref::freeLook</c> value (0060fb50) as of onAdd and the last tick (+0x7dc).</summary>
+    public bool FreeLookCopy = true;
+    /// <summary>The pending animation (+0xf98).</summary>
+    public int PendingAnim;
+    /// <summary>The current animation (+0xf9c), -1 for none.</summary>
+    public int CurrentAnim = -1;
+    /// <summary>The animation thread position.</summary>
+    public float AnimPosition;
+    /// <summary>The detect haze factor (+0xfd8).</summary>
+    public float DetectHazeFactor = 0.0287f;
+    /// <summary>The detect minimum visibility (+0xfdc).</summary>
+    public float DetectMinVisibility = 1.0f;
+    /// <summary>The sensor suppression (+0xfe0).</summary>
+    public float SensorSuppression;
+    /// <summary>The minimum of the movement box (+0x1d4).</summary>
+    public readonly float[] BoxMin = new float[3];
+    /// <summary>The maximum of the movement box (+0x1e0).</summary>
+    public readonly float[] BoxMax = new float[3];
+    /// <summary>The maximum z of box B, which follows the crouch (+0x864).</summary>
+    public float BoxHeight;
+    /// <summary>The radius (+0x874).</summary>
+    public float Radius;
+    /// <summary>The object type bits (+0x48).</summary>
+    public uint ObjectTypeBits = ObjectType.kPlayerType;
+    /// <summary>The collision mask (+0x1ec).</summary>
+    public uint CollisionMask = kLiveMask;
+    /// <summary>The time of death (+0x1024).</summary>
+    public float DeathTime;
 
-    // Mounting (docs/vehicle-sim.md 2, docs/player-sim.md 2.7), player_mount.cpp.
-    public int MountId;    // +0x1028: id of the mount object, 0 none
-    public int MountPoint; // +0x102c
+    /// <summary>The id of the mount object, 0 for none (+0x1028). Mounting is in docs/vehicle-sim.md 2 and docs/player-sim.md 2.7.</summary>
+    public int MountId;
+    /// <summary>The mount point (+0x102c).</summary>
+    public int MountPoint;
 
     private readonly GameState mGame;
     private readonly List<Force> mForces = new();
@@ -219,7 +381,8 @@ public sealed partial class Player : GameBase
 
     private static ClassContext OwnContext(GameState game) => new() { Game = game, Resources = game.Resources };
 
-    // src/game/player.cpp Player::Player.
+    /// <summary>Creates a Player.</summary>
+    /// <param name="game">The game state.</param>
     public Player(GameState game) : base("Player", Kind.ShapeBase, 3, Array.Empty<PersistDef>(), OwnContext(game))
     {
         mGame = game;
@@ -232,11 +395,17 @@ public sealed partial class Player : GameBase
         mMove.OnTouch = owner => PostCollision(owner as SimObject, this);
     }
 
+    /// <summary>Returns the game state.</summary>
+    /// <returns>The game state.</returns>
     public GameState Game() => mGame;
 
-    // src/game/player.cpp Player::from: the Player behind a sim object, or null.
+    /// <summary>Returns the Player behind a sim object.</summary>
+    /// <param name="obj">The object, or null.</param>
+    /// <returns>The Player, or null.</returns>
     public static Player? From(SimObject? obj) => obj as Player;
 
+    /// <summary>Returns the force list.</summary>
+    /// <returns>The forces.</returns>
     public IReadOnlyList<Force> Forces() => mForces;
 
     // src/game/player.cpp fieldFloat.
@@ -264,7 +433,8 @@ public sealed partial class Player : GameBase
 
     // ---- creation (docs/player-sim.md 1.3, 1.4) ----
 
-    // src/game/player.cpp Player::onAdd: 0x0040fb9c.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0040fb9c.</remarks>
     public override bool OnAdd()
     {
         // GameBase_onAdd (0x00448108): the player has no group, so the team stays -1; the datablock resolves
@@ -291,7 +461,8 @@ public sealed partial class Player : GameBase
         return !found || Numbers.ParseBool(v);
     }
 
-    // src/game/player.cpp Player::onRemove: 0x0040fb30.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x0040fb30.</remarks>
     public override void OnRemove()
     {
         mGame.SensorJam(this, false); // Player_onRemove 0x0040fb30 unlinks, the radius stays (docs/static-sim.md 3.8)
@@ -310,10 +481,10 @@ public sealed partial class Player : GameBase
         mGame.DropTriggerOccupant(this);
     }
 
-    // src/game/player.cpp Player::readLiveData: PlayerData values the step and the contact response read through the
-    // datablock pointer (0x00415304, 0x00416e4c): a redeclaration of the block changes a bound Player at its next step
-    // (docs/player-sim.md 9.5 `clamp`). Mass, drag, the box and the energy and damage limits are copied into the object
-    // at bind (1.4) and stay.
+    /// <summary>Reads the PlayerData values that the step and the contact response read through the datablock pointer.</summary>
+    /// <param name="b">The datablock.</param>
+    /// <param name="d">The values to fill.</param>
+    /// <remarks>Follows 0x00415304 and 0x00416e4c. A redeclaration of the block changes a bound Player at its next step (docs/player-sim.md 9.5 <c>clamp</c>). Mass, drag, the box and the energy and damage limits are copied into the object at bind (1.4) and stay.</remarks>
     public static void ReadLiveData(DataBlockManager.Block b, Data d)
     {
         d.MaxForwardSpeed = FieldFloat(b, "maxForwardSpeed", 0);
@@ -335,7 +506,9 @@ public sealed partial class Player : GameBase
             d.CanCrouch = f.Elems[0].I != 0;
     }
 
-    // src/game/player.cpp Player::bindDataBlock: datablock (re)bind (0x0040fcdc); false when the name is no PlayerData.
+    /// <summary>Binds or rebinds the datablock.</summary>
+    /// <returns>False when the name is no PlayerData.</returns>
+    /// <remarks>Follows 0x0040fcdc.</remarks>
     public bool BindDataBlock()
     {
         DataBlockManager.Block? b = Block();
@@ -432,7 +605,10 @@ public sealed partial class Player : GameBase
         return true;
     }
 
-    // src/game/player.cpp Player::setArmor: Player::setArmor (0x00420798).
+    /// <summary>Sets the armor.</summary>
+    /// <param name="name">The armor datablock name.</param>
+    /// <returns>True when the armor was set.</returns>
+    /// <remarks>Follows Player::setArmor (0x00420798).</remarks>
     public bool SetArmor(string name)
     {
         // GameBase_setDataBlockName (0x00447d20): a failed resolve restores the old block.
@@ -483,8 +659,9 @@ public sealed partial class Player : GameBase
                         fc.V[i] = X87.F32(Div(Mul(fc.V[i], oldMass), Mass));
     }
 
-    // Client copy of the control object (docs/client-net.md 4.4): the item of each image slot as the ghost sends it
-    // (3.4, Player_unpackImages), so the mass of the prediction is the server's. The image state machine stays idle.
+    /// <summary>Sets the items of the image slots on the client copy of the control object, as the ghost sends them (docs/game-stream-ghosts.md 3.4, Player_unpackImages).</summary>
+    /// <param name="items">The item of each slot.</param>
+    /// <remarks>The mass of the prediction is then the server's. The image state machine stays idle (docs/client-net.md 4.4).</remarks>
     public void SetClientItems(ReadOnlySpan<int> items)
     {
         for (int slot = 0; slot < kImageSlots && slot < items.Length; ++slot)
@@ -507,7 +684,11 @@ public sealed partial class Player : GameBase
 
     // ---- forces and containers (2.6) ----
 
-    // src/game/player.cpp Player::setForce: SimMovement force list (0x005047f0).
+    /// <summary>Sets a force in the SimMovement force list.</summary>
+    /// <param name="type">The force type.</param>
+    /// <param name="v">The force vector.</param>
+    /// <param name="acceleration">True when the vector is an acceleration.</param>
+    /// <remarks>Follows 0x005047f0.</remarks>
     public void SetForce(uint type, ReadOnlySpan<float> v, bool acceleration)
     {
         var f = new Force { Type = type, Acceleration = acceleration };
@@ -526,7 +707,9 @@ public sealed partial class Player : GameBase
         mForces.Add(f);
     }
 
-    // src/game/player.cpp Player::removeForce: 0x005048f4.
+    /// <summary>Removes a force from the force list.</summary>
+    /// <param name="type">The force type.</param>
+    /// <remarks>Follows 0x005048f4.</remarks>
     public void RemoveForce(uint type)
     {
         for (int i = 0; i < mForces.Count; ++i)
@@ -537,8 +720,8 @@ public sealed partial class Player : GameBase
             }
     }
 
-    // src/game/player.cpp Player::refileBox: SimObject::setTransform (0x005054a4): the container entry takes the new
-    // world box at once; the container change (gravity force) is seen by the next step's updateContainer.
+    /// <summary>Refiles the container entry with the new world box at once.</summary>
+    /// <remarks>Follows SimObject::setTransform (0x005054a4). The container change (gravity force) is seen by the next step's updateContainer.</remarks>
     public void RefileBox()
     {
         if (!mInContainer)
@@ -552,8 +735,9 @@ public sealed partial class Player : GameBase
             mGame.World.SetBox(this, box);
     }
 
-    // SimObject_setTransformRaw on the client ghost (Player_applyControlState 00414a00): the transform is rebuilt from the Euler
-    // angles and `position`, no collision query; the container entry takes the new box.
+    /// <summary>Places the Player on the client ghost without a collision query: the transform is rebuilt from the Euler angles and the position.</summary>
+    /// <param name="position">The position.</param>
+    /// <remarks>Follows SimObject_setTransformRaw (Player_applyControlState 00414a00). The container entry takes the new box.</remarks>
     public void PlaceRaw(ReadOnlySpan<float> position)
     {
         using var chop = X87.Chop();
@@ -567,7 +751,7 @@ public sealed partial class Player : GameBase
         RefileBox();
     }
 
-    // src/game/player.cpp Player::updateContainer: container entry and the terrain container's gravity (FC2-FC5).
+    /// <summary>Updates the container entry and the gravity of the terrain container (docs/player-sim.md FC2 to FC5).</summary>
     public void UpdateContainer()
     {
         if (!mInContainer)
@@ -597,8 +781,9 @@ public sealed partial class Player : GameBase
         mTerrainContainer = terrain;
     }
 
-    // src/game/player.cpp inventoryCounts: the item counts of a Player control object, or of the Player an
-    // ObserverCamera orbits; null otherwise.
+    /// <summary>Returns the item counts of a Player control object, or of the Player an ObserverCamera orbits.</summary>
+    /// <param name="control">The control object.</param>
+    /// <returns>The counts, or null otherwise.</returns>
     public static int[]? InventoryCounts(GameBase? control)
     {
         if (From(control) is Player p)
@@ -610,7 +795,8 @@ public sealed partial class Player : GameBase
 
     // ---- moves (2.1) ----
 
-    // src/game/player.cpp Player::applyMoves: 0x00413f18.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00413f18.</remarks>
     public override void ApplyMoves(Move[] moves, int count)
     {
         if (Dead)
@@ -647,7 +833,8 @@ public sealed partial class Player : GameBase
         TicksWithoutMove = 0;
     }
 
-    // src/game/player.cpp Player::serverTick: 0x00415108.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00415108.</remarks>
     public override void ServerTick(uint tickMs)
     {
         if (!mAdded)
@@ -706,7 +893,9 @@ public sealed partial class Player : GameBase
 
     private static float MaxF(float a, float b) => a < b ? b : a; // std::max
 
-    // src/game/player.cpp Player::updateMove: one 32 ms step (0x00415304).
+    /// <summary>Runs one 32 ms step with a move.</summary>
+    /// <param name="mv">The move.</param>
+    /// <remarks>Follows 0x00415304.</remarks>
     public void UpdateMove(Move mv)
     {
         using var chop = X87.Chop();
@@ -1040,8 +1229,9 @@ public sealed partial class Player : GameBase
         return moved;
     }
 
-    // src/game/player.cpp Player::testPositionAt: GameBase::testPosition for a Player: true when its collision image at
-    // `q` touches nothing.
+    /// <summary>Tests whether the collision image of the Player at a position touches nothing.</summary>
+    /// <param name="q">The position.</param>
+    /// <returns>True when nothing is touched.</returns>
     public bool TestPositionAt(ReadOnlySpan<float> q)
     {
         using var chop = X87.Chop();
@@ -1061,8 +1251,8 @@ public sealed partial class Player : GameBase
         return free;
     }
 
-    // src/game/player.cpp Player::throwDirection: 0x004113e8: (0, 1, 0) pitched by pitch + 0.5 * cos(pitch) and turned by
-    // the player matrix (docs/static-sim.md 5.4). 0x00606890 is the C runtime cosine.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x004113e8: (0, 1, 0) pitched by <c>pitch + 0.5 * cos(pitch)</c> and turned by the player matrix (docs/static-sim.md 5.4). 0x00606890 is the C runtime cosine.</remarks>
     public override bool ThrowDirection(Span<float> output)
     {
         using var chop = X87.Chop();
@@ -1079,8 +1269,11 @@ public sealed partial class Player : GameBase
         return true;
     }
 
-    // src/game/player.cpp Player::pushBy: Moveable carry (docs/collision.md E3.2): the displacement of a rider or an
-    // overlapped Player by `delta` (0x005064f8): terrain and interiors only, sub-steps from the box extents.
+    /// <summary>Displaces a rider or an overlapped Player by a delta (Moveable carry, docs/collision.md E3.2). Only terrain and interiors count, with sub-steps from the box extents.</summary>
+    /// <param name="delta">The displacement.</param>
+    /// <param name="mover">The velocity of the mover.</param>
+    /// <returns>True when the whole displacement was done.</returns>
+    /// <remarks>Follows 0x005064f8.</remarks>
     public bool PushBy(ReadOnlySpan<float> delta, ReadOnlySpan<float> mover)
     {
         using var chop = X87.Chop();
@@ -1096,7 +1289,8 @@ public sealed partial class Player : GameBase
         return ok;
     }
 
-    // src/game/player.cpp Player::moverImage: the Player's image for the overlap test.
+    /// <summary>Fills the image of the Player for the overlap test.</summary>
+    /// <param name="output">The image to fill.</param>
     public void MoverImageOf(MoverImage output)
     {
         output.Pos = Transform.P;
@@ -1288,7 +1482,9 @@ public sealed partial class Player : GameBase
 
     // ---- animation (5.3, 5.5 server branch) ----
 
-    // src/game/player.cpp Player::setAnimation: 0x00410568.
+    /// <summary>Sets the animation.</summary>
+    /// <param name="index">The animation index.</param>
+    /// <remarks>Follows 0x00410568.</remarks>
     public void SetAnimation(int index)
     {
         // The original reads the priority table without a range check (5.9 Q6); an index outside the table is refused
@@ -1305,7 +1501,9 @@ public sealed partial class Player : GameBase
         StartAnimation(index);
     }
 
-    // src/game/player.cpp Player::startAnimation: 0x004105d0.
+    /// <summary>Starts an animation.</summary>
+    /// <param name="index">The animation index.</param>
+    /// <remarks>Follows 0x004105d0.</remarks>
     public void StartAnimation(int index)
     {
         bool inCrouch = CurrentAnim == 7 || CurrentAnim == 8 || (CurrentAnim >= 10 && CurrentAnim <= 13);
@@ -1320,7 +1518,9 @@ public sealed partial class Player : GameBase
     // The 80-bit constant at 0x00411160 rounded to 53 bits (portable build).
     private static readonly double kLookScale = (double)0xa6adbac815dcea70UL * Math.ScaleB(1.0, -64);
 
-    // src/game/player.cpp Player::updateAnimation: 0x004108dc, server branch.
+    /// <summary>Advances the animation, server branch.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows 0x004108dc.</remarks>
     public void UpdateAnimation(float dt)
     {
         using var chop = X87.Chop();
@@ -1342,7 +1542,8 @@ public sealed partial class Player : GameBase
         Pose.AnimPosition = AnimPosition;
     }
 
-    // src/game/player.cpp Player::updateAnimationState: its state table (5.5).
+    /// <summary>Updates the animation state from its state table (docs/player-sim.md 5.5).</summary>
+    /// <param name="dt">The step length in seconds.</param>
     public void UpdateAnimationState(float dt)
     {
         bool finished = true; // current == -1 reads a direction outside the table, normally 0
@@ -1395,14 +1596,19 @@ public sealed partial class Player : GameBase
 
     // ---- damage and death (6.4, 6.5) ----
 
-    // src/game/player.cpp Player::applyDamage: landing damage.
+    /// <summary>Applies landing damage.</summary>
+    /// <param name="type">The damage type.</param>
+    /// <param name="value">The damage amount.</param>
+    /// <param name="pos">The hit position.</param>
+    /// <param name="sourceId">The id of the damage source.</param>
     public void ApplyDamage(int type, float value, ReadOnlySpan<float> pos, int sourceId)
     {
         float[] zero = { 0, 0, 0 };
         ApplyDamage(type, value, pos, zero, zero, sourceId);
     }
 
-    // src/game/player.cpp Player::applyDamage: 0x00412f94.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00412f94.</remarks>
     public override void ApplyDamage(int type, float value, ReadOnlySpan<float> pos, ReadOnlySpan<float> vec,
                                      ReadOnlySpan<float> mom, int sourceId)
     {
@@ -1452,7 +1658,9 @@ public sealed partial class Player : GameBase
         mGame.Console.Evaluate(line);
     }
 
-    // src/game/player.cpp Player::setDamage: ShapeBase_setDamageLevel (0x0044bbdc), then Player_setDamageLevel
+    /// <summary>Sets the damage level.</summary>
+    /// <param name="level">The new level.</param>
+    /// <remarks>Follows ShapeBase_setDamageLevel (0x0044bbdc), then Player_setDamageLevel (0x004111c4).</remarks>
     // (0x004111c4).
     public void SetDamage(float level)
     {
@@ -1478,11 +1686,11 @@ public sealed partial class Player : GameBase
         }
     }
 
-    // src/game/player.hpp Player::setDamageLevel: vtable +0x190.
+    /// <inheritdoc/>
     public override void SetDamageLevel(float level) => SetDamage(level);
 
-    // src/game/damage.cpp Player::damageCoverage: Player coverage (0x00411538): four rays from the explosion to the
-    // legs, the chest and the two sides, each unobstructed ray adds a quarter.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00411538: four rays from the explosion to the legs, the chest and the two sides, each unobstructed ray adds a quarter.</remarks>
     public override float DamageCoverage(ReadOnlySpan<float> pos)
     {
         using var chop = X87.Chop();
@@ -1516,10 +1724,12 @@ public sealed partial class Player : GameBase
         return cover;
     }
 
-    // src/game/player.hpp Player::damageFlash: 0x00413830.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00413830.</remarks>
     public override float DamageFlash() => Flash;
 
-    // src/game/player.cpp Player::kill: 0x004112ac.
+    /// <summary>Kills the Player.</summary>
+    /// <remarks>Follows 0x004112ac.</remarks>
     public void Kill()
     {
         if (Dead)
@@ -1550,10 +1760,15 @@ public sealed partial class Player : GameBase
 
     // ---- inventory and image slots (7.1 - 7.4), without the image state machine ----
 
-    // src/game/player.cpp Player::itemCount.
+    /// <summary>Returns the count of an item type.</summary>
+    /// <param name="type">The item type.</param>
+    /// <returns>The count, 0 for a type out of range.</returns>
     public int ItemCountOf(int type) => type < 0 || type >= kItemTypes ? 0 : Counts[type];
 
-    // src/game/player.cpp Player::setItemCount.
+    /// <summary>Sets the count of an item type.</summary>
+    /// <param name="type">The item type.</param>
+    /// <param name="count">The new count.</param>
+    /// <returns>The resulting count.</returns>
     public int SetItemCount(int type, int count)
     {
         // The original has no upper bound on the type (7.1 F2); out-of-table types are refused.
@@ -1565,8 +1780,11 @@ public sealed partial class Player : GameBase
         return Counts[type];
     }
 
-    // src/game/player.cpp Player::itemCallback: Player_findItemCallback (0x004191a0): <item>::event, <className>::event,
-    // item::event.
+    /// <summary>Calls the script callback of an item event.</summary>
+    /// <param name="type">The item type.</param>
+    /// <param name="ev">The event name.</param>
+    /// <param name="extra">An extra argument, or null.</param>
+    /// <remarks>Follows Player_findItemCallback (0x004191a0): <c>&lt;item&gt;::event</c>, <c>&lt;className&gt;::event</c>, <c>item::event</c>.</remarks>
     public void ItemCallback(int type, string ev, string? extra = null)
     {
         DataBlockManager.Block? item = mGame.Sim?.DataBlocks().At(5, type);
@@ -1589,21 +1807,36 @@ public sealed partial class Player : GameBase
 
     // ---- control state (8.1) ----
 
-    // The control state as the client reads it (docs/client-net.md 4.4 table, 00413b90).
+    /// <summary>The control state as the client reads it (docs/client-net.md 4.4, 00413b90).</summary>
     public sealed class ClientControl
     {
+        /// <summary>The yaw.</summary>
         public float Yaw;
-        public bool HasPosition;                                  // not mounted
-        public readonly float[] Position = new float[3], Vel = new float[3];
-        public float Pitch, Energy;
-        public bool Contact, Jetting, Crouch;
-        public uint Traction7;                                    // unit(7) raw
-        public int JumpContact;                                   // int(4)
+        /// <summary>True when the state carries a position, which a mounted Player does not.</summary>
+        public bool HasPosition;
+        /// <summary>The position.</summary>
+        public readonly float[] Position = new float[3];
+        /// <summary>The velocity.</summary>
+        public readonly float[] Vel = new float[3];
+        /// <summary>The pitch.</summary>
+        public float Pitch;
+        /// <summary>The energy.</summary>
+        public float Energy;
+        /// <summary>True on contact.</summary>
+        public bool Contact;
+        /// <summary>True while jetting.</summary>
+        public bool Jetting;
+        /// <summary>True while crouching.</summary>
+        public bool Crouch;
+        /// <summary>The raw unit(7) traction.</summary>
+        public uint Traction7;
+        /// <summary>The jump contact, int(4).</summary>
+        public int JumpContact;
     }
 
-    // Player_readControlState 0x00413b90 on the client copy (docs/client-net.md 4.4): the server state replaces the
-    // predicted one; the transform is rebuilt from the Euler x, y, the new yaw and the position, without a collision
-    // query. The sensor state bits are not part of the prediction.
+    /// <summary>Applies a control state read from the stream to the client copy.</summary>
+    /// <param name="c">The control state.</param>
+    /// <remarks>Follows Player_readControlState (0x00413b90, docs/client-net.md 4.4): the server state replaces the predicted one. The transform is rebuilt from the Euler x and y, the new yaw and the position, without a collision query. The sensor state bits are not part of the prediction.</remarks>
     public void ApplyClientControlState(ClientControl c)
     {
         using var chop = X87.Chop();
@@ -1634,7 +1867,8 @@ public sealed partial class Player : GameBase
         SetRotation(Rotation);
     }
 
-    // src/game/player.cpp Player::writeControlState: 0x00413e08.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00413e08.</remarks>
     public override void WriteControlState(BitStream bs, ControlContext ctx)
     {
         using var chop = X87.Chop();
