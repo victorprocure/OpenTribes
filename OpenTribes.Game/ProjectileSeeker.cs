@@ -126,7 +126,7 @@ internal sealed class SeekingMissile : Projectile
     private int _target;          // +0x474
     private bool _tracking = true; // +0x484
     private bool _lost;           // +0x485
-    private readonly bool _expired; // +0x486
+    private const bool Expired = false; // +0x486
     private float _turnRate;      // +0x488
     private uint _lastPct;        // +0x4ac
     private float _pct = 1.0f;    // +0x4b0
@@ -203,7 +203,7 @@ internal sealed class SeekingMissile : Projectile
 
     public override void PackExplode(BitBuffer bs)
     {
-        if (!bs.WriteFlag(_expired))
+        if (!bs.WriteFlag(Expired))
         {
             Pj.WriteVec(bs, ExpPos);
             Pj.WriteNormal(bs, ExpNormal, 5);
@@ -231,12 +231,12 @@ internal sealed class SeekingMissile : Projectile
         var t = Target();
         var fn = t != null ? Pj.FindMethod(Game, this, "updateTargetPercentage") : "";
         if (fn.Length != 0)
-            _pct = Store(Numbers.BorlandAtof(Pj.CallMethod(Game, fn, new[] { Numbers.FormatInt(t!.Id()) }))); // "%s(%d);"
+            _pct = Store(Numbers.BorlandAtof(Pj.CallMethod(Game, fn, [Numbers.FormatInt(t!.Id())]))); // "%s(%d);"
         else
             _pct = 1.0f;
         var r = X87.F32(Add(Mul(Sub(_seekRadius, _freeRadius), _pct), _freeRadius));
         const double kTwoPi = 6.283185307179586; // 0x00467900
-        _turnRate = X87.F32(Div(mData.MuzzleVelocity, Mul(kTwoPi, r)));
+        _turnRate = X87.F32(Div(DataValues.MuzzleVelocity, Mul(kTwoPi, r)));
         _lastPct = Last;
     }
 
@@ -261,7 +261,7 @@ internal sealed class SeekingMissile : Projectile
         var t = Target();
         float[] tp = new float[3], d = new float[3], lead = new float[3];
         TargetPoint(tp);
-        Seeker.SeekerLead(Transform.P, tp, t?.Velocity, mData.MuzzleVelocity, d, lead);
+        Seeker.SeekerLead(Transform.P, tp, t?.Velocity, DataValues.MuzzleVelocity, d, lead);
         const uint mask = 0x24e000a6u & ~0x80u;
         float[] e1 = new float[3], e2 = new float[3];
         for (var i = 0; i < 3; ++i)
@@ -271,14 +271,14 @@ internal sealed class SeekingMissile : Projectile
         }
         var h = new RayHit();
         // 0x00467424: no hit, or the first ray (to the lead point) hits the target itself: aim at the lead point.
-        if (!CastWorld(Game, Transform.P, e1, mask, null, ref h) || h.Object == t)
+        if (!CastWorld(Game, Transform.P, e1, mask, null, ref h) || h.HitObject == t)
         {
             lead.CopyTo(output);
             return;
         }
         // Something else is in the way: the direct line (second ray) decides between d and a lost track.
         var h2 = new RayHit();
-        if (CastWorld(Game, Transform.P, e2, mask, null, ref h2) && h2.Object != t)
+        if (CastWorld(Game, Transform.P, e2, mask, null, ref h2) && h2.HitObject != t)
         {
             _tracking = false;
             for (var i = 0; i < 3; ++i)
@@ -293,7 +293,7 @@ internal sealed class SeekingMissile : Projectile
     {
         float[] a = new float[3], v = new float[3];
         Aim(a);
-        if (Seeker.SeekerSteer(Velocity, a, ms, _turnRate, mData.MuzzleVelocity, _tracking, v) == 0)
+        if (Seeker.SeekerSteer(Velocity, a, ms, _turnRate, DataValues.MuzzleVelocity, _tracking, v) == 0)
         {
             if (Target() != null)
             {

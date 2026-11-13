@@ -79,7 +79,7 @@ public static class GhostScope
     }
 
     private static Container? _container;
-    private static readonly PriorityWeights sWeights = new();
+    private static readonly PriorityWeights WeightSet = new();
 
     // src/game/ghost_scope.cpp lenApprox: m_Point3F_lenf (005ed031): squared length stored as f32, then the bit-level
     // square root approximation (bits >> 1) + 0x1fc00000.
@@ -111,8 +111,8 @@ public static class GhostScope
         if (obj is GameBase gb)
             for (var i = 0; i < 3; ++i)
                 input.Velocity[i] = gb.Velocity[i]; // +0x194
-        var recObj = gm.Camera.Object;
-        return GameBasePriority(input, gm.Camera, recObj != null ? recObj.Id() : 0, recObj == obj, mask, skipCount, sWeights);
+        var recObj = gm.Camera.CameraObject;
+        return GameBasePriority(input, gm.Camera, recObj != null ? recObj.Id() : 0, recObj == obj, mask, skipCount, WeightSet);
     }
 
     // src/game/ghost_scope.cpp packObserverCamera: GameBase part (4.1) alone: the ObserverCamera layout (00448d80).
@@ -141,27 +141,27 @@ public static class GhostScope
 
     /// <summary>Returns the shared priority weights.</summary>
     /// <returns>The weights.</returns>
-    public static PriorityWeights Weights() => sWeights;
+    public static PriorityWeights Weights() => WeightSet;
 
     /// <summary>Sets the priority weight defaults and binds the six console variables.</summary>
     /// <param name="interp">The script interpreter.</param>
     public static void RegisterPriorityVariables(Interpreter interp)
     {
         PriorityWeights d = new();
-        sWeights.Fov = d.Fov;
-        sWeights.Distance = d.Distance;
-        sWeights.Velocity = d.Velocity;
-        sWeights.Skips = d.Skips;
-        sWeights.Ownership = d.Ownership;
-        sWeights.Interest = d.Interest;
+        WeightSet.Fov = d.Fov;
+        WeightSet.Distance = d.Distance;
+        WeightSet.Velocity = d.Velocity;
+        WeightSet.Skips = d.Skips;
+        WeightSet.Ownership = d.Ownership;
+        WeightSet.Interest = d.Interest;
         (string, Func<float>, Action<float>)[] vars =
         [
-            ("$GameBase::upFov", () => sWeights.Fov, v => sWeights.Fov = v),
-            ("$GameBase::upDistance", () => sWeights.Distance, v => sWeights.Distance = v),
-            ("$GameBase::upVelocity", () => sWeights.Velocity, v => sWeights.Velocity = v),
-            ("$GameBase::upSkips", () => sWeights.Skips, v => sWeights.Skips = v),
-            ("$GameBase::upOwnership", () => sWeights.Ownership, v => sWeights.Ownership = v),
-            ("$GameBase::upInterest", () => sWeights.Interest, v => sWeights.Interest = v),
+            ("$GameBase::upFov", () => WeightSet.Fov, v => WeightSet.Fov = v),
+            ("$GameBase::upDistance", () => WeightSet.Distance, v => WeightSet.Distance = v),
+            ("$GameBase::upVelocity", () => WeightSet.Velocity, v => WeightSet.Velocity = v),
+            ("$GameBase::upSkips", () => WeightSet.Skips, v => WeightSet.Skips = v),
+            ("$GameBase::upOwnership", () => WeightSet.Ownership, v => WeightSet.Ownership = v),
+            ("$GameBase::upInterest", () => WeightSet.Interest, v => WeightSet.Interest = v),
         ];
         foreach ((var name, var get, var set) in vars)
         {
@@ -292,14 +292,14 @@ public static class GhostScope
         {
             var cam = (ObserverCamera)so;
             ObserverCameraRecord(cam.Position, cam.CamRotation, rec);
-            if (cam.Mode is ObserverCamera.kOrbitObject or ObserverCamera.OrbitPoint)
+            if (cam.Mode is ObserverCamera.OrbitObjectMode or ObserverCamera.OrbitPoint)
                 for (var i = 0; i < 3; ++i)
                 {
                     // Orbiting: the transform (+0x188, row 1) differs from the orbit centre.
                     rec.Pos[i] = cam.Transform.P[i];
                     rec.Dir[i] = cam.Transform.M[3 + i];
                 }
-            rec.Object = so;
+            rec.CameraObject = so;
             rec.VisibleDistance = vis;
             Mark(so);
             if (cam.OrbitObject != null) // +0x288
@@ -308,7 +308,7 @@ public static class GhostScope
         else if (so is GameBase gb)
         {
             // 004498ec: translation and row 1 of the eye transform (vtable +0x110), half of fov +0x22c.
-            rec.Object = so;
+            rec.CameraObject = so;
             var eye = gb.EyeTransform();
             for (var i = 0; i < 3; ++i)
             {

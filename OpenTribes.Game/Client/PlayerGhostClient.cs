@@ -21,7 +21,7 @@ public static partial class PlayerGhost
         {
             if (r.Flag())
             {
-                long ghost = r.Int(10), point = r.Int(5);
+                long ghost = r.Bits(10), point = r.Bits(5);
                 r.Add("mount", ghost + "/" + point);
                 g.State["mountGhost"] = ghost;
             }
@@ -32,7 +32,7 @@ public static partial class PlayerGhost
         {
             var dead = r.Flag();
             if (!dead)
-                r.Add("damage", r.Int(6) / 63.0);
+                r.Add("damage", r.Bits(6) / 63.0);
             else
             {
                 r.Add("dead", 1L);
@@ -46,12 +46,12 @@ public static partial class PlayerGhost
             r.AddVec("pos");
             if (r.Flag())
             {
-                var speed = r.Int(17) / 512.0;
+                var speed = r.Bits(17) / 512.0;
                 var n = r.Normal(10);
                 r.Add("vel", new[] { n[0] * speed, n[1] * speed, n[2] * speed });
             }
             r.AddFlag("flag1f4");
-            r.Add("rotZ", r.Int(9) * 6.283185307 / 511);
+            r.Add("rotZ", r.Bits(9) * 6.283185307 / 511);
             if (!isNew)
             {
                 var m = new Move();
@@ -60,7 +60,7 @@ public static partial class PlayerGhost
                     throw new OverrunException();
                 r.Add("move", ClientPsc.FormatMove(m));
                 g.State[RemoteGhosts.MoveKey] = m;       // the echoed move of the step (+0xff0)
-                r.Add("energy", r.Int(7) / 127.0);
+                r.Add("energy", r.Bits(7) / 127.0);
                 r.AddInt("f8c", 4);
                 r.AddFlag("flag10000");
             }
@@ -77,11 +77,11 @@ public static partial class PlayerGhost
             for (var i = 0; i < 8; ++i)
                 if (r.Flag())
                 {
-                    var img = (long)r.Int(8) - 1;
+                    var img = (long)r.Bits(8) - 1;
                     g.State["item" + i] = img;           // the slot's item, kept for the prediction's mass (4.4)
-                    long st = r.Flag() ? r.Int(3) : -1;
+                    long st = r.Flag() ? r.Bits(3) : -1;
                     bool a = r.Flag(), b = r.Flag();
-                    long c = r.Int(3);
+                    long c = r.Bits(3);
                     var s = i + ":img=" + img + " state=" + st + " " + (a ? 1 : 0) + (b ? 1 : 0) + " " + c;
                     if (isNew)
                         s += " f=" + (r.Flag() ? 1 : 0);
@@ -202,7 +202,7 @@ public static partial class ProjectileGhost
     {
         r.AddVec("start");
         r.AddVec("end");
-        r.Add("ownerClient", (long)r.Int(10) + 2048);
+        r.Add("ownerClient", (long)r.Bits(10) + 2048);
         r.AddInt("team", 3);
         r.AddFlag("hit");
     }

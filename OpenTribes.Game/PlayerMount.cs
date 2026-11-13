@@ -129,11 +129,11 @@ public sealed partial class Player
                 if (fn.Length != 0 && _game.Console != null)
                 {
                     static string G(float f) => Numbers.FormatFloat(f);
-                    _game.Console.CallFunction(fn, new[]
-                    {
+                    _game.Console.CallFunction(fn,
+                    [
                         Numbers.FormatInt(v.Id()), Numbers.FormatInt(Id()),
                         G(Transform.M[6]) + " " + G(Transform.M[7]) + " " + G(Transform.M[8]),
-                    });
+                    ]);
                 }
             }
         }

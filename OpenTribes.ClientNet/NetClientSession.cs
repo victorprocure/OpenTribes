@@ -399,7 +399,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
                 Prediction.DeleteObject = PredictWorld.Delete;
                 Remote.CreateObject = PredictWorld.CreateRemote;
                 Remote.DeleteObject = PredictWorld.Delete;
-                Remote.ControlObject = () => Prediction.Object;
+                Remote.ControlObject = () => Prediction.ControlledObject;
                 Remote.Interpolate = () => ReadIntPref("$net::interpolateTime", SmoothWindow.DefaultInterpolate);
                 Remote.Predict = () => ReadIntPref("$net::predictForwardTime", SmoothWindow.DefaultPredict);
             }

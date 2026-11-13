@@ -1466,7 +1466,7 @@ public class PlayerTests
             var terrain = new RayHit();
             var hit = new RayHit();
             Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, p, ref terrain) && terrain.Terrain);
-            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.Object == p);
+            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.HitObject == p);
             float[] shortened = new float[3], full = new float[3];
             LineHit(S, terrain.Point, shortened);
             LineHit(S, E, full);
@@ -1479,7 +1479,7 @@ public class PlayerTests
         {
             float[] S = [AddF(30.0f, MulF(0.0123f, k)), AddF(35.0f, MulF(0.0071f, k)), AddF(51.6f, MulF(0.0013f, k))], E = [70.0f, 65.0f, 51.2f];
             var hit = new RayHit();
-            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.Object == p);
+            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.HitObject == p);
             var full = new float[3];
             LineHit(S, E, full);
             Assert.True(Same(hit.Point, full));

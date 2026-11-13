@@ -20,13 +20,13 @@ public static class ControlAim
     public static Transform VehicleEye(in Transform obj, in Transform? eyeNode) => eyeNode is { } n ? TimesObject(n, obj) : obj;
 
     /// <summary>Picks the node index the vehicle muzzle uses.</summary>
-    /// <param name="single">The index of the single <c>dummy muzzle</c> node (+0x86c), or -1.</param>
+    /// <param name="fallbackNode">The index of the single <c>dummy muzzle</c> node (+0x86c), or -1.</param>
     /// <param name="table">The indices of the <c>dummy muzzle%d</c> nodes (+0x874, count +0x8a4).</param>
     /// <param name="fireCount">The fire counter.</param>
-    /// <returns>The table entry <c>fireCount % count</c> when the table is not empty, else <paramref name="single"/>.</returns>
+    /// <returns>The table entry <c>fireCount % count</c> when the table is not empty, else <paramref name="fallbackNode"/>.</returns>
     /// <remarks>Follows Vehicle_getMuzzleTransform (00445cd8).</remarks>
-    public static int VehicleMuzzleNode(int single, IReadOnlyList<int> table, int fireCount) =>
-        table.Count != 0 ? table[(int)((uint)fireCount % (uint)table.Count)] : single;
+    public static int VehicleMuzzleNode(int fallbackNode, IReadOnlyList<int> table, int fireCount) =>
+        table.Count != 0 ? table[(int)((uint)fireCount % (uint)table.Count)] : fallbackNode;
 
     /// <summary>Computes the muzzle transform of a vehicle.</summary>
     /// <param name="obj">The object transform.</param>

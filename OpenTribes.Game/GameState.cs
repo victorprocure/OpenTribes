@@ -197,7 +197,7 @@ public sealed partial class GameState : GameServices
                     return f.Elems[0].I;
                 return Strtol(f.Def.DefaultText);
             }
-            if (gameObj.ShapeClass() == GameBase.ShapeKind.Sensor || gameObj.ShapeClass() == GameBase.ShapeKind.Turret)
+            if (gameObj.ShapeClass() is GameBase.ShapeKind.Sensor or GameBase.ShapeKind.Turret)
             {
                 gameObj.SensorData.CastLOS = Boolean("castLOS", false);
                 gameObj.SensorData.Range = Integer("range", 100);
@@ -231,7 +231,7 @@ public sealed partial class GameState : GameServices
             gameObj.Energy = gameObj.MaxEnergy; // 0x0044b274
             if (gameObj.MaxDamage <= gameObj.Damage)
                 gameObj.Damage = Store(Mul(gameObj.MaxDamage, 0.9f));
-            if (gameObj.ShapeClass() == GameBase.ShapeKind.Item || gameObj.ShapeClass() == GameBase.ShapeKind.Mine)
+            if (gameObj.ShapeClass() is GameBase.ShapeKind.Item or GameBase.ShapeKind.Mine)
             {
                 gameObj.ItemData.Mass = Value("mass", 0, 1.0f);
                 gameObj.ItemData.Drag = Value("drag", 0, 1.0f);
@@ -677,7 +677,7 @@ public sealed partial class GameState : GameServices
             if (m is not GameBase t || t.GetKind() != GameBase.Kind.Trigger || t == obj)
                 continue;
             var before = t.Occupants.Count;
-            t.Occupants.RemoveAll(o => o.Object == obj.Id());
+            t.Occupants.RemoveAll(o => o.ObjectId == obj.Id());
             if (t.Occupants.Count != before && t.Occupants.Count == 0)
                 set.RemoveObject(t);
         }

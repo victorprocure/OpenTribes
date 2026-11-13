@@ -549,7 +549,7 @@ public partial class GameBase
             var fn = Pj.FindMethod(g, this, "verifyTarget");
             if (fn.Length != 0)
             {
-                var r = Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(p.Id()) });
+                var r = Pj.CallMethod(g, fn, [Numbers.FormatInt(Id()), Numbers.FormatInt(p.Id())]);
                 if (r.Length != 0 && (r[0] == 'F' || r[0] == 'f'))
                     return false;
             }
@@ -574,7 +574,7 @@ public partial class GameBase
         // Line of sight in container 7 against terrain and interiors (mask 6), from the turret's box centre to the target
         // point: clear, or the player itself is hit.
         var hit = new RayHit();
-        if (!Projectile.CastWorld(g, centre, tp, 6u, this, ref hit) || hit.Object == p)
+        if (!Projectile.CastWorld(g, centre, tp, 6u, this, ref hit) || hit.HitObject == p)
         {
             limit = d;
             return true;
@@ -770,7 +770,7 @@ public partial class GameBase
             var c = new float[3];
             TurretBoxCentre(g, o, c);
             var hit = new RayHit();
-            if (Projectile.CastWorld(g, eye.P, c, 0x24e000a6u, t, ref hit) && hit.Object != o)
+            if (Projectile.CastWorld(g, eye.P, c, 0x24e000a6u, t, ref hit) && hit.HitObject != o)
                 return;
             var d = new float[3];
             for (var i = 0; i < 3; ++i)
@@ -818,7 +818,7 @@ public partial class GameBase
             {
                 var fn = Pj.FindMethod(g, this, "onFire");
                 if (fn.Length != 0)
-                    Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()) });
+                    Pj.CallMethod(g, fn, [Numbers.FormatInt(Id())]);
             }
             return;
         }
@@ -827,7 +827,7 @@ public partial class GameBase
         if (!(TurretNextFire <= now) || energyNow < TurretData.MinGunEnergy)
             return;
         TurretMuzzleTransform(out var xf);
-        Projectile? pr = Projectile.Create(g, group, index);
+        var pr = Projectile.Create(g, group, index);
         if (pr == null)
             return; // D11: the original dereferences the null result
         if (!byPlayer && TurretData.Deflection != 0.0f)
@@ -1008,7 +1008,7 @@ public partial class GameBase
         var g = StateOf(this);
         var fn = Pj.FindMethod(g, this, "jump");
         if (fn.Length != 0)
-            Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()) });
+            Pj.CallMethod(g, fn, [Numbers.FormatInt(Id())]);
     }
 
     /// <summary>Updates the aim of the turret for one move.</summary>

@@ -166,7 +166,7 @@ public sealed class PersistFields
     /// <param name="def">The value when the field is missing.</param>
     /// <param name="index">The element index, or -1.</param>
     /// <returns>The value.</returns>
-    public int Integer(string field, int def, int index = -1)
+    public int IntegerValue(string field, int def, int index = -1)
     {
         var v = Get(field, index);
         return v != null && v.Count != 0 ? Numbers.BorlandAtoi(v[0]) : def;
@@ -340,7 +340,7 @@ public partial class GameBase : SimObject
     /// <summary>The move state: none.</summary>
     public const int MoveNone = 0;
     /// <summary>The move state: forward.</summary>
-    public const int kMoveForward = 1;
+    public const int MoveForwardType = 1;
     /// <summary>The move state: backward.</summary>
     public const int MoveBackward = 2;
     /// <summary>The move state: stopped.</summary>
@@ -490,7 +490,7 @@ public partial class GameBase : SimObject
     public struct Occupant
     {
         /// <summary>The id of the occupant object.</summary>
-        public int Object { get; set; }
+        public int ObjectId { get; set; }
         /// <summary>The time at which the occupant expires.</summary>
         public float Expiry { get; set; }
         /// <summary>The time of the next contact event.</summary>
@@ -938,7 +938,7 @@ public partial class GameBase : SimObject
         if (old != t)
         {
             SetMaskBits(0x04);
-            _ctx.Game?.ScriptCallback(this, "onSetTeam", new[] { Numbers.FormatInt(old) });
+            _ctx.Game?.ScriptCallback(this, "onSetTeam", [Numbers.FormatInt(old)]);
             // 0x004483cd: the owning client (+0x238) follows the object; its PlayerTeamChangeEvent goes to every human.
             if (OwnerClient != 0 && _ctx.Game != null)
                 _ctx.Game.ClientTeam(OwnerClient, Team);
@@ -1037,7 +1037,7 @@ public partial class GameBase : SimObject
     {
         if (!IsStaticBase() || !ShapeBound || DamageState != Enabled || _ctx.Game == null)
             return;
-        _ctx.Game.ScriptCallback(this, "onPower", new[] { PowerCount != 0 ? "true" : "false", Numbers.FormatInt(generator.Id()) });
+        _ctx.Game.ScriptCallback(this, "onPower", [PowerCount != 0 ? "true" : "false", Numbers.FormatInt(generator.Id())]);
     }
 
     // ---- threads (4.2) ----
@@ -1178,7 +1178,7 @@ public partial class GameBase : SimObject
         if (_shapeClass == ShapeKind.Moveable && DamageState != Enabled)
             SetMoveState(MoveStopped);
         if (_ctx.Game != null && DamageState >= 0 && DamageState <= 3)
-            _ctx.Game.ScriptCallback(this, kNames[DamageState], Array.Empty<string>());
+            _ctx.Game.ScriptCallback(this, kNames[DamageState], []);
         if (_shapeClass == ShapeKind.Turret)
             SetMaskBits(0x10000);
         // Mine (0x00458be4): after the StaticBase part, entering Destroyed on the server explodes.
@@ -1192,7 +1192,7 @@ public partial class GameBase : SimObject
     {
         if (_ctx.Game == null)
             return;
-        _ctx.Game.ScriptCallback(this, "onAdd", Array.Empty<string>());
+        _ctx.Game.ScriptCallback(this, "onAdd", []);
         if (IsStaticBase())
             StateCallback();
     }
@@ -1213,7 +1213,7 @@ public partial class GameBase : SimObject
             if (!on && _shapeClass == ShapeKind.Moveable)
                 SetMoveState(MoveStopped); // 0x00444080
             if (ShapeBound && DamageState == Enabled && _ctx.Game != null)
-                _ctx.Game.ScriptCallback(this, on ? "onActivate" : "onDeactivate", Array.Empty<string>());
+                _ctx.Game.ScriptCallback(this, on ? "onActivate" : "onDeactivate", []);
         }
         return Active;
     }
@@ -1467,7 +1467,7 @@ public partial class GameBase : SimObject
             }
             // isContainer (0x0047ec6c): -1 becomes 1 when a collision box extent is at least 6.0, else 0; it stays -1
             // without a shape.
-            IsContainer = _fields.Integer("isContainer", -1);
+            IsContainer = _fields.IntegerValue("isContainer", -1);
             if (InteriorGeo != null && IsContainer == -1)
             {
                 var b = InteriorGeo.Box;
@@ -1545,7 +1545,7 @@ public partial class GameBase : SimObject
             _fields.Point("rotation", Rotation);
             ItemRotates = _fields.Boolean("rotates", false);
             ItemCollideable = _fields.Boolean("collideable", _shapeClass == ShapeKind.Mine); // Mine_ctor 0x004588f8 sets +0x889
-            ItemCount = _fields.Integer("count", 0);
+            ItemCount = _fields.IntegerValue("count", 0);
             DeleteOnDestroy = _fields.Boolean("deleteOnDestroy", false) || _shapeClass == ShapeKind.Mine;
             if (_shapeClass == ShapeKind.Item && ItemCollideable)
                 DeleteOnDestroy = true; // a collideable Item is deleted when destroyed
@@ -1567,7 +1567,7 @@ public partial class GameBase : SimObject
             if (DataBlockName != null)
                 ScriptOnAdd();
             if (_kind == Kind.Trigger && DataBlockName != null)
-                _ctx.Game.ScriptCallback(this, "onActivate", Array.Empty<string>()); // Trigger::onAdd 0x00487198 ends with it
+                _ctx.Game.ScriptCallback(this, "onActivate", []); // Trigger::onAdd 0x00487198 ends with it
         }
         if (_shapeClass == ShapeKind.Turret)
             TurretBarrelState = 1; // Turret_onAdd 0x00452d68
@@ -1595,7 +1595,7 @@ public partial class GameBase : SimObject
         }
         if (_shapeClass is ShapeKind.Sensor or ShapeKind.Turret)
             _ctx.Game?.SensorInsert(this); // 0x00438fbc: the list of the team, or the suppressors
-        _ctx.Game?.ScriptCallback(this, "onInit", Array.Empty<string>());
+        _ctx.Game?.ScriptCallback(this, "onInit", []);
         return true;
     }
 
@@ -1626,7 +1626,7 @@ public partial class GameBase : SimObject
             _ctx.Game?.PrintLine(usage);
             return false;
         }
-        SetPersistField("dataBlock", new[] { args[0] });
+        SetPersistField("dataBlock", [args[0]]);
         if (!BindDataBlock(false))
             return false;
         ScriptOnAdd();
@@ -1659,7 +1659,7 @@ public partial class GameBase : SimObject
         if (_kind == Kind.Trigger && TriggerActive && DataBlockName != null)
             TriggerSetActive(false); // 0x004872a4 before the removal
         if (_ctx.Game != null && DataBlockName != null)
-            _ctx.Game.ScriptCallback(this, "onRemove", Array.Empty<string>());
+            _ctx.Game.ScriptCallback(this, "onRemove", []);
         if (_ctx.Game != null)
         {
             if (SensorListed)
@@ -1786,7 +1786,7 @@ public sealed class SimLightObject : PersistObject
         void SetVec(string field, ReadOnlySpan<float> v) => MutableFields().SetPoint(field, v);
         var argc = args.Count;
         var f = MutableFields();
-        void SetInt(string field, string v) => f.Set(field, new[] { v });
+        void SetInt(string field, string v) => f.Set(field, [v]);
         if (args[0].StartsWith("Directional", StringComparison.Ordinal))
         {
             if (argc is 7 or 10)
@@ -1828,7 +1828,7 @@ public sealed class SimLightObject : PersistObject
                 SetVec("position", pos);
                 SetVec("color", color);
                 SetVec("ambient", ambient);
-                f.Set("range", new[] { TerrainCommands.PersistFloatText(range) });
+                f.Set("range", [TerrainCommands.PersistFloatText(range)]);
                 return true;
             }
             Say("SimLight: Point range intR intG intB posX posY posZ [ambR ambG ambB]");
@@ -2039,7 +2039,7 @@ public static class MissionClasses
 
         SimClasses.RegisterClass("DebrisCloud", _ => new DebrisCloudObject());
         SimClasses.RegisterClass("TeamGroup", c => new TeamGroup(c));
-        SimClasses.RegisterClass("DropPointGroup", _ => new PersistGroup("DropPointGroup", Array.Empty<PersistDef>()));
+        SimClasses.RegisterClass("DropPointGroup", _ => new PersistGroup("DropPointGroup", []));
         SimClasses.RegisterClass("SimPath", _ => new SimPathObject());
 
         void Obj(string cls, PersistDef[] f, int fixedId = 0, string? required = null) =>
@@ -2064,11 +2064,11 @@ public static class MissionClasses
             new("contDrag", 3, 1), new("contHeight", 3, 1), new("position", 5, 1), new("rotation", 5, 1),
         ];
         SimClasses.RegisterClass("SimTerrain", c => new TerrainObject(c, terrainFields));
-        SimClasses.RegisterClass("SimLight", c => new SimLightObject(new PersistDef[]
-        {
+        SimClasses.RegisterClass("SimLight", c => new SimLightObject(
+        [
             new("type", 2, 1), new("range", 3, 1), new("color", 5, 1), new("ambient", 5, 1), new("position", 5, 1),
             new("aim", 5, 1), new("isStatic", 4, 1),
-        }, c));
+        ], c));
         Obj("Snowfall", [new("intensity", 3, 1), new("wind", 5, 1), new("suspendRendering", 4, 1), new("rain", 4, 1)], 714);
     }
 }

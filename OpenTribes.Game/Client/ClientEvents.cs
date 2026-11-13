@@ -81,10 +81,10 @@ public sealed class ClientEvents
     private static string Dest(ClientReader r)
     {
         if (r.Flag())
-            return r.Add("dest", "ghost#" + r.Int(10));
+            return r.Add("dest", "ghost#" + r.Bits(10));
         if (r.Flag())
-            return r.Add("dest", "ghost(local)#" + r.Int(10));
-        return r.Add("dest", "obj " + r.Int(32));
+            return r.Add("dest", "ghost(local)#" + r.Bits(10));
+        return r.Add("dest", "obj " + r.Bits(32));
     }
 
     /// <summary>Reads the event block of a packet.</summary>
@@ -109,7 +109,7 @@ public sealed class ClientEvents
                 }
                 else if (r.Flag())
                 {
-                    seq = (int)r.Int(7);
+                    seq = (int)r.Bits(7);
                     prev = seq;
                     mode = "ordered seq=" + seq;
                 }
@@ -118,7 +118,7 @@ public sealed class ClientEvents
             }
             else
                 mode = "unguaranteed";
-            var tag = (int)r.Int(7) + 0x400;
+            var tag = (int)r.Bits(7) + 0x400;
             var e = new DecodedEvent { Tag = tag, Mode = mode, Seq = seq };
             var save = r.Out;
             r.Out = e.Fields;
@@ -179,12 +179,12 @@ public sealed class ClientEvents
                 foreach (var w in widths)
                     if (r.Flag())
                     {
-                        msg = r.Int((uint)w);
+                        msg = r.Bits((uint)w);
                         got = true;
                         break;
                     }
                 if (!got)
-                    msg = r.Int(32);
+                    msg = r.Bits(32);
                 r.Add("msg", msg);
                 e.Text = d + " msg=" + msg;
                 break;
@@ -192,7 +192,7 @@ public sealed class ClientEvents
             case 0x408: // SimConsoleEvent
             {
                 e.Name = "SimConsoleEvent";
-                var n = (int)r.Int(5);
+                var n = (int)r.Bits(5);
                 var args = new string[n];
                 for (var i = 0; i < n; ++i)
                     args[i] = r.Str();
@@ -217,9 +217,9 @@ public sealed class ClientEvents
             {
                 e.Name = "Sfx::SoundEvent";
                 var d = Dest(r);
-                long kind = r.Int(2);
+                long kind = r.Bits(2);
                 var name = r.Str();
-                long id = r.Int(32);
+                long id = r.Bits(32);
                 r.Add("kind", kind);
                 r.Add("name", name);
                 r.Add("id", id);
@@ -235,13 +235,13 @@ public sealed class ClientEvents
             }
             case 0x421: // Net::RemoteCreateEvent
                 e.Name = "Net::RemoteCreateEvent";
-                throw new UnsupportedException("RemoteCreateEvent class tag " + r.Int(10) + ": per-class packUpdate not decoded");
+                throw new UnsupportedException("RemoteCreateEvent class tag " + r.Bits(10) + ": per-class packUpdate not decoded");
             case 0x423: // SimSoundSequenceEvent
             {
                 e.Name = "SimSoundSequenceEvent";
                 var d = Dest(r);
-                long a = r.Int(32);
-                long b = r.Int(6);
+                long a = r.Bits(32);
+                long b = r.Bits(6);
                 var s = d + " field20=" + a + " field5c=" + (b == 63 ? -1 : b);
                 if (r.Flag())
                 {
@@ -255,12 +255,12 @@ public sealed class ClientEvents
             {
                 e.Name = "SimPathEvent";
                 var d = Dest(r);
-                long a = r.Int(32);
+                long a = r.Bits(32);
                 var s = d + " field24=" + a;
                 if (r.Flag())
                 {
                     var f = r.Flag();
-                    long n = r.Int(32);
+                    long n = r.Bits(32);
                     for (long i = 0; i < n; ++i)
                         r.Bytes(48);
                     s += " path flag=" + (f ? 1 : 0) + " points=" + n;
@@ -273,14 +273,14 @@ public sealed class ClientEvents
                 e.Name = "PlayerAddEvent";
                 var rec = new ClientPlayerRecord
                 {
-                    Id = (int)r.Int(32),
+                    Id = (int)r.Bits(32),
                     Ai = r.Flag(),
                     Name = r.Str(),
                     Skin = r.Str(),
                     Voice = r.Str(),
-                    Male = r.Int(1) != 0,
-                    Commander = (int)r.Int(32),
-                    Team = r.Flag() ? (int)r.Int(3) : -1
+                    Male = r.Bits(1) != 0,
+                    Commander = (int)r.Bits(32),
+                    Team = r.Flag() ? (int)r.Bits(3) : -1
                 };
                 e.Text = "id=" + rec.Id + " ai=" + (rec.Ai ? 1 : 0) + " name=" + Repr(rec.Name) + " skin=" + Repr(rec.Skin) +
                          " voice=" + Repr(rec.Voice) + " male=" + (rec.Male ? 1 : 0) + " commander=" + rec.Commander + " team=" + rec.Team;
@@ -308,7 +308,7 @@ public sealed class ClientEvents
             case 0x44c: // PlayerRemoveEvent
             {
                 e.Name = "PlayerRemoveEvent";
-                var id = (int)r.Int(7) + 0x800;
+                var id = (int)r.Bits(7) + 0x800;
                 r.Add("client", (long)id);
                 e.Text = "client=" + id;
                 e.Apply = () =>
@@ -331,8 +331,8 @@ public sealed class ClientEvents
             {
                 e.Name = "DeltaScoreEvent";
                 var team = r.Flag();
-                var who = team ? (int)r.Int(4) - 1 : (int)r.Int(7) + 0x800;
-                long score = r.Int(32);
+                var who = team ? (int)r.Bits(4) - 1 : (int)r.Bits(7) + 0x800;
+                long score = r.Bits(32);
                 var text = r.Str();
                 r.Add("team", team ? 1L : 0L);
                 r.Add("who", (long)who);
@@ -364,8 +364,8 @@ public sealed class ClientEvents
             case 0x44f: // TeamAddEvent
             {
                 e.Name = "TeamAddEvent";
-                long a = r.Int(32);
-                var tid = (int)r.Int(32);
+                long a = r.Bits(32);
+                var tid = (int)r.Bits(32);
                 string name = r.Str(), skin = r.Str();
                 r.Add("team", (long)tid);
                 r.Add("field24", a);
@@ -399,8 +399,8 @@ public sealed class ClientEvents
             case 0x452: // PlayerTeamChangeEvent
             {
                 e.Name = "PlayerTeamChangeEvent";
-                var id = (int)r.Int(7) + 0x800;
-                var team = (int)r.Int(4) - 1;
+                var id = (int)r.Bits(7) + 0x800;
+                var team = (int)r.Bits(4) - 1;
                 r.Add("client", (long)id);
                 r.Add("team", (long)team);
                 e.Text = "client=" + id + " team=" + team;
@@ -424,7 +424,7 @@ public sealed class ClientEvents
             case 0x453: // PlayerSayEvent
             {
                 e.Name = "PlayerSayEvent";
-                long from = r.Int(12), type = r.Int(5);
+                long from = r.Bits(12), type = r.Bits(5);
                 var msg = r.Str();
                 r.Add("from", from);
                 r.Add("type", type);
@@ -443,8 +443,8 @@ public sealed class ClientEvents
             case 0x455: // PlayerCommandEvent
             {
                 e.Name = "PlayerCommandEvent";
-                var id = (int)r.Int(10) + 0x800;
-                long status = r.Int(2);
+                var id = (int)r.Bits(10) + 0x800;
+                long status = r.Bits(2);
                 r.Add("client", (long)id);
                 r.Add("status", status);
                 var s = "client=" + id + " status=" + status;
@@ -455,10 +455,10 @@ public sealed class ClientEvents
                     s += " ack";
                 else if (r.Flag())
                 {
-                    issuer = (int)r.Int(10) + 0x800;
-                    icon = r.Int(6);
-                    obj = r.Flag() ? r.Int(8) : -1;
-                    long x = r.Int(10), y = r.Int(10);
+                    issuer = (int)r.Bits(10) + 0x800;
+                    icon = r.Bits(6);
+                    obj = r.Flag() ? r.Bits(8) : -1;
+                    long x = r.Bits(10), y = r.Bits(10);
                     wx = x;
                     wy = y;
                     r.Add("issuer", (long)issuer);
@@ -539,8 +539,8 @@ public sealed class ClientEvents
             case 0x456: // PlayerSelectCmdrEvent
             {
                 e.Name = "PlayerSelectCmdrEvent";
-                var a = (int)r.Int(7) + 0x800;
-                var b = r.Flag() ? (int)r.Int(7) + 0x800 : 0;
+                var a = (int)r.Bits(7) + 0x800;
+                var b = r.Flag() ? (int)r.Bits(7) + 0x800 : 0;
                 r.Add("client", (long)a);
                 r.Add("commander", (long)b);
                 e.Text = "client=" + a + " commander=" + b;
@@ -561,7 +561,7 @@ public sealed class ClientEvents
             case 0x459: // TeamObjectiveEvent
             {
                 e.Name = "TeamObjectiveEvent";
-                long index = r.Int(32);
+                long index = r.Bits(32);
                 var text = r.Str();
                 r.Add("index", index);
                 r.Add("text", text);
@@ -577,7 +577,7 @@ public sealed class ClientEvents
             case 0x45c: // LocSoundEvent
             {
                 e.Name = "LocSoundEvent";
-                var snd = (long)r.Int(8) - 1;
+                var snd = (long)r.Bits(8) - 1;
                 r.Add("sound", snd);
                 var s = "sound=" + snd;
                 if (r.Flag())
@@ -594,7 +594,7 @@ public sealed class ClientEvents
             case 0x45d: // TargetNameEvent
             {
                 e.Name = "TargetNameEvent";
-                var index = (int)r.Int(7);
+                var index = (int)r.Bits(7);
                 var name = r.Str();
                 r.Add("index", (long)index);
                 r.Add("name", name);
@@ -605,7 +605,7 @@ public sealed class ClientEvents
             case 0x45f: // VoiceEvent
             {
                 e.Name = "VoiceEvent";
-                var id = (int)r.Int(7) + 0x800;
+                var id = (int)r.Bits(7) + 0x800;
                 var wav = r.Str();
                 r.Add("client", (long)id);
                 r.Add("wav", wav);
@@ -615,7 +615,7 @@ public sealed class ClientEvents
             case 0x460: // SoundEvent
             {
                 e.Name = "SoundEvent";
-                long ghost = r.Int(10), channel = r.Int(2), snd = (long)r.Int(8) - 1;
+                long ghost = r.Bits(10), channel = r.Bits(2), snd = (long)r.Bits(8) - 1;
                 r.Add("ghost", ghost);
                 r.Add("channel", channel);
                 r.Add("sound", snd);
@@ -625,12 +625,12 @@ public sealed class ClientEvents
             case 0x461: // PingPLEvent: the unpack writes the table (2.3)
             {
                 e.Name = "PingPLEvent";
-                var n = (int)r.Int(7);
+                var n = (int)r.Bits(7);
                 var rows = new List<string>();
                 for (var i = 0; i < n; ++i)
                 {
-                    var id = (int)r.Int(7) + 0x800;
-                    var ping = (int)r.Int(8) * 4;
+                    var id = (int)r.Bits(7) + 0x800;
+                    var ping = (int)r.Bits(8) * 4;
                     var loss = r.Unit(6);
                     rows.Add(id + ":ping=" + ping + "ms loss=" + loss.ToString("0.000", CultureInfo.InvariantCulture));
                     r.Add("row", new object[] { (long)id, (long)ping, loss });
@@ -647,7 +647,7 @@ public sealed class ClientEvents
             case 0x462: // PlayerSkinEvent
             {
                 e.Name = "PlayerSkinEvent";
-                var id = (int)r.Int(7) + 0x800;
+                var id = (int)r.Bits(7) + 0x800;
                 var skin = r.Str();
                 r.Add("client", (long)id);
                 r.Add("skin", skin);

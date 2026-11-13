@@ -57,7 +57,7 @@ public sealed class GhostClass
 public sealed class CameraRecord
 {
     /// <summary>The camera object (+0x00).</summary>
-    public SimObject? Object { get; set; }
+    public SimObject? CameraObject { get; set; }
     /// <summary>The camera position (+0x04).</summary>
     public float[] Pos { get; } = [0, 0, 0];
     /// <summary>The forward direction (+0x10).</summary>

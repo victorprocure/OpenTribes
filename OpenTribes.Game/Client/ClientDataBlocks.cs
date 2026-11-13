@@ -2,6 +2,9 @@
 // layouts are the pack order of each group's class (vtable slot 0), the same tables tools/stream_decode.py reads.
 namespace OpenTribes.Game;
 
+using System.Globalization;
+using System.Text;
+
 /// <summary>A datablock received by the client.</summary>
 public sealed class ClientDataBlock
 {
@@ -195,7 +198,7 @@ public sealed class ClientDataBlocks
                     if (s.Length > 0 && (s[0] == 'ÿ' || s[0] == 'þ'))
                     {
                         r.Add(e.N, s[1..]);
-                        r.Add(e.N + ".crc", (long)r.Int(32));
+                        r.Add(e.N + ".crc", (long)r.Bits(32));
                         r.Add(e.N + ".materials", s[0] == 'þ' ? 1L : 0L);
                     }
                     else
@@ -206,13 +209,13 @@ public sealed class ClientDataBlocks
                     r.AddF32(e.N);
                     break;
                 case "i32":
-                    r.Add(e.N, (long)(int)r.Int(32));
+                    r.Add(e.N, (long)(int)r.Bits(32));
                     break;
                 case "raw":
                     r.Add(e.N, Convert.ToHexString(r.Bytes(e.A)).ToLowerInvariant());
                     break;
                 case "i":
-                    r.Add(e.N, r.Int((uint)e.A) - e.B);
+                    r.Add(e.N, r.Bits((uint)e.A) - e.B);
                     break;
                 case "si":
                     r.Add(e.N, (long)r.SInt((uint)e.A));
@@ -226,7 +229,7 @@ public sealed class ClientDataBlocks
                 case "seqsound":
                     for (var i = 0; i < 16; ++i)
                         if (r.Flag())
-                            r.Add("sequenceSound[" + i + "]", new object[] { r.Str(), (long)r.Int(8) - 1 });
+                            r.Add("sequenceSound[" + i + "]", new object[] { r.Str(), (long)r.Bits(8) - 1 });
                     break;
                 default:
                     throw new UnsupportedException("datablock element " + e.K);
@@ -236,7 +239,7 @@ public sealed class ClientDataBlocks
 
     private static void SoundProfile(ClientReader r)
     {
-        r.Add("flags", (long)r.Int(6));
+        r.Add("flags", (long)r.Bits(6));
         r.Add("baseVolume", r.Unit(10));
         if (r.Flag())
             r.Add("coneInsideAngle", r.Unit(10) * 360);
@@ -259,9 +262,9 @@ public sealed class ClientDataBlocks
         for (var i = 0; i < 51; ++i)
         {
             var name = r.Str();
-            var seq = r.Flag() ? (long)r.Int(8) - 1 : -1;
+            var seq = r.Flag() ? (long)r.Bits(8) - 1 : -1;
             long f = r.Flag() ? 1 : 0;
-            long a = r.Int(4), b = r.Int(4);
+            long a = r.Bits(4), b = r.Bits(4);
             r.Add("animData[" + i + "]", new object[] { name, seq, f, a, b });
         }
         r.AddF32("minDamageSpeed");
@@ -275,9 +278,9 @@ public sealed class ClientDataBlocks
         r.Add("jumpSurfaceMinDot", r.Unit(8));
         foreach (var n in new[] { "jumpImpulse", "mass", "drag", "horzVelClamp", "jetForce" })
             r.AddF32(n);
-        r.Add("jetSound", (long)r.Int(8) - 1);
+        r.Add("jetSound", (long)r.Bits(8) - 1);
         for (var i = 0; i < 15; ++i)
-            r.Add("footSounds[" + i + "]", new object[] { (long)r.Int(8) - 1, (long)r.Int(8) - 1 });
+            r.Add("footSounds[" + i + "]", new object[] { (long)r.Bits(8) - 1, (long)r.Bits(8) - 1 });
         r.Add("footPrints", Convert.ToHexString(r.Bytes(8)).ToLowerInvariant());
         foreach (var n in new[] { "boxWidth", "boxDepth", "boxNormalHeight", "boxCrouchHeight" })
             r.AddF32(n);
@@ -332,8 +335,8 @@ public sealed class ClientDataBlocks
     /// <remarks>Follows DataBlockEvent unpack (004029f0) and process (004031ac).</remarks>
     public void ReadEvent(ClientReader r, out string summary)
     {
-        var group = (int)r.Int(6);
-        int count = (int)r.Int(8), index = (int)r.Int(8);
+        var group = (int)r.Bits(6);
+        int count = (int)r.Bits(8), index = (int)r.Bits(8);
         Counts[group] = count;
         r.Add("group", (long)group);
         r.Add("count", (long)count);
@@ -363,6 +366,7 @@ public sealed class ClientDataBlocks
 
     /// <summary>The format of the error text of a model that does not match the server's.</summary>
     public const string MismatchFormat = "Client side model {0} or its textures do not match the server's and the server requires validation of this model or textures.";
+    private static readonly CompositeFormat MismatchComposite = CompositeFormat.Parse(MismatchFormat);
 
     /// <summary>Checks the local model of a block whose shape name came with a CRC (validateShape).</summary>
     /// <param name="b">The block.</param>
@@ -384,7 +388,7 @@ public sealed class ClientDataBlocks
             if (field == "shapeFile")
                 name += ".dts";
             if (DataBlockManager.ValidationCrc(Resources, name, materials) != (uint)wire)
-                return string.Format(MismatchFormat, name);
+                return string.Format(CultureInfo.CurrentCulture, MismatchComposite, name);
             Print?.Invoke("Validated file: " + name);
         }
         return null;

@@ -18,7 +18,7 @@ public static class TerrainCommands
     private static float ScanFloat(string s) => Store(Numbers.BorlandAtof(s));
 
     // src/game/terrain_commands.cpp setFloat.
-    private static void SetFloat(TerrainObject t, string field, float v) => t.SetPersistField(field, new[] { PersistFloatText(v) });
+    private static void SetFloat(TerrainObject t, string field, float v) => t.SetPersistField(field, [PersistFloatText(v)]);
 
     /// <summary>Formats a float as <c>%.9g</c> text that the persist float parser reads back to the same value.</summary>
     /// <param name="v">The value.</param>
@@ -115,7 +115,7 @@ public static class TerrainCommands
             }
             float[] g = [0, 0, 0]; // components that do not parse are uninitialized in the original (D12)
             CScan.Floats(a[2], g);
-            t.SetPersistField("contGravity", new[] { PersistFloatText(g[0]) + " " + PersistFloatText(g[1]) + " " + PersistFloatText(g[2]) });
+            t.SetPersistField("contGravity", [PersistFloatText(g[0]) + " " + PersistFloatText(g[1]) + " " + PersistFloatText(g[2])]);
             SetFloat(t, "contDrag", ScanFloat(a[3]));
             SetFloat(t, "contHeight", ScanFloat(a[4]));
             // 0x005183d0 copies the five values and nothing else: the container box keeps its height, and a moving object

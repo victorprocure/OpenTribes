@@ -386,7 +386,7 @@ public sealed partial class Player : GameBase
 
     /// <summary>Creates a Player.</summary>
     /// <param name="game">The game state.</param>
-    public Player(GameState game) : base("Player", Kind.ShapeBase, 3, Array.Empty<PersistDef>(), OwnContext(game))
+    public Player(GameState game) : base("Player", Kind.ShapeBase, 3, [], OwnContext(game))
     {
         _game = game;
         for (var i = 0; i < ImageSlots; ++i)
@@ -445,8 +445,8 @@ public sealed partial class Player : GameBase
         if (DataBlockName == null || !_game.ResolveDataBlock(this) || !BindDataBlock())
             return false;
         _added = true;
-        _game.ScriptCallback(this, "onInit", Array.Empty<string>());
-        _game.ScriptCallback(this, "onAdd", Array.Empty<string>());
+        _game.ScriptCallback(this, "onInit", []);
+        _game.ScriptCallback(this, "onAdd", []);
         _game.JoinSet(this, 719);
         CollisionMask = LiveMask;
         float[] p = [Transform.P[0], Transform.P[1], Transform.P[2]];
@@ -473,7 +473,7 @@ public sealed partial class Player : GameBase
             ResetImage(slot);
         // GameBase_onRemove (0x00448180): the script onRemove, then the container.
         if (_added && DataBlockName != null)
-            _game.ScriptCallback(this, "onRemove", Array.Empty<string>());
+            _game.ScriptCallback(this, "onRemove", []);
         if (_inContainer)
             _game.World.Remove(this);
         _inContainer = false;
@@ -623,13 +623,13 @@ public sealed partial class Player : GameBase
             return true;
         if (_game.ResolveDataBlock(this) && BindDataBlock())
         {
-            _game.ScriptCallback(this, "onInit", Array.Empty<string>());
+            _game.ScriptCallback(this, "onInit", []);
             SetMaskBits(0x04);
             return true;
         }
         DataBlockName = old;
         if (_game.ResolveDataBlock(this) && BindDataBlock())
-            _game.ScriptCallback(this, "onInit", Array.Empty<string>());
+            _game.ScriptCallback(this, "onInit", []);
         return false;
     }
 
@@ -815,7 +815,7 @@ public sealed partial class Player : GameBase
             ++Credit;
             var mv = moves[i];
             if (mv.UseItem != -1 && _game.Console != null)
-                _game.Console.CallFunction("remoteUseItem", new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(mv.UseItem) });
+                _game.Console.CallFunction("remoteUseItem", [Numbers.FormatInt(Id()), Numbers.FormatInt(mv.UseItem)]);
             // The script may have deleted the player (the original would run on freed memory).
             if (m == null || m.FindById(self) != this)
                 return;
@@ -1751,7 +1751,7 @@ public sealed partial class Player : GameBase
         DeathTime = Manager() != null ? Manager()!.Time() : 0;
         var self = Id();
         var m = Manager();
-        _game.ScriptCallback(this, "onKilled", Array.Empty<string>());
+        _game.ScriptCallback(this, "onKilled", []);
         if (m == null || m.FindById(self) != this)
             return; // the script deleted the player
         ObjectTypeBits = CorpseType;

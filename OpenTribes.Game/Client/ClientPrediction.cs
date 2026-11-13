@@ -113,7 +113,7 @@ public sealed class ClientPrediction
     public Action<GameBase>? DeleteObject { get; set; }
 
     /// <summary>Gets the client copy of the control object.</summary>
-    public GameBase? Object { get; private set; }
+    public GameBase? ControlledObject { get; private set; }
     /// <summary>Gets the ghost index of the control object, -1 for none.</summary>
     public int Ghost { get; private set; } = -1;
     /// <summary>The time the copy is simulated up to, in ms (object +0x218).</summary>
@@ -169,13 +169,13 @@ public sealed class ClientPrediction
 
     private void Release()
     {
-        if (Object != null)
+        if (ControlledObject != null)
         {
-            if (Object is Player p)
+            if (ControlledObject is Player p)
                 p.LocallyControlled = false;   // vtable +0x144(0)
-            DeleteObject?.Invoke(Object);
+            DeleteObject?.Invoke(ControlledObject);
         }
-        Object = null;
+        ControlledObject = null;
         Ghost = -1;
         Active = false;
         _history.Clear();
@@ -248,28 +248,28 @@ public sealed class ClientPrediction
         var predictable = g != null && (g.Class == "Player" || g.Class == "Flier") && !(g.State.TryGetValue("dead", out var dv) && dv is long dl && dl != 0);
         if (g == null || !predictable)
         {
-            if (Object != null)
+            if (ControlledObject != null)
                 Release();
             return null;
         }
-        if (Ghost != g.Index || Object == null)
+        if (Ghost != g.Index || ControlledObject == null)
         {
             Release();
-            Object = CreateObject?.Invoke(g, psc);
-            if (Object == null)
+            ControlledObject = CreateObject?.Invoke(g, psc);
+            if (ControlledObject == null)
                 return null;
             Ghost = g.Index;
-            Object.ClientSide = true;
-            if (Object is Player np)
+            ControlledObject.ClientSide = true;
+            if (ControlledObject is Player np)
                 np.LocallyControlled = true;   // vtable +0x144(1), 00414468
-            if (Object is Vehicle nv)
+            if (ControlledObject is Vehicle nv)
                 nv.Piloted = true;             // Vehicle_clientUpdate: +0x8a1 = control client != 0
         }
         SyncGhost(g);
         var rec = new CorrectionRecord { Time = receiveTime, LastMove = psc.LastMove, Class = g.Class, Pending = psc.Moves.Count };
         _history.TryGetValue(psc.LastMove - 1L, out rec.Predicted);
         Apply(psc.ControlState);
-        rec.Server = PredictedState.Of(Object, psc.LastMove - 1L);
+        rec.Server = PredictedState.Of(ControlledObject, psc.LastMove - 1L);
         rec.Server.HasPosition = psc.ControlState.ContainsKey("pos");
         rec.Server.HasVelocity = psc.ControlState.ContainsKey("vel");
         rec.Measure();
@@ -291,7 +291,7 @@ public sealed class ClientPrediction
     // the image slots (the mass).
     private void SyncGhost(ClientGhost g)
     {
-        if (Object is Player p)
+        if (ControlledObject is Player p)
             SyncPlayerGhost(p, g);
     }
 
@@ -326,7 +326,7 @@ public sealed class ClientPrediction
     // The control state fields of ClientPsc (Player 00413b90, Vehicle 00446830, Flier 0043079c) onto the copy.
     private void Apply(Dictionary<string, object?> s)
     {
-        if (Object is Player p)
+        if (ControlledObject is Player p)
         {
             var c = new Player.ClientControl
             {
@@ -346,7 +346,7 @@ public sealed class ClientPrediction
             p.ApplyClientControlState(c);
             Array.Clear(TickDelta);
         }
-        else if (Object is Vehicle v)
+        else if (ControlledObject is Vehicle v)
         {
             var c = new Vehicle.ClientControl
             {
@@ -372,12 +372,12 @@ public sealed class ClientPrediction
     /// <remarks>Follows Player_clientUpdate (00414c38) and for a Flier Flier_clientUpdate (0042e254) and Vehicle_clientUpdate (0044549c).</remarks>
     public int Advance(ClientPsc psc, uint now)
     {
-        if (!Active || Object == null)
+        if (!Active || ControlledObject == null)
             return 0;
         var steps = 0;
-        if (Object is Player p)
+        if (ControlledObject is Player p)
             steps = AdvancePlayer(p, psc, now);
-        else if (Object is Flier f)
+        else if (ControlledObject is Flier f)
             steps = AdvanceFlier(f, psc, now);
         LastFrame = now;
         _pending?.Replayed = steps;
@@ -464,7 +464,7 @@ public sealed class ClientPrediction
     /// <remarks>The unpack of the mount fields binds +0x1028 and +0x102c to the client object of the mount ghost (a remote vehicle copy). Called before the step of every frame.</remarks>
     public void BindControlMount(ClientWorld world, RemoteGhosts remote)
     {
-        if (Object is not Player p || Ghost < 0)
+        if (ControlledObject is not Player p || Ghost < 0)
             return;
         var g = world.Ghosts.Get(Ghost);
         if (g != null && RemoteGhosts.ParseMount(g, out var mg, out var point) && remote.RemoteMount(mg) is { } mo)
@@ -481,7 +481,7 @@ public sealed class ClientPrediction
     /// <remarks>Follows the interpolation 00414a00. The transform follows the mount as it is now, after the vehicle copies advanced.</remarks>
     public void PlaceControlRider()
     {
-        if (Object is Player { MountId: not 0 } p && p.PlaceOnMount())
+        if (ControlledObject is Player { MountId: not 0 } p && p.PlaceOnMount())
             Array.Clear(TickDelta);
     }
 
@@ -490,10 +490,10 @@ public sealed class ClientPrediction
     public float[] DisplayPosition()
     {
         var r = new float[3];
-        if (Object == null)
+        if (ControlledObject == null)
             return r;
         for (var i = 0; i < 3; ++i)
-            r[i] = Object.Transform.P[i] + (DisplayFraction * TickDelta[i]);
+            r[i] = ControlledObject.Transform.P[i] + (DisplayFraction * TickDelta[i]);
         return r;
     }
 }

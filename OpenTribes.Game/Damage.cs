@@ -19,11 +19,11 @@ public partial class GameBase
     {
         if (_ctx.Game == null)
             return;
-        _ctx.Game.ScriptCallback(this, "onDamage", new[]
-        {
+        _ctx.Game.ScriptCallback(this, "onDamage",
+        [
             Numbers.FormatInt(type), DamageCommands.Literal(GameUtil.G(value)), GameUtil.Fmt3(pos), GameUtil.Fmt3(vec), GameUtil.Fmt3(mom),
             Numbers.FormatInt(source),
-        });
+        ]);
     }
 
     /// <summary>Returns how much of the object a blast at a position reaches.</summary>
@@ -114,7 +114,7 @@ public static class DamageCommands
         foreach (var oid in ids)
         {
             // Scripts may delete objects between two damage calls.
-            GameBase? gb = mgr.FindById(oid) as GameBase;
+            var gb = mgr.FindById(oid) as GameBase;
             var e = gb != null ? game.World.Find(gb) : null;
             if (e == null)
                 continue;

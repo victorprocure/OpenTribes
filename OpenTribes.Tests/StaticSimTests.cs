@@ -434,7 +434,7 @@ public class StaticSimTests
         w.Run("Moveable::moveToWaypoint(\"MissionGroup/gate/Dr\", 1);");
         _masks.Clear();
         Tick(3);
-        Assert.True(dr.MoveBlocked && dr.Waypoint == 0 && dr.WaypointTime == 0 && dr.MoveState == GameBase.kMoveForward);
+        Assert.True(dr.MoveBlocked && dr.Waypoint == 0 && dr.WaypointTime == 0 && dr.MoveState == GameBase.MoveForwardType);
         Assert.True(_masks[dr.Id()] == 0x4000 && dr.Transform.P[2] == 0);
         free = true;
         Tick();

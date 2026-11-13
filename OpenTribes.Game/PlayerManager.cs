@@ -408,7 +408,7 @@ public sealed class PlayerManager
         var ai = r.IsAI;
         if (_game.Console != null && !ai)
         {
-            _game.Console.CallFunction("Server::onClientDisconnect", new[] { Numbers.FormatInt(id) });
+            _game.Console.CallFunction("Server::onClientDisconnect", [Numbers.FormatInt(id)]);
             if (_game.Sim?.Server() is SimManager m && r.OwnedObject != 0 && m.FindById(r.OwnedObject) is SimObject owned)
                 m.DeleteObject(owned);
             _game.Console.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Player \"" + r.Name + "\" dropped - id = " + Numbers.FormatInt(id)) + "\"");

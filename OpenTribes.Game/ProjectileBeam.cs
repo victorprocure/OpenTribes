@@ -49,9 +49,9 @@ internal class Laser : Projectile
     protected float[] Start { get; } = new float[3]; // +0x4ec, +0x4f8, +0x504
     protected float[] End { get; } = new float[3]; // +0x4ec, +0x4f8, +0x504
     protected float[] Dir { get; } = [0, 1, 0]; // +0x4ec, +0x4f8, +0x504
-    protected float Energy { get; set; }  // +0x510, +0x514
+    protected float BeamEnergy { get; set; }  // +0x510, +0x514
     protected float Fraction { get; set; }  // +0x510, +0x514
-    protected bool mHit { get; set; }                 // +0x518
+    protected bool HitFlag { get; set; }                 // +0x518
     protected uint Created { get; set; }             // +0x608
     protected float Conversion { get; set; }
     protected float BeamTime { get; set; } = 10000;
@@ -63,7 +63,7 @@ internal class Laser : Projectile
     // 0x00463af8: the velocity argument is ignored and +0x210 is not written.
     public override void Init(in Transform t, ReadOnlySpan<float> velocity, int shooterId)
     {
-        Energy = 0.0f;
+        BeamEnergy = 0.0f;
         Transform = t;
         InitShooter = shooterId;
         Start[0] = t.P[0];
@@ -78,13 +78,13 @@ internal class Laser : Projectile
     public override void SetShotEnergy(float used, float fraction)
     {
         using var chop = X87.Chop();
-        Energy = X87.F32(Mul(used, fraction));
-        Fraction = Energy > 55.0f ? 1.0f : X87.F32(Mul(Energy, Inv55));
+        BeamEnergy = X87.F32(Mul(used, fraction));
+        Fraction = BeamEnergy > 55.0f ? 1.0f : X87.F32(Mul(BeamEnergy, Inv55));
     }
 
-    public float Energy_() => Energy;
+    public float Energy_() => BeamEnergy;
     public float EnergyFraction() => Fraction;
-    public bool Hit() => mHit;
+    public bool Hit() => HitFlag;
 
     protected override void ReadData(DataBlockManager.Block b)
     {
@@ -113,7 +113,7 @@ internal class Laser : Projectile
         var sh = Shooter();
         if (sh == null || ctx.Manager.GhostIndex(sh) == -1)
             Pj.WriteVec(bs, Start);
-        bs.WriteFlag(mHit);
+        bs.WriteFlag(HitFlag);
         Pj.WriteVec(bs, End);
         Pj.WriteUnit(bs, Fraction, 5);
     }
@@ -129,19 +129,19 @@ internal class Laser : Projectile
         if (CastWorld(Game, Start, End, 0x24e000a6u, Shooter(), ref h))
         {
             h.Point[..].CopyTo(End);
-            mHit = true;
-            var value = X87.F32(Mul(Energy, Conversion));
-            if (h.Object != null && (h.Type & 0x24c00080u) != 0 && value != 0.0f)
+            HitFlag = true;
+            var value = X87.F32(Mul(BeamEnergy, Conversion));
+            if (h.HitObject != null && (h.Type & 0x24c00080u) != 0 && value != 0.0f)
             {
                 float[] vec = new float[3], zero = [0, 0, 0];
                 for (var i = 0; i < 3; ++i)
                     vec[i] = X87.F32(Sub(End[i], Start[i]));
-                h.Object.ApplyDamage(6, value, End, vec, zero, OwnerClientId());
+                h.HitObject.ApplyDamage(6, value, End, vec, zero, OwnerClientId());
             }
         }
         else
         {
-            mHit = false;
+            HitFlag = false;
         }
     }
 }
@@ -199,10 +199,10 @@ internal sealed class TargetLaser : Laser
         var d = new float[3];
         for (var i = 0; i < 3; ++i)
             d[i] = X87.F32(Sub(End[i], cand[i]));
-        if (X87.Len(d) > 0.25f || hit != mHit)
+        if (X87.Len(d) > 0.25f || hit != HitFlag)
         {
             cand.CopyTo(End, 0);
-            mHit = hit;
+            HitFlag = hit;
             _dirty = true;
         }
     }
@@ -223,7 +223,7 @@ internal sealed class TargetLaser : Laser
     public override bool BeamTargetPoint(Span<float> output, out int team)
     {
         team = 0;
-        if (!mHit)
+        if (!HitFlag)
             return false;
         End.CopyTo(output);
         var sh = Shooter();
@@ -238,7 +238,7 @@ internal sealed class TargetLaser : Laser
         var sh = Shooter();
         bs.WriteInt((uint)((sh != null ? sh.OwnerClient : 0) - 2048) & 0x3ff, 10);
         bs.WriteInt((uint)(sh != null ? sh.Team : 0) & 7, 3);
-        bs.WriteFlag(mHit);
+        bs.WriteFlag(HitFlag);
         _dirty = false;
     }
 
@@ -246,7 +246,7 @@ internal sealed class TargetLaser : Laser
     {
         Pj.WriteVec(bs, Start);
         Pj.WriteVec(bs, End);
-        bs.WriteFlag(mHit);
+        bs.WriteFlag(HitFlag);
         _dirty = false;
     }
 }
@@ -258,7 +258,7 @@ internal class Lightning : Projectile
 {
     protected uint LastSearch { get; set; }      // +0x45c
     protected bool Shut { get; set; }            // +0x468
-    protected int mTarget { get; set; }           // +0x474 (object id)
+    protected int TargetId { get; set; }           // +0x474 (object id)
     protected float[] Point { get; } = new float[3]; // +0x478
     protected float BoltLength { get; set; } = 5;
     protected float ConeAngle { get; set; }
@@ -283,7 +283,7 @@ internal class Lightning : Projectile
     {
         if (Target() != null)
             SetMaskBits(0x08);
-        mTarget = 0;
+        TargetId = 0;
         Shut = true;
     }
 
@@ -346,28 +346,28 @@ internal class Lightning : Projectile
         }
         SimObject? ex = Shooter();
         var h = new RayHit();
-        if (CastWorld(Game, p, e, 0x24c002a0u, ex, ref h) && h.Object != null)
+        if (CastWorld(Game, p, e, 0x24c002a0u, ex, ref h) && h.HitObject != null)
         {
             float[] mn = new float[3], mx = new float[3], centre = new float[3];
-            if (Pj.WorldBox(Game, h.Object, mn, mx))
+            if (Pj.WorldBox(Game, h.HitObject, mn, mx))
             {
                 for (var i = 0; i < 3; ++i)
                     centre[i] = X87.F32(Mul(Add(mx[i], mn[i]), 0.5f));
                 var h2 = new RayHit();
-                if (CastWorld(Game, p, centre, 0x6u, ex, ref h2) && h2.Object != h.Object)
+                if (CastWorld(Game, p, centre, 0x6u, ex, ref h2) && h2.HitObject != h.HitObject)
                 {
                     Drop(); // terrain or an interior is in the way
                     return;
                 }
             }
-            if (h.Object.Id() != mTarget)
+            if (h.HitObject.Id() != TargetId)
             {
                 SetMaskBits(0x08);
                 h.Point[..].CopyTo(Point);
                 if (Point[0] == p[0] && Point[1] == p[1] && Point[2] == p[2])
                     for (var i = 0; i < 3; ++i)
                         Point[i] = X87.F32(Add(Point[i], X87.F32(Mul(fwd[i], 0.1f))));
-                mTarget = h.Object.Id();
+                TargetId = h.HitObject.Id();
             }
             return;
         }
@@ -421,9 +421,9 @@ internal class Lightning : Projectile
         }
         // [code 00468eb9 to 00468eed]: the exe compares the held target with the same first dword of the collision info (0), so the
         // mask bit is set when a target is held, whether or not it is the winner, and not when none is held.
-        if (mTarget != 0)
+        if (TargetId != 0)
             SetMaskBits(0x08);
-        mTarget = best.Id();
+        TargetId = best.Id();
         bestPoint.CopyTo(Point, 0);
     }
 
@@ -433,15 +433,15 @@ internal class Lightning : Projectile
     // Drop the current target (mask 0x08 when there was one).
     protected void Drop()
     {
-        if (mTarget != 0)
+        if (TargetId != 0)
             SetMaskBits(0x08);
-        mTarget = 0;
+        TargetId = 0;
     }
 
     protected GameBase? Target()
     {
         var m = Manager();
-        var o = m != null && mTarget != 0 ? m.FindById(mTarget) : null;
+        var o = m != null && TargetId != 0 ? m.FindById(TargetId) : null;
         return o as GameBase;
     }
 
@@ -465,11 +465,11 @@ internal class Lightning : Projectile
             return;
         var secs = Mul(ms, 0.001f);
         float[] zero = [0, 0, 0];
-        Pj.CallMethod(Game, fn, new[]
-        {
+        Pj.CallMethod(Game, fn,
+        [
             Numbers.FormatInt(t.Id()), Pj.FmtG(secs), Pj.FmtG(DamagePerSec), Pj.FmtG(DrainPerSec), ProjectileBeam.VecText(Point),
             ProjectileBeam.VecText(vec), ProjectileBeam.VecText(zero), Numbers.FormatInt(OwnerClientId()),
-        });
+        ]);
     }
 
     protected void PackTarget(BitBuffer bs, GhostContext ctx)
@@ -516,13 +516,13 @@ internal sealed class RepairEffect : Lightning
 
     public override void ShutOff()
     {
-        mTarget = 0;
+        TargetId = 0;
         Shut = true;
         if (_acquired)
         {
             var fn = Pj.FindMethod(Game, this, "onRelease");
             if (fn.Length != 0)
-                Pj.CallMethod(Game, fn, new[] { Handle, Numbers.FormatInt(ShooterObject) });
+                Pj.CallMethod(Game, fn, [Handle, Numbers.FormatInt(ShooterObject)]);
         }
     }
 
@@ -530,7 +530,7 @@ internal sealed class RepairEffect : Lightning
     {
         var fn = Pj.FindMethod(Game, this, "checkDone");
         if (fn.Length != 0)
-            Pj.CallMethod(Game, fn, new[] { Handle, Numbers.FormatInt(ShooterObject) });
+            Pj.CallMethod(Game, fn, [Handle, Numbers.FormatInt(ShooterObject)]);
     }
 
     protected override void Search(uint now)
@@ -538,7 +538,7 @@ internal sealed class RepairEffect : Lightning
         if (now < unchecked(LastSearch + 100))
             return;
         LastSearch = now;
-        if (_acquired && mTarget == 0)
+        if (_acquired && TargetId == 0)
         {
             CheckDone(); // self repair
             return;
@@ -554,14 +554,14 @@ internal sealed class RepairEffect : Lightning
             if (Point[0] == Transform.P[0] && Point[1] == Transform.P[1] && Point[2] == Transform.P[2])
                 for (var i = 0; i < 3; ++i)
                     Point[i] = X87.F32(Add(Point[i], X87.F32(Mul(Transform.M[3 + i], 0.1f))));
-            if (h.Object != null && (h.Type & 0x6u) == 0) // terrain and interiors count as no object
-                obj = h.Object;
+            if (h.HitObject != null && (h.Type & 0x6u) == 0) // terrain and interiors count as no object
+                obj = h.HitObject;
         }
-        var prev = mTarget;
-        mTarget = obj != null ? obj.Id() : 0;
+        var prev = TargetId;
+        TargetId = obj != null ? obj.Id() : 0;
         if (_acquired)
         {
-            if (prev != 0 && prev != mTarget)
+            if (prev != 0 && prev != TargetId)
                 s.TriggerImage(0, false); // Player_releaseImageTrigger (0x0041a9b8)
             else
                 CheckDone();
@@ -570,10 +570,10 @@ internal sealed class RepairEffect : Lightning
         {
             var fn = Pj.FindMethod(Game, this, "onAcquire");
             if (fn.Length != 0)
-                Pj.CallMethod(Game, fn, new[]
-                {
+                Pj.CallMethod(Game, fn,
+                [
                     Handle, Numbers.FormatInt(ShooterObject), Numbers.FormatInt(obj != null ? obj.Id() : ShooterObject),
-                });
+                ]);
             _acquired = true;
         }
     }

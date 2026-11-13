@@ -25,7 +25,7 @@ public sealed class AIDirective
     /// <summary>The target sub type: a laser.</summary>
     public const int Laser = 2;
     /// <summary>The target sub type: a point.</summary>
-    public const int kPoint = 4;
+    public const int PointKind = 4;
     /// <summary>The directive flag: the target is in line of sight.</summary>
     public const ushort LOS = 1;
     /// <summary>The directive flag: the target was in line of sight.</summary>
@@ -766,6 +766,8 @@ public sealed partial class AIObject : SimObject
                 case VarType.FloatF:
                     s = AIMath.FmtF(Trigger.Pct);
                     break;
+                default:
+                    break;
             }
             inr.SetVariable(full, s);
             Bind();
@@ -1063,7 +1065,7 @@ public sealed partial class AIObject : SimObject
         var hit = new RayHit();
         if (!Projectile.CastWorld(Game, a.P, b.P, 0xffdffe77u, from, ref hit))
             return true;
-        return hit.Object == to;
+        return hit.HitObject == to;
     }
 
     // src/game/ai_object.cpp AIObject::targetInRange: 0x0043b590.
@@ -1446,7 +1448,7 @@ public sealed partial class AIObject : SimObject
                 case AIDirective.Laser:
                     EngageLaser(d);
                     break;
-                case AIDirective.kPoint:
+                case AIDirective.PointKind:
                     EngagePoint(d);
                     break;
                 default:
@@ -1725,25 +1727,25 @@ public sealed partial class AIObject : SimObject
             point.CopyTo(p, 0);
         else
             AIMath.TargetPoint(Game, target!, p);
-        var D = new float[3];
+        var d3 = new float[3];
         for (var i = 0; i < 3; ++i)
-            D[i] = X87.F32(Sub(p[i], Frame.Own[i]));
+            d3[i] = X87.F32(Sub(p[i], Frame.Own[i]));
         const float eps = 1e-12f;
-        if (Mul(D[0], D[0]) < eps && Mul(D[1], D[1]) < eps && Mul(D[2], D[2]) < eps)
+        if (Mul(d3[0], d3[0]) < eps && Mul(d3[1], d3[1]) < eps && Mul(d3[2], d3[2]) < eps)
         {
-            D[0] = 1.0f;
-            D[1] = D[2] = 0;
+            d3[0] = 1.0f;
+            d3[1] = d3[2] = 0;
         }
         else
         {
-            var len = X87.F32(X87.Len(D));
+            var len = X87.F32(X87.Len(d3));
             var k = X87.F32(Div(1.0f, len));
             for (var i = 0; i < 3; ++i)
-                D[i] = X87.F32(Mul(k, D[i]));
+                d3[i] = X87.F32(Mul(k, d3[i]));
         }
         float[] up = [0, 0, 1.0f];
         Span<float> side = stackalloc float[3];
-        AIMath.Cross3(up, D, side);
+        AIMath.Cross3(up, d3, side);
         var dist = X87.F32(Dist3(p, Frame.Own));
         var acc = X87.F32(Sk.Accuracy(dist));
         float scale;

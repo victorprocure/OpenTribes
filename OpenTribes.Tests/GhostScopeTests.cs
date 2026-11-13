@@ -148,7 +148,7 @@ public class GhostScopeTests
             // Camera first, then the terrain database; the 0x80 Marker only for client 2049; scope-always objects
             // (terrain, interior) are not marked by the traversal.
             Assert.True(order == (client == 2049 ? "Camb" : "Cab"));
-            Assert.True(gm.Camera.Object == cam && gm.Camera.VisibleDistance == 1500);
+            Assert.True(gm.Camera.CameraObject == cam && gm.Camera.VisibleDistance == 1500);
         }
     }
 
@@ -193,7 +193,7 @@ public class GhostScopeTests
             gm.SetScopeObject(body);
             GhostScope.ScopeGhosts(gm, c);
             // The camera record holds the eye translation and row 1 of the eye transform.
-            Assert.True(gm.Camera.Object == body && Near(gm.Camera.Pos[0], 1) && Near(gm.Camera.Pos[2], 100.0 + eye, 1e-3));
+            Assert.True(gm.Camera.CameraObject == body && Near(gm.Camera.Pos[0], 1) && Near(gm.Camera.Pos[2], 100.0 + eye, 1e-3));
             Assert.Equal(1.0f, gm.Camera.Dir[1]);
             // 1600 m from the object transform (out of 1500); 700 m from the eye at +900 (in).
             Assert.True(marked == (eye > 800 ? 1 : 0));

@@ -199,9 +199,9 @@ public class Vehicle : GameBase
             MaxSpeed = Pj.Real(b, "maxSpeed", 0.0f),
             ReloadDelay = Pj.Real(b, "reloadDelay", 0.0f),
             RamDamage = Pj.Real(b, "ramDamage", 0.0f),
-            RamDamageType = Pj.Integer(b, "ramDamageType", 0),
+            RamDamageType = Pj.IntegerValue(b, "ramDamageType", 0),
             VisibleDriver = Pj.Boolean(b, "visibleDriver", false),
-            DriverPose = Pj.Integer(b, "driverPose", 0)
+            DriverPose = Pj.IntegerValue(b, "driverPose", 0)
         };
         if (Pj.Field(b, "projectileType") is DataBlockManager.Field f && f.Elems[0].I >= 0)
         {
@@ -397,7 +397,7 @@ public class Vehicle : GameBase
             {
                 var fn = Pj.FindMethod(gs, this, "onFire");
                 if (fn.Length != 0)
-                    Pj.CallMethod(gs, fn, new[] { Numbers.FormatInt(Id()) });
+                    Pj.CallMethod(gs, fn, [Numbers.FormatInt(Id())]);
             }
             return;
         }
@@ -411,7 +411,7 @@ public class Vehicle : GameBase
             var lead = X87.F32(Mul(Velocity[i], 0.096f));
             xf.P[i] = X87.F32(Add(lead, xf.P[i]));
         }
-        Projectile? pr = Projectile.Create(gs, Data.ProjGroup, Data.ProjIndex);
+        var pr = Projectile.Create(gs, Data.ProjGroup, Data.ProjIndex);
         if (pr == null)
             return; // D11: the original dereferences the null result
         pr.Init(xf, Velocity, Id());
@@ -981,7 +981,7 @@ public sealed class Flier : Vehicle
             var gs = Game();
             var fn = gs.VirtualFunction(this, "jump");
             if (fn.Length != 0 && gs.Console != null)
-                gs.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), G(mom[0]) + " " + G(mom[1]) + " " + G(mom[2]) });
+                gs.Console.CallFunction(fn, [Numbers.FormatInt(Id()), G(mom[0]) + " " + G(mom[1]) + " " + G(mom[2])]);
             move.Forward = move.Backward = 0;
             move.Jet = move.Jump = move.Fire = false;
             SetMaskBits(0x2000);
@@ -1047,20 +1047,20 @@ public sealed class Flier : Vehicle
         float[] p0 = [Transform.P[0], Transform.P[1], Transform.P[2]];
         float rx = Rotation[0], ry = roll0, rz = Rotation[2];
         float[] r0 = [Rotation[0], roll0, Rotation[2]];
-        var T = SpeedT;
-        if (T < SpeedF)
+        var t2 = SpeedT;
+        if (t2 < SpeedF)
         {
             SpeedF = X87.F32(Sub(SpeedF, Mul(Mul(d.Accel, k), 0.5f)));
             if (!Piloted || Braking)
                 SpeedF = X87.F32(Sub(SpeedF, Mul(d.Accel, k)));
-            if (SpeedF < T)
-                SpeedF = T;
+            if (SpeedF < t2)
+                SpeedF = t2;
         }
-        if (SpeedF < T)
+        if (SpeedF < t2)
         {
             SpeedF = X87.F32(Add(Mul(d.Accel, k), SpeedF));
-            if (T < SpeedF)
-                SpeedF = T;
+            if (t2 < SpeedF)
+                SpeedF = t2;
         }
         if (Ceiling < p0[2] && pitchIn < 0.0f)
             pitchIn = 0;
@@ -1481,7 +1481,7 @@ public sealed class Flier : Vehicle
                 // C5
                 if (sp < Mul(Third, maxSpeed))
                     sp = 0;
-                var D = X87.F32(Mul(Mul(Div(sp, maxSpeed), MaxDamage), Data.GroundDamageScale));
+                var d2 = X87.F32(Mul(Mul(Div(sp, maxSpeed), MaxDamage), Data.GroundDamageScale));
                 if (dd <= -0.25f || SpeedF <= X87.F32(Mul(maxSpeed, 0.25f)))
                 {
                     SpeedF = 0;
@@ -1535,12 +1535,12 @@ public sealed class Flier : Vehicle
                     SpeedT = X87.F32(Mul(SpeedT, 0.8f));
                 }
                 SetMaskBits(0x4000);
-                if (D != 0.0f)
+                if (d2 != 0.0f)
                 {
                     var dm = dd;
                     if (dm < -1.0f)
                         dm = -1.0f;
-                    var value = X87.F32(Mul(-Sub(dm, 0.125f), D));
+                    var value = X87.F32(Mul(-Sub(dm, 0.125f), d2));
                     float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
                     ApplyDamage(-1, value, pos, u, u, Id());
                     SetMaskBits(0x100);

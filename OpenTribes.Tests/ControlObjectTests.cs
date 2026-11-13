@@ -276,7 +276,7 @@ public class ControlObjectTests
         // Orbit object: mode 3, centre = the object's box centre (its position without a container entry); the centre
         // follows the object at every step.
         cam.SetOrbit(target, point, 4, 4, 4, rot);
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject && cam.OrbitObject == target);
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode && cam.OrbitObject == target);
         Assert.True(cam.Position[0] == 10 && cam.Position[1] == 20 && cam.Position[2] == 30);
         target.Transform.P[0] = 11;
         cam.Step(idle);
@@ -354,7 +354,7 @@ public class ControlObjectTests
             b.U(32);
             Assert.True(b.U(3) == 4 && w3.BitPosition() == 96 + 3 + 96 + 96);
         }
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject); // only the wire value changes
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode); // only the wire value changes
     }
 
     // ---- 6.2-6.4 PlayerPSC ----
@@ -466,7 +466,7 @@ public class ControlObjectTests
         c.Ghosts().ScopeQuery = g =>
         {
             GhostScope.ScopeGhosts(g, world);
-            sweeps.Add((g.Camera.Object, new[] { g.Camera.Pos[0], g.Camera.Pos[1], g.Camera.Pos[2] }));
+            sweeps.Add((g.Camera.CameraObject, new[] { g.Camera.Pos[0], g.Camera.Pos[1], g.Camera.Pos[2] }));
         };
         c.Ghosts().OnNewGhost = (_, obj) => created.Add(obj);
         c.Ghosts().StartGhosting();
@@ -496,7 +496,7 @@ public class ControlObjectTests
         // The console line: control to the camera, orbit around the player. Nothing is placed.
         control = cam;
         cam.SetOrbit(body, null, 6, 6, 6, rot);
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject && cam.Position[0] == 4000);
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode && cam.Position[0] == 4000);
         Assert.True(cam.Transform.P[0] == 0 && cam.Transform.P[1] == 0 && cam.Transform.P[2] == 50);
 
         // A packet without a move, then a packet written before the next client packet: the camera has not been
@@ -1048,7 +1048,7 @@ public class ControlObjectTests
         Assert.Equal("false", w.Run("echo(Observer::setOrbitObject(2049, 2050, 5, 5, 5));")); // client without an object
         Assert.Equal("True", w.Run("echo(Observer::setOrbitObject(2049, a, 5, 2, 9, \"0.1 0 0.2\"));"));
         var cam = cam1o;
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject && cam.OrbitObject == a);
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode && cam.OrbitObject == a);
         Assert.True(cam.Distance == 5 && cam.MinDistance == 2 && cam.MaxDistance == 9);
         Assert.True(MathF.Abs(cam.CamRotation[0] - 0.1f) < 1e-6f && MathF.Abs(cam.CamRotation[2] - 0.2f) < 1e-6f);
         Assert.True(cam.Position[0] == 10 && cam.Position[1] == 20 && cam.Position[2] == 30);

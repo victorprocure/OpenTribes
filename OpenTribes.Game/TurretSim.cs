@@ -73,24 +73,21 @@ public partial class GameBase
 
     /// <summary>Returns the object type bits (+0x48).</summary>
     /// <returns>The type bits.</returns>
-    public uint TypeBits()
+    public uint TypeBits() => _shapeClass switch
     {
-        return _shapeClass switch
+        ShapeKind.StaticShape or ShapeKind.Sensor or ShapeKind.Turret => ObjectType.StaticType,
+        ShapeKind.Moveable => ObjectType.MoveableType,
+        ShapeKind.Item => ObjectType.ItemType,
+        ShapeKind.Mine => ObjectType.MineType,
+        ShapeKind.Vehicle => ObjectType.VehicleType,
+        ShapeKind.NoShape or _ => _kind switch
         {
-            ShapeKind.StaticShape or ShapeKind.Sensor or ShapeKind.Turret => ObjectType.StaticType,
-            ShapeKind.Moveable => ObjectType.MoveableType,
-            ShapeKind.Item => ObjectType.ItemType,
-            ShapeKind.Mine => ObjectType.MineType,
-            ShapeKind.Vehicle => ObjectType.VehicleType,
-            _ => _kind switch
-            {
-                Kind.Trigger => ObjectType.TriggerType,
-                Kind.Marker => ObjectType.MarkerType,
-                Kind.Interior => ObjectType.InteriorType,
-                _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.PlayerType : 0u,
-            },
-        };
-    }
+            Kind.Trigger => ObjectType.TriggerType,
+            Kind.Marker => ObjectType.MarkerType,
+            Kind.Interior => ObjectType.InteriorType,
+            Kind.ShapeBase or _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.PlayerType : 0u,
+        },
+    };
 
     /// <summary>Handles a trigger collide event from an object.</summary>
     /// <param name="source">The colliding object.</param>
@@ -101,7 +98,7 @@ public partial class GameBase
             return;
         var now = Manager()!.Time();
         for (var i = 0; i < Occupants.Count; ++i)
-            if (Occupants[i].Object == source.Id())
+            if (Occupants[i].ObjectId == source.Id())
             {
                 var o = Occupants[i];
                 o.Expiry = Store(Add(now, 0.25f));
@@ -109,8 +106,8 @@ public partial class GameBase
                 return;
             }
         using var chop = ChopScope();
-        Occupants.Add(new Occupant { Object = source.Id(), Expiry = Store(Add(now, 0.25f)), NextContact = Store(Add(now, TriggerInterval)) });
-        _ctx.Game?.ScriptCallback(this, "onEnter", new[] { Numbers.FormatInt(source.Id()) });
+        Occupants.Add(new Occupant { ObjectId = source.Id(), Expiry = Store(Add(now, 0.25f)), NextContact = Store(Add(now, TriggerInterval)) });
+        _ctx.Game?.ScriptCallback(this, "onEnter", [Numbers.FormatInt(source.Id())]);
         if (Occupants.Count == 1 && _ctx.Game != null)
             _ctx.Game.JoinSet(this, 12); // SimTimerSet: event 0x40a every tick
     }
@@ -126,7 +123,7 @@ public partial class GameBase
         for (var i = 0; i < Occupants.Count;)
         {
             var o = Occupants[i];
-            if (Manager()!.FindById(o.Object) == null)
+            if (Manager()!.FindById(o.ObjectId) == null)
             {
                 Occupants.RemoveAt(i);
                 if (Occupants.Count == 0)
@@ -139,14 +136,14 @@ public partial class GameBase
                 {
                     o.NextContact = Store(Add(now, TriggerInterval));
                     Occupants[i] = o;
-                    _ctx.Game.ScriptCallback(this, "onContact", new[] { Numbers.FormatInt(o.Object) });
+                    _ctx.Game.ScriptCallback(this, "onContact", [Numbers.FormatInt(o.ObjectId)]);
                 }
                 ++i;
             }
             else
             {
                 Occupants.RemoveAt(i);
-                _ctx.Game.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(o.Object) });
+                _ctx.Game.ScriptCallback(this, "onLeave", [Numbers.FormatInt(o.ObjectId)]);
             }
         }
     }
@@ -162,18 +159,18 @@ public partial class GameBase
         TriggerActive = on;
         // An occupant that was deleted has left the list through its delete notify (0x004872e0).
         if (Manager() != null)
-            Occupants.RemoveAll(o => Manager()!.FindById(o.Object) == null);
+            Occupants.RemoveAll(o => Manager()!.FindById(o.ObjectId) == null);
         if (!on && Occupants.Count != 0)
         {
             while (Occupants.Count != 0)
             {
-                var obj = Occupants[^1].Object;
+                var obj = Occupants[^1].ObjectId;
                 Occupants.RemoveAt(Occupants.Count - 1);
-                _ctx.Game?.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(obj) });
+                _ctx.Game?.ScriptCallback(this, "onLeave", [Numbers.FormatInt(obj)]);
             }
             _ctx.Game?.LeaveSet(this, 12);
         }
-        _ctx.Game?.ScriptCallback(this, on ? "onActivate" : "onDeactivate", Array.Empty<string>());
+        _ctx.Game?.ScriptCallback(this, on ? "onActivate" : "onDeactivate", []);
         return true;
     }
 

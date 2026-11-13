@@ -106,14 +106,14 @@ public sealed class ClientGameConnection
         {
             if (r.Flag())
             {
-                int interval = (int)r.Int(10), size = (int)r.Int(10);
+                int interval = (int)r.Bits(10), size = (int)r.Bits(10);
                 pkt.RateSet = (interval, size);
                 IntervalMs = (uint)interval;       // stored unclamped (2.2 step 2)
                 PacketBytes = (uint)size;
             }
             if (r.Flag())
             {
-                int interval = (int)r.Int(10), size = (int)r.Int(10);
+                int interval = (int)r.Bits(10), size = (int)r.Bits(10);
                 pkt.RateReq = (interval, size);
                 uint i2 = Math.Max((uint)interval, OwnIntervalMs), s2 = Math.Min((uint)size, OwnPacketBytes);
                 if (i2 != IntervalMs || s2 != PacketBytes)

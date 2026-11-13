@@ -23,13 +23,13 @@ public static partial class GhostClasses
         R(0x216, "Snowfall", UnSnowfall);
         R(0x217, "Explosion", (r, g, n) => UnGameBase(r, g));
         R(0x21b, "Marker", UnMarker);
-        R(0x21e, "Mine", (r, g, n) => UnItem(r, g, n, 23));
+        R(0x21e, "Mine", (r, g, _) => UnItem(r, g, 23));
         R(0x21f, "Trigger", UnTrigger);
         R(0x220, "Moveable", UnMoveable);
         R(0x221, "StaticShape", UnStatic);
         R(0x223, "Flier", (r, g, n) => UnVehicle(r, g, n, 10));
         R(0x229, "Sensor", UnSensor);
-        R(0x22a, "Item", (r, g, n) => UnItem(r, g, n, 5));
+        R(0x22a, "Item", (r, g, _) => UnItem(r, g, 5));
         R(0x22c, "Vehicle", (r, g, n) => UnVehicle(r, g, n, 9));
         R(0x22f, "Planet", UnPlanet);
         R(0x230, "Sky", UnSky);
@@ -45,10 +45,10 @@ public static partial class GhostClasses
     {
         if (!r.Flag())
             return;
-        r.Add("team", (long)r.Int(4));
+        r.Add("team", (long)r.Bits(4));
         if (r.Flag())
         {
-            var id = (int)r.Int(7) + 0x800;
+            var id = (int)r.Bits(7) + 0x800;
             r.Add("controlClient", (long)id);
             foreach (var rec in r.World.Players.Clients.Values.Where(x => x.ControlGhost == g.Index))
                 rec.ControlGhost = -1;
@@ -57,7 +57,7 @@ public static partial class GhostClasses
         }
         if (r.Flag())
         {
-            var id = (int)r.Int(7) + 0x800;
+            var id = (int)r.Bits(7) + 0x800;
             r.Add("ownerClient", (long)id);
             foreach (var rec in r.World.Players.Clients.Values.Where(x => x.OwnedGhost == g.Index))
                 rec.OwnedGhost = -1;
@@ -81,7 +81,7 @@ public static partial class GhostClasses
             for (var i = 0; i < 3; ++i)
                 if (r.Flag())
                 {
-                    long seq = r.Int(4), state = r.Int(2);
+                    long seq = r.Bits(4), state = r.Bits(2);
                     bool fwd = r.Flag(), end = r.Flag();
                     th.Add(i + ":seq=" + seq + " state=" + state + " fwd=" + (fwd ? 1 : 0) + " end=" + (end ? 1 : 0));
                 }
@@ -133,7 +133,7 @@ public static partial class GhostClasses
         }
         r.AddFlag("flag6a4");
         if (r.Flag())
-            r.Add("crc", r.Int(32).ToString("x8", System.Globalization.CultureInfo.InvariantCulture));
+            r.Add("crc", r.Bits(32).ToString("x8", System.Globalization.CultureInfo.InvariantCulture));
     }
 
     private static void UnSimLight(ClientReader r, ClientGhost g, bool isNew)
@@ -163,12 +163,12 @@ public static partial class GhostClasses
             r.Add("isContainer", (long)r.SInt(2));
             r.AddVec("pos");
             r.AddVec("rot");
-            long n = r.Int(32);
+            long n = r.Bits(32);
             var states = new List<object?>();
             for (long i = 0; i < n; ++i)
-                states.Add((long)r.Int(32));
+                states.Add((long)r.Bits(32));
             r.Add("states", states);
-            long m = r.Int(32);
+            long m = r.Bits(32);
             var lights = new List<byte>();
             for (long i = 0; i < m; ++i)
                 lights.AddRange(r.Bytes(16));
@@ -214,7 +214,7 @@ public static partial class GhostClasses
         r.AddF32("f124");
         var tex = new List<object?>();
         for (var i = 0; i < 16; ++i)
-            tex.Add((long)r.Int(4));
+            tex.Add((long)r.Bits(4));
         r.Add("textures", tex);
     }
 
@@ -264,7 +264,7 @@ public static partial class GhostClasses
             UnDatablock(r, 8);
     }
 
-    private static void UnItem(ClientReader r, ClientGhost g, bool isNew, int group)
+    private static void UnItem(ClientReader r, ClientGhost g, int group)
     {
         UnShapeBase(r, g);
         if (r.Flag())
@@ -402,7 +402,7 @@ public static partial class GhostClasses
 
     // Scaled byte 0046f9d4 on the wire; the reader scales it back. Stream_readScaledByte is Q11 of client-net.md: the
     // scale below is the writer's.
-    private static double ScaledByte(ClientReader r, double scale) => r.Int(8) * scale;
+    private static double ScaledByte(ClientReader r, double scale) => r.Bits(8) * scale;
 
     // Byte vector 0046f8fc: magnitude as a scaled byte, then a direction byte (4 bits azimuth, 4 bits elevation) when the
     // magnitude is not 0.
@@ -411,7 +411,7 @@ public static partial class GhostClasses
         var mag = ScaledByte(r, scale);
         if (mag == 0)
             return [0, 0, 0];
-        var d = r.Int(8);
+        var d = r.Bits(8);
         double az = (d & 15) * (2 * Math.PI / 16), el = ((d >> 4) * (Math.PI / 16)) - (Math.PI / 2);
         return [mag * Math.Cos(el) * Math.Cos(az), mag * Math.Cos(el) * Math.Sin(az), mag * Math.Sin(el)];
     }
@@ -428,11 +428,11 @@ public static partial class GhostClasses
             r.AddInt("f344", 32);
             r.Add("shape", r.Str());
             if (r.Flag())
-                r.Add("mass", r.Int(8) * 50.0);
+                r.Add("mass", r.Bits(8) * 50.0);
             if (r.Flag())
                 r.AddInt("f248", 4);
             if (r.Flag())
-                r.Add("f24c", r.Int(8) / 10.0);
+                r.Add("f24c", r.Bits(8) / 10.0);
         }
     }
 
@@ -444,7 +444,7 @@ public static partial class GhostClasses
         r.Add("radius", ScaledByte(r, 0.5));
         r.Add("velocity", ByteVector(r, 0.1));
         r.Add("strength", ScaledByte(r, 50.0));
-        var angle = r.Int(8);
+        var angle = r.Bits(8);
         if (angle == 0xff)
             r.Add("angle", Math.PI);
         else

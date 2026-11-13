@@ -156,8 +156,8 @@ public sealed class ClientPsc
     {
         var start = r.Pos;
         var d = new DecodedPsc { Direction = "c2s" };
-        long fov = r.Int(8);
-        long first = r.Int(32);
+        long fov = r.Bits(8);
+        long first = r.Bits(32);
         var moves = new List<Move>();
         var m = new Move();
         var havePrev = false;
@@ -223,9 +223,9 @@ public sealed class ClientPsc
         r.Out = d.Fields;
         try
         {
-            var mode = (int)r.Int(3);
+            var mode = (int)r.Bits(3);
             var f = r.Flag();
-            var last = unchecked((int)r.Int(32));
+            var last = unchecked((int)r.Bits(32));
             var has = r.Flag();
             var head = "psc mode=" + mode + " flag6a=" + (f ? 1 : 0) + " lastMove=" + last;
             var headFields = new List<DecodedField>
@@ -243,7 +243,7 @@ public sealed class ClientPsc
                 return d;
             }
             r.Add("flash", DamageFlash = r.Unit(8));    // the control object's damage flash (vtable +0x100), not a fov
-            var gidx = (int)r.Add("controlGhost", (long)r.Int(10));
+            var gidx = (int)r.Add("controlGhost", (long)r.Bits(10));
             string? cls = null;
             if (gidx != 0x3ff)
             {
@@ -277,9 +277,9 @@ public sealed class ClientPsc
                 var sens = new List<object?>();
                 while (r.Flag())
                 {
-                    var i = r.Int(4);
-                    var a = r.Flag() ? r.Int(32) : 0;
-                    var b = r.Flag() ? r.Int(32) : 0;
+                    var i = r.Bits(4);
+                    var a = r.Flag() ? r.Bits(32) : 0;
+                    var b = r.Flag() ? r.Bits(32) : 0;
                     sens.Add(i + ":" + a.ToString("x8", CultureInfo.InvariantCulture) + "/" + b.ToString("x8", CultureInfo.InvariantCulture));
                     if (i < 7)
                     {
@@ -295,7 +295,7 @@ public sealed class ClientPsc
             var inv = new List<object?>();
             while (r.Flag())
             {
-                var item = r.Int(8);
+                var item = r.Bits(8);
                 var delta = r.SInt(10);
                 inv.Add(item + (delta >= 0 ? "+" : "") + delta);
                 if (item < ItemCounts.Length)
@@ -309,7 +309,7 @@ public sealed class ClientPsc
             {
                 if (r.Flag())
                 {
-                    long x = r.Int(10), y = r.Int(10);
+                    long x = r.Bits(10), y = r.Bits(10);
                     Waypoint = (x, y);
                     OnWaypoint?.Invoke(x, y);
                     r.Add("waypoint", new object[] { x, y });
@@ -317,8 +317,8 @@ public sealed class ClientPsc
                 var vis = new List<object?>();
                 while (r.Flag())
                 {
-                    var word = r.Int(3);
-                    var x = r.Int(32);
+                    var word = r.Bits(3);
+                    var x = r.Bits(32);
                     vis.Add(word + ":" + x.ToString("x8", CultureInfo.InvariantCulture));
                     Visible[word] ^= x;
                 }
@@ -429,7 +429,7 @@ public sealed class ClientPsc
     // Command map rows (4.5, mode 2): the first slot, then rows of 8 slots with one flag each.
     private void ReadCommandMap(ClientReader r)
     {
-        var slot = r.Int(8);
+        var slot = r.Bits(8);
         r.Add("cmdFirst", (long)slot);
         var rows = new List<object?>();
         var nrows = 0;
@@ -445,20 +445,20 @@ public sealed class ClientPsc
                     CommandSlots[s].Present = false; // an empty slot sets the datablock index to -1 [code 00405ec8]
                     continue;
                 }
-                uint x = r.Int(11), y = r.Int(11), team = r.Int(3), a = r.Int(2);
+                uint x = r.Bits(11), y = r.Bits(11), team = r.Bits(3), a = r.Bits(2);
                 string extra;
                 uint cmd = 0;
                 bool c = false, act = false;
                 if (s < 0x80)
-                    extra = "cmdstate=" + (cmd = r.Int(3));
+                    extra = "cmdstate=" + (cmd = r.Bits(3));
                 else
                 {
                     c = r.Flag();
                     act = r.Flag();
                     extra = "ctl=" + (c ? 1 : 0) + " active=" + (act ? 1 : 0);
                 }
-                var grp = r.Int(6);
-                var idx = r.Int(r.DbBits((int)grp));
+                var grp = r.Bits(6);
+                var idx = r.Bits(r.DbBits((int)grp));
                 CommandSlots[s] = new ClientCommandSlot
                 {
                     Present = true,

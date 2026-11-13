@@ -119,13 +119,13 @@ public sealed partial class AIObject
         }
         else if (AttackMode == 0)
         {
-            var P = new float[3];
-            PointOf(Game, target, P);
-            if (Dist2(P, Frame.Own) < 17.0f)
+            var p3 = new float[3];
+            PointOf(Game, target, p3);
+            if (Dist2(p3, Frame.Own) < 17.0f)
             {
                 var v = new float[3];
                 for (var i = 0; i < 3; ++i)
-                    v[i] = X87.F32(Sub(P[i], Frame.Own[i]));
+                    v[i] = X87.F32(Sub(p3[i], Frame.Own[i]));
                 var len = X87.F32(X87.Len(v));
                 var k = X87.F32(Div(1.0f, len));
                 for (var i = 0; i < 3; ++i)
@@ -133,12 +133,12 @@ public sealed partial class AIObject
                 const float neg = -17.0f;
                 for (var i = 0; i < 3; ++i)
                     v[i] = X87.F32(Mul(neg, v[i]));
-                Span<float> P2 = stackalloc float[3];
-                PointOf(Game, target, P2);
+                Span<float> p22 = stackalloc float[3];
+                PointOf(Game, target, p22);
                 for (var i = 0; i < 3; ++i)
-                    P[i] = X87.F32(Add(P2[i], v[i]));
+                    p3[i] = X87.F32(Add(p22[i], v[i]));
             }
-            MoveTowardKeepTurn(P);
+            MoveTowardKeepTurn(p3);
         }
     }
 
@@ -177,7 +177,7 @@ public sealed partial class AIObject
                 var totalTime = Pj.Real(block, "totalTime", 10000.0f);
                 for (var i = 0; i < members.Members().Count; ++i)
                 {
-                    Projectile? pr = Projectile.From(members.Members()[i]);
+                    var pr = Projectile.From(members.Members()[i]);
                     if (pr == null || pr.Shooter() != owner)
                         continue;
                     var point = new float[3];
@@ -274,34 +274,34 @@ public static class AIAim
         double dx = Sub(t[0], s[0]), dy = Sub(t[1], s[1]);
         var h2 = X87.F32(Add(Mul(dx, dx), Mul(dy, dy)));
         var v2 = X87.F32(Mul(speed, speed));
-        var A = Add(Mul(dz, g), v2);
-        var B = Add(Div(Mul(dz, dz), h2), 1.0);
-        var t1 = Mul(B, g);
+        var a2 = Add(Mul(dz, g), v2);
+        var b2 = Add(Div(Mul(dz, dz), h2), 1.0);
+        var t1 = Mul(b2, g);
         t1 = Mul(t1, g);
         t1 = Mul(t1, h2);
-        var D = X87.F32(Sub(Mul(A, A), t1));
-        if (D < 0.0f)
+        var d2 = X87.F32(Sub(Mul(a2, a2), t1));
+        if (d2 < 0.0f)
         {
             Straight(s, t, dir);
             ok = false;
             return true;
         }
-        if (D < 1.0f && high)
+        if (d2 < 1.0f && high)
             return false;
-        var S = high ? -1.0f : 1.0f;
-        var root = Sqrt(D);
-        var num = Mul(S, root);
+        var s2 = high ? -1.0f : 1.0f;
+        var root = Sqrt(d2);
+        var num = Mul(s2, root);
         num = Add(Add(Mul(dz, g), v2), num);
-        var Q = X87.F32(Div(num, Mul(Add(Div(Mul(dz, dz), h2), 1.0), 2.0)));
-        if (Q < 0.0f)
+        var q = X87.F32(Div(num, Mul(Add(Div(Mul(dz, dz), h2), 1.0), 2.0)));
+        if (q < 0.0f)
         {
             Straight(s, t, dir);
             ok = false;
             return true;
         }
-        var w = X87.F32(Sqrt(Sub(v2, Q)));
-        Q = X87.F32(Sqrt(Q));
-        var r = X87.F32(Div(Sqrt(h2), Q));
+        var w = X87.F32(Sqrt(Sub(v2, q)));
+        q = X87.F32(Sqrt(q));
+        var r = X87.F32(Div(Sqrt(h2), q));
         var half = Mul(0.5f, g);
         half = Mul(half, r);
         half = Mul(half, r);
@@ -321,7 +321,7 @@ public static class AIAim
         var sum = new float[3];
         float[] b = [X87.F32(Mul(0.0f, w)), X87.F32(Mul(0.0f, w)), X87.F32(Mul(1.0f, w))];
         for (var i = 0; i < 3; ++i)
-            sum[i] = X87.F32(Add(X87.F32(Mul(h[i], Q)), b[i]));
+            sum[i] = X87.F32(Add(X87.F32(Mul(h[i], q)), b[i]));
         var k2 = X87.F32(Div(1.0f, X87.F32(X87.Len(sum))));
         for (var i = 0; i < 3; ++i)
             dir[i] = X87.F32(Mul(k2, sum[i]));

@@ -82,7 +82,7 @@ public sealed class ClientGhostManager
     /// <summary>Called once when the always phase completes.</summary>
     public Action? OnAlwaysDone { get; set; }
 
-    private static readonly Dictionary<uint, (string Name, ClientUnpackFn Fn)> sClasses = [];
+    private static readonly Dictionary<uint, (string Name, ClientUnpackFn Fn)> ClassTable = [];
     private static readonly Lock Lock = new();
 
     /// <summary>Creates a manager for a client world.</summary>
@@ -98,7 +98,7 @@ public sealed class ClientGhostManager
     {
         lock (Lock)
         {
-            if (sClasses.Count != 0)
+            if (ClassTable.Count != 0)
                 return;
             GhostClasses.RegisterClient();
             PlayerGhost.RegisterClient();
@@ -110,7 +110,7 @@ public sealed class ClientGhostManager
     /// <param name="tag">The class tag.</param>
     /// <param name="name">The class name.</param>
     /// <param name="fn">The unpack routine.</param>
-    public static void RegisterClass(uint tag, string name, ClientUnpackFn fn) => sClasses[tag] = (name, fn);
+    public static void RegisterClass(uint tag, string name, ClientUnpackFn fn) => ClassTable[tag] = (name, fn);
 
     /// <summary>Gets the registered classes by tag.</summary>
     public static IReadOnlyDictionary<uint, (string Name, ClientUnpackFn Fn)> Classes
@@ -118,7 +118,7 @@ public sealed class ClientGhostManager
         get
         {
             EnsureClasses();
-            return sClasses;
+            return ClassTable;
         }
     }
 
@@ -161,13 +161,13 @@ public sealed class ClientGhostManager
         var block = new DecodedGhostBlock
         {
             Always = r.Flag(),
-            IdBits = (int)r.Int(3) + 3
+            IdBits = (int)r.Bits(3) + 3
         };
         try
         {
             while (r.Flag())
             {
-                var idx = (int)r.Int((uint)block.IdBits);
+                var idx = (int)r.Bits((uint)block.IdBits);
                 if (idx >= _table.Length)
                     throw new UnsupportedException("ghost index " + idx);
                 if (r.Flag())
@@ -190,20 +190,20 @@ public sealed class ClientGhostManager
                 if (isNew)
                 {
                     if (block.Always)
-                        objValue = r.Int(32);
-                    var tag = r.Int(10);
+                        objValue = r.Bits(32);
+                    var tag = r.Bits(10);
                     if (!Classes.TryGetValue(tag, out var cls))
                         throw new UnsupportedException("new ghost " + idx + " class 0x" + tag.ToString("x", CultureInfo.InvariantCulture) + " objid=" + (block.Always ? objValue.ToString(CultureInfo.InvariantCulture) : "None"));
                     g = new ClientGhost { Index = idx, Tag = tag, Class = cls.Name, ObjectValue = objValue };
                 }
-                (string Name, var Fn) = Classes[g!.Tag];
+                var (name2, fn2) = Classes[g!.Tag];
                 var bodyStart = r.Pos;
                 var save = r.Out;
                 var fields = new List<DecodedField>();
                 r.Out = fields;
                 try
                 {
-                    Fn(r, g, isNew);
+                    fn2(r, g, isNew);
                 }
                 finally
                 {

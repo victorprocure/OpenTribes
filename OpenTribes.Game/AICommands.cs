@@ -449,7 +449,7 @@ public static class AICommands
                 Usage(inr, PointUsage);
                 return "False";
             }
-            var d = new AIDirective { Type = AIDirective.Target, Sub = AIDirective.kPoint };
+            var d = new AIDirective { Type = AIDirective.Target, Sub = AIDirective.PointKind };
             var v = Scan4(a[2]);
             Array.Copy(v, d.Point, 3);
             d.Radius = v[3];
@@ -501,7 +501,7 @@ public static class AICommands
                 var sub = "";
                 if (d.Type == AIDirective.Target)
                     sub = d.Sub == AIDirective.Player ? "(player)" : d.Sub == AIDirective.Laser ? "(laser)"
-                          : d.Sub == AIDirective.kPoint ? "(point)" : "(what?)";
+                          : d.Sub == AIDirective.PointKind ? "(point)" : "(what?)";
                 inr.Print(1, "Ord=" + Numbers.FormatInt(d.Order) + "  Type=" + type + sub);
             }
             return "True";

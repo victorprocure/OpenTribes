@@ -155,7 +155,7 @@ public static class PlayerCommands
             {
                 // 0x00421180: no mount object, or the mount object's vtable +0x164 (Vehicle: visibleDriver).
                 var m = p.MountObject();
-                Vehicle? v = Vehicle.From(m);
+                var v = Vehicle.From(m);
                 return m == null || v == null || v.Data.VisibleDriver ? "True" : "False";
             }),
             new("Player::lastJetTime", null, "0", "0", p => Numbers.FormatInt(unchecked((int)p.LastJetTime))),

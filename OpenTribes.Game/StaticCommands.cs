@@ -224,7 +224,7 @@ public static class StaticCommands
             MoveableOf(a[1]) is GameBase gb && gb.MoveToWaypoint(Numbers.BorlandAtoi(a[2])) ? "True" : r);
         foreach ((var name, var state) in new[]
                  {
-                     ("Moveable::moveForward", GameBase.kMoveForward), ("Moveable::moveBackward", GameBase.MoveBackward),
+                     ("Moveable::moveForward", GameBase.MoveForwardType), ("Moveable::moveBackward", GameBase.MoveBackward),
                      ("Moveable::stop", GameBase.MoveStopped),
                  })
             Def(name, 2, "wrong argcount to %s(object)", "False", "False", (_, a, r) =>
@@ -342,10 +342,10 @@ public static class StaticCommands
                 inr.Print(1, a[0] + ": could not find object");
                 return r;
             }
-            if (item.ShapeClass() == GameBase.ShapeKind.Item || item.ShapeClass() == GameBase.ShapeKind.Mine)
+            if (item.ShapeClass() is GameBase.ShapeKind.Item or GameBase.ShapeKind.Mine)
                 item.ItemThrow(thrower, Store(Numbers.BorlandAtof(a[3])), Numbers.ParseBool(a[4]));
             // The join counter of the throwing client's record is stored with it (0x00451284, read at 0x004524f8).
-            if (item.ShapeClass() == GameBase.ShapeKind.Mine || item.ShapeClass() == GameBase.ShapeKind.Item)
+            if (item.ShapeClass() is GameBase.ShapeKind.Mine or GameBase.ShapeKind.Item)
             {
                 var rec = item.ItemThrowerClient > 0 ? game.Players.Find(item.ItemThrowerClient) : null;
                 item.ItemThrowerJoin = rec != null ? rec.JoinOrder : -1;

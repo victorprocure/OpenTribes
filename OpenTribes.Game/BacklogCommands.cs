@@ -141,13 +141,13 @@ public static class BacklogCommands
             ("Client::setItemBuying", "wrong argcount to setItemBuyList(client,<type,...>)", true, true),
             ("Client::clearItemBuying", "wrong argcount to clearItemBuyList(client,<type,...>)", true, false),
         ];
-        foreach (var (Name, Usage, Buying, Set) in kCommands)
+        foreach (var (name3, usage3, buying2, set) in kCommands)
         {
-            interp.AddCommand(Name, (inr, a) =>
+            interp.AddCommand(name3, (inr, a) =>
             {
                 if (a.Length < 2)
                 {
-                    inr.Print(1, Usage);
+                    inr.Print(1, usage3);
                     return "False";
                 }
                 var rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
@@ -157,14 +157,14 @@ public static class BacklogCommands
                 void Apply(int type)
                 {
                     uint[] shop = rec.Shopping, buy = rec.Buying;
-                    if (Set)
+                    if (set)
                     {
                         // 0x00407bd8 (shopping), then 0x00407cc4 for buying
                         if (type == -1)
                             Array.Fill(shop, 0xffffffffu);
                         else if (ShowInventory(type))
                             SetBit(shop, type);
-                        if (Buying)
+                        if (buying2)
                         {
                             if (type == -1)
                                 Array.Fill(buy, 0xffffffffu);
@@ -179,7 +179,7 @@ public static class BacklogCommands
                             Array.Clear(buy);
                         else
                             ClearBit(buy, type);
-                        if (!Buying)
+                        if (!buying2)
                         {
                             if (type == -1)
                                 Array.Clear(shop);
@@ -307,19 +307,19 @@ public static class BacklogCommands
             ("Interior::switchOffLight", 3, "wrong argcount to %s(Interior, Light)", 2),
             ("Interior::setLightTime", 4, "wrong argcount to %s(Interior, Light, Time)", 3),
         ];
-        foreach (var (Name, Argc, Usage, Op) in kLights)
-            interp.AddCommand(Name, (inr, a) =>
+        foreach (var (name2, argc, usage2, op) in kLights)
+            interp.AddCommand(name2, (inr, a) =>
             {
-                if (a.Length != Argc)
+                if (a.Length != argc)
                 {
-                    var at = Usage.IndexOf("%s", StringComparison.Ordinal);
-                    inr.Print(1, Usage[..at] + a[0] + Usage[(at + 2)..]);
+                    var at = usage2.IndexOf("%s", StringComparison.Ordinal);
+                    inr.Print(1, usage2[..at] + a[0] + usage2[(at + 2)..]);
                     return "False";
                 }
                 if (FindPlain(a[1]) is not GameBase gb || !gb.IsInterior() || gb.InteriorGeo == null)
                     return "False";
                 var lights = gb.InteriorNet.Lighting;
-                if (Op == 3)
+                if (op == 3)
                 {
                     var t = Store(Numbers.BorlandAtof(a[3]));
                     var lid = lights.FindByName(a[2]);
@@ -330,7 +330,7 @@ public static class BacklogCommands
                 var id = lights.FindByName(a[2]);
                 if (id == -1)
                     return "False";
-                if (Op == 0)
+                if (op == 0)
                 {
                     var state = lights.StateOf(id);
                     if (state != -1)

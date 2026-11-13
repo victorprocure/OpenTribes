@@ -231,9 +231,9 @@ public static class ShapeState
             M = obj.Transform.M,
             P = obj.Transform.P
         };
-        Span<float> S = [s.X, s.Y, s.Z], E = [e.X, e.Y, e.Z];
+        Span<float> s2 = [s.X, s.Y, s.Z], e2 = [e.X, e.Y, e.Z];
         Span<float> p = stackalloc float[3], n = stackalloc float[3];
-        if (!Shape.ShapeLine(inst, tm, S, E, !item, p, n))
+        if (!Shape.ShapeLine(inst, tm, s2, e2, !item, p, n))
             return false;
         hit = new Vec3(p[0], p[1], p[2]);
         normal = new Vec3(n[0], n[1], n[2]);

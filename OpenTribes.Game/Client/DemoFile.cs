@@ -153,6 +153,10 @@ public sealed class DemoFile
                 case DemoRecordKind.Move:
                     w.Psc.Moves.Add(rec.Move);
                     break;
+                case DemoRecordKind.Action:
+                case DemoRecordKind.Other:
+                default:
+                    break;
             }
             each?.Invoke(rec, pkt);
         }

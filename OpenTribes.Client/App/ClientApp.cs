@@ -301,7 +301,7 @@ public sealed class ClientApp : IDisposable
         // stock code: the mouse's own flip is the Flip flag of the yaxis binding (InputDispatcher).
         Play.Moves.TakeControlPitch = () =>
         {
-            if (Game?.Net is { PredictWorld: not null } n && n.Prediction.Object is Player p && n.Prediction.Active && Game.World.Psc.ControlClass == "Player")
+            if (Game?.Net is { PredictWorld: not null } n && n.Prediction.ControlledObject is Player p && n.Prediction.Active && Game.World.Psc.ControlClass == "Player")
             {
                 var held = p.Pitch;
                 p.Pitch = 0;

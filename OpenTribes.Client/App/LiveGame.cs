@@ -378,7 +378,7 @@ public sealed class LiveGame : IDisposable
         {
             if (Net?.PredictWorld is not { } pw)
                 return null;
-            object? self = ghost == World.Psc.ControlGhost ? Net.Prediction.Object
+            object? self = ghost == World.Psc.ControlGhost ? Net.Prediction.ControlledObject
                            : Net.Remote.Players.TryGetValue(ghost, out var rp) ? rp.P : null;
             object? obj = null;
             OpenTribes.World.Vec3 hit = default, normal = default;
@@ -422,7 +422,7 @@ public sealed class LiveGame : IDisposable
         if (_app.Opt.FixedCamera is { } fc)
             return new DemoRender.CameraPose(fc[0], fc[1], fc[2], fc[3], fc[4], false, -1);
         var pose = DemoRender.ControlCamera(Model, World);
-        if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && pose is { FirstPerson: true } cp)
+        if (Net?.PredictWorld != null && Net.Prediction.ControlledObject is Player p && Net.Prediction.Active && pose is { FirstPerson: true } cp)
         {
             var d = Net.Prediction.DisplayPosition();
             if (p.MountId != 0 && DemoRender.RiderCamera(Model, cp.ControlGhost, p.Transform, d, p.Pitch) is { } rc)
@@ -442,8 +442,8 @@ public sealed class LiveGame : IDisposable
         // is not tracked here.
         if (pose is { FirstPerson: true } fp && Net != null && World.Psc.ControlClass == "Player" && _app.Play.Moves.ViewDist >= 0.01f)
         {
-            var predicted = Net.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active;
-            var body = predicted ? (Player)Net.Prediction.Object! : null;
+            var predicted = Net.PredictWorld != null && Net.Prediction.ControlledObject is Player && Net.Prediction.Active;
+            var body = predicted ? (Player)Net.Prediction.ControlledObject! : null;
             var bp = World.Psc.ControlState.TryGetValue("pos", out var pv) ? Db.Vec(pv) : new double[3];
             var d = predicted ? Net.Prediction.DisplayPosition() : [(float)bp[0], (float)bp[1], (float)bp[2]];
             pose = DemoRender.ChaseCamera(Model, fp.ControlGhost, d[0], d[1], d[2], fp.YawDeg * Math.PI / 180, fp.PitchDeg * Math.PI / 180,
@@ -533,7 +533,7 @@ public sealed class LiveGame : IDisposable
         _imageSteps = total;
         if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not PlayerVisual pv)
             return;
-        var predicted = Net?.PredictWorld != null && Net.Prediction.Object is Player && Net.Prediction.Active && psc.ControlClass == "Player";
+        var predicted = Net?.PredictWorld != null && Net.Prediction.ControlledObject is Player && Net.Prediction.Active && psc.ControlClass == "Player";
         pv.SetImageSteps(predicted, steps);
     }
 
@@ -551,7 +551,7 @@ public sealed class LiveGame : IDisposable
         // Turret vtable +0x178 (00452d28): the aim rotation (+0x8b4) plus the rotation z of the object (+0x24c).
         if (psc.ControlClass == "Turret" && Net is { Prediction.Turret.Active: true } tn)
             return Model.Visuals.TryGetValue(ghost, out var tv) && tv is ShapeVisual tsv ? (float)(tn.Prediction.Turret.Rotation + tsv.HeadingRad) : null;
-        if (psc.ControlClass == "Player" && Net?.PredictWorld != null && Net.Prediction.Object is Player { MountId: not 0 } p && Net.Prediction.Active)
+        if (psc.ControlClass == "Player" && Net?.PredictWorld != null && Net.Prediction.ControlledObject is Player { MountId: not 0 } p && Net.Prediction.Active)
         {
             var e = new float[3];
             Sim.MissionTransform.MatrixToEuler(p.Transform, e);
@@ -567,7 +567,7 @@ public sealed class LiveGame : IDisposable
         if (psc.ControlGhost < 0 || Model == null || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not PlayerVisual pv)
             return;
         ControlSample? s;
-        if (Net?.PredictWorld != null && Net.Prediction.Object is Player p && Net.Prediction.Active && psc.ControlClass == "Player")
+        if (Net?.PredictWorld != null && Net.Prediction.ControlledObject is Player p && Net.Prediction.Active && psc.ControlClass == "Player")
         {
             var d = Net.Prediction.DisplayPosition();
             var yaw = p.Rotation[2];
@@ -594,7 +594,7 @@ public sealed class LiveGame : IDisposable
         if (psc.ControlClass is not ("Vehicle" or "Flier") || psc.ControlGhost < 0 || Model == null
             || !Model.Visuals.TryGetValue(psc.ControlGhost, out var v) || v is not ShapeVisual sv)
             return;
-        if (Net?.PredictWorld != null && Net.Prediction.Object is Vehicle o && Net.Prediction.Active)
+        if (Net?.PredictWorld != null && Net.Prediction.ControlledObject is Vehicle o && Net.Prediction.Active)
         {
             sv.Driven = true;
             sv.SetSmoothed(o.Rotation[0], o.Rotation[1], o.Rotation[2], o.Transform.P[0], o.Transform.P[1], o.Transform.P[2]);

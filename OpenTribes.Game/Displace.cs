@@ -162,7 +162,7 @@ public sealed partial class GameState
 
     // src/game/displace.cpp isItemClass.
     private static bool IsItemClass(GameBase o) =>
-        o.ShapeClass() == GameBase.ShapeKind.Item || o.ShapeClass() == GameBase.ShapeKind.Mine;
+        o.ShapeClass() is GameBase.ShapeKind.Item or GameBase.ShapeKind.Mine;
 
     // src/game/displace.cpp pushObject.
     private static bool PushObject(GameBase o, ReadOnlySpan<float> delta, ReadOnlySpan<float> mover)
@@ -245,7 +245,7 @@ public sealed partial class GameState
     /// <remarks>Follows SimMovement_displace (0x00505ed4).</remarks>
     public bool DisplaceBy(GameBase mover, float[] delta, bool top)
     {
-        Player? playerMover = Player.From(mover);
+        var playerMover = Player.From(mover);
         var vehicleMover = mover.ShapeClass() == GameBase.ShapeKind.Vehicle && playerMover == null;
         if (playerMover == null)
         {
@@ -303,7 +303,7 @@ public sealed partial class GameState
             }
             if (vehicleMover)
                 return ((Vehicle)mover).Blocker(o); // Vehicle_onBlocker 0x0044642c
-            ScriptCallback(mover, "onBlocker", new[] { o.Id().ToString(System.Globalization.CultureInfo.InvariantCulture) });
+            ScriptCallback(mover, "onBlocker", [o.Id().ToString(System.Globalization.CultureInfo.InvariantCulture)]);
             return true;
         }
         void Rollback()
@@ -673,6 +673,10 @@ public sealed partial class GameState
                     break;
                 case GameBase.ShapeKind.NoShape:
                     return;
+                case GameBase.ShapeKind.StaticShape:
+                case GameBase.ShapeKind.Sensor:
+                case GameBase.ShapeKind.Turret:
+                case GameBase.ShapeKind.Moveable:
                 default:
                     mask = 0x24200080u; // 0x0061a7e8: StaticBase classes
                     break;

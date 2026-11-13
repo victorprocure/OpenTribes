@@ -18,7 +18,7 @@ public sealed class SimPathObject : SimGroup
         public float[] Rot { get; } = new float[3];
     }
 
-    private readonly PersistFields _fields = new(new PersistDef[] { new("isLooping", 4, 1), new("isCompressed", 4, 1) });
+    private readonly PersistFields _fields = new([new("isLooping", 4, 1), new("isCompressed", 4, 1)]);
     private readonly List<Point> _points = [];
 
     /// <inheritdoc/>
@@ -108,6 +108,10 @@ public partial class GameBase
                 TurretTickMs = tickMs;
                 TurretTick();
                 break;
+            case ShapeKind.NoShape:
+            case ShapeKind.StaticShape:
+            case ShapeKind.Sensor:
+            case ShapeKind.Vehicle:
             default:
                 StaticTick(0.03f);
                 break;
@@ -138,7 +142,7 @@ public partial class GameBase
                 {
                     t.Flags |= ThreadAtEnd;
                     ThreadChanged(slot);
-                    _ctx.Game?.ScriptCallback(this, "onEndSequence", new[] { Numbers.FormatInt(slot) });
+                    _ctx.Game?.ScriptCallback(this, "onEndSequence", [Numbers.FormatInt(slot)]);
                 }
             }
             if (seq != null && t.Speed != 0 && seq.Duration > 0)
@@ -217,7 +221,7 @@ public partial class GameBase
         CollisionRecords[rec] = c;
         if (c.Expiry > CollisionLatest)
             CollisionLatest = c.Expiry;
-        game.ScriptCallback(this, "onCollision", new[] { Numbers.FormatInt(other.Id()) });
+        game.ScriptCallback(this, "onCollision", [Numbers.FormatInt(other.Id())]);
     }
 
     /// <summary>Notifies the object of a collision. Server only.</summary>
@@ -232,7 +236,7 @@ public partial class GameBase
             ShapeKind.Item => ObjectType.ItemType,
             ShapeKind.Mine => ObjectType.MineType,
             ShapeKind.Vehicle => ObjectType.VehicleType,
-            _ => GameUtil.EqualsNoCase(other.ClassName(), "Player") ? ObjectType.PlayerType : 0u,
+            ShapeKind.NoShape or _ => GameUtil.EqualsNoCase(other.ClassName(), "Player") ? ObjectType.PlayerType : 0u,
         };
         uint mask;
         switch (_shapeClass)
@@ -253,6 +257,8 @@ public partial class GameBase
                     return;
                 mask = 0x24800080;
                 break;
+            case ShapeKind.NoShape:
+            case ShapeKind.Vehicle:
             default:
                 return;
         }
@@ -388,7 +394,7 @@ public partial class GameBase
         if (Waypoint == CachedSegment)
             return true;
         CachedSegment = Waypoint;
-        SimPathObject? path = _ctx.Game?.PathById(PathId) as SimPathObject;
+        var path = _ctx.Game?.PathById(PathId) as SimPathObject;
         SimPathObject.Point rec = new();
         Span<float> dpos = stackalloc float[3], drot = stackalloc float[3];
         dpos.Clear();
@@ -466,7 +472,7 @@ public partial class GameBase
             SetPosition(p);
             _ctx.Game?.ObjectMoved(this);
         }
-        var directionOpen = (MoveState == kMoveForward && !MoveData.BlockForward) ||
+        var directionOpen = (MoveState == MoveForwardType && !MoveData.BlockForward) ||
                              (MoveState == MoveBackward && !MoveData.BlockBackward);
         if (forced)
         {
@@ -543,7 +549,7 @@ public partial class GameBase
         PathId = id;
         Span<float> dpos = stackalloc float[3], drot = stackalloc float[3];
         WaypointCount = _ctx.Game?.PathById(PathId) is SimPathObject path ? path.GetPoint(Waypoint, out _, dpos, drot) : 0;
-        _ctx.Game?.ScriptCallback(this, "onNewPath", Array.Empty<string>());
+        _ctx.Game?.ScriptCallback(this, "onNewPath", []);
         LoadSegment();
         ApplyMoveable(true);
         if (MoveState == MoveNone)
@@ -584,12 +590,12 @@ public partial class GameBase
             MoveBlocked = false;
             return;
         }
-        if (MoveState == kMoveForward)
+        if (MoveState == MoveForwardType)
         {
             var wp0 = Waypoint;
             var t0 = WaypointTime;
             LoadSegment();
-            while (dt > 0 && MoveState == kMoveForward)
+            while (dt > 0 && MoveState == MoveForwardType)
             {
                 WaypointTime = Store(Add(dt, WaypointTime));
                 if (WaypointTime > SegmentTime)
@@ -614,7 +620,7 @@ public partial class GameBase
                 {
                     Callback("onWaypoint", true);
                     Callback("onLast", false);
-                    if (MoveState == kMoveForward)
+                    if (MoveState == MoveForwardType)
                         SetMoveState(MoveStopped);
                 }
                 else if (WaypointTime == 0)
@@ -694,7 +700,7 @@ public partial class GameBase
         }
         if (last == Waypoint && WaypointTime > 0)
             WaypointTime = 0;
-        if (state == kMoveForward)
+        if (state == MoveForwardType)
         {
             if (last == Waypoint)
                 state = MoveStopped;
@@ -730,7 +736,7 @@ public partial class GameBase
             return false;
         MoveTarget = index;
         if (Waypoint < index)
-            SetMoveState(kMoveForward);
+            SetMoveState(MoveForwardType);
         else if (index < Waypoint || WaypointTime > 0)
             SetMoveState(MoveBackward);
         else

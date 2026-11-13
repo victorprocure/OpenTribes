@@ -10,7 +10,7 @@ using static OpenTribes.Core.Fpu;
 public struct RayHit
 {
     /// <summary>The object that was hit, or null.</summary>
-    public GameBase? Object { get; set; }
+    public GameBase? HitObject { get; set; }
     /// <summary>The type bits of the hit object.</summary>
     public uint Type { get; set; }
     /// <summary>The hit point.</summary>
@@ -29,7 +29,7 @@ public struct RayHit
     /// <summary>Creates an empty hit with the normal (0, 0, 1).</summary>
     public RayHit()
     {
-        Object = null;
+        HitObject = null;
         Type = 0;
         Point = default;
         Normal = Float3.Of(0, 0, 1);
@@ -74,7 +74,7 @@ public static class Pj
     /// <param name="name">The field name.</param>
     /// <param name="def">The value when the field is missing.</param>
     /// <returns>The value.</returns>
-    public static int Integer(DataBlockManager.Block b, string name, int def)
+    public static int IntegerValue(DataBlockManager.Block b, string name, int def)
     {
         var f = Field(b, name);
         if (f == null)
@@ -310,13 +310,13 @@ public abstract class Projectile : GameBase
     /// <summary>The class name.</summary>
     protected string Cls { get; }
     /// <summary>The datablock values.</summary>
-    protected PData mData { get; } = new();
+    protected PData DataValues { get; } = new();
     /// <summary>The datablock group.</summary>
-    protected int Group { get; }
+    protected int BlockGroup { get; }
     /// <summary>The datablock, or null.</summary>
     protected DataBlockManager.Block? Block { get; set; }
     /// <summary>The id of the shooter (+0x210).</summary>
-    protected int mShooter { get; set; }
+    protected int ShooterId { get; set; }
     /// <summary>The id of the shooter passed to init, until onAdd (+0x328).</summary>
     protected int InitShooter { get; set; } = -1;
     /// <summary>The id of the shooter object found in onAdd (+0x32c).</summary>
@@ -348,7 +348,7 @@ public abstract class Projectile : GameBase
     /// <summary>The end of the total time (+0x31c).</summary>
     protected uint TotalEnd { get; set; }
     /// <summary>True once the projectile exploded (+0x439).</summary>
-    protected bool mExploded { get; set; }
+    protected bool ExplodedFlag { get; set; }
     /// <summary>The explosion position (+0x43c).</summary>
     protected float[] ExpPos { get; } = new float[3];
     /// <summary>The explosion normal (+0x448).</summary>
@@ -356,7 +356,7 @@ public abstract class Projectile : GameBase
     /// <summary>The explosion datablock index (+0x454).</summary>
     protected int ExpIndex { get; set; }
     /// <summary>The box of the shape.</summary>
-    protected float[] ShapeBox { get; } = new float[6];
+    protected float[] ShapeBounds { get; } = new float[6];
     /// <summary>True while the projectile is in container 7.</summary>
     protected bool InContainer { get; set; }
     /// <summary>True when the gravity force is integrated (+0x16c bit 0).</summary>
@@ -368,11 +368,11 @@ public abstract class Projectile : GameBase
     /// <param name="game">The game state.</param>
     /// <param name="cls">The class name.</param>
     /// <param name="group">The datablock group.</param>
-    protected Projectile(GameState game, string cls, int group) : base(cls, Kind.Marker, group, Array.Empty<PersistDef>(), OwnContext(game))
+    protected Projectile(GameState game, string cls, int group) : base(cls, Kind.Marker, group, [], OwnContext(game))
     {
         Game = game;
         Cls = cls;
-        Group = group;
+        BlockGroup = group;
     }
 
     private static readonly string[] Names =
@@ -395,10 +395,10 @@ public abstract class Projectile : GameBase
 
     /// <summary>Returns the datablock values.</summary>
     /// <returns>The values.</returns>
-    public PData Data() => mData;
+    public PData Data() => DataValues;
     /// <summary>Tells whether the projectile exploded.</summary>
     /// <returns>True after the explosion.</returns>
-    public bool Exploded() => mExploded;
+    public bool Exploded() => ExplodedFlag;
 
     /// <summary>Returns the shooter object. The original delete-notifies it.</summary>
     /// <returns>The shooter, or null.</returns>
@@ -428,7 +428,7 @@ public abstract class Projectile : GameBase
     public virtual void Init(in Transform t, ReadOnlySpan<float> velocity, int shooterId)
     {
         Transform = t;
-        mShooter = InitShooter = shooterId;
+        ShooterId = InitShooter = shooterId;
         Inherited[0] = velocity[0];
         Inherited[1] = velocity[1];
         Inherited[2] = velocity[2];
@@ -606,7 +606,7 @@ public abstract class Projectile : GameBase
         if (game.World.CastRay(new Vec3(s[0], s[1], s[2]), new Vec3(e[0], e[1], e[2]), mask, exclude, ref obj, ref hp, ref n,
                                ref before) && obj != null)
         {
-            hit.Object = obj as GameBase;
+            hit.HitObject = obj as GameBase;
             hit.Point = Float3.Of(hp.X, hp.Y, hp.Z);
             hit.Normal = Float3.Of(n.X, n.Y, n.Z);
             var en = game.World.Find(obj);
@@ -632,7 +632,7 @@ public abstract class Projectile : GameBase
             // candidates ahead of it left), not the one ending at its own hit.
             if (found)
             {
-                if (Player.From(hit.Object) != null)
+                if (Player.From(hit.HitObject) != null)
                 {
                     cur[0] = before.X;
                     cur[1] = before.Y;
@@ -724,7 +724,7 @@ public abstract class Projectile : GameBase
                     cur[0] = hpos[0];
                     cur[1] = hpos[1];
                     cur[2] = hpos[2];
-                    hit.Object = gb;
+                    hit.HitObject = gb;
                     hit.Type = en.Type;
                     hit.Terrain = false;
                     hit.Distance = dist;
@@ -755,7 +755,7 @@ public abstract class Projectile : GameBase
         float[] local = [0, 0, 0, 0, 0, 0];
         if (shape.Length != 0 && Game.Resources != null)
             Shape.ShapeBox(Game.Resources, shape, local);
-        Array.Copy(local, ShapeBox, 6);
+        Array.Copy(local, ShapeBounds, 6);
         Span<float> box = stackalloc float[6];
         Shape.RotatedWorldBox(local, WorldMat(), box);
         var en = new Container.Entry(this, ProjectileType, Float6.Of(box), false, null);
@@ -785,7 +785,7 @@ public abstract class Projectile : GameBase
         if (InContainer)
         {
             Span<float> box = stackalloc float[6];
-            Shape.RotatedWorldBox(ShapeBox, WorldMat(), box);
+            Shape.RotatedWorldBox(ShapeBounds, WorldMat(), box);
             Game.World.SetBox(this, box);
             Span<float> g = stackalloc float[3];
             float d = 0;
@@ -811,10 +811,10 @@ public abstract class Projectile : GameBase
     protected SimObject? ExcludeObject()
     {
         var m = Manager();
-        if (m == null || mShooter == 0)
+        if (m == null || ShooterId == 0)
             return null;
-        if (!mData.CollideWithOwner || Grace > 0)
-            return m.FindById(mShooter);
+        if (!DataValues.CollideWithOwner || Grace > 0)
+            return m.FindById(ShooterId);
         return null;
     }
 
@@ -823,17 +823,17 @@ public abstract class Projectile : GameBase
     {
         // GameBase datablock bind without the ShapeBase part (resolveDataBlock reads shape fields).
         Block = DataBlockName != null && Game.Sim != null ? Game.Sim.DataBlocks().Find(DataBlockName) : null;
-        if (Block == null || Block.Group != Group)
+        if (Block == null || Block.Group != BlockGroup)
             return false;
         DataBlockIndex = Block.Index;
         using var chop = X87.Chop();
         var b = Block;
-        var d = mData;
-        d.ExplosionTag = Pj.Integer(b, "explosionTag", 0);
-        d.ExpRandCycle = Pj.Integer(b, "expRandCycle", 0);
-        d.DamageClass = Pj.Integer(b, "damageClass", 0);
-        d.DamageType = Pj.Integer(b, "damageType", 0);
-        d.OwnerGraceMS = Pj.Integer(b, "ownerGraceMS", 1000);
+        var d = DataValues;
+        d.ExplosionTag = Pj.IntegerValue(b, "explosionTag", 0);
+        d.ExpRandCycle = Pj.IntegerValue(b, "expRandCycle", 0);
+        d.DamageClass = Pj.IntegerValue(b, "damageClass", 0);
+        d.DamageType = Pj.IntegerValue(b, "damageType", 0);
+        d.OwnerGraceMS = Pj.IntegerValue(b, "ownerGraceMS", 1000);
         d.CollideWithOwner = Pj.Boolean(b, "collideWithOwner", false);
         d.CollisionRadius = Pj.Real(b, "collisionRadius", 0);
         d.Mass = Pj.Real(b, "mass", 1);
@@ -885,7 +885,7 @@ public abstract class Projectile : GameBase
         }
         for (var i = 0; i < 3; ++i)
             Launch[i] = X87.F32(Mul(fwd[i], d.TerminalVelocity));
-        Exclude = (!d.CollideWithOwner || d.OwnerGraceMS > 0) ? mShooter : 0;
+        Exclude = (!d.CollideWithOwner || d.OwnerGraceMS > 0) ? ShooterId : 0;
         Last = now;
         Grace = unchecked((int)((uint)d.OwnerGraceMS + now));
         TotalEnd = unchecked(Pj.Ftol(Mul(d.TotalTime, 1000.0f)) + now);
@@ -919,10 +919,10 @@ public abstract class Projectile : GameBase
     /// <returns>The index.</returns>
     protected int ExplosionIndex()
     {
-        if (mData.ExpRandCycle <= 1)
-            return mData.ExplosionTag;
+        if (DataValues.ExpRandCycle <= 1)
+            return DataValues.ExplosionTag;
         var u = X87.F32(Mul(Store(Explosion.Next()), 2.3283064365386963e-10));
-        return mData.ExplosionTag + unchecked((int)Pj.Ftol(X87.F32(Mul(u, mData.ExpRandCycle))));
+        return DataValues.ExplosionTag + unchecked((int)Pj.Ftol(X87.F32(Mul(u, DataValues.ExpRandCycle))));
     }
 
     /// <summary>Records the explosion position and normal.</summary>
@@ -933,7 +933,7 @@ public abstract class Projectile : GameBase
         pos[..3].CopyTo(ExpPos);
         normal[..3].CopyTo(ExpNormal);
         ExpIndex = ExplosionIndex();
-        mExploded = true;
+        ExplodedFlag = true;
     }
 
     /// <summary>Explodes at an impact. The hit object's type decides whether the client is told.</summary>
@@ -961,17 +961,17 @@ public abstract class Projectile : GameBase
     /// <param name="now">The time in milliseconds.</param>
     /// <returns>The damage value.</returns>
     /// <remarks>Follows 0x00459d90.</remarks>
-    protected virtual float DirectDamageValue(uint now) => mData.DamageValue;
+    protected virtual float DirectDamageValue(uint now) => DataValues.DamageValue;
 
     /// <summary>Applies direct damage to the hit object.</summary>
     /// <param name="hit">The hit.</param>
     /// <param name="now">The time in milliseconds.</param>
     protected void DirectDamage(in RayHit hit, uint now)
     {
-        if (hit.Object == null || (hit.Type & 0x24c00080u) == 0)
+        if (hit.HitObject == null || (hit.Type & 0x24c00080u) == 0)
             return;
         float[] zero = [0, 0, 0];
-        hit.Object.ApplyDamage(mData.DamageType, DirectDamageValue(now), hit.Point, Velocity, zero, OwnerClientId());
+        hit.HitObject.ApplyDamage(DataValues.DamageType, DirectDamageValue(now), hit.Point, Velocity, zero, OwnerClientId());
     }
 
     /// <summary>Applies radius damage around a position.</summary>
@@ -979,10 +979,10 @@ public abstract class Projectile : GameBase
     /// <remarks>Follows 0x00459e58.</remarks>
     protected void RadiusDamageAt(ReadOnlySpan<float> pos)
     {
-        if (!(mData.ExplosionRadius > 0.0f))
+        if (!(DataValues.ExplosionRadius > 0.0f))
             return;
-        DamageCommands.ApplyRadiusDamage(Game, mData.DamageType, pos, Velocity, mData.ExplosionRadius, mData.DamageValue,
-                                         mData.Kick, OwnerClientId());
+        DamageCommands.ApplyRadiusDamage(Game, DataValues.DamageType, pos, Velocity, DataValues.ExplosionRadius, DataValues.DamageValue,
+                                         DataValues.Kick, OwnerClientId());
     }
 
     /// <summary>Handles an impact, shared by the classes: the damage class switch.</summary>
@@ -991,12 +991,12 @@ public abstract class Projectile : GameBase
     /// <remarks>Follows 0x0045aa38.</remarks>
     protected void Impact(in RayHit hit, uint now)
     {
-        if (mData.DamageClass == 0)
+        if (DataValues.DamageClass == 0)
         {
             DirectDamage(hit, now);
             ExplodeAtImpact(hit);
         }
-        else if (mData.DamageClass == 1)
+        else if (DataValues.DamageClass == 1)
         {
             float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
             RadiusDamageAt(pos);
@@ -1126,7 +1126,7 @@ internal sealed class RocketDumb : Projectile
     protected override void OnTotalTimePassed()
     {
         // 0x00462134: expired, mask 0x04 (no explosion position).
-        mExploded = true;
+        ExplodedFlag = true;
         _expired = true;
         SetMaskBits(0x04);
     }
@@ -1197,9 +1197,9 @@ internal sealed class Bullet : Projectile
         var now = Game.Sim!.TickMs();
         var end = new float[3];
         for (var i = 0; i < 3; ++i)
-            end[i] = X87.F32(Add(Transform.P[i], X87.F32(Mul(_vel[i], mData.TotalTime))));
+            end[i] = X87.F32(Add(Transform.P[i], X87.F32(Mul(_vel[i], DataValues.TotalTime))));
         var m = Manager();
-        var ex = m != null && mShooter > 0 ? m.FindById(mShooter) : null;
+        var ex = m != null && ShooterId > 0 ? m.FindById(ShooterId) : null;
         var h = new RayHit();
         if (CastWorld(Game, Transform.P, end, 0x6u, ex, ref h))
         {
@@ -1213,7 +1213,7 @@ internal sealed class Bullet : Projectile
         else
         {
             _hasStatic = false;
-            _endTime = unchecked(Pj.Ftol(Mul(mData.TotalTime, 1000.0f)) + now + 10000);
+            _endTime = unchecked(Pj.Ftol(Mul(DataValues.TotalTime, 1000.0f)) + now + 10000);
         }
     }
 
@@ -1222,8 +1222,8 @@ internal sealed class Bullet : Projectile
         // 0x0045bbe0: the damage fades between liveTime and totalTime.
         if (now > LiveEnd)
             return X87.F32(Mul(X87.F32(Sub(1.0, Div(unchecked((int)(now - LiveEnd)), unchecked((int)(TotalEnd - LiveEnd))))),
-                               mData.DamageValue));
-        return mData.DamageValue;
+                               DataValues.DamageValue));
+        return DataValues.DamageValue;
     }
 
     public override void ServerTick(uint now)
@@ -1301,7 +1301,7 @@ internal sealed class Bullet : Projectile
 
     private void HitImpact(in RayHit hit, uint now, bool fromStatic)
     {
-        if (mData.DamageClass == 0)
+        if (DataValues.DamageClass == 0)
         {
             DirectDamage(hit, now);
             // 0x0045d090: the fields and +0x439 are always set, the mask only conditionally.
@@ -1309,7 +1309,7 @@ internal sealed class Bullet : Projectile
             if ((hit.Type & 0x44a00026u) == 0)
                 SetMaskBits(0x04);
         }
-        else if (mData.DamageClass == 1)
+        else if (DataValues.DamageClass == 1)
         {
             float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
             if (fromStatic)
@@ -1339,7 +1339,7 @@ internal sealed class Grenade : Projectile
 
     protected override void ClassOnAdd()
     {
-        _armTime = unchecked(Pj.Ftol(Mul(mData.LiveTime, 1000.0f)) + Game.Sim!.TickMs());
+        _armTime = unchecked(Pj.Ftol(Mul(DataValues.LiveTime, 1000.0f)) + Game.Sim!.TickMs());
         LastSend = Game.Sim.TickMs();
     }
 
@@ -1465,12 +1465,12 @@ internal sealed class Grenade : Projectile
             kn[i] = X87.F32(Mul(k, n[i]));
         for (var i = 0; i < 3; ++i)
             Velocity[i] = X87.F32(Add(Velocity[i], X87.F32(Mul(kn[i], 2.0f))));
-        var e = mData.Elasticity;
+        var e = DataValues.Elasticity;
         if (hit.Material != null)
             e = X87.F32(Mul(Game.Materials.ElasticityOf(hit.Material), e));
         for (var i = 0; i < 3; ++i)
             Velocity[i] = X87.F32(Mul(e, Velocity[i]));
-        if (Mul(mData.MuzzleVelocity, 0.15) < (double)X87.F32(X87.Len(Velocity)))
+        if (Mul(DataValues.MuzzleVelocity, 0.15) < (double)X87.F32(X87.Len(Velocity)))
         {
             LastSend = now;
             SetMaskBits(0x08);
@@ -1483,7 +1483,7 @@ internal sealed class Grenade : Projectile
     {
         float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
         RadiusDamageAt(pos);
-        mExploded = true;
+        ExplodedFlag = true;
         LastSend = now;
         SetMaskBits(0x04);
         Dying = true;

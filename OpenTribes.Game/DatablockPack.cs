@@ -5,7 +5,6 @@ namespace OpenTribes.Game;
 
 using static OpenTribes.Core.Fpu;
 using Block = OpenTribes.Game.DataBlockManager.Block;
-using Field = OpenTribes.Game.DataBlockManager.Field;
 using Value = OpenTribes.Game.DataBlockManager.Value;
 
 /// <summary>The datablock pack routines, the body of a DataBlockEvent (docs/game-stream.md 4.2).</summary>

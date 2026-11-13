@@ -64,7 +64,7 @@ public sealed partial class Player
         foreach (var fn in names)
             if (_game.Console.HasFunction(fn))
             {
-                _game.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot) });
+                _game.Console.CallFunction(fn, [Numbers.FormatInt(Id()), Numbers.FormatInt(slot)]);
                 return;
             }
     }
@@ -256,14 +256,14 @@ public sealed partial class Player
             s.Ammo = ammo;
         }
         var wt = s.Info.WeaponType;
-        bool T = s.Triggered, A = s.Ammo;
+        bool t = s.Triggered, a = s.Ammo;
         var expired = !(s.Timer > 0.0f);
         switch (s.State)
         {
             case Reset:
             case Activate:
                 if (expired)
-                    SetImageState(slot, wt == 1 ? Idle : !A ? NoAmmo : wt == 3 ? Reload : Ready);
+                    SetImageState(slot, wt == 1 ? Idle : !a ? NoAmmo : wt == 3 ? Reload : Ready);
                 break;
             case Fire:
             {
@@ -286,7 +286,7 @@ public sealed partial class Player
                 {
                     if (wt == 1)
                     {
-                        if (!T || !A)
+                        if (!t || !a)
                         {
                             SetImageState(slot, SpinDown);
                         }
@@ -298,7 +298,7 @@ public sealed partial class Player
                     }
                     else if (wt == 2)
                     {
-                        if (!T || !A)
+                        if (!t || !a)
                             SetImageState(slot, Reload);
                     }
                     else
@@ -309,22 +309,22 @@ public sealed partial class Player
                 break;
             }
             case NoAmmo:
-                if (A)
-                    SetImageState(slot, wt == 1 ? (T ? SpinUp : Idle) : Reload);
+                if (a)
+                    SetImageState(slot, wt == 1 ? (t ? SpinUp : Idle) : Reload);
                 break;
             case Idle:
-                if (!A)
+                if (!a)
                     SetImageState(slot, NoAmmo);
-                else if (T)
+                else if (t)
                     SetImageState(slot, wt == 1 ? SpinUp : Ready);
                 break;
             case Ready:
                 if (wt == 1)
                 {
-                    if (!T || !A)
+                    if (!t || !a)
                         SetImageState(slot, SpinDown);
                 }
-                else if (T)
+                else if (t)
                 {
                     SetImageState(slot, Fire);
                 }
@@ -334,15 +334,15 @@ public sealed partial class Player
                     SetImageState(slot, wt == 3 ? SpinUp : Ready);
                 break;
             case SpinUp:
-                if (wt == 3 && !A)
+                if (wt == 3 && !a)
                     SetImageState(slot, NoAmmo);
-                else if (wt != 3 && (!T || !A))
+                else if (wt != 3 && (!t || !a))
                     SetImageState(slot, SpinDown);
                 else if (expired)
                     SetImageState(slot, Ready);
                 break;
             case SpinDown:
-                if (T && A)
+                if (t && a)
                     SetImageState(slot, SpinUp);
                 else if (expired)
                     SetImageState(slot, Idle);
@@ -393,7 +393,7 @@ public sealed partial class Player
                     var fn = _game.VirtualFunction(this, "onNoAmmo");
                     var item = _game.Sim?.DataBlocks().At(5, s.Item);
                     if (fn.Length != 0 && item != null)
-                        _game.Console.CallFunction(fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(slot), item.Name });
+                        _game.Console.CallFunction(fn, [Numbers.FormatInt(Id()), Numbers.FormatInt(slot), item.Name]);
                 }
                 break;
             case Ready:

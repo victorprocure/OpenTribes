@@ -71,20 +71,20 @@ public sealed class R250
 /// <summary>The engine's function-static random generators, each seeded with 0x8377 on first use (src/game/static_sim.cpp).</summary>
 public static class StaticRandom
 {
-    private static readonly R250 sThread = new(), sItem = new(), sTurret = new(), sAi = new();
+    private static readonly R250 ThreadGenerator = new(), ItemGenerator = new(), TurretGenerator = new(), AiGenerator = new();
 
     /// <summary>Returns the generator that picks thread speed at every apply (0x0068486c, docs/static-sim.md 1.7).</summary>
     /// <returns>The shared generator.</returns>
-    public static R250 Thread() => sThread;
+    public static R250 Thread() => ThreadGenerator;
     /// <summary>Returns the generator used by item throws (0x00685194, docs/static-sim.md 5.4).</summary>
     /// <returns>The shared generator.</returns>
-    public static R250 Item() => sItem;
+    public static R250 Item() => ItemGenerator;
     /// <summary>Returns the generator used by turret deflection (docs/static-sim.md 4.7).</summary>
     /// <returns>The shared generator.</returns>
-    public static R250 Turret() => sTurret;
+    public static R250 Turret() => TurretGenerator;
     /// <summary>Returns the generator used by AI aim error and trigger (0x00663cf8).</summary>
     /// <returns>The shared generator.</returns>
-    public static R250 Ai() => sAi;
+    public static R250 Ai() => AiGenerator;
 
     /// <summary>Returns the ambient value, which the engine never seeds (0x00684c68, docs/static-sim.md 1.1).</summary>
     /// <returns>Always zero.</returns>
@@ -93,9 +93,9 @@ public static class StaticRandom
     /// <summary>Re-creates all generators as at process start.</summary>
     public static void Reset()
     {
-        sThread.Reseed(0x8377);
-        sItem.Reseed(0x8377);
-        sTurret.Reseed(0x8377);
-        sAi.Reseed(0x8377);
+        ThreadGenerator.Reseed(0x8377);
+        ItemGenerator.Reseed(0x8377);
+        TurretGenerator.Reseed(0x8377);
+        AiGenerator.Reseed(0x8377);
     }
 }

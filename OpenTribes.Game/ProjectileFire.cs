@@ -150,16 +150,16 @@ public static partial class ProjectileFire
             t = AimedMuzzle(game, pl, slot);
         else if (!pl.MuzzleTransform(slot, out t))
             return null;
-        Projectile? pr = Projectile.Create(game, s.Info.ProjGroup, s.Info.ProjIndex);
+        var pr = Projectile.Create(game, s.Info.ProjGroup, s.Info.ProjIndex);
         if (pr == null)
             return null;
         pr.Init(t, pl.Velocity, pl.Id());
         if (pr.WantsTarget())
         {
             var hit = new RayHit();
-            if (CastLOS(game, pl.EyeTransform(), 0xffffffffu, pl, pr.TargetRange(), ref hit) && hit.Object != null &&
-                hit.Object.IsShapeBase())
-                pr.SetTarget(hit.Object);
+            if (CastLOS(game, pl.EyeTransform(), 0xffffffffu, pl, pr.TargetRange(), ref hit) && hit.HitObject != null &&
+                hit.HitObject.IsShapeBase())
+                pr.SetTarget(hit.HitObject);
         }
         if (!sustained)
         {
@@ -287,7 +287,7 @@ public static partial class ProjectileFire
                 inr.Print(1, "Projectile data block \"" + a[1] + "\" is undefined");
                 return "-1";
             }
-            Projectile? pr = Projectile.Create(game, b!.Group, b.Index);
+            var pr = Projectile.Create(game, b!.Group, b.Index);
             if (pr == null)
                 return "-1";
             // D11: missing transform values are zero (the original keeps stack garbage).

@@ -75,7 +75,7 @@ public sealed class ClientReader
     /// <summary>Reads an unsigned integer.</summary>
     /// <param name="bits">The number of bits.</param>
     /// <returns>The value.</returns>
-    public uint Int(uint bits) { var v = Bs.ReadInt(bits); Check(); return v; }
+    public uint Bits(uint bits) { var v = Bs.ReadInt(bits); Check(); return v; }
 
     /// <summary>Reads a signed integer: a sign flag, then n - 1 bits of magnitude (BitStream readSignedInt).</summary>
     /// <param name="bits">The number of bits.</param>
@@ -91,12 +91,12 @@ public sealed class ClientReader
     /// <summary>Reads n bits scaled to 0 to 1 (BitStream readFloat).</summary>
     /// <param name="bits">The number of bits.</param>
     /// <returns>The value.</returns>
-    public double Unit(uint bits) => Int(bits) / (double)((1u << (int)bits) - 1);
+    public double Unit(uint bits) => Bits(bits) / (double)((1u << (int)bits) - 1);
 
     /// <summary>Reads n bits scaled to -1 to 1 (BitStream readSignedFloat).</summary>
     /// <param name="bits">The number of bits.</param>
     /// <returns>The value.</returns>
-    public double SUnit(uint bits) => (Int(bits) / (double)((1u << (int)bits) - 1) * 2.0) - 1.0;
+    public double SUnit(uint bits) => (Bits(bits) / (double)((1u << (int)bits) - 1) * 2.0) - 1.0;
 
     /// <summary>Reads a unit normal: two signed floats and the sign of z (BitStream readNormalVector).</summary>
     /// <param name="bits">The number of bits of x and y.</param>
@@ -120,7 +120,7 @@ public sealed class ClientReader
     {
         var b = new byte[n];
         for (var i = 0; i < n; ++i)
-            b[i] = (byte)Int(8);
+            b[i] = (byte)Bits(8);
         return b;
     }
 
@@ -143,7 +143,7 @@ public sealed class ClientReader
     /// <param name="name">The field name.</param>
     /// <param name="bits">The number of bits.</param>
     /// <returns>The value.</returns>
-    public long AddInt(string name, uint bits) { long v = Int(bits); Add(name, v); return v; }
+    public long AddInt(string name, uint bits) { long v = Bits(bits); Add(name, v); return v; }
     /// <summary>Reads a raw float and records it.</summary>
     /// <param name="name">The field name.</param>
     /// <returns>The value.</returns>

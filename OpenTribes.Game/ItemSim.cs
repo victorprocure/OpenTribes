@@ -421,8 +421,8 @@ public partial class GameBase
         {
             for (var i = 0; i < 3; ++i)
                 delta[i] = Store(Sub(target[i], p[i]));
-            var L = Store(Len3(delta));
-            var q = Div(L, step);
+            var l2 = Store(Len3(delta));
+            var q = Div(l2, step);
             var n = (long)Math.Ceiling(q);
             if (n > 100000)
                 n = 100000;

@@ -216,7 +216,7 @@ public static class Moves
 public sealed class ObserverCamera : GameBase
 {
     /// <summary>The camera mode values: fixed, look, fly, orbit object and orbit point.</summary>
-    public const int Fixed = 0, Look = 1, Fly = 2, kOrbitObject = 3, OrbitPoint = 4;
+    public const int Fixed = 0, Look = 1, Fly = 2, OrbitObjectMode = 3, OrbitPoint = 4;
 
     /// <summary>What the camera needs from the game. Every member is optional.</summary>
     public sealed class CameraServices
@@ -266,7 +266,7 @@ public sealed class ObserverCamera : GameBase
     /// <param name="clientId">The id of the owning client.</param>
     /// <param name="services">What the camera needs from the game.</param>
     public ObserverCamera(ClassContext ctx, int clientId, CameraServices services)
-        : base("ObserverCamera", Kind.Marker, -1, Array.Empty<PersistDef>(), ctx)
+        : base("ObserverCamera", Kind.Marker, -1, [], ctx)
     {
         ClientId = clientId;
         _services = services;
@@ -338,7 +338,7 @@ public sealed class ObserverCamera : GameBase
         if (obj != null)
         {
             ObjectCentre(obj, Position);
-            Mode = kOrbitObject;
+            Mode = OrbitObjectMode;
         }
         else
         {
@@ -467,7 +467,7 @@ public sealed class ObserverCamera : GameBase
                 pos[i] = Store(Add(v, pos[i]));
             }
         }
-        else if (Mode is kOrbitObject or OrbitPoint)
+        else if (Mode is OrbitObjectMode or OrbitPoint)
         {
             dist = Store(Sub(dist, Mul(fwd, dt)));
             if (dist < MinDistance)
@@ -489,11 +489,11 @@ public sealed class ObserverCamera : GameBase
             else if (rot[0] < -1.3962)
                 rot[0] = -1.3962f;
         }
-        if (Mode is kOrbitObject or OrbitPoint)
+        if (Mode is OrbitObjectMode or OrbitPoint)
         {
-            if (Mode == kOrbitObject && OrbitObject == null)
+            if (Mode == OrbitObjectMode && OrbitObject == null)
                 Mode = OrbitPoint; // not reachable through setOrbit / objectDeleted
-            if (Mode == kOrbitObject && Distance < 0.0f)
+            if (Mode == OrbitObjectMode && Distance < 0.0f)
             {
                 // -1: the object's own transform (first person). Other negative values ask the object for a transform at
                 // that distance (vtable +0x170); GameBase objects without one answer with their transform.
@@ -501,7 +501,7 @@ public sealed class ObserverCamera : GameBase
             }
             else
             {
-                if (Mode == kOrbitObject)
+                if (Mode == OrbitObjectMode)
                     ObjectCentre(OrbitObject!, Position);
                 var t = new Transform();
                 MissionTransform.EulerToMatrix(rot, ref t);
@@ -518,7 +518,7 @@ public sealed class ObserverCamera : GameBase
         }
         for (var i = 0; i < 3; ++i)
             CamRotation[i] = rot[i];
-        if (Mode is not kOrbitObject and not OrbitPoint)
+        if (Mode is not OrbitObjectMode and not OrbitPoint)
             for (var i = 0; i < 3; ++i)
                 Position[i] = pos[i];
         Distance = dist;
@@ -558,7 +558,7 @@ public sealed class ObserverCamera : GameBase
         bs.WriteF32s(CamRotation);
         var m = (uint)Mode;
         uint index = 0x3ff;
-        if (m == kOrbitObject)
+        if (m == OrbitObjectMode)
         {
             var g = ctx.Ghosts != null && OrbitObject != null ? ctx.Ghosts.GhostIndex(OrbitObject) : -1;
             if (g >= 0)
@@ -571,7 +571,7 @@ public sealed class ObserverCamera : GameBase
         {
             bs.WriteF32s(Position);
         }
-        else if (m == kOrbitObject)
+        else if (m == OrbitObjectMode)
         {
             bs.WriteInt(index, 10);
             bs.WriteF32(MinDistance);

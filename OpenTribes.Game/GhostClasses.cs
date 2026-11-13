@@ -95,7 +95,7 @@ public static partial class GhostClasses
         if (bs.WriteFlag((mask & 0x40) != 0))
             bs.WriteFlag(f.Boolean("isStatic", false));
         if (bs.WriteFlag((mask & 0x01) != 0))
-            bs.WriteInt((uint)f.Integer("type", 0), 3);
+            bs.WriteInt((uint)f.IntegerValue("type", 0), 3);
         if (bs.WriteFlag((mask & 0x02) != 0))
             WriteF32(bs, f.Real("range", 0.0f));
         if (bs.WriteFlag((mask & 0x04) != 0))
@@ -446,7 +446,7 @@ public static partial class GhostClasses
         WriteF32(bs, f.Real("featurePosition", 0.0f));
         WriteF32(bs, f.Real("size", 600.0f));
         for (var i = 0; i < 16; ++i)
-            bs.WriteInt((uint)f.Integer("textures", i % 2, i), 4);
+            bs.WriteInt((uint)f.IntegerValue("textures", i % 2, i), 4);
         return 0;
     }
 
