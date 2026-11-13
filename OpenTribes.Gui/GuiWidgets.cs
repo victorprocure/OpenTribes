@@ -330,6 +330,9 @@ public sealed class GuiUniversalButton : GuiActive
         return Host.BitmapByName((lowRes ? "LR_" : "") + Root + suffix + ".bmp");
     }
 
+    // Slot 0xd8 [code 0049f81c]: the same work as a click (the radio is set, the command runs).
+    public void Activate() => Action();
+
     public override void Wake()
     {
         On = U("on") != 0;

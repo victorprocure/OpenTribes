@@ -85,8 +85,11 @@ public sealed class GuiHost
     // ---- console ----
 
     public string Eval(string text) => Interp.Evaluate(text);
-    public string GetVar(string name) => Interp.PeekVariable(name);
-    public void SetVar(string name, string value) => Interp.SetVariable(name, value);
+    // The console variable accessors the controls bind through (Console_getVariableText and Console_setVariableText): the name goes
+    // through 005f3324 first, which puts a `$` in front of a name that has none (CreateServer.gui binds `Server::HostName`).
+    private static string VarName(string name) => name.Length > 0 && name[0] != '$' ? "$" + name : name;
+    public string GetVar(string name) => Interp.PeekVariable(VarName(name));
+    public void SetVar(string name, string value) => Interp.SetVariable(VarName(name), value);
     public bool HasFunction(string name) => Interp.HasFunction(name);
     public string Call(string name, params string[] args) => Interp.CallFunction(name, args);
     public void Print(string line) => Interp.Print(1, line);
