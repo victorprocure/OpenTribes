@@ -192,6 +192,9 @@ public interface IHudSource
     // The sensor ping and the crosshair draw only while the client's own player or a vehicle it rides is the control object
     // [code 004ea720, 004ab500]: not in the observer camera.
     bool InPlayerView => HasPlayerState;
+    // The sensor ping draws only while the control object is the client's own player or has object flag 0x20000000 (Vehicle, Flier): a
+    // controlled Turret shows none, not even the frame [code 004ea720, test at 004ea7d3].
+    bool SensorHudShown => HasPlayerState;
     // The weapon list draws only while the control object is the client's own player (PSC +0xa4 == the controlled player 006a83cc), not in a
     // vehicle it rides [code 004e8fe8]. The ping and the crosshair also take an object flagged 0x20000000 (Vehicle, Flier) [code 004ea720].
     bool ControlIsPlayer => HasPlayerState;

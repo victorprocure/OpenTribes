@@ -434,7 +434,7 @@ public sealed class GuiSensorHud : GuiHud
 
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        if (Source == null || !Source.InPlayerView || Host == null)
+        if (Source == null || !Source.SensorHudShown || Host == null)
             return;
         bool lr = LowRes;
         int x = ox + X, y = oy + Y;
