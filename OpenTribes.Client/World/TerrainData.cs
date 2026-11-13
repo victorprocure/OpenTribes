@@ -186,11 +186,13 @@ public sealed class TerrainData
     public static (byte r, byte g, byte b) ExpandLightPacked(ushort w) =>
         ((byte)(((w >> 8) & 0xf) * 17), (byte)(((w >> 4) & 0xf) * 17), (byte)((w & 0xf) * 17));
 
-    // The interior surface light map as the stock client stores it by default: the lightmap upload path of the interior renderer
-    // (005d45d0 -> 005d7e00) packs each nibble n into a 5 bit channel 2n + 1 of a 5551 texture (the mono nibble is dropped, alpha 1),
-    // which the driver reads back as (v << 3) | (v >> 2).
-    public static (byte r, byte g, byte b) ExpandLight5551(ushort w) => (Expand5(((w >> 8) & 0xf) * 2 + 1), Expand5(((w >> 4) & 0xf) * 2 + 1),
-                                                                         Expand5((w & 0xf) * 2 + 1));
+    // The interior surface light map as the stock client's light map upload reads back: the 32 bit expansion of the upload
+    // (005d45d0 -> 005d6230, the branch for Use32BitTex, NoPackedTextures or no packed pixels; the packed branch 005d7e00 writes 5551):
+    // each of R, G, B becomes (nibble << 4) | 0xf, the mono nibble is ignored. The stock client measured in the harness (Broadside,
+    // default prefs, interior surfaces lit by nibble 1: 31/255; with Use32BitTex set: the same) takes this branch for light maps while
+    // its palette textures stay packed (5551). The branch condition in the decompile is the same for both, so why is open (world-render.md 3.5).
+    public static (byte r, byte g, byte b) ExpandLightInterior(ushort w) => ((byte)(((w >> 8) & 0xf) << 4 | 0xf), (byte)(((w >> 4) & 0xf) << 4 | 0xf),
+                                                                              (byte)((w & 0xf) << 4 | 0xf));
 
     private static byte Expand5(int v) => (byte)((v << 3) | (v >> 2));
 
