@@ -429,8 +429,16 @@ public sealed class LiveGame : IDisposable
             pose = DemoRender.TurretCamera(Model, World.Psc.ControlGhost, tc.Rotation, tc.Elevation, mApp.Play.Moves.ViewDist,
                                            Net.PredictWorld?.Game.World, null) ?? pose;
         }
+        // The camera query struct of the PSC (004077a8, call [vtable +0x170] at 00407877) keeps its previous contents when the control
+        // object writes nothing: Turret_getCameraTransform 004564fc writes nothing while the turret has no shape instance. The view then
+        // stays at the last pose instead of the turret origin or no frame.
+        if (World.Psc.ControlClass == "Turret" && World.Psc.ControlGhost >= 0 && pose == null)
+            return mLastPose;
+        mLastPose = pose ?? mLastPose;
         return pose;
     }
+
+    private DemoRender.CameraPose? mLastPose;
 
     // The eye and muzzle transforms of the control Vehicle, Flier or Turret in world space for the aim markers (FUN_004ada90 calls vtable
     // +0x110 and +0x10c of the control object [code 004adacd, 004ae719]). The vehicle fire counter (+0x948) is the one the ghost stream

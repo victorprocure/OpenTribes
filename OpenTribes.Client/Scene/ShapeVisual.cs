@@ -524,6 +524,8 @@ public class ShapeVisual : Visual
 
     // The inputs of Vehicle_getCameraTransform 00445d88: the object transform as drawn (Euler x, y, z and the position, rotation and
     // translation flags) and the `dummy eye` node transform (animated, in object space), null without that node.
+    public bool HasShapeInstance => Inst != null && Shape != null;
+
     public bool TryCameraInputs(out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? eye) =>
         TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out eye, out _);
 
