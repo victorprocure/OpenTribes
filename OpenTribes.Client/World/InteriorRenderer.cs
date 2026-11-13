@@ -5,11 +5,15 @@ using OpenTribes.World;
 
 namespace OpenTribes.Client.World;
 
-// Shelf packing of rectangles into one atlas (Internal: the original keeps one light map per surface, 3.5).
+/// <summary>Shelf packing of rectangles into one atlas.</summary>
+/// <remarks>Internal in mechanism: the original keeps one light map per surface (3.5).</remarks>
 public static class AtlasPacker
 {
-    // Returns the position of each rectangle and the atlas size. Rectangles are placed on shelves in order of decreasing
-    // height; the width is fixed, the height grows.
+    /// <summary>Places rectangles on shelves in order of decreasing height. The width is fixed and the height grows.</summary>
+    /// <param name="sizes">The width and height of each rectangle.</param>
+    /// <param name="width">The atlas width.</param>
+    /// <param name="height">The atlas height.</param>
+    /// <returns>The position of each rectangle.</returns>
     public static (int x, int y)[] Pack(IReadOnlyList<(int w, int h)> sizes, int width, out int height)
     {
         var order = Enumerable.Range(0, sizes.Count).OrderByDescending(i => sizes[i].h).ThenBy(i => i).ToArray();
@@ -33,11 +37,14 @@ public static class AtlasPacker
     }
 }
 
-// world-render.md 3.7: the interior light maps of one detail level, built at a light time.
+/// <summary>The interior light maps of one detail level, built at a light time (world-render.md 3.7).</summary>
 public static class InteriorLightMaps
 {
-    // Surface light maps (u16 nibbles M R G B) after the base map (or the mission map when the mission lighting has it)
-    // and every light's current state data have been applied (3.7 steps 2 and 3). `time` is the same for every light.
+    /// <summary>Builds the surface light maps (u16 nibbles M R G B): the base map (or the mission map when the mission lighting has it) with the current state data of every light applied (3.7 steps 2 and 3).</summary>
+    /// <param name="baseLt">The base lighting.</param>
+    /// <param name="mission">The mission lighting, or null.</param>
+    /// <param name="time">The light time, the same for every light.</param>
+    /// <returns>The map of each surface, null for a surface without a map.</returns>
     public static ushort[]?[] Build(InteriorLighting baseLt, InteriorLighting? mission, float time)
     {
         var maps = BaseMaps(baseLt, mission);
@@ -46,6 +53,10 @@ public static class InteriorLightMaps
         return maps;
     }
 
+    /// <summary>Builds the surface light maps without any light applied.</summary>
+    /// <param name="baseLt">The base lighting.</param>
+    /// <param name="mission">The mission lighting, or null.</param>
+    /// <returns>The map of each surface, null for a surface without a map.</returns>
     public static ushort[]?[] BaseMaps(InteriorLighting baseLt, InteriorLighting? mission)
     {
         var maps = new ushort[]?[baseLt.Surfaces.Length];
@@ -54,12 +65,11 @@ public static class InteriorLightMaps
         return maps;
     }
 
-    // 3.7 step 5, ITRInstance_mergeSunLight 005581a0 (identical bytes in 1.11): for a surface with the visible-to-outside flag (0x40) the
-    // planet light (type 6) gives t = (n . toSun + 1) / 2, n the plane normal (negated when the plane front flag 0x80 is clear), added to
-    // the scene ambient: c = ambient + sunColour * t. mono = 0.3 r + 0.6 g + 0.1 b (before the clamp), each channel above 0.99999999
-    // becomes 1, nibble = trunc(c * 16), and every pixel of the map takes the saturating nibble sum. Nothing is added when t <= 0.
-    // The stock code does not transform the light into interior space (the dot is of the light direction with the plane as stored), so the
-    // result does not depend on the instance rotation. [I]
+    /// <summary>Adds the sun to the light maps of the surfaces visible from outside (3.7 step 5).</summary>
+    /// <param name="maps">The surface light maps.</param>
+    /// <param name="geo">The geometry of the interior.</param>
+    /// <param name="sun">The scene light of the planet.</param>
+    /// <remarks>Follows ITRInstance_mergeSunLight (005581a0, identical bytes in 1.11): for a surface with the visible to outside flag (0x40) the planet light (type 6) gives t = (n . toSun + 1) / 2, n the plane normal (negated when the plane front flag 0x80 is clear), added to the scene ambient: c = ambient + sunColour * t. mono = 0.3 r + 0.6 g + 0.1 b (before the clamp), each channel above 0.99999999 becomes 1, nibble = trunc(c * 16), and every pixel of the map takes the saturating nibble sum. Nothing is added when t &lt;= 0. The stock code does not transform the light into interior space (the dot is of the light direction with the plane as stored), so the result does not depend on the instance rotation.</remarks>
     public static void AddSun(ushort[]?[] maps, InteriorGeometryData geo, LightSet sun)
     {
         for (int s = 0; s < maps.Length && s < geo.Surfaces.Length; ++s)
@@ -91,7 +101,10 @@ public static class InteriorLightMaps
         }
     }
 
-    // The surfaces a light writes to in any of its states.
+    /// <summary>Lists the surfaces a light writes to in any of its states.</summary>
+    /// <param name="baseLt">The base lighting.</param>
+    /// <param name="light">The light.</param>
+    /// <returns>The surface indices.</returns>
     public static IEnumerable<int> LightSurfaces(InteriorLighting baseLt, InteriorLighting.Light light)
     {
         if (light.StateCount <= 0 || light.FirstState < 0 || light.FirstState + light.StateCount > baseLt.States.Length)
@@ -105,8 +118,13 @@ public static class InteriorLightMaps
         }
     }
 
-    // Adds the current state of one light at `time` (its state data, in its interpolated colour) to `maps`; only the surfaces of
-    // `only` when given.
+    /// <summary>Adds the current state of one light at a time (its state data, in its interpolated colour) to the maps.</summary>
+    /// <param name="maps">The surface light maps.</param>
+    /// <param name="baseLt">The base lighting.</param>
+    /// <param name="mission">The mission lighting, or null.</param>
+    /// <param name="lightIndex">The light index.</param>
+    /// <param name="time">The light time.</param>
+    /// <param name="only">The surfaces to write, or null for all.</param>
     public static void Apply(ushort[]?[] maps, InteriorLighting baseLt, InteriorLighting? mission, int lightIndex, float time, HashSet<int>? only)
     {
         InteriorLighting.Light light = baseLt.Lights[lightIndex];
@@ -117,7 +135,14 @@ public static class InteriorLightMaps
         Apply(maps, baseLt, mission, lightIndex, state, InteriorLighting.ColorAt(records, light.Duration, state, time), only);
     }
 
-    // The same with the state and colour given (random lights pick their own).
+    /// <summary>Adds a light to the maps with the state and colour given. Random lights pick their own.</summary>
+    /// <param name="maps">The surface light maps.</param>
+    /// <param name="baseLt">The base lighting.</param>
+    /// <param name="mission">The mission lighting, or null.</param>
+    /// <param name="lightIndex">The light index.</param>
+    /// <param name="state">The state index.</param>
+    /// <param name="colour">The colour bytes.</param>
+    /// <param name="only">The surfaces to write, or null for all.</param>
     public static void Apply(ushort[]?[] maps, InteriorLighting baseLt, InteriorLighting? mission, int lightIndex, int state,
                              (int mono, int r, int g, int b) colour, HashSet<int>? only)
     {
@@ -150,55 +175,90 @@ public static class InteriorLightMaps
     }
 }
 
-// One detail level of a shape: geometry, material bitmaps and one light atlas.
+/// <summary>One detail level of a shape: geometry, material bitmaps and one light atlas.</summary>
 public sealed class InteriorLodModel
 {
+    /// <summary>The geometry.</summary>
     public InteriorGeometryData Geo = null!;
-    // The geometry with its leaves, for the visible surface selection of the stock renderer (world-render.md 3.3).
+    /// <summary>The geometry with its leaves, for the visible surface selection of the stock renderer (world-render.md 3.3).</summary>
     public InteriorGeometry? Leaves;
+    /// <summary>The bitmap name of each material.</summary>
     public List<string?> Materials = new();
-    public InteriorLighting? Base, Mission;
+    /// <summary>The base lighting.</summary>
+    public InteriorLighting? Base;
+    /// <summary>The mission lighting.</summary>
+    public InteriorLighting? Mission;
+    /// <summary>The position of each surface map in the atlas.</summary>
     public (int x, int y)[] LmPos = Array.Empty<(int, int)>();
-    public int AtlasW, AtlasH;
+    /// <summary>The atlas width.</summary>
+    public int AtlasW;
+    /// <summary>The atlas height.</summary>
+    public int AtlasH;
+    /// <summary>The minimum projected size in pixels for this detail level.</summary>
     public int MinPixels;
+    /// <summary>The centre of the geometry box.</summary>
     public float[] Center = new float[3];
+    /// <summary>The radius of the bounding sphere.</summary>
     public float Radius;
-    // Animated lights (world-render.md 3.7 Timing): the lights that run on the client (auto start flag), the surfaces they touch
-    // and the maps those surfaces start from.
+    /// <summary>The animated lights that run on the client (auto start flag, world-render.md 3.7 Timing).</summary>
     public int[] Running = Array.Empty<int>();
+    /// <summary>The surfaces the running lights touch.</summary>
     public HashSet<int> RunSurfaces = new();
+    /// <summary>The maps those surfaces start from.</summary>
     public ushort[]?[] BaseMaps = Array.Empty<ushort[]?>();
-    // The light atlases built so far, one per light state seen (the first is the state at light time 0): the stock instance holds its own
-    // light state and maps, here instances whose lights are in the same state share one atlas.
+    /// <summary>The light atlases built so far, one per light state seen (the first is the state at light time 0). The stock instance holds its own light state and maps. Here instances whose lights are in the same state share one atlas.</summary>
     public readonly List<LightAtlas> Atlases = new();
 }
 
-// One light atlas of a detail level: the packed surface maps for one state of its running lights (`Key`).
+/// <summary>One light atlas of a detail level: the packed surface maps for one state of its running lights.</summary>
 public sealed class LightAtlas
 {
+    /// <summary>The state of each running light.</summary>
     public int[] Key = Array.Empty<int>();
+    /// <summary>The atlas pixels.</summary>
     public byte[] Rgba = Array.Empty<byte>();
+    /// <summary>The atlas texture.</summary>
     public IGfxTexture? Texture;
+    /// <summary>The frame this atlas was last used.</summary>
     public long UsedFrame;
 }
 
+/// <summary>A loaded interior shape file with its detail levels.</summary>
 public sealed class InteriorModel
 {
+    /// <summary>The resolved file name.</summary>
     public string Name = "";
+    /// <summary>The shape file.</summary>
     public InteriorShapeFile Shape = new();
+    /// <summary>The detail levels, null while not loaded.</summary>
     public InteriorLodModel?[] Lods = Array.Empty<InteriorLodModel?>();
 }
 
-// world-render.md 3: draws the interior instances of a mission.
+/// <summary>Draws the interior instances of a mission (world-render.md 3).</summary>
 public sealed class InteriorRenderer : IDisposable
 {
+    /// <summary>One placed interior.</summary>
     public sealed class Instance
     {
+        /// <summary>The model.</summary>
         public InteriorModel Model = null!;
-        public double X, Y, Z, Rx, Ry, Rz;
-        // The team of the GameBase part (-1 none) and the skin its textures were built with ("" none).
+        /// <summary>The position x.</summary>
+        public double X;
+        /// <summary>The position y.</summary>
+        public double Y;
+        /// <summary>The position z.</summary>
+        public double Z;
+        /// <summary>The rotation about x.</summary>
+        public double Rx;
+        /// <summary>The rotation about y.</summary>
+        public double Ry;
+        /// <summary>The rotation about z.</summary>
+        public double Rz;
+        /// <summary>The team of the GameBase part, -1 for none.</summary>
         public int Team = -1;
+        /// <summary>The skin its textures were built with, empty for none.</summary>
         public string Skin = "";
+        /// <summary>The rotation matrix, row major.</summary>
         public float[] M = new float[9];
         // World box of the geometry padded by 3 on every side (docs/game-stream-ghosts.md 6.2), null until first needed; IsContainer: some extent >= 6.
         internal double[]? Box;
@@ -233,26 +293,35 @@ public sealed class InteriorRenderer : IDisposable
     private readonly Dictionary<string, InteriorModel?> mModels = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IGfxTexture?> mTextures = new(StringComparer.OrdinalIgnoreCase);
     private IGfxTexture? mWhite;
+    /// <summary>The placed interiors.</summary>
     public readonly List<Instance> Instances = new();
-    // The lights advance in steps of $pref::interiorLightUpdateMS (67 ms, Tribes.exe 0047f3f4).
+    /// <summary>The length of a light step in seconds: the lights advance in steps of <c>$pref::interiorLightUpdateMS</c> (67 ms, 0047f3f4).</summary>
     public const float LightStep = 0.067f;
     private readonly System.Diagnostics.Stopwatch mClock = System.Diagnostics.Stopwatch.StartNew();
-    // The simulation time in seconds, set by the host before each frame. The stock instance keeps an accumulator that its first tick
-    // sets to the sim time and then adds 67 ms to while the tick time is above it [code 0047f3f4], so the light time of an instance is a
-    // whole number of steps counted from its own first tick (Instance.LightOrigin, the first frame that sees it). Without a sim time
-    // (tools) the wall clock stands in.
+    /// <summary>The simulation time in seconds, set by the host before each frame. Without a sim time (tools) the wall clock stands in.</summary>
+    /// <remarks>The stock instance keeps an accumulator that its first tick sets to the sim time and then adds 67 ms to while the tick time is above it (0047f3f4), so the light time of an instance is a whole number of steps counted from its own first tick (<c>Instance.LightOrigin</c>, the first frame that sees it).</remarks>
     public double? SimSeconds;
     private long mFrame;
     private readonly Random mRandom = new(0x5eed);
-    public int DrawnSurfaces, DrawnInstances;
+    /// <summary>The number of surfaces drawn in the last frame.</summary>
+    public int DrawnSurfaces;
+    /// <summary>The number of instances drawn in the last frame.</summary>
+    public int DrawnInstances;
 
+    /// <summary>Creates the renderer.</summary>
+    /// <param name="dev">The graphics device.</param>
+    /// <param name="assets">The world assets.</param>
     public InteriorRenderer(IGfxDevice dev, WorldAssets assets)
     {
         mDev = dev;
         mAssets = assets;
     }
 
-    // interiors.md 5.2: the Euler transform, row-vector convention, world = local * M + p.
+    /// <summary>Builds the Euler transform (interiors.md 5.2): row vector convention, world = local * M + p.</summary>
+    /// <param name="x">The rotation about x.</param>
+    /// <param name="y">The rotation about y.</param>
+    /// <param name="z">The rotation about z.</param>
+    /// <returns>The nine matrix elements, row major.</returns>
     public static float[] EulerMatrix(double x, double y, double z)
     {
         double cx = Math.Cos(x), sx = Math.Sin(x), cy = Math.Cos(y), sy = Math.Sin(y), cz = Math.Cos(z), sz = Math.Sin(z);
@@ -266,7 +335,9 @@ public sealed class InteriorRenderer : IDisposable
         };
     }
 
-    // interiors.md L3, 4: <base>-<digits>-<n>.dil is the mission lighting of <base>-<digits>.dil.
+    /// <summary>Gets the name of the base lighting of a mission lighting (interiors.md L3, 4): <c>&lt;base&gt;-&lt;digits&gt;-&lt;n&gt;.dil</c> is the mission lighting of <c>&lt;base&gt;-&lt;digits&gt;.dil</c>.</summary>
+    /// <param name="name">The lighting file name.</param>
+    /// <returns>The base name.</returns>
     public static string BaseLightingName(string name)
     {
         int dash = name.LastIndexOf('-');
@@ -278,12 +349,22 @@ public sealed class InteriorRenderer : IDisposable
         return name[i] == '-' ? name[..dash] + ".dil" : name;
     }
 
-    // The skin base of a team (the client's team table); materials named `base.<name>` take `<skin>.<name>` when that exists.
+    /// <summary>Gets the skin base of a team (the team table of the client). Materials named <c>base.&lt;name&gt;</c> take <c>&lt;skin&gt;.&lt;name&gt;</c> when that exists.</summary>
     public Func<int, string>? TeamSkin;
 
-    // The scene light of the planet (ambient, sun colour and direction) for 3.7 step 5; null: no sun term.
+    /// <summary>The scene light of the planet (ambient, sun colour and direction) for 3.7 step 5, or null for no sun term.</summary>
     public LightSet? Sun;
 
+    /// <summary>Adds an interior instance, loading the model on first use.</summary>
+    /// <param name="fileName">The interior file name.</param>
+    /// <param name="x">The position x.</param>
+    /// <param name="y">The position y.</param>
+    /// <param name="z">The position z.</param>
+    /// <param name="rx">The rotation about x.</param>
+    /// <param name="ry">The rotation about y.</param>
+    /// <param name="rz">The rotation about z.</param>
+    /// <param name="team">The team of the GameBase part, -1 for none.</param>
+    /// <returns>False when the interior did not load.</returns>
     public bool AddInstance(string fileName, double x, double y, double z, double rx, double ry, double rz, int team = -1)
     {
         string resolved = Interior.ResolveInteriorName(mAssets.Res, fileName);
@@ -305,7 +386,16 @@ public sealed class InteriorRenderer : IDisposable
         return true;
     }
 
-    // Adds a model built in memory (tests, tools): the lighting atlas of `lod` is built here.
+    /// <summary>Adds a model built in memory (tests, tools). The lighting atlas of the level is built here.</summary>
+    /// <param name="model">The model.</param>
+    /// <param name="lod">The detail level.</param>
+    /// <param name="x">The position x.</param>
+    /// <param name="y">The position y.</param>
+    /// <param name="z">The position z.</param>
+    /// <param name="rx">The rotation about x.</param>
+    /// <param name="ry">The rotation about y.</param>
+    /// <param name="rz">The rotation about z.</param>
+    /// <returns>The instance.</returns>
     public Instance Install(InteriorModel model, InteriorLodModel lod, double x, double y, double z, double rx, double ry, double rz)
     {
         BuildAtlas(lod);
@@ -376,8 +466,7 @@ public sealed class InteriorRenderer : IDisposable
         return lod;
     }
 
-    // Loads every detail level of every model in use (geometry, lighting, light atlas, material bitmaps), so the first frame
-    // that sees an interior from a new distance does not stall on file reads and texture uploads.
+    /// <summary>Loads every detail level of every model in use (geometry, lighting, light atlas, material bitmaps), so the first frame that sees an interior from a new distance does not stall on file reads and texture uploads.</summary>
     public void Preload()
     {
         foreach (InteriorModel? model in mModels.Values)
@@ -634,8 +723,10 @@ public sealed class InteriorRenderer : IDisposable
         return t;
     }
 
-    // 3.2: the first LOD whose minPixels is less than the projected size of the bounding sphere, else the last. Inside the
-    // box the first (highest detail) LOD is forced (3.1).
+    /// <summary>Finds the detail level for a projected size (3.2): the first level whose minPixels is less than the projected size of the bounding sphere, else the last. Inside the box the first (highest detail) level is forced (3.1).</summary>
+    /// <param name="minPixels">The minimum size of each level.</param>
+    /// <param name="projectedPixels">The projected size of the bounding sphere.</param>
+    /// <returns>The level index.</returns>
     public static int FindLod(IReadOnlyList<int> minPixels, int projectedPixels)
     {
         for (int i = 0; i < minPixels.Count; ++i)
@@ -644,12 +735,14 @@ public sealed class InteriorRenderer : IDisposable
         return minPixels.Count - 1;
     }
 
-    // The detail level of the frame, the draw function 00480be4 with ITRInstance_updateDetail (00556fa4). Inside the geometry box of the
-    // current detail, or when the image link flag (image +0x18, bit 2 of the interior's +0x418: the walk reached it through a link
-    // record of a neighbour) is set, ITRInstance_changeDetail(0) forces the full detail level. Otherwise the level comes from the
-    // projected size, but updateDetail only runs when the shape resource of the instance (+0x3c, data +0x14) is loaded and keeps
-    // the previous level when it is not. The port's analogue of the missing data is a level without its lighting: the previous
-    // level stays.
+    /// <summary>Chooses the detail level of the frame.</summary>
+    /// <param name="inside">True when the camera is inside the geometry box of the current detail.</param>
+    /// <param name="linkFlag">The image link flag.</param>
+    /// <param name="dataLoaded">True when the shape resource of the instance is loaded.</param>
+    /// <param name="previous">The previous level.</param>
+    /// <param name="computed">The level from the projected size.</param>
+    /// <returns>The level.</returns>
+    /// <remarks>Follows the draw function 00480be4 with ITRInstance_updateDetail (00556fa4). Inside the geometry box of the current detail, or when the image link flag (image +0x18, bit 2 of +0x418 of the interior: the walk reached it through a link record of a neighbour) is set, ITRInstance_changeDetail(0) forces the full detail level. Otherwise the level comes from the projected size, but updateDetail only runs when the shape resource of the instance (+0x3c, data +0x14) is loaded and keeps the previous level when it is not. The port's analogue of the missing data is a level without its lighting: the previous level stays.</remarks>
     public static int ChooseDetail(bool inside, bool linkFlag, bool dataLoaded, int previous, int computed)
     {
         if (inside || linkFlag)
@@ -668,18 +761,22 @@ public sealed class InteriorRenderer : IDisposable
         return lods.Count - 1;
     }
 
-    // The sphere the detail choice projects: ITRInstance_setState (005570c0) takes it from the geometry box of the LAST detail
-    // level of the state: centre = the box centre, radius = the longest box extent (not half the diagonal).
+    /// <summary>Computes the sphere the detail choice projects.</summary>
+    /// <param name="box">The geometry box of the last detail level.</param>
+    /// <returns>The centre and the radius.</returns>
+    /// <remarks>Follows ITRInstance_setState (005570c0): the sphere comes from the geometry box of the last detail level of the state, with the centre of the box as centre and the longest box extent as radius (not half the diagonal).</remarks>
     public static (double cx, double cy, double cz, double radius) DetailSphere(float[] box)
     {
         float r = Math.Max(Math.Max(box[3] - box[0], box[4] - box[1]), box[5] - box[2]);
         return ((box[0] + box[3]) * 0.5, (box[1] + box[4]) * 0.5, (box[2] + box[5]) * 0.5, r);
     }
 
-    // The projected size the detail choice compares with minPixels: 00480be4 calls the camera's project-sphere slot (vtable +0x10,
-    // 005aa704), multiplies by 2.0 (constant at 00481094), stores a float and truncates it (00556fa4). The slot divides the radius
-    // by the view depth (the camera space y of the centre, at least 0.001), not by the distance, and scales by pixels per unit at
-    // distance 1 (here FocalLength). Single precision throughout.
+    /// <summary>Computes the projected size the detail choice compares with minPixels.</summary>
+    /// <param name="depth">The view depth of the centre.</param>
+    /// <param name="radius">The sphere radius.</param>
+    /// <param name="focalLength">The pixels per unit at distance 1.</param>
+    /// <returns>The size in pixels.</returns>
+    /// <remarks>00480be4 calls the project sphere slot of the camera (vtable +0x10, 005aa704), multiplies by 2.0 (constant at 00481094), stores a float and truncates it (00556fa4). The slot divides the radius by the view depth (the camera space y of the centre, at least 0.001), not by the distance, and scales by pixels per unit at distance 1. Single precision throughout.</remarks>
     public static int DetailPixels(double depth, double radius, double focalLength)
     {
         float d = depth < 0.001 ? 0.001f : (float)depth;
@@ -687,7 +784,7 @@ public sealed class InteriorRenderer : IDisposable
         return size >= int.MaxValue ? int.MaxValue : (int)size;
     }
 
-    // Culled: the object is in a container interior whose camera scope does not reach it.
+    /// <summary>The container index of an object that is in a container interior whose camera scope does not reach it.</summary>
     public const int Culled = -2;
 
     private bool EnsureBox(Instance inst)
@@ -714,9 +811,11 @@ public sealed class InteriorRenderer : IDisposable
 
     private static double Volume(double[] b) => (b[3] - b[0]) * (b[4] - b[1]) * (b[5] - b[2]);
 
-    // The container interior (instance index) that holds an object with this world box (min xyz, max xyz), -1 none: the first
-    // container whose padded world box holds the whole box (SimContainer::addObject 004f9c04). Between interiors the larger
-    // box is the container (a new container pulls in what it holds, findContained), equal boxes by index.
+    /// <summary>Finds the container interior (instance index) that holds an object with a world box.</summary>
+    /// <param name="objectBox">The box as min xyz, max xyz.</param>
+    /// <param name="exclude">An instance index to skip.</param>
+    /// <returns>The index, or -1 for none.</returns>
+    /// <remarks>Follows SimContainer::addObject (004f9c04): the first container whose padded world box holds the whole box. Between interiors the larger box is the container (a new container pulls in what it holds, findContained), equal boxes by index.</remarks>
     public int FindContainer(double[] objectBox, int exclude = -1)
     {
         for (int i = 0; i < Instances.Count; ++i)
@@ -734,9 +833,12 @@ public sealed class InteriorRenderer : IDisposable
         return -1;
     }
 
-    // Whether the camera scope of container interior `i` reaches the object (the render query of the PVS database, 00483e84): a
-    // camera in a solid leaf scopes nothing; otherwise the objects in the leaves of the camera's PVS (leaf 43 and up), in solid
-    // leaves, and when the camera leaf sees outside the objects outside the geometry box.
+    /// <summary>Tells whether the camera scope of container interior <paramref name="i"/> reaches an object.</summary>
+    /// <param name="i">The container instance index.</param>
+    /// <param name="objectBox">The box of the object as min xyz, max xyz.</param>
+    /// <param name="cam">The camera.</param>
+    /// <returns>True when the object is in scope.</returns>
+    /// <remarks>The render query of the PVS database (00483e84): a camera in a solid leaf scopes nothing. Otherwise the objects in the leaves of the PVS of the camera (leaf 43 and up), in solid leaves, and, when the camera leaf sees outside, the objects outside the geometry box.</remarks>
     public bool ScopeReaches(int i, double[] objectBox, in Camera3D cam)
     {
         Instance inst = Instances[i];
@@ -759,7 +861,7 @@ public sealed class InteriorRenderer : IDisposable
         return leaves.IsSolid(leaf) || (leaf >= 43 && inst.ScopeLeaves.Contains(leaf)) || (leaf < 43 && inst.ScopeOutside);
     }
 
-    // The SimTerrain world box (min xyz, max xyz, z +-contHeight) for the render scope gate of `TerrainReached`; null: no gate.
+    /// <summary>The SimTerrain world box (min xyz, max xyz, z plus or minus contHeight) for the render scope gate of <see cref="TerrainReached"/>, or null for no gate.</summary>
     public float[]? TerrainBox;
     private Container? mGate;
     private int mGateCount = -1;
@@ -768,11 +870,10 @@ public sealed class InteriorRenderer : IDisposable
     // The interiors the render walk of the camera point reached through a link record (image link flag, see ChooseDetail).
     private readonly HashSet<object> mGateLinked = new();
 
-    // The stock render walk reaches the terrain image only when the container interior the camera point lies in (a container of the
-    // terrain database, box = geometry box padded by 3) accepts the scope: `004fa9c8` (terrain, vtable +0x98) calls the scope of the
-    // open container of the point first and returns 0, before the terrain query `00518f80`, when it returns 0; `004804bc` returns
-    // whether the camera leaf sees outside (or a neighbour linked through a face does). A camera in an enclosed leaf of a container
-    // interior therefore sees no terrain (Broadside enemy base, play-flag 15: flat haze below the horizon). True: draw the terrain.
+    /// <summary>Tells whether the render walk reaches the terrain from the camera.</summary>
+    /// <param name="cam">The camera.</param>
+    /// <returns>True to draw the terrain.</returns>
+    /// <remarks>The stock render walk reaches the terrain image only when the container interior the camera point lies in (a container of the terrain database, box = geometry box padded by 3) accepts the scope: 004fa9c8 (terrain, vtable +0x98) calls the scope of the open container of the point first and returns 0, before the terrain query 00518f80, when it returns 0. 004804bc returns whether the camera leaf sees outside (or a neighbour linked through a face does). A camera in an enclosed leaf of a container interior therefore sees no terrain.</remarks>
     public bool TerrainReached(in Camera3D cam)
     {
         if (TerrainBox == null)
@@ -839,7 +940,10 @@ public sealed class InteriorRenderer : IDisposable
         return c;
     }
 
-    // The container of a shape for the frame: its index, -1 none, Culled when the container's scope misses it.
+    /// <summary>Finds the container of a shape for the frame.</summary>
+    /// <param name="objectBox">The box of the shape as min xyz, max xyz.</param>
+    /// <param name="cam">The camera.</param>
+    /// <returns>The container index, -1 for none, or <see cref="Culled"/> when the scope of the container misses the shape.</returns>
     public int ContainerOf(double[] objectBox, in Camera3D cam)
     {
         int i = FindContainer(objectBox);
@@ -853,9 +957,11 @@ public sealed class InteriorRenderer : IDisposable
         return new Vec3((float)(dx * m[0] + dy * m[1] + dz * m[2]), (float)(dx * m[3] + dy * m[4] + dz * m[5]), (float)(dx * m[6] + dy * m[7] + dz * m[8]));
     }
 
-    // `contents(i)` runs just before the interior of instance i draws (the stock scope draws a container's contents first:
-    // its shapes through `contents`, the interiors filed in its database, then the container itself; InteriorShape_findObjects
-    // 00480648 vtable +0x98 runs the database and then the interior's own image).
+    /// <summary>Draws the interiors.</summary>
+    /// <param name="camera">The camera.</param>
+    /// <param name="haze">The terrain parameters that give the haze.</param>
+    /// <param name="contents">Called with the instance index just before the interior of that instance draws.</param>
+    /// <remarks>The stock scope draws the contents of a container first: its shapes through <paramref name="contents"/>, the interiors filed in its database, then the container itself (InteriorShape_findObjects 00480648, vtable +0x98 runs the database and then the own image of the interior).</remarks>
     public void Draw(in Camera3D camera, TerrainParams haze, Action<int>? contents = null)
     {
         Camera3D cam = camera;
@@ -1017,10 +1123,15 @@ public sealed class InteriorRenderer : IDisposable
         return meshes;
     }
 
-    // Stock draws the visible surfaces one polygon at a time in surface index order (0055ec98 walks the surface bit set
-    // ascending), so equal 16 bit depths resolve by index. Consecutive surfaces of one material share a draw call.
-    // True when the triangle is seen counter-clockwise from the camera, the winding the device cull drops (the same sign rule as the
-    // shape renderer: the kept faces are clockwise seen from outside).
+    /// <summary>Tells whether a triangle is seen counter clockwise from the camera, the winding the device cull drops.</summary>
+    /// <param name="a">The first vertex.</param>
+    /// <param name="b">The second vertex.</param>
+    /// <param name="c">The third vertex.</param>
+    /// <param name="camX">The camera x.</param>
+    /// <param name="camY">The camera y.</param>
+    /// <param name="camZ">The camera z.</param>
+    /// <returns>True for a back face.</returns>
+    /// <remarks>The same sign rule as the shape renderer: the kept faces are clockwise seen from outside. Stock draws the visible surfaces one polygon at a time in surface index order (0055ec98 walks the surface bit set ascending), so equal 16 bit depths resolve by index. Consecutive surfaces of one material share a draw call.</remarks>
     public static bool BackFacing(in Vertex3D a, in Vertex3D b, in Vertex3D c, double camX, double camY, double camZ)
     {
         double ux = b.X - a.X, uy = b.Y - a.Y, uz = b.Z - a.Z, vx = c.X - a.X, vy = c.Y - a.Y, vz = c.Z - a.Z;
@@ -1100,13 +1211,33 @@ public sealed class InteriorRenderer : IDisposable
         list.Clear();
     }
 
-    // The ray of the shape light probe (ShapeBase_lightProbe 0044e6f4): the nearest surface of a drawn interior instance along start + t * dir,
-    // 0 <= t <= length, and the nibbles of its light map at the hit point (the instance's current atlas, nearest texel of the surface's
-    // light coordinates there), as 0..1 colours.
+    /// <summary>Casts the ray of the shape light probe (ShapeBase_lightProbe 0044e6f4).</summary>
+    /// <param name="sx">The start x.</param>
+    /// <param name="sy">The start y.</param>
+    /// <param name="sz">The start z.</param>
+    /// <param name="dx">The direction x.</param>
+    /// <param name="dy">The direction y.</param>
+    /// <param name="dz">The direction z.</param>
+    /// <param name="length">The ray length.</param>
+    /// <param name="t">The distance of the hit.</param>
+    /// <param name="light">The light at the hit, 0 to 1 colours.</param>
+    /// <returns>True when the ray hit a drawn interior instance.</returns>
+    /// <remarks>It finds the nearest surface along start + t * dir, 0 &lt;= t &lt;= length, and the nibbles of its light map at the hit point (the current atlas of the instance, nearest texel of the light coordinates of the surface there).</remarks>
     public bool Probe(double sx, double sy, double sz, double dx, double dy, double dz, double length, out double t, out (float r, float g, float b) light) =>
         Probe(sx, sy, sz, dx, dy, dz, length, out t, out light, out _);
 
-    // The same ray with the unit normal of the surface it hits, turned to face the ray origin (the debris collision, Debris_collide 00472ad0).
+    /// <summary>Casts the same ray and also returns the unit normal of the surface it hits, turned to face the ray origin (the debris collision, Debris_collide 00472ad0).</summary>
+    /// <param name="sx">The start x.</param>
+    /// <param name="sy">The start y.</param>
+    /// <param name="sz">The start z.</param>
+    /// <param name="dx">The direction x.</param>
+    /// <param name="dy">The direction y.</param>
+    /// <param name="dz">The direction z.</param>
+    /// <param name="length">The ray length.</param>
+    /// <param name="t">The distance of the hit.</param>
+    /// <param name="light">The light at the hit, 0 to 1 colours.</param>
+    /// <param name="normal">The unit normal of the surface.</param>
+    /// <returns>True when the ray hit a drawn interior instance.</returns>
     public bool Probe(double sx, double sy, double sz, double dx, double dy, double dz, double length, out double t, out (float r, float g, float b) light,
                       out (double x, double y, double z) normal)
     {
@@ -1165,6 +1296,7 @@ public sealed class InteriorRenderer : IDisposable
         return t != double.MaxValue;
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         foreach (IGfxTexture? t in mTextures.Values)
