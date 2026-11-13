@@ -1216,24 +1216,24 @@ public sealed class Flier : Vehicle
             return true;
         for (var i = 0; i < hits.Count;)
         {
-            if (Player.From(hits[i].Object as SimObject) is not Player p || !p.Dead)
+            if (Player.From(hits[i].HitObject as SimObject) is not Player p || !p.Dead)
             {
                 ++i;
                 continue;
             }
-            var corpse = (SimObject)hits[i].Object!;
-            var c = candidates.FindIndex(im => im.Object == corpse);
+            var corpse = (SimObject)hits[i].HitObject!;
+            var c = candidates.FindIndex(im => im.Owner == corpse);
             object? last = null;
             if (c >= 0)
             {
                 if (c + 1 != candidates.Count)
-                    last = candidates[^1].Object;
+                    last = candidates[^1].Owner;
                 candidates[c] = candidates[^1];
                 candidates.RemoveAt(candidates.Count - 1);
             }
             hits.RemoveAt(i);
             // The candidate that took the place is tested next: its hit follows here.
-            if (last != null && hits.Count != 0 && hits[^1].Object == last && i < hits.Count - 1)
+            if (last != null && hits.Count != 0 && hits[^1].HitObject == last && i < hits.Count - 1)
             {
                 var moved = hits[^1];
                 hits.RemoveAt(hits.Count - 1);
@@ -1417,7 +1417,7 @@ public sealed class Flier : Vehicle
         for (var i = 0; i < hits.Count;)
         {
             var drop = (hits[i].Type & 0x4000000u) != 0;
-            if (Player.From(hits[i].Object as SimObject) is Player p)
+            if (Player.From(hits[i].HitObject as SimObject) is Player p)
                 drop = drop || p.MountId == Id();
             if (drop)
                 hits.RemoveAt(i);
@@ -1425,13 +1425,13 @@ public sealed class Flier : Vehicle
                 ++i;
         }
         foreach (var h in hits)
-            if (h.Object is SimObject so && !_notify.Contains(so))
+            if (h.HitObject is SimObject so && !_notify.Contains(so))
                 _notify.Add(so);
         float[] n = [0, 0, 0];
         var groundHit = false;
         foreach (var h in hits)
         {
-            if ((h.Type & TypeMask) != 0 && h.Object is GameBase other && other.IsShapeBase())
+            if ((h.Type & TypeMask) != 0 && h.HitObject is GameBase other && other.IsShapeBase())
             {
                 // C2: ram damage.
                 var dv = new float[3];

@@ -10,7 +10,9 @@ public struct Vec3
 {
     /// <summary>The components.</summary>
     public float X { get; set; }
+    /// <inheritdoc cref="X"/>
     public float Y { get; set; }
+    /// <inheritdoc cref="X"/>
     public float Z { get; set; }
 
     /// <summary>Creates a vector.</summary>
@@ -46,8 +48,11 @@ public struct Plane
 {
     /// <summary>The normal components and the distance.</summary>
     public float Nx { get; set; }
+    /// <inheritdoc cref="Nx"/>
     public float Ny { get; set; }
+    /// <inheritdoc cref="Nx"/>
     public float Nz { get; set; }
+    /// <inheritdoc cref="Nx"/>
     public float D { get; set; }
 }
 
@@ -58,6 +63,7 @@ public struct BspNode
     public ushort PlaneIndex { get; set; }
     /// <summary>The front and back child indices.</summary>
     public short Front { get; set; }
+    /// <inheritdoc cref="Front"/>
     public short Back { get; set; }
 }
 
@@ -153,10 +159,12 @@ public sealed class InteriorGeometry
         /// <summary>The hit point and the surface normal, in geometry space.</summary>
         [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Vec3 Point => ref _point;
         private Vec3 _point;
+        /// <inheritdoc cref="Point"/>
         [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Vec3 Normal => ref _normal;
         private Vec3 _normal;
         /// <summary>The leaf that was entered and the index of the plane that was crossed.</summary>
         public int Leaf { get; set; }
+        /// <inheritdoc cref="Leaf"/>
         public int PlaneIndex { get; set; }
     }
 
@@ -778,8 +786,8 @@ public sealed class InteriorGeometry
         long p = l.Offset, end = (long)l.Offset + l.Count;
         if (end > _bits.Length)
             end = _bits.Length;
-        ReadOnlySpan<float> P = [point.X, point.Y, point.Z];
-        Span<float> N = stackalloc float[3];
+        ReadOnlySpan<float> p2 = [point.X, point.Y, point.Z];
+        Span<float> n2 = stackalloc float[3];
         long bas = -8;
         for (; ; )
         {
@@ -803,9 +811,9 @@ public sealed class InteriorGeometry
                 var pl = _planes[plane];
                 // N = plane normal, negated when planeFront (flags bit 7) is clear.
                 var front = (sf.Flags & 0x80) != 0;
-                N[0] = front ? pl.Nx : -pl.Nx;
-                N[1] = front ? pl.Ny : -pl.Ny;
-                N[2] = front ? pl.Nz : -pl.Nz;
+                n2[0] = front ? pl.Nx : -pl.Nx;
+                n2[1] = front ? pl.Ny : -pl.Ny;
+                n2[2] = front ? pl.Nz : -pl.Nz;
                 var pts = new List<Vec3>();
                 var ok = true;
                 for (uint k = 0; k < sf.VertexCount && ok; ++k)
@@ -815,7 +823,7 @@ public sealed class InteriorGeometry
                     if (ok)
                         pts.Add(_points[_vertices[(int)vi]]);
                 }
-                if (ok && PolyTest(pts, N, P))
+                if (ok && PolyTest(pts, n2, p2))
                     return (int)si;
             }
         }
@@ -1241,27 +1249,27 @@ public struct Mat
     /// <param name="v">The local point.</param>
     /// <returns>The world point.</returns>
     public readonly Vec3 ToWorld(Vec3 v) =>
-        new(Store(Add(Add(Add(Mul(v.X, M[0]), Mul(v.Y, M[3])), Mul(v.Z, M[6])), P.X)),
-            Store(Add(Add(Add(Mul(v.X, M[1]), Mul(v.Y, M[4])), Mul(v.Z, M[7])), P.Y)),
-            Store(Add(Add(Add(Mul(v.X, M[2]), Mul(v.Y, M[5])), Mul(v.Z, M[8])), P.Z)));
+        new(Store(Add(Add(Add(Mul(v.X, _m[0]), Mul(v.Y, _m[3])), Mul(v.Z, _m[6])), _p.X)),
+            Store(Add(Add(Add(Mul(v.X, _m[1]), Mul(v.Y, _m[4])), Mul(v.Z, _m[7])), _p.Y)),
+            Store(Add(Add(Add(Mul(v.X, _m[2]), Mul(v.Y, _m[5])), Mul(v.Z, _m[8])), _p.Z)));
 
     /// <summary>Transforms a vector to world space, without the translation.</summary>
     /// <param name="v">The local vector.</param>
     /// <returns>The world vector.</returns>
     public readonly Vec3 ToWorldVector(Vec3 v) =>
-        new(Store(Add(Add(Mul(v.X, M[0]), Mul(v.Y, M[3])), Mul(v.Z, M[6]))),
-            Store(Add(Add(Mul(v.X, M[1]), Mul(v.Y, M[4])), Mul(v.Z, M[7]))),
-            Store(Add(Add(Mul(v.X, M[2]), Mul(v.Y, M[5])), Mul(v.Z, M[8]))));
+        new(Store(Add(Add(Mul(v.X, _m[0]), Mul(v.Y, _m[3])), Mul(v.Z, _m[6]))),
+            Store(Add(Add(Mul(v.X, _m[1]), Mul(v.Y, _m[4])), Mul(v.Z, _m[7]))),
+            Store(Add(Add(Mul(v.X, _m[2]), Mul(v.Y, _m[5])), Mul(v.Z, _m[8]))));
 
     /// <summary>Transforms a world point to local space.</summary>
     /// <param name="v">The world point.</param>
     /// <returns>The local point.</returns>
     public readonly Vec3 ToLocal(Vec3 v)
     {
-        double dx = Sub(v.X, P.X), dy = Sub(v.Y, P.Y), dz = Sub(v.Z, P.Z);
-        return new Vec3(Store(Add(Add(Mul(dx, M[0]), Mul(dy, M[1])), Mul(dz, M[2]))),
-                        Store(Add(Add(Mul(dx, M[3]), Mul(dy, M[4])), Mul(dz, M[5]))),
-                        Store(Add(Add(Mul(dx, M[6]), Mul(dy, M[7])), Mul(dz, M[8]))));
+        double dx = Sub(v.X, _p.X), dy = Sub(v.Y, _p.Y), dz = Sub(v.Z, _p.Z);
+        return new Vec3(Store(Add(Add(Mul(dx, _m[0]), Mul(dy, _m[1])), Mul(dz, _m[2]))),
+                        Store(Add(Add(Mul(dx, _m[3]), Mul(dy, _m[4])), Mul(dz, _m[5]))),
+                        Store(Add(Add(Mul(dx, _m[6]), Mul(dy, _m[7])), Mul(dz, _m[8]))));
     }
 }
 
@@ -1313,7 +1321,7 @@ public static class Interior
         if (name.Length == 0 || !res.Read(name, out var dis) || !InteriorShapeFile.Parse(dis, shape) ||
             !res.Read(shape.CollisionGeometry, out dig))
             return null;
-        InteriorGeometry? geo = InteriorGeometry.Parse(dig);
+        var geo = InteriorGeometry.Parse(dig);
         if (geo != null)
         {
             geo.MaterialListName = shape.MaterialList;

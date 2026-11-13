@@ -419,7 +419,7 @@ public class VehicleTests
             }
             else
             {
-                Assert.True(!free && hits.Count == 1 && hits[0].Object == p && candidates.Count == before);
+                Assert.True(!free && hits.Count == 1 && hits[0].HitObject == p && candidates.Count == before);
                 v.ProcessCollision(hits, 0);
                 Assert.StartsWith(Itoa(v.Id()) + ":", w.Run("echo($hd);"), StringComparison.Ordinal); // C2: the hull's own damage call
             }
@@ -567,7 +567,7 @@ public class VehicleTests
                 hull.HullCandidates(hp, cands, Flier.HullMask);
                 int spheres = 0, shapes = 0;
                 foreach (var im in cands)
-                    if (im.Object == mine)
+                    if (im.Owner == mine)
                     {
                         if (im.ImageKind == CollisionImage.Kind.TriggerSphere)
                             ++spheres;
@@ -579,7 +579,7 @@ public class VehicleTests
                 hull.TestAt(hp, cands, hits);
                 Assert.True(cands.Count == n - 1);
                 foreach (var im in cands)
-                    Assert.False((im.Object == mine && im.ImageKind == CollisionImage.Kind.TriggerSphere));
+                    Assert.False((im.Owner == mine && im.ImageKind == CollisionImage.Kind.TriggerSphere));
                 w.Run("deleteObject(" + Itoa(hull.Id()) + ");"); // the sender is gone: the event is dropped
                 w.Sim.AdvanceRealTime(33);
                 Assert.Equal("0", w.Run("echo($mc);"));

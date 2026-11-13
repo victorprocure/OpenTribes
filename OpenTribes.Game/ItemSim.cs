@@ -70,7 +70,7 @@ public partial class GameBase
             return null;
         if ((hit.Type & ObjectType.TerrainType) != 0)
             return game.TerrainMaterial(s.Material);
-        if (hit.Object is not GameBase gb || gb.InteriorGeo == null || gb.InteriorGeo.MaterialListName.Length == 0 ||
+        if (hit.HitObject is not GameBase gb || gb.InteriorGeo == null || gb.InteriorGeo.MaterialListName.Length == 0 ||
             game.GetResourceManager() == null)
             return null;
         var list = MaterialList.Get(game.GetResourceManager()!, gb.InteriorGeo.MaterialListName);
@@ -145,7 +145,7 @@ public partial class GameBase
             {
                 // The trigger sphere of a station, a door or a Mine, and the box or sphere image of a Trigger object,
                 // with `triggered` only (docs/collision.md E2). A non-collideable Item is not tested here.
-                if (triggered == null || image.Object is not GameBase other)
+                if (triggered == null || image.Owner is not GameBase other)
                     continue;
                 var trigger = other.GetKind() == Kind.Trigger;
                 if (!trigger && (image.ImageKind != CollisionImage.Kind.TriggerSphere || !other.IsStaticBase()))
@@ -153,7 +153,7 @@ public partial class GameBase
                 var th = new CollisionHit();
                 if (!Collision.TestImage(mover, image, th))
                     continue;
-                triggered.Add((SimObject)image.Object);
+                triggered.Add((SimObject)image.Owner);
                 candidates[i] = candidates[^1];
                 candidates.RemoveAt(candidates.Count - 1);
                 --i;
@@ -294,7 +294,7 @@ public partial class GameBase
         if (ItemThrower != null)
             for (var h = 0; h < hits.Count;)
             {
-                if (hits[h].Object == ItemThrower)
+                if (hits[h].HitObject == ItemThrower)
                 {
                     hits[h] = hits[^1];
                     hits.RemoveAt(hits.Count - 1);
@@ -306,11 +306,11 @@ public partial class GameBase
             }
         // Every Moveable hit carries the Item from now on (0x0045199c, 0x005067d0).
         foreach (var h in hits)
-            if ((h.Type & ObjectType.MoveableType) != 0 && h.Object is GameBase m)
+            if ((h.Type & ObjectType.MoveableType) != 0 && h.HitObject is GameBase m)
                 Attach(m);
         // 0x00506d80: every hit object joins the notify list, once per call and without a duplicate test.
         foreach (var h in hits)
-            if (h.Object is SimObject o)
+            if (h.HitObject is SimObject o)
                 ItemNotify.Add(o);
         Span<float> wn = stackalloc float[3];
         // Mine (0x004589ec): the normals facing up of every terrain or interior hit.

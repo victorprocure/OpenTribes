@@ -102,7 +102,7 @@ public struct CollisionSurface
 public sealed class CollisionHit
 {
     /// <summary>The sim object that was hit.</summary>
-    public object? Object { get; set; }
+    public object? HitObject { get; set; }
     /// <summary>The object type bits (+0x48).</summary>
     public uint Type { get; set; }
     /// <summary>The 3x3 that maps surface space to world space (R+0x10).</summary>
@@ -137,7 +137,7 @@ public sealed class CollisionImage
     /// <summary>The kind of this image.</summary>
     public Kind ImageKind { get; set; } = Kind.Terrain;
     /// <summary>The sim object that owns the image.</summary>
-    public object? Object { get; set; }
+    public object? Owner { get; set; }
     /// <summary>The object type bits.</summary>
     public uint Type { get; set; }
     /// <summary>Whether the image only posts an event and never blocks (image byte +0xd).</summary>
@@ -183,6 +183,7 @@ public sealed class MoverImage
     /// <summary>The corners of box A.</summary>
     public ref Float3 BoxMin => ref _boxMin;
     private Float3 _boxMin;
+    /// <inheritdoc cref="BoxMin"/>
     public ref Float3 BoxMax => ref _boxMax;
     private Float3 _boxMax;
     /// <summary>The sphere radius. The sphere centre is (0, 0, radius).</summary>
@@ -262,7 +263,7 @@ public sealed class SteppedMove
             if (Candidates[i].NonBlocking)
             {
                 // 2.3 step 5: one event, then the last entry takes its place.
-                var owner = Candidates[i].Object;
+                var owner = Candidates[i].Owner;
                 Candidates[i] = Candidates[^1];
                 Candidates.RemoveAt(Candidates.Count - 1);
                 OnTouch?.Invoke(owner);
@@ -981,7 +982,7 @@ public static class Collision
     /// <returns>True on a collision.</returns>
     public static bool TestImage(MoverImage mover, CollisionImage image, CollisionHit hit)
     {
-        hit.Object = image.Object;
+        hit.HitObject = image.Owner;
         hit.Type = image.Type;
         hit.StepHeight = -1.0f;
         hit.Surfaces.Clear();
@@ -1043,6 +1044,8 @@ public static class Collision
                 ReadOnlySpan<float> centre = [mover.Pos[0], mover.Pos[1], X87.F32(Add(mover.Radius, mover.Pos[2]))];
                 return SphereTouchesBox(image.Box, image.Pos, centre, mover.Radius);
             }
+            default:
+                break;
         }
         return false;
     }

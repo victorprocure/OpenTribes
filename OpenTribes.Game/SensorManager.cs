@@ -325,9 +325,9 @@ public sealed class SensorManager : SimObject
     private double HazeAt(GameBase t, ReadOnlySpan<float> eye)
     {
         var te = State!.World.TerrainOf(t);
-        if (te == null || te.Object == null)
+        if (te == null || te.SimObject == null)
             return 0.0;
-        var tobj = (PersistObject)te.Object;
+        var tobj = (PersistObject)te.SimObject;
         var vis = tobj.Fields().Real("visibleDistance", 3000.0f);
         var haze = tobj.Fields().Real("hazeDistance", 2000.0f);
         var cap = vis < 10000.0f ? vis : 10000.0f;

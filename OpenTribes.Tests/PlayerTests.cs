@@ -870,7 +870,7 @@ public class PlayerTests
             Assert.Equal(0, images.Count); // the mover itself is excluded
             w.Game.CollisionCandidates(b, 0x10, qa, images);
             Assert.True(images.Count == 1 && images[0].ImageKind == CollisionImage.Kind.Trigger && images[0].NonBlocking);
-            Assert.True(images[0].Box[0] == a.TriggerBox[0] && images[0].Box[3] == a.TriggerBox[3] && images[0].Object == a);
+            Assert.True(images[0].Box[0] == a.TriggerBox[0] && images[0].Box[3] == a.TriggerBox[3] && images[0].Owner == a);
             images.Clear();
             w.Game.CollisionCandidates(a, 0x10, qs, images);
             Assert.True(images.Count == 1 && images[0].ImageKind == CollisionImage.Kind.TriggerSphere);
@@ -983,7 +983,7 @@ public class PlayerTests
             Assert.True(images.Count == 2 && images[0].ImageKind == CollisionImage.Kind.Shape && !images[0].NonBlocking);
             Assert.True(images[0].Instance != null && images[0].MeshMode && images[0].Detail == 0);
             Assert.True(images[1].ImageKind == CollisionImage.Kind.TriggerSphere && images[1].NonBlocking);
-            Assert.True(images[1].Radius == 3.0f && images[1].Object == images[0].Object);
+            Assert.True(images[1].Radius == 3.0f && images[1].Owner == images[0].Owner);
         }
 
         var target = Spawn("90 90 50.1");

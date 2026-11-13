@@ -59,9 +59,13 @@ public sealed class ShapeAnim
     {
         /// <summary>The name index, the parent node, the number of sub-sequences, the first sub-sequence and the default transform.</summary>
         public int Name { get; set; }
+        /// <inheritdoc cref="Name"/>
         public int Parent { get; set; }
+        /// <inheritdoc cref="Name"/>
         public int NumSub { get; set; }
+        /// <inheritdoc cref="Name"/>
         public int FirstSub { get; set; }
+        /// <inheritdoc cref="Name"/>
         public int DefaultTransform { get; set; }
     }
     /// <summary>The sub-sequence of a node or object within one sequence.</summary>
@@ -69,7 +73,9 @@ public sealed class ShapeAnim
     {
         /// <summary>The sequence index, the number of keys and the first key.</summary>
         public int Sequence { get; set; }
+        /// <inheritdoc cref="Sequence"/>
         public int NumKeys { get; set; }
+        /// <inheritdoc cref="Sequence"/>
         public int FirstKey { get; set; }
     }
     /// <summary>A keyframe.</summary>
@@ -85,8 +91,11 @@ public sealed class ShapeAnim
     {
         /// <summary>The quaternion components.</summary>
         public float X { get; set; }
+        /// <inheritdoc cref="X"/>
         public float Y { get; set; }
+        /// <inheritdoc cref="X"/>
         public float Z { get; set; }
+        /// <inheritdoc cref="X"/>
         public float W { get; set; }
     }
 
@@ -187,9 +196,13 @@ public sealed class ShapeModel
     {
         /// <summary>The name index, the parent node, the number of sub-sequences, the first sub-sequence and the default transform.</summary>
         public short Name { get; set; }
+        /// <inheritdoc cref="Name"/>
         public short Parent { get; set; }
+        /// <inheritdoc cref="Name"/>
         public short NumSub { get; set; }
+        /// <inheritdoc cref="Name"/>
         public short FirstSub { get; set; }
+        /// <inheritdoc cref="Name"/>
         public short DefaultTransform { get; set; }
     }
     /// <summary>An animation sequence.</summary>
@@ -209,7 +222,9 @@ public sealed class ShapeModel
     {
         /// <summary>The sequence index, the number of keys and the first key.</summary>
         public short Sequence { get; set; }
+        /// <inheritdoc cref="Sequence"/>
         public short NumKeys { get; set; }
+        /// <inheritdoc cref="Sequence"/>
         public short FirstKey { get; set; }
     }
     /// <summary>A keyframe.</summary>
@@ -241,7 +256,7 @@ public sealed class ShapeModel
         }
     }
     /// <summary>A shape object, a mesh attached to a node.</summary>
-    public struct Object
+    public struct ShapeObject
     {
         /// <summary>The name index.</summary>
         public short Name { get; set; }
@@ -256,6 +271,7 @@ public sealed class ShapeModel
         private Float3 _offset;
         /// <summary>The number of sub-sequences and the first sub-sequence.</summary>
         public short NumSub { get; set; }
+        /// <inheritdoc cref="NumSub"/>
         public short FirstSub { get; set; }
     }
     /// <summary>A level of detail.</summary>
@@ -271,10 +287,13 @@ public sealed class ShapeModel
     {
         /// <summary>The start and end sequences.</summary>
         public int StartSequence { get; set; }
+        /// <inheritdoc cref="StartSequence"/>
         public int EndSequence { get; set; }
         /// <summary>The start and end positions and the duration.</summary>
         public float StartPosition { get; set; }
+        /// <inheritdoc cref="StartPosition"/>
         public float EndPosition { get; set; }
+        /// <inheritdoc cref="StartPosition"/>
         public float Duration { get; set; }
         /// <summary>The transform of the transition.</summary>
         [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Transform Transform => ref _transform;
@@ -297,6 +316,7 @@ public sealed class ShapeModel
         /// <summary>The scale and origin that decode the packed vertices.</summary>
         [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Scale => ref _scale;
         private Float3 _scale;
+        /// <inheritdoc cref="Scale"/>
         [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref Float3 Origin => ref _origin;
         private Float3 _origin;
     }
@@ -351,7 +371,7 @@ public sealed class ShapeModel
     /// <summary>The name table.</summary>
     public string[] Names { get; set; } = [];
     /// <summary>The objects.</summary>
-    public Object[] Objects { get; set; } = [];
+    public ShapeObject[] Objects { get; set; } = [];
     /// <summary>The details.</summary>
     public Detail[] Details { get; set; } = [];
     /// <summary>The transitions.</summary>
@@ -547,7 +567,7 @@ public sealed class ShapeModel
         output.Names = new string[n[5]];
         for (var i = 0; i < output.Names.Length; ++i)
             output.Names[i] = Reader.CString(dts, at[5] + (i * 24), 24);
-        output.Objects = new Object[n[6]];
+        output.Objects = new ShapeObject[n[6]];
         for (var i = 0; i < output.Objects.Length; ++i)
         {
             var o = at[6] + (i * sizes[6]);
@@ -978,16 +998,16 @@ public sealed class ShapeInstance
             return false;
         using var chop = ChopScope();
         var sh = ShapeData;
-        Span<float> S = stackalloc float[3], E = stackalloc float[3];
+        Span<float> s4 = stackalloc float[3], e2 = stackalloc float[3];
         if (rel is TMat3 rm)
         {
-            X87.MulPoint(s0, rm.M, rm.P, S);
-            X87.MulPoint(e0, rm.M, rm.P, E);
+            X87.MulPoint(s0, rm.M, rm.P, s4);
+            X87.MulPoint(e0, rm.M, rm.P, e2);
         }
         else
         {
-            s0[..3].CopyTo(S);
-            e0[..3].CopyTo(E);
+            s0[..3].CopyTo(s4);
+            e0[..3].CopyTo(e2);
         }
         var cands = new List<Candidate>();
         var order = new List<int>();
@@ -1017,9 +1037,9 @@ public sealed class ShapeInstance
                     T = Entries[node]
                 };
                 X87.MulPoint(ob.Offset, c.T.M, Entries[node].P, c.T.P);
-                Shape.TmatInverse(c.T, out var Ti);
-                X87.MulPoint(S, Ti.M, Ti.P, c.Sm);
-                X87.MulPoint(E, Ti.M, Ti.P, c.Em);
+                Shape.TmatInverse(c.T, out var ti4);
+                X87.MulPoint(s4, ti4.M, ti4.P, c.Sm);
+                X87.MulPoint(e2, ti4.M, ti4.P, c.Em);
                 if (!mesh.Vertex(mesh.Frames[frame], 0, lo) || !mesh.Vertex(mesh.Frames[frame], 1, hi))
                     continue;
                 var tval = c.Tval;
@@ -1047,7 +1067,7 @@ public sealed class ShapeInstance
             // Bounds mode: the bounds t of the first candidate in collection order.
             output.T = cands[0].Tval;
             output.Part = cands[0].Obj;
-            SetPosition(ref output, S, E, output.T);
+            SetPosition(ref output, s4, e2, output.T);
             return true;
         }
         var sorted = new int[cands.Count];
@@ -1056,8 +1076,8 @@ public sealed class ShapeInstance
         Borland.BorlandQsort(sorted, (a, b) => cands[a].Tval < cands[b].Tval ? -1 : cands[b].Tval < cands[a].Tval ? 1 : 0);
         output.T = 1.1f;
         var hit = false;
-        Span<float> D = stackalloc float[3], A = stackalloc float[3], B = stackalloc float[3], C = stackalloc float[3];
-        Span<float> ac = stackalloc float[3], bc = stackalloc float[3], N = stackalloc float[3], H = stackalloc float[3];
+        Span<float> d3 = stackalloc float[3], a3 = stackalloc float[3], b3 = stackalloc float[3], c4 = stackalloc float[3];
+        Span<float> ac = stackalloc float[3], bc = stackalloc float[3], n2 = stackalloc float[3], h2 = stackalloc float[3];
         Span<float> bestN = stackalloc float[3];
         foreach (var ci in sorted)
         {
@@ -1066,7 +1086,7 @@ public sealed class ShapeInstance
                 break;
             // TSCelAnimMesh_lineFaces (0x005ab0fc, T7.2).
             for (var i = 0; i < 3; ++i)
-                D[i] = F32Chop(Sub(c.Em[i], c.Sm[i]));
+                d3[i] = F32Chop(Sub(c.Em[i], c.Sm[i]));
             var tmin = F32Chop(Mul(0.9f, c.Tval));
             var best = output.T;
             var bestFace = -1;
@@ -1075,29 +1095,29 @@ public sealed class ShapeInstance
             for (var fi = 0; fi < c.Mesh.Faces.Length; ++fi)
             {
                 ref var face = ref c.Mesh.Faces[fi];
-                if (!c.Mesh.Vertex(fr, face.V[0], A) || !c.Mesh.Vertex(fr, face.V[1], B) || !c.Mesh.Vertex(fr, face.V[2], C))
+                if (!c.Mesh.Vertex(fr, face.V[0], a3) || !c.Mesh.Vertex(fr, face.V[1], b3) || !c.Mesh.Vertex(fr, face.V[2], c4))
                     continue;
                 for (var i = 0; i < 3; ++i)
                 {
-                    ac[i] = F32Chop(Sub(A[i], C[i]));
-                    bc[i] = F32Chop(Sub(B[i], C[i]));
+                    ac[i] = F32Chop(Sub(a3[i], c4[i]));
+                    bc[i] = F32Chop(Sub(b3[i], c4[i]));
                 }
-                Shape.Cross(bc, ac, N);
-                var dN = F32Chop(X87.Dot(N, C));
-                var den = F32Chop(X87.Dot(N, D));
+                Shape.Cross(bc, ac, n2);
+                var dN = F32Chop(X87.Dot(n2, c4));
+                var den = F32Chop(X87.Dot(n2, d3));
                 if (den >= 0.0f)
                     continue;
-                var num = F32Chop(Sub(dN, X87.Dot(N, c.Sm)));
+                var num = F32Chop(Sub(dN, X87.Dot(n2, c.Sm)));
                 if (!(Mul(tmin, den) > num && Mul(best, den) <= num))
                     continue;
                 var t = F32Chop(Div(num, den));
                 for (var i = 0; i < 3; ++i)
-                    H[i] = F32Chop(Add(Mul(t, D[i]), c.Sm[i]));
-                if (Shape.PointInTriangle(H, N, A, B, C))
+                    h2[i] = F32Chop(Add(Mul(t, d3[i]), c.Sm[i]));
+                if (Shape.PointInTriangle(h2, n2, a3, b3, c4))
                 {
                     best = t;
                     bestFace = fi;
-                    N.CopyTo(bestN);
+                    n2.CopyTo(bestN);
                 }
             }
             if (bestFace < 0)
@@ -1111,7 +1131,7 @@ public sealed class ShapeInstance
         }
         if (!hit)
             return false;
-        SetPosition(ref output, S, E, output.T);
+        SetPosition(ref output, s4, e2, output.T);
         // 0x005c1555: the length is stored as f32 before the division.
         var k = F32Chop(Div(1.0, F32Chop(X87.Len(output.Normal))));
         for (var i = 0; i < 3; ++i)
@@ -1164,20 +1184,20 @@ public sealed class ShapeInstance
                 ref var frame = ref mesh.Frames[fi];
                 // TSObjectInstance_boxTest (0x005bf4d8): T and its inverse as T2.7, the box centre frame into mesh
                 // space.
-                var T = Entries[node];
-                X87.MulPoint(ob.Offset, T.M, Entries[node].P, T.P);
-                Shape.TmatInverse(T, out var Ti);
-                Shape.TmatMul(rel, Ti, out var M);
+                var t3 = Entries[node];
+                X87.MulPoint(ob.Offset, t3.M, Entries[node].P, t3.P);
+                Shape.TmatInverse(t3, out var ti3);
+                Shape.TmatMul(rel, ti3, out var m2);
                 if (!mesh.Vertex(frame, 0, lo) || !mesh.Vertex(frame, 1, hi))
                     continue;
                 // TSCelAnimMesh_boxTest (0x005acff8): the frame box as centre and half extents.
                 for (var i = 0; i < 3; ++i)
                 {
                     a[i] = F32Chop(Mul(Sub(hi[i], lo[i]), 0.5f));
-                    M.P[i] = F32Chop(Sub(M.P[i], lo[i]));
-                    M.P[i] = F32Chop(Sub(M.P[i], a[i]));
+                    m2.P[i] = F32Chop(Sub(m2.P[i], lo[i]));
+                    m2.P[i] = F32Chop(Sub(m2.P[i], a[i]));
                 }
-                if (Shape.OrientedBoxesOverlap(a, half, M.M, M.P))
+                if (Shape.OrientedBoxesOverlap(a, half, m2.M, m2.P))
                     return true;
             }
         }
@@ -1198,14 +1218,14 @@ public sealed class ShapeInstance
             return output.Count != 0;
         using var chop = ChopScope();
         var sh = ShapeData;
-        Span<float> P = stackalloc float[3];
+        Span<float> p2 = stackalloc float[3];
         if (rel is TMat3 rm)
-            X87.MulPoint(p0, rm.M, rm.P, P);
+            X87.MulPoint(p0, rm.M, rm.P, p2);
         else
-            p0[..3].CopyTo(P);
+            p0[..3].CopyTo(p2);
         var rr = F32Chop(Mul(radius, radius)); // stored before the bounds call (0x005ac665)
         Span<float> pm = stackalloc float[3], lo = stackalloc float[3], hi = stackalloc float[3];
-        Span<float> A = stackalloc float[3], B = stackalloc float[3], C = stackalloc float[3];
+        Span<float> a2 = stackalloc float[3], b2 = stackalloc float[3], c3 = stackalloc float[3];
         Span<float> pos = stackalloc float[3], n = stackalloc float[3];
         Span<float> h = stackalloc float[3], ctr = stackalloc float[3], d = stackalloc float[3];
         Span<float> local = stackalloc float[3], w = stackalloc float[3];
@@ -1226,10 +1246,10 @@ public sealed class ShapeInstance
                     continue;
                 ref var frame = ref mesh.Frames[fi];
                 // T2.7: the node entry with the object offset carried into its translation.
-                var T = Entries[node];
-                X87.MulPoint(ob.Offset, T.M, Entries[node].P, T.P);
-                Shape.TmatInverse(T, out var Ti);
-                X87.MulPoint(P, Ti.M, Ti.P, pm);
+                var t2 = Entries[node];
+                X87.MulPoint(ob.Offset, t2.M, Entries[node].P, t2.P);
+                Shape.TmatInverse(t2, out var ti2);
+                X87.MulPoint(p2, ti2.M, ti2.P, pm);
                 if (!mesh.Vertex(frame, 0, lo) || !mesh.Vertex(frame, 1, hi))
                     continue;
                 // Sphere bounds (0x005bf128 -> 0x005ac5a4 -> 0x005ec688): squared distance to the frame box, strictly
@@ -1250,15 +1270,15 @@ public sealed class ShapeInstance
                     for (var f = 0; f < mesh.Faces.Length; ++f)
                     {
                         ref var face = ref mesh.Faces[f];
-                        if (!mesh.Vertex(frame, face.V[0], A) || !mesh.Vertex(frame, face.V[1], B) ||
-                            !mesh.Vertex(frame, face.V[2], C))
+                        if (!mesh.Vertex(frame, face.V[0], a2) || !mesh.Vertex(frame, face.V[1], b2) ||
+                            !mesh.Vertex(frame, face.V[2], c3))
                             continue;
                         float dist = 0;
-                        if (!Shape.SphereTriangle(pm, radius, A, B, C, pos, n, ref dist))
+                        if (!Shape.SphereTriangle(pm, radius, a2, b2, c3, pos, n, ref dist))
                             continue;
                         var c = new ShapeContact();
-                        X87.MulPoint(pos, T.M, T.P, c.Position);
-                        X87.MulVector(n, T.M, c.Normal);
+                        X87.MulPoint(pos, t2.M, t2.P, c.Position);
+                        X87.MulVector(n, t2.M, c.Normal);
                         c.Distance = dist;
                         c.Material = face.Material;
                         c.Face = f;
@@ -1286,11 +1306,11 @@ public sealed class ShapeInstance
                     for (var j = 0; j < 3; ++j)
                         local[j] = F32Chop(Add(ctr[j], F32Chop(Mul(radius, n[j]))));
                     var c = new ShapeContact();
-                    X87.MulPoint(local, T.M, T.P, c.Position);
+                    X87.MulPoint(local, t2.M, t2.P, c.Position);
                     for (var k = 0; k < 3; ++k)
                         w[k] = F32Chop(Sub(c.Position[k], p0[k]));
                     c.Distance = F32Chop(X87.Lenf(w));
-                    X87.MulVector(n, T.M, c.Normal);
+                    X87.MulVector(n, t2.M, c.Normal);
                     c.Part = oi;
                     output.Add(c);
                 }
@@ -2754,14 +2774,14 @@ public static class Shape
     public static bool OrientedBoxesOverlap(ReadOnlySpan<float> a, ReadOnlySpan<float> b, ReadOnlySpan<float> m, ReadOnlySpan<float> t)
     {
         using var chop = ChopScope();
-        Span<float> C = stackalloc float[9];
+        Span<float> c2 = stackalloc float[9];
         for (var i = 0; i < 9; ++i)
-            C[i] = (float)Math.Abs((double)m[i]);
+            c2[i] = (float)Math.Abs((double)m[i]);
         static double Mag(double v) => Math.Abs(v); // rounded to a double first
         // 1 to 3: the frame axes.
         for (var j = 0; j < 3; ++j)
         {
-            var slack = F32Chop(Sub(Add(Add(Add(Mul(b[0], C[j]), a[j]), Mul(b[1], C[3 + j])), Mul(b[2], C[6 + j])),
+            var slack = F32Chop(Sub(Add(Add(Add(Mul(b[0], c2[j]), a[j]), Mul(b[1], c2[3 + j])), Mul(b[2], c2[6 + j])),
                                       Math.Abs((double)t[j])));
             if (slack < 0.0f)
                 return false;
@@ -2770,7 +2790,7 @@ public static class Shape
         for (var i = 0; i < 3; ++i)
         {
             var p = Mag(Add(Add(Mul(t[0], m[3 * i]), Mul(t[1], m[(3 * i) + 1])), Mul(t[2], m[(3 * i) + 2])));
-            var slack = F32Chop(Sub(Add(Add(Add(Mul(a[0], C[3 * i]), Mul(a[1], C[(3 * i) + 1])), Mul(a[2], C[(3 * i) + 2])), b[i]), p));
+            var slack = F32Chop(Sub(Add(Add(Add(Mul(a[0], c2[3 * i]), Mul(a[1], c2[(3 * i) + 1])), Mul(a[2], c2[(3 * i) + 2])), b[i]), p));
             if (slack < 0.0f)
                 return false;
         }
@@ -2778,9 +2798,9 @@ public static class Shape
         foreach (var e in Edges)
         {
             var p = Mag(Sub(Mul(t[e.Ta], m[e.Ma]), Mul(t[e.Tb], m[e.Mb])));
-            var reach = Add(Add(Add(Mul(a[e.A0], C[(3 * e.C0r) + e.C0c]), Mul(a[e.A1], C[(3 * e.C1r) + e.C1c])),
-                                   Mul(b[e.B0], C[(3 * e.D0r) + e.D0c])),
-                               Mul(b[e.B1], C[(3 * e.D1r) + e.D1c]));
+            var reach = Add(Add(Add(Mul(a[e.A0], c2[(3 * e.C0r) + e.C0c]), Mul(a[e.A1], c2[(3 * e.C1r) + e.C1c])),
+                                   Mul(b[e.B0], c2[(3 * e.D0r) + e.D0c])),
+                               Mul(b[e.B1], c2[(3 * e.D1r) + e.D1c]));
             if (!(reach >= p))
                 return false;
         }

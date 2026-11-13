@@ -1339,7 +1339,7 @@ public sealed partial class Player : GameBase
         {
             if ((hits[i].Type & NonBlockingTypes) != 0)
             {
-                notify.Add(hits[i].Object!);
+                notify.Add(hits[i].HitObject!);
                 hits.RemoveAt(i);
             }
             else
@@ -1362,8 +1362,8 @@ public sealed partial class Player : GameBase
         var contacts = new List<Contact>();
         foreach (var h in hits)
         {
-            if (!notify.Contains(h.Object!))
-                notify.Add(h.Object!);
+            if (!notify.Contains(h.HitObject!))
+                notify.Add(h.HitObject!);
             foreach (var s in h.Surfaces)
             {
                 var c = new Contact();
@@ -1372,7 +1372,7 @@ public sealed partial class Player : GameBase
                 c.UpDot = X87.F32(X87.Dot(c.N, up));
                 c.StepHeight = h.StepHeight;
                 c.Surface = s;
-                c.Object = h.Object;
+                c.Object = h.HitObject;
                 c.Type = h.Type;
                 contacts.Add(c);
             }

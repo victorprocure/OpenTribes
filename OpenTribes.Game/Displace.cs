@@ -121,7 +121,7 @@ public sealed partial class GameState
             if (Player.From(o) is Player po)
             {
                 oth.ImageKind = CollisionImage.Kind.Sphere;
-                oth.Object = o;
+                oth.Owner = o;
                 oth.Pos = po.Transform.P;
                 oth.Centre[2] = po.Radius;
                 oth.Radius = po.Radius;
@@ -206,7 +206,7 @@ public sealed partial class GameState
             return false;
         image.Rot = gb.Transform.M;
         image.Pos = gb.Transform.P;
-        image.Object = gb;
+        image.Owner = gb;
         var b = Sim != null && gb.DataBlockName != null ? Sim.DataBlocks().Find(gb.DataBlockName) : null;
         Span<float> box = stackalloc float[6];
         if (b == null || Resources == null || !Sim!.DataBlocks().GetField(b, "shapeFile", "", out var shape) || shape.Length == 0 ||
@@ -370,7 +370,7 @@ public sealed partial class GameState
                 }
             foreach (var im in images)
             {
-                if (im.Object is not GameBase o || o.IsInterior() || Hidden(o) || riders.Contains(o.Id()))
+                if (im.Owner is not GameBase o || o.IsInterior() || Hidden(o) || riders.Contains(o.Id()))
                     continue;
                 var hit = new CollisionHit();
                 if (!Collision.TestImage(self, im, hit))
@@ -510,7 +510,7 @@ public sealed partial class GameState
                 continue;
             var image = new CollisionImage
             {
-                Object = obj,
+                Owner = obj,
                 Type = e.Type
             };
             if (e.TerrainData != null)
@@ -591,7 +591,7 @@ public sealed partial class GameState
                         var sphere = new CollisionImage
                         {
                             ImageKind = CollisionImage.Kind.TriggerSphere,
-                            Object = obj,
+                            Owner = obj,
                             Type = type,
                             NonBlocking = true,
                             Rot = image.Rot,

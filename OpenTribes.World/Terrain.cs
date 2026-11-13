@@ -537,28 +537,28 @@ public sealed class Terrain
     private bool BlockLine(GridBlock blk, ReadOnlySpan<float> a, ReadOnlySpan<float> b, Span<float> hit, Span<float> normal,
                            ref int material)
     {
-        int S = _scale, N = blk.Size;
-        var sq = Store(1 << S);
+        int s2 = _scale, n3 = blk.Size;
+        var sq = Store(1 << s2);
         float inv = Store(Div(1.0, sq)), half = Store(Mul(0.5, inv));
-        var row = N + 1;
+        var row = n3 + 1;
         long nHeights = blk.Heights.Length, nSquares = blk.Squares.Length;
-        if (N < 1 || nHeights < (long)row * row || nSquares < (long)N * N * 2)
+        if (n3 < 1 || nHeights < (long)row * row || nSquares < (long)n3 * n3 * 2)
             return false;
         var oob = false;
         // Height read with both indices clamped to [0, N].
         float H(int x, int y)
         {
-            x = Math.Min(Math.Max(x, 0), N);
-            y = Math.Min(Math.Max(y, 0), N);
+            x = Math.Min(Math.Max(x, 0), n3);
+            y = Math.Min(Math.Max(y, 0), n3);
             return blk.Heights[((long)y * row) + x];
         }
         // Flag byte (0x00567974): indices clamped to [0, N], so row and column N read past the square array in the
         // original. Those reads end the test without a hit (section 9 Q1).
         int Flags(int x, int y)
         {
-            x = Math.Min(Math.Max(x, 0), N);
-            y = Math.Min(Math.Max(y, 0), N);
-            var i = (((long)y * N) + x) * 2;
+            x = Math.Min(Math.Max(x, 0), n3);
+            y = Math.Min(Math.Max(y, 0), n3);
+            var i = (((long)y * n3) + x) * 2;
             if (i < 0 || i >= nSquares)
             {
                 oob = true;
@@ -583,12 +583,12 @@ public sealed class Terrain
         }
         int ClampSq(double v)
         {
-            var q = FtolSafe(v) >> S;
-            return q >= N ? N - 1 : q < 0 ? 0 : q;
+            var q = FtolSafe(v) >> s2;
+            return q >= n3 ? n3 - 1 : q < 0 ? 0 : q;
         }
         int sx = ClampSq(a[0]), sy = ClampSq(a[1]), ex = ClampSq(b[0]), ey = ClampSq(b[1]);
-        var hs = Interp(blk, sx, sy, sq, Store(Sub(a[0], sx << S)), Store(Sub(a[1], sy << S)));
-        var he = Interp(blk, ex, ey, sq, Store(Sub(b[0], ex << S)), Store(Sub(b[1], ey << S)));
+        var hs = Interp(blk, sx, sy, sq, Store(Sub(a[0], sx << s2)), Store(Sub(a[1], sy << s2)));
+        var he = Interp(blk, ex, ey, sq, Store(Sub(b[0], ex << s2)), Store(Sub(b[1], ey << s2)));
         var above = a[2] > hs;
         Span<float> d = stackalloc float[3];
         for (var i = 0; i < 3; ++i)
@@ -706,21 +706,21 @@ public sealed class Terrain
             }
             if (tri < 2)
             {
-                v[0] = Store(ix << S);
-                v[1] = Store(iy << S);
+                v[0] = Store(ix << s2);
+                v[1] = Store(iy << s2);
                 v[2] = H(ix, iy);
             }
             else
             {
-                v[0] = Store(ix << S);
-                v[1] = Store((iy + 1) << S);
+                v[0] = Store(ix << s2);
+                v[1] = Store((iy + 1) << s2);
                 v[2] = H(ix, iy + 1);
             }
             var pl = PlaneOf(raw, v);
             q.CopyTo(hit);
             SegPlane(pl, a, b, hit); // result flag ignored: a failed test keeps the crossing point
             ((ReadOnlySpan<float>)pl.N).CopyTo(normal);
-            var mi = ((((long)Math.Min(Math.Max(iy, 0), N) * N) + Math.Min(Math.Max(ix, 0), N)) * 2) + 1;
+            var mi = ((((long)Math.Min(Math.Max(iy, 0), n3) * n3) + Math.Min(Math.Max(ix, 0), n3)) * 2) + 1;
             material = mi < nSquares ? blk.Squares[mi] : 0;
             return true;
         }
@@ -729,7 +729,7 @@ public sealed class Terrain
             return false;
         if (((Flags(ex, ey) >> 3) & 7) != 0)
             return false;
-        ReadOnlySpan<float> o = [Store(ex << S), Store(ey << S), 0.0f];
+        ReadOnlySpan<float> o = [Store(ex << s2), Store(ey << s2), 0.0f];
         Span<float> sa = stackalloc float[3], sb = stackalloc float[3];
         for (var i = 0; i < 3; ++i)
         {
@@ -808,7 +808,7 @@ public sealed class Terrain
         ((ReadOnlySpan<float>)plEnd.N).CopyTo(normal);
         for (var i = 0; i < 3; ++i)
             hit[i] = Store(Add(o[i], p[i]));
-        material = blk.Squares[((((long)ey * N) + ex) * 2) + 1];
+        material = blk.Squares[((((long)ey * n3) + ex) * 2) + 1];
         return true;
     }
 
@@ -847,8 +847,8 @@ public sealed class Terrain
             s[i] = Store(Sub(ws[i], pos[i]));
             e[i] = Store(Sub(we[i], pos[i]));
         }
-        var B = _scale + _detail - 1;
-        var inv = Store(Div(1.0, 1 << B));
+        var b2 = _scale + _detail - 1;
+        var inv = Store(Div(1.0, 1 << b2));
         for (var i = 0; i < 3; ++i)
         {
             d[i] = Store(Sub(e[i], s[i]));
@@ -909,8 +909,8 @@ public sealed class Terrain
             if (bx >= 0 && bx < _width && by >= 0 && by < _height)
             {
                 _blocks.TryGetValue(_map[(by * _width) + bx], out var blk);
-                o[0] = Store(bx << B);
-                o[1] = Store(by << B);
+                o[0] = Store(bx << b2);
+                o[1] = Store(by << b2);
                 o[2] = 0.0f;
                 for (var i = 0; i < 3; ++i)
                 {

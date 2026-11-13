@@ -22,6 +22,7 @@ public sealed class MaterialTable
 {
     /// <summary>The friction and the elasticity of each of the 15 surface types, as two arrays.</summary>
     public float[] Friction { get; } = new float[15];
+    /// <inheritdoc cref="Friction"/>
     public float[] Elasticity { get; } = new float[15];
 
     /// <summary>Creates a table with every entry 1.0.</summary>

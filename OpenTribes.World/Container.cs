@@ -56,7 +56,7 @@ public sealed class Container
     public sealed class Entry
     {
         /// <summary>The sim object.</summary>
-        public object? Object { get; set; }
+        public object? SimObject { get; set; }
         /// <summary>The object type bits.</summary>
         public uint Type { get; set; }
         /// <summary>The world box (+0x70 to +0x84).</summary>
@@ -102,7 +102,7 @@ public sealed class Container
         /// <param name="cast">The line test, or null.</param>
         public Entry(object? obj, uint type, Float6 box, bool clipSegment, CastFn? cast)
         {
-            Object = obj;
+            SimObject = obj;
             Type = type;
             Box = box;
             ClipSegment = clipSegment;
@@ -421,17 +421,14 @@ public sealed class Container
     }
 
     /// <summary>Creates container 7 (004fb754): box +-1e30, every type, default database.</summary>
-    public Container()
+    public Container() => _root = new Node
     {
-        _root = new Node
+        E = new Entry(null, 0, Float6.Of(-1e30f, -1e30f, -1e30f, 1e30f, 1e30f, 1e30f), false, null)
         {
-            E = new Entry(null, 0, Float6.Of(-1e30f, -1e30f, -1e30f, 1e30f, 1e30f, 1e30f), false, null)
-            {
-                ContainerMask = 0xffffffffu
-            },
-            NodeKind = Kind.Vector
-        };
-    }
+            ContainerMask = 0xffffffffu
+        },
+        NodeKind = Kind.Vector
+    };
 
     // src/world/container.cpp Container::nodeOf.
     private Node? NodeOf(object? obj)
@@ -505,10 +502,10 @@ public sealed class Container
         }
         var n = node;
         n.Seq = ++_seq;
-        if (n.E.Object == null)
+        if (n.E.SimObject == null)
             _nullObject = n;
         else
-            _byObject[n.E.Object] = n;
+            _byObject[n.E.SimObject] = n;
         _nodes.Add(node);
         AddTo(_root, n);
         // InteriorShape_onAdd (0047f2bc): after the container add, unlinkAll and linkNeighbours.
@@ -536,7 +533,7 @@ public sealed class Container
     private void LinkNeighbours(Node n)
     {
         UnlinkAll(n);
-        var q = new Query { Exclude = n.E.Object, Mask = ObjectType.InteriorType };
+        var q = new Query { Exclude = n.E.SimObject, Mask = ObjectType.InteriorType };
         for (var i = 0; i < 3; ++i)
         {
             q.Box[i] = Store(Sub(n.E.Box[i], 1.0f));
@@ -816,7 +813,7 @@ public sealed class Container
     public object? ParentOf(object? obj)
     {
         var n = NodeOf(obj);
-        return n != null && n.Parent != null ? n.Parent.E.Object : null;
+        return n != null && n.Parent != null ? n.Parent.E.SimObject : null;
     }
 
     /// <summary>Lists the objects held directly by an object's database.</summary>
@@ -829,7 +826,7 @@ public sealed class Container
         if (c != null)
             foreach (var m in c.Items)
                 if (m != null)
-                    output.Add(m.E.Object);
+                    output.Add(m.E.SimObject);
         return output;
     }
 
@@ -883,7 +880,7 @@ public sealed class Container
                     continue;
                 var m = end.NodeRef;
                 ref var b = ref m.E.Box;
-                if (!m.HasDb() && (ReferenceEquals(m.E.Object, q.Exclude) || (m.E.Type & q.Mask) == 0))
+                if (!m.HasDb() && (ReferenceEquals(m.E.SimObject, q.Exclude) || (m.E.Type & q.Mask) == 0))
                     continue;
                 if (!(b[0] < q.Box[3]) || !(q.Box[0] <= b[3]) || !(b[1] < q.Box[4]) || !(q.Box[1] <= b[4]))
                     continue;
@@ -896,7 +893,7 @@ public sealed class Container
         {
             foreach (var m in c.Items)
                 if (m != null && (m.HasDb() ? Overlaps(m.E.Box, q.Box)
-                                            : !ReferenceEquals(m.E.Object, q.Exclude) && (m.E.Type & q.Mask) != 0 && Overlaps(m.E.Box, q.Box)))
+                                            : !ReferenceEquals(m.E.SimObject, q.Exclude) && (m.E.Type & q.Mask) != 0 && Overlaps(m.E.Box, q.Box)))
                     output.Add(m);
         }
         var endIndex = output.Count;
@@ -905,7 +902,7 @@ public sealed class Container
             var m = output[i];
             if (!m.HasDb())
                 continue;
-            if (ReferenceEquals(m.E.Object, q.Exclude) || (q.Mask & m.E.Type) == 0)
+            if (ReferenceEquals(m.E.SimObject, q.Exclude) || (q.Mask & m.E.Type) == 0)
             {
                 output[i] = output[endIndex - 1];
                 output[endIndex - 1] = output[^1];
@@ -929,7 +926,7 @@ public sealed class Container
         FindIn(_root, q, nodes);
         var output = new List<object?>();
         foreach (var n in nodes)
-            output.Add(n.E.Object);
+            output.Add(n.E.SimObject);
         return output;
     }
 
@@ -1005,7 +1002,7 @@ public sealed class Container
                 best = d;
                 if (wantBefore)
                     before = e;
-                obj = c.Object;
+                obj = c.SimObject;
                 hit = h;
                 normal = n;
                 e = h;
@@ -1065,8 +1062,8 @@ public sealed class Container
             if (s != null && s.Tag != _tag && !ScopeNode(s, q, stack))
                 return false;
         }
-        if (c.E.Object != null && q.Markable(c.E.Object))
-            q.Mark(c.E.Object);
+        if (c.E.SimObject != null && q.Markable(c.E.SimObject))
+            q.Mark(c.E.SimObject);
         stack.Add(false);
         Span<float> v = stackalloc float[3];
         for (var i = 0; i < c.Items.Count; ++i)
@@ -1110,10 +1107,10 @@ public sealed class Container
             if (s != null && s.Tag != _tag && !ScopeNode(s, q, stack))
                 return false;
         }
-        if (c.ViaLink && c.E.Object != null)
-            q.OnViaLink?.Invoke(c.E.Object);
-        if (c.E.Object != null && q.Markable(c.E.Object))
-            q.Mark(c.E.Object);
+        if (c.ViaLink && c.E.SimObject != null)
+            q.OnViaLink?.Invoke(c.E.SimObject);
+        if (c.E.SimObject != null && q.Markable(c.E.SimObject))
+            q.Mark(c.E.SimObject);
         stack.Add(false);
         // PVS database scope (00484050): the lists of the leaves visible from the camera's leaf (leaf numbers above 42),
         // then list 0, then the outside leaves 0..42 when the camera leaf sees outside. A camera in a solid leaf scopes
@@ -1182,8 +1179,8 @@ public sealed class Container
     {
         if (!n.HasDb())
         {
-            if (q.Markable(n.E.Object))
-                q.Mark(n.E.Object);
+            if (q.Markable(n.E.SimObject))
+                q.Mark(n.E.SimObject);
         }
         else if (n.Tag != _tag)
         {
