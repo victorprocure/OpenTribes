@@ -13,11 +13,17 @@ public class GuiList : GuiActive
     public readonly List<(string Text, int Id)> Entries = new();
     public int Selected = -1;
 
-    protected virtual PftFont? RowFont => Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
+    // FGTextList's add-to-manager routine [code 00489d00] loads the three fonts of the list itself: sf_orange214_10.pft for a row, sf_white_10.pft
+    // for the selected row and sf_grey100_10b.pft (the dimmed case, not modelled). It runs after the file is read, so the font tags of the file
+    // (all 0 in the stock screens) do not matter. The cell is 640 wide and the orange font height + 4 high [code 00489d00].
+    private bool FgTextList => ClassName == "FearGui::FGTextList";
+    protected virtual PftFont? RowFont => FgTextList ? Host?.FontByName("sf_orange214_10.pft") : Host?.FontByTag(U("fontTag")) ?? Host?.FontByName("sf_white_10.pft");
 
     // TextList [code 0054b845]: the cell is the control's width wide and the font height + the vertical offset of the file + 4 high.
     private bool ExactTextList => ClassName is "SimGui::TextList" or "METextList";
-    public int RowHeight => ExactTextList ? GuiPaint.FontHeight(RowFont) + (int)U("textVOffset") + 4 : Math.Max(8, GuiPaint.FontHeight(RowFont) + 2);
+    public int RowHeight => FgTextList ? GuiPaint.FontHeight(RowFont) + 4
+        : ExactTextList ? GuiPaint.FontHeight(RowFont) + (int)U("textVOffset") + 4 : Math.Max(8, GuiPaint.FontHeight(RowFont) + 2);
+    private bool IsTextList => ClassName.EndsWith("TextList", StringComparison.Ordinal);
 
     public void AddEntry(string text, int id) => Entries.Add((text, id));
     public virtual void Clear() { Entries.Clear(); Selected = -1; }
@@ -36,6 +42,19 @@ public class GuiList : GuiActive
         if (Selected == i) Selected = -1; else if (Selected > i) --Selected;
     }
 
+    // Cell select [code 0053c9dc] ends in 0053caa0: when the selected cell is not inside the parent content control (its top at or above 0,
+    // or its bottom below the content height) the list moves by the missing distance so that the cell shows. Only the vertical case of
+    // the single column is modelled (the column is as wide as the content).
+    private void ScrollIntoView(int row)
+    {
+        if (Parent is not GuiScrollContent pc || pc.Parent is not GuiScroll sc)
+            return;
+        int top = row * RowHeight + Y;
+        int dy = top < 1 ? -top : pc.H < top + RowHeight ? pc.H - (top + RowHeight) : 0;
+        if (dy != 0)
+            sc.ScrollBy(0, -dy);
+    }
+
     // The class's own reaction to a selected row (the master list sets its console variables).
     protected virtual void Selecting(int row) { }
 
@@ -48,6 +67,8 @@ public class GuiList : GuiActive
             return;
         Selected = row;
         Selecting(row);
+        if (IsTextList)
+            ScrollIntoView(row);
         if (!notify)
             return;
         WriteVariable(row.ToString(CultureInfo.InvariantCulture));
@@ -64,10 +85,32 @@ public class GuiList : GuiActive
     public override string GetValue() => ClassName.EndsWith("TextList", StringComparison.Ordinal)
         ? (Selected >= 0 && Selected < Entries.Count ? Entries[Selected].Text : "")
         : Selected.ToString(CultureInfo.InvariantCulture);
+    // A text list takes a value by its text: the set-value slot [code 0054bf54] walks the lines, compares the text byte for byte and
+    // selects the first line that is equal through the cell select slot [0x100, 00489cb8 for FGTextList], which evaluates the control's
+    // command and nothing else. The variable-changed slot of the family is a bare return [code 00539dcc], so the bound variable
+    // (`$pref::LastMission` of the mission list) does not select anything.
     protected override void ApplyValue(string v)
     {
+        if (IsTextList)
+        {
+            int row = Entries.FindIndex(e => string.Equals(e.Text, v, StringComparison.Ordinal));
+            if (row >= 0)
+            {
+                Selected = row;
+                ScrollIntoView(row);
+                if (Command.Length > 0)
+                    Host?.Eval(Command);
+            }
+            return;
+        }
         if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i))
             Select(Math.Clamp(i, -1, Entries.Count - 1), notify: false);
+    }
+
+    public override void VariableChanged(string text)
+    {
+        if (!IsTextList)
+            base.VariableChanged(text);
     }
 
     public override void PreRender()
@@ -136,6 +179,16 @@ public class GuiList : GuiActive
                 break;
             if (y + rh < p.Clip.Top)
                 continue;
+            if (FgTextList)
+            {
+                // Cell draw [code 00489f2c]: the selected cell is filled with palette 0xfe (opaque), the text sits at (x + 10, y + vertical offset)
+                // in the white font when selected and the orange font otherwise.
+                bool sel = i == Selected;
+                if (sel)
+                    p.Fill(gx, y, W, rh, 0xfe);
+                p.Text(sel ? Host?.FontByName("sf_white_10.pft") : f, gx + 10, y + (int)U("textVOffset"), Entries[i].Text);
+                continue;
+            }
             if (ExactTextList)
             {
                 // [code 0054b65c]: the text at (x + 10, y + vertical offset); the selected cell is filled with palette 0xf9 and its text
