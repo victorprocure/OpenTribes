@@ -241,7 +241,7 @@ public class CommandMapTests
     {
         var marks = new ClientHudSource(MarkWorld()).CommandMapMarks!;
         Assert.Equal((2049, 0), (marks.LocalId, marks.LocalTeam));
-        Assert.Equal(new[] { 1, 2, 129 }, marks.Slots.Select(m => m.Slot));
+        Assert.Equal([1, 2, 129], marks.Slots.Select(m => m.Slot));
         var dan = marks.Slots[1];
         Assert.Equal(("Dan", 2050, 3, 129, 1), (dan.ClientName, dan.ClientId, dan.OrderIcon, dan.OrderTarget, dan.OrderStatus));
         var turret = marks.Slots[2];
@@ -256,7 +256,7 @@ public class CommandMapTests
     {
         var w = MarkWorld();
         w.DataBlocks.Blocks.Remove((19, 0));
-        Assert.Equal(new[] { 1, 2 }, new ClientHudSource(w).CommandMapMarks!.Slots.Select(m => m.Slot));
+        Assert.Equal([1, 2], new ClientHudSource(w).CommandMapMarks!.Slots.Select(m => m.Slot));
     }
 
     [Fact]

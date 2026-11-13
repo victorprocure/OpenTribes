@@ -6,7 +6,6 @@ namespace OpenTribes.Tests;
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
-using OpenTribes.Sim;
 using OpenTribes.World;
 using static OpenTribes.Tests.Fixtures;
 
@@ -144,7 +143,7 @@ public class StaticSimTests
         var a = new R250(); // seed 0x8377
         var tab = a.Table();
         // Seed fill (0x005eb5d4): 32 words, 7 apart from word 3, form a staircase.
-        Assert.NotEqual(0u, (tab[3] & 0x80000000u));
+        Assert.NotEqual(0u, tab[3] & 0x80000000u);
         Assert.True((tab[10] & 0x80000000u) == 0 && (tab[10] & 0x40000000u) != 0);
         Assert.Equal(1u, tab[220]);
         // Draw (0x005eb660): table[i] ^= table[(i + 103) mod 250], i advancing and wrapping at 250.
@@ -261,9 +260,9 @@ public class StaticSimTests
 
 
         var p = Gb("MissionGroup/P");
-        const string P = "\"MissionGroup/P\"";
+        const string p2 = "\"MissionGroup/P\"";
         static string Q(string src) => "echo(" + src + ");";
-        c.Check(w, Q("GameBase::getEnergy(" + P + ")"), "10");  // energy = maxEnergy at the bind
+        c.Check(w, Q("GameBase::getEnergy(" + p2 + ")"), "10");  // energy = maxEnergy at the bind
         c.Check(w, "echo(GameBase::setEnergy(\"MissionGroup/P\", 50), GameBase::getEnergy(\"MissionGroup/P\")," +
                    " GameBase::setEnergy(\"MissionGroup/P\", -3), GameBase::getEnergy(\"MissionGroup/P\"));",
                 "True10True0");  // clamped to [0, maxEnergy]
@@ -301,7 +300,7 @@ public class StaticSimTests
         w.Run("GameBase::setAutoRepairRate(\"MissionGroup/P\", 0.5);");
         Tick();
         Assert.True(Near(p.Damage, 0.564f, 5e-6f));
-        c.Check(w, Q("GameBase::getAutoRepairRate(" + P + ")"), "0.5");
+        c.Check(w, Q("GameBase::getAutoRepairRate(" + p2 + ")"), "0.5");
         w.Run("GameBase::setAutoRepairRate(\"MissionGroup/P\", 0); GameBase::setDamageLevel(\"MissionGroup/P\", 0);");
         // State evaluation: the disabled threshold is maxDamage x damageLevel[0] = 0.75.
         w.Run("$disabled = 0; $enabled = 0; $destroyed = 0;");
@@ -361,7 +360,7 @@ public class StaticSimTests
         }
         Assert.Equal(35, ticks);  // 34 ticks reach position 1.02 (clamped to 1), the 35th reports
         c.Check(w, "echo($ended);", "1");
-        Assert.NotEqual(0, (p.Threads[1].Flags & GameBase.ThreadAtEnd));
+        Assert.NotEqual(0, p.Threads[1].Flags & GameBase.ThreadAtEnd);
         // Each apply draws once and sets a speed in [0.9, 1.1).
         var speeds = new DefMap<float, int>();
         for (var i = 0; i < 20; ++i)
@@ -561,7 +560,7 @@ public class StaticSimTests
         // An inactive sensor detects nothing.
         w.Run("GameBase::setActive($s0, false);");
         Tick(4);
-        Assert.Equal(0x2u, (t1.SensorWord & 0x3));
+        Assert.Equal(0x2u, t1.SensorWord & 0x3);
         w.Run("GameBase::setActive($s0, true);");
         // A jammer (supression) that detects the target puts it in state 2 and hides it from
         // supressable sensors (3.5 step 4, 5).

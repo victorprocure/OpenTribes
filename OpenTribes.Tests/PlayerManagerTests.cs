@@ -144,12 +144,12 @@ public class PlayerManagerTests
         fx.Add(2049, "Pilot");
         fx.Add(2050);
         fx.Add(2051);
-        Assert.True(Keys(fx.SentEvents, 0x44f).SequenceEqual(new[] { (2049, -1), (2049, 0), (2049, 1), (2050, -1), (2050, 0),
-                                                                      (2050, 1), (2051, -1), (2051, 0), (2051, 1) }));
-        Assert.True(Keys(fx.SentEvents, 0x44b).SequenceEqual(new[] { (2049, 2049),
+        Assert.True(Keys(fx.SentEvents, 0x44f).SequenceEqual([ (2049, -1), (2049, 0), (2049, 1), (2050, -1), (2050, 0),
+                                                                      (2050, 1), (2051, -1), (2051, 0), (2051, 1) ]));
+        Assert.True(Keys(fx.SentEvents, 0x44b).SequenceEqual([ (2049, 2049),
                                                                       (2049, 2050), (2050, 2049), (2050, 2050),
                                                                       (2050, 2051), (2051, 2050), (2049, 2051), (2051, 2049),
-                                                                      (2051, 2051) }));
+                                                                      (2051, 2051) ]));
         // Each connect posts its TeamAdds before any PlayerAdd.
         Assert.True(fx.SentEvents[3].E.Tag == 0x44b && fx.SentEvents[4].E.Tag == 0x44f);
         // TeamAdd body of team 0: +0x24 (0), team, name, skin (2.5, 2.2).
@@ -185,7 +185,7 @@ public class PlayerManagerTests
         var drop = fx.Out.IndexOf("dropped - id = 2050", StringComparison.Ordinal);
         Assert.True(disc >= 0 && drop >= 0 && disc < drop);
         Assert.Equal(2051, fx.Pm().Find(2049)!.Commander);
-        Assert.True(Keys(fx.SentEvents, 0x44c).SequenceEqual(new[] { (2051, 2050), (2049, 2050) }) && fx.SentEvents.Count == 2);
+        Assert.True(Keys(fx.SentEvents, 0x44c).SequenceEqual([(2051, 2050), (2049, 2050)]) && fx.SentEvents.Count == 2);
         var b = new Bits(fx.SentEvents[0].E);
         Assert.True(b.U(7) == 2 && b.Done());
     }
@@ -227,7 +227,7 @@ public class PlayerManagerTests
         // 5 step 5: a team change re-runs the Command-mode step for the new teammates first.
         fx.Pm().Find(2051)!.CommandTarget = 7;
         fx.Pm().SetTeam(2049, 1);
-        Assert.True(Keys(fx.SentEvents, 0x455).SequenceEqual(new[] { (2049, 2051) }));
+        Assert.True(Keys(fx.SentEvents, 0x455).SequenceEqual([(2049, 2051)]));
         Assert.True(TagsEq(fx.Take(), (2049, 0x455), (2051, 0x452), (2050, 0x452), (2049, 0x452)));
     }
 
@@ -298,7 +298,7 @@ public class PlayerManagerTests
         all = Lines();
         Assert.True(all.Count == 32 && all[3].Item2 == "Hold the flag");
         fx.Run("Team::setObjective(0, 4, \"Defend\");");
-        Assert.True(Lines().SequenceEqual(new[] { (4u, "Defend") }));
+        Assert.True(Lines().SequenceEqual([(4u, "Defend")]));
         fx.Run("Team::setObjective(0, 4, \"Defend\"); Team::setObjective(0, 32, x); Team::setObjective(2, 1, x); " +
                "Team::setObjective(1, 1, x);");
         Assert.Equal(0, Lines().Count); // unchanged, bad line, bad team, other team
@@ -306,10 +306,10 @@ public class PlayerManagerTests
         fx.Run("Client::setGuiMode(2049, 3); Team::setObjective(0, 5, \"Late\");");
         Assert.Equal(0, Lines().Count);
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
-        Assert.True(Lines().SequenceEqual(new[] { (5u, "Late") }));
+        Assert.True(Lines().SequenceEqual([(5u, "Late")]));
         // clearObjectives: an empty text for every non-empty line, to members in mode 5.
         Assert.Equal("0", fx.Run("echo(Team::clearObjectives(0));"));
-        Assert.True(Lines().SequenceEqual(new[] { (3u, ""), (4u, ""), (5u, "") }));
+        Assert.True(Lines().SequenceEqual([(3u, ""), (4u, ""), (5u, "")]));
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
         Assert.Equal(0, Lines().Count);
     }
@@ -339,22 +339,22 @@ public class PlayerManagerTests
         fx.SentEvents.Clear();
         // 7: setScore to every human with menu score visible and mode != 3.
         Assert.Equal("True", fx.Run("echo(Client::setScore(2051, \"%n\\t10\", 10));"));
-        Assert.True(DeltasTo(fx.SentEvents, 2049).SequenceEqual(new[] { new Delta(false, 2051, 10, "%n\t10") }) &&
+        Assert.True(DeltasTo(fx.SentEvents, 2049).SequenceEqual([new Delta(false, 2051, 10, "%n\t10")]) &&
                     fx.SentEvents.Count == 1);
         fx.SentEvents.Clear();
         fx.Run("Client::setScore(2051, \"%n\\t10\", 10);"); // unchanged
         Assert.Equal(0, fx.SentEvents.Count);
         fx.Run("Client::setScore(2051, \"%n\\t10\", 11); Team::setScore(0, \"BE\", 5); Team::setScore(-1, \"H\", 0);");
-        Assert.True(DeltasTo(fx.SentEvents, 2049).SequenceEqual(new[] { new Delta(false, 2051, 11, "%n\t10"),
+        Assert.True(DeltasTo(fx.SentEvents, 2049).SequenceEqual([ new Delta(false, 2051, 11, "%n\t10"),
                                                                         new Delta(true, 0, 5, "BE"),
-                                                                        new Delta(true, -1, 0, "H") }));
+                                                                        new Delta(true, -1, 0, "H") ]));
         Assert.Equal(3, fx.SentEvents.Count);
         fx.SentEvents.Clear();
         // 6 step 4: entering Victory with the menu score hidden flushes once (setMenuScoreVis 1 then 0, checked against
         // the old mode): humans newest first, then teams 0..n-1, never team -1. The menu stays hidden afterwards.
         fx.Run("Client::setGuiMode(2051, 3);");
-        Assert.True(DeltasTo(fx.SentEvents, 2051).SequenceEqual(new[] { new Delta(false, 2051, 11, "%n\t10"),
-                                                                        new Delta(true, 0, 5, "BE") }));
+        Assert.True(DeltasTo(fx.SentEvents, 2051).SequenceEqual([ new Delta(false, 2051, 11, "%n\t10"),
+                                                                        new Delta(true, 0, 5, "BE") ]));
         Assert.Equal(2, DeltaCount(fx.SentEvents));
         fx.SentEvents.Clear();
         fx.Run("Client::setGuiMode(2051, 1); Client::setScore(2049, a, 1);");
@@ -362,9 +362,9 @@ public class PlayerManagerTests
         fx.SentEvents.Clear();
         // Leaving Victory with the menu score visible flushes what was held back.
         fx.Run("Client::setGuiMode(2050, 1);");
-        Assert.True(DeltasTo(fx.SentEvents, 2050).SequenceEqual(new[] { new Delta(false, 2051, 11, "%n\t10"),
+        Assert.True(DeltasTo(fx.SentEvents, 2050).SequenceEqual([ new Delta(false, 2051, 11, "%n\t10"),
                                                                         new Delta(false, 2049, 1, "a"),
-                                                                        new Delta(true, 0, 5, "BE") }));
+                                                                        new Delta(true, 0, 5, "BE") ]));
         Assert.Equal(3, DeltaCount(fx.SentEvents));
         fx.SentEvents.Clear();
         // setMenuScoreVis(1) with nothing newer sends nothing.
@@ -462,7 +462,7 @@ public class PlayerManagerTests
         fx.Add(2049);
         fx.Add(2050);
         fx.Game.TargetNames.Clear();
-        fx.Game.TargetNames.AddRange(new[] { "Gen", "" });
+        fx.Game.TargetNames.AddRange(["Gen", ""]);
         fx.SentEvents.Clear();
         fx.Game.SetTargetName(1, "Station");
         Assert.True(fx.SentEvents.Count == 2 && fx.SentEvents[0].To == 2050 && fx.SentEvents[1].To == 2049 &&

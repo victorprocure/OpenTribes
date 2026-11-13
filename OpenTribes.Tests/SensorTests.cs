@@ -68,7 +68,7 @@ public class SensorTests
         Player Spawn(string pos, int client, int team)
         {
             var id = w.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
-            Player? p = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
+            var p = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
             Assert.NotNull(p);
             if (client != 0)
             {
@@ -207,11 +207,11 @@ public class SensorTests
         tg.SetTeam(5);
         tg.SensorWord = (tg.SensorWord & ~0xffu) | 0x40u;
         Tick(3);
-        Assert.Equal(0x40u, (tg.SensorWord & 0xff));
+        Assert.Equal(0x40u, tg.SensorWord & 0xff);
         tg.SensorWord &= ~0xffu;
         tg.SetTeam(1);
         Tick(3);
-        Assert.Equal(0x2u, (tg.SensorWord & 0xff));
+        Assert.Equal(0x2u, tg.SensorWord & 0xff);
 
         // ---- 3.3 target slots: lowest free slot, freed slots reused, a full table gives -1 ----
         var first = tg.TargetIndex;

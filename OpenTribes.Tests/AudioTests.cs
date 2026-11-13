@@ -56,7 +56,7 @@ public class AudioTests
     [Fact]
     public void Decodes8BitMono() // 1.1
     {
-        WavData? w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 1, 11025, 8)), Chunk("data", [128, 255, 0, 192])));
+        var w = WavData.TryParse(Riff(Chunk("fmt ", Fmt(1, 1, 11025, 8)), Chunk("data", [128, 255, 0, 192])));
         Assert.NotNull(w);
         Assert.Equal((1, 11025, 8, 4), (w.Channels, w.Rate, w.Bits, w.Frames));
         Assert.Equal([0f, 127 / 128f, -1f, 0.5f], w.Samples);
@@ -292,7 +292,7 @@ public class AudioTests
         m.Start(WavData.TryParse(Wave16(22050, 1000, 2000, 3000))!, true, 1f, 1f);
         var o = new float[16];
         Render(m, o, 8);
-        Assert.Equal(new[] { 1000, 2000, 3000, 1000, 2000, 3000, 1000, 2000 }, Enumerable.Range(0, 8).Select(i => (int)Math.Round(o[i * 2] * 32768)));
+        Assert.Equal([1000, 2000, 3000, 1000, 2000, 3000, 1000, 2000], Enumerable.Range(0, 8).Select(i => (int)Math.Round(o[i * 2] * 32768)));
     }
 
     [Fact]
@@ -351,7 +351,7 @@ public class AudioTests
             h[i] = sm.PlayWave("a.wav", P2D(), 0.5);
         }
         sm.Tick(100);
-        Assert.Equal([true, true, true, false, false], h.Select(sm.IsDone).ToArray());
+        Assert.Equal([true, true, true, false, false], [.. h.Select(sm.IsDone)]);
     }
 
     [Fact]
@@ -377,7 +377,7 @@ public class AudioTests
         var b = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 50, 0));
         var c = sm.PlayWave("a.wav", P3D(5, 500), 0, new SoundXf(0, 100, 0));
         sm.Tick(1);
-        Assert.Equal([true, false, false], new[] { a, b, c }.Select(sm.IsDone).ToArray());
+        Assert.Equal([true, false, false], [.. new[] { a, b, c }.Select(sm.IsDone)]);
         // The two nearest survive; the voice at 200 m was cut.
     }
 

@@ -84,7 +84,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
             Item(3, "bWeapons", "Chaingun", count: 1), Item(4, "bWeapons", "Mortar"), Item(5, "aArmor", "Light Armor", count: 1),
         };
         var rows = GuiInventoryList.Build(items, purchase: false);
-        Assert.Equal(new[] { "aArmor", "Light Armor", "bWeapons", "Blaster", "Chaingun", "cAmmo", "Bullet" }, rows.Select(r => r.IsHeader ? r.Heading : r.Text));
+        Assert.Equal(["aArmor", "Light Armor", "bWeapons", "Blaster", "Chaingun", "cAmmo", "Bullet"], rows.Select(r => r.IsHeader ? r.Heading : r.Text));
         Assert.Equal(100, rows.Last().Value);
         Assert.All(rows.Where(r => !r.IsHeader), r => Assert.True(r.Enabled));
     }
@@ -273,8 +273,8 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void ScoreLinesListTeamsThenPlayersAndMarkTheSelectedPlayer()
     {
         var board = new ScoreBoard("Team Name\t\xD6Score", "Player Name\t\x6FTeam",
-            new[] { new ScoreRow(0, "Blood Eagle\t 3", 3), new ScoreRow(1, "Diamond Sword\t 1", 1) },
-            new[] { new ScoreRow(2049, "Ann\tBlood Eagle", 3), new ScoreRow(2050, "Bob\tDiamond Sword", 1) }, 2050);
+            [new ScoreRow(0, "Blood Eagle\t 3", 3), new ScoreRow(1, "Diamond Sword\t 1", 1)],
+            [new ScoreRow(2049, "Ann\tBlood Eagle", 3), new ScoreRow(2050, "Bob\tDiamond Sword", 1)], 2050);
         var lines = GuiScoreList.Build(board);
         Assert.Equal(6, lines.Count);
         Assert.True(lines[0].Heading);
@@ -301,7 +301,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
         world.Players.Clients[2049] = new ClientPlayerRecord { Id = 2049, Name = "Ann", ScoreText = "%n\t1", SortValue = 1 };
         world.Players.Clients[2050] = new ClientPlayerRecord { Id = 2050, Name = "Bob", ScoreText = "%n\t5", SortValue = 5 };
         var board = new ClientHudSource(world).Scores!;
-        Assert.Equal(new[] { "Bob\t5", "Ann\t1" }, board.Clients.Select(c => c.Text));
+        Assert.Equal(["Bob\t5", "Ann\t1"], board.Clients.Select(c => c.Text));
         Assert.Equal(2049, board.LocalClient);
     }
 

@@ -5,7 +5,6 @@ namespace OpenTribes.Tests;
 using OpenTribes.Core;
 using OpenTribes.Game;
 using static OpenTribes.Tests.Fixtures;
-using Block = OpenTribes.Game.DataBlockManager.Block;
 
 public class DataBlocksTests
 {

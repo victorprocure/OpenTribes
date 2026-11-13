@@ -239,7 +239,7 @@ public class ContainerTests
             pvs = [outsideByte, 0, 4, 0x08];
         var outsideSize = (uint)pvs.Count;
         if (insideByte != 0)
-            pvs.AddRange(new byte[] { insideByte, 0, 4, 0x08 });
+            pvs.AddRange([insideByte, 0, 4, 0x08]);
         foreach (var n in new uint[] { 0, 1, 1, nEmpty, (uint)pvs.Count, 0, 0, 0, 1 })
             U32(n);
         U16(0);                      // node: plane 0
@@ -271,7 +271,7 @@ public class ContainerTests
         var geo = TestGeometry();
         Assert.NotNull(geo);
         Assert.True(geo!.LeafAt(new Vec3(5, 0, 0)) == 44 && geo.LeafAt(new Vec3(-5, 0, 0)) == 43 && geo.LeafAt(new Vec3(20, 20, 0)) == 10);
-        Assert.True(geo.VisibleLeaves(10).SequenceEqual(new[] { 44 }));
+        Assert.True(geo.VisibleLeaves(10).SequenceEqual([44]));
         Assert.False(geo.SeesOutside(10));
         var c = new Container();
         Obj t = new("T"), box = new("B"), front = new("f"), behind = new("b"), s = new("s");

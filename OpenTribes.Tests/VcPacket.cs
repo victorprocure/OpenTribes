@@ -78,6 +78,6 @@ internal sealed class VcPacket
     public static byte[] Bytes(string s, bool withNul = false)
     {
         var v = ByteString.ToBytes(s);
-        return withNul ? [.. v, (byte)0] : v;
+        return withNul ? [.. v, 0] : v;
     }
 }

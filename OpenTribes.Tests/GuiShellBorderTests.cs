@@ -1,7 +1,6 @@
 // FGShellBorder / MMShellBorder frame (docs/gui.md 3.3, draw 0049bd0c): synthetic pieces only (R5).
 namespace OpenTribes.Tests;
 
-using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
 
 public class GuiShellBorderTests

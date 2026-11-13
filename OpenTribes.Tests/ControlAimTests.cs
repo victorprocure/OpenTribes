@@ -30,14 +30,14 @@ public class ControlAimTests
         o.M[3] = -1;
         o.M[4] = 0;      // yaw 90 degrees: object x is world y
         var eye = ControlAim.VehicleEye(o, Node(0, 1, 2));
-        Assert.Equal([9f, 20f, 32f], new[] { eye.P[0], eye.P[1], eye.P[2] });
+        Assert.Equal([9f, 20f, 32f], [eye.P[0], eye.P[1], eye.P[2]]);
     }
 
     [Fact]
     public void VehicleEyeWithoutTheNodeIsTheObjectTransform()
     {
         var eye = ControlAim.VehicleEye(Obj(1, 2, 3), null);
-        Assert.Equal([1f, 2f, 3f], new[] { eye.P[0], eye.P[1], eye.P[2] });
+        Assert.Equal([1f, 2f, 3f], [eye.P[0], eye.P[1], eye.P[2]]);
     }
 
     [Fact]
@@ -47,8 +47,8 @@ public class ControlAimTests
         Assert.Equal(5, ControlAim.VehicleMuzzleNode(9, table, 0));
         Assert.Equal(6, ControlAim.VehicleMuzzleNode(9, table, 4));
         Assert.Equal(7, ControlAim.VehicleMuzzleNode(9, table, 2));
-        Assert.Equal(9, ControlAim.VehicleMuzzleNode(9, Array.Empty<int>(), 3));
-        Assert.Equal(-1, ControlAim.VehicleMuzzleNode(-1, Array.Empty<int>(), 3));
+        Assert.Equal(9, ControlAim.VehicleMuzzleNode(9, [], 3));
+        Assert.Equal(-1, ControlAim.VehicleMuzzleNode(-1, [], 3));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class ControlAimTests
         Assert.False(ControlAim.VehicleMuzzle(Obj(4, 5, 6), null, out var m));
         Assert.Equal(5f, m.P[1]);
         Assert.True(ControlAim.VehicleMuzzle(Obj(4, 5, 6), Node(1, 1, 1), out m));
-        Assert.Equal([5f, 6f, 7f], new[] { m.P[0], m.P[1], m.P[2] });
+        Assert.Equal([5f, 6f, 7f], [m.P[0], m.P[1], m.P[2]]);
     }
 
     [Fact]

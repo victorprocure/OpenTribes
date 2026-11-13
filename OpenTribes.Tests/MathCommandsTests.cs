@@ -432,7 +432,7 @@ public class MathCommandsTests
             var t0 = (GameBase)w.Object("ts0")!;
             var t1 = (GameBase)w.Object("ts1")!;
             w.Game.Targets.Clear();
-            w.Game.Targets.AddRange(new GameBase?[] { t0, null, t1 });
+            w.Game.Targets.AddRange([t0, null, t1]);
             string id0 = t0.Id().ToString(), id1 = t1.Id().ToString();
             Assert.True(Run(w, "echo(getObjectByTargetIndex(0), \" \", getObjectByTargetIndex(1), \" \", getObjectByTargetIndex(2), \" \", getObjectByTargetIndex(3));") ==
                         id0 + " -1 " + id1 + " -1");

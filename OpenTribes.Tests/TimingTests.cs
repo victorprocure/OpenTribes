@@ -101,7 +101,7 @@ public class TimingTests
         m.PostEvent(m, 0.5f, Note("d"));
         Assert.True(m.AdvanceTo(0.125f) == 0 && m.Time() == 0.125f);
         Assert.True(m.AdvanceTo(0.75f) == 5 && m.Time() == 0.75f);
-        Assert.True(log.SequenceEqual(new[] { "b0.25", "a0.5", "c0.5", "d0.5", "n0.5" }));
+        Assert.True(log.SequenceEqual(["b0.25", "a0.5", "c0.5", "d0.5", "n0.5"]));
         // TM6: an event posted at or before the current target waits for a new target.
         m.PostEvent(m, 0.5f, Note("p"));
         Assert.True(m.AdvanceTo(0.75f) == 0 && log.Count == 5);
@@ -126,7 +126,7 @@ public class TimingTests
         m.ResetTime();
         Assert.True(log.Count == 0 && m.Time() == 0.0f && m.PendingEvents() == 3);
         Assert.Equal(0, m.AdvanceTo(0.0f)); // equal target: not even events at 0 run
-        Assert.True(m.AdvanceTo(0.5f) == 2 && log.SequenceEqual(new[] { "a0", "b0" }));
+        Assert.True(m.AdvanceTo(0.5f) == 2 && log.SequenceEqual(["a0", "b0"]));
         log.Clear();
         // Inside an event: "r" at 0.625 resets; "s" (0.625) becomes the first event at 0 and runs in the same advance;
         // "c" moves from 0.75 to 0.125 and waits.
@@ -138,7 +138,7 @@ public class TimingTests
         });
         m.PostEvent(m, 0.625f, Note("s"));
         Assert.Equal(2, m.AdvanceTo(2.0f));
-        Assert.True(log.SequenceEqual(new[] { "r0.625", "R0", "s0" }));
+        Assert.True(log.SequenceEqual(["r0.625", "R0", "s0"]));
         Assert.True(m.Time() == 0.0f && m.PendingEvents() == 1);
         Assert.True(m.AdvanceTo(0.25f) == 1 && log[^1] == "c0.125");
         // An empty queue: only the clocks reset.
@@ -216,25 +216,25 @@ public class TimingTests
             }
         };
         fx.Frame(0.033);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@32", "t2@32", "t3@32", "t4@32", "new@32" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@32", "t2@32", "t3@32", "t4@32", "new@32"]));
         // Removing the current member moves the last one into its slot: that one is skipped in this pass (GS4), the
         // order changes for the next ones.
         var set = fx.M().FindById(718)!.AsSet()!;
         fx.Ticks.Clear();
         t2.OnTick = () => set.RemoveObject(t2);
         fx.Frame(0.065);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@64", "t2@64", "t3@64", "t4@64" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@64", "t2@64", "t3@64", "t4@64"]));
         fx.Ticks.Clear();
         fx.Frame(0.097);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@96", "new@96", "t3@96", "t4@96" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@96", "new@96", "t3@96", "t4@96"]));
         // Removing an earlier member also skips the moved one.
         fx.Ticks.Clear();
         t3.OnTick = () => set.RemoveObject(t1);
         fx.Frame(0.129);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@128", "new@128", "t3@128" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@128", "new@128", "t3@128"]));
         fx.Ticks.Clear();
         fx.Frame(0.161);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t4@160", "new@160", "t3@160" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t4@160", "new@160", "t3@160"]));
     }
 
     // TK6: the SimTimerSet event every 0.03 s of sim time, times accumulated in float.

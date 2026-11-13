@@ -5,7 +5,6 @@
 namespace OpenTribes.Tests;
 
 using System.Globalization;
-using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Script;
@@ -96,10 +95,10 @@ public class PlayerTests
             float[] low = [-2, -1, 0, 2, 1, 0.4f], high = [-2, -1, 0, 2, 1, 0.8f];
             PutFile(Path.Combine(Root, "base/low.dis"), DisFile("low-00.dig", "low-000.dil"));
             PutFile(Path.Combine(Root, "base/low-00.dig"), BoxDig(low));
-            PutFile(Path.Combine(Root, "base/low-000.dil"), DilFile(0x77, new List<LightRec>(), [], ""));
+            PutFile(Path.Combine(Root, "base/low-000.dil"), DilFile(0x77, [], [], ""));
             PutFile(Path.Combine(Root, "base/high.dis"), DisFile("high-00.dig", "high-000.dil"));
             PutFile(Path.Combine(Root, "base/high-00.dig"), BoxDig(high));
-            PutFile(Path.Combine(Root, "base/high-000.dil"), DilFile(0x77, new List<LightRec>(), [], ""));
+            PutFile(Path.Combine(Root, "base/high-000.dil"), DilFile(0x77, [], [], ""));
             float[] gen = [-1, -1.5f, 0, 1, 1.5f, 2];
             PutFile(Path.Combine(Root, "base/gen.dts"), DtsCollisionFile(gen));
             float[] pan = [-1.202879f, -2.5f, -2.5f, 1.202879f, 2.5f, 2.5f];
@@ -125,7 +124,7 @@ public class PlayerTests
         public Player Spawn(string pos, string rot = "0 0 0")
         {
             var id = W.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"" + rot + "\"));");
-            Player? p = Player.From(W.Object(id));
+            var p = Player.From(W.Object(id));
             Assert.NotNull(p);
             return p!;
         }
@@ -747,7 +746,7 @@ public class PlayerTests
               " animData[2] = { wave, none, 1, true, false, true, false, 3 };" +
               " animData[3] = { run, none, -1, true, false, true, false, 3 };" +
               " animData[4] = { wave, none, 1, true, false, true, false, 4 }; };");
-        Player? p = Player.From(w.Object(w.Run("echo(spawnPlayer(aarmor, \"40 40 50.1\", \"0 0 0\"));")));
+        var p = Player.From(w.Object(w.Run("echo(spawnPlayer(aarmor, \"40 40 50.1\", \"0 0 0\"));")));
         Assert.True(p != null && p.PData.AnimCyclic[1] && !p.PData.AnimCyclic[2] && p.PData.AnimDuration[1] == 0.5f);
         var id = Itoa(p!.Id());
         void Step(int n)
@@ -846,7 +845,7 @@ public class PlayerTests
         }
         Player Spawn(string tag, string pos)
         {
-            Player? p = Player.From(w.Object(w.Run("echo(spawnPlayer(zarmor, \"" + pos + "\", \"0 0 0\"));")));
+            var p = Player.From(w.Object(w.Run("echo(spawnPlayer(zarmor, \"" + pos + "\", \"0 0 0\"));")));
             Assert.NotNull(p);
             w.Run("$zp[" + Itoa(p!.Id()) + "] = \"" + tag + "\";");
             return p;
@@ -958,7 +957,7 @@ public class PlayerTests
               "function Pole::onCollision(%t, %o) { $pick = $pick @ %t @ \">\" @ %o @ \";\"; }");
         Player Spawn(string pos)
         {
-            Player? p = Player.From(w.Object(w.Run("echo(spawnPlayer(marmor, \"" + pos + "\", \"0 0 0\"));")));
+            var p = Player.From(w.Object(w.Run("echo(spawnPlayer(marmor, \"" + pos + "\", \"0 0 0\"));")));
             Assert.NotNull(p);
             return p!;
         }
@@ -1404,19 +1403,19 @@ public class PlayerTests
         var f = new Fixture("cast_shorten");
         var w = f.W;
         var p = f.Spawn("50 50 50", "0 0 0.3");
-        var T = new TMat3
+        var t2 = new TMat3
         {
             Flags = p.Transform.Flags,
             M = p.Transform.M,
             P = p.Transform.P
         };
-        Shape.TmatInverse(T, out var inv);
+        Shape.TmatInverse(t2, out var inv);
         float[] mn = [p.BoxMin[0], p.BoxMin[1], p.BoxMin[2]], mx = [p.BoxMax[0], p.BoxMax[1], p.BoxHeight];
-        void LineHit(float[] S, ReadOnlySpan<float> E, float[] output)
+        void LineHit(float[] s5, ReadOnlySpan<float> e5, float[] output)
         {
             float[] ls = new float[3], le = new float[3];
-            X87.MulPoint(S, inv.M, inv.P, ls);
-            X87.MulPoint(E, inv.M, inv.P, le);
+            X87.MulPoint(s5, inv.M, inv.P, ls);
+            X87.MulPoint(e5, inv.M, inv.P, le);
             float t = 0;
             var found = false;
             for (var a = 0; a < 3 && !found; ++a)
@@ -1450,7 +1449,7 @@ public class PlayerTests
             }
             Assert.True(found);
             for (var i = 0; i < 3; ++i)
-                output[i] = X87.F32(Add(Mul(Sub(E[i], S[i]), t), S[i]));
+                output[i] = X87.F32(Add(Mul(Sub(e5[i], s5[i]), t), s5[i]));
         }
         static bool Same(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
         {
@@ -1462,14 +1461,14 @@ public class PlayerTests
         var differing = 0;
         for (var k = 0; k < 12; ++k)
         {
-            float[] S = [AddF(30.0f, MulF(0.05f, k)), AddF(35.0f, MulF(0.01f, k)), AddF(52.4f, MulF(0.013f, k))], E = [70.0f, 65.0f, 48.4f];
+            float[] s4 = [AddF(30.0f, MulF(0.05f, k)), AddF(35.0f, MulF(0.01f, k)), AddF(52.4f, MulF(0.013f, k))], e4 = [70.0f, 65.0f, 48.4f];
             var terrain = new RayHit();
             var hit = new RayHit();
-            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, p, ref terrain) && terrain.Terrain);
-            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.HitObject == p);
+            Assert.True(Projectile.CastWorld(w.Game, s4, e4, 0xffffffffu, p, ref terrain) && terrain.Terrain);
+            Assert.True(Projectile.CastWorld(w.Game, s4, e4, 0xffffffffu, null, ref hit) && hit.HitObject == p);
             float[] shortened = new float[3], full = new float[3];
-            LineHit(S, terrain.Point, shortened);
-            LineHit(S, E, full);
+            LineHit(s4, terrain.Point, shortened);
+            LineHit(s4, e4, full);
             Assert.True(Same(hit.Point, shortened));
             if (!Same(shortened, full))
                 ++differing;
@@ -1477,11 +1476,11 @@ public class PlayerTests
         Assert.True(differing > 0); // the shortening changes the f32 hit point of some of these rays
         for (var k = 0; k < 400; ++k)
         {
-            float[] S = [AddF(30.0f, MulF(0.0123f, k)), AddF(35.0f, MulF(0.0071f, k)), AddF(51.6f, MulF(0.0013f, k))], E = [70.0f, 65.0f, 51.2f];
+            float[] s3 = [AddF(30.0f, MulF(0.0123f, k)), AddF(35.0f, MulF(0.0071f, k)), AddF(51.6f, MulF(0.0013f, k))], e3 = [70.0f, 65.0f, 51.2f];
             var hit = new RayHit();
-            Assert.True(Projectile.CastWorld(w.Game, S, E, 0xffffffffu, null, ref hit) && hit.HitObject == p);
+            Assert.True(Projectile.CastWorld(w.Game, s3, e3, 0xffffffffu, null, ref hit) && hit.HitObject == p);
             var full = new float[3];
-            LineHit(S, E, full);
+            LineHit(s3, e3, full);
             Assert.True(Same(hit.Point, full));
         }
     }
@@ -1587,7 +1586,7 @@ public class PlayerTests
               "ItemImageData BackImage { shapeFile = \"gunm\"; mountPoint = 1; weaponType = 0; };" +
               "ItemData BackGun { className = \"Weapon\"; imageType = BackImage; };");
         var id = w.Run("echo(spawnPlayer(marmor, \"8 16 200\", \"0 0 0\"));");
-        Player? p = Player.From(w.Object(id));
+        var p = Player.From(w.Object(id));
         Assert.NotNull(p);
         void Tick(int n)
         {
@@ -1725,7 +1724,7 @@ public class PlayerTests
                         StringComparison.Ordinal);
         Assert.Equal(1, seen);
         w.Sim.Server()!.OnRegister = null;
-        Assert.Equal(0x140u, (GhostScope.NetFlags(obj!) & 0x140u));
+        Assert.Equal(0x140u, GhostScope.NetFlags(obj!) & 0x140u);
         var cls = GhostManager.GhostClassOf(obj!);
         Assert.True(cls != null && cls.Tag == 0x25b);
         uint Pack(GhostContext ctx, byte[] buf)
@@ -1782,7 +1781,7 @@ public class PlayerTests
               "ItemData AimGun { className = \"Weapon\"; imageType = AimImage; };");
         Player Make(string pos)
         {
-            Player? pl = Player.From(w.Object(w.Run("echo(spawnPlayer(marmor, \"" + pos + "\", \"0 0 0\"));")));
+            var pl = Player.From(w.Object(w.Run("echo(spawnPlayer(marmor, \"" + pos + "\", \"0 0 0\"));")));
             Assert.NotNull(pl);
             return pl!;
         }
@@ -2177,7 +2176,7 @@ public class PlayerTests
         // Client round trip (client-net.md 3.4): the creating update, then the 0x2000 state update of a non-owner.
         var cw = ClientRoundTrip.WorldFor(0x218, p);
         var cg = ClientRoundTrip.Unpack(0x218, buf, g.BitPosition(), true, cw);
-        Assert.True((long)cg.State["team"]! == 15 && (long)cg.State["datablock"]! == 0 && cg.State["mount"] as string == "none");
+        Assert.True((long)cg.State["team"]! == 15 && (long)cg.State["datablock"]! == 0 && (cg.State["mount"] as string) == "none");
         Assert.True(ClientRoundTrip.VecIs(cg.State["pos"], p.Transform.P[0], p.Transform.P[1], p.Transform.P[2]));
         Assert.True(ClientRoundTrip.Near(ClientRoundTrip.D(cg.State["rotZ"]), 0.5, 0.0125) && ClientRoundTrip.D(cg.State["f728"]) == 8.0);
         Assert.Equal(8, ((List<object?>)cg.State["images"]!).Count);

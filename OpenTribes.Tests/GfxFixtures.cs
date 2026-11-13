@@ -57,7 +57,7 @@ internal static class GfxFixtures
         U16(data, 0x0300);
         U16(data, (ushort)n);
         for (var i = 0; i < n; ++i)
-            data.AddRange(new[] { (byte)i, (byte)(2 * i), (byte)(3 * i), flags });
+            data.AddRange([(byte)i, (byte)(2 * i), (byte)(3 * i), flags]);
         var form = new List<byte>();
         Tag(form, "PAL ");
         Chunk(form, "data", [.. data]);
@@ -113,7 +113,7 @@ internal static class GfxFixtures
         for (var k = 0; k < pals.Length; ++k)
         {
             for (var i = 0; i < 256; ++i)
-                b.AddRange(new[] { (byte)i, (byte)k, (byte)0x55, (byte)k });
+                b.AddRange([(byte)i, (byte)k, 0x55, (byte)k]);
             U32(b, pals[k].id);
             U32(b, pals[k].kind);
         }
@@ -167,7 +167,7 @@ internal static class GfxFixtures
         foreach (var l in lookup)
             U16(b, (ushort)l);
         foreach (var (sheet, x, y, w, h, bl) in glyphs)
-            b.AddRange(new[] { sheet, x, y, w, h, (byte)bl, (byte)0, (byte)0 });
+            b.AddRange([sheet, x, y, w, h, (byte)bl, 0, 0]);
         b.AddRange(sheets);
         U32(b, 0);
         return [.. b];

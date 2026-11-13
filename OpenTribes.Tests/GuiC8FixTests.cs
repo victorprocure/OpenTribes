@@ -275,8 +275,8 @@ public class GuiC8FixTests
         var interp = new Interpreter();
         var lines = new List<string>();
         interp.SetOutput(lines.Add);
-        interp.CallFunction("Game::EndFrame", Array.Empty<string>());
-        interp.CallFunction("Game::EndFrame", Array.Empty<string>());
+        interp.CallFunction("Game::EndFrame", []);
+        interp.CallFunction("Game::EndFrame", []);
         Assert.Equal(2, lines.Count(l => l.Contains("Game::EndFrame: Unknown command.")));
     }
 

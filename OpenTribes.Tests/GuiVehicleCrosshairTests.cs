@@ -2,7 +2,6 @@
 namespace OpenTribes.Tests;
 
 using OpenTribes.Game;
-using OpenTribes.Gui;
 using static OpenTribes.Tests.GuiVehicleHudTests;
 
 public class GuiVehicleCrosshairTests

@@ -464,7 +464,7 @@ public class GamebaseGhostsTests
         w.Sim.AdvanceRealTime(1000);
         {
             Assert.True(t.Threads[0].Flags == (GameBase.ThreadForward | GameBase.ThreadAtEnd));
-            Assert.Equal(0u, (masks[t.Id()] & 0xc00));
+            Assert.Equal(0u, masks[t.Id()] & 0xc00);
             c.Check(w, "echo($ended, \"|\", $newPath);", "0|2");  // the count is known inside onNewPath (2.3)
             var r = Pack(t, 0xc00, 0x202);
             Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag() && r.ReadFlag());

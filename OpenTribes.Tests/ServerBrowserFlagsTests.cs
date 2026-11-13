@@ -28,22 +28,22 @@ public class ServerListFlagsTests
     [Fact]
     public void ScriptRowShortFormTakesFavoriteAndNoNeverPing() // 004c5320, 0041e470
     {
-        var r = GuiServerList.ParseScriptRow(3, new[] { "addGameServer", "IP:1.2.3.4:5", "N", "1.11", "77", "TRUE" })!;
+        var r = GuiServerList.ParseScriptRow(3, ["addGameServer", "IP:1.2.3.4:5", "N", "1.11", "77", "TRUE"])!;
         Assert.Equal(("IP:1.2.3.4:5", "N", 77), (r.Address, r.Name, r.Ping));
         Assert.True(r.Favorite);
         Assert.False(r.NeverPing);
         Assert.Equal(GuiServerList.StateUnknown, r.State);
-        Assert.False(GuiServerList.ParseScriptRow(3, new[] { "x", "a", "b", "c", "1", "false" })!.Favorite);
-        Assert.False(GuiServerList.ParseScriptRow(3, new[] { "x", "a", "b", "c", "1", "False" })!.Favorite);
+        Assert.False(GuiServerList.ParseScriptRow(3, ["x", "a", "b", "c", "1", "false"])!.Favorite);
+        Assert.False(GuiServerList.ParseScriptRow(3, ["x", "a", "b", "c", "1", "False"])!.Favorite);
     }
 
     [Fact]
     public void ScriptRowSevenAndElevenArgumentForms() // 004c5320
     {
-        var seven = GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "c", "1", "FALSE", "TRUE" })!;
+        var seven = GuiServerList.ParseScriptRow(1, ["x", "a", "b", "c", "1", "FALSE", "TRUE"])!;
         Assert.False(seven.Favorite);
         Assert.True(seven.NeverPing);
-        var full = GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "c", "1", "TRUE", "base", "Broadside", "CTF", "12", "TRUE" })!;
+        var full = GuiServerList.ParseScriptRow(1, ["x", "a", "b", "c", "1", "TRUE", "base", "Broadside", "CTF", "12", "TRUE"])!;
         Assert.Equal(("base", "Broadside", "CTF", 12), (full.ModList, full.Mission, full.MissionType, full.Cpu));
         Assert.True(full.Favorite && full.NeverPing);
     }
@@ -51,8 +51,8 @@ public class ServerListFlagsTests
     [Fact]
     public void ScriptRowNeedsAllFiveFields()
     {
-        Assert.Null(GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "c", "1" }));
-        Assert.Null(GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "", "1", "TRUE" }));
+        Assert.Null(GuiServerList.ParseScriptRow(1, ["x", "a", "b", "c", "1"]));
+        Assert.Null(GuiServerList.ParseScriptRow(1, ["x", "a", "b", "", "1", "TRUE"]));
     }
 
     [Fact]
@@ -97,8 +97,8 @@ public class ServerListFlagsTests
         l.MarkAllUnknown();
         l.Servers[3].State = GuiServerList.StateInfo;
         var ask = l.EndSearch(false);
-        Assert.Equal(new[] { "S2", "S3", "S4" }, l.Servers.Select(s => s.Name));
-        Assert.Equal(new[] { "S2" }, ask.Select(s => s.Name));
+        Assert.Equal(["S2", "S3", "S4"], l.Servers.Select(s => s.Name));
+        Assert.Equal(["S2"], ask.Select(s => s.Name));
         Assert.Equal(GuiServerList.StateQuerying, l.Servers[0].State);
         Assert.Equal(GuiServerList.StateUnknown, l.Servers[1].State);
         Assert.False(l.Requery);
@@ -305,7 +305,7 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         l.AddServer(new GuiServerList.Server(2, "F", "IP:127.0.0.1:28002", "1.11", 5, true));
         app.Interp.SetVariable("$pref::lanOnly", "TRUE");
         app.Delegates.Browser.QueryServers();
-        Assert.Equal(new[] { "IP:127.0.0.1:28001" }, app.Delegates.Browser.SeenAddresses);
+        Assert.Equal(["IP:127.0.0.1:28001"], app.Delegates.Browser.SeenAddresses);
     }
 
     [Fact]

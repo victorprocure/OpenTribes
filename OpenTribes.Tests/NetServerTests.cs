@@ -77,7 +77,7 @@ public class NetServerTests
         h.Sent.Clear();
         h.Server.Receive(from, d, now);
         Assert.Single(h.Sent);
-        VcPacket output = VcPacket.Parse(h.Sent[0].data);
+        var output = VcPacket.Parse(h.Sent[0].data);
         Assert.True(output.HasId && output.Id == p.Id && output.Seq == 1);
         var rep = new Reply { ConnectionId = p.Id };
         if (output.Type == 0x0c)
@@ -137,7 +137,7 @@ public class NetServerTests
             want.AddRange(Str("Tribes"));
             want.AddRange(Str("1.11"));
             want.AddRange(Str("Host"));
-            want.AddRange(new byte[] { 1, 0, 0, 8 });
+            want.AddRange([1, 0, 0, 8]);
             Assert.Equal([.. want], h.Query(Client(1), [0x60, 0xaa, 0xbb]));
             // Any length is answered.
             Assert.Equal(0x61, h.Query(Client(1), [0x60, 0xaa, 0xbb, 0x00, 0x01])[0]);
@@ -155,7 +155,7 @@ public class NetServerTests
             want.AddRange(Str("Tribes"));
             want.AddRange(Str("1.30"));
             want.AddRange(Str(new string('h', 32)));
-            want.AddRange(new byte[] { 1, 1, 0, 8 });
+            want.AddRange([1, 1, 0, 8]);
             Assert.Equal([.. want], h.Query(Client(1), [0x60, 1, 2]));
             ++cases;
         }
@@ -187,19 +187,19 @@ public class NetServerTests
             want.AddRange(Str("Tribes"));
             want.AddRange(Str("1.11"));
             want.AddRange(Str("Live"));
-            want.AddRange(new byte[] { 0, 0, 1, 16, 0x34, 0x12 });
+            want.AddRange([0, 0, 1, 16, 0x34, 0x12]);
             want.AddRange(Str("base"));
             want.AddRange(Str("Capture "));
             want.AddRange(Str("Raindance"));
             want.AddRange(Str("info"));
-            want.AddRange(new byte[] { 2 });
+            want.AddRange([2]);
             want.AddRange(Str("TH"));
             want.AddRange(Str("CH"));
             want.AddRange(Str("Blood Eagle"));
             want.AddRange(Str("0"));
             want.AddRange(Str("Diamond Sword"));
             want.AddRange(Str("1"));
-            want.AddRange(new byte[] { 0, 0, 0xff }); // no client record yet: ping 0, loss 0, no team
+            want.AddRange([0, 0, 0xff]); // no client record yet: ping 0, loss 0, no team
             want.AddRange(Str("Player"));
             want.AddRange(Str(""));
             Assert.Equal([.. want], h.Query(Client(1), [0x62, 7, 9]));

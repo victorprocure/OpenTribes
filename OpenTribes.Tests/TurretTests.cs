@@ -166,7 +166,7 @@ public class TurretTests
         Player Spawn(string pos, int client, int team)
         {
             var id = w.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
-            Player? p = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
+            var p = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
             Assert.NotNull(p);
             w.Run("Client::setOwnedObject(" + Itoa(client) + ", " + id + ");");
             w.Run("GameBase::setTeam(" + id + ", " + Itoa(team) + ");");
@@ -219,7 +219,7 @@ public class TurretTests
             ++ticksTo3;
         }
         Assert.True(tu.TurretMode == 3 && ticksTo3 <= 40);
-        Assert.NotEqual(0u, (_masks[tu.Id()] & 0x10000));
+        Assert.NotEqual(0u, _masks[tu.Id()] & 0x10000);
         Assert.Equal(1, tu.TurretInRange);
         Assert.True(tu.TurretSleep > 2.9f); // simTime + 3.0
         var firstSteps = new float[2];
@@ -229,7 +229,7 @@ public class TurretTests
         Tick();
         firstSteps[1] = tu.TurretRotation;
         Assert.True(Near(firstSteps[0] - firstSteps[1], 0.064f, 2e-6f));
-        Assert.NotEqual(0u, (_masks[tu.Id()] & 0x2000));
+        Assert.NotEqual(0u, _masks[tu.Id()] & 0x2000);
         Assert.True(firstSteps[1] is < 6.2832f and > 6.0f);
         var shots = 0;
         var before = ProjectileCount();
@@ -250,7 +250,7 @@ public class TurretTests
         Assert.True(shotTicks[1] - shotTicks[0] is >= 25 and <= 26);
         Assert.True(ProjectileCount() >= before + 2);
         Assert.True(Near(tu.Energy, 100.0f - (6.0f * tu.TurretFireState), 0.01f));
-        Assert.NotEqual(0u, (_masks[tu.Id()] & 0x8000));
+        Assert.NotEqual(0u, _masks[tu.Id()] & 0x8000);
 
         // The 3 s sleep (4.4 step 4).
         w.Run("GameBase::setPosition(" + Itoa(enemy.Id()) + ", \"500 100 52\");");
@@ -477,7 +477,7 @@ public class TurretTests
             }
             tm.TurretMuzzleTransform(out mz2);
             Pose(node);
-            Assert.False((BitsOf(mz2.P[0]) == BitsOf(mz.P[0]) && BitsOf(mz2.P[1]) == BitsOf(mz.P[1]) && BitsOf(mz2.P[2]) == BitsOf(mz.P[2])));
+            Assert.False(BitsOf(mz2.P[0]) == BitsOf(mz.P[0]) && BitsOf(mz2.P[1]) == BitsOf(mz.P[1]) && BitsOf(mz2.P[2]) == BitsOf(mz.P[2]));
             tm.TurretRotation = 0.0f;
             tm.TurretSyncThreads();
             tm.TurretActivate(0.032f);
@@ -561,7 +561,7 @@ public class TurretTests
             var r = w.Game.Players.AddClient(2060, "Drone", "male1", true, true);
             Assert.True(r != null && r.IsAI);
             var id = w.Run("echo(spawnPlayer(tarmor, \"300 400 51\", \"0 0 0\"));");
-            Player? drone = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
+            var drone = Player.From(w.Sim.Server()!.FindById(Numbers.BorlandAtoi(id)));
             Assert.NotNull(drone);
             r!.OwnedObject = drone!.Id();
             w.Run("GameBase::setTeam(" + id + ", 1);");

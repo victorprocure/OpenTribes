@@ -24,8 +24,8 @@ public sealed class GuiTextFormatTests
     public void FontTagSelectsTheTenFontTableAndClampsIt()
     {
         var l = Layout("<f5>ab<f1>cd<f99>ef<f-3>gh", 400);
-        Assert.Equal([5, 1, 9, 0], l.Pieces.Select(p => p.Font).ToArray());
-        Assert.Equal([0, 22, 22 + (2 * 7), 22 + (2 * 7) + (2 * 15)], l.Pieces.Select(p => p.X).ToArray());
+        Assert.Equal([5, 1, 9, 0], [.. l.Pieces.Select(p => p.Font)]);
+        Assert.Equal([0, 22, 22 + (2 * 7), 22 + (2 * 7) + (2 * 15)], [.. l.Pieces.Select(p => p.X)]);
     }
 
     [Fact]
@@ -40,9 +40,9 @@ public sealed class GuiTextFormatTests
     [Fact]
     public void LineSpacingScalesTheDropOfANewLine() // 0053701c: height * spacing * 0.5 cut to an integer, spacing 2 at the start and never below 2
     {
-        Assert.Equal([0, 15], Layout("<s3>a\nb", 400).Pieces.Select(p => p.Y).ToArray());     // 10 * 3 / 2
-        Assert.Equal([0, 10], Layout("<s1>a\nb", 400).Pieces.Select(p => p.Y).ToArray());     // clamped to 2
-        Assert.Equal([0, 25], Layout("<s5>a\nb", 400).Pieces.Select(p => p.Y).ToArray());
+        Assert.Equal([0, 15], [.. Layout("<s3>a\nb", 400).Pieces.Select(p => p.Y)]);     // 10 * 3 / 2
+        Assert.Equal([0, 10], [.. Layout("<s1>a\nb", 400).Pieces.Select(p => p.Y)]);     // clamped to 2
+        Assert.Equal([0, 25], [.. Layout("<s5>a\nb", 400).Pieces.Select(p => p.Y)]);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed class GuiTextFormatTests
     {
         var l = Layout("aaaa bbbb cccc", 60);      // 10 characters of 6 px fit
         Assert.Equal(new[] { "aaaa bbbb", "cccc" }, l.Pieces.Select(p => p.Text).ToArray());
-        Assert.Equal([0, 10], l.Pieces.Select(p => p.Y).ToArray());
+        Assert.Equal([0, 10], [.. l.Pieces.Select(p => p.Y)]);
         Assert.Equal((10 * 2) + 2, l.Height);
     }
 
@@ -74,7 +74,7 @@ public sealed class GuiTextFormatTests
     public void TabAdvancesToTheNextStopOfThreeSpaces()
     {
         var l = Layout("a\tb", 200);
-        Assert.Equal([0, 18], l.Pieces.Select(p => p.X).ToArray());
+        Assert.Equal([0, 18], [.. l.Pieces.Select(p => p.X)]);
     }
 
     [Fact]

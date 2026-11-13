@@ -48,8 +48,8 @@ public class CommandListsTests
     {
         var (_, items, _) = ListRig();
         items.PreRender();
-        Assert.Equal(new[] { (131, "Generator"), (133, "Sensor") }, items.Rows.Select(x => (x.Slot, x.Name)));
-        Assert.Equal(new[] { "Generator", "Sensor" }, items.Entries.Select(e => e.Text));
+        Assert.Equal([(131, "Generator"), (133, "Sensor")], items.Rows.Select(x => (x.Slot, x.Name)));
+        Assert.Equal(["Generator", "Sensor"], items.Entries.Select(e => e.Text));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class CommandListsTests
         r.Slot(135, 10, 10, 0, 10);
         r.Slot(136, 20, 20, 0, 11);
         turrets.PreRender();
-        Assert.Equal(new[] { (129, "Balcony Turret"), (132, "Plasma Turret"), (135, "Scout") }, turrets.Rows.Select(x => (x.Slot, x.Name)));
+        Assert.Equal([(129, "Balcony Turret"), (132, "Plasma Turret"), (135, "Scout")], turrets.Rows.Select(x => (x.Slot, x.Name)));
     }
 
     [Fact]
@@ -70,10 +70,10 @@ public class CommandListsTests
         var (r, items, _) = ListRig();
         r.World.Psc.CommandSlots[131].Present = false;
         items.PreRender();
-        Assert.Equal(new[] { 133 }, items.Rows.Select(x => x.Slot));
+        Assert.Equal([133], items.Rows.Select(x => x.Slot));
         r.World.Players.Clients[2049].Team = 1;
         items.PreRender();
-        Assert.Equal(new[] { 134 }, items.Rows.Select(x => x.Slot)); // team 1 slot 134 has no datablock (4, 0) description? it does: Generator
+        Assert.Equal([134], items.Rows.Select(x => x.Slot)); // team 1 slot 134 has no datablock (4, 0) description? it does: Generator
         Assert.Equal("Generator", items.Rows[0].Name);
     }
 
@@ -241,7 +241,7 @@ public class CommandListsTests
         r.World.Psc.CommandSlots[2].Status = 2;
         r.World.Psc.CommandSlots[3].Status = 1;
         r.Team!.PreRender();
-        Assert.Equal(new[] { 0, 2, 1 }, r.Team.Rows.Select(x => x.Damage));
+        Assert.Equal([0, 2, 1], r.Team.Rows.Select(x => x.Damage));
     }
 
     // ---- the observer ----

@@ -50,7 +50,7 @@ public class SmackerTests
     public void HeaderGivesSizeFramesAndRate()
     {
         var f = Pad4(0, 0, 0, 0);
-        SmackerDecoder? d = SmackerDecoder.TryOpen(Synthetic(16, 8, 100, 0, [f, f, f], new byte[3]), out var err);
+        var d = SmackerDecoder.TryOpen(Synthetic(16, 8, 100, 0, [f, f, f], new byte[3]), out var err);
         Assert.NotNull(d);
         Assert.Equal("", err);
         Assert.Equal((16, 8, 3), (d.Width, d.Height, d.FrameCount));

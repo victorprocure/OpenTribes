@@ -63,7 +63,7 @@ public class WorldTests
         Numbers.EnterScriptFpuMode(); // 4.3: the x87 truncates every float store
         var res = new ResourceManager(root);
         res.SetSearchPath("base");
-        Terrain? terrain = Terrain.Load(res, "t.dtf");
+        var terrain = Terrain.Load(res, "t.dtf");
         Assert.NotNull(terrain);
         terrain!.SetPosition(new Vec3(-16, -8, 0)); // 2.3: local = world - position
 
@@ -134,7 +134,7 @@ public class WorldTests
         float[] box = [0, -1, -1, 10, 1, 1];
         var nodes = new List<Node> { new(0, 1, -45), new(1, -44, -45) };
         var planes = new List<float[]> { new float[] { 1, 0, 0, 0 }, new float[] { -1, 0, 0, 10 } };
-        InteriorGeometry? g = InteriorGeometry.Parse([.. DigFile(7, box, nodes, 1, 45, planes)]);
+        var g = InteriorGeometry.Parse([.. DigFile(7, box, nodes, 1, 45, planes)]);
         Assert.NotNull(g);
         for (var i = 0; i < 6; ++i)
             Assert.True(g!.Box[i] == box[i]);
@@ -196,7 +196,7 @@ public class WorldTests
         PutFile(root + "/base/t#0.dtb", DtbFile(t, 0, 24));
         var res = new ResourceManager(root);
         res.SetSearchPath("base");
-        Terrain? terrain = Terrain.Load(res, "t.dtf");
+        var terrain = Terrain.Load(res, "t.dtf");
         Assert.NotNull(terrain);
         terrain!.SetPosition(new Vec3(-64, -32, 10));
         var rows = TestPaths.IncRows("tests/terrain_line_vectors.inc");
@@ -282,11 +282,13 @@ public class WorldTests
         // m_mul_TMat3F (0x005ed2b2): rotation rows, translation ((a.x b0 + a.y b3) + b.t) + a.z b6.
         TMat3 a = new()
         {
-            M = Float9.Of([0, 1, 0, -1, 0, 0, 0, 0, 1])
-        }, b = new();
-        b.M = Float9.Of([1, 0, 0, 0, 0, 1, 0, -1, 0]);
-        a.P = Float3.Of(1, 2, 3);
-        a.Flags = 3;
+            M = Float9.Of([0, 1, 0, -1, 0, 0, 0, 0, 1]),
+            P = Float3.Of(1, 2, 3),
+            Flags = 3
+        }, b = new()
+        {
+            M = Float9.Of([1, 0, 0, 0, 0, 1, 0, -1, 0])
+        };
         b.P = Float3.Of(10, 20, 30);
         b.Flags = 2;
         Shape.TmatMul(a, b, out var c);
@@ -532,7 +534,7 @@ public class WorldTests
         float[] box = [-100, -100, -100, 100, 100, 100];
         var nodes = new List<Node> { new(0, 1, -45), new(1, -44, -45) };
         var planes = new List<float[]> { new float[] { 1, 0, 0, 100 }, new float[] { -1, 0, 0, 100 } };
-        InteriorGeometry? g = InteriorGeometry.Parse([.. DigFile(7, box, nodes, 1, 45, planes)]);
+        var g = InteriorGeometry.Parse([.. DigFile(7, box, nodes, 1, 45, planes)]);
         Assert.NotNull(g);
         using var chop = X87.Chop();
         // -0x1.33a6ecp+3f, 0x1.6191cap+2f, 0x1.91446p+3f and -0x1.2401fep+3f, 0x1.8p+2f, 0x1.95a778p+3f as bits.
@@ -561,17 +563,17 @@ public class WorldTests
         Numbers.EnterScriptFpuMode();
         uint[][][] kVectors =
         [
-            [ new uint[] { 0xc04d88c2u, 0x3efb1c3bu, 0xc08be2b8u, 0x3fa6ed6bu, 0x3bc59fefu, 0xbf8c7686u, 0x3d4067b5u, 0x3eaf5032u, 0xbe050e9cu },
+            [ [0xc04d88c2u, 0x3efb1c3bu, 0xc08be2b8u, 0x3fa6ed6bu, 0x3bc59fefu, 0xbf8c7686u, 0x3d4067b5u, 0x3eaf5032u, 0xbe050e9cu],
                     [0xbdf7f251u, 0x3eece886u, 0x3e293a4eu, 0xbd1bef1du, 0xbe4ddc47u, 0x403ea0acu, 0xbe138b8fu, 0xbeb997d7u, 0x3e59dfdeu] ],
-            [ new uint[] { 0x40bf2ce6u, 0x4023b7e1u, 0xbf590280u, 0xbadabf8bu, 0x3f7c8555u, 0xc0beab9eu, 0xc12c4855u, 0xbe73f0a1u, 0xbf15e865u },
+            [ [0x40bf2ce6u, 0x4023b7e1u, 0xbf590280u, 0xbadabf8bu, 0x3f7c8555u, 0xc0beab9eu, 0xc12c4855u, 0xbe73f0a1u, 0xbf15e865u],
                     [0xbc6482f4u, 0x3c428298u, 0xbdce0d15u, 0x3ee5696cu, 0xbdb4973eu, 0x3e7e9563u, 0x3d97ec35u, 0xbe3acef5u, 0x3d28b2d9u] ],
-            [ new uint[] { 0xbe1829cfu, 0x3edd01fcu, 0x3e95f937u, 0x41381b6au, 0x405ac839u, 0x3f6e413du, 0xbfad5366u, 0x3ea91153u, 0x41215da9u },
+            [ [0xbe1829cfu, 0x3edd01fcu, 0x3e95f937u, 0x41381b6au, 0x405ac839u, 0x3f6e413du, 0xbfad5366u, 0x3ea91153u, 0x41215da9u],
                     [0xbf244817u, 0x3da3b9a0u, 0x3c387f67u, 0x400d00aau, 0x3ca98c21u, 0xbd86f598u, 0xbe221855u, 0x3c24c1e5u, 0x3dd294eau] ],
-            [ new uint[] { 0xbe470cb4u, 0xbdeba855u, 0x3f9649adu, 0xbe94e3f9u, 0x41070aa8u, 0xbc7b72c4u, 0x3f21f01fu, 0xbfeaffbcu, 0x3ecb7b24u },
+            [ [0xbe470cb4u, 0xbdeba855u, 0x3f9649adu, 0xbe94e3f9u, 0x41070aa8u, 0xbc7b72c4u, 0x3f21f01fu, 0xbfeaffbcu, 0x3ecb7b24u],
                     [0xbf07258bu, 0x3eab74e8u, 0x3fc94a1fu, 0xbc89a554u, 0x3e05447du, 0x3d5fe94eu, 0x3f433d2cu, 0x3d8baa21u, 0x3e880ae7u] ],
-            [ new uint[] { 0xbe8f225au, 0xc08adeb2u, 0xbf75c9b3u, 0xbdfee527u, 0xc0ebbf6cu, 0x3f1f6d22u, 0x3fd3097bu, 0x4152905au, 0xc062660au },
+            [ [0xbe8f225au, 0xc08adeb2u, 0xbf75c9b3u, 0xbdfee527u, 0xc0ebbf6cu, 0x3f1f6d22u, 0x3fd3097bu, 0x4152905au, 0xc062660au],
                     [0xbf81b7aeu, 0x3fcb352eu, 0x3f0df613u, 0xbd08447eu, 0xbe15648au, 0xbc886e5cu, 0xbf1899a1u, 0x3e49e733u, 0xbdb0844au] ],
-            [ new uint[] { 0x3a83126fu, 0x3951b717u, 0x00000000u, 0x00000000u, 0x3a83126fu, 0x399d4952u, 0x38d1b717u, 0x00000000u, 0x3a83126fu },
+            [ [0x3a83126fu, 0x3951b717u, 0x00000000u, 0x00000000u, 0x3a83126fu, 0x399d4952u, 0x38d1b717u, 0x00000000u, 0x3a83126fu],
                     [0x3a83126fu, 0x3951b717u, 0x00000000u, 0x00000000u, 0x3a83126fu, 0x399d4952u, 0x38d1b717u, 0x00000000u, 0x3a83126fu] ],
         ];
         using var chop = X87.Chop();
@@ -608,10 +610,10 @@ public class WorldTests
         PutFile(root + "/base/hut.0.dis", DisFile("hut-00.dig", "hut-000-0.dil"));
         PutFile(root + "/base/bad.0.dis", DisFile("hut-00.dig", "bad-000-0.dil"));
         PutFile(root + "/base/hut-00.dig", DigFile(7, box, nodes, 1, 45, planes));
-        PutFile(root + "/base/hut-000-0.dil", DilFile(7, new List<LightRec>(), [], ""));
-        PutFile(root + "/base/hut-000.dil", DilFile(7, new List<LightRec>(), [], ""));
-        PutFile(root + "/base/bad-000-0.dil", DilFile(8, new List<LightRec>(), [], "")); // buildId differs from the geometry
-        PutFile(root + "/base/bad-000.dil", DilFile(7, new List<LightRec>(), [], ""));
+        PutFile(root + "/base/hut-000-0.dil", DilFile(7, [], [], ""));
+        PutFile(root + "/base/hut-000.dil", DilFile(7, [], [], ""));
+        PutFile(root + "/base/bad-000-0.dil", DilFile(8, [], [], "")); // buildId differs from the geometry
+        PutFile(root + "/base/bad-000.dil", DilFile(7, [], [], ""));
         // x.dml (DisFile): one detail, three materials; only type 3 is a texture.
         var ml = new List<byte>();
         PutU32(ml, 1);

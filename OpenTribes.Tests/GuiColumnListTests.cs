@@ -47,9 +47,9 @@ public class GuiColumnListTests
     {
         var c = new ServerColumns();
         c.MoveTo(c.Entries[2], 5);
-        Assert.Equal(new[] { 0, 1, 5, 2, 3, 4, 6, 7, 8, 9, 10, 11 }, c.Entries.Select(e => e.Order));
+        Assert.Equal([0, 1, 5, 2, 3, 4, 6, 7, 8, 9, 10, 11], c.Entries.Select(e => e.Order));
         c.MoveTo(c.Entries[2], 0);
-        Assert.Equal(new[] { 1, 2, 0, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, c.Entries.Select(e => e.Order));
+        Assert.Equal([1, 2, 0, 3, 4, 5, 6, 7, 8, 9, 10, 11], c.Entries.Select(e => e.Order));
         Assert.True(c.IsPermutation());
     }
 
@@ -64,7 +64,7 @@ public class GuiColumnListTests
         fx.Interp.Evaluate("FGMasterList::addEntry(Masters, \"australian Master\", \"b.example\", 2);");
         fx.Interp.Evaluate("FGMasterList::addEntry(Masters, \"UK Master\", \"c.example\", 1);");
         var m = (GuiMasterList)list;
-        Assert.Equal(new[] { "australian Master", "UK Master", "US Master" }, m.Entries.Select(e => e.Text));
+        Assert.Equal(["australian Master", "UK Master", "US Master"], m.Entries.Select(e => e.Text));
         fx.Interp.Evaluate("FGMasterList::setSelected(Masters, 0);");
         Assert.Equal(2, m.Selected);
         Assert.Equal("0", fx.Host.GetVar("$Server::CurrentMaster"));
@@ -144,7 +144,7 @@ public class ServerListTests
     {
         var (_, l) = Make();
         Assert.Equal(12, l.ColumnSet.Count);
-        Assert.Equal(new[] { 52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90 }, l.ColumnSet.Select(c => c.Width));
+        Assert.Equal([52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90], l.ColumnSet.Select(c => c.Width));
         var (_, m) = Make(("$pref::ServerColumnDisplay0", "3, YES, 52"), ("$pref::ServerColumnDisplay3", "0, NO, 105"));
         Assert.Equal(131301, m.ColumnSet[0].HeaderTag);   // Server Name (entry 3) moved first
         Assert.False(m.ColumnSet[0].Visible);

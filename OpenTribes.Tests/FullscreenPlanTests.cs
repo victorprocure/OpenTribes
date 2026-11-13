@@ -26,7 +26,7 @@ public class FullscreenPlanTests
     public void NearestModeWhenNoExactOne() => Assert.Equal((1024, 768), FullscreenPlan.NearestMode(Modes, 1000, 700));
 
     [Fact]
-    public void NoModesGivesNull() => Assert.Null(FullscreenPlan.NearestMode(Array.Empty<(int, int)>(), 640, 480));
+    public void NoModesGivesNull() => Assert.Null(FullscreenPlan.NearestMode([], 640, 480));
 
     [Fact]
     public void FullscreenCanvasIsTheModeNotTheDesktop()

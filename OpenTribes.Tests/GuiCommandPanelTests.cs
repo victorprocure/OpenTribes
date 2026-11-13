@@ -74,19 +74,19 @@ public class GuiCommandPanelTests
         var fx = new GuiFixture();
         fx.Host.SetFont("sf_Orange255_10.pft", Font(6));
         fx.Host.SetFont("sf_white_10.pft", Font(5));
-        ChatMenuState? state = new(false, "", Array.Empty<string>());
+        ChatMenuState? state = new(false, "", []);
         fx.Host.Hud = new ClientHudSource(new ClientWorld()) { NamedMenuSource = n => n == "CommandChatMenu" ? state : null };
         fx.Content(Root(GuiFixture.Make("FearGui::FGChatMenu", 7, 9, 100, 60, ("menuName", "CommandChatMenu"))));
         var dev = new CallDev();
         fx.Canvas.Render(dev);
         Assert.Equal(new[] { "text w6 10,10 'Menu inactive'" }, dev.Calls);
 
-        state = new ChatMenuState(true, "", new[] { "a: Attack", "d: Defend" });
+        state = new ChatMenuState(true, "", ["a: Attack", "d: Defend"]);
         dev = new CallDev();
         fx.Canvas.Render(dev);
         Assert.Equal(new[] { "text w6 10,10 'Root Menu:'", "text w6 10,20 'a: Attack'", "text w6 10,30 'd: Defend'" }, dev.Calls);
 
-        state = new ChatMenuState(true, "Orders", new[] { "a: Attack" });
+        state = new ChatMenuState(true, "Orders", ["a: Attack"]);
         dev = new CallDev();
         fx.Canvas.Render(dev);
         Assert.Equal("text w6 10,10 'Orders'", dev.Calls[0]);
@@ -115,12 +115,12 @@ public class GuiCommandPanelTests
     public void TeamRowsFollowTheCommandTree()
     {
         var rows = new ClientHudSource(Team()).CommandTeam;
-        Assert.Equal(new[] { "Boss", "Rec", "Dan", "Eve", "Solo" }, rows.Select(r => r.Name));
-        Assert.Equal(new[] { 0, 1, 1, 2, 0 }, rows.Select(r => r.Depth));
-        Assert.Equal(new[] { true, false, true, false, false }, rows.Select(r => r.HasChildren));
-        Assert.Equal(new[] { true, true, false, false, false }, rows.Select(r => r.HasNext));
-        Assert.Equal(new[] { 1, 2, 1, 1, 1 }, rows.Select(r => r.Order)); // the record's command status + 1
-        Assert.Equal(new[] { (1, false), (0, true) }, rows[3].Ancestors);
+        Assert.Equal(["Boss", "Rec", "Dan", "Eve", "Solo"], rows.Select(r => r.Name));
+        Assert.Equal([0, 1, 1, 2, 0], rows.Select(r => r.Depth));
+        Assert.Equal([true, false, true, false, false], rows.Select(r => r.HasChildren));
+        Assert.Equal([true, true, false, false, false], rows.Select(r => r.HasNext));
+        Assert.Equal([1, 2, 1, 1, 1], rows.Select(r => r.Order)); // the record's command status + 1
+        Assert.Equal([(1, false), (0, true)], rows[3].Ancestors);
         Assert.Empty(new ClientHudSource(new ClientWorld { PlayerId = 5 }).CommandTeam);
     }
 

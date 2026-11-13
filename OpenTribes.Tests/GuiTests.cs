@@ -477,7 +477,7 @@ public class GuiTests
         fx.Content(root);
         fx.Output.Clear();
         fx.Click(20, 15);
-        Assert.Equal(new[] { "command", "onAction", "message" }, fx.Output.Where(l => l is "command" or "onAction" or "message"));
+        Assert.Equal(["command", "onAction", "message"], fx.Output.Where(l => l is "command" or "onAction" or "message"));
     }
 
     [Fact]
@@ -722,11 +722,11 @@ public class GuiTests
         e.AltCommand = "echo(\"alt\");";
         e.ConsoleVar = "$te";
         fx.Key("q", true, 0, 'q');
-        Assert.Equal(new[] { "cmd" }, fx.Output.Where(l => l is "cmd" or "alt"));
+        Assert.Equal(["cmd"], fx.Output.Where(l => l is "cmd" or "alt"));
         Assert.Equal("q", fx.Interp.PeekVariable("$te"));        // key down also writes the variable
         fx.Output.Clear();
         fx.Key("enter", true);
-        Assert.Equal(new[] { "cmd", "alt" }, fx.Output.Where(l => l is "cmd" or "alt"));
+        Assert.Equal(["cmd", "alt"], fx.Output.Where(l => l is "cmd" or "alt"));
     }
 
     [Fact]
@@ -773,7 +773,7 @@ public class GuiTests
         Assert.IsType<GuiDlgBox>(fx.Canvas.FirstResponder);       // the named dialog takes the focus by itself
         fx.Tap("enter");
         fx.Tap("escape");
-        Assert.Equal(new[] { "ok", "cancel" }, fx.Output.Where(l => l is "ok" or "cancel"));
+        Assert.Equal(["ok", "cancel"], fx.Output.Where(l => l is "ok" or "cancel"));
     }
 
     [Fact]

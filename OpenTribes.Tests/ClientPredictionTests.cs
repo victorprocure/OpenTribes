@@ -267,7 +267,7 @@ public class ClientPredictionTests
             var lastMove = (int)run.Cw.Psc.MovesCreated - 2;
             for (; applied < lastMove; ++applied)
                 ServerStep(run.Server, run.Moves[applied]);
-            PredictedState before = PredictedState.Of(run.Client, 0);
+            var before = PredictedState.Of(run.Client, 0);
             Correct(run.Cw, run.Server, lastMove);
             var rec = run.Pred.OnServerBlock(run.Cw, 32 * run.Tick)!;
             Assert.True(rec.Predicted != null && rec.Predicted.Move == lastMove - 1);
@@ -276,7 +276,7 @@ public class ClientPredictionTests
             if (flier)
                 Requantize(run);
             Assert.Equal(2, run.Pred.Advance(run.Cw.Psc, 32 * run.Tick));
-            PredictedState after = PredictedState.Of(run.Client, 0);
+            var after = PredictedState.Of(run.Client, 0);
             if (flier)
                 continue; // the reset re-quantises the speeds and the energy: the replay starts from other values
             for (var i = 0; i < 3; ++i)

@@ -433,8 +433,8 @@ public class AITests
         {
             var hl = Sqrt(Add(Mul(d[0], d[0]), Mul(d[1], d[1])));
             var dist = Sqrt(Add(Mul(150.0, 150.0), Mul(200.0, 200.0)));
-            var T = Div(dist, Mul(100.0, hl));
-            var z = Sub(Mul(Mul(100.0, d[2]), T), Mul(Mul(10.0, T), T));
+            var t2 = Div(dist, Mul(100.0, hl));
+            var z = Sub(Mul(Mul(100.0, d[2]), t2), Mul(Mul(10.0, t2), t2));
             Assert.True(Math.Abs(Sub(z, 12.0)) < 0.05);
             Assert.True(Math.Abs(Sub(Sqrt(Add(Add(Mul(d[0], d[0]), Mul(d[1], d[1])), Mul(d[2], d[2]))), 1.0)) < 1e-5);
         }

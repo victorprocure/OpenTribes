@@ -7,8 +7,6 @@ namespace OpenTribes.Tests;
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
 using static OpenTribes.Tests.Fixtures;
 
 public class BacklogTests
@@ -362,22 +360,22 @@ public class BacklogTests
             Directory.Delete(root, true);
         float[] box = [0, -1, -1, 10, 1, 1];
         PutFile(Path.Combine(root, "base/hut.dis"), DisFile("hut-00.dig", "hut-000.dil"));
-        PutFile(Path.Combine(root, "base/hut-00.dig"), DigFile(0x1234, box, new[] { new Fixtures.Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
+        PutFile(Path.Combine(root, "base/hut-00.dig"), DigFile(0x1234, box, [new Fixtures.Node(0, -44, -45)], 1, 45, [[1, 0, 0, 0]]));
         PutFile(Path.Combine(root, "base/hut-000.dil"),
-                DilLightingFile(0x1234, new[] { new LightDef(7, 0, 2, 0, 1.0f, 1), new LightDef(9, 5, 3, 2, 2.0f, 0) },
-                                new[] { new StateDef([0, 0, 0, 0], 0.0f), new StateDef([256, 0, 0, 0], 0.5f),
+                DilLightingFile(0x1234, [new LightDef(7, 0, 2, 0, 1.0f, 1), new LightDef(9, 5, 3, 2, 2.0f, 0)],
+                                [ new StateDef([0, 0, 0, 0], 0.0f), new StateDef([256, 0, 0, 0], 0.5f),
                                         new StateDef([0, 0, 0, 0], 0.0f), new StateDef([0, 0, 0, 0], 0.25f),
-                                        new StateDef([0, 0, 0, 0], 0.5f) },
+                                        new StateDef([0, 0, 0, 0], 0.5f) ],
                                 "lamp\0pulse\0"));
         PutFile(Path.Combine(root, "base/nodil.dis"), DisFile("nodil-00.dig", "nodil-000.dil"));
-        PutFile(Path.Combine(root, "base/nodil-00.dig"), DigFile(0x1234, box, new[] { new Fixtures.Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
+        PutFile(Path.Combine(root, "base/nodil-00.dig"), DigFile(0x1234, box, [new Fixtures.Node(0, -44, -45)], 1, 45, [[1, 0, 0, 0]]));
         var w = new Fixtures.World(root);
         w.Run("instant SimGroup \"MissionGroup\" {" +
               " instant InteriorShape \"Hut\" { filename = \"hut.dis\"; };" +
               " instant InteriorShape \"Gone\" { filename = \"missing.dis\"; };" +
               " instant InteriorShape \"Bare\" { filename = \"nodil.dis\"; }; };");
         var hutObj = w.Object("MissionGroup/Hut");
-        GameBase? hut = hutObj as GameBase;
+        var hut = hutObj as GameBase;
         Expect(hut != null && hut.InteriorGeo != null && hut.InteriorNet.Lighting.Size() == 2, "interior with two lights");
         if (hut == null)
             return;

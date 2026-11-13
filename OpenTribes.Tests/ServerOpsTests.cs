@@ -55,7 +55,7 @@ public class ServerOpsTests
             Server.Receive(from, d, 0);
             if (Sent.Count == 0)
                 return 0;
-            VcPacket output = VcPacket.Parse(Sent[0].data);
+            var output = VcPacket.Parse(Sent[0].data);
             if (output.Type != 0x0c)
                 return 0;
             var input = new BitBuffer(output.Payload, 8);
@@ -527,9 +527,9 @@ public class ServerOpsTests
         h.Sent.Clear();
         Assert.True(h.Server.Kick(a, "Out you go"));
         Assert.True(h.Sent.Count == 1 && h.Sent[0].to == Addr(1));
-        VcPacket p = VcPacket.Parse(h.Sent[0].data);
+        var p = VcPacket.Parse(h.Sent[0].data);
         Assert.True(p.Type == 2 && p.HasId && p.Id == connA && p.Payload.SequenceEqual(VcPacket.Bytes("Out you go", true)));
-        Assert.True(closed.SequenceEqual(new[] { a }) && h.Server.Players().Count == 1);
+        Assert.True(closed.SequenceEqual([a]) && h.Server.Players().Count == 1);
         ++cases;
 
         // No reason: the default text. An empty reason sends just the NUL.
@@ -558,7 +558,7 @@ public class ServerOpsTests
         h.Sent.Clear();
         closed.Clear();
         Assert.True(h.Server.DropInvalid(inv));
-        Assert.True(closed.SequenceEqual(new[] { inv }) && h.Sent.Count == 1 && h.Sent[0].to == Addr(6));
+        Assert.True(closed.SequenceEqual([inv]) && h.Sent.Count == 1 && h.Sent[0].to == Addr(6));
         p = VcPacket.Parse(h.Sent[0].data);
         Assert.True(p.Type == 2 && p.HasId && p.Id == connI && p.Payload.Length == 0);
         Assert.True(!h.Server.DropInvalid(inv) && h.Server.Players().Count == 0);

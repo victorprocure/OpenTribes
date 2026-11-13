@@ -50,7 +50,7 @@ public class MasterTests
             var hb = new MasterHeartbeat(w.In, w.Net, false);
             w.Eval("$SinglePlayer = \"" + single + "\"; $Server::HostPublicGame = true; $inet::Master1 = \"IP:127.0.0.1:29000\"; " +
                    "function checkMasterTranslation() {}");
-            Assert.Equal(sent, hb.OnNetworkStart(new[] { isServer, ip ? "IP" : "ip", "28001" }, true, w.Schedule()));
+            Assert.Equal(sent, hb.OnNetworkStart([isServer, ip ? "IP" : "ip", "28001"], true, w.Schedule()));
             Assert.Equal(sent ? 1 : 0, w.Sent.Count);
         }
     }

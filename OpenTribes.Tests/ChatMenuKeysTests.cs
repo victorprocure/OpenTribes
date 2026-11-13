@@ -9,14 +9,14 @@ public class ChatMenuKeysTests
     private static ChatMenuTree Build()
     {
         var t = new ChatMenuTree();
-        t.Add("vOffense\\aAttack!", new[] { "say", "1", "Attack!" });
-        t.Add("vOffense\\wWait", new[] { "say", "1", "Wait" });
-        t.Add("tTarget\\aAcquired", new[] { "say", "0", "Acquired" });
+        t.Add("vOffense\\aAttack!", ["say", "1", "Attack!"]);
+        t.Add("vOffense\\wWait", ["say", "1", "Wait"]);
+        t.Add("tTarget\\aAcquired", ["say", "0", "Acquired"]);
         return t;
     }
 
     private static bool Press(ChatMenuTree t, int scan, char ch, List<string>? ran = null, byte mods = 0) =>
-        t.OnKey(scan, 1, ch, mods, w => ran?.AddRange(new[] { string.Join(' ', w) }));
+        t.OnKey(scan, 1, ch, mods, w => ran?.AddRange([string.Join(' ', w)]));
 
     [Fact]
     public void ClosedMenuIgnoresKeys()
@@ -33,7 +33,7 @@ public class ChatMenuKeysTests
         t.Mode = 2;
         Assert.True(t.Showing);
         Assert.Equal("", t.Path());
-        Assert.Equal(new[] { "v: Offense", "t: Target" }, t.Lines());
+        Assert.Equal(["v: Offense", "t: Target"], t.Lines());
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class ChatMenuKeysTests
         Assert.True(Press(t, 0x2f, 'v', ran));
         Assert.Empty(ran);
         Assert.Equal("Offense", t.Path());
-        Assert.Equal(new[] { "a: Attack!", "w: Wait" }, t.Lines());
+        Assert.Equal(["a: Attack!", "w: Wait"], t.Lines());
         Assert.True(t.Showing);
     }
 
@@ -153,11 +153,11 @@ public class ChatMenuKeysTests
     public void NestedPathJoinsWithColon()
     {
         var t = new ChatMenuTree();
-        t.Add("aOne\\bTwo\\cLeaf", new[] { "x" });
+        t.Add("aOne\\bTwo\\cLeaf", ["x"]);
         t.Mode = 1;
         Press(t, 0x1e, 'a');
         Press(t, 0x30, 'b');
         Assert.Equal("One:Two", t.Path());
-        Assert.Equal(new[] { "c: Leaf" }, t.Lines());
+        Assert.Equal(["c: Leaf"], t.Lines());
     }
 }

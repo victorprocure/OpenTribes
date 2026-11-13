@@ -20,7 +20,7 @@ public class ShapeRenderTests
 
     private static RenderShape Shape(uint materialFlags = 0x402)
     {
-        RenderShape? s = RenderShape.Parse(SyntheticShape.Build(materialFlags), "synthetic");
+        var s = RenderShape.Parse(SyntheticShape.Build(materialFlags), "synthetic");
         Assert.NotNull(s);
         return s!;
     }
@@ -102,7 +102,7 @@ public class ShapeRenderTests
         float[] flyer = [128, 32, 25, 5, 2, 0];
         Assert.Equal(-1, RenderShape.ChooseDetail(flyer, 0.5));  // the stored size 0 matches: -1, the shape vanishes
         Assert.Equal(4, RenderShape.ChooseDetail(flyer, 3));
-        Assert.Equal(0, RenderShape.ChooseDetail(new float[] { 0 }, 0.1));   // fewer than 2 details: 0
+        Assert.Equal(0, RenderShape.ChooseDetail([0], 0.1));   // fewer than 2 details: 0
         Assert.Equal(1, RenderShape.ChooseDetail(flyer, 100, minDetail: -1, maxDetail: 1));   // clamped to [min, max]
     }
 
@@ -307,11 +307,11 @@ public class ShapeRenderTests
     [Fact]
     public void DamageSkinLevelsFollowThePreference() // SR 2.9 inputs (b)
     {
-        Assert.Equal([0, 0, 1, 2, 3], new[] { 0.1, 0.25, 0.3, 0.6, 0.8 }.Select(d => Skins.DamageLevel(d, 2)).ToArray());
+        Assert.Equal([0, 0, 1, 2, 3], [.. new[] { 0.1, 0.25, 0.3, 0.6, 0.8 }.Select(d => Skins.DamageLevel(d, 2))]);
         Assert.Equal(2, Skins.DamageLevel(0.5, 1));
         Assert.Equal(0, Skins.DamageLevel(0.4, 1));
         Assert.Equal(0, Skins.DamageLevel(0.99, 0));
-        Assert.Equal([0, 1, 2], new[] { 0.3, 0.31, 0.71 }.Select(Skins.DamageLevelShort).ToArray());
+        Assert.Equal([0, 1, 2], [.. new[] { 0.3, 0.31, 0.71 }.Select(Skins.DamageLevelShort)]);
     }
 
     [Fact]
@@ -334,23 +334,23 @@ public class ShapeRenderTests
         var decal = new PbmpBitmap { Width = 16, Height = 16, Pixels = new byte[256], Attributes = BitmapAttributes.OwnsMemory };
         for (var i = 0; i < 256; ++i)
             decal.Pixels[i] = (byte)(i % 3 == 0 ? 0 : 9);        // index 0 stays clear
-        var same = Skins.ApplyDamage(skin, 0, new[] { decal });
+        var same = Skins.ApplyDamage(skin, 0, [decal]);
         Assert.Same(skin, same);                                 // level 0: nothing
-        var worn = Skins.ApplyDamage(skin, 2, new[] { decal });
+        var worn = Skins.ApplyDamage(skin, 2, [decal]);
         Assert.NotSame(skin, worn);
         Assert.All(skin.Pixels, p => Assert.Equal(5, p));         // the original is untouched
         var marked = worn.Pixels.Count(p => p == 9);
         Assert.InRange(marked, 1, 64 * 64);
-        var worse = Skins.ApplyDamage(skin, 3, new[] { decal });
+        var worse = Skins.ApplyDamage(skin, 3, [decal]);
         Assert.True(worse.Pixels.Count(p => p == 9) >= marked);
-        var again = Skins.ApplyDamage(skin, 2, new[] { decal });
+        var again = Skins.ApplyDamage(skin, 2, [decal]);
         Assert.Equal(worn.Pixels, again.Pixels);                  // deterministic
     }
 
     // ---- SR 4.3 explosion ----
 
     private static LightCurve Curve() => new(1.5, 0.4, 0.25, 0.85,
-        [new[] { 0.4f, 0.4f, 1f }, [1f, 1f, 1f], [1f, 0.95f, 1f]], [0.5, 1.0, 1.0], 8);
+        [[0.4f, 0.4f, 1f], [1f, 1f, 1f], [1f, 0.95f, 1f]], [0.5, 1.0, 1.0], 8);
 
     [Fact]
     public void ExplosionLifeAndLightPhases() // SR 4.3 Life and Light curve
@@ -543,11 +543,11 @@ public class ShapeRenderTests
             new DebrisRow(4, 1, 5, 1, "e.dts", DebrisParams.Default),
         };
         var (found, total) = DebrisCloud.Find(rows, 1, 100);
-        Assert.Equal([0, 2], found.Select(r => r.Index).ToArray());     // row 3 is over the budget and ends the walk; row 4 is never reached
+        Assert.Equal([0, 2], [.. found.Select(r => r.Index)]);     // row 3 is over the budget and ends the walk; row 4 is never reached
         Assert.Equal(6, total, 9);
         Assert.Empty(DebrisCloud.Find(rows, 4, 100).Rows);                      // no row has bit 4
         // the stock DebrisData have type 0 and mask 1: no row, no piece
-        Assert.Empty(DebrisCloud.Find(new[] { new DebrisRow(0, 0, 100, 1, "", DebrisParams.Default) }, 1, 90).Rows);
+        Assert.Empty(DebrisCloud.Find([new DebrisRow(0, 0, 100, 1, "", DebrisParams.Default)], 1, 90).Rows);
     }
 
     [Fact]
@@ -575,8 +575,8 @@ public class ShapeRenderTests
         Assert.Equal(3.2, b.Z, 9);
         Assert.Equal(-1 + 0.9, b.Vz, 9);
         Assert.InRange(b.Wx, -0.675 * 2, 0.675 * 2);
-        var (X, Y, Z, Angle) = DebrisCloud.Basis(0, 0, 0, 0.1);
-        Assert.Equal(Math.PI, Angle);                          // no direction: every direction
+        var (x3, y2, z2, angle) = DebrisCloud.Basis(0, 0, 0, 0.1);
+        Assert.Equal(Math.PI, angle);                          // no direction: every direction
     }
 
     [Fact]

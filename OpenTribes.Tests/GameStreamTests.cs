@@ -252,7 +252,7 @@ public class GameStreamTests
         var s = new EventWriter();
         s.PutInt(1, 3);
         s.PutString("Tribes 1.11");
-        s.PutBits(new byte[] { 0xa5 }, 5);
+        s.PutBits([0xa5], 5);
         Assert.True(s.Bits() == 3 + Bits.StrBits("Tribes 1.11") + 5);
         var e = s.Finish(0x401);
         var b = new Bits(e);
@@ -267,7 +267,7 @@ public class GameStreamTests
     public void TestBuilders()
     {
         // 2.5 SimConsoleEvent: int(5) argc, argc str; guaranteed ordered (2.3).
-        var re = GameEvents.MakeRemoteEval(new[] { "SVInfo", "1.11", "host" });
+        var re = GameEvents.MakeRemoteEval(["SVInfo", "1.11", "host"]);
         Assert.True(re.Tag == 0x408 && re.Guaranteed && re.Ordered);
         {
             var b = new Bits(re);
@@ -313,7 +313,7 @@ public class GameStreamTests
         }
         // Unnamed targets send no event.
         {
-            var evs = GameEvents.MakeTargetNameEvents(new[] { "A", "", "", "B" });
+            var evs = GameEvents.MakeTargetNameEvents(["A", "", "", "B"]);
             Assert.Equal(2, evs.Count);
             Bits b0 = new(evs[0]), b1 = new(evs[1]);
             Assert.True(b0.U(7) == 0 && b0.Str() == "A" && b1.U(7) == 3 && b1.Str() == "B");

@@ -53,7 +53,7 @@ public class ConnectionTests
         c.Receive(d, now);
     }
 
-    private static VcPacket Pkt(uint seq, uint type, List<(uint, uint)>? ranges = null, string payload = "", uint ackAck = 0) => new VcPacket
+    private static VcPacket Pkt(uint seq, uint type, List<(uint, uint)>? ranges = null, string payload = "", uint ackAck = 0) => new()
     {
         IdBit = ClientId & 1,
         Seq = seq & 0x1ff,

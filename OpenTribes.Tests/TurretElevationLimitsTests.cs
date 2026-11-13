@@ -12,7 +12,7 @@ public class TurretElevationLimitsTests
     // (`power`) holds it at 1.4 (the folded pose).
     private static RenderShape MakeShape()
     {
-        RenderShape? s = RenderShape.Parse(SyntheticShape.Build(), "synthetic");
+        var s = RenderShape.Parse(SyntheticShape.Build(), "synthetic");
         Assert.NotNull(s);
         s!.Names[s.Nodes[1].Name] = "dummy muzzle";
         s.Names[s.Sequences[0].Name] = "elevate";

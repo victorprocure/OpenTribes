@@ -136,7 +136,7 @@ public class ServerQueryTests
         q.OnMaster = (_, n, first, m) => { master = n; motd = first ? m : "none"; };
         q.Queue("IP:127.0.0.1:28001");
         var d = new List<byte> { 0x10, 6, 1, 2, 0, 0, 0, 0, 3, (byte)'M', (byte)'s', (byte)'t', 2, (byte)'h', (byte)'i', 0, 1 };
-        d.AddRange(new byte[] { 6, 127, 0, 0, 1, 0x71, 0x6d });
+        d.AddRange([6, 127, 0, 0, 1, 0x71, 0x6d]);
         q.OnDatagram(Server, [.. d], 1000);
         Assert.Equal("Mst", master);
         Assert.Equal("hi", motd);

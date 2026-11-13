@@ -48,7 +48,7 @@ public class GhostClassesTests
         var root = Path.Combine(TestPaths.TmpDir(""), "ghost_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
-        PutVol(Path.Combine(root, "base/data.vol"), new[] { ("inside.txt", "x") });
+        PutVol(Path.Combine(root, "base/data.vol"), [("inside.txt", "x")]);
         PutFile(Path.Combine(root, "base/lush.day.ppl"), "palette");
         // Terrain: one 2 x 2 block (detail 2, 8 m squares) with its material list.
         var t = new TerrainSpec
@@ -67,11 +67,11 @@ public class GhostClassesTests
         // Interior: shape, geometry (box 10 x 2 x 2: isContainer 1) and base lighting.
         float[] big = [0, -1, -1, 10, 1, 1], small = [0, 0, 0, 5, 5, 5];
         PutFile(Path.Combine(root, "base/hut.dis"), DisFile("hut-00.dig", "hut-000-1.dil")); // mission suffix cut (3.4)
-        PutFile(Path.Combine(root, "base/hut-00.dig"), DigFile(0x1234, big, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
-        PutFile(Path.Combine(root, "base/hut-000.dil"), DilFile(0x1234, new[] { new LightRec(0.7f, 1), new LightRec(1.0f, 0x10) }, [1, 3], "a\0"));
+        PutFile(Path.Combine(root, "base/hut-00.dig"), DigFile(0x1234, big, [new Node(0, -44, -45)], 1, 45, [[1, 0, 0, 0]]));
+        PutFile(Path.Combine(root, "base/hut-000.dil"), DilFile(0x1234, [new LightRec(0.7f, 1), new LightRec(1.0f, 0x10)], [1, 3], "a\0"));
         PutFile(Path.Combine(root, "base/box.dis"), DisFile("box-00.dig", "box-000.dil"));
-        PutFile(Path.Combine(root, "base/box-00.dig"), DigFile(0x55, small, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } }));
-        PutFile(Path.Combine(root, "base/box-000.dil"), DilFile(0x55, Array.Empty<LightRec>(), [], ""));
+        PutFile(Path.Combine(root, "base/box-00.dig"), DigFile(0x55, small, [new Node(0, -44, -45)], 1, 45, [[1, 0, 0, 0]]));
+        PutFile(Path.Combine(root, "base/box-000.dil"), DilFile(0x55, [], [], ""));
 
         var w = new Fixtures.World(root);
         GhostClasses.Register();

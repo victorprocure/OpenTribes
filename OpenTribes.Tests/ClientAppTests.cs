@@ -6,7 +6,6 @@ namespace OpenTribes.Tests;
 using OpenTribes.Client.App;
 using OpenTribes.Game;
 using OpenTribes.Gui;
-using OpenTribes.Script;
 
 public sealed class ClientAppTests : IDisposable
 {

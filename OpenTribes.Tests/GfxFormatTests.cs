@@ -291,7 +291,7 @@ public class GfxFormatTests
         rgba[4 * 1] = 200;
         rgba[4 * 2] = 100;
         rgba[4 * 3] = 10;
-        PaletteBank p = PaletteBank.FromColors(rgba, 256);
+        var p = PaletteBank.FromColors(rgba, 256);
         for (var i = 0; i < 8; ++i)
             p.AllowedColors[i] = 0;
         p.AllowedColors[0] = (0x80000000u >> 1) | (0x80000000u >> 2) | (0x80000000u >> 3); // indices 1, 2, 3 allowed
@@ -515,7 +515,7 @@ public class GfxFormatTests
             rgba[(i * 4) + 2] = (byte)((30 * i) + 3);
             rgba[(i * 4) + 3] = (byte)(40 * i);
         }
-        PaletteBank bank = PaletteBank.FromColors(rgba, 256);
+        var bank = PaletteBank.FromColors(rgba, 256);
         var sp = bank.SubPalettes[0];
         byte[] px = [0, 1, 2, 3];
         var opaque = Bitmap(Pbmp(4, 1, px, attrs: 0));
@@ -546,11 +546,11 @@ public class GfxFormatTests
         var pft = TestFont();
         var pba = Pbma([Pbmp(1, 1, new byte[4])]);
         static string S(byte[] b) => ByteString.FromBytes(b);
-        Fixtures.PutVol(dir + "/gfx.vol", new (string, string)[]
-        {
+        Fixtures.PutVol(dir + "/gfx.vol",
+        [
             ("gui\\logo.bmp", S(bmp)), ("gui\\feargui.pal", S(pal)), ("Shell.ppl", S(ppl)),
             ("console.pft", S(pft)), ("Opening.pba", S(pba)),
-        });
+        ]);
         var res = GfxAssets.Mount(root, out var vols);
         Assert.Equal(1, vols);
         Assert.Equal(0x5bbu, GfxAssets.LoadBitmap(res, "gui\\logo.bmp")!.PaletteId);

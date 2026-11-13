@@ -84,7 +84,7 @@ public class VehicleTests
         public Player Spawn(string pos)
         {
             var id = W.Run("echo(spawnPlayer(tarmor, \"" + pos + "\", \"0 0 0\"));");
-            Player? p = Player.From(W.Object(id));
+            var p = Player.From(W.Object(id));
             Assert.NotNull(p);
             return p!;
         }
@@ -537,7 +537,7 @@ public class VehicleTests
             var item = Gb("newObject(\"\", Item, Ball, 1, false)", "900 903.2 120");
             var far = Gb("newObject(\"\", Item, Ball, 1, false)", "900 960 120");
             item.AtRest = far.AtRest = true;
-            Assert.Equal(5, (item.ItemFlags & 5));
+            Assert.Equal(5, item.ItemFlags & 5);
             var at = item.Transform.P[1]; // 903.2 as setPosition reads it
             Shove();
             Assert.True((item.ItemFlags & 5) == 0 && !item.AtRest && (far.ItemFlags & 5) == 5 && far.AtRest);
@@ -550,7 +550,7 @@ public class VehicleTests
                   " boxWidth = 0.5; boxDepth = 0.5; boxNormalHeight = 2.25; boxCrouchHeight = 1.75; canCrouch = true;" +
                   " minDamageSpeed = 25; damageScale = 0.0078125; };");
             w.Run("deleteObject(" + Itoa(p.Id()) + ");");
-            Player? sp = Player.From(w.Object(w.Run("echo(spawnPlayer(sarmor, \"900 901.5 120\", \"0 0 0\"));")));
+            var sp = Player.From(w.Object(w.Run("echo(spawnPlayer(sarmor, \"900 901.5 120\", \"0 0 0\"));")));
             Assert.NotNull(sp);
             p = sp!;
             var mine = Gb("newObject(\"\", Mine, Mn)", "900 903.2 120");
@@ -579,7 +579,7 @@ public class VehicleTests
                 hull.TestAt(hp, cands, hits);
                 Assert.True(cands.Count == n - 1);
                 foreach (var im in cands)
-                    Assert.False((im.Owner == mine && im.ImageKind == CollisionImage.Kind.TriggerSphere));
+                    Assert.False(im.Owner == mine && im.ImageKind == CollisionImage.Kind.TriggerSphere);
                 w.Run("deleteObject(" + Itoa(hull.Id()) + ");"); // the sender is gone: the event is dropped
                 w.Sim.AdvanceRealTime(33);
                 Assert.Equal("0", w.Run("echo($mc);"));

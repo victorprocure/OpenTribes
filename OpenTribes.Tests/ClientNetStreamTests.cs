@@ -102,7 +102,7 @@ public class ClientNetStreamTests
         var team = GameEvents.MakeTeamAdd(-1, "Storm", "base");
         var score = GameEvents.MakeDeltaScore(false, 2050, 7, "Bob 7");
         var tname = GameEvents.MakeTargetName(5, "Generator");
-        var eval = GameEvents.MakeRemoteEval(new[] { "SetInfoLine", "hello" });
+        var eval = GameEvents.MakeRemoteEval(["SetInfoLine", "hello"]);
         // Sequence 1 arrives before sequence 0 in the same packet: the handlers still run in order.
         var p = conn.Receive(EventPacket((team, 1, false), (add, 0, false), (score, 2, false), (tname, 3, false), (eval, 4, false)));
         Assert.True(p.UnknownBits == 0 && !p.Overrun && p.Events.Count == 5);
@@ -110,7 +110,7 @@ public class ClientNetStreamTests
         var pm = world.Players;
         Assert.True(pm.TeamCount == 0 && pm.Teams[-1].Name == "Storm");
         Assert.True(pm.Clients.ContainsKey(2050) && pm.Clients[2050].Name == "Bob" && pm.Clients[2050].Team == 1 && pm.HumanCount == 1 && pm.PlayerCount == 1);
-        Assert.True(pm.Callbacks.SequenceEqual(new[] { "onClientJoin(2050);", "onTeamAdd(-1);" }) || pm.Callbacks.SequenceEqual(new[] { "onTeamAdd(-1);", "onClientJoin(2050);" }));
+        Assert.True(pm.Callbacks.SequenceEqual(["onClientJoin(2050);", "onTeamAdd(-1);"]) || pm.Callbacks.SequenceEqual(["onTeamAdd(-1);", "onClientJoin(2050);"]));
         Assert.True(pm.Clients[2050].ScoreText == "Bob 7" && pm.Clients[2050].SortValue == 7);
         Assert.Equal("Generator", pm.TargetNames[5]);
         Assert.True(world.RemoteCalls.Count == 1 && world.RemoteCalls[0].Name == "SetInfoLine" && world.RemoteCalls[0].Args[0] == "hello");
@@ -238,8 +238,8 @@ public class ClientNetStreamTests
         db2.Declare("SoundProfileData", "sp0");
         Assert.True(db2.Declare("SoundData", "shot"));
         var s = db2.Find("shot")!;
-        db2.SetField(s, "wavFileName", new[] { "shot.wav" }, "");
-        db2.SetField(s, "priority", new[] { "0.5" }, "");
+        db2.SetField(s, "wavFileName", ["shot.wav"], "");
+        db2.SetField(s, "priority", ["0.5"], "");
         var w1 = new EventWriter();
         Assert.True(DatablockPack.PackDataBlock(db2, s, w1));
         var ev = w1.Finish(0x458);
@@ -480,7 +480,7 @@ public class ClientNetStreamTests
         PutU16(f, (ushort)pkt.Length);
         f.AddRange(pkt);
         PutU32(f, 0xffffffff);
-        DemoFile d = DemoFile.Parse([.. f]);
+        var d = DemoFile.Parse([.. f]);
         Assert.True(d.ClientId == 2052 && d.ServerId == 2048 && d.Packets == 1 && d.Moves == 2 && d.Actions == 1 && d.Complete);
         Assert.True(d.Records[0].Move.Forward == 1.0f && d.Records[0].Move.Jump && d.Records[0].Move.Fire && d.Records[0].Move.UseItem == -1);
         Assert.True(d.Records[0].Move.Turn == 0.5f && d.Records[0].Move.Pitch == -0.25f && d.Records[2].ActionId == 220113);

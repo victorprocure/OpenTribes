@@ -157,7 +157,7 @@ public class GhostScopeTests
     private sealed class EyeBase : GameBase
     {
         public float EyeHeight { get; set; }
-        public EyeBase(ClassContext ctx) : base("Player", Kind.ShapeBase, -1, Array.Empty<PersistDef>(), ctx) { }
+        public EyeBase(ClassContext ctx) : base("Player", Kind.ShapeBase, -1, [], ctx) { }
         public override Transform EyeTransform()
         {
             var t = Transform;

@@ -142,42 +142,42 @@ public class FuzzTests
             Squares = [.. new byte[32]]
         };
         float[] box = [-8, -8, -8, 8, 8, 8];
-        var dig = DigFile(0x1234, box, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } });
+        var dig = DigFile(0x1234, box, [new Node(0, -44, -45)], 1, 45, [[1, 0, 0, 0]]);
         var dis = DisFile("hut-00.dig", "hut-000.dil");
         var dtb = DtbFile(t, 0, 16);
 
-        Fuzz(new[] { dig }, 20000, 1, b =>
+        Fuzz([dig], 20000, 1, b =>
         {
-            InteriorGeometry? g = InteriorGeometry.Parse(b);
+            var g = InteriorGeometry.Parse(b);
             // Surface lookup of a ray hit (docs/collision.md 5.2 part 4.1) on whatever was read.
             if (g != null)
                 for (var leaf = 43; leaf < 46; ++leaf)
                     for (var plane = 0; plane < 3; ++plane)
                         g.SurfaceMaterial(g.SurfaceAt(leaf, plane, new Vec3(0.5f, 0.25f, 0.125f)));
         });
-        Fuzz(new[] { dis }, 20000, 2, b =>
+        Fuzz([dis], 20000, 2, b =>
         {
             var f = new InteriorShapeFile();
             InteriorShapeFile.Parse(b, f);
         });
-        Fuzz(new[] { dtb }, 20000, 3, b =>
+        Fuzz([dtb], 20000, 3, b =>
         {
             var g = new GridBlock();
             GridBlock.Parse(b, g);
         });
-        Fuzz(new[] { dig, dis, dtb }, 20000, 4, b =>
+        Fuzz([dig, dis, dtb], 20000, 4, b =>
         {
             var output = new float[6];
             Shape.ReadShapeBox(b, output);
         });
         // LZH: any input decodes into exactly the requested size without reading past the input.
-        Fuzz(new[] { new List<byte> { 0x00, 0x11, 0x22, 0x33 } }, 5000, 5, b =>
+        Fuzz([new List<byte> { 0x00, 0x11, 0x22, 0x33 }], 5000, 5, b =>
         {
             var output = new byte[512];
             Lzh.LzhDecodeCounted(b, output);
         });
         // RLE (volume compression 1): any input fills the requested size or fails, never reading past the input.
-        Fuzz(new[] { new List<byte> { 0x05, (byte)'h', (byte)'e', (byte)'l', (byte)'l', (byte)'o', 0x8a, (byte)'z', 0x03, (byte)'a', (byte)'b', (byte)'c', 0x80, 0x00, 0xff, (byte)'q' } },
+        Fuzz([new List<byte> { 0x05, (byte)'h', (byte)'e', (byte)'l', (byte)'l', (byte)'o', 0x8a, (byte)'z', 0x03, (byte)'a', (byte)'b', (byte)'c', 0x80, 0x00, 0xff, (byte)'q' }],
              5000, 8, b =>
              {
                  var output = new byte[700];
@@ -189,13 +189,12 @@ public class FuzzTests
         var dir = Path.Combine(TestPaths.TmpDir(""), "fuzz_vol");
         Directory.CreateDirectory(dir);
         string rleLit = "\x05hello\x8az\x03abc", rleRuns = "\xff" + "a\x81" + "b\x80" + "c\x00";
-        PutVol(Path.Combine(dir, "seed.vol"), new[] { ("a.cs", "echo(1);"), ("sub\\b.txt", new string('x', 300)) },
-               new[]
-               {
+        PutVol(Path.Combine(dir, "seed.vol"), [("a.cs", "echo(1);"), ("sub\\b.txt", new string('x', 300))],
+               [
                    new PackedEntry { Name = "r1.dat", Packed = rleLit, Size = 5 + 10 + 3 },
                    new PackedEntry { Name = "r2.dat", Packed = rleRuns, Size = 127 + 1 },
                    new PackedEntry { Name = "r3.dat", Packed = "\x7f", Size = 64 },
-               });
+               ]);
         List<byte> vol;
         {
             var path = Path.Combine(dir, "seed.vol");
@@ -204,7 +203,7 @@ public class FuzzTests
             Assert.True(data.Length == new FileInfo(path).Length);
             vol = [.. data];
         }
-        Fuzz(new[] { vol }, 1500, 6, b =>
+        Fuzz([vol], 1500, 6, b =>
         {
             File.WriteAllBytes(Path.Combine(dir, "m.vol"), b);
             using var a = new VolArchive();
@@ -221,7 +220,7 @@ public class FuzzTests
                       "if (%a == 1) return f(%a - 1); else echo(%a.b, a::b(1, 2)); }\n" +
                       "instant SimGroup \"g\" { x = \"1\"; instant Marker m { p[0] = 1; }; };\n" +
                       "#tag = 5, \"text\"; while (true) break;";
-        Fuzz(new[] { new List<byte>(ByteString.ToBytes(seed)) }, 20000, 7, b => ScriptParser.Parse(ByteString.FromBytes(b)));
+        Fuzz([new List<byte>(ByteString.ToBytes(seed))], 20000, 7, b => ScriptParser.Parse(ByteString.FromBytes(b)));
     }
 
     // The text-parsing commands of docs/script.md 6.7 on mutated and random strings.
@@ -237,7 +236,7 @@ public class FuzzTests
             "sprintf(%a, %c, %a);", "Vector::add(%a, %c);", "Vector::dot(%c, %a);", "Vector::normalize(%a);",
             "Vector::getRotation(%c);", "Vector::getFromRot(%a, %c);", "Vector::getDistance(%a, %a);", "Vector::neg(%c);",
         ];
-        Fuzz(new[] { new List<byte>(ByteString.ToBytes(seedText)) }, 6000, 11, b =>
+        Fuzz([new List<byte>(ByteString.ToBytes(seedText))], 6000, 11, b =>
         {
             string a = Literal(b), c = Literal(Enumerable.Reverse(b));
             foreach (var form in forms)
@@ -285,7 +284,7 @@ public class FuzzTests
             "setTerrainContainer(%a, %c, %a, %c);", "lightTerrain(%a, %c, %a);", "saveTerrain(%a, %c);",
             "loadObject(%a, %c);", "storeObject(%a, %c, %a);",
         ];
-        Fuzz(new[] { new List<byte>(ByteString.ToBytes(seedText)) }, 3000, 13, b =>
+        Fuzz([new List<byte>(ByteString.ToBytes(seedText))], 3000, 13, b =>
         {
             string a = Literal(b), c = Literal(Enumerable.Reverse(b));
             foreach (var form in forms)
@@ -737,10 +736,10 @@ public class FuzzTests
         PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, 50, 50));
         PutFile(Path.Combine(root, "base/t.dml"), "dml");
         float[] box = [-8, -8, -8, 8, 8, 8];
-        var dig = DigFile(0x1234, box, new[] { new Node(0, -44, -45) }, 1, 45, new[] { new float[] { 1, 0, 0, 0 } });
+        var dig = DigFile(0x1234, box, [new Node(0, -44, -45)], 1, 45, [[1, 0, 0, 0]]);
         PutFile(Path.Combine(root, "base/hut.dis"), DisFile("hut-00.dig", "hut-000.dil"));
         PutFile(Path.Combine(root, "base/hut-00.dig"), dig);
-        PutFile(Path.Combine(root, "base/hut-000.dil"), DilFile(0x1234, new List<LightRec>(), [], ""));
+        PutFile(Path.Combine(root, "base/hut-000.dil"), DilFile(0x1234, [], [], ""));
         var w = new Fixtures.World(root);
         Numbers.EnterScriptFpuMode();
         w.Run("resetPlayerManager();" +
@@ -754,7 +753,7 @@ public class FuzzTests
               " instant InteriorShape \"Hut\" { fileName = \"hut.dis\"; position = \"100 100 52\"; }; };" +
               "instant SimGroup \"MissionCleanup\";");
         var id = w.Run("echo(spawnPlayer(tarmor, \"100 80 51\", \"0 0 0\"));");
-        Player? p = Player.From(w.Object(id));
+        var p = Player.From(w.Object(id));
         Assert.NotNull(p);
         var r = new Rng(11);
         string[] hostile = ["1e30", "-1e30", "nan", "inf", "-inf", "1e-40", "999999999999", "abc", ""];
@@ -791,7 +790,7 @@ public class FuzzTests
         }
         // Mutated shapes under the collision detail reader (docs/collision.md 6 T2.1).
         float[] shapeBox = [-1, -1, 0, 1, 1, 2];
-        Fuzz(new[] { DtsCollisionFile(shapeBox) }, 20000, 14, b =>
+        Fuzz([DtsCollisionFile(shapeBox)], 20000, 14, b =>
         {
             var boxes = new List<Float6>();
             Shape.ReadShapeCollisionBoxes(b, boxes);
@@ -817,7 +816,7 @@ public class FuzzTests
             spec.Details = [new(1, 10.0f)];
             spec.Meshes = [DtsBoxMesh(fb)];
             var sr = new Rng(15);
-            Fuzz(new[] { DtsModelFile(spec), DtsCollisionFile(shapeBox) }, 20000, 15, b =>
+            Fuzz([DtsModelFile(spec), DtsCollisionFile(shapeBox)], 20000, 15, b =>
             {
                 var model = new ShapeModel();
                 if (!ShapeModel.Parse(b, model))
@@ -848,9 +847,9 @@ public class FuzzTests
         float[] identity = [1, 0, 0, 0, 1, 0, 0, 0, 1], origin = [0, 0, 0];
         float[] bmin = [-0.5f, -0.5f, 0], bmax = [0.5f, 0.5f, 2.25f];
         var qr = new Rng(12);
-        Fuzz(new[] { dig }, 20000, 13, b =>
+        Fuzz([dig], 20000, 13, b =>
         {
-            InteriorGeometry? geo = InteriorGeometry.Parse(b);
+            var geo = InteriorGeometry.Parse(b);
             if (geo == null)
                 return;
             float[] at = [(int)qr.Below(20) - 10, (int)qr.Below(20) - 10, (int)qr.Below(20) - 10];
@@ -895,8 +894,8 @@ public class FuzzTests
               "instant SimGroup \"MissionCleanup\";");
         var vid = w.Run("echo(newObject(\"\", flier, Scout, true));");
         var pid = w.Run("echo(spawnPlayer(tarmor, \"0 0 51\", \"0 0 0\"));");
-        Vehicle? v = Vehicle.From(w.Object(vid));
-        Player? p = Player.From(w.Object(pid));
+        var v = Vehicle.From(w.Object(vid));
+        var p = Player.From(w.Object(pid));
         Assert.True(v != null && p != null);
         var r = new Rng(21);
         string[] hostile = ["1e30", "-1e30", "nan", "inf", "-inf", "1e-40", "999999999999", "abc", "", "-1", "7", "2147483647"];

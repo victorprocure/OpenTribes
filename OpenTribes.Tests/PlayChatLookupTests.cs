@@ -1,7 +1,4 @@
 namespace OpenTribes.Tests;
-
-using OpenTribes.Gui;
-
 // PlayerManager_message 0040dbfc: the chat display is child 140113 of the object named `playGui`, not any control with that id.
 public class PlayChatLookupTests
 {

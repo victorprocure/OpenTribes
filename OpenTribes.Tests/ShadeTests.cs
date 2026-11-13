@@ -13,7 +13,7 @@ public class ShadeTests
         var lm = new ushort[25];
         Array.Fill(lm, (ushort)0x4444);
         var t = new TerrainData(b, 1, lm);
-        var set = new TerrainLightSet(new[] { new PointLight(12, 12, 2, 1f, 0f, 0.5f, 8) }, 0, 0, 0);
+        var set = new TerrainLightSet([new PointLight(12, 12, 2, 1f, 0f, 0.5f, 8)], 0, 0, 0);
         var mask = set.Mask(t, 0, 1, 1);
         Assert.Equal(1u, mask);
         var nib = new byte[81 * 3];

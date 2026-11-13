@@ -405,7 +405,7 @@ public class CommandOrdersTests
     public void EscapeInTheCommandMenuCancelsTheOrderAndIsTakenAtTheTopLevel() // [00402068]
     {
         var tree = new ChatMenuTree { Mode = 1 };
-        tree.Add("aAttack", new[] { "setIssueCommand", "1", "*Attack" });
+        tree.Add("aAttack", ["setIssueCommand", "1", "*Attack"]);
         Assert.False(tree.OnKey(1, 1, '\0', 0, _ => { }, () => false));
         Assert.True(tree.OnKey(1, 1, '\0', 0, _ => { }, () => true));
         // without the order cursor the item still runs
@@ -476,7 +476,7 @@ public class CommandOrdersTests
     {
         var r = TeamRig();
         r.Team!.PreRender();
-        Assert.Equal(new[] { 2049, 2050, 2051 }, r.Team.Rows.Select(x => x.Id));
+        Assert.Equal([2049, 2050, 2051], r.Team.Rows.Select(x => x.Id));
         ListDown(r, 1);
         Assert.Equal([2], r.Picked());
         Assert.True(r.World.Players.Clients[2050].Selected);
@@ -630,7 +630,7 @@ public sealed class CommandOrdersClientTests : IDisposable
         Assert.True(world.Players.Clients[2050].Selected);
         Assert.NotNull(game.ChatMenus.Showing(game, "CommandChatMenu"));
         // the item key runs `setIssueCommand 1 text`: the order cursor is on
-        Assert.True(game.ChatMenus.OnKey(game, 0x1e, 1, 'a', 0, w => app.Interp.CallFunction(w[0], w.Skip(1).ToArray())));
+        Assert.True(game.ChatMenus.OnKey(game, 0x1e, 1, 'a', 0, w => app.Interp.CallFunction(w[0], [.. w.Skip(1)])));
         Assert.Equal(1, map.OrderMode);
         Assert.Equal("Attack enemy forces~wattway", map.OrderText);
         // Escape ends it and is taken even at the top level of the menu

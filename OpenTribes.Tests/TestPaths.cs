@@ -17,7 +17,7 @@ internal static partial class TestPaths
     // A file of the source tree, found from the test binary directory upwards.
     public static string RepoFile(string rel)
     {
-        for (DirectoryInfo? d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
         {
             var p = Path.Combine(d.FullName, rel);
             if (File.Exists(p))

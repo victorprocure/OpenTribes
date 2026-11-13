@@ -100,7 +100,7 @@ internal static class Fixtures
             kinds.Add(0);
             nameList.Add(name);
         }
-        foreach (var e in packed ?? Array.Empty<PackedEntry>())
+        foreach (var e in packed ?? [])
         {
             offsets.Add((uint)b.Count);
             PutStr(b, "VBLK");

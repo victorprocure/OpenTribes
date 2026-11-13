@@ -51,7 +51,7 @@ public class HeadlessRenderTests
         // First choice: the SDL offscreen video driver (no display needed); then whatever SDL picks.
         foreach (var driver in new string?[] { "offscreen", null })
         {
-            GlWindow? w = GlWindow.TryCreate("test", W, H, hidden: true, driver, out var err);
+            var w = GlWindow.TryCreate("test", W, H, hidden: true, driver, out var err);
             if (w != null)
             {
                 _out.WriteLine($"RAN: video driver {w.VideoDriver}, OpenGL {w.GlVersion}");
@@ -251,7 +251,7 @@ public class HeadlessRenderTests
         for (var y = 0; y < H; ++y)
             for (var x = 0; x < W; ++x)
             {
-                (int, int, int) want = (0, 0, 0);
+                var want = (0, 0, 0);
                 if (x >= 10 && x <= 12 && y >= 24 && y <= 27)
                     want = (255, 255, 255);
                 if (x >= 14 && x <= 18 && y >= 21 && y <= 26)

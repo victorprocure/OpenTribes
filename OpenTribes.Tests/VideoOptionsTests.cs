@@ -29,13 +29,13 @@ public class VideoOptionsTests
         fx.Host.SetVar("$pref::VideoFullScreenDriver", "OpenGL");
         fx.Host.SetVar("$pref::VideoWindowedDriver", "Software");
         fx.Host.SetVar("$pref::VideoFullScreenRes", "800x600");
-        VideoOptions.Fill(root, fx.Host, "Test GPU", new[] { (640, 480), (800, 600) }, "Software", "OpenGL");
+        VideoOptions.Fill(root, fx.Host, "Test GPU", [(640, 480), (800, 600)], "Software", "OpenGL");
         var fs = Combo(root, VideoOptions.FullscreenCombo);
-        Assert.Equal(new[] { "Software", "OpenGL [Test GPU]" }, fs.Entries.Select(e => e.Text));
+        Assert.Equal(["Software", "OpenGL [Test GPU]"], fs.Entries.Select(e => e.Text));
         Assert.Equal("OpenGL [Test GPU]", fs.GetValue());
         Assert.Equal("Software", Combo(root, VideoOptions.WindowedCombo).GetValue());
         var res = Combo(root, VideoOptions.ResolutionCombo);
-        Assert.Equal(new[] { "640x480", "800x600" }, res.Entries.Select(e => e.Text));
+        Assert.Equal(["640x480", "800x600"], res.Entries.Select(e => e.Text));
         Assert.Equal("800x600", res.GetValue());
     }
 
@@ -43,7 +43,7 @@ public class VideoOptionsTests
     public void WithoutSavedChoicesTheDeviceInUseAndTheFirstModeShow()
     {
         var (fx, root) = Screen();
-        VideoOptions.Fill(root, fx.Host, null, new[] { (640, 480), (1024, 768) }, "Software", "OpenGL");
+        VideoOptions.Fill(root, fx.Host, null, [(640, 480), (1024, 768)], "Software", "OpenGL");
         Assert.Equal("OpenGL", Combo(root, VideoOptions.FullscreenCombo).GetValue());
         Assert.Equal("640x480", Combo(root, VideoOptions.ResolutionCombo).GetValue());
     }
@@ -52,7 +52,7 @@ public class VideoOptionsTests
     public void FindEntryTakesTheFirstWordOfAnEntry()
     {
         var (fx, root) = Screen();
-        VideoOptions.Fill(root, fx.Host, "Test GPU", new[] { (640, 480) }, "Software", "OpenGL");
+        VideoOptions.Fill(root, fx.Host, "Test GPU", [(640, 480)], "Software", "OpenGL");
         var fs = Combo(root, VideoOptions.FullscreenCombo);
         Assert.Equal(1, fs.FindEntryByName("opengl"));
         Assert.Equal(-1, fs.FindEntryByName("Glide"));

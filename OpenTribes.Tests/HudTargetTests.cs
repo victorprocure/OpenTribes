@@ -15,7 +15,7 @@ public class HudTargetTests
     [Fact]
     public void PlayerInSightGetsFoeMarkAndLabelWhenTeamsDiffer()
     {
-        var r = HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, 6, 0.3, team: 1) }, 0, 2);
+        var r = HudTargetPicker.Find(Cam(), [P("Ann", 0, 6, 0.3, team: 1)], 0, 2);
         Assert.Single(r.Marks);
         Assert.Equal(new HudTargetMark(320, 224, false), r.Marks[0]);
         Assert.Equal("Ann", r.Name);
@@ -40,22 +40,22 @@ public class HudTargetTests
     }
 
     [Fact]
-    public void PlayerBehindTheViewerGetsNoMark() => Assert.Empty(HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, -6, 0.3) }, 0, 2).Marks);
+    public void PlayerBehindTheViewerGetsNoMark() => Assert.Empty(HudTargetPicker.Find(Cam(), [P("Ann", 0, -6, 0.3)], 0, 2).Marks);
 
     [Fact]
     public void NearestPlayerUnderTheCentreGivesTheLabel()
     {
         var far = P("Far", 0, 12, 0.3);
         var near = P("Near", 0, 6, 0.3);
-        Assert.Equal("Near", HudTargetPicker.Find(Cam(), new[] { far, near }, 0, 2).Name);
-        Assert.Equal("Near", HudTargetPicker.Find(Cam(), new[] { near, far }, 0, 2).Name);
+        Assert.Equal("Near", HudTargetPicker.Find(Cam(), [far, near], 0, 2).Name);
+        Assert.Equal("Near", HudTargetPicker.Find(Cam(), [near, far], 0, 2).Name);
     }
 
     [Fact]
     public void PlayerOutsideThePickBoxHasAMarkButNoLabel()
     {
         // 3 m to the side at 6 m: 160 pixels from the centre, the box is about 32 wide
-        var r = HudTargetPicker.Find(Cam(), new[] { P("Ann", 3, 6, 0.3) }, 0, 2);
+        var r = HudTargetPicker.Find(Cam(), [P("Ann", 3, 6, 0.3)], 0, 2);
         Assert.Single(r.Marks);
         Assert.Null(r.Name);
     }
@@ -64,16 +64,16 @@ public class HudTargetTests
     public void BoxStartsFourAboveTheMarkAndReachesBelowTheHeadByTheHeight()
     {
         // head projects to y 224: the centre row 240 is inside [220, 224 + height 122]; a head 20 pixels lower is above the box
-        Assert.NotNull(HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, 6, 0.3) }, 0, 2).Name);
-        Assert.Null(HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, 6, -0.45) }, 0, 2).Name);
+        Assert.NotNull(HudTargetPicker.Find(Cam(), [P("Ann", 0, 6, 0.3)], 0, 2).Name);
+        Assert.Null(HudTargetPicker.Find(Cam(), [P("Ann", 0, 6, -0.45)], 0, 2).Name);
     }
 
     [Fact]
     public void DeadlyDamageHasNoLabelAndFarPlayersNoHealthBox()
     {
-        Assert.Null(HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, 6, 0.3, damage: 1.0) }, 0, 2).Name);
+        Assert.Null(HudTargetPicker.Find(Cam(), [P("Ann", 0, 6, 0.3, damage: 1.0)], 0, 2).Name);
         // 0.5 m wide at 400 m: half width 0.2 pixels, below 1
-        var far = HudTargetPicker.Find(Cam(), new[] { P("Ann", 0, 400, 0.3) }, 0, 2);
+        var far = HudTargetPicker.Find(Cam(), [P("Ann", 0, 400, 0.3)], 0, 2);
         Assert.Equal("Ann", far.Name);
         Assert.True(far.Damage < 0);
     }
@@ -93,7 +93,7 @@ public class HudTargetTests
     [Fact]
     public void FriendlyObjectUnderTheCrosshairGivesNameIconAndNoMark()
     {
-        var r = HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 1) }, 1, 2);
+        var r = HudTargetPicker.Find(Cam(), [O("Plasma Turret", 20, 1)], 1, 2);
         Assert.Empty(r.Marks);
         Assert.Equal("Plasma Turret", r.Name);
         Assert.Equal("M_turret_green.bmp", r.Icon);
@@ -102,7 +102,7 @@ public class HudTargetTests
     }
 
     [Fact]
-    public void ObjectOfAnotherTeamIsNotLabelled() => Assert.Null(HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 0) }, 1, 2).Name);
+    public void ObjectOfAnotherTeamIsNotLabelled() => Assert.Null(HudTargetPicker.Find(Cam(), [O("Plasma Turret", 20, 0)], 1, 2).Name);
 
     [Fact]
     public void BlockedObjectGivesWayToThePickedPlayer()
@@ -111,7 +111,7 @@ public class HudTargetTests
         var r = HudTargetPicker.Find(Cam(), c, 1, 2);
         Assert.Equal("Ann", r.Name);
         Assert.Null(r.Icon);
-        Assert.Null(HudTargetPicker.Find(Cam(), new[] { O("Plasma Turret", 20, 1, clear: false) }, 1, 2).Name);
+        Assert.Null(HudTargetPicker.Find(Cam(), [O("Plasma Turret", 20, 1, clear: false)], 1, 2).Name);
     }
 
     [Fact]

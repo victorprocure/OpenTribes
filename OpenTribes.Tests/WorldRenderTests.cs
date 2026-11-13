@@ -86,7 +86,7 @@ public class WorldRenderTests
     [Fact]
     public void MissionFieldsGiveTheRenderDistances() // WR 2.2: Broadside (600, 400) gives 266.7
     {
-        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        var p = TerrainParams.FromMission(600, 400, 50);
         Assert.Equal(600, p.Visible);
         Assert.Equal(266.6667, p.HazeStart, 3);
         // at most 0.75 * visible
@@ -246,7 +246,7 @@ public class WorldRenderTests
     {
         var t = Flat();
         var c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
-        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        var p = TerrainParams.FromMission(600, 400, 50);
         Assert.Equal(9.0, p.ScreenError);
         var tight = TerrainLod.Select(t, c, 0, 0, 0, p with { ScreenError = 0 }).Count;
         var stock = TerrainLod.Select(t, c, 0, 0, 0, p).Count;
@@ -297,7 +297,7 @@ public class WorldRenderTests
     {
         var t = Flat();
         var c = Cam(3072, 3072, 110, 20, -20, 90, 640, 480, 0.5, 600);
-        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        var p = TerrainParams.FromMission(600, 400, 50);
         var sq = TerrainLod.Select(t, c, 0, 0, 0, p);
         var mesh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
         Assert.True(mesh.TriangleCount > sq.Count);
@@ -309,7 +309,7 @@ public class WorldRenderTests
     public void ReusedMeshEqualsAFreshMesh() // the renderer refills one mesh each frame: no vertex of the last frame may remain
     {
         var t = Flat();
-        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        var p = TerrainParams.FromMission(600, 400, 50);
         var reuse = new TerrainMesh();
         foreach (var (x, yaw) in new[] { (3072.0, 20.0), (3300.0, 200.0), (3072.0, 20.0) })
         {
@@ -331,7 +331,7 @@ public class WorldRenderTests
         // a ramp in x only has parent averages equal to the heights, so use a spike: h = 0 except one corner
         var b = Block(256, (x, y) => x == 1 && y == 1 ? 40f : 0f, (x, y) => (0, 0));
         var t = new TerrainData(b, 1, []);
-        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        var p = TerrainParams.FromMission(600, 400, 50);
         // (1, 1) is the centre of the level 1 square at (0, 0): created at level 0, morph toward the diagonal average 0
         var near = Cam(8, 8, 100, 0, -90, 90, 640, 480, 0.5, 600);
         var far = Cam(8 + 500, 8, 100, 0, -90, 90, 640, 480, 0.5, 600);
@@ -355,7 +355,7 @@ public class WorldRenderTests
     public void TrianglesWhollyBeyondTheVisibleDistanceAreDropped() // WR 2.6
     {
         var t = Flat();
-        TerrainParams p = TerrainParams.FromMission(600, 400, 50);
+        var p = TerrainParams.FromMission(600, 400, 50);
         var c = Cam(3072, 3072, 110, 0, -20, 90, 640, 480, 0.5, 600);
         var sq = TerrainLod.Select(t, c, 0, 0, 0, p);
         var mesh = TerrainMesher.Build(t, sq, c, 0, 0, 0, p);
@@ -437,7 +437,7 @@ public class WorldRenderTests
     public void StarGeneratorFirstValuesFollowTheExeRandLcg() // WR 4.2, D35: x = x * 0x15a4e35 + 1, bits 16-30
     {
         var rng = new StarField.Lcg(0x8377);
-        Assert.Equal([22271, 16796, 20564, 26778, 27698, 14405, 25654, 21932], Enumerable.Range(0, 8).Select(_ => rng.Next()).ToArray());
+        Assert.Equal([22271, 16796, 20564, 26778, 27698, 14405, 25654, 21932], [.. Enumerable.Range(0, 8).Select(_ => rng.Next())]);
         var stars = StarField.Generate(0x8377, 1000);
         Assert.Equal(StarField.Count, stars.Count);
         // first star: components (-729, -204, -436) of length 873.6, brightness draw 26778 % 30 = 18 -> class 3
@@ -555,7 +555,7 @@ public class WorldRenderTests
         Assert.Equal(580, InteriorRenderer.DetailPixels(100, 90.75, 320)); // 580.8 truncated
         // behind the camera the depth is clamped to 0.001: the largest size, so the first detail level
         Assert.Equal(58079996, InteriorRenderer.DetailPixels(-5, 90.75, 320));
-        Assert.Equal(0, InteriorRenderer.FindLod(new[] { 1000, 500, 150, 80 }, InteriorRenderer.DetailPixels(-5, 90.75, 320)));
+        Assert.Equal(0, InteriorRenderer.FindLod([1000, 500, 150, 80], InteriorRenderer.DetailPixels(-5, 90.75, 320)));
     }
 
     [Fact]
@@ -687,7 +687,7 @@ public class WorldRenderTests
             "\tinstant Sky \"Sky\" {\n\t\ttextures[3] = \"7\";\n\t\tcastShadows = \"True\";\n\t};\n};\n");
         Assert.Single(roots);
         MissionObject[] kids = [.. roots[0].Children];
-        Assert.Equal(new[] { "SimTerrain", "Sky" }, kids.Select(k => k.Class));
+        Assert.Equal(["SimTerrain", "Sky"], kids.Select(k => k.Class));
         Assert.Equal("a\\b.dtf", kids[0].Get("tedFileName"));
         Assert.Equal(600, kids[0].GetDouble("visibleDistance", 0));
         Assert.Equal([-3072.0, -3072, 0], kids[0].GetVector("position"));
@@ -762,7 +762,7 @@ public class WorldRenderTests
         var data = new TerrainData(b, 1, light);
         var res = new ResourceManager(Path.GetTempPath());
         var assets = new WorldAssets(res, Palette());
-        TerrainParams p = TerrainParams.FromMission(400, 200, 5); // a small screen size: this surface is 128 pixels wide
+        var p = TerrainParams.FromMission(400, 200, 5); // a small screen size: this surface is 128 pixels wide
         using var terrain = new TerrainRenderer(d, assets, data, [null], 0, 0, 0, p);
 
         // tiny interior: a 4 m cube at (40, 120, 5) whose -Y face (facing the camera) has a constant white light map

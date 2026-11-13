@@ -205,8 +205,8 @@ public class ControlObjectTests
         m[1].Fire = m[2].Fire = true;
         m[3].Jump = m[4].Jump = true;
         cam.ApplyMoves(m, 5);
-        Assert.True(calls.Lines.SequenceEqual(new[] { "Observer::triggerDown(2051);", "Observer::triggerUp(2051);",
-                                                      "Observer::jump(2051);", "Observer::jump(2051);" }));
+        Assert.True(calls.Lines.SequenceEqual([ "Observer::triggerDown(2051);", "Observer::triggerUp(2051);",
+                                                      "Observer::jump(2051);", "Observer::jump(2051);" ]));
         calls.Lines.Clear();
 
         // Leaving and entering the mission area (x, y, w, h; bounds inclusive) is checked once per applyMoves call and
@@ -218,7 +218,7 @@ public class ControlObjectTests
         Move[] run = [fwd, fwd, fwd];
         cam.ApplyMoves(run, 3);
         Assert.True(cam.Position[1] > 100.0f && !cam.InMissionArea);
-        Assert.True(calls.Lines.SequenceEqual(new[] { "Observer::leaveMissionArea(0);" }));
+        Assert.True(calls.Lines.SequenceEqual(["Observer::leaveMissionArea(0);"]));
         calls.Lines.Clear();
         cam.ApplyMoves(run, 1);
         Assert.Equal(0, calls.Lines.Count);
@@ -229,7 +229,7 @@ public class ControlObjectTests
         Move[] ret = [back, back, back, back];
         cam.ApplyMoves(ret, 4);
         cam.ApplyMoves(ret, 4);
-        Assert.True(cam.InMissionArea && calls.Lines.SequenceEqual(new[] { "Observer::enterMissionArea(0);" }));
+        Assert.True(cam.InMissionArea && calls.Lines.SequenceEqual(["Observer::enterMissionArea(0);"]));
     }
 
     private static void CameraOrbit()
@@ -304,7 +304,7 @@ public class ControlObjectTests
         Assert.True(cam.DamageObject == null && calls.Lines.Count == 0);
         cam.ObjectDeleted(target);
         Assert.True(cam.OrbitObject == null && cam.Mode == ObserverCamera.OrbitPoint);
-        Assert.True(calls.Lines.SequenceEqual(new[] { "Observer::orbitObjectDeleted(2049);" }));
+        Assert.True(calls.Lines.SequenceEqual(["Observer::orbitObjectDeleted(2049);"]));
         // setFlyMode drops both targets.
         cam.SetOrbit(target, point, 4, 4, 4, rot);
         cam.SetDamageObject(other);
@@ -377,7 +377,7 @@ public class ControlObjectTests
     // Control object that records what it is given.
     private sealed class Probe : GameBase
     {
-        public Probe(ClassContext ctx) : base("Probe", Kind.Marker, -1, Array.Empty<PersistDef>(), ctx) { }
+        public Probe(ClassContext ctx) : base("Probe", Kind.Marker, -1, [], ctx) { }
         public override void ApplyMoves(Move[] m, int n)
         {
             Calls.Add(n);
@@ -487,7 +487,7 @@ public class ControlObjectTests
 
         // The player in control: the sweep starts at the player.
         var idle = new Move();
-        var first = MovePacket(0, new[] { idle });
+        var first = MovePacket(0, [idle]);
         c.Receive(first);
         Send();
         Assert.True(sweeps.Count == 1 && sweeps[^1].Object == body && sweeps[^1].Pos[0] == 4000);
@@ -501,7 +501,7 @@ public class ControlObjectTests
 
         // A packet without a move, then a packet written before the next client packet: the camera has not been
         // stepped and the sweep starts at the drop point.
-        var empty = MovePacket(1, Array.Empty<Move>());
+        var empty = MovePacket(1, []);
         c.Receive(empty);
         Send();
         Assert.True(sweeps.Count == 2 && sweeps[^1].Object == cam);
@@ -513,7 +513,7 @@ public class ControlObjectTests
         // The first move steps the camera on receipt, before the packet of the same frame is written: the sweep starts
         // 6 m behind the player. The ghost at the player, deleted by the stale sweeps, is created again.
         var ghosts = created.Count;
-        var move = MovePacket(1, new[] { idle });
+        var move = MovePacket(1, [idle]);
         c.Receive(move);
         Assert.True(cam.Transform.P[0] == 4000 && cam.Transform.P[1] == -6 && cam.Transform.P[2] == 50);
         Send();
@@ -578,7 +578,7 @@ public class ControlObjectTests
         control = probe;
         p = MovePacket(3, three);
         c.Receive(p);
-        Assert.True(c.MoveCount == 6 && probe.Calls.SequenceEqual(new[] { 3 }));
+        Assert.True(c.MoveCount == 6 && probe.Calls.SequenceEqual([3]));
         Assert.True(probe.All[0].Forward == 0 && probe.All[1].Forward == 1 && probe.All[2].Turn == 0.5f);
         Assert.True(MathF.Abs(probe.Fov - (169.0f / 255.0f * 135.0f * 3.14159265f / 180.0f)) < 1e-6f);
 
@@ -781,14 +781,14 @@ public class ControlObjectTests
         p = Send();
         Assert.True(p.Control && p.Flash == 127 && p.Ghost == 0x3ff && !p.InvReset && !p.Waypoint);
         Assert.True(c.Ghosts().ScopeObject() == probe);
-        Assert.True(p.Visible.SequenceEqual(new[] { (0u, 0x6u), (4u, 0xa800ffffu) }));
+        Assert.True(p.Visible.SequenceEqual([(0u, 0x6u), (4u, 0xa800ffffu)]));
         var firstCookie = f.Sent[^1].Cookie;
         // Unchanged mask: nothing. A change: only the changed word, as XOR.
         p = Send();
         Assert.Equal(0, p.Visible.Count);
         input.Visible[4] = 0xa800fff0;
         p = Send();
-        Assert.True(p.Visible.SequenceEqual(new[] { (4u, 0xfu) }));
+        Assert.True(p.Visible.SequenceEqual([(4u, 0xfu)]));
         var changeCookie = f.Sent[^1].Cookie;
         // 6.4: a lost packet puts its XOR words back, so they are sent again; a delivered one changes nothing.
         c.Notify(firstCookie, true);
@@ -797,7 +797,7 @@ public class ControlObjectTests
         c.Notify(changeCookie, false);
         Assert.Equal(0xa800ffff, c.ClientVisible()[4]);
         p = Send();
-        Assert.True(p.Visible.SequenceEqual(new[] { (4u, 0xfu) }));
+        Assert.True(p.Visible.SequenceEqual([(4u, 0xfu)]));
 
         // Inventory reset flag: sent once, re-armed when that packet is lost.
         c.InventoryReset = true;
@@ -964,10 +964,10 @@ public class ControlObjectTests
         w.Game.AddTeam(0);
         w.Game.AddTeam(1);
         w.Run("instant StaticShape \"a\" { position = \"10 20 30\"; }; instant StaticShape \"b\" { position = \"1 2 3\"; };");
-        GameBase? a = w.Object("a") as GameBase;
-        GameBase? b = w.Object("b") as GameBase;
+        var a = w.Object("a") as GameBase;
+        var b = w.Object("b") as GameBase;
         Assert.True(a != null && b != null);
-        string A = a!.Id().ToString(), B = b!.Id().ToString();
+        string a2 = a!.Id().ToString(), b2 = b!.Id().ToString();
 
         var c1 = pm.AddClient(2049, "One", "male1", true);
         var c2 = pm.AddClient(2050, "Two", "male1", true);
@@ -989,7 +989,7 @@ public class ControlObjectTests
         Assert.Equal("true", w.Run("echo(Client::setControlObject(2049, " + cam1 + "));"));
         Assert.True(c1.ControlObject == cam1o.Id() && cam1o.ControlClient == 2049);
         Assert.True(w.Run("echo(Client::getControlObject(2049), GameBase::getControlClient(" + cam1 + "));") == cam1 + "2049");
-        Assert.True(maskBits.SequenceEqual(new[] { (cam1o.Id(), 4u) }));
+        Assert.True(maskBits.SequenceEqual([(cam1o.Id(), 4u)]));
         Assert.True(pm.ControlObjectOf(2049) == cam1o && pm.ControlObjectOf(2050) == null);
         // Same client again: no change, no mask bits.
         maskBits.Clear();
@@ -998,9 +998,9 @@ public class ControlObjectTests
         // Another object: the previous one is released first.
         Assert.Equal("true", w.Run("echo(Client::setControlObject(2049, a));"));
         Assert.True(c1.ControlObject == a.Id() && a.ControlClient == 2049 && cam1o.ControlClient == 0);
-        Assert.True(maskBits.SequenceEqual(new[] { (cam1o.Id(), 4u), (a.Id(), 4u) }));
+        Assert.True(maskBits.SequenceEqual([(cam1o.Id(), 4u), (a.Id(), 4u)]));
         // Another client takes the object: the first client loses it.
-        Assert.Equal("true", w.Run("echo(Client::setControlObject(2050, " + A + "));"));
+        Assert.Equal("true", w.Run("echo(Client::setControlObject(2050, " + a2 + "));"));
         Assert.True(c1.ControlObject == 0 && c2.ControlObject == a.Id() && a.ControlClient == 2050);
         // Not an object (-1): the client's current control object is released.
         Assert.Equal("true", w.Run("echo(Client::setControlObject(2050, -1));"));
@@ -1013,11 +1013,11 @@ public class ControlObjectTests
         Assert.Equal("true", w.Run("echo(Client::setOwnedObject(2049, a));"));
         Assert.True(c1.OwnedObject == a.Id() && a.OwnerClient == 2049 && a.LastOwnerClient == 2049);
         Assert.True(w.Run("echo(Client::getOwnedObject(2049), GameBase::getOwnerClient(a), Player::getClient(a));") ==
-                    A + "20492049");
-        Assert.True(maskBits.SequenceEqual(new[] { (a.Id(), 4u) }));
+                    a2 + "20492049");
+        Assert.True(maskBits.SequenceEqual([(a.Id(), 4u)]));
         // A client id as an object argument names that client's owned object (00422d18).
         Assert.True(pm.FindServerObject("2049") == a && pm.FindServerObject("2050") == null);
-        Assert.True(pm.FindServerObject(A) == a && pm.FindServerObject("nothing") == null);
+        Assert.True(pm.FindServerObject(a2) == a && pm.FindServerObject("nothing") == null);
         Assert.Equal("10 20 30", w.Run("echo(GameBase::getPosition(2049));"));
         Assert.Equal("2049", w.Run("echo(GameBase::getOwnerClient(2049));"));
         // GameBase::getTeam resolves a client id as the client, not as its object (12.3). The client follows the team
@@ -1113,7 +1113,7 @@ public class ControlObjectTests
 
         // Mask: words 0-3 clients by owned object, words 4-7 sensor targets by index.
         w.Game.Targets.Clear();
-        w.Game.Targets.AddRange(new GameBase?[] { t0, t1, null, mk });
+        w.Game.Targets.AddRange([t0, t1, null, mk]);
         var c = pm.AddClient(2051, "P", "male1", true)!;
         pm.SetOwnerClient(t1, 2051);
         var mask = new uint[8];
@@ -1174,7 +1174,7 @@ public class ControlObjectTests
             var oldSend = pm.Send;
             pm.Send = (id, e) => evs.Add((id, e.Tag));
             t1.SetTeam(0);
-            Assert.True(c.Team == 0 && evs.SequenceEqual(new[] { (2051, 0x452u) }));
+            Assert.True(c.Team == 0 && evs.SequenceEqual([(2051, 0x452u)]));
             t1.SetTeam(1);
             Assert.True(c.Team == 1 && evs.Count == 2);
             evs.Clear();

@@ -17,7 +17,7 @@ public class LaserBeamTests
         var v = img.Batches.Single().Vertices;
         Assert.Equal(6, v.Length);
         Assert.All(v, q => Assert.Equal(0.25f, q.U));                         // u is one value over the beam
-        Assert.Equal([0f, 1f], v.Select(q => q.V).Distinct().OrderBy(q => q).ToArray());
+        Assert.Equal([0f, 1f], [.. v.Select(q => q.V).Distinct().OrderBy(q => q)]);
         // near end: radius 0.04 projects to 320 * 0.04 / 2 = 6.4 px (over 1), so the half width is 0.04
         double nearWidth = Math.Abs(v[1].X - v[0].X + (v[1].Z - v[0].Z)) / 2;
         Assert.Equal(0.04, nearWidth, 4);
