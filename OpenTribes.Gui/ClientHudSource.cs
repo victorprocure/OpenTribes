@@ -119,10 +119,23 @@ public sealed class ClientHudSource : IHudSource
         {
             if (ObjectYaw?.Invoke(Psc.ControlGhost) is double drawn)
                 return drawn;
+            if (Psc.ControlClass == "ObserverCamera")
+                return ObserverYaw();
             if (Psc.ControlClass is "Vehicle" or "Flier")
                 return Psc.ControlState.GetValueOrDefault("rot") is double[] { Length: >= 3 } r ? r[2] : 0;
             return D(Psc.ControlState.GetValueOrDefault("rotZ"), Ghost != null ? D(Ghost.State.GetValueOrDefault("rotZ"), 0) : 0);
         }
+    }
+    // ObserverCamera vtable +0x178 is `00413850` too (vtable 00617624): the Euler z of the camera transform that ObserverCamera_step
+    // (00435348) rebuilds from the rotation +0x264 (the control state "rot"), so the dial turns with the observer heading. Orbit mode 3
+    // with the stored distance -1 takes the orbit object's own transform: a Player's Euler z is its rotZ.
+    private double ObserverYaw()
+    {
+        var st = Psc.ControlState;
+        double rotZ = st.GetValueOrDefault("rot") is double[] { Length: >= 3 } r ? r[2] : 0;
+        if (st.GetValueOrDefault("orbit") is double[] { Length: >= 3 } o && o[2] < 0 && OrbitGhost is { Class: "Player" } g)
+            return D(g.State.GetValueOrDefault("rotZ"), rotZ);
+        return rotZ;
     }
     public double ClockSeconds => mClock();
 

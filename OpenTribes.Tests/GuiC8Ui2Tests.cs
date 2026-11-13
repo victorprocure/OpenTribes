@@ -170,6 +170,28 @@ public sealed class GuiC8Ui2Tests : IDisposable
         Assert.Equal(-0.25, src.Yaw);
     }
 
+    // ObserverCamera vtable +0x178 is 00413850 as well: the Euler z of the camera transform built from its rotation (+0x264).
+    [Fact]
+    public void CompassYawOfAnObserverCameraIsItsRotationZ()
+    {
+        var world = new ClientWorld();
+        var src = new ClientHudSource(world);
+        world.Psc.ControlGhost = 2;
+        world.Psc.ControlClass = "ObserverCamera";
+        world.Psc.ControlState = new Dictionary<string, object?> { ["rot"] = new[] { 0.2, 0.0, 1.25 }, ["camMode"] = 2L };
+        Assert.Equal(1.25, src.Yaw);
+        var body = new ClientGhost { Index = 7, Class = "Player" };
+        body.State["rotZ"] = 2.5;
+        world.Ghosts.Insert(body);
+        world.Psc.ControlState = new Dictionary<string, object?>
+        {
+            ["rot"] = new[] { 0.2, 0.0, 1.25 }, ["camMode"] = 3L, ["orbitGhost"] = 7L, ["orbit"] = new[] { 0.0, 10.0, -1.0 },
+        };
+        Assert.Equal(2.5, src.Yaw);
+        world.Psc.ControlState["orbit"] = new[] { 0.0, 10.0, 5.0 };
+        Assert.Equal(1.25, src.Yaw);
+    }
+
     [Fact]
     public void CompassYawOfAPlayerIsRotZUnlessTheHostGivesTheMountHeading()
     {
