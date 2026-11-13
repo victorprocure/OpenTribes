@@ -203,8 +203,9 @@ public class WorldRenderTests
         Assert.Equal(((byte)0xff, (byte)0xff, (byte)0xff), TerrainData.ExpandLightPacked(0xffff));
         Assert.Equal(((byte)0x44, (byte)0x44, (byte)0x44), TerrainData.ExpandLightPacked(0x4444)); // n * 17
         Assert.Equal(((byte)0x11, (byte)0x22, (byte)0x33), TerrainData.ExpandLightPacked(0xf123));
-        Assert.Equal(((byte)0xff, (byte)0xff, (byte)0xff), TerrainData.ExpandLight5551(0xffff));
-        Assert.Equal(((byte)0x08, (byte)0x8c, (byte)0x7b), TerrainData.ExpandLight5551(0x0087)); // nibbles 0, 8, 7 are 5 bit 1, 17, 15
+        Assert.Equal(((byte)0xff, (byte)0xff, (byte)0xff), TerrainData.ExpandLightInterior(0xffff));
+        Assert.Equal(((byte)0x0f, (byte)0x8f, (byte)0x7f), TerrainData.ExpandLightInterior(0x0087)); // (n << 4) | 0xf, mono ignored
+        Assert.Equal(((byte)0x1f, (byte)0x2f, (byte)0x3f), TerrainData.ExpandLightInterior(0xf123));
         Assert.Equal((byte)198, TerrainData.Quantize5(194));
         Assert.Equal((byte)0, TerrainData.Quantize5(7));
         Assert.Equal((byte)255, TerrainData.Quantize5(255));
