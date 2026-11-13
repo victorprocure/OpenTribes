@@ -94,10 +94,13 @@ public partial class GameBase
         }
     }
 
-    // src/game/item_sim.cpp GameBase::itemTestAt: shape images the Item's bounding sphere and box meet at `q`
-    // (docs/collision.md T3): the terrain first, then the candidates in container order. Hits keep that order. With
-    // `triggered`: an overlapping non-blocking image is no hit, its object is added to `triggered` (one event 0x41f
-    // each) and the candidate leaves the list, the last one taking its place (SimMovement_testImages 0x00506bfc).
+    /// <summary>Finds the shape images that the Item's bounding sphere and box meet at a position.</summary>
+    /// <param name="q">The position to test.</param>
+    /// <param name="candidates">The candidate images.</param>
+    /// <param name="hits">Receives the hits, terrain first, then the candidates in container order.</param>
+    /// <param name="triggered">When given, an overlapping non-blocking image is no hit. Its object is added here (one event 0x41f each) and the candidate leaves the list, the last one taking its place.</param>
+    /// <returns>True when there is a hit.</returns>
+    /// <remarks>See docs/collision.md T3 and SimMovement_testImages (0x00506bfc).</remarks>
     public bool ItemTestAt(ReadOnlySpan<float> q, List<CollisionImage> candidates, List<CollisionHit> hits,
                            List<SimObject>? triggered = null)
     {
@@ -159,7 +162,11 @@ public partial class GameBase
         return hits.Count == 0;
     }
 
-    // src/game/item_sim.cpp GameBase::itemCandidates: 2.1: the object box at the target, extended by v * dt.
+    /// <summary>Collects the candidate images for an Item move: the object box at the target, extended by <c>v * dt</c>.</summary>
+    /// <param name="target">The target position.</param>
+    /// <param name="output">Receives the candidates.</param>
+    /// <param name="mask">The object type mask.</param>
+    /// <remarks>See docs/static-sim.md 2.1.</remarks>
     public void ItemCandidates(ReadOnlySpan<float> target, List<CollisionImage> output, uint mask)
     {
         Span<float> query = stackalloc float[6];
@@ -167,8 +174,10 @@ public partial class GameBase
         mCtx.Game!.CollisionCandidates(this, mask, query, output);
     }
 
-    // src/game/item_sim.cpp GameBase::testPosition: GameBase::testPosition (0x0041fba4): true when the collision shape at
-    // `p` touches nothing.
+    /// <summary>Tests whether the collision shape at a position touches nothing.</summary>
+    /// <param name="p">The position.</param>
+    /// <returns>True when nothing is touched.</returns>
+    /// <remarks>Follows GameBase::testPosition (0x0041fba4).</remarks>
     public bool TestPosition(ReadOnlySpan<float> p)
     {
         if (mCtx.Game == null)
@@ -183,14 +192,15 @@ public partial class GameBase
         return ItemTestAt(p, candidates, hits);
     }
 
-    // src/game/item_sim.cpp GameBase::resetItemRest: clears the at-rest bit (setPosition, setVelocity).
+    /// <summary>Clears the at-rest bit, as setPosition and setVelocity do.</summary>
     public void ResetItemRest()
     {
         AtRest = false;
         ItemContact = false;
     }
 
-    // src/game/item_sim.cpp GameBase::itemTick: 0x0045165c (Item), 0x00459070 (Mine adds the alignment).
+    /// <summary>Runs one Item tick.</summary>
+    /// <remarks>Follows 0x0045165c (Item). The Mine adds the alignment (0x00459070).</remarks>
     public void ItemTick()
     {
         if (ItemVisible)
@@ -222,8 +232,10 @@ public partial class GameBase
             MineAlign();
     }
 
-    // src/game/item_sim.cpp GameBase::itemPhysics: ShapeBase_moveStep (0x0044c644) for an Item: forces, the target
-    // position, the stepped move and its collision response.
+    /// <summary>Moves an Item for one step: forces, the target position, the stepped move and its collision response.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <returns>True when the Item moved.</returns>
+    /// <remarks>Follows ShapeBase_moveStep (0x0044c644).</remarks>
     public bool ItemPhysics(float dt)
     {
         using var chop = ChopScope();
@@ -265,8 +277,11 @@ public partial class GameBase
         return false;
     }
 
-    // src/game/item_sim.cpp GameBase::itemProcessCollision: Item_movementCollision (0x0045199c, vtable +0xb8) with the
-    // default response 0x00506d80: true when some contact answered (the move restarts toward the new target).
+    /// <summary>Answers the contacts of a move step with the Item collision response.</summary>
+    /// <param name="hits">The contacts.</param>
+    /// <param name="iteration">The iteration of the stepped move.</param>
+    /// <returns>True when some contact answered, so the move restarts toward the new target.</returns>
+    /// <remarks>Follows Item_movementCollision (0x0045199c, vtable +0xb8) with the default response 0x00506d80.</remarks>
     public bool ItemProcessCollision(List<CollisionHit> hits, int iteration)
     {
         GameServices game = mCtx.Game!;
@@ -344,8 +359,8 @@ public partial class GameBase
         ItemPostEvents();
     }
 
-    // src/game/item_sim.cpp GameBase::itemPostEvents: SimMovement_postCollisionEvents (0x00507180): event 0x41f to every
-    // notified object and back.
+    /// <summary>Posts event 0x41f to every notified object and back.</summary>
+    /// <remarks>Follows SimMovement_postCollisionEvents (0x00507180).</remarks>
     public void ItemPostEvents()
     {
         List<SimObject> notified = ItemNotify;
@@ -369,8 +384,14 @@ public partial class GameBase
             AtRest = true;
     }
 
-    // src/game/item_sim.cpp GameBase::itemSteppedMove: SimMovement_stepMove (0x00505a3c) for an Item toward `target`
-    // against the objects of `mask`. False when every iteration was blocked (the Item is then at rest with no velocity).
+    /// <summary>Moves an Item toward a target in sub-steps against the objects of a mask.</summary>
+    /// <param name="target">The target position.</param>
+    /// <param name="step0">The first sub-step length.</param>
+    /// <param name="step1">The second sub-step length.</param>
+    /// <param name="slice">The time slice of the move.</param>
+    /// <param name="mask">The object type mask of the objects to collide with.</param>
+    /// <returns>False when every iteration was blocked. The Item is then at rest with no velocity.</returns>
+    /// <remarks>Follows SimMovement_stepMove (0x00505a3c).</remarks>
     public bool ItemSteppedMove(float[] target, float step0, float step1, float slice, uint mask)
     {
         GameServices game = mCtx.Game!;
@@ -471,7 +492,9 @@ public partial class GameBase
 
     // ---- carry lists and displacement (docs/collision.md E3) ----
 
-    // src/game/item_sim.cpp GameBase::attach: 0x005067d0: add B to A's list unless present, then A to B's list.
+    /// <summary>Attaches another object: adds it to this object's list unless present, then adds this object to its list.</summary>
+    /// <param name="other">The object to attach.</param>
+    /// <remarks>Follows 0x005067d0.</remarks>
     public void Attach(GameBase other)
     {
         if (Carried.Contains(other.Id()))
@@ -481,8 +504,8 @@ public partial class GameBase
             other.Carried.Add(Id());
     }
 
-    // src/game/item_sim.cpp GameBase::detachAll: 0x005067f8: remove this object from the list of everything it is
-    // attached to.
+    /// <summary>Removes this object from the list of every object it is attached to.</summary>
+    /// <remarks>Follows 0x005067f8.</remarks>
     public void DetachAll()
     {
         if (Carried.Count == 0)
@@ -494,7 +517,11 @@ public partial class GameBase
         Carried.Clear();
     }
 
-    // src/game/item_sim.cpp GameBase::itemPushBy: moves the Item by `delta` through the world (0x005064f8).
+    /// <summary>Moves the Item by a delta through the world.</summary>
+    /// <param name="delta">The displacement.</param>
+    /// <param name="mover">The velocity of the pushing object.</param>
+    /// <returns>True when the whole displacement was done.</returns>
+    /// <remarks>Follows SimMovement_pushBy (0x005064f8).</remarks>
     public bool ItemPushBy(ReadOnlySpan<float> delta, ReadOnlySpan<float> mover)
     {
         using var chop = ChopScope();
@@ -503,7 +530,12 @@ public partial class GameBase
                                (target, step0, step1) => ItemSteppedMove(target, step0, step1, 0.032f, 6));
     }
 
-    // src/game/item_sim.cpp GameBase::surfaceResponse: SimMovement_collideSurface (0x00506f44).
+    /// <summary>Answers a surface contact.</summary>
+    /// <param name="n">The surface normal.</param>
+    /// <param name="mat">The surface material, or null.</param>
+    /// <param name="flags">The contact flags.</param>
+    /// <returns>True when the contact was handled.</returns>
+    /// <remarks>Follows SimMovement_collideSurface (0x00506f44).</remarks>
     public bool SurfaceResponse(ReadOnlySpan<float> n, Material? mat, int flags)
     {
         MaterialTable? table = mCtx.Game?.GetMaterialTable();
@@ -549,8 +581,9 @@ public partial class GameBase
 
     // ---- hide, throw (5.4, 5.6) ----
 
-    // src/game/item_sim.cpp GameBase::itemHide: 0x00451194. A hidden Item leaves its container (and so every ghost
-    // scope).
+    /// <summary>Hides or shows an Item. A hidden Item leaves its container, and so every ghost scope.</summary>
+    /// <param name="hide">True to hide the Item.</param>
+    /// <remarks>Follows 0x00451194.</remarks>
     public void ItemHide(bool hide)
     {
         GameServices? game = mCtx.Game;
@@ -575,7 +608,11 @@ public partial class GameBase
         ItemVisible = !hide;
     }
 
-    // src/game/item_sim.cpp GameBase::itemThrow: 0x00451284 (docs/static-sim.md 5.4).
+    /// <summary>Throws an Item from a thrower.</summary>
+    /// <param name="thrower">The object that throws.</param>
+    /// <param name="speed">The throw speed.</param>
+    /// <param name="random">True to add the random deflection.</param>
+    /// <remarks>Follows 0x00451284 (docs/static-sim.md 5.4).</remarks>
     public void ItemThrow(GameBase thrower, float speed, bool random)
     {
         using var chop = ChopScope();
@@ -626,8 +663,9 @@ public partial class GameBase
 
     // ---- Mine (5.7) ----
 
-    // src/game/item_sim.cpp GameBase::mineHit: the contact normal accumulator of 0x004589ec: normals of surfaces facing
-    // up are summed and normalised into +0x88c.
+    /// <summary>Adds a contact normal to the mine's accumulator.</summary>
+    /// <param name="n">The contact normal.</param>
+    /// <remarks>Follows 0x004589ec: normals of surfaces facing up are summed and normalised into +0x88c.</remarks>
     public void MineHit(ReadOnlySpan<float> n)
     {
         Span<float> sum = stackalloc float[3];
@@ -639,9 +677,8 @@ public partial class GameBase
                 MineNormal[i] = Store(Div(sum[i], l));
     }
 
-    // src/game/item_sim.cpp GameBase::mineAlign: 0x00458d14: nothing while the normal is 0 or the mine is aligned. The x
-    // and y angles approach the targets derived from the normal (rotated by -rotation.z) by 0.05 rad per tick; the
-    // first tick without a change marks it aligned. [code only, not verified live]
+    /// <summary>Aligns the mine to the surface normal.</summary>
+    /// <remarks>Follows 0x00458d14: nothing while the normal is 0 or the mine is aligned. The x and y angles approach the targets derived from the normal (rotated by -rotation.z) by 0.05 rad per tick. The first tick without a change marks it aligned. Not verified live.</remarks>
     public void MineAlign()
     {
         if (MineAligned || (MineNormal[0] == 0 && MineNormal[1] == 0 && MineNormal[2] == 0))

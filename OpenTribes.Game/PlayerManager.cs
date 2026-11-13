@@ -4,41 +4,93 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/player_manager.hpp struct ClientRecord: client record (2.1). Fields marked "kept" survive a slot's reuse.
+/// <summary>The record of one client (docs/player-manager.md 2.1). Fields marked "kept" survive the reuse of the slot.</summary>
 public sealed class ClientRecord
 {
+    /// <summary>True while the slot is in use.</summary>
     public bool Used;
+    /// <summary>True for an AI player.</summary>
     public bool IsAI;
+    /// <summary>The client id.</summary>
     public int Id;
-    public string Name = "", Skin = "base", Voice = "";
+    /// <summary>The player name.</summary>
+    public string Name = "";
+    /// <summary>The skin name.</summary>
+    public string Skin = "base";
+    /// <summary>The voice set.</summary>
+    public string Voice = "";
+    /// <summary>True for a male player.</summary>
     public bool Male = true;
+    /// <summary>The team id, or -1 for none.</summary>
     public int Team = -1;
-    public int GuiMirror;           // +0x1c, written by the GUI mode change only
-    public int GuiMode;             // PlayerPSC +0x3d8
-    public uint ObjectiveMark, CommandMark, CommandStamp;
-    public int CommandIcon = -1, CommandStatus;
-    public int CommandIssuer, CommandTarget, WaypointX, WaypointY; // kept
-    public string? CommandText;     // +0x44, interned, kept
-    public string? LastCommandText; // +0xac: text last sent to this client
+    /// <summary>The GUI mode mirror (+0x1c). Written by the GUI mode change only.</summary>
+    public int GuiMirror;
+    /// <summary>The GUI mode (PlayerPSC +0x3d8).</summary>
+    public int GuiMode;
+    /// <summary>The mark of the last objective update sent to this client.</summary>
+    public uint ObjectiveMark;
+    /// <summary>The mark of the last command update sent to this client.</summary>
+    public uint CommandMark;
+    /// <summary>The stamp of the last command.</summary>
+    public uint CommandStamp;
+    /// <summary>The command icon, or -1 for none.</summary>
+    public int CommandIcon = -1;
+    /// <summary>The command status.</summary>
+    public int CommandStatus;
+    /// <summary>The id of the client that issued the command (kept).</summary>
+    public int CommandIssuer;
+    /// <summary>The target of the command (kept).</summary>
+    public int CommandTarget;
+    /// <summary>The waypoint x of the command (kept).</summary>
+    public int WaypointX;
+    /// <summary>The waypoint y of the command (kept).</summary>
+    public int WaypointY;
+    /// <summary>The command text (+0x44), interned and kept.</summary>
+    public string? CommandText;
+    /// <summary>The command text last sent to this client (+0xac).</summary>
+    public string? LastCommandText;
+    /// <summary>The id of the commander the client follows, or -1.</summary>
     public int Commander = -1;
+    /// <summary>The join order.</summary>
     public int JoinOrder;
-    public bool MenuScoreVis;       // +0x6a
-    public bool DataFinished;       // +0x1dc
-    public int OwnedObject, ControlObject; // object ids (+0x98, +0x94), 0 none
-    public ObserverCamera? Camera;  // +0x9c
-    // The connection's members as server manager objects, human clients (0054ea34, 0042b1b8; game-stream.md 1.1)
-    public SimObject? EventManager; // Net::EventManager, pool id
-    public SimObject? PlayerPsc;    // PlayerPSC, id 715
-    public SimObject? GhostManager; // Net::GhostManager, id 37
-    public bool LimitCommand;       // PlayerPSC +0x90
+    /// <summary>True while the player shows the score menu (+0x6a).</summary>
+    public bool MenuScoreVis;
+    /// <summary>True once the client finished loading its data (+0x1dc).</summary>
+    public bool DataFinished;
+    /// <summary>The id of the object the client owns, 0 for none (+0x98).</summary>
+    public int OwnedObject;
+    /// <summary>The id of the object the client controls, 0 for none (+0x94).</summary>
+    public int ControlObject;
+    /// <summary>The observer camera of the client (+0x9c).</summary>
+    public ObserverCamera? Camera;
+    /// <summary>The connection's event manager as a server manager object (Net::EventManager, pool id). Human clients only (0054ea34, 0042b1b8; docs/game-stream.md 1.1).</summary>
+    public SimObject? EventManager;
+    /// <summary>The connection's PlayerPSC as a server manager object (id 715).</summary>
+    public SimObject? PlayerPsc;
+    /// <summary>The connection's ghost manager as a server manager object (Net::GhostManager, id 37).</summary>
+    public SimObject? GhostManager;
+    /// <summary>The command limit flag (PlayerPSC +0x90).</summary>
+    public bool LimitCommand;
+    /// <summary>The score text.</summary>
     public string ScoreText = "";
-    public int ScoreSort;           // kept
-    public uint ScoreStamp, ScoreMark;
+    /// <summary>The score sort value (kept).</summary>
+    public int ScoreSort;
+    /// <summary>The stamp of the last score change.</summary>
+    public uint ScoreStamp;
+    /// <summary>The mark of the last score update sent to this client.</summary>
+    public uint ScoreMark;
+    /// <summary>The connection ping in milliseconds.</summary>
     public uint Ping;
+    /// <summary>The packet loss, 0 to 1.</summary>
     public float Loss;
-    public readonly uint[] Shopping = new uint[7], Buying = new uint[7];
-    public ClientRecord? NextHuman;  // human list, newest first
-    public ClientRecord? NextPlayer; // player list (humans and AI), newest first (+0x8)
+    /// <summary>The shopping item mask.</summary>
+    public readonly uint[] Shopping = new uint[7];
+    /// <summary>The buying item mask.</summary>
+    public readonly uint[] Buying = new uint[7];
+    /// <summary>The next record of the human list, newest first.</summary>
+    public ClientRecord? NextHuman;
+    /// <summary>The next record of the player list (humans and AI), newest first (+0x8).</summary>
+    public ClientRecord? NextPlayer;
 }
 
 // src/game/player_manager.cpp EventManagerObject: Net::EventManager as a script-visible object (getObjectType); the event
@@ -64,7 +116,8 @@ internal sealed class GhostManagerObject : SimObject
     public override int FixedId() => 37;
 }
 
-// src/game/player_manager.hpp class PlayerManager.
+/// <summary>The player manager (object 713): the client records, teams, scores and commands.</summary>
+/// <remarks>Port of class PlayerManager in src/game/player_manager.hpp. See docs/player-manager.md.</remarks>
 public sealed class PlayerManager
 {
     private readonly GameState mGame;
@@ -76,14 +129,15 @@ public sealed class PlayerManager
     private int mHumanCount, mPlayerCount, mJoinCounter;
     private uint mScoreSeq, mObjectiveCounter, mCommandCounter;
 
-    // Event delivery to one connected client (set by the network layer).
+    /// <summary>Delivers an event to one connected client. Set by the network layer.</summary>
     public Action<int, OutEvent> Send = (_, _) => { };
-    // Connection ping (ms) and loss (0..1) for the 1.5 s update (8).
+    /// <summary>Returns the connection ping (ms) and loss (0 to 1) of a client for the 1.5 s update (docs/player-manager.md 8).</summary>
     public Func<int, (uint Ping, float Loss)>? NetStats;
-    // GameBase mask bits changed (NetObject::setMaskBits); set by the network layer.
+    /// <summary>Called when GameBase mask bits changed (NetObject::setMaskBits). Set by the network layer.</summary>
     public Action<GameBase, uint>? SetMaskBitsHook;
 
-    // src/game/player_manager.cpp PlayerManager::PlayerManager.
+    /// <summary>Creates the manager for a game.</summary>
+    /// <param name="game">The game state.</param>
     public PlayerManager(GameState game)
     {
         mGame = game;
@@ -94,13 +148,21 @@ public sealed class PlayerManager
             mFree.Add(mRecords[i]);
     }
 
+    /// <summary>Returns the number of human clients.</summary>
+    /// <returns>The count.</returns>
     public int HumanCount() => mHumanCount;
-    public int PlayerCount() => mPlayerCount; // humans and AI (+0x5c of the manager)
-    // Id the next add takes (head of the free list), 0 without a free record.
+    /// <summary>Returns the number of players, humans and AI (+0x5c of the manager).</summary>
+    /// <returns>The count.</returns>
+    public int PlayerCount() => mPlayerCount;
+    /// <summary>Returns the id the next add takes, the head of the free list.</summary>
+    /// <returns>The id, or 0 without a free record.</returns>
     public int NextFreeId() => mFree.Count == 0 ? 0 : mFree[^1].Id;
-    // Command counter (+0x50 of the manager), advanced by the command-map commands (command_map.cpp).
+    /// <summary>Returns the command counter (+0x50 of the manager), advanced by the command map commands.</summary>
+    /// <returns>A reference to the counter.</returns>
     public ref uint CommandCounter() => ref mCommandCounter;
-    // Posts an event to a connected client (the network layer's send).
+    /// <summary>Posts an event to a connected client through the network layer.</summary>
+    /// <param name="id">The client id.</param>
+    /// <param name="e">The event.</param>
     public void SendEvent(int id, OutEvent e) => Send(id, e);
     private void Post(int id, OutEvent e) => Send(id, e);
 
@@ -185,7 +247,10 @@ public sealed class PlayerManager
         return true;
     }
 
-    // src/game/player_manager.cpp PlayerManager::find: any record (0040de80).
+    /// <summary>Finds any client record.</summary>
+    /// <param name="id">The client id.</param>
+    /// <returns>The record, or null.</returns>
+    /// <remarks>Follows 0040de80.</remarks>
     public ClientRecord? Find(int id)
     {
         if (id < 2048 || id >= 2048 + 128 || !mRecords[id - 2048].Used)
@@ -193,14 +258,18 @@ public sealed class PlayerManager
         return mRecords[id - 2048];
     }
 
-    // src/game/player_manager.cpp PlayerManager::findHuman: humans only (0040de38).
+    /// <summary>Finds a human client record.</summary>
+    /// <param name="id">The client id.</param>
+    /// <returns>The record, or null for an AI player or an unused slot.</returns>
+    /// <remarks>Follows 0040de38.</remarks>
     public ClientRecord? FindHuman(int id)
     {
         ClientRecord? r = Find(id);
         return r != null && !r.IsAI ? r : null;
     }
 
-    // src/game/player_manager.cpp PlayerManager::humans: newest first.
+    /// <summary>Lists the human client ids.</summary>
+    /// <returns>The ids, newest first.</returns>
     public List<int> Humans()
     {
         var output = new List<int>();
@@ -213,7 +282,8 @@ public sealed class PlayerManager
     private static OutEvent PlayerAdd(ClientRecord r) =>
         GameEvents.MakePlayerAdd(r.Id, r.IsAI, r.Name, r.Skin, r.Voice, r.Male, r.Commander, r.Team);
 
-    // src/game/player_manager.cpp PlayerManager::playerIds: player list, humans and AI, newest first.
+    /// <summary>Lists the player ids, humans and AI.</summary>
+    /// <returns>The ids, newest first.</returns>
     public List<int> PlayerIds()
     {
         var output = new List<int>();
@@ -222,8 +292,13 @@ public sealed class PlayerManager
         return output;
     }
 
-    // src/game/player_manager.cpp PlayerManager::addClient: 4.1 / 4.2. The id comes from the connection layer (same
-    // LIFO pool, net-protocol.md).
+    /// <summary>Adds a client record (docs/player-manager.md 4.1, 4.2).</summary>
+    /// <param name="id">The client id. It comes from the connection layer's LIFO pool (net-protocol.md).</param>
+    /// <param name="name">The player name.</param>
+    /// <param name="voice">The voice set.</param>
+    /// <param name="male">True for a male player.</param>
+    /// <param name="ai">True for an AI player.</param>
+    /// <returns>The record, or null when none is free.</returns>
     public ClientRecord? AddClient(int id, string name, string voice, bool male, bool ai = false)
     {
         int it = mFree.FindIndex(r => r.Id == id);
@@ -322,7 +397,8 @@ public sealed class PlayerManager
         return r;
     }
 
-    // src/game/player_manager.cpp PlayerManager::removeClient.
+    /// <summary>Removes a client record.</summary>
+    /// <param name="id">The client id.</param>
     public void RemoveClient(int id)
     {
         ClientRecord? r = Find(id);
@@ -398,7 +474,9 @@ public sealed class PlayerManager
             Post(h.Id, MakePlayerRemove(id));
     }
 
-    // src/game/player_manager.cpp PlayerManager::setTeam: 5.
+    /// <summary>Sets the team of a client (docs/player-manager.md 5).</summary>
+    /// <param name="id">The client id.</param>
+    /// <param name="team">The team id.</param>
     public void SetTeam(int id, int team)
     {
         ClientRecord? r = Find(id);
@@ -421,7 +499,9 @@ public sealed class PlayerManager
         r.Commander = -1;
     }
 
-    // src/game/player_manager.cpp PlayerManager::guiChange: 6.
+    /// <summary>Changes the GUI mode of a client (docs/player-manager.md 6).</summary>
+    /// <param name="id">The client id.</param>
+    /// <param name="mode">The new mode.</param>
     public void GuiChange(int id, int mode)
     {
         ClientRecord? r = FindHuman(id);
@@ -471,7 +551,10 @@ public sealed class PlayerManager
             }
     }
 
-    // src/game/player_manager.cpp PlayerManager::setScore: 7.
+    /// <summary>Sets the score of a client (docs/player-manager.md 7).</summary>
+    /// <param name="id">The client id.</param>
+    /// <param name="text">The score text.</param>
+    /// <param name="sort">The sort value.</param>
     public void SetScore(int id, string text, int sort)
     {
         ClientRecord? r = FindHuman(id);
@@ -483,7 +566,10 @@ public sealed class PlayerManager
         ScoreChanged(ref r.ScoreStamp, false, id, sort, t);
     }
 
-    // src/game/player_manager.cpp PlayerManager::setTeamScore.
+    /// <summary>Sets the score of a team.</summary>
+    /// <param name="team">The team id.</param>
+    /// <param name="text">The score text.</param>
+    /// <param name="sort">The sort value.</param>
     public void SetTeamScore(int team, string text, int sort)
     {
         if (team < -1 || team > mGame.TeamCount || team + 1 >= mGame.Teams.Count)
@@ -512,7 +598,9 @@ public sealed class PlayerManager
         c.ScoreMark = mScoreSeq;
     }
 
-    // src/game/player_manager.cpp PlayerManager::setMenuScoreVis.
+    /// <summary>Sets whether a client shows the score menu.</summary>
+    /// <param name="id">The client id.</param>
+    /// <param name="visible">True to show it.</param>
     public void SetMenuScoreVis(int id, bool visible)
     {
         ClientRecord? r = FindHuman(id);
@@ -523,7 +611,9 @@ public sealed class PlayerManager
             FlushScores(r);
     }
 
-    // src/game/player_manager.cpp PlayerManager::setHeading.
+    /// <summary>Sets the team or client score heading.</summary>
+    /// <param name="team">True for the team heading, false for the client heading.</param>
+    /// <param name="text">The heading text.</param>
     public void SetHeading(bool team, string text)
     {
         string t = Cut(text, 255);
@@ -535,7 +625,10 @@ public sealed class PlayerManager
             Post(h.Id, GameEvents.MakeDeltaScore(team, team ? -1 : 2048, 0, t));
     }
 
-    // src/game/player_manager.cpp PlayerManager::setObjective: 9.
+    /// <summary>Sets an objective line of a team (docs/player-manager.md 9).</summary>
+    /// <param name="team">The team id.</param>
+    /// <param name="line">The objective line.</param>
+    /// <param name="text">The objective text.</param>
     public void SetObjective(int team, int line, string text)
     {
         if (team < -1 || team >= mGame.TeamCount || line < 0 || line > 31 || team + 1 >= mGame.Teams.Count)
@@ -554,7 +647,8 @@ public sealed class PlayerManager
             }
     }
 
-    // src/game/player_manager.cpp PlayerManager::clearObjectives.
+    /// <summary>Clears the objectives of a team.</summary>
+    /// <param name="team">The team id.</param>
     public void ClearObjectives(int team)
     {
         if (team < -1 || team >= mGame.TeamCount || team + 1 >= mGame.Teams.Count)
@@ -576,8 +670,10 @@ public sealed class PlayerManager
         }
     }
 
-    // src/game/player_manager.cpp PlayerManager::setSkin: skins are StringTable entries, which compare without case
-    // (0x0040be10, 0x00584760 caseSens 0).
+    /// <summary>Sets the skin of a client.</summary>
+    /// <param name="id">The client id.</param>
+    /// <param name="skin">The skin name.</param>
+    /// <remarks>Skins are StringTable entries, which compare without case (0x0040be10, 0x00584760 with caseSens 0).</remarks>
     public void SetSkin(int id, string skin)
     {
         ClientRecord? r = FindHuman(id);
@@ -588,14 +684,19 @@ public sealed class PlayerManager
             Post(h.Id, MakeSkin(id, skin));
     }
 
-    // src/game/player_manager.cpp PlayerManager::sendMessage.
+    /// <summary>Sends a message to a client.</summary>
+    /// <param name="id">The client id.</param>
+    /// <param name="type">The message type.</param>
+    /// <param name="text">The message text.</param>
+    /// <param name="source">The id of the source client.</param>
     public void SendMessage(int id, int type, string text, int source)
     {
         if (FindHuman(id) != null)
             Post(id, MakeSay(source == -1 ? 0 : source, type, Cut(text, 255)));
     }
 
-    // src/game/player_manager.cpp PlayerManager::teamAdded: TeamAddEvent of team t to every human (addTeam).
+    /// <summary>Sends the TeamAddEvent of a team to every human client (addTeam).</summary>
+    /// <param name="team">The team id.</param>
     public void TeamAdded(int team)
     {
         TeamRecord t = mGame.Teams[team + 1];
@@ -603,7 +704,7 @@ public sealed class PlayerManager
             Post(h.Id, GameEvents.MakeTeamAdd(team, t.Name, t.Skin));
     }
 
-    // src/game/player_manager.cpp PlayerManager::reset: MissionResetEvent and record reset.
+    /// <summary>Resets the records and sends the MissionResetEvent.</summary>
     public void Reset()
     {
         foreach (ClientRecord r in mRecords)
@@ -623,8 +724,9 @@ public sealed class PlayerManager
         mCommandCounter = 0;
     }
 
-    // src/game/player_manager.cpp PlayerManager::startPingTimer: 8: the 0x461 timer event. Posted to object 713 at sim
-    // time + 1.5 when the server is created; each run does the ping/loss update and posts the next one.
+    /// <summary>Starts the ping timer.</summary>
+    /// <param name="server">The server manager.</param>
+    /// <remarks>The 0x461 timer event is posted to object 713 at sim time + 1.5 when the server is created. Each run does the ping and loss update and posts the next one (docs/player-manager.md 8).</remarks>
     public void StartPingTimer(SimManager server)
     {
         SimObject? dest = server.FindById(713);
@@ -635,7 +737,7 @@ public sealed class PlayerManager
         });
     }
 
-    // src/game/player_manager.cpp PlayerManager::updatePing.
+    /// <summary>Updates the ping and loss of every client and sends them.</summary>
     public void UpdatePing()
     {
         for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
@@ -663,7 +765,8 @@ public sealed class PlayerManager
         }
     }
 
-    // src/game/player_manager.cpp PlayerManager::registerCommands.
+    /// <summary>Registers the player manager script commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
     public void RegisterCommands(Interpreter interp)
     {
         static int IdArg(string[] a, int i) => i < a.Length ? Numbers.BorlandAtoi(a[i]) : 0;
@@ -1000,8 +1103,10 @@ public sealed class PlayerManager
 
     // ---- ownership and control links (12.5) ----
 
-    // src/game/player_manager.cpp PlayerManager::findServerObject: script object argument (00422d18): a server GameBase,
-    // else a client id 2049..2176 naming that client's owned object.
+    /// <summary>Resolves a script object argument.</summary>
+    /// <param name="arg">The argument: a server GameBase, or a client id 2049 to 2176 naming that client's owned object.</param>
+    /// <returns>The object, or null.</returns>
+    /// <remarks>Follows 00422d18.</remarks>
     public GameBase? FindServerObject(string arg)
     {
         SimManager? m = mGame.Sim?.Server();
@@ -1014,7 +1119,9 @@ public sealed class PlayerManager
         return c != null && c.OwnedObject != 0 ? m.FindById(c.OwnedObject) as GameBase : null;
     }
 
-    // src/game/player_manager.cpp PlayerManager::controlObjectOf.
+    /// <summary>Returns the control object of a client.</summary>
+    /// <param name="client">The client id.</param>
+    /// <returns>The object, or null.</returns>
     public GameBase? ControlObjectOf(int client)
     {
         ClientRecord? r = FindHuman(client);
@@ -1022,7 +1129,10 @@ public sealed class PlayerManager
         return r != null && r.ControlObject != 0 && m != null ? m.FindById(r.ControlObject) as GameBase : null;
     }
 
-    // src/game/player_manager.cpp PlayerManager::setOwnerClient: 00448c3c. client 0 clears the link.
+    /// <summary>Links an object to the client that owns it.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="client">The client id. 0 clears the link.</param>
+    /// <remarks>Follows 00448c3c.</remarks>
     public void SetOwnerClient(GameBase obj, int client)
     {
         if (client != 0)
@@ -1041,7 +1151,10 @@ public sealed class PlayerManager
         SetMaskBitsHook?.Invoke(obj, 4);
     }
 
-    // src/game/player_manager.cpp PlayerManager::setControlClient: 00448cd4.
+    /// <summary>Links an object to the client that controls it.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="client">The client id. 0 clears the link.</param>
+    /// <remarks>Follows 00448cd4.</remarks>
     public void SetControlClient(GameBase obj, int client)
     {
         if (client == obj.ControlClient)
@@ -1058,8 +1171,9 @@ public sealed class PlayerManager
         SetMaskBitsHook?.Invoke(obj, 4);
     }
 
-    // src/game/player_manager.cpp PlayerManager::objectRemoved: an object leaves the server manager (GameBase::onRemove
-    // 00448180, delete notifies).
+    /// <summary>Drops the links to an object that left the server manager.</summary>
+    /// <param name="obj">The object.</param>
+    /// <remarks>Follows GameBase::onRemove (00448180, delete notifies).</remarks>
     public void ObjectRemoved(SimObject? obj)
     {
         if (obj == null)
@@ -1082,15 +1196,20 @@ public sealed class PlayerManager
 
     // ---- sensor visibility and the command map (docs/game-stream.md 6.3) ----
 
-    // src/game/player_manager.cpp PlayerManager::visibleToTeam: 0x004495b4: bit t (detected by team t's sensor network) or
-    // bit t + 8 (always visible to team t, Marker_setTeam) of the visibility word (+0x200).
+    /// <summary>Tells whether an object is visible to a team.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="team">The team id.</param>
+    /// <returns>True when bit t of the visibility word (+0x200) is set (detected by the sensor network of team t), or bit t + 8 (always visible to team t, Marker_setTeam).</returns>
+    /// <remarks>Follows 0x004495b4.</remarks>
     public bool VisibleToTeam(GameBase obj, int team)
     {
         uint t = (uint)team & 0xff;
         return (obj.SensorWord & ((1u << (int)((t + 8) & 31)) | (1u << (int)(t & 31)))) != 0;
     }
 
-    // src/game/player_manager.cpp PlayerManager::visibleMask: the 256-bit mask of owned objects and sensor targets.
+    /// <summary>Builds the 256-bit mask of owned objects and sensor targets visible to a team.</summary>
+    /// <param name="team">The team id.</param>
+    /// <param name="output">Receives the mask words.</param>
     public void VisibleMask(int team, uint[] output)
     {
         Array.Clear(output, 0, 8);
@@ -1107,8 +1226,9 @@ public sealed class PlayerManager
                 output[4 + (i >> 5)] |= 1u << (i & 31);
     }
 
-    // src/game/player_manager.cpp PlayerManager::missionArea: MissionCenterPos (object 716): x, y, w, h. False without one
-    // (out is zeroed).
+    /// <summary>Reads the mission area of MissionCenterPos (object 716).</summary>
+    /// <param name="output">Receives x, y, w, h, zeroed when there is no mission area.</param>
+    /// <returns>False without a mission area.</returns>
     public bool MissionArea(float[] output)
     {
         output[0] = output[1] = output[2] = output[3] = 0;
@@ -1126,9 +1246,12 @@ public sealed class PlayerManager
     // src/game/player_manager.cpp ftol of the waypoint code.
     private static uint WaypointFtol(double v) => v > -2147483649.0 && v < 2147483648.0 ? unchecked((uint)(int)v) : 0x80000000u;
 
-    // src/game/player_manager.cpp PlayerManager::updateWaypoint: waypoint of a targeted command (0040507c, before the mode
-    // blocks): the target's position in 1/1023 of the mission area while the target is visible to the client's team.
-    // True when both coordinates fit in 10 bits and differ from the record, which then takes them.
+    /// <summary>Updates the waypoint of a targeted command: the target's position in 1/1023 of the mission area while the target is visible to the client's team.</summary>
+    /// <param name="r">The client record.</param>
+    /// <param name="x">Receives the x coordinate.</param>
+    /// <param name="y">Receives the y coordinate.</param>
+    /// <returns>True when both coordinates fit in 10 bits and differ from the record, which then takes them.</returns>
+    /// <remarks>Follows 0040507c, before the mode blocks.</remarks>
     public bool UpdateWaypoint(ClientRecord r, out uint x, out uint y)
     {
         x = y = 0;
@@ -1165,8 +1288,11 @@ public sealed class PlayerManager
         return true;
     }
 
-    // src/game/player_manager.cpp PlayerManager::commandSlot: command map slot of a viewer (PSC command mode); false when
-    // the slot is absent.
+    /// <summary>Fills the command map slot of a viewer (PSC command mode).</summary>
+    /// <param name="viewer">The viewing client.</param>
+    /// <param name="slot">The slot index.</param>
+    /// <param name="output">Receives the slot.</param>
+    /// <returns>False when the slot is absent.</returns>
     public bool CommandSlot(ClientRecord viewer, uint slot, CommandMapSlot output)
     {
         SimManager? m = mGame.Sim?.Server();

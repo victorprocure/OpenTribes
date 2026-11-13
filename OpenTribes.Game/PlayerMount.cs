@@ -6,7 +6,8 @@ namespace OpenTribes.Game;
 
 public sealed partial class Player
 {
-    // src/game/player_mount.cpp Player::mountObject: the mount object, or null.
+    /// <summary>Returns the object the player is mounted on.</summary>
+    /// <returns>The mount object, or null.</returns>
     public GameBase? MountObject()
     {
         SimManager? m = Manager();
@@ -14,7 +15,10 @@ public sealed partial class Player
         return o as GameBase;
     }
 
-    // src/game/player_mount.cpp Player::setMountObject: 0x0041268c.
+    /// <summary>Mounts the player on an object at a mount point, or unmounts.</summary>
+    /// <param name="obj">The object to mount, or null to unmount.</param>
+    /// <param name="point">The mount point index.</param>
+    /// <remarks>Follows Player::setMountObject (0x0041268c).</remarks>
     public void SetMountObject(GameBase? obj, int point)
     {
         using var chop = X87.Chop();
@@ -58,9 +62,9 @@ public sealed partial class Player
         UpdateContainer();
     }
 
-    // The mounted branch of Player_applyControlState 0x0041405c and of the interpolation FUN_00414a00 (client ghost): the transform
-    // is the mount point's transform times the rotation (0, 0, yaw), set raw (no collision, the container entry follows). Same product
-    // as the mounted step. False when there is no mount object.
+    /// <summary>Places the player on its mount point, with the rotation (0, 0, yaw).</summary>
+    /// <returns>False when there is no mount object.</returns>
+    /// <remarks>The mounted branch of Player_applyControlState (0x0041405c) and of the client ghost interpolation FUN_00414a00. The transform is set raw, with no collision, and the container entry follows. Same product as the mounted step.</remarks>
     public bool PlaceOnMount()
     {
         GameBase? m = MountObject();
@@ -85,8 +89,9 @@ public sealed partial class Player
         return true;
     }
 
-    // src/game/player_mount.cpp Player::mountedStep: 0x00415d26: the velocity and transform of the mount point, without
-    // collision.
+    /// <summary>Runs one tick of a mounted player: takes the velocity and transform of the mount point without collision.</summary>
+    /// <param name="mv">The move of the tick.</param>
+    /// <remarks>Follows Player::mountedStep (0x00415d26).</remarks>
     public void MountedStep(Move mv)
     {
         using var chop = X87.Chop();

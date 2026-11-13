@@ -11,15 +11,28 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/game_commands.hpp struct Team.
+/// <summary>The record of one team of the PlayerManager.</summary>
+/// <remarks>Port of struct Team in src/game/game_commands.hpp.</remarks>
 public sealed class TeamRecord
 {
-    public string Name, Skin, Score = "";
+    /// <summary>The team name.</summary>
+    public string Name;
+    /// <summary>The team skin.</summary>
+    public string Skin;
+    /// <summary>The score text.</summary>
+    public string Score = "";
+    /// <summary>The sort value of the team.</summary>
     public int SortValue;
+    /// <summary>The stamp of the last score change.</summary>
     public uint ScoreStamp;
-    public readonly uint[] ObjectiveStamp = new uint[32]; // docs/player-manager.md 2.2: stamps start at 1
+    /// <summary>The stamp of each objective. Stamps start at 1 (docs/player-manager.md 2.2).</summary>
+    public readonly uint[] ObjectiveStamp = new uint[32];
+    /// <summary>The text of each objective.</summary>
     public readonly string[] Objectives = new string[32];
 
+    /// <summary>Creates a team record with empty objectives.</summary>
+    /// <param name="n">The team name.</param>
+    /// <param name="s">The team skin.</param>
     public TeamRecord(string n, string s)
     {
         Name = n;
@@ -32,32 +45,51 @@ public sealed class TeamRecord
     }
 }
 
-// src/game/game_commands.hpp class GameState.
+/// <summary>The game plugin state (FearPlugin, registered at 0x00423040): teams (PlayerManager 713) and the GameBase services for mission objects.</summary>
+/// <remarks>Port of class GameState in src/game/game_commands.hpp. The stepped-move candidates and the displacement are in Displace.cs, the AI manager in AIManager.cs.</remarks>
 public sealed partial class GameState : GameServices
 {
+    /// <summary>The script interpreter.</summary>
     public Interpreter? Console;
+    /// <summary>The simulation console, or null.</summary>
     public SimConsole? Sim;
+    /// <summary>The resource manager, or null.</summary>
     public ResourceManager? Resources;
+    /// <summary>The player manager.</summary>
     public readonly PlayerManager Players;
-    // Record ids of AI players come from the connection layer's pool (set by the server).
+    /// <summary>Allocates a record id for an AI player from the connection layer's pool. Set by the server.</summary>
     public Func<int>? AllocateRecordId;
+    /// <summary>Releases a record id of an AI player.</summary>
     public Action<int>? ReleaseRecordId;
-    public AIManager? Ai; // object 726 while the mission has one (docs/ai-sim.md 1.2)
+    /// <summary>The AI manager (object 726) while the mission has one (docs/ai-sim.md 1.2).</summary>
+    public AIManager? Ai;
 
-    public int TeamCount = -1;       // -1 until the first resetPlayerManager (docs/mission.md 2.2)
-    public readonly List<TeamRecord> Teams = new(); // record of team t at index t + 1
-    public string TeamScoreHeading = "", ClientScoreHeading = "";
-    public readonly List<string> TargetNames = new();   // sensor targets in registration order (GB4)
-    public readonly List<GameBase?> Targets = new();    // the target objects, same index; null once removed
-    public readonly MaterialTable Materials = new();   // setMaterialProperty (0x006c1ff0)
-    // Set by the game server: ORs bits into the object's entry of every GhostManager.
+    /// <summary>The team count, or -1 until the first resetPlayerManager (docs/mission.md 2.2).</summary>
+    public int TeamCount = -1;
+    /// <summary>The team records. The record of team t is at index t + 1.</summary>
+    public readonly List<TeamRecord> Teams = new();
+    /// <summary>The team score heading.</summary>
+    public string TeamScoreHeading = "";
+    /// <summary>The client score heading.</summary>
+    public string ClientScoreHeading = "";
+    /// <summary>The sensor target names in registration order (GB4).</summary>
+    public readonly List<string> TargetNames = new();
+    /// <summary>The target objects, at the same index as the names. An entry is null once removed.</summary>
+    public readonly List<GameBase?> Targets = new();
+    /// <summary>The material table (setMaterialProperty, 0x006c1ff0).</summary>
+    public readonly MaterialTable Materials = new();
+    /// <summary>ORs bits into the object's entry of every ghost manager. Set by the game server.</summary>
     public Action<SimObject, uint>? MaskBits;
-    public readonly Container World = new();           // container 7
-    public readonly List<GameBase> mDisplaceHidden = new(); // movers of the running displaces (object type 0)
+    /// <summary>Container 7, which holds the objects of the world.</summary>
+    public readonly Container World = new();
+    /// <summary>The movers of the running displaces (object type 0).</summary>
+    public readonly List<GameBase> mDisplaceHidden = new();
 
+    /// <summary>Creates the game state and its player manager.</summary>
     public GameState() => Players = new PlayerManager(this);
 
-    // src/game/game_commands.cpp GameState::addTeam: TM1.
+    /// <summary>Adds a team (TM1).</summary>
+    /// <param name="id">The team id.</param>
     public void AddTeam(int id)
     {
         if (TeamCount == 8)
@@ -72,7 +104,7 @@ public sealed partial class GameState : GameServices
         Players.TeamAdded(id);
     }
 
-    // src/game/game_commands.cpp GameState::resetTeams: TM5.
+    /// <summary>Removes every team (TM5).</summary>
     public void ResetTeams()
     {
         Players.Reset();
@@ -81,7 +113,7 @@ public sealed partial class GameState : GameServices
         AddTeam(-1);
     }
 
-    // src/game/game_commands.cpp GameState::addTeamFromGroup.
+    /// <inheritdoc/>
     public override int AddTeamFromGroup()
     {
         int id = TeamCount;
@@ -89,7 +121,7 @@ public sealed partial class GameState : GameServices
         return id;
     }
 
-    // src/game/game_commands.cpp GameState::resolveDataBlock.
+    /// <inheritdoc/>
     public override bool ResolveDataBlock(SimObject o)
     {
         if (o is not GameBase obj || Sim == null || obj.DataBlockGroup() < 0)
@@ -280,7 +312,8 @@ public sealed partial class GameState : GameServices
                 CollectPathObjects(m, output);
     }
 
-    // src/game/game_commands.cpp GameState::objectMoved: the object's transform changed: refresh its container entry.
+    /// <inheritdoc/>
+    /// <remarks>Refreshes the container entry of the object whose transform changed.</remarks>
     public override void ObjectMoved(SimObject o)
     {
         if (o is not GameBase obj)
@@ -294,11 +327,11 @@ public sealed partial class GameState : GameServices
             PlaceInContainer(obj, b);
     }
 
-    // src/game/game_commands.cpp GameState::dataBlockCount.
+    /// <inheritdoc/>
     public override int DataBlockCount(int group) => Sim != null && group >= 0 && group <= 30 ? Sim.DataBlocks().GroupSize(group) : 0;
 
-    // src/game/game_commands.cpp GameState::pathIndex: SimPathManager ids follow SimPath registration order
-    // (docs/game-stream-ghosts.md 6.5).
+    /// <inheritdoc/>
+    /// <remarks>SimPathManager ids follow SimPath registration order (docs/game-stream-ghosts.md 6.5).</remarks>
     public override int PathIndex(SimObject path)
     {
         SimManager? m = Sim?.Server();
@@ -316,22 +349,24 @@ public sealed partial class GameState : GameServices
     private SensorManager? SensorManagerObject() =>
         Sim?.Server()?.FindById(720) is SensorManager sm && GameUtil.EqualsNoCase(sm.ClassName(), "SensorManager") ? sm : null;
 
-    // src/game/game_commands.cpp GameState::sensorInsert.
+    /// <inheritdoc/>
     public override void SensorInsert(SimObject s)
     {
         if (s is GameBase gb)
             SensorManagerObject()?.Insert(gb);
     }
 
-    // src/game/game_commands.cpp GameState::sensorRemove.
+    /// <inheritdoc/>
     public override void SensorRemove(SimObject s)
     {
         if (s is GameBase gb)
             SensorManagerObject()?.Remove(gb);
     }
 
-    // src/game/game_commands.cpp GameState::sensorJam: jamming-player list (docs/static-sim.md 3.8): link after the
-    // head, or unlink (0x0040fc58).
+    /// <summary>Links or unlinks a player in the jamming player list (docs/static-sim.md 3.8).</summary>
+    /// <param name="p">The player.</param>
+    /// <param name="link">True to link after the list head, false to unlink.</param>
+    /// <remarks>Follows 0x0040fc58.</remarks>
     public void SensorJam(GameBase p, bool link)
     {
         SensorManager? sm = SensorManagerObject();
@@ -343,10 +378,8 @@ public sealed partial class GameState : GameServices
             sm.JamUnlink(p);
     }
 
-    // src/game/game_commands.cpp GameState::mineDestroyed: 0x00458be4: radius damage 0x0046edd0 with the mine's damage
-    // type, radius, value and kick, no velocity, centred on the world box ((max + min) stored as f32, times 0.5). The
-    // source is the thrower's client while its record still carries the join counter stored at the throw (0x004524f8),
-    // else 0.
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00458be4: radius damage (0x0046edd0) with the mine's damage type, radius, value and kick, no velocity, centred on the world box ((max + min) stored as f32, times 0.5). The source is the thrower's client while its record still carries the join counter stored at the throw (0x004524f8), else 0.</remarks>
     public override void MineDestroyed(SimObject m)
     {
         if (m is not GameBase mine || World.Find(mine) is not Container.Entry e)
@@ -365,18 +398,20 @@ public sealed partial class GameState : GameServices
                                          mine.MineData.DamageValue, mine.MineData.Kick, source);
     }
 
-    // src/game/game_commands.cpp GameState::sensorTeam.
+    /// <inheritdoc/>
     public override void SensorTeam(SimObject s)
     {
         if (s is GameBase gb)
             SensorManagerObject()?.TeamChanged(gb);
     }
 
-    // src/game/game_commands.hpp GameState::clientTeam.
+    /// <inheritdoc/>
     public override void ClientTeam(int client, int team) => Players.SetTeam(client, team);
 
-    // src/game/game_commands.cpp GameState::setTargetName: SensorManager_setTargetName (0x00439b68): a changed name goes
-    // to every human client.
+    /// <summary>Sets the name of a sensor target. A changed name goes to every human client.</summary>
+    /// <param name="index">The target index.</param>
+    /// <param name="name">The new name.</param>
+    /// <remarks>Follows SensorManager_setTargetName (0x00439b68).</remarks>
     public void SetTargetName(int index, string name)
     {
         if (index < 0 || index >= TargetNames.Count || TargetNames[index] == name)
@@ -387,10 +422,11 @@ public sealed partial class GameState : GameServices
             Players.SendEvent(h, GameEvents.MakeTargetName((uint)index, name));
     }
 
-    // src/game/game_commands.hpp GameState::renameTarget.
+    /// <inheritdoc/>
     public override void RenameTarget(int index, string name) => SetTargetName(index, name);
 
-    // src/game/game_commands.cpp GameState::targetRemoved: 0x00439b54: the slot is freed (count - 1, entry 0, name NULL).
+    /// <inheritdoc/>
+    /// <remarks>Follows 0x00439b54: the slot is freed (count - 1, entry 0, name NULL).</remarks>
     public override void TargetRemoved(SimObject o)
     {
         if (o is not GameBase obj)
@@ -404,10 +440,10 @@ public sealed partial class GameState : GameServices
         obj.TargetIndex = -1;
     }
 
-    // src/game/game_commands.cpp GameState::printLine.
+    /// <inheritdoc/>
     public override void PrintLine(string line) => Console?.Print(1, line);
 
-    // src/game/game_commands.cpp GameState::pathById.
+    /// <inheritdoc/>
     public override SimObject? PathById(int id)
     {
         SimManager? m = Sim?.Server();
@@ -423,10 +459,10 @@ public sealed partial class GameState : GameServices
     private TerrainObject? FindTerrain() =>
         Sim?.Server()?.FindById(8) is TerrainObject t && GameUtil.EqualsNoCase(t.ClassName(), "SimTerrain") ? t : null;
 
-    // src/game/game_commands.cpp GameState::terrain.
+    /// <inheritdoc/>
     public override Terrain? GetTerrain() => FindTerrain()?.GetTerrain();
 
-    // src/game/game_commands.cpp GameState::terrainMaterial.
+    /// <inheritdoc/>
     public override Material? TerrainMaterial(int index)
     {
         Terrain? terr = GetTerrain();
@@ -436,8 +472,8 @@ public sealed partial class GameState : GameServices
         return list != null && index >= 0 && index < list.Count ? list[index] : null;
     }
 
-    // src/game/game_commands.cpp GameState::terrainForces: FC2/FC3: an object whose container chain reaches the
-    // SimTerrain is pulled by its contGravity (default 0 0 -9.8) and slowed by contDrag (default 0).
+    /// <inheritdoc/>
+    /// <remarks>An object whose container chain reaches the SimTerrain is pulled by its contGravity (default 0 0 -9.8) and slowed by contDrag (default 0) (FC2, FC3).</remarks>
     public override bool TerrainForces(SimObject obj, Span<float> gravity, ref float drag)
     {
         TerrainObject? t = FindTerrain();
@@ -461,9 +497,8 @@ public sealed partial class GameState : GameServices
         return true;
     }
 
-    // src/game/game_commands.cpp GameState::enteredForces: FC2/FC3: SimTerrain_enterContainer (0x005195b4) copies
-    // contGravity into the force list and contDrag into +0x124 when the object enters a container inside the terrain (a
-    // move between nested containers leaves and enters again). Leaving (0x0051963c) removes the force only.
+    /// <inheritdoc/>
+    /// <remarks>Follows SimTerrain_enterContainer (0x005195b4): contGravity is copied into the force list and contDrag into +0x124 when the object enters a container inside the terrain. A move between nested containers leaves and enters again. Leaving (0x0051963c) removes the force only (FC2, FC3).</remarks>
     public override bool EnteredForces(SimObject o, Span<float> gravity, ref float drag)
     {
         if (o is not GameBase obj)
@@ -488,11 +523,12 @@ public sealed partial class GameState : GameServices
         return terr != null;
     }
 
-    // src/game/game_commands.hpp GameState::materialTable.
+    /// <inheritdoc/>
     public override MaterialTable? GetMaterialTable() => Materials;
 
-    // src/game/game_commands.cpp GameState::containerType: object type (+0x48) of the GameBase classes that join
-    // container 7.
+    /// <summary>Returns the object type (+0x48) of the GameBase classes that join container 7.</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>The type bits.</returns>
     public static uint ContainerType(GameBase obj)
     {
         (string, uint)[] kTypes =
@@ -507,9 +543,10 @@ public sealed partial class GameState : GameServices
         return 0;
     }
 
-    // src/game/game_commands.cpp GameState::placeInContainer: ShapeBase::onNewDataBlock (0x0044b274) binds the shape box
-    // and adds the object to container 7; Trigger::onAdd (0x00487178) adds its boundingBox. World boxes: ShapeBase
-    // rotates the box (0x005edbb4), a Trigger only translates it (0x005069fc).
+    /// <summary>Binds the object's box and adds it to container 7.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="block">The datablock of the object.</param>
+    /// <remarks>Follows ShapeBase::onNewDataBlock (0x0044b274), which binds the shape box, and Trigger::onAdd (0x00487178), which adds its boundingBox. World boxes: ShapeBase rotates the box (0x005edbb4), a Trigger only translates it (0x005069fc).</remarks>
     public void PlaceInContainer(GameBase obj, DataBlockManager.Block block)
     {
         uint type = ContainerType(obj);
@@ -570,8 +607,10 @@ public sealed partial class GameState : GameServices
         EnteredForces(obj, g, ref d);
     }
 
-    // src/game/game_commands.cpp GameState::virtualFunction: GameBase::virtual lookup (docs/datablocks.md 8): the first
-    // defined function, or "".
+    /// <summary>Looks up a virtual script function of a GameBase (docs/datablocks.md 8).</summary>
+    /// <param name="gb">The object.</param>
+    /// <param name="method">The method name.</param>
+    /// <returns>The first defined function, or an empty string.</returns>
     public string VirtualFunction(GameBase gb, string method)
     {
         if (Console == null)
@@ -594,8 +633,8 @@ public sealed partial class GameState : GameServices
         return "";
     }
 
-    // src/game/game_commands.cpp GameState::scriptCallback: GB5: script method through the GameBase::virtual lookup
-    // (no-op when undefined).
+    /// <inheritdoc/>
+    /// <remarks>Calls the script method through the GameBase virtual lookup, and does nothing when it is undefined (GB5).</remarks>
     public override void ScriptCallback(SimObject o, string method, IReadOnlyList<string> extra)
     {
         if (o is not GameBase obj)
@@ -616,23 +655,22 @@ public sealed partial class GameState : GameServices
         Console!.CallFunction(fn, args);
     }
 
-    // src/game/game_commands.cpp GameState::joinSet.
+    /// <inheritdoc/>
     public override void JoinSet(SimObject obj, int setId)
     {
         if (Sim?.Server()?.FindById(setId)?.AsSet() is SimSet set)
             set.AddObject(obj);
     }
 
-    // src/game/game_commands.cpp GameState::leaveSet.
+    /// <inheritdoc/>
     public override void LeaveSet(SimObject obj, int setId)
     {
         if (Sim?.Server()?.FindById(setId)?.AsSet() is SimSet set)
             set.RemoveObject(obj);
     }
 
-    // src/game/game_commands.cpp GameState::dropTriggerOccupant: Trigger_onDeleteNotify (0x004872e0): the record goes
-    // without a callback, and a Trigger whose list becomes empty leaves SimTimerSet 12. Every Trigger with occupants is
-    // in that set.
+    /// <inheritdoc/>
+    /// <remarks>Follows Trigger_onDeleteNotify (0x004872e0): the record goes without a callback, and a Trigger whose list becomes empty leaves SimTimerSet 12. Every Trigger with occupants is in that set.</remarks>
     public override void DropTriggerOccupant(SimObject obj)
     {
         if (Sim?.Server()?.FindById(12)?.AsSet() is not SimSet set)
@@ -649,15 +687,17 @@ public sealed partial class GameState : GameServices
         }
     }
 
-    // src/game/game_commands.cpp GameState::resourceExists.
+    /// <inheritdoc/>
     public override bool ResourceExists(string name) => Resources != null && Resources.Find(name) != null;
 
+    /// <inheritdoc/>
     public override ResourceManager? GetResourceManager() => Resources;
+    /// <inheritdoc/>
     public override Container? GetContainer() => World;
 
-    // src/game/game_commands.cpp GameState::variable.
+    /// <inheritdoc/>
     public override string Variable(string name) => Console != null ? Console.GetVariable("$" + name) : "";
 
-    // src/game/game_commands.hpp GameState::setMaskBits.
+    /// <inheritdoc/>
     public override void SetMaskBits(SimObject obj, uint bits) => MaskBits?.Invoke(obj, bits);
 }

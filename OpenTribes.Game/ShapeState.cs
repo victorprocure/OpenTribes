@@ -8,6 +8,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The shape instances of the server's ShapeBase objects, kept in step with their animation threads.</summary>
+/// <remarks>Holds the node entries and object states that a line test, a muzzle or an eye transform reads, including the Player threads (docs/collision.md 6 T1.3, docs/player-sim.md 5.5).</remarks>
 public static class ShapeState
 {
     // src/game/shape_state.cpp Slot.
@@ -126,8 +128,10 @@ public static class ShapeState
         }
     }
 
-    // src/game/shape_state.cpp shapeInstanceOf: instance of the object's datablock shape with its current thread state,
-    // animated. Null when the object has no shape. Valid until the next call for another object evicts it.
+    /// <summary>Returns the shape instance of an object's datablock shape with its current thread state, animated.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="obj">The object.</param>
+    /// <returns>The instance, or null when the object has no shape. Valid until a call for another object evicts it.</returns>
     public static ShapeInstance? ShapeInstanceOf(GameState game, GameBase obj)
     {
         if (game.Resources == null)
@@ -173,8 +177,10 @@ public static class ShapeState
         return slot.Inst;
     }
 
-    // src/game/shape_state.cpp staticShapeInstance: instance of a named shape with no threads (item images), animated once
-    // at build.
+    /// <summary>Returns the instance of a named shape without threads, animated once at build (item images).</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="shape">The shape file name.</param>
+    /// <returns>The instance, or null when the shape is not available.</returns>
     public static ShapeInstance? StaticShapeInstance(GameState game, string shape)
     {
         if (game.Resources == null || shape.Length == 0)
@@ -192,8 +198,15 @@ public static class ShapeState
         return inst;
     }
 
-    // src/game/shape_state.cpp shapeObjectLine: line test of the object's ShapeCollisionImage (docs/interiors.md 9.1,
-    // docs/collision.md T3 case 3): false when the object has no image for rays or the line misses it.
+    /// <summary>Tests a line against the object's ShapeCollisionImage.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="obj">The object.</param>
+    /// <param name="s">The segment start.</param>
+    /// <param name="e">The segment end.</param>
+    /// <param name="hit">Receives the hit point.</param>
+    /// <param name="normal">Receives the surface normal.</param>
+    /// <returns>False when the object has no image for rays or the line misses it.</returns>
+    /// <remarks>See docs/interiors.md 9.1 and docs/collision.md T3 case 3.</remarks>
     public static bool ShapeObjectLine(GameState game, GameBase obj, Vec3 s, Vec3 e, ref Vec3 hit, ref Vec3 normal)
     {
         // 0x0044fff0: no image when collision is disabled or the object is destroyed, unless the shape has a visibility
@@ -227,7 +240,7 @@ public static class ShapeState
         return true;
     }
 
-    // Test reset: the instance caches of a fresh process.
+    /// <summary>Clears the instance caches, as in a fresh process. For tests.</summary>
     public static void Reset()
     {
         sSlots.Clear();

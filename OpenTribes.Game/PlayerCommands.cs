@@ -4,6 +4,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The script commands of the spawn-to-play loop: spawnPlayer and the Player commands.</summary>
+/// <remarks>See docs/player-control.md 6, docs/player-sim.md 1.1, 1.5, 5.6, 6.2 to 6.5, 7.6 and docs/player-manager.md 12.4.</remarks>
 public static class PlayerCommands
 {
     // src/game/player_commands.cpp serverOf.
@@ -81,7 +83,9 @@ public static class PlayerCommands
     private sealed record SlotCmd(string Name, string? Usage, string Fail, int Kind);
     private sealed record UseCmd(string Name, string Usage, string Event);
 
-    // src/game/player_commands.cpp registerPlayerCommands.
+    /// <summary>Registers the player commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="g">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState g)
     {
         // spawnPlayer(armor, pos, rot) 0x0043a1d0.

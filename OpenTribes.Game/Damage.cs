@@ -9,8 +9,14 @@ namespace OpenTribes.Game;
 
 public partial class GameBase
 {
-    // src/game/damage.cpp GameBase::applyDamage: vtable +0x198, ShapeBase_applyDamage (0x0044bc80): the script decides
-    // what the damage does.
+    /// <summary>Applies damage to the object by calling its script onDamage handler.</summary>
+    /// <param name="type">The damage type.</param>
+    /// <param name="value">The damage amount.</param>
+    /// <param name="pos">The hit position.</param>
+    /// <param name="vec">The hit direction.</param>
+    /// <param name="mom">The momentum.</param>
+    /// <param name="source">The id of the damage source.</param>
+    /// <remarks>Follows ShapeBase_applyDamage (0x0044bc80, vtable +0x198): the script decides what the damage does.</remarks>
     public virtual void ApplyDamage(int type, float value, ReadOnlySpan<float> pos, ReadOnlySpan<float> vec,
                                     ReadOnlySpan<float> mom, int source)
     {
@@ -23,8 +29,10 @@ public partial class GameBase
         });
     }
 
-    // src/game/damage.cpp GameBase::damageCoverage: vtable +0x180, ShapeBase coverage (0x0044e324): the ray from the
-    // explosion to the box centre reaches the object itself, or nothing.
+    /// <summary>Returns how much of the object a blast at a position reaches.</summary>
+    /// <param name="pos">The blast position.</param>
+    /// <returns>The coverage factor.</returns>
+    /// <remarks>Follows the ShapeBase coverage (0x0044e324, vtable +0x180): the ray from the explosion to the box centre reaches the object itself, or nothing.</remarks>
     public virtual float DamageCoverage(ReadOnlySpan<float> pos)
     {
         Container? c = mCtx.Game?.GetContainer();
@@ -42,12 +50,13 @@ public partial class GameBase
     }
 }
 
+/// <summary>The GameBase damage commands and radius damage.</summary>
 public static class DamageCommands
 {
-    // src/game/damage.cpp literal: the onDamage call is a formatted script line (format 0x0061a537, evaluated by
-    // 0x005f4280). The value is an unquoted %g field: the script lexes it as a literal and passes its string form on, so
-    // it goes through a second parse and %g (docs/projectile-sim.md 3.1, PQ11). The vectors are quoted strings and arrive
-    // unchanged.
+    /// <summary>Formats a value as the script literal the onDamage call passes.</summary>
+    /// <param name="s">The formatted value text.</param>
+    /// <returns>The text as the engine's second parse and <c>%g</c> pass leaves it.</returns>
+    /// <remarks>The onDamage call is a formatted script line (format 0x0061a537, evaluated by 0x005f4280). The value is an unquoted <c>%g</c> field that the script lexes as a literal and passes on as its string form. The vectors are quoted strings and arrive unchanged (docs/projectile-sim.md 3.1, PQ11).</remarks>
     public static string Literal(string s)
     {
         int i = 0;
@@ -76,7 +85,16 @@ public static class DamageCommands
         return Numbers.FormatFloat(neg ? -v : v);
     }
 
-    // src/game/damage.cpp applyRadiusDamage: radius damage (3.2, 0x0046edd0).
+    /// <summary>Applies radius damage around a point to the objects in range.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="type">The damage type.</param>
+    /// <param name="pos">The blast centre.</param>
+    /// <param name="vel">The blast velocity.</param>
+    /// <param name="radius">The blast radius.</param>
+    /// <param name="damage">The damage at the centre.</param>
+    /// <param name="kick">The impulse scale.</param>
+    /// <param name="source">The id of the damage source.</param>
+    /// <remarks>Follows the radius damage routine (0x0046edd0, docs/projectile-sim.md 3.2).</remarks>
     public static void ApplyRadiusDamage(GameState game, int type, ReadOnlySpan<float> pos, ReadOnlySpan<float> vel, float radius,
                                          float damage, float kick, int source)
     {
@@ -148,7 +166,9 @@ public static class DamageCommands
         }
     }
 
-    // src/game/damage.cpp registerDamageCommands.
+    /// <summary>Registers the GameBase damage commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void RegisterCommands(Interpreter interp, GameState game)
     {
         // 0x0042027c: pos, vec and mom are scanned with %f; the call goes to the object's own vtable +0x198 so a Player

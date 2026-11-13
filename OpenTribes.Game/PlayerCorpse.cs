@@ -8,9 +8,9 @@ namespace OpenTribes.Game;
 
 public sealed partial class Player
 {
-    // Ground probe: terrain height and normal under (x, y) (SimTerrain_getSurfaceInfo 0x005183e8), and a ray from z + 0.125 to z - 1.0
-    // through container 7 with the mask 4 (vtable +0x90). The higher of the two is the ground; the normal is the unit normal of the
-    // hit (m_Point3F_len 0x005ed014, a true square root) or the terrain normal. `dt` is in seconds.
+    /// <summary>Runs the client step of a dead player: eases the pitch and roll toward the ground slope.</summary>
+    /// <param name="dt">The step length in seconds.</param>
+    /// <remarks>Follows FUN_0041447c (same bytes in 1.11 and 1.30). The ground is the higher of the terrain height (SimTerrain_getSurfaceInfo 0x005183e8) and a ray from z + 0.125 to z - 1.0 through container 7 with mask 4 (vtable +0x90). The normal is the unit normal of the hit (m_Point3F_len 0x005ed014, a true square root) or the terrain normal.</remarks>
     public void ClientCorpseStep(float dt)
     {
         GameState gs = Game();

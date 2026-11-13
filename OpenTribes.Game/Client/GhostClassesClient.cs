@@ -3,6 +3,8 @@
 // of the writer of the same class. A reader records each field in r.Out under the name tools/stream_decode.py uses.
 namespace OpenTribes.Game;
 
+/// <summary>The client unpack routines of the mission environment classes and of the GameBase family.</summary>
+/// <remarks>See docs/game-stream-ghosts.md 3 and 4.1 to 4.9, and docs/client-net.md 3.2 and 3.3. The pack routines are in GhostClasses.cs. Every reader consumes exactly the bits of the writer of the same class and records each field in <c>r.Out</c> under the name tools/stream_decode.py uses.</remarks>
 public static partial class GhostClasses
 {
     // ---- registry ----

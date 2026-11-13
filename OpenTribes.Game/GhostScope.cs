@@ -5,27 +5,47 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/ghost_scope.hpp struct PriorityWeights: console variables $GameBase::upFov ... upInterest (004246f0).
+/// <summary>The weights of the update priority, bound to the console variables <c>$GameBase::upFov</c> to <c>upInterest</c> (004246f0).</summary>
 public sealed class PriorityWeights
 {
-    public float Fov = 1.0f, Distance = 0.4f, Velocity = 0.4f, Skips = 0.2f, Ownership = 0.2f, Interest = 0.2f;
+    /// <summary>The weight of the field of view term.</summary>
+    public float Fov = 1.0f;
+    /// <summary>The weight of the distance term.</summary>
+    public float Distance = 0.4f;
+    /// <summary>The weight of the velocity term.</summary>
+    public float Velocity = 0.4f;
+    /// <summary>The weight of the skip count term.</summary>
+    public float Skips = 0.2f;
+    /// <summary>The weight of the ownership term.</summary>
+    public float Ownership = 0.2f;
+    /// <summary>The weight of the interest term.</summary>
+    public float Interest = 0.2f;
 }
 
-// src/game/ghost_scope.hpp struct PriorityInputs: inputs of the GameBase priority (004488e8) that live on the object.
+/// <summary>The inputs of the GameBase priority (004488e8) that live on the object.</summary>
 public sealed class PriorityInputs
 {
-    public readonly float[] Box = new float[6];      // world box +0x70..+0x84
-    public readonly float[] Velocity = new float[3]; // +0x194
-    public int OwnerId;                              // +0x210 shooter or thrower id
-    public uint Type;                                // +0x48
-    public bool Laser;                               // dynamic_cast<LaserProjectile>
+    /// <summary>The world box (+0x70 to +0x84).</summary>
+    public readonly float[] Box = new float[6];
+    /// <summary>The velocity (+0x194).</summary>
+    public readonly float[] Velocity = new float[3];
+    /// <summary>The id of the shooter or thrower (+0x210).</summary>
+    public int OwnerId;
+    /// <summary>The object type bits (+0x48).</summary>
+    public uint Type;
+    /// <summary>True for a LaserProjectile.</summary>
+    public bool Laser;
 }
 
+/// <summary>The scope query and update priority of ghosted objects.</summary>
 public static class GhostScope
 {
-    // src/game/ghost_scope.hpp NetFlag: net flags (+0x4c) set by the class constructors (6.1, 1.1): 0x100 ghostable, 0x40
-    // scope-always, 0x80 ghosted only to client 2049.
-    public const uint kNetGhostable = 0x100, kNetScopeAlways = 0x40, kNetLocalOnly = 0x80;
+    /// <summary>The net flag of a ghostable object (+0x4c, set by the class constructors; docs/game-stream-ghosts.md 6.1, 1.1).</summary>
+    public const uint kNetGhostable = 0x100;
+    /// <summary>The net flag of an object that is always in scope.</summary>
+    public const uint kNetScopeAlways = 0x40;
+    /// <summary>The net flag of an object ghosted only to client 2049.</summary>
+    public const uint kNetLocalOnly = 0x80;
 
     private sealed record ClassFlags(string Cls, uint Flags, uint Tag, bool GameBase);
 
@@ -110,17 +130,21 @@ public static class GhostScope
         return 0;
     }
 
-    // src/game/ghost_scope.cpp netFlags: net flags (+0x4c) of an object. 0 for classes that are not ghosted by scope.
+    /// <summary>Returns the net flags (+0x4c) of an object.</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>The flags, or 0 for classes that are not ghosted by scope.</returns>
     public static uint NetFlags(SimObject obj)
     {
         ClassFlags? c = ClassOf(obj);
         return obj.NetFlags(c != null ? c.Flags : 0);
     }
 
-    // src/game/ghost_scope.cpp priorityWeights.
+    /// <summary>Returns the shared priority weights.</summary>
+    /// <returns>The weights.</returns>
     public static PriorityWeights Weights() => sWeights;
 
-    // src/game/ghost_scope.cpp registerPriorityVariables: sets the defaults and binds the six variables.
+    /// <summary>Sets the priority weight defaults and binds the six console variables.</summary>
+    /// <param name="interp">The script interpreter.</param>
     public static void RegisterPriorityVariables(Interpreter interp)
     {
         PriorityWeights d = new();
@@ -146,7 +170,16 @@ public static class GhostScope
         }
     }
 
-    // src/game/ghost_scope.cpp gameBasePriority: GameBase priority (004488e8); every stored intermediate is an f32 store.
+    /// <summary>Computes the GameBase update priority.</summary>
+    /// <param name="obj">The priority inputs of the object.</param>
+    /// <param name="rec">The camera record.</param>
+    /// <param name="recordObjectId">The id of the camera record object.</param>
+    /// <param name="isRecordObject">True when the object is the camera record object.</param>
+    /// <param name="mask">The dirty mask.</param>
+    /// <param name="skipCount">How many times the object was skipped.</param>
+    /// <param name="w">The priority weights.</param>
+    /// <returns>The priority.</returns>
+    /// <remarks>Follows 004488e8. Every stored intermediate is an f32 store.</remarks>
     public static float GameBasePriority(PriorityInputs obj, CameraRecord rec, int recordObjectId, bool isRecordObject, uint mask,
                                          uint skipCount, PriorityWeights w)
     {
@@ -213,9 +246,11 @@ public static class GhostScope
         return Store(sum);
     }
 
-    // src/game/ghost_scope.cpp observerCameraRecord: camera record of an ObserverCamera (004351d8): position +0x188,
-    // forward = transform row 1, fov 45.0 (degrees used as radians), sin/cos of 22.5; the visible distance is the
-    // caller's.
+    /// <summary>Fills the camera record of an ObserverCamera.</summary>
+    /// <param name="position">The camera position (+0x188).</param>
+    /// <param name="rotation">The camera rotation matrix. The forward direction is its row 1.</param>
+    /// <param name="rec">The record to fill.</param>
+    /// <remarks>Follows 004351d8: field of view 45.0 (degrees used as radians), sin and cos of 22.5. The visible distance is left to the caller.</remarks>
     public static void ObserverCameraRecord(ReadOnlySpan<float> position, ReadOnlySpan<float> rotation, CameraRecord rec)
     {
         var t = new Transform();
@@ -230,9 +265,11 @@ public static class GhostScope
         rec.CosHalfFov = Store(Math.Cos(22.5));
     }
 
-    // src/game/ghost_scope.cpp scopeGhosts: scope query of gm's scope object (vtable +0x6c) over container 7. cameraOf:
-    // observer camera of a human client (client record +0x9c); it is marked right after a GameBase scope object
-    // controlled by that client.
+    /// <summary>Runs the scope query of the manager's scope object over container 7.</summary>
+    /// <param name="gm">The ghost manager.</param>
+    /// <param name="container">The container to query.</param>
+    /// <param name="cameraOf">Returns the observer camera of a human client (client record +0x9c). It is marked right after a GameBase scope object controlled by that client.</param>
+    /// <remarks>Follows vtable +0x6c of the scope object.</remarks>
     public static void ScopeGhosts(GhostManager gm, Container container, Func<int, SimObject?>? cameraOf = null)
     {
         SimObject? so = gm.ScopeObject();
@@ -306,11 +343,16 @@ public static class GhostScope
         container.Scope(q);
     }
 
-    // src/game/ghost_scope.cpp setPriorityContainer.
+    /// <summary>Sets the container the priority functions query.</summary>
+    /// <param name="container">The container.</param>
     public static void SetPriorityContainer(Container? container) => sContainer = container;
 
-    // src/game/ghost_scope.cpp ghostPriority: priority dispatch for GhostManager::defaultPriority: GameBase classes use
-    // 004488e8, other NetObjects return 0.0 (0050a594).
+    /// <summary>Dispatches the priority for <see cref="GhostManager.DefaultPriority"/>.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="gm">The ghost manager.</param>
+    /// <param name="mask">The dirty mask.</param>
+    /// <param name="skipCount">How many times the object was skipped.</param>
+    /// <returns>The GameBase priority (004488e8) for GameBase classes, 0.0 for other NetObjects (0050a594).</returns>
     public static float GhostPriority(SimObject obj, GhostManager gm, uint mask, uint skipCount)
     {
         ClassFlags? c = ClassOf(obj);
@@ -319,8 +361,8 @@ public static class GhostScope
         return NetObjectPriority(obj, gm, mask, skipCount);
     }
 
-    // src/game/ghost_scope.cpp registerGhostPriorities: fills the priority of every ghost class (registering GameBase
-    // classes by tag when no packer exists yet) and the ObserverCamera GameBase-only packer (4.1).
+    /// <summary>Fills the priority of every ghost class and the ObserverCamera GameBase-only packer.</summary>
+    /// <remarks>GameBase classes are registered by tag when no packer exists yet (docs/game-stream-ghosts.md 4.1).</remarks>
     public static void RegisterGhostPriorities()
     {
         foreach (ClassFlags c in kClasses)

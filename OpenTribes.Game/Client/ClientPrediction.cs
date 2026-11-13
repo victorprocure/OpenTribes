@@ -11,14 +11,30 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// The predicted or the server state of the control object, after the move `Move` (global move index).
+/// <summary>The predicted or the server state of the control object after a move.</summary>
 public sealed class PredictedState
 {
+    /// <summary>The global move index.</summary>
     public long Move;
-    public bool HasPosition = true, HasVelocity = true; // what the control state carries (a Flier sends no velocity)
-    public readonly float[] Position = new float[3], Velocity = new float[3], Rotation = new float[3];
-    public float Pitch, Energy;
+    /// <summary>True when the control state carries a position.</summary>
+    public bool HasPosition = true;
+    /// <summary>True when the control state carries a velocity. A Flier sends none.</summary>
+    public bool HasVelocity = true;
+    /// <summary>The position.</summary>
+    public readonly float[] Position = new float[3];
+    /// <summary>The velocity.</summary>
+    public readonly float[] Velocity = new float[3];
+    /// <summary>The rotation.</summary>
+    public readonly float[] Rotation = new float[3];
+    /// <summary>The pitch.</summary>
+    public float Pitch;
+    /// <summary>The energy.</summary>
+    public float Energy;
 
+    /// <summary>Captures the state of an object.</summary>
+    /// <param name="o">The object.</param>
+    /// <param name="move">The global move index.</param>
+    /// <returns>The state.</returns>
     public static PredictedState Of(GameBase o, long move)
     {
         var s = new PredictedState { Move = move, Energy = o.Energy };
@@ -34,19 +50,35 @@ public sealed class PredictedState
     }
 }
 
-// One correction: the prediction the server state replaces and how far apart they were.
+/// <summary>One correction: the prediction the server state replaces and how far apart they were.</summary>
 public sealed class CorrectionRecord
 {
-    public uint Time;                 // receive time (net time, ms)
-    public long LastMove;             // the block's lastMove: the server state follows move LastMove - 1
+    /// <summary>The receive time (net time, ms).</summary>
+    public uint Time;
+    /// <summary>The lastMove of the block. The server state follows move LastMove - 1.</summary>
+    public long LastMove;
+    /// <summary>The class name.</summary>
     public string Class = "";
-    public PredictedState? Predicted; // the prediction for move LastMove - 1, null when none was made
+    /// <summary>The prediction for move LastMove - 1, or null when none was made.</summary>
+    public PredictedState? Predicted;
+    /// <summary>The server state.</summary>
     public PredictedState Server = new();
-    public int Pending;               // unacknowledged moves left in the buffer
-    public int Replayed = -1;         // steps the replay ran (filled by the next Advance)
-    public double PosError, VelError, RotError, PitchError, EnergyError;
+    /// <summary>The unacknowledged moves left in the buffer.</summary>
+    public int Pending;
+    /// <summary>The steps the replay ran, filled by the next Advance.</summary>
+    public int Replayed = -1;
+    /// <summary>The position error.</summary>
+    public double PosError;
+    /// <summary>The velocity error.</summary>
+    public double VelError;
+    /// <summary>The rotation error.</summary>
+    public double RotError;
+    /// <summary>The pitch error.</summary>
+    public double PitchError;
+    /// <summary>The energy error.</summary>
+    public double EnergyError;
 
-    // Distances between the prediction and the server state (Euclidean for vectors, shortest angle for the yaw).
+    /// <summary>Measures the distances between the prediction and the server state: Euclidean for vectors, the shortest angle for the yaw.</summary>
     public void Measure()
     {
         if (Predicted == null)
@@ -73,26 +105,40 @@ public sealed class CorrectionRecord
     }
 }
 
+/// <summary>Client prediction and server correction of the control object (docs/client-net.md 4.2 step 4, 4.4).</summary>
+/// <remarks>The client steps its own copy of the control object with the server's step code (Player.UpdateMove, Flier.Update) on every move it creates. Each server PSC block resets the copy to the server state and the unacknowledged moves run again. The copy lives in a prediction world the host supplies (a GameState with the mission's terrain, interiors and shapes), and <see cref="CreateObject"/> makes it for a control ghost. The copy carries the ghost flag (<c>GameBase.ClientSide</c>), so the step skips its server-only parts.</remarks>
 public sealed class ClientPrediction
 {
-    // Makes the client copy of a control ghost in the prediction world (null: no prediction for it).
+    /// <summary>Makes the client copy of a control ghost in the prediction world. Returns null for no prediction.</summary>
     public Func<ClientGhost, ClientPsc, GameBase?>? CreateObject;
+    /// <summary>Deletes a client copy.</summary>
     public Action<GameBase>? DeleteObject;
 
+    /// <summary>Gets the client copy of the control object.</summary>
     public GameBase? Object { get; private set; }
+    /// <summary>Gets the ghost index of the control object, -1 for none.</summary>
     public int Ghost { get; private set; } = -1;
-    public uint SimTime;              // object +0x218: simulated up to (ms)
-    public uint LastFrame;            // object +0x21c
-    public bool Active;               // a server state was applied, the replay runs
-    public float DisplayFraction;     // Player_interpolate factor of the drawn state (4.4.1), display only
-    public readonly float[] TickDelta = new float[3]; // per-tick position delta +0x788 (4.4.1)
+    /// <summary>The time the copy is simulated up to, in ms (object +0x218).</summary>
+    public uint SimTime;
+    /// <summary>The last frame time (object +0x21c).</summary>
+    public uint LastFrame;
+    /// <summary>True once a server state was applied, so the replay runs.</summary>
+    public bool Active;
+    /// <summary>The Player_interpolate factor of the drawn state (docs/client-net.md 4.4.1). Display only.</summary>
+    public float DisplayFraction;
+    /// <summary>The per-tick position delta (+0x788, docs/client-net.md 4.4.1).</summary>
+    public readonly float[] TickDelta = new float[3];
+    /// <summary>The corrections made so far.</summary>
     public readonly List<CorrectionRecord> Corrections = new();
-    public long Steps;                // steps run in all
+    /// <summary>The number of steps run in all.</summary>
+    public long Steps;
+    /// <summary>Called for every correction.</summary>
     public Action<CorrectionRecord>? OnCorrection;
 
     private readonly Dictionary<long, PredictedState> mHistory = new();
     private CorrectionRecord? mPending;
 
+    /// <summary>Clears the prediction state.</summary>
     public void Reset()
     {
         Release();
@@ -100,11 +146,13 @@ public sealed class ClientPrediction
         Steps = 0;
     }
 
-    // A Turret that is the control object: no copy, the aim of the ghost (TurretControl).
+    /// <summary>The aim of a Turret that is the control object. It has no copy.</summary>
     public readonly TurretControl Turret = new();
 
-    // The control state block of a Turret (Turret_readControlState 0045711c) and the per frame replay of its moves (Turret_clientUpdate
-    // 00456428). They need no prediction world.
+    /// <summary>Reads the control state block of a Turret and replays its moves per frame, without a prediction world.</summary>
+    /// <param name="world">The client world.</param>
+    /// <param name="receiveTime">The receive time in ms.</param>
+    /// <remarks>Follows Turret_readControlState (0045711c) and Turret_clientUpdate (00456428).</remarks>
     public void OnTurretBlock(ClientWorld world, uint receiveTime)
     {
         ClientPsc psc = world.Psc;
@@ -115,6 +163,10 @@ public sealed class ClientPrediction
             Turret.Release();
     }
 
+    /// <summary>Advances the Turret control for a frame.</summary>
+    /// <param name="psc">The client PSC.</param>
+    /// <param name="now">The current time in ms.</param>
+    /// <returns>The steps run.</returns>
     public int AdvanceTurret(ClientPsc psc, uint now) => Turret.Advance(psc, now);
 
     private void Release()
@@ -132,14 +184,15 @@ public sealed class ClientPrediction
         mPending = null;
     }
 
-    // 4.2 step 4: the move is packed in the full form and unpacked again (axes in 1/15, pitch and turn clamped, NaN to
-    // 0). The buffered move is packed once more for every packet (4.3), so the round trip that fills the buffer runs in
-    // round-to-nearest, where packing its result gives the same 4-bit axes again; toward zero it does not (7/15 stored
-    // toward zero packs as 6).
+    /// <summary>Packs a move in the full form and unpacks it again (docs/client-net.md 4.2 step 4).</summary>
+    /// <param name="m">The move.</param>
+    /// <returns>The move: axes in 1/15, pitch and turn clamped, NaN to 0.</returns>
+    /// <remarks>The buffered move is packed once more for every packet (4.3), so the round trip that fills the buffer runs in round-to-nearest, where packing its result gives the same 4-bit axes again. Toward zero it does not (7/15 stored toward zero packs as 6).</remarks>
     public static Move Quantize(in Move m) => RoundTrip(m, false);
 
-    // The move as the server reads it from the wire (GameConnection.ReadPsc in the script FPU mode, toward zero): the
-    // prediction steps with this one, so it runs the server's floats.
+    /// <summary>Returns the move as the server reads it from the wire.</summary>
+    /// <param name="m">The move.</param>
+    /// <returns>The move read in the script FPU mode (toward zero) as <c>GameConnection.ReadPsc</c> does. The prediction steps with this one, so it runs the server's floats.</returns>
     public static Move ServerMove(in Move m) => RoundTrip(m, true);
 
     private static Move RoundTrip(in Move m, bool towardZero)
@@ -162,8 +215,14 @@ public sealed class ClientPrediction
         }
     }
 
-    // PlayerPSC move lookup 00404c04: no move when the buffer holds 30 entries or the tick is older than the buffer;
-    // otherwise entry (count - 1) - (((now - 1) >> 5) - (t >> 5)). `index` is the entry.
+    /// <summary>Looks up the move of a tick.</summary>
+    /// <param name="psc">The client PSC.</param>
+    /// <param name="t">The tick time.</param>
+    /// <param name="now">The current time.</param>
+    /// <param name="m">Receives the move.</param>
+    /// <param name="index">Receives the entry index.</param>
+    /// <returns>False when the buffer holds 30 entries or the tick is older than the buffer. Otherwise the entry is <c>(count - 1) - (((now - 1) >> 5) - (t >> 5))</c>.</returns>
+    /// <remarks>Follows the PlayerPSC move lookup (00404c04).</remarks>
     public static bool MoveForTick(ClientPsc psc, uint t, uint now, out Move m, out int index)
     {
         m = new Move();
@@ -177,8 +236,11 @@ public sealed class ClientPrediction
         return true;
     }
 
-    // 4.4 and 4.5, after ClientPsc.ReadServerBlock: the control object part. The move buffer is trimmed by the reader;
-    // here the copy follows the control ghost, takes the server state and sets +0x218. Returns the correction record.
+    /// <summary>Applies the control object part of a server block (docs/client-net.md 4.4, 4.5), after <c>ClientPsc.ReadServerBlock</c>.</summary>
+    /// <param name="world">The client world.</param>
+    /// <param name="receiveTime">The receive time in ms.</param>
+    /// <returns>The correction record.</returns>
+    /// <remarks>The move buffer is trimmed by the reader. Here the copy follows the control ghost, takes the server state and sets +0x218.</remarks>
     public CorrectionRecord? OnServerBlock(ClientWorld world, uint receiveTime)
     {
         ClientPsc psc = world.Psc;
@@ -235,6 +297,9 @@ public sealed class ClientPrediction
             SyncPlayerGhost(p, g);
     }
 
+    /// <summary>Copies the state of a Player ghost to the client copy.</summary>
+    /// <param name="p">The Player copy.</param>
+    /// <param name="g">The ghost.</param>
     public static void SyncPlayerGhost(Player p, ClientGhost g)
     {
         if (g.State.TryGetValue("f728", out object? r) && r is double rr)
@@ -292,8 +357,11 @@ public sealed class ClientPrediction
         }
     }
 
-    // Player_clientUpdate 00414c38 (Player) and Flier_clientUpdate 0042e254 / Vehicle_clientUpdate 0044549c (Flier) for the
-    // control object, once per frame: the tick loop over the buffered moves (4.4). Returns the steps run.
+    /// <summary>Runs the tick loop over the buffered moves for the control object, once per frame (docs/client-net.md 4.4).</summary>
+    /// <param name="psc">The client PSC.</param>
+    /// <param name="now">The current time in ms.</param>
+    /// <returns>The steps run.</returns>
+    /// <remarks>Follows Player_clientUpdate (00414c38) and for a Flier Flier_clientUpdate (0042e254) and Vehicle_clientUpdate (0044549c).</remarks>
     public int Advance(ClientPsc psc, uint now)
     {
         if (!Active || Object == null)
@@ -385,8 +453,10 @@ public sealed class ClientPrediction
         return steps;
     }
 
-    // The control Player rides a vehicle that is not its control object (a passenger): the unpack of the mount fields binds +0x1028 and
-    // +0x102c to the client object of the mount ghost (a remote vehicle copy). Called before the step of every frame.
+    /// <summary>Binds the control Player to the mount of a vehicle that is not its control object (a passenger).</summary>
+    /// <param name="world">The client world.</param>
+    /// <param name="remote">The remote ghosts.</param>
+    /// <remarks>The unpack of the mount fields binds +0x1028 and +0x102c to the client object of the mount ghost (a remote vehicle copy). Called before the step of every frame.</remarks>
     public void BindControlMount(ClientWorld world, RemoteGhosts remote)
     {
         if (Object is not Player p || Ghost < 0)
@@ -402,15 +472,16 @@ public sealed class ClientPrediction
             p.MountId = 0;
     }
 
-    // The interpolation 00414a00 for the mounted control Player: its transform follows the mount as it is now (the vehicle copies have
-    // advanced), so the camera of a passenger moves with the vehicle.
+    /// <summary>Places the mounted control Player on its mount, so the camera of a passenger moves with the vehicle.</summary>
+    /// <remarks>Follows the interpolation 00414a00. The transform follows the mount as it is now, after the vehicle copies advanced.</remarks>
     public void PlaceControlRider()
     {
         if (Object is Player { MountId: not 0 } p && p.PlaceOnMount())
             Array.Clear(TickDelta);
     }
 
-    // The drawn position of a Player copy (4.4.1): the stepped state plus the sub-tick fraction of the last delta.
+    /// <summary>Returns the drawn position of a Player copy: the stepped state plus the sub-tick fraction of the last delta (docs/client-net.md 4.4.1).</summary>
+    /// <returns>The position.</returns>
     public float[] DisplayPosition()
     {
         var r = new float[3];

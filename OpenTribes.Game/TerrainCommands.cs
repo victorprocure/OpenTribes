@@ -5,6 +5,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
+/// <summary>The terrain script commands: newTerrain, newTerrainParam, loadTerrain, saveTerrain, setTerrainDetail, setTerrainVisibility, setTerrainContainer, lightTerrain.</summary>
+/// <remarks>Registered at 0x00528d3c (docs/terrain.md 7). Port of src/game/terrain_commands.cpp.</remarks>
 public static class TerrainCommands
 {
     // src/game/terrain_commands.cpp findTerrain: the original calls the terrain's virtual functions on whatever object the
@@ -18,9 +20,10 @@ public static class TerrainCommands
     // src/game/terrain_commands.cpp setFloat.
     private static void SetFloat(TerrainObject t, string field, float v) => t.SetPersistField(field, new[] { PersistFloatText(v) });
 
-    // src/game/terrain_commands.cpp persistFloatText: "%.9g" of a float, which the persist float parser reads back to the
-    // same value. The persist float parser rounds toward zero, so the text has to be at or above the value after rounding
-    // to nearest: grow the digits until the parse gives v back.
+    /// <summary>Formats a float as <c>%.9g</c> text that the persist float parser reads back to the same value.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
+    /// <remarks>The persist parser rounds toward zero, so the text has to be at or above the value after rounding to nearest. The digits grow until the parse gives <paramref name="v"/> back.</remarks>
     public static string PersistFloatText(float v)
     {
         bool mode = TowardZero;
@@ -36,7 +39,9 @@ public static class TerrainCommands
         return output;
     }
 
-    // src/game/terrain_commands.cpp registerTerrainCommands.
+    /// <summary>Registers the terrain commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="game">The game state the commands act on.</param>
     public static void Register(Interpreter interp, GameState game)
     {
         // Plugin ids 0-2 fall outside the callback's switch (0x00528e42): nothing, no message.

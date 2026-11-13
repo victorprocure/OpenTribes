@@ -3,8 +3,8 @@ using OpenTribes.World;
 
 namespace OpenTribes.Game;
 
-// The eye (vtable +0x110) and muzzle (vtable +0x10c) transforms of a Vehicle, Flier or Turret control object, as the aim marker routine
-// FUN_004ada90 reads them (docs/gui.md, crosshair aim markers). Both are in world space: the node transform times the object transform.
+/// <summary>The eye and muzzle transforms of a vehicle, flier or turret control object, in world space.</summary>
+/// <remarks>Both are the node transform times the object transform, as the aim marker routine FUN_004ada90 reads them through vtable +0x110 (eye) and +0x10c (muzzle); see docs/gui.md, crosshair aim markers.</remarks>
 public static class ControlAim
 {
     private static Transform TimesObject(in Transform local, in Transform obj)
@@ -15,18 +15,28 @@ public static class ControlAim
         return new Transform { Flags = w.Flags, M = w.M, P = w.P };
     }
 
-    // Vehicle_getEyeTransform 00445eac (Vehicle and Flier slot 0x110): the animated `dummy eye` node entry times the object transform
-    // (m_mul_TMat3F 005ed2b2). Without the node (index +0x870 = -1) the identity times the object transform, which is the object transform.
-    // Unlike the camera 00445d88 nothing moves it back and nothing scales its angles.
+    /// <summary>Returns the eye transform of a vehicle or flier.</summary>
+    /// <param name="obj">The object transform.</param>
+    /// <param name="eyeNode">The animated <c>dummy eye</c> node transform, or null when the shape has none.</param>
+    /// <returns>The node times the object transform, or the object transform without a node.</returns>
+    /// <remarks>Follows Vehicle_getEyeTransform (00445eac, slot 0x110; node index +0x870). Unlike the camera (00445d88) nothing moves it back or scales its angles.</remarks>
     public static Transform VehicleEye(in Transform obj, in Transform? eyeNode) => eyeNode is { } n ? TimesObject(n, obj) : obj;
 
-    // The node index Vehicle_getMuzzleTransform 00445cd8 uses: the entry `fireCount % count` of the `dummy muzzle%d` table (+0x874, count
-    // +0x8a4) when the table is not empty, else the single `dummy muzzle` node (+0x86c). -1 when there is none.
+    /// <summary>Picks the node index the vehicle muzzle uses.</summary>
+    /// <param name="single">The index of the single <c>dummy muzzle</c> node (+0x86c), or -1.</param>
+    /// <param name="table">The indices of the <c>dummy muzzle%d</c> nodes (+0x874, count +0x8a4).</param>
+    /// <param name="fireCount">The fire counter.</param>
+    /// <returns>The table entry <c>fireCount % count</c> when the table is not empty, else <paramref name="single"/>.</returns>
+    /// <remarks>Follows Vehicle_getMuzzleTransform (00445cd8).</remarks>
     public static int VehicleMuzzleNode(int single, IReadOnlyList<int> table, int fireCount) =>
         table.Count != 0 ? table[(int)((uint)fireCount % (uint)table.Count)] : single;
 
-    // Vehicle_getMuzzleTransform 00445cd8: the muzzle node entry times the object transform, true. Without a node the routine copies the
-    // object transform and reports false (the marker routine then uses the identity).
+    /// <summary>Computes the muzzle transform of a vehicle.</summary>
+    /// <param name="obj">The object transform.</param>
+    /// <param name="muzzleNode">The muzzle node transform, or null.</param>
+    /// <param name="output">Receives the muzzle transform, or a copy of the object transform without a node.</param>
+    /// <returns>True when a node was used. False makes the marker routine use the identity.</returns>
+    /// <remarks>Follows Vehicle_getMuzzleTransform (00445cd8).</remarks>
     public static bool VehicleMuzzle(in Transform obj, in Transform? muzzleNode, out Transform output)
     {
         if (muzzleNode is not { } n)
@@ -38,8 +48,13 @@ public static class ControlAim
         return true;
     }
 
-    // The node transform of Turret_getEyeTransform 004566ac and Turret_getMuzzleTransform 004565e0: Euler (elevation, 0, rotation) at the
-    // translation of the node (flag 2), times the object transform. Without the node the object transform.
+    /// <summary>Computes the eye or muzzle node transform of a turret.</summary>
+    /// <param name="obj">The object transform.</param>
+    /// <param name="node">The node translation, or null when the shape has no such node.</param>
+    /// <param name="rotation">The turret rotation.</param>
+    /// <param name="elevation">The turret elevation.</param>
+    /// <returns>Euler (elevation, 0, rotation) at the node translation (flag 2) times the object transform, or the object transform without a node.</returns>
+    /// <remarks>Follows Turret_getEyeTransform (004566ac) and Turret_getMuzzleTransform (004565e0).</remarks>
     public static Transform TurretNode(in Transform obj, in Transform? node, float rotation, float elevation)
     {
         if (node is not { } n)

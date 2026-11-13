@@ -1,61 +1,104 @@
 // Client PlayerPSC (docs/client-net.md 4.3, 4.4, 4.5; docs/game-stream.md 6): the read of the server block, the effects it
 // has on the PSC state (GUI mode, move buffer trim, control object, inventory, command map) and the client block that
-// carries the moves. Prediction and replay are the next stage (part b); this file keeps the data they need.
+// carries the moves.
 using System.Globalization;
 
 namespace OpenTribes.Game;
 
-// One block of the PSC member as read from the stream.
+/// <summary>One block of the PSC member as read from the stream.</summary>
 public sealed class DecodedPsc
 {
+    /// <summary>The direction of the block.</summary>
     public string Direction = "";
+    /// <summary>The one line text.</summary>
     public string Text = "";
+    /// <summary>The number of bits the block took.</summary>
     public int Bits;
+    /// <summary>The decoded fields.</summary>
     public List<DecodedField> Fields = new();
 }
 
-// One entry of the command map slot table (`DAT_006a83d8` + 0x340, 0x28 bytes a slot, docs/client-net.md 4.5 mode 2): the position in 1/1024 of
-// the mission area (the 11 bit value minus 512, +0x340 and +0x344), the object's team (+0x354) and status (+0x358), the datablock group and
-// index (+0x348, +0x34c; Present is false when the index is -1), for the slots of clients (below 128) the command status (+0x35c, the record's
-// command status + 1) and for the other slots (target slots) the controllable flag (+0x361) and the second status flag (+0x35c, active).
+/// <summary>One entry of the command map slot table (<c>DAT_006a83d8</c> + 0x340, 0x28 bytes a slot, docs/client-net.md 4.5 mode 2).</summary>
+/// <remarks>The position is in 1/1024 of the mission area (the 11 bit value minus 512, +0x340 and +0x344). The entry also holds the object's team (+0x354) and status (+0x358) and the datablock group and index (+0x348, +0x34c). For slots of clients (below 128) it holds the command status (+0x35c, the record's command status + 1). For the other slots (target slots) it holds the controllable flag (+0x361) and the second status flag (+0x35c, active).</remarks>
 public struct ClientCommandSlot
 {
+    /// <summary>True when the datablock index is not -1.</summary>
     public bool Present;
-    public int X, Y, Team, Status, CommandStatus, Group, Index;
-    public bool Controllable, Active;
+    /// <summary>The x position.</summary>
+    public int X;
+    /// <summary>The y position.</summary>
+    public int Y;
+    /// <summary>The team.</summary>
+    public int Team;
+    /// <summary>The status.</summary>
+    public int Status;
+    /// <summary>The command status of a client slot.</summary>
+    public int CommandStatus;
+    /// <summary>The datablock group.</summary>
+    public int Group;
+    /// <summary>The datablock index.</summary>
+    public int Index;
+    /// <summary>The controllable flag of a target slot.</summary>
+    public bool Controllable;
+    /// <summary>The active flag of a target slot.</summary>
+    public bool Active;
 }
 
+/// <summary>The client PlayerPSC: reads the server block and applies its effects, and writes the client block that carries the moves.</summary>
+/// <remarks>Covers the GUI mode, the move buffer trim, the control object, the inventory and the command map (docs/client-net.md 4.3, 4.4, 4.5; docs/game-stream.md 6).</remarks>
 public sealed class ClientPsc
 {
-    // The command map slot table, 256 entries.
+    /// <summary>The command map slot table, 256 entries.</summary>
     public readonly ClientCommandSlot[] CommandSlots = new ClientCommandSlot[256];
 
-    // Server block state (4.5).
-    public int GuiMode;                  // psc +0x3d8
-    public bool ScoreFlag;               // score dialog visible
-    public int LastMove = -1;            // last move number in the block
+    /// <summary>The GUI mode (psc +0x3d8). Server block state is in docs/client-net.md 4.5.</summary>
+    public int GuiMode;
+    /// <summary>True when the score dialog is visible.</summary>
+    public bool ScoreFlag;
+    /// <summary>The last move number in the block.</summary>
+    public int LastMove = -1;
+    /// <summary>True when the block carries a control object.</summary>
     public bool HasControl;
-    public double DamageFlash;           // psc +0x3e0
-    public int ControlGhost = -1;        // 0x3ff = none; psc +0xa4 as a ghost index
+    /// <summary>The damage flash (psc +0x3e0).</summary>
+    public double DamageFlash;
+    /// <summary>The ghost index of the control object (psc +0xa4), -1 for none (0x3ff on the wire).</summary>
+    public int ControlGhost = -1;
+    /// <summary>The class name of the control object.</summary>
     public string ControlClass = "";
+    /// <summary>The decoded control state.</summary>
     public Dictionary<string, object?> ControlState = new();
-    public readonly int[] ItemCounts = new int[200];     // +0xac
-    public readonly uint[] Shopping = new uint[7], Buying = new uint[7];
+    /// <summary>The item counts (+0xac).</summary>
+    public readonly int[] ItemCounts = new int[200];
+    /// <summary>The shopping item mask.</summary>
+    public readonly uint[] Shopping = new uint[7];
+    /// <summary>The buying item mask.</summary>
+    public readonly uint[] Buying = new uint[7];
+    /// <summary>The visibility mask.</summary>
     public readonly uint[] Visible = new uint[8];
+    /// <summary>The command map entries by slot.</summary>
     public readonly Dictionary<int, string> CommandMap = new();
+    /// <summary>The waypoint, or null.</summary>
     public (long X, long Y)? Waypoint;
-    public Action<long, long>? OnWaypoint;      // 006a83e8, 006a83ec are set from the play block pair
+    /// <summary>Called when the waypoint changes. 006a83e8 and 006a83ec are set from the play block pair.</summary>
+    public Action<long, long>? OnWaypoint;
+    /// <summary>The number of GUI mode changes.</summary>
     public int GuiModeChanges;
-    public bool PlayGuiLoaded;                           // loadPlayGui() was evaluated on the first change away from 0
+    /// <summary>True once loadPlayGui() was evaluated on the first change away from 0.</summary>
+    public bool PlayGuiLoaded;
 
-    // Move buffer (4.2, 4.3): moves not yet acknowledged, the global index of the first entry and the ones created so far.
+    /// <summary>The moves not yet acknowledged (docs/client-net.md 4.2, 4.3).</summary>
     public readonly List<Move> Moves = new();
-    public uint FirstMove;               // +0x3d0
-    public uint FovByte = 169;           // unit(8) of currentFov / 135: 90 degrees sends 169
+    /// <summary>The global index of the first buffered move (+0x3d0).</summary>
+    public uint FirstMove;
+    /// <summary>The fov byte, unit(8) of currentFov / 135. 90 degrees sends 169.</summary>
+    public uint FovByte = 169;
 
+    /// <summary>Called to run a script line.</summary>
     public Action<string>? OnScript;
-    public Action<int>? OnGuiMode;   // PlayDelegate_setGuiMode, called while the packet is read (004060f6), after the mode is stored
+    /// <summary>Called as PlayDelegate_setGuiMode while the packet is read (004060f6), after the mode is stored.</summary>
+    public Action<int>? OnGuiMode;
 
+    /// <summary>Clears the PSC state.</summary>
     public void Reset()
     {
         GuiMode = 0;
@@ -75,9 +118,11 @@ public sealed class ClientPsc
         PlayGuiLoaded = false;
     }
 
-    // Number of moves created so far (the next global move index).
+    /// <summary>Gets the number of moves created so far, the next global move index.</summary>
     public uint MovesCreated => FirstMove + (uint)Moves.Count;
 
+    /// <summary>Adds a move to the buffer.</summary>
+    /// <param name="m">The move.</param>
     public void AddMove(in Move m)
     {
         if (Moves.Count < 30)
@@ -86,8 +131,9 @@ public sealed class ClientPsc
 
     // ---- client block (4.3, game-stream.md 6.2) ----
 
-    // PlayerPSC_writePacket client branch: fov byte, first move index, every buffered move (the first full with no
-    // previous, the others against the previous one), end flag.
+    /// <summary>Writes the client block: the fov byte, the first move index, every buffered move and the end flag.</summary>
+    /// <param name="bs">The stream.</param>
+    /// <remarks>Follows PlayerPSC_writePacket, client branch. The first move is full with no previous, the others are written against the previous one.</remarks>
     public void WriteClient(BitStream bs)
     {
         bs.WriteInt(FovByte, 8);
@@ -103,7 +149,9 @@ public sealed class ClientPsc
         bs.WriteFlag(false);
     }
 
-    // Client block read (the c2s direction of a capture; the server reads it with GameConnection.ReadPsc).
+    /// <summary>Reads a client block, the c2s direction of a capture. The server reads it with <c>GameConnection.ReadPsc</c>.</summary>
+    /// <param name="r">The reader.</param>
+    /// <returns>The decoded block.</returns>
     public static DecodedPsc ReadClientBlock(ClientReader r)
     {
         int start = r.Pos;
@@ -132,6 +180,9 @@ public sealed class ClientPsc
         return d;
     }
 
+    /// <summary>Formats a move as text.</summary>
+    /// <param name="m">The move.</param>
+    /// <returns>The text.</returns>
     public static string FormatMove(in Move m) =>
         "f=" + m.Forward.ToString("0.00", CultureInfo.InvariantCulture) + " b=" + m.Backward.ToString("0.00", CultureInfo.InvariantCulture) +
         " l=" + m.Left.ToString("0.00", CultureInfo.InvariantCulture) + " r=" + m.Right.ToString("0.00", CultureInfo.InvariantCulture) +
@@ -141,6 +192,9 @@ public sealed class ClientPsc
 
     // ---- server block (4.5, game-stream.md 6.3) ----
 
+    /// <summary>Formats a decoded value as Python <c>repr</c> text.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The text.</returns>
     public static string PyStr(object? v) => v switch
     {
         null => "None",
@@ -152,9 +206,15 @@ public sealed class ClientPsc
         _ => Convert.ToString(v, CultureInfo.InvariantCulture) ?? "",
     };
 
+    /// <summary>Formats decoded fields as <c>name=value</c> text.</summary>
+    /// <param name="f">The fields.</param>
+    /// <returns>The text.</returns>
     public static string FieldsText(IEnumerable<DecodedField> f) => string.Join(" ", f.Select(x => x.Name + "=" + PyStr(x.Value)));
 
-    // PlayerPSC server block, client branch 00405ec8.
+    /// <summary>Reads a server block on the client.</summary>
+    /// <param name="r">The reader.</param>
+    /// <returns>The decoded block.</returns>
+    /// <remarks>Follows the PlayerPSC server block, client branch (00405ec8).</remarks>
     public DecodedPsc ReadServerBlock(ClientReader r)
     {
         int start = r.Pos;

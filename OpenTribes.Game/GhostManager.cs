@@ -6,13 +6,20 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Game;
 
-// src/game/ghost_manager.hpp struct GhostContext: what a class's packUpdate may ask about the connection.
+/// <summary>What a class's pack routine may ask about the connection.</summary>
 public sealed class GhostContext
 {
+    /// <summary>The ghost manager of the connection.</summary>
     public GhostManager Manager;
+    /// <summary>The client id of the connection.</summary>
     public int ClientId;
-    public bool IsNew; // first update of this ghost (mask 0xffffffff, 2.2)
+    /// <summary>True on the first update of this ghost (mask 0xffffffff, docs/game-stream-ghosts.md 2.2).</summary>
+    public bool IsNew;
 
+    /// <summary>Creates a context.</summary>
+    /// <param name="manager">The ghost manager.</param>
+    /// <param name="clientId">The client id.</param>
+    /// <param name="isNew">True on the first update of the ghost.</param>
     public GhostContext(GhostManager manager, int clientId, bool isNew)
     {
         Manager = manager;
@@ -21,37 +28,69 @@ public sealed class GhostContext
     }
 }
 
-// src/game/ghost_manager.hpp struct GhostClass: ghost code of a class (2.3): 10-bit tag, packUpdate returning the mask
-// bits it did not send, and the update priority for the normal phase.
+/// <summary>The ghost code of a class: a 10-bit tag, a pack routine and an update priority (docs/game-stream-ghosts.md 2.3).</summary>
 public sealed class GhostClass
 {
+    /// <summary>Packs an object's update.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="ctx">The connection context.</param>
+    /// <param name="bs">The stream to write.</param>
+    /// <param name="mask">The dirty mask.</param>
+    /// <returns>The mask bits that were not sent.</returns>
     public delegate uint PackFn(SimObject obj, GhostContext ctx, BitStream bs, uint mask);
+    /// <summary>Computes the update priority of an object for the normal phase.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="gm">The ghost manager.</param>
+    /// <param name="mask">The dirty mask.</param>
+    /// <param name="skipCount">How many times the object was skipped.</param>
+    /// <returns>The priority.</returns>
     public delegate float PriorityFn(SimObject obj, GhostManager gm, uint mask, uint skipCount);
 
+    /// <summary>The 10-bit class tag.</summary>
     public uint Tag;
+    /// <summary>The pack routine.</summary>
     public PackFn? Pack;
+    /// <summary>The priority routine, or null for the manager default.</summary>
     public PriorityFn? Priority;
 }
 
-// src/game/ghost_manager.hpp struct CameraRecord: camera record at GhostManager +0x80 (docs/game-stream-ghosts.md 6.1):
-// filled by the scope object's query, read by the priority functions.
+/// <summary>The camera record at GhostManager +0x80, filled by the scope object's query and read by the priority functions.</summary>
+/// <remarks>See docs/game-stream-ghosts.md 6.1.</remarks>
 public sealed class CameraRecord
 {
-    public SimObject? Object;                        // +0x00
-    public readonly float[] Pos = { 0, 0, 0 };       // +0x04
-    public readonly float[] Dir = { 0, 1, 0 };       // +0x10 forward
-    public float Fov = 0.785398185f;                 // +0x1c (0x3f490fdb)
-    public float SinHalfFov = 0.5f;                  // +0x20
-    public float CosHalfFov = 0.5f;                  // +0x24
-    public float VisibleDistance = 1.0f;             // +0x28
+    /// <summary>The camera object (+0x00).</summary>
+    public SimObject? Object;
+    /// <summary>The camera position (+0x04).</summary>
+    public readonly float[] Pos = { 0, 0, 0 };
+    /// <summary>The forward direction (+0x10).</summary>
+    public readonly float[] Dir = { 0, 1, 0 };
+    /// <summary>The field of view (+0x1c, 0x3f490fdb).</summary>
+    public float Fov = 0.785398185f;
+    /// <summary>The sine of half the field of view (+0x20).</summary>
+    public float SinHalfFov = 0.5f;
+    /// <summary>The cosine of half the field of view (+0x24).</summary>
+    public float CosHalfFov = 0.5f;
+    /// <summary>The visible distance (+0x28).</summary>
+    public float VisibleDistance = 1.0f;
 }
 
-// src/game/ghost_manager.hpp class GhostManager.
+/// <summary>The per-connection ghost manager: assigns ghost indices, orders updates and writes the ghost block of a packet.</summary>
+/// <remarks>Port of src/game/ghost_manager.hpp. See docs/game-stream-ghosts.md.</remarks>
 public sealed class GhostManager
 {
+    /// <summary>The number of ghost indices (1023).</summary>
     public const uint kMaxGhosts = 1023;
 
-    public enum ModeKind { Idle = 0, Always = 1, Normal = 3 }
+    /// <summary>The ghosting phase.</summary>
+    public enum ModeKind
+    {
+        /// <summary>Not ghosting.</summary>
+        Idle = 0,
+        /// <summary>The always phase: objects flagged ghost-always.</summary>
+        Always = 1,
+        /// <summary>The normal phase: objects in scope by priority.</summary>
+        Normal = 3,
+    }
 
     private sealed class Entry
     {
@@ -90,27 +129,35 @@ public sealed class GhostManager
     private readonly Dictionary<uint, Record> mPackets = new();
     private uint mNextToken = 1;
 
+    /// <summary>The camera record the priority functions read.</summary>
     public CameraRecord Camera = new();
+    /// <summary>The scope object's camera query (vtable +0x6c) for the normal phase. It fills the camera record and marks objects in scope.</summary>
     // Normal phase, with a scope object: the scope object's camera query (vtable +0x6c), which fills the camera record
     // and marks objects in scope.
     public Action<GhostManager>? ScopeQuery;
-    // Priority of classes whose GhostClass has none.
+    /// <summary>The priority of classes whose <see cref="GhostClass"/> has none.</summary>
     public GhostClass.PriorityFn? DefaultPriority;
-    // Called when an entry takes a ghost index (debug trace).
+    /// <summary>Called when an entry takes a ghost index (debug trace).</summary>
     public Action<uint, SimObject>? OnNewGhost;
-    // Called once when the always phase completes (delegate slot +0x68).
+    /// <summary>Called once when the always phase completes (delegate slot +0x68).</summary>
     public Action? OnAlwaysDone;
 
-    // src/game/ghost_manager.cpp ghostClassOf: registry by class name; null for classes that are not ghosted.
+    /// <summary>Returns the ghost class of an object by its class name.</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>The class, or null for classes that are not ghosted.</returns>
     public static GhostClass? GhostClassOf(SimObject obj) => sRegistry.TryGetValue(obj.ClassName(), out GhostClass? c) ? c : null;
 
-    // src/game/ghost_manager.cpp registerGhostClass.
+    /// <summary>Registers a ghost class.</summary>
+    /// <param name="className">The class name.</param>
+    /// <param name="cls">The ghost class.</param>
     public static void RegisterGhostClass(string className, GhostClass cls) => sRegistry[className] = cls;
 
-    // src/game/ghost_manager.cpp findGhostClass.
+    /// <summary>Finds a ghost class by name.</summary>
+    /// <param name="className">The class name.</param>
+    /// <returns>The class, or null.</returns>
     public static GhostClass? FindGhostClass(string className) => sRegistry.TryGetValue(className, out GhostClass? c) ? c : null;
 
-    // Port convention (no C++ function): empties the registry, the start state of a C++ test process.
+    /// <summary>Empties the registry, the start state of a fresh test process.</summary>
     public static void ResetRegistry() => sRegistry.Clear();
 
     // src/game/ghost_manager.cpp indexBits: 00552360: bit length of a ghost index, at least 1.
@@ -131,7 +178,8 @@ public sealed class GhostManager
         return -1;
     }
 
-    // src/game/ghost_manager.cpp GhostManager::GhostManager.
+    /// <summary>Creates a manager for a connection.</summary>
+    /// <param name="clientId">The client id.</param>
     public GhostManager(int clientId)
     {
         mClientId = clientId;
@@ -142,14 +190,27 @@ public sealed class GhostManager
         mFree = mEntries[0];
     }
 
+    /// <summary>Returns the ghosting phase.</summary>
+    /// <returns>The phase.</returns>
     public ModeKind Mode() => mMode;
+    /// <summary>Returns the number of bits of a ghost index.</summary>
+    /// <returns>The bit count.</returns>
     public uint IdBits() => mIdBits;
+    /// <summary>Tells whether any ghost entry exists.</summary>
+    /// <returns>True when there is an entry.</returns>
     public bool HasEntries() => mHead != null;
+    /// <summary>Returns the client id of the connection.</summary>
+    /// <returns>The client id.</returns>
     public int ClientId() => mClientId;
-    // Scope object (+0x7c): the control object, stored by every PlayerPSC write (setScopeObject 00553048).
+    /// <summary>Sets the scope object (+0x7c), the control object stored by every PlayerPSC write.</summary>
+    /// <param name="obj">The scope object, or null.</param>
+    /// <remarks>Follows setScopeObject (00553048).</remarks>
     public void SetScopeObject(SimObject? obj) => mScopeObject = obj;
+    /// <summary>Returns the scope object.</summary>
+    /// <returns>The scope object, or null.</returns>
     public SimObject? ScopeObject() => mScopeObject;
-    // 00553480.
+    /// <summary>Starts ghosting with the always phase.</summary>
+    /// <remarks>Follows 00553480.</remarks>
     public void StartGhosting() => mMode = ModeKind.Always;
 
     // src/game/ghost_manager.cpp GhostManager::addGhost: 00553300.
@@ -195,7 +256,10 @@ public sealed class GhostManager
         }
     }
 
-    // src/game/ghost_manager.cpp GhostManager::markInScope: 005532a8.
+    /// <summary>Marks an object as in scope for this update round.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="keep">True to keep the entry when it is not already ghosted.</param>
+    /// <remarks>Follows 005532a8.</remarks>
     public void MarkInScope(SimObject obj, bool keep = false)
     {
         if (mByObject.TryGetValue(obj, out Entry? e))
@@ -206,25 +270,29 @@ public sealed class GhostManager
         AddGhost(obj, keep);
     }
 
-    // src/game/ghost_manager.cpp GhostManager::addAlwaysObjects: every ghost-always object (net flag 0x100) in set 34
-    // order (00553500).
+    /// <summary>Adds every ghost-always object (net flag 0x100) in set 34 order.</summary>
+    /// <param name="objects">The objects of set 34.</param>
+    /// <remarks>Follows 00553500.</remarks>
     public void AddAlwaysObjects(IReadOnlyList<SimObject> objects)
     {
         foreach (SimObject o in objects)
             MarkInScope(o, true);
     }
 
-    // src/game/ghost_manager.cpp GhostManager::reset: resetGhostManagers: mode 0.
+    /// <summary>Resets the manager to the idle phase (resetGhostManagers).</summary>
     public void Reset() => mMode = ModeKind.Idle;
 
-    // src/game/ghost_manager.cpp GhostManager::setMaskBits.
+    /// <summary>Adds bits to the dirty mask of an object's ghost.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="bits">The mask bits.</param>
     public void SetMaskBits(SimObject obj, uint bits)
     {
         if (mByObject.TryGetValue(obj, out Entry? e))
             e.Mask |= bits;
     }
 
-    // src/game/ghost_manager.cpp GhostManager::objectRemoved.
+    /// <summary>Tells the manager that an object was removed from the simulation.</summary>
+    /// <param name="obj">The object.</param>
     public void ObjectRemoved(SimObject obj)
     {
         if (obj == mScopeObject)
@@ -236,7 +304,9 @@ public sealed class GhostManager
         e.Flags = (e.Flags & ~kInScope) | kDelete;
     }
 
-    // src/game/ghost_manager.cpp GhostManager::ghostIndex: -1 when not ghosted (or not yet created).
+    /// <summary>Returns the ghost index of an object.</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>The index, or -1 when the object is not ghosted or not yet created.</returns>
     public int GhostIndex(SimObject? obj)
     {
         if (obj == null || !mByObject.TryGetValue(obj, out Entry? e) || (e.Flags & (kCreate | kCreating)) != 0)
@@ -264,8 +334,11 @@ public sealed class GhostManager
         public Entry Entry;
     }
 
-    // src/game/ghost_manager.cpp GhostManager::writePacket: writes the ghost block (2.1). False when the block is absent.
-    // The returned token identifies the packet for notify.
+    /// <summary>Writes the ghost block of a packet (docs/game-stream-ghosts.md 2.1).</summary>
+    /// <param name="bs">The packet stream.</param>
+    /// <param name="maxBits">The bit budget of the block.</param>
+    /// <param name="token">Receives the token that identifies the packet for <see cref="Notify"/>.</param>
+    /// <returns>False when the block is absent.</returns>
     public bool WritePacket(BitStream bs, uint maxBits, out uint token)
     {
         token = 0;
@@ -410,7 +483,9 @@ public sealed class GhostManager
         return true;
     }
 
-    // src/game/ghost_manager.cpp GhostManager::notify.
+    /// <summary>Reports whether a packet was delivered.</summary>
+    /// <param name="token">The token from <see cref="WritePacket"/>.</param>
+    /// <param name="delivered">True when the packet was delivered.</param>
     public void Notify(uint token, bool delivered)
     {
         if (!mPackets.TryGetValue(token, out Record? r))

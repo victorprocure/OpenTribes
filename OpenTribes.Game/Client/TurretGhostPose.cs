@@ -5,26 +5,38 @@
 // The server mirror of the same thread is GameBase.TurretActivate / TurretDeactivate in TurretFire.cs.
 namespace OpenTribes.Game;
 
+/// <summary>The client side pose of a Turret ghost: the power and fire thread (+0x8a4) and the rotation, as the stock client drives them from the ghost mode (+0x8cc).</summary>
+/// <remarks>Sources: Turret_unpackUpdate (0x0045750c, mode and fire count), Turret_updateAim (0x00456874, ghost branch: the thread advances in mode 3, mode 2 runs activate, mode 1 runs deactivate), Turret_activate (0x00455b34) and Turret_deactivate (0x00455cc4) ghost branches, Turret_setPowerSequence (0x00452e1c) and Turret_setFireSequence (0x00452dd0). The server mirror is <c>GameBase.TurretActivate</c> and <c>TurretDeactivate</c> in TurretFire.cs.</remarks>
 public sealed class TurretGhostPose
 {
+    /// <summary>The value of two pi.</summary>
     public const double TwoPi = 6.283185307179586;
 
-    // Thread state: position 0..1 of the current sequence, which is `fire` (priority 0) or `power` (priority -1).
+    /// <summary>Gets the thread position, 0 to 1, in the current sequence, which is <c>fire</c> (priority 0) or <c>power</c> (priority -1).</summary>
     public double Position { get; private set; }
+    /// <summary>Gets whether the thread runs <c>fire</c>.</summary>
     public bool OnFire { get; private set; }
-    // Power sound the last Tick asked for (the datablock sounds at +0x13c and +0x140): 1 activation, -1 deactivation, 0 none.
+    /// <summary>Gets the power sound the last Tick asked for (the datablock sounds at +0x13c and +0x140): 1 activation, -1 deactivation, 0 none.</summary>
     public int PowerSound { get; private set; }
+    /// <summary>Gets the turret mode.</summary>
     public int Mode { get; private set; }
-    // Rotation in radians (+0x8b4); the turn thread sits at Rotation / 2 pi.
+    /// <summary>Gets or sets the rotation in radians (+0x8b4). The turn thread sits at the rotation divided by two pi.</summary>
     public double Rotation { get; set; }
 
-    // False when the shape lacks `power` or `fire`: no thread, so activate and deactivate end at once.
+    /// <summary>Gets whether the shape has the <c>power</c> and <c>fire</c> sequences. Without them there is no thread, and activate and deactivate end at once.</summary>
     public bool HasThread { get; }
     private readonly double mPowerDuration, mFireDuration;
     private readonly bool mPowerCyclic, mFireCyclic;
     // Datablock rotation speed (+0x114) in radians per second.
     private readonly double mSpeed;
 
+    /// <summary>Creates the pose.</summary>
+    /// <param name="hasThread">True when the shape has the <c>power</c> and <c>fire</c> sequences.</param>
+    /// <param name="powerDuration">The duration of the <c>power</c> sequence.</param>
+    /// <param name="powerCyclic">True when the <c>power</c> sequence is cyclic.</param>
+    /// <param name="fireDuration">The duration of the <c>fire</c> sequence.</param>
+    /// <param name="fireCyclic">True when the <c>fire</c> sequence is cyclic.</param>
+    /// <param name="speed">The turret speed.</param>
     public TurretGhostPose(bool hasThread, double powerDuration, bool powerCyclic, double fireDuration, bool fireCyclic, double speed)
     {
         HasThread = hasThread;
@@ -65,7 +77,7 @@ public sealed class TurretGhostPose
         Set(1.0);
     }
 
-    // The fire count block of the unpack: the thread restarts `fire` at 0 (the shot animation).
+    /// <summary>Handles the fire count block of the unpack: the thread restarts <c>fire</c> at 0, the shot animation.</summary>
     public void OnFireCount()
     {
         if (!HasThread)
@@ -74,9 +86,9 @@ public sealed class TurretGhostPose
         Set(0.0);
     }
 
-    // The mode block of the unpack. The thread takes `power`; a drop from on to deactivating jumps to the end of the sequence,
-    // a rise from off to activating to the start. The stored mode ignores a 0 while it is 1, so the deactivation finishes in
-    // the local tick.
+    /// <summary>Handles the mode block of the unpack.</summary>
+    /// <param name="mode">The new mode.</param>
+    /// <remarks>The thread takes <c>power</c>. A drop from on to deactivating jumps to the end of the sequence, a rise from off to activating to the start. The stored mode ignores a 0 while it is 1, so the deactivation finishes in the local tick.</remarks>
     public void OnMode(int mode)
     {
         if (HasThread)
@@ -91,7 +103,8 @@ public sealed class TurretGhostPose
             Mode = mode;
     }
 
-    // Turret_updateAim on a ghost, one step of dt seconds.
+    /// <summary>Runs Turret_updateAim on a ghost for one step.</summary>
+    /// <param name="dt">The step length in seconds.</param>
     public void Tick(double dt)
     {
         PowerSound = 0;

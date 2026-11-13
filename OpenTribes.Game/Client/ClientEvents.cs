@@ -5,31 +5,45 @@ using System.Text;
 
 namespace OpenTribes.Game;
 
-// One event as read from the stream: the class, its delivery mode, the decoded fields and a one line text.
+/// <summary>One event as read from the stream: the class, its delivery mode, the decoded fields and a one line text.</summary>
 public sealed class DecodedEvent
 {
+    /// <summary>The class tag.</summary>
     public int Tag;
+    /// <summary>The class name.</summary>
     public string Name = "";
+    /// <summary>The delivery mode.</summary>
     public string Mode = "";
+    /// <summary>The one line text.</summary>
     public string Text = "";
+    /// <summary>The number of bits the event took.</summary>
     public int Bits;
-    public int Seq = -2;                  // ordered sequence, -2 when dispatched at once
+    /// <summary>The ordered sequence, -2 when dispatched at once.</summary>
+    public int Seq = -2;
+    /// <summary>The decoded fields.</summary>
     public List<DecodedField> Fields = new();
-    public Action? Apply;                 // the handler effect (2.3), run on dispatch
+    /// <summary>The handler effect (docs/client-net.md 2.3), run on dispatch.</summary>
+    public Action? Apply;
 }
 
+/// <summary>The client EventManager: reads the event block, unpacks every event class and applies the effect of each handler to the client state.</summary>
+/// <remarks>See docs/client-net.md 2.3 and docs/game-stream.md 2. Layouts follow docs/game-stream.md 2.4 and 2.5.</remarks>
 public sealed class ClientEvents
 {
     private readonly ClientWorld mWorld;
     private int mExpectedSeq;                                   // ordered receive (+0x64)
     private readonly SortedDictionary<int, DecodedEvent> mPending = new();
+    /// <summary>The events dispatched so far.</summary>
     public readonly List<DecodedEvent> Dispatched = new();
 
+    /// <summary>Creates an event manager for a client world.</summary>
+    /// <param name="world">The client world.</param>
     public ClientEvents(ClientWorld world)
     {
         mWorld = world;
     }
 
+    /// <summary>Clears the pending events and the sequence state.</summary>
     public void Reset()
     {
         mExpectedSeq = 0;
@@ -37,6 +51,9 @@ public sealed class ClientEvents
         Dispatched.Clear();
     }
 
+    /// <summary>Formats a string as an escaped one line text.</summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The text.</returns>
     public static string Repr(string s)
     {
         char q = s.Contains('\'') && !s.Contains('"') ? '"' : '\'';
@@ -74,8 +91,10 @@ public sealed class ClientEvents
         return r.Add("dest", "obj " + r.Int(32));
     }
 
-    // EventManager readPacket 00551ef8. Events are appended to `into` in stream order; ordered events wait for their
-    // turn before the handler runs (2.3). Throws Unsupported/Overrun like every reader.
+    /// <summary>Reads the event block of a packet.</summary>
+    /// <param name="r">The reader.</param>
+    /// <param name="into">Receives the events in stream order.</param>
+    /// <remarks>Follows EventManager readPacket (00551ef8). Ordered events wait for their turn before the handler runs (docs/client-net.md 2.3). Throws Unsupported or Overrun like every reader.</remarks>
     public void Read(ClientReader r, List<DecodedEvent> into)
     {
         int prev = -4;
