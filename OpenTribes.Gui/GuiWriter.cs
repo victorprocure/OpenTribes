@@ -1,10 +1,14 @@
-// The inverse of GuiLoader (docs/gui.md 1.2 to 1.4, D44): writes a control tree with the same routines.
 using System.Text;
 
 namespace OpenTribes.Gui;
 
+/// <summary>Writes a control tree in the persist format that <see cref="GuiLoader"/> reads.</summary>
+/// <remarks>The inverse of the loader (docs/gui.md 1.2 to 1.4, D44): it runs the same routines in the write direction.</remarks>
 public static class GuiWriter
 {
+    /// <summary>Serialises a control and its children.</summary>
+    /// <param name="c">The root control.</param>
+    /// <returns>The bytes of the object.</returns>
     public static byte[] Write(GuiControl c)
     {
         var ms = new MemoryStream();

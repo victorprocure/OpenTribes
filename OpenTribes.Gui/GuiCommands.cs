@@ -1,19 +1,27 @@
-// docs/gui.md 5 and docs/client-scripts.md 2.7, 2.13, 2.14: the console commands that act on the GUI, registered in the
-// port's interpreter for the client. Control commands take a name or a numeric id; `Ded = N` list commands take a control.
 using System.Globalization;
 using OpenTribes.Script;
 
 namespace OpenTribes.Gui;
 
+/// <summary>The console commands that act on the GUI, registered in the port's interpreter for the client (docs/gui.md 5, docs/client-scripts.md 2.7, 2.13, 2.14).</summary>
+/// <remarks>Control commands take a name or a numeric id. The `Ded = N` list commands take a control.</remarks>
 public sealed class GuiRuntime
 {
+    /// <summary>The script interpreter the commands are registered in.</summary>
     public readonly Interpreter Interp;
+    /// <summary>The GUI host.</summary>
     public readonly GuiHost Host;
+    /// <summary>The canvas the commands act on.</summary>
     public readonly GuiCanvas Canvas;
-    // Objects made by loadObject(name, file) (playGui, commandGui, ...).
+    /// <summary>The objects made by loadObject(name, file) (playGui, commandGui, ...).</summary>
     public readonly Dictionary<string, GuiControl> Named = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Called when a script asks for a render of the canvas.</summary>
     public Action? RenderRequested;
 
+    /// <summary>Creates the runtime and registers the commands.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="host">The GUI host.</param>
+    /// <param name="canvas">The canvas.</param>
     public GuiRuntime(Interpreter interp, GuiHost host, GuiCanvas canvas)
     {
         Interp = interp;
@@ -22,12 +30,14 @@ public sealed class GuiRuntime
         Register();
     }
 
-    // The tag dictionary scripts of docs/gui.md 1.5.
+    /// <summary>The tag dictionary scripts (docs/gui.md 1.5).</summary>
     public static readonly string[] StringScripts =
     {
         "darkstar.strings.cs", "fear.strings.cs", "esf.strings.cs", "commonEditor.strings.cs", "editor.strings.cs", "help.strings.cs",
     };
 
+    /// <summary>Runs the tag dictionary scripts.</summary>
+    /// <returns>The number of scripts that ran.</returns>
     public int LoadTagDictionary()
     {
         int n = 0;
@@ -37,8 +47,9 @@ public sealed class GuiRuntime
         return n;
     }
 
-    // ---- lookup (5.2): a number is a control id, otherwise a name ----
-
+    /// <summary>Finds a control by name or id (docs/gui.md 5.2): a number is a control id, otherwise a name.</summary>
+    /// <param name="key">The name or the id.</param>
+    /// <returns>The control, or null.</returns>
     public GuiControl? FindControl(string key)
     {
         if (Named.TryGetValue(key, out GuiControl? n))
@@ -53,8 +64,11 @@ public sealed class GuiRuntime
         return null;
     }
 
-    // An object looked up by name, then its child by id: the stock lookup of the chat display `playGui` / 140113 [code 0040dbfc,
-    // 0053a048]. A control of the same id inside another object (the chat display of `commandGui`) is not found.
+    /// <summary>Finds an object by name, then its child by id.</summary>
+    /// <param name="objectName">The object name.</param>
+    /// <param name="id">The child id.</param>
+    /// <returns>The control, or null.</returns>
+    /// <remarks>Follows the stock lookup of the chat display `playGui` / 140113 (0040dbfc, 0053a048). A control of the same id inside another object (the chat display of `commandGui`) is not found.</remarks>
     public GuiControl? FindChildOf(string objectName, uint id)
     {
         GuiControl? obj = Named.TryGetValue(objectName, out GuiControl? n) ? n : null;
@@ -105,7 +119,8 @@ public sealed class GuiRuntime
         });
     }
 
-    // `DAT_006a83dc`: the observer panel of the command screen [code 004b4718 sets it at construction]. The port looks for one in the loaded trees.
+    /// <summary>Finds the observer panel of the command screen in the loaded trees.</summary>
+    /// <remarks>The stock exe keeps it in DAT_006a83dc, set at construction (004b4718).</remarks>
     private GuiCmdObserve? FindObserver()
     {
         static GuiCmdObserve? In(GuiControl c)
@@ -123,7 +138,7 @@ public sealed class GuiRuntime
         return null;
     }
 
-    // C atoi: blanks, a sign, digits.
+    /// <summary>Parses an integer like C atoi: blanks, a sign, digits.</summary>
     private static int Atoi(string s)
     {
         int i = 0, sign = 1;
@@ -356,9 +371,11 @@ public sealed class GuiRuntime
         });
     }
 
-    // setHudTimer: the clock advances with the host clock from the value set.
+    /// <summary>The HUD timer value set by setHudTimer, in seconds.</summary>
     public double HudTimer;
+    /// <summary>The host time in milliseconds when the timer was set.</summary>
     public long HudTimerSetAt;
+    /// <summary>Gets the HUD timer: the value set, advanced with the host clock.</summary>
     public double ClockSeconds => HudTimer + (Host.TickMs - HudTimerSetAt) / 1000.0;
 
     private static uint U32(GuiControl c, string k) => c.U(k);
@@ -402,7 +419,10 @@ public sealed class GuiRuntime
         });
     }
 
-    // D44: storeObject writes the same layout, so the HUD layout round-trips.
+    /// <summary>Writes a control tree to a file (storeObject). It uses the same layout as the loader (D44), so the HUD layout round-trips.</summary>
+    /// <param name="c">The root control.</param>
+    /// <param name="file">The file name.</param>
+    /// <returns>True when the file was written.</returns>
     public bool StoreControl(GuiControl c, string file)
     {
         try
@@ -422,26 +442,45 @@ public sealed class GuiRuntime
     }
 }
 
-// The HUD data source of the live client: the control object state the stream decoded (docs/gui.md 4.1, client-net.md 4.5).
+/// <summary>The HUD data source of the live client: it forwards to the source with the control object state the stream decoded, and answers the clock itself (docs/gui.md 4.1, client-net.md 4.5).</summary>
 public sealed class ClockedHudSource : IHudSource
 {
     private readonly IHudSource mInner;
     private readonly Func<double> mClock;
+    /// <summary>Creates a source that forwards to another one.</summary>
+    /// <param name="inner">The source that holds the state.</param>
+    /// <param name="clock">The clock in seconds.</param>
     public ClockedHudSource(IHudSource inner, Func<double> clock) { mInner = inner; mClock = clock; }
+    /// <inheritdoc/>
     public bool HasPlayerState => mInner.HasPlayerState;
+    /// <inheritdoc/>
     public bool InPlayerView => mInner.InPlayerView;
+    /// <inheritdoc/>
     public bool SensorHudShown => mInner.SensorHudShown;
+    /// <inheritdoc/>
     public bool ControlIsPlayer => mInner.ControlIsPlayer;
+    /// <inheritdoc/>
     public bool FirstPersonView => mInner.FirstPersonView;
+    /// <inheritdoc/>
     public HudZoom? Zoom => mInner.Zoom;
+    /// <inheritdoc/>
     public double DamageLevel => mInner.DamageLevel;
+    /// <inheritdoc/>
     public double EnergyLevel => mInner.EnergyLevel;
+    /// <inheritdoc/>
     public double Yaw => mInner.Yaw;
+    /// <inheritdoc/>
     public HudWaypoint? Waypoint => mInner.Waypoint;
+    /// <inheritdoc/>
     public double ClockSeconds => mClock();
+    /// <inheritdoc/>
     public IReadOnlyList<WeaponRow> Weapons => mInner.Weapons;
+    /// <inheritdoc/>
     public bool SensorPing => mInner.SensorPing;
+    /// <inheritdoc/>
     public bool SensorLocked => mInner.SensorLocked;
+    /// <inheritdoc/>
     public HudTargetResult? CrosshairTarget(int width, int height) => mInner.CrosshairTarget(width, height);
+    /// <inheritdoc/>
     public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height) => mInner.TargetMarkers(width, height);
 }

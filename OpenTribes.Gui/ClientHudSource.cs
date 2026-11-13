@@ -1,16 +1,18 @@
-// docs/gui.md 4.1: the HUD data source of the live client, read from the PSC block and the control object ghost that the
-// C3a unpack delivers (client-net.md 4.5). The server and the stream code are not touched.
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 using X87 = OpenTribes.World.X87;
 
 namespace OpenTribes.Gui;
 
+/// <summary>The HUD data source of the live client, read from the PSC block and the control object ghost that the C3a unpack delivers (docs/gui.md 4.1, client-net.md 4.5).</summary>
 public sealed class ClientHudSource : IHudSource
 {
     private readonly ClientWorld mWorld;
     private readonly Func<double> mClock;
 
+    /// <summary>Creates a source over a client world.</summary>
+    /// <param name="world">The client world.</param>
+    /// <param name="clock">The HUD timer clock in seconds, or null for 0.</param>
     public ClientHudSource(ClientWorld world, Func<double>? clock = null)
     {
         mWorld = world;
@@ -30,21 +32,26 @@ public sealed class ClientHudSource : IHudSource
         _ => def,
     };
 
+    /// <inheritdoc/>
     public bool HasPlayerState => Psc.ControlGhost >= 0;
 
+    /// <inheritdoc/>
     public bool InPlayerView => HasPlayerState && Psc.ControlClass != "ObserverCamera";
+    /// <inheritdoc/>
     public bool SensorHudShown => HasPlayerState && Psc.ControlClass is "Player" or "Vehicle" or "Flier";
+    /// <inheritdoc/>
     public bool ControlIsPlayer => HasPlayerState && Psc.ControlClass == "Player";
-    // Set by the host: PSC +0xa0 on and +0x9c == 0 (MoveBuilder.FirstPersonNow).
+    /// <summary>Gets or sets the callback for the first person state: PSC +0xa0 on and +0x9c at 0 (MoveBuilder.FirstPersonNow). Set by the host.</summary>
     public Func<bool>? FirstPersonSource;
+    /// <inheritdoc/>
     public bool FirstPersonView => FirstPersonSource?.Invoke() ?? true;
-    // Set by the host: the zoom state of the move builder.
+    /// <summary>Gets or sets the callback for the zoom state of the move builder. Set by the host.</summary>
     public Func<HudZoom?>? ZoomSource;
+    /// <inheritdoc/>
     public HudZoom? Zoom => ZoomSource?.Invoke();
 
-    // Vtable +0xf8 of the control object (docs/gui.md 4.1). Player 00413828 returns +0x72c, which the ghost update sets to 1.0 on
-    // death (Player_unpackUpdate, mask 0x100) and to the 6 bit damage otherwise. ObserverCamera 004349e4 forwards the call to its
-    // orbit object (+0x288, set by the control state reader 00434d60 in mode 3 when the ghost exists) and returns 0.0 without one.
+    /// <inheritdoc/>
+    /// <remarks>Follows vtable +0xf8 of the control object (docs/gui.md 4.1). Player 00413828 returns +0x72c, which the ghost update sets to 1.0 on death (Player_unpackUpdate, mask 0x100) and to the 6 bit damage otherwise. ObserverCamera 004349e4 forwards the call to its orbit object (+0x288, set by the control state reader 00434d60 in mode 3 when the ghost exists) and returns 0.0 without one.</remarks>
     public double DamageLevel
     {
         get
@@ -69,9 +76,8 @@ public sealed class ClientHudSource : IHudSource
             ? mWorld.Ghosts.Get((int)idx)
             : null;
 
-    // The energy fraction of the control object: energy / maxEnergy (vtable +0xfc of the control object returns 1 - this and the
-    // HUD draws 1 - that, docs/static-sim.md). The control player's PSC block carries the energy as an absolute value (+0x724), the
-    // ghost update as a 7 bit fraction; maxEnergy is a field of the object's datablock (group 3, +0x58).
+    /// <inheritdoc/>
+    /// <remarks>The energy fraction of the control object is energy / maxEnergy (vtable +0xfc of the control object returns 1 - this and the HUD draws 1 - that, docs/static-sim.md). The control player's PSC block carries the energy as an absolute value (+0x724), the ghost update as a 7 bit fraction. maxEnergy is a field of the object's datablock (group 3, +0x58).</remarks>
     public double EnergyLevel
     {
         get
@@ -89,6 +95,7 @@ public sealed class ClientHudSource : IHudSource
         }
     }
 
+    /// <summary>Gets the maximum energy of the control object's datablock, 0 when unknown.</summary>
     public double MaxEnergy
     {
         get
@@ -102,17 +109,20 @@ public sealed class ClientHudSource : IHudSource
         }
     }
 
+    /// <summary>Converts an energy value to a fraction of the maximum.</summary>
+    /// <param name="energy">The energy value.</param>
+    /// <returns>The fraction, 0 to 1.</returns>
     private double Fraction(double energy)
     {
         double max = MaxEnergy;
         return Math.Clamp(max > 0 ? energy / max : energy, 0, 1);
     }
 
-    // Vtable +0x178 of the control object (docs/gui.md 4.2 Compass): the Euler rotation of the object's transform (`00413850`, shared by
-    // Player, Vehicle and Flier), third float. A piloted vehicle is the control object, so the dial turns with its drawn heading, and
-    // a mounted Player (passenger) reads the Euler z of its mount transform: the host's value (ObjectYaw), else the "rot" vector of a
-    // vehicle's control state, else the "rotZ" of a Player.
+    /// <summary>Gets or sets the callback for the drawn yaw of a ghost by index, null when it is not drawn. Set by the host.</summary>
+    /// <remarks>A mounted Player (passenger) reads the Euler z of its mount transform through it.</remarks>
     public Func<int, double?>? ObjectYaw;
+    /// <inheritdoc/>
+    /// <remarks>Follows vtable +0x178 of the control object (docs/gui.md 4.2 Compass): the third float of the Euler rotation of the object's transform (00413850, shared by Player, Vehicle and Flier). A piloted vehicle is the control object, so the dial turns with its drawn heading. Without the drawn value it reads the "rot" vector of a vehicle's control state, else the "rotZ" of a Player.</remarks>
     public double Yaw
     {
         get
@@ -126,9 +136,9 @@ public sealed class ClientHudSource : IHudSource
             return D(Psc.ControlState.GetValueOrDefault("rotZ"), Ghost != null ? D(Ghost.State.GetValueOrDefault("rotZ"), 0) : 0);
         }
     }
-    // ObserverCamera vtable +0x178 is `00413850` too (vtable 00617624): the Euler z of the camera transform that ObserverCamera_step
-    // (00435348) rebuilds from the rotation +0x264 (the control state "rot"), so the dial turns with the observer heading. Orbit mode 3
-    // with the stored distance -1 takes the orbit object's own transform: a Player's Euler z is its rotZ.
+    /// <summary>Returns the yaw of an observer camera.</summary>
+    /// <returns>The Euler z of the camera transform.</returns>
+    /// <remarks>ObserverCamera vtable +0x178 is 00413850 too (vtable 00617624): the Euler z of the camera transform that ObserverCamera_step (00435348) rebuilds from the rotation +0x264 (the control state "rot"), so the dial turns with the observer heading. Orbit mode 3 with the stored distance -1 takes the orbit object's own transform: a Player's Euler z is its rotZ.</remarks>
     private double ObserverYaw()
     {
         var st = Psc.ControlState;
@@ -137,17 +147,18 @@ public sealed class ClientHudSource : IHudSource
             return D(g.State.GetValueOrDefault("rotZ"), rotZ);
         return rotZ;
     }
+    /// <inheritdoc/>
     public double ClockSeconds => mClock();
 
-    // 006a83e4 != -1: the waypoint position and the control object's x and y (+0x188, +0x18c of the transform) [code 004e7e5c].
+    /// <inheritdoc/>
+    /// <remarks>Present while 006a83e4 is not -1: the waypoint position and the control object's x and y (+0x188, +0x18c of the transform) (004e7e5c).</remarks>
     public HudWaypoint? Waypoint =>
         mWorld.Players.WaypointTarget != -1 && Psc.ControlState.GetValueOrDefault("pos") is double[] { Length: >= 2 } p
             ? new HudWaypoint(mWorld.Players.WaypointX, mWorld.Players.WaypointY, p[0], p[1])
             : null;
 
-    // The weapon HUD rows [code 004e8fe8]: every item with a count above zero, a hudIcon and showWeaponBar, in datablock order. The
-    // item is mounted when an image slot of the control player holds the item (the stream carries the item index); with hiliteOnActive set the
-    // "on" icon shows only while that slot fires (state 1). The ammo is the count of the image's ammoType item, negative without one.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004e8fe8: every item with a count above zero, a hudIcon and showWeaponBar, in datablock order. The item is mounted when an image slot of the control player holds the item (the stream carries the item index). With hiliteOnActive set the "on" icon shows only while that slot fires (state 1). The ammo is the count of the image's ammoType item, negative without one.</remarks>
     public IReadOnlyList<WeaponRow> Weapons
     {
         get
@@ -185,7 +196,7 @@ public sealed class ClientHudSource : IHudSource
         }
     }
 
-    // The (image, state) of each filled image slot of a Player ghost: the strings "i:img=N state=S ..." of the unpack.
+    /// <summary>Reads the (image, state) of each filled image slot of a Player ghost from the strings "i:img=N state=S ..." of the unpack.</summary>
     private static List<(int Image, int State)> MountedImages(ClientGhost g)
     {
         var l = new List<(int, int)>();
@@ -213,7 +224,8 @@ public sealed class ClientHudSource : IHudSource
         return int.TryParse(s.AsSpan(p, e - p), System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out v);
     }
 
-    // The item datablocks (group 5) the lists show: the ones with showInventory, in index order [code 0048afcc, 0048b05c].
+    /// <inheritdoc/>
+    /// <remarks>The item datablocks (group 5) with showInventory, in index order (0048afcc, 0048b05c).</remarks>
     public IReadOnlyList<InventoryEntry> InventoryItems
     {
         get
@@ -237,7 +249,8 @@ public sealed class ClientHudSource : IHudSource
 
     private static bool Bit(uint[] mask, int i) => i / 32 < mask.Length && (mask[i / 32] >> (i % 32) & 1) != 0;
 
-    // The scoreboard from the client player manager: teams by score, clients by score, both highest first.
+    /// <inheritdoc/>
+    /// <remarks>Built from the client player manager: teams by score and clients by score, both highest first.</remarks>
     public ScoreBoard? Scores
     {
         get
@@ -252,7 +265,11 @@ public sealed class ClientHudSource : IHudSource
         }
     }
 
-    // The placeholders of a score string [code 004c2198]: %n the player name, %t the team name, %p the ping, %l the loss in percent.
+    /// <summary>Replaces the placeholders of a score string.</summary>
+    /// <param name="text">The score string.</param>
+    /// <param name="player">The player record, or null for a team row.</param>
+    /// <param name="teamName">The team name.</param>
+    /// <returns>The text with %n the player name, %t the team name, %p the ping and %l the loss in percent replaced (004c2198).</returns>
     public static string Expand(string text, ClientPlayerRecord? player, string teamName)
     {
         var sb = new System.Text.StringBuilder();
@@ -273,15 +290,20 @@ public sealed class ClientHudSource : IHudSource
         return sb.ToString();
     }
 
-    // Set by the host: the chat menu a script switched on (the server menu of the Tab key).
+    /// <summary>Gets or sets the callback for the chat menu a script switched on (the server menu of the Tab key). Set by the host.</summary>
     public Func<ServerMenuView?>? MenuSource;
+    /// <inheritdoc/>
     public ServerMenuView? ServerMenu => MenuSource?.Invoke();
+    /// <summary>Gets or sets the callback for the player chat menu. Set by the host.</summary>
     public Func<PlayMenuView?>? PlayMenuSource;
+    /// <inheritdoc/>
     public PlayMenuView? PlayMenu => PlayMenuSource?.Invoke();
-    // Set by the host: the commander map picture (rendered on demand from the world).
+    /// <summary>Gets or sets the callback for the commander map picture, rendered on demand from the world. Set by the host.</summary>
     public Func<CommandMapPicture?>? CommandMapSource;
+    /// <inheritdoc/>
     public CommandMapPicture? CommandMap => CommandMapSource?.Invoke();
-    // The slot table of the PSC command block with the datablock fields and records the draw needs [code 004cf94c, 004d04e8].
+    /// <inheritdoc/>
+    /// <remarks>The slot table of the PSC command block with the datablock fields and records the draw needs (004cf94c, 004d04e8).</remarks>
     public CommandMapMarks? CommandMapMarks
     {
         get
@@ -312,19 +334,28 @@ public sealed class ClientHudSource : IHudSource
             return new CommandMapMarks(mWorld.PlayerId, me.Team, heading, slots);
         }
     }
+    /// <summary>Gets or sets the callback for the state of a named chat menu object. Set by the host.</summary>
     public Func<string, ChatMenuState?>? NamedMenuSource;
+    /// <inheritdoc/>
     public ChatMenuState? NamedMenu(string name) => NamedMenuSource?.Invoke(name);
 
-    // The command tree of the local player's team [code 004a85c0, 0040b46c, 004a8548]: the records of the team whose commander is not a
-    // human record are the top level (oldest first [I: the client table has no join order, the id order stands for it]), the others hang
-    // under their commander; the children of a node are listed while its expanded byte (+0x69, starts at 1) is set. Each row has the status
-    // of its command map slot: the damage level is not read from the PSC command block yet (low), the order is the record's command
-    // status + 1 [docs/client-net.md 4.5 mode 2]. A row is selected while the record's +0x68 byte is set.
+    /// <summary>Returns the parent of a record in the command tree.</summary>
+    /// <param name="r">The record.</param>
+    /// <returns>The commander record when it is a human, else null.</returns>
     private ClientPlayerRecord? CommandParent(ClientPlayerRecord r) => r.Commander != -1 && mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null;
 
+    /// <summary>Returns the records directly under a node of the command tree.</summary>
+    /// <param name="parent">The node, or null for the top level of a team.</param>
+    /// <param name="team">The team of the top level.</param>
+    /// <returns>The records.</returns>
     private List<ClientPlayerRecord> CommandChildren(ClientPlayerRecord? parent, int team) =>
         mWorld.Players.Clients.Values.Where(r => parent == null ? CommandParent(r) == null && r.Team == team : CommandParent(r) == parent).ToList();
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>Follows 004a85c0, 0040b46c and 004a8548: the records of the team whose commander is not a human record are the top level, the others hang under their commander. The client table has no join order, so the id order stands for it. The children of a node are listed while its expanded byte (+0x69, starts at 1) is set.</para>
+    /// <para>Each row has the status of its command map slot: the damage level is not read from the PSC command block yet (low), the order is the record's command status + 1 (docs/client-net.md 4.5 mode 2). A row is selected while the record's +0x68 byte is set.</para>
+    /// </remarks>
     public IReadOnlyList<CommandTeamRow> CommandTeam
     {
         get
@@ -353,7 +384,9 @@ public sealed class ClientHudSource : IHudSource
         }
     }
 
-    // 004d29fc: the status field of the first group 3 slot whose id (+0x350, 0x800 + slot) is that client id, 0 (low) for none.
+    /// <summary>Returns the status field of the first group 3 slot whose id (+0x350, 0x800 + slot) is a client id (004d29fc).</summary>
+    /// <param name="clientId">The client id.</param>
+    /// <returns>The status, 0 (low) for none.</returns>
     private int CommandDamage(int clientId)
     {
         ClientCommandSlot[] slots = Psc.CommandSlots;
@@ -363,9 +396,10 @@ public sealed class ClientHudSource : IHudSource
         return 0;
     }
 
-    // 004a98b8 (CommandItemCtrl) and 004aa6b8 (CommandTurretCtrl) prepare: for the local human client, every slot of its team whose datablock group is
-    // one the list shows and whose datablock index is set, in slot order. The name is the slot's label when there is one, else the datablock's
-    // description; a slot with neither is left out.
+    /// <summary>Builds the rows of a command list for the local human client.</summary>
+    /// <param name="shows">Returns whether the list shows a datablock group.</param>
+    /// <returns>Every slot of its team whose datablock group the list shows and whose datablock index is set, in slot order. The name is the slot's label when there is one, else the datablock's description. A slot with neither is left out.</returns>
+    /// <remarks>Follows the prepare of CommandItemCtrl (004a98b8) and CommandTurretCtrl (004aa6b8).</remarks>
     private List<CommandListRow> CommandSlotRows(Func<int, bool> shows)
     {
         var rows = new List<CommandListRow>();
@@ -391,36 +425,47 @@ public sealed class ClientHudSource : IHudSource
         return rows;
     }
 
+    /// <inheritdoc/>
     public IReadOnlyList<CommandListRow> CommandObjects => CommandSlotRows(g => g is 4 or 8);
+    /// <inheritdoc/>
     public IReadOnlyList<CommandListRow> CommandControllables => CommandSlotRows(g => g is 0x13 or 10 or 0xb or 9);
 
-    // 004b48bc: the walk over the client records takes the first with the selected byte (+0x68) set. [I: the client table has no join order, the id order stands for it]
+    /// <inheritdoc/>
+    /// <remarks>Follows 004b48bc: the walk over the client records takes the first with the selected byte (+0x68) set. The client table has no join order, so the id order stands for it.</remarks>
     public int CommandFirstSelectedClient() => mWorld.Players.Clients.Values.OrderBy(r => r.Id).FirstOrDefault(r => r.Selected)?.Id ?? -1;
 
+    /// <inheritdoc/>
     public CommandLocalClient? CommandLocal =>
         mWorld.Players.Get(mWorld.PlayerId) is { Ai: false, Team: var team } ? new CommandLocalClient(mWorld.PlayerId, team) : null;
 
+    /// <inheritdoc/>
     public ClientCommandSlot[]? CommandSlotTable => Psc.CommandSlots;
 
+    /// <inheritdoc/>
     public int? CommandBlockFilter(int group, int index) =>
         mWorld.DataBlocks.Blocks.TryGetValue((group, index), out ClientDataBlock? b) ? (int)Fld(b, "mapFilter", -1) : null;
 
+    /// <inheritdoc/>
     public string? CommandClientName(int clientId) => mWorld.Players.Get(clientId) is { Ai: false } r ? r.Name : null;
 
+    /// <inheritdoc/>
     public string? CommandTargetName(int slot) => slot >= 128 && mWorld.Players.TargetNames.TryGetValue(slot - 128, out string? n) ? n : null;
 
+    /// <inheritdoc/>
     public void CommandSetSelected(int clientId, bool on)
     {
         if (mWorld.Players.Get(clientId) is { } r)
             r.Selected = on;
     }
 
+    /// <inheritdoc/>
     public void CommandToggleExpanded(int clientId)
     {
         if (mWorld.Players.Get(clientId) is { } r)
             r.Expanded = !r.Expanded;
     }
 
+    /// <inheritdoc/>
     public bool CommandInChain(int clientId, int commander)
     {
         for (ClientPlayerRecord? r = mWorld.Players.Get(clientId); r != null; r = mWorld.Players.Get(r.Commander) is { Ai: false } c ? c : null)
@@ -429,7 +474,8 @@ public sealed class ClientHudSource : IHudSource
         return false;
     }
 
-    // +0x74 is the first record under this one in the tree (the oldest [I as for the rows]), +0x78 the next one under the same commander.
+    /// <inheritdoc/>
+    /// <remarks>+0x74 is the first record under this one in the tree (the oldest, as for the rows), +0x78 the next one under the same commander.</remarks>
     public (int FirstChild, int NextSibling, bool Selected)? CommandLinks(int clientId)
     {
         ClientPlayerManager pm = mWorld.Players;
@@ -440,26 +486,37 @@ public sealed class ClientHudSource : IHudSource
         int at = siblings.IndexOf(r);
         return (first, at >= 0 && at + 1 < siblings.Count ? siblings[at + 1].Id : -1, r.Selected);
     }
+    /// <inheritdoc/>
     public IReadOnlyList<string?> ObjectiveLines => mWorld.Players.ObjectiveLines;
 
-    // The 2 sensor state bits of the control state (00413b90, Vehicle 00446830): 1 pinged, 2 jammed.
+    /// <summary>Gets the 2 sensor state bits of the control state (00413b90, Vehicle 00446830): 1 pinged, 2 jammed.</summary>
     private int SensorState => (int)D(Psc.ControlState.GetValueOrDefault("state2"), 0);
+    /// <inheritdoc/>
     public bool SensorPing => SensorState == 1;
+    /// <inheritdoc/>
     public bool SensorLocked => SensorState == 2;
 
-    // Set by the host: the view camera of the frame, the position of mount point 2 of a player ghost (null: use the body position
-    // plus 1.4) and the line test from the eye to a point (true when nothing blocks it).
+    /// <summary>Gets or sets the callback for the view camera of the frame, given the view size. Set by the host.</summary>
     public Func<int, int, Camera3D?>? ViewCamera;
+    /// <summary>Gets or sets the callback for the position of mount point 2 of a player ghost, null to use the body position plus 1.4. Set by the host.</summary>
     public Func<int, (double X, double Y, double Z)?>? HeadMount;
-    // Set by the host: the muzzle of the image in slot 0 of a Player ghost in world space (null: use the body position).
+    /// <summary>Gets or sets the callback for the muzzle of the image in slot 0 of a Player ghost in world space, null to use the body position. Set by the host.</summary>
     public Func<int, (double X, double Y, double Z)?>? MuzzleMount;
-    // Set by the host: the eye and muzzle transforms of a Vehicle, Flier or Turret control ghost (null while it has no drawn object).
+    /// <summary>Gets or sets the callback for the eye and muzzle transforms of a Vehicle, Flier or Turret control ghost, null while it has no drawn object. Set by the host.</summary>
     public Func<int, HudControlAim?>? ControlAim;
+    /// <summary>Gets or sets the line test from the eye to a point: true when nothing blocks it. Set by the host.</summary>
     public Func<(double X, double Y, double Z), (double X, double Y, double Z), bool>? LineClear;
-    // Set by the host: the world box (min, max) and the transform origin of a shape ghost, for the objects of the label pick.
+    /// <summary>Gets or sets the callback for the world box (min, max) and the transform origin of a shape ghost, for the objects of the label pick. Set by the host.</summary>
     public Func<int, (double X0, double Y0, double Z0, double X1, double Y1, double Z1, double Px, double Py, double Pz)?>? ObjectBox;
 
-    // The fraction of the segment from the eye along (dx, dy, dz) at which it enters the box (0 when the eye is inside, 1 when it misses).
+    /// <summary>Returns the fraction of a segment at which it enters a box.</summary>
+    /// <param name="eye">The segment start.</param>
+    /// <param name="dx">The segment x extent.</param>
+    /// <param name="dy">The segment y extent.</param>
+    /// <param name="dz">The segment z extent.</param>
+    /// <param name="lo">The box minimum.</param>
+    /// <param name="hi">The box maximum.</param>
+    /// <returns>0 when the start is inside the box, 1 when the segment misses it.</returns>
     private static double EntryFraction((double X, double Y, double Z) eye, double dx, double dy, double dz, (double X, double Y, double Z) lo, (double X, double Y, double Z) hi)
     {
         double t0 = 0, t1 = 1;
@@ -478,8 +535,10 @@ public sealed class ClientHudSource : IHudSource
         return t0 > t1 ? 1 : t0;
     }
 
-    // Datablock group of the classes that take part in the label pick: the sensor set holds the Sensors (and their Turrets) and every
-    // object with a target index (StaticShape, Item) [code 0053a1f4 callers: Sensor_onAdd, GameBase_onNewDataBlock].
+    /// <summary>Returns the datablock group of the classes that take part in the label pick.</summary>
+    /// <param name="cls">The ghost class.</param>
+    /// <returns>The group, -1 for a class that does not take part.</returns>
+    /// <remarks>The sensor set holds the Sensors (and their Turrets) and every object with a target index (StaticShape, Item). Callers of 0053a1f4: Sensor_onAdd, GameBase_onNewDataBlock.</remarks>
     private static int ObjectGroup(string cls) => cls switch { "Turret" => 19, "Sensor" => 8, "StaticShape" => 4, "Item" => 5, _ => -1 };
 
     private string? BlockString(ClientGhost g, string field)
@@ -492,12 +551,12 @@ public sealed class ClientHudSource : IHudSource
         return null;
     }
 
-    // The ghost index of the object a Player ghost is mounted on (the "ghost/point" stream field), -1 when it has none.
+    /// <summary>Returns the ghost index of the object a Player ghost is mounted on (the "ghost/point" stream field), -1 when it has none.</summary>
     private static int MountGhost(ClientGhost g) =>
         g.State.GetValueOrDefault("mount") is string m && m.IndexOf('/') is int i and > 0 && int.TryParse(m.AsSpan(0, i), out int ghost) ? ghost : -1;
 
-    // Crosshair_findTarget [code 004aca84]: the other players the local player's client may see (the visible mask of the PSC, +0x490),
-    // with their marks and the one under the view centre.
+    /// <inheritdoc/>
+    /// <remarks>Follows Crosshair_findTarget (004aca84): the other players the local player's client may see (the visible mask of the PSC, +0x490), with their marks and the one under the view centre.</remarks>
     public HudTargetResult? CrosshairTarget(int width, int height)
     {
         if (ViewCamera?.Invoke(width, height) is not Camera3D cam || Psc.ControlGhost < 0 || mWorld.PlayerId == 0)
@@ -579,8 +638,11 @@ public sealed class ClientHudSource : IHudSource
         return def;
     }
 
-    // Player vtable +0x114 [code 00412218]: the projectile datablock (group, index) of the image in slot 0: ItemData -> imageType ->
-    // ItemImageData projectileType (two 32 bit words: group at +0x70, index at +0x74). Null without an image or a projectile.
+    /// <summary>Returns the projectile datablock of the image in slot 0 of a Player.</summary>
+    /// <param name="g">The Player ghost.</param>
+    /// <param name="group">Receives the datablock group.</param>
+    /// <returns>The datablock, null without an image or a projectile.</returns>
+    /// <remarks>Follows Player vtable +0x114 (00412218): ItemData to imageType to ItemImageData projectileType (two 32 bit words: group at +0x70, index at +0x74).</remarks>
     private ClientDataBlock? WeaponProjectile(ClientGhost g, out int group)
     {
         group = -1;
@@ -592,7 +654,10 @@ public sealed class ClientHudSource : IHudSource
         return ProjectileOf(img, out group);
     }
 
-    // The projectile datablock a `projectileType` field names (two 32 bit words, group then index), null when it is unset.
+    /// <summary>Returns the projectile datablock a `projectileType` field names (two 32 bit words, group then index).</summary>
+    /// <param name="img">The datablock with the field.</param>
+    /// <param name="group">Receives the datablock group.</param>
+    /// <returns>The datablock, null when it is unset.</returns>
     private ClientDataBlock? ProjectileOf(ClientDataBlock img, out int group)
     {
         group = -1;
@@ -607,7 +672,7 @@ public sealed class ClientHudSource : IHudSource
         return mWorld.DataBlocks.Blocks.TryGetValue((grp, idx), out ClientDataBlock? pb) ? pb : null;
     }
 
-    // The gravity of the control player: force 1 of its SimMovement, the world gravity of the terrain ghost; minus its length [code 004adb98].
+    /// <summary>Returns the gravity of the control player: force 1 of its SimMovement, the world gravity of the terrain ghost, minus its length (004adb98).</summary>
     private float Gravity()
     {
         foreach (ClientGhost t in mWorld.Ghosts.All())
@@ -616,8 +681,11 @@ public sealed class ClientHudSource : IHudSource
         return 0f;
     }
 
-    // Player vtable +0x114 [code 00412218] gives the projectile of the image in slot 0, Turret vtable +0x114 [code 00456074] the
-    // projectileType (group at +0x120, index at +0x124) of its TurretData, Vehicle and Flier [code 00430c88] nothing. Null without one.
+    /// <summary>Returns the projectile datablock of a Turret.</summary>
+    /// <param name="g">The Turret ghost.</param>
+    /// <param name="group">Receives the datablock group.</param>
+    /// <returns>The datablock, null without one.</returns>
+    /// <remarks>Turret vtable +0x114 (00456074) gives the projectileType (group at +0x120, index at +0x124) of its TurretData. Player vtable +0x114 (00412218) gives the projectile of the image in slot 0, Vehicle and Flier (00430c88) nothing.</remarks>
     private ClientDataBlock? TurretProjectile(ClientGhost g, out int group)
     {
         group = -1;
@@ -626,12 +694,8 @@ public sealed class ClientHudSource : IHudSource
         return ProjectileOf(tb, out group);
     }
 
-    // FUN_004ada90 [code 004ada90]: for every target of set 725 (objects with the target flag and enabled, the hit point of a targeting laser)
-    // of the control object's team the datablock of its weapon solves the aim from the eye (low arc, then the high arc); the
-    // direction x 2 from the eye is projected and gets a triangle, blue when the projectile reaches (0xfb), else 0xf1, with the distance
-    // from the muzzle under it. Without a projectile datablock the solution is the straight line, never reaching. The routine casts the
-    // control object to ShapeBase [code 004adb1a..004adb37]: it runs for a Player, a Vehicle, a Flier and a Turret alike and only the
-    // virtual calls differ (eye +0x110, muzzle +0x10c, projectile +0x114, team +0x20c).
+    /// <inheritdoc/>
+    /// <remarks>Follows FUN_004ada90. For every target of set 725 (objects with the target flag and enabled, the hit point of a targeting laser) of the control object's team the datablock of its weapon solves the aim from the eye (low arc, then the high arc). The direction x 2 from the eye is projected and gets a triangle, blue when the projectile reaches (0xfb), else 0xf1, with the distance from the muzzle under it. Without a projectile datablock the solution is the straight line, never reaching. The routine casts the control object to ShapeBase (004adb1a to 004adb37): it runs for a Player, a Vehicle, a Flier and a Turret alike and only the virtual calls differ (eye +0x110, muzzle +0x10c, projectile +0x114, team +0x20c).</remarks>
     public IReadOnlyList<HudTargetMarker> TargetMarkers(int width, int height)
     {
         var result = new List<HudTargetMarker>();

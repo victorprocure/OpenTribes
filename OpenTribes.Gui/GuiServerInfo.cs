@@ -1,19 +1,22 @@
-// FearGui::ServerInfoCtrl [code 004c91f8 setServer, 004c92c8 cell draw, 004c952c draw]: the key/value table of the server info dialog
-// (ServerInfo.gui): the team and player score rows of the server's info reply. The dialog's own texts are set by ServerBrowser.
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
+/// <summary>The key/value table of the server info dialog (ServerInfo.gui).</summary>
+/// <remarks>Shows the team and player score rows of the server's info reply. The dialog's own texts are set by ServerBrowser. Follows FearGui::ServerInfoCtrl: setServer (004c91f8), cell draw (004c92c8), draw (004c952c).</remarks>
 public sealed class GuiServerInfo : GuiList
 {
-    // 004c91f8: a heading string carries its column starts as a tab followed by one byte; the first column starts at 0, the list ends at 0x280.
+    /// <summary>The column starts of the team and player rows: the first column starts at 0 and the list ends at 0x280 (004c91f8).</summary>
     private int[] mTeamColumns = { 0, 0x280 }, mPlayerColumns = { 0, 0x280 };
     private IReadOnlyList<string> mRows = Array.Empty<string>();
 
+    /// <summary>Gets the number of rows.</summary>
     public int RowCount => mRows.Count;
 
-    // 004c91f8: the record's two headings and its rows. A row starts with two characters: '0' for a team row (else a player row)
-    // and '1' for a heading line, then the cells split at tabs.
+    /// <summary>Sets the headings and rows of the server's reply.</summary>
+    /// <param name="teamHeading">The team row heading. A heading carries its column starts as a tab followed by one byte (004c91f8).</param>
+    /// <param name="playerHeading">The player row heading, in the same format.</param>
+    /// <param name="rows">The rows. A row starts with two characters: '0' for a team row (else a player row) and '1' for a heading line, then the cells split at tabs.</param>
     public void SetServer(string teamHeading, string playerHeading, IReadOnlyList<string> rows)
     {
         mTeamColumns = Columns(teamHeading);
@@ -22,6 +25,7 @@ public sealed class GuiServerInfo : GuiList
         Selected = -1;
     }
 
+    /// <summary>Removes all rows.</summary>
     public void ClearServer() => SetServer("", "", Array.Empty<string>());
 
     private static int[] Columns(string heading)
@@ -43,8 +47,10 @@ public sealed class GuiServerInfo : GuiList
 
     private PftFont? HeadingFont => Host?.FontByName("sf_orange_7.pft");
     private PftFont? RowTextFont => Host?.FontByName("sf_white_7.pft");
+    /// <inheritdoc/>
     protected override PftFont? RowFont => HeadingFont;
 
+    /// <inheritdoc/>
     public override void PreRender()
     {
         if (Parent is not GuiScrollContent pc)
@@ -53,8 +59,10 @@ public sealed class GuiServerInfo : GuiList
         H = Math.Max(pc.H, mRows.Count * RowHeight);
     }
 
+    /// <inheritdoc/>
     public override bool MsDown(GuiEvent e) => false;
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y, rh = RowHeight;
@@ -69,7 +77,8 @@ public sealed class GuiServerInfo : GuiList
         }
     }
 
-    // 004c92c8: every cell is clipped to its column (the next column's start less two) and drawn four pixels in, two up.
+    /// <summary>Draws one row, each cell clipped to its column.</summary>
+    /// <remarks>Follows the stock cell draw (004c92c8): a cell is clipped to its column (the next column's start less two) and drawn four pixels in, two up.</remarks>
     private void DrawRow(GuiPaint p, int gx, int y, int rh, string row)
     {
         if (row.Length < 2)

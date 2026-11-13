@@ -1,54 +1,85 @@
-// docs/gui.md 3.3 "Column lists": the array controls with a header row and several columns per row.
 using System.Globalization;
 using OpenTribes.Script;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
-// One column of a column list: the header tag (-1 draws no heading), the data index the cell text query gets [code 004b426c
-// reads the field at +0x10 of the column record], the width and the visible flag (+0x14, +0x18 of the record).
+/// <summary>One column of a column list.</summary>
+/// <param name="HeaderTag">The header tag, -1 draws no heading.</param>
+/// <param name="DataIndex">The data index the cell text query gets (the field at +0x10 of the column record, 004b426c).</param>
+/// <param name="Width">The width in pixels (+0x14 of the record).</param>
+/// <param name="Visible">True when the column shows (+0x18 of the record).</param>
 public sealed record ListColumn(int HeaderTag, int DataIndex, int Width, bool Visible = true);
 
-// FearGui lists that draw a header row and a grid [code 004b3e1c header, 004b426c row, 004b4584 list]. The list is one cell
-// column of rows; each row draws the columns itself. Fonts of the wake [code 004b36e4]: the header uses tag 150120 (150130
-// disabled) with the shadow font of tag 150171, the rows sf_orange_7, sf_white_7 (selected), sf_grey_7 (disabled) and
-// sf_yellow_7 (under the cursor).
+/// <summary>The lists that draw a header row and a grid (docs/gui.md 3.3 "Column lists").</summary>
+/// <remarks>Follows header 004b3e1c, row 004b426c and list 004b4584. The list is one cell column of rows, and each row draws the columns itself. The fonts of the wake (004b36e4): the header uses tag 150120 (150130 disabled) with the shadow font of tag 150171, the rows sf_orange_7, sf_white_7 (selected), sf_grey_7 (disabled) and sf_yellow_7 (under the cursor).</remarks>
 public abstract class GuiColumnList : GuiList
 {
     // Palette indices of the grid: header fill 0xf7 (0xf4 disabled), header and list lines 0xf0 (0xea disabled).
     private const int HeaderFill = 0xf7, HeaderFillOff = 0xf4, LineOn = 0xf0, LineOff = 0xea;
 
+    /// <summary>Gets the columns.</summary>
     protected abstract IReadOnlyList<ListColumn> Columns { get; }
+    /// <summary>Gets the columns.</summary>
     public IReadOnlyList<ListColumn> ColumnSet => Columns;
+    /// <summary>Gets the number of rows.</summary>
     protected abstract int RowCount { get; }
+    /// <summary>Returns the text of a cell.</summary>
+    /// <param name="dataIndex">The data index of the column.</param>
+    /// <param name="row">The row index.</param>
+    /// <returns>The text, or null for none.</returns>
     protected abstract string? Cell(int dataIndex, int row);
 
-    // A cell drawn as bitmaps instead of text (004c8278 columns 0 to 2 of the server list): true when the column drew itself.
+    /// <summary>Draws a cell as bitmaps instead of text (004c8278 columns 0 to 2 of the server list).</summary>
+    /// <param name="p">The painter.</param>
+    /// <param name="dataIndex">The data index of the column.</param>
+    /// <param name="row">The row index.</param>
+    /// <param name="x">The cell left edge.</param>
+    /// <param name="y">The row top edge.</param>
+    /// <param name="rh">The row height.</param>
+    /// <returns>True when the column drew itself.</returns>
     protected virtual bool DrawIcons(GuiPaint p, int dataIndex, int row, int x, int y, int rh) => false;
 
-    // The grid colour of the row lines (0xf8 in the option columns list, 0xf0 or 0xea otherwise).
+    /// <summary>Returns the grid color of the row lines: 0xf8 in the option columns list, 0xf0 or 0xea otherwise.</summary>
+    /// <param name="disabled">True when the list is disabled.</param>
+    /// <returns>The palette index.</returns>
     protected virtual int RowLine(bool disabled) => disabled ? LineOff : LineOn;
+    /// <summary>Gets the vertical offset of the header text.</summary>
     protected virtual int HeaderTextOffset => 0;
 
-    // A list in a scroll that asks for a header (headerY) reserves that many rows at its top.
+    /// <summary>Gets the height of the header: a list in a scroll that asks for a header (headerY) reserves that much at its top.</summary>
     public int HeaderH => Parent is GuiScrollContent { Parent: GuiScroll s } ? (int)s.U("headerY") : 0;
 
+    /// <summary>Gets the font of a normal row.</summary>
     protected PftFont? RowFontNormal => Host?.FontByName("sf_orange_7.pft");
+    /// <summary>Gets the font of the selected row.</summary>
     protected PftFont? RowFontSelected => Host?.FontByName("sf_white_7.pft");
+    /// <summary>Gets the font of a disabled row.</summary>
     protected PftFont? RowFontOff => Host?.FontByName("sf_grey_7.pft");
+    /// <summary>Gets the font of the row under the cursor.</summary>
     protected PftFont? RowFontHover => Host?.FontByName("sf_yellow_7.pft");
+    /// <summary>Gets the header font.</summary>
+    /// <param name="disabled">True when the list is disabled.</param>
+    /// <returns>The font.</returns>
     protected PftFont? HeadFont(bool disabled) => Host?.FontByTag(disabled ? 150130u : 150120u);
+    /// <summary>Gets the shadow font of the header.</summary>
     protected PftFont? ShadowFont => Host?.FontByTag(150171);
 
+    /// <inheritdoc/>
     protected override PftFont? RowFont => RowFontNormal;
-    // 004b36e4: the row is the sf_orange_7 height plus six.
+    /// <summary>Gets the row height: the sf_orange_7 height plus six (004b36e4).</summary>
     public new int RowHeight => GuiPaint.FontHeight(RowFontNormal) + 6;
 
+    /// <summary>Gets the sum of the visible column widths.</summary>
     protected int ColumnsWidth => Columns.Where(c => c.Visible).Sum(c => c.Width);
+    /// <summary>Gets a value that is true when the list is inactive or dimmed.</summary>
     protected bool Disabled => !Active || Dimmed;
 
+    /// <summary>The row under the cursor, -1 for none.</summary>
     public int HoverRow = -1;
 
+    /// <inheritdoc/>
+    /// <remarks>Follows 004b36e4, which gives the scroll around the list a one pixel border in 0xf0 (0xec disabled).</remarks>
     public override void Wake()
     {
         base.Wake();
@@ -62,7 +93,8 @@ public abstract class GuiColumnList : GuiList
         }
     }
 
-    // 004d5488, 004bcefc: the list is as wide as its scroll (at least as wide as its columns) and exactly as high as the header and rows.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d5488 and 004bcefc: the list is as wide as its scroll (at least as wide as its columns) and exactly as high as the header and rows.</remarks>
     public override void PreRender()
     {
         if (Parent is not GuiScrollContent pc)
@@ -73,6 +105,9 @@ public abstract class GuiColumnList : GuiList
         H = HeaderH + RowCount * RowHeight;
     }
 
+    /// <summary>Returns the row at a local y.</summary>
+    /// <param name="ly">The local y.</param>
+    /// <returns>The row index, -1 for none.</returns>
     protected int RowAt(int ly)
     {
         int h = HeaderH;
@@ -82,6 +117,7 @@ public abstract class GuiColumnList : GuiList
         return row < RowCount ? row : -1;
     }
 
+    /// <inheritdoc/>
     public override bool MsMove(GuiEvent e)
     {
         bool r = base.MsMove(e);
@@ -90,12 +126,14 @@ public abstract class GuiColumnList : GuiList
         return r;
     }
 
+    /// <inheritdoc/>
     public override bool MsLeave(GuiEvent e)
     {
         HoverRow = -1;
         return base.MsLeave(e);
     }
 
+    /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
         if (!Active)
@@ -110,6 +148,7 @@ public abstract class GuiColumnList : GuiList
 
     // ---- drawing ----
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
@@ -134,7 +173,7 @@ public abstract class GuiColumnList : GuiList
             p.Line(gx, gy + H - 1, gx + W - 1, gy + H - 1, off ? LineOff : LineOn);
     }
 
-    // 004b3e1c. The header stays at the top of the scroll's view (x and y are the parent's origin), its columns follow the list.
+    /// <summary>Draws the header, which stays at the top of the scroll's view: x and y are the parent's origin, its columns follow the list (004b3e1c).</summary>
     private void DrawHeader(GuiPaint p, int ox, int oy, int gx, bool off)
     {
         int hh = HeaderH;
@@ -163,7 +202,14 @@ public abstract class GuiColumnList : GuiList
         p.Outline(ox, oy, pw, hh, off ? LineOff : LineOn);
     }
 
-    // 004b426c. Column cells are centred in the column less four pixels, with the text two pixels in and two up.
+    /// <summary>Draws one row (004b426c). Column cells are centred in the column less four pixels, with the text two pixels in and two up.</summary>
+    /// <param name="p">The painter.</param>
+    /// <param name="ox">The parent origin x.</param>
+    /// <param name="gx">The list left edge.</param>
+    /// <param name="y">The row top edge.</param>
+    /// <param name="row">The row index.</param>
+    /// <param name="rh">The row height.</param>
+    /// <param name="off">True when the list is disabled.</param>
     protected virtual void DrawRow(GuiPaint p, int ox, int gx, int y, int row, int rh, bool off)
     {
         bool selected = row == Selected;
@@ -193,12 +239,17 @@ public abstract class GuiColumnList : GuiList
         p.Line(ox + pw - 1, y, ox + pw - 1, y + rh - 1, line);
     }
 
-    // 004b3b54: the text of a cell (centre flag, shadow flag, extent, origin, text; the exe code is the rule for every offset). A text
-    // narrower than the extent is drawn at x = origin (+ (w - text width) / 2 when centred) and y = origin + (h - font height) / 2 - 1; the
-    // shadow font, when the flag is set and the control has one, draws the same text at (x - 1, y + 1). A text that does not fit
-    // is cut to leave room for "..." (nothing is drawn when "..." alone is wider than the extent), left aligned at y = origin +
-    // (h - font height) / 2, its shadow at (x - 1, y + 1). Halving rounds toward zero. The one pixel offsets are the exe's own
-    // arguments of the two draw calls, not a measured correction.
+    /// <summary>Draws the text of a cell (004b3b54).</summary>
+    /// <param name="p">The painter.</param>
+    /// <param name="font">The font.</param>
+    /// <param name="center">True to centre the text.</param>
+    /// <param name="shadow">True to draw the shadow font under it.</param>
+    /// <param name="w">The extent width.</param>
+    /// <param name="h">The extent height.</param>
+    /// <param name="x">The origin x.</param>
+    /// <param name="y">The origin y.</param>
+    /// <param name="text">The text.</param>
+    /// <remarks>The exe code is the rule for every offset. A text narrower than the extent is drawn at x = origin (+ (w - text width) / 2 when centred) and y = origin + (h - font height) / 2 - 1. The shadow font, when the flag is set and the control has one, draws the same text at (x - 1, y + 1). A text that does not fit is cut to leave room for "..." (nothing is drawn when "..." alone is wider than the extent), left aligned at y = origin + (h - font height) / 2, its shadow at (x - 1, y + 1). Halving rounds toward zero. The one pixel offsets are the exe's own arguments of the two draw calls.</remarks>
     protected void DrawCellText(GuiPaint p, PftFont? font, bool center, bool shadow, int w, int h, int x, int y, string text)
     {
         if (font == null)
@@ -227,13 +278,14 @@ public abstract class GuiColumnList : GuiList
         p.Text(font, x, cy, s);
     }
 
-    // The original halves with an arithmetic shift and adds one back for odd negatives: division toward zero.
+    /// <summary>Halves a value toward zero: the original halves with an arithmetic shift and adds one back for odd negatives.</summary>
+    /// <param name="v">The value.</param>
+    /// <returns>The half.</returns>
     protected static int Div2(int v) => v / 2;
 }
 
-// FearGui::MasterServerList [code 004d5d08 ctor, 004d5368 wake, 004d55e0 add, 004d5708 delete, 004d5840 select by id,
-// 004d54d0 select row]: the master servers of the Network options. Two columns of 122 pixels (Master Server, Address), rows
-// sorted by name without regard to case, the selected row in white.
+/// <summary>The master servers of the Network options (FearGui::MasterServerList): two columns of 122 pixels (Master Server, Address), rows sorted by name without regard to case, the selected row in white.</summary>
+/// <remarks>Follows ctor 004d5d08, wake 004d5368, add 004d55e0, delete 004d5708, select by id 004d5840 and select row 004d54d0.</remarks>
 public sealed class GuiMasterList : GuiColumnList
 {
     private static readonly ListColumn[] sColumns =
@@ -244,15 +296,25 @@ public sealed class GuiMasterList : GuiColumnList
 
     private readonly List<string> mAddresses = new();
 
+    /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
+    /// <inheritdoc/>
     protected override int RowCount => Entries.Count;
 
+    /// <inheritdoc/>
     protected override string? Cell(int dataIndex, int row) =>
         row >= 0 && row < Entries.Count ? dataIndex == 0 ? Entries[row].Text : dataIndex == 1 ? mAddresses[row] : null : null;
 
+    /// <summary>Returns the address of a row.</summary>
+    /// <param name="row">The row index.</param>
+    /// <returns>The address.</returns>
     public string AddressOf(int row) => mAddresses[row];
 
-    // 004d55e0: the name and address are cut to 255 characters, the list is sorted again; the selection stays at its row.
+    /// <summary>Adds a master server.</summary>
+    /// <param name="name">The name, cut to 255 characters.</param>
+    /// <param name="address">The address, cut to 255 characters.</param>
+    /// <param name="id">The id.</param>
+    /// <remarks>Follows 004d55e0: the list is sorted again, and the selection stays at its row.</remarks>
     public void AddMaster(string name, string address, int id)
     {
         if (name.Length > 255) name = name[..255];
@@ -273,6 +335,7 @@ public sealed class GuiMasterList : GuiColumnList
         Selected = selId == int.MinValue ? -1 : Entries.FindIndex(e => e.Id == selId);
     }
 
+    /// <inheritdoc/>
     public override void DeleteById(int id)
     {
         for (int i = Entries.Count - 1; i >= 0; --i)
@@ -285,6 +348,7 @@ public sealed class GuiMasterList : GuiColumnList
         }
     }
 
+    /// <inheritdoc/>
     public override void Clear()
     {
         Entries.Clear();
@@ -292,7 +356,8 @@ public sealed class GuiMasterList : GuiColumnList
         Selected = -1;
     }
 
-    // 004d54d0: a selected row sets $Server::CurrentMaster to its id and $Server::Master1 to its address.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d54d0: a selected row sets $Server::CurrentMaster to its id and $Server::Master1 to its address.</remarks>
     protected override void Selecting(int row)
     {
         if (row < 0 || row >= Entries.Count || Host == null)
@@ -302,8 +367,8 @@ public sealed class GuiMasterList : GuiColumnList
     }
 }
 
-// FearGui::FilterCtrl [code 004be06c wake]: the filter builder of the Filters options. Its header has four columns (Variable
-// 70, Condition 87, Value 67 and one of 32 without a heading) and no rows until a filter is chosen.
+/// <summary>The filter builder of the Filters options (FearGui::FilterCtrl): its header has four columns (Variable 70, Condition 87, Value 67 and one of 32 without a heading) and no rows until a filter is chosen.</summary>
+/// <remarks>Follows wake 004be06c.</remarks>
 public sealed class GuiFilterCtrl : GuiColumnList
 {
     private static readonly ListColumn[] sColumns =
@@ -311,14 +376,18 @@ public sealed class GuiFilterCtrl : GuiColumnList
         new(131600, 0, 70), new(131601, 1, 87), new(131602, 2, 67), new(-1, 3, 32),
     };
 
-    // DAT_00628370 of the original: the chosen filter (0 or less: none).
+    /// <summary>The chosen filter, 0 or less for none (DAT_00628370 of the original).</summary>
     public int ChosenFilter;
 
+    /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
+    /// <inheritdoc/>
     protected override int RowCount => 0;
+    /// <inheritdoc/>
     protected override string? Cell(int dataIndex, int row) => null;
 
-    // 004d8fe4: with no filter chosen the box around the filter list is drawn dimmed.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004d8fe4: with no filter chosen the box around the filter list is drawn dimmed.</remarks>
     public override void Wake()
     {
         base.Wake();
@@ -333,14 +402,22 @@ public sealed class GuiFilterCtrl : GuiColumnList
     }
 }
 
-// The twelve columns of the server browser and their display state [code 00627300 table, 004bcc58 load, 004bcdac save]. Each has a
-// name tag, a description tag, the position in the browser (order), whether it shows, and a width. The state lives in the
-// console variables $pref::ServerColumnDisplay0 to 11, each "order, YES|NO, width".
+/// <summary>The twelve columns of the server browser and their display state.</summary>
+/// <remarks>Follows the table 00627300, load 004bcc58 and save 004bcdac. Each column has a name tag, a description tag, the position in the browser (order), whether it shows, and a width. The state lives in the console variables $pref::ServerColumnDisplay0 to 11, each "order, YES|NO, width".</remarks>
 public sealed class ServerColumns
 {
+    /// <summary>The state of one column.</summary>
     public sealed class Entry
     {
-        public int NameTag, DescTag, Order, Width;
+        /// <summary>The tag of the column name.</summary>
+        public int NameTag;
+        /// <summary>The tag of the column description.</summary>
+        public int DescTag;
+        /// <summary>The position in the browser.</summary>
+        public int Order;
+        /// <summary>The width in pixels.</summary>
+        public int Width;
+        /// <summary>True when the column shows.</summary>
         public bool Display = true;
     }
 
@@ -352,16 +429,21 @@ public sealed class ServerColumns
         (131803, 131518, 100), (131312, 131521, 100),
     };
 
+    /// <summary>The number of columns.</summary>
     public const int Count = 12;
+    /// <summary>The columns in table order.</summary>
     public readonly Entry[] Entries = new Entry[Count];
 
+    /// <summary>Creates the default state: the table order and every column shows.</summary>
     public ServerColumns()
     {
         for (int i = 0; i < Count; ++i)
             Entries[i] = new Entry { NameTag = sTable[i].Name, DescTag = sTable[i].Desc, Order = i, Width = sTable[i].Width };
     }
 
-    // 004bcc58: a variable that is set overrides the entry; when the orders are no permutation of 0 to 11 they reset and are written back.
+    /// <summary>Loads the state from the console variables.</summary>
+    /// <param name="host">The GUI host.</param>
+    /// <remarks>Follows 004bcc58: a variable that is set overrides the entry. When the orders are no permutation of 0 to 11 they reset and are written back.</remarks>
     public void Load(GuiHost host)
     {
         for (int i = 0; i < Count; ++i)
@@ -389,6 +471,8 @@ public sealed class ServerColumns
         }
     }
 
+    /// <summary>Returns whether the orders are a permutation of 0 to 11.</summary>
+    /// <returns>True when they are.</returns>
     public bool IsPermutation()
     {
         var seen = new bool[Count];
@@ -401,6 +485,8 @@ public sealed class ServerColumns
         return true;
     }
 
+    /// <summary>Writes the state to the console variables.</summary>
+    /// <param name="host">The GUI host.</param>
     public void Save(GuiHost host)
     {
         for (int i = 0; i < Count; ++i)
@@ -408,10 +494,14 @@ public sealed class ServerColumns
                 $"{Entries[i].Order}, {(Entries[i].Display ? "YES" : "NO")}, {Entries[i].Width}");
     }
 
-    // The entry shown at a position of the options list.
+    /// <summary>Returns the entry shown at a position of the options list.</summary>
+    /// <param name="order">The position.</param>
+    /// <returns>The entry, or null.</returns>
     public Entry? AtOrder(int order) => Array.Find(Entries, e => e.Order == order);
 
-    // 004bcad4: the entry moves to the row `target`, the entries between shift one place the other way.
+    /// <summary>Moves an entry to a row; the entries between shift one place the other way (004bcad4).</summary>
+    /// <param name="e">The entry.</param>
+    /// <param name="target">The row.</param>
     public void MoveTo(Entry e, int target)
     {
         target = Math.Clamp(target, 0, Count - 1);
@@ -431,21 +521,25 @@ public sealed class ServerColumns
     }
 }
 
-// FearGui::ColumnListCtrl [code 004bd678 ctor, 004bce4c wake, 004bcf44 row, 004bc9a4 down, 004bcad4 drag, 004bcc28 up]: the Columns
-// options. Three columns (NAME 70, DESCRIPTION 161, DISP 36), one row per browser column in browser order. A press on a name
-// picks the row up (white) and dragging moves it, a press in DISP toggles YES and NO; the release writes the preferences.
+/// <summary>The Columns options list (FearGui::ColumnListCtrl): three columns (NAME 70, DESCRIPTION 161, DISP 36), one row per browser column in browser order.</summary>
+/// <remarks>Follows ctor 004bd678, wake 004bce4c, row 004bcf44, down 004bc9a4, drag 004bcad4 and up 004bcc28. A press on a name picks the row up (white) and dragging moves it, a press in DISP toggles YES and NO. The release writes the preferences.</remarks>
 public sealed class GuiOptionColumns : GuiColumnList
 {
     private static readonly ListColumn[] sColumns = { new(131501, 0, 70), new(131502, 1, 161), new(131503, 2, 36) };
 
+    /// <summary>The state of the columns.</summary>
     public readonly ServerColumns Data = new();
     private ServerColumns.Entry? mDrag, mToggle;
     private int mDragRow = -1;
 
+    /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => sColumns;
+    /// <inheritdoc/>
     protected override int RowCount => ServerColumns.Count;
+    /// <inheritdoc/>
     protected override int RowLine(bool disabled) => 0xf8;
 
+    /// <inheritdoc/>
     protected override string? Cell(int dataIndex, int row)
     {
         ServerColumns.Entry? e = Data.AtOrder(row);
@@ -459,6 +553,7 @@ public sealed class GuiOptionColumns : GuiColumnList
         };
     }
 
+    /// <inheritdoc/>
     public override void Wake()
     {
         base.Wake();
@@ -466,6 +561,7 @@ public sealed class GuiOptionColumns : GuiColumnList
             Data.Load(Host);
     }
 
+    /// <inheritdoc/>
     protected override void DrawRow(GuiPaint p, int ox, int gx, int y, int row, int rh, bool off)
     {
         ServerColumns.Entry? e = Data.AtOrder(row);
@@ -493,6 +589,7 @@ public sealed class GuiOptionColumns : GuiColumnList
         p.Line(ox + pw - 1, y, ox + pw - 1, y + rh - 1, line);
     }
 
+    /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
         if (!Active)
@@ -518,6 +615,7 @@ public sealed class GuiOptionColumns : GuiColumnList
         return r;
     }
 
+    /// <inheritdoc/>
     public override bool MsDrag(GuiEvent e)
     {
         if (mDrag != null)
@@ -534,6 +632,7 @@ public sealed class GuiOptionColumns : GuiColumnList
         return base.MsDrag(e);
     }
 
+    /// <inheritdoc/>
     public override bool MsUp(GuiEvent e)
     {
         if (Host != null)
@@ -544,29 +643,62 @@ public sealed class GuiOptionColumns : GuiColumnList
     }
 }
 
-// FearGui::ServerListCtrl [code 004c4b84 ctor, 004c7b98 wake, 004c7080 open]: the server browser of the join screen. Its columns are the
-// server column options (ServerColumns): the entries with Display set, in order. The rows are the servers the client knows
-// (config\GameServerList.cs and the answers of the query, ServerQuery); the cells follow the cell query 004c8278.
+/// <summary>The server browser of the join screen (FearGui::ServerListCtrl).</summary>
+/// <remarks>Follows ctor 004c4b84, wake 004c7b98 and open 004c7080. Its columns are the server column options (<see cref="ServerColumns"/>): the entries with Display set, in order. The rows are the servers the client knows (config\GameServerList.cs and the answers of the query, ServerQuery). The cells follow the cell query 004c8278.</remarks>
 public sealed class GuiServerList : GuiColumnList
 {
-    // One record of the browser [0x458 bytes in the exe; the offsets are of that record]. State +0x240: 0 info received, 1 pinged,
-    // 2 being queried, 3 unknown, 4 timed out.
+    /// <summary>One record of the browser.</summary>
+    /// <remarks>The exe record is 0x458 bytes, and the offsets in the member docs are of that record. State +0x240: 0 info received, 1 pinged, 2 being queried, 3 unknown, 4 timed out.</remarks>
     public sealed class Server
     {
+        /// <summary>The row id.</summary>
         public int Id;
-        public string Name, Address, Version;
+        /// <summary>The server name.</summary>
+        public string Name;
+        /// <summary>The server address.</summary>
+        public string Address;
+        /// <summary>The game version.</summary>
+        public string Version;
+        /// <summary>The ping in milliseconds.</summary>
         public int Ping;
-        // +0x241 favorite (the star, kept through failed queries, saved), +0x244 never ping (the broadcast and master replies for it are
-        // ignored, 004c525c; the row shows the I_Timeout icon, 004c8278 column 0).
-        public bool Favorite, NeverPing;
+        /// <summary>True for a favorite (+0x241): the star, kept through failed queries and saved.</summary>
+        public bool Favorite;
+        /// <summary>True when the row is never pinged (+0x244): the broadcast and master replies for it are ignored (004c525c) and the row shows the I_Timeout icon (004c8278 column 0).</summary>
+        public bool NeverPing;
+        /// <summary>The query state, one of the State constants.</summary>
         public int State = 3;
-        public int Players, MaxPlayers, Cpu;
-        public bool Password, Dedicated;
-        public string Mission = "", MissionType = "", ModList = "", Info = "";
-        // The score table of the info reply (0042c4cc): the two headings and the rows (ServerInfoCtrl).
-        public string TeamHeading = "", ClientHeading = "";
+        /// <summary>The player count.</summary>
+        public int Players;
+        /// <summary>The player limit.</summary>
+        public int MaxPlayers;
+        /// <summary>The cpu speed.</summary>
+        public int Cpu;
+        /// <summary>True when the server has a password.</summary>
+        public bool Password;
+        /// <summary>True when the server is dedicated.</summary>
+        public bool Dedicated;
+        /// <summary>The mission name.</summary>
+        public string Mission = "";
+        /// <summary>The mission type.</summary>
+        public string MissionType = "";
+        /// <summary>The mod list.</summary>
+        public string ModList = "";
+        /// <summary>The info text.</summary>
+        public string Info = "";
+        /// <summary>The team heading of the score table of the info reply (0042c4cc).</summary>
+        public string TeamHeading = "";
+        /// <summary>The player heading of the score table.</summary>
+        public string ClientHeading = "";
+        /// <summary>The rows of the score table (ServerInfoCtrl).</summary>
         public IReadOnlyList<string> Rows = Array.Empty<string>();
 
+        /// <summary>Creates a record.</summary>
+        /// <param name="id">The row id.</param>
+        /// <param name="name">The name.</param>
+        /// <param name="address">The address.</param>
+        /// <param name="version">The version.</param>
+        /// <param name="ping">The ping.</param>
+        /// <param name="favorite">True for a favorite.</param>
         public Server(int id, string name, string address, string version, int ping, bool favorite)
         {
             Id = id;
@@ -578,27 +710,44 @@ public sealed class GuiServerList : GuiColumnList
         }
     }
 
-    public const int StateInfo = 0, StatePinged = 1, StateQuerying = 2, StateUnknown = 3, StateTimeout = 4;
+    /// <summary>State: info received.</summary>
+    public const int StateInfo = 0;
+    /// <summary>State: pinged.</summary>
+    public const int StatePinged = 1;
+    /// <summary>State: being queried.</summary>
+    public const int StateQuerying = 2;
+    /// <summary>State: unknown.</summary>
+    public const int StateUnknown = 3;
+    /// <summary>State: timed out.</summary>
+    public const int StateTimeout = 4;
 
     // The widths of the browser's column records [table at 00628cf4]; the third number of the preference is not the width.
     private static readonly int[] sWidths = { 52, 52, 54, 105, 43, 90, 90, 59, 33, 102, 100, 90 };
 
+    /// <summary>The state of the browser columns.</summary>
     public readonly ServerColumns Data = new();
     private readonly List<Server> mServers = new();
     private List<ListColumn> mColumns = new();
 
-    // +0x3b0: rows that failed stay in the list (the stock refresh of visible servers and the cancel set it).
+    /// <summary>True when rows that failed stay in the list (+0x3b0). The stock refresh of visible servers and the cancel set it.</summary>
     public bool KeepFailed;
-    // +0x3b1: a REFRESH ALL has run since the list woke; +0x3b2: the favorites that did not answer are asked directly when it ends.
-    public bool RefreshedAll, Requery;
-    // pref::ConnectionGoodPing and PoorPing: the ping icon (004c8278 column 1; the exe defaults are 200 and 350).
-    public int GoodPing = 200, PoorPing = 350;
+    /// <summary>True when a REFRESH ALL has run since the list woke (+0x3b1).</summary>
+    public bool RefreshedAll;
+    /// <summary>True when the favorites that did not answer are asked directly when the search ends (+0x3b2).</summary>
+    public bool Requery;
+    /// <summary>The ping below which the ping icon is green (pref::ConnectionGoodPing; the exe default is 200).</summary>
+    public int GoodPing = 200;
+    /// <summary>The ping below which the ping icon is yellow (pref::ConnectionPoorPing; the exe default is 350).</summary>
+    public int PoorPing = 350;
 
+    /// <inheritdoc/>
     protected override IReadOnlyList<ListColumn> Columns => mColumns;
+    /// <inheritdoc/>
     protected override int RowCount => mServers.Count;
+    /// <summary>Gets the known servers.</summary>
     public IReadOnlyList<Server> Servers => mServers;
 
-    // 004c774c (REFRESH ALL): every known row has no answer yet and failures drop rows again.
+    /// <summary>Marks every row as not answered yet and makes failures drop rows again (REFRESH ALL, 004c774c).</summary>
     public void MarkAllUnknown()
     {
         foreach (Server s in mServers)
@@ -611,7 +760,7 @@ public sealed class GuiServerList : GuiColumnList
         Requery = true;
     }
 
-    // 004c6f..4c702e (the list's wake, last statements): rows that fail stay, nothing is re-asked, no refresh has run.
+    /// <summary>Resets the search flags: rows that fail stay, nothing is re-asked and no refresh has run (the last statements of the list's wake, 004c6f..4c702e).</summary>
     public void ResetSearchFlags()
     {
         KeepFailed = true;
@@ -619,9 +768,10 @@ public sealed class GuiServerList : GuiColumnList
         RefreshedAll = false;
     }
 
-    // 004c7820 (the search ended; masterError is the delegate's +0x60): the rows that did not answer (unknown or being queried) are
-    // dropped unless they are favorites, never-ping rows or the failures are kept; a favorite (or any row after a master error) is
-    // asked directly when REFRESH ALL asked for it. Returns the rows to ask. The selection follows its row by address.
+    /// <summary>Ends a search (004c7820).</summary>
+    /// <param name="masterError">True after a master error (the delegate's +0x60).</param>
+    /// <returns>The rows to ask directly.</returns>
+    /// <remarks>The rows that did not answer (unknown or being queried) are dropped unless they are favorites, never-ping rows or the failures are kept. A favorite (or any row after a master error) is asked directly when REFRESH ALL asked for it. The selection follows its row by address.</remarks>
     public List<Server> EndSearch(bool masterError)
     {
         KeepFailed = masterError;
@@ -650,9 +800,11 @@ public sealed class GuiServerList : GuiColumnList
         return ask;
     }
 
-    // 004c5320 (the console command addGameServer, argv[0] is the command name): a row of GameServerList.cs. The short form has
-    // address, name, version, ping and favorite; a 7 argument form adds never ping, an 11 argument form adds the mod, mission,
-    // mission type, cpu and never ping (the file 004c4e2c writes). Null when the first five are not all given.
+    /// <summary>Parses the arguments of the console command addGameServer (004c5320) into a row.</summary>
+    /// <param name="id">The row id.</param>
+    /// <param name="a">The arguments, with the command name first.</param>
+    /// <returns>The row, null when the first five are not all given.</returns>
+    /// <remarks>The short form has address, name, version, ping and favorite. A 7 argument form adds never ping, an 11 argument form adds the mod, mission, mission type, cpu and never ping (the file 004c4e2c writes).</remarks>
     public static Server? ParseScriptRow(int id, IReadOnlyList<string> a)
     {
         if (a.Count < 6 || a[1].Length == 0 || a[2].Length == 0 || a[3].Length == 0 || a[4].Length == 0 || a[5].Length == 0)
@@ -672,7 +824,8 @@ public sealed class GuiServerList : GuiColumnList
         return s;
     }
 
-    // 004c4e2c: the text of config\GameServerList.cs, one addGameServer line per row.
+    /// <summary>Builds the text of config\GameServerList.cs, one addGameServer line per row (004c4e2c).</summary>
+    /// <returns>The file text.</returns>
     public string BuildServerFile()
     {
         var sb = new System.Text.StringBuilder();
@@ -686,20 +839,26 @@ public sealed class GuiServerList : GuiColumnList
         return sb.ToString();
     }
 
-    // 004c51f0 / 004c52b4: the flags of the row with this address (ignoring case).
+    /// <summary>Sets the favorite flag of the row with an address, ignoring case (004c51f0).</summary>
+    /// <param name="address">The address.</param>
+    /// <param name="on">The new state.</param>
     public void SetFavorite(string address, bool on)
     {
         if (Find(address) is { } s)
             s.Favorite = on;
     }
 
+    /// <summary>Sets the never ping flag of the row with an address, ignoring case (004c52b4).</summary>
+    /// <param name="address">The address.</param>
+    /// <param name="on">The new state.</param>
     public void SetNeverPing(string address, bool on)
     {
         if (Find(address) is { } s)
             s.NeverPing = on;
     }
 
-    // 004c6888: the hand over the rows and the header; the horizontal adjust cursor on a column border of the header.
+    /// <inheritdoc/>
+    /// <remarks>Follows 004c6888: the hand over the rows and the header, the horizontal adjust cursor on a column border of the header.</remarks>
     public override uint CursorTagAt(int lx, int ly)
     {
         int y = Y + ly;
@@ -719,11 +878,11 @@ public sealed class GuiServerList : GuiColumnList
         return CursorHAdjust;
     }
 
-    // 004c6940: after 500 ms the header shows the description tag of the column under the cursor (a column border shows none).
-    // The tags are the IDHELP_SERVER_* entries (220603 favorite, 220604 connection, 220605 status, 220606 name, 220608 ping, 220614 mission type, 220607 mission,
-    // 220609 players, 220610 cpu, 220611 address, 220612 version, 220613 mod).
+    /// <summary>The help tags of the columns, the IDHELP_SERVER_* entries: 220603 favorite, 220604 connection, 220605 status, 220606 name, 220608 ping, 220614 mission type, 220607 mission, 220609 players, 220610 cpu, 220611 address, 220612 version, 220613 mod.</summary>
     private static readonly uint[] sHelp = { 220603, 220604, 220605, 220606, 220608, 220614, 220607, 220609, 220610, 220611, 220612, 220613 };
 
+    /// <inheritdoc/>
+    /// <remarks>Follows 004c6940: after 500 ms the header shows the description tag of the column under the cursor (a column border shows none).</remarks>
     public override uint HelpTagAt(int lx, int ly, long ms)
     {
         int y = Y + ly;
@@ -743,15 +902,22 @@ public sealed class GuiServerList : GuiColumnList
         return 0;
     }
 
+    /// <summary>Finds a row by address, ignoring case.</summary>
+    /// <param name="address">The address.</param>
+    /// <returns>The row, or null.</returns>
     public Server? Find(string address) => mServers.Find(s => string.Equals(s.Address, address, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>Adds a server row.</summary>
+    /// <param name="s">The row.</param>
     public void AddServer(Server s)
     {
         mServers.Add(s);
         AddEntry(s.Name, s.Id);
     }
 
-    // 004c5320: a row for an address already listed takes the new fields in place.
+    /// <summary>Replaces a row for an address already listed: it takes the new fields in place (004c5320).</summary>
+    /// <param name="old">The listed row.</param>
+    /// <param name="row">The new row.</param>
     public void ReplaceServer(Server old, Server row)
     {
         int i = mServers.IndexOf(old);
@@ -762,6 +928,8 @@ public sealed class GuiServerList : GuiColumnList
             Entries[i] = (row.Name, row.Id);
     }
 
+    /// <summary>Removes a server row.</summary>
+    /// <param name="s">The row.</param>
     public void RemoveServer(Server s)
     {
         int i = mServers.IndexOf(s);
@@ -776,12 +944,14 @@ public sealed class GuiServerList : GuiColumnList
             --Selected;
     }
 
+    /// <inheritdoc/>
     public override void Clear()
     {
         base.Clear();
         mServers.Clear();
     }
 
+    /// <inheritdoc/>
     public override void Wake()
     {
         base.Wake();
@@ -796,15 +966,15 @@ public sealed class GuiServerList : GuiColumnList
 
     private static int ParsePref(string v, int d) => int.TryParse(v, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n : d;
 
-    // The visible columns in browser order; the data index is the entry index (0 favorites .. 11 server type).
+    /// <summary>Builds the visible columns in browser order. The data index is the entry index (0 favorites to 11 server type).</summary>
     private void Rebuild()
     {
         mColumns = Data.Entries.Select((e, i) => (e, i)).OrderBy(t => t.e.Order)
             .Select(t => new ListColumn(t.e.NameTag, t.i, sWidths[t.i], t.e.Display)).ToList();
     }
 
-    // 004c8278: the cell text of a column. The numbers use "%d", the players "%d / %d", an empty mission or a cpu speed of zero
-    // shows N/A. Columns 0 to 2 are icons (DrawIcons).
+    /// <inheritdoc/>
+    /// <remarks>Follows 004c8278: the numbers use "%d", the players "%d / %d", an empty mission or a cpu speed of zero shows N/A. Columns 0 to 2 are icons (<see cref="DrawIcons"/>).</remarks>
     protected override string? Cell(int dataIndex, int row)
     {
         if (row < 0 || row >= mServers.Count)
@@ -826,8 +996,8 @@ public sealed class GuiServerList : GuiColumnList
         };
     }
 
-    // 004c8278 columns 0 to 2: bitmaps (I_Favorite, I_PingGreen/Yellow/Red, I_Locked, I_Dedicated, I_Unknown, I_Pinging, I_Querying,
-    // I_Timeout) five pixels into the cell and centred on the row height (plus one).
+    /// <inheritdoc/>
+    /// <remarks>Follows 004c8278 columns 0 to 2: bitmaps (I_Favorite, I_PingGreen/Yellow/Red, I_Locked, I_Dedicated, I_Unknown, I_Pinging, I_Querying, I_Timeout) five pixels into the cell and centred on the row height (plus one).</remarks>
     protected override bool DrawIcons(GuiPaint p, int dataIndex, int row, int x, int y, int rh)
     {
         if (dataIndex > 2 || Host == null)

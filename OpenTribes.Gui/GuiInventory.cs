@@ -1,39 +1,67 @@
-// FearGuiInventory (the items the player carries) and FearGuiPurchase (the items a station sells) of CmdInventory.gui
-// [code 0048afcc and 0048b05c rebuild the rows, 0048a700 inserts a row, 0048ac04 draws one, 0048aaa4 selects].
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
+/// <summary>The inventory and purchase lists of CmdInventory.gui: FearGuiInventory (the items the player carries) and FearGuiPurchase (the items a station sells).</summary>
+/// <remarks>Follows the stock row rebuild (0048afcc, 0048b05c), row insert (0048a700), row draw (0048ac04) and select (0048aaa4).</remarks>
 public sealed class GuiInventoryList : GuiList
 {
-    // The two lists differ in the filter and in the number at the right: the carried count or the price.
+    /// <summary>The list kind: false lists the carried items with their count, true lists the items for sale with their price.</summary>
     public bool Purchase;
 
-    // Both classes answer no to the tab stop query (0048a6c4) and to the gain-focus query (responder slot 0x40, 0048a6c0): the list never
-    // holds the keyboard, so the inventory key reaches the action maps while the screen is up.
+    /// <summary>Gets a value that is always false: both classes answer no to the tab stop query (0048a6c4), so the inventory key reaches the action maps while the screen is up.</summary>
     public override bool WantsTab => false;
+    /// <summary>Gets a value that is always false: both classes answer no to the gain-focus query (responder slot 0x40, 0048a6c0), so the list never holds the keyboard.</summary>
     public override bool CanTake() => false;
 
-    // The font tags of the engine: normal 150114, selected 150164, disabled 150134, highlight 150124 [code 0048aea0].
-    public const uint NormalFontTag = 150114, SelectedFontTag = 150164, DisabledFontTag = 150134;
-    public const int Padding = 6, CellWidth = 300, TextY = 1, TextX = 15, ValueX = 0x9e, StarX = 3, HeaderColor = 0xf0;
+    /// <summary>The font tag of a normal row (150114, 0048aea0).</summary>
+    public const uint NormalFontTag = 150114;
+    /// <summary>The font tag of the selected row (150164).</summary>
+    public const uint SelectedFontTag = 150164;
+    /// <summary>The font tag of a disabled row (150134).</summary>
+    public const uint DisabledFontTag = 150134;
+    /// <summary>The padding added to the font height for the cell height.</summary>
+    public const int Padding = 6;
+    /// <summary>The width of a header outline.</summary>
+    public const int CellWidth = 300;
+    /// <summary>The y offset of a row's text.</summary>
+    public const int TextY = 1;
+    /// <summary>The x offset of an item's text.</summary>
+    public const int TextX = 15;
+    /// <summary>The x offset of the count or price.</summary>
+    public const int ValueX = 0x9e;
+    /// <summary>The x offset of the favorite star.</summary>
+    public const int StarX = 3;
+    /// <summary>The palette index of a header outline.</summary>
+    public const int HeaderColor = 0xf0;
 
-    // A row: a header (no item text) or an item. The first character of the heading is the sort key and is not shown.
+    /// <summary>A row: a header (no item text) or an item.</summary>
+    /// <param name="Heading">The heading. Its first character is the sort key and is not shown.</param>
+    /// <param name="Text">The item text, empty for a header.</param>
+    /// <param name="Value">The carried count or the price.</param>
+    /// <param name="Item">The item index, -1 for a header.</param>
+    /// <param name="Enabled">True when the row can be selected.</param>
     public readonly record struct Row(string Heading, string Text, int Value, int Item, bool Enabled)
     {
+        /// <summary>Gets a value that is true for a header row.</summary>
         public bool IsHeader => Text.Length == 0;
     }
 
+    /// <summary>The rows shown, rebuilt before each render.</summary>
     public readonly List<Row> Rows = new();
+    /// <summary>The item index of the selected row, -1 for none.</summary>
     public int SelectedItem = -1;
 
     private PftFont? NormalFont => Host?.FontByTag(NormalFontTag) ?? Host?.FontByName("sf_white_10.pft");
+    /// <summary>Gets the pixel height of one row.</summary>
     public int CellHeight => GuiPaint.FontHeight(NormalFont) + Padding;
     private static bool IsActiveRow(Row r) => !r.IsHeader && r.Enabled;
 
-    // Rows from the entries: the inventory list takes the carried items, the purchase list the ones in the shopping mask (enabled
-    // when also in the buying mask). A heading that is new inserts a header row in front of its first item.
+    /// <summary>Builds the rows from the entries.</summary>
+    /// <param name="items">The inventory entries.</param>
+    /// <param name="purchase">True to list the items for sale, false for the carried items.</param>
+    /// <returns>The rows. The purchase list takes the items in the shopping mask, enabled when also in the buying mask. A new heading inserts a header row in front of its first item.</returns>
     public static List<Row> Build(IEnumerable<InventoryEntry> items, bool purchase)
     {
         var rows = new List<Row>();
@@ -56,6 +84,7 @@ public sealed class GuiInventoryList : GuiList
         return rows;
     }
 
+    /// <inheritdoc/>
     public override void PreRender()
     {
         Rows.Clear();
@@ -70,17 +99,24 @@ public sealed class GuiInventoryList : GuiList
             H = h;
     }
 
-    // Control::getValue answers the item index of the selected row, -1 without one.
+    /// <summary>Returns the item index of the selected row (Control::getValue), -1 without one.</summary>
+    /// <returns>The item index as text.</returns>
     public override string GetValue() => SelectedItem.ToString(CultureInfo.InvariantCulture);
 
+    /// <inheritdoc/>
     protected override void ApplyValue(string v)
     {
         if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i))
             SelectedItem = i;
     }
 
+    /// <summary>Lists the item indices of the item rows.</summary>
+    /// <returns>The indices separated by spaces.</returns>
     public string VisibleSet() => string.Join(" ", Rows.Where(r => !r.IsHeader).Select(r => r.Item.ToString(CultureInfo.InvariantCulture)));
 
+    /// <summary>Selects a row and calls the `onSelect` handler of the control, and `onDoubleClick` for a double click.</summary>
+    /// <param name="row">The row index. A row that does not exist, or a header or disabled row, clears the selection.</param>
+    /// <param name="doubleClick">True for a double click.</param>
     public void SelectRow(int row, bool doubleClick)
     {
         if (row < 0 || row >= Rows.Count || !IsActiveRow(Rows[row]))
@@ -98,6 +134,7 @@ public sealed class GuiInventoryList : GuiList
         PostMessage();
     }
 
+    /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
         bool r = base.MsDown(e);
@@ -107,8 +144,10 @@ public sealed class GuiInventoryList : GuiList
         return r;
     }
 
+    /// <inheritdoc/>
     public override bool KeyDown(GuiEvent e) => base.KeyDown(e);
 
+    /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
@@ -128,12 +167,8 @@ public sealed class GuiInventoryList : GuiList
             Row row = Rows[i];
             if (row.IsHeader)
             {
-                // The outline of the cell (300 wide, one pixel left of the control, so its left and right edges lie outside the extent):
-                // only the top and bottom edges show. The routine names the rectangle (x - 1, y) to (x + 299, y + cell height - 1)
-                // in colour 0xf0 and draws a row's text at (x + 15, y) [code 0048ac04]; the cell origin is the list origin plus
-                // row x cell height [code 0053ccd8]. Stock frames show the edges and the text one pixel lower than that
-                // rectangle, which no instruction of the routine accounts for: the difference sits in the origin of the list inside
-                // its scroll, so it stays here as the one row offset (TextY, +1 on the edges) until that origin is traced.
+                // The cell is 300 wide and starts one pixel left of the control, so only its top and bottom edges show (0048ac04, cell origin 0053ccd8).
+                // TextY is the one row offset the stock frames need: no instruction of the routine accounts for it.
                 p.Fill(gx, y + 1, CellWidth, 1, HeaderColor);
                 p.Fill(gx, y + rh, CellWidth, 1, HeaderColor);
                 p.Text(selected, gx + 2, y + TextY, row.Heading.Length > 1 ? row.Heading[1..] : "");
