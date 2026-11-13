@@ -472,6 +472,24 @@ public class ContainerTests
         }
     }
 
+    // 004804bc / 0047f794: the image of an interior reached through a link record of a neighbour carries the link flag (+0x418 bit 2),
+    // the one the camera's own interior and a plain container hit do not.
+    [Fact]
+    public void ViaLinkIsReportedOnlyForTheLinkedNeighbour()
+    {
+        Start();
+        InteriorGeometry g = TestGeometry(0, 0x10)!;
+        g.LinkedInterior = true;
+        var f = new LinkFixture(g, g);
+        var via = new List<object>();
+        f.Q.OnViaLink = o => via.Add(o);
+        f.Scope(new Vec3(35, 50, 25));
+        Assert.Equal(new object[] { f.Ib }, via);
+        via.Clear();
+        f.Scope(new Vec3(80, 80, 20)); // outside both: no link walked
+        Assert.Empty(via);
+    }
+
     [Fact]
     public void LinkScope()
     {

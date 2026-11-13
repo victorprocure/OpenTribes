@@ -50,8 +50,8 @@ public class InteriorLightStateTests
         var geo = new InteriorGeometryData { Box = new float[] { -2, -2, -2, 2, 2, 2 } };
         geo.Point3 = new float[] { -2, -2, -2, 2, -2, -2, 2, -2, 2, -2, -2, 2 };
         geo.Point2 = new float[] { 0, 1, 1, 1, 1, 0, 0, 0 };
-        geo.VertexPoint3 = new ushort[] { 0, 1, 2, 3 };
-        geo.VertexPoint2 = new ushort[] { 0, 1, 2, 3 };
+        geo.VertexPoint3 = new ushort[] { 0, 3, 2, 1 }; // clockwise seen from the front side, as the stock surfaces
+        geo.VertexPoint2 = new ushort[] { 0, 3, 2, 1 };
         geo.Planes = new float[] { 0, -1, 0, -2 };
         geo.Surfaces = new[]
         {

@@ -86,6 +86,9 @@ public sealed class Container
         public float VisibleDistance;
         public Func<object?, bool> Markable = _ => false;
         public Action<object?> Mark = _ => { };
+        // Called with the object of an interior that the walk reaches through a link record (InteriorShape +0x418 = 2), at the point
+        // where the stock walk builds its render image (0047f794 copies bit 2 to the image link flag, 004804bc).
+        public Action<object>? OnViaLink;
     }
 
     private enum Kind { None, Vector, Slots }
@@ -941,11 +944,11 @@ public sealed class Container
     // container of the point (database +0x18) first and returns 0, before the terrain query and before the rest of the database, when
     // it returns 0. Same walk and result as `Scope` for a camera point; no object is marked. False: the terrain is not drawn
     // (Tribes.exe 1.11, a camera in a container interior whose leaf sees no outside).
-    public bool RenderReaches(Vec3 point)
+    public bool RenderReaches(Vec3 point, Action<object>? onViaLink = null)
     {
         if (mTag == 0)
             ++mTag; // the interior visit tag (+0x420) starts at 0 and skips the first query
-        var q = new ScopeQuery { Point = point, VisibleDistance = float.MaxValue };
+        var q = new ScopeQuery { Point = point, VisibleDistance = float.MaxValue, OnViaLink = onViaLink };
         var stack = new List<bool> { true };
         bool reached = ScopeContainer(mRoot, q, stack);
         ++mTag;
@@ -1023,6 +1026,8 @@ public sealed class Container
             if (s != null && s.Tag != mTag && !ScopeNode(s, q, stack))
                 return false;
         }
+        if (c.ViaLink && c.E.Object != null)
+            q.OnViaLink?.Invoke(c.E.Object);
         if (c.E.Object != null && q.Markable(c.E.Object))
             q.Mark(c.E.Object);
         stack.Add(false);

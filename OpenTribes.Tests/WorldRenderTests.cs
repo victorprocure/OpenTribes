@@ -494,6 +494,33 @@ public class WorldRenderTests
     // ---- WR 3 interiors ----
 
     [Fact]
+    public void DetailIsForcedFullInsideOrWhenLinkFlagged() // 00480be4, ITRInstance_changeDetail(0)
+    {
+        Assert.Equal(0, InteriorRenderer.ChooseDetail(true, false, true, 2, 1));
+        Assert.Equal(0, InteriorRenderer.ChooseDetail(false, true, true, 2, 1));
+        Assert.Equal(1, InteriorRenderer.ChooseDetail(false, false, true, 2, 1));
+    }
+
+    [Fact]
+    public void DetailKeepsThePreviousLevelWhenTheDataIsMissing() // ITRInstance_updateDetail 00556fa4
+    {
+        Assert.Equal(2, InteriorRenderer.ChooseDetail(false, false, false, 2, 1));
+        Assert.Equal(0, InteriorRenderer.ChooseDetail(false, true, false, 2, 1)); // the link flag wins, no updateDetail
+    }
+
+    [Fact]
+    public void InteriorCullDropsCounterClockwiseTrianglesOnly() // renderer.md 5.6 point 4, beginScene3d 005daa30
+    {
+        // Stock surfaces run clockwise seen from their front side (+Y forward, +X right, +Z up, camera at the origin looking along +Y).
+        var a = new Vertex3D(-1, 10, -1, 0, 0, 0, 0, 0);
+        var b = new Vertex3D(-1, 10, 1, 0, 0, 0, 0, 0);
+        var c = new Vertex3D(1, 10, 1, 0, 0, 0, 0, 0);
+        Assert.False(InteriorRenderer.BackFacing(a, b, c, 0, 0, 0)); // a -> b -> c is clockwise seen from the camera
+        Assert.True(InteriorRenderer.BackFacing(c, b, a, 0, 0, 0));  // reversed: seen from behind
+        Assert.True(InteriorRenderer.BackFacing(a, b, c, 0, 20, 0)); // the same triangle from the far side
+    }
+
+    [Fact]
     public void LodIsTheFirstWhoseMinPixelsIsBelowTheProjectedSize() // WR 3.2
     {
         var mins = new[] { 500, 100, 0 };
@@ -733,8 +760,8 @@ public class WorldRenderTests
         var geo = new InteriorGeometryData { Box = new float[] { -2, -2, -2, 2, 2, 2 } };
         geo.Point3 = new float[] { -2, -2, -2, 2, -2, -2, 2, -2, 2, -2, -2, 2 };
         geo.Point2 = new float[] { 0, 1, 1, 1, 1, 0, 0, 0 };
-        geo.VertexPoint3 = new ushort[] { 0, 1, 2, 3 };
-        geo.VertexPoint2 = new ushort[] { 0, 1, 2, 3 };
+        geo.VertexPoint3 = new ushort[] { 0, 3, 2, 1 }; // clockwise seen from the front side, as the stock surfaces
+        geo.VertexPoint2 = new ushort[] { 0, 3, 2, 1 };
         geo.Planes = new float[] { 0, -1, 0, -2 }; // n . p + d > 0 for y < -2: the camera side is the front
         geo.Surfaces = new[]
         {
