@@ -1,81 +1,137 @@
-// docs/gui.md 2.1, 2.2, 2.6 to 2.9: the canvas. Content control and dialog stack, delegates, first responder, tab list,
-// mouse lock and hover, cursor, key and mouse repeat, input routing and the per-frame steps.
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Gui;
 
-// docs/gui.md 2.7: a device event as the input manager delivers it (device byte +0x28 and the fields behind it).
+/// <summary>A device event as the input manager delivers it (docs/gui.md 2.7): the device byte +0x28 and the fields behind it.</summary>
 public struct RawInput
 {
-    public const byte DevMouse = 2, DevKeyboard = 3, DevWinMouse = 0x10;
-    public const byte ObjButton = 2, ObjXAxis = 0x0b, ObjYAxis = 0x0c;
-    public byte Device, ObjType, Index, Action; // Action: 1 make, 0 break
+    /// <summary>The device byte of the mouse.</summary>
+    public const byte DevMouse = 2;
+    /// <summary>The device byte of the keyboard.</summary>
+    public const byte DevKeyboard = 3;
+    /// <summary>The device byte of the windows mouse.</summary>
+    public const byte DevWinMouse = 0x10;
+    /// <summary>The object type of a button.</summary>
+    public const byte ObjButton = 2;
+    /// <summary>The object type of the x axis.</summary>
+    public const byte ObjXAxis = 0x0b;
+    /// <summary>The object type of the y axis.</summary>
+    public const byte ObjYAxis = 0x0c;
+    /// <summary>The device byte.</summary>
+    public byte Device;
+    /// <summary>The object type.</summary>
+    public byte ObjType;
+    /// <summary>The object index: the button or key scan code.</summary>
+    public byte Index;
+    /// <summary>The action: 1 make, 0 break.</summary>
+    public byte Action;
+    /// <summary>The character of a key press.</summary>
     public char Ascii;
+    /// <summary>The modifier bits.</summary>
     public byte Mod;
+    /// <summary>The axis movement.</summary>
     public float Value;
 }
 
+/// <summary>The responder a canvas puts below the content control of a screen: it forwards to the canvas root and calls the screen's hooks.</summary>
 public sealed class GuiDelegate : IGuiResponder
 {
+    /// <summary>The delegate name, the file name of its screen.</summary>
     public string Name = "";
+    /// <summary>The class name.</summary>
     public string ClassName = "";
+    /// <summary>The canvas the delegate is installed on.</summary>
     public GuiCanvas? Canvas;
-    // Slot 0x70: a dialog is about to pop with this message; -1 keeps it open.
+    /// <summary>Called when a dialog is about to pop with a message (slot 0x70). Returns -1 to keep it open.</summary>
     public Func<GuiControl, int, int>? OnPop;
+    /// <summary>Called once per frame.</summary>
     public Action? OnFrame;
-    // 004d749c and its siblings: the screen's delegate installs a help pop-up (FGHelpCtrl) on its content.
+    /// <summary>True when the screen's delegate installs a help pop-up (FGHelpCtrl) on its content (004d749c and its siblings).</summary>
     public bool HelpPopups;
-    // Slot 0x64: the canvas installed this delegate for a new content control.
+    /// <summary>Called when the canvas installed this delegate for a new content control (slot 0x64).</summary>
     public Action? OnOpen;
-    // Slot 0x64 with the new content control (the main menu sets its version text, 004dbc00).
+    /// <summary>Called with the new content control when it is installed (slot 0x64). The main menu sets its version text there (004dbc00).</summary>
     public Action<GuiControl>? OnOpenContent;
-    // Runs once the new content has been woken (the Connect screen activates the radio of the game mode, 004dbea8).
+    /// <summary>Called once the new content has been woken. The Connect screen activates the radio of the game mode there (004dbea8).</summary>
     public Action<GuiControl>? OnContentReady;
-    // Slot 0x60: the canvas is removing the delegate's content (JoinGame saves its server list there, 004d7630).
+    /// <summary>Called when the canvas is removing the delegate's content (slot 0x60). JoinGame saves its server list there (004d7630).</summary>
     public Action<GuiControl>? OnRemove;
     private IGuiResponder? Up => Canvas?.Root;
+    /// <inheritdoc/>
     public bool MsDown(GuiEvent e) => Up?.MsDown(e) ?? false;
+    /// <inheritdoc/>
     public bool MsRepeat(GuiEvent e) => Up?.MsRepeat(e) ?? false;
+    /// <inheritdoc/>
     public bool MsUp(GuiEvent e) => Up?.MsUp(e) ?? false;
+    /// <inheritdoc/>
     public bool MsMove(GuiEvent e) => Up?.MsMove(e) ?? false;
+    /// <inheritdoc/>
     public bool MsEnter(GuiEvent e) => Up?.MsEnter(e) ?? false;
+    /// <inheritdoc/>
     public bool MsLeave(GuiEvent e) => Up?.MsLeave(e) ?? false;
+    /// <inheritdoc/>
     public bool MsDrag(GuiEvent e) => Up?.MsDrag(e) ?? false;
+    /// <inheritdoc/>
     public bool MsRightDown(GuiEvent e) => Up?.MsRightDown(e) ?? false;
+    /// <inheritdoc/>
     public bool MsRightUp(GuiEvent e) => Up?.MsRightUp(e) ?? false;
+    /// <inheritdoc/>
     public bool MsRightDrag(GuiEvent e) => Up?.MsRightDrag(e) ?? false;
+    /// <inheritdoc/>
     public bool KeyUp(GuiEvent e) => Up?.KeyUp(e) ?? false;
+    /// <inheritdoc/>
     public bool KeyRepeat(GuiEvent e) => Up?.KeyRepeat(e) ?? false;
+    /// <inheritdoc/>
     public bool KeyDown(GuiEvent e) => Up?.KeyDown(e) ?? false;
-    // C8: the handler of the delegate's own messages (docs/gui.md 2.2 slot 0x74); the client installs it.
+    /// <summary>Handles the delegate's own messages (docs/gui.md 2.2 slot 0x74). The client installs it.</summary>
     public Func<GuiControl?, int, bool>? OnMessage;
+    /// <inheritdoc/>
     public bool Message(GuiControl? sender, int tag) => OnMessage?.Invoke(sender, tag) == true || (Up?.Message(sender, tag) ?? false);
+    /// <inheritdoc/>
     public bool CanRelease() => true;
+    /// <inheritdoc/>
     public bool CanTake() => false;
 }
 
-// The canvas root responder (+0x1a0): tab and arrow movement and the message table of 2.8.
+/// <summary>The canvas root responder (+0x1a0): tab and arrow movement and the message table of docs/gui.md 2.8.</summary>
 public sealed class CanvasRoot : IGuiResponder
 {
     private readonly GuiCanvas mCanvas;
+    /// <summary>Creates the root responder.</summary>
+    /// <param name="c">The canvas.</param>
     public CanvasRoot(GuiCanvas c) => mCanvas = c;
+    /// <inheritdoc/>
     public bool MsDown(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsRepeat(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsUp(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsMove(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsEnter(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsLeave(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsDrag(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsRightDown(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsRightUp(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool MsRightDrag(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool KeyUp(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool KeyRepeat(GuiEvent e) => false;
+    /// <inheritdoc/>
     public bool CanRelease() => true;
+    /// <inheritdoc/>
     public bool CanTake() => true;
 
-    // [code 00535620]
+    /// <inheritdoc/>
+    /// <remarks>Follows 00535620: Tab moves the focus, and the arrow keys do too unless the top control has flag bit 2.</remarks>
     public bool KeyDown(GuiEvent e)
     {
         switch (e.Scan)
@@ -97,7 +153,8 @@ public sealed class CanvasRoot : IGuiResponder
         return false;
     }
 
-    // docs/gui.md 2.8 [code 00535b7c].
+    /// <inheritdoc/>
+    /// <remarks>Follows 00535b7c (docs/gui.md 2.8): tags 100002 to 109998 load a content file, 110001 and 110002 pop the dialog, 110003 to 119998 push a dialog, 120001 to 129998 run a command. The text of the tag is the file or command.</remarks>
     public bool Message(GuiControl? sender, int tag)
     {
         GuiHost host = mCanvas.Host;
@@ -132,31 +189,70 @@ public sealed class CanvasRoot : IGuiResponder
     }
 }
 
+/// <summary>The GUI canvas (docs/gui.md 2.1, 2.2, 2.6 to 2.9).</summary>
+/// <remarks>It holds the content control and dialog stack, the delegates, the first responder, the tab list, the mouse lock and hover, the cursor, the key and mouse repeat, the input routing and the per-frame steps.</remarks>
 public sealed class GuiCanvas
 {
+    /// <summary>The GUI host.</summary>
     public readonly GuiHost Host;
+    /// <summary>The canvas name scripts use.</summary>
     public string Name = "MainWindow";
-    public int Width = 640, Height = 480;
+    /// <summary>The canvas width in pixels.</summary>
+    public int Width = 640;
+    /// <summary>The canvas height in pixels.</summary>
+    public int Height = 480;
+    /// <summary>The content control at index 0 and the dialogs above it.</summary>
     public readonly List<GuiControl> Stack = new();
-    // Replaced content controls that are not deleted on replacement, by name.
+    /// <summary>The replaced content controls that are not deleted on replacement, by name.</summary>
     public readonly Dictionary<string, GuiControl> Retained = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The delegates by screen name.</summary>
     public readonly Dictionary<string, GuiDelegate> Delegates = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<GuiControl, GuiDelegate> mDelegateOf = new();
+    /// <summary>The canvas root responder.</summary>
     public readonly CanvasRoot Root;
+    /// <summary>The responder that gets the keys.</summary>
     public IGuiResponder FirstResponder;
-    public GuiControl? Lock, Hover;
-    public bool CursorOn = true, WindowActive = true, CaptureAll;
-    public float CursorX, CursorY, MouseSpeed = 1f;
-    public bool LeftDown, RightDown;
-    public int KeyRepeatDelay = 300, MouseRepeatDelay = 300, KeyRepeatInterval = 50;
+    /// <summary>The control that has locked the mouse, or null.</summary>
+    public GuiControl? Lock;
+    /// <summary>The control under the cursor, or null.</summary>
+    public GuiControl? Hover;
+    /// <summary>True while the cursor is shown and the mouse is read.</summary>
+    public bool CursorOn = true;
+    /// <summary>True while the window is active. Input is ignored otherwise.</summary>
+    public bool WindowActive = true;
+    /// <summary>True when the canvas consumes every input event, also the ones no control took.</summary>
+    public bool CaptureAll;
+    /// <summary>The cursor x in canvas pixels.</summary>
+    public float CursorX;
+    /// <summary>The cursor y in canvas pixels.</summary>
+    public float CursorY;
+    /// <summary>The mouse speed factor.</summary>
+    public float MouseSpeed = 1f;
+    /// <summary>True while the left button is down.</summary>
+    public bool LeftDown;
+    /// <summary>True while the right button is down.</summary>
+    public bool RightDown;
+    /// <summary>The key repeat delay in milliseconds.</summary>
+    public int KeyRepeatDelay = 300;
+    /// <summary>The mouse repeat delay in milliseconds.</summary>
+    public int MouseRepeatDelay = 300;
+    /// <summary>The key repeat interval in milliseconds.</summary>
+    public int KeyRepeatInterval = 50;
+    /// <summary>The maximum time between the clicks of a double click in milliseconds.</summary>
     public int DoubleClickMs = 500;
+    /// <summary>The cursor string last set.</summary>
     public string CursorName = "";
+    /// <summary>The default cursor bitmap.</summary>
     public PbmpBitmap? CursorBitmap;
+    /// <summary>The hot spot of the default cursor.</summary>
     public (int x, int y) CursorHot;
-    // The override slot (+0x22c): the cursor of the locked or hovered control's tag, shown instead of the default (+0x210).
+    /// <summary>The tag of the cursor the locked or hovered control asked for (+0x22c), shown instead of the default (+0x210). 0 for none.</summary>
     public uint CursorOverrideTag;
+    /// <summary>The bitmap of the override cursor.</summary>
     public PbmpBitmap? OverrideBitmap;
+    /// <summary>The hot spot of the override cursor.</summary>
     public (int x, int y) OverrideHot;
+    /// <summary>Gets the cursor bitmap that is shown: the override, else the default.</summary>
     public PbmpBitmap? ShownCursor => OverrideBitmap ?? CursorBitmap;
 
     // The help pop-up (FGHelpCtrl 004af248 shows it, 004af6d8 draws it). The tick of the last hover change is +0x26c.
@@ -166,15 +262,22 @@ public sealed class GuiCanvas
     private uint mHelpTag;
     private (int X, int Y, int W, int H) mHelpBox;
     private GuiTextFormat? mHelpLayout;
+    /// <summary>The time the cursor rests on a control before its help pop-up shows, in milliseconds.</summary>
     public const int HelpDelayMs = 1069;
-    // 00534308: the first screen of the main menu, Connect, JoinGame, Options and IRCChat delegates creates the pop-up control and it
-    // stays on the canvas for every later screen.
+    /// <summary>True once a screen's delegate installed the help pop-up control. It stays on the canvas for every later screen.</summary>
+    /// <remarks>The first screen of the main menu, Connect, JoinGame, Options and IRCChat delegates creates it (00534308).</remarks>
     public bool HelpInstalled;
+    /// <summary>Gets a value that is true while the help pop-up is shown.</summary>
     public bool HelpVisible => mHelpTag != 0 && mHelpLayout != null;
+    /// <summary>Gets the rectangle of the help pop-up.</summary>
     public (int X, int Y, int W, int H) HelpBox => mHelpBox;
+    /// <summary>Gets the tag of the help text shown.</summary>
     public uint HelpShownTag => mHelpTag;
+    /// <summary>The controls the Tab key moves between, in tree order.</summary>
     public readonly List<GuiControl> TabList = new();
+    /// <summary>The load and stack events, for tests and tools.</summary>
     public readonly List<string> Trace = new();
+    /// <summary>True when the canvas needs a redraw.</summary>
     public bool Dirty = true;
 
     private long mKeyRepeatAt = -1, mMouseRepeatAt = -1;
@@ -184,6 +287,10 @@ public sealed class GuiCanvas
     private bool mLastClickLeft;
     private readonly Dictionary<GuiControl, string> mVarSeen = new();
 
+    /// <summary>Creates a canvas.</summary>
+    /// <param name="host">The GUI host.</param>
+    /// <param name="width">The width in pixels.</param>
+    /// <param name="height">The height in pixels.</param>
     public GuiCanvas(GuiHost host, int width = 640, int height = 480)
     {
         Host = host;
@@ -195,14 +302,22 @@ public sealed class GuiCanvas
         CursorY = height / 2f;
     }
 
+    /// <summary>Gets the top control of the stack, or null.</summary>
     public GuiControl? Top => Stack.Count > 0 ? Stack[^1] : null;
+    /// <summary>Gets the content control, or null.</summary>
     public GuiControl? Content => Stack.Count > 0 ? Stack[0] : null;
+    /// <summary>Gets the number of dialogs above the content control.</summary>
     public int DialogCount => Math.Max(0, Stack.Count - 1);
+    /// <summary>Gets the host time in milliseconds.</summary>
     public long Now => Host.TickMs;
+    /// <summary>Marks the canvas for a redraw.</summary>
     public void Invalidate() => Dirty = true;
 
     // ---- responder links (2.2): a stack element's next responder is the one below it, the first one's its delegate ----
 
+    /// <summary>Returns the responder below a control (docs/gui.md 2.2): a stack element's next responder is the one below it, the first one's is its delegate.</summary>
+    /// <param name="c">The control.</param>
+    /// <returns>The next responder.</returns>
     public IGuiResponder ResponderAbove(GuiControl c)
     {
         GuiControl top = c;
@@ -214,7 +329,9 @@ public sealed class GuiCanvas
         return mDelegateOf.TryGetValue(top, out GuiDelegate? d) ? d : Root;
     }
 
-    // 2.5 dimmed rule: a dialog in stack element 1 that holds control id 141000 and is not the control's own root.
+    /// <summary>Returns whether a dialog dims a control (docs/gui.md 2.5).</summary>
+    /// <param name="c">The control.</param>
+    /// <returns>True when stack element 1 holds control id 141000 and is not the control's own root.</returns>
     public bool IsDimmed(GuiControl c)
     {
         if (Stack.Count < 2)
@@ -228,6 +345,9 @@ public sealed class GuiCanvas
 
     // ---- loading ----
 
+    /// <summary>Loads a `.gui` file.</summary>
+    /// <param name="name">The file name.</param>
+    /// <returns>The root control, null when the file is missing or invalid.</returns>
     public GuiControl? LoadFile(string name)
     {
         if (!Host.ReadGuiFile(name, out byte[] data))
@@ -251,7 +371,9 @@ public sealed class GuiCanvas
         return Delegates.GetValueOrDefault(baseName);
     }
 
-    // GuiLoadContentCtrl (2.2): true on success.
+    /// <summary>Loads a `.gui` file as the content control (GuiLoadContentCtrl, docs/gui.md 2.2).</summary>
+    /// <param name="file">The file name.</param>
+    /// <returns>True on success.</returns>
     public bool LoadContent(string file)
     {
         Trace.Add("load content " + file);
@@ -266,7 +388,9 @@ public sealed class GuiCanvas
         return true;
     }
 
-    // client-scripts.md 4.3: `<Content>::onClose()` of the control that leaves, then `<Content>::onOpen()` of the one that comes.
+    /// <summary>Calls the `Content::onClose()` of the control that leaves or the `Content::onOpen()` of the one that comes (client-scripts.md 4.3).</summary>
+    /// <param name="c">The content control.</param>
+    /// <param name="hook">The hook name.</param>
     private void CallContentHook(GuiControl? c, string hook)
     {
         if (c == null || string.IsNullOrEmpty(c.Name))
@@ -276,6 +400,10 @@ public sealed class GuiCanvas
             Host.Call(fn);
     }
 
+    /// <summary>Replaces the content control.</summary>
+    /// <param name="c">The new content control.</param>
+    /// <param name="del">The screen's delegate, or null.</param>
+    /// <remarks>It pops every dialog and calls the old content's onClose and the delegate's remove hook. The old content is kept by name when its flag bit 1 is clear: play.gui and CmdInventory.gui have flags 1 and a lookup by name still finds them (00533fdc, 0040dbfc).</remarks>
     public void SetContent(GuiControl c, GuiDelegate? del = null)
     {
         Lock = null;
@@ -318,6 +446,9 @@ public sealed class GuiCanvas
         Trace.Add($"content control {c.ClassName} {c.Name} ({c.Children.Count} children)");
     }
 
+    /// <summary>Loads a `.gui` file and pushes it as a dialog.</summary>
+    /// <param name="file">The file name.</param>
+    /// <returns>True on success.</returns>
     public bool PushDialog(string file)
     {
         Trace.Add("push dialog " + file);
@@ -328,6 +459,8 @@ public sealed class GuiCanvas
         return true;
     }
 
+    /// <summary>Pushes a control as a dialog.</summary>
+    /// <param name="c">The dialog control.</param>
     public void PushDialog(GuiControl c)
     {
         Stack.Add(c);
@@ -336,7 +469,9 @@ public sealed class GuiCanvas
         AfterStackChange();
     }
 
-    // Pop dialog (2.2): the delegate sees the message first; -1 keeps the dialog.
+    /// <summary>Pops the top dialog (docs/gui.md 2.2). The delegate sees the message first and can keep the dialog by answering -1.</summary>
+    /// <param name="message">The pop message.</param>
+    /// <param name="force">True to pop without asking the delegate.</param>
     public void PopDialog(int message, bool force = false)
     {
         if (Stack.Count < 2)
@@ -363,7 +498,7 @@ public sealed class GuiCanvas
         Invalidate();
     }
 
-    // Reset the mouse [code 00534190].
+    /// <summary>Resets the mouse state (00534190).</summary>
     public void ResetMouse()
     {
         if (FirstResponder.CanRelease())
@@ -377,6 +512,9 @@ public sealed class GuiCanvas
 
     // ---- focus (2.6) ----
 
+    /// <summary>Moves the keyboard focus to a responder.</summary>
+    /// <param name="r">The responder.</param>
+    /// <returns>True when it took the focus.</returns>
     public bool SetFirstResponder(IGuiResponder r)
     {
         IGuiResponder old = FirstResponder;
@@ -389,6 +527,7 @@ public sealed class GuiCanvas
         return next == r;
     }
 
+    /// <summary>Rebuilds the tab list from the top control.</summary>
     public void RebuildTabList()
     {
         TabList.Clear();
@@ -405,7 +544,10 @@ public sealed class GuiCanvas
         }
     }
 
+    /// <summary>Moves the focus to the next control in the tab list.</summary>
+    /// <param name="first">True to start from the first control.</param>
     public void FocusNext(bool first = false) => MoveFocus(+1, first);
+    /// <summary>Moves the focus to the previous control in the tab list.</summary>
     public void FocusPrevious() => MoveFocus(-1, false);
 
     private void MoveFocus(int dir, bool first)
@@ -432,8 +574,12 @@ public sealed class GuiCanvas
 
     // ---- mouse state (2.6) ----
 
+    /// <summary>Locks the mouse to a control.</summary>
+    /// <param name="c">The control.</param>
     public void LockMouse(GuiControl c) => Lock = c;
 
+    /// <summary>Unlocks the mouse when the control holds the lock.</summary>
+    /// <param name="c">The control.</param>
     public void UnlockMouse(GuiControl c)
     {
         if (Lock == c)
@@ -483,6 +629,9 @@ public sealed class GuiCanvas
 
     // ---- input (2.7) ----
 
+    /// <summary>Returns the DirectInput scan code of a key name.</summary>
+    /// <param name="name">The key name.</param>
+    /// <returns>The scan code, 0 for an unknown name.</returns>
     public static int ScanForName(string name)
     {
         switch (name.ToLowerInvariant())
@@ -517,7 +666,9 @@ public sealed class GuiCanvas
         return 0;
     }
 
-    // Returns true when the canvas consumed the event; false passes it to the action maps.
+    /// <summary>Handles a raw input event.</summary>
+    /// <param name="ev">The event.</param>
+    /// <returns>True when the canvas consumed the event, false to pass it to the action maps.</returns>
     public bool HandleInput(in RawInput ev)
     {
         if (!WindowActive)
@@ -626,6 +777,7 @@ public sealed class GuiCanvas
 
     // ---- per frame (2.9) ----
 
+    /// <summary>Runs the per-frame steps (docs/gui.md 2.9): the delegate frame hooks, the key and mouse repeat, the resize and pre-render of the stack, the cursor, the help pop-up and the console variable changes.</summary>
     public void Frame()
     {
         long now = Now;
@@ -663,18 +815,20 @@ public sealed class GuiCanvas
                 }
     }
 
-    // The tick of the key repeat and mouse repeat timers, for tests: -1 when unarmed.
+    /// <summary>Gets the tick of the key repeat timer, -1 when unarmed. For tests.</summary>
     public long KeyRepeatAt => mKeyRepeatAt;
+    /// <summary>Gets the tick of the mouse repeat timer, -1 when unarmed. For tests.</summary>
     public long MouseRepeatAt => mMouseRepeatAt;
 
-    // False while the play view has no camera (no control object): its TSControl draws no HUD (GuiPlayView.Render).
+    /// <summary>False while the play view has no camera (no control object): its TSControl draws no HUD (<see cref="GuiPlayView"/>).</summary>
     public bool ViewHasCamera = true;
 
-    // Draws the 3D world into one rectangle of the frame, in the middle of the GUI draw (the host's world renderer; false when it has
-    // no camera). A TSControl other than the play view's that has a camera object (GuiPlayView.CameraAttached) draws its view through
-    // it [code 00546dc4 renders the scene inside the control's own draw]. Null in tests and without a game.
+    /// <summary>Draws the 3D world into one rectangle of the frame, in the middle of the GUI draw: the host's world renderer, which answers false when it has no camera. Null in tests and without a game.</summary>
+    /// <remarks>A TSControl other than the play view's that has a camera object (<c>GuiPlayView.CameraAttached</c>) draws its view through it. The stock scene render runs inside the control's own draw (00546dc4).</remarks>
     public Func<GfxRect, bool>? ViewRenderer;
 
+    /// <summary>Draws the stack, the help pop-up and the cursor.</summary>
+    /// <param name="dev">The graphics device.</param>
     public void Render(IGfxDevice dev)
     {
         var p = new GuiPaint(dev, Host);
@@ -702,8 +856,8 @@ public sealed class GuiCanvas
 
     private PftFont? HelpFont(int n) => Host.FontByTag(n == 1 ? 150114u : 150104u);
 
-    // Step 6 of the frame (2.6): with a hover control, the cursor on, no lock and no button down, the control's help tag is shown once the
-    // cursor has rested 1069 ms on it (004af248); anything else hides the pop-up. $pref::HelpPopups FALSE turns the pop-ups off.
+    /// <summary>Updates the help pop-up (step 6 of the frame, docs/gui.md 2.6).</summary>
+    /// <remarks>With a hover control, the cursor on, no lock and no button down, the control's help tag is shown once the cursor has rested 1069 ms on it (004af248). Anything else hides the pop-up. `$pref::HelpPopups FALSE` turns the pop-ups off.</remarks>
     private void UpdateHelp(long now)
     {
         uint tag = 0;
@@ -745,7 +899,7 @@ public sealed class GuiCanvas
         mHelpTag = tag;
     }
 
-    // 004af6d8: the box in colour 0xf7 with an outline of 0xf1, the text three pixels in.
+    /// <summary>Draws the help pop-up: the box in color 0xf7 with an outline of 0xf1, the text three pixels in (004af6d8).</summary>
     private void DrawHelp(GuiPaint p)
     {
         var (x, y, w, h) = mHelpBox;
@@ -754,7 +908,7 @@ public sealed class GuiCanvas
         mHelpLayout?.Draw(p, x + 3, y + 3);
     }
 
-    // "name, x, y": the bitmap name and the hot spot a cursor string may carry (00533138; the default is 0, 0).
+    /// <summary>Splits a cursor string "name, x, y" into the bitmap name and the hot spot, which default to 0, 0 (00533138).</summary>
     private static (string Name, int X, int Y) ParseCursor(string text)
     {
         string[] parts = text.Split(',');
@@ -762,6 +916,8 @@ public sealed class GuiCanvas
         return (parts[0].Trim(), Num(1), Num(2));
     }
 
+    /// <summary>Sets the default cursor.</summary>
+    /// <param name="name">The cursor string "name, x, y".</param>
     public void SetCursorBitmap(string name)
     {
         CursorName = name;
@@ -770,8 +926,8 @@ public sealed class GuiCanvas
         CursorHot = (x, y);
     }
 
-    // Step 5 of the frame (2.6): the cursor tag of the lock control, else of the hover control; it picks the override slot
-    // when it changed, a tag of 0 falls back to the default cursor.
+    /// <summary>Resolves the override cursor (step 5 of the frame, docs/gui.md 2.6).</summary>
+    /// <remarks>It takes the cursor tag of the lock control, else of the hover control, and picks the override slot when the tag changed. A tag of 0 falls back to the default cursor.</remarks>
     private void ResolveCursor()
     {
         GuiControl? src = Lock ?? Hover;
