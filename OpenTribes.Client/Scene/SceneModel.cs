@@ -222,7 +222,7 @@ public sealed class SceneModel
 
     /// <summary>Adds a footprint (4.6): the foot position offset +-0.25 along the x axis of the yaw frame of the player, a ray against the terrain, a quad aligned to the heading and the terrain normal. Only terrain gets footprints.</summary>
     /// <param name="p">The player visual.</param>
-    /// <param name="side">The foot, 1 right and 2 left.</param>
+    /// <param name="side">1 for the right foot, -1 for the left foot.</param>
     public void AddFootprint(PlayerVisual p, int side)
     {
         if (Terrain == null)

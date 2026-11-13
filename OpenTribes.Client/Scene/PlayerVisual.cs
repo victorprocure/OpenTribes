@@ -1,24 +1,36 @@
-// Player ghost visual (docs/shapes-render.md 3.4, 3.6, 5): the armor shape with the animation and looks threads, mounted
-// item images, the jet flame, footprints, the death pose and the burst into debris.
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
 
 namespace OpenTribes.Client.Scene;
 
+/// <summary>An item image mounted on a player.</summary>
 public sealed class ImageMount
 {
-    public int Slot, Image;
+    /// <summary>The image slot.</summary>
+    public int Slot;
+    /// <summary>The image datablock index.</summary>
+    public int Image;
+    /// <summary>The image datablock.</summary>
     public ClientDataBlock? Db;
+    /// <summary>The image shape.</summary>
     public RenderShape? Shape;
+    /// <summary>The image shape instance.</summary>
     public RenderInstance? Inst;
+    /// <summary>The state machine of the image.</summary>
     public ImageStateMachine? Sm;
-    public double FireTime = -1000;       // scene time of the last Fire entry
+    /// <summary>The scene time of the last Fire entry.</summary>
+    public double FireTime = -1000;
+    /// <summary>The mount point of the image.</summary>
     public int MountPoint;
+    /// <summary>True when the image shows in the first person view.</summary>
     public bool FirstPerson;
-    public int Team = -1;                 // the team of the mount (Player_setImage param_4, 0041a168); -1 none
+    /// <summary>The team of the mount (Player_setImage param_4, 0041a168), -1 for none.</summary>
+    public int Team = -1;
 }
 
+/// <summary>The visual of a Player ghost: the armor shape with the animation and looks threads, mounted item images, the jet flame, footprints, the death pose and the burst into debris.</summary>
+/// <remarks>docs/shapes-render.md 3.4, 3.6 and 5.</remarks>
 public sealed class PlayerVisual : ShapeVisual
 {
     private RenderThread? mAnim, mLooks;
@@ -32,12 +44,18 @@ public sealed class PlayerVisual : ShapeVisual
     private RenderThread? mFlameThread;
     private bool mJetting;
     private readonly List<uint> mTriggers = new();
+    /// <summary>True once the player burst into debris.</summary>
     public bool Exploded { get; private set; }
+    /// <summary>True while the jets fire.</summary>
     public bool Jetting => mJetting;
+    /// <summary>The index of the current animation, -1 for none.</summary>
     public int AnimIndex => mAnimIndex;
+    /// <summary>The skin name.</summary>
     public string SkinName => Skin;
+    /// <summary>The mounted images by slot.</summary>
     public IReadOnlyList<ImageMount?> Images => mImages;
 
+    /// <inheritdoc/>
     public override void Init(SceneModel m, ClientGhost g)
     {
         base.Init(m, g);
@@ -54,6 +72,7 @@ public sealed class PlayerVisual : ShapeVisual
         return ((string)a[0], (int)Db.ToDouble(a[1]), Db.ToDouble(a[2]) != 0, (int)Db.ToDouble(a[3]), (int)Db.ToDouble(a[4]));
     }
 
+    /// <inheritdoc/>
     public override void OnUpdate(DecodedGhost u, bool isNew)
     {
         base.OnUpdate(u, isNew);
@@ -145,7 +164,9 @@ public sealed class PlayerVisual : ShapeVisual
             { }
     }
 
+    /// <summary>The ghost index of the vehicle or turret the player sits in, -1 for none.</summary>
     public int MountGhost = -1;
+    /// <summary>The view pitch in radians.</summary>
     public double ViewPitch;
 
     private void Explode()
@@ -189,10 +210,15 @@ public sealed class PlayerVisual : ShapeVisual
         }
     }
 
-    // player-sim.md 5.4 (first match wins): mounted, jetting or jumping in the air, falling, crouching, else the best of the four
-    // ground motion candidates by the velocity along each travel direction (threshold 0.35 m/s). Every 65 ms.
+    /// <summary>Picks the animation of a mounted player: the driver pose of the mount for slot 1, else 23.</summary>
+    /// <param name="slot1">True when the player sits in slot 1.</param>
+    /// <param name="driverPose">The driver pose of the mount.</param>
+    /// <returns>The animation index.</returns>
+    /// <remarks>player-sim.md 5.4 (first match wins): mounted, jetting or jumping in the air, falling, crouching, else the best of the four ground motion candidates by the velocity along each travel direction (threshold 0.35 m/s). The choice runs every 65 ms.</remarks>
     public static int MountAnimation(bool slot1, int driverPose) => slot1 ? driverPose : 23;
 
+    /// <summary>Chooses the animation of the player from its state.</summary>
+    /// <returns>The animation index.</returns>
     public int ChooseAnimation()
     {
         if (MountGhost >= 0 && Num("mountGhost", -1) >= 0)
@@ -220,7 +246,8 @@ public sealed class PlayerVisual : ShapeVisual
         return pick;
     }
 
-    // The control player moves with the prediction or the control state, not with its ghost updates (ControlSample).
+    /// <summary>Moves the control player with the prediction or the control state instead of its ghost updates (<see cref="ControlSample"/>).</summary>
+    /// <param name="c">The sample.</param>
     public void ApplyControl(in ControlSample c)
     {
         (X, Y, Z) = (c.X, c.Y, c.Z);
@@ -233,8 +260,11 @@ public sealed class PlayerVisual : ShapeVisual
         HavePos = true;
     }
 
-    // Rotation x and y: only a corpse has them (the ground slope of Player.ClientCorpseStep).
-    public double TiltX, TiltY;
+    /// <summary>The rotation about x. Only a corpse has it: the ground slope of <c>Player.ClientCorpseStep</c>.</summary>
+    public double TiltX;
+    /// <summary>The rotation about y. Only a corpse has it.</summary>
+    public double TiltY;
+    /// <inheritdoc/>
     protected override Xf PoseXf() => Xf.Euler(TiltX, TiltY, Yaw).Then(Xf.Translate(X + mExtrapX, Y + mExtrapY, Z + mExtrapZ));
     private double mExtrapX, mExtrapY, mExtrapZ;
 
@@ -296,8 +326,9 @@ public sealed class PlayerVisual : ShapeVisual
         im.Sm?.Unpack(s.Triggered, s.Ammo, s.Phase, !isNew, s.Initial);
     }
 
-    // The control player's image state machines follow the prediction steps (ImageStateMachine.Stepped); steps = 0 with
-    // `predicted` false hands them back to the time based update.
+    /// <summary>Hands the image state machines of the control player to the prediction steps, or back to the time based update.</summary>
+    /// <param name="predicted">True when the prediction steps drive them (<c>ImageStateMachine.Stepped</c>). False with 0 steps hands them back to the time based update.</param>
+    /// <param name="steps">The number of prediction steps.</param>
     public void SetImageSteps(bool predicted, int steps)
     {
         foreach (ImageMount? im in mImages)
@@ -309,6 +340,7 @@ public sealed class PlayerVisual : ShapeVisual
             }
     }
 
+    /// <inheritdoc/>
     public override void Tick(double dt)
     {
         base.Tick(dt);
@@ -344,8 +376,12 @@ public sealed class PlayerVisual : ShapeVisual
             im?.Sm?.Advance(dt);
     }
 
+    /// <inheritdoc/>
     protected override int DamageLevel => Skins.DamageLevel(Damage, M.Assets.DamageSkinDetail);
 
+    /// <summary>Computes the position of a foot: plus or minus 0.25 along the x axis of the yaw frame of the player (4.6).</summary>
+    /// <param name="side">1 for the right foot, -1 for the left foot.</param>
+    /// <returns>The foot position.</returns>
     public (double x, double y, double z) Foot(double side)
     {
         // 4.6: +-0.25 along the player's yaw frame x axis
@@ -353,14 +389,24 @@ public sealed class PlayerVisual : ShapeVisual
         return (X + mExtrapX + cx * 0.25 * side, Y + mExtrapY + cy * 0.25 * side, Z + mExtrapZ);
     }
 
+    /// <summary>The heading of the player.</summary>
     public double YawAngle => Yaw;
+    /// <summary>The name of the armor shape.</summary>
     public string ArmorShape => Shape?.Name ?? "";
+    /// <summary>The footprint base index of the datablock, -1 for none.</summary>
     public int FootprintBase => (int)Db.Num(Block, "footPrintsIndex", -1);
 
-    // The looks thread position of a view pitch (player-sim.md 5.2): 0.5 - pitch * 0.6511 / 2, the pitch range +-1.5359 maps to +-0.5.
+    /// <summary>Computes the looks thread position of a view pitch (player-sim.md 5.2): 0.5 - pitch * 0.6511 / 2. The pitch range plus or minus 1.5359 maps to plus or minus 0.5.</summary>
+    /// <param name="pitch">The view pitch in radians.</param>
+    /// <returns>The position, 0 to 1.</returns>
     public static double LooksPosition(double pitch) => Math.Clamp(0.5 - pitch * 0.6511 * 0.5, 0, 1);
 
-    // First person eye in object space (the `dummy eye` node, `Player_getEyeTransform`) with the looks thread at `pitch`.
+    /// <summary>Gets the first person eye in object space (the <c>dummy eye</c> node, <c>Player_getEyeTransform</c>) with the looks thread at a pitch.</summary>
+    /// <param name="pitch">The view pitch in radians.</param>
+    /// <param name="x">The eye x.</param>
+    /// <param name="y">The eye y.</param>
+    /// <param name="z">The eye z.</param>
+    /// <returns>False when the shape has no eye node.</returns>
     public bool TryEyeLocal(double pitch, out double x, out double y, out double z)
     {
         x = y = z = 0;
@@ -378,8 +424,10 @@ public sealed class PlayerVisual : ShapeVisual
         return true;
     }
 
-    // The height of the `dummyalways chasecam` node (Player +0x778) in the current pose: Player_getCameraTransform 00412324 keeps only the
-    // node's z (x and y are set to 0) for the third person camera. False when the shape has no such node.
+    /// <summary>Gets the height of the <c>dummyalways chasecam</c> node (Player +0x778) in the current pose.</summary>
+    /// <param name="z">The height.</param>
+    /// <returns>False when the shape has no such node.</returns>
+    /// <remarks>Player_getCameraTransform (00412324) keeps only the z of the node (x and y are set to 0) for the third person camera.</remarks>
     public bool TryChaseZ(out double z)
     {
         z = 0;
@@ -407,9 +455,13 @@ public sealed class PlayerVisual : ShapeVisual
         return on;
     }
 
-    // `pitch` set: the pitch-only node rotation of `Player_getImageMountTransform` (3.6 step 2) for mount points 0 and 1.
-    // `pullback` is Player +0xfd0 (WeaponPullback); the mount transform adds it to the offset y of a mount point 0 image only
-    // (Player_getImageMountTransform 00419ba0, the add reads image +0x38 == 0).
+    /// <summary>Builds the transform of a mounted image.</summary>
+    /// <param name="im">The image.</param>
+    /// <param name="detail">The detail index.</param>
+    /// <param name="body">The transform of the body.</param>
+    /// <param name="pitch">The pitch for the pitch only node rotation of Player_getImageMountTransform (3.6 step 2) for mount points 0 and 1, or null.</param>
+    /// <param name="pullback">Player +0xfd0 (WeaponPullback). The mount transform adds it to the offset y of a mount point 0 image only (Player_getImageMountTransform 00419ba0, the add reads image +0x38 == 0).</param>
+    /// <returns>The transform.</returns>
     public Xf ImageTransform(ImageMount im, int detail, Xf body, double? pitch = null, double pullback = 0)
     {
         Xf mount = MountNode(im, detail, pitch, out _);
@@ -419,8 +471,16 @@ public sealed class PlayerVisual : ShapeVisual
         return local.Then(mount).Then(body);
     }
 
-    // The image's own transform: Euler rotation at the offset, with the pullback added to the offset y for mount point 0
-    // (Player_getImageMountTransform 00419ba0).
+    /// <summary>Builds the own transform of an image: the Euler rotation at the offset, with the pullback added to the offset y for mount point 0 (Player_getImageMountTransform 00419ba0).</summary>
+    /// <param name="ox">The offset x.</param>
+    /// <param name="oy">The offset y.</param>
+    /// <param name="oz">The offset z.</param>
+    /// <param name="rx">The rotation x.</param>
+    /// <param name="ry">The rotation y.</param>
+    /// <param name="rz">The rotation z.</param>
+    /// <param name="mountPoint">The mount point.</param>
+    /// <param name="pullback">The weapon pullback.</param>
+    /// <returns>The transform.</returns>
     public static Xf ImageLocal(double ox, double oy, double oz, double rx, double ry, double rz, int mountPoint, double pullback)
     {
         Xf local = Xf.Euler(rx, ry, rz);
@@ -444,10 +504,12 @@ public sealed class PlayerVisual : ShapeVisual
         return mount;
     }
 
-    // Player +0xfd0 (Player_updateWeaponPullback 004198d4, called from Player_updateMove 00415304, which Player_clientUpdate 00414c38
-    // runs for ghosts, Player_serverTick on the server): a container ray (mask 0xbfffffff, the player itself excluded) from the origin of the first mount point 0
-    // image's mount transform to its muzzle transform; on a hit the distance along the mount's y axis between the hit and the muzzle
-    // minus 0.2. Zero without a mount point 0 image, a mount node, or a hit. `Ray` is the container ray of the live game.
+    /// <summary>Computes Player +0xfd0, the weapon pullback.</summary>
+    /// <param name="detail">The detail index.</param>
+    /// <param name="body">The transform of the body.</param>
+    /// <param name="pitch">The view pitch, or null.</param>
+    /// <returns>The pullback. Zero without a mount point 0 image, a mount node, or a hit.</returns>
+    /// <remarks>Follows Player_updateWeaponPullback (004198d4, called from Player_updateMove 00415304, which Player_clientUpdate 00414c38 runs for ghosts and Player_serverTick on the server): a container ray (mask 0xbfffffff, the player itself excluded) from the origin of the mount transform of the first mount point 0 image to its muzzle transform. On a hit the distance along the y axis of the mount between the hit and the muzzle minus 0.2. The ray is the container ray of the live game (<c>SceneModel.PullbackRay</c>).</remarks>
     public double WeaponPullback(int detail, Xf body, double? pitch)
     {
         if (Ray == null || Inst == null)
@@ -476,7 +538,12 @@ public sealed class PlayerVisual : ShapeVisual
     // The ray of the live game: ghost index, start, end to the hit point (null on a miss).
     private Func<int, (double, double, double), (double, double, double), (double, double, double)?>? Ray => M.PullbackRay;
 
-    // 004198d4: (hit - start) . axis - (end - start) . axis - 0.2, the axis being the image's y axis in world space.
+    /// <summary>Computes the pullback from a ray result (004198d4): (hit - start) . axis - (end - start) . axis - 0.2, with the axis the y axis of the image in world space.</summary>
+    /// <param name="start">The ray start.</param>
+    /// <param name="end">The ray end, the muzzle.</param>
+    /// <param name="hit">The hit point.</param>
+    /// <param name="axis">The y axis of the image.</param>
+    /// <returns>The pullback.</returns>
     public static double PullbackFrom((double x, double y, double z) start, (double x, double y, double z) end,
                                       (double x, double y, double z) hit, (double x, double y, double z) axis)
     {
@@ -485,7 +552,8 @@ public sealed class PlayerVisual : ShapeVisual
         return d1 - d2 - 0.2;
     }
 
-    // Player_getMountPointTransform(2) [code 004aca84]: the `dummy midback` node in world space, null without the node or a position.
+    /// <summary>Gets the <c>dummy midback</c> node in world space (Player_getMountPointTransform(2), 004aca84).</summary>
+    /// <returns>The position, or null without the node or a position.</returns>
     public (double x, double y, double z)? MidBack()
     {
         if (Inst == null || Shape == null || !HavePos)
@@ -496,9 +564,11 @@ public sealed class PlayerVisual : ShapeVisual
         return Inst.NodeWorld[n].Then(PoseXf()).Apply(0, 0, 0);
     }
 
-    // The muzzle of the first mounted weapon in world space (projectile start of beams), or the chest as a fallback.
+    /// <summary>The muzzle of the first mounted weapon in world space (projectile start of beams), or the chest as a fallback.</summary>
     public override (double x, double y, double z)? MuzzlePoint => HavePos ? Muzzle() : null;
 
+    /// <summary>Gets the muzzle of the first mounted weapon in world space, or the chest as a fallback.</summary>
+    /// <returns>The position.</returns>
     public (double x, double y, double z) Muzzle()
     {
         Xf body = mFpBody ?? PoseXf();
@@ -547,7 +617,15 @@ public sealed class PlayerVisual : ShapeVisual
         return (body, pitchOnly);
     }
 
-    // The yaw turned body transform that puts the object space eye (ex, ey, ez) on the camera position.
+    /// <summary>Builds the body transform, turned by the yaw, that puts the object space eye on the camera position.</summary>
+    /// <param name="cx">The camera x.</param>
+    /// <param name="cy">The camera y.</param>
+    /// <param name="cz">The camera z.</param>
+    /// <param name="yawRad">The yaw in radians.</param>
+    /// <param name="ex">The eye x in object space.</param>
+    /// <param name="ey">The eye y in object space.</param>
+    /// <param name="ez">The eye z in object space.</param>
+    /// <returns>The body transform.</returns>
     public static Xf EyeAlignedBody(double cx, double cy, double cz, double yawRad, double ex, double ey, double ez)
     {
         Xf yaw = Xf.Euler(0, 0, yawRad);
@@ -555,9 +633,9 @@ public sealed class PlayerVisual : ShapeVisual
         return yaw.Then(Xf.Translate(cx - rx, cy - ry, cz - rz));
     }
 
-    // Called by the scene before any visual builds, so a beam that starts at this player's muzzle sees this frame's first person pose
-    // (the stock beam reads the shooter's muzzle transform every frame: LaserProjectile 004632a8 -> Player_getMuzzleTransform 00419d88,
-    // whose mount transform 00419ba0 uses the control object's own pitch Player +0xfc4 and transform, here the camera's).
+    /// <summary>Prepares the first person pose before any visual builds.</summary>
+    /// <param name="ctx">The frame context.</param>
+    /// <remarks>A beam that starts at the muzzle of this player then sees the first person pose of this frame. The stock beam reads the muzzle transform of the shooter every frame (LaserProjectile 004632a8 to Player_getMuzzleTransform 00419d88), whose mount transform 00419ba0 uses the own pitch of the control object (Player +0xfc4) and its transform, here the camera's.</remarks>
     public void PrepareFrame(FrameContext ctx)
     {
         mFpBody = null;
@@ -574,6 +652,7 @@ public sealed class PlayerVisual : ShapeVisual
     private Xf? mFpBody;
     private double? mFpPitch;
 
+    /// <inheritdoc/>
     public override void Build(FrameContext ctx)
     {
         if (Inst == null || Shape == null || !HavePos || Hidden)
@@ -644,7 +723,8 @@ public sealed class PlayerVisual : ShapeVisual
         }
     }
 
-    // Dynamic lights of this player: the weapon fire light (4.9): lightType 3 decays linearly over lightTime.
+    /// <summary>Adds the weapon fire light of the player to a light set (4.9): lightType 3 decays linearly over lightTime.</summary>
+    /// <param name="set">The light set.</param>
     public void CollectLights(LightSet set)
     {
         foreach (ImageMount? im in mImages)
