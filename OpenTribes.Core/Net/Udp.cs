@@ -1,12 +1,10 @@
-// Port of src/net/udp.hpp and src/net/udp.cpp: non-blocking UDP socket.
 using System.Net;
 using System.Net.Sockets;
 
 namespace OpenTribes.Net;
 
-// The in-process datagram network of the LOOPBACK transport (LOOPTransport 0058d744; its connect 0058d7d4 pairs two virtual
-// connections that hand each other packets by memory copy, with no socket). A memory socket owns a port on 127.0.0.1 and
-// delivers to the other memory sockets of the process only.
+/// <summary>The in-process datagram network of the LOOPBACK transport. A memory socket owns a port on 127.0.0.1 and delivers to the other memory sockets of the process only.</summary>
+/// <remarks>Follows the LOOPBACK transport (LOOPTransport 0058d744). Its connect (0058d7d4) pairs two virtual connections that hand each other packets by memory copy, with no socket.</remarks>
 internal static class MemoryNet
 {
     private static readonly object sLock = new();
@@ -19,7 +17,7 @@ internal static class MemoryNet
             return sQueues.ContainsKey(port);
     }
 
-    // Port 0 picks a free port; false when the port is taken.
+    /// <summary>Claims a port. Port 0 picks a free one.</summary>
     public static bool Register(ref ushort port)
     {
         lock (sLock)
@@ -81,6 +79,8 @@ internal static class MemoryNet
     }
 }
 
+/// <summary>A non-blocking UDP socket, or an in-process memory socket for the LOOPBACK transport.</summary>
+/// <remarks>Port of src/net/udp.cpp.</remarks>
 public sealed class UdpSocket : IDisposable
 {
     private const uint LoopbackIp = 0x7f000001;
@@ -91,10 +91,10 @@ public sealed class UdpSocket : IDisposable
     // that as an error, so the datagram is taken whole here and cut to the caller's buffer.
     private readonly byte[] mScratch = new byte[0x10000];
 
-    // src/net/udp.cpp UdpSocket::~UdpSocket.
+    /// <summary>Closes the socket.</summary>
     public void Dispose() => Close();
 
-    // src/net/udp.cpp UdpSocket::close.
+    /// <summary>Closes the socket and releases a memory port.</summary>
     public void Close()
     {
         mFd?.Dispose();
@@ -104,8 +104,9 @@ public sealed class UdpSocket : IDisposable
         mMemory = false;
     }
 
-    // The LOOPBACK transport: a socket that only other sockets of this process reach (LOOPTransport 0058d744). Port 0 picks
-    // a free one.
+    /// <summary>Opens a memory socket that only other sockets of this process reach (LOOPTransport 0058d744).</summary>
+    /// <param name="port">The port, or 0 to pick a free one.</param>
+    /// <returns>False when the port is taken.</returns>
     public bool OpenMemory(ushort port)
     {
         Close();
@@ -116,8 +117,9 @@ public sealed class UdpSocket : IDisposable
         return true;
     }
 
-    // The socket of a client that joins `target`: a memory socket when the target is a LOOPBACK server of this process,
-    // else an ordinary one on any port.
+    /// <summary>Opens the socket of a client that joins <paramref name="target"/>: a memory socket when the target is a LOOPBACK server of this process, else an ordinary socket on any port.</summary>
+    /// <param name="target">The server address.</param>
+    /// <returns>True on success.</returns>
     public bool OpenToward(Address target) =>
         target.Ip == LoopbackIp && MemoryNet.Has(target.Port) ? OpenMemory(0) : Open(0);
 
@@ -130,8 +132,10 @@ public sealed class UdpSocket : IDisposable
         return (uint)b[0] << 24 | (uint)b[1] << 16 | (uint)b[2] << 8 | b[3];
     }
 
-    // src/net/udp.cpp UdpSocket::open.
-    // loopbackOnly binds 127.0.0.1 only.
+    /// <summary>Opens a non-blocking UDP socket with broadcast enabled.</summary>
+    /// <param name="port">The port to bind, or 0 for any.</param>
+    /// <param name="loopbackOnly">True to bind 127.0.0.1 only.</param>
+    /// <returns>True on success.</returns>
     public bool Open(ushort port, bool loopbackOnly = false)
     {
         Close();
@@ -167,7 +171,10 @@ public sealed class UdpSocket : IDisposable
         return true;
     }
 
-    // src/net/udp.cpp UdpSocket::send.
+    /// <summary>Sends one datagram.</summary>
+    /// <param name="to">The destination.</param>
+    /// <param name="data">The payload.</param>
+    /// <returns>True when the whole datagram was sent.</returns>
     public bool Send(Address to, ReadOnlySpan<byte> data)
     {
         if (mMemory)
@@ -184,7 +191,10 @@ public sealed class UdpSocket : IDisposable
         }
     }
 
-    // src/net/udp.cpp UdpSocket::receive: bytes received, 0 when nothing is pending, -1 on error.
+    /// <summary>Receives one datagram if one is pending. A datagram larger than <paramref name="buffer"/> is cut to it.</summary>
+    /// <param name="from">Receives the sender.</param>
+    /// <param name="buffer">Receives the payload.</param>
+    /// <returns>The bytes received, 0 when nothing is pending, or -1 on error.</returns>
     public int Receive(out Address from, Span<byte> buffer)
     {
         from = default;
@@ -218,7 +228,9 @@ public sealed class UdpSocket : IDisposable
         return n;
     }
 
-    // Waits up to `ms` for a datagram; false on timeout or when the socket is closed.
+    /// <summary>Waits for a datagram.</summary>
+    /// <param name="ms">The longest wait in milliseconds.</param>
+    /// <returns>False on timeout or when the socket is closed.</returns>
     public bool WaitRead(int ms)
     {
         if (mMemory)
@@ -243,6 +255,7 @@ public sealed class UdpSocket : IDisposable
         }
     }
 
-    // src/net/udp.hpp port.
+    /// <summary>Gets the bound port.</summary>
+    /// <returns>The port.</returns>
     public ushort Port() => mPort;
 }

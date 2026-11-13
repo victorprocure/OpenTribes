@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>scriptrun</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>OpenTribes.ScriptRun</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

@@ -1,8 +1,7 @@
-// Port of src/net/bitstream.hpp and src/net/bitstream.cpp.
-// Darkstar BitStream: bits are packed LSB first (bit n is bit n&7 of byte n>>3).
-// Strings are byte strings (one char per byte, OpenTribes.Core.ByteString).
 namespace OpenTribes.Net;
 
+/// <summary>Darkstar bit stream: bits are packed LSB first (bit n is bit n&amp;7 of byte n&gt;&gt;3).</summary>
+/// <remarks>Port of src/net/bitstream.cpp. Strings are byte strings (one char per byte, <see cref="OpenTribes.Core.ByteString"/>). Overruns set the error flag instead of throwing.</remarks>
 public sealed class BitStream
 {
     private readonly byte[] mBuf;
@@ -10,16 +9,22 @@ public sealed class BitStream
     private uint mPos;
     private bool mError;
 
-    // src/net/bitstream.hpp BitStream::BitStream.
+    /// <summary>Creates a stream over a buffer.</summary>
+    /// <param name="buffer">The buffer to read or write.</param>
+    /// <param name="sizeBytes">The usable size in bytes.</param>
     public BitStream(byte[] buffer, int sizeBytes)
     {
         mBuf = buffer;
         mLimitBits = (ulong)sizeBytes * 8;
     }
 
+    /// <summary>Creates a stream over a whole buffer.</summary>
+    /// <param name="buffer">The buffer to read or write.</param>
     public BitStream(byte[] buffer) : this(buffer, buffer.Length) { }
 
-    // src/net/bitstream.cpp BitStream::writeBits.
+    /// <summary>Writes bits from the start of a span. A write past the limit sets the error flag and writes nothing.</summary>
+    /// <param name="bitCount">The number of bits.</param>
+    /// <param name="src">The source bytes, read LSB first.</param>
     public void WriteBits(uint bitCount, ReadOnlySpan<byte> src)
     {
         if ((ulong)(mPos + bitCount) > mLimitBits)
@@ -37,7 +42,9 @@ public sealed class BitStream
         }
     }
 
-    // src/net/bitstream.cpp BitStream::readBits.
+    /// <summary>Reads bits into a span, which is zeroed first. A read past the limit sets the error flag and reads nothing.</summary>
+    /// <param name="bitCount">The number of bits.</param>
+    /// <param name="dst">Receives the bits LSB first.</param>
     public void ReadBits(uint bitCount, Span<byte> dst)
     {
         for (uint i = 0; i < (bitCount + 7) / 8; ++i)
@@ -52,14 +59,18 @@ public sealed class BitStream
                 dst[(int)(i >> 3)] |= (byte)(1u << (int)(i & 7));
     }
 
-    // src/net/bitstream.cpp BitStream::writeInt.
+    /// <summary>Writes the low bits of an unsigned integer.</summary>
+    /// <param name="value">The value.</param>
+    /// <param name="bitCount">The number of bits, 1 to 32.</param>
     public void WriteInt(uint value, uint bitCount)
     {
         ReadOnlySpan<byte> bytes = stackalloc byte[4] { (byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24) };
         WriteBits(bitCount, bytes);
     }
 
-    // src/net/bitstream.cpp BitStream::readInt.
+    /// <summary>Reads an unsigned integer.</summary>
+    /// <param name="bitCount">The number of bits, 1 to 32.</param>
+    /// <returns>The value, 0 after an error.</returns>
     public uint ReadInt(uint bitCount)
     {
         Span<byte> bytes = stackalloc byte[4];
@@ -68,17 +79,22 @@ public sealed class BitStream
         return bitCount == 32 ? v : v & ((1u << (int)bitCount) - 1);
     }
 
-    // src/net/bitstream.cpp BitStream::writeFlag.
+    /// <summary>Writes one bit.</summary>
+    /// <param name="value">The flag.</param>
+    /// <returns>The flag, so writes can be chained in conditions.</returns>
     public bool WriteFlag(bool value)
     {
         WriteInt(value ? 1u : 0u, 1);
         return value;
     }
 
-    // src/net/bitstream.cpp BitStream::readFlag.
+    /// <summary>Reads one bit.</summary>
+    /// <returns>The flag.</returns>
     public bool ReadFlag() => ReadInt(1) != 0;
 
-    // src/net/bitstream.cpp BitStream::writeSignedInt.
+    /// <summary>Writes a sign bit followed by the magnitude.</summary>
+    /// <param name="value">The value.</param>
+    /// <param name="bitCount">The total bits including the sign bit.</param>
     public void WriteSignedInt(int value, uint bitCount)
     {
         if (WriteFlag(value < 0))
@@ -87,7 +103,9 @@ public sealed class BitStream
             WriteInt((uint)value, bitCount - 1);
     }
 
-    // src/net/bitstream.cpp BitStream::readSignedInt.
+    /// <summary>Reads a sign bit followed by the magnitude.</summary>
+    /// <param name="bitCount">The total bits including the sign bit.</param>
+    /// <returns>The value.</returns>
     public int ReadSignedInt(uint bitCount)
     {
         bool negative = ReadFlag();
@@ -95,13 +113,17 @@ public sealed class BitStream
         return negative ? -magnitude : magnitude;
     }
 
-    // src/net/bitstream.hpp BitStream::writeBytes.
+    /// <summary>Writes whole bytes at the current bit position.</summary>
+    /// <param name="src">The bytes.</param>
     public void WriteBytes(ReadOnlySpan<byte> src) => WriteBits((uint)(src.Length * 8), src);
 
-    // src/net/bitstream.hpp BitStream::readBytes.
+    /// <summary>Reads whole bytes from the current bit position.</summary>
+    /// <param name="dst">Receives the bytes.</param>
     public void ReadBytes(Span<byte> dst) => ReadBits((uint)(dst.Length * 8), dst);
 
-    // src/net/bitstream.cpp BitStream::writeString: Huffman-or-raw string, at most maxLen (<= 255) characters.
+    /// <summary>Writes a string as a compression flag, an 8-bit length and either Huffman codes or raw bytes, whichever is shorter.</summary>
+    /// <param name="s">The byte string.</param>
+    /// <param name="maxLen">The maximum characters to write, at most 255.</param>
     public void WriteString(string s, int maxLen = 255)
     {
         int len = s.Length < maxLen ? s.Length : maxLen;
@@ -130,7 +152,8 @@ public sealed class BitStream
         }
     }
 
-    // src/net/bitstream.cpp BitStream::readString.
+    /// <summary>Reads a string written by <see cref="WriteString"/>.</summary>
+    /// <returns>The byte string. Empty when a raw string does not fit in the stream (DECISIONS D20).</returns>
     public string ReadString()
     {
         bool compressed = ReadFlag();
@@ -155,15 +178,19 @@ public sealed class BitStream
         return output.ToString();
     }
 
-    // src/net/bitstream.hpp bitPosition.
+    /// <summary>Gets the current bit position.</summary>
+    /// <returns>The position in bits.</returns>
     public uint BitPosition() => mPos;
 
-    // src/net/bitstream.hpp setBitPosition.
+    /// <summary>Moves to a bit position.</summary>
+    /// <param name="pos">The position in bits.</param>
     public void SetBitPosition(uint pos) => mPos = pos;
 
-    // src/net/bitstream.hpp bytePosition (getBytePtr).
+    /// <summary>Gets the current position rounded up to whole bytes (getBytePtr).</summary>
+    /// <returns>The position in bytes.</returns>
     public int BytePosition() => (int)((mPos + 7) / 8);
 
-    // src/net/bitstream.hpp error.
+    /// <summary>Tells whether a read or write ran past the limit.</summary>
+    /// <returns>True after an overrun.</returns>
     public bool Error() => mError;
 }

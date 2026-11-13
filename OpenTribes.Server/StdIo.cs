@@ -1,9 +1,8 @@
-// Port convention (no C++ file): the stdio streams of the C++ server. Byte strings go out as their bytes; stdout is
-// line buffered (setvbuf _IOLBF in src/server/main.cpp), printf("%s\n") stops at the first NUL.
 using OpenTribes.Core;
 
 namespace OpenTribes.Server;
 
+/// <summary>The stdio streams of the C++ server. Byte strings go out as their bytes. Stdout is line buffered (<c>setvbuf _IOLBF</c> in src/server/main.cpp).</summary>
 public static class StdIo
 {
     private static readonly Stream sOut = Console.OpenStandardOutput();
@@ -16,10 +15,12 @@ public static class StdIo
         return nul < 0 ? s : s[..nul];
     }
 
-    // printf("%s\n", line) with a line-buffered stdout.
+    /// <summary>Writes a line like <c>printf("%s\n", line)</c>, which stops at the first NUL.</summary>
+    /// <param name="line">The line.</param>
     public static void Out(string line) => Write(CStr(line) + "\n");
 
-    // printf of preformatted text: written, flushed at its line ends.
+    /// <summary>Writes preformatted text and flushes at its line ends.</summary>
+    /// <param name="text">The text.</param>
     public static void Write(string text)
     {
         lock (sLock)
@@ -30,14 +31,15 @@ public static class StdIo
         }
     }
 
-    // fflush(stdout).
+    /// <summary>Flushes stdout.</summary>
     public static void Flush()
     {
         lock (sLock)
             sOut.Flush();
     }
 
-    // fprintf(stderr, ...): unbuffered.
+    /// <summary>Writes unbuffered text to stderr.</summary>
+    /// <param name="text">The text.</param>
     public static void Err(string text)
     {
         sErr.Write(ByteString.ToBytes(text));

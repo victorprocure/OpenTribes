@@ -1,10 +1,10 @@
-// Port of src/server/console_log.hpp and src/server/console_log.cpp: console log file (original 0x005f43f8 write,
-// 0x005f4544 $Console::logMode setter). docs/server-ops.md 6.
 using System.Globalization;
 using OpenTribes.Core;
 
 namespace OpenTribes.Server;
 
+/// <summary>The console log file (docs/server-ops.md 6).</summary>
+/// <remarks>Port of src/server/console_log.cpp. The original write is at 005f43f8 and the <c>$Console::logMode</c> setter at 005f4544.</remarks>
 public sealed class ConsoleLog : IDisposable
 {
     private readonly string mPath;
@@ -14,15 +14,16 @@ public sealed class ConsoleLog : IDisposable
     private bool mLastHope;
     private FileStream? mFile;
 
-    // src/server/console_log.cpp ConsoleLog::ConsoleLog: path is the log file ("console.log" in the working directory
-    // on the original); localTime replaces the local clock (std::tm in the C++).
+    /// <summary>Creates a log.</summary>
+    /// <param name="path">The log file. The original uses <c>console.log</c> in the working directory.</param>
+    /// <param name="localTime">Returns the local time. Defaults to the system clock (<c>std::tm</c> in the C++).</param>
     public ConsoleLog(string path, Func<DateTime>? localTime = null)
     {
         mPath = path;
         mLocalTime = localTime ?? (() => DateTime.Now);
     }
 
-    // src/server/console_log.cpp ConsoleLog::~ConsoleLog.
+    /// <summary>Closes the file.</summary>
     public void Dispose()
     {
         mFile?.Dispose();
@@ -41,8 +42,8 @@ public sealed class ConsoleLog : IDisposable
         }
     }
 
-    // src/server/console_log.cpp ConsoleLog::setMode: $Console::logMode assignment, atoi of the text. 0 off, 1
-    // open/append/close per line, 2 keep the file open. Any other non-zero value logs nothing but counts as "on".
+    /// <summary>Sets the log mode from an assignment to <c>$Console::logMode</c> (atoi of the text).</summary>
+    /// <param name="mode">0 is off, 1 opens, appends and closes per line, 2 keeps the file open. Any other non-zero value logs nothing but counts as on.</param>
     public void SetMode(int mode)
     {
         if (mode == mMode)
@@ -61,13 +62,16 @@ public sealed class ConsoleLog : IDisposable
         mMode = mode;
     }
 
+    /// <summary>Gets the log mode.</summary>
+    /// <returns>The mode.</returns>
     public int Mode() => mMode;
 
-    // src/server/console_log.hpp setLastHope: LastHope 1.30 header format (docs/lasthope-1.30.md L15).
+    /// <summary>Selects the LastHope 1.30 header format (docs/lasthope-1.30.md L15).</summary>
+    /// <param name="on">True for the LastHope format.</param>
     public void SetLastHope(bool on) => mLastHope = on;
 
-    // src/server/console_log.cpp ConsoleLog::write: one console line; "\r\n" is appended. The first line after the log
-    // was switched on (and the first line of the process) is preceded by a date header.
+    /// <summary>Writes one console line, followed by <c>\r\n</c>. The first line after the log was switched on, and the first line of the process, is preceded by a date header.</summary>
+    /// <param name="line">The line.</param>
     public void Write(string line)
     {
         if (mMode == 0)

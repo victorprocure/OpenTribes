@@ -1,20 +1,20 @@
-// Port of the transform part of src/game/mission_objects.hpp and src/game/mission_objects.cpp (namespace ot::sim): the
-// Transform struct and the Euler conversions of the original (docs/mission.md 5.1). The rest of mission_objects.cpp
-// (persist fields, GameBase, TeamGroup, registerMissionClasses) is OpenTribes.Game/MissionObjects.cs. Portable form:
-// asinl and atan2l are Math.Asin and Math.Atan2, the float differences and products follow the mode of Fpu, float
-// stores are Fpu.Store.
 using OpenTribes.World;
 using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Sim;
 
-// src/game/mission_objects.hpp struct Transform.
+/// <summary>A mission object transform: a flag word, a 3x3 matrix and a position.</summary>
+/// <remarks>Port of the transform part of src/game/mission_objects.cpp (namespace ot::sim), docs/mission.md 5.1. The rest of that file (persist fields, GameBase, TeamGroup, registerMissionClasses) is in <c>OpenTribes.Game/MissionObjects.cs</c>.</remarks>
 public struct Transform
 {
-    public uint Flags; // bit 0 rotation, bit 1 translation
+    /// <summary>The flags: bit 0 means rotation is set, bit 1 means translation is set.</summary>
+    public uint Flags;
+    /// <summary>The rotation matrix.</summary>
     public Float9 M;
+    /// <summary>The position.</summary>
     public Float3 P;
 
+    /// <summary>Creates an identity transform with no flags set.</summary>
     public Transform()
     {
         Flags = 0;
@@ -23,10 +23,14 @@ public struct Transform
     }
 }
 
+/// <summary>The Euler angle conversions of the original.</summary>
+/// <remarks>Portable form: asinl and atan2l are <see cref="Math.Asin"/> and <see cref="Math.Atan2"/>. Float differences and products follow the mode of <see cref="OpenTribes.Core.Fpu"/> and float stores use <c>Fpu.Store</c>.</remarks>
 public static class MissionTransform
 {
-    // src/game/mission_objects.cpp eulerToMatrix: m_mat3_setEuler (0x005ed42e), x87 fsincos and the product grouping of
-    // the original (world::eulerMatrix).
+    /// <summary>Sets the matrix of a transform from three Euler angles.</summary>
+    /// <param name="e">The Euler angles in radians.</param>
+    /// <param name="t">The transform to update.</param>
+    /// <remarks>Follows m_mat3_setEuler (005ed42e), with the x87 fsincos and the product grouping of the original (world eulerMatrix).</remarks>
     public static void EulerToMatrix(ReadOnlySpan<float> e, ref Transform t)
     {
         var m = new TMat3();
@@ -36,7 +40,9 @@ public static class MissionTransform
         t.M = m.M;
     }
 
-    // src/game/mission_objects.cpp matrixToEuler.
+    /// <summary>Reads three Euler angles from the matrix of a transform. All zero when the rotation flag is clear.</summary>
+    /// <param name="t">The transform.</param>
+    /// <param name="e">Receives the Euler angles in radians.</param>
     public static void MatrixToEuler(in Transform t, Span<float> e)
     {
         if ((t.Flags & 1) == 0)

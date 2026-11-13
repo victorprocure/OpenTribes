@@ -1,41 +1,95 @@
-// The client side of the server query (the Join Server screen): ping and info requests on the DNet info protocol (0x10,
-// docs/net-protocol.md 6.2), the pacing queues and the reply handling. Written from SimNet_processQueryQueue 0054ee8c,
-// SimNet_onInfoPacket 0054f608 and the info handler 0042c4cc of the 1.11 exe.
 using System.Globalization;
 
 namespace OpenTribes.Net;
 
-// $pref::maxConcurrentPings .. requestRetryCount (SimNet_loadQueryPrefs 0054e61c; the defaults are the ones the exe passes).
+/// <summary>The query pacing preferences, <c>$pref::maxConcurrentPings</c> to <c>requestRetryCount</c>.</summary>
+/// <remarks>Follows SimNet_loadQueryPrefs (0054e61c). The defaults are the ones the exe passes.</remarks>
 public sealed class ServerQueryPrefs
 {
-    public int MaxPings = 20, PingTimeoutMs = 1500, PingRetries = 2, MaxRequests = 10, RequestTimeoutMs = 2000, RequestRetries = 2;
+    /// <summary>The most pings in flight at once.</summary>
+    public int MaxPings = 20;
+    /// <summary>The time in milliseconds before a ping is sent again.</summary>
+    public int PingTimeoutMs = 1500;
+    /// <summary>The number of resends before a ping fails.</summary>
+    public int PingRetries = 2;
+    /// <summary>The most info requests in flight at once.</summary>
+    public int MaxRequests = 10;
+    /// <summary>The time in milliseconds before an info request is sent again.</summary>
+    public int RequestTimeoutMs = 2000;
+    /// <summary>The number of resends before an info request fails.</summary>
+    public int RequestRetries = 2;
 }
 
-// The record of a type 8 reply (0042c4cc fills the 0x458 byte server record in this order).
+/// <summary>The record of a type 8 info reply.</summary>
+/// <remarks>The info handler (0042c4cc) fills the 0x458 byte server record in this order.</remarks>
 public sealed class ServerInfoRecord
 {
+    /// <summary>The key of the request this reply answers.</summary>
     public ushort Key;
+    /// <summary>The canonical address text of the server.</summary>
     public string Address = "";
-    public string GameName = "", Version = "", Hostname = "", Mission = "", ModList = "", MissionType = "", Info = "";
-    public string TeamHeading = "", ClientHeading = "";
-    public byte Players, MaxPlayers;
-    public bool Dedicated, Password;
+    /// <summary>The game name, which the caller checks.</summary>
+    public string GameName = "";
+    /// <summary>The game version text.</summary>
+    public string Version = "";
+    /// <summary>The server's host name.</summary>
+    public string Hostname = "";
+    /// <summary>The current mission name.</summary>
+    public string Mission = "";
+    /// <summary>The loaded mods.</summary>
+    public string ModList = "";
+    /// <summary>The mission type.</summary>
+    public string MissionType = "";
+    /// <summary>The server description text.</summary>
+    public string Info = "";
+    /// <summary>The heading of the team columns in <see cref="Rows"/>.</summary>
+    public string TeamHeading = "";
+    /// <summary>The heading of the client columns in <see cref="Rows"/>.</summary>
+    public string ClientHeading = "";
+    /// <summary>The current player count.</summary>
+    public byte Players;
+    /// <summary>The player limit.</summary>
+    public byte MaxPlayers;
+    /// <summary>True for a dedicated server.</summary>
+    public bool Dedicated;
+    /// <summary>True when the server needs a password.</summary>
+    public bool Password;
+    /// <summary>The server's CPU speed.</summary>
     public int Cpu;
+    /// <summary>The packet version the server reports.</summary>
     public ushort PacketVersion;
+    /// <summary>The status rows that follow the fixed part of the reply.</summary>
     public readonly List<string> Rows = new();
 }
 
+/// <summary>A parsed type 4 ping reply.</summary>
+/// <param name="Key">The key of the ping it answers.</param>
+/// <param name="Players">The current player count.</param>
+/// <param name="PacketVersion">The packet version the server reports.</param>
+/// <param name="Hostname">The server's host name.</param>
 public readonly record struct PingReply(ushort Key, byte Players, ushort PacketVersion, string Hostname);
 
+/// <summary>Builds and parses the query packets of the DNet info protocol.</summary>
 public static class QueryPackets
 {
-    // 0054ee8c (case 3 request): 10 03 b2 00 key(le) 00 00, b2 = the query index or 0xff.
+    /// <summary>Builds a ping request: <c>10 03 b2 00 key(le) 00 00</c>.</summary>
+    /// <param name="key">The request key.</param>
+    /// <param name="index">The query index, sent as <c>b2</c>. 0 is sent as 0xff.</param>
+    /// <returns>The packet.</returns>
+    /// <remarks>Follows SimNet_processQueryQueue (0054ee8c), request case 3.</remarks>
     public static byte[] BuildPing(ushort key, byte index) => new byte[] { 0x10, 3, index == 0 ? (byte)0xff : index, 0, (byte)key, (byte)(key >> 8), 0, 0 };
 
-    // 0054ee8c (request loop): 10 07 ff 00 key 00 00.
+    /// <summary>Builds an info request: <c>10 07 ff 00 key 00 00</c>.</summary>
+    /// <param name="key">The request key.</param>
+    /// <returns>The packet.</returns>
+    /// <remarks>Follows the request loop of SimNet_processQueryQueue (0054ee8c).</remarks>
     public static byte[] BuildInfoRequest(ushort key) => new byte[] { 0x10, 7, 0xff, 0, (byte)key, (byte)(key >> 8), 0, 0 };
 
-    // 0054f608 case 4: 40 bytes, byte 3 is 0xf0, byte 7 the player count, bytes 8-9 the packet version, 10..38 the host name.
+    /// <summary>Parses a type 4 ping reply.</summary>
+    /// <param name="d">The datagram.</param>
+    /// <param name="reply">Receives the reply.</param>
+    /// <returns>False when the datagram is not a valid ping reply.</returns>
+    /// <remarks>Follows SimNet_onInfoPacket (0054f608) case 4. The packet is 40 bytes. Byte 3 is 0xf0, byte 7 the player count, bytes 8-9 the packet version and bytes 10-38 the host name.</remarks>
     public static bool TryParsePingReply(ReadOnlySpan<byte> d, out PingReply reply)
     {
         reply = default;
@@ -48,9 +102,11 @@ public static class QueryPackets
         return true;
     }
 
-    // 0042c4cc: after the 8 byte header a bit stream: packet version (2 raw bytes), game name, version, host name, players, maximum,
-    // mission, dedicated, password, cpu speed (4 raw bytes), mod list, mission type, info, team heading, client heading, then rows.
-    // The packet version and the game name checks are the caller's. Returns false when the stream is too short for the fixed part.
+    /// <summary>Parses a type 8 info reply. The packet version and game name checks are the caller's.</summary>
+    /// <param name="d">The datagram.</param>
+    /// <param name="rec">Receives the record.</param>
+    /// <returns>False when the stream is too short for the fixed part.</returns>
+    /// <remarks>Follows the info handler (0042c4cc). After the 8 byte header comes a bit stream: packet version (2 raw bytes), game name, version, host name, players, maximum, mission, dedicated, password, CPU speed (4 raw bytes), mod list, mission type, info, team heading, client heading, then the rows. The row loop runs while bytes remain, as the handler compares the stream position with the packet length.</remarks>
     public static bool TryParseInfoReply(ReadOnlySpan<byte> d, out ServerInfoRecord rec)
     {
         rec = new ServerInfoRecord();
@@ -95,8 +151,8 @@ public static class QueryPackets
     }
 }
 
-// The wire: a datagram to or from an address string ("IP:a.b.c.d:port"). Tests give a fake.
-// The UDP side: one socket on a port the OS picks (the client's own 0058bfac binds port 0).
+/// <summary>The UDP transport of the query: one socket on a port the OS picks, with a receive thread that stamps each datagram.</summary>
+/// <remarks>The client's own socket (0058bfac) binds port 0.</remarks>
 public sealed class UdpQueryTransport : IQueryTransport, IDisposable
 {
     private readonly UdpSocket mSock = new();
@@ -106,12 +162,18 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
     private volatile bool mStop;
     private bool mOpen;
 
-    // `now` is the clock of the query; the receive thread stamps each datagram with it on arrival (the stock exe takes the time of
-    // the ping reply when the packet comes in, 0054f608 case 4, not when the screen next looks).
+    /// <summary>Creates the transport.</summary>
+    /// <param name="now">The query clock. The receive thread stamps each datagram with it on arrival. Defaults to the system tick count.</param>
+    /// <remarks>The stock exe takes the time of a ping reply when the packet comes in (0054f608 case 4), not when the screen next looks.</remarks>
     public UdpQueryTransport(Func<long>? now = null) => mNow = now ?? (() => Environment.TickCount64);
 
+    /// <summary>The arrival time of the datagram <see cref="Receive"/> gave last, or -1 before any.</summary>
     public long LastReceiveMs { get; private set; } = -1;
 
+    /// <summary>Sends a datagram, opening the socket and the receive thread on first use.</summary>
+    /// <param name="to">The destination.</param>
+    /// <param name="data">The payload.</param>
+    /// <returns>False when the socket cannot open or the send fails.</returns>
     public bool Send(Address to, byte[] data)
     {
         if (!mOpen)
@@ -142,6 +204,10 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
         }
     }
 
+    /// <summary>Takes the oldest datagram the receive thread queued.</summary>
+    /// <param name="from">Receives the sender.</param>
+    /// <param name="data">Receives the payload.</param>
+    /// <returns>False when none is pending.</returns>
     public bool Receive(out Address from, out byte[] data)
     {
         from = default;
@@ -157,6 +223,7 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
         return true;
     }
 
+    /// <summary>Stops the receive thread and closes the socket.</summary>
     public void Dispose()
     {
         mStop = true;
@@ -165,23 +232,38 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
     }
 }
 
+/// <summary>The wire of the query: a datagram to or from an address. Tests supply a fake.</summary>
 public interface IQueryTransport
 {
-    // Sends to the resolved address; false when it cannot be sent.
+    /// <summary>Sends to a resolved address.</summary>
+    /// <param name="to">The destination.</param>
+    /// <param name="data">The payload.</param>
+    /// <returns>False when it cannot be sent.</returns>
     bool Send(Address to, byte[] data);
-    // One pending datagram or false.
+    /// <summary>Takes one pending datagram.</summary>
+    /// <param name="from">Receives the sender.</param>
+    /// <param name="data">Receives the payload.</param>
+    /// <returns>False when none is pending.</returns>
     bool Receive(out Address from, out byte[] data);
-    // The arrival time (the query clock) of the datagram Receive gave last, or -1 when the transport does not stamp them.
+    /// <summary>Gets the arrival time (the query clock) of the datagram <see cref="Receive"/> gave last.</summary>
+    /// <returns>The time, or -1 when the transport does not stamp datagrams.</returns>
     long LastReceiveMs => -1;
 }
 
-// Address strings of the query queues (the canonical text DNetSession_resolveAddress gives, docs/net-protocol.md 2).
+/// <summary>Address strings of the query queues. The canonical text is what DNetSession_resolveAddress gives (docs/net-protocol.md 2).</summary>
 public static class QueryAddress
 {
+    /// <summary>The host part that means a broadcast.</summary>
     public const string BroadcastHost = "BROADCAST";
 
-    // Canonical text and the target. IP:a.b.c.d:port, IP:BROADCAST:port (target 255.255.255.255), IPX:BROADCAST:port (cannot be
-    // sent here), LOOPBACK:port. Returns false for text that is none of them.
+    /// <summary>Resolves an address text. Accepted forms are <c>IP:a.b.c.d:port</c>, <c>IP:BROADCAST:port</c>, <c>IPX:BROADCAST:port</c> (cannot be sent here) and <c>LOOPBACK:port</c>.</summary>
+    /// <param name="text">The address text.</param>
+    /// <param name="broadcastIp">The target of a broadcast.</param>
+    /// <param name="canonical">Receives the canonical text.</param>
+    /// <param name="target">Receives the target. Unset for IPX.</param>
+    /// <param name="broadcast">Receives true for a broadcast address.</param>
+    /// <param name="ipx">Receives true for an IPX address.</param>
+    /// <returns>False for text that is none of the forms.</returns>
     public static bool TryResolve(string text, uint broadcastIp, out string canonical, out Address target, out bool broadcast, out bool ipx)
     {
         canonical = "";
@@ -222,6 +304,8 @@ public static class QueryAddress
     }
 }
 
+/// <summary>The client side of the server query (the Join Server screen): ping and info requests on the DNet info protocol (0x10, docs/net-protocol.md 6.2), the pacing queues and the reply handling.</summary>
+/// <remarks>Follows SimNet_processQueryQueue (0054ee8c), SimNet_onInfoPacket (0054f608) and the info handler (0042c4cc) of the 1.11 exe.</remarks>
 public sealed class ServerQuery
 {
     private sealed class PingEntry
@@ -252,46 +336,61 @@ public sealed class ServerQuery
     private int mActivePings, mActiveRequests;
     private ushort mNextKey;
 
+    /// <summary>The pacing preferences.</summary>
     public ServerQueryPrefs Prefs = new();
-    // 255.255.255.255 on a LAN; the client sends the loopback broadcast (127.255.255.255) unless remote hosts are allowed (R6).
+    /// <summary>The target of a broadcast query: 255.255.255.255 on a LAN. The client sends the loopback broadcast (127.255.255.255) unless remote hosts are allowed (R6).</summary>
     public uint BroadcastIp = 0xffffffff;
-    // The version the replies must carry (the packet version of this build, 0054f608 compares it with net + 0xd8).
+    /// <summary>The packet version replies must carry, the one of this build.</summary>
+    /// <remarks>0054f608 compares it with net + 0xd8.</remarks>
     public ushort PacketVersion = 1;
+    /// <summary>The game name replies must carry.</summary>
     public string GameName = "Tribes";
-    // The R6 gate: a target outside 127.0.0.0/8 is dropped when this returns false.
+    /// <summary>The R6 gate. A target outside 127.0.0.0/8 is dropped when this returns false.</summary>
     public Func<Address, bool> MayContact = _ => true;
 
-    // 0042caf0: a ping answered (address, host name, round trip in ms, the packet version it reported).
+    /// <summary>Raised when a ping is answered, with the address, the host name, the round trip in ms and the packet version it reported (0042caf0).</summary>
     public Action<string, string, int, ushort>? OnPing;
-    // 0042c4cc: the info of one server.
+    /// <summary>Raised with the info of one server (0042c4cc).</summary>
     public Action<ServerInfoRecord>? OnInfo;
-    // vtable +0xac (0042ca00): a master list part arrived (master address, its name and message of the day when this is part 1).
+    /// <summary>Raised when a part of a master list arrived, with the master address, its name, whether this is part 1 and its message of the day. The name and message are set only for part 1 (vtable +0xac, 0042ca00).</summary>
     public Action<string, string, bool, string>? OnMaster;
-    // vtable +0xb0 (0042cb88): a ping or request gave up, or the server speaks another version.
+    /// <summary>Raised with the address when a ping or request gave up or the server speaks another version (vtable +0xb0, 0042cb88).</summary>
     public Action<string>? OnFail;
-    // Something changed for the screen: the queues shrank or grew.
+    /// <summary>Raised when the queues shrank or grew, so the screen refreshes.</summary>
     public Action? OnChange;
 
+    /// <summary>Creates a query.</summary>
+    /// <param name="net">The wire.</param>
+    /// <param name="now">The query clock in milliseconds.</param>
     public ServerQuery(IQueryTransport net, Func<long> now)
     {
         mNet = net;
         mNow = now;
     }
 
+    /// <summary>The number of queued pings.</summary>
     public int PendingPings => mPings.Count;
+    /// <summary>The number of queued info requests.</summary>
     public int PendingRequests => mRequests.Count;
+    /// <summary>The number of pings and requests in flight.</summary>
     public int Active => mActivePings + mActiveRequests;
+    /// <summary>The addresses that already answered or failed.</summary>
     public IReadOnlyList<string> Seen => mSeen;
+    /// <summary>The addresses of the queued pings.</summary>
     public IEnumerable<string> PendingPingAddresses => mPings.Select(e => e.Address);
 
-    // TribesNet_queryServers 0042bb50, the part that clears: the queues stay (the stock code leaves them as they are), the list of
-    // addresses already answered starts empty (DAT_006aad58 = 0).
+    /// <summary>Empties the list of addresses already answered. The queues stay, as the stock code leaves them.</summary>
+    /// <remarks>Follows the clearing part of TribesNet_queryServers (0042bb50): DAT_006aad58 = 0.</remarks>
     public void ClearSeen() => mSeen.Clear();
 
-    // 0042cd68: an address counted as answered.
+    /// <summary>Counts an address as answered (0042cd68).</summary>
+    /// <param name="canonical">The canonical address text.</param>
     public void AddSeen(string canonical) => mSeen.Add(canonical);
 
-    // SimNet_queueServerQuery: an address text not yet queued gets an entry, then the queue runs.
+    /// <summary>Queues a ping for an address text that is not queued yet, then runs the queue.</summary>
+    /// <param name="address">The address text.</param>
+    /// <param name="index">The query index, 0 for a plain ping or the part of a master list.</param>
+    /// <remarks>Follows SimNet_queueServerQuery.</remarks>
     public void Queue(string address, int index = 0)
     {
         if (!QueryAddress.TryResolve(address, BroadcastIp, out string canon, out Address target, out bool bc, out bool ipx))
@@ -303,7 +402,9 @@ public sealed class ServerQuery
         Process();
     }
 
-    // 005500e8: an info request for a server that answered the ping.
+    /// <summary>Queues an info request for a server that answered the ping, then runs the queue (005500e8).</summary>
+    /// <param name="address">The address text.</param>
+    /// <param name="ping">The ping entry the request follows.</param>
     public void Request(string address, int ping)
     {
         if (!QueryAddress.TryResolve(address, BroadcastIp, out string canon, out Address target, out _, out _))
@@ -312,7 +413,7 @@ public sealed class ServerQuery
         Process();
     }
 
-    // The stock cancel (0055017c, 00550190): both queues are emptied.
+    /// <summary>Empties both queues (stock cancel 0055017c, 00550190).</summary>
     public void CancelAll()
     {
         mPings.Clear();
@@ -322,7 +423,8 @@ public sealed class ServerQuery
 
     private bool Send(Address to, byte[] data) => MayContact(to) && mNet.Send(to, data);
 
-    // SimNet_processQueryQueue 0054ee8c.
+    /// <summary>Sends or resends the pings and requests that are due and drops the ones that ran out of retries.</summary>
+    /// <remarks>Follows SimNet_processQueryQueue (0054ee8c). Requests run only while no ping is in flight. A broadcast ping is sent once and leaves the queue (0054e438), and whoever answers is queried by its own address.</remarks>
     public void Process()
     {
         long now = mNow();
@@ -419,7 +521,8 @@ public sealed class ServerQuery
         }
     }
 
-    // One frame: the replies, then the queue (the exe runs the queue from a 30 ms sim event while anything is in flight).
+    /// <summary>Handles the pending replies, then runs the queue.</summary>
+    /// <remarks>The exe runs the queue from a 30 ms sim event while anything is in flight.</remarks>
     public void Tick()
     {
         while (mNet.Receive(out Address from, out byte[] data))
@@ -436,10 +539,10 @@ public sealed class ServerQuery
         return null;
     }
 
-    // 0054f608 case 6: a part of a master's server list (b2 = part, b3 = part count, b4/b5 = the key of the request). The ping entry of
-    // the request leaves the queue; a reply to the first request makes entries for the parts still to come. Part 1 carries the master's
-    // name and message of the day. Every address of the list that has not answered yet is queued as a ping (0054e3c8: a 6 byte entry is
-    // IP, then the port in little endian order).
+    /// <summary>Handles a master server list part (0054f608 case 6).</summary>
+    /// <param name="addr">The master address text.</param>
+    /// <param name="d">The datagram: byte 2 is the part, byte 3 the part count and bytes 4-5 the key of the request.</param>
+    /// <remarks>The ping entry of the request leaves the queue. A reply to the first request makes entries for the parts still to come. Part 1 carries the master's name and message of the day. Every address of the list that has not answered yet is queued as a ping. A 6 byte entry is the IP, then the port in little endian order (0054e3c8).</remarks>
     private void OnMasterReply(string addr, byte[] d)
     {
         if (d.Length < 10)
@@ -508,7 +611,11 @@ public sealed class ServerQuery
         OnChange?.Invoke();
     }
 
-    // SimNet_onInfoPacket 0054f608, cases 4 and 8 (a client; the server's cases 3 and 7 are NetServer's).
+    /// <summary>Handles one query reply.</summary>
+    /// <param name="from">The sender.</param>
+    /// <param name="data">The datagram.</param>
+    /// <param name="arrivedMs">The arrival time on the query clock, or -1 to use the current time.</param>
+    /// <remarks>Follows SimNet_onInfoPacket (0054f608) cases 4, 6 and 8. This is the client side. The server cases 3 and 7 are handled by <c>NetServer</c>.</remarks>
     public void OnDatagram(Address from, byte[] data, long arrivedMs = -1)
     {
         if (data.Length < 2 || data[0] != 0x10)

@@ -1,7 +1,3 @@
-// Port of src/game/game_server.hpp and src/game/game_server.cpp: the server side of client connections: client objects,
-// the join sequence (docs/game-stream.md 5.1) and remote evals in both directions. It lives in OpenTribes.Server because
-// it drives the NetServer of this project (the C# project graph is acyclic; OpenTribes.Game does not reference the
-// server).
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
@@ -12,7 +8,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Server;
 
-// src/game/game_server.hpp class GameServer.
+/// <summary>The server side of client connections: client objects, the join sequence (docs/game-stream.md 5.1) and remote evals in both directions.</summary>
+/// <remarks>Port of src/game/game_server.cpp. It lives in OpenTribes.Server because it drives the <see cref="NetServer"/> of this project. The C# project graph is acyclic and OpenTribes.Game does not reference the server.</remarks>
 public sealed class GameServer
 {
     // src/game/game_server.cpp ClientObject: the object a client id names in scripts. Its id is the connection's player
@@ -21,7 +18,9 @@ public sealed class GameServer
     {
         private readonly int mId;
         public ClientObject(int id) => mId = id;
+        /// <inheritdoc/>
         public override string ClassName() => "Net::PacketStream";
+        /// <inheritdoc/>
         public override int FixedId() => mId;
     }
 
@@ -52,9 +51,11 @@ public sealed class GameServer
                 CollectAlways(m, output);
     }
 
-    // src/game/game_server.cpp GameServer::GameServer.
-    // claimGlobals: the ghost priority container and the sound routes are process-wide hooks; the one world that talks to
-    // clients owns them (a world that is only stepped, like the prediction world of a client, leaves them alone).
+    /// <summary>Creates the server side and hooks it to the network.</summary>
+    /// <param name="game">The game state.</param>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="net">The server network.</param>
+    /// <param name="claimGlobals">True when this world talks to clients and so owns the process-wide hooks: the ghost priority container and the sound routes. A world that is only stepped, like the prediction world of a client, leaves them alone.</param>
     public GameServer(GameState game, Interpreter interp, NetServer net, bool claimGlobals = true)
     {
         mGame = game;
@@ -386,7 +387,7 @@ public sealed class GameServer
         mOrder.RemoveAll(x => x == id);
     }
 
-    // src/game/game_server.cpp GameServer::registerCommands.
+    /// <summary>Registers the client commands, such as <c>remoteEval</c> (docs/sim.md 8).</summary>
     public void RegisterCommands()
     {
         // remoteEval(id, cmd, args...) posts a console event (docs/sim.md 8).

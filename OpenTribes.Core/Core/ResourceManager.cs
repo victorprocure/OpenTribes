@@ -1,41 +1,58 @@
-// Port of src/core/resource_manager.hpp and src/core/resource_manager.cpp.
-// Resource index over search directories and mounted volumes. Rules: docs/resources.md.
-// Names are byte strings (ByteString); interned names are canonical, so the C++ pointer
-// comparisons are ordinal string comparisons here.
 namespace OpenTribes.Core;
 
+/// <summary>Index of resources over the search directories and the mounted volumes.</summary>
+/// <remarks>Port of src/core/resource_manager.cpp, rules in docs/resources.md. Names are byte strings (<see cref="ByteString"/>). Interned names are canonical, so the C++ pointer comparisons are ordinal string comparisons here.</remarks>
 public sealed class ResourceManager
 {
-    // src/core/resource_manager.hpp enum Flags.
+    /// <summary>Entry flag: the data is in a mounted volume.</summary>
     public const uint InVolume = 1;
+    /// <summary>Entry flag: the data is a file in a search directory.</summary>
     public const uint LooseFile = 2;
+    /// <summary>Entry flag: no backing file is left. Also marks entries added at run time.</summary>
     public const uint Stale = 4; // "added": no backing file left
+    /// <summary>Entry flag: the volume entry is run-length encoded.</summary>
     public const uint Rle = 8;
+    /// <summary>Entry flag: the volume entry is LZH compressed.</summary>
     public const uint Lzh = 0x10;
 
-    // src/core/resource_manager.cpp struct ResourceManager::Volume.
+    /// <summary>A mounted volume archive.</summary>
     public sealed class Volume
     {
+        /// <summary>The directory part of the volume's lookup name, or null.</summary>
         public string? Path;
+        /// <summary>The file name part of the volume's lookup name.</summary>
         public string Name = "";
+        /// <summary>The backslash separated directory that holds the .vol file.</summary>
         public string Dir = ""; // backslash directory of the .vol
+        /// <summary>The number of mounts. The volume unmounts when it drops to 0.</summary>
         public int RefCount = 1;
+        /// <summary>The open archive.</summary>
         public readonly VolArchive Archive = new();
     }
 
-    // src/core/resource_manager.hpp struct Entry.
+    /// <summary>One resource: a loose file, a volume entry or a generated resource.</summary>
     public sealed class Entry
     {
-        public string? Path;          // directory part of the lookup name, or null
+        /// <summary>The directory part of the lookup name, or null.</summary>
+        public string? Path;
+        /// <summary>The file name part of the lookup name.</summary>
         public string Name = "";      // file name part
+        /// <summary>The real directory, backslash separated and relative to the root.</summary>
         public string FilePath = "";  // real directory (backslash separated, relative to root)
+        /// <summary>The real file name. For volume entries this is the .vol file.</summary>
         public string FileName = "";  // real file name (the .vol for volume entries)
+        /// <summary>The entry flags: <see cref="InVolume"/>, <see cref="LooseFile"/>, <see cref="Stale"/>, <see cref="Rle"/> and <see cref="Lzh"/>.</summary>
         public uint Flags;
+        /// <summary>The volume that holds the entry, or null.</summary>
         public Volume? Volume;
-        public int VolumeIndex;       // index into the volume's directory
+        /// <summary>The index of the entry in the volume's directory.</summary>
+        public int VolumeIndex;
+        /// <summary>The data size in bytes.</summary>
         public uint Size;
-        public bool HasInstance;      // +0x14: load built an instance; it keeps a stale entry alive
-        public uint Locks;            // +0x44: holders of the instance; purge keeps a locked entry
+        /// <summary>True once a load built an instance (stock +0x14). The instance keeps a stale entry alive.</summary>
+        public bool HasInstance;
+        /// <summary>The number of holders of the instance (stock +0x44). A purge keeps a locked entry.</summary>
+        public uint Locks;
     }
 
     private readonly string mRoot;
@@ -44,7 +61,9 @@ public sealed class ResourceManager
     private readonly Dictionary<(string?, string), List<Entry>> mChains = new();
     private readonly List<Volume> mVolumes = new();
 
-    // src/core/resource_manager.cpp ResourceManager::ResourceManager. rootDir is a host path.
+    /// <summary>Creates a manager over a root directory.</summary>
+    /// <param name="rootDir">The root, a host path.</param>
+    /// <param name="strings">The string table for interned names. Defaults to <see cref="StringTable.Global"/>.</param>
     public ResourceManager(string rootDir, StringTable? strings = null)
     {
         mRoot = rootDir;
@@ -129,7 +148,10 @@ public sealed class ResourceManager
         return true;
     }
 
-    // src/core/resource_manager.cpp wildcardMatch: the original wildcard match in case-insensitive mode.
+    /// <summary>Matches a name against a pattern with <c>*</c> and <c>?</c>, the original wildcard match in case-insensitive mode.</summary>
+    /// <param name="pattern">The pattern.</param>
+    /// <param name="str">The name to test.</param>
+    /// <returns>True when the name matches.</returns>
     public static bool WildcardMatch(string pattern, string str) => WildcardMatchAt(pattern, 0, str, 0);
 
     private static char At(string s, int i) => i < s.Length ? s[i] : '\0';
@@ -289,8 +311,8 @@ public sealed class ResourceManager
         }
     }
 
-    // src/core/resource_manager.cpp ResourceManager::setSearchPath: rescans the search path
-    // (`;`-separated, backslash directories relative to root).
+    /// <summary>Rescans the search path. Loose files that disappear become stale entries and are dropped unless an instance keeps them.</summary>
+    /// <param name="searchPath">Directories separated by <c>;</c>, backslash separated and relative to the root. Directories that are absolute or contain <c>.</c> or <c>:</c> are skipped, as the original does once start-up is over.</param>
     public void SetSearchPath(string searchPath)
     {
         foreach (Entry e in mList.ToArray())
@@ -316,9 +338,9 @@ public sealed class ResourceManager
                 Unlink(e);
     }
 
-    // src/core/resource_manager.cpp ResourceManager::addGenerated: registers a resource built at run
-    // time (action maps). It has no file, is found by lookup and iteration, and survives rescans.
-    // False: already registered.
+    /// <summary>Registers a resource built at run time (action maps). It has no file, is found by lookup and iteration, and survives rescans.</summary>
+    /// <param name="resName">The resource name.</param>
+    /// <returns>False when it is already registered.</returns>
     public bool AddGenerated(string resName)
     {
         var (path, name) = Split(resName, true);
@@ -337,10 +359,10 @@ public sealed class ResourceManager
         return true;
     }
 
-    // src/core/resource_manager.cpp ResourceManager::load: ResManager::load (0x00587e7c) locks the
-    // entry and gives it an instance, which the entry keeps after the last unlock until purge
-    // (docs/resources.md 8.7). Null when the name is missing, or the entry has neither a file nor
-    // an instance.
+    /// <summary>Locks an entry and gives it an instance, which the entry keeps after the last unlock until <see cref="Purge"/>.</summary>
+    /// <param name="resName">The resource name.</param>
+    /// <returns>The entry, or null when the name is missing or the entry has neither a file nor an instance.</returns>
+    /// <remarks>Follows ResManager::load (00587e7c), docs/resources.md 8.7.</remarks>
     public Entry? Load(string resName)
     {
         var (path, name) = Split(resName, true);
@@ -352,12 +374,13 @@ public sealed class ResourceManager
         return e;
     }
 
-    // src/core/resource_manager.hpp ResourceManager::unlock: unlock (0x00587d64), one lock less; at 0
-    // the instance waits for purge.
+    /// <summary>Releases one lock. At 0 the instance waits for <see cref="Purge"/>.</summary>
+    /// <param name="e">The entry.</param>
+    /// <remarks>Follows unlock (00587d64).</remarks>
     public static void Unlock(Entry e) => --e.Locks;
 
-    // src/core/resource_manager.cpp ResourceManager::purge: purge(force) (0x00588074, console
-    // purgeResources) drops every unlocked instance and frees the stale (flag 4) entries among them.
+    /// <summary>Drops every unlocked instance and frees the stale entries among them.</summary>
+    /// <remarks>Follows purge(force) (00588074), the console command <c>purgeResources</c>.</remarks>
     public void Purge()
     {
         foreach (Entry e in mList.ToArray())
@@ -370,7 +393,9 @@ public sealed class ResourceManager
         }
     }
 
-    // src/core/resource_manager.cpp ResourceManager::addVolume.
+    /// <summary>Mounts a volume found as a loose file and indexes its entries. Mounting a volume again only raises its reference count.</summary>
+    /// <param name="volName">The lookup name of the .vol file.</param>
+    /// <returns>True on success.</returns>
     public bool AddVolume(string volName)
     {
         var (path, name) = Split(volName, true);
@@ -409,7 +434,8 @@ public sealed class ResourceManager
         return true;
     }
 
-    // src/core/resource_manager.cpp ResourceManager::removeVolume.
+    /// <summary>Drops one mount of a volume. At 0 the volume closes and its entries are removed, or kept as stale entries when they have an instance.</summary>
+    /// <param name="volName">The lookup name of the .vol file.</param>
     public void RemoveVolume(string volName)
     {
         var (path, name) = Split(volName, false);
@@ -436,15 +462,20 @@ public sealed class ResourceManager
         mVolumes.RemoveAt(it);
     }
 
-    // src/core/resource_manager.cpp ResourceManager::find. The original interns lookup names, so a
-    // lookup can fix the spelling later entries display.
+    /// <summary>Finds the first entry of a name.</summary>
+    /// <param name="name">The lookup name, with an optional backslash directory.</param>
+    /// <returns>The entry, or null.</returns>
+    /// <remarks>The original interns lookup names, so a lookup can fix the spelling later entries display.</remarks>
     public Entry? Find(string name)
     {
         var (path, n) = Split(name, true);
         return mChains.TryGetValue((path, n!), out List<Entry>? chain) && chain.Count != 0 ? chain[0] : null;
     }
 
-    // src/core/resource_manager.cpp ResourceManager::read(const Entry&, ...).
+    /// <summary>Reads the bytes of an entry from its volume or loose file.</summary>
+    /// <param name="e">The entry.</param>
+    /// <param name="output">Receives the uncompressed bytes.</param>
+    /// <returns>True on success.</returns>
     public bool Read(Entry e, out byte[] output)
     {
         output = Array.Empty<byte>();
@@ -464,7 +495,10 @@ public sealed class ResourceManager
         }
     }
 
-    // src/core/resource_manager.cpp ResourceManager::read(const std::string&, ...).
+    /// <summary>Finds an entry by name and reads its bytes.</summary>
+    /// <param name="name">The lookup name.</param>
+    /// <param name="output">Receives the uncompressed bytes.</param>
+    /// <returns>True when the entry exists and was read.</returns>
     public bool Read(string name, out byte[] output)
     {
         output = Array.Empty<byte>();
@@ -472,10 +506,16 @@ public sealed class ResourceManager
         return e != null && Read(e, out output);
     }
 
-    // src/core/resource_manager.cpp ResourceManager::displayName: `path\name` or `name`.
+    /// <summary>Gets the display name of an entry, <c>path\name</c> or <c>name</c>.</summary>
+    /// <param name="e">The entry.</param>
+    /// <returns>The display name.</returns>
     public static string DisplayName(Entry e) => e.Path != null ? e.Path + "\\" + e.Name : e.Name;
 
-    // src/core/resource_manager.cpp ResourceManager::findNext: pass null to start. Returns the entry and its display name.
+    /// <summary>Iterates the entries that match a pattern, newest first.</summary>
+    /// <param name="pattern">The wildcard pattern, see <see cref="WildcardMatch"/>.</param>
+    /// <param name="after">The previous result, or null to start.</param>
+    /// <param name="name">Receives the display name of the result.</param>
+    /// <returns>The next matching entry, or null at the end.</returns>
     public Entry? FindNext(string pattern, Entry? after, out string name)
     {
         name = "";
@@ -497,13 +537,15 @@ public sealed class ResourceManager
     }
 }
 
-// src/core/resource_manager.hpp class ResourceLocks: the resources an object loaded, unlocked when
-// the object goes (the resource handles the original objects hold). Release is the C++ destructor.
+/// <summary>The resources an object loaded, unlocked when the object goes. These are the resource handles the original objects hold.</summary>
 public sealed class ResourceLocks
 {
     private readonly List<ResourceManager.Entry> mEntries = new();
 
-    // ResourceManager.Load and keep the lock. False when nothing was loaded.
+    /// <summary>Loads a resource with <see cref="ResourceManager.Load"/> and keeps the lock.</summary>
+    /// <param name="res">The resource manager.</param>
+    /// <param name="name">The resource name.</param>
+    /// <returns>False when nothing was loaded.</returns>
     public bool Load(ResourceManager res, string name)
     {
         ResourceManager.Entry? e = res.Load(name);
@@ -512,9 +554,11 @@ public sealed class ResourceLocks
         return e != null;
     }
 
-    // Keeps a lock taken with ResourceManager.Load.
+    /// <summary>Keeps a lock taken with <see cref="ResourceManager.Load"/>.</summary>
+    /// <param name="e">The locked entry.</param>
     public void Adopt(ResourceManager.Entry e) => mEntries.Add(e);
 
+    /// <summary>Unlocks every kept resource. This is the C++ destructor.</summary>
     public void Release()
     {
         foreach (ResourceManager.Entry e in mEntries)

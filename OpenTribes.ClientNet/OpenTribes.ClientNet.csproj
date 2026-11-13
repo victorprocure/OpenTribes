@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>tribes-netclient</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>OpenTribes.ClientNet</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

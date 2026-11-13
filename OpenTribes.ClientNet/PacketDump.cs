@@ -1,24 +1,29 @@
-// JSON lines dump of decoded packets: one object per packet with the events, the PSC block and the ghost updates, each
-// with its field list (name, value) in wire order.
 using System.Text;
 using System.Text.Json;
 using OpenTribes.Game;
 
 namespace OpenTribes.ClientNet;
 
+/// <summary>A JSON lines dump of decoded packets: one object per packet with the events, the PSC block and the ghost updates, each with its field list (name, value) in wire order.</summary>
 public sealed class PacketDump : IDisposable
 {
     private readonly StreamWriter? mOut;
     private long mIndex;
 
+    /// <summary>Creates the dump.</summary>
+    /// <param name="path">The output file, or null to write nothing.</param>
     public PacketDump(string? path)
     {
         if (path != null)
             mOut = new StreamWriter(path, false, new UTF8Encoding(false)) { AutoFlush = false };
     }
 
+    /// <summary>Closes the file.</summary>
     public void Dispose() => mOut?.Dispose();
 
+    /// <summary>Writes a decoded field value as JSON. Non-finite doubles are written as strings.</summary>
+    /// <param name="w">The writer.</param>
+    /// <param name="v">The value.</param>
     public static void Value(Utf8JsonWriter w, object? v)
     {
         switch (v)
@@ -59,8 +64,9 @@ public sealed class PacketDump : IDisposable
         w.WriteEndArray();
     }
 
-    // One line per correction of the control object (docs/client-net.md 4.4): the prediction for the move the server
-    // state follows, the server state, the distances and the moves replayed.
+    /// <summary>Writes one line per correction of the control object (docs/client-net.md 4.4): the prediction for the move the server state follows, the server state, the distances and the moves replayed.</summary>
+    /// <param name="c">The correction.</param>
+    /// <param name="t">The time in seconds.</param>
     public void WriteCorrection(CorrectionRecord c, double t)
     {
         if (mOut == null)
@@ -121,6 +127,11 @@ public sealed class PacketDump : IDisposable
         Value(w, v);
     }
 
+    /// <summary>Writes one packet.</summary>
+    /// <param name="p">The decoded packet.</param>
+    /// <param name="t">The time in seconds.</param>
+    /// <param name="client">The client name, or null.</param>
+    /// <param name="seq">The VC sequence number, or null.</param>
     public void Write(DecodedPacket p, double t, string? client = null, long? seq = null)
     {
         if (mOut == null)

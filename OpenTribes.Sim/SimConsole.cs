@@ -1,6 +1,3 @@
-// Port of src/sim/sim_console.hpp and src/sim/sim_console.cpp: console side of the simulation: the object interface
-// used by the interpreter (fields, datablocks, instant) and the SimConsolePlugin commands (docs/sim.md 5-8). The
-// datablock manager the C++ class holds is game::DataBlockManager (DataBlocks.cs). Clock arithmetic follows the current rounding mode of Fpu (the C++ double operations).
 using System.Diagnostics;
 using OpenTribes.Core;
 using OpenTribes.Game;
@@ -9,7 +6,8 @@ using static OpenTribes.Core.Fpu;
 
 namespace OpenTribes.Sim;
 
-// src/sim/sim_console.hpp class SimConsole.
+/// <summary>The console side of the simulation: the object interface the interpreter uses (fields, datablocks, instant) and the SimConsolePlugin commands (docs/sim.md 5-8).</summary>
+/// <remarks>Port of src/sim/sim_console.cpp. The datablock manager the C++ class holds is <see cref="DataBlockManager"/>. Clock arithmetic follows the current rounding mode of <see cref="Fpu"/>, as the C++ double operations do.</remarks>
 public sealed class SimConsole : IObjectInterface
 {
     private readonly Interpreter mIn;
@@ -75,11 +73,12 @@ public sealed class SimConsole : IObjectInterface
         return s;
     }
 
-    // src/sim/sim_console.cpp SimConsole::SimConsole.
-    // clockOwner: the world of a second SimConsole in the same process (the server world of a hosted game) takes the scaled
-    // clock of the first one, as the stock exe has one clock for both worlds (client-app.md 2.4, FearWorld_advance
-    // 004eba40 and FearWorld_clientAdvance 004eb7ac read the same updateClock 0050d304 value), and leaves its console
-    // variable alone.
+    /// <summary>Creates a console on an interpreter.</summary>
+    /// <param name="interp">The script interpreter.</param>
+    /// <param name="ctx">The class creation context.</param>
+    /// <param name="strings">The string table. Defaults to the global table.</param>
+    /// <param name="clockOwner">The first console in the process, when this is the server world of a hosted game. This console then takes its scaled clock and leaves the console variable alone.</param>
+    /// <remarks>The stock exe has one clock for both worlds (client-app.md 2.4): FearWorld_advance (004eba40) and FearWorld_clientAdvance (004eb7ac) read the same updateClock (0050d304) value.</remarks>
     public SimConsole(Interpreter interp, ClassContext ctx, StringTable? strings = null, SimConsole? clockOwner = null)
     {
         mClockOwner = clockOwner;
@@ -91,52 +90,64 @@ public sealed class SimConsole : IObjectInterface
         mClockSource = () => start.Elapsed.TotalSeconds;
         if (clockOwner == null)
         {
-            mIn.SetVariable("$SimGame::TimeScale", "1.0"); // [live] initial value
+            mIn.SetVariable("$SimGame::TimeScale", "1.0"); // initial value
             mIn.BindVariable("$SimGame::TimeScale", SetTimeScale);
         }
     }
 
     private readonly SimConsole? mClockOwner;
 
-    // The world commands of a client process that hosts a game (client-app.md 1.7): FearGame_consoleCallback 0x7b-0x7e
-    // and 0x79-0x7a. Null: the `tribes` client hosts nothing.
+    /// <summary>The world commands of a client process that hosts a game (client-app.md 1.7), FearGame_consoleCallback 0x7b-0x7e and 0x79-0x7a.</summary>
     public interface IWorldHost
     {
+        /// <summary>Creates the server world.</summary>
+        /// <returns>True on success.</returns>
         bool NewServer();
+        /// <summary>Focuses the server world.</summary>
+        /// <returns>True on success.</returns>
         bool FocusServer();
+        /// <summary>Focuses the client world.</summary>
         void FocusClient();
+        /// <summary>Destroys the server world.</summary>
         void DeleteServer();
     }
 
+    /// <summary>The host of the world commands. Null for the <c>tribes</c> client that hosts nothing.</summary>
     public IWorldHost? Worlds;
 
-    // The server world of this console, created by the hosting side (newServer, case 0x7c of FearGame_consoleCallback).
+    /// <summary>Creates the server world of this console. The hosting side calls it (<c>newServer</c>, case 0x7c of FearGame_consoleCallback).</summary>
     public void CreateWorld() => NewServer();
 
-    // case 0x7d / 0x7e: the slot is emptied and the world with its objects destroyed (MG1).
+    /// <summary>Empties the manager slot and destroys the world with its objects (MG1, cases 0x7d and 0x7e).</summary>
     public void DestroyWorld()
     {
         mServer?.Destroy();
         mServer = null;
     }
 
-    // M9 C8: the `tribes` client keeps its client world in the one manager slot this class has (newClient makes it);
-    // the dedicated server leaves this false and keeps the reference behaviour (docs/client-app.md 1.4 step 3).
+    /// <summary>True when the <c>tribes</c> client keeps its client world in the one manager slot this class has (<c>newClient</c> makes it). The dedicated server leaves it false and keeps the reference behaviour (docs/client-app.md 1.4 step 3).</summary>
     public bool ClientMode;
 
+    /// <summary>Gets the world manager.</summary>
+    /// <returns>The manager, or null before <c>newServer</c>.</returns>
     public SimManager? Server() => mServer;
+    /// <summary>Gets the tick clock.</summary>
+    /// <returns>The time in milliseconds, a multiple of 32.</returns>
     public uint TickMs() => mTick;
+    /// <summary>Gets the scaled clock.</summary>
+    /// <returns>The time in seconds.</returns>
     public double ClockSeconds() => mClock;
+    /// <summary>Gets the datablock manager.</summary>
+    /// <returns>The manager.</returns>
     public DataBlockManager DataBlocks() => mDataBlocks;
 
     private SimManager? Focus() => mServer;
     private double Elapsed() => Sub(mClockSource(), mTimerStart);
 
-    // ---- worlds ----
 
     private sealed record Fixed(string Cls, int Id, bool Set, string? Name);
 
-    // src/sim/sim_console.cpp SimConsole::newServer.
+    /// <summary>Creates the world manager and its fixed objects (docs/sim.md 2.2) as the manager, world and game plugin constructors do. The tick clock starts at the scaled clock of the current frame (004eb5e4, case 0x7c).</summary>
     private void NewServer()
     {
         mServer = new SimManager(mStrings);
@@ -186,27 +197,25 @@ public sealed class SimConsole : IObjectInterface
             if (f.Name != null)
                 m.AssignName(obj, mStrings.Intern(f.Name));
             if (f.Id == 720)
-                timers!.AddObject(obj); // [live] listObjects(12): the SensorManager
+                timers!.AddObject(obj); // listObjects(12): the SensorManager
         }
-        // [live] listObjects(25) starts with the action handler.
+        // listObjects(25) starts with the action handler.
         SimObject? handler = m.FindById(1);
         if (handler != null)
             m.FindById(25)?.AsSet()?.AddObject(handler);
         mCtx.ServerCreated?.Invoke(m);
     }
 
-    // ---- frame timing (docs/sim.md 8.3) ----
 
-    // src/sim/sim_console.cpp SimConsole::setClockSource: real clock in seconds. Default: steady clock since
-    // construction. A virtual-time run or a test replaces it.
+    /// <summary>Replaces the real clock. The default is a steady clock since construction. A virtual-time run or a test replaces it.</summary>
+    /// <param name="seconds">Returns the real time in seconds.</param>
     public void SetClockSource(Func<double> seconds)
     {
         mClockSource = seconds;
         mTimerStart = 0;
     }
 
-    // src/sim/sim_console.cpp SimConsole::setTimeScale: 0050b4c4 case 0x65, fold the elapsed time into the offset,
-    // restart the timer.
+    /// <summary>Applies a new <c>$SimGame::TimeScale</c> (0050b4c4, case 0x65): folds the elapsed time into the offset and restarts the timer. The scale has a floor of 0.0001.</summary>
     private void SetTimeScale(string value)
     {
         double now = mClockSource();
@@ -218,8 +227,7 @@ public sealed class SimConsole : IObjectInterface
             mClockScale = 0.0001;
     }
 
-    // src/sim/sim_console.cpp SimConsole::updateClock: frame step 2 (TK1, 0050d304), scaled clock = elapsed * scale +
-    // offset.
+    /// <summary>Updates the scaled clock (frame step 2, TK1, 0050d304): elapsed time times the scale plus the offset.</summary>
     public void UpdateClock()
     {
         if (mClockOwner != null)
@@ -232,8 +240,8 @@ public sealed class SimConsole : IObjectInterface
         mClock = Add(Mul(mFrameReal, mClockScale), mClockOffset);
     }
 
-    // src/sim/sim_console.cpp SimConsole::advanceServer: frame step 3 without the network (TK2, 004eba40), every 32 ms
-    // tick up to the scaled clock: events, then serverTick on sets 718, 719, 727. Returns the number of ticks.
+    /// <summary>Runs the server ticks without the network (frame step 3, TK2, 004eba40): every 32 ms tick up to the scaled clock runs the events, then <see cref="SimObject.ServerTick"/> on sets 718, 719 and 727.</summary>
+    /// <returns>The number of ticks.</returns>
     public int AdvanceServer()
     {
         if (mServer == null)
@@ -267,8 +275,7 @@ public sealed class SimConsole : IObjectInterface
         return ticks;
     }
 
-    // src/sim/sim_console.cpp SimConsole::endFrame: frame step 6 (TK9, 0050d354), frame statistics and the
-    // Game::EndFrame script call. The smoothed frame time; the two variables are refreshed every 16 frames.
+    /// <summary>Ends a frame (step 6, TK9, 0050d354): updates the smoothed frame time and calls the <c>Game::EndFrame</c> script function. The two frame statistics variables refresh every 16 frames.</summary>
     public void EndFrame()
     {
         mFrameAverage = Add(Mul(Sub(Elapsed(), mFrameReal), (double)0.02f), Mul((double)(1.0f - 0.02f), mFrameAverage));
@@ -281,8 +288,9 @@ public sealed class SimConsole : IObjectInterface
         mIn.CallFunction("Game::EndFrame", Array.Empty<string>());
     }
 
-    // src/sim/sim_console.cpp SimConsole::advanceRealTime: updateClock + advanceServer on an internal millisecond clock
-    // that advances by ms.
+    /// <summary>Advances an internal millisecond clock, then runs <see cref="UpdateClock"/> and <see cref="AdvanceServer"/>.</summary>
+    /// <param name="ms">The milliseconds to advance.</param>
+    /// <remarks>The clock has the GetTickCount form of 00584adc.</remarks>
     public void AdvanceRealTime(uint ms)
     {
         if (!mVirtualClock)
@@ -295,9 +303,10 @@ public sealed class SimConsole : IObjectInterface
         AdvanceServer();
     }
 
-    // ---- datablocks ----
 
-    // src/sim/sim_console.cpp SimConsole::beginDataBlock.
+    /// <summary>Starts a <c>datablock</c> declaration. Following slots set its fields.</summary>
+    /// <param name="className">The datablock class.</param>
+    /// <param name="name">The block name.</param>
     public void BeginDataBlock(string className, string name)
     {
         mInDataBlock = true;
@@ -305,16 +314,17 @@ public sealed class SimConsole : IObjectInterface
         mDataBlocks.Declare(className, name);
     }
 
-    // src/sim/sim_console.cpp SimConsole::endDataBlock.
+    /// <summary>Ends the datablock declaration.</summary>
     public void EndDataBlock()
     {
         mInDataBlock = false;
         mDataBlockTarget = "";
     }
 
-    // ---- instant ----
 
-    // src/sim/sim_console.cpp SimConsole::beginObject.
+    /// <summary>Starts an <c>instant</c> object. An unknown class skips the subtree (IN8, D11, where the original crashes). A nested object under a non-group also skips the subtree (IN9, D11).</summary>
+    /// <param name="className">The object class.</param>
+    /// <param name="name">The object name, empty for none.</param>
     public void BeginObject(string className, string name)
     {
         if (mSkipDepth != 0 || mServer == null)
@@ -348,7 +358,7 @@ public sealed class SimConsole : IObjectInterface
         mCurrent = raw;
     }
 
-    // src/sim/sim_console.cpp SimConsole::endObject.
+    /// <summary>Ends the instant object. A top-level object is added to the root, or to the instant group without being registered (IN6).</summary>
     public void EndObject()
     {
         if (mSkipDepth != 0)
@@ -381,7 +391,10 @@ public sealed class SimConsole : IObjectInterface
         mServer.AssignName(top, name);
     }
 
-    // src/sim/sim_console.cpp SimConsole::setSlot.
+    /// <summary>Sets a slot of the current instant object or datablock.</summary>
+    /// <param name="field">The field name.</param>
+    /// <param name="values">The values.</param>
+    /// <param name="index">The array index text, empty for none.</param>
     public void SetSlot(string field, IReadOnlyList<string> values, string index)
     {
         if (mInDataBlock)
@@ -400,9 +413,13 @@ public sealed class SimConsole : IObjectInterface
         mCurrent.SetDataField(key, values.Count == 0 ? "" : values[0]);
     }
 
-    // ---- field access (5.1, 5.2) ----
 
-    // src/sim/sim_console.cpp SimConsole::getField.
+    /// <summary>Reads a field of an object or datablock (5.1, 5.2).</summary>
+    /// <param name="obj">The object or block name or id.</param>
+    /// <param name="field">The field name.</param>
+    /// <param name="index">The array index text, empty for none.</param>
+    /// <param name="output">Receives the value.</param>
+    /// <returns>False when neither an object nor a block is found, or the block field cannot be read.</returns>
     public bool GetField(string obj, string field, string index, out string output)
     {
         SimObject? o = mServer?.Find(obj);
@@ -416,7 +433,11 @@ public sealed class SimConsole : IObjectInterface
         return block != null && mDataBlocks.GetField(block, field, index, out output);
     }
 
-    // src/sim/sim_console.cpp SimConsole::setField.
+    /// <summary>Writes a field of an object or datablock (5.1, 5.2).</summary>
+    /// <param name="obj">The object or block name or id.</param>
+    /// <param name="field">The field name.</param>
+    /// <param name="values">The values.</param>
+    /// <param name="index">The array index text, empty for none.</param>
     public void SetField(string obj, string field, IReadOnlyList<string> values, string index)
     {
         string first = values.Count == 0 ? "" : values[0];
@@ -430,7 +451,6 @@ public sealed class SimConsole : IObjectInterface
             mDataBlocks.SetField(block, field, values, index);
     }
 
-    // ---- commands (8) ----
 
     // src/sim/sim_console.cpp SimConsole::listLine.
     private static string ListLine(SimObject obj)
@@ -451,7 +471,7 @@ public sealed class SimConsole : IObjectInterface
         return n != null && ReferenceEquals(m.Name(), n);
     }
 
-    // src/sim/sim_console.cpp SimConsole::registerCommands.
+    /// <summary>Registers the SimConsolePlugin commands on the interpreter (docs/sim.md 8).</summary>
     public void RegisterCommands()
     {
         void Cmd(string name, Func<string[], string> f) => mIn.AddCommand(name, (_, a) => f(a));
@@ -506,7 +526,7 @@ public sealed class SimConsole : IObjectInterface
             return yes;
         });
         // 0050b4c4 case 0x6e: one line per member of object 2, the name and the file name (+0x68). A member that is
-        // not a SimVolume reads a null pointer there ([live] a SimSet prints "(null)").
+        // not a SimVolume reads a null pointer there (a SimSet prints "(null)").
         Cmd("listVolumes", _ =>
         {
             SimSet? set = Focus()?.FindById(2)?.AsSet();
@@ -764,7 +784,7 @@ public sealed class SimConsole : IObjectInterface
         Cmd("focus", a =>
         {
             if (a.Length < 2)
-                return yes; // no argument: True [live]
+                return yes; // no argument: True
             return Focus()?.Find(a[1]) != null ? yes : no;
         });
         Cmd("unfocus", a =>

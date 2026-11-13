@@ -1,13 +1,14 @@
-// Port of src/sim/sim_manager.hpp and src/sim/sim_manager.cpp: simulation manager (docs/sim.md 1, 2, 3.2, 8.1, 8.2):
-// root group of one world, id pool and dictionary, path lookup, registration, events and time.
 using OpenTribes.Core;
 
 namespace OpenTribes.Sim;
 
-// src/sim/sim_manager.hpp class SimManager.
+/// <summary>The simulation manager: the root group of one world with the id pool and dictionary, path lookup, registration, events and time (docs/sim.md 1, 2, 3.2, 8.1, 8.2).</summary>
+/// <remarks>Port of src/sim/sim_manager.cpp.</remarks>
 public sealed class SimManager : SimGroup
 {
-    // src/sim/sim_manager.hpp SimManager::ConsoleHandler.
+    /// <summary>Runs console text posted as an event.</summary>
+    /// <param name="target">The destination object.</param>
+    /// <param name="text">The console text.</param>
     public delegate void ConsoleHandler(SimObject? target, string text);
 
     // src/sim/sim_manager.hpp SimManager::Event.
@@ -31,31 +32,41 @@ public sealed class SimManager : SimGroup
     private float mTargetTime; // +0x6c
     private ConsoleHandler? mConsoleHandler;
 
-    // Observer of every successful registration (NetObject_onAdd 0050a420: a ghost-always object is marked in every
-    // ghost manager).
+    /// <summary>Observer of every successful registration. NetObject_onAdd (0050a420) marks a ghost-always object in every ghost manager.</summary>
     public Action<SimObject>? OnRegister;
-    // Observer of every unregistration (ghost managers drop their entries).
+    /// <summary>Observer of every unregistration. Ghost managers drop their entries.</summary>
     public Action<SimObject>? OnUnregister;
-    // Console output of the manager itself (registration failures in SimSet::onAdd).
+    /// <summary>Console output of the manager itself, for registration failures in <see cref="SimSet.OnAdd"/>.</summary>
     public Action<string>? Print;
 
-    // src/sim/sim_manager.cpp SimManager::SimManager: the manager is its own root, registered, never in the id
-    // dictionary (MG7).
+    /// <summary>Creates a manager. It is its own root, registered, and never in the id dictionary (MG7).</summary>
+    /// <param name="strings">The string table for names.</param>
     public SimManager(StringTable strings)
     {
         mStrings = strings;
         mManager = this;
     }
 
+    /// <inheritdoc/>
     public override string ClassName() => "SimManager";
 
+    /// <summary>Gets the manager id.</summary>
+    /// <returns>The id.</returns>
     public int ManagerId() => mManagerId;
+    /// <summary>Sets the manager id.</summary>
+    /// <param name="id">The id.</param>
     public void SetManagerId(int id) => mManagerId = id;
+    /// <summary>Sets the handler that runs console events.</summary>
+    /// <param name="h">The handler, or null.</param>
     public void SetConsoleHandler(ConsoleHandler? h) => mConsoleHandler = h;
-    // Queue time (TM5): the time of the event being dispatched, else the last advance target. getSimTime and schedule
-    // read it.
+    /// <summary>Gets the queue time (TM5): the time of the event being dispatched, else the last advance target. <c>getSimTime</c> and <c>schedule</c> read it.</summary>
+    /// <returns>The time in seconds.</returns>
     public float Time() => mQueueTime;
+    /// <summary>Gets the number of queued events.</summary>
+    /// <returns>The count.</returns>
     public int PendingEvents() => mEvents.Count;
+    /// <summary>Gets the string table.</summary>
+    /// <returns>The table.</returns>
     public StringTable Strings() => mStrings;
 
     // src/sim/sim_manager.cpp isDigit.
@@ -74,7 +85,7 @@ public sealed class SimManager : SimGroup
         return unchecked((int)v);
     }
 
-    // src/sim/sim_manager.cpp SimManager::~SimManager.
+    /// <summary>Drops the queued events and deletes the members.</summary>
     public override void Destroy()
     {
         mEvents.Clear();
@@ -122,8 +133,9 @@ public sealed class SimManager : SimGroup
             mIds.Remove(obj.mId);
     }
 
-    // src/sim/sim_manager.cpp SimManager::registerObject: registers obj (OB2): sequence, id (ID1), onAdd. Returns false if
-    // onAdd fails.
+    /// <summary>Registers an object (OB2): sequence, id (ID1), then <see cref="SimObject.OnAdd"/>.</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>False if OnAdd fails. The object is then unregistered again.</returns>
     public bool RegisterObject(SimObject obj)
     {
         obj.mSequence = mSequenceCounter++;
@@ -154,8 +166,8 @@ public sealed class SimManager : SimGroup
         return false;
     }
 
-    // src/sim/sim_manager.cpp SimManager::unregisterObject: unregisters obj (RD1); groups take their subtree with them
-    // (RD2).
+    /// <summary>Unregisters an object (RD1). Groups take their subtree with them (RD2). Events that name the object as destination or sender are cancelled.</summary>
+    /// <param name="obj">The object.</param>
     public void UnregisterObject(SimObject obj)
     {
         if (obj.mManager == null || obj == this)
@@ -183,7 +195,8 @@ public sealed class SimManager : SimGroup
         }
     }
 
-    // src/sim/sim_manager.cpp SimManager::deleteObject: unregister and destroy.
+    /// <summary>Unregisters and destroys an object. Deleting the root does nothing, where the original crashes (D11).</summary>
+    /// <param name="obj">The object.</param>
     public void DeleteObject(SimObject obj)
     {
         if (obj == this)
@@ -193,8 +206,9 @@ public sealed class SimManager : SimGroup
         obj.Destroy();
     }
 
-    // src/sim/sim_manager.cpp SimManager::addToRoot: root add (GS3, 004ff9dc), registers an unregistered object first.
-    // False on failure.
+    /// <summary>Adds an object to the root group, registering it first when needed (GS3, 004ff9dc).</summary>
+    /// <param name="obj">The object.</param>
+    /// <returns>False when registration fails.</returns>
     public bool AddToRoot(SimObject obj)
     {
         if (obj.mManager == null && !RegisterObject(obj))
@@ -204,12 +218,15 @@ public sealed class SimManager : SimGroup
         return true;
     }
 
-    // src/sim/sim_manager.cpp SimManager::findById.
+    /// <summary>Finds an object by id. The newest registration wins.</summary>
+    /// <param name="id">The id.</param>
+    /// <returns>The object, or null.</returns>
     public SimObject? FindById(int id) =>
         mIds.TryGetValue(id, out List<SimObject>? v) && v.Count != 0 ? v[^1] : null;
 
-    // src/sim/sim_manager.cpp SimManager::find: resolves a script string to an object (3.2). The root is returned for
-    // "0".
+    /// <summary>Resolves a script string to an object (docs/sim.md 3.2): an id, a path of names, or an id followed by a path. The root is returned for <c>0</c>.</summary>
+    /// <param name="s">The script string.</param>
+    /// <returns>The object, or null.</returns>
     public SimObject? Find(string s)
     {
         if (s.Length == 0)
@@ -257,7 +274,9 @@ public sealed class SimManager : SimGroup
         }
     }
 
-    // src/sim/sim_manager.cpp SimManager::setObjectId: 8 setObjectId.
+    /// <summary>Gives an object an id (console <c>setObjectId</c>, 8).</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="id">The id, or 0 to take one from the pool.</param>
     public void SetObjectId(SimObject obj, int id)
     {
         DictErase(obj);
@@ -287,20 +306,25 @@ public sealed class SimManager : SimGroup
             mEvents.AddBefore(it, e);
     }
 
-    // src/sim/sim_manager.cpp SimManager::postConsoleEvent: queues console text for dest at time t (EV5: after every
-    // event with time <= t).
+    /// <summary>Queues console text for an object. It runs after every event with time up to <paramref name="t"/> (EV5).</summary>
+    /// <param name="dest">The destination object.</param>
+    /// <param name="t">The event time.</param>
+    /// <param name="text">The console text.</param>
     public void PostConsoleEvent(SimObject? dest, float t, string text) =>
         InsertEvent(new Event { Time = t, Dest = dest, Text = text });
 
-    // src/sim/sim_manager.cpp SimManager::postEvent: queues an engine event: action runs when the event is dispatched.
-    // Same queue and order as console events; unregistering dest cancels it (RD1). With a sender, unregistering the
-    // sender cancels the event too: a later object may take its id and its address.
+    /// <summary>Queues an engine event whose action runs when it is dispatched. It uses the same queue and order as console events. Unregistering <paramref name="dest"/> cancels it (RD1).</summary>
+    /// <param name="dest">The destination object.</param>
+    /// <param name="t">The event time.</param>
+    /// <param name="action">The action to run.</param>
+    /// <param name="sender">The sender. Unregistering it cancels the event too, because a later object may take its id and address.</param>
     public void PostEvent(SimObject? dest, float t, Action action, SimObject? sender = null) =>
         InsertEvent(new Event { Time = t, Dest = dest, Action = action, Sender = sender });
 
-    // src/sim/sim_manager.cpp SimManager::advanceTo: SimManager_advanceToTime (TM6, 004ffb40), no-op when t equals the
-    // last target; else dispatches every event with time <= the target in order. Returns the number of events run. The
-    // target is re-read for every pop: resetSimTime inside an event sets it to 0.
+    /// <summary>Runs every event with time up to <paramref name="t"/> in order. Does nothing when <paramref name="t"/> equals the last target.</summary>
+    /// <param name="t">The target time.</param>
+    /// <returns>The number of events run.</returns>
+    /// <remarks>Follows SimManager_advanceToTime (TM6, 004ffb40). The target is read again for every pop, because <c>resetSimTime</c> inside an event sets it to 0. When nothing is due the queue time becomes the target, and a popped event raises it to its own time (004fe120).</remarks>
     public int AdvanceTo(float t)
     {
         if (t == mTargetTime)
@@ -328,8 +352,8 @@ public sealed class SimManager : SimGroup
         return count;
     }
 
-    // src/sim/sim_manager.cpp SimManager::resetTime: resetSimTime (TM3, 004fdec4), every later event minus the first
-    // event's time, then the first to 0.
+    /// <summary>Moves every later event back by the time of the first event, then sets the first to 0 and the clocks to 0.</summary>
+    /// <remarks>Follows resetSimTime (TM3, 004fdec4).</remarks>
     public void ResetTime()
     {
         if (mEvents.Count != 0)

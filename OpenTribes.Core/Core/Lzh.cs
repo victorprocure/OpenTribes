@@ -1,7 +1,7 @@
-// Port of src/core/lzh.hpp and src/core/lzh.cpp.
-// Adaptive-Huffman LZSS (LZHUF) decoder used by volume compression type 3.
 namespace OpenTribes.Core;
 
+/// <summary>Adaptive-Huffman LZSS (LZHUF) decoder used by volume compression type 3.</summary>
+/// <remarks>Port of src/core/lzh.cpp.</remarks>
 public static class Lzh
 {
     // src/core/lzh.cpp constants.
@@ -200,13 +200,18 @@ public static class Lzh
         }
     }
 
-    // src/core/lzh.cpp lzhDecode: decodes exactly output.Length bytes. Input past the end reads as zero.
+    /// <summary>Decodes exactly <paramref name="output"/>.Length bytes. Input past the end reads as zero.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
     public static void LzhDecode(ReadOnlySpan<byte> input, Span<byte> output)
     {
         LzhDecodeCounted(input, output);
     }
 
-    // src/core/lzh.cpp lzhDecodeCounted: same, returning the number of input bytes consumed.
+    /// <summary>Decodes like <see cref="LzhDecode"/> and reports how much input was used.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="output">Receives the decoded bytes.</param>
+    /// <returns>The number of input bytes consumed.</returns>
     public static int LzhDecodeCounted(ReadOnlySpan<byte> input, Span<byte> output)
     {
         var dec = new Decoder(input);

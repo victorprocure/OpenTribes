@@ -1,25 +1,33 @@
-// Port of src/core/vol.hpp and src/core/vol.cpp: PVOL archive reader.
 namespace OpenTribes.Core;
 
-// src/core/vol.hpp enum class VolCompression.
+/// <summary>The compression type stored in a volume directory record.</summary>
 public enum VolCompression : byte
 {
+    /// <summary>Stored uncompressed.</summary>
     None = 0,
+    /// <summary>Run-length encoded.</summary>
     Rle = 1,
+    /// <summary>Adaptive-Huffman LZSS, see <see cref="Lzh"/>.</summary>
     Lzh = 3,
 }
 
-// src/core/vol.hpp struct VolEntry.
+/// <summary>One directory record of a PVOL archive.</summary>
 public sealed class VolEntry
 {
-    public uint Id;               // numeric resource id, 0 when unused
+    /// <summary>The numeric resource id, 0 when unused.</summary>
+    public uint Id;
+    /// <summary>The entry name. Empty when the entry has no name (name offset -1).</summary>
     public string Name = "";      // empty when the entry has no name (name offset -1)
-    public uint BlockOffset;      // file offset of the entry's VBLK header
-    public uint Size;             // size from the directory record
+    /// <summary>The file offset of the entry's VBLK header.</summary>
+    public uint BlockOffset;
+    /// <summary>The size from the directory record.</summary>
+    public uint Size;
+    /// <summary>The compression type, a <see cref="VolCompression"/> value.</summary>
     public byte Compression;
 }
 
-// src/core/vol.hpp class VolArchive.
+/// <summary>Reader for a PVOL archive: opens the directory, finds entries by name and decompresses their payloads.</summary>
+/// <remarks>Port of src/core/vol.cpp.</remarks>
 public sealed class VolArchive : IDisposable
 {
     private const uint kTagPVOL = 0x4c4f5650; // "PVOL"
@@ -51,7 +59,10 @@ public sealed class VolArchive : IDisposable
 
     private static sbyte CharAt(string s, int i) => i < s.Length ? unchecked((sbyte)(byte)s[i]) : (sbyte)0;
 
-    // src/core/vol.cpp volNameCompare: the original's compare for resource names. Strings end at their first NUL.
+    /// <summary>Compares two resource names the way the original does: ASCII case-insensitive, each string ending at its first NUL.</summary>
+    /// <param name="a">The first name.</param>
+    /// <param name="b">The second name.</param>
+    /// <returns>A negative, zero or positive value like a <c>strcmp</c> result.</returns>
     public static int VolNameCompare(string a, string b)
     {
         for (int i = 0; ; ++i)
@@ -63,16 +74,18 @@ public sealed class VolArchive : IDisposable
         }
     }
 
-    // src/core/vol.hpp entries.
+    /// <summary>Gets the directory entries in file order.</summary>
+    /// <returns>The entries. Empty when no archive is open.</returns>
     public IReadOnlyList<VolEntry> Entries() => mEntries;
 
-    // src/core/vol.hpp error.
+    /// <summary>Gets the message of the last failed open or read.</summary>
+    /// <returns>The message, empty after a success.</returns>
     public string Error() => mError;
 
-    // src/core/vol.cpp ~VolArchive.
+    /// <summary>Closes the archive.</summary>
     public void Dispose() => Close();
 
-    // src/core/vol.cpp VolArchive::close.
+    /// <summary>Closes the file and drops the directory.</summary>
     public void Close()
     {
         mFile?.Dispose();
@@ -103,7 +116,9 @@ public sealed class VolArchive : IDisposable
         return total;
     }
 
-    // src/core/vol.cpp VolArchive::open.
+    /// <summary>Opens an archive and reads its directory, replacing any open archive.</summary>
+    /// <param name="path">The archive file path.</param>
+    /// <returns>True on success. On failure <see cref="Error"/> holds the reason and the archive is closed.</returns>
     public bool Open(string path)
     {
         Close();
@@ -188,7 +203,9 @@ public sealed class VolArchive : IDisposable
         return true;
     }
 
-    // src/core/vol.cpp VolArchive::find: ASCII case-insensitive lookup. Returns null when absent.
+    /// <summary>Finds an entry by name with ASCII case-insensitive matching.</summary>
+    /// <param name="name">The entry name.</param>
+    /// <returns>The entry, or null when absent.</returns>
     public VolEntry? Find(string name)
     {
         // std::lower_bound over mNameIndex.
@@ -206,10 +223,11 @@ public sealed class VolArchive : IDisposable
         return mEntries[mNameIndex[lo]];
     }
 
-    // src/core/vol.cpp rleDecode: RLE decoder of volume compression type 1 (docs/resources.md 7).
-    // A header byte with bit 7 set is a run: the low 7 bits repeat the next byte; otherwise the byte
-    // counts the literal bytes that follow. A zero count is skipped. The output ends mid-run when the
-    // caller wants fewer bytes. Input that ends early fails the read.
+    /// <summary>Decodes volume compression type 1 (docs/resources.md 7).</summary>
+    /// <param name="input">The packed bytes.</param>
+    /// <param name="output">Receives the decoded bytes. The output may end mid-run when the caller wants fewer bytes.</param>
+    /// <returns>False when the input ends before the output is full.</returns>
+    /// <remarks>A header byte with bit 7 set is a run: the low 7 bits repeat the next byte. Otherwise the byte counts the literal bytes that follow. A zero count is skipped.</remarks>
     public static bool RleDecode(ReadOnlySpan<byte> input, Span<byte> output)
     {
         int ip = 0, op = 0;
@@ -238,8 +256,11 @@ public sealed class VolArchive : IDisposable
         return true;
     }
 
-    // src/core/vol.cpp VolArchive::read: reads and decompresses the entry's payload. Fails for an unknown
-    // compression type and for RLE data that ends before the VBLK size is reached.
+    /// <summary>Reads and decompresses an entry's payload.</summary>
+    /// <param name="entry">The entry to read.</param>
+    /// <param name="output">Receives the uncompressed bytes. The VBLK size is the uncompressed length.</param>
+    /// <returns>False for a closed archive, an unknown compression type, a bad VBLK header, a short read, or RLE data that ends before the VBLK size is reached. <see cref="Error"/> holds the reason.</returns>
+    /// <remarks>For LZH the compressed bytes sit at the start of the block and reads past the end of the file yield zeros.</remarks>
     public bool Read(VolEntry entry, out byte[] output)
     {
         output = Array.Empty<byte>();

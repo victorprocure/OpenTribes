@@ -1,48 +1,86 @@
-// Port of src/net/connection.hpp and src/net/connection.cpp: virtual connection protocol.
-// See docs/net-protocol.md section 3.
 namespace OpenTribes.Net;
 
-// src/net/connection.hpp struct ConnectionEvents.
+/// <summary>The callbacks a <see cref="Connection"/> raises. Port of src/net/connection.hpp ConnectionEvents.</summary>
 public abstract class ConnectionEvents
 {
-    public abstract void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload);       // status 0
-    public virtual void OnAccepted(Connection c, ReadOnlySpan<byte> payload) { }           // status 1
-    public virtual void OnRejected(Connection c, ReadOnlySpan<byte> payload) { }           // status 2
-    public virtual void OnEstablished(Connection c) { }                                    // status 3
-    // Status 4, 5. The C++ passes a null reason on a timeout or replacement; that is an empty span here.
+    /// <summary>Called when a connect request arrives (status 0).</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The request payload.</param>
+    public abstract void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload);
+    /// <summary>Called when the peer accepts our request (status 1).</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The accept payload.</param>
+    public virtual void OnAccepted(Connection c, ReadOnlySpan<byte> payload) { }
+    /// <summary>Called when the peer rejects our request (status 2).</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The reject reason bytes.</param>
+    public virtual void OnRejected(Connection c, ReadOnlySpan<byte> payload) { }
+    /// <summary>Called when the peer acknowledged our accept and the connection is up (status 3).</summary>
+    /// <param name="c">The connection.</param>
+    public virtual void OnEstablished(Connection c) { }
+    /// <summary>Called when the connection ends (status 4 and 5).</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="reason">The disconnect reason bytes. The C++ passes a null reason on a timeout or replacement, which is an empty span here.</param>
+    /// <param name="timedOut">True on a timeout or when a new connection from the same address replaced this one.</param>
     public abstract void OnClosed(Connection c, ReadOnlySpan<byte> reason, bool timedOut);
+    /// <summary>Called when a data packet arrives.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The packet payload.</param>
     public virtual void OnData(Connection c, ReadOnlySpan<byte> payload) { }
+    /// <summary>Called when a packet sent with a cookie was acknowledged or lost.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="cookie">The cookie given to <see cref="Connection.Send"/>.</param>
+    /// <param name="delivered">True when the peer acknowledged the packet.</param>
     public virtual void OnNotify(Connection c, uint cookie, bool delivered) { }
-    // A packet with more than 20 ack ranges was dropped (DECISIONS D11).
+    /// <summary>Called when a packet with more than 20 ack ranges was dropped (DECISIONS D11).</summary>
+    /// <param name="c">The connection.</param>
     public virtual void OnAckRangeOverflow(Connection c) { }
 }
 
-// src/net/connection.hpp Connection::State.
+/// <summary>The handshake state of a <see cref="Connection"/>. Port of src/net/connection.hpp Connection::State.</summary>
 public enum ConnectionState : byte
 {
+    /// <summary>No handshake yet.</summary>
     Idle = 0,
+    /// <summary>A connect request arrived and is being decided.</summary>
     Requested = 1,
+    /// <summary>We sent a connect request.</summary>
     RequestSent = 2,
+    /// <summary>The connection is up.</summary>
     Connected = 3,
+    /// <summary>We sent an accept and wait for its acknowledgement.</summary>
     AcceptSent = 5,
 }
 
-// src/net/connection.hpp Connection::SendFn.
+/// <summary>Sends one datagram for a connection.</summary>
+/// <param name="to">The destination.</param>
+/// <param name="data">The datagram.</param>
 public delegate void SendFn(Address to, ReadOnlySpan<byte> data);
 
+/// <summary>The virtual connection protocol: sequenced packets with acknowledgement ranges, retransmission and a connect handshake.</summary>
+/// <remarks>Port of src/net/connection.cpp, see docs/net-protocol.md section 3.</remarks>
 public sealed class Connection
 {
-    // src/net/connection.hpp Connection::Type.
+    /// <summary>Packet type: data.</summary>
     public const uint Data = 0;
+    /// <summary>Packet type: disconnect.</summary>
     public const uint Disconnect = 2;
+    /// <summary>Packet type: connect request.</summary>
     public const uint ConnectRequest = 3;
+    /// <summary>Packet type: accept.</summary>
     public const uint Accept = 4;
+    /// <summary>Packet type: reject.</summary>
     public const uint Reject = 5;
+    /// <summary>Packet type: keep alive. It is unsequenced.</summary>
     public const uint KeepAlive = 7;
+    /// <summary>Type flag: the receiver must acknowledge.</summary>
     public const uint FlagAckRequest = 0x08;
+    /// <summary>Type flag: the packet is a pure acknowledgement.</summary>
     public const uint FlagAckReply = 0x10;
 
+    /// <summary>The largest datagram in bytes.</summary>
     public const int kMaxPacket = 1500;
+    /// <summary>The number of silent retries before the connection times out.</summary>
     public const uint kMaxRetries = 15;
 
     private const uint kFree = 6;
@@ -76,6 +114,7 @@ public sealed class Connection
     private readonly Slot[] mSlots = new Slot[32];
     private byte[] mLastPayload = Array.Empty<byte>(); // resent by retransmits
 
+    /// <summary>Caller data attached to the connection.</summary>
     public object? UserData;
 
     // src/net/connection.cpp carriesId.
@@ -85,7 +124,12 @@ public sealed class Connection
         return b >= Disconnect && b <= Reject;
     }
 
-    // src/net/connection.cpp Connection::Connection.
+    /// <summary>Creates a connection.</summary>
+    /// <param name="peer">The peer address.</param>
+    /// <param name="id">The connection id. Its low bit is carried in every packet.</param>
+    /// <param name="events">Receives the callbacks.</param>
+    /// <param name="send">Sends datagrams.</param>
+    /// <param name="nowMs">The current time in milliseconds.</param>
     public Connection(Address peer, uint id, ConnectionEvents events, SendFn send, uint nowMs)
     {
         mPeer = peer;
@@ -97,7 +141,12 @@ public sealed class Connection
             mSlots[i].Type = kFree;
     }
 
-    // src/net/connection.cpp Connection::send: sends a sequenced packet. False when 31 packets are already in flight.
+    /// <summary>Sends a sequenced packet.</summary>
+    /// <param name="type">The packet type.</param>
+    /// <param name="payload">The payload.</param>
+    /// <param name="nowMs">The current time in milliseconds.</param>
+    /// <param name="cookie">A value returned by <see cref="ConnectionEvents.OnNotify"/>, 0 for none.</param>
+    /// <returns>False when 31 packets are already in flight.</returns>
     public bool Send(uint type, ReadOnlySpan<byte> payload, uint nowMs, uint cookie = 0)
     {
         if (((mLastSentSeq + 1) & 31) == mOldestUnacked)
@@ -106,8 +155,10 @@ public sealed class Connection
         return true;
     }
 
-    // src/net/connection.cpp Connection::close: sends a reject or disconnect with a C string reason
-    // (null: no payload) and marks the connection dead. The reason is a byte string.
+    /// <summary>Sends a reject or disconnect and marks the connection dead.</summary>
+    /// <param name="type">The packet type, <see cref="Reject"/> or <see cref="Disconnect"/>.</param>
+    /// <param name="reason">The reason as a byte string, sent as a C string. Null sends no payload (the deleted connection of an invalid packet).</param>
+    /// <param name="nowMs">The current time in milliseconds.</param>
     public void Close(uint type, string? reason, uint nowMs)
     {
         // A null reason sends the packet with no payload (the deleted connection of an invalid packet).
@@ -124,10 +175,10 @@ public sealed class Connection
         mDead = true;
     }
 
-    // src/net/connection.hpp Connection::drop: removes the connection without sending anything (banned peer).
+    /// <summary>Removes the connection without sending anything, for a banned peer.</summary>
     public void Drop() => mDead = true;
 
-    // src/net/connection.cpp Connection::transmit.
+    /// <summary>Builds and sends one packet. A packet with <see cref="FlagAckRequest"/> resends the newest slot. Keep alives and replies are unsequenced.</summary>
     private void Transmit(uint type, ReadOnlySpan<byte> payload, uint nowMs, uint cookie)
     {
         if (type == ConnectRequest && mState == ConnectionState.Idle)
@@ -226,7 +277,9 @@ public sealed class Connection
         mState = ConnectionState.Idle;
     }
 
-    // src/net/connection.cpp Connection::receive.
+    /// <summary>Handles one datagram from the peer: the sequence and ack ranges, the handshake and the payload.</summary>
+    /// <param name="data">The datagram.</param>
+    /// <param name="nowMs">The current time in milliseconds.</param>
     public void Receive(ReadOnlySpan<byte> data, uint nowMs)
     {
         byte[] copy = data.ToArray();
@@ -401,8 +454,8 @@ public sealed class Connection
         }
     }
 
-    // src/net/connection.cpp Connection::tick: keepalive/retransmit on silence. On timeout the
-    // connection is flushed, reported and marked dead.
+    /// <summary>Sends a keep alive or retransmit after silence. On timeout the connection is flushed, reported and marked dead.</summary>
+    /// <param name="nowMs">The current time in milliseconds.</param>
     public void Tick(uint nowMs)
     {
         if (mDead || nowMs <= mLastRecvTick + 3000 * (mRetries + 1))
@@ -419,11 +472,22 @@ public sealed class Connection
         }
     }
 
-    // src/net/connection.hpp accessors.
+    /// <summary>Gets the peer address.</summary>
+    /// <returns>The address.</returns>
     public Address Peer() => mPeer;
+    /// <summary>Gets the handshake state.</summary>
+    /// <returns>The state.</returns>
     public ConnectionState State() => mState;
+    /// <summary>Tells whether the connection ended and can be removed.</summary>
+    /// <returns>True when dead.</returns>
     public bool Dead() => mDead;
+    /// <summary>Gets the connection id.</summary>
+    /// <returns>The id.</returns>
     public uint Id() => mId;
+    /// <summary>Gets the smoothed round trip time.</summary>
+    /// <returns>The time in milliseconds.</returns>
     public uint RttMs() => mRtt;
+    /// <summary>Gets the smoothed packet loss.</summary>
+    /// <returns>The loss as a fraction.</returns>
     public float PacketLoss() => mLoss;
 }

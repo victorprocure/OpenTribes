@@ -1,5 +1,3 @@
-// Port of src/server/telnet_console.hpp and src/server/telnet_console.cpp: remote console over TCP ("SimEngine Telnet
-// Provider"): listener 0x00553b34, per-frame service 0x00553bf8, console output consumer 0x00553ad4. docs/server-ops.md 3.
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -7,19 +5,26 @@ using OpenTribes.Core;
 
 namespace OpenTribes.Server;
 
-// src/server/telnet_console.hpp class TelnetSession: protocol state of one client, without sockets (unit-testable).
+/// <summary>The protocol state of one telnet client, without sockets, so it can be unit tested.</summary>
+/// <remarks>Port of src/server/telnet_console.cpp TelnetSession.</remarks>
 public sealed class TelnetSession
 {
-    public const int kLineMax = 0x1ff; // characters kept per line
-    public const int kMaxTries = 4;    // the fourth wrong password closes
+    /// <summary>The characters kept per line.</summary>
+    public const int kLineMax = 0x1ff;
+    /// <summary>The number of password tries. The fourth wrong password closes the session.</summary>
+    public const int kMaxTries = 4;
 
-    // src/server/telnet_console.hpp TelnetSession::Host.
+    /// <summary>What a session needs from its host. Port of src/server/telnet_console.hpp TelnetSession::Host.</summary>
     public sealed class Host
     {
+        /// <summary>Returns <c>$TelnetPassword</c>.</summary>
         public Func<string> Password = () => "";     // $TelnetPassword
+        /// <summary>Returns <c>$Console::Prompt</c>.</summary>
         public Func<string> Prompt = () => "";       // $Console::Prompt
-        public Action<string> Evaluate = _ => { };   // console input line
-        public Action<byte[]> Send = _ => { };       // bytes to this client
+        /// <summary>Runs a console input line.</summary>
+        public Action<string> Evaluate = _ => { };
+        /// <summary>Sends bytes to this client.</summary>
+        public Action<byte[]> Send = _ => { };
     }
 
     private const string kBanner = "SimEngine Telnet Provider\r\n\r\nEnter Password:";
@@ -30,9 +35,12 @@ public sealed class TelnetSession
     private bool mAuthenticated;
     private int mTries;
 
-    // src/server/telnet_console.cpp TelnetSession::banner: sent with its NUL on accept.
+    /// <summary>Gets the banner sent with its NUL when a client is accepted.</summary>
+    /// <returns>The banner text.</returns>
     public static string Banner() => kBanner;
 
+    /// <summary>Tells whether the client gave the right password.</summary>
+    /// <returns>True once authenticated.</returns>
     public bool Authenticated() => mAuthenticated;
 
     // src/server/telnet_console.cpp sendText.
@@ -48,8 +56,11 @@ public sealed class TelnetSession
         return nul < 0 ? s : s[..nul];
     }
 
-    // src/server/telnet_console.cpp TelnetSession::receive: processes one received chunk. Returns false when the client
-    // must be closed.
+    /// <summary>Processes one received chunk: collects lines, checks the password and runs console lines.</summary>
+    /// <param name="data">The received bytes.</param>
+    /// <param name="host">The host services.</param>
+    /// <returns>False when the client must be closed.</returns>
+    /// <remarks>The echo collected for the chunk is sent before a line is evaluated and at the end of the chunk. After a wrong password it stays queued behind the retry text. A line is a C string and ends at its first NUL.</remarks>
     public bool Receive(ReadOnlySpan<byte> data, Host host)
     {
         // Echo collected for this chunk. It is sent before a line is evaluated and at the end
@@ -116,17 +127,23 @@ public sealed class TelnetSession
     }
 }
 
-// src/server/telnet_console.hpp class TelnetConsole: listener and clients. Poll() is called once per server frame.
+/// <summary>The remote console over TCP, the <c>SimEngine Telnet Provider</c>. Call <see cref="Poll"/> once per server frame.</summary>
+/// <remarks>Port of src/server/telnet_console.cpp (docs/server-ops.md 3). The listener is at 00553b34, the per-frame service at 00553bf8 and the console output consumer at 00553ad4.</remarks>
 public sealed class TelnetConsole : IDisposable
 {
-    // src/server/telnet_console.hpp TelnetConsole::Host.
+    /// <summary>What the console needs from its host. Port of src/server/telnet_console.hpp TelnetConsole::Host.</summary>
     public sealed class Host
     {
-        public Func<int> Port = () => 0;           // $TelnetPort as int; 0 and -1 mean no listener
+        /// <summary>Returns <c>$TelnetPort</c> as an integer. 0 and -1 mean no listener.</summary>
+        public Func<int> Port = () => 0;
+        /// <summary>Returns <c>$TelnetPassword</c>.</summary>
         public Func<string> Password = () => "";
+        /// <summary>Returns <c>$Console::Prompt</c>.</summary>
         public Func<string> Prompt = () => "";
+        /// <summary>Runs a console input line.</summary>
         public Action<string> Evaluate = _ => { };
-        public Action<string> Print = _ => { };    // console printf
+        /// <summary>Prints a console line.</summary>
+        public Action<string> Print = _ => { };
     }
 
     private sealed class Client
@@ -140,10 +157,11 @@ public sealed class TelnetConsole : IDisposable
     private int mPort = -1;
     private readonly List<Client> mClients = new();
 
-    // src/server/telnet_console.cpp TelnetConsole::TelnetConsole.
+    /// <summary>Creates the console. No listener opens until <see cref="Poll"/> sees a port.</summary>
+    /// <param name="host">The host services.</param>
     public TelnetConsole(Host host) => mHost = host;
 
-    // src/server/telnet_console.cpp TelnetConsole::~TelnetConsole.
+    /// <summary>Closes the clients and the listener.</summary>
     public void Dispose()
     {
         foreach (Client c in mClients)
@@ -153,7 +171,11 @@ public sealed class TelnetConsole : IDisposable
         mListenFd = null;
     }
 
+    /// <summary>Gets the number of connected clients.</summary>
+    /// <returns>The count.</returns>
     public int ClientCount() => mClients.Count;
+    /// <summary>Gets the port of the listener.</summary>
+    /// <returns>The port, or -1 when none.</returns>
     public int ListeningPort() => mPort;
 
     // src/server/telnet_console.cpp sendAll: best effort like the original, which ignores send results: what a full
@@ -214,8 +236,7 @@ public sealed class TelnetConsole : IDisposable
         }
     }
 
-    // src/server/telnet_console.cpp TelnetConsole::poll: reopens the listener when the port changed, accepts one
-    // client, serves all clients.
+    /// <summary>Reopens the listener when the port changed, accepts one client and serves all clients.</summary>
     public void Poll()
     {
         int port = mHost.Port();
@@ -299,8 +320,8 @@ public sealed class TelnetConsole : IDisposable
         }
     }
 
-    // src/server/telnet_console.cpp TelnetConsole::consoleLine: console output line, sent with its NUL, then "\r\n",
-    // to every authenticated client.
+    /// <summary>Sends a console output line to every authenticated client, with its NUL and then <c>\r\n</c>.</summary>
+    /// <param name="line">The line.</param>
     public void ConsoleLine(string line)
     {
         foreach (Client c in mClients)
