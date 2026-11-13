@@ -1,46 +1,55 @@
-// The command line of the `tribes` client process (docs/client-app.md 1.2). Own options start with `--` and are removed
-// before $cargv is built (D46); every other token (-mod, +connect, +exec, -host, ...) goes to console.cs unchanged.
 using System.Globalization;
 using System.Linq;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The command line of the <c>tribes</c> client process.</summary>
+/// <remarks>docs/client-app.md 1.2. Own options start with <c>--</c> and are removed before <c>$cargv</c> is built (D46). Every other token (-mod, +connect, +exec, -host, ...) goes to console.cs unchanged.</remarks>
 public sealed class ClientOptions
 {
+    /// <summary>The game root directory (<c>--root</c>).</summary>
     public string Root = ".";
-    // `--log FILE`: the console log (what the original writes to console.log when $Console::logMode is set).
+    /// <summary>The console log file (<c>--log FILE</c>): what the original writes to console.log when <c>$Console::logMode</c> is set.</summary>
     public string? LogFile;
-    public bool Echo;                       // `--echo`: console lines also go to stdout
-    // `--input FILE`: a timed script that drives the session (ClientScript).
+    /// <summary>True when console lines also go to stdout (<c>--echo</c>).</summary>
+    public bool Echo;
+    /// <summary>A timed script that drives the session (<c>--input FILE</c>, see <see cref="ClientScript"/>).</summary>
     public string? InputScript;
-    // `--screenshot-at T,T,...`: seconds of app time; PNGs are written to `--shots DIR` (default `.`).
+    /// <summary>The seconds of app time at which to write a screenshot (<c>--screenshot-at T,T,...</c>). The PNGs go to <see cref="ShotDir"/>.</summary>
     public List<double> ScreenshotAt = new();
+    /// <summary>The directory of the screenshots (<c>--shots DIR</c>).</summary>
     public string ShotDir = ".";
-    public int Width = 640, Height = 480;
+    /// <summary>The window width (<c>--size WxH</c>).</summary>
+    public int Width = 640;
+    /// <summary>The window height.</summary>
+    public int Height = 480;
+    /// <summary>The video driver name (<c>--video-driver</c>), or null for the default.</summary>
     public string? VideoDriver;
+    /// <summary>True to run without audio output (<c>--no-audio</c>).</summary>
     public bool NoAudio;
-    // `--camera X,Y,Z,YAW,PITCH`: draws the live world from that fixed camera (degrees, yaw 0 looks along +Y, positive turns left).
+    /// <summary>A fixed camera for the live world (<c>--camera X,Y,Z,YAW,PITCH</c>): degrees, yaw 0 looks along +Y, positive turns left.</summary>
     public double[]? FixedCamera;
+    /// <summary>True to disable the vertical sync.</summary>
     public bool NoVsync;
-    // `--headless` (client-app.md 1.2): no window, no input, no audio output; the frame loop runs on the virtual clock.
+    /// <summary>True for no window, no input and no audio output (<c>--headless</c>). The frame loop runs on the virtual clock (client-app.md 1.2).</summary>
     public bool Headless;
-    // `--windowed`: setFullscreenMode(true) is ignored (the stock prefs ask for full screen).
+    /// <summary>True to ignore <c>setFullscreenMode(true)</c>, because the stock prefs ask for full screen (<c>--windowed</c>).</summary>
     public bool Windowed;
-    // `--fullscreen-windowed`: full screen is the borderless desktop mode (canvas at the desktop size), not a display mode change.
+    /// <summary>True when full screen is the borderless desktop mode (canvas at the desktop size) and not a display mode change (<c>--fullscreen-windowed</c>).</summary>
     public bool FullscreenWindowed;
-    // `--seconds S`: leave after S seconds of app time (tests).
+    /// <summary>The seconds of app time after which to leave, for tests (<c>--seconds S</c>).</summary>
     public double Seconds;
-    // R6: the client talks to 127.0.0.0/8 only unless the user opts in on the command line.
+    /// <summary>True when the user opted in to remote addresses. Otherwise the client talks to 127.0.0.0/8 only (R6).</summary>
     public bool AllowRemote;
-    // `HTMLOpen` and `Notepad` hand a URL or file to the system only with this option.
+    /// <summary>True when <c>HTMLOpen</c> and <c>Notepad</c> may hand a URL or file to the system.</summary>
     public bool AllowBrowser;
-    // `--no-predict`: the control object is drawn from the server state (client-net.md 4.4 off).
+    /// <summary>True to draw the control object from the server state, with client-net.md 4.4 off (<c>--no-predict</c>).</summary>
     public bool NoPredict;
-    // `--virtual-time[=MS]`: the clock advances MS (default 16) per frame and the loop never sleeps.
+    /// <summary>The milliseconds the clock advances per frame, with a loop that never sleeps (<c>--virtual-time[=MS]</c>, default 16). Zero for the real clock.</summary>
     public uint VirtualStep;
-    // `--list-unknown`: print the unknown commands at exit (tests).
+    /// <summary>True to print the unknown commands at exit, for tests (<c>--list-unknown</c>).</summary>
     public bool ReportUnknown;
-    // The tokens for $cargv1...
+    /// <summary>The tokens for <c>$cargv1</c> and up.</summary>
     public readonly List<string> GameArgs = new();
 
     private static readonly string[] ValueOptions =
@@ -53,9 +62,15 @@ public sealed class ClientOptions
         "--demo", "--sound-census", "--audio-live", "--audio-out", "--cat",
     };
 
+    /// <summary>Tells whether the arguments select one of the single purpose tools instead of the client.</summary>
+    /// <param name="args">The command line arguments.</param>
+    /// <returns>True for a tool invocation.</returns>
     public static bool IsToolInvocation(string[] args) => args.Any(a => ToolOptions.Contains(a));
 
-    // Null with `error` set on a bad command line.
+    /// <summary>Parses a command line.</summary>
+    /// <param name="args">The command line arguments.</param>
+    /// <param name="error">The error text on a bad command line.</param>
+    /// <returns>The options, or null with <paramref name="error"/> set on a bad command line.</returns>
     public static ClientOptions? Parse(string[] args, out string error)
     {
         error = "";
