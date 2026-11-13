@@ -81,19 +81,19 @@ public class ScriptParserTests
 
         // Lexer details (1.1 notes).
         var t = Lex("1.5.5 IDx ID id5 $0A %0 a::b 0x1F 1e5 1e 'a\\tb' \"\\x41\\q\\n\"");
-        Assert.True(t[0].Kind == Tok.Float && t[0].Text == "1.5");
-        Assert.True(t[1].Kind == Tok.Char && t[1].Ch == '.');
-        Assert.True(t[2].Kind == Tok.Int && t[2].Text == "5");
+        Assert.True(t[0].Kind == Tok.FloatLiteral && t[0].Text == "1.5");
+        Assert.True(t[1].Kind == Tok.SingleChar && t[1].Ch == '.');
+        Assert.True(t[2].Kind == Tok.IntLiteral && t[2].Text == "5");
         Assert.Equal(Tok.Tag, t[3].Kind);
         Assert.True(t[4].Kind == Tok.Ident && t[5].Kind == Tok.Ident);
         Assert.True(t[6].Kind == Tok.Illegal && t[6].Text == "$0A");
-        Assert.True(t[7].Kind == Tok.Char && t[7].Ch == '%' && t[8].Kind == Tok.Int);
+        Assert.True(t[7].Kind == Tok.SingleChar && t[7].Ch == '%' && t[8].Kind == Tok.IntLiteral);
         Assert.True(t[9].Kind == Tok.Ident && t[9].Text == "a::b");
-        Assert.True(t[10].Kind == Tok.Int && t[10].Text == "0x1F");
-        Assert.True(t[11].Kind == Tok.Float && t[11].Text == "1e5");
-        Assert.True(t[12].Kind == Tok.Int && t[13].Kind == Tok.Ident && t[13].Text == "e");
-        Assert.True(t[14].Kind == Tok.String && t[14].Text == "a\\tb");
-        Assert.True(t[15].Kind == Tok.String && t[15].Text == "Aq\n");
+        Assert.True(t[10].Kind == Tok.IntLiteral && t[10].Text == "0x1F");
+        Assert.True(t[11].Kind == Tok.FloatLiteral && t[11].Text == "1e5");
+        Assert.True(t[12].Kind == Tok.IntLiteral && t[13].Kind == Tok.Ident && t[13].Text == "e");
+        Assert.True(t[14].Kind == Tok.StringLiteral && t[14].Text == "a\\tb");
+        Assert.True(t[15].Kind == Tok.StringLiteral && t[15].Text == "Aq\n");
         // Unterminated string: the quote alone is ILLEGAL; keywords are case-sensitive.
         t = Lex("\"abc\nIf if");
         Assert.True(t[0].Kind == Tok.Illegal && t[1].Kind == Tok.Ident && t[2].Kind == Tok.Ident &&

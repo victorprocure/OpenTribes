@@ -14,7 +14,7 @@ public static class CScan
     /// <param name="pos">The position, advanced past the number. Unchanged when no number starts there.</param>
     /// <param name="f">Receives the number.</param>
     /// <returns>False when no number starts at the position.</returns>
-    public static bool Float(string s, ref int pos, out float f)
+    public static bool ScanFloat(string s, ref int pos, out float f)
     {
         f = 0;
         var i = pos;
@@ -128,7 +128,7 @@ public static class CScan
                 ++pos;
             if (pos >= s.Length)
                 return n == 0 ? -1 : n;
-            if (!Float(s, ref pos, out var f))
+            if (!ScanFloat(s, ref pos, out var f))
                 return n;
             output[n] = f;
         }
@@ -139,7 +139,7 @@ public static class CScan
     /// <param name="text">The text.</param>
     /// <param name="value">Receives the number.</param>
     /// <returns>The number stored, -1 at the end of the input.</returns>
-    public static int Int(string text, ref int value)
+    public static int ScanInt(string text, ref int value)
     {
         var s = CString.CStr(text);
         var i = 0;

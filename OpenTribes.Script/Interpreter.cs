@@ -566,6 +566,22 @@ public sealed class Interpreter
                 _objects?.SetSlot(n.Name, values, index);
                 return Completion.Normal;
             }
+            case NodeKind.IntLiteral:
+            case NodeKind.FloatLiteral:
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Unary:
+            case NodeKind.Binary:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
             default:
                 EvalString(n);
                 return Completion.Normal;
@@ -579,14 +595,14 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-            case NodeKind.Float:
+            case NodeKind.FloatLiteral:
                 return StaticType.TFloat;
-            case NodeKind.Int:
+            case NodeKind.IntLiteral:
                 return StaticType.TInt;
             case NodeKind.Unary:
                 return n.OpChar == '-' ? StaticType.TFloat : n.OpChar == '*' ? StaticType.TString : StaticType.TInt;
             case NodeKind.Binary:
-                if (n.Op == Tok.Char)
+                if (n.Op == Tok.SingleChar)
                 {
                     return n.OpChar switch
                     {
@@ -596,6 +612,30 @@ public sealed class Interpreter
                     };
                 }
                 return n.Op == Tok.DollarPlus ? StaticType.TString : StaticType.TInt;
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
             default:
                 return StaticType.TString;
         }
@@ -660,16 +700,16 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-            case NodeKind.Float:
+            case NodeKind.FloatLiteral:
                 return Numbers.BorlandAtof(n.Name);
-            case NodeKind.Int:
+            case NodeKind.IntLiteral:
                 return Numbers.ParseIntLiteral(n.Name);
             case NodeKind.Unary:
                 if (n.OpChar == '-')
                     return -EvalFloat(n.A!);
                 break;
             case NodeKind.Binary:
-                if (n.Op == Tok.Char && (n.OpChar == '+' || n.OpChar == '-' || n.OpChar == '*' || n.OpChar == '/'))
+                if (n.Op == Tok.SingleChar && (n.OpChar == '+' || n.OpChar == '-' || n.OpChar == '*' || n.OpChar == '/'))
                 {
                     var l = EvalFloat(n.A!); // left operand is stored to a 64-bit double
                     var r = EvalFloat(n.B!);
@@ -682,6 +722,30 @@ public sealed class Interpreter
                     };
                 }
                 break;
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
             default:
                 break;
         }
@@ -696,7 +760,7 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-            case NodeKind.Int:
+            case NodeKind.IntLiteral:
                 return Numbers.ParseIntLiteral(n.Name);
             case NodeKind.Unary:
                 if (n.OpChar == '!')
@@ -731,7 +795,7 @@ public sealed class Interpreter
                     case Tok.Shr:
                         c = EvalInt(n.A!);
                         return c >> (EvalInt(n.B!) & 31);
-                    case Tok.Char:
+                    case Tok.SingleChar:
                         switch (n.OpChar)
                         {
                             case '<':
@@ -762,11 +826,72 @@ public sealed class Interpreter
                                 break;
                         }
                         break;
+                    case Tok.End:
+                    case Tok.Illegal:
+                    case Tok.StringLiteral:
+                    case Tok.IntLiteral:
+                    case Tok.FloatLiteral:
+                    case Tok.Var:
+                    case Tok.Tag:
+                    case Tok.Ident:
+                    case Tok.Break:
+                    case Tok.Nil:
+                    case Tok.Class:
+                    case Tok.Return:
+                    case Tok.Else:
+                    case Tok.Global:
+                    case Tok.While:
+                    case Tok.If:
+                    case Tok.For:
+                    case Tok.Continue:
+                    case Tok.Function:
+                    case Tok.Instant:
+                    case Tok.AndAnd:
+                    case Tok.OrOr:
+                    case Tok.ColonColon:
+                    case Tok.MinusMinus:
+                    case Tok.PlusPlus:
+                    case Tok.DollarPlus:
+                    case Tok.PlusAssign:
+                    case Tok.MinusAssign:
+                    case Tok.MulAssign:
+                    case Tok.DivAssign:
+                    case Tok.ModAssign:
+                    case Tok.AndAssign:
+                    case Tok.XorAssign:
+                    case Tok.OrAssign:
+                    case Tok.ShlAssign:
+                    case Tok.ShrAssign:
                     default:
                         break;
                 }
                 break;
             }
+            case NodeKind.FloatLiteral:
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
             default:
                 break;
         }
@@ -796,7 +921,7 @@ public sealed class Interpreter
             return;
         }
         var obj = EvalString(lv.A!);
-        _objects?.SetField(obj, lv.Name, new[] { value }, IndexString(lv.Index));
+        _objects?.SetField(obj, lv.Name, [value], IndexString(lv.Index));
     }
 
     // src/script/interpreter.cpp Interpreter::compoundAssign.
@@ -832,7 +957,7 @@ public sealed class Interpreter
                 Tok.OrAssign => l | r,
                 Tok.XorAssign => l ^ r,
                 Tok.ShlAssign => unchecked((int)((uint)l << (r & 31))),
-                _ => l >> (r & 31),
+                Tok.End or Tok.Illegal or Tok.StringLiteral or Tok.IntLiteral or Tok.FloatLiteral or Tok.Var or Tok.Tag or Tok.Ident or Tok.Break or Tok.Nil or Tok.Class or Tok.Return or Tok.Else or Tok.Global or Tok.While or Tok.If or Tok.For or Tok.Continue or Tok.Function or Tok.Instant or Tok.Eq or Tok.Ne or Tok.Ge or Tok.Le or Tok.AndAnd or Tok.OrOr or Tok.ColonColon or Tok.MinusMinus or Tok.PlusPlus or Tok.DollarPlus or Tok.Shl or Tok.Shr or Tok.PlusAssign or Tok.MinusAssign or Tok.MulAssign or Tok.DivAssign or Tok.ShrAssign or Tok.SingleChar or _ => l >> (r & 31),
             };
             result = Numbers.FormatInt(v);
         }
@@ -845,12 +970,12 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-            case NodeKind.Int:
+            case NodeKind.IntLiteral:
                 return Numbers.FormatInt(Numbers.ParseIntLiteral(n.Name));
-            case NodeKind.Float:
+            case NodeKind.FloatLiteral:
                 return Numbers.FormatFloat(Numbers.BorlandAtof(n.Name));
             case NodeKind.Ident: // already the interned spelling (lexer, script.md 1.2)
-            case NodeKind.String:
+            case NodeKind.StringLiteral:
             case NodeKind.BreakWord:
                 return n.Name;
             case NodeKind.TagRef:
@@ -902,6 +1027,18 @@ public sealed class Interpreter
                 return CompoundAssign(n.A!, n.Op, '\0', n.B);
             case NodeKind.PostIncDec:
                 return CompoundAssign(n.A!, Tok.End, n.OpChar, null);
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
             default:
                 break;
         }

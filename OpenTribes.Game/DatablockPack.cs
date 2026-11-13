@@ -24,7 +24,7 @@ public static class DatablockPack
     private static int Atoi(string s)
     {
         var v = 0;
-        CScan.Int(s, ref v);
+        CScan.ScanInt(s, ref v);
         return v;
     }
 

@@ -5,11 +5,11 @@ namespace OpenTribes.Script;
 public enum NodeKind
 {
     /// <summary>An integer literal.</summary>
-    Int,
+    IntLiteral,
     /// <summary>A float literal.</summary>
-    Float,
+    FloatLiteral,
     /// <summary>A string literal.</summary>
-    String,
+    StringLiteral,
     /// <summary>An identifier.</summary>
     Ident,
     /// <summary>A break word.</summary>

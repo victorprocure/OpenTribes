@@ -62,7 +62,9 @@ public sealed class ActionBinding
     public uint Flags { get; set; }
     /// <summary>The value, the dead zone and the scale.</summary>
     public float ValueF { get; set; }
+    /// <inheritdoc cref="ValueF"/>
     public float DeadZoneF { get; set; }
+    /// <inheritdoc cref="ValueF"/>
     public float ScaleF { get; set; } = 1;
 }
 

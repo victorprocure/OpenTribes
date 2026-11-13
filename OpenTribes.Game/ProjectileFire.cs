@@ -303,7 +303,7 @@ public static partial class ProjectileFire
                 t.P[i] = v[9 + i];
             t.Flags = 3;
             var shooter = -1;
-            CScan.Int(a[3], ref shooter);
+            CScan.ScanInt(a[3], ref shooter);
             float[] vel = [0, 0, 0];
             CScan.Floats(a[4], vel);
             pr.Init(t, vel, shooter);

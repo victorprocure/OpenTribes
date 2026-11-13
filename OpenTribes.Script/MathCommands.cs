@@ -134,7 +134,7 @@ public static class MathCommands
             return true;
         }
         var q = s;
-        if (At(text, q) == '+' || At(text, q) == '-')
+        if (At(text, q) is '+' or '-')
             ++q;
         var digits = 0;
         while (IsDigitC(At(text, q)))
@@ -155,11 +155,11 @@ public static class MathCommands
             return false;
         var mantissaEnd = q;
         var exponentDigits = false;
-        if (At(text, q) == 'e' || At(text, q) == 'E')
+        if (At(text, q) is 'e' or 'E')
         {
             // The marker, its sign and its digits are consumed even when no digit follows ("1e" is 1).
             ++q;
-            if (At(text, q) == '+' || At(text, q) == '-')
+            if (At(text, q) is '+' or '-')
                 ++q;
             while (IsDigitC(At(text, q)))
             {

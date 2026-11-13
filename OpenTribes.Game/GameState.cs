@@ -294,7 +294,7 @@ public sealed partial class GameState : GameServices
     private static int Strtol(string s)
     {
         var v = 0;
-        CScan.Int(s, ref v);
+        CScan.ScanInt(s, ref v);
         return v;
     }
 

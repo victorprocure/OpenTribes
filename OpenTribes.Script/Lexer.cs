@@ -11,11 +11,11 @@ public enum Tok : byte
     /// <summary>An illegal character (rules 71 and 72).</summary>
     Illegal,
     /// <summary>A string literal.</summary>
-    String,
+    StringLiteral,
     /// <summary>An integer literal.</summary>
-    Int,
+    IntLiteral,
     /// <summary>A float literal.</summary>
-    Float,
+    FloatLiteral,
     /// <summary>A variable name.</summary>
     Var,
     /// <summary>A tag name.</summary>
@@ -91,7 +91,7 @@ public enum Tok : byte
     /// <summary>The &gt;&gt;= operator.</summary>
     ShrAssign,
     /// <summary>A single character: one of @ [ ] ( ) + - * / &lt; &gt; | . ! : ; { } , &amp; % ^ ~ =.</summary>
-    Char,
+    SingleChar,
 }
 
 /// <summary>A lexer token.</summary>
@@ -186,7 +186,7 @@ public sealed class Lexer
             }
             if ((ch == '/' && Peek(1) == '/') || ch == '#')
             {
-                while (Peek() != '\0' && Peek() != '\n' && Peek() != '\r')
+                while (Peek() is not '\0' and not '\n' and not '\r')
                     ++_pos;
                 continue;
             }
@@ -251,7 +251,7 @@ public sealed class Lexer
         ++_pos;
         if (Singles.Contains(c))
         {
-            var t = Make(Tok.Char, c.ToString());
+            var t = Make(Tok.SingleChar, c.ToString());
             t.Ch = c;
             return t;
         }
@@ -267,17 +267,17 @@ public sealed class Lexer
             _pos += 2;
             while (IsHex(Peek()))
                 ++_pos;
-            return Make(Tok.Int, _src[start.._pos]);
+            return Make(Tok.IntLiteral, _src[start.._pos]);
         }
         while (IsDigit(Peek()))
             ++_pos;
         int ExponentLength(int at)
         {
             var i = at;
-            if (Peek(i) != 'e' && Peek(i) != 'E')
+            if (Peek(i) is not 'e' and not 'E')
                 return 0;
             ++i;
-            if (Peek(i) == '+' || Peek(i) == '-')
+            if (Peek(i) is '+' or '-')
                 ++i;
             if (!IsDigit(Peek(i)))
                 return 0;
@@ -303,7 +303,7 @@ public sealed class Lexer
                 isFloat = true;
             }
         }
-        return Make(isFloat ? Tok.Float : Tok.Int, _src[start.._pos]);
+        return Make(isFloat ? Tok.FloatLiteral : Tok.IntLiteral, _src[start.._pos]);
     }
 
     // src/script/lexer.cpp Lexer::lexDoubleQuoted.
@@ -323,7 +323,7 @@ public sealed class Lexer
             }
             if (c == '\\')
             {
-                if (Peek(i + 1) == '\n' || Peek(i + 1) == '\0')
+                if (Peek(i + 1) is '\n' or '\0')
                 {
                     ++_pos;
                     return Make(Tok.Illegal, "\"");
@@ -366,7 +366,7 @@ public sealed class Lexer
                 value.Append(e);
             }
         }
-        return Make(Tok.String, value.ToString());
+        return Make(Tok.StringLiteral, value.ToString());
     }
 
     // src/script/lexer.cpp Lexer::lexSingleQuoted.
@@ -388,6 +388,6 @@ public sealed class Lexer
         }
         var raw = _src.Substring(_pos + 1, i - 1);
         _pos += i + 1;
-        return Make(Tok.String, raw);
+        return Make(Tok.StringLiteral, raw);
     }
 }

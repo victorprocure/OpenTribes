@@ -72,7 +72,7 @@ public static class ScriptParser
             _tok = _next;
             _next = _lex.Next();
         }
-        private static bool IsChar(Token t, char c) => t.Kind == Tok.Char && t.Ch == c;
+        private static bool IsChar(Token t, char c) => t.Kind == Tok.SingleChar && t.Ch == c;
         private bool At(char c) => IsChar(_tok, c);
         private bool At(Tok k) => _tok.Kind == k;
         private Node? Fail()
@@ -148,6 +148,39 @@ public static class ScriptParser
                     if (_next.Kind == Tok.Ident || IsChar(_next, '{'))
                         return DatablockDecl();
                     break;
+                case Tok.End:
+                case Tok.Illegal:
+                case Tok.StringLiteral:
+                case Tok.IntLiteral:
+                case Tok.FloatLiteral:
+                case Tok.Var:
+                case Tok.Nil:
+                case Tok.Class:
+                case Tok.Else:
+                case Tok.Global:
+                case Tok.Eq:
+                case Tok.Ne:
+                case Tok.Ge:
+                case Tok.Le:
+                case Tok.AndAnd:
+                case Tok.OrOr:
+                case Tok.ColonColon:
+                case Tok.MinusMinus:
+                case Tok.PlusPlus:
+                case Tok.DollarPlus:
+                case Tok.Shl:
+                case Tok.Shr:
+                case Tok.PlusAssign:
+                case Tok.MinusAssign:
+                case Tok.MulAssign:
+                case Tok.DivAssign:
+                case Tok.ModAssign:
+                case Tok.AndAssign:
+                case Tok.XorAssign:
+                case Tok.OrAssign:
+                case Tok.ShlAssign:
+                case Tok.ShrAssign:
+                case Tok.SingleChar:
                 default:
                     break;
             }
@@ -173,7 +206,7 @@ public static class ScriptParser
             return e.Kind switch
             {
                 NodeKind.Assign or NodeKind.FieldListAssign or NodeKind.CompoundAssign or NodeKind.PostIncDec or NodeKind.Call or NodeKind.MethodCall => true,
-                _ => false,
+                NodeKind.IntLiteral or NodeKind.FloatLiteral or NodeKind.StringLiteral or NodeKind.Ident or NodeKind.BreakWord or NodeKind.TagRef or NodeKind.Var or NodeKind.Field or NodeKind.Unary or NodeKind.Binary or NodeKind.ExprStmt or NodeKind.If or NodeKind.While or NodeKind.For or NodeKind.Function or NodeKind.Return or NodeKind.Continue or NodeKind.BreakStmt or NodeKind.TagDecl or NodeKind.Datablock or NodeKind.Instant or NodeKind.Slot or _ => false,
             };
         }
 
@@ -409,7 +442,7 @@ public static class ScriptParser
             Tok.Le or Tok.Ge => 7,
             Tok.DollarPlus => 8,
             Tok.Shl or Tok.Shr => 9,
-            Tok.Char => t.Ch switch
+            Tok.SingleChar => t.Ch switch
             {
                 '|' => 3,
                 '^' => 4,
@@ -420,7 +453,7 @@ public static class ScriptParser
                 '*' or '/' or '%' => 11,
                 _ => 0,
             },
-            _ => 0,
+            Tok.End or Tok.Illegal or Tok.StringLiteral or Tok.IntLiteral or Tok.FloatLiteral or Tok.Var or Tok.Tag or Tok.Ident or Tok.Break or Tok.Nil or Tok.Class or Tok.Return or Tok.Else or Tok.Global or Tok.While or Tok.If or Tok.For or Tok.Continue or Tok.Function or Tok.Instant or Tok.ColonColon or Tok.MinusMinus or Tok.PlusPlus or Tok.PlusAssign or Tok.MinusAssign or Tok.MulAssign or Tok.DivAssign or Tok.ModAssign or Tok.AndAssign or Tok.XorAssign or Tok.OrAssign or Tok.ShlAssign or Tok.ShrAssign or _ => 0,
         };
 
         private Node? Expression(int minPrec = 1)
@@ -449,7 +482,7 @@ public static class ScriptParser
             if (At('-') || At('!') || At('~') || At('*'))
             {
                 var n = MakeNode(NodeKind.Unary);
-                n.Op = Tok.Char;
+                n.Op = Tok.SingleChar;
                 n.OpChar = _tok.Ch;
                 Advance();
                 n.A = Unary();
@@ -465,18 +498,18 @@ public static class ScriptParser
             Node n;
             switch (_tok.Kind)
             {
-                case Tok.Int:
-                    n = MakeNode(NodeKind.Int);
+                case Tok.IntLiteral:
+                    n = MakeNode(NodeKind.IntLiteral);
                     n.Name = _tok.Text;
                     Advance();
                     return n;
-                case Tok.Float:
-                    n = MakeNode(NodeKind.Float);
+                case Tok.FloatLiteral:
+                    n = MakeNode(NodeKind.FloatLiteral);
                     n.Name = _tok.Text;
                     Advance();
                     return n;
-                case Tok.String:
-                    n = MakeNode(NodeKind.String);
+                case Tok.StringLiteral:
+                    n = MakeNode(NodeKind.StringLiteral);
                     n.Name = _tok.Text;
                     Advance();
                     return n;
@@ -517,7 +550,7 @@ public static class ScriptParser
                         Expect(']');
                     }
                     return _failed ? null : n;
-                case Tok.Char:
+                case Tok.SingleChar:
                     if (_tok.Ch == '(')
                     {
                         Advance();
@@ -529,6 +562,41 @@ public static class ScriptParser
                         return e;
                     }
                     return Fail();
+                case Tok.End:
+                case Tok.Illegal:
+                case Tok.Nil:
+                case Tok.Class:
+                case Tok.Return:
+                case Tok.Else:
+                case Tok.Global:
+                case Tok.While:
+                case Tok.If:
+                case Tok.For:
+                case Tok.Continue:
+                case Tok.Function:
+                case Tok.Instant:
+                case Tok.Eq:
+                case Tok.Ne:
+                case Tok.Ge:
+                case Tok.Le:
+                case Tok.AndAnd:
+                case Tok.OrOr:
+                case Tok.ColonColon:
+                case Tok.MinusMinus:
+                case Tok.PlusPlus:
+                case Tok.DollarPlus:
+                case Tok.Shl:
+                case Tok.Shr:
+                case Tok.PlusAssign:
+                case Tok.MinusAssign:
+                case Tok.MulAssign:
+                case Tok.DivAssign:
+                case Tok.ModAssign:
+                case Tok.AndAssign:
+                case Tok.XorAssign:
+                case Tok.OrAssign:
+                case Tok.ShlAssign:
+                case Tok.ShrAssign:
                 default:
                     return Fail();
             }
@@ -539,7 +607,7 @@ public static class ScriptParser
         private static bool IsCompound(Tok k) => k switch
         {
             Tok.PlusAssign or Tok.MinusAssign or Tok.MulAssign or Tok.DivAssign or Tok.ModAssign or Tok.AndAssign or Tok.XorAssign or Tok.OrAssign or Tok.ShlAssign or Tok.ShrAssign => true,
-            _ => false,
+            Tok.End or Tok.Illegal or Tok.StringLiteral or Tok.IntLiteral or Tok.FloatLiteral or Tok.Var or Tok.Tag or Tok.Ident or Tok.Break or Tok.Nil or Tok.Class or Tok.Return or Tok.Else or Tok.Global or Tok.While or Tok.If or Tok.For or Tok.Continue or Tok.Function or Tok.Instant or Tok.Eq or Tok.Ne or Tok.Ge or Tok.Le or Tok.AndAnd or Tok.OrOr or Tok.ColonColon or Tok.MinusMinus or Tok.PlusPlus or Tok.DollarPlus or Tok.Shl or Tok.Shr or Tok.SingleChar or _ => false,
         };
 
         private Node? Postfix(Node? e)
