@@ -171,13 +171,13 @@ public class FuzzTests
             Shape.ReadShapeBox(b, output);
         });
         // LZH: any input decodes into exactly the requested size without reading past the input.
-        Fuzz([new List<byte> { 0x00, 0x11, 0x22, 0x33 }], 5000, 5, b =>
+        Fuzz([[0x00, 0x11, 0x22, 0x33]], 5000, 5, b =>
         {
             var output = new byte[512];
             Lzh.LzhDecodeCounted(b, output);
         });
         // RLE (volume compression 1): any input fills the requested size or fails, never reading past the input.
-        Fuzz([new List<byte> { 0x05, (byte)'h', (byte)'e', (byte)'l', (byte)'l', (byte)'o', 0x8a, (byte)'z', 0x03, (byte)'a', (byte)'b', (byte)'c', 0x80, 0x00, 0xff, (byte)'q' }],
+        Fuzz([[0x05, (byte)'h', (byte)'e', (byte)'l', (byte)'l', (byte)'o', 0x8a, (byte)'z', 0x03, (byte)'a', (byte)'b', (byte)'c', 0x80, 0x00, 0xff, (byte)'q']],
              5000, 8, b =>
              {
                  var output = new byte[700];
@@ -220,7 +220,7 @@ public class FuzzTests
                       "if (%a == 1) return f(%a - 1); else echo(%a.b, a::b(1, 2)); }\n" +
                       "instant SimGroup \"g\" { x = \"1\"; instant Marker m { p[0] = 1; }; };\n" +
                       "#tag = 5, \"text\"; while (true) break;";
-        Fuzz([new List<byte>(ByteString.ToBytes(seed))], 20000, 7, b => ScriptParser.Parse(ByteString.FromBytes(b)));
+        Fuzz([[.. ByteString.ToBytes(seed)]], 20000, 7, b => ScriptParser.Parse(ByteString.FromBytes(b)));
     }
 
     // The text-parsing commands of docs/script.md 6.7 on mutated and random strings.
@@ -236,7 +236,7 @@ public class FuzzTests
             "sprintf(%a, %c, %a);", "Vector::add(%a, %c);", "Vector::dot(%c, %a);", "Vector::normalize(%a);",
             "Vector::getRotation(%c);", "Vector::getFromRot(%a, %c);", "Vector::getDistance(%a, %a);", "Vector::neg(%c);",
         ];
-        Fuzz([new List<byte>(ByteString.ToBytes(seedText))], 6000, 11, b =>
+        Fuzz([[.. ByteString.ToBytes(seedText)]], 6000, 11, b =>
         {
             string a = Literal(b), c = Literal(Enumerable.Reverse(b));
             foreach (var form in forms)
@@ -284,7 +284,7 @@ public class FuzzTests
             "setTerrainContainer(%a, %c, %a, %c);", "lightTerrain(%a, %c, %a);", "saveTerrain(%a, %c);",
             "loadObject(%a, %c);", "storeObject(%a, %c, %a);",
         ];
-        Fuzz([new List<byte>(ByteString.ToBytes(seedText))], 3000, 13, b =>
+        Fuzz([[.. ByteString.ToBytes(seedText)]], 3000, 13, b =>
         {
             string a = Literal(b), c = Literal(Enumerable.Reverse(b));
             foreach (var form in forms)

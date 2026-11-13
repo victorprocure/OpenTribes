@@ -45,7 +45,10 @@ public class ControlObjectTests
         var total = w.BitPosition();
         Assert.True(total == 16 + 3 + 1 + 1 + 8 + 1 + 32 + 1);
         var b = new Bits(buf, total);
-        Assert.True(b.U(4) == 15 && b.U(4) == 0 && b.U(4) == 7 && b.U(4) == 0);
+        Assert.Equal(15u, b.U(4));
+        Assert.Equal(0u, b.U(4));
+        Assert.Equal(7u, b.U(4));
+        Assert.Equal(0u, b.U(4));
         Assert.True(b.Flag() && !b.Flag() && b.Flag()); // jet, jump, crouch in this order
         Assert.True(b.Flag());                          // fire
         Assert.True(b.Flag() && b.U(8) == 9);           // useItem
@@ -221,7 +224,7 @@ public class ControlObjectTests
         Assert.True(calls.Lines.SequenceEqual(["Observer::leaveMissionArea(0);"]));
         calls.Lines.Clear();
         cam.ApplyMoves(run, 1);
-        Assert.Equal(0, calls.Lines.Count);
+        Assert.Empty(calls.Lines);
         var back = new Move
         {
             Backward = 1
@@ -392,7 +395,7 @@ public class ControlObjectTests
     }
 
     // Client packet: no rates, no events, PSC with fov, first move index and moves, no ghosts.
-    private static byte[] MovePacket(uint first, IReadOnlyList<Move> moves, uint fov = 169)
+    private static byte[] MovePacket(uint first, Move[] moves, uint fov = 169)
     {
         var buf = new byte[1400];
         var bs = new BitBuffer(buf, buf.Length);
@@ -402,7 +405,7 @@ public class ControlObjectTests
         bs.WriteFlag(true);
         bs.WriteInt(fov, 8);
         bs.WriteInt(first, 32);
-        for (var i = 0; i < moves.Count; ++i)
+        for (var i = 0; i < moves.Length; ++i)
         {
             bs.WriteFlag(true);
             Moves.PackMove(bs, moves[i], true, i != 0 ? moves[i - 1] : null);
@@ -483,7 +486,7 @@ public class ControlObjectTests
         }
         bool Has(SimObject o) => created.Contains(o);
         Send(); // always phase: nothing to send, no sweep
-        Assert.Equal(0, sweeps.Count);
+        Assert.Empty(sweeps);
 
         // The player in control: the sweep starts at the player.
         var idle = new Move();
@@ -785,7 +788,7 @@ public class ControlObjectTests
         var firstCookie = f.Sent[^1].Cookie;
         // Unchanged mask: nothing. A change: only the changed word, as XOR.
         p = Send();
-        Assert.Equal(0, p.Visible.Count);
+        Assert.Empty(p.Visible);
         input.Visible[4] = 0xa800fff0;
         p = Send();
         Assert.True(p.Visible.SequenceEqual([(4u, 0xfu)]));
@@ -793,7 +796,7 @@ public class ControlObjectTests
         // 6.4: a lost packet puts its XOR words back, so they are sent again; a delivered one changes nothing.
         c.Notify(firstCookie, true);
         p = Send();
-        Assert.Equal(0, p.Visible.Count);
+        Assert.Empty(p.Visible);
         c.Notify(changeCookie, false);
         Assert.Equal(0xa800ffff, c.ClientVisible()[4]);
         p = Send();
@@ -821,7 +824,7 @@ public class ControlObjectTests
         Assert.True(p.Items[0].Index == 0 && p.Items[0].Shop == 0x3 && p.Items[0].Buy == 0x1);
         Assert.True(p.Items[1].Index == 6 && p.Items[1].Shop == 0x80 && p.Items[1].Buy == 0);
         var itemCookie = f.Sent[^1].Cookie;
-        Assert.Equal(0, Send().Items.Count);
+        Assert.Empty(Send().Items);
         input.Buying[0] = 0;
         p = Send();
         Assert.True(p.Items.Count == 1 && p.Items[0].Shop == 0 && p.Items[0].Buy == 0x1);
@@ -994,7 +997,7 @@ public class ControlObjectTests
         // Same client again: no change, no mask bits.
         maskBits.Clear();
         w.Run("Client::setControlObject(2049, " + cam1 + ");");
-        Assert.Equal(0, maskBits.Count);
+        Assert.Empty(maskBits);
         // Another object: the previous one is released first.
         Assert.Equal("true", w.Run("echo(Client::setControlObject(2049, a));"));
         Assert.True(c1.ControlObject == a.Id() && a.ControlClient == 2049 && cam1o.ControlClient == 0);
@@ -1179,7 +1182,7 @@ public class ControlObjectTests
             Assert.True(c.Team == 1 && evs.Count == 2);
             evs.Clear();
             t1.SetTeam(1);
-            Assert.Equal(0, evs.Count);
+            Assert.Empty(evs);
             w.Run("GameBase::setTeam(" + t1.Id() + ", 0);");
             Assert.True(c.Team == 0 && evs.Count == 1);
             t1.SetTeam(1);

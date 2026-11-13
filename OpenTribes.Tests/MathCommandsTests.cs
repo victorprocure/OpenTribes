@@ -1,5 +1,5 @@
 // Port of tests/test_math_commands.cpp: math, vector and utility commands (docs/script.md 6.7): sprintf, pow, getRandom,
-// timeStamp, which, Vector::* and the game-state utilities. Expected values in kRows and kSphere come from the reference
+// timeStamp, which, Vector::* and the game-state utilities. Expected values in kRows and SphereCases come from the reference
 // server (tests/ref/util.txt and util_game.txt are the live comparisons). kDouble lists the rows whose output differs in
 // the double form of the port (DECISIONS D25: the truncating build's rounding in 64 bits, docs/portable-float.md 1 and
 // 5: NaN operand order, x87 fsincos of huge angles, 80-bit denormals) with the output the port prints.
@@ -248,7 +248,7 @@ public class MathCommandsTests
     // 0: Generator (radius 2.679856777), 1: flag (1.2074273824691772).
     private readonly record struct Sphere(string From, string To, string Dir, int Shape, string Want);
 
-    private static readonly Sphere[] kSphere =
+    private static readonly Sphere[] SphereCases =
     [
         new("-160 -214 213", "-166.971 -214.219 213.574", "1 0 0", 0, "0.959464 -0.100462 0.263315"),
         new("-150.5 -200.25 220", "-166.971 -214.219 213.574", "-1 -1 0.5", 0, "-0.70122 -0.567816 -0.43113"),
@@ -311,7 +311,9 @@ public class MathCommandsTests
             foreach (var want1 in want)
                 Assert.Equal(want1, Run(fresh, "echo(getRandom());"));
             var rng = new RandomR250();
-            Assert.True(rng.Next() == 0xdc9a6435u && rng.Next() == 0x4b5cdef3u && rng.Next() == 0x76fc08c5u);
+            Assert.Equal(0xdc9a6435u, rng.Next());
+            Assert.Equal(0x4b5cdef3u, rng.Next());
+            Assert.Equal(0x76fc08c5u, rng.Next());
             // Index 249 wraps to 0 after 250 values.
             var wrap = new RandomR250();
             var v = new uint[254];
@@ -319,7 +321,8 @@ public class MathCommandsTests
                 v[i] = wrap.Next();
             Assert.True(v[248] == 0x3de60101u && v[249] == 0xc27fa774u && v[250] == 0x47760a6eu && v[253] == 0x69b7548au);
             var other = new RandomR250(1);
-            Assert.True(other.Next() == 0xe56e2245u && other.Next() == 0x77be0fafu);
+            Assert.Equal(0xe56e2245u, other.Next());
+            Assert.Equal(0x77be0fafu, other.Next());
             other.Reseed(0x8377);
             Assert.Equal(0xdc9a6435u, other.Next());
         }
@@ -381,7 +384,7 @@ public class MathCommandsTests
         Assert.Equal("-0 0 -1.57079", Run(w, "echo(Vector::getRotation(\"1e-30 0 0\"));"));
 
         // findPointOnSphere with the reference's results for the Generator and flag shapes.
-        foreach (var sp in kSphere)
+        foreach (var sp in SphereCases)
         {
             float[] from = Parse3(sp.From), to = Parse3(sp.To), dir = Parse3(sp.Dir), o = new float[3];
             var got = "0 0 0";

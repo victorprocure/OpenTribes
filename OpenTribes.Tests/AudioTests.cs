@@ -4,7 +4,6 @@ namespace OpenTribes.Tests;
 using System.Text;
 using OpenTribes.Client.Audio;
 using OpenTribes.Game;
-using OpenTribes.Gui;
 using OpenTribes.Platform.Audio;
 using OpenTribes.Script;
 
@@ -312,7 +311,7 @@ public class AudioTests
 
     // ---- sound manager ----
 
-    private static SoundManager Mgr(int rate = 22050, int frames = 4000, short level = 8192, int maxBuffers = 16, bool loopWave = false)
+    private static SoundManager Mgr(int rate = 22050, int frames = 4000, short level = 8192, int maxBuffers = 16)
     {
         var s = new short[frames];
         for (var i = 0; i < frames; ++i)
@@ -675,7 +674,7 @@ public class AudioTests
     {
         var sm = Mgr();
         sm.Sfx2DVolume = 0.5;
-        IGuiAudio gui = new GuiAudio(sm);
+        var gui = new GuiAudio(sm);
         gui.Play("Button1.wav");
         var v = Assert.Single(sm.Voices);
         Assert.False(v.Profile.Is3D);

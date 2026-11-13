@@ -358,7 +358,7 @@ public class GfxFormatTests
     [Fact]
     public void PftMetricsProportionalFixedMissingAndEmpty() // 2.6 metrics
     {
-        PftFont.TryParse(TestFont(), out var f, out _);
+        _ = PftFont.TryParse(TestFont(), out var f, out _);
         // proportional: sum(charWidth + spacing) - spacing; 'C' is missing: a blank cell of max(glyphCellW, 5) = 6
         Assert.Equal(3 + 1 + 5 + 1 - 1, f!.MeasureTextWidth("AB"));
         Assert.Equal(3 + 1 + 6 + 1 - 1, f.MeasureTextWidth("AC"));
@@ -366,19 +366,19 @@ public class GfxFormatTests
         Assert.Equal(6, f.MeasureTextHeight("AB"));              // max charHeight
         Assert.Equal(7, f.MeasureTextHeight("AC"));              // the missing cell is cellHeight high
         Assert.Equal(6, f.CharWidth('C'));
-        PftFont.TryParse(TestFont(flags: PftFont.FlagFixedWidth | PftFont.FlagTransparent), out var g, out _);
+        _ = PftFont.TryParse(TestFont(flags: PftFont.FlagFixedWidth | PftFont.FlagTransparent), out var g, out _);
         Assert.Equal(((6 + 1) * 2) - 1, g!.MeasureTextWidth("AB")); // fixed: glyphCellW + spacing each
-        PftFont.TryParse(TestFont(scale: 2 << 16), out var h, out _);
+        _ = PftFont.TryParse(TestFont(scale: 2 << 16), out var h, out _);
         Assert.Equal(2 * (3 + 1 + 5 + 1 - 1), h!.MeasureTextWidth("AB")); // * scaleX >> 16
     }
 
     [Fact]
     public void PftLowerCapsUppercasesBeforeLookup() // 2.6 flag bit10
     {
-        PftFont.TryParse(TestFont(flags: PftFont.FlagProportional | PftFont.FlagLowerCaps), out var f, out _);
+        _ = PftFont.TryParse(TestFont(flags: PftFont.FlagProportional | PftFont.FlagLowerCaps), out var f, out _);
         Assert.True(f!.TryGetGlyph('b', out var g));
         Assert.Equal(5, g.Width);
-        PftFont.TryParse(TestFont(), out var plain, out _);
+        _ = PftFont.TryParse(TestFont(), out var plain, out _);
         Assert.False(plain!.TryGetGlyph('b', out _));
     }
 
@@ -430,7 +430,7 @@ public class GfxFormatTests
     [Fact]
     public void TextAtPlacesGlyphsByTheBaselineFormula() // 4 drawTextAt
     {
-        PftFont.TryParse(TestFont(), out var f, out _);
+        _ = PftFont.TryParse(TestFont(), out var f, out _);
         var d = new Recorder();
         var bottom = GfxText.DrawAt(d, f!, 10, 20, "ACB");
         // 'A': y = 20 + baseline 6 + glyph baseline 0 - (rect.bottom - rect.top = 3) + 1 = 24; pen 10
@@ -443,7 +443,7 @@ public class GfxFormatTests
     [Fact]
     public void TextAtScaledGoesThroughStretch() // 4: scale in 16.16 multiplies rect, y offset and advance
     {
-        PftFont.TryParse(TestFont(scale: 2 << 16), out var f, out _);
+        _ = PftFont.TryParse(TestFont(scale: 2 << 16), out var f, out _);
         var d = new Recorder();
         GfxText.DrawAt(d, f!, 0, 0, "AB");
         // 'A': yOff = 6 + 0 - 3 = 3 -> 3 * 2 + 1 = 7, size 6 x 8; advance (3 + 1) * 2 = 8
@@ -454,20 +454,20 @@ public class GfxFormatTests
     public void TextInRectJustification() // 4 drawTextInRect
     {
         var rect = new GfxRect(10, 20, 49, 59); // 40 x 40
-        PftFont.TryParse(TestFont(justification: PftFont.JustRight), out var f, out _);
+        _ = PftFont.TryParse(TestFont(justification: PftFont.JustRight), out var f, out _);
         var d = new Recorder();
         GfxText.DrawInRect(d, f!, rect, "A");
         Assert.Equal("R 0,0,2,3 @47,24", d.Calls[0]);   // pen = right - extent + 1 = 49 - 3 + 1; y = top 20
-        PftFont.TryParse(TestFont(justification: PftFont.JustCenter | PftFont.JustVCenter), out f, out _);
+        _ = PftFont.TryParse(TestFont(justification: PftFont.JustCenter | PftFont.JustVCenter), out f, out _);
         d = new Recorder();
         GfxText.DrawInRect(d, f!, rect, "A");
         // x = 10 + (40 - 3) / 2 = 28; y top = 20 + (40 - 6) / 2 = 37, glyph y = 37 + 6 - 3 + 1 = 41
         Assert.Equal("R 0,0,2,3 @28,41", d.Calls[0]);
-        PftFont.TryParse(TestFont(justification: PftFont.JustBottom), out f, out _);
+        _ = PftFont.TryParse(TestFont(justification: PftFont.JustBottom), out f, out _);
         d = new Recorder();
         GfxText.DrawInRect(d, f!, rect, "A");
         Assert.Equal("R 0,0,2,3 @10,58", d.Calls[0]);   // top = 59 - 6 + 1 = 54, glyph y = 54 + 6 - 3 + 1
-        PftFont.TryParse(TestFont(justification: PftFont.JustFit), out f, out _);
+        _ = PftFont.TryParse(TestFont(justification: PftFont.JustFit), out f, out _);
         d = new Recorder();
         GfxText.DrawInRect(d, f!, rect, "A");
         // scale x = 40 / 3 in 16.16, y = 40 / 7: the glyph is stretched through the scaled path

@@ -209,7 +209,7 @@ public class PlayerManagerTests
         fx.Pm().SetTeam(2049, 0);  // unchanged
         fx.Pm().SetTeam(2049, 2);  // >= team count
         fx.Pm().SetTeam(2049, -2);
-        Assert.Equal(0, fx.SentEvents.Count);
+        Assert.Empty(fx.SentEvents);
         fx.Pm().SetTeam(2049, -1);
         Assert.Equal(3, fx.SentEvents.Count);
         var b = new Bits(fx.SentEvents[0].E);
@@ -248,7 +248,7 @@ public class PlayerManagerTests
         t.WaypointY = 700;
         fx.SentEvents.Clear();
         fx.Run("Client::setGuiMode(2049, 2);");
-        Assert.Equal(1, fx.SentEvents.Count);
+        Assert.Single(fx.SentEvents);
         var b = new Bits(fx.SentEvents[0].E);
         Assert.True(b.U(10) == 2 && b.U(2) == 1 && !b.Flag() && b.Flag() && b.U(10) == 1 && b.U(6) == 5);
         Assert.True(b.Flag() && b.U(8) == 9 && b.U(10) == 300 && b.U(10) == 700 && !b.Flag() && b.Done());
@@ -256,7 +256,7 @@ public class PlayerManagerTests
         t.CommandTarget = -1;
         fx.SentEvents.Clear();
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 2);");
-        Assert.Equal(0, fx.SentEvents.Count);
+        Assert.Empty(fx.SentEvents);
     }
 
     private static void Objectives()
@@ -287,13 +287,13 @@ public class PlayerManagerTests
         var all = Lines();
         Assert.True(all.Count == 32 && all[0].Item1 == 0 && all[31].Item1 == 31 && all[7].Item2.Length == 0);
         fx.Run("Client::setGuiMode(2049, 3);"); // 5 -> 3: no objectives
-        Assert.Equal(0, Lines().Count);
+        Assert.Empty(Lines());
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
         Assert.Equal(32, Lines().Count);
         // 9: setObjective posts only to team members in mode 5.
         fx.Run("Client::setGuiMode(2049, 1);");
         Assert.Equal("0", fx.Run("echo(Team::setObjective(0, 3, \"Hold the flag\"));"));
-        Assert.Equal(0, Lines().Count);
+        Assert.Empty(Lines());
         fx.Run("Client::setGuiMode(2049, 5);");
         all = Lines();
         Assert.True(all.Count == 32 && all[3].Item2 == "Hold the flag");
@@ -301,17 +301,17 @@ public class PlayerManagerTests
         Assert.True(Lines().SequenceEqual([(4u, "Defend")]));
         fx.Run("Team::setObjective(0, 4, \"Defend\"); Team::setObjective(0, 32, x); Team::setObjective(2, 1, x); " +
                "Team::setObjective(1, 1, x);");
-        Assert.Equal(0, Lines().Count); // unchanged, bad line, bad team, other team
+        Assert.Empty(Lines()); // unchanged, bad line, bad team, other team
         // Victory members are not updated live; they catch up on the next entry.
         fx.Run("Client::setGuiMode(2049, 3); Team::setObjective(0, 5, \"Late\");");
-        Assert.Equal(0, Lines().Count);
+        Assert.Empty(Lines());
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
         Assert.True(Lines().SequenceEqual([(5u, "Late")]));
         // clearObjectives: an empty text for every non-empty line, to members in mode 5.
         Assert.Equal("0", fx.Run("echo(Team::clearObjectives(0));"));
         Assert.True(Lines().SequenceEqual([(3u, ""), (4u, ""), (5u, "")]));
         fx.Run("Client::setGuiMode(2049, 1); Client::setGuiMode(2049, 5);");
-        Assert.Equal(0, Lines().Count);
+        Assert.Empty(Lines());
     }
 
     private static void GuiMode()
@@ -343,7 +343,7 @@ public class PlayerManagerTests
                     fx.SentEvents.Count == 1);
         fx.SentEvents.Clear();
         fx.Run("Client::setScore(2051, \"%n\\t10\", 10);"); // unchanged
-        Assert.Equal(0, fx.SentEvents.Count);
+        Assert.Empty(fx.SentEvents);
         fx.Run("Client::setScore(2051, \"%n\\t10\", 11); Team::setScore(0, \"BE\", 5); Team::setScore(-1, \"H\", 0);");
         Assert.True(DeltasTo(fx.SentEvents, 2049).SequenceEqual([ new Delta(false, 2051, 11, "%n\t10"),
                                                                         new Delta(true, 0, 5, "BE"),
@@ -358,7 +358,7 @@ public class PlayerManagerTests
         Assert.Equal(2, DeltaCount(fx.SentEvents));
         fx.SentEvents.Clear();
         fx.Run("Client::setGuiMode(2051, 1); Client::setScore(2049, a, 1);");
-        Assert.Equal(0, DeltasTo(fx.SentEvents, 2051).Count);
+        Assert.Empty(DeltasTo(fx.SentEvents, 2051));
         fx.SentEvents.Clear();
         // Leaving Victory with the menu score visible flushes what was held back.
         fx.Run("Client::setGuiMode(2050, 1);");
@@ -369,7 +369,7 @@ public class PlayerManagerTests
         fx.SentEvents.Clear();
         // setMenuScoreVis(1) with nothing newer sends nothing.
         fx.Run("Client::setMenuScoreVis(2049, true);");
-        Assert.Equal(0, fx.SentEvents.Count);
+        Assert.Empty(fx.SentEvents);
         // Headings go to every human, team -1 / client 2048, sort 0.
         Assert.Equal("True", fx.Run("echo(setTeamScoreHeading(\"Team\\tScore\"));"));
         Assert.True(fx.SentEvents.Count == 4 && fx.SentEvents[0].To == 2052 && fx.SentEvents[3].To == 2049);
@@ -395,7 +395,7 @@ public class PlayerManagerTests
         m.AdvanceTo(10.0f);
         fx.Pm().StartPingTimer(m);
         m.AdvanceTo(11.4f);
-        Assert.Equal(0, fx.SentEvents.Count);
+        Assert.Empty(fx.SentEvents);
         m.AdvanceTo(11.5f);
         Assert.True(fx.SentEvents.Count == 1 && fx.SentEvents[0].To == 2049 && fx.SentEvents[0].E.Tag == 0x461 &&
                     !fx.SentEvents[0].E.Guaranteed);
@@ -405,7 +405,7 @@ public class PlayerManagerTests
         Assert.True(b.U(7) == 1 && b.U(8) == 249 && b.U(6) == 31 && b.Done());
         Assert.Equal(999u, fx.Pm().Find(2049)!.Ping);
         m.AdvanceTo(12.9f);
-        Assert.Equal(1, fx.SentEvents.Count);
+        Assert.Single(fx.SentEvents);
         m.AdvanceTo(13.0f);
         Assert.True(fx.SentEvents.Count == 2 && m.PendingEvents() == 1);
     }
@@ -422,7 +422,7 @@ public class PlayerManagerTests
         Assert.True(TagsEq(fx.Take(), (2050, 0x462), (2049, 0x462)));
         fx.Run("Client::setSkin(2049, BEAGLE); Client::setSkin(2049, \"has space\"); Client::setSkin(2049, \"\");" +
                "Client::setSkin(2049, abcdefghijklmnopqrst);");
-        Assert.Equal(0, fx.SentEvents.Count);
+        Assert.Empty(fx.SentEvents);
         fx.Run("Client::setSkin(2049, abcdefghijklmnopqrs);");
         {
             var b = new Bits(fx.SentEvents[0].E);
@@ -475,7 +475,7 @@ public class PlayerManagerTests
         fx.Game.SetTargetName(1, "Station");
         fx.Game.SetTargetName(7, "x");
         fx.Game.SetTargetName(-1, "x");
-        Assert.Equal(0, fx.SentEvents.Count);
+        Assert.Empty(fx.SentEvents);
         fx.Game.SetTargetName(0, "");
         Assert.True(fx.SentEvents.Count == 2 && fx.Game.TargetNames[0].Length == 0);
     }

@@ -266,7 +266,7 @@ public class PlayerTests
         w.Run("function Player::onRemove(%this) { $removed = %this; }");
         w.Run("deleteObject(" + id + ");");
         c.Check(w, "echo($removed == " + id + ");", "1");
-        Assert.Equal(1, w.Game.World.Contents(null).Count); // only the terrain is left in container 7
+        Assert.Single(w.Game.World.Contents(null)); // only the terrain is left in container 7
         Assert.Equal(0, c.Failures);
     }
 
@@ -866,7 +866,7 @@ public class PlayerTests
             var images = new List<CollisionImage>();
             float[] qa = [40, 39.5f, 50, 41, 40.5f, 52], qs = [79.5f, 40, 50, 80.5f, 41, 52];
             w.Game.CollisionCandidates(a, 0x10, qa, images);
-            Assert.Equal(0, images.Count); // the mover itself is excluded
+            Assert.Empty(images); // the mover itself is excluded
             w.Game.CollisionCandidates(b, 0x10, qa, images);
             Assert.True(images.Count == 1 && images[0].ImageKind == CollisionImage.Kind.Trigger && images[0].NonBlocking);
             Assert.True(images[0].Box[0] == a.TriggerBox[0] && images[0].Box[3] == a.TriggerBox[3] && images[0].Owner == a);
@@ -877,9 +877,9 @@ public class PlayerTests
             images.Clear();
             float[] edge = [39.5f, 39.5f, 50, 40.5f, 40.5f, 52], low = [41.0f, 39.5f, 50, 41.5f, 40.5f, 52];
             w.Game.CollisionCandidates(b, 0x10, edge, images);
-            Assert.Equal(0, images.Count);
+            Assert.Empty(images);
             w.Game.CollisionCandidates(b, 0x10, low, images);
-            Assert.Equal(1, images.Count);
+            Assert.Single(images);
         }
         Spawn("1", "40 40 50.1");
         var pb = Spawn("2", "60.45 40 50.1");
@@ -907,7 +907,7 @@ public class PlayerTests
         Assert.True(Log() == "Ct5Cs6Ls6" && s.Occupants.Count == 0);
         var freed = pt.Id();
         w.Run("$zl = \"\"; deleteObject(" + Itoa(freed) + ");");
-        Assert.Equal(0, turnedT.Occupants.Count);
+        Assert.Empty(turnedT.Occupants);
         var reborn = Spawn("7", "140 40 50.1");
         Assert.True(reborn.Id() == freed);
         Ticks(12);
@@ -1105,7 +1105,7 @@ public class PlayerTests
         Assert.Contains(p.Id(), lift.Carried);
         var riderId = p.Id();
         w.Run("deleteObject(" + Itoa(riderId) + ");");
-        Assert.Equal(0, lift.Carried.Count);
+        Assert.Empty(lift.Carried);
     }
 
     // ---- repair tick, throw direction, fade (player-sim 6.3, static-sim 5.4, 5.6) ----
@@ -1336,7 +1336,7 @@ public class PlayerTests
         Assert.True(Math.Abs(e0 - p.Energy - 0.32f) < 1e-4f); // 10 * 0.032
         w.Run("Player::trigger(" + id + ", 1, false);");
         Ticks(2);
-        Assert.True(State(1) == "Reload" || State(1) == "Ready");
+        Assert.True(State(1) is "Reload" or "Ready");
         Assert.True(w.Run("echo($log);").Contains('D'));
         w.Run("Player::unmountItem(" + id + ", 1);");
         Assert.True(State(1) == "Reset" && p.Images[1].Image == -1);
@@ -1880,7 +1880,7 @@ public class PlayerTests
         Tick(1);
         Assert.Equal("16 16 80", Pos(id));
         Tick(1);
-        Assert.True(Pos(id) == "16 18.1667 80" || Pos(id) == "16 18.1666 80");
+        Assert.True(Pos(id) is "16 18.1667 80" or "16 18.1666 80");
         Tick(31); // tick 33
         var before = Pos(id);
         Tick(1); // tick 34 is skipped
@@ -2259,14 +2259,14 @@ public class PlayerTests
             return output;
         }
         static bool Same(List<(uint, int)> a, params (uint, int)[] b) => a.SequenceEqual(b);
-        Assert.Equal(0, Send().Items.Count);
+        Assert.Empty(Send().Items);
         p.SetItemCount(3, 5);
         p.SetItemCount(7, 700);
         var a = Send();
         Assert.True(Same(a.Items, (3u, 5), (7u, 511)));
         var cookie = sent[^1].Cookie;
         Assert.True(Same(Send().Items, (7u, 189)));
-        Assert.Equal(0, Send().Items.Count);
+        Assert.Empty(Send().Items);
         c.Notify(cookie, false);
         Assert.True(Same(Send().Items, (3u, 5), (7u, 511)));
         p.SetItemCount(3, 2);

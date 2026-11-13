@@ -348,7 +348,7 @@ public class GameStreamTests
             Flag6a = true
         };
         c.Tick(1000);
-        Assert.Equal(1, f.Sent.Count);
+        Assert.Single(f.Sent);
         var p = Decode(f.Sent[0].Data);
         Assert.True(!p.RateSet && !p.RateReq && !p.HasEvents && p.HasPsc && !p.Ghosts);
         Assert.True(p.Mode == 5 && p.Flag6a && p.LastMove == 0xffffffff && !p.Control);
@@ -364,7 +364,7 @@ public class GameStreamTests
         var c = new GameConnection(2049, f.Transport(), Capture(calls));
         c.Tick(1000);
         c.Tick(1099);
-        Assert.Equal(1, f.Sent.Count);
+        Assert.Single(f.Sent);
         c.Tick(1100);
         Assert.Equal(2, f.Sent.Count);
         f.Connected = false;
@@ -462,7 +462,7 @@ public class GameStreamTests
             c.Receive(RateOnly(300, 120, -1, 0));
             c.Tick(1000);
             c.Tick(1299);
-            Assert.Equal(1, f.Sent.Count);
+            Assert.Single(f.Sent);
             c.Tick(1300);
             Assert.Equal(2, f.Sent.Count);
             // An interval of 0 (the original divides by zero when it writes the next packet) is read as 1.
@@ -611,7 +611,7 @@ public class GameStreamTests
 
         // 2.2: out-of-order arrival waits for the expected sequence, then releases in order.
         Deliver(c, new ClientPacket().Console(["B"], ClientPacket.Kind.Ordered, 2).Console(["C"], ClientPacket.Kind.Ordered, -1, true).Finish());
-        Assert.Equal(0, calls.Count);
+        Assert.Empty(calls);
         Deliver(c, new ClientPacket().Console(["A"], ClientPacket.Kind.Ordered, 1).Finish());
         Assert.True(calls.Count == 3 && calls[0].Fn == "remoteA" && calls[1].Fn == "remoteB" && calls[2].Fn == "remoteC");
         calls.Clear();
@@ -630,7 +630,7 @@ public class GameStreamTests
         // The sender keeps up to 127 sequences in flight, so an event 70 ahead waits (it is not a duplicate) until 6..75
         // arrive.
         Deliver(c, new ClientPacket().Console(["Far"], ClientPacket.Kind.Ordered, 76).Finish());
-        Assert.Equal(0, calls.Count);
+        Assert.Empty(calls);
         var run = new ClientPacket();
         for (var s = 6; s <= 75; ++s)
             run.Console(["N" + s], ClientPacket.Kind.Ordered, s, s != 6);

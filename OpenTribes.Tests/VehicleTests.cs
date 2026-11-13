@@ -489,7 +489,7 @@ public class VehicleTests
             Assert.True((parked.ItemFlags & 5) == 0 && (v.ItemFlags & 5) == 1 && (away.ItemFlags & 5) == 1);
             Assert.True(parked.Transform.P[0] == at[0] && parked.Transform.P[1] == at[1] && parked.Transform.P[2] == at[2]);
             Assert.True(parked.Velocity[0] == 0.0f && parked.Velocity[1] == 0.0f && parked.Velocity[2] == -0.64f);
-            Assert.Equal(0, w.Game.DisplaceHidden.Count);
+            Assert.Empty(w.Game.DisplaceHidden);
             foreach (var hull in new[] { parked, away })
             {
                 hull.Velocity[0] = 3.0f;

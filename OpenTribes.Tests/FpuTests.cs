@@ -18,7 +18,8 @@ public class FpuTests
         Assert.Equal(0.5f, Fpu.F32Chop(0.5));
         Assert.True(float.IsNaN(Fpu.F32Chop(double.NaN)));
         Assert.Equal(float.PositiveInfinity, Fpu.F32Chop(double.PositiveInfinity));
-        Assert.True(Fpu.F32Chop(1e-40) <= 1e-40 && Fpu.F32Chop(1e-40) > 0);
+        var chopped = Fpu.F32Chop(1e-40);
+        Assert.True(chopped <= 1e-40 && chopped > 0);
         Assert.Equal(float.Epsilon, Fpu.F32Chop(1.5e-45));
         Assert.Equal(0.0f, Fpu.F32Chop(1e-46));
     }

@@ -255,7 +255,7 @@ public class GamebaseGhostsTests
             // client-net.md 3.2, 3.3 StaticShape: transform, damage, datablock 1.
             Assert.True(ClientRoundTrip.VecIs(_client!.State["pos"], 1, 2, 3) && ClientRoundTrip.VecIs(_client.State["rot"], 0, 0, 1.5));
             Assert.True((long)_client.State["team"]! == 0 && (long)_client.State["damageState"]! == 1 && (long)_client.State["datablock"]! == 1);
-            Assert.Equal(1, ((List<object?>)_client.State["threads"]!).Count);
+            Assert.Single((List<object?>)_client.State["threads"]!);
             ReadGameBase(r, 0);
             Assert.False(r.ReadFlag());  // 0x80 flash: never in a full update
             Assert.True(r.ReadFlag());   // 0x400 forced: a thread is set

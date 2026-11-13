@@ -287,10 +287,10 @@ public class WorldTests
             Flags = 3
         }, b = new()
         {
-            M = Float9.Of([1, 0, 0, 0, 0, 1, 0, -1, 0])
+            M = Float9.Of([1, 0, 0, 0, 0, 1, 0, -1, 0]),
+            P = Float3.Of(10, 20, 30),
+            Flags = 2
         };
-        b.P = Float3.Of(10, 20, 30);
-        b.Flags = 2;
         Shape.TmatMul(a, b, out var c);
         Assert.True(c.Flags == 3 && c.M[2] == 1 && c.M[3] == -1 && c.M[7] == -1);
         Assert.True(c.P[0] == 11 && c.P[1] == 17 && c.P[2] == 32);

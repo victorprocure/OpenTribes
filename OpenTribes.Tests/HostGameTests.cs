@@ -243,10 +243,10 @@ public sealed class HostGameTests : IDisposable
     [InlineData("false", "false", "\"IP\", 0")]             // not public
     [InlineData("false", "true", "\"LOOPBACK\", 0")]        // no IP transport
     [InlineData("false", "true", "\"ip\", 0")]              // the transport name is compared exactly (0x0063ead5)
-    public void AHostedGameThatIsNotPublicSendsNoHeartbeat(string single, string pub, string transports)
+    public void AHostedGameThatIsNotPublicSendsNoHeartbeat(string singlePlayer, string pub, string transports)
     {
         using var master = FakeMaster(out var port);
-        HostWithMaster(port, single, pub, transports);
+        HostWithMaster(port, singlePlayer, pub, transports);
         Assert.Null(Receive(master, out _, 40));
     }
 }

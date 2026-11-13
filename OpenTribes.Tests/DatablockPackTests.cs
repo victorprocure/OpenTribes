@@ -63,7 +63,8 @@ public class DatablockPackTests
         Assert.Equal(0, b.Str().Length);              // shieldShapeName
         Assert.Equal(0u, b.U(8));                      // +0x44: not a field, the ctor writes -1, sent + 1
         Assert.Equal(0u, b.U(8));                      // shadowDetailMask
-        Assert.True(b.U(8) == 0 && b.U(8) == 0);       // explosionId + 1, damageSkinData + 1
+        Assert.Equal(0u, b.U(8));
+        Assert.Equal(0u, b.U(8));       // explosionId + 1, damageSkinData + 1
         Assert.Equal(0xffffffff, b.U(32));            // debrisId
         Assert.Equal(0.0f, b.F32());                  // maxEnergy
         for (var k = 0; k < 16; ++k)
@@ -247,9 +248,11 @@ public class DatablockPackTests
         Assert.Equal(0u, b.U(32));                           // explosionTag 0 (RF4)
         Assert.True(b.U(32) == 0 && !b.Flag());              // expRandCycle, collideWithOwner
         Assert.Equal(1000u, b.U(32));                        // ownerGraceMS
-        Assert.True(b.F32() == 0.0f && b.F32() == 1.0f);     // collisionRadius, mass
+        Assert.Equal(0.0f, b.F32());
+        Assert.Equal(1.0f, b.F32());     // collisionRadius, mass
         Assert.True(b.F32() == slot68 && b.F32() == 0.0f && b.F32() == 0.0f); // +0x68, +0x6c, +0x70
-        Assert.True(b.F32() == 10000.0f && b.F32() == 10000.0f);             // totalTime, +0x78
+        Assert.Equal(10000.0f, b.F32());
+        Assert.Equal(10000.0f, b.F32());             // totalTime, +0x78
         Assert.True(b.F32() == slot7c);                                      // +0x7c
         return b.Flag();
     }
@@ -314,11 +317,16 @@ public class DatablockPackTests
             b.Flag();
             b.U(8);
         }
-        Assert.True(b.F32() == 13.0f && b.F32() == 1.0f); // minDamageSpeed, jetEnergyDrain
-        Assert.True(b.U(10) == 175 && b.U(10) == 0 && b.U(10) == 0);
+        Assert.Equal(13.0f, b.F32());
+        Assert.Equal(1.0f, b.F32()); // minDamageSpeed, jetEnergyDrain
+        Assert.Equal(175u, b.U(10));
+        Assert.Equal(0u, b.U(10));
+        Assert.Equal(0u, b.U(10));
         Assert.True(b.Flag());      // canCrouch
         Assert.Equal(255u, b.U(8)); // maxJetSideForceFactor 1
-        Assert.True(b.F32() == 20.0f && b.F32() == 1.0f && b.F32() == 20.0f);
+        Assert.Equal(20.0f, b.F32());
+        Assert.Equal(1.0f, b.F32());
+        Assert.Equal(20.0f, b.F32());
         Assert.Equal(51u, b.U(8));
         Assert.Equal(75.0f, b.F32());
     }

@@ -116,7 +116,9 @@ public class GhostClassesTests
             var rect = (double[])_client!.State["rect"]!;
             Assert.True(rect.Length == 4 && rect[1] == 1230 && rect[2] == 1400 && rect[3] == -700); // 3.1 MissionCenterPos
             Assert.Equal(0x3dccccccu, U32(r)); // "0.1" truncated (nearest would be 0x3dcccccd)
-            Assert.True(F32(r) == 1230 && F32(r) == 1400 && F32(r) == -700);
+            Assert.Equal(1230, F32(r));
+            Assert.Equal(1400, F32(r));
+            Assert.Equal(-700, F32(r));
             Assert.True(w.Sim.Server()!.FindById(716) == Obj("MC"));
         }
         // 3.2 SimTerrain: one flag per mask bit, the unconditional flag, then the CRC.
@@ -135,7 +137,8 @@ public class GhostClassesTests
             Vec(r, 0, 0, 0);
             Assert.True(r.ReadFlag());
             Vec(r, 0, 0, -20);
-            Assert.True(F32(r) == 0 && F32(r) == 10000);
+            Assert.Equal(0, F32(r));
+            Assert.Equal(10000, F32(r));
             Assert.False(r.ReadFlag()); // +0x6a4 rendering suppressed
             Assert.True(r.ReadFlag() && U32(r) == terrain!.Crc());
             byte[] dml = [(byte)'d', (byte)'m', (byte)'l'];
@@ -193,7 +196,8 @@ public class GhostClassesTests
             Assert.Equal("sky.dml", r.ReadString());
             Vec(r, 0.25f, 0.5f, 1);
             Vec(r, 0, 0, 0); // hazeColor unset (D12)
-            Assert.True(F32(r) == 0 && F32(r) == 300);
+            Assert.Equal(0, F32(r));
+            Assert.Equal(300, F32(r));
             for (uint i = 0; i < 16; ++i)
                 Assert.True(r.ReadInt(4) == (i == 3 ? 7 : i % 2));
         }
@@ -202,11 +206,14 @@ public class GhostClassesTests
             var r = Pack(Obj("Planet1"), 0xffffffffu, 0x22f);
             Assert.True((string)_client!.State["file"]! == "sun" && (double)_client.State["f6c"]! == 400 && (double)_client.State["f70"]! == 89); // 3.6
             Assert.Equal("sun", r.ReadString());
-            Assert.True(F32(r) == 400 && F32(r) == 89);
-            Assert.True(r.ReadInt(8) == 1 && r.ReadInt(8) == 0);
+            Assert.Equal(400, F32(r));
+            Assert.Equal(89, F32(r));
+            Assert.Equal(1u, r.ReadInt(8));
+            Assert.Equal(0u, r.ReadInt(8));
             Vec(r, 0, 0, 0);
             Vec(r, 0.5f, 0.5f, 0.5f);
-            Assert.True(F32(r) == 2000 && F32(r) == 11000);
+            Assert.Equal(2000, F32(r));
+            Assert.Equal(11000, F32(r));
             var m = Pack(Obj("Planet2"), 0xffffffffu, 0x22f);
             Assert.True(m.ReadString() == "" && F32(m) == 0 && F32(m) == -89);
         }

@@ -106,7 +106,7 @@ public class ClientCommandsTests
                                  "LS::parseCommands", "ME::RebuildCommandMap", "Ted::undo", "editActionMap", "bind",
                                  "saveActionMap", "popActionMap", "HTMLOpenAndGoWin", "ShapeView::setSkin", "useItem" })
             Assert.True(inp.HasFunction(name));
-        Assert.Equal(0, inp.UnknownCommands().Count);
+        Assert.Empty(inp.UnknownCommands());
 
         // ---- 3.1: event words ----
         var ev = new InputEvent();

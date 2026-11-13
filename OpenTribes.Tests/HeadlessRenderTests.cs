@@ -84,7 +84,7 @@ public class HeadlessRenderTests
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette(), 1f);
         dev.BeginFrame();
         Assert.Equal((W, H), (dev.Width, dev.Height));
@@ -143,7 +143,7 @@ public class HeadlessRenderTests
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette(), 1f);
         dev.BeginFrame();
         dev.Clear(2); // palette entry 2 (10, 20, 30), no gamma
@@ -223,7 +223,7 @@ public class HeadlessRenderTests
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette(), 1f);
 
         // Sheet 16 x 8, transparent (attribute 9): 'A' is a 3 x 4 block of index 3 at (0,0), 'B' a 5 x 6 block of index 1 at (4,1).
@@ -242,7 +242,7 @@ public class HeadlessRenderTests
 
         dev.BeginFrame();
         dev.ClearRgb(0, 0, 0);
-        var bottom = dev.DrawText(font!, 10, 20, "AB");
+        var bottom = GfxText.DrawAt(dev, font!, 10, 20, "AB");
         dev.EndFrame();
         var px = dev.ReadPixels();
 
@@ -265,7 +265,7 @@ public class HeadlessRenderTests
         var table = PaletteTables.GammaTable(2f);
         dev.BeginFrame();
         dev.ClearRgb(0, 0, 0);
-        dev.DrawText(font!, 10, 20, "AB");
+        GfxText.DrawAt(dev, font!, 10, 20, "AB");
         dev.EndFrame();
         px = dev.ReadPixels();
         // The gamma table output is then packed to 5551 like the stock upload: c -> ((c >> 3) << 3) | (c >> 5).
@@ -282,7 +282,7 @@ public class HeadlessRenderTests
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette());
         PbmpBitmap a = Rows(0), b = Rows(1);
         dev.BeginFrame();

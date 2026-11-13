@@ -31,10 +31,10 @@ internal static partial class TestPaths
     {
         var rows = new List<uint[]>();
         var text = MyRegex().Replace(File.ReadAllText(RepoFile(rel)), "");
-        foreach (Match row in Regex.Matches(text, @"\{([^{}]*)\}"))
+        foreach (Match row in RowRegex().Matches(text))
         {
             var values = new List<uint>();
-            foreach (Match v in Regex.Matches(row.Groups[1].Value, @"0x([0-9a-fA-F]+)u?"))
+            foreach (Match v in HexRegex().Matches(row.Groups[1].Value))
                 values.Add(uint.Parse(v.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture));
             rows.Add([.. values]);
         }
@@ -100,4 +100,8 @@ internal static partial class TestPaths
     public static float IncF32(string t) => float.Parse(t.TrimEnd('f', 'F'), NumberStyles.Float, CultureInfo.InvariantCulture);
     [GeneratedRegex("//[^\n]*")]
     private static partial Regex MyRegex();
+    [GeneratedRegex(@"\{([^{}]*)\}")]
+    private static partial Regex RowRegex();
+    [GeneratedRegex(@"0x([0-9a-fA-F]+)u?")]
+    private static partial Regex HexRegex();
 }

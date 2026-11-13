@@ -580,7 +580,7 @@ public class ContainerTests
         // Still inside the terrain box: updated in place, B keeps its container and its contents.
         MoveB(52, 50);
         Assert.True(f.C.ParentOf(f.Ib) == f.T && f.C.ParentOf(f.B) == f.Ib);
-        Assert.Equal(1, f.C.Contents(f.Ib).Count);
+        Assert.Single(f.C.Contents(f.Ib));
         // Links are rebuilt: the gap of 2 unlinks the pair, touching again relinks it.
         Assert.Equal("a", f.Scope(new Vec3(35, 50, 25)));
         MoveB(50, 50);
@@ -619,7 +619,7 @@ public class ContainerTests
         float[] q2 = [0, 12, 0, 100, 20, 50]; // y max of every box equals the query min: in
         Assert.Equal("bda", Labels(c.FindObjects(q2, 0xffffffffu, t)));
         float[] q3 = [0, 0, 12.5f, 100, 100, 50]; // above every box
-        Assert.Equal(0, c.FindObjects(q3, 0xffffffffu, t).Count);
+        Assert.Empty(c.FindObjects(q3, 0xffffffffu, t));
         // Equal max ends: the later add goes in front, then every update moves its object to the front.
         c.Add(Entry(e, 35, 10, 10, 40, 12, 12));
         Assert.Equal("bdea", Labels(c.FindObjects(all, 0xffffffffu, t)));

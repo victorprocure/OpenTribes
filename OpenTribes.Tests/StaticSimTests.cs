@@ -610,7 +610,7 @@ public class StaticSimTests
         w.Run("$zlog = \"\";");
         // An object whose type has no bit of 0x24400180 (an Item) is ignored.
         zn.TriggerCollide(b2);
-        Assert.Equal(0, zn.Occupants.Count);
+        Assert.Empty(zn.Occupants);
         // Enter, contact every 0.25 s while collisions keep arriving, leave 0.25 s after the last.
         // The Moveable El (type 0x400000) is the occupant.
         for (var k = 1; k <= 20; ++k)
@@ -636,7 +636,7 @@ public class StaticSimTests
             Assert.True(extra is >= 7 and <= 9);
             Assert.True(log[0] == 'E' && log.Count(ch => ch == 'C') >= 2 && log[^1] == 'L');
         }
-        Assert.Equal(0, zn.Occupants.Count);
+        Assert.Empty(zn.Occupants);
         // setActive: returns True, a change with occupants sends onLeave (last first), onDeactivate.
         w.Run("$zlog = \"\";");
         zn.TriggerCollide(el);
