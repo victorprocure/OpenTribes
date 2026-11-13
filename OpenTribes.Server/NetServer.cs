@@ -535,7 +535,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
         const int kRowMax = 1023; // the original's row buffer is 1024 bytes, unchecked (D11)
         var payload = new byte[kPayload];
         byte[] header = [0x10, 0x08, 0xff, 0x00, data.Length > 4 ? data[4] : (byte)0, data.Length > 5 ? data[5] : (byte)0, 0, 0];
-        var bs = new BitStream(payload, kPayload);
+        var bs = new BitBuffer(payload, kPayload);
         var g = CurrentInfo();
         var players = PlayerRows(g);
         var names = new List<string>();
@@ -790,7 +790,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
             return;
         }
         var buf = payload.ToArray();
-        var input = new BitStream(buf, buf.Length);
+        var input = new BitBuffer(buf, buf.Length);
         var pv = new byte[2];
         input.ReadBytes(pv);
         var packetVersion = (ushort)(pv[0] | (pv[1] << 8));
@@ -849,7 +849,7 @@ public sealed class NetServer : ConnectionEvents, IDisposable
 
         var id = AllocatePlayerId();
         var accept = new byte[8];
-        var output = new BitStream(accept, accept.Length);
+        var output = new BitBuffer(accept, accept.Length);
         output.WriteInt(id, 32);
         output.WriteInt(ServerManagerId, 32);
         c.Send(Connection.Accept, accept, _now);

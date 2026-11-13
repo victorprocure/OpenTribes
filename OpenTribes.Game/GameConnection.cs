@@ -58,7 +58,7 @@ public sealed class EventWriter
     public void PutString(string s)
     {
         var tmp = new byte[1024];
-        var bs = new BitStream(tmp, tmp.Length);
+        var bs = new BitBuffer(tmp, tmp.Length);
         bs.WriteString(s);
         PutBits(tmp, bs.BitPosition());
     }
@@ -322,7 +322,7 @@ public sealed class GameConnection
     }
 
     // src/game/game_connection.cpp GameConnection::writeEvents.
-    private bool WriteEvents(BitStream bs, List<OutEvent> sent)
+    private bool WriteEvents(BitBuffer bs, List<OutEvent> sent)
     {
         var any = false;
         var prev = -4; // first ordered event of a packet carries its sequence
@@ -372,7 +372,7 @@ public sealed class GameConnection
 
     // src/game/game_connection.cpp GameConnection::writePsc: server PlayerPSC block (0040507c server branch). True when a
     // record was filled, which is whenever a control object exists.
-    private bool WritePsc(BitStream bs, PscRecord rec)
+    private bool WritePsc(BitBuffer bs, PscRecord rec)
     {
         var control = _hooks.ControlObject?.Invoke();
         bs.WriteInt(GuiMode, 3);
@@ -522,7 +522,7 @@ public sealed class GameConnection
             1000u / Math.Max(_intervalMs, 1u) < unchecked(_packetCount - _deliveredNo))
             return;
         var buf = new byte[Connection.MaxPacket - 32];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bool rateSetWas = _rateSetDirty, rateReqWas = _rateReqDirty;
         if (bs.WriteFlag(_rateSetDirty))
         {
@@ -647,7 +647,7 @@ public sealed class GameConnection
     // "remote" + string 0 (read even when argc is 0), argv[1] = the source id, then strings 1..argc-1 while the argv
     // text, each string with its NUL, stays within 0x1ff bytes. The string that crosses the limit is dropped and the rest
     // are not read.
-    private List<string> ReadConsoleEvent(BitStream bs)
+    private List<string> ReadConsoleEvent(BitBuffer bs)
     {
         var argc = (int)bs.ReadInt(5);
         var args = new List<string> { "remote" + bs.ReadString(), _clientId.ToString(System.Globalization.CultureInfo.InvariantCulture) };
@@ -666,7 +666,7 @@ public sealed class GameConnection
     // src/game/game_connection.cpp GameConnection::readEvents: event manager read (0x00551ef8). False on "Invalid
     // packet": the rest of the packet is ignored. A server reads two classes (docs/game-stream.md 2.6): SimConsoleEvent
     // 0x408 and SimActionEvent 0x40b.
-    private bool ReadEvents(BitStream bs)
+    private bool ReadEvents(BitBuffer bs)
     {
         var prev = -4;
         while (bs.ReadFlag())
@@ -728,7 +728,7 @@ public sealed class GameConnection
 
     // src/game/game_connection.cpp GameConnection::readPsc: client PlayerPSC block (00405ec8 server branch): fov, first
     // move index, moves. Moves the server already has are skipped; the rest go to the control object in one call.
-    private bool ReadPsc(BitStream bs)
+    private bool ReadPsc(BitBuffer bs)
     {
         var control = _hooks.ControlObject?.Invoke();
         var fov = bs.ReadInt(8);
@@ -765,7 +765,7 @@ public sealed class GameConnection
 
     // src/game/game_connection.cpp GameConnection::readGhostBlock: GhostManager read on the server (0x00552cc8): the
     // always flag and the id width are read, then any entry is "Invalid packet" because a server accepts no ghosts.
-    private static bool ReadGhostBlock(BitStream bs)
+    private static bool ReadGhostBlock(BitBuffer bs)
     {
         bs.ReadFlag();
         bs.ReadInt(3);
@@ -793,7 +793,7 @@ public sealed class GameConnection
         if (_invalid)
             return;
         var copy = data.ToArray();
-        var bs = new BitStream(copy, copy.Length);
+        var bs = new BitBuffer(copy, copy.Length);
         if (bs.ReadFlag())
         {
             // rateSet (0x005509a4): the peer's interval and size become the active ones.

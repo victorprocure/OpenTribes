@@ -200,9 +200,9 @@ public sealed class ClientPrediction
         try
         {
             var buf = new byte[64];
-            var bs = new BitStream(buf, buf.Length);
+            var bs = new BitBuffer(buf, buf.Length);
             Moves.PackMove(bs, m, true, null);
-            var rd = new BitStream(buf, buf.Length);
+            var rd = new BitBuffer(buf, buf.Length);
             var q = new Move();
             Moves.UnpackMove(rd, ref q, true, false);
             return q;

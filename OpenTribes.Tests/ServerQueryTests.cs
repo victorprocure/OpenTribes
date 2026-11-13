@@ -10,9 +10,9 @@ public class ServerQueryTests
         public List<(Address To, byte[] Data)> Sent { get; } = [];
         public Queue<(Address From, byte[] Data)> Inbox { get; } = new();
 
-        public bool Send(Address to, byte[] data)
+        public bool Send(Address destination, byte[] data)
         {
-            Sent.Add((to, data));
+            Sent.Add((destination, data));
             return true;
         }
 
@@ -43,7 +43,7 @@ public class ServerQueryTests
     private static byte[] InfoReply(ushort key, ushort version, string game = "Tribes")
     {
         var body = new byte[0x400];
-        var bs = new BitStream(body, body.Length);
+        var bs = new BitBuffer(body, body.Length);
         bs.WriteBytes([(byte)version, (byte)(version >> 8)]);
         bs.WriteString(game);
         bs.WriteString("1.11");

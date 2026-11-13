@@ -1669,11 +1669,11 @@ public class PlayerTests
             var cls = GhostManager.GhostClassOf(o!);
             Assert.True(cls != null && cls.Tag == 0x258);
             var buf = new byte[64];
-            var g = new BitStream(buf, buf.Length);
+            var g = new BitBuffer(buf, buf.Length);
             cls!.Pack!(o!, gctx, g, 0xffffffffu);
             var cb = ClientRoundTrip.Unpack(0x258, buf, g.BitPosition(), true, ClientRoundTrip.WorldFor(0x258, o));
             Assert.True(ClientRoundTrip.VecIs(cb.State["start"], 16, 16, 93) && (long)cb.State["speed16"]! == 6798 && (long)cb.State["elapsedMs"]! == 0);
-            var r = new BitStream(buf, buf.Length);
+            var r = new BitBuffer(buf, buf.Length);
             Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag()); // GameBase part
             Assert.True(r.ReadFlag() && r.ReadFlag());                                         // initial, twice
             Assert.True(r.ReadInt(2) == 0 && !r.ReadFlag());                                   // block 0 of 1, no shooter ghost
@@ -1706,7 +1706,7 @@ public class PlayerTests
         gm.MarkInScope(p, true);
         gm.StartGhosting();
         var pkt = new byte[512];
-        var output = new BitStream(pkt, pkt.Length);
+        var output = new BitBuffer(pkt, pkt.Length);
         Assert.True(gm.WritePacket(output, 3000, out var token));
         gm.Notify(token, true);
         var shooterGhost = gm.GhostIndex(p);
@@ -1731,7 +1731,7 @@ public class PlayerTests
         uint Pack(GhostContext ctx, byte[] buf)
         {
             Array.Clear(buf);
-            var g = new BitStream(buf, buf.Length);
+            var g = new BitBuffer(buf, buf.Length);
             cls!.Pack!(obj!, ctx, g, 0xffffffffu);
             return g.BitPosition();
         }
@@ -1740,7 +1740,7 @@ public class PlayerTests
         var cl = ClientRoundTrip.Unpack(0x25b, buf, 124, true, ClientRoundTrip.WorldFor(0x25b, obj)); // client-net.md 3.6
         Assert.True((long)cl.State["shooterGhost"]! == shooterGhost && (long)cl.State["hit"]! == 0 && !cl.State.ContainsKey("start"));
         Assert.True(ClientRoundTrip.VecIs(cl.State["end"], 16, 3016, 80) && (long)cl.State["energy5"]! == 0);
-        var r = new BitStream(buf, buf.Length);
+        var r = new BitBuffer(buf, buf.Length);
         Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag());
         Assert.True(r.ReadFlag() && r.ReadFlag() && r.ReadInt(2) == 0);
         Assert.True(r.ReadFlag() && (int)r.ReadInt(10) == shooterGhost);
@@ -1753,7 +1753,7 @@ public class PlayerTests
         Assert.True(Pack(octx, buf) == 124 - 10 + 96);
         var cl2 = ClientRoundTrip.Unpack(0x25b, buf, 124 - 10 + 96, true, ClientRoundTrip.WorldFor(0x25b, obj));
         Assert.True(!cl2.State.ContainsKey("shooterGhost") && ClientRoundTrip.VecIs(cl2.State["start"], 16, 16, 80)); // no shooter ghost: start follows
-        var r2 = new BitStream(buf, buf.Length);
+        var r2 = new BitBuffer(buf, buf.Length);
         r2.ReadInt(7);
         Assert.True(r2.ReadFlag() && r2.ReadFlag() && r2.ReadInt(2) == 0 && !r2.ReadFlag());
         float st0 = r2.ReadF32(), st1 = r2.ReadF32(), st2 = r2.ReadF32();
@@ -2118,11 +2118,11 @@ public class PlayerTests
         };
         p.UpdateMove(jet);
         var buf = new byte[128];
-        var output = new BitStream(buf, buf.Length);
+        var output = new BitBuffer(buf, buf.Length);
         var ctx = new ControlContext();
         p.WriteControlState(output, ctx);
         Assert.Equal(305u, output.BitPosition()); // on foot
-        var inb = new BitStream(buf, buf.Length);
+        var inb = new BitBuffer(buf, buf.Length);
         var v = new float[3];
         Assert.Equal(0u, inb.ReadInt(2));
         var yaw = inb.ReadF32();
@@ -2145,9 +2145,9 @@ public class PlayerTests
         Assert.True(cls != null && cls.Tag == 0x218);
         p.RechargeRate = 8.0f;
         Array.Clear(buf);
-        var g = new BitStream(buf, buf.Length);
+        var g = new BitBuffer(buf, buf.Length);
         Assert.Equal(0u, cls!.Pack!(p, gctx, g, 0xffffffffu));
-        var r = new BitStream(buf, buf.Length);
+        var r = new BitBuffer(buf, buf.Length);
         Assert.True(r.ReadFlag() && r.ReadInt(4) == 15 && !r.ReadFlag() && !r.ReadFlag()); // team -1, no clients
         Assert.True(!r.ReadFlag() && !r.ReadFlag() && !r.ReadFlag());                      // flash, threads, fade
         Assert.True(r.ReadFlag() && r.ReadInt(2) == 0 && !r.ReadFlag());                   // datablock 0 of 1, not AI
@@ -2183,14 +2183,14 @@ public class PlayerTests
         Assert.Equal(8, ((List<object?>)cg.State["images"]!).Count);
         p.LastMove = jet;
         Array.Clear(buf);
-        var g2 = new BitStream(buf, buf.Length);
+        var g2 = new BitBuffer(buf, buf.Length);
         cls.Pack!(p, gctx, g2, 0x2000);
         var other = g2.BitPosition();
         cg = ClientRoundTrip.Unpack(0x218, buf, other, false, cw, cg);
         Assert.True(ClientRoundTrip.Has(cg, "move") && ClientRoundTrip.Has(cg, "energy") && ClientRoundTrip.Has(cg, "f8c"));
         p.ControlClient = 2049;
         Array.Clear(buf);
-        var g3 = new BitStream(buf, buf.Length);
+        var g3 = new BitBuffer(buf, buf.Length);
         cls.Pack!(p, gctx, g3, 0x2000);
         Assert.True(g3.BitPosition() == 13 && other > 13 + 5 + 96);
         cg = ClientRoundTrip.Unpack(0x218, buf, g3.BitPosition(), false, cw, cg);
@@ -2235,7 +2235,7 @@ public class PlayerTests
             now += 1000;
             Assert.True(sent.Count == before + 1);
             var data = sent[^1].Data;
-            var b = new BitStream(data, data.Length);
+            var b = new BitBuffer(data, data.Length);
             var output = new Psc
             {
                 RateSet = b.ReadFlag()
@@ -2276,7 +2276,7 @@ public class PlayerTests
         c.OwnIntervalMs = 33;
         c.OwnPacketBytes = 450;
         var req = new byte[8];
-        var w = new BitStream(req, req.Length);
+        var w = new BitBuffer(req, req.Length);
         w.WriteFlag(false);
         w.WriteFlag(true);
         w.WriteInt(20, 10);

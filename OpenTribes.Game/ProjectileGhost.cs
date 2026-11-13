@@ -6,7 +6,7 @@ public static partial class ProjectileGhost
 {
     // src/game/projectile_ghost.cpp packProjectile: Projectile::packUpdate (0x0045ad08) and the initial/update split of
     // the class packs.
-    private static uint PackProjectile(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackProjectile(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var p = (Projectile)obj;
         uint remaining = 0;

@@ -309,10 +309,10 @@ public class TurretTests
         tu.ApplyMoves([idle], 1);
         Assert.True(tu.TurretFireState == ((fc + 1) & 3) || tu.TurretFireState == fc + 1);
         var buf = new byte[64];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         var cc = new ControlContext();
         tu.WriteControlState(bs, cc);
-        var rd = new BitStream(buf, buf.Length);
+        var rd = new BitBuffer(buf, buf.Length);
         var f = rd.ReadF32();
         Assert.True(f == tu.TurretRotation);
         f = rd.ReadF32();

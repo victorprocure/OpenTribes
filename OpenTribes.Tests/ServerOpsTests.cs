@@ -40,7 +40,7 @@ public class ServerOpsTests
         public uint Join(Address from, string name, out uint connId)
         {
             var buf = new byte[1500];
-            var bs = new BitStream(buf, buf.Length);
+            var bs = new BitBuffer(buf, buf.Length);
             bs.WriteBytes([1, 0]);
             foreach (var s in new[] { "Tribes", "1.11", "", name, "Male", "male1", "base" })
                 bs.WriteString(s);
@@ -58,7 +58,7 @@ public class ServerOpsTests
             VcPacket output = VcPacket.Parse(Sent[0].data);
             if (output.Type != 0x0c)
                 return 0;
-            var input = new BitStream(output.Payload, 8);
+            var input = new BitBuffer(output.Payload, 8);
             return input.ReadInt(32);
         }
     }
@@ -90,7 +90,7 @@ public class ServerOpsTests
         Assert.True(d.Length >= 8);
         var r = new GameInfoReply();
         var body = d.AsSpan(8).ToArray();
-        var bs = new BitStream(body, body.Length);
+        var bs = new BitBuffer(body, body.Length);
         var b = new byte[4];
         bs.ReadBytes(b.AsSpan(0, 2));
         r.PacketVersion = (ushort)(b[0] | (b[1] << 8));

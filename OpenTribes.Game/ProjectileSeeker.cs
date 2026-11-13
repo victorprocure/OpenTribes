@@ -195,13 +195,13 @@ internal sealed class SeekingMissile : Projectile
         SetMaskBits(0x03);
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx)
+    public override void PackInitial(BitBuffer bs, GhostContext ctx)
     {
         Pj.WriteVec(bs, Transform.P);
         Pj.WriteVec(bs, Velocity);
     }
 
-    public override void PackExplode(BitStream bs)
+    public override void PackExplode(BitBuffer bs)
     {
         if (!bs.WriteFlag(_expired))
         {
@@ -211,7 +211,7 @@ internal sealed class SeekingMissile : Projectile
         }
     }
 
-    public override void PackUpdate(BitStream bs, uint mask, GhostContext ctx)
+    public override void PackUpdate(BitBuffer bs, uint mask, GhostContext ctx)
     {
         if (bs.WriteFlag((mask & 0x01) != 0))
             Pj.WriteVec(bs, Transform.P);

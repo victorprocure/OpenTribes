@@ -106,7 +106,7 @@ internal class Laser : Projectile
             Manager()!.DeleteObject(this);
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx)
+    public override void PackInitial(BitBuffer bs, GhostContext ctx)
     {
         // LaserProjectile_packInitial (0x00463c54): the start only when the client has no ghost of the shooter to take the
         // muzzle from; hit, end and energy always.
@@ -231,7 +231,7 @@ internal sealed class TargetLaser : Laser
         return true;
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx)
+    public override void PackInitial(BitBuffer bs, GhostContext ctx)
     {
         Pj.WriteVec(bs, Start);
         Pj.WriteVec(bs, End);
@@ -242,7 +242,7 @@ internal sealed class TargetLaser : Laser
         _dirty = false;
     }
 
-    public override void PackUpdate(BitStream bs, uint mask, GhostContext ctx)
+    public override void PackUpdate(BitBuffer bs, uint mask, GhostContext ctx)
     {
         Pj.WriteVec(bs, Start);
         Pj.WriteVec(bs, End);
@@ -321,9 +321,9 @@ internal class Lightning : Projectile
         TickDamage(now);
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx) => PackTarget(bs, ctx);
+    public override void PackInitial(BitBuffer bs, GhostContext ctx) => PackTarget(bs, ctx);
 
-    public override void PackUpdate(BitStream bs, uint mask, GhostContext ctx)
+    public override void PackUpdate(BitBuffer bs, uint mask, GhostContext ctx)
     {
         if (bs.WriteFlag((mask & 0x08) != 0))
             PackTarget(bs, ctx);
@@ -472,7 +472,7 @@ internal class Lightning : Projectile
         });
     }
 
-    protected void PackTarget(BitStream bs, GhostContext ctx)
+    protected void PackTarget(BitBuffer bs, GhostContext ctx)
     {
         var t = Target();
         var ghost = t != null ? ctx.Manager.GhostIndex(t) : -1;

@@ -19,7 +19,7 @@ public class ClientNetProjectileTests
         var cls = GhostManager.GhostClassOf(obj);
         Assert.True(cls != null && cls.Tag == tag);
         var buf = new byte[512];
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         cls!.Pack!(obj, new GhostContext(_gm, 2049, mask == 0xffffffffu), w, mask);
         Assert.False(w.Error());
         var g = Unpack(tag, buf, w.BitPosition(), mask == 0xffffffffu, WorldFor(tag, obj, 4), prev);
@@ -81,7 +81,7 @@ public class ClientNetProjectileTests
 
         // TargetLaser, Lightning, RepairEffect need a shooter or a target object to spawn; their layouts are written by hand
         // from projectile-sim.md 5.2 (the pack routines are covered by the projectile tests).
-        void Head(BitStream b, bool initial, bool exploded = false)
+        void Head(BitBuffer b, bool initial, bool exploded = false)
         {
             b.WriteFlag(true);              // GameBase part: team
             b.WriteInt(2, 4);
@@ -94,7 +94,7 @@ public class ClientNetProjectileTests
         }
         // TargetLaser initial: datablock, shooter ghost flag, start, end, owner client - 2048 (10), team (3), hit.
         var buf = new byte[256];
-        var tlw = new BitStream(buf, buf.Length);
+        var tlw = new BitBuffer(buf, buf.Length);
         Head(tlw, true);
         tlw.WriteInt(1, 2);                 // 1 datablock of TargetLaserData + 1 = 2 bits
         tlw.WriteFlag(false);
@@ -109,7 +109,7 @@ public class ClientNetProjectileTests
         Assert.True((long)t1.State["team"]! == 1 && (long)t1.State["hit"]! == 1);
         // TargetLaser update: start, end, hit (no mask bits).
         buf = new byte[256];
-        var tuw = new BitStream(buf, buf.Length);
+        var tuw = new BitBuffer(buf, buf.Length);
         Head(tuw, false);
         tuw.WriteF32s([7, 8, 9, 1, 1, 1]);
         tuw.WriteFlag(false);
@@ -117,7 +117,7 @@ public class ClientNetProjectileTests
         Assert.True(VecIs(t2.State["start"], 7, 8, 9) && (long)t2.State["hit"]! == 0);
         // Lightning initial with a target: flag, target ghost (10), offset.
         buf = new byte[256];
-        var lw = new BitStream(buf, buf.Length);
+        var lw = new BitBuffer(buf, buf.Length);
         Head(lw, true);
         lw.WriteInt(1, 2);
         lw.WriteFlag(false);
@@ -131,7 +131,7 @@ public class ClientNetProjectileTests
         Assert.True((long)l1.State["targetGhost"]! == 77 && VecIs(l1.State["offset"], 0.5, 0.25, 0));
         // RepairEffect update (mask 0x08): flag, target block with flag.
         buf = new byte[256];
-        var rw = new BitStream(buf, buf.Length);
+        var rw = new BitBuffer(buf, buf.Length);
         Head(rw, false);
         rw.WriteFlag(true);
         rw.WriteFlag(true);

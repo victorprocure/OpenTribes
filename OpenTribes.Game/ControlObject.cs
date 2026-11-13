@@ -53,7 +53,7 @@ public static class BitStreamF
     /// <summary>Writes a float as its raw 32 bits.</summary>
     /// <param name="bs">The stream.</param>
     /// <param name="f">The value.</param>
-    public static void WriteF32(this BitStream bs, float f)
+    public static void WriteF32(this BitBuffer bs, float f)
     {
         Span<byte> b = stackalloc byte[4];
         BitConverter.TryWriteBytes(b, f);
@@ -63,7 +63,7 @@ public static class BitStreamF
     /// <summary>Writes floats as their raw 32 bits.</summary>
     /// <param name="bs">The stream.</param>
     /// <param name="v">The values.</param>
-    public static void WriteF32s(this BitStream bs, ReadOnlySpan<float> v)
+    public static void WriteF32s(this BitBuffer bs, ReadOnlySpan<float> v)
     {
         foreach (var f in v)
             bs.WriteF32(f);
@@ -72,7 +72,7 @@ public static class BitStreamF
     /// <summary>Reads a float from its raw 32 bits.</summary>
     /// <param name="bs">The stream.</param>
     /// <returns>The value.</returns>
-    public static float ReadF32(this BitStream bs)
+    public static float ReadF32(this BitBuffer bs)
     {
         Span<byte> b = stackalloc byte[4];
         b.Clear();
@@ -107,7 +107,7 @@ public static class Moves
     /// <param name="full">True for the PlayerPSC form with fire, useItem, pitch and turn.</param>
     /// <param name="prev">The preceding move, which enables the same-as-previous bit, or null.</param>
     /// <remarks>Follows the move pack (004046a0).</remarks>
-    public static void PackMove(BitStream bs, in Move m, bool full, Move? prev)
+    public static void PackMove(BitBuffer bs, in Move m, bool full, Move? prev)
     {
         var body = true;
         if (prev is Move p)
@@ -141,7 +141,7 @@ public static class Moves
     /// <param name="full">True for the PlayerPSC form.</param>
     /// <param name="havePrev">True when <paramref name="m"/> holds the preceding move.</param>
     /// <remarks>Follows the move unpack (004048b8).</remarks>
-    public static void UnpackMove(BitStream bs, ref Move m, bool full, bool havePrev)
+    public static void UnpackMove(BitBuffer bs, ref Move m, bool full, bool havePrev)
     {
         var body = true;
         if (havePrev)
@@ -174,7 +174,7 @@ public static class Moves
     /// <param name="m">The move to fill.</param>
     /// <param name="full">True for the PlayerPSC form.</param>
     /// <param name="prev">The preceding move.</param>
-    public static void UnpackMove(BitStream bs, ref Move m, bool full, in Move prev)
+    public static void UnpackMove(BitBuffer bs, ref Move m, bool full, in Move prev)
     {
         var body = !bs.ReadFlag();
         if (body)
@@ -553,7 +553,7 @@ public sealed class ObserverCamera : GameBase
 
     /// <inheritdoc/>
     /// <remarks>Follows 00434f00.</remarks>
-    public override void WriteControlState(BitStream bs, ControlContext ctx)
+    public override void WriteControlState(BitBuffer bs, ControlContext ctx)
     {
         bs.WriteF32s(CamRotation);
         var m = (uint)Mode;

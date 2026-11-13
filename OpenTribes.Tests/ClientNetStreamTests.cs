@@ -12,7 +12,7 @@ public class ClientNetStreamTests
 {
     // Writes one event the way GameConnection.WriteEvents does (game-stream.md 2.1): guaranteed, ordered, explicit or
     // implicit sequence.
-    private static void WriteEv(BitStream bs, OutEvent e, int seq, bool implicitSeq)
+    private static void WriteEv(BitBuffer bs, OutEvent e, int seq, bool implicitSeq)
     {
         bs.WriteFlag(true);
         bs.WriteFlag(true);
@@ -26,16 +26,16 @@ public class ClientNetStreamTests
         bs.WriteBits(e.BodyBits, e.Body);
     }
 
-    private static byte[] Payload(Action<BitStream> body)
+    private static byte[] Payload(Action<BitBuffer> body)
     {
         var buf = new byte[1400];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         body(bs);
         return buf.AsSpan(0, bs.BytePosition()).ToArray();
     }
 
     // PSC member of a server packet without a control object (game-stream.md 6.3): mode, flag, lastMove, no control.
-    private static void EmptyPsc(BitStream bs, uint mode = 0, int lastMove = -1)
+    private static void EmptyPsc(BitBuffer bs, uint mode = 0, int lastMove = -1)
     {
         bs.WriteInt(mode, 3);
         bs.WriteFlag(false);
@@ -280,12 +280,12 @@ public class ClientNetStreamTests
         for (var i = 0; i < 5; ++i)
             psc.AddMove(new Move { Forward = i / 15.0f, Fire = i == 3, Turn = i == 2 ? 0.25f : 0 });
         var buf = new byte[256];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         psc.WriteClient(bs);
         var c2s = ClientPsc.ReadClientBlock(new ClientReader(buf, world));
         Assert.True((long)c2s.Fields[0].Value! == 169 && (long)c2s.Fields[1].Value! == 0 && (long)c2s.Fields[2].Value! == 5);
         // The server reads the same bytes (GameConnection.ReadPsc): the first move index and the moves match.
-        var r = new BitStream(buf, buf.Length);
+        var r = new BitBuffer(buf, buf.Length);
         Assert.True(r.ReadInt(8) == 169 && r.ReadInt(32) == 0);
         var m = new Move();
         for (var i = 0; i < 5; ++i)
@@ -394,7 +394,7 @@ public class ClientNetStreamTests
             sent = b.AsSpan(0, len).ToArray();
             return true;
         }));
-        var r = new BitStream(sent, sent.Length);
+        var r = new BitBuffer(sent, sent.Length);
         Assert.True(r.ReadFlag() && r.ReadInt(10) == 150 && r.ReadInt(10) == 200 && !r.ReadFlag());
     }
 

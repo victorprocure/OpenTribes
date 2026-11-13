@@ -47,7 +47,7 @@ public class NetServerTests
     private static byte[] RequestPayload(Request r)
     {
         var buf = new byte[1500];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteBytes([(byte)r.PacketVersion, (byte)(r.PacketVersion >> 8)]);
         foreach (var s in new[] { r.Game, r.Version, r.Password, r.Name, r.Gender, r.Voice, r.Skin })
             bs.WriteString(s);
@@ -84,7 +84,7 @@ public class NetServerTests
         {
             rep.Accepted = true;
             Assert.Equal(8, output.Payload.Length);
-            var input = new BitStream(output.Payload, 8);
+            var input = new BitBuffer(output.Payload, 8);
             rep.PlayerId = input.ReadInt(32);
             rep.ManagerId = input.ReadInt(32);
         }

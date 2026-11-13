@@ -35,7 +35,7 @@ public sealed class GhostClass
     /// <param name="bs">The stream to write.</param>
     /// <param name="mask">The dirty mask.</param>
     /// <returns>The mask bits that were not sent.</returns>
-    public delegate uint PackFn(SimObject obj, GhostContext ctx, BitStream bs, uint mask);
+    public delegate uint PackFn(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask);
     /// <summary>Computes the update priority of an object for the normal phase.</summary>
     /// <param name="obj">The object.</param>
     /// <param name="gm">The ghost manager.</param>
@@ -335,7 +335,7 @@ public sealed class GhostManager
     /// <param name="maxBits">The bit budget of the block.</param>
     /// <param name="token">Receives the token that identifies the packet for <see cref="Notify"/>.</param>
     /// <returns>False when the block is absent.</returns>
-    public bool WritePacket(BitStream bs, uint maxBits, out uint token)
+    public bool WritePacket(BitBuffer bs, uint maxBits, out uint token)
     {
         token = 0;
         if (!(_mode == ModeKind.Always || _mode == ModeKind.Normal || (_mode == ModeKind.Idle && _head != null)))

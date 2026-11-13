@@ -134,7 +134,7 @@ public sealed class ClientPsc
     /// <summary>Writes the client block: the fov byte, the first move index, every buffered move and the end flag.</summary>
     /// <param name="bs">The stream.</param>
     /// <remarks>Follows PlayerPSC_writePacket, client branch. The first move is full with no previous, the others are written against the previous one.</remarks>
-    public void WriteClient(BitStream bs)
+    public void WriteClient(BitBuffer bs)
     {
         bs.WriteInt(FovByte, 8);
         bs.WriteInt(FirstMove, 32);

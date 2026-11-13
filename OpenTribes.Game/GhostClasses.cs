@@ -11,11 +11,11 @@ public static partial class GhostClasses
 
     private static PersistFields FieldsOf(SimObject obj) => ((PersistObject)obj).Fields();
 
-    private static void WriteF32(BitStream bs, float v) => bs.WriteF32(v);
-    private static void WriteVec(BitStream bs, ReadOnlySpan<float> v) => bs.WriteF32s(v[..3]);
+    private static void WriteF32(BitBuffer bs, float v) => bs.WriteF32(v);
+    private static void WriteVec(BitBuffer bs, ReadOnlySpan<float> v) => bs.WriteF32s(v[..3]);
 
     // src/game/ghost_classes.cpp writePoint: persist point3F field with its constructor default.
-    private static void WritePoint(BitStream bs, PersistFields f, string name, float x, float y, float z, int index = -1)
+    private static void WritePoint(BitBuffer bs, PersistFields f, string name, float x, float y, float z, int index = -1)
     {
         Span<float> p = stackalloc float[3];
         f.Point(name, p, x, y, z, index);
@@ -25,7 +25,7 @@ public static partial class GhostClasses
     // ---- 3.1: no mask bits ----
 
     // src/game/ghost_classes.cpp packSimVolume: SimVolume 0x005081b8: file name (+0x68).
-    private static uint PackSimVolume(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackSimVolume(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         SimClasses.SimVolumeInfo(obj, out var file, out _);
         bs.WriteString(file);
@@ -33,7 +33,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packSimPalette: SimPalette 0x004fd908: fileName.
-    private static uint PackSimPalette(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackSimPalette(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         bs.WriteString(FieldsOf(obj).Str("fileName"));
         return 0;
@@ -41,7 +41,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp packMissionCenterPos: MissionCenterPos 0x004ce9e4: x y w h, constructor defaults 1230
     // 1230 1400 1400.
-    private static uint PackMissionCenterPos(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackMissionCenterPos(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var f = FieldsOf(obj);
         WriteF32(bs, f.Real("x", 1230.0f));
@@ -52,7 +52,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packSimTerrain: 3.2 SimTerrain 0x0051ca08.
-    private static uint PackSimTerrain(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackSimTerrain(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var t = (TerrainObject)obj;
         var f = t.Fields();
@@ -89,7 +89,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp packSimLight: 3.3 SimLight 0x0052dac8. Fields the constructor leaves unset (range,
     // color, ambient, position, aim) are sent as 0 (D12).
-    private static uint PackSimLight(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackSimLight(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var f = FieldsOf(obj);
         if (bs.WriteFlag((mask & 0x40) != 0))
@@ -110,7 +110,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packGameBase: GameBase part 0x00448d80 (4.1).
-    private static void PackGameBase(GameBase gb, BitStream bs, uint mask)
+    private static void PackGameBase(GameBase gb, BitBuffer bs, uint mask)
     {
         if (bs.WriteFlag((mask & 0x04) != 0))
         {
@@ -123,7 +123,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packInteriorShape: 3.4 InteriorShape 0x0047ff9c.
-    private static uint PackInteriorShape(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackInteriorShape(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var gb = (GameBase)obj;
         var f = gb.Fields();
@@ -173,7 +173,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp writeUnit: BitStream::writeFloat (0x00582fb0): ftol(value * (2^bits - 1)), low bits only,
     // so a negative value wraps (Item rotation) and nothing is clamped.
-    private static void WriteUnit(BitStream bs, float v, uint bits)
+    private static void WriteUnit(BitBuffer bs, float v, uint bits)
     {
         var x = Mul((int)((1u << (int)bits) - 1), v);
         var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
@@ -182,7 +182,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp writeSignedUnit: BitStream::writeSignedFloat (0x00583018): (value + 1) * 0.5 through
     // writeFloat.
-    private static void WriteSignedUnit(BitStream bs, float v, uint bits)
+    private static void WriteSignedUnit(BitBuffer bs, float v, uint bits)
     {
         var x = Mul(Mul(Add(v, 1.0f), 0.5f), (int)((1u << (int)bits) - 1));
         var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
@@ -191,7 +191,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp packDataBlock: GameBase_packDataBlock (0x00447efc): index (+0x220) in bitLength(group
     // count + 1) bits.
-    private static void PackDataBlock(GameBase gb, BitStream bs)
+    private static void PackDataBlock(GameBase gb, BitBuffer bs)
     {
         uint n = (uint)gb.DataBlockCount() + 1, bits = 1;
         while (bits < 32 && (n >> (int)bits) != 0)
@@ -200,7 +200,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packShapeBase1: ShapeBase part 1 (0x0044cff8): flash, threads, fade.
-    private static void PackShapeBase1(GameBase gb, BitStream bs, uint mask)
+    private static void PackShapeBase1(GameBase gb, BitBuffer bs, uint mask)
     {
         PackGameBase(gb, bs, mask);
         if ((mask & 0x01) != 0)
@@ -245,7 +245,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packShapeBase: ShapeBase part 2 (0x00450098): transform, damage, target flag.
-    private static void PackShapeBase(GameBase gb, BitStream bs, uint mask)
+    private static void PackShapeBase(GameBase gb, BitBuffer bs, uint mask)
     {
         PackShapeBase1(gb, bs, mask);
         if (bs.WriteFlag((mask & 0x18) != 0))
@@ -264,7 +264,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packStaticShape: 4.3 StaticShape 0x0045059c.
-    private static uint PackStaticShape(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackStaticShape(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var gb = (GameBase)obj;
         PackShapeBase(gb, bs, mask);
@@ -278,7 +278,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packSensorPart: 4.3 Sensor 0x0043943c.
-    private static void PackSensorPart(GameBase gb, BitStream bs, uint mask)
+    private static void PackSensorPart(GameBase gb, BitBuffer bs, uint mask)
     {
         PackShapeBase(gb, bs, mask);
         if (bs.WriteFlag((mask & 0x01) != 0))
@@ -286,14 +286,14 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packSensor.
-    private static uint PackSensor(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackSensor(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         PackSensorPart((GameBase)obj, bs, mask);
         return 0;
     }
 
     // src/game/ghost_classes.cpp packTurret: 4.5 Turret 0x004573a0.
-    private static uint PackTurret(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackTurret(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var gb = (GameBase)obj;
         if (gb.ControlClient == ctx.ClientId && (mask & 0x05) == 0)
@@ -316,7 +316,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packItemPart: 4.4 Item 0x00451e18; Mine 0x004590a0 drops the rotation of a mine at rest.
-    private static uint PackItemPart(GameBase gb, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackItemPart(GameBase gb, GhostContext ctx, BitBuffer bs, uint mask)
     {
         PackShapeBase(gb, bs, mask & ~0x38u);
         if (bs.WriteFlag((mask & 0x02) != 0))
@@ -341,10 +341,10 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packItem.
-    private static uint PackItem(SimObject obj, GhostContext ctx, BitStream bs, uint mask) => PackItemPart((GameBase)obj, ctx, bs, mask);
+    private static uint PackItem(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask) => PackItemPart((GameBase)obj, ctx, bs, mask);
 
     // src/game/ghost_classes.cpp packMine.
-    private static uint PackMine(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackMine(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var gb = (GameBase)obj;
         if (gb.AtRest)
@@ -353,7 +353,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packMoveable: 4.6 Moveable 0x00444af0.
-    private static uint PackMoveable(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackMoveable(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var gb = (GameBase)obj;
         PackShapeBase(gb, bs, mask & ~0x38u);
@@ -381,7 +381,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp packMarker: 4.9 Marker 0x00486410: position (+0x188) and rotation (+0x1ac) are the
     // persist fields.
-    private static uint PackMarker(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackMarker(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var gb = (GameBase)obj;
         PackGameBase(gb, bs, mask);
@@ -397,7 +397,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp packTrigger: 4.9 Trigger 0x00487b58: the raw transform (+0x94: flags, 3x3, translation)
     // and the boundingBox persist field (+0x1d4).
-    private static uint PackTrigger(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackTrigger(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var gb = (GameBase)obj;
         if (bs.WriteFlag((mask & 0x08) != 0))
@@ -417,7 +417,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packSnowfall: 3.5 Snowfall 0x00442fac.
-    private static uint PackSnowfall(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackSnowfall(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var f = FieldsOf(obj);
         var rain = f.Boolean("rain", false);
@@ -437,7 +437,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packSky: Sky 0x00477780. skyColor and hazeColor are not set by the constructor (D12: 0).
-    private static uint PackSky(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackSky(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var f = FieldsOf(obj);
         bs.WriteString(f.Str("dmlName"));
@@ -451,7 +451,7 @@ public static partial class GhostClasses
     }
 
     // src/game/ghost_classes.cpp packPlanet: Planet 0x0047cfcc. onAdd (0x0047c4c8) clamps incidence to [-89, 89].
-    private static uint PackPlanet(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackPlanet(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var f = FieldsOf(obj);
         var incidence = f.Real("incidence", 30.0f);
@@ -473,7 +473,7 @@ public static partial class GhostClasses
 
     // src/game/ghost_classes.cpp packStarField: StarField 0x00478e0c: two constructor flags (+0xaf = 1, +0xb0 = 0),
     // colors[3], inFrontOfSky.
-    private static uint PackStarField(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackStarField(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var f = FieldsOf(obj);
         bs.WriteFlag(true);
@@ -490,7 +490,7 @@ public static partial class GhostClasses
     /// <param name="bs">The stream to write.</param>
     /// <param name="mask">The dirty mask.</param>
     /// <remarks>ShapeBase part 2 of a ghost update (docs/game-stream-ghosts.md 4.2).</remarks>
-    public static void PackShapeBasePart(GameBase gb, BitStream bs, uint mask) => PackShapeBase(gb, bs, mask);
+    public static void PackShapeBasePart(GameBase gb, BitBuffer bs, uint mask) => PackShapeBase(gb, bs, mask);
 
     private static GhostClass G(uint tag, GhostClass.PackFn pack) => new() { Tag = tag, Pack = pack };
 

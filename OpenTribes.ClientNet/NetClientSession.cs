@@ -422,7 +422,7 @@ public sealed class NetClientSession : ConnectionEvents, IDisposable
     private byte[] ConnectPayload()
     {
         var buf = new byte[1500];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteInt(1, 16);
         foreach (var s in new[] { "Tribes", Version, Password, _name, Gender, Voice, SkinBase })
             bs.WriteString(s);

@@ -114,7 +114,7 @@ public static class QueryPackets
             return false;
         rec.Key = (ushort)(d[4] | (d[5] << 8));
         var body = d[8..].ToArray();
-        var bs = new BitStream(body, body.Length);
+        var bs = new BitBuffer(body, body.Length);
         Span<byte> two = stackalloc byte[2];
         bs.ReadBytes(two);
         rec.PacketVersion = (ushort)(two[0] | (two[1] << 8));
@@ -171,10 +171,10 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
     public long LastReceiveMs { get; private set; } = -1;
 
     /// <summary>Sends a datagram, opening the socket and the receive thread on first use.</summary>
-    /// <param name="to">The destination.</param>
+    /// <param name="destination">The destination.</param>
     /// <param name="data">The payload.</param>
     /// <returns>False when the socket cannot open or the send fails.</returns>
-    public bool Send(Address to, byte[] data)
+    public bool Send(Address destination, byte[] data)
     {
         if (!_open)
         {
@@ -185,7 +185,7 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
                 _thread.Start();
             }
         }
-        return _open && _sock.Send(to, data);
+        return _open && _sock.Send(destination, data);
     }
 
     private void ReceiveLoop()
@@ -236,10 +236,10 @@ public sealed class UdpQueryTransport : IQueryTransport, IDisposable
 public interface IQueryTransport
 {
     /// <summary>Sends to a resolved address.</summary>
-    /// <param name="to">The destination.</param>
+    /// <param name="destination">The destination.</param>
     /// <param name="data">The payload.</param>
     /// <returns>False when it cannot be sent.</returns>
-    public bool Send(Address to, byte[] data);
+    public bool Send(Address destination, byte[] data);
     /// <summary>Takes one pending datagram.</summary>
     /// <param name="from">Receives the sender.</param>
     /// <param name="data">Receives the payload.</param>
@@ -677,6 +677,8 @@ public sealed class ServerQuery
                 OnChange?.Invoke();
                 break;
             }
+            default:
+                break;
         }
     }
 }

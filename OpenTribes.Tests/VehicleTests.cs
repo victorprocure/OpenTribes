@@ -718,11 +718,11 @@ public class VehicleTests
         v.SpeedL = 2.5f;
         v.SpeedS = -1.5f;
         var buf = new byte[256];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         var ctx = new ControlContext();
         v.WriteControlState(bs, ctx);
         Assert.True(bs.BitPosition() == 2 + 288 + (16 * 3) + 6 + 2 + 2 + 64 + 1);
-        var rd = new BitStream(buf, buf.Length);
+        var rd = new BitBuffer(buf, buf.Length);
         Assert.Equal(0u, rd.ReadInt(2));
         for (var i = 0; i < 6; ++i)
             rd.ReadF32();
@@ -737,10 +737,10 @@ public class VehicleTests
         Assert.True(l == 2.5f && s == -1.5f && !rd.ReadFlag());
 
         var b2 = new byte[256];
-        var owner = new BitStream(b2, b2.Length);
+        var owner = new BitBuffer(b2, b2.Length);
         Assert.True(v.PackUpdate(owner, 2049, 0x2000, false) == 0 && owner.BitPosition() == 1);
         var b3 = new byte[256];
-        var full = new BitStream(b3, b3.Length);
+        var full = new BitBuffer(b3, b3.Length);
         v.PackUpdate(full, 2050, 0xffffffffu, true);
         Assert.True(full.BitPosition() > 100 && (b3[0] & 1) == 0);
         // Client round trip (client-net.md 3.5): the creating update, the 0x2000 state update, the owner-only form.
@@ -750,10 +750,10 @@ public class VehicleTests
         var co = ClientRoundTrip.Unpack(0x223, b2, owner.BitPosition(), false, cw, cv);
         Assert.Equal(1, (long)co.State["ownerOnly"]!);
         var b4 = new byte[256];
-        var upd = new BitStream(b4, b4.Length);
+        var upd = new BitBuffer(b4, b4.Length);
         v.PackUpdate(upd, 2050, 0x2000, false);
         var b5 = new byte[256];
-        var upd2 = new BitStream(b5, b5.Length);
+        var upd2 = new BitBuffer(b5, b5.Length);
         v.Piloted = false;
         v.PackUpdate(upd2, 2050, 0x2000, false);
         Assert.True(upd.BitPosition() > 0 && upd2.BitPosition() > 0);

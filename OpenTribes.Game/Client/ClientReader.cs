@@ -40,7 +40,7 @@ public sealed class PacketErrorException : Exception
 public sealed class ClientReader
 {
     /// <summary>The bit stream.</summary>
-    public BitStream Bs { get; }
+    public BitBuffer Bs { get; }
     /// <summary>The size of the data in bits.</summary>
     public int SizeBits { get; }
     /// <summary>The client world.</summary>
@@ -53,7 +53,7 @@ public sealed class ClientReader
     /// <param name="world">The client world.</param>
     public ClientReader(byte[] data, ClientWorld world)
     {
-        Bs = new BitStream(data, data.Length);
+        Bs = new BitBuffer(data, data.Length);
         SizeBits = data.Length * 8;
         World = world;
     }

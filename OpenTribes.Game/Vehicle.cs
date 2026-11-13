@@ -483,7 +483,7 @@ public class Vehicle : GameBase
     /// <param name="isNew">True on the first update.</param>
     /// <returns>The mask bits that were not sent.</returns>
     /// <remarks>Follows Vehicle_packUpdate (0x00446bec, docs/vehicle-sim.md 6.1).</remarks>
-    public uint PackUpdate(BitStream bs, int clientId, uint mask, bool isNew)
+    public uint PackUpdate(BitBuffer bs, int clientId, uint mask, bool isNew)
     {
         using var chop = X87.Chop();
         if (ControlClient == clientId && (mask & 0x05) == 0)
@@ -529,7 +529,7 @@ public class Vehicle : GameBase
 
     /// <inheritdoc/>
     /// <remarks>Follows Vehicle_writeControlState (0x00446aa8, docs/vehicle-sim.md 6.2).</remarks>
-    public override void WriteControlState(BitStream bs, ControlContext ctx)
+    public override void WriteControlState(BitBuffer bs, ControlContext ctx)
     {
         using var chop = X87.Chop();
         bs.WriteInt((SensorWord >> 24) & 3u, 2); // GameBase flags byte: the sensor state (0044954c)
@@ -625,7 +625,7 @@ public class Vehicle : GameBase
     }
 
     // src/game/vehicle_net.cpp packVehicleGhost.
-    private static uint PackVehicleGhost(SimObject obj, GhostContext ctx, BitStream bs, uint mask) =>
+    private static uint PackVehicleGhost(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask) =>
         ((Vehicle)obj).PackUpdate(bs, ctx.ClientId, mask, mask == 0xffffffffu);
 
     /// <summary>Registers the vehicle ghost classes.</summary>
@@ -1570,7 +1570,7 @@ public sealed class Flier : Vehicle
 
     /// <inheritdoc/>
     /// <remarks>Follows 0x0043084c.</remarks>
-    public override void WriteControlState(BitStream bs, ControlContext ctx)
+    public override void WriteControlState(BitBuffer bs, ControlContext ctx)
     {
         base.WriteControlState(bs, ctx);
         bs.WriteF32(SpeedL);

@@ -1112,7 +1112,7 @@ public partial class GameBase
     /// <summary>Writes the turret control state.</summary>
     /// <param name="bs">The stream to write.</param>
     /// <remarks>Follows 0x004572f8.</remarks>
-    public void TurretWriteControlState(BitStream bs)
+    public void TurretWriteControlState(BitBuffer bs)
     {
         bs.WriteF32(TurretRotation);
         bs.WriteF32(TurretElevation);
@@ -1136,7 +1136,7 @@ public partial class GameBase
     /// <param name="bs">The stream to write.</param>
     /// <param name="ctx">The connection context.</param>
     /// <remarks>Follows vtable +0x15c.</remarks>
-    public virtual void WriteControlState(BitStream bs, ControlContext ctx)
+    public virtual void WriteControlState(BitBuffer bs, ControlContext ctx)
     {
         if (_shapeClass == ShapeKind.Turret)
             TurretWriteControlState(bs);

@@ -57,7 +57,15 @@ public struct Address : IEquatable<Address>, IComparable<Address>
     public override readonly string ToString() =>
         "IP:" + (Ip >> 24) + "." + ((Ip >> 16) & 0xff) + "." + ((Ip >> 8) & 0xff) + "." + (Ip & 0xff) + ":" + Port;
 
+    /// <summary>Compares two endpoints.</summary>
+    /// <param name="left">The first endpoint.</param>
+    /// <param name="right">The second endpoint.</param>
+    /// <returns>True when <paramref name="left"/> sorts before or equal to <paramref name="right"/>.</returns>
     public static bool operator <=(Address left, Address right) => left.CompareTo(right) <= 0;
 
+    /// <summary>Compares two endpoints.</summary>
+    /// <param name="left">The first endpoint.</param>
+    /// <param name="right">The second endpoint.</param>
+    /// <returns>True when <paramref name="left"/> sorts after or equal to <paramref name="right"/>.</returns>
     public static bool operator >=(Address left, Address right) => left.CompareTo(right) >= 0;
 }

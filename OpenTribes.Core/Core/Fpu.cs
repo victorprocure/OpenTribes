@@ -140,7 +140,7 @@ public static class Fpu
             var exp = text[(i + 1)..];
             e10 += long.TryParse(exp, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var ex) ? ex : 0;
         }
-        BigInteger m = BigInteger.Parse(digits.ToString(), CultureInfo.InvariantCulture);
+        var m = BigInteger.Parse(digits.ToString(), CultureInfo.InvariantCulture);
         // |r| = m2 * 2^e2.
         var bits = BitConverter.DoubleToInt64Bits(r) & 0x7fffffffffffffffL;
         var be = (int)(bits >> 52);
@@ -274,9 +274,9 @@ public static class Fpu
     /// <summary>Steps a toward-zero parse away from zero until its magnitude is at least the decimal's. A printed digit string truncates, so a value that parses below the decimal would lose a unit of the last digit on the next print.</summary>
     /// <param name="chopped">The toward-zero parse of <paramref name="text"/>.</param>
     /// <param name="text">The plain decimal text.</param>
-    /// <param name="single">True to step in floats, false to step in doubles.</param>
+    /// <param name="steppingFloats">True to step in floats, false to step in doubles.</param>
     /// <returns>The adjusted value. Steps at most three times. An exact value stays.</returns>
-    public static double AtLeastDecimal(double chopped, string text, bool single)
+    public static double AtLeastDecimal(double chopped, string text, bool steppingFloats)
     {
         if (double.IsNaN(chopped) || double.IsInfinity(chopped) || chopped == 0)
             return chopped;
@@ -287,7 +287,7 @@ public static class Fpu
         var num = BigInteger.Parse(digits.Replace(".", ""), CultureInfo.InvariantCulture);
         var c = chopped;
         for (var step = 0; step < 3 && CompareMagnitude(c, num, k) < 0; ++step)
-            c = single ? (c > 0 ? MathF.BitIncrement((float)c) : MathF.BitDecrement((float)c)) : (c > 0 ? Math.BitIncrement(c) : Math.BitDecrement(c));
+            c = steppingFloats ? (c > 0 ? MathF.BitIncrement((float)c) : MathF.BitDecrement((float)c)) : (c > 0 ? Math.BitIncrement(c) : Math.BitDecrement(c));
         return c;
     }
 

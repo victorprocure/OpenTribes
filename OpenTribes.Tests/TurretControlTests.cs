@@ -15,7 +15,7 @@ public sealed class TurretControlTests
     private static void Block(ClientWorld cw, float rot, float elev, uint fire, bool beam, uint state, float energy)
     {
         var buf = new byte[256];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteInt(1, 3);
         bs.WriteFlag(false);
         bs.WriteInt(0, 32);

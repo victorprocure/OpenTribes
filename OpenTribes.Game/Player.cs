@@ -1878,7 +1878,7 @@ public sealed partial class Player : GameBase
 
     /// <inheritdoc/>
     /// <remarks>Follows 0x00413e08.</remarks>
-    public override void WriteControlState(BitStream bs, ControlContext ctx)
+    public override void WriteControlState(BitBuffer bs, ControlContext ctx)
     {
         using var chop = X87.Chop();
         bs.WriteInt((SensorWord >> 24) & 3u, 2); // sensor state (GameBase +0x203, docs/static-sim.md 3.7)

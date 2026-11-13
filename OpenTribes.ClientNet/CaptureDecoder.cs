@@ -46,7 +46,7 @@ public static class CaptureDecoder
     /// <returns>The header, or null when it is malformed.</returns>
     public static VcHeader? ParseVc(byte[] data)
     {
-        var bs = new Net.BitStream(data, data.Length);
+        var bs = new Net.BitBuffer(data, data.Length);
         bs.ReadInt(1);
         bs.ReadInt(1);
         var h = new VcHeader { Seq = (int)bs.ReadInt(9) };

@@ -18,7 +18,7 @@ public readonly struct HuffmanCode
     }
 }
 
-/// <summary>The string Huffman coder used by <see cref="BitStream"/> strings.</summary>
+/// <summary>The string Huffman coder used by <see cref="BitBuffer"/> strings.</summary>
 /// <remarks>Port of src/net/huffman.cpp. The tree is built from the fixed character frequencies once at start-up.</remarks>
 public static class Huffman
 {
@@ -125,19 +125,19 @@ c is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'z');
         }
     }
 
-    private static readonly Tables sTables = new();
+    private static readonly Tables TableSet = new();
 
     /// <summary>Gets the code of a symbol.</summary>
     /// <param name="symbol">The byte value.</param>
     /// <returns>The code.</returns>
-    public static HuffmanCode HuffmanCode(byte symbol) => sTables.Codes[symbol];
+    public static HuffmanCode HuffmanCode(byte symbol) => TableSet.Codes[symbol];
 
     /// <summary>Decodes one symbol by walking the tree with bits from <paramref name="readBit"/> until a leaf.</summary>
     /// <param name="readBit">Supplies the next bit.</param>
     /// <returns>The symbol.</returns>
     public static byte HuffmanDecode(Func<bool> readBit)
     {
-        var nodes = sTables.Nodes;
+        var nodes = TableSet.Nodes;
         var index = 0;
         while (index >= 0)
             index = readBit() ? nodes[index].Child1 : nodes[index].Child0;

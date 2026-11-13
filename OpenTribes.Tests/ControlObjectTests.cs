@@ -40,7 +40,7 @@ public class ControlObjectTests
             Pitch = 0.25f
         };
         var buf = new byte[64];
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         Moves.PackMove(w, m, true, null);
         var total = w.BitPosition();
         Assert.True(total == 16 + 3 + 1 + 1 + 8 + 1 + 32 + 1);
@@ -59,10 +59,10 @@ public class ControlObjectTests
         n.UseItem = -1;
         n.Pitch = 0;
         n.Turn = -0.5f;
-        var w2 = new BitStream(buf, buf.Length);
+        var w2 = new BitBuffer(buf, buf.Length);
         Moves.PackMove(w2, n, true, m);
         Assert.True(w2.BitPosition() == 1 + 1 + 1 + 1 + 1 + 32);
-        var r2 = new BitStream(buf, buf.Length);
+        var r2 = new BitBuffer(buf, buf.Length);
         var o = m;
         Moves.UnpackMove(r2, ref o, true, havePrev: true);
         Assert.True(o.Forward == 1.0f && o.Left == m.Left && o.Jet && o.Crouch && !o.Jump);
@@ -70,10 +70,10 @@ public class ControlObjectTests
 
         // A changed flag breaks "same"; the short form (ghost echo) carries the motion only.
         n.Jump = true;
-        var w3 = new BitStream(buf, buf.Length);
+        var w3 = new BitBuffer(buf, buf.Length);
         Moves.PackMove(w3, n, false, m);
         Assert.True(w3.BitPosition() == 1 + 19);
-        var r3 = new BitStream(buf, buf.Length);
+        var r3 = new BitBuffer(buf, buf.Length);
         var shortForm = new Move
         {
             Fire = true,
@@ -322,7 +322,7 @@ public class ControlObjectTests
 
         // Modes 0-2: rotation, int(3) mode, position.
         cam.SetFlyMode(true, true, rot, pos);
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         cam.WriteControlState(w, cc);
         Assert.True(w.BitPosition() == 96 + 3 + 96);
         {
@@ -332,7 +332,7 @@ public class ControlObjectTests
         }
         // Mode 4: position, then min, max and current distance.
         cam.SetOrbit(null, pos, 5, 2, 8, rot);
-        var w4 = new BitStream(buf, buf.Length);
+        var w4 = new BitBuffer(buf, buf.Length);
         cam.WriteControlState(w4, cc);
         Assert.True(w4.BitPosition() == 96 + 3 + 96 + 96);
         {
@@ -345,7 +345,7 @@ public class ControlObjectTests
         }
         // Mode 3 with an object the client has no ghost of is sent as mode 4.
         cam.SetOrbit(target, pos, 5, 2, 8, rot);
-        var w3 = new BitStream(buf, buf.Length);
+        var w3 = new BitBuffer(buf, buf.Length);
         cam.WriteControlState(w3, cc);
         {
             var b = new Bits(buf, w3.BitPosition());
@@ -384,7 +384,7 @@ public class ControlObjectTests
             for (var i = 0; i < n; ++i)
                 All.Add(m[i]);
         }
-        public override void WriteControlState(BitStream bs, ControlContext ctx) => bs.WriteInt(0x5a, 8);
+        public override void WriteControlState(BitBuffer bs, ControlContext ctx) => bs.WriteInt(0x5a, 8);
         public override float DamageFlash() => Flash;
         public List<int> Calls { get; } = [];
         public List<Move> All { get; } = [];
@@ -395,7 +395,7 @@ public class ControlObjectTests
     private static byte[] MovePacket(uint first, IReadOnlyList<Move> moves, uint fov = 169)
     {
         var buf = new byte[1400];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(false);
         bs.WriteFlag(false);
         bs.WriteFlag(false);
@@ -527,7 +527,7 @@ public class ControlObjectTests
         control = body;
         calls = 0;
         var buf = new byte[256];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(false); // rateSet
         bs.WriteFlag(false); // rateReq
         bs.WriteFlag(true);  // events

@@ -116,7 +116,7 @@ public static class GhostScope
     }
 
     // src/game/ghost_scope.cpp packObserverCamera: GameBase part (4.1) alone: the ObserverCamera layout (00448d80).
-    private static uint PackObserverCamera(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackObserverCamera(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         var cam = (ObserverCamera)obj;
         if (bs.WriteFlag((mask & 0x04) != 0))

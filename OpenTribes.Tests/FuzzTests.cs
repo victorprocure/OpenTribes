@@ -304,7 +304,7 @@ public class FuzzTests
 
         // Seeds: the queries and a connect request (docs/net-protocol.md 5, 6).
         var buf = new byte[600];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteBytes([1, 0]);
         foreach (var s in new[] { "Tribes", "1.11", "", "Fuzz", "Male", "male1", "base" })
             bs.WriteString(s);
@@ -336,7 +336,7 @@ public class FuzzTests
     {
         // Seed: rate fields, one ordered console event, PSC with four moves in every form of 6.1.
         var buf = new byte[300];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(true);
         bs.WriteInt(10, 20);
         bs.WriteFlag(false);
@@ -435,7 +435,7 @@ public class FuzzTests
             var conn = connPtr;
             if (r.Below(2) == 0)
             {
-                var patch = new BitStream(seedBytes, seedBytes.Length);
+                var patch = new BitBuffer(seedBytes, seedBytes.Length);
                 patch.SetBitPosition(firstMovePos);
                 patch.WriteInt((uint)conn.MoveCount, 32);
                 seed = [.. seedBytes];
@@ -524,7 +524,7 @@ public class FuzzTests
             var conn = new GameConnection(2049, tr, hooks);
 
             var buf = new byte[1500];
-            var bs = new BitStream(buf, buf.Length);
+            var bs = new BitBuffer(buf, buf.Length);
             bs.WriteFlag(false);
             bs.WriteFlag(false);
             bs.WriteFlag(true);
@@ -697,12 +697,12 @@ public class FuzzTests
         var raw = new byte[64];
         for (var k = 0; k < raw.Length; ++k)
             raw[k] = (byte)r.Next();
-        var bs = new BitStream(raw, raw.Length);
+        var bs = new BitBuffer(raw, raw.Length);
         var n = (int)r.Below(40);
         for (var i = 0; i < n; ++i)
         {
             if (bs.Error())
-                bs = new BitStream(raw, raw.Length);
+                bs = new BitBuffer(raw, raw.Length);
             moves[i] = new Move();
             if (i != 0)
                 Moves.UnpackMove(bs, ref moves[i], true, in moves[i - 1]);
@@ -914,11 +914,11 @@ public class FuzzTests
                 p!.ServerTick(round * 32);
             }
             var buf = new byte[512];
-            var output = new BitStream(buf, buf.Length);
+            var output = new BitBuffer(buf, buf.Length);
             var client = r.Below(2) != 0 ? 2049 : 2050;
             var mask = r.Next() | (r.Below(4) == 0 ? 0xffffffffu : 0);
             v.PackUpdate(output, client, mask, r.Below(4) == 0);
-            var cs = new BitStream(buf, buf.Length);
+            var cs = new BitBuffer(buf, buf.Length);
             var ctx = new ControlContext();
             v.WriteControlState(cs, ctx);
             switch (r.Below(30))

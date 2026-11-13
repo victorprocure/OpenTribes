@@ -18,13 +18,13 @@ public class GamebaseGhostsTests
     private readonly Dictionary<SimObject, ClientGhost> _clients = new(ReferenceEqualityComparer.Instance);
     private ClientGhost? _client;
 
-    private BitStream Pack(SimObject? obj, uint mask, uint tag, int client = 2049)
+    private BitBuffer Pack(SimObject? obj, uint mask, uint tag, int client = 2049)
     {
         Assert.NotNull(obj);
         var cls = GhostManager.GhostClassOf(obj!);
         Assert.True(cls != null && cls.Tag == tag); // 2.3 tags
         _buf = new byte[4096];
-        var w = new BitStream(_buf, _buf.Length);
+        var w = new BitBuffer(_buf, _buf.Length);
         var ctx = new GhostContext(_gm, client, mask == 0xffffffffu);
         Assert.Equal(0u, cls!.Pack!(obj!, ctx, w, mask));
         Assert.False(w.Error());
@@ -33,12 +33,12 @@ public class GamebaseGhostsTests
         var isNew = mask == 0xffffffffu;
         _clients.TryGetValue(obj!, out var prev);
         _client = _clients[obj!] = ClientRoundTrip.Unpack(tag, _buf, _packedBits, isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
-        return new BitStream(_buf, (int)((w.BitPosition() + 7) / 8));
+        return new BitBuffer(_buf, (int)((w.BitPosition() + 7) / 8));
     }
 
-    private static float F32(BitStream r) => r.ReadF32();
+    private static float F32(BitBuffer r) => r.ReadF32();
 
-    private static void Vec(BitStream r, float x, float y, float z)
+    private static void Vec(BitBuffer r, float x, float y, float z)
     {
         float a = r.ReadF32(), b = r.ReadF32(), c = r.ReadF32();
         Assert.True(a == x && b == y && c == z);
@@ -119,7 +119,7 @@ public class GamebaseGhostsTests
     }
 
     // GameBase part 4.1 of a mission object on team `team`.
-    private static void ReadGameBase(BitStream r, uint team)
+    private static void ReadGameBase(BitBuffer r, uint team)
     {
         Assert.True(r.ReadFlag());
         Assert.True(r.ReadInt(4) == team);

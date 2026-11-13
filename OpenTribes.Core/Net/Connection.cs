@@ -187,7 +187,7 @@ public sealed class Connection
             _state = ConnectionState.AcceptSent;
 
         var buf = new byte[MaxPacket];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         var wireType = type;
         var seq = _lastSentSeq;
         var withId = false;
@@ -284,7 +284,7 @@ public sealed class Connection
     {
         var copy = data.ToArray();
         var size = copy.Length;
-        var bs = new BitStream(copy, size);
+        var bs = new BitBuffer(copy, size);
         if (!bs.ReadFlag())
             return;
         var idBit = bs.ReadInt(1);

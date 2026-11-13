@@ -28,7 +28,7 @@ internal sealed class VcPacket
     public static byte[] Build(VcPacket p)
     {
         var buf = new byte[1500];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(true);
         bs.WriteInt(p.IdBit, 1);
         bs.WriteInt(p.Seq, 9);
@@ -51,7 +51,7 @@ internal sealed class VcPacket
     public static VcPacket Parse(byte[] data)
     {
         var copy = (byte[])data.Clone();
-        var bs = new BitStream(copy, copy.Length);
+        var bs = new BitBuffer(copy, copy.Length);
         var p = new VcPacket();
         bs.ReadFlag();
         p.IdBit = bs.ReadInt(1);

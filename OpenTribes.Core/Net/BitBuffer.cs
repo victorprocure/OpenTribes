@@ -2,7 +2,7 @@ namespace OpenTribes.Net;
 
 /// <summary>Darkstar bit stream: bits are packed LSB first (bit n is bit n&amp;7 of byte n&gt;&gt;3).</summary>
 /// <remarks>Port of src/net/bitstream.cpp. Strings are byte strings (one char per byte, <see cref="Core.ByteString"/>). Overruns set the error flag instead of throwing.</remarks>
-public sealed class BitStream
+public sealed class BitBuffer
 {
     private readonly byte[] _buf;
     private readonly ulong _limitBits;
@@ -12,7 +12,7 @@ public sealed class BitStream
     /// <summary>Creates a stream over a buffer.</summary>
     /// <param name="buffer">The buffer to read or write.</param>
     /// <param name="sizeBytes">The usable size in bytes.</param>
-    public BitStream(byte[] buffer, int sizeBytes)
+    public BitBuffer(byte[] buffer, int sizeBytes)
     {
         _buf = buffer;
         _limitBits = (ulong)sizeBytes * 8;
@@ -20,7 +20,7 @@ public sealed class BitStream
 
     /// <summary>Creates a stream over a whole buffer.</summary>
     /// <param name="buffer">The buffer to read or write.</param>
-    public BitStream(byte[] buffer) : this(buffer, buffer.Length) { }
+    public BitBuffer(byte[] buffer) : this(buffer, buffer.Length) { }
 
     /// <summary>Writes bits from the start of a span. A write past the limit sets the error flag and writes nothing.</summary>
     /// <param name="bitCount">The number of bits.</param>

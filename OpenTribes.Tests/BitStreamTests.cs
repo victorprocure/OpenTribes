@@ -10,7 +10,7 @@ public class BitStreamTests
     {
         // LSB-first packing: 1 then 0b101 (3 bits) then 0xff (8 bits) -> 0xfb 0x0f.
         var buf = new byte[512];
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         w.WriteFlag(true);
         w.WriteInt(5, 3);
         w.WriteInt(0xff, 8);
@@ -30,7 +30,7 @@ public class BitStreamTests
         Assert.True(maxLen <= 32); // the original stores codes in 32 bits
 
         Array.Clear(buf);
-        var output = new BitStream(buf, buf.Length);
+        var output = new BitBuffer(buf, buf.Length);
         string[] strings = ["Tribes", "1.11", "", "\u0001\u0080ÿ binary", new string('z', 300)];
         output.WriteInt(1, 16);
         foreach (var s in strings)
@@ -38,7 +38,7 @@ public class BitStreamTests
         output.WriteSignedInt(-1234, 16);
         Assert.False(output.Error());
 
-        var input = new BitStream(buf, buf.Length);
+        var input = new BitBuffer(buf, buf.Length);
         Assert.Equal(1u, input.ReadInt(16));
         foreach (var s in strings)
             Assert.Equal(s[..Math.Min(s.Length, 255)], input.ReadString());
@@ -47,12 +47,12 @@ public class BitStreamTests
 
         // Common text compresses; "Tribes" is 6 chars, so compressed means < 48 bits.
         Array.Clear(buf);
-        var t = new BitStream(buf, buf.Length);
+        var t = new BitBuffer(buf, buf.Length);
         t.WriteString("Tribes");
         Assert.True(t.BitPosition() < 1 + 8 + 48 && (buf[0] & 1) != 0);
 
         // Reads past the end set the error flag.
-        var small = new BitStream(buf, 1);
+        var small = new BitBuffer(buf, 1);
         small.ReadInt(16);
         Assert.True(small.Error());
     }

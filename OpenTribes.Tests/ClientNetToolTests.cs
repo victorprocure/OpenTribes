@@ -11,7 +11,7 @@ public class ClientNetToolTests
     private static byte[] Vc(int seq, byte[] payload)
     {
         var buf = new byte[payload.Length + 16];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(true);
         bs.WriteInt(0, 1);
         bs.WriteInt((uint)seq, 9);
@@ -31,7 +31,7 @@ public class ClientNetToolTests
         byte[] payload = [0x20, 0x00, 0x00, 0x00, 0x00, 0x00];
         // bit 2: PSC flag; bits 3..5: mode 1 (LSB first starting at bit 3); then flag, 32 bits lastMove, flag.
         var buf = new byte[16];
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         w.WriteFlag(false);
         w.WriteFlag(false);
         w.WriteFlag(false);

@@ -14,15 +14,15 @@ public static partial class PlayerGhost
     }
 
     // src/game/player_ghost.cpp writeUnit: BitStream::writeFloat (0x00582fb0).
-    internal static void WriteUnit(BitStream bs, float v, uint bits) =>
+    internal static void WriteUnit(BitBuffer bs, float v, uint bits) =>
         bs.WriteInt(FtolBits(Mul((int)((1u << (int)bits) - 1), v), bits), bits);
 
     // src/game/player_ghost.cpp writeSignedUnit: writeSignedFloat (0x00583018).
-    internal static void WriteSignedUnit(BitStream bs, float v, uint bits) =>
+    internal static void WriteSignedUnit(BitBuffer bs, float v, uint bits) =>
         bs.WriteInt(FtolBits(Mul(Mul(Add(v, 1.0f), 0.5f), (int)((1u << (int)bits) - 1)), bits), bits);
 
     // src/game/player_ghost.cpp writeNormal: BitStream_writeNormalVector: x and y as signed units, then the sign of z.
-    internal static void WriteNormal(BitStream bs, ReadOnlySpan<float> n, uint bits)
+    internal static void WriteNormal(BitBuffer bs, ReadOnlySpan<float> n, uint bits)
     {
         WriteSignedUnit(bs, n[0], bits);
         WriteSignedUnit(bs, n[1], bits);
@@ -31,7 +31,7 @@ public static partial class PlayerGhost
 
     // src/game/player_ghost.cpp packShapeBase1: ShapeBase part 1 (0x0044cff8, 4.2): GameBase part, flash, threads, fade.
     // Same layout as the StaticBase classes in ghost_classes.cpp.
-    internal static void PackShapeBase1(GameBase gb, BitStream bs, uint mask)
+    internal static void PackShapeBase1(GameBase gb, BitBuffer bs, uint mask)
     {
         if (bs.WriteFlag((mask & 0x04) != 0))
         {
@@ -81,7 +81,7 @@ public static partial class PlayerGhost
     }
 
     // src/game/player_ghost.cpp packPlayer.
-    private static uint PackPlayer(SimObject obj, GhostContext ctx, BitStream bs, uint mask)
+    private static uint PackPlayer(SimObject obj, GhostContext ctx, BitBuffer bs, uint mask)
     {
         using var chop = X87.Chop();
         var p = (Player)obj;

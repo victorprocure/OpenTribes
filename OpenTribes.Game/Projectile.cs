@@ -182,14 +182,14 @@ public static class Pj
     /// <summary>Writes a vector as three raw floats.</summary>
     /// <param name="bs">The stream.</param>
     /// <param name="v">The vector.</param>
-    public static void WriteVec(BitStream bs, ReadOnlySpan<float> v) => bs.WriteF32s(v[..3]);
+    public static void WriteVec(BitBuffer bs, ReadOnlySpan<float> v) => bs.WriteF32s(v[..3]);
 
     /// <summary>Writes a unit float in a number of bits.</summary>
     /// <param name="bs">The stream.</param>
     /// <param name="v">The value.</param>
     /// <param name="bits">The number of bits.</param>
     /// <remarks>Follows BitStream::writeFloat (0x00582fb0).</remarks>
-    public static void WriteUnit(BitStream bs, float v, uint bits) =>
+    public static void WriteUnit(BitBuffer bs, float v, uint bits) =>
         bs.WriteInt(FtolBits(Mul((int)((1u << (int)bits) - 1), v), bits), bits);
 
     /// <summary>Writes a unit normal: x and y as signed floats, then the sign of z.</summary>
@@ -197,7 +197,7 @@ public static class Pj
     /// <param name="n">The normal.</param>
     /// <param name="bits">The number of bits of x and y.</param>
     /// <remarks>Follows writeSignedFloat (0x00583018).</remarks>
-    public static void WriteNormal(BitStream bs, ReadOnlySpan<float> n, uint bits)
+    public static void WriteNormal(BitBuffer bs, ReadOnlySpan<float> n, uint bits)
     {
         for (var i = 0; i < 2; ++i)
         {
@@ -212,7 +212,7 @@ public static class Pj
     /// <param name="index">The datablock index.</param>
     /// <param name="groupCount">The number of blocks in the group.</param>
     /// <remarks>Follows 0x00402b60.</remarks>
-    public static void WriteIndex(BitStream bs, int index, int groupCount)
+    public static void WriteIndex(BitBuffer bs, int index, int groupCount)
     {
         uint n = (uint)groupCount + 1, bits = 1;
         while (bits < 32 && (n >> (int)bits) != 0)
@@ -472,15 +472,15 @@ public abstract class Projectile : GameBase
     /// <summary>Writes the initial ghost data (docs/projectile-sim.md 5). Called by <see cref="ProjectileGhost"/>.</summary>
     /// <param name="bs">The stream.</param>
     /// <param name="ctx">The connection context.</param>
-    public abstract void PackInitial(BitStream bs, GhostContext ctx);
+    public abstract void PackInitial(BitBuffer bs, GhostContext ctx);
     /// <summary>Writes the explosion ghost data.</summary>
     /// <param name="bs">The stream.</param>
-    public virtual void PackExplode(BitStream bs) { }
+    public virtual void PackExplode(BitBuffer bs) { }
     /// <summary>Writes a ghost update.</summary>
     /// <param name="bs">The stream.</param>
     /// <param name="mask">The dirty mask.</param>
     /// <param name="ctx">The connection context.</param>
-    public virtual void PackUpdate(BitStream bs, uint mask, GhostContext ctx) { }
+    public virtual void PackUpdate(BitBuffer bs, uint mask, GhostContext ctx) { }
 
     /// <summary>The class hook of onAdd (vtable +0x188).</summary>
     protected virtual void ClassOnAdd() { }
@@ -1131,13 +1131,13 @@ internal sealed class RocketDumb : Projectile
         SetMaskBits(0x04);
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx)
+    public override void PackInitial(BitBuffer bs, GhostContext ctx)
     {
         Pj.WriteVec(bs, Transform.P);
         Pj.WriteVec(bs, Velocity);
     }
 
-    public override void PackExplode(BitStream bs)
+    public override void PackExplode(BitBuffer bs)
     {
         if (!bs.WriteFlag(_expired))
         {
@@ -1147,7 +1147,7 @@ internal sealed class RocketDumb : Projectile
         }
     }
 
-    public override void PackUpdate(BitStream bs, uint mask, GhostContext ctx)
+    public override void PackUpdate(BitBuffer bs, uint mask, GhostContext ctx)
     {
         if (bs.WriteFlag((mask & 0x01) != 0))
             Pj.WriteVec(bs, Transform.P);
@@ -1279,7 +1279,7 @@ internal sealed class Bullet : Projectile
         MoveTo(end);
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx)
+    public override void PackInitial(BitBuffer bs, GhostContext ctx)
     {
         Pj.WriteVec(bs, _start);
         float[] d = [X87.F32(Sub(Transform.P[0], _start[0])), X87.F32(Sub(Transform.P[1], _start[1])), X87.F32(Sub(Transform.P[2], _start[2]))];
@@ -1291,7 +1291,7 @@ internal sealed class Bullet : Projectile
         bs.WriteInt(Pj.Ftol(Mul(_speed, 16.0f)) & 0x3fff, 14);
     }
 
-    public override void PackExplode(BitStream bs)
+    public override void PackExplode(BitBuffer bs)
     {
         float[] d = [X87.F32(Sub(ExpPos[0], _start[0])), X87.F32(Sub(ExpPos[1], _start[1])), X87.F32(Sub(ExpPos[2], _start[2]))];
         bs.WriteInt(Pj.Ftol(Mul(Div(X87.F32(X87.Len(d)), _speed), 1000.0f)) & 0x7fff, 15);
@@ -1400,13 +1400,13 @@ internal sealed class Grenade : Projectile
         }
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx)
+    public override void PackInitial(BitBuffer bs, GhostContext ctx)
     {
         Pj.WriteVec(bs, Transform.P);
         Pj.WriteVec(bs, Velocity);
     }
 
-    public override void PackUpdate(BitStream bs, uint mask, GhostContext ctx)
+    public override void PackUpdate(BitBuffer bs, uint mask, GhostContext ctx)
     {
         if (bs.WriteFlag((mask & 0x01) != 0))
             Pj.WriteVec(bs, Transform.P);

@@ -120,11 +120,11 @@ public class GameStreamTests
         public enum Kind { Ordered, Unordered, Unguaranteed }
 
         private readonly byte[] _buf = new byte[1500];
-        private readonly BitStream _bs;
+        private readonly BitBuffer _bs;
 
         public ClientPacket(bool rates = false)
         {
-            _bs = new BitStream(_buf, _buf.Length);
+            _bs = new BitBuffer(_buf, _buf.Length);
             _bs.WriteFlag(rates); // rateSet: 10 + 10 bits
             if (rates)
                 _bs.WriteInt(0x12345, 20);
@@ -388,7 +388,7 @@ public class GameStreamTests
     private static byte[] RateOnly(int setInterval, int setSize, int reqInterval, int reqSize)
     {
         var buf = new byte[16];
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         w.WriteFlag(setInterval >= 0);
         if (setInterval >= 0)
         {

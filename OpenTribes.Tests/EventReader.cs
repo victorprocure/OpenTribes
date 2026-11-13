@@ -10,7 +10,7 @@ public sealed class Bits
 {
     private readonly byte[] _buf;
     private readonly uint _bits;
-    private readonly BitStream _stream;
+    private readonly BitBuffer _stream;
 
     public Bits(IReadOnlyList<byte> data, uint bits)
     {
@@ -18,7 +18,7 @@ public sealed class Bits
         for (var i = 0; i < data.Count; ++i)
             _buf[i] = data[i];
         _bits = bits;
-        _stream = new BitStream(_buf, _buf.Length);
+        _stream = new BitBuffer(_buf, _buf.Length);
     }
 
     public Bits(OutEvent e) : this(e.Body, e.BodyBits) { }
@@ -36,7 +36,7 @@ public sealed class Bits
     public static uint StrBits(string s)
     {
         var buf = new byte[1024];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteString(s);
         return bs.BitPosition();
     }

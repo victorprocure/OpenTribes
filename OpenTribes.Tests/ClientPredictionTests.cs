@@ -75,7 +75,7 @@ public class ClientPredictionTests
     private static void Correct(ClientWorld cw, GameBase obj, int lastMove)
     {
         var buf = new byte[256];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteInt(1, 3);                       // GUI mode 1
         bs.WriteFlag(false);
         bs.WriteInt(unchecked((uint)lastMove), 32);
@@ -334,9 +334,9 @@ public class ClientPredictionTests
         {
             var a = ClientPrediction.Quantize(new Move { Forward = k / 15.0f, Right = k / 15.0f });
             var buf = new byte[16];
-            var bs = new BitStream(buf, buf.Length);
+            var bs = new BitBuffer(buf, buf.Length);
             Moves.PackMove(bs, a, true, null);
-            Assert.Equal((uint)k, new BitStream(buf, buf.Length).ReadInt(4));
+            Assert.Equal((uint)k, new BitBuffer(buf, buf.Length).ReadInt(4));
             Assert.Equal(U(Fpu.F32Chop(k / 15.0)), U(ClientPrediction.ServerMove(a).Right));
         }
     }

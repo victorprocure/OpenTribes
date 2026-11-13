@@ -186,7 +186,7 @@ public sealed class ClientGameConnection
     /// <param name="argv">The command arguments.</param>
     public void PostRemoteEval(params string[] argv) => Post(GameEvents.MakeRemoteEval(argv));
 
-    private bool WriteEvents(BitStream bs, List<OutEvent> sent)
+    private bool WriteEvents(BitBuffer bs, List<OutEvent> sent)
     {
         var any = false;
         var prev = -4;
@@ -253,7 +253,7 @@ public sealed class ClientGameConnection
     public bool WritePacket(uint nowMs, Func<byte[], int, uint, bool> send)
     {
         var buf = new byte[Connection.MaxPacket - 32];
-        var bs = new BitStream(buf, buf.Length);
+        var bs = new BitBuffer(buf, buf.Length);
         bool setWas = _rateSetDirty, reqWas = _rateReqDirty;
         if (bs.WriteFlag(_rateSetDirty))
         {

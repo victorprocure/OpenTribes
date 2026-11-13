@@ -13,13 +13,13 @@ public class GhostClassesTests
     private readonly GhostManager _gm = new(2049);
 
     // Packs obj with mask and returns a reader positioned at the start.
-    private BitStream Pack(SimObject? obj, uint mask, uint tag)
+    private BitBuffer Pack(SimObject? obj, uint mask, uint tag)
     {
         Assert.NotNull(obj);
         var cls = GhostManager.GhostClassOf(obj!);
         Assert.True(cls != null && cls.Tag == tag); // 2.3 tags
         var buf = new byte[4096];
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         var ctx = new GhostContext(_gm, 2049, mask == 0xffffffffu);
         Assert.Equal(0u, cls!.Pack!(obj!, ctx, w, mask));
         Assert.False(w.Error());
@@ -27,16 +27,16 @@ public class GhostClassesTests
         var isNew = mask == 0xffffffffu;
         _clients.TryGetValue(obj!, out var prev);
         _client = _clients[obj!] = ClientRoundTrip.Unpack(tag, buf, w.BitPosition(), isNew, ClientRoundTrip.WorldFor(tag, obj), isNew ? null : prev);
-        return new BitStream(buf, (int)((w.BitPosition() + 7) / 8));
+        return new BitBuffer(buf, (int)((w.BitPosition() + 7) / 8));
     }
 
     private readonly Dictionary<SimObject, ClientGhost> _clients = new(ReferenceEqualityComparer.Instance);
     private ClientGhost? _client;
 
-    private static uint U32(BitStream r) => r.ReadInt(32);
-    private static float F32(BitStream r) => r.ReadF32();
+    private static uint U32(BitBuffer r) => r.ReadInt(32);
+    private static float F32(BitBuffer r) => r.ReadF32();
 
-    private static void Vec(BitStream r, float x, float y, float z)
+    private static void Vec(BitBuffer r, float x, float y, float z)
     {
         float a = r.ReadF32(), b = r.ReadF32(), c = r.ReadF32();
         Assert.True(a == x && b == y && c == z);
