@@ -89,7 +89,9 @@ public sealed class InputDispatcher
             return false;
         if (b.Action == 3 && ev.Action != 3)
             return false;
-        return ModifiersMatch(b.Modifiers, ev.Modifiers);
+        // 00508854 compares the modifier groups (00508a78) only when the binding's device is the keyboard (type 3). Mouse
+        // axis and button events match whatever modifiers are held, so look keeps working while Shift is down.
+        return b.DeviceType != 3 || ModifiersMatch(b.Modifiers, ev.Modifiers);
     }
 
     // ---- 3.7 value shaping ----
