@@ -2,14 +2,21 @@ using OpenTribes.Platform.Gfx;
 
 namespace OpenTribes.Client.World;
 
-// world-render.md 2.2: the mission fields as the renderer uses them.
-// ScreenError is $screenError (1.11 registers it as a console variable bound to the T2 renderer, default 9).
+/// <summary>The mission fields as the renderer uses them (world-render.md 2.2).</summary>
+/// <param name="Visible">The visible distance.</param>
+/// <param name="HazeStart">The distance where the haze starts.</param>
+/// <param name="ScreenSize">The screen size.</param>
+/// <param name="ScreenError">The pixel error of the detail choice, <c>$screenError</c>, default 9 (1.11 registers it as a console variable bound to the T2 renderer).</param>
 public readonly record struct TerrainParams(double Visible, double HazeStart, double ScreenSize, double ScreenError = 9.0)
 {
-    public const double PrefVisibleDistance = 10000; // $pref::TerrainVisibleDistance default (2.2)
+    /// <summary>The default of <c>$pref::TerrainVisibleDistance</c> (2.2).</summary>
+    public const double PrefVisibleDistance = 10000;
 
-    // 2.2: visible = min(visibleDistance, pref); hazeStart = hazeDistance * (hazeDistance / visibleDistance), at most
-    // 0.75 * visible. Broadside (600, 400) gives 266.7.
+    /// <summary>Builds the parameters from the mission fields (2.2): visible = min(visibleDistance, pref), hazeStart = hazeDistance * (hazeDistance / visibleDistance), at most 0.75 * visible.</summary>
+    /// <param name="visibleDistance">The mission visible distance.</param>
+    /// <param name="hazeDistance">The mission haze distance.</param>
+    /// <param name="screenSize">The screen size.</param>
+    /// <returns>The parameters.</returns>
     public static TerrainParams FromMission(double visibleDistance, double hazeDistance, double screenSize)
     {
         double visible = Math.Min(visibleDistance, PrefVisibleDistance);
@@ -19,17 +26,24 @@ public readonly record struct TerrainParams(double Visible, double HazeStart, do
     }
 }
 
-// One selected square of the render domain: level k has side 2^k cells; (X, Y) is its corner cell.
-// D is the distance to its box, the stock mip rank of the sort needs it.
+/// <summary>One selected square of the render domain: level k has side 2^k cells.</summary>
+/// <param name="Level">The level.</param>
+/// <param name="X">The x of the corner cell.</param>
+/// <param name="Y">The y of the corner cell.</param>
+/// <param name="D">The distance to the box of the square. The stock mip rank of the sort needs it.</param>
 public readonly record struct TerrainSquare(int Level, int X, int Y, double D = 0);
 
-// world-render.md 2.4 to 2.7: the T2 square selection, the vertex morph and the two haze curves.
+/// <summary>The T2 square selection, the vertex morph and the two haze curves (world-render.md 2.4 to 2.7).</summary>
 public static class TerrainLod
 {
-    public const int MaxSquares = 16384; // 2.5: further squares are dropped
+    /// <summary>The most squares of a frame (2.5): further squares are dropped.</summary>
+    public const int MaxSquares = 16384;
 
-    // 2.6 vertex haze of the T2 terrain: 0 below hazeStart, else 1 - ((dist - hazeStart) * scale - 1)^2 with
-    // scale = 1 / (visible - hazeStart). No floor, no 1.02 factor.
+    /// <summary>Computes the vertex haze of the T2 terrain (2.6): 0 below hazeStart, else 1 - ((dist - hazeStart) * scale - 1)^2 with scale = 1 / (visible - hazeStart). There is no floor and no 1.02 factor.</summary>
+    /// <param name="dist">The distance.</param>
+    /// <param name="hazeStart">The distance where the haze starts.</param>
+    /// <param name="visible">The visible distance.</param>
+    /// <returns>The haze amount.</returns>
     public static double TerrainHaze(double dist, double hazeStart, double visible)
     {
         if (dist < hazeStart || visible <= hazeStart || dist >= visible)
@@ -39,8 +53,11 @@ public static class TerrainLod
         return Math.Clamp(1 - t * t, 0, 1);
     }
 
-    // 2.7 haze of interiors, shapes and effects (the software curve): 0.01 below hazeStart, else
-    // 1 - ((dist - hazeStart) * scale - 1)^2 with scale = 1 / (1.02 * (visible - hazeStart)), dist clamped to visible.
+    /// <summary>Computes the haze of interiors, shapes and effects, the software curve (2.7): 0.01 below hazeStart, else 1 - ((dist - hazeStart) * scale - 1)^2 with scale = 1 / (1.02 * (visible - hazeStart)), dist clamped to visible.</summary>
+    /// <param name="dist">The distance.</param>
+    /// <param name="hazeStart">The distance where the haze starts.</param>
+    /// <param name="visible">The visible distance.</param>
+    /// <returns>The haze amount.</returns>
     public static double ObjectHaze(double dist, double hazeStart, double visible)
     {
         dist = Math.Min(dist, visible);
@@ -51,15 +68,21 @@ public static class TerrainLod
         return Math.Clamp(1 - t * t, 0, 1);
     }
 
-    // 2.5: detailDistance = distanceScale * size - size, size = 8 * 2^level, distanceScale = projectionDistance(
-    // screenSize / pixelScale, 1). pixelScale is 1 (Q1: the camera slots are not transcribed).
+    /// <summary>Computes the detail distance of a level (2.5): detailDistance = distanceScale * size - size, with size = 8 * 2^level and distanceScale = projectionDistance(screenSize / pixelScale, 1). pixelScale is 1 (Q1: the camera slots are not transcribed).</summary>
+    /// <param name="cam">The camera.</param>
+    /// <param name="screenSize">The screen size.</param>
+    /// <param name="level">The level.</param>
+    /// <returns>The distance.</returns>
     public static double DetailDistance(in Camera3D cam, double screenSize, int level)
     {
         double size = TerrainData.CellSize * (1 << level);
         return cam.ProjectionDistance(screenSize, 1) * size - size;
     }
 
-    // 2.5 grow factor: 0 below 0.75 * detailDistance, 1 at the detail distance.
+    /// <summary>Computes the grow factor (2.5): 0 below 0.75 * detailDistance, 1 at the detail distance.</summary>
+    /// <param name="dist">The distance.</param>
+    /// <param name="detailDistance">The detail distance.</param>
+    /// <returns>The factor, 0 to 1.</returns>
     public static double Grow(double dist, double detailDistance)
     {
         if (detailDistance <= 0)
@@ -94,9 +117,16 @@ public static class TerrainLod
         };
     }
 
-    // 2.5: the squares to draw for this camera. `origin` is the terrain position (terrain space = world - origin).
-    // Squares at distance >= visible or empty are dropped; a square outside the view is dropped; a square subdivides
-    // when d < 1 or d < detailDistance. The traversal order is level 8 blocks (i, j), children in raster order.
+    /// <summary>Selects the squares to draw for a camera (2.5).</summary>
+    /// <param name="t">The terrain.</param>
+    /// <param name="cam">The camera.</param>
+    /// <param name="ox">The x of the terrain position. Terrain space is world minus origin.</param>
+    /// <param name="oy">The y of the terrain position.</param>
+    /// <param name="oz">The z of the terrain position.</param>
+    /// <param name="p">The parameters.</param>
+    /// <param name="growOut">Receives the grow factor of each selected corner, or null.</param>
+    /// <returns>The squares.</returns>
+    /// <remarks>Squares at distance >= visible or empty are dropped. A square outside the view is dropped. A square subdivides when d &lt; 1 or d &lt; detailDistance. The traversal order is level 8 blocks (i, j), children in raster order.</remarks>
     public static List<TerrainSquare> Select(TerrainData t, in Camera3D cam, double ox, double oy, double oz, TerrainParams p,
                                              Dictionary<long, float>? growOut = null)
     {
@@ -169,6 +199,10 @@ public static class TerrainLod
         return result;
     }
 
+    /// <summary>Packs a corner into the key of the grow map.</summary>
+    /// <param name="x">The corner x.</param>
+    /// <param name="y">The corner y.</param>
+    /// <returns>The key.</returns>
     public static long GrowKey(int x, int y) => ((long)x << 20) | (uint)y;
 
     private static int CreationLevel(int gx, int gy)
@@ -177,13 +211,25 @@ public static class TerrainLod
         return v == 0 ? 99 : System.Numerics.BitOperations.TrailingZeroCount(v);
     }
 
-    // True when the cell (x, y) at `level` splits along the diagonal from its (0,0) to (1,1) corner. Level 0 follows
-    // the checkerboard ((x ^ y) & 1) == 0 of the server's height query (terrain.md 4.2); higher levels use the same
-    // pattern on the square grid of that level (the deviation rule of 2.3 is not transcribed, Q4 of this stage).
+    /// <summary>Tells whether the cell splits along the diagonal from its (0,0) to its (1,1) corner.</summary>
+    /// <param name="level">The level.</param>
+    /// <param name="x">The cell x.</param>
+    /// <param name="y">The cell y.</param>
+    /// <returns>True for a split along that diagonal.</returns>
+    /// <remarks>Level 0 follows the checkerboard ((x ^ y) &amp; 1) == 0 of the height query of the server (terrain.md 4.2). Higher levels use the same pattern on the square grid of that level. The deviation rule of 2.3 is not transcribed here, see <see cref="TerrainData.SplitMain"/>.</remarks>
     public static bool SplitMainDiagonal(int level, int x, int y) => (((x >> level) ^ (y >> level)) & 1) == 0;
 
-    // 2.5 vertex morph: the drawn height is h + grow * (average - h), average = mean of the two parent points. Returns the
-    // unmorphed and morphed heights of a corner of the render domain for this camera.
+    /// <summary>Computes the heights of a corner of the render domain for a camera (2.5 vertex morph): the drawn height is h + grow * (average - h), with average the mean of the two parent points.</summary>
+    /// <param name="t">The terrain.</param>
+    /// <param name="gx">The corner x.</param>
+    /// <param name="gy">The corner y.</param>
+    /// <param name="cam">The camera.</param>
+    /// <param name="ox">The x of the terrain position.</param>
+    /// <param name="oy">The y of the terrain position.</param>
+    /// <param name="oz">The z of the terrain position.</param>
+    /// <param name="p">The parameters.</param>
+    /// <param name="growMap">The grow factors of the selection, or null to compute them.</param>
+    /// <returns>The unmorphed and the morphed height.</returns>
     public static float MorphedHeight(TerrainData t, int gx, int gy, in Camera3D cam, double ox, double oy, double oz, TerrainParams p,
                                            Dictionary<long, float>? growMap = null)
     {
@@ -218,18 +264,26 @@ public static class TerrainLod
     }
 }
 
-// The vertices of one frame, grouped by texture: level 0 squares by material (the material's own bitmap) and the
-// larger squares sharing the atlas of per-cell colours (2.8 "cover" and "composite", merged into one texture).
+/// <summary>The vertices of one frame, grouped by texture: level 0 squares by material (the own bitmap of the material) and the larger squares sharing the atlas of per cell colours (2.8 "cover" and "composite", merged into one texture).</summary>
 public sealed class TerrainMesh
 {
+    /// <summary>The vertices of the squares that use the atlas.</summary>
     public readonly List<Vertex3D> Atlas = new();
+    /// <summary>The vertices of the level 0 squares by material index.</summary>
     public readonly Dictionary<int, List<Vertex3D>> ByMaterial = new();
-    // The squares a dynamic light touches (TerrainLightSet): their own light map, one 9 x 9 tile of nibbles each in `Tiles`;
-    // the vertices carry the light coordinate in texels of the tile atlas (TileAtlasWidth wide) until the renderer normalises it.
+    /// <summary>The atlas vertices of the squares a dynamic light touches (<see cref="TerrainLightSet"/>). Their own light map is one 9 x 9 tile of nibbles each in <see cref="Tiles"/>. The vertices carry the light coordinate in texels of the tile atlas (<see cref="TileAtlasWidth"/> wide) until the renderer normalises it.</summary>
     public readonly List<Vertex3D> DynAtlas = new();
+    /// <summary>The level 0 vertices of the lit squares by material index.</summary>
     public readonly Dictionary<int, List<Vertex3D>> DynByMaterial = new();
+    /// <summary>The light map tiles of the lit squares.</summary>
     public readonly List<byte[]> Tiles = new();
-    public const int TileSize = 9, TilesPerRow = 112, TileAtlasWidth = TileSize * TilesPerRow;
+    /// <summary>The side of one light tile in nibbles.</summary>
+    public const int TileSize = 9;
+    /// <summary>The number of tiles per row of the tile atlas.</summary>
+    public const int TilesPerRow = 112;
+    /// <summary>The width of the tile atlas in texels.</summary>
+    public const int TileAtlasWidth = TileSize * TilesPerRow;
+    /// <summary>The number of triangles in the mesh.</summary>
     public int TriangleCount => Atlas.Count / 3 + ByMaterial.Values.Sum(v => v.Count / 3) + DynAtlas.Count / 3 + DynByMaterial.Values.Sum(v => v.Count / 3);
 
     // Scratch the mesher refills every frame when the same mesh object is passed back in.
@@ -237,6 +291,7 @@ public sealed class TerrainMesh
     internal readonly Dictionary<long, float> Heights = new();
     internal readonly List<(int, int)> Ring = new();
 
+    /// <summary>Empties the mesh and its scratch.</summary>
     public void Reset()
     {
         Atlas.Clear();
@@ -252,18 +307,18 @@ public sealed class TerrainMesh
     }
 }
 
+/// <summary>Builds the vertices of the selected squares.</summary>
 public static class TerrainMesher
 {
-    // 2.8: the corner coordinates rotated or flipped by the low three bits of the flags byte. The exe builds one table of four
-    // (u, v) pairs per flag value when the terrain renderer is created [code 00576784 to 005768d2]: flag 0 is (0,0) (1,0) (1,1)
-    // (0,1) for the corners at (0,1) (1,1) (1,0) (0,0); the table of flag f is that one with, in this order, bit 2 swapping
-    // entries 0 and 1 and entries 2 and 3, bit 4 swapping entries 0 and 3 and entries 1 and 2, and bit 1 rotating the
-    // entries (entry 0 becomes the old entry 3, entry 1 the old 0, entry 2 the old 1, entry 3 the old 2). The draw picks the
-    // table by `flags & 7` [code 0057a79c, 0057afc8]. The values below are the same tables in the form of the element bits
-    // (4 swap u and v first, then 1 mirrors u, 2 mirrors v). The C4 seam cost search found the same table; the exe
-    // construction is checked in WorldRenderTests.FlagOrientationIsTheExeUvTableConstruction.
+    /// <summary>Maps the low three bits of the flags byte to a corner orientation: bit 4 swaps u and v first, then bit 1 mirrors u and bit 2 mirrors v.</summary>
+    /// <remarks>2.8. The exe builds one table of four (u, v) pairs per flag value when the terrain renderer is created (00576784 to 005768d2): flag 0 is (0,0) (1,0) (1,1) (0,1) for the corners at (0,1) (1,1) (1,0) (0,0). The table of flag f is that one with, in this order, bit 2 swapping entries 0 and 1 and entries 2 and 3, bit 4 swapping entries 0 and 3 and entries 1 and 2, and bit 1 rotating the entries (entry 0 becomes the old entry 3, entry 1 the old 0, entry 2 the old 1, entry 3 the old 2). The draw picks the table by <c>flags &amp; 7</c> (0057a79c, 0057afc8). The values here are the same tables in the form of the element bits. WorldRenderTests.FlagOrientationIsTheExeUvTableConstruction checks the exe construction.</remarks>
     public static readonly int[] FlagOrientation = { 2, 7, 3, 6, 0, 5, 1, 4 };
 
+    /// <summary>Computes the texture coordinate of a corner of a cell.</summary>
+    /// <param name="cornerX">The corner x, 0 or 1.</param>
+    /// <param name="cornerY">The corner y, 0 or 1.</param>
+    /// <param name="flags">The flags byte of the cell.</param>
+    /// <returns>The u and v of the corner.</returns>
     public static (float u, float v) CornerUv(int cornerX, int cornerY, int flags)
     {
         int e = FlagOrientation[flags & 7];
@@ -370,6 +425,18 @@ public static class TerrainMesher
         return result;
     }
 
+    /// <summary>Builds the mesh of the selected squares.</summary>
+    /// <param name="t">The terrain.</param>
+    /// <param name="squares">The selected squares.</param>
+    /// <param name="cam">The camera.</param>
+    /// <param name="ox">The x of the terrain position.</param>
+    /// <param name="oy">The y of the terrain position.</param>
+    /// <param name="oz">The z of the terrain position.</param>
+    /// <param name="p">The parameters.</param>
+    /// <param name="reuse">A mesh to refill instead of a new one, or null.</param>
+    /// <param name="growMap">The grow factors of the selection, or null to compute them.</param>
+    /// <param name="lights">The dynamic lights of the frame, or null.</param>
+    /// <returns>The mesh.</returns>
     public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null,
                                    Dictionary<long, float>? growMap = null, TerrainLightSet? lights = null)
     {

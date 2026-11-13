@@ -1,8 +1,3 @@
-// The Join Server screen's query (docs/gui.md 3.3 server browser, client-net.md 1.7, net-protocol.md 6.2): what the stock exe does when the
-// screen opens and when REFRESH ALL, REFRESH VIS or CANCEL is pressed. Code: the delegate's message handler 004d7bb4, its screen
-// updates 004d793c (progress), 004d7ac4 (search ended), 004d7648 (JOIN and INFO), TribesNet_queryServers 0042bb50 and the reply handlers
-// 0042caf0 (ping), 0042c4cc (info), 0042cb88 (failure). R6: only 127.0.0.0/8 is contacted unless --allow-remote is given; the
-// broadcast then is the loopback broadcast (127.255.255.255), never the LAN's.
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Gui;
@@ -11,15 +6,62 @@ using OpenTribes.Script;
 
 namespace OpenTribes.Client.App;
 
+/// <summary>The query of the Join Server screen: what the stock exe does when the screen opens and when REFRESH ALL, REFRESH VIS or CANCEL is pressed.</summary>
+/// <remarks>docs/gui.md 3.3 (server browser), client-net.md 1.7 and net-protocol.md 6.2. Follows the message handler of the delegate (004d7bb4), its screen updates 004d793c (progress), 004d7ac4 (search ended), 004d7648 (JOIN and INFO), TribesNet_queryServers (0042bb50) and the reply handlers 0042caf0 (ping), 0042c4cc (info) and 0042cb88 (failure). R6: only 127.0.0.0/8 is contacted unless <c>--allow-remote</c> is given. The broadcast then is the loopback broadcast (127.255.255.255), never the one of the LAN.</remarks>
 public sealed class ServerBrowser : IDisposable
 {
-    // IDDLG_SERVER_INFO (the INFO button's message) and the controls of ServerInfo.gui.
-    public const int MotdDialogTag = 110015, InfoDialogTag = 110014, InfoNameId = 140500, InfoAddressId = 140501, InfoPingId = 140502, InfoVersionId = 140503,
-        InfoModId = 140504, InfoMissionId = 140505, InfoPasswordId = 140506, InfoDedicatedId = 140509, InfoTableId = 140510;
-    // The info dialog's REFRESH, Favorite and Never Ping buttons (004d8754, 004d862c, 004d86bf).
-    public const int InfoRefreshId = 0x2230b, InfoFavoriteId = 0x2230c, InfoNeverPingId = 0x2230d, InfoFavoriteBoxId = 0x2230c, InfoNeverPingBoxId = 0x2230d;
-    public const int ListId = 140016, JoinId = 140006, InfoId = 140018, RefreshAllId = 140017, RefreshVisId = 140042, CancelId = 140026,
-        BoxId = 140027, ProgressId = 140024, TextId = 140025, MotdId = 140900;
+    /// <summary>The message tag of the M.O.T.D. button (IDDLG_MASTER_MOTD).</summary>
+    /// <summary>The message tag of the INFO button (IDDLG_SERVER_INFO).</summary>
+    /// <summary>The control id of the server name in ServerInfo.gui.</summary>
+    /// <summary>The control id of the address.</summary>
+    /// <summary>The control id of the ping.</summary>
+    /// <summary>The control id of the version.</summary>
+    /// <summary>The control id of the mod.</summary>
+    /// <summary>The control id of the mission.</summary>
+    /// <summary>The control id of the password flag.</summary>
+    /// <summary>The control id of the dedicated flag.</summary>
+    /// <summary>The control id of the player table.</summary>
+    public const int MotdDialogTag = 110015;
+    public const int InfoDialogTag = 110014;
+    public const int InfoNameId = 140500;
+    public const int InfoAddressId = 140501;
+    public const int InfoPingId = 140502;
+    public const int InfoVersionId = 140503;
+    public const int InfoModId = 140504;
+    public const int InfoMissionId = 140505;
+    public const int InfoPasswordId = 140506;
+    public const int InfoDedicatedId = 140509;
+    public const int InfoTableId = 140510;
+    /// <summary>The control id of the REFRESH button of the info dialog (004d8754).</summary>
+    /// <summary>The message tag of the Favorite check box of the info dialog (004d862c).</summary>
+    /// <summary>The message tag of the Never Ping check box of the info dialog (004d86bf).</summary>
+    /// <summary>The control id of the Favorite check box.</summary>
+    /// <summary>The control id of the Never Ping check box.</summary>
+    public const int InfoRefreshId = 0x2230b;
+    public const int InfoFavoriteId = 0x2230c;
+    public const int InfoNeverPingId = 0x2230d;
+    public const int InfoFavoriteBoxId = 0x2230c;
+    public const int InfoNeverPingBoxId = 0x2230d;
+    /// <summary>The control id of the server list.</summary>
+    /// <summary>The control id of the JOIN button.</summary>
+    /// <summary>The control id of the INFO button.</summary>
+    /// <summary>The control id of the REFRESH ALL button.</summary>
+    /// <summary>The control id of the REFRESH VIS button.</summary>
+    /// <summary>The control id of the CANCEL button.</summary>
+    /// <summary>The control id of the progress box.</summary>
+    /// <summary>The control id of the progress bar.</summary>
+    /// <summary>The control id of the progress text.</summary>
+    /// <summary>The control id of the text of the M.O.T.D. dialog.</summary>
+    public const int ListId = 140016;
+    public const int JoinId = 140006;
+    public const int InfoId = 140018;
+    public const int RefreshAllId = 140017;
+    public const int RefreshVisId = 140042;
+    public const int CancelId = 140026;
+    public const int BoxId = 140027;
+    public const int ProgressId = 140024;
+    public const int TextId = 140025;
+    public const int MotdId = 140900;
 
     private readonly ClientApp mApp;
     private readonly ClientDelegates mOwner;
@@ -34,12 +76,16 @@ public sealed class ServerBrowser : IDisposable
     // Delegate +0x60: no master answered (004d7864); REFRESH ALL clears it (004d7c1e).
     private bool mMasterError;
 
+    /// <summary>Creates the browser.</summary>
+    /// <param name="app">The client.</param>
+    /// <param name="owner">The delegates that own the server list.</param>
     public ServerBrowser(ClientApp app, ClientDelegates owner)
     {
         mApp = app;
         mOwner = owner;
     }
 
+    /// <inheritdoc/>
     public void Dispose() => mNet?.Dispose();
 
     private GuiServerList? List => mApp.GuiRt.FindControl(ListId.ToString(CultureInfo.InvariantCulture)) as GuiServerList;
@@ -77,10 +123,10 @@ public sealed class ServerBrowser : IDisposable
         return mQuery;
     }
 
-    // Once per frame: the replies and the timers.
+    /// <summary>Handles the replies and the timers. Runs once per frame.</summary>
     public void Tick() => mQuery?.Tick();
 
-    // The screen has just opened (004d749c after the list's own open ran config\GameServerList.cs).
+    /// <summary>Starts the screen state after the screen opened (004d749c, after the list ran <c>config\GameServerList.cs</c>).</summary>
     public void OnOpen()
     {
         // 004c702e (the list's wake): failures stay, nothing is re-asked, no REFRESH ALL has run.
@@ -98,7 +144,9 @@ public sealed class ServerBrowser : IDisposable
         }
     }
 
-    // The messages of the three buttons (004d7bb4). True when handled.
+    /// <summary>Handles the messages of the three buttons (004d7bb4).</summary>
+    /// <param name="tag">The message tag.</param>
+    /// <returns>True when the message was handled.</returns>
     public bool Message(int tag)
     {
         switch (tag)
@@ -129,7 +177,7 @@ public sealed class ServerBrowser : IDisposable
         return false;
     }
 
-    // 0x222f1: the console function rebuildServerList() (queryServers), every row marked unknown, the buttons off, the box on.
+    /// <summary>Runs REFRESH ALL (0x222f1): the console function <c>rebuildServerList()</c> (queryServers), every row marked unknown, the buttons off, the box on.</summary>
     public void RefreshAll()
     {
         mMasterError = false;
@@ -155,9 +203,11 @@ public sealed class ServerBrowser : IDisposable
         StartUi("Pinging visible servers");
     }
 
-    // 004d7fbf (the M.O.T.D. button, IDDLG_MASTER_MOTD): the dialog gui\\MasterMOTD.gui opens and its text control (140900) takes
-    // "<f1>Message of the day from: <$pref::MSName><f0>" and two line feeds, then $pref::MSMOTD, the whole text cut to 1023 characters.
-    // $pref::MSprevMOTD becomes the message that was shown and the button state is worked out again (004d7770).
+    /// <summary>Builds the text of the M.O.T.D. dialog (004d7fbf, IDDLG_MASTER_MOTD).</summary>
+    /// <param name="name">The name of the master, <c>$pref::MSName</c>.</param>
+    /// <param name="motd">The message, <c>$pref::MSMOTD</c>.</param>
+    /// <returns>The text of the dialog <c>gui\\MasterMOTD.gui</c> control 140900: <c>&lt;f1&gt;Message of the day from: name&lt;f0&gt;</c> and two line feeds, then the message, the whole text cut to 1023 characters.</returns>
+    /// <remarks>$pref::MSprevMOTD becomes the message that was shown and the button state is worked out again (004d7770).</remarks>
     public static string MotdText(string name, string motd)
     {
         string text = "<f1>Message of the day from: " + name + "<f0>\n\n";
@@ -188,7 +238,8 @@ public sealed class ServerBrowser : IDisposable
         return true;
     }
 
-    // 004d8532 and 004d856f: the two check boxes show the row's flags (only when the dialog opens, an info reply does not touch them).
+    /// <summary>Shows the flags of a row in the two check boxes (004d8532 and 004d856f). Only when the dialog opens: an info reply does not touch them.</summary>
+    /// <param name="row">The server row.</param>
     public void ShowFlags(GuiServerList.Server row)
     {
         if (mApp.GuiRt.FindControl(InfoFavoriteBoxId.ToString(CultureInfo.InvariantCulture)) is GuiUniversalButton fav)
@@ -197,7 +248,9 @@ public sealed class ServerBrowser : IDisposable
             never.On = row.NeverPing;
     }
 
+    /// <summary>The number of pings not answered yet.</summary>
     public int PendingPings => mQuery?.PendingPings ?? 0;
+    /// <summary>The addresses seen by the query.</summary>
     public IReadOnlyList<string> SeenAddresses => mQuery?.Seen ?? Array.Empty<string>();
 
     // 004d8754: the dialog's REFRESH asks the selected server again (SimNet_queueServerQuery 0054fff0); it needs a selected row that has its
@@ -226,7 +279,8 @@ public sealed class ServerBrowser : IDisposable
             list.SetNeverPing(address, box.On);
     }
 
-    // 004c4e2c, called from 004d7630 (the screen closes) and 004c7820 (a search ends): config\GameServerList.cs from the rows.
+    /// <summary>Saves <c>config\GameServerList.cs</c> from the rows (004c4e2c). Called when the screen closes (004d7630) and when a search ends (004c7820).</summary>
+    /// <param name="content">The control that holds the list, or null for the current content.</param>
     public void SaveList(GuiControl? content = null)
     {
         GuiServerList? list = content?.FindById(ListId) as GuiServerList ?? List;
@@ -288,7 +342,7 @@ public sealed class ServerBrowser : IDisposable
         Find(TextId)?.SetText(text);
     }
 
-    // 0042bb50 (TribesNet_queryServers): the LAN broadcast on the game port, then the first master unless lanOnly is set.
+    /// <summary>Runs queryServers (0042bb50, TribesNet_queryServers): the LAN broadcast on the game port, then the first master unless lanOnly is set.</summary>
     public void QueryServers()
     {
         ServerQuery q = Query();
@@ -481,7 +535,7 @@ public sealed class ServerBrowser : IDisposable
         UpdateButtons();
     }
 
-    // 004d7648: JOIN needs a selected row, INFO one that has its info.
+    /// <summary>Sets the buttons of the screen (004d7648): JOIN needs a selected row, INFO one that has its info.</summary>
     public void UpdateButtons()
     {
         GuiServerList? list = List;
