@@ -2,29 +2,42 @@
 // layouts are the pack order of each group's class (vtable slot 0), the same tables tools/stream_decode.py reads.
 namespace OpenTribes.Game;
 
+/// <summary>A datablock received by the client.</summary>
 public sealed class ClientDataBlock
 {
+    /// <summary>The datablock group.</summary>
     public int Group;
+    /// <summary>The index in the group.</summary>
     public int Index;
+    /// <summary>The class name.</summary>
     public string Class = "";
+    /// <summary>The decoded fields.</summary>
     public List<DecodedField> Fields = new();
 }
 
-// 00402b74 DataBlockManager: block counts and the blocks received, per group.
+/// <summary>The client DataBlockManager (00402b74): the block counts and the blocks received, per group.</summary>
+/// <remarks>Unpacks the DataBlockEvent (docs/client-net.md 2.6, docs/game-stream.md 4.2). The layouts are the pack order of each group's class (vtable slot 0), the same tables tools/stream_decode.py reads.</remarks>
 public sealed class ClientDataBlocks
 {
+    /// <summary>The number of blocks of each group.</summary>
     public readonly Dictionary<int, int> Counts = new();
+    /// <summary>The blocks received, by group and index.</summary>
     public readonly Dictionary<(int Group, int Index), ClientDataBlock> Blocks = new();
-    public bool Finished;                          // dataFinished() was evaluated (2.6 step 3)
+    /// <summary>True once dataFinished() was evaluated (docs/client-net.md 2.6 step 3).</summary>
+    public bool Finished;
+    /// <summary>The number of blocks received.</summary>
     public int Received;
-    public Action<string, double>? OnProgress;     // dataGotBlock(label, progress)
+    /// <summary>Called as dataGotBlock(label, progress).</summary>
+    public Action<string, double>? OnProgress;
 
-    // The local models of the model check (7.1). Null: no check (a headless session without game files).
+    /// <summary>The local models of the model check (docs/client-net.md 7.1). Null disables the check, as in a headless session without game files.</summary>
     public ResourceManager? Resources;
-    // Set by the check that failed: the text of the "Invalid packet" error (client-net.md 1.4); the session leaves the server.
+    /// <summary>The text of the "Invalid packet" error set by the check that failed (docs/client-net.md 1.4). The session leaves the server.</summary>
     public string? PreloadError;
+    /// <summary>Prints a console line "Validated file: &lt;name&gt;" for a passed check.</summary>
     public Action<string>? Print;                  // console line "Validated file: <name>" of a passed check
 
+    /// <summary>Clears the counts and the received blocks.</summary>
     public void Clear()
     {
         Counts.Clear();
@@ -252,7 +265,10 @@ public sealed class ClientDataBlocks
         r.AddFlag("shiftPosition");
     }
 
-    // Reads the block body of `group` into r.Out; returns the class name.
+    /// <summary>Reads the body of a block into the reader output.</summary>
+    /// <param name="r">The reader.</param>
+    /// <param name="group">The datablock group.</param>
+    /// <returns>The class name.</returns>
     public static string ReadBlock(ClientReader r, int group)
     {
         if (!Groups.TryGetValue(group, out var g))
@@ -267,7 +283,10 @@ public sealed class ClientDataBlocks
         return g.Class;
     }
 
-    // DataBlockEvent unpack (004029f0) and process (004031ac). Returns the text summary of the event line.
+    /// <summary>Reads a DataBlockEvent.</summary>
+    /// <param name="r">The reader.</param>
+    /// <param name="summary">Receives the text summary of the event line.</param>
+    /// <remarks>Follows DataBlockEvent unpack (004029f0) and process (004031ac).</remarks>
     public void ReadEvent(ClientReader r, out string summary)
     {
         int group = (int)r.Int(6);
@@ -299,12 +318,13 @@ public sealed class ClientDataBlocks
         AfterBlock(group, count, index);
     }
 
+    /// <summary>The format of the error text of a model that does not match the server's.</summary>
     public const string kMismatchFormat = "Client side model {0} or its textures do not match the server's and the server requires validation of this model or textures.";
 
-    // Client preload of a block whose shape name came with a CRC (validateShape): ShapeBase 0x0044a204 (shapeFile + ".dts"),
-    // Projectile 0x00459804 (bulletShapeName) and Explosion 0x0046de5c (shapeName), all through 0x0044a078. The CRC of the
-    // local model (and its textures when the name came with 0xfe) must equal the server's, else the preload fails with
-    // kMismatchFormat. The server side of the same call stores the CRC instead (DataBlockManager.Preload).
+    /// <summary>Checks the local model of a block whose shape name came with a CRC (validateShape).</summary>
+    /// <param name="b">The block.</param>
+    /// <returns>The error text, or null when the check passed.</returns>
+    /// <remarks>ShapeBase 0x0044a204 (shapeFile + ".dts"), Projectile 0x00459804 (bulletShapeName) and Explosion 0x0046de5c (shapeName) all go through 0x0044a078. The CRC of the local model (and its textures when the name came with 0xfe) must equal the server's, else the preload fails with <see cref="kMismatchFormat"/>. The server side of the same call stores the CRC instead (DataBlockManager.Preload).</remarks>
     public string? CheckModel(ClientDataBlock b)
     {
         if (Resources == null)
