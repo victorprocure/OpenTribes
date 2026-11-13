@@ -1,13 +1,42 @@
-// Row-vector affine transform of the game (docs/collision.md T1.1): p' = p * M + P, matrices row-major like TMat3.
-// Composition `a.Then(b)` applies a first and b second (TmatMul(a, b)).
 namespace OpenTribes.Client.Shapes;
 
+/// <summary>The row vector affine transform of the game: p' = p * M + P, matrices row major like TMat3.</summary>
+/// <remarks>docs/collision.md T1.1. Composition <c>a.Then(b)</c> applies a first and b second (TmatMul(a, b)).</remarks>
 public struct Xf
 {
-    public double M0, M1, M2, M3, M4, M5, M6, M7, M8, Px, Py, Pz;
+    /// <summary>Matrix element 0 (row 0, column 0).</summary>
+    public double M0;
+    /// <summary>Matrix element 1 (row 0, column 1).</summary>
+    public double M1;
+    /// <summary>Matrix element 2 (row 0, column 2).</summary>
+    public double M2;
+    /// <summary>Matrix element 3 (row 1, column 0).</summary>
+    public double M3;
+    /// <summary>Matrix element 4 (row 1, column 1).</summary>
+    public double M4;
+    /// <summary>Matrix element 5 (row 1, column 2).</summary>
+    public double M5;
+    /// <summary>Matrix element 6 (row 2, column 0).</summary>
+    public double M6;
+    /// <summary>Matrix element 7 (row 2, column 1).</summary>
+    public double M7;
+    /// <summary>Matrix element 8 (row 2, column 2).</summary>
+    public double M8;
+    /// <summary>The translation x.</summary>
+    public double Px;
+    /// <summary>The translation y.</summary>
+    public double Py;
+    /// <summary>The translation z.</summary>
+    public double Pz;
 
+    /// <summary>The transform that changes nothing.</summary>
     public static Xf Identity => new() { M0 = 1, M4 = 1, M8 = 1 };
 
+    /// <summary>Builds a translation.</summary>
+    /// <param name="x">The x offset.</param>
+    /// <param name="y">The y offset.</param>
+    /// <param name="z">The z offset.</param>
+    /// <returns>The transform.</returns>
     public static Xf Translate(double x, double y, double z)
     {
         Xf r = Identity;
@@ -15,7 +44,11 @@ public struct Xf
         return r;
     }
 
-    // The Euler matrix of the game (m_mat3_setEuler): rotation x, y, z in radians; yaw (z) turns +X toward +Y.
+    /// <summary>Builds the Euler matrix of the game (m_mat3_setEuler): rotation x, y, z in radians. Yaw (z) turns +X toward +Y.</summary>
+    /// <param name="ex">The rotation about x.</param>
+    /// <param name="ey">The rotation about y.</param>
+    /// <param name="ez">The rotation about z.</param>
+    /// <returns>The transform.</returns>
     public static Xf Euler(double ex, double ey, double ez)
     {
         double sz = Math.Sin(ez), cz = Math.Cos(ez), sy = Math.Sin(ey), cy = Math.Cos(ey), sx = Math.Sin(ex), cx = Math.Cos(ex);
@@ -27,7 +60,12 @@ public struct Xf
         };
     }
 
-    // docs/collision.md T2.5: quaternion (x, y, z, w) to the row-major matrix of QuatToMatrix.
+    /// <summary>Converts a quaternion to the row major matrix of QuatToMatrix (docs/collision.md T2.5).</summary>
+    /// <param name="x">The quaternion x.</param>
+    /// <param name="y">The quaternion y.</param>
+    /// <param name="z">The quaternion z.</param>
+    /// <param name="w">The quaternion w.</param>
+    /// <returns>The transform.</returns>
     public static Xf FromQuat(double x, double y, double z, double w)
     {
         if (x * x < 1e-12 && y * y < 1e-12 && z * z < 1e-12)
@@ -42,13 +80,25 @@ public struct Xf
         };
     }
 
+    /// <summary>Transforms a point.</summary>
+    /// <param name="x">The point x.</param>
+    /// <param name="y">The point y.</param>
+    /// <param name="z">The point z.</param>
+    /// <returns>The transformed point.</returns>
     public readonly (double x, double y, double z) Apply(double x, double y, double z) =>
         (x * M0 + y * M3 + z * M6 + Px, x * M1 + y * M4 + z * M7 + Py, x * M2 + y * M5 + z * M8 + Pz);
 
-    // Rotation only (normals).
+    /// <summary>Rotates a vector, without the translation (normals).</summary>
+    /// <param name="x">The vector x.</param>
+    /// <param name="y">The vector y.</param>
+    /// <param name="z">The vector z.</param>
+    /// <returns>The rotated vector.</returns>
     public readonly (double x, double y, double z) Rotate(double x, double y, double z) =>
         (x * M0 + y * M3 + z * M6, x * M1 + y * M4 + z * M7, x * M2 + y * M5 + z * M8);
 
+    /// <summary>Composes two transforms: this one is applied first and <paramref name="b"/> second.</summary>
+    /// <param name="b">The transform applied second.</param>
+    /// <returns>The composed transform.</returns>
     public readonly Xf Then(in Xf b)
     {
         var o = new Xf
