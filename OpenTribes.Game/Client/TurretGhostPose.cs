@@ -12,6 +12,8 @@ public sealed class TurretGhostPose
     // Thread state: position 0..1 of the current sequence, which is `fire` (priority 0) or `power` (priority -1).
     public double Position { get; private set; }
     public bool OnFire { get; private set; }
+    // Power sound the last Tick asked for (the datablock sounds at +0x13c and +0x140): 1 activation, -1 deactivation, 0 none.
+    public int PowerSound { get; private set; }
     public int Mode { get; private set; }
     // Rotation in radians (+0x8b4); the turn thread sits at Rotation / 2 pi.
     public double Rotation { get; set; }
@@ -92,6 +94,7 @@ public sealed class TurretGhostPose
     // Turret_updateAim on a ghost, one step of dt seconds.
     public void Tick(double dt)
     {
+        PowerSound = 0;
         if (HasThread && Mode == 3)
             Advance(dt);
         if (HasThread)
@@ -107,6 +110,9 @@ public sealed class TurretGhostPose
     private void Activate(double dt)
     {
         UsePower();
+        // Turret_activate 0x00455b34: the activation sound starts when the thread is still at position 0.
+        if (Position == 0.0)
+            PowerSound = 1;
         if (Position >= 0.99)
         {
             UseFire();
@@ -121,6 +127,9 @@ public sealed class TurretGhostPose
     {
         UsePower();
         Mode = 1;
+        // Turret_deactivate 0x00455cc4: with the rotation home, the deactivation sound starts while the thread is at position 1.
+        if (Rotation == 0 && Position == 1.0)
+            PowerSound = -1;
         if (Rotation != 0)
         {
             double local = Rotation;
