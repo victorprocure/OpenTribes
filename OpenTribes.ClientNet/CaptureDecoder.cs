@@ -1,26 +1,49 @@
-// Decodes a capture file in the format tools/stream_decode.py reads: JSON lines {t, dir: c2s|s2c, client, hex}. The
-// VC header is parsed, type 0 payloads are delivered once per 9 bit sequence (duplicates are reported and skipped, as
-// the VC layer does) and every payload goes through the same receive path as a live session.
 using System.Text.Json;
 using OpenTribes.Game;
 
 namespace OpenTribes.ClientNet;
 
+/// <summary>The totals of a capture decode.</summary>
 public sealed class CaptureTotals
 {
-    public long Packets, Bits, Known, Unknown, Pad, Duplicates, Overruns;
-    public readonly SortedDictionary<string, long> Events = new(), Ghosts = new();
+    /// <summary>The packets decoded.</summary>
+    public long Packets;
+    /// <summary>The payload bits seen.</summary>
+    public long Bits;
+    /// <summary>The bits the decoder understood.</summary>
+    public long Known;
+    /// <summary>The bits the decoder could not interpret.</summary>
+    public long Unknown;
+    /// <summary>The padding bits.</summary>
+    public long Pad;
+    /// <summary>The duplicate packets skipped.</summary>
+    public long Duplicates;
+    /// <summary>The packets that overran their payload.</summary>
+    public long Overruns;
+    /// <summary>The event counts by name.</summary>
+    public readonly SortedDictionary<string, long> Events = new();
+    /// <summary>The ghost update counts by class, deletes excluded.</summary>
+    public readonly SortedDictionary<string, long> Ghosts = new();
 }
 
+/// <summary>Decodes a capture file in the format <c>tools/stream_decode.py</c> reads: JSON lines <c>{t, dir: c2s|s2c, client, hex}</c>.</summary>
+/// <remarks>The VC header is parsed. Type 0 payloads are delivered once per 9 bit sequence, where duplicates are reported and skipped as the VC layer does. Every payload goes through the same receive path as a live session.</remarks>
 public static class CaptureDecoder
 {
+    /// <summary>The parsed VC header of a packet.</summary>
     public sealed class VcHeader
     {
-        public int Seq, Type;
+        /// <summary>The 9 bit sequence number.</summary>
+        public int Seq;
+        /// <summary>The packet type with its flags.</summary>
+        public int Type;
+        /// <summary>The bytes after the header.</summary>
         public byte[] Payload = Array.Empty<byte>();
     }
 
-    // Parses the VC header (net-protocol.md 3.2): the payload starts at the next byte.
+    /// <summary>Parses the VC header (net-protocol.md 3.2). The payload starts at the next byte.</summary>
+    /// <param name="data">The datagram.</param>
+    /// <returns>The header, or null when it is malformed.</returns>
     public static VcHeader? ParseVc(byte[] data)
     {
         var bs = new OpenTribes.Net.BitStream(data, data.Length);
@@ -58,6 +81,12 @@ public static class CaptureDecoder
         }
     }
 
+    /// <summary>Decodes a capture file.</summary>
+    /// <param name="path">The capture file.</param>
+    /// <param name="dump">Receives each decoded packet.</param>
+    /// <param name="onlyClient">The client to decode, or null for all.</param>
+    /// <param name="log">Receives notes about duplicates and unknown data, or null.</param>
+    /// <returns>The totals.</returns>
     public static CaptureTotals Decode(string path, PacketDump dump, string? onlyClient, TextWriter? log)
     {
         var tot = new CaptureTotals();

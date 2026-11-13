@@ -1,6 +1,3 @@
-// Headless client session (docs/client-net.md 1, 2.5, 2.7, 4.3): connect/challenge/accept as client, the game stream
-// receive path, the mission-load handshake (SetCLInfo, dataFinished, CGADone), moves at the 32 ms tick from a script,
-// disconnect. C2's client reuses this class for its network side.
 using OpenTribes.Script;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,17 +7,22 @@ using OpenTribes.Net;
 
 namespace OpenTribes.ClientNet;
 
-// One line of a move script: from `At` seconds on, the held move state changes by the given keys.
+/// <summary>One line of a move script: from <see cref="At"/> seconds on, the held move state changes by the given keys.</summary>
 public sealed class ScriptStep
 {
+    /// <summary>The time in seconds after the accept.</summary>
     public double At;
+    /// <summary>The key values that change at this step.</summary>
     public Dictionary<string, double> Keys = new();
 }
 
+/// <summary>Parser of the move script of the headless client.</summary>
 public static class MoveScript
 {
-    // Lines: `<seconds> key=value ...` with fwd back left right (0..15), jet jump crouch fire (0/1), pitch turn (radians
-    // per move), useItem (item type), spawn (1: toggle fire until the control object is a Player). `#` starts a comment.
+    /// <summary>Parses a move script. Lines are <c>&lt;seconds&gt; key=value ...</c>. The keys are fwd, back, left, right (0 to 15), jet, jump, crouch, fire (0 or 1), pitch and turn (radians per move), useItem (item type) and spawn (1 toggles fire until the control object is a Player). A <c>#</c> starts a comment.</summary>
+    /// <param name="text">The script text.</param>
+    /// <returns>The steps in time order.</returns>
+    /// <exception cref="FormatException">A word is not <c>key=value</c>.</exception>
     public static List<ScriptStep> Parse(string text)
     {
         var steps = new List<ScriptStep>();
@@ -44,19 +46,52 @@ public static class MoveScript
     }
 }
 
+/// <summary>The outcome of a headless session.</summary>
 public sealed class SessionResult
 {
-    public bool Connected, Rejected, Dropped, Disconnected;
+    /// <summary>True when the server accepted the connection.</summary>
+    public bool Connected;
+    /// <summary>True when the server rejected the connection.</summary>
+    public bool Rejected;
+    /// <summary>True when the connection closed without a reject, for example on a drop or timeout.</summary>
+    public bool Dropped;
+    /// <summary>True when the session ended with our own disconnect.</summary>
+    public bool Disconnected;
+    /// <summary>The reject, drop or timeout reason.</summary>
     public string Reason = "";
+    /// <summary>The session length in seconds.</summary>
     public double Seconds;
-    public long Packets, Events, GhostUpdates, GhostDeletes, UnknownBits, Errors, MovesSent;
+    /// <summary>The packets the world decoded.</summary>
+    public long Packets;
+    /// <summary>The events received.</summary>
+    public long Events;
+    /// <summary>The ghost updates received.</summary>
+    public long GhostUpdates;
+    /// <summary>The ghost deletes received.</summary>
+    public long GhostDeletes;
+    /// <summary>The bits the decoder could not interpret.</summary>
+    public long UnknownBits;
+    /// <summary>The decode errors of the world.</summary>
+    public long Errors;
+    /// <summary>The moves sent.</summary>
+    public long MovesSent;
+    /// <summary>The ghosts alive at the end.</summary>
     public int Ghosts;
+    /// <summary>The class of the control object.</summary>
     public string ControlClass = "";
-    public bool DataFinished, AlwaysDone;
-    public SortedDictionary<string, long> EventCounts = new(), GhostCounts = new();
+    /// <summary>True when the datablock phase finished.</summary>
+    public bool DataFinished;
+    /// <summary>True when the ghost-always phase finished.</summary>
+    public bool AlwaysDone;
+    /// <summary>The event counts by name.</summary>
+    public SortedDictionary<string, long> EventCounts = new();
+    /// <summary>The ghost update counts by class.</summary>
+    public SortedDictionary<string, long> GhostCounts = new();
+    /// <summary>The reasons packets could not be fully decoded.</summary>
     public List<string> UnknownReasons = new();
 }
 
+/// <summary>A headless client session (docs/client-net.md 1, 2.5, 2.7, 4.3): connect, challenge and accept as a client, the game stream receive path, the mission-load handshake (SetCLInfo, dataFinished, CGADone), moves at the 32 ms tick from a script, and disconnect. The <c>tribes</c> client reuses this class for its network side.</summary>
 public sealed class NetClientSession : ConnectionEvents
 {
     private readonly UdpSocket mSock = new();
@@ -76,22 +111,38 @@ public sealed class NetClientSession : ConnectionEvents
     private long mMovesSent;
     private CorrectionRecord? mPendingCorrection;
     private uint mFrameNow;
+    /// <summary>The version string sent in the connect request.</summary>
     public readonly string Version;
-    // client-net.md 1.2: $Server::JoinPassword and $PCFG::Gender, Voice, SkinBase.
-    public string Password = "", Gender = "Male", Voice = "Male1", SkinBase = "base";
+    /// <summary>The join password (<c>$Server::JoinPassword</c>, client-net.md 1.2).</summary>
+    public string Password = "";
+    /// <summary>The gender (<c>$PCFG::Gender</c>).</summary>
+    public string Gender = "Male";
+    /// <summary>The voice (<c>$PCFG::Voice</c>).</summary>
+    public string Voice = "Male1";
+    /// <summary>The skin base (<c>$PCFG::SkinBase</c>).</summary>
+    public string SkinBase = "base";
 
+    /// <summary>The client world built from the stream.</summary>
     public ClientWorld World => mWorld;
+    /// <summary>Receives log lines.</summary>
     public Action<string>? Log;
 
-    // Client prediction of the control object (docs/client-net.md 4.4); runs when a prediction world is set.
+    /// <summary>The client prediction of the control object (docs/client-net.md 4.4). It runs when a prediction world is set.</summary>
     public readonly ClientPrediction Prediction = new();
-    // Smoothing and look-ahead of the remote Player and Vehicle ghosts (client-net.md 4.4.2), needs the prediction world.
+    /// <summary>The smoothing and look-ahead of the remote Player and Vehicle ghosts (client-net.md 4.4.2). It needs the prediction world.</summary>
     public readonly RemoteGhosts Remote = new();
+    /// <summary>The prediction world, or null.</summary>
     public PredictionWorld? PredictWorld;
-    // Builds the prediction world of a mission; the mission comes from the server's remoteEval MInfo (client.cs).
+    /// <summary>Builds the prediction world of a mission. The mission comes from the server's <c>remoteEval</c> MInfo (client.cs).</summary>
     public Func<string, PredictionWorld?>? PredictFactory;
+    /// <summary>The mission the server reported.</summary>
     public string Mission = "";
 
+    /// <summary>Creates a session.</summary>
+    /// <param name="name">The player name.</param>
+    /// <param name="dump">Receives each decoded packet.</param>
+    /// <param name="script">The move script, or null for none.</param>
+    /// <param name="version">The version string to send.</param>
     public NetClientSession(string name, PacketDump dump, List<ScriptStep>? script = null, string version = "1.11")
     {
         mName = name;
@@ -103,32 +154,39 @@ public sealed class NetClientSession : ConnectionEvents
 
     private uint Now => ClockMs != null ? ClockMs() : (uint)mClock.ElapsedMilliseconds;
 
-    // ---- M9 C8: the session as a part of the `tribes` frame loop ----
 
-    // True: the scripts of the client drive the join (onConnection sends SetCLInfo, dataFinished() and
-    // onClientGhostAlwaysDone() answer the server) and the moves come from the PSC buffer (client-net.md 4.2); the
-    // session does neither itself.
+    /// <summary>True when the client scripts drive the join and the moves, as in the <c>tribes</c> frame loop. <c>onConnection</c> sends SetCLInfo, <c>dataFinished()</c> and <c>onClientGhostAlwaysDone()</c> answer the server, and the moves come from the PSC buffer (client-net.md 4.2). The session does neither itself.</summary>
     public bool External;
+    /// <summary>Returns the clock in milliseconds. Defaults to a stopwatch.</summary>
     public Func<uint>? ClockMs;
-    // onConnection(msg) of the script (client-net.md 1.6): Accepted, Rejected, TimedOut, Dropped, and the reason text.
+    /// <summary>Raised like the script <c>onConnection(msg)</c> (client-net.md 1.6) with Accepted, Rejected, TimedOut or Dropped, and the reason text.</summary>
     public Action<string, string>? OnConnection;
-    // TribesNet_onPacketError 0x0042b7f8: a member reader failed with this text; the script gets onConnectionError(...).
+    /// <summary>Raised when a member reader failed, with its text. The script gets <c>onConnectionError(...)</c> (TribesNet_onPacketError, 0042b7f8).</summary>
     public Action<string>? OnPacketError;
-    public Action? OnDataFinished, OnAlwaysDone;
+    /// <summary>Raised when the datablock phase finished.</summary>
+    public Action? OnDataFinished;
+    /// <summary>Raised when the ghost-always phase finished.</summary>
+    public Action? OnAlwaysDone;
+    /// <summary>Called with every decoded packet.</summary>
     public Action<DecodedPacket>? PacketHook;
-    // Reads a console variable ($pref::PacketRate and $pref::PacketSize feed the own rate request); null: defaults.
+    /// <summary>Reads a console variable. <c>$pref::PacketRate</c> and <c>$pref::PacketSize</c> feed the own rate request. Null means defaults.</summary>
     public Func<string, string>? PrefReader;
     private void ApplyPacketPrefs()
     {
         if (PrefReader != null)
             mGame.LoadPacketPrefs(PrefReader("$pref::PacketRate"), PrefReader("$pref::PacketSize"));
     }
+    /// <summary>Tells whether the connection is open.</summary>
     public bool IsOpen => mVc != null && !mClosed;
+    /// <summary>Tells whether the server accepted the connection.</summary>
     public bool IsAccepted => mAccepted;
+    /// <summary>The game stream connection.</summary>
     public ClientGameConnection Game => mGame;
     private bool mOpened;
 
-    // Opens the socket and sends the connect request (client-net.md 1.2); the replies arrive in Frame.
+    /// <summary>Opens the socket and sends the connect request (client-net.md 1.2). The replies arrive in <see cref="Frame"/>.</summary>
+    /// <param name="hostPort">The server as <c>host:port</c>.</param>
+    /// <returns>False when the socket cannot open.</returns>
     public bool Connect(string hostPort)
     {
         ApplyPacketPrefs();
@@ -151,7 +209,8 @@ public sealed class NetClientSession : ConnectionEvents
     private Address mServerAddress;
     private readonly byte[] mRx = new byte[0x10000];
 
-    // One client frame of the net steps F10 (receive), F14 (prediction) and F12 (send) of client-app.md 2.2.
+    /// <summary>Runs the net steps of one client frame: F10 (receive), F14 (prediction) and F12 (send) of client-app.md 2.2.</summary>
+    /// <param name="now">The clock in milliseconds.</param>
     public void Frame(uint now)
     {
         if (!mOpened || mVc == null)
@@ -184,7 +243,7 @@ public sealed class NetClientSession : ConnectionEvents
         }
     }
 
-    // disconnect(): a Disconnect packet when connected, then the socket closes.
+    /// <summary>Sends a Disconnect packet when connected, then closes the socket (<c>disconnect()</c>).</summary>
     public void Disconnect()
     {
         if (mVc != null && !mClosed && mVc.State() == ConnectionState.Connected)
@@ -194,10 +253,15 @@ public sealed class NetClientSession : ConnectionEvents
         mSock.Close();
     }
 
-    // ---- ConnectionEvents ----
 
+    /// <summary>Ignores connect requests. A client does not accept them.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The request payload.</param>
     public override void OnConnectRequest(Connection c, ReadOnlySpan<byte> payload) { }
 
+    /// <summary>Handles the accept: reads the player id and the server manager id (net-protocol.md 5.4, client-net.md 1.5 step 2), then answers with <c>SetCLInfo</c> through <c>onConnection("Accepted")</c> (1.6).</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The accept payload.</param>
     public override void OnAccepted(Connection c, ReadOnlySpan<byte> payload)
     {
         // net-protocol.md 5.4: the player id and the server manager id (1.5 step 2).
@@ -225,6 +289,9 @@ public sealed class NetClientSession : ConnectionEvents
         mGame.PostRemoteEval("SetCLInfo", "base", mName, "", "", "", "", "true", "false", "-1");
     }
 
+    /// <summary>Records the reject reason and reports <c>Rejected</c> to the script.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The reason bytes.</param>
     public override void OnRejected(Connection c, ReadOnlySpan<byte> payload)
     {
         mRejected = true;
@@ -234,6 +301,10 @@ public sealed class NetClientSession : ConnectionEvents
         OnConnection?.Invoke("Rejected", mReason);
     }
 
+    /// <summary>Records the drop or timeout reason and reports <c>TimedOut</c> or <c>Dropped</c> to the script.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="reason">The disconnect reason bytes.</param>
+    /// <param name="timedOut">True on a timeout.</param>
     public override void OnClosed(Connection c, ReadOnlySpan<byte> reason, bool timedOut)
     {
         mClosed = true;
@@ -242,8 +313,7 @@ public sealed class NetClientSession : ConnectionEvents
         OnConnection?.Invoke(timedOut ? "TimedOut" : "Dropped", mReason);
     }
 
-    // client-net.md 1.4 packet read error: the connection is detached with a Disconnect packet that has an empty reason, then the
-    // script is told. Nothing else of the packet is used.
+    /// <summary>Handles a packet read error (client-net.md 1.4): the connection is detached with a Disconnect packet that has an empty reason, then the script is told. Nothing else of the packet is used.</summary>
     private void PacketError(string text)
     {
         mReason = "packet error: " + text;
@@ -254,8 +324,15 @@ public sealed class NetClientSession : ConnectionEvents
         OnPacketError?.Invoke(text);
     }
 
+    /// <summary>Passes a delivery notification to the game stream.</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="cookie">The cookie of the sent packet.</param>
+    /// <param name="delivered">True when the server acknowledged it.</param>
     public override void OnNotify(Connection c, uint cookie, bool delivered) => mGame.Notify(cookie, delivered);
 
+    /// <summary>Decodes a data packet, feeds the prediction and answers the mission-load handshake: <c>dataFinished()</c> and <c>onClientGhostAlwaysDone()</c> answer with remote evals (client-net.md 2.6, 2.7).</summary>
+    /// <param name="c">The connection.</param>
+    /// <param name="payload">The packet payload.</param>
     public override void OnData(Connection c, ReadOnlySpan<byte> payload)
     {
         DecodedPacket p = mGame.Receive(payload.ToArray());
@@ -332,7 +409,6 @@ public sealed class NetClientSession : ConnectionEvents
         }
     }
 
-    // ---- run ----
 
     private static Address Resolve(string hostPort)
     {
@@ -397,7 +473,11 @@ public sealed class NetClientSession : ConnectionEvents
         return ClientPrediction.Quantize(m);
     }
 
-    // Runs the session: connect to host:port, play for `seconds` after the accept, disconnect.
+    /// <summary>Runs the session: connects, plays for <paramref name="seconds"/> after the accept and disconnects.</summary>
+    /// <param name="hostPort">The server as <c>host:port</c>.</param>
+    /// <param name="seconds">The play time after the accept.</param>
+    /// <returns>The result.</returns>
+    /// <exception cref="IOException">The UDP socket cannot open.</exception>
     public SessionResult Run(string hostPort, double seconds)
     {
         var res = new SessionResult();

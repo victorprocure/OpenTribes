@@ -1,8 +1,3 @@
-// The prediction world of the headless client (docs/client-net.md 4.4): the client copy of the control object needs the
-// mission's terrain, interiors and shapes to collide with. tribes-netclient builds them the way the server does: the
-// stock start-up (console.cs with `-dedicated MISSION`) runs in-process with the network off, on a virtual clock, until
-// the mission is loaded. The world is never advanced after that; only the copy of the control object is stepped.
-// The datablock indices match the server's when both run the same scripts (stock base, our server or the reference).
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Game;
@@ -12,13 +7,23 @@ using OpenTribes.Sim;
 
 namespace OpenTribes.ClientNet;
 
+/// <summary>The prediction world of the headless client (docs/client-net.md 4.4): the mission's terrain, interiors and shapes that the client copy of the control object collides with.</summary>
+/// <remarks>tribes-netclient builds it the way the server does: the stock start-up (<c>console.cs</c> with <c>-dedicated MISSION</c>) runs in-process with the network off, on a virtual clock, until the mission is loaded. The world is never advanced after that, and only the copy of the control object is stepped. The datablock indices match the server's when both run the same scripts (stock base, our server or the reference).</remarks>
 public sealed class PredictionWorld
 {
+    /// <summary>The script interpreter of the world.</summary>
     public readonly Interpreter Console = new();
+    /// <summary>The sim console of the world.</summary>
     public readonly SimConsole Sim;
+    /// <summary>The game state of the world.</summary>
     public readonly GameState Game = new();
+    /// <summary>The console output, at most 2000 lines.</summary>
     public readonly List<string> Output = new();
 
+    /// <summary>Builds the world and runs the stock start-up until the mission is loaded. The mission load runs from scheduled script, so frames run on the virtual clock until the terrain exists, then two more seconds for objects the mission scripts add after the load.</summary>
+    /// <param name="root">The game directory.</param>
+    /// <param name="args">The command line arguments for <c>$cargv</c>.</param>
+    /// <param name="log">Receives a summary line, or null.</param>
     public PredictionWorld(string root, IReadOnlyList<string> args, Action<string>? log = null)
     {
         var resources = new ResourceManager(root);
@@ -69,10 +74,14 @@ public sealed class PredictionWorld
                     Output.Count + " console lines");
     }
 
+    /// <summary>Tells whether the mission group and the terrain exist.</summary>
+    /// <returns>True when the mission is loaded.</returns>
     public bool Loaded() => Sim.Server()?.Find("MissionGroup") != null && Game.GetTerrain() != null;
 
-    // ClientPrediction.CreateObject: the copy of a Player (PlayerData group 3) or Flier (FlierData group 10) control
-    // ghost, made by the same commands the server's scripts use.
+    /// <summary>Creates the copy of a Player (PlayerData group 3) or Flier (FlierData group 10) control ghost, made by the same commands the server's scripts use (<c>ClientPrediction.CreateObject</c>).</summary>
+    /// <param name="g">The control ghost.</param>
+    /// <param name="psc">The player state the position comes from.</param>
+    /// <returns>The object, or null when the datablock or the creation fails.</returns>
     public GameBase? Create(ClientGhost g, ClientPsc psc)
     {
         if (!g.State.TryGetValue("datablock", out object? dbv) || dbv is not long db)
@@ -98,7 +107,10 @@ public sealed class PredictionWorld
         return o;
     }
 
-    // RemoteGhosts.CreateObject: the copy of a remote Player, Flier or Vehicle ghost at `position`.
+    /// <summary>Creates the copy of a remote Player, Flier or Vehicle ghost (<c>RemoteGhosts.CreateObject</c>).</summary>
+    /// <param name="g">The ghost.</param>
+    /// <param name="position">The world position.</param>
+    /// <returns>The object, or null when the datablock or the creation fails.</returns>
     public GameBase? CreateRemote(ClientGhost g, float[] position)
     {
         if (!g.State.TryGetValue("datablock", out object? dbv) || dbv is not long db)
@@ -122,5 +134,7 @@ public sealed class PredictionWorld
         return o;
     }
 
+    /// <summary>Deletes an object of the world.</summary>
+    /// <param name="o">The object.</param>
     public void Delete(GameBase o) => Sim.Server()?.DeleteObject(o);
 }
