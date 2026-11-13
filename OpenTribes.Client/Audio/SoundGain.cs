@@ -1,62 +1,123 @@
-// docs/audio.md 2.7, 2.8, 2.11: the gain and pan model as pure functions of (profile, source, listener, prefs). The software 3D
-// path of the stock client for every voice (D39).
 namespace OpenTribes.Client.Audio;
 
-// The profile record of 2.1 (11 dwords). Flags: 2 looping, 4 streaming, 8 pitching, 0x10 software 3D, 0x20 hardware 3D.
+/// <summary>The profile record of 2.1 (11 dwords).</summary>
+/// <remarks>Flags: 2 looping, 4 streaming, 8 pitching, 0x10 software 3D, 0x20 hardware 3D.</remarks>
 public struct SoundProfile
 {
-    public const uint Looping = 2, Streaming = 4, Pitching = 8, Software3D = 0x10, Hardware3D = 0x20;
+    /// <summary>The flag of a looping sound.</summary>
+    public const uint Looping = 2;
+    /// <summary>The flag of a streaming sound.</summary>
+    public const uint Streaming = 4;
+    /// <summary>The flag of a pitching sound.</summary>
+    public const uint Pitching = 8;
+    /// <summary>The flag of a software 3D sound.</summary>
+    public const uint Software3D = 0x10;
+    /// <summary>The flag of a hardware 3D sound.</summary>
+    public const uint Hardware3D = 0x20;
+    /// <summary>The profile id.</summary>
     public int Id;
+    /// <summary>The flags.</summary>
     public uint Flags;
+    /// <summary>The base volume.</summary>
     public double BaseVolume;
-    public int ConeInside, ConeOutside;
-    public double ConeX, ConeY, ConeZ;
+    /// <summary>The inside cone angle.</summary>
+    public int ConeInside;
+    /// <summary>The outside cone angle.</summary>
+    public int ConeOutside;
+    /// <summary>The cone axis x.</summary>
+    public double ConeX;
+    /// <summary>The cone axis y.</summary>
+    public double ConeY;
+    /// <summary>The cone axis z.</summary>
+    public double ConeZ;
+    /// <summary>The volume outside the outside cone.</summary>
     public double ConeOutsideVolume;
-    public double MinDist, MaxDist;
+    /// <summary>The distance within which the sound is at full volume.</summary>
+    public double MinDist;
+    /// <summary>The distance beyond which the sound is silent.</summary>
+    public double MaxDist;
 
+    /// <summary>The profile of a sound without an explicit profile.</summary>
     public static SoundProfile Default => new()
     {
         ConeInside = 90, ConeOutside = 180, ConeX = 0, ConeY = -1, ConeZ = 0, ConeOutsideVolume = 0, MinDist = 30, MaxDist = 300,
     };
 
+    /// <summary>True when the profile is a software or hardware 3D profile.</summary>
     public readonly bool Is3D => (Flags & (Software3D | Hardware3D)) != 0;
+    /// <summary>True when the profile loops or streams.</summary>
     public readonly bool Loops => (Flags & (Looping | Streaming)) != 0;
 }
 
-// Listener: position and the world right axis (first row of the rotation, 2.6).
+/// <summary>The listener: position and the world right axis (first row of the rotation, 2.6).</summary>
 public struct Listener
 {
-    public double X, Y, Z;
-    public double RightX, RightY, RightZ;
+    /// <summary>The x position.</summary>
+    public double X;
+    /// <summary>The y position.</summary>
+    public double Y;
+    /// <summary>The z position.</summary>
+    public double Z;
+    /// <summary>The right axis x.</summary>
+    public double RightX;
+    /// <summary>The right axis y.</summary>
+    public double RightY;
+    /// <summary>The right axis z.</summary>
+    public double RightZ;
 
+    /// <summary>A listener at the origin that looks along +Y.</summary>
     public static Listener Identity => new() { RightX = 1 };
 }
 
-// A sound transform: position and the nine rotation floats (rows are the axes); null rotation is the identity.
+/// <summary>A sound transform: position and the nine rotation floats (rows are the axes). A null rotation is the identity.</summary>
 public struct SoundXf
 {
-    public double X, Y, Z;
+    /// <summary>The x position.</summary>
+    public double X;
+    /// <summary>The y position.</summary>
+    public double Y;
+    /// <summary>The z position.</summary>
+    public double Z;
+    /// <summary>The rotation, or null for the identity.</summary>
     public double[]? Rot;
+    /// <summary>Creates a transform without rotation.</summary>
+    /// <param name="x">The x position.</param>
+    /// <param name="y">The y position.</param>
+    /// <param name="z">The z position.</param>
     public SoundXf(double x, double y, double z) { X = x; Y = y; Z = z; Rot = null; }
 }
 
+/// <summary>The gain and pan model as pure functions of (profile, source, listener, prefs): the software 3D path of the stock client for every voice (D39).</summary>
+/// <remarks>docs/audio.md 2.7, 2.8 and 2.11.</remarks>
 public static class SoundGain
 {
-    // 2.7 pref to attenuation: 0.069 * -log2(max(v, 0.01)).
+    /// <summary>Converts a pref to an attenuation (2.7): 0.069 * -log2(max(v, 0.01)).</summary>
+    /// <param name="v">The preference value.</param>
+    /// <returns>The attenuation.</returns>
     public static double Master(double v) => 0.069 * -Math.Log2(Math.Max(v, 0.01));
 
-    // 2.7 device units: volume = trunc(-10000 * a) hundredths of a decibel (floor at -10000), gain = 10^(volume / 2000).
+    /// <summary>Converts an attenuation to device volume (2.7): trunc(-10000 * a) hundredths of a decibel, floored at -10000.</summary>
+    /// <param name="attenuation">The attenuation.</param>
+    /// <returns>The volume.</returns>
     public static int DeviceVolume(double attenuation) => (int)Math.Clamp(Math.Truncate(-10000 * attenuation), -10000, 0);
+    /// <summary>Converts an attenuation to device gain (2.7): 10^(volume / 2000).</summary>
+    /// <param name="attenuation">The attenuation.</param>
+    /// <returns>The gain.</returns>
     public static double DeviceGain(double attenuation) => Math.Pow(10, DeviceVolume(attenuation) / 2000.0);
 
-    // 2.11 device pan: pan hundredths of a decibel; a positive pan attenuates the left channel, a negative one the right.
+    /// <summary>Converts a device pan (2.11) in hundredths of a decibel to channel gains. A positive pan attenuates the left channel, a negative one the right.</summary>
+    /// <param name="pan">The pan.</param>
+    /// <returns>The left and right gain.</returns>
     public static (double L, double R) PanGains(double pan)
     {
         int p = (int)Math.Clamp(Math.Truncate(10000 * pan), -10000, 10000);
         return p > 0 ? (Math.Pow(10, -p / 2000.0), 1) : p < 0 ? (1, Math.Pow(10, p / 2000.0)) : (1, 1);
     }
 
-    // Left and right amplitude of a voice with attenuation `a` and pan `pan`.
+    /// <summary>Computes the left and right amplitude of a voice.</summary>
+    /// <param name="a">The attenuation.</param>
+    /// <param name="pan">The pan.</param>
+    /// <returns>The left and right amplitude.</returns>
     public static (double L, double R) Gains(double a, double pan)
     {
         double g = DeviceGain(a);
@@ -64,10 +125,19 @@ public static class SoundGain
         return (g * l, g * r);
     }
 
-    // 2.8 wave play and pair play without position: min(1, master(sfx2DVolume) + baseVolume), once at start.
+    /// <summary>Computes the attenuation of a wave play or pair play without position (2.8): min(1, master(sfx2DVolume) + baseVolume), once at start.</summary>
+    /// <param name="sfx2DVolume">The 2D volume preference.</param>
+    /// <param name="baseVolume">The base volume of the profile.</param>
+    /// <returns>The attenuation.</returns>
     public static double Attenuation2D(double sfx2DVolume, double baseVolume) => Math.Min(1, Master(sfx2DVolume) + baseVolume);
 
-    // 2.7 steps 1 to 4 for a 3D voice. Returns the attenuation (1 = silent) and the pan (-0.2..0.2, positive = source on the right).
+    /// <summary>Computes the attenuation of a 3D voice (2.7 steps 1 to 4).</summary>
+    /// <param name="p">The profile.</param>
+    /// <param name="src">The source transform.</param>
+    /// <param name="l">The listener.</param>
+    /// <param name="sfx3DVolume">The 3D volume preference.</param>
+    /// <param name="pan">The pan, -0.2 to 0.2. Positive means the source is on the right.</param>
+    /// <returns>The attenuation, where 1 is silent.</returns>
     public static double Attenuation3D(in SoundProfile p, in SoundXf src, in Listener l, double sfx3DVolume, out double pan)
     {
         double dx = src.X - l.X, dy = src.Y - l.Y, dz = src.Z - l.Z;
@@ -103,6 +173,8 @@ public static class SoundGain
         return a;
     }
 
-    // Right axis of a camera of yaw `yawRad` (yaw 0 looks along +Y, positive turns left, Z up).
+    /// <summary>Computes the right axis of a camera. Yaw 0 looks along +Y, positive turns left, Z is up.</summary>
+    /// <param name="yawRad">The yaw in radians.</param>
+    /// <returns>The right axis.</returns>
     public static (double X, double Y, double Z) RightOfYaw(double yawRad) => (Math.Cos(yawRad), Math.Sin(yawRad), 0);
 }

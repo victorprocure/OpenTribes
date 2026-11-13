@@ -3,56 +3,119 @@ using OpenTribes.Core;
 
 namespace OpenTribes.Client.World;
 
-// world-render.md 3.6 and 3.7: the `.dil` lighting file (ITRLighting, ITRMissionLighting), its light maps and the light
-// state selection.
+/// <summary>The <c>.dil</c> lighting file (ITRLighting, ITRMissionLighting), its light maps and the light state selection (world-render.md 3.6 and 3.7).</summary>
 public sealed class InteriorLighting
 {
+    /// <summary>The state of a light: a colour and the time it ends.</summary>
     public struct State
     {
-        public ushort R, G, B, Mono;
+        /// <summary>The red word.</summary>
+        public ushort R;
+        /// <summary>The green word.</summary>
+        public ushort G;
+        /// <summary>The blue word.</summary>
+        public ushort B;
+        /// <summary>The mono word.</summary>
+        public ushort Mono;
+        /// <summary>The time the state ends.</summary>
         public float EndTime;
-        public short DataCount, DataIndex;
+        /// <summary>The number of state data records.</summary>
+        public short DataCount;
+        /// <summary>The index of the first state data record.</summary>
+        public short DataIndex;
     }
 
+    /// <summary>A surface and light map slot a state touches.</summary>
     public struct StateData
     {
-        public short Surface, Slot;
+        /// <summary>The surface index.</summary>
+        public short Surface;
+        /// <summary>The light slot of the surface.</summary>
+        public short Slot;
+        /// <summary>The source map index.</summary>
         public int MapIndex;
     }
 
+    /// <summary>A light.</summary>
     public struct Light
     {
-        public int Id, NameOffset, StateCount, FirstState;
+        /// <summary>The light id.</summary>
+        public int Id;
+        /// <summary>The offset of the name.</summary>
+        public int NameOffset;
+        /// <summary>The number of states.</summary>
+        public int StateCount;
+        /// <summary>The index of the first state.</summary>
+        public int FirstState;
+        /// <summary>The duration of one cycle.</summary>
         public float Duration;
+        /// <summary>The flags: 1 auto start, 2 loop, 4 random.</summary>
         public uint Flags;
+        /// <summary>The light name.</summary>
         public string Name;
+        /// <summary>True when the light starts by itself.</summary>
         public bool AutoStart => (Flags & 1) != 0;
+        /// <summary>True when the light loops.</summary>
         public bool Loop => (Flags & 2) != 0;
+        /// <summary>True for a random light, which picks its states privately.</summary>
         public bool Random => (Flags & 4) != 0;
     }
 
+    /// <summary>A surface light map.</summary>
     public struct Surface
     {
-        public uint Word;      // bit 31 constant colour, bit 30 compressed, else raw offset
-        public short LightCount, FirstSlot;
-        public byte SizeX, SizeY, OffsetX, OffsetY;
+        /// <summary>The map word: bit 31 constant colour, bit 30 compressed, else a raw offset.</summary>
+        public uint Word;
+        /// <summary>The number of lights that touch the surface.</summary>
+        public short LightCount;
+        /// <summary>The index of the first slot.</summary>
+        public short FirstSlot;
+        /// <summary>The map width.</summary>
+        public byte SizeX;
+        /// <summary>The map height.</summary>
+        public byte SizeY;
+        /// <summary>The map offset x.</summary>
+        public byte OffsetX;
+        /// <summary>The map offset y.</summary>
+        public byte OffsetY;
     }
 
+    /// <summary>True for a mission lighting file.</summary>
     public bool IsMission;
-    public uint BuildId, LightScaleShift, MapListSize;
+    /// <summary>The build id of the file.</summary>
+    public uint BuildId;
+    /// <summary>The light scale shift.</summary>
+    public uint LightScaleShift;
+    /// <summary>The size of the map list.</summary>
+    public uint MapListSize;
+    /// <summary>The states.</summary>
     public State[] States = Array.Empty<State>();
+    /// <summary>The state data records.</summary>
     public StateData[] StateDatas = Array.Empty<StateData>();
+    /// <summary>The lights.</summary>
     public Light[] Lights = Array.Empty<Light>();
+    /// <summary>The surfaces.</summary>
     public Surface[] Surfaces = Array.Empty<Surface>();
+    /// <summary>The packed map data.</summary>
     public byte[] MapData = Array.Empty<byte>();
-    // Huffman table: nodes (child for bit 1, child for bit 0), leaves low 16 bits.
+    /// <summary>The Huffman table nodes: the child for bit 1 and the child for bit 0.</summary>
     public int[,] Nodes = new int[0, 2];
+    /// <summary>The Huffman table leaves, the low 16 bits.</summary>
     public uint[] Leaves = Array.Empty<uint>();
+    /// <summary>True when the file has a Huffman table.</summary>
     public bool HasHuffman;
-    public int TailOffset, FileLength;
-    // ITRMissionLighting index: sorted source map indices and their destination offsets in MapData.
-    public uint[] MissionSource = Array.Empty<uint>(), MissionDest = Array.Empty<uint>();
+    /// <summary>The offset of the tail of the file.</summary>
+    public int TailOffset;
+    /// <summary>The length of the file.</summary>
+    public int FileLength;
+    /// <summary>The ITRMissionLighting index: the sorted source map indices.</summary>
+    public uint[] MissionSource = Array.Empty<uint>();
+    /// <summary>The destination offsets in <see cref="MapData"/> of the source maps.</summary>
+    public uint[] MissionDest = Array.Empty<uint>();
 
+    /// <summary>Parses a <c>.dil</c> file.</summary>
+    /// <param name="d">The file bytes.</param>
+    /// <returns>The lighting, or null when the file is not valid.</returns>
     public static InteriorLighting? Parse(byte[] d)
     {
         try
@@ -151,8 +214,10 @@ public sealed class InteriorLighting
         }
     }
 
-    // 3.6 decode of a compressed map: one bit at a time (LSB first in each byte), from node 0 taking the child for bit 1
-    // or bit 0 until a negative child (-(k+1) is leaf k), the leaf's low 16 bits is the pixel.
+    /// <summary>Decodes a compressed map (3.6): one bit at a time (LSB first in each byte), from node 0 taking the child for bit 1 or bit 0 until a negative child (-(k+1) is leaf k). The low 16 bits of the leaf is the pixel.</summary>
+    /// <param name="offset">The bit offset of the map.</param>
+    /// <param name="pixels">The number of pixels.</param>
+    /// <returns>The pixels.</returns>
     public ushort[] DecodeHuffman(int offset, int pixels)
     {
         var r = new ushort[pixels];
@@ -175,8 +240,10 @@ public sealed class InteriorLighting
         return r;
     }
 
-    // The pixels (u16 nibbles M R G B) of the base light map of a surface, sizeX * sizeY, or null when the surface has
-    // no size. `mission` supplies replacement maps (3.7).
+    /// <summary>Reads the pixels (u16 nibbles M R G B) of the base light map of a surface, sizeX * sizeY.</summary>
+    /// <param name="surface">The surface index.</param>
+    /// <param name="mission">The mission lighting that supplies replacement maps (3.7), or null.</param>
+    /// <returns>The pixels, or null when the surface has no size.</returns>
     public ushort[]? SurfaceMap(int surface, InteriorLighting? mission)
     {
         Surface s = Surfaces[surface];
@@ -211,6 +278,10 @@ public sealed class InteriorLighting
         return raw;
     }
 
+    /// <summary>Looks up the destination of a source map in the mission lighting.</summary>
+    /// <param name="sourceIndex">The source map index.</param>
+    /// <param name="dest">The destination offset, or 0 when not found.</param>
+    /// <returns>True when the map has a replacement.</returns>
     public bool TryMissionOffset(uint sourceIndex, out uint dest)
     {
         int i = Array.BinarySearch(MissionSource, sourceIndex);
@@ -218,8 +289,11 @@ public sealed class InteriorLighting
         return i >= 0;
     }
 
-    // 3.7 Timing: the state of a light at `time`: the number of state records after the first whose end time is below the
-    // time, limited to stateCount - 1. Random lights (flag 4) are handled by the caller (they pick states privately).
+    /// <summary>Selects the state of a light at a time (3.7 Timing): the number of state records after the first whose end time is below the time, limited to stateCount - 1.</summary>
+    /// <param name="stateRecords">The state records of the light.</param>
+    /// <param name="stateCount">The number of states.</param>
+    /// <param name="time">The time in the cycle.</param>
+    /// <returns>The state index. Random lights (flag 4) are handled by the caller, they pick states privately.</returns>
     public static int SelectState(ReadOnlySpan<State> stateRecords, int stateCount, float time)
     {
         // interiors.md 5.4: the state is the count of following records (after the first) whose end time is below the
@@ -231,9 +305,12 @@ public sealed class InteriorLighting
         return Math.Min(state, Math.Max(stateCount - 1, 0));
     }
 
-    // 3.7 Timing (ITRInstance_animateLight 00556b28): the colour of a light at `time` in state `state`: the state's four words
-    // interpolated towards the next record (the first record again after the last state, at the light duration) by the time
-    // fraction, each channel then (word / 256 + 0.5) cut to a byte.
+    /// <summary>Computes the colour of a light at a time in a state (3.7 Timing, ITRInstance_animateLight 00556b28): the four words of the state interpolated towards the next record (the first record again after the last state, at the light duration) by the time fraction, each channel then (word / 256 + 0.5) cut to a byte.</summary>
+    /// <param name="records">The state records of the light.</param>
+    /// <param name="duration">The duration of the cycle.</param>
+    /// <param name="state">The state index.</param>
+    /// <param name="time">The time in the cycle.</param>
+    /// <returns>The mono, red, green and blue bytes.</returns>
     public static (int mono, int r, int g, int b) ColorAt(ReadOnlySpan<State> records, float duration, int state, float time)
     {
         State a = records[state];
@@ -254,12 +331,17 @@ public sealed class InteriorLighting
         return (Ch(a.Mono, n.Mono, f), Ch(a.R, n.R, f), Ch(a.G, n.G, f), Ch(a.B, n.B, f));
     }
 
-    // 3.7 Building a surface light map: the colour packed from a state ((word + 0x80) >> 8 per channel, mono red green blue).
+    /// <summary>Packs the colour of a state (3.7 Building a surface light map): (word + 0x80) >> 8 per channel.</summary>
+    /// <param name="s">The state.</param>
+    /// <returns>The mono, red, green and blue bytes.</returns>
     public static (int mono, int r, int g, int b) PackedColor(State s) =>
         ((s.Mono + 0x80) >> 8, (s.R + 0x80) >> 8, (s.G + 0x80) >> 8, (s.B + 0x80) >> 8);
 
-    // 3.7 step 3: for every pixel with intensity i >= 16 each of the four channels gets (colourByte * i) >> 12 added to its
-    // nibble, each sum clamped to 15.
+    /// <summary>Adds the light of a colour to a light map pixel (3.7 step 3): for every pixel with intensity i >= 16 each of the four channels gets (colourByte * i) >> 12 added to its nibble, each sum clamped to 15.</summary>
+    /// <param name="pixel">The pixel, nibbles M R G B.</param>
+    /// <param name="c">The colour bytes.</param>
+    /// <param name="intensity">The intensity of the light at the pixel.</param>
+    /// <returns>The new pixel.</returns>
     public static ushort AddLight(ushort pixel, (int mono, int r, int g, int b) c, int intensity)
     {
         if (intensity < 16)
